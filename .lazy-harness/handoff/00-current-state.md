@@ -33,7 +33,7 @@
 | 항목 | 값 |
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
-| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `43622e8b`) |
+| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `ebee2671`; current edits pending validation) |
 | **ADRs** | **22** (0001~0022) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
@@ -51,9 +51,9 @@
 | **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile D01~D07 (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | 376 lines (CLI/orchestration only; detector bodies extracted) |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
-| **5e framework MVP proof** | ✅ done (fixture-backed full loop + affected Vitest gate, real host-project pilot still pending) |
+| **5e host-project pilot** | ✅ complete (inside-out pilot commit `ba162ab1`; command-routing gap found and remediation in progress) |
 | **Framework v1.4** | 983 lines, 23 principles |
-| **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, Vitest run or structured interview) |
+| **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, project test-strategy/package-script routing or structured interview) |
 
 ## Oracle Audit 결과 (2026-05-12)
 
@@ -78,12 +78,12 @@
 - `.lazy-harness/plans/project-init-interview-spec.md`
 
 ```
-A. 5e 실제 host-project pilot 시작
-   - 작은 feature 선택
-   - 4 pattern 중 하나 명시 (`inside-out` 권장)
-   - intent/spec/behavior/traceability seed 작성
-   - feature branch 에서 affected Vitest gate + interview loop 통과
-   - pilot 결과를 post-mvp-gap-map 에 반영
+A. 5e host-project pilot 결과 반영
+   - pilot branch `feature/pilot-lazy-harness-5e` 완료
+   - pattern: `inside-out`
+   - product/test only commit: `ba162ab1`
+   - 결과 artifact: `.lazy-harness/retrospective/e2e/5e-host-project-pilot.md`
+   - 발견 gap: affected runner command routing. Vitest direct call 금지, project test-strategy/package script 사용
 
 B. Standalone lazy-harness repo extract 준비 (잊지 말 것)
    - 여기 repo 는 incubation/validation worktree 일 뿐
@@ -93,7 +93,7 @@ B. Standalone lazy-harness repo extract 준비 (잊지 말 것)
 
 C. Post-MVP hardening
    - decision consume/effect executor 확장
-   - custom test command / Playwright routing
+   - custom test command / Playwright routing beyond v1 package-script fallback
    - aftershock v0 heuristic 을 artifact diff 기반으로 강화
    - jcode lifecycle hook semantics 문서 최종화
 ```
@@ -127,5 +127,5 @@ C. Post-MVP hardening
 bun run lazy:test
 bun run lazy:doctor
 .lazy-harness/hooks/pre-push.sh origin dummy
-→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + interview loop + affected Vitest gate + D07 package health 통과
+→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + interview loop + affected project-test gate + D07 package health 통과
 ```

@@ -6,6 +6,7 @@ import path from 'node:path';
 interface CliOptions {
   files: string[];
   queue?: string;
+  strategy?: string;
   format: 'json' | 'text';
   run: boolean;
 }
@@ -54,7 +55,10 @@ interface AffectedTestResult {
   queue?: string;
   framework: {
     detected: boolean;
-    runner: 'vitest' | 'unknown';
+    runner: 'test-strategy' | 'package-script' | 'unknown';
+    commandTemplate?: string;
+    scriptName?: string;
+    strategyPath?: string;
     reason?: string;
   };
   files: FilePlan[];
@@ -80,6 +84,9 @@ function parseCliArgs(argv: string[]): CliOptions {
       i += 1;
     } else if (arg === '--queue' && next) {
       opts.queue = next;
+      i += 1;
+    } else if (arg === '--strategy' && next) {
+      opts.strategy = next;
       i += 1;
     } else if (arg === '--format' && (next === 'json' || next === 'text')) {
       opts.format = next;
@@ -152,18 +159,70 @@ function matchingTests(file: string): string[] {
   return uniqueFiles([...direct, ...siblings]);
 }
 
-function detectVitest(): AffectedTestResult['framework'] {
+function unescapeXml(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+function readAttribute(text: string, name: string): string | undefined {
+  const match = text.match(new RegExp(`${name}="([^"]+)"`));
+  return match ? unescapeXml(match[1]) : undefined;
+}
+
+function detectStrategy(strategyPath?: string): AffectedTestResult['framework'] | undefined {
+  const candidates = [strategyPath, '.lazy-harness/tests/test-strategy.xml'].filter(Boolean) as string[];
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue;
+    const text = readFileSync(candidate, 'utf8');
+    const routing = text.match(/<affectedTestRouting\b[^>]*>/)?.[0]
+      ?? text.match(/<affectedTests\b[^>]*command="[^"]+"[^>]*>/)?.[0]
+      ?? text.match(/<testCommand\b[^>]*>/)?.[0];
+    const commandTemplate = routing ? readAttribute(routing, 'command') : undefined;
+    if (commandTemplate) {
+      return {
+        detected: true,
+        runner: 'test-strategy',
+        commandTemplate,
+        strategyPath: candidate,
+      };
+    }
+    return {
+      detected: false,
+      runner: 'unknown',
+      strategyPath: candidate,
+      reason: 'test strategy exists but has no affected test command',
+    };
+  }
+  return undefined;
+}
+
+function detectPackageScript(): AffectedTestResult['framework'] {
   if (!existsSync('package.json')) return { detected: false, runner: 'unknown', reason: 'package.json not found' };
   try {
-    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string>; devDependencies?: Record<string, string>; dependencies?: Record<string, string> };
-    const hasScript = Object.values(packageJson.scripts ?? {}).some((script) => script.includes('vitest'));
-    const hasDependency = Boolean(packageJson.devDependencies?.vitest ?? packageJson.dependencies?.vitest);
-    const hasConfig = existsSync('vitest.config.ts') || existsSync('vitest.config.js') || existsSync('vitest.config.mts');
-    if (hasScript || hasDependency || hasConfig) return { detected: true, runner: 'vitest' };
-    return { detected: false, runner: 'unknown', reason: 'vitest script/dependency/config not detected' };
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string> };
+    const scripts = packageJson.scripts ?? {};
+    for (const scriptName of ['test:run', 'test:unit', 'test']) {
+      const script = scripts[scriptName];
+      if (!script) continue;
+      return {
+        detected: true,
+        runner: 'package-script',
+        scriptName,
+        commandTemplate: `bun run ${scriptName} {tests}`,
+      };
+    }
+    return { detected: false, runner: 'unknown', reason: 'package.json has no test:run/test:unit/test script' };
   } catch (error) {
     return { detected: false, runner: 'unknown', reason: `package.json parse failed: ${String(error)}` };
   }
+}
+
+function detectTestCommand(strategyPath?: string): AffectedTestResult['framework'] {
+  return detectStrategy(strategyPath) ?? detectPackageScript();
 }
 
 function escapeXml(value: unknown): string {
@@ -231,7 +290,7 @@ function appendQuestions(queue: string, questions: AffectedQuestion[]): void {
 function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-framework', now: string): AffectedQuestion {
   const suggestedPath = candidateTestPaths(file)[0];
   const fingerprint = hashFingerprint({ source: 'affected-test-runner', reason, file });
-  const reasonLabel = reason === 'missing-test' ? '대응 test/spec 파일이 없습니다' : '테스트 runner 설정이 명확하지 않습니다';
+  const reasonLabel = reason === 'missing-test' ? '대응 test/spec 파일이 없습니다' : '테스트 실행 명령이 명확하지 않습니다';
   return {
     id: `Q-${fingerprint}`,
     criterionId: '5d-3',
@@ -245,14 +304,14 @@ function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-fr
     options: [
       {
         id: 'A',
-        label: `Vitest로 ${suggestedPath} 작성 후 실행`,
-        description: 'Recommended. 현재 repo는 vitest 기반 테스트 인프라가 있습니다.',
-        effects: [{ kind: 'tdd-require-test', target: file, suggestedPath, runner: 'vitest' }],
+        label: `프로젝트 테스트 전략에 맞춰 ${suggestedPath} 작성 후 실행`,
+        description: 'Recommended. runner는 Project Init Interview/test-strategy 또는 package script에서 결정합니다.',
+        effects: [{ kind: 'tdd-require-test', target: file, suggestedPath, runner: 'project-test-strategy' }],
       },
       {
         id: 'B',
         label: '다른 테스트 명령/기존 테스트 경로를 직접 지정',
-        description: 'Vitest가 아닌 테스트 방식이 맞거나 기존 통합 테스트로 커버되는 경우 선택합니다.',
+        description: '프로젝트 테스트 전략이 다른 runner이거나 기존 통합 테스트로 커버되는 경우 선택합니다.',
         effects: [{ kind: 'decision-log', summary: 'custom-test-strategy-required', reason: file }],
       },
       {
@@ -272,8 +331,57 @@ function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-fr
   };
 }
 
-function runVitest(tests: string[]): TestRunResult {
-  const command = ['bun', 'vitest', 'run', ...tests];
+function splitShellWords(command: string): string[] {
+  const words: string[] = [];
+  let current = '';
+  let quote: 'single' | 'double' | null = null;
+  for (let i = 0; i < command.length; i += 1) {
+    const char = command[i];
+    if (char === "'" && quote !== 'double') {
+      quote = quote === 'single' ? null : 'single';
+      continue;
+    }
+    if (char === '"' && quote !== 'single') {
+      quote = quote === 'double' ? null : 'double';
+      continue;
+    }
+    if (/\s/.test(char) && !quote) {
+      if (current) words.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current) words.push(current);
+  return words;
+}
+
+function buildTestCommand(framework: AffectedTestResult['framework'], tests: string[]): string[] {
+  const template = framework.commandTemplate;
+  if (!template) return [];
+  const parts = splitShellWords(template);
+  const command: string[] = [];
+  let injected = false;
+  for (const part of parts) {
+    if (part === '{tests}') {
+      command.push(...tests);
+      injected = true;
+    } else if (part.includes('{tests}')) {
+      command.push(part.replace('{tests}', tests.join(' ')));
+      injected = true;
+    } else {
+      command.push(part);
+    }
+  }
+  if (!injected) command.push(...tests);
+  return command;
+}
+
+function runConfiguredTests(framework: AffectedTestResult['framework'], tests: string[]): TestRunResult {
+  const command = buildTestCommand(framework, tests);
+  if (command.length === 0) {
+    return { command: [], exitCode: 1, stdout: '', stderr: 'No affected test command configured' };
+  }
   const completed = spawnSync(command[0], command.slice(1), { encoding: 'utf8' });
   return {
     command,
@@ -283,10 +391,10 @@ function runVitest(tests: string[]): TestRunResult {
   };
 }
 
-export function runAffectedTests(files: string[], options: { queue?: string; run?: boolean } = {}): AffectedTestResult {
+export function runAffectedTests(files: string[], options: { queue?: string; run?: boolean; strategy?: string } = {}): AffectedTestResult {
   const now = new Date().toISOString();
   const queue = options.queue;
-  const framework = detectVitest();
+  const framework = detectTestCommand(options.strategy);
   const filePlans: FilePlan[] = [];
   const questions: AffectedQuestion[] = [];
   const existing = queue ? existingFingerprints(queue) : new Set<string>();
@@ -320,7 +428,7 @@ export function runAffectedTests(files: string[], options: { queue?: string; run
   }
   if (queue) appendQuestions(queue, questions);
   const runnableTests = uniqueFiles(filePlans.flatMap((plan) => plan.matchingTests));
-  const run = framework.detected && runnableTests.length > 0 && options.run !== false ? runVitest(runnableTests) : undefined;
+  const run = framework.detected && runnableTests.length > 0 && options.run !== false ? runConfiguredTests(framework, runnableTests) : undefined;
   const needsInterview = filePlans.some((plan) => plan.kind === 'source' && plan.question !== undefined);
   const forceGate = needsInterview || (run ? run.exitCode !== 0 : false);
   const checked = filePlans.filter((plan) => plan.kind === 'source').length;
@@ -349,7 +457,7 @@ function formatText(result: AffectedTestResult): string {
 
 function main(): void {
   const opts = parseCliArgs(process.argv.slice(2));
-  const result = runAffectedTests(opts.files, { queue: opts.queue, run: opts.run });
+  const result = runAffectedTests(opts.files, { queue: opts.queue, run: opts.run, strategy: opts.strategy });
   if (opts.format === 'json') console.log(JSON.stringify(result, null, 2));
   else console.log(formatText(result));
   if (result.forceGate) process.exitCode = 2;

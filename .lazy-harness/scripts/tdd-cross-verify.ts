@@ -214,14 +214,14 @@ function questionForMissingTest(file: string, now: string): TddQuestion {
     options: [
       {
         id: 'A',
-        label: `Vitest로 ${suggestedPath} 작성 후 실행`,
-        description: 'Recommended. 현재 repo의 기본 테스트 runner는 Vitest입니다.',
-        effects: [{ kind: 'tdd-require-test', target: file, suggestedPath, runner: 'vitest' }],
+        label: `프로젝트 테스트 전략에 맞춰 ${suggestedPath} 작성 후 실행`,
+        description: 'Recommended. test runner는 Project Init Interview/test-strategy 또는 repo-native package script에서 결정합니다.',
+        effects: [{ kind: 'tdd-require-test', target: file, suggestedPath, runner: 'project-test-strategy' }],
       },
       {
         id: 'B',
         label: '다른 테스트 명령/기존 테스트 경로를 직접 지정',
-        description: 'Vitest가 아닌 테스트 방식이 맞거나 기존 통합 테스트로 커버되는 경우 선택합니다.',
+        description: '프로젝트 테스트 전략이 다른 runner이거나 기존 통합 테스트로 커버되는 경우 선택합니다.',
         effects: [{ kind: 'decision-log', summary: 'custom-test-strategy-required', reason: file }],
       },
       {

@@ -89,7 +89,7 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
     check-bdd-trigger.sh            # BDD trigger force gate
     check-ssot-trigger.sh           # SSOT trigger force gate
     check-tdd-cross-verify.sh       # missing test / TDD strategy gate
-    check-affected-tests.sh         # matching Vitest run or test-strategy gate
+    check-affected-tests.sh         # matching project-routed test run or test-strategy gate
     check-aftershock-reanalysis.sh  # aftershock recursion gate
     check-fix-regression.sh         # Fix commit 후 regression 엔트리 검증
     check-adr-sync.sh               # ADR 작성 후 plan/handoff sync 검증

@@ -2,8 +2,8 @@
 
 Date: 2026-05-12
 Branch: `experimental/lazy-harness`
-Baseline commit: `43622e8b`
-Status: framework MVP proof complete, real host-project pilot pending
+Baseline commit: `43622e8b`; updated through host-project pilot remediation
+Status: framework MVP proof complete, host-project pilot complete, extraction pending
 
 ## 1. What is complete now
 
@@ -14,7 +14,7 @@ Status: framework MVP proof complete, real host-project pilot pending
 | Framework-owned validation | Complete | `bun run lazy:test`, `bun run lazy:doctor`, pre-push guard |
 | 5d Interview loop | Complete | collect, answer, TDD gate, aftershock, lifecycle hooks, walkthrough depth >= 2 |
 | 5e MVP proof artifact | Complete | `retrospective/e2e/5e-mvp-proof.md` |
-| Affected regression test runner | Complete | response.completed helper runs matching Vitest tests or opens structured interview gate |
+| Affected regression test runner | Complete | response.completed helper runs matching project-routed tests or opens structured interview gate |
 
 ## 2. MVP boundary decision
 
@@ -32,16 +32,16 @@ trigger detection
 
 This is now complete.
 
-Phase 5 is not production-complete because `5e-1` still requires one real host-project feature to be shipped through the harness. After that pilot, framework work moves to a standalone `lazy-harness` repository.
+The first host-project pilot is complete and documented in `retrospective/e2e/5e-host-project-pilot.md`. It proved the harness loop on a real feature branch and found the affected-test command-routing gap. After remediation, framework work moves to a standalone `lazy-harness` repository.
 
 ## 3. Remaining gaps before Phase 5 close
 
 | Gap | Severity | Why it matters | Next action |
 |---|---|---|---|
-| Real host-project feature pilot not shipped | Critical | Fixture proof is not the same as product release flow | Pick small feature, choose pattern, run harness end-to-end on feature branch |
-| Traceability is fixture-backed only | High | 5e-3 needs real figma/SDD/BDD/test/code/regression links | Create real feature traceability file during pilot |
+| Real host-project feature pilot | Closed for first pilot | Feature branch commit `ba162ab1` proves first end-to-end host pilot | Keep merge/release outside framework branch; use learning for extraction |
+| Formal traceability file for host pilots | Medium | Pilot has branch/test/commit evidence but not generated formal traceability XML | Generate during Project Init Interview / future pilot profile |
 | Decision consume path is still semi-manual | High | A/B/C/D answers are persisted, but not all effects mutate target docs automatically | Add effect executor coverage per layer, starting with TDD/affected-test decisions |
-| Affected test runner is Vitest-first | Medium | Good for current repo, but custom commands and Playwright need explicit routing | Add decision-driven custom test command support |
+| Affected test command routing v1 | Closed for unit/component | Runner now uses test-strategy or package script, not hardcoded Vitest | Extend to Playwright/e2e/workspaces after extraction |
 | Aftershock v0 is heuristic | Medium | It proves recursion, not full artifact-diff dependency analysis | Add artifact-diff based effect mapping after pilot data |
 | Hook lifecycle docs need final alignment with jcode core | Medium | Users must understand when lifecycle outputs re-enter the LLM | Finalize hook lifecycle documentation with concrete payload/continuation examples |
 | Standalone extraction not performed yet | Critical after pilot | lazy-harness must not keep living as host-project internals | Execute `.lazy-harness/plans/extract-to-lazy-harness-repo.md` |
@@ -49,13 +49,13 @@ Phase 5 is not production-complete because `5e-1` still requires one real host-p
 
 ## 4. Recommended next execution sequence
 
-1. Pick the real host-project pilot feature.
-2. Record 5e pattern decision, likely `inside-out` for a small code-first feature.
-3. Create pilot intent/spec/behavior/traceability seed files.
-4. Make one small code change on a feature branch and let lifecycle hooks surface required questions/tests.
-5. Answer questions through `interview-loop.ts --mode answer --apply`.
-6. Run affected tests and full gates.
-7. Record retrospective and close 5e criteria that are genuinely satisfied.
+1. Validate and push command-routing remediation.
+2. Keep host pilot branch separate from framework branch.
+3. Prepare standalone `lazy-harness` repository extraction.
+4. Implement Project Init Interview in standalone repo.
+5. Generate project test strategy during init.
+6. Expand affected-test routing to Playwright/e2e/workspaces.
+7. Add artifact-diff aftershock mapping after extraction.
 
 ## 5. Validation baseline
 

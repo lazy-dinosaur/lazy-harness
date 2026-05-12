@@ -160,7 +160,7 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 - SDD type → DDD term 미등록 발견
 - DDD term → BDD scenario 의 noun 으로 사용?
 
-TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 이후 affected regression test runner 가 matching Vitest 실행 또는 test-strategy interview gate 까지 확장함.
+TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 이후 affected regression test runner 가 matching project-routed test 실행 또는 test-strategy interview gate 까지 확장함.
 
 ## Standalone repo extraction boundary
 

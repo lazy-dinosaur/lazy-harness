@@ -360,7 +360,9 @@ def check_affected_test_runner() -> None:
             fail("affected-test-runner runnable tests changed: " + json.dumps(covered.get("runnableTests"), ensure_ascii=False))
         run = covered.get("run") or {}
         if run.get("exitCode") != 0 or "1 passed" not in (run.get("stdout") or ""):
-            fail("affected-test-runner did not execute vitest successfully: " + json.dumps(run, ensure_ascii=False))
+            fail("affected-test-runner did not execute configured tests successfully: " + json.dumps(run, ensure_ascii=False))
+        if run.get("command") != ["bun", "run", "test:run", "tests/lazy-harness/affected/covered.test.ts"]:
+            fail("affected-test-runner should use repo-native test script, not hardcoded vitest: " + json.dumps(run, ensure_ascii=False))
 
         missing = run_affected_tests(["tests/lazy-harness/affected/missing.ts"], queue=queue, expect_code=2)
         if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("questions") == []:
@@ -369,7 +371,7 @@ def check_affected_test_runner() -> None:
         if question.get("id") != "Q-8e866d44709ff49c" or question.get("source") != "affected-test-runner":
             fail("affected-test-runner question identity changed: " + json.dumps(question, ensure_ascii=False))
         labels = [option.get("label", "") for option in question.get("options", [])]
-        if not any("Vitest" in label for label in labels) or not any("skip/defer" in label for label in labels):
+        if not any("프로젝트 테스트 전략" in label for label in labels) or not any("skip/defer" in label for label in labels):
             fail("affected-test-runner interview options changed: " + json.dumps(labels, ensure_ascii=False))
 
         pass_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/covered.ts"}]}

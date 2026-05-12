@@ -191,19 +191,19 @@
     </deliverables>
   </subPhase>
 
-  <subPhase id="5e" milestone="M5" target="2026-09-30" status="pilot-ready" startedAt="2026-05-12T08:15:00Z" frameworkMvpProof="complete">
+  <subPhase id="5e" milestone="M5" target="2026-09-30" status="pilot-complete" startedAt="2026-05-12T08:15:00Z" frameworkMvpProof="complete" hostProjectPilot="complete" next="standalone-extraction">
     <name>실전 1 회 (host project 다음 feature 통째로)</name>
     <principle0Coverage>
       framework 가 사용 안 되면 사람-AI 보완이 일어날 수 없음.
       실전 1 회 통과가 framework 의 진짜 가치 입증.
     </principle0Coverage>
     <successCriteria>
-      <criterion id="5e-1" status="pending" blocker="Phase 5 close">host project 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
-      <criterion id="5e-2" status="ready" recommendation="inside-out">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
-      <criterion id="5e-3" status="fixture-partial" evidence="traceability/referral-priority-queue.xml">traceability/ 에 figma/SDD/BDD/test/code/regression 양방향 링크 완성</criterion>
+      <criterion id="5e-1" status="pass-for-pilot" evidence="feature/pilot-lazy-harness-5e commit ba162ab1">host project 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
+      <criterion id="5e-2" status="pass" recommendation="inside-out" evidence="5e-host-project-pilot.md">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
+      <criterion id="5e-3" status="partial" evidence="traceability/referral-priority-queue.xml; pilot branch/test/commit evidence">traceability/ 에 SDD/BDD/test/code/regression 양방향 링크 완성. Formal host traceability file generation is deferred to Project Init Interview.</criterion>
       <criterion id="5e-4" status="pass" verifiedAt="2026-05-12" evidence="5d-6 fixture-backed walkthrough">conflict resolution 최소 1 회 발생 + 자산화</criterion>
       <criterion id="5e-5" status="pass-for-MVP" verifiedAt="2026-05-12" evidence="retrospective/e2e/5e-mvp-proof.md; plans/post-mvp-gap-map.md">retrospective/ 에 metrics + insight 자동 기록</criterion>
-      <criterion id="5e-6" status="partial" evidence="hook lifecycle, fixture-scope pollution, affected-test routing, aftershock heuristic limits">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
+      <criterion id="5e-6" status="pass" evidence="hook lifecycle, fixture-scope pollution, affected-test command routing, aftershock heuristic limits, baseline typecheck/prisma finding">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
     </successCriteria>
     <deliverables>
       <file>.lazy-harness/intent/active/&lt;feature-name&gt;.xml (실전 Intent Spec)</file>
@@ -211,6 +211,7 @@
       <file>.lazy-harness/behavior/scenarios/&lt;feature&gt;-001.xml (BDD)</file>
       <file>.lazy-harness/traceability/&lt;feature-name&gt;.xml (양방향 링크)</file>
       <file>.lazy-harness/retrospective/m5-postmortem.md (실전 회고)</file>
+      <file status="done">.lazy-harness/retrospective/e2e/5e-host-project-pilot.md</file>
     </deliverables>
   </subPhase>
 

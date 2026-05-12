@@ -100,7 +100,7 @@ Outputs:
 
 - `.lazy-harness/tests/test-strategy.xml`
 - package script recommendations
-- affected test routing config
+- affected test routing config, for example `<affectedTestRouting command="bun run test:run {tests}" />`
 - initial `lazy:test:affected` policy
 
 ### D. Filesystem and folder structure
@@ -221,7 +221,7 @@ If a project has no tests, no design system, or no backend architecture, lazy-ha
 - Skip/defer with explicit reason.
 - Provide custom answer.
 
-This mirrors the affected-test gate's A/B/C/D strategy.
+This mirrors the affected-test gate's A/B/C/D strategy. Affected test execution must use this project-owned strategy or repo-native package scripts, never a hardcoded framework runner command.
 
 ## 6. Relationship to standalone extraction
 
