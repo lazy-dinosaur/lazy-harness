@@ -23,6 +23,41 @@
     <emitsLogs>true</emitsLogs>
   </skill>
 
+  <skill id="interview-loop" status="stable" phase="5d">
+    <location>.lazy-harness/scripts/interview-loop.ts</location>
+    <description>Structured question collection and answer persistence: trigger/cross-layer gap → A/B/C/D options → decisions.jsonl</description>
+    <command>bun .lazy-harness/scripts/interview-loop.ts --mode collect</command>
+    <command>bun .lazy-harness/scripts/interview-loop.ts --mode answer --apply</command>
+    <emitsLogs>true</emitsLogs>
+    <ownsArtifacts>.lazy-harness/questions/open.xml</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/logs/decisions.jsonl</ownsArtifacts>
+  </skill>
+
+  <skill id="affected-test-runner" status="stable" phase="5d">
+    <location>.lazy-harness/scripts/affected-test-runner.ts</location>
+    <description>Find matching affected tests and run them through project-owned test strategy or package scripts; create structured TDD questions when missing</description>
+    <command>bun run lazy:test:affected -- --files &lt;changed-file&gt;</command>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>interview-loop</dependsOn>
+  </skill>
+
+  <skill id="project-profile" status="planned" phase="5e">
+    <location>.lazy-harness/plans/project-init-interview-spec.md</location>
+    <description>Skill-first project profile flow: capture project purpose, folder structure, frontend/backend architecture, design system, test strategy, and agent rules before feature work</description>
+    <futureCommand>bun .lazy-harness/scripts/project-profile.ts --mode inspect</futureCommand>
+    <futureCommand>bun .lazy-harness/scripts/project-profile.ts --mode interview --apply</futureCommand>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>interview-loop</dependsOn>
+  </skill>
+
+  <skill id="portable-report" status="planned" phase="post-5e">
+    <location>.lazy-harness/plans/report-and-knowledge-roadmap.md</location>
+    <description>Export host-project usage evidence as copy/pasteable Markdown plus future-ingestable JSON for framework improvement</description>
+    <futureCommand>bun run lazy:report</futureCommand>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>project-profile</dependsOn>
+  </skill>
+
   <skill id="harness-update" status="retired" phase="5a" replacedBy="standalone lazy-harness extract">
     <location>.jcode/skills/harness-update/</location>
     <description>Retired Jcode wrapper concept. Future update belongs to standalone lazy-harness.</description>
@@ -69,7 +104,7 @@
     <futureWork>Auto-extract symbol from Fix: subject + scan for tests covering it (5c)</futureWork>
   </skill>
 
-  <!-- Phase 5c+ planned -->
+  <!-- Phase 5c+ planned adapters are also skills. They remain planned until project-profile/report data proves exact inputs. -->
   <skill id="adapter-figma" status="planned" phase="5c">
     <location>.lazy-harness/adapters/figma.ts (not started)</location>
     <description>Figma file URL → SDD draft via REST API</description>

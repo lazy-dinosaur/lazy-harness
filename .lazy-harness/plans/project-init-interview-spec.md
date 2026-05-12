@@ -1,12 +1,12 @@
 # Project Init Interview Spec
 
 Date: 2026-05-12
-Status: planned for standalone `lazy-harness` repo
+Status: planned as a skill-first Project Profile flow; full standalone CLI comes later
 Purpose: create a new project's lazy-harness SSOT through structured interview, not silent defaults
 
 ## 1. Core idea
 
-`lazy-harness init` must not only create folders. It must interview the user and generate a durable project profile that defines how this project should be built, tested, designed, and evolved.
+Project Init / Project Profile must not only create folders. It must interview the user and generate a durable project profile that defines how this project should be built, tested, designed, and evolved.
 
 The output is a project-local SSOT that future agents can read before touching code.
 
@@ -180,7 +180,7 @@ Outputs:
 
 ## 3. CLI shape
 
-Standalone repo target command:
+Long-term standalone repo target command:
 
 ```bash
 lazy-harness init
@@ -190,9 +190,14 @@ lazy-harness init --dry-run
 lazy-harness init --apply
 ```
 
-Inside this incubating repo, implementation may start as:
+Inside this incubating repo, implementation should start as a skill-first flow before a full CLI:
 
 ```bash
+bun .lazy-harness/scripts/project-profile.ts --mode inspect
+bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run
+bun .lazy-harness/scripts/project-profile.ts --mode interview --apply
+
+# later CLI-compatible implementation shape
 bun .lazy-harness/scripts/project-init-interview.ts --mode interview
 bun .lazy-harness/scripts/project-init-interview.ts --answers answers.json --dry-run
 bun .lazy-harness/scripts/project-init-interview.ts --answers answers.json --apply
@@ -225,4 +230,4 @@ This mirrors the affected-test gate's A/B/C/D strategy. Affected test execution 
 
 ## 6. Relationship to standalone extraction
 
-This feature belongs in the standalone `lazy-harness` repository after extraction. The host-project incubation branch may carry this spec and a proof-of-concept, but long-term ownership must move to the independent framework repo.
+This feature should first be exercised as a framework skill in the host-project incubation branch. The full CLI belongs in the standalone `lazy-harness` repository after the skill/profile workflow is proven by real host-project pilots.

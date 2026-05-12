@@ -32,7 +32,7 @@ trigger detection
 
 This is now complete.
 
-The first host-project pilot is complete and documented in `retrospective/e2e/5e-host-project-pilot.md`. It proved the harness loop on a real feature branch and found the affected-test command-routing gap. After remediation, framework work moves to a standalone `lazy-harness` repository.
+The first host-project pilot is complete and documented in `retrospective/e2e/5e-host-project-pilot.md`. It proved the harness loop on a real feature branch and found the affected-test command-routing gap. After remediation, the next learning step is not immediate extraction. The framework should first apply Project Profile concepts to the real Medivance host project, then repeat real feature pilots until the profile/interview/report needs stabilize.
 
 ## 3. Remaining gaps before Phase 5 close
 
@@ -44,21 +44,22 @@ The first host-project pilot is complete and documented in `retrospective/e2e/5e
 | Affected test command routing v1 | Closed for unit/component | Runner now uses test-strategy or package script, not hardcoded Vitest | Extend to Playwright/e2e/workspaces after extraction |
 | Aftershock v0 is heuristic | Medium | It proves recursion, not full artifact-diff dependency analysis | Add artifact-diff based effect mapping after pilot data |
 | Hook lifecycle docs need final alignment with jcode core | Medium | Users must understand when lifecycle outputs re-enter the LLM | Finalize hook lifecycle documentation with concrete payload/continuation examples |
-| Standalone extraction not performed yet | Critical after pilot | lazy-harness must not keep living as host-project internals | Execute `.lazy-harness/plans/extract-to-lazy-harness-repo.md` |
-| Project Init Interview not implemented yet | High | new projects need stack/test/architecture/design decisions captured before coding | Implement `.lazy-harness/plans/project-init-interview-spec.md` after extraction |
-| Portable host-project report not implemented yet | Medium | after standalone extraction, host projects need a copy/pasteable report so framework repo can learn from real usage without relying on chat history | Implement `.lazy-harness/plans/report-and-knowledge-roadmap.md` after Project Init Interview; defer DB/RAG until report JSON proves useful |
+| Project Profile skill not implemented yet | High | before each real host feature, agents need a project-local profile for folder structure, architecture, design system, testing, and recording rules | Implement a lightweight skill-first Project Profile flow from `.lazy-harness/plans/project-init-interview-spec.md`; CLI can come later |
+| Standalone extraction not performed yet | Critical later | lazy-harness must eventually stop living as host-project internals, but premature extraction would freeze unproven assumptions | Extract only after Project Profile skill + several real host pilots stabilize |
+| Portable host-project report not implemented yet | Medium | host projects need a copy/pasteable report so framework repo can learn from real usage without relying on chat history | Implement `.lazy-harness/plans/report-and-knowledge-roadmap.md` after Project Profile skill proves what report fields matter; defer DB/RAG until report JSON proves useful |
 
 ## 4. Recommended next execution sequence
 
-1. Validate and push command-routing remediation.
-2. Keep host pilot branch separate from framework branch.
-3. Prepare standalone `lazy-harness` repository extraction.
-4. Implement Project Init Interview in standalone repo.
-5. Generate project test strategy during init.
-6. Implement portable `lazy:report` Markdown + JSON export.
-7. Expand affected-test routing to Playwright/e2e/workspaces.
-8. Add artifact-diff aftershock mapping after extraction.
-9. Consider DB/RAG ingestion only after report JSON proves useful.
+1. Keep host pilot branches separate from framework branch.
+2. Add a lightweight Project Profile skill/manifest entry that applies the Project Init Interview concept without waiting for a full CLI.
+3. Use the skill on Medivance to create or update project profile artifacts: purpose, folder structure, frontend/backend architecture, design system, test strategy, and agent rules.
+4. Run several real host-project feature pilots against that profile.
+5. Promote repeated questions/gaps from those pilots into the future Project Init Interview CLI.
+6. Implement portable `lazy:report` Markdown + JSON export once the real report fields are clear.
+7. Prepare standalone `lazy-harness` repository extraction after the profile/report loop stabilizes.
+8. Expand affected-test routing to Playwright/e2e/workspaces.
+9. Add artifact-diff aftershock mapping after pilot data.
+10. Consider DB/RAG ingestion only after report JSON proves useful.
 
 ## 5. Validation baseline
 
