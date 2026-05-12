@@ -68,11 +68,14 @@
 
 ```
 A. Post-5c refactor `code-change.ts` monolith
+   - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
    - 현재 1928+ lines
    - 5c behavior 는 `lazy:test`로 pin 됨
 
 B. Package/dependency health
-   - typecheck missing deps/types 의 install/bootstrap 문서화
+   - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
+   - `typecheck:node` fails on missing `electron-vite/node` + `@electron-toolkit/tsconfig`
+   - 5c-6 classifies this as environment/package health, not code drift
 
 C. 5d Interview Loop 진입 준비
    - TDD cross-verify gate (ADR 0020)
