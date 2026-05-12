@@ -14,7 +14,6 @@ set -e
 # private 영역 staged 검사
 LAZY_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.lazy-harness/' || true)
 JCODE_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.jcode/' || true)
-FRAMEWORK_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^packages/medivance-harness/src/framework/' || true)
 
 if [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]; then
     echo ""
