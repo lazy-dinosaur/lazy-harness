@@ -47,32 +47,15 @@ bun run lazy:test
   - `validateStructuredAsk(candidate)` and `validateStructuredAsks(...)` added.
   - `TriggerRunResult.structuredAskValidation` added.
   - `lazy:test` now validates every fixture candidate plus cross-layer integrated ask.
+- **5c-9 Doctor C17 + framework-owned doctor**
+  - `.lazy-harness/scripts/doctor.py` added with smoke/full profiles.
+  - `bun run lazy:doctor` added.
+  - D01 XML, D02 JSONL, D03 ADR sequence/docs count, D04 README/handoff/phase freshness, D05 branch/hook policy, D06 C17 external dependency invariant.
+  - `lazy:test` runs doctor smoke and a temporary C17 negative fixture.
 
 ### P0 — must do before declaring 5c complete
 
-1. **Framework-owned doctor expansion**
-   - Status: `lazy:test` is minimum gate only.
-   - Goal: absorb C1~C17 style checks into `.lazy-harness/scripts/doctor.*`.
-   - First checks to port:
-     - ADR count/file sequence.
-     - README/handoff/phase plan freshness.
-     - XML parse.
-     - JSONL parse.
-     - branch policy.
-     - external SaaS grep C17.
-   - Deliverables:
-     - `.lazy-harness/scripts/doctor.py` or `doctor.ts`.
-     - `lazy:test` calls doctor smoke profile or doctor calls self-test.
-
-2. **5c-9 Doctor C17 / External dependency invariant enforcement**
-   - Status: not implemented.
-   - Goal: grep `.lazy-harness/{triggers,hooks,framework,scripts}/` for external SaaS/API calls except allowed tools.
-   - Validation:
-     - fixture or temporary sample that fails C17.
-
-### P1 — should do before real feature E2E
-
-3. **5c-6 lint/typecheck drift detector**
+1. **5c-6 lint/typecheck drift detector**
    - Status: not implemented.
    - Goal: ingest tsc/eslint output and classify drift candidates.
    - Constraint: current `bun run typecheck:node` fails because dependencies/types are missing, so detector must distinguish environment-missing vs code drift.
@@ -80,7 +63,7 @@ bun run lazy:test
      - `triggers/lint-output.ts` or framework-owned equivalent.
      - fixtures for tsc error classification.
 
-4. **5c-8 E2E demonstration**
+2. **5c-8 E2E demonstration**
    - Status: not implemented.
    - Goal: one realistic medivance change produces DDD/SDD/BDD/SSOT + cross-layer map candidates.
    - Deliverables:
@@ -89,7 +72,7 @@ bun run lazy:test
 
 ### P2 — maintainability / scale
 
-6. **Refactor `code-change.ts` monolith**
+3. **Refactor `code-change.ts` monolith**
    - Status: ~1920 lines after 5c-7 validator integration.
    - Goal: keep `code-change.ts` as orchestrator and split detectors.
    - Suggested layout:
@@ -99,9 +82,9 @@ bun run lazy:test
      - `triggers/detectors/ssot.ts`
      - `triggers/detectors/cross-layer.ts`
      - `triggers/registries.ts`
-   - Constraint: refactor only after 5c-5 behavior is pinned by tests.
+   - Constraint: refactor only after 5c-6 + 5c-8 behavior is pinned by tests.
 
-8. **Package/dependency health**
+4. **Package/dependency health**
    - Status: `bun run typecheck:node` currently fails due missing `electron-vite/node` and `@electron-toolkit/tsconfig`.
    - Goal: separate environment setup failures from framework regressions.
    - Deliverables:
@@ -110,32 +93,34 @@ bun run lazy:test
 
 ## Recommended next sequence
 
-### Step 1 — add structured ask validator
+### Step 1 — 5c-6 lint/typecheck drift detector
 
-Why first now: cross-layer integrated ask exists, so enforce the output contract before more detectors are added.
-
-Acceptance criteria:
-
-- Every fixture candidate passes ask schema validation.
-- recommended option ID exists.
-- ambiguous/missing DDD cases recommend force gate path.
-
-### Step 2 — framework-owned doctor skeleton
-
-Why second: `lazy:test` can remain fast while doctor grows into broader C1~C17 audit.
+Why now: `bun run typecheck:node` currently fails from missing deps/types, and the framework needs to classify environment-missing vs code drift instead of treating all typecheck failures equally.
 
 Acceptance criteria:
 
-- `doctor.py --profile smoke` equals current `lazy:test`.
-- `doctor.py --profile full` includes ADR sequence + README/handoff stale checks.
+- Captures tsc/eslint output from file/stdin/command fixture.
+- Classifies missing dependency/config as environment issue.
+- Classifies source type errors as code drift candidates.
+- `lazy:test` pins fixture classifications.
 
-### Step 3 — 5c-6/5c-9 and E2E
+### Step 2 — 5c-8 E2E demonstration
 
-Why later: lint drift and external dependency enforcement are valuable but depend on clearer doctor profiles and environment classification.
+Why second: 5c-1/2/3/4/5/7/9 are now pinned, so a realistic medivance change can exercise the complete detector cascade.
+
+Acceptance criteria:
+
+- One reproducible scenario produces DDD/SDD/BDD/SSOT candidates.
+- Cross-layer map and structured ask report are present.
+- Transcript or fixture is committed.
+
+### Step 3 — refactor after behavior pin
+
+Why later: `code-change.ts` is 1928 lines, but detector behavior is now better pinned. Split only after 5c-6/5c-8 acceptance tests are in place.
 
 ## Do not do yet
 
-- Do not split `code-change.ts` before 5c-5 behavior has exact tests.
+- Do not split `code-change.ts` before 5c-6 + 5c-8 behavior has exact tests.
 - Do not reintroduce `.jcode` as primary doctor path.
 - Do not push `.lazy-harness/` changes from any branch except `experimental/lazy-harness`.
-- Do not mark 5c complete until 5c-5~5c-9 have explicit status and validation.
+- Do not mark 5c complete until 5c-6 and 5c-8 have explicit status and validation.

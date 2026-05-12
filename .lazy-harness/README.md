@@ -135,10 +135,11 @@ flowchart LR
 ## Framework self-test (자동 검증)
 
 ```bash
-$ bun run lazy:test
+$ bun run lazy:test      # primary reproducible gate: doctor smoke + trigger fixtures + negative C17 test
+$ bun run lazy:doctor    # full framework doctor: D01~D06
 ```
 
-ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 XML/JSONL/trigger fixture 를 재현 검증하는 `lazy:test`이다. C1~C17 style doctor 는 후속으로 `.lazy-harness/scripts/doctor.*`에 흡수한다.
+ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `lazy:test`이고, framework-owned full doctor 는 `.lazy-harness/scripts/doctor.py` / `bun run lazy:doctor` 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant 까지 검사한다.
 
 ## 다음 단계 — 5c 진입
 
@@ -152,7 +153,7 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 | 5c-6 | Lint/typecheck drift | 🔵 |
 | **5c-7** | 구조화 옵션 ask (Principle 17/21) | ✅ **완료 (2026-05-12)** — shared validator + `structuredAskValidation` + `lazy:test` fixture gate |
 | 5c-8 | E2E 시연 (4 layer + cross-ref) | 🔵 |
-| 5c-9 | Doctor C17 — external SaaS grep | 🔵 |
+| **5c-9** | Doctor C17 — external SaaS grep | ✅ **완료 (2026-05-12)** — `lazy:doctor` D06 + `lazy:test` negative fixture |
 
 **중요한 architectural decision**: 4 layer detector 는 isolated 가 아니라 **유기적 cross-reference** (ADR 0018). 한 layer 누락이 다른 layer 가 catch.
 - BDD scenario 의 'then 자동완성 list' → SDD endpoint 'autocomplete' 누락 발견

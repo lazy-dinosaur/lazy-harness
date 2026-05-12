@@ -9,6 +9,7 @@ Checks the framework-owned operational invariants defined by ADR 0022:
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -21,6 +22,39 @@ LAZY = ROOT / ".lazy-harness"
 def fail(message: str) -> None:
     print(f"✗ {message}")
     raise SystemExit(1)
+
+
+def check_doctor_smoke() -> None:
+    command = ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "smoke"]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    if "lazy-harness doctor ok (smoke)" not in completed.stdout:
+        fail("doctor smoke did not report ok:\n" + completed.stdout)
+    print("✓ doctor smoke ok")
+
+
+def check_doctor_c17_negative() -> None:
+    fixture = LAZY / "scripts" / f"__doctor_c17_negative_tmp_{os.getpid()}.py"
+    forbidden_call = 'fe' + 'tch' + '("' + 'https' + '://api.' + 'figma' + '.com/v1/files/example")\n'
+    fixture.write_text(forbidden_call, encoding="utf-8")
+    try:
+        env = {**os.environ, "LAZY_HARNESS_DOCTOR_INCLUDE_NEGATIVE": "1"}
+        completed = subprocess.run(
+            ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+        combined = completed.stdout + completed.stderr
+        if completed.returncode == 0:
+            fail("doctor full should fail on C17 negative fixture")
+        if "D06 C17 external dependency invariant failed" not in combined:
+            fail("doctor full failed for the wrong reason:\n" + combined)
+    finally:
+        fixture.unlink(missing_ok=True)
+
+    subprocess.run(["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full"], cwd=ROOT, check=True, text=True, capture_output=True)
+    print("✓ doctor C17 negative fixture ok")
 
 
 def check_xml() -> None:
@@ -166,6 +200,8 @@ def check_cross_layer(result: dict) -> None:
 
 
 def main() -> None:
+    check_doctor_smoke()
+    check_doctor_c17_negative()
     check_xml()
     check_jsonl()
     check_triggers()

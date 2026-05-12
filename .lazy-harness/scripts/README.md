@@ -1,13 +1,37 @@
 # scripts
 
-Verification scripts (TS-heavy per Principle #8 Thin sh + Thick TS).
+Framework-owned verification scripts (ADR 0022).
 
-## Trigger to fill
+Jcode may wrap these commands, but operational validation lives here.
 
-New verification or framework script.
+## Commands
+
+```bash
+bun run lazy:test
+bun run lazy:doctor
+python3 .lazy-harness/scripts/doctor.py --profile smoke
+python3 .lazy-harness/scripts/doctor.py --profile full
+```
+
+## Files
+
+- `self-test.py` — primary reproducible gate used by `bun run lazy:test` and pre-push.
+  - doctor smoke
+  - C17 negative fixture
+  - XML/JSONL parse
+  - DDD/SDD/BDD/SSOT trigger fixture counts
+  - cross-layer map exact summary/gaps
+  - structured ask validation report
+- `doctor.py` — framework-owned doctor.
+  - D01 XML parse
+  - D02 JSONL parse
+  - D03 ADR sequence + doc count
+  - D04 README/handoff/phase freshness
+  - D05 branch/hook policy
+  - D06 C17 external dependency invariant (full profile)
+- `contract-diff.ts` — existing contract diff helper.
 
 ## Status
 
-- Empty is valid (Principle #10 Empty-Container Tolerance)
-- Will be filled when triggers fire (Principle #6 Trigger-Based Growth)
-- Auto-audited on update (Principle #1.2 Drafting and Auditing)
+- Empty containers remain valid (Principle #10).
+- New checks should land in this directory first, then wrappers may call them.

@@ -149,7 +149,7 @@
       <criterion id="5c-6">triggers/lint-output.ts: tsc/eslint warning 누적 → drift candidate 자동 분류</criterion>
       <criterion id="5c-7" status="done" doneAt="2026-05-12T01:56:00Z">**Principle 17/21 결합** — 모든 trigger 검출 시 자유 문답 X, 구조화된 옵션 (3~5 choice + Recommended + type-your-own) ask. `validateStructuredAsk(candidate)` / `validateStructuredAsks(...)` 공통 validator + `TriggerRunResult.structuredAskValidation` + `lazy:test` fixture gate 로 recommended ID, 3~5 options, direct input/skip escape, ambiguous force-gate 문구, high-confidence RecA 규칙 검증.</criterion>
       <criterion id="5c-8">medivance 의 실제 코드 변경 1 회로 5c-1~5c-5 end-to-end 시연 (DDD/SDD/BDD/SSOT 4 layer + cross-ref map 모두 trigger 1+). 사용자 발화(자연어/Figma URL/말) → response.completed payload (last_user_message + recent_tool_calls) → trigger 검증도 포함.</criterion>
-      <criterion id="5c-9">Doctor C17 — `.lazy-harness/{triggers,hooks,framework,scripts}/` 안 외부 SaaS 호출 grep 검출 시 fail (Principle 22 enforce)</criterion>
+      <criterion id="5c-9" status="done" doneAt="2026-05-12T02:06:00Z">Doctor C17 — `.lazy-harness/{triggers,hooks,framework,scripts}/` 안 외부 SaaS 호출 grep 검출 시 fail (Principle 22 enforce). `.lazy-harness/scripts/doctor.py --profile full` D06 로 구현. Docs/ADR 예시 오탐 방지를 위해 실행/코드 파일(`.ts/.tsx/.js/.py/.sh`)만 scan. `lazy:test`가 임시 negative fixture 를 생성해 D06 fail 을 검증한 뒤 cleanup.</criterion>
     </successCriteria>
     <deliverables>
       <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/BDD/SSOT detector)</file>

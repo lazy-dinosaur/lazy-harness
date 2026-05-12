@@ -42,8 +42,9 @@
 | **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
 | **5c-5 Cross-layer map** | ✅ done (`crossLayer.gaps`, integrated ask, exact fixture 검증) |
 | **5c-7 Structured ask** | ✅ done (`structuredAskValidation`, shared validator, `lazy:test` fixture gate) |
-| **5c-6/8/9** | 🔵 next |
-| **Framework self-test** | ✅ `bun run lazy:test` primary gate (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
+| **5c-9 Doctor C17** | ✅ done (`lazy:doctor` D06 + `lazy:test` negative fixture) |
+| **5c-6/8** | 🔵 next |
+| **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | ~1920 lines (DDD + SDD + acronym + BDD + SSOT + cross-layer map + structured ask validator 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
 
@@ -55,7 +56,7 @@
 
 1. **SSOT 문서 stale** — registry 가 실제 SSOT 와 mismatch → ✅ `ssot/registry.xml` 생성
 2. **XML 파싱 실패** — 일부 XML 깨짐 → ✅ `bun run lazy:test` XML parse 통과
-3. **Doctor false-green** — 14 pass 라 보고하지만 stale/XML 못 잡음 → ✅ `lazy:test` 대체, Doctor 복구는 후속 P1
+3. **Doctor false-green** — stale/XML/C17 blind spot → ✅ `lazy:test` + framework-owned `lazy:doctor` D01~D06 로 복구
 
 → 5c-4 SSOT detector 진입 시 동시에 해결.
 
@@ -64,19 +65,18 @@
 상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
 
 ```
-A. Framework doctor/self-test hardening
-   - C1~C17 style checks 를 `.lazy-harness/scripts/doctor.*` 로 흡수
-   - branch-aware hook L3 검증
-
-B. 5c-9 Doctor C17
-   - external SaaS grep
-   - SSOT stale 검사 (Oracle audit 발견)
-   - XML/JSONL parse checks 는 doctor smoke profile 로 승격
-
-C. 5c-6 lint/typecheck drift detector
+A. 5c-6 lint/typecheck drift detector
    - tsc/eslint output ingestion
    - environment-missing vs code drift 분류
    - 현재 `bun run typecheck:node` missing deps/types 실패를 framework-owned detector 로 분류
+
+B. 5c-8 E2E demonstration
+   - 실제 medivance change 1회
+   - DDD/SDD/BDD/SSOT + cross-layer map + structured ask 검증
+
+C. Refactor `code-change.ts` monolith
+   - 현재 1928 lines
+   - detector 별 split 전 behavior pin 유지
 ```
 
 ## Worktree 배치 (최종 상태)
