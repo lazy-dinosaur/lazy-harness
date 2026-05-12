@@ -20,16 +20,29 @@ LAZY="$REPO_ROOT/.lazy-harness"
 # Read remote name from stdin (git supplies)
 REMOTE="${1:-origin}"
 URL="${2:-}"
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
 # CRITICAL: ALL push 에서 private file leak 차단 (URL 무관 — bug-2 fix from Sisyphus 2026-05-10)
 # .husky/<3 hooks> 는 ADR 0009 에 의해 framework public surface 로 ALLOW.
-LEAKED=$(git diff --name-only origin/HEAD..HEAD 2>/dev/null | grep -E '^\.lazy-harness/|^\.jcode/' || true)
+LEAKED=""
+if [ "$BRANCH" != "experimental/lazy-harness" ]; then
+    UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    if [ -n "$UPSTREAM" ]; then
+        RANGE="$UPSTREAM..HEAD"
+    elif git rev-parse --verify "$REMOTE/$BRANCH" >/dev/null 2>&1; then
+        RANGE="$REMOTE/$BRANCH..HEAD"
+    else
+        RANGE="HEAD~1..HEAD"
+    fi
+    LEAKED=$(git diff --name-only "$RANGE" 2>/dev/null | grep -E '^\.lazy-harness/|^\.jcode/' || true)
+fi
 if [ -n "$LEAKED" ]; then
     echo ""
     echo "🚨 BLOCKED: Push 시도에 lazy-harness/jcode private 파일 포함됨!"
     echo "$LEAKED" | sed 's/^/  - /'
     echo ""
     echo "→ 해당 파일 git rm --cached 로 제거 후 다시 push"
+    echo "→ framework 작업이면 experimental/lazy-harness branch 에서 push"
     echo "→ remote: $REMOTE ($URL)"
     exit 1
 fi

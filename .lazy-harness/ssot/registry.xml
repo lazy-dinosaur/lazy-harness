@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ssotRegistry version="1" updatedAt="2026-05-12T01:08:00Z">
+  <!--
+    5c-4 SSOT registry.
+    Empty registry is valid, but concrete utilities are registered here once a trigger is confirmed.
+
+    canonicalKey: stable duplicate-detection key, usually <domain>:<kind>:<name>.
+    kind: helper | mapper | validator | normalizer | formatter | parser.
+    contractZone: optional source zone for future 5c-5 cross-layer map.
+  -->
+  <utilities>
+    <utility name="formatPatientName" canonicalKey="patient:formatter:formatPatientName" kind="formatter" domain="Patient" contractZone="renderer" />
+  </utilities>
+</ssotRegistry>

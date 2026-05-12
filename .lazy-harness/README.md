@@ -2,7 +2,7 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Phase 5b 완료 (lifecycle hooks 진짜 작동) + 5c-1 + 5c-2 + 5c-3 완료 — 5c-4 진입 직전
+**현재 상태**: Phase 5b 완료 (lifecycle hooks 진짜 작동) + 5c-1~5c-4 완료 — SSOT detector 통합, 5c-5 진입 직전
 
 ## ⚠ Branch 룰 (ADR 0021)
 
@@ -28,7 +28,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 |---|---|
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 17 ADR (의사결정 영구 기록) |
+| [`decisions/`](decisions/) | 21 ADR (의사결정 영구 기록) |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -56,7 +56,7 @@ flowchart LR
 |---|---|---|
 | **5a** | ✅ closed (2026-05-10) | Self-Bootstrap (harness init / doctor / update) |
 | **5b** | ✅ closed (2026-05-10) | Lifecycle Hooks 진짜 작동 (M11 cascade) |
-| **5c** | 🟡 entering | Code-Trigger Adapters (사용자 발화 + 코드 변경) — ADR 0013/0017 |
+| **5c** | 🟡 in progress | Code-Trigger Adapters (사용자 발화 + 코드 변경) — ADR 0013/0017 |
 | **5d** | 🔵 planned | Interview Loop (양방향 conflict resolution) |
 | **5e** | 🔵 planned | 실전 1 회 (medivance 다음 feature 통째로) |
 
@@ -65,7 +65,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 17 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 21 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태
@@ -135,10 +135,10 @@ flowchart LR
 ## Doctor (자동 검증)
 
 ```bash
-$ .jcode/skills/harness-doctor/scripts/doctor.sh
+$ bun run lazy:test
 ```
 
-C1~C16 = 16 자동 검사. 매 commit / push 시 실행 + 응답마다 sync-guard 가 부분 검증.
+현재 worktree 에는 `.jcode/skills/harness-doctor/` 실체가 없으므로, XML/JSONL/trigger fixture 를 재현 가능한 `lazy:test`로 우선 검증한다. Doctor C1~C16 복구/이전은 후속 P1 작업.
 
 ## 다음 단계 — 5c 진입
 
@@ -146,8 +146,8 @@ C1~C16 = 16 자동 검사. 매 commit / push 시 실행 + 응답마다 sync-guar
 |---|---|---|
 | **5c-1** | ts-morph PoC (DDD term detector) | ✅ **완료 (2026-05-11)** — 8/8 통과 + medivance src/main 138 candidates |
 | **5c-2** | SDD contract diff (zod/trpc/prisma) + DDD reference check + acronym handling | ✅ **완료 (2026-05-12)** — 8/8 + 724 candidates + acronym ambiguous (ADR 0019 첫 적용) |
-| 5c-3 | BDD scenario (자연어 우선) + DDD/SDD reference check | 🔵 **다음** |
-| 5c-4 | SSOT duplicate detector | 🔵 |
+| **5c-3** | BDD scenario (자연어 우선) + DDD/SDD reference check | ✅ **완료 (2026-05-12)** — 자연어 + UI heuristic, fixture 검증 |
+| **5c-4** | SSOT duplicate detector | ✅ **완료 (2026-05-12)** — helper/mapper/validator/normalizer/formatter/parser + registry suppression |
 | **5c-5** | **Cross-layer consistency map (ADR 0018)** — 4 detector 결과 통합, gap catch | 🔵 |
 | 5c-6 | Lint/typecheck drift | 🔵 |
 | 5c-7 | 구조화 옵션 ask (Principle 17/21) | 🔵 |

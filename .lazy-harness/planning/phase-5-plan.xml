@@ -108,7 +108,7 @@
       <note>doctor 10 → 16 checks (C9 + C11 + C11b + C13/C14/C15/C16)</note>
       <note>init.sh 825 → 925 → 950+ lines (Step 2.6b + 2.7 + AGENTS.md template v1.4 sync)</note>
       <note>AGENTS.md 78 → 142 lines (23 principle 반영, 다음 세션 entry point fresh)</note>
-      <note>Husky chain medivance origin commit `b95dd3f7` push 완료 (.husky/<3 hooks> framework public surface 정착)</note>
+      <note>Husky chain medivance origin commit `b95dd3f7` push 완료 (.husky/&lt;3 hooks&gt; framework public surface 정착)</note>
       <note>**M11 jcode core patch** (사용자 직접 작업, 5 stage) — lifecycle hook decision parsing + reminder inject + loop guard + client.disconnect 분리 + payload context. Stage 6 = continuation user msg inject (Anthropic API 400 fix). Commits: e345d632 / b78e2bf5 / f382011c / dc26f1e8 / f372c801</note>
       <note>**ADR 0016 — Lifecycle Hook Strategy** — response.completed = primary sync gate. Hook scripts 5종 (`hooks/lifecycle/on-response-completed.sh`, `on-client-disconnect.sh`, 3 helpers). **Live E2E 33초 자동 sync 완료** (사용자 prompt 1번에 5 tool calls).</note>
       <note>**ADR 0017 — User Input as Universal Trigger** — 5c-6 (external opt-in) 폐기. 사용자 발화는 jcode payload (last_user_message + recent_tool_calls) 안으로. ADR 0013 cascade 의 incompleteness fix.</note>
@@ -143,8 +143,8 @@
     <successCriteria>
       <criterion id="5c-1" status="done" doneAt="2026-05-11T13:30:00+09:00">triggers/code-change.ts: AST diff (ts-morph) → 새 type/interface/domain noun 검출 → DDD ubiquitous-language 후보 ask. **8/8 통과 + medivance src/main 138 candidates + FP ~15-20%**.</criterion>
       <criterion id="5c-2" status="done" doneAt="2026-05-12T08:32:00+09:00">triggers/code-change.ts: contract zone (zod/trpc/prisma) 시그니처 변경 검출 → SDD spec 갱신 후보 ask + DDD reference check (ADR 0018) + acronym ambiguous handling (ADR 0019 첫 적용). **8/8 통과 + medivance src/main/trpc/routers 724 candidates + acronym 처리 완료 (Emr/EMR → ambiguous, ask 5 옵션, RecA). Commits: 48369359 (init) / d68adf66 (noise tuning) / 9da37c86 (acronym detection) / 6264173f (tight acronym)**.</criterion>
-      <criterion id="5c-3">triggers/commit-change.ts: **PRIMARY** = last_user_message 자연어 flow 분석 (given/when/then draft), **SECONDARY** = git diff + UI heuristic (onClick/form submit/multi-step state) → BDD scenario 후보 ask + DDD/SDD reference check (ADR 0018) — scenario noun 이 DDD 안에? verb 가 SDD endpoint 와 매칭?</criterion>
-      <criterion id="5c-4">triggers/code-change.ts: AST → 새 helper/mapper/validator 검출 → SSOT registry duplicate check + 등록 후보 ask</criterion>
+      <criterion id="5c-3" status="done" doneAt="2026-05-12T09:00:00+09:00">triggers/code-change.ts: **PRIMARY** = last_user_message 자연어 flow 분석 (given/when/then draft), **SECONDARY** = git diff + UI heuristic (onClick/form submit/multi-step state) → BDD scenario 후보 ask + DDD/SDD reference check (ADR 0018) — scenario noun 이 DDD 안에? verb 가 SDD endpoint 와 매칭? **8/8 fixture 검증 통과**.</criterion>
+      <criterion id="5c-4" status="done" doneAt="2026-05-12T01:10:00Z">triggers/code-change.ts: AST → 새 helper/mapper/validator/normalizer/formatter/parser 검출 → SSOT registry duplicate check + 등록 후보 ask. `--layer ssot` CLI + `ssot/registry.xml` 최소 schema + `__ssot-duplicate.ts` / `__ssot-known-helper.ts` fixtures + lifecycle `check-ssot-trigger.sh` 통합.</criterion>
       <criterion id="5c-5">**Cross-layer consistency map (ADR 0018)** — 4 detector (DDD/SDD/BDD/SSOT) 결과를 통합하여 gap detect. 예: BDD scenario 의 'then 자동완성 list' → SDD endpoint 'autocomplete' 누락 발견 → 통합 ask 로 사용자에게 한번에 routing 제안.</criterion>
       <criterion id="5c-6">triggers/lint-output.ts: tsc/eslint warning 누적 → drift candidate 자동 분류</criterion>
       <criterion id="5c-7">**Principle 17/21 결합** — 모든 trigger 검출 시 자유 문답 X, 구조화된 옵션 (3~5 choice + Recommended + type-your-own) ask</criterion>
@@ -153,11 +153,10 @@
     </successCriteria>
     <deliverables>
       <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/SSOT detector)</file>
-      <file>.lazy-harness/triggers/commit-change.ts (git diff + BDD/regression heuristic)</file>
+      <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/BDD/SSOT detector)</file>
       <file>.lazy-harness/triggers/lint-output.ts (tsc/eslint warning aggregator)</file>
       <file>.lazy-harness/triggers/types.ts (trigger 공통 인터페이스)</file>
-      <file>.lazy-harness/triggers/external/README.md (opt-in plugin 패턴 docs)</file>
-      <file>.lazy-harness/triggers/external/figma.ts (opt-in, FIGMA_PERSONAL_ACCESS_TOKEN 활성화 시만)</file>
+      <file>ADR 0017 에 따라 external adapter 는 폐기. 사용자 발화/최근 tool call payload 가 universal trigger input.</file>
       <file>package.json — ts-morph dependency 추가</file>
       <file>doctor C17 — external SaaS reference 검출</file>
       <file>옛 .lazy-harness/adapters/* → 폐기 (rename to triggers/)</file>

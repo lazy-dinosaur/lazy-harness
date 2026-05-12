@@ -14,7 +14,7 @@ import {
 } from 'ts-morph';
 import type { StructuredAsk, TriggerCandidate, TriggerConfidence, TriggerCrossRef, TriggerRunResult, TriggerScenarioStep } from './types';
 
-type CodeChangeLayer = 'ddd' | 'sdd' | 'bdd' | 'all';
+type CodeChangeLayer = 'ddd' | 'sdd' | 'bdd' | 'ssot' | 'all';
 
 interface CliOptions {
   scopes: string[];
@@ -24,6 +24,7 @@ interface CliOptions {
   tsconfig: string;
   ubiquitousLanguageFile: string;
   specLanguageFile: string;
+  ssotRegistryFile: string;
   forbiddenTermsFile: string;
   changedOnly: boolean;
   newOnly: boolean;
@@ -56,10 +57,21 @@ interface ContractCandidate {
   ambiguousAcronyms: string[];
 }
 
+interface SsotUtilityCandidate {
+  kind: 'helper' | 'mapper' | 'validator' | 'normalizer' | 'formatter' | 'parser';
+  name: string;
+  filePath: string;
+  line: number;
+  exported: boolean;
+  signature: string;
+  domainHint?: string;
+}
+
 const DEFAULT_SCOPE = 'src/main';
 const DEFAULT_TSCONFIG = 'tsconfig.node.json';
 const DEFAULT_UBIQUITOUS_LANGUAGE = '.lazy-harness/domain/ubiquitous-language.xml';
 const DEFAULT_SPEC_LANGUAGE = '.lazy-harness/spec/spec-language.xml';
+const DEFAULT_SSOT_REGISTRY = '.lazy-harness/ssot/registry.xml';
 const DEFAULT_FORBIDDEN_TERMS = '.lazy-harness/domain/forbidden-terms.xml';
 const ACRONYM_LENGTH = 3;
 
@@ -245,6 +257,7 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
     tsconfig: options.tsconfig ?? DEFAULT_TSCONFIG,
     ubiquitousLanguageFile: options.ubiquitousLanguageFile ?? DEFAULT_UBIQUITOUS_LANGUAGE,
     specLanguageFile: options.specLanguageFile ?? DEFAULT_SPEC_LANGUAGE,
+    ssotRegistryFile: options.ssotRegistryFile ?? DEFAULT_SSOT_REGISTRY,
     forbiddenTermsFile: options.forbiddenTermsFile ?? DEFAULT_FORBIDDEN_TERMS,
     changedOnly: options.changedOnly ?? false,
     newOnly: options.newOnly ?? (inputFiles.length > 0 || options.changedOnly === true),
@@ -255,6 +268,7 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
   const scannedFiles = collectFiles(opts, cwd, warnings);
   const knownDddTerms = readKnownTerms(opts.ubiquitousLanguageFile);
   const knownSddTerms = readKnownTerms(opts.specLanguageFile);
+  const knownSsotTerms = readKnownTerms(opts.ssotRegistryFile);
   const forbiddenTerms = readKnownTerms(opts.forbiddenTermsFile);
 
   const project = new Project({
@@ -264,6 +278,7 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
 
   const declarations: DeclarationCandidate[] = [];
   const contracts: ContractCandidate[] = [];
+  const ssotUtilities: SsotUtilityCandidate[] = [];
   for (const filePath of scannedFiles) {
     try {
       const sourceFile = getSourceFile(project, filePath);
@@ -286,6 +301,16 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
           contracts.push(...currentContracts);
         }
       }
+
+      if (opts.layer === 'ssot' || opts.layer === 'all') {
+        const currentUtilities = extractSsotUtilities(sourceFile);
+        if (opts.newOnly) {
+          const previousKeys = getPreviousSsotKeys(project, filePath, warnings);
+          ssotUtilities.push(...currentUtilities.filter((utility) => !previousKeys.has(ssotKey(utility))));
+        } else {
+          ssotUtilities.push(...currentUtilities);
+        }
+      }
     } catch (error) {
       warnings.push(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -300,12 +325,15 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
   const bddCandidates = opts.layer === 'bdd' || opts.layer === 'all'
     ? detectBdd(opts, scannedFiles, knownDddTerms)
     : [];
+  const ssotCandidates = ssotUtilities
+    .map((utility) => toSsotCandidate(utility, knownSsotTerms, knownDddTerms, forbiddenTerms))
+    .filter((candidate): candidate is TriggerCandidate => candidate !== null);
 
   return {
     ok: true,
     trigger: 'code-change',
     scannedFiles,
-    candidates: [...dddCandidates, ...sddCandidates, ...bddCandidates],
+    candidates: [...dddCandidates, ...sddCandidates, ...bddCandidates, ...ssotCandidates],
     warnings,
   };
 }
@@ -552,6 +580,190 @@ function getPreviousContractKeys(project: Project, filePath: string, warnings: s
 
 function contractKey(contract: ContractCandidate): string {
   return `${contract.kind}:${contract.name}:${contract.operation ?? ''}`;
+}
+
+function extractSsotUtilities(sourceFile: SourceFile): SsotUtilityCandidate[] {
+  const filePath = normalizePath(sourceFile.getFilePath());
+  const utilities: SsotUtilityCandidate[] = [];
+
+  for (const fn of sourceFile.getFunctions()) {
+    const name = fn.getName();
+    if (!name) continue;
+    const kind = classifySsotUtility(name);
+    if (!kind) continue;
+    utilities.push({
+      kind,
+      name,
+      filePath,
+      line: fn.getStartLineNumber(),
+      exported: fn.isExported(),
+      signature: compactSignature(fn.getText()),
+      domainHint: inferSsotDomainHint(name, filePath),
+    });
+  }
+
+  for (const declaration of sourceFile.getVariableDeclarations()) {
+    const name = declaration.getName();
+    const kind = classifySsotUtility(name);
+    if (!kind) continue;
+    const initializer = declaration.getInitializer();
+    if (!initializer || !(Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer) || Node.isCallExpression(initializer))) continue;
+    utilities.push({
+      kind,
+      name,
+      filePath,
+      line: declaration.getStartLineNumber(),
+      exported: isExportedVariableDeclaration(declaration),
+      signature: compactSignature(declaration.getText()),
+      domainHint: inferSsotDomainHint(name, filePath),
+    });
+  }
+
+  const seen = new Set<string>();
+  return utilities.filter((utility) => {
+    const key = ssotKey(utility);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getPreviousSsotKeys(project: Project, filePath: string, warnings: string[]): Set<string> {
+  const names = new Set<string>();
+  let previousText = '';
+
+  try {
+    previousText = execFileSync('git', ['show', `HEAD:${filePath}`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    return names;
+  }
+
+  try {
+    const previousSource = project.createSourceFile(`/.lazy-harness/.tmp/previous-ssot-${filePath.replace(/[^A-Za-z0-9_.-]/g, '-')}`, previousText, {
+      overwrite: true,
+    });
+    for (const utility of extractSsotUtilities(previousSource)) {
+      names.add(ssotKey(utility));
+    }
+  } catch (error) {
+    warnings.push(`Failed to parse HEAD SSOT version of ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return names;
+}
+
+function ssotKey(utility: SsotUtilityCandidate): string {
+  return `${utility.kind}:${utility.name}`;
+}
+
+function classifySsotUtility(name: string): SsotUtilityCandidate['kind'] | null {
+  if (/^(map[A-Z]|.*Mapper$|to[A-Z].*Dto$|from[A-Z])/.test(name)) return 'mapper';
+  if (/^(validate[A-Z]|isValid[A-Z]|assert[A-Z]|.*Validator$)/.test(name)) return 'validator';
+  if (/^(normalize[A-Z]|.*Normalizer$)/.test(name)) return 'normalizer';
+  if (/^(format[A-Z]|.*Formatter$)/.test(name)) return 'formatter';
+  if (/^(parse[A-Z]|.*Parser$)/.test(name)) return 'parser';
+  if (/^(use[A-Z]|get[A-Z]|build[A-Z]|create[A-Z]|calculate[A-Z]|compute[A-Z]|.*Helper$)/.test(name)) return 'helper';
+  return null;
+}
+
+function inferSsotDomainHint(name: string, filePath: string): string | undefined {
+  const utilityWords = ['helper', 'mapper', 'validator', 'normalizer', 'formatter', 'parser', 'format', 'normalize', 'validate', 'assert', 'parse', 'build', 'create', 'calculate', 'compute', 'get', 'map', 'to', 'from', 'use', 'ssot', 'duplicate', 'known'];
+  const words = splitIdentifierWords(`${name} ${filePathToDomainHint(filePath)}`)
+    .filter((word) => !utilityWords.includes(word.toLowerCase()));
+  const seed = words.find((word) => DOMAIN_SEED_NOUNS.some((noun) => noun.toLowerCase() === word.toLowerCase()));
+  if (seed) return seed.charAt(0).toUpperCase() + seed.slice(1);
+  const meaningful = words.find((word) => word.length > 3 && classifyNounWord(word.toLowerCase()) !== 'noise');
+  return meaningful ? meaningful.charAt(0).toUpperCase() + meaningful.slice(1) : undefined;
+}
+
+function toSsotCandidate(
+  utility: SsotUtilityCandidate,
+  knownSsotTerms: Set<string>,
+  knownDddTerms: Set<string>,
+  forbiddenTerms: Set<string>,
+): TriggerCandidate | null {
+  if (hasKnownTerm(knownSsotTerms, utility.name)) return null;
+  if (hasKnownTerm(forbiddenTerms, utility.name)) return null;
+
+  const domainHint = utility.domainHint;
+  const matchedDdd = domainHint && hasKnownTerm(new Set([...knownDddTerms, ...DOMAIN_SEED_NOUNS.map((term) => term.toLowerCase())]), domainHint)
+    ? [domainHint]
+    : [];
+  const missingDdd = domainHint && matchedDdd.length === 0 && !hasKnownTerm(forbiddenTerms, domainHint)
+    ? [domainHint]
+    : [];
+  const ambiguous = domainHint ? [] : [utility.name];
+  const confidence: TriggerConfidence = ambiguous.length > 0 ? 'ambiguous' : utility.exported ? 'high' : 'medium';
+  const crossRef: TriggerCrossRef = {
+    ddd: { matched: matchedDdd, missing: missingDdd, ambiguous },
+  };
+
+  const reasonParts = [`${utility.kind} utility candidate`];
+  if (utility.exported) reasonParts.push('exported');
+  if (domainHint) reasonParts.push(`domain hint: ${domainHint}`);
+  if (missingDdd.length > 0) reasonParts.push(`DDD reference gap: ${missingDdd.join(', ')}`);
+  if (ambiguous.length > 0) reasonParts.push('ambiguous domain ownership');
+
+  return {
+    layer: 'ssot',
+    criterionId: '5c-4',
+    kind: utility.kind,
+    name: utility.name,
+    filePath: utility.filePath,
+    line: utility.line,
+    confidence,
+    reason: reasonParts.join(' + '),
+    ask: buildSsotAsk(utility, crossRef),
+    metadata: {
+      exported: utility.exported,
+      signature: utility.signature,
+      domainHint,
+      crossRef,
+    },
+  };
+}
+
+function buildSsotAsk(utility: SsotUtilityCandidate, crossRef: TriggerCrossRef): StructuredAsk {
+  const domainHint = utility.domainHint ?? 'unknown-domain';
+  return {
+    question: `[5c-4 SSOT trigger] ${utility.kind} '${utility.name}' 검출. SSOT registry 에 등록/중복 여부를 확인할까요?`,
+    recommended: utility.domainHint ? 'A' : 'B',
+    options: [
+      {
+        id: 'A',
+        label: `SSOT registry 에 '${utility.name}' 등록 (domain: ${domainHint})`,
+        description: 'Recommended when helper/mapper/validator has clear domain ownership.',
+      },
+      {
+        id: 'B',
+        label: 'domain context 가 애매함 — force gate 로 사람에게 소유 context 확인',
+        description: 'ADR 0019: ambiguous detection 은 silent skip 금지.',
+      },
+      {
+        id: 'C',
+        label: '이미 같은 책임의 helper 가 있음 — 기존 SSOT 로 routing',
+        description: '중복 구현이면 새 helper 대신 기존 canonical utility 를 사용.',
+      },
+      {
+        id: 'D',
+        label: 'SSOT 대상 아님 — forbidden-terms.xml 에 utility noise 로 기록',
+      },
+      {
+        id: 'E',
+        label: '직접 입력 / skip',
+      },
+    ],
+    crossRef,
+    notes: [
+      `kind=${utility.kind}`,
+      `domainHint=${domainHint}`,
+      `DDD matched=${crossRef.ddd?.matched.join(', ') || '(none)'}`,
+      `DDD missing=${crossRef.ddd?.missing.join(', ') || '(none)'}`,
+    ],
+  };
 }
 
 function toSddCandidate(
@@ -1402,6 +1614,7 @@ function parseCliArgs(argv: string[]): CliOptions {
     tsconfig: DEFAULT_TSCONFIG,
     ubiquitousLanguageFile: DEFAULT_UBIQUITOUS_LANGUAGE,
     specLanguageFile: DEFAULT_SPEC_LANGUAGE,
+    ssotRegistryFile: DEFAULT_SSOT_REGISTRY,
     forbiddenTermsFile: DEFAULT_FORBIDDEN_TERMS,
     changedOnly: false,
     newOnly: false,
@@ -1419,7 +1632,7 @@ function parseCliArgs(argv: string[]): CliOptions {
     } else if (arg === '--format' && (next === 'json' || next === 'ask')) {
       opts.format = next;
       i += 1;
-    } else if (arg === '--layer' && (next === 'ddd' || next === 'sdd' || next === 'bdd' || next === 'all')) {
+    } else if (arg === '--layer' && (next === 'ddd' || next === 'sdd' || next === 'bdd' || next === 'ssot' || next === 'all')) {
       opts.layer = next;
       i += 1;
     } else if (arg === '--tsconfig' && next) {
@@ -1430,6 +1643,9 @@ function parseCliArgs(argv: string[]): CliOptions {
       i += 1;
     } else if ((arg === '--spec-language' || arg === '--sdd-registry' || arg === '--sdd-spec' || arg === '--contracts-file') && next) {
       opts.specLanguageFile = next;
+      i += 1;
+    } else if ((arg === '--ssot-registry' || arg === '--ssot-registry-file') && next) {
+      opts.ssotRegistryFile = next;
       i += 1;
     } else if ((arg === '--forbidden-terms' || arg === '--forbidden-terms-file') && next) {
       opts.forbiddenTermsFile = next;
@@ -1466,7 +1682,9 @@ function formatAsk(result: TriggerRunResult): string {
         ? 'SDD contract 후보:'
         : candidate.layer === 'bdd'
           ? 'BDD scenario 후보:'
-          : 'DDD ubiquitous-language 후보:';
+          : candidate.layer === 'ssot'
+            ? 'SSOT utility 후보:'
+            : 'DDD ubiquitous-language 후보:';
       const lines = [
         candidate.ask.question,
         '',

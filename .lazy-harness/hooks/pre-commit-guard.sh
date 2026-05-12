@@ -1,7 +1,8 @@
 #!/bin/bash
 # Lazy-Harness pre-commit safety guard
 # Triggered: husky chain via .husky/pre-commit
-# Action: Block commit if .lazy-harness/, .jcode/, or framework/ files are staged.
+# Action: Block commit if .lazy-harness/, .jcode/, or framework/ files are staged
+# outside the dedicated experimental/lazy-harness branch.
 #
 # Defense-in-depth: .git/info/exclude is the 1st line, this hook is the 2nd.
 #
@@ -11,15 +12,22 @@ set -e
 
 [ -f ".lazy-harness/.hooks-disabled" ] && exit 0
 
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$BRANCH" = "experimental/lazy-harness" ]; then
+    # ADR 0021: lazy-harness framework changes are allowed only on this branch.
+    exit 0
+fi
+
 # private 영역 staged 검사
 LAZY_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.lazy-harness/' || true)
 JCODE_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.jcode/' || true)
+FRAMEWORK_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^packages/medivance-harness/|^framework/' || true)
 
 if [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]; then
     echo ""
     echo "🚨 BLOCKED: Private 영역 파일이 staged 됐습니다!"
     echo ""
-    echo "이 파일들은 medivance origin 에 절대 push 되면 안 됩니다."
+    echo "이 파일들은 experimental/lazy-harness 외 branch 에서 commit/push 되면 안 됩니다."
     echo "(.git/info/exclude 에 등록돼 있지만 git add -f 등으로 우회됐을 가능성)"
     echo ""
     if [ -n "$LAZY_STAGED" ]; then
@@ -37,6 +45,7 @@ if [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]
     echo ""
     echo "복구 방법:"
     echo "  git restore --staged <위 파일들>"
+    echo "  또는 framework 작업이면 experimental/lazy-harness worktree 에서 진행"
     echo ""
     echo "정말 push 하고 싶다면 (절대 비추천):"
     echo "  1. .git/info/exclude 에서 해당 라인 제거"

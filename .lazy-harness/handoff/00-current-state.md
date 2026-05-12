@@ -25,25 +25,25 @@
    cd /home/lazydino/dev/medivance.experimental-lazy-harness
    git branch --show-current  # experimental/lazy-harness
    ls .lazy-harness/triggers/  # code-change.ts (1502 lines)
-   .jcode/skills/harness-doctor/scripts/doctor.sh  # 14 pass
+   bun run lazy:test  # XML + JSONL + trigger fixtures
    ```
 
 ## 현재 상태 (2026-05-12)
 
 | 항목 | 값 |
 |---|---|
-| **활성 branch** | `experimental/lazy-harness` (commit `98168180`) |
-| **Origin push** | ✅ `82a4c0ea` (이전 commit, 새 commit 들 push 필요) |
+| **활성 branch** | `experimental/lazy-harness` |
+| **Origin push** | ⚠ local commit/push 확인 필요 (`git status -sb`) |
 | **ADRs** | **21** (0001~0021) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
 | **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
-| **5c-4 SSOT** | 🔵 next |
-| **5c-5 Cross-layer map** | 🔵 |
+| **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
+| **5c-5 Cross-layer map** | 🔵 next |
 | **5c-6/7/8/9** | 🔵 |
-| **Doctor (C1~C16)** | 14 pass / 0 warn / 0 fail |
-| **code-change.ts** | 1502 lines (DDD + SDD + acronym + BDD 통합) |
+| **Doctor (C1~C16)** | ⚠ `.jcode/skills` 실체 없음. `bun run lazy:test` 로 대체 검증 |
+| **code-change.ts** | 1720 lines (DDD + SDD + acronym + BDD + SSOT 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
 
 ## Oracle Audit 결과 (2026-05-12)
@@ -52,24 +52,22 @@
 
 ### Critical issues 3
 
-1. **SSOT 문서 stale** — registry 가 실제 SSOT 와 mismatch
-2. **XML 파싱 실패** — 일부 cross-layer maps XML 깨짐
-3. **Doctor false-green** — 14 pass 라 보고하지만 stale/XML 못 잡음
+1. **SSOT 문서 stale** — registry 가 실제 SSOT 와 mismatch → ✅ `ssot/registry.xml` 생성
+2. **XML 파싱 실패** — 일부 XML 깨짐 → ✅ `bun run lazy:test` XML parse 통과
+3. **Doctor false-green** — 14 pass 라 보고하지만 stale/XML 못 잡음 → ✅ `lazy:test` 대체, Doctor 복구는 후속 P1
 
 → 5c-4 SSOT detector 진입 시 동시에 해결.
 
 ## 다음 작업 우선순위
 
 ```
-A. 5c-4 SSOT detector (swarm spawn 가능)
-   - code-change.ts 에 SSOT detector 통합
-   - fixture: __ssot-duplicate.ts
-   - 8 통과 조건 + DDD/SDD cross-ref
-   - Doctor false-green fix 동시에
-
-B. 5c-5 Cross-layer consistency map
+A. 5c-5 Cross-layer consistency map
    - 4 detector 결과 통합
    - gap detect (BDD missing → SDD endpoint, etc.)
+
+B. Doctor/self-test hardening
+   - `.jcode` doctor 복구 또는 `.lazy-harness/scripts/doctor` 이전
+   - branch-aware hook L3 검증
 
 C. 5c-9 Doctor C17
    - external SaaS grep
@@ -103,7 +101,6 @@ C. 5c-9 Doctor C17
 - code-change.ts wipeout ❌ (1502 lines 보존)
 
 ## 검증 명령
-bun .lazy-harness/triggers/code-change.ts --scope .lazy-harness/triggers/fixtures --layer all --format json
-→ 기대 5+ candidates (DDD/SDD/BDD)
+bun run lazy:test
+→ XML/JSONL/DDD/SDD/BDD/SSOT fixture 통과
 ```
-

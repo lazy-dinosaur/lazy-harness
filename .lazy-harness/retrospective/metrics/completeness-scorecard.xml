@@ -79,7 +79,7 @@
   <!-- 비교: tsq -->
   <comparisonToTsq>
     <tsqVersion>v3.8.0</tsqVersion>
-    <tsqUrl>https://github.com/sonature-lab/timsquad</url>
+    <tsqUrl>https://github.com/sonature-lab/timsquad</tsqUrl>
 
     <conceptual>
       <tsq>5.5 / 10</tsq>
