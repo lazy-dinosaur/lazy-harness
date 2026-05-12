@@ -2,7 +2,18 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Phase 5b 완료 (lifecycle hooks 진짜 작동) + 5c-1 + 5c-2 완료 — 5c-3 진입 직전
+**현재 상태**: Phase 5b 완료 (lifecycle hooks 진짜 작동) + 5c-1 + 5c-2 + 5c-3 완료 — 5c-4 진입 직전
+
+## ⚠ Branch 룰 (ADR 0021)
+
+| Branch | `.lazy-harness/` |
+|---|---|
+| `dev-ian`, `dev`, `main`, `test` | **0 tracked** (절대 commit 안 함) |
+| **`experimental/lazy-harness`** | ✅ 모든 framework 작업 |
+
+- `.lazy-harness/` 작업은 **`experimental/lazy-harness` branch 전용**
+- 다른 branch 에서 cleanup 시 `git rm --cached` 사용 (disk 유지)
+- 미래 별도 repo extract 예정 (framework 의 portability)
 
 ## 한 줄 개요
 
