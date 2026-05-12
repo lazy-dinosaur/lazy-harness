@@ -1,0 +1,2 @@
+# Transient session state — derived per process, not committed
+.cache/
