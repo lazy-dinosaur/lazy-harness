@@ -45,9 +45,11 @@
 | **5c-7 Structured ask** | ✅ done (`structuredAskValidation`, shared validator, `lazy:test` fixture gate) |
 | **5c-8 E2E** | ✅ done (referral intake fixture + lint drift + cross-layer + structured ask transcript) |
 | **5c-9 Doctor C17** | ✅ done (`lazy:doctor` D06 + `lazy:test` negative fixture) |
+| **Post-5c detector refactor** | ✅ done (`code-change.ts` 376 lines + `detectors/{ddd,sdd,bdd,ssot}.ts`) |
+| **Post-5c package health D07** | ✅ done (`typecheck:node` missing package/config is classified as environment warning, not framework regression) |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
-| **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
-| **code-change.ts** | ~1920 lines (DDD + SDD + acronym + BDD + SSOT + cross-layer map + structured ask validator 통합) |
+| **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile D01~D07 (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
+| **code-change.ts** | 376 lines (CLI/orchestration only; detector bodies extracted) |
 | **Framework v1.4** | 975 lines, 23 principles |
 
 ## Oracle Audit 결과 (2026-05-12)
@@ -58,7 +60,7 @@
 
 1. **SSOT 문서 stale** — registry 가 실제 SSOT 와 mismatch → ✅ `ssot/registry.xml` 생성
 2. **XML 파싱 실패** — 일부 XML 깨짐 → ✅ `bun run lazy:test` XML parse 통과
-3. **Doctor false-green** — stale/XML/C17 blind spot → ✅ `lazy:test` + framework-owned `lazy:doctor` D01~D06 로 복구
+3. **Doctor false-green** — stale/XML/C17 blind spot → ✅ `lazy:test` + framework-owned `lazy:doctor` D01~D07 로 복구
 
 → 5c-4 SSOT detector 진입 시 동시에 해결.
 
@@ -69,13 +71,13 @@
 ```
 A. Post-5c refactor `code-change.ts` monolith
    - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
-   - 현재 1928+ lines
+   - ✅ detector bodies extracted, `code-change.ts` now 376 lines orchestration
    - 5c behavior 는 `lazy:test`로 pin 됨
 
 B. Package/dependency health
    - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
    - `typecheck:node` fails on missing `electron-vite/node` + `@electron-toolkit/tsconfig`
-   - 5c-6 classifies this as environment/package health, not code drift
+   - ✅ `lazy:doctor` D07 classifies this as environment/package health warning, not code drift
 
 C. 5d Interview Loop 진입 준비
    - TDD cross-verify gate (ADR 0020)

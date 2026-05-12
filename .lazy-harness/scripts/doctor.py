@@ -207,6 +207,67 @@ def check_external_dependency_invariant() -> CheckResult:
     return ok("D06", "C17 external dependency invariant ok")
 
 
+TYPECHECK_ENV_PATTERNS = [
+    re.compile(r"Cannot find type definition file for", re.IGNORECASE),
+    re.compile(r"File .+ not found", re.IGNORECASE),
+    re.compile(r"Cannot read file", re.IGNORECASE),
+    re.compile(r"Cannot find module .+ or its corresponding type declarations", re.IGNORECASE),
+]
+
+TYPECHECK_CODE_PATTERNS = [
+    re.compile(r"Type .+ is not assignable to type", re.IGNORECASE),
+    re.compile(r"Property .+ does not exist on type", re.IGNORECASE),
+    re.compile(r"';' expected|Declaration or statement expected|Expression expected", re.IGNORECASE),
+]
+
+
+def classify_typecheck_line(line: str) -> str | None:
+    stripped = line.strip()
+    if not stripped or stripped.startswith("$"):
+        return None
+    if any(pattern.search(stripped) for pattern in TYPECHECK_ENV_PATTERNS):
+        return "environment"
+    if any(pattern.search(stripped) for pattern in TYPECHECK_CODE_PATTERNS):
+        return "code-drift"
+    if re.search(r"\berror\s+TS\d+:", stripped):
+        return "unknown"
+    if re.search(r"^.+\(\d+,\d+\):\s+error\s+TS\d+:", stripped):
+        return "unknown"
+    return None
+
+
+def check_package_health() -> CheckResult:
+    if not (ROOT / "package.json").exists():
+        return warn("D07", "package health skipped: package.json missing")
+
+    try:
+        completed = subprocess.run(
+            ["bun", "run", "typecheck:node"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+    except FileNotFoundError:
+        return warn("D07", "package health environment warning", ["bun executable not found"])
+    except subprocess.TimeoutExpired:
+        return warn("D07", "package health environment warning", ["typecheck:node timed out after 120s"])
+
+    combined = "\n".join(part for part in [completed.stdout, completed.stderr] if part)
+    diagnostics = [line.strip() for line in combined.splitlines() if classify_typecheck_line(line)]
+    categories = {classify_typecheck_line(line) for line in diagnostics}
+    categories.discard(None)
+
+    if completed.returncode == 0:
+        return ok("D07", "package health ok")
+    if categories and categories <= {"environment"}:
+        return warn("D07", "package health environment warning", diagnostics[:20])
+    if "code-drift" in categories or "unknown" in categories:
+        return fail("D07", "package health typecheck failed", diagnostics[:20] or combined.splitlines()[:20])
+    return warn("D07", "package health environment warning", combined.splitlines()[:20])
+
+
 SMOKE_CHECKS: list[Check] = [
     check_xml_parse,
     check_jsonl_parse,
@@ -218,6 +279,7 @@ SMOKE_CHECKS: list[Check] = [
 FULL_CHECKS: list[Check] = [
     *SMOKE_CHECKS,
     check_external_dependency_invariant,
+    check_package_health,
 ]
 
 

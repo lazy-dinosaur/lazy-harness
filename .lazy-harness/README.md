@@ -2,7 +2,7 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Phase 5b 완료 (lifecycle hooks 진짜 작동) + 5c-1~5c-4 완료 — SSOT detector 통합, 5c-5 진입 직전
+**현재 상태**: Phase 5c 완료 + post-5c detector extraction 완료 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
 
 ## ⚠ Branch 룰 (ADR 0021)
 
@@ -56,7 +56,7 @@ flowchart LR
 |---|---|---|
 | **5a** | ✅ closed (2026-05-10) | Self-Bootstrap (harness init / doctor / update) |
 | **5b** | ✅ closed (2026-05-10) | Lifecycle Hooks 진짜 작동 (M11 cascade) |
-| **5c** | 🟡 in progress | Code-Trigger Adapters (사용자 발화 + 코드 변경) — ADR 0013/0017 |
+| **5c** | ✅ complete (2026-05-12) | Code-Trigger Adapters (DDD/SDD/BDD/SSOT + cross-layer + structured ask + doctor) |
 | **5d** | 🔵 planned | Interview Loop (양방향 conflict resolution) |
 | **5e** | 🔵 planned | 실전 1 회 (medivance 다음 feature 통째로) |
 
@@ -135,11 +135,11 @@ flowchart LR
 ## Framework self-test (자동 검증)
 
 ```bash
-$ bun run lazy:test      # primary reproducible gate: doctor smoke + trigger fixtures + negative C17 test
-$ bun run lazy:doctor    # full framework doctor: D01~D06
+$ bun run lazy:test      # primary reproducible gate: doctor smoke + trigger fixtures + negative C17 + D07 package-health classification
+$ bun run lazy:doctor    # full framework doctor: D01~D07
 ```
 
-ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `lazy:test`이고, framework-owned full doctor 는 `.lazy-harness/scripts/doctor.py` / `bun run lazy:doctor` 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant 까지 검사한다.
+ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `lazy:test`이고, framework-owned full doctor 는 `.lazy-harness/scripts/doctor.py` / `bun run lazy:doctor` 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant 와 D07 package health classification 까지 검사한다.
 
 ## 다음 단계 — 5c 진입
 

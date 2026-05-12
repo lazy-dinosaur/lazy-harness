@@ -57,6 +57,26 @@ def check_doctor_c17_negative() -> None:
     print("✓ doctor C17 negative fixture ok")
 
 
+def check_doctor_package_health() -> None:
+    completed = subprocess.run(
+        ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", "--format", "json"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    payload = json.loads(completed.stdout)
+    results = {result.get("check_id"): result for result in payload.get("results", [])}
+    d07 = results.get("D07")
+    if not d07:
+        fail("doctor full missing D07 package health result")
+    if d07.get("status") not in {"ok", "warn"}:
+        fail("doctor D07 should be ok or warn, got: " + json.dumps(d07, ensure_ascii=False))
+    if d07.get("status") == "warn" and "environment" not in d07.get("message", ""):
+        fail("doctor D07 warning should classify environment/package health: " + json.dumps(d07, ensure_ascii=False))
+    print(f"✓ doctor D07 package health {d07.get('status')}")
+
+
 def check_xml() -> None:
     errors: list[str] = []
     for path in sorted(LAZY.rglob("*.xml")):
@@ -296,6 +316,7 @@ def check_cross_layer(result: dict) -> None:
 def main() -> None:
     check_doctor_smoke()
     check_doctor_c17_negative()
+    check_doctor_package_health()
     check_xml()
     check_jsonl()
     check_lint_output()

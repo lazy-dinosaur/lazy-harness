@@ -83,7 +83,7 @@ error TS2688: Cannot find type definition file for 'electron-vite/node'.
 tsconfig.node.json(2,13): error TS6053: File '@electron-toolkit/tsconfig/tsconfig.node.json' not found.
 ```
 
-Classification by 5c-6: environment/package health, not lazy-harness code drift.
+Classification by 5c-6 and doctor D07: environment/package health, not lazy-harness code drift.
 
 Likely root cause:
 
@@ -105,11 +105,15 @@ Recommended remediation sequence:
    ```bash
    bun run typecheck:node
    ```
-4. If still failing, add a doctor D07 package-health check that reports missing package/config as `environment` and keeps it separate from framework regression.
+4. Current framework status:
+   ```bash
+   bun run lazy:doctor
+   # D07 reports this as package health environment warning while known packages/configs are missing.
+   ```
 
 ## Success criteria for next work
 
 - Refactor preserves `lazy:test` output exactly.
 - `git diff --check` clean after each extraction.
 - `pre-push.sh origin dummy` leaves working tree clean.
-- Package health is either fixed or explicitly reported by doctor D07 as environment issue.
+- Package health is explicitly reported by doctor D07 as environment issue; dependency install/fix remains a separate remediation task.
