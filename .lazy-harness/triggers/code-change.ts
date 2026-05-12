@@ -12,6 +12,7 @@ import {
   TypeAliasDeclaration,
   VariableDeclaration,
 } from 'ts-morph';
+import { compactSignature, isTypescriptFile, normalizePath, splitIdentifierWords, unique } from './common';
 import { buildCrossLayerMap } from './cross-layer';
 import { validateStructuredAsks } from './structured-ask';
 import type {
@@ -865,16 +866,17 @@ function getDddReferenceTerms(contract: ContractCandidate, knownDddTerms: Set<st
 }
 
 function uniqueTermsByLower(terms: string[]): string[] {
-  const byLower = new Map<string, string>();
+  const seen = new Set<string>();
+  const result: string[] = [];
   for (const term of terms) {
     const key = term.toLowerCase();
-    const existing = byLower.get(key);
-    if (!existing || (/^[A-Z][a-z0-9]+$/.test(term) && /^[A-Z0-9]+$/.test(existing))) {
-      byLower.set(key, term);
-    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(term);
   }
-  return [...byLower.values()];
+  return result;
 }
+
 
 function isMeaningfulDddTerm(term: string): boolean {
   if (!term || isZodExpressionText(term)) return false;
@@ -1327,25 +1329,6 @@ function inferDddTerms(name: string): string[] {
 function isZodExpressionText(value: string): boolean {
   return /\bz\s*\./.test(value) || /\bZ(?:od)?(?:Object|String|Number|Array|Enum|Boolean|Date|Union|Literal)\b/i.test(value);
 }
-
-function splitIdentifierWords(value: string): string[] {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_\-./]+/g, ' ')
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean)
-    .map((word) => word.toLowerCase());
-}
-
-function compactSignature(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
-}
-
-function unique<T>(items: T[]): T[] {
-  return [...new Set(items)];
-}
-
 function countTypeMembers(typeNodeText: string): number {
   const objectMatch = typeNodeText.match(/^\s*\{([\s\S]*)\}\s*$/);
   if (!objectMatch) return 0;
@@ -1363,13 +1346,7 @@ function isPascalCase(value: string): boolean {
   return /^[A-Z][A-Za-z0-9]*$/.test(value);
 }
 
-function isTypescriptFile(filePath: string): boolean {
-  return /\.(ts|tsx)$/.test(filePath) && !/\.(test|spec)\.(ts|tsx)$/.test(filePath);
-}
 
-function normalizePath(filePath: string): string {
-  return path.relative(process.cwd(), path.resolve(filePath)).replaceAll('\\', '/');
-}
 
 // === BDD detector (5c-3, ADR 0018 cross-ref + ADR 0019 force gate) ===
 // Integration notes:
