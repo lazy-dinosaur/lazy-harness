@@ -152,23 +152,27 @@ lazy-harness 에서 테스트는 **AI 정확도 강제 메커니즘** 이다.
 
 ## 6. 우선순위 로드맵 (다음 작업 순서)
 
-north-star 를 달성하기 위해 다음 순서로 구축한다.  
-각 항목은 별도 plan / spec 으로 expand 된다.
+north-star 를 달성하기 위해 다음 순서로 구축한다.
+**측정 가능한 산출물 / 완료 기준 / 의존성** 은 별도 마일스톤 문서로 정식화했다:
 
-| 순위 | 작업                                   | 산출물                                       | 상태 |
-|------|----------------------------------------|----------------------------------------------|------|
-| A    | **Layer Impact Completion Gate**       | hook + schema + force-gate policy            | TODO |
-| B    | **Map-aware Reference Resolver**       | resolver script + cross-layer link 규칙      | TODO |
-| C    | **Side-effect / Regression / Domain Invariant Gate** | gate script + 검사 규칙 정의 | TODO |
-| D    | **Project Profile Skill (skill-first)** | skill + 자동 진입 hook                      | TODO |
-| E    | **Auto Record Update Executor 강화**   | DDD/SDD/BDD/ADR auto-update + hook 재검��    | TODO |
-| F    | **Portable Report**                    | gate evidence 누적 → framework 자가 개선     | TODO |
+- 실행 마일스톤 (N1~N8): [`../trails/02-north-star-milestones.xml`](../trails/02-north-star-milestones.xml)
+- 제품 PRD: [`../prd/framework-prd.md`](../prd/framework-prd.md)
+- framework 전체 phase 축 (M0~M10): [`../trails/01-long-term-roadmap.xml`](../trails/01-long-term-roadmap.xml)
 
-다른 보조 작업:
+요약:
 
-- Feature Navigation Map — "이 기능은 어느 map 에서 출발해야 하는가" 규칙 정의
-- Drift / Conflict Detector — 같은 개념의 정의 불일치 자동 검출
-- Lifecycle Hook 통합 — response.completed / pre-commit / pre-push 일관 동작
+| 순위 | 작업                                              | 마일스톤 | 산출물                                     | 상태 |
+|------|---------------------------------------------------|----------|--------------------------------------------|------|
+| A    | **Layer Impact Completion Gate**                  | N1       | hook + schema + force-gate policy          | planned |
+| B    | **Map-aware Reference Resolver**                  | N2       | resolver script + cross-layer link 규칙    | planned |
+| C    | **Side-effect / Regression / Domain Invariant Gate** | N3   | gate script + 3 검사 통합 schema          | planned |
+| D    | **Project Profile Skill (skill-first)**           | N4       | skill + 자동 진입 hook                     | planned |
+| E    | **Auto Record Update Executor 강화**              | N5       | DDD/SDD/BDD/ADR auto-update + hook 재검증  | planned |
+| F    | **Portable Report**                               | N7       | gate evidence 누적 → framework 자가 개선   | planned |
+| aux  | Drift / Conflict Detector                         | N6       | 같은 개념 정의 불일치 자동 검출            | planned |
+| aux  | Lifecycle Hook 통합                               | N8       | response.completed / pre-commit / pre-push 일관 | planned |
+
+각 N* 마일스톤은 trails 문서에서 success criteria + 의존성 + 관련 FR 까지 정의되어 있다.
 
 ---
 

@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<northStarMilestones version="1.0" lastUpdated="2026-05-12">
+  <!--
+    이 파일은 north-star (accuracy + no-regression) 를 달성하기 위한
+    **실행 축 마일스톤** 을 정의한다.
+
+    01-long-term-roadmap.xml 의 M0~M10 은 framework 전체 phase 축.
+    이 파일의 N1~N7 은 north-star 7 개 BLOCKING gate 의 실제 구현 축.
+    두 축은 직교한다.
+
+    참고:
+    - 목표 그림: plans/north-star-accuracy-and-no-regression.md
+    - 제품 PRD: prd/framework-prd.md
+    - 규칙층:   framework/framework-contract.md
+
+    원칙:
+    - 각 마일스톤은 측정 가능한 산출물을 가진다 (file / hook / schema / log).
+    - 사람 손 없이 hook 이 강제할 수 있어야 한다 (Auto Record Update 포함).
+    - "looks fine" silent skip 을 만들지 않는다.
+  -->
+
+  <northStarLink>
+    <doc>../plans/north-star-accuracy-and-no-regression.md</doc>
+    <prd>../prd/framework-prd.md</prd>
+    <contract>../framework/framework-contract.md</contract>
+  </northStarLink>
+
+  <legend>
+    <priorityValues>critical | high | medium | low</priorityValues>
+    <statusValues>planned | in-progress | done | blocked</statusValues>
+  </legend>
+
+  <milestones>
+
+    <!-- N1: Layer Impact Completion Gate (north-star A) -->
+    <milestone id="N1" status="planned" priority="critical" target="2026-06-15">
+      <name>Layer Impact Completion Gate</name>
+      <northStarPriority>A (1st)</northStarPriority>
+      <rationale>
+        작업이 끝나기 전에 DDD/SDD/BDD/TDD/ADR 중 갱신이 필요한 layer 가 누락됐는지
+        hook 으로 block. 모든 다른 gate 의 진입점이라 가장 먼저 둔다.
+      </rationale>
+      <successCriteria>
+        <criterion>schemas/layer-impact-result.schema.json 정의 (Unified Result Schema 준수)</criterion>
+        <criterion>scripts/layer-impact-gate.ts (변경된 파일 → 영향 layer 목록 산출)</criterion>
+        <criterion>response.completed hook 에서 호출, 누락 시 force-gate</criterion>
+        <criterion>pre-commit / pre-push 동일 호출 일관성 유지</criterion>
+        <criterion>logs/validations.jsonl 에 결과 append</criterion>
+        <criterion>host-project 실제 변경 3 회로 true positive 검증</criterion>
+      </successCriteria>
+      <dependsOn>none</dependsOn>
+      <relatedFR>FR-2</relatedFR>
+    </milestone>
+
+    <!-- N2: Map-aware Reference Resolver (north-star B) -->
+    <milestone id="N2" status="planned" priority="critical" target="2026-06-30">
+      <name>Map-aware Reference Resolver</name>
+      <northStarPriority>B (2nd)</northStarPriority>
+      <rationale>
+        단순 grep 이 아닌 cross-layer link 기반으로 변경 ↔ 관련 record 매핑.
+        Gate 들이 정확하게 동작하려면 resolver 가 정확해야 한다.
+      </rationale>
+      <successCriteria>
+        <criterion>schemas/reference-map.schema.json (file ↔ record ↔ layer ↔ link kind)</criterion>
+        <criterion>scripts/reference-resolver.ts (input: changed files + intent, output: matched records)</criterion>
+        <criterion>generated/reference-index.json 자동 생성/갱신</criterion>
+        <criterion>recall ≥ 0.9 / precision ≥ 0.8 (host-project pilot 기준)</criterion>
+        <criterion>resolver 결과를 Layer Impact Gate 가 직접 소비</criterion>
+      </successCriteria>
+      <dependsOn>N1</dependsOn>
+      <relatedFR>FR-1</relatedFR>
+    </milestone>
+
+    <!-- N3: Side-effect / Regression / Domain Invariant Gate (north-star C) -->
+    <milestone id="N3" status="planned" priority="critical" target="2026-07-31">
+      <name>Side-effect / Regression / Domain-Invariant Gate</name>
+      <northStarPriority>C (3rd)</northStarPriority>
+      <rationale>
+        north-star §1 의 실패 유형 1, 4, 5 를 직접 차단. 세 검사는 각각 다르지만
+        같은 hook pipeline 안에서 sequential 로 돌린다.
+      </rationale>
+      <successCriteria>
+        <criterion>scripts/side-effect-scan.ts (인접 영향 영역 / cache / cross-domain query)</criterion>
+        <criterion>scripts/regression-scan.ts (regression/ 로그 + 보호 BDD/TDD 위반 검사)</criterion>
+        <criterion>scripts/domain-invariant-scan.ts (DDD term / bounded-context / 정책 위반)</criterion>
+        <criterion>3 검사 통합 result schema (schemas/gate-bundle-result.schema.json)</criterion>
+        <criterion>위반 시 block + 구조화 옵션 질문 (자유 문답 금지)</criterion>
+        <criterion>host-project 실제 변경에서 cache-invalidation 누락 1 건 자동 catch</criterion>
+      </successCriteria>
+      <dependsOn>N2</dependsOn>
+      <relatedFR>FR-3, FR-4, FR-5</relatedFR>
+    </milestone>
+
+    <!-- N4: Project Profile Skill (north-star D) -->
+    <milestone id="N4" status="planned" priority="high" target="2026-08-15">
+      <name>Project Profile Skill (skill-first 진입)</name>
+      <northStarPriority>D (4th)</northStarPriority>
+      <rationale>
+        작업 시작 시 project profile + feature navigation map 을 먼저 읽도록 강제.
+        skill-first 로 묶어 모든 host-project 에서 동일 진입.
+      </rationale>
+      <successCriteria>
+        <criterion>scripts/project-profile.ts --mode inspect / interview / apply</criterion>
+        <criterion>project/feature-navigation.xml schema + 자동 생성</criterion>
+        <criterion>skill 등록 (manifests/skills.xml: lazy-project-profile)</criterion>
+        <criterion>session start 시 profile 누락 → force question</criterion>
+        <criterion>host-project 에서 1 회 인터뷰 → durable decision JSONL append</criterion>
+      </successCriteria>
+      <dependsOn>N2</dependsOn>
+      <relatedFR>FR-8, FR-9</relatedFR>
+    </milestone>
+
+    <!-- N5: Auto Record Update Executor (north-star E) -->
+    <milestone id="N5" status="planned" priority="high" target="2026-08-31">
+      <name>Auto Record Update Executor 강화</name>
+      <northStarPriority>E (5th)</northStarPriority>
+      <rationale>
+        hook 이 누락 layer 를 지적하면 AI 가 직접 record 를 갱신.
+        사람이 매번 적는 비용을 0 으로. 갱신 후 hook 재검증으로 silent skip 방지.
+      </rationale>
+      <successCriteria>
+        <criterion>scripts/record-update-executor.ts (input: gate finding, output: patch + log)</criterion>
+        <criterion>DDD/SDD/BDD/ADR 각 layer 별 writer 구현 (4 writer 클래스)</criterion>
+        <criterion>갱신 후 N1 Layer Impact Gate 자동 재실행 (loop safety: max 3 회, Principle 5)</criterion>
+        <criterion>diff cap 준수 (Principle 5) — 한 record 변경 N 줄 초과 시 사람 ask</criterion>
+        <criterion>host-project 변경 5 회에서 평균 ≥ 70 % auto-update 비율 달성</criterion>
+      </successCriteria>
+      <dependsOn>N1, N3</dependsOn>
+      <relatedFR>FR-7</relatedFR>
+    </milestone>
+
+    <!-- N6: Drift / Conflict Detector (north-star 보조 1) -->
+    <milestone id="N6" status="planned" priority="medium" target="2026-09-15">
+      <name>Drift / Conflict Detector</name>
+      <northStarPriority>aux (drift)</northStarPriority>
+      <rationale>
+        같은 개념이 여러 곳에 다르게 정의된 경우 자동 검출.
+        north-star §1 실패 #7 차단. Conflict Resolution Protocol (Principle 17) 와 연결.
+      </rationale>
+      <successCriteria>
+        <criterion>scripts/drift-detector.ts (term / contract / scenario 중복 탐지)</criterion>
+        <criterion>탐지 시 8-step strict Conflict Resolution flow 진입</criterion>
+        <criterion>자동 정정 가능 케이스 + 사람 ask 케이스 분리</criterion>
+        <criterion>logs/validations.jsonl 에 drift 결과 append</criterion>
+      </successCriteria>
+      <dependsOn>N2</dependsOn>
+      <relatedFR>FR-6</relatedFR>
+    </milestone>
+
+    <!-- N7: Portable Report (north-star F) -->
+    <milestone id="N7" status="planned" priority="medium" target="2026-10-31">
+      <name>Portable Report (framework 자가 개선용 evidence)</name>
+      <northStarPriority>F (6th)</northStarPriority>
+      <rationale>
+        gate / question / record-update 결과를 외부로 가지고 나갈 수 있는 포맷으로 출력.
+        framework 자가 개선 (M10) 의 기반 데이터.
+      </rationale>
+      <successCriteria>
+        <criterion>scripts/report-export.ts (markdown + JSON 동시 출력)</criterion>
+        <criterion>schemas/portable-report.schema.json</criterion>
+        <criterion>분기당 1 회 자동 생성 hook</criterion>
+        <criterion>reports/host-report-YYYYMMDD.{md,json} 산출</criterion>
+        <criterion>최소 1 건의 framework 개선 ADR 이 이 report 를 근거로 작성</criterion>
+      </successCriteria>
+      <dependsOn>N1, N3, N5</dependsOn>
+      <relatedFR>FR-11</relatedFR>
+    </milestone>
+
+    <!-- N8: Lifecycle Hook 통합 (north-star 보조 2) -->
+    <milestone id="N8" status="planned" priority="medium" target="2026-11-15">
+      <name>Lifecycle Hook 통합 (response.completed / pre-commit / pre-push)</name>
+      <northStarPriority>aux (lifecycle)</northStarPriority>
+      <rationale>
+        N1~N7 의 모든 gate 가 세 hook 시점에서 동일하게 동작해야 silent skip 0.
+      </rationale>
+      <successCriteria>
+        <criterion>hooks/response-completed.ts / pre-commit / pre-push 단일 entry 통합</criterion>
+        <criterion>세 hook 모두 Unified Result Schema 반환</criterion>
+        <criterion>실패 시 사람-친화 메시지 + 자동 회복 후보 (R1~R4) 제시</criterion>
+        <criterion>host-project 1 주일 사용에서 silent skip 0 건 (logs 분석)</criterion>
+      </successCriteria>
+      <dependsOn>N1, N3, N5</dependsOn>
+      <relatedFR>FR-10</relatedFR>
+    </milestone>
+
+  </milestones>
+
+  <mapToFrameworkPhase>
+    <!-- north-star 마일스톤이 long-term roadmap M 와 어떻게 겹치는가 -->
+    <entry phaseM="M2 (Lifecycle Hooks)" nIds="N1, N8"/>
+    <entry phaseM="M3 (Code-Trigger Adapters)" nIds="N2, N3, N6"/>
+    <entry phaseM="M4 (Interview Loop)" nIds="N4, N5"/>
+    <entry phaseM="M5 (실전 적용)" nIds="N1~N8 host-project pilot"/>
+    <entry phaseM="M6+ (Skill 생태계 / Daemon / Template)" nIds="N7 portable report, N4 skill"/>
+  </mapToFrameworkPhase>
+
+  <reviewCadence>
+    <weekly>N* 진행률 + blocker 확인</weekly>
+    <perMilestone>완료 시 retrospective/metrics/ 갱신 + ADR 후보 검토</perMilestone>
+    <onConflict>북극성 (plans/north-star-...) 과 충돌 시 north-star 우선</onConflict>
+  </reviewCadence>
+
+</northStarMilestones>
