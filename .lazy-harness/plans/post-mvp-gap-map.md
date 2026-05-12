@@ -46,6 +46,7 @@ The first host-project pilot is complete and documented in `retrospective/e2e/5e
 | Hook lifecycle docs need final alignment with jcode core | Medium | Users must understand when lifecycle outputs re-enter the LLM | Finalize hook lifecycle documentation with concrete payload/continuation examples |
 | Standalone extraction not performed yet | Critical after pilot | lazy-harness must not keep living as host-project internals | Execute `.lazy-harness/plans/extract-to-lazy-harness-repo.md` |
 | Project Init Interview not implemented yet | High | new projects need stack/test/architecture/design decisions captured before coding | Implement `.lazy-harness/plans/project-init-interview-spec.md` after extraction |
+| Portable host-project report not implemented yet | Medium | after standalone extraction, host projects need a copy/pasteable report so framework repo can learn from real usage without relying on chat history | Implement `.lazy-harness/plans/report-and-knowledge-roadmap.md` after Project Init Interview; defer DB/RAG until report JSON proves useful |
 
 ## 4. Recommended next execution sequence
 
@@ -54,8 +55,10 @@ The first host-project pilot is complete and documented in `retrospective/e2e/5e
 3. Prepare standalone `lazy-harness` repository extraction.
 4. Implement Project Init Interview in standalone repo.
 5. Generate project test strategy during init.
-6. Expand affected-test routing to Playwright/e2e/workspaces.
-7. Add artifact-diff aftershock mapping after extraction.
+6. Implement portable `lazy:report` Markdown + JSON export.
+7. Expand affected-test routing to Playwright/e2e/workspaces.
+8. Add artifact-diff aftershock mapping after extraction.
+9. Consider DB/RAG ingestion only after report JSON proves useful.
 
 ## 5. Validation baseline
 
