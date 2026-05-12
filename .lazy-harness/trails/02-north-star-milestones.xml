@@ -33,7 +33,7 @@
   <milestones>
 
     <!-- N1: Layer Impact Completion Gate (north-star A) -->
-    <milestone id="N1" status="planned" priority="critical" target="2026-06-15">
+    <milestone id="N1" status="in-progress" priority="critical" target="2026-06-15">
       <name>Layer Impact Completion Gate</name>
       <northStarPriority>A (1st)</northStarPriority>
       <rationale>
@@ -41,15 +41,24 @@
         hook 으로 block. 모든 다른 gate 의 진입점이라 가장 먼저 둔다.
       </rationale>
       <successCriteria>
-        <criterion>schemas/layer-impact-result.schema.json 정의 (Unified Result Schema 준수)</criterion>
-        <criterion>scripts/layer-impact-gate.ts (변경된 파일 → 영향 layer 목록 산출)</criterion>
-        <criterion>response.completed hook 에서 호출, 누락 시 force-gate</criterion>
-        <criterion>pre-commit / pre-push 동일 호출 일관성 유지</criterion>
-        <criterion>logs/validations.jsonl 에 결과 append</criterion>
-        <criterion>host-project 실제 변경 3 회로 true positive 검증</criterion>
+        <criterion status="done">schemas/layer-impact-result.schema.json 정의 (Unified Result Schema 준수)</criterion>
+        <criterion status="done">scripts/layer-impact-gate.ts (변경된 파일 → 영향 layer 목록 산출; heuristic-only v0)</criterion>
+        <criterion status="planned">response.completed hook 에서 호출, 누락 시 force-gate</criterion>
+        <criterion status="planned">pre-commit / pre-push 동일 호출 일관성 유지</criterion>
+        <criterion status="done">logs/validations.jsonl 에 결과 append (--append-validation flag)</criterion>
+        <criterion status="planned">host-project 실제 변경 3 회로 true positive 검증 (fixture 3 OK; host pilot 별도)</criterion>
       </successCriteria>
       <dependsOn>none</dependsOn>
       <relatedFR>FR-2</relatedFR>
+      <currentArtifacts>
+        <file>.lazy-harness/schemas/layer-impact-result.schema.json</file>
+        <file>.lazy-harness/scripts/layer-impact-gate.ts</file>
+        <file>.lazy-harness/triggers/fixtures/layer-impact/A-prod-only-no-records.json</file>
+        <file>.lazy-harness/triggers/fixtures/layer-impact/B-prod-with-domain-record-update.json</file>
+        <file>.lazy-harness/triggers/fixtures/layer-impact/C-record-only.json</file>
+        <file>.lazy-harness/manifests/skills.xml (lazy-layer-impact-gate entry)</file>
+        <test>self-test.py check_layer_impact_gate (3 fixtures green)</test>
+      </currentArtifacts>
     </milestone>
 
     <!-- N2: Map-aware Reference Resolver (north-star B) -->

@@ -32,6 +32,16 @@
     <emitsLogs>true</emitsLogs>
   </skill>
 
+  <skill id="lazy-layer-impact-gate" status="alpha" phase="N1">
+    <location>.lazy-harness/scripts/layer-impact-gate.ts</location>
+    <description>N1 — Layer Impact Completion Gate (north-star priority A). For a given changed-file set, decide which of DDD/SDD/BDD/TDD/ADR record layers are impacted vs updated and emit a Unified Result Schema document conforming to schemas/layer-impact-result.schema.json. Heuristic-only v0 (resolverVersion=null) until N2 reference resolver lands.</description>
+    <command>bun .lazy-harness/scripts/layer-impact-gate.ts --file &lt;path&gt; [--file ...]</command>
+    <command>bun .lazy-harness/scripts/layer-impact-gate.ts --from HEAD~1 --to HEAD --append-validation</command>
+    <emitsLogs>true</emitsLogs>
+    <ownsArtifacts>.lazy-harness/schemas/layer-impact-result.schema.json</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/triggers/fixtures/layer-impact/*.json</ownsArtifacts>
+  </skill>
+
   <!-- DDD/SDD/BDD/TDD/ADR are core record layers, not automatically separate skills.
        Promote a layer-specific skill only when repeated real host-project use proves
        a concrete workflow, command, and artifact contract. -->

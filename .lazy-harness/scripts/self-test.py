@@ -680,6 +680,77 @@ def check_cross_layer(result: dict) -> None:
         fail("structured ask validation issues must be empty: " + json.dumps(structured_ask.get("issues"), ensure_ascii=False))
 
 
+def check_layer_impact_gate() -> None:
+    """N1 — Layer Impact Completion Gate fixtures.
+
+    Run each fixture under .lazy-harness/triggers/fixtures/layer-impact/*.json
+    through scripts/layer-impact-gate.ts and assert the projection
+    (status / humanRequired / missingLayers / layerImpactSummary) matches.
+    """
+    fixtures_dir = LAZY / "triggers" / "fixtures" / "layer-impact"
+    if not fixtures_dir.exists():
+        fail("N1 fixture dir missing: .lazy-harness/triggers/fixtures/layer-impact")
+    fixtures = sorted(fixtures_dir.glob("*.json"))
+    if len(fixtures) < 3:
+        fail(f"N1 fixtures must have >=3 cases, got {len(fixtures)}")
+    for fx_path in fixtures:
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
+        cli_args = [
+            "bun",
+            str(LAZY / "scripts" / "layer-impact-gate.ts"),
+        ]
+        for ff in fx["input"]["files"]:
+            flag = "--added" if ff["changeKind"] == "added" else (
+                "--deleted" if ff["changeKind"] == "deleted" else "--file"
+            )
+            cli_args.extend([flag, ff["path"]])
+        completed = subprocess.run(
+            cli_args,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode not in (0, 1):
+            fail(
+                f"N1 gate exit unexpected for {fx_path.name}: "
+                f"code={completed.returncode} stderr={completed.stderr.strip()}"
+            )
+        try:
+            got = json.loads(completed.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"N1 gate output not valid JSON for {fx_path.name}: {exc}")
+        expected = fx["expect"]
+        if got.get("status") != expected["status"]:
+            fail(
+                f"N1 {fx_path.name}: status got={got.get('status')} expected={expected['status']}"
+            )
+        if got.get("humanRequired") != expected["humanRequired"]:
+            fail(
+                f"N1 {fx_path.name}: humanRequired got={got.get('humanRequired')} "
+                f"expected={expected['humanRequired']}"
+            )
+        if got.get("missingLayers") != expected["missingLayers"]:
+            fail(
+                f"N1 {fx_path.name}: missingLayers got={got.get('missingLayers')} "
+                f"expected={expected['missingLayers']}"
+            )
+        for layer, exp_entry in expected["layerImpactSummary"].items():
+            got_entry = got.get("layerImpact", {}).get(layer, {})
+            for k, v in exp_entry.items():
+                if got_entry.get(k) != v:
+                    fail(
+                        f"N1 {fx_path.name}: layerImpact.{layer}.{k} "
+                        f"got={got_entry.get(k)} expected={v}"
+                    )
+        if got.get("resolverVersion") != expected.get("resolverVersion"):
+            fail(
+                f"N1 {fx_path.name}: resolverVersion got={got.get('resolverVersion')} "
+                f"expected={expected.get('resolverVersion')}"
+            )
+    print(f"✓ N1 layer-impact-gate ok ({len(fixtures)} fixtures)")
+
+
 def main() -> None:
     check_doctor_smoke()
     check_doctor_c17_negative()
@@ -697,6 +768,7 @@ def main() -> None:
     check_real_feature_walkthrough()
     check_e2e_demo()
     check_triggers()
+    check_layer_impact_gate()
     print("lazy-harness self-test ok")
 
 

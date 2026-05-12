@@ -1,0 +1,21 @@
+{
+  "name": "record-only",
+  "description": "Only a record file under .lazy-harness/domain/ is touched. No production source change, no detector signals, no impacted layer. missingLayers stays empty and humanRequired is false.",
+  "input": {
+    "files": [
+      { "path": ".lazy-harness/domain/ubiquitous-language.xml", "changeKind": "modified" }
+    ],
+    "source": "manual"
+  },
+  "expect": {
+    "status": "pass",
+    "humanRequired": false,
+    "missingLayers": [],
+    "layerImpactSummary": {
+      "ddd": { "impacted": false, "updated": true },
+      "tdd": { "impacted": false, "updated": false },
+      "adr": { "impacted": false, "updated": false }
+    },
+    "resolverVersion": null
+  }
+}

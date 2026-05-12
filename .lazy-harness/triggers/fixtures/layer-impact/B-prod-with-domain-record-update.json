@@ -1,0 +1,21 @@
+{
+  "name": "prod-with-paired-test",
+  "description": "Production source modified AND a matching test file added in the same change set. N1 v0 should treat this as TDD updated=true, leaving missingLayers empty.",
+  "input": {
+    "files": [
+      { "path": "src/main/services/patient-risk.ts", "changeKind": "modified" },
+      { "path": "src/main/services/__tests__/patient-risk.test.ts", "changeKind": "added" }
+    ],
+    "source": "manual"
+  },
+  "expect": {
+    "status": "pass",
+    "humanRequired": false,
+    "missingLayers": [],
+    "layerImpactSummary": {
+      "tdd": { "updated": true },
+      "adr": { "impacted": false, "updated": false }
+    },
+    "resolverVersion": null
+  }
+}

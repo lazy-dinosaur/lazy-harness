@@ -1,0 +1,23 @@
+{
+  "name": "prod-without-test",
+  "description": "Production source modified, no test file paired and no record dir touched. N1 v0 should flag missingLayers=['tdd'] (production change without matching test). Independent of detector signals — purely path-pattern projection.",
+  "input": {
+    "files": [
+      { "path": "src/main/services/patient-risk.ts", "changeKind": "modified" }
+    ],
+    "source": "manual"
+  },
+  "expect": {
+    "status": "pass",
+    "humanRequired": true,
+    "missingLayers": ["tdd"],
+    "layerImpactSummary": {
+      "ddd": { "updated": false },
+      "sdd": { "updated": false },
+      "bdd": { "updated": false },
+      "tdd": { "impacted": true, "updated": false },
+      "adr": { "impacted": false, "updated": false }
+    },
+    "resolverVersion": null
+  }
+}
