@@ -167,6 +167,29 @@ def run_interview_collect(queue: pathlib.Path) -> dict:
     return json.loads(completed.stdout)
 
 
+def run_interview_answer(queue: pathlib.Path, decisions: pathlib.Path, question_id: str, answer: str, apply: bool = False) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/interview-loop.ts",
+        "--mode",
+        "answer",
+        "--queue",
+        str(queue.relative_to(ROOT)),
+        "--decisions",
+        str(decisions.relative_to(ROOT)),
+        "--question-id",
+        question_id,
+        "--answer",
+        answer,
+        "--format",
+        "json",
+    ]
+    if apply:
+        command.append("--apply")
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -185,6 +208,35 @@ def check_interview_loop_collect() -> None:
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-1 interview-loop collect ok")
+
+
+def check_interview_loop_answer() -> None:
+    queue = LAZY / "questions" / f"__tmp_interview_answer_open_{os.getpid()}.xml"
+    decisions = LAZY / "logs" / f"__tmp_interview_decisions_{os.getpid()}.jsonl"
+    queue.unlink(missing_ok=True)
+    decisions.unlink(missing_ok=True)
+    try:
+        collect = run_interview_collect(queue)
+        question_id = collect["questions"][2]["id"]
+        preview = run_interview_answer(queue, decisions, question_id, "A", apply=False)
+        if preview.get("applied") is not False or not preview.get("warnings"):
+            fail("interview-loop answer preview changed: " + json.dumps(preview, ensure_ascii=False))
+        if decisions.exists():
+            fail("interview-loop preview must not create decisions file")
+        applied = run_interview_answer(queue, decisions, question_id, "A", apply=True)
+        if applied.get("applied") is not True or not applied.get("decision"):
+            fail("interview-loop answer apply changed: " + json.dumps(applied, ensure_ascii=False))
+        root = ET.parse(queue).getroot()
+        matched = [question for question in root.findall("question") if question.attrib.get("id") == question_id]
+        if not matched or matched[0].attrib.get("status") != "answered" or not matched[0].attrib.get("decisionId"):
+            fail("interview-loop answered status not persisted")
+        decision_lines = [json.loads(line) for line in decisions.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(decision_lines) != 1 or decision_lines[0].get("source") != "interview-loop" or decision_lines[0].get("questionId") != question_id:
+            fail("interview-loop decision log changed: " + json.dumps(decision_lines, ensure_ascii=False))
+    finally:
+        queue.unlink(missing_ok=True)
+        decisions.unlink(missing_ok=True)
+    print("✓ 5d-2 interview-loop answer ok")
 
 
 def check_lint_output() -> None:
@@ -358,6 +410,7 @@ def main() -> None:
     check_jsonl()
     check_lint_output()
     check_interview_loop_collect()
+    check_interview_loop_answer()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")

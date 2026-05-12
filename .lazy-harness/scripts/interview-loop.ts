@@ -1,12 +1,16 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 interface CliOptions {
-  mode: 'collect';
+  mode: 'collect' | 'answer';
   input?: string;
   queue: string;
+  decisions: string;
   format: 'json' | 'text';
+  questionId?: string;
+  answer?: string;
+  apply: boolean;
 }
 
 interface TriggerAskOption {
@@ -65,7 +69,7 @@ interface InterviewQuestion {
   id: string;
   criterionId: '5d-1';
   source: 'trigger-candidate' | 'cross-layer-gap';
-  status: 'open';
+  status: 'open' | 'answered' | 'superseded' | 'deferred';
   depth: number;
   fingerprint: string;
   candidateName?: string;
@@ -75,11 +79,8 @@ interface InterviewQuestion {
   options: InterviewOption[];
   crossRef?: unknown;
   createdAt: string;
-}
-
-interface ExistingQuestion {
-  fingerprint: string;
-  raw: string;
+  answeredAt?: string;
+  decisionId?: string;
 }
 
 interface CollectResult {
@@ -93,15 +94,40 @@ interface CollectResult {
   warnings: string[];
 }
 
+interface DecisionRecord {
+  id: string;
+  source: 'interview-loop';
+  questionId: string;
+  selectedOption: string;
+  summary: string;
+  effects: Array<Record<string, unknown>>;
+  aftershockDepth: number;
+  createdAt: string;
+}
+
+interface AnswerResult {
+  ok: boolean;
+  mode: 'answer';
+  queue: string;
+  decisions: string;
+  applied: boolean;
+  questionId: string;
+  selectedOption: string;
+  effects: Array<Record<string, unknown>>;
+  decision?: DecisionRecord;
+  warnings: string[];
+}
+
 const DEFAULT_QUEUE = '.lazy-harness/questions/open.xml';
+const DEFAULT_DECISIONS = '.lazy-harness/logs/decisions.jsonl';
 
 function parseCliArgs(argv: string[]): CliOptions {
-  const opts: CliOptions = { mode: 'collect', queue: DEFAULT_QUEUE, format: 'json' };
+  const opts: CliOptions = { mode: 'collect', queue: DEFAULT_QUEUE, decisions: DEFAULT_DECISIONS, format: 'json', apply: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const next = argv[i + 1];
     if (arg === '--mode' && next) {
-      if (next !== 'collect') throw new Error(`Unsupported mode for 5d-1: ${next}`);
+      if (next !== 'collect' && next !== 'answer') throw new Error(`Unsupported mode: ${next}`);
       opts.mode = next;
       i += 1;
     } else if ((arg === '--input' || arg === '--file') && next) {
@@ -110,6 +136,17 @@ function parseCliArgs(argv: string[]): CliOptions {
     } else if (arg === '--queue' && next) {
       opts.queue = next;
       i += 1;
+    } else if (arg === '--decisions' && next) {
+      opts.decisions = next;
+      i += 1;
+    } else if (arg === '--question-id' && next) {
+      opts.questionId = next;
+      i += 1;
+    } else if ((arg === '--answer' || arg === '--option') && next) {
+      opts.answer = next;
+      i += 1;
+    } else if (arg === '--apply') {
+      opts.apply = true;
     } else if (arg === '--format' && (next === 'json' || next === 'text')) {
       opts.format = next;
       i += 1;
@@ -248,25 +285,84 @@ function escapeXml(value: unknown): string {
     .replace(/'/g, '&apos;');
 }
 
+function decodeXml(value: string): string {
+  return value
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&');
+}
+
 function parseAttributes(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   for (const match of raw.matchAll(/([A-Za-z0-9_-]+)="([^"]*)"/g)) {
-    attrs[match[1]] = match[2];
+    attrs[match[1]] = decodeXml(match[2]);
   }
   return attrs;
 }
 
-function readExistingQuestions(queue: string): ExistingQuestion[] {
+function tagText(raw: string, tag: string): string {
+  const match = raw.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+  return match?.[1] ? decodeXml(match[1].trim()) : '';
+}
+
+function parseJsonText(raw: string, fallback: unknown): unknown {
+  const text = decodeXml(raw.trim());
+  if (!text) return fallback;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
+function parseOptions(raw: string): InterviewOption[] {
+  const optionsRaw = raw.match(/<options>[\s\S]*?<\/options>/)?.[0] ?? '';
+  const options: InterviewOption[] = [];
+  for (const match of optionsRaw.matchAll(/<option\b([^>]*)>[\s\S]*?<\/option>/g)) {
+    const optionRaw = match[0];
+    const attrs = parseAttributes(match[1] ?? '');
+    options.push({
+      id: attrs.id,
+      label: tagText(optionRaw, 'label'),
+      ...(tagText(optionRaw, 'description') ? { description: tagText(optionRaw, 'description') } : {}),
+      effects: parseJsonText(tagText(optionRaw, 'effects'), []) as Array<Record<string, unknown>>,
+    });
+  }
+  return options;
+}
+
+function parseQuestion(raw: string): InterviewQuestion | null {
+  const openTag = raw.match(/<question\b([^>]*)>/);
+  if (!openTag) return null;
+  const attrs = parseAttributes(openTag[1] ?? '');
+  if (!attrs.id || !attrs.fingerprint) return null;
+  return {
+    id: attrs.id,
+    criterionId: '5d-1',
+    source: attrs.source === 'cross-layer-gap' ? 'cross-layer-gap' : 'trigger-candidate',
+    status: (attrs.status as InterviewQuestion['status']) || 'open',
+    depth: Number(attrs.depth ?? '0'),
+    fingerprint: attrs.fingerprint,
+    ...(attrs.candidateName ? { candidateName: attrs.candidateName } : {}),
+    ...(attrs.layer ? { layer: attrs.layer } : {}),
+    question: tagText(raw, 'text'),
+    recommended: tagText(raw, 'recommended'),
+    options: parseOptions(raw),
+    crossRef: parseJsonText(tagText(raw, 'crossRef'), {}),
+    createdAt: attrs.createdAt,
+    ...(attrs.answeredAt ? { answeredAt: attrs.answeredAt } : {}),
+    ...(attrs.decisionId ? { decisionId: attrs.decisionId } : {}),
+  };
+}
+
+function readQuestions(queue: string): InterviewQuestion[] {
   if (!existsSync(queue)) return [];
   const text = readFileSync(queue, 'utf8');
-  const existing: ExistingQuestion[] = [];
-  for (const match of text.matchAll(/<question\b([^>]*)>[\s\S]*?<\/question>/g)) {
-    const attrs = parseAttributes(match[1] ?? '');
-    const fingerprint = attrs.fingerprint;
-    if (!fingerprint) continue;
-    existing.push({ fingerprint, raw: match[0] });
-  }
-  return existing;
+  return [...text.matchAll(/<question\b[^>]*>[\s\S]*?<\/question>/g)]
+    .map((match) => parseQuestion(match[0]))
+    .filter((question): question is InterviewQuestion => question !== null);
 }
 
 function renderQuestion(question: InterviewQuestion): string {
@@ -280,6 +376,8 @@ function renderQuestion(question: InterviewQuestion): string {
     question.layer ? `layer="${escapeXml(question.layer)}"` : '',
     question.candidateName ? `candidateName="${escapeXml(question.candidateName)}"` : '',
     `createdAt="${escapeXml(question.createdAt)}"`,
+    question.answeredAt ? `answeredAt="${escapeXml(question.answeredAt)}"` : '',
+    question.decisionId ? `decisionId="${escapeXml(question.decisionId)}"` : '',
   ].filter(Boolean).join(' ');
   const options = question.options.map((option) => [
     `      <option id="${escapeXml(option.id)}">`,
@@ -300,14 +398,13 @@ function renderQuestion(question: InterviewQuestion): string {
   ].join('\n');
 }
 
-function writeQueue(queue: string, existing: ExistingQuestion[], created: InterviewQuestion[]): void {
+function writeQueue(queue: string, questions: InterviewQuestion[]): void {
   mkdirSync(path.dirname(queue), { recursive: true });
   const rendered = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<openQuestions version="1.0" owner="lazy-harness" criterionId="5d-1">',
-    '  <!-- Generated by .lazy-harness/scripts/interview-loop.ts in collect mode. Empty is valid. -->',
-    ...existing.map((question) => question.raw.split('\n').map((line) => `  ${line.trimStart()}`).join('\n')),
-    ...created.map(renderQuestion),
+    '  <!-- Generated by .lazy-harness/scripts/interview-loop.ts. Empty is valid. -->',
+    ...questions.map(renderQuestion),
     '</openQuestions>',
     '',
   ].join('\n');
@@ -315,7 +412,7 @@ function writeQueue(queue: string, existing: ExistingQuestion[], created: Interv
 }
 
 export function collectInterviewQuestions(result: TriggerRunResult, queue = DEFAULT_QUEUE): CollectResult {
-  const existing = readExistingQuestions(queue);
+  const existing = readQuestions(queue);
   const existingFingerprints = new Set(existing.map((question) => question.fingerprint));
   const warnings: string[] = [];
   const candidates = collectQuestions(result);
@@ -325,7 +422,7 @@ export function collectInterviewQuestions(result: TriggerRunResult, queue = DEFA
     seenNew.add(question.fingerprint);
     return true;
   });
-  writeQueue(queue, existing, created);
+  writeQueue(queue, [...existing, ...created]);
   if (candidates.length === 0) warnings.push('No structured asks or cross-layer gaps found');
   return {
     ok: true,
@@ -333,23 +430,99 @@ export function collectInterviewQuestions(result: TriggerRunResult, queue = DEFA
     queue,
     created: created.length,
     existing: existing.length,
-    totalOpen: existing.length + created.length,
+    totalOpen: existing.filter((question) => question.status === 'open').length + created.length,
     questions: created,
     warnings,
   };
 }
 
-function formatText(result: CollectResult): string {
+function decisionId(now: string, questionIdValue: string, optionId: string): string {
+  const day = now.slice(0, 10);
+  const suffix = hashFingerprint({ now, questionId: questionIdValue, optionId }).slice(0, 8);
+  return `D-${day}-${suffix}`;
+}
+
+function appendDecision(pathname: string, decision: DecisionRecord): void {
+  mkdirSync(path.dirname(pathname), { recursive: true });
+  appendFileSync(pathname, `${JSON.stringify(decision, null, 0)}\n`, 'utf8');
+}
+
+export function answerInterviewQuestion(input: {
+  queue?: string;
+  decisions?: string;
+  questionId: string;
+  answer: string;
+  apply?: boolean;
+}): AnswerResult {
+  const queue = input.queue ?? DEFAULT_QUEUE;
+  const decisions = input.decisions ?? DEFAULT_DECISIONS;
+  const questions = readQuestions(queue);
+  const question = questions.find((candidate) => candidate.id === input.questionId);
+  if (!question) throw new Error(`Question not found: ${input.questionId}`);
+  if (question.status !== 'open') throw new Error(`Question is not open: ${input.questionId} (${question.status})`);
+  const selected = question.options.find((option) => option.id === input.answer);
+  if (!selected) throw new Error(`Invalid answer '${input.answer}' for ${input.questionId}`);
+
+  const now = new Date().toISOString();
+  const decision: DecisionRecord = {
+    id: decisionId(now, question.id, selected.id),
+    source: 'interview-loop',
+    questionId: question.id,
+    selectedOption: selected.id,
+    summary: selected.label,
+    effects: selected.effects,
+    aftershockDepth: question.depth,
+    createdAt: now,
+  };
+
+  if (input.apply) {
+    question.status = 'answered';
+    question.answeredAt = now;
+    question.decisionId = decision.id;
+    writeQueue(queue, questions);
+    appendDecision(decisions, decision);
+  }
+
+  return {
+    ok: true,
+    mode: 'answer',
+    queue,
+    decisions,
+    applied: input.apply === true,
+    questionId: question.id,
+    selectedOption: selected.id,
+    effects: selected.effects,
+    ...(input.apply ? { decision } : {}),
+    warnings: input.apply ? [] : ['Preview only. Re-run with --apply to persist status and decision log.'],
+  };
+}
+
+function formatText(result: CollectResult | AnswerResult): string {
+  if (result.mode === 'collect') {
+    return [
+      `[5d-1 interview-loop] created=${result.created} existing=${result.existing} totalOpen=${result.totalOpen}`,
+      ...result.questions.map((question) => `- ${question.id} ${question.source} ${question.layer ?? ''} ${question.candidateName ?? ''}`.trim()),
+      ...result.warnings.map((warning) => `warning: ${warning}`),
+    ].join('\n');
+  }
   return [
-    `[5d-1 interview-loop] created=${result.created} existing=${result.existing} totalOpen=${result.totalOpen}`,
-    ...result.questions.map((question) => `- ${question.id} ${question.source} ${question.layer ?? ''} ${question.candidateName ?? ''}`.trim()),
+    `[5d-2 interview-loop] question=${result.questionId} answer=${result.selectedOption} applied=${result.applied}`,
+    `effects=${result.effects.length}`,
     ...result.warnings.map((warning) => `warning: ${warning}`),
   ].join('\n');
 }
 
 function main(): void {
   const opts = parseCliArgs(process.argv.slice(2));
-  const result = collectInterviewQuestions(readInput(opts.input), opts.queue);
+  const result = opts.mode === 'collect'
+    ? collectInterviewQuestions(readInput(opts.input), opts.queue)
+    : answerInterviewQuestion({
+      queue: opts.queue,
+      decisions: opts.decisions,
+      questionId: opts.questionId ?? '',
+      answer: opts.answer ?? '',
+      apply: opts.apply,
+    });
   if (opts.format === 'json') {
     console.log(JSON.stringify(result, null, 2));
   } else {
