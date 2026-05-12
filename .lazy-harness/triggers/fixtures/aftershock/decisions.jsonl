@@ -1,0 +1,1 @@
+{"id":"D-2026-05-12-aftershock","source":"interview-loop","questionId":"Q-fixture","selectedOption":"A","summary":"Register patient intake term","effects":[{"kind":"ddd-register-term","term":"ReferralIntake","reason":"fixture cascade"},{"kind":"defer","reason":"fixture no follow-up"}],"aftershockDepth":0,"createdAt":"2026-05-12T00:00:00.000Z"}

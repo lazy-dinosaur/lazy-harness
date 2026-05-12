@@ -209,6 +209,21 @@ def run_tdd_cross_verify(files: list[str], queue: pathlib.Path | None = None, ex
     return json.loads(completed.stdout)
 
 
+def run_aftershock_reanalysis(queue: pathlib.Path) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/aftershock-reanalysis.ts",
+        "--decisions",
+        ".lazy-harness/triggers/fixtures/aftershock/decisions.jsonl",
+        "--queue",
+        str(queue.relative_to(ROOT)),
+        "--format",
+        "json",
+    ]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -287,6 +302,28 @@ def check_tdd_cross_verify() -> None:
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 TDD cross-verify ok")
+
+
+def check_aftershock_reanalysis() -> None:
+    queue = LAZY / "questions" / f"__tmp_aftershock_{os.getpid()}.xml"
+    queue.unlink(missing_ok=True)
+    try:
+        first = run_aftershock_reanalysis(queue)
+        if first.get("created") != 1 or first.get("existing") != 0 or first.get("scannedDecisions") != 1:
+            fail("aftershock first analysis changed: " + json.dumps(first, ensure_ascii=False))
+        question = (first.get("questions") or [{}])[0]
+        if question.get("id") != "Q-e69259ad4ca94b24" or question.get("criterionId") != "5d-4" or question.get("source") != "aftershock" or question.get("layer") != "sdd":
+            fail("aftershock question identity changed: " + json.dumps(question, ensure_ascii=False))
+        root = ET.parse(queue).getroot()
+        persisted = [entry for entry in root.findall("question") if entry.attrib.get("id") == "Q-e69259ad4ca94b24"]
+        if not persisted or persisted[0].attrib.get("criterionId") != "5d-4" or persisted[0].attrib.get("source") != "aftershock":
+            fail("aftershock question was not persisted to queue")
+        second = run_aftershock_reanalysis(queue)
+        if second.get("created") != 0 or second.get("existing") != 1 or second.get("questions") != []:
+            fail("aftershock dedupe changed: " + json.dumps(second, ensure_ascii=False))
+    finally:
+        queue.unlink(missing_ok=True)
+    print("✓ 5d-4 aftershock re-analysis ok")
 
 
 def check_lint_output() -> None:
@@ -462,6 +499,7 @@ def main() -> None:
     check_interview_loop_collect()
     check_interview_loop_answer()
     check_tdd_cross_verify()
+    check_aftershock_reanalysis()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")
