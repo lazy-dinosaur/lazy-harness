@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lazy-harness/layer-impact-result.schema.json",
+  "title": "Layer Impact Completion Gate Result (N1)",
+  "description": "Output of scripts/layer-impact-gate.ts. Extends the Unified Result Schema (result.schema.json) with layer-aware fields required by the N1 milestone (north-star priority A). Consumed by response.completed / pre-commit / pre-push hooks and by the record-update-executor (N5).",
+  "type": "object",
+  "required": [
+    "id",
+    "status",
+    "category",
+    "humanRequired",
+    "details",
+    "evidence",
+    "confidence",
+    "changedFiles",
+    "layerImpact",
+    "missingLayers"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(VER|HOOK|CHECK|AUDIT)-LAYER-IMPACT-[0-9A-Z-]+$",
+      "description": "Unified Result Schema id, but constrained to the LAYER-IMPACT subnamespace so logs can be filtered."
+    },
+    "status": {
+      "enum": ["pass", "fail", "error"],
+      "description": "pass = no missing layer / fail = at least one impacted layer is missing a corresponding record update / error = analysis itself failed (parse error, missing input)."
+    },
+    "category": {
+      "enum": ["impl", "spec", "test", "env", "ssot", "infra", "unknown"]
+    },
+    "humanRequired": {
+      "type": "boolean",
+      "description": "True when at least one impacted layer cannot be auto-resolved and a structured ask (Principle 17) must be raised. Hooks treat this as a force-gate."
+    },
+    "details": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "suggestedFix": {
+      "type": ["string", "null"]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "line", "reason"],
+        "properties": {
+          "path":   { "type": "string" },
+          "line":   { "type": "integer", "minimum": 0 },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low"]
+    },
+    "riskTier": {
+      "enum": ["db", "release", "platform", "integration", "backend", "frontend", "docs"]
+    },
+
+    "changedFiles": {
+      "type": "array",
+      "description": "Input files that were considered. Typically the staged set (pre-commit), the diff to-be-pushed (pre-push), or recent_tool_calls writes (response.completed).",
+      "items": {
+        "type": "object",
+        "required": ["path", "changeKind"],
+        "properties": {
+          "path": { "type": "string" },
+          "changeKind": { "enum": ["added", "modified", "deleted", "renamed"] },
+          "renamedFrom": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "layerImpact": {
+      "type": "object",
+      "description": "Per-layer impact summary. Each of the 5 core record layers (DDD/SDD/BDD/TDD/ADR) gets an entry. A layer is marked impacted=true when the resolver believes the change should update at least one record in that layer.",
+      "required": ["ddd", "sdd", "bdd", "tdd", "adr"],
+      "additionalProperties": false,
+      "properties": {
+        "ddd": { "$ref": "#/$defs/layerEntry" },
+        "sdd": { "$ref": "#/$defs/layerEntry" },
+        "bdd": { "$ref": "#/$defs/layerEntry" },
+        "tdd": { "$ref": "#/$defs/layerEntry" },
+        "adr": { "$ref": "#/$defs/layerEntry" }
+      }
+    },
+
+    "missingLayers": {
+      "type": "array",
+      "description": "Convenience projection: list of layer keys where impacted=true AND updated=false. This is the trigger set for the force-gate ask and for the record-update-executor (N5).",
+      "items": { "enum": ["ddd", "sdd", "bdd", "tdd", "adr"] },
+      "uniqueItems": true
+    },
+
+    "resolverVersion": {
+      "type": ["string", "null"],
+      "description": "Identifier of the reference resolver (N2) snapshot that produced layerImpact. Null until N2 lands; until then layerImpact is heuristic-only."
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+
+  "$defs": {
+    "layerEntry": {
+      "type": "object",
+      "required": ["impacted", "updated", "candidateRecords"],
+      "additionalProperties": false,
+      "properties": {
+        "impacted": {
+          "type": "boolean",
+          "description": "True when the resolver thinks this layer needs an update because of the changed files."
+        },
+        "updated": {
+          "type": "boolean",
+          "description": "True when at least one record under this layer was actually touched in changedFiles (or by a recorded decision in this hook cycle)."
+        },
+        "candidateRecords": {
+          "type": "array",
+          "description": "Resolver-suggested record paths/ids that the executor or human should consider updating. Empty array is valid (Principle 10 Empty-Container Tolerance).",
+          "items": {
+            "type": "object",
+            "required": ["recordPath", "linkKind"],
+            "properties": {
+              "recordPath": { "type": "string" },
+              "linkKind": {
+                "enum": [
+                  "domain-term",
+                  "spec-contract",
+                  "scenario",
+                  "test",
+                  "decision",
+                  "registry",
+                  "cross-layer"
+                ]
+              },
+              "score": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "reason": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Why the resolver thinks this layer is impacted (or not). Helps human auditing without re-running."
+        }
+      }
+    }
+  }
+}

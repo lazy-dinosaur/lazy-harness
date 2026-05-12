@@ -112,6 +112,34 @@ def check_jsonl() -> None:
     print("✓ JSONL parse ok")
 
 
+def check_schemas() -> None:
+    """All *.schema.json under .lazy-harness/schemas/ must be valid JSON Schema draft-07
+    headers with $schema / $id / title set. Prevents silent skip when a new schema is
+    added without minimum metadata (Principle 9 Unified Result Schema discipline)."""
+    schemas_dir = LAZY / "schemas"
+    if not schemas_dir.exists():
+        print("✓ schema metadata ok (no schemas dir)")
+        return
+    errors: list[str] = []
+    count = 0
+    for path in sorted(schemas_dir.rglob("*.schema.json")):
+        count += 1
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{path.relative_to(ROOT)}: invalid JSON: {exc}")
+            continue
+        for key in ("$schema", "$id", "title"):
+            if not data.get(key):
+                errors.append(f"{path.relative_to(ROOT)}: missing required key {key!r}")
+        schema_url = data.get("$schema") or ""
+        if "json-schema.org" not in schema_url:
+            errors.append(f"{path.relative_to(ROOT)}: $schema must point to json-schema.org, got {schema_url!r}")
+    if errors:
+        fail("schema metadata errors:\n" + "\n".join(errors))
+    print(f"✓ schema metadata ok ({count} files)")
+
+
 def run_trigger(layer: str) -> dict:
     command = [
         "bun",
@@ -658,6 +686,7 @@ def main() -> None:
     check_doctor_package_health()
     check_xml()
     check_jsonl()
+    check_schemas()
     check_lint_output()
     check_interview_loop_collect()
     check_interview_loop_answer()
