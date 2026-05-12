@@ -135,7 +135,9 @@
                   "test",
                   "decision",
                   "registry",
-                  "cross-layer"
+                  "cross-layer",
+                  "path-stem",
+                  "keyword"
                 ]
               },
               "score": {

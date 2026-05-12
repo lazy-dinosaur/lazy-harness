@@ -1,0 +1,13 @@
+{
+  "name": "adr-keyword-patient",
+  "description": "patient-risk file should trigger ADR keyword match on the surviving discriminative token 'patient' across at least 1 ADR. Score is the low-confidence keyword tier (0.4–0.7).",
+  "input": {
+    "files": ["src/main/services/patient-risk.ts"]
+  },
+  "expect": {
+    "minMatchCount": 1,
+    "expectedLinkKinds": ["keyword"],
+    "topScoreAtLeast": 0.4,
+    "topScoreAtMost": 0.7
+  }
+}

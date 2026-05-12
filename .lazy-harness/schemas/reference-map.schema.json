@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lazy-harness/reference-map.schema.json",
+  "title": "Reference Map (N2)",
+  "description": "Output of scripts/reference-resolver.ts. Resolves changed source files to candidate record files across DDD/SDD/BDD/TDD/ADR layers. Consumed by N1 Layer Impact Gate to populate layerImpact.<layer>.candidateRecords with meaningful scores.",
+  "type": "object",
+  "required": ["indexVersion", "createdAt", "inputFiles", "matches"],
+  "properties": {
+    "indexVersion": {
+      "type": "string",
+      "description": "Identifier of the underlying reference-index snapshot (e.g., a sha-1 fingerprint of all record paths + sizes)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "inputFiles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "matches": {
+      "type": "array",
+      "description": "All resolved matches across all input files. Deduplicated by (inputFile, recordPath, linkKind).",
+      "items": { "$ref": "#/$defs/match" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "match": {
+      "type": "object",
+      "required": ["inputFile", "recordPath", "layer", "linkKind", "score", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "inputFile": {
+          "type": "string",
+          "description": "The changed source file that produced this match."
+        },
+        "recordPath": {
+          "type": "string",
+          "description": "Resolved record file under .lazy-harness/<layer>/ (or test path)."
+        },
+        "layer": {
+          "enum": ["ddd", "sdd", "bdd", "tdd", "adr", "ssot"]
+        },
+        "linkKind": {
+          "enum": [
+            "domain-term",
+            "spec-contract",
+            "scenario",
+            "test",
+            "decision",
+            "registry",
+            "cross-layer",
+            "path-stem",
+            "keyword"
+          ]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line", "snippet"],
+            "properties": {
+              "path":    { "type": "string" },
+              "line":    { "type": "integer", "minimum": 0 },
+              "snippet": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

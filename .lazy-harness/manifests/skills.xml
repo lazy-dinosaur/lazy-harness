@@ -34,12 +34,23 @@
 
   <skill id="lazy-layer-impact-gate" status="alpha" phase="N1">
     <location>.lazy-harness/scripts/layer-impact-gate.ts</location>
-    <description>N1 — Layer Impact Completion Gate (north-star priority A). For a given changed-file set, decide which of DDD/SDD/BDD/TDD/ADR record layers are impacted vs updated and emit a Unified Result Schema document conforming to schemas/layer-impact-result.schema.json. Heuristic-only v0 (resolverVersion=null) until N2 reference resolver lands.</description>
+    <description>N1 — Layer Impact Completion Gate (north-star priority A). For a given changed-file set, decide which of DDD/SDD/BDD/TDD/ADR record layers are impacted vs updated and emit a Unified Result Schema document conforming to schemas/layer-impact-result.schema.json. v0.1: N2 reference-resolver is wired in, so candidateRecords carries path-stem/test-stem/ADR-keyword matches with scores and resolverVersion is populated. Observation mode (exit 0) until host-project pilot.</description>
     <command>bun .lazy-harness/scripts/layer-impact-gate.ts --file &lt;path&gt; [--file ...]</command>
     <command>bun .lazy-harness/scripts/layer-impact-gate.ts --from HEAD~1 --to HEAD --append-validation</command>
     <emitsLogs>true</emitsLogs>
     <ownsArtifacts>.lazy-harness/schemas/layer-impact-result.schema.json</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/triggers/fixtures/layer-impact/*.json</ownsArtifacts>
+  </skill>
+
+  <skill id="lazy-reference-resolver" status="alpha" phase="N2">
+    <location>.lazy-harness/scripts/reference-resolver.ts</location>
+    <description>N2 — Map-aware Reference Resolver (north-star priority B). For each changed source file, find candidate record files across DDD/SDD/BDD/TDD/ADR/SSOT layers using four resolution strategies: cross-layer-link (score 1.0), test-stem sibling (0.95), path-stem (0.85/0.55), ADR keyword (0.4-0.7). Persists an index cache at generated/reference-index.json keyed by sha1 fingerprint; consumed by lazy-layer-impact-gate to enrich candidateRecords with explicit scores. Exits 0 always (informational).</description>
+    <command>bun .lazy-harness/scripts/reference-resolver.ts --file &lt;path&gt; [--file ...] [--format ask|json]</command>
+    <command>bun .lazy-harness/scripts/reference-resolver.ts --rebuild-index</command>
+    <emitsLogs>false</emitsLogs>
+    <ownsArtifacts>.lazy-harness/schemas/reference-map.schema.json</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/triggers/fixtures/reference-resolver/*.json</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/generated/reference-index.json</ownsArtifacts>
   </skill>
 
   <!-- DDD/SDD/BDD/TDD/ADR are core record layers, not automatically separate skills.

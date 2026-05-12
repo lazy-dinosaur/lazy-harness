@@ -744,11 +744,107 @@ def check_layer_impact_gate() -> None:
                         f"got={got_entry.get(k)} expected={v}"
                     )
         if got.get("resolverVersion") != expected.get("resolverVersion"):
-            fail(
-                f"N1 {fx_path.name}: resolverVersion got={got.get('resolverVersion')} "
-                f"expected={expected.get('resolverVersion')}"
-            )
+            # Allow fixtures to still declare `null` from the heuristic-only era;
+            # accept that as "any non-empty string" once N2 wire-in is active.
+            expected_rv = expected.get("resolverVersion")
+            got_rv = got.get("resolverVersion")
+            if expected_rv is None and isinstance(got_rv, str) and len(got_rv) > 0:
+                pass  # acceptable: N2 wire-in populates a fingerprint
+            else:
+                fail(
+                    f"N1 {fx_path.name}: resolverVersion got={got_rv} "
+                    f"expected={expected_rv}"
+                )
     print(f"✓ N1 layer-impact-gate ok ({len(fixtures)} fixtures)")
+
+
+def check_reference_resolver() -> None:
+    """N2 — Map-aware Reference Resolver fixtures.
+
+    Run each fixture under .lazy-harness/triggers/fixtures/reference-resolver/*.json
+    through scripts/reference-resolver.ts and assert the produced matches[]
+    against expected count / linkKinds / top-score bounds. Fixtures may declare
+    `input.sideEffect.createFiles` to materialize ephemeral files (needed for
+    the sibling-test-stem case, since that strategy probes the real filesystem).
+    Side-effect files are cleaned up afterwards regardless of outcome.
+    """
+    fixtures_dir = LAZY / "triggers" / "fixtures" / "reference-resolver"
+    if not fixtures_dir.exists():
+        fail("N2 fixture dir missing: .lazy-harness/triggers/fixtures/reference-resolver")
+    fixtures = sorted(fixtures_dir.glob("*.json"))
+    if len(fixtures) < 3:
+        fail(f"N2 fixtures must have >=3 cases, got {len(fixtures)}")
+    for fx_path in fixtures:
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
+        created = []
+        try:
+            for rel in (fx.get("input", {}).get("sideEffect", {}).get("createFiles") or []):
+                target = ROOT / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(f"// fixture file for {fx_path.name}\n", encoding="utf-8")
+                created.append(target)
+            cli_args = ["bun", str(LAZY / "scripts" / "reference-resolver.ts")]
+            for f in fx["input"]["files"]:
+                cli_args.extend(["--file", f])
+            completed = subprocess.run(
+                cli_args,
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                fail(
+                    f"N2 resolver exit non-zero for {fx_path.name}: "
+                    f"code={completed.returncode} stderr={completed.stderr.strip()}"
+                )
+            try:
+                got = json.loads(completed.stdout)
+            except Exception as exc:  # noqa: BLE001
+                fail(f"N2 resolver output not valid JSON for {fx_path.name}: {exc}")
+            matches = got.get("matches", [])
+            exp = fx["expect"]
+            if "minMatchCount" in exp and len(matches) < exp["minMatchCount"]:
+                fail(
+                    f"N2 {fx_path.name}: match count {len(matches)} < min {exp['minMatchCount']}"
+                )
+            if "maxMatchCount" in exp and len(matches) > exp["maxMatchCount"]:
+                fail(
+                    f"N2 {fx_path.name}: match count {len(matches)} > max {exp['maxMatchCount']}"
+                )
+            if "expectedLinkKinds" in exp:
+                got_kinds = {m["linkKind"] for m in matches}
+                missing_kinds = [k for k in exp["expectedLinkKinds"] if k not in got_kinds]
+                if missing_kinds:
+                    fail(
+                        f"N2 {fx_path.name}: expected linkKinds missing={missing_kinds} "
+                        f"got_kinds={sorted(got_kinds)}"
+                    )
+            if matches:
+                top_score = matches[0]["score"]
+                if "topScoreAtLeast" in exp and top_score < exp["topScoreAtLeast"]:
+                    fail(
+                        f"N2 {fx_path.name}: top score {top_score} < min {exp['topScoreAtLeast']}"
+                    )
+                if "topScoreAtMost" in exp and top_score > exp["topScoreAtMost"]:
+                    fail(
+                        f"N2 {fx_path.name}: top score {top_score} > max {exp['topScoreAtMost']}"
+                    )
+                if "topMatch" in exp:
+                    tm = exp["topMatch"]
+                    for k, v in tm.items():
+                        if matches[0].get(k) != v:
+                            fail(
+                                f"N2 {fx_path.name}: topMatch.{k} got={matches[0].get(k)} "
+                                f"expected={v}"
+                            )
+        finally:
+            for t in created:
+                try:
+                    t.unlink()
+                except FileNotFoundError:
+                    pass
+    print(f"✓ N2 reference-resolver ok ({len(fixtures)} fixtures)")
 
 
 def main() -> None:
@@ -769,6 +865,7 @@ def main() -> None:
     check_e2e_demo()
     check_triggers()
     check_layer_impact_gate()
+    check_reference_resolver()
     print("lazy-harness self-test ok")
 
 

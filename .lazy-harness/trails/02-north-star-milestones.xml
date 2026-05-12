@@ -69,7 +69,7 @@
     </milestone>
 
     <!-- N2: Map-aware Reference Resolver (north-star B) -->
-    <milestone id="N2" status="planned" priority="critical" target="2026-06-30">
+    <milestone id="N2" status="in-progress" priority="critical" target="2026-06-30">
       <name>Map-aware Reference Resolver</name>
       <northStarPriority>B (2nd)</northStarPriority>
       <rationale>
@@ -77,14 +77,21 @@
         Gate 들이 정확하게 동작하려면 resolver 가 정확해야 한다.
       </rationale>
       <successCriteria>
-        <criterion>schemas/reference-map.schema.json (file ↔ record ↔ layer ↔ link kind)</criterion>
-        <criterion>scripts/reference-resolver.ts (input: changed files + intent, output: matched records)</criterion>
-        <criterion>generated/reference-index.json 자동 생성/갱신</criterion>
-        <criterion>recall ≥ 0.9 / precision ≥ 0.8 (host-project pilot 기준)</criterion>
-        <criterion>resolver 결과를 Layer Impact Gate 가 직접 소비</criterion>
+        <criterion done="true">schemas/reference-map.schema.json (file ↔ record ↔ layer ↔ link kind)</criterion>
+        <criterion done="true">scripts/reference-resolver.ts (input: changed files + intent, output: matched records)</criterion>
+        <criterion done="true">generated/reference-index.json 자동 생성/갱신 (sha1 fingerprint, lazy rebuild on drift)</criterion>
+        <criterion done="false">recall ≥ 0.9 / precision ≥ 0.8 (host-project pilot 기준)</criterion>
+        <criterion done="true">resolver 결과를 Layer Impact Gate 가 직접 소비 (candidateRecords merge + resolverVersion 채움)</criterion>
       </successCriteria>
       <dependsOn>N1</dependsOn>
       <relatedFR>FR-1</relatedFR>
+      <notes>
+        v0.1 implemented 2026-05-12: 4 resolution strategies (cross-layer-link 1.0 /
+        test-stem 0.95 / path-stem 0.85 / keyword 0.4-0.7), 4 fixtures green, wired
+        into N1 candidateRecords. Remaining: host-pilot recall/precision measurement.
+        Token stopword list is heuristic (≥30% ADR-corpus appearance); automated
+        IDF pass is v1+ scope.
+      </notes>
     </milestone>
 
     <!-- N3: Side-effect / Regression / Domain Invariant Gate (north-star C) -->

@@ -1,0 +1,16 @@
+{
+  "name": "path-stem-record",
+  "description": "Source file basename matches an existing ADR record stem ('0009-husky-integration'). Synthetic input path (no FS side-effect) — the resolver only inspects the basename against the indexed records, so the file does not need to exist on disk.",
+  "input": {
+    "files": ["src/whatever/0009-husky-integration.ts"]
+  },
+  "expect": {
+    "minMatchCount": 1,
+    "expectedLinkKinds": ["path-stem"],
+    "topScoreAtLeast": 0.85,
+    "topMatch": {
+      "recordPath": ".lazy-harness/decisions/0009-husky-integration.md",
+      "layer": "adr"
+    }
+  }
+}

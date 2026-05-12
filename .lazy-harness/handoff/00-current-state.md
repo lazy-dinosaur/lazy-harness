@@ -54,7 +54,8 @@
 | **5e host-project pilot** | ✅ complete (inside-out pilot commit `ba162ab1`; command-routing gap found and remediation in progress) |
 | **Framework v1.4** | 983 lines, 23 principles |
 | **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, project test-strategy/package-script routing or structured interview) |
-| **N1 Layer Impact Gate** | 🟡 in-progress — schema + script + 3 fixtures + self-test green + **response.completed + pre-commit hook integration (observation mode)**. Host-pilot true-positive 검증 1 criterion 남음. (`.lazy-harness/scripts/layer-impact-gate.ts`, `schemas/layer-impact-result.schema.json`, `triggers/fixtures/layer-impact/`, `hooks/lifecycle/helpers/check-layer-impact.sh`, `hooks/pre-commit-layer-impact.sh`) |
+| **N1 Layer Impact Gate** | 🟡 in-progress — schema + script + 3 fixtures + self-test green + **response.completed + pre-commit hook integration (observation mode)** + **N2 resolver wired in** (candidateRecords + resolverVersion). Host-pilot true-positive 검증 1 criterion 남음. (`.lazy-harness/scripts/layer-impact-gate.ts`, `schemas/layer-impact-result.schema.json`, `triggers/fixtures/layer-impact/`, `hooks/lifecycle/helpers/check-layer-impact.sh`, `hooks/pre-commit-layer-impact.sh`) |
+| **N2 Reference Resolver** | 🟡 in-progress — schema + script + 4 fixtures + self-test green + **wired into N1 layer-impact-gate**. Strategies: cross-layer-link 1.0, test-stem 0.95, path-stem 0.85, ADR-keyword 0.4-0.7. Index cache at `generated/reference-index.json` (sha1 fingerprint, lazy rebuild). Host-pilot recall/precision 검증 1 criterion 남음. (`.lazy-harness/scripts/reference-resolver.ts`, `schemas/reference-map.schema.json`, `triggers/fixtures/reference-resolver/`) |
 
 ## Oracle Audit 결과 (2026-05-12)
 

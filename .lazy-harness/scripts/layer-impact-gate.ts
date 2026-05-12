@@ -8,9 +8,10 @@
  * change set. Emit a JSON document conforming to
  * .lazy-harness/schemas/layer-impact-result.schema.json
  *
- * Heuristic-only v0: the reference resolver (N2) is not implemented yet, so
- * `resolverVersion` is null and `candidateRecords` is best-effort (path-pattern
- * + 4-detector signals).
+ * Heuristic + resolver v0.1: the reference resolver (N2) supplies extra
+ * candidateRecords (test-stem / path-stem / ADR-keyword) and the index
+ * fingerprint becomes `resolverVersion`. Impacted/updated booleans are still
+ * decided by N1 heuristics; the resolver only enriches candidate evidence.
  *
  * Usage:
  *   bun .lazy-harness/scripts/layer-impact-gate.ts \
@@ -20,6 +21,7 @@
  *     [--source pre-commit|pre-push|response-completed|manual]
  *     [--append-validation]        # log result to logs/validations.jsonl
  *     [--format json|ask]          # default json
+ *     [--no-resolver]              # skip N2 resolver enrichment (debug)
  *
  * Exit codes:
  *   0 = pass (no missing layers, or warn-only)
@@ -37,6 +39,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runCodeChangeTrigger } from '../triggers/code-change'
 import type { TriggerCandidate, TriggerLayer } from '../triggers/types'
+import { resolveReferences } from './reference-resolver'
 
 type LayerKey = 'ddd' | 'sdd' | 'bdd' | 'tdd' | 'adr'
 type ChangeKind = 'added' | 'modified' | 'deleted' | 'renamed'
@@ -57,6 +60,8 @@ interface LinkKindEntry {
     | 'decision'
     | 'registry'
     | 'cross-layer'
+    | 'path-stem'
+    | 'keyword'
   score: number | null
   reason: string | null
 }
@@ -109,6 +114,7 @@ interface CliOptions {
   appendValidation: boolean
   format: 'json' | 'ask'
   strict: boolean
+  noResolver: boolean
 }
 
 function parseCli(argv: string[]): CliOptions {
@@ -119,7 +125,8 @@ function parseCli(argv: string[]): CliOptions {
     source: 'manual',
     appendValidation: false,
     format: 'json',
-    strict: false
+    strict: false,
+    noResolver: false
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -142,6 +149,8 @@ function parseCli(argv: string[]): CliOptions {
       opts.format = argv[++i] === 'ask' ? 'ask' : 'json'
     } else if (arg === '--strict') {
       opts.strict = true
+    } else if (arg === '--no-resolver') {
+      opts.noResolver = true
     }
   }
   return opts
@@ -291,6 +300,55 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
   const bucket = bucketCandidatesByLayer(candidates)
   const updated = computeUpdatedLayers(opts.files)
 
+  // 1b) Run N2 reference resolver over ALL changed files (not just production),
+  // so renamed/added record files contribute matches too. The resolver's
+  // matches enrich candidateRecords with explicit scores; impacted/updated
+  // booleans are still decided by N1 heuristics below.
+  let resolverByLayer: Partial<Record<LayerKey, LinkKindEntry[]>> = {}
+  let resolverVersion: string | null = null
+  if (!opts.noResolver && opts.files.length > 0) {
+    try {
+      const refMap = resolveReferences(opts.files.map((f) => f.path))
+      resolverVersion = refMap.indexVersion
+      for (const m of refMap.matches) {
+        // SSOT matches collapse into DDD (same as detectorLayerToN1).
+        const lk: LayerKey | null =
+          m.layer === 'ddd' || m.layer === 'sdd' || m.layer === 'bdd' || m.layer === 'tdd' || m.layer === 'adr'
+            ? (m.layer as LayerKey)
+            : m.layer === 'ssot'
+              ? 'ddd'
+              : null
+        if (!lk) continue
+        ;(resolverByLayer[lk] ??= []).push({
+          recordPath: m.recordPath,
+          linkKind: m.linkKind as LinkKindEntry['linkKind'],
+          score: m.score,
+          reason: m.reason
+        })
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      warnings.push(`reference-resolver error: ${message}`)
+    }
+  }
+
+  function mergeCandidates(
+    detectorEntries: LinkKindEntry[],
+    resolverEntries: LinkKindEntry[]
+  ): LinkKindEntry[] {
+    // Deduplicate by (recordPath, linkKind); keep highest score; cap at 8.
+    const all = [...detectorEntries, ...resolverEntries]
+    const seen = new Map<string, LinkKindEntry>()
+    for (const e of all) {
+      const key = `${e.recordPath}|${e.linkKind}`
+      const prev = seen.get(key)
+      if (!prev || (e.score ?? 0) > (prev.score ?? 0)) seen.set(key, e)
+    }
+    return Array.from(seen.values())
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 8)
+  }
+
   // 2) Per-layer impacted decision
   const productionChanged = opts.files.some((f) => isProductionSource(f.path))
   const testChanged = opts.files.some((f) => isTestFile(f.path))
@@ -299,7 +357,10 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
     ddd: {
       impacted: bucket.ddd.length > 0,
       updated: updated.ddd,
-      candidateRecords: candidatesToRecords('ddd', bucket.ddd),
+      candidateRecords: mergeCandidates(
+        candidatesToRecords('ddd', bucket.ddd),
+        resolverByLayer.ddd ?? []
+      ),
       reason: bucket.ddd.length > 0
         ? `${bucket.ddd.length} domain-term candidate(s) from DDD/SSOT detectors`
         : null
@@ -307,7 +368,10 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
     sdd: {
       impacted: bucket.sdd.length > 0,
       updated: updated.sdd,
-      candidateRecords: candidatesToRecords('sdd', bucket.sdd),
+      candidateRecords: mergeCandidates(
+        candidatesToRecords('sdd', bucket.sdd),
+        resolverByLayer.sdd ?? []
+      ),
       reason: bucket.sdd.length > 0
         ? `${bucket.sdd.length} spec-contract candidate(s) from SDD detector`
         : null
@@ -315,7 +379,10 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
     bdd: {
       impacted: bucket.bdd.length > 0,
       updated: updated.bdd,
-      candidateRecords: candidatesToRecords('bdd', bucket.bdd),
+      candidateRecords: mergeCandidates(
+        candidatesToRecords('bdd', bucket.bdd),
+        resolverByLayer.bdd ?? []
+      ),
       reason: bucket.bdd.length > 0
         ? `${bucket.bdd.length} scenario candidate(s) from BDD detector`
         : null
@@ -325,16 +392,18 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
       // ADR 0020 says TDD is the 5d cross-verify gate; here we only flag the gap signal.
       impacted: productionChanged && !testChanged,
       updated: updated.tdd,
-      candidateRecords: [],
+      candidateRecords: mergeCandidates([], resolverByLayer.tdd ?? []),
       reason: productionChanged && !testChanged
         ? 'production source modified without a matching test file change'
         : (testChanged ? 'test file changed in this set' : null)
     },
     adr: {
-      // v0: ADR auto-detect is intentionally off — see schema docstring.
+      // v0: ADR auto-detect for `impacted` stays off — only the resolver can
+      // contribute ADR candidateRecords (keyword/path-stem). impacted=true is
+      // still reserved for explicit signals (interview-loop, ADR-touching diffs).
       impacted: false,
       updated: updated.adr,
-      candidateRecords: [],
+      candidateRecords: mergeCandidates([], resolverByLayer.adr ?? []),
       reason: 'ADR auto-detection is heuristic-off in N1 v0; raise via interview-loop when conflict arises'
     }
   }
@@ -397,7 +466,7 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
     changedFiles: opts.files,
     layerImpact,
     missingLayers,
-    resolverVersion: null,
+    resolverVersion,
     createdAt
   }
 }

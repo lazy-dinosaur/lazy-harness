@@ -1,0 +1,11 @@
+{
+  "name": "no-match",
+  "description": "Random file whose path tokens (after stopword filter) do not appear in any indexed record. Resolver must return zero matches without crashing — empty result is a valid success. Filename chosen to avoid incidental token hits ('zxcv' / 'qwerty' are not present in any ADR / record).",
+  "input": {
+    "files": ["src/zxcvbnmqwerty/__zxcvbnm-qwerty-stub.ts"]
+  },
+  "expect": {
+    "minMatchCount": 0,
+    "maxMatchCount": 0
+  }
+}

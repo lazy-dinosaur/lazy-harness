@@ -1,0 +1,18 @@
+{
+  "name": "test-stem-sibling",
+  "description": "Production source paired with a sibling test file. Resolver should produce at least one match with linkKind='test' and score ≥ 0.9 (test-stem rule, 0.95). The sibling test file is auto-created by the test harness before running and cleaned up after.",
+  "input": {
+    "files": ["src/main/services/__fixture-test-stem.ts"],
+    "sideEffect": {
+      "createFiles": [
+        "src/main/services/__fixture-test-stem.ts",
+        "src/main/services/__fixture-test-stem.test.ts"
+      ]
+    }
+  },
+  "expect": {
+    "minMatchCount": 1,
+    "expectedLinkKinds": ["test"],
+    "topScoreAtLeast": 0.9
+  }
+}
