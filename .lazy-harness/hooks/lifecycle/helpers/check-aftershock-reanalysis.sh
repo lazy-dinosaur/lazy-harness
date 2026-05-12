@@ -1,43 +1,42 @@
 #!/usr/bin/env bash
-# check-tdd-cross-verify.sh — 5d-3 TDD cross-verify gate helper
+# check-aftershock-reanalysis.sh — 5d-4 aftershock gate helper
 #
 # Input: response.completed payload as argv[1]
 # Output: deny reason containing structured ask, or empty.
-# 5d-5 wires this helper into on-response-completed.
+# Runs only when decisions.jsonl was changed in this response payload.
 
 set -euo pipefail
 
 PAYLOAD="${1:-}"
 [ -z "$PAYLOAD" ] && exit 0
 
-SCRIPT=".lazy-harness/scripts/tdd-cross-verify.ts"
+SCRIPT=".lazy-harness/scripts/aftershock-reanalysis.ts"
 QUEUE="${LAZY_HARNESS_QUESTION_QUEUE:-.lazy-harness/questions/open.xml}"
+DECISIONS="${LAZY_HARNESS_DECISIONS_FILE:-.lazy-harness/logs/decisions.jsonl}"
 [ ! -f "$SCRIPT" ] && exit 0
 
-FILES=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
-import json, os, re
+TOUCHED=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
+import json, os
 try:
     payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
 except Exception:
     raise SystemExit(0)
 allowed = {'Write','Edit','MultiEdit','write','edit','multiedit','mcp__filesystem__write_file','mcp__filesystem__edit_file'}
-pattern = re.compile(r'(?:src/renderer/src|\.lazy-harness/triggers/fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts|jsx|js)')
-paths = []
 for call in payload.get('recent_tool_calls', []):
     if str(call.get('name', '')) not in allowed:
         continue
-    for match in pattern.finditer(str(call.get('args_preview', ''))):
-        paths.append(match.group(0))
-print(','.join(dict.fromkeys(paths)))
+    if '.lazy-harness/logs/decisions.jsonl' in str(call.get('args_preview', '')):
+        print('1')
+        break
 PY
 )
 
-[ -z "$FILES" ] && exit 0
+[ "$TOUCHED" = "1" ] || exit 0
 
-RESULT=$(bun "$SCRIPT" --files "$FILES" --queue "$QUEUE" --format json 2>/dev/null || true)
+RESULT=$(bun "$SCRIPT" --decisions "$DECISIONS" --queue "$QUEUE" --format json 2>/dev/null || true)
 [ -z "$RESULT" ] && exit 0
-FORCE=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("forceGate", False))' 2>/dev/null || true)
-[ "$FORCE" != "True" ] && [ "$FORCE" != "true" ] && exit 0
+CREATED=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("created", 0))' 2>/dev/null || true)
+[ "${CREATED:-0}" = "0" ] && exit 0
 ASKS=$(RESULT_JSON="$RESULT" python3 <<'PY' 2>/dev/null || true
 import json, os
 try:
@@ -52,11 +51,11 @@ PY
 )
 
 cat <<EOF_DENY
-STOP. 5d-3 TDD Cross-Verify Gate: source 변경에 대응하는 test/spec 검증이 실패했습니다.
+STOP. 5d-4 Aftershock Re-analysis: 방금 기록한 decision 이 후속 정합성 질문을 만들었습니다.
 
 $ASKS
 
-규칙: A/B/C/D 중 하나를 사용자에게 확인하고, 답변은 interview-loop decision 으로 기록하세요. ADR 0020 + ADR 0019 force gate.
+규칙: A/B/C/D 중 하나를 사용자에게 확인하고, 답변은 interview-loop decision 으로 기록하세요. ADR 0018 cascade + ADR 0019 force gate.
 EOF_DENY
 
 exit 0

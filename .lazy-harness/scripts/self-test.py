@@ -224,6 +224,26 @@ def run_aftershock_reanalysis(queue: pathlib.Path) -> dict:
     return json.loads(completed.stdout)
 
 
+def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
+    env = {**os.environ, "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT))}
+    if decisions is not None:
+        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/on-response-completed.sh"],
+        cwd=ROOT,
+        env=env,
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"response.completed hook exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -324,6 +344,43 @@ def check_aftershock_reanalysis() -> None:
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-4 aftershock re-analysis ok")
+
+
+def check_lifecycle_hook_integration() -> None:
+    tdd_queue = LAZY / "questions" / f"__tmp_hook_tdd_{os.getpid()}.xml"
+    aftershock_queue = LAZY / "questions" / f"__tmp_hook_aftershock_{os.getpid()}.xml"
+    decisions = LAZY / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
+    for path in [tdd_queue, aftershock_queue, decisions]:
+        path.unlink(missing_ok=True)
+    try:
+        tdd_payload = {
+            "recent_tool_calls": [
+                {"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"},
+            ],
+        }
+        tdd_out = run_response_completed_hook(tdd_payload, tdd_queue)
+        if "5d-3 TDD Cross-Verify Gate" not in tdd_out or "Q-22c6c7cf5a7620f1" not in tdd_out:
+            fail("response.completed did not surface TDD cross-verify gate:\n" + tdd_out)
+        tdd_root = ET.parse(tdd_queue).getroot()
+        if not any(question.attrib.get("criterionId") == "5d-3" for question in tdd_root.findall("question")):
+            fail("response.completed TDD helper did not persist question")
+
+        decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+        aftershock_payload = {
+            "recent_tool_calls": [
+                {"name": "Edit", "args_preview": ".lazy-harness/logs/decisions.jsonl"},
+            ],
+        }
+        aftershock_out = run_response_completed_hook(aftershock_payload, aftershock_queue, decisions=decisions)
+        if "5d-4 Aftershock Re-analysis" not in aftershock_out or "Q-e69259ad4ca94b24" not in aftershock_out:
+            fail("response.completed did not surface aftershock gate:\n" + aftershock_out)
+        aftershock_root = ET.parse(aftershock_queue).getroot()
+        if not any(question.attrib.get("criterionId") == "5d-4" for question in aftershock_root.findall("question")):
+            fail("response.completed aftershock helper did not persist question")
+    finally:
+        for path in [tdd_queue, aftershock_queue, decisions]:
+            path.unlink(missing_ok=True)
+    print("✓ 5d-5 lifecycle hook integration ok")
 
 
 def check_lint_output() -> None:
@@ -500,6 +557,7 @@ def main() -> None:
     check_interview_loop_answer()
     check_tdd_cross_verify()
     check_aftershock_reanalysis()
+    check_lifecycle_hook_integration()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")
