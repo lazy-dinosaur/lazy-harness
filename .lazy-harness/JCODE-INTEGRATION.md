@@ -22,61 +22,113 @@
 ~/.claude/skills/jcode-init/scripts/init-jcode-project.sh "$(pwd)"
 ```
 
-### 2. AGENTS.md inject 설정
+### 2. AGENTS.md inject 설정 (symlink 방식)
 
-`.jcode/config.toml` 에 추가:
+jcode 는 별도 `extra_instructions` schema 가 없다. 대신 `.jcode/harness/*.md` 를 자동으로 로드 (`load_harness_dir = true` 기본값) 한다. lazy-harness AGENTS.md 를 그 디렉토리에 symlink:
+
+```bash
+ln -s ../../.lazy-harness/AGENTS.md .jcode/harness/05-lazy-harness.md
+```
+
+`.jcode/config.toml` 의 `[prompt]` 섹션에서 `load_harness_dir = true` 만 확인 (jcode init 의 기본값):
 
 ```toml
 [prompt]
-extra_instructions = [
-  ".lazy-harness/AGENTS.md",
-]
+load_harness_dir = true   # .jcode/harness/*.md 자동 로드 (jcode init 기본값)
+load_jcode_agents = true  # .jcode/AGENTS.md 자동 로드
 ```
 
-→ 매 session 시작 시 jcode 가 본 파일 내용을 AI 의 system prompt 에 자동 첨부.
+→ 매 session 시작 시 jcode 가 symlink 를 따라가 `.lazy-harness/AGENTS.md` 내용을 AI system prompt 에 자동 첨부. single source of truth 유지 (편집은 `.lazy-harness/AGENTS.md` 한 곳).
 
 ### 3. tool.execute.before hook 등록
 
-`.jcode/config.toml` 에 추가:
+`.jcode/config.toml` 에 추가. jcode 의 hook schema 는 `[[hooks.commands]]` (NOT `[[hooks]]`) 이며 `tool` filter 는 lowercase exact match:
 
 ```toml
-[[hooks]]
+[hooks]
+enabled = true
+
+[[hooks.commands]]
 event = "tool.execute.before"
+tool = "edit"
 command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
+
+[[hooks.commands]]
+event = "tool.execute.before"
+tool = "write"
+command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
+
+[[hooks.commands]]
+event = "tool.execute.before"
+tool = "multiedit"
+command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
 ```
 
-→ jcode 가 Edit/Write/MultiEdit tool 호출 직전 본 hook 으로 payload pipe.
+→ jcode 가 edit/write/multiedit tool 호출 직전 본 hook 으로 payload pipe.
 → hook 이 exit 1 + stdout 출력 시 jcode 가 tool 호출 차단 + 출력을 AI 에 전달.
 
 ### 4. response.completed hook 등록 (이미 있을 가능성)
 
 ```toml
-[[hooks]]
+[[hooks.commands]]
 event = "response.completed"
+tool = "*"
 command = ".lazy-harness/hooks/lifecycle/on-response-completed.sh"
+blocking = false
+timeout_ms = 5000
 ```
 
 (기존 host 가 이미 박았으면 skip)
 
 ## 옵션 B — global `~/.jcode/`
 
-본인 모든 lazy-harness host 에 동일 적용. wiring 은 같지만 path 를 절대로 박거나 `$REPO_ROOT` 환경변수 사용.
+본인 모든 lazy-harness host 에 동일 적용. wiring 은 같지만 path 를 절대로 박거나 `$PWD` 사용:
 
 ```toml
-[[hooks]]
+[[hooks.commands]]
 event = "tool.execute.before"
+tool = "edit"
 command = "bash -c '[ -x \"$PWD/.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\" ] && \"$PWD/.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\"'"
+blocking = true
+timeout_ms = 3000
 ```
 
 → lazy-harness 가 활성된 cwd 에서만 발동. 다른 프로젝트는 silent.
 
 ## 검증 (wiring 적용 후)
 
+### 단위 검증 (hook 직접 발동)
+
+```bash
+# Case 1: 검색 흔적 없음 → deny
+echo '{"event":"tool.execute.before","session_id":"verify-1","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}}}' \
+  | bash .lazy-harness/hooks/lifecycle/on-tool-execute-before.sh
+# 기대: exit 1 + AGENTS.md §1 인용 메시지
+
+# Case 2: 검색 흔적 있음 → cache 기록 + 통과
+echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}},"recent_tool_calls":[{"name":"grep","args_preview":".lazy-harness/decisions/0024"}]}' \
+  | bash .lazy-harness/hooks/lifecycle/on-tool-execute-before.sh
+# 기대: exit 0 + .lazy-harness/.cache/session/verify-2.json 생성
+
+# Case 3: cache hit → 통과
+echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edit","args":{"file_path":"src/main/bar.ts","old_string":"x","new_string":"y"}}}' \
+  | bash .lazy-harness/hooks/lifecycle/on-tool-execute-before.sh
+# 기대: exit 0 (즉시 통과)
+```
+
+### 통합 검증 (jcode session)
+
 1. **AGENTS.md inject 확인**: 새 jcode session 시작 → AI 에게 "AGENTS.md §1 의 6 layer 폴더 나열해라" 질문. 6 개 (domain/spec/behavior/tests/decisions/ssot) 정확히 나오면 OK.
 
-2. **force gate 확인**: 새 session 에서 "src/main/foo.ts 파일에 한 줄 추가해줘" 같은 검색-bypass 요청. AI 가 Edit 호출 시 hook 이 deny + AGENTS.md §1 인용 메시지 출력 → AI 가 grep 부터 다시 시작하면 OK.
+2. **force gate 확인**: 새 session 에서 "src/main/foo.ts 파일에 한 줄 추가해줘" 같은 검색-bypass 요청. AI 가 edit 호출 시 hook 이 deny + AGENTS.md §1 인용 메시지 출력 → AI 가 grep 부터 다시 시작하면 OK.
 
-3. **session-cache 확인**: 같은 session 내 두 번째 Edit 부터는 deny 없이 통과. `.lazy-harness/.cache/session/<session_id>.json` 생성 확인.
+3. **session-cache 확인**: 같은 session 내 두 번째 edit 부터는 deny 없이 통과. `.lazy-harness/.cache/session/<session_id>.json` 생성 확인.
 
 ## 비활성화 (긴급 / debug)
 
