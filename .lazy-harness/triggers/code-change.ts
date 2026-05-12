@@ -696,7 +696,7 @@ function toSsotCandidate(
     ? [domainHint]
     : [];
   const ambiguous = domainHint ? [] : [utility.name];
-  const confidence: TriggerConfidence = ambiguous.length > 0 ? 'ambiguous' : utility.exported ? 'high' : 'medium';
+  const confidence = getSsotConfidence(utility, matchedDdd, missingDdd, ambiguous);
   const crossRef: TriggerCrossRef = {
     ddd: { matched: matchedDdd, missing: missingDdd, ambiguous },
   };
@@ -728,9 +728,11 @@ function toSsotCandidate(
 
 function buildSsotAsk(utility: SsotUtilityCandidate, crossRef: TriggerCrossRef): StructuredAsk {
   const domainHint = utility.domainHint ?? 'unknown-domain';
+  const hasMissingDdd = (crossRef.ddd?.missing.length ?? 0) > 0;
+  const hasAmbiguous = (crossRef.ddd?.ambiguous?.length ?? 0) > 0;
   return {
     question: `[5c-4 SSOT trigger] ${utility.kind} '${utility.name}' 검출. SSOT registry 에 등록/중복 여부를 확인할까요?`,
-    recommended: utility.domainHint ? 'A' : 'B',
+    recommended: hasAmbiguous || hasMissingDdd ? 'B' : 'A',
     options: [
       {
         id: 'A',
@@ -764,6 +766,19 @@ function buildSsotAsk(utility: SsotUtilityCandidate, crossRef: TriggerCrossRef):
       `DDD missing=${crossRef.ddd?.missing.join(', ') || '(none)'}`,
     ],
   };
+}
+
+function getSsotConfidence(
+  utility: SsotUtilityCandidate,
+  matchedDdd: string[],
+  missingDdd: string[],
+  ambiguous: string[],
+): TriggerConfidence {
+  if (ambiguous.length > 0) return 'ambiguous';
+  if (missingDdd.length > 0) return 'medium';
+  if (matchedDdd.length > 0 && utility.exported) return 'high';
+  if (matchedDdd.length > 0) return 'medium';
+  return 'low';
 }
 
 function toSddCandidate(

@@ -86,7 +86,10 @@ trigger 발동 시 옵션 평가 기준 (priority 순):
 
 > **HARD RULE — 위치를 바꾸면 5 가지 연결이 깨진다. 절대 합치지 말 것.**
 
-framework 는 두 디렉토리로 의도적으로 분리:
+framework 는 두 디렉토리로 의도적으로 분리한다. **ADR 0022 이후 경계는 더 명확하다:**
+
+- `.jcode/` = harness 를 부르기 위한 tool/wrapper/interface
+- `.lazy-harness/` = framework 본체, 검증/운영/doctor/self-test/registry consistency 의 소유자
 
 ```
 project-root/
@@ -95,15 +98,15 @@ project-root/
 │   ├── AGENTS.md
 │   ├── harness/             ← prompt overlay (jcode 가 자동 머지)
 │   ├── hooks/               ← jcode lifecycle hook
-│   └── skills/              ← slash command 정의 (/harness-init 등)
+│   └── skills/              ← slash command wrapper 정의 (/harness-init 등)
 │       ├── harness-init/{SKILL.md,scripts/init-lazy-harness.sh}
-│       ├── harness-doctor/{SKILL.md,scripts/doctor.sh}
 │       └── harness-update/{SKILL.md,scripts/update.sh}
 │
 ├── .lazy-harness/           ← framework 본체 (platform-independent)
 │   ├── framework/framework-contract.md  ← single source of truth
 │   ├── domain/, spec/, behavior/, tests/  ← 17 cross-layer maps
 │   ├── decisions/           ← ADR
+│   ├── scripts/self-test.py ← primary executable gate (`bun run lazy:test`)
 │   ├── logs/                ← actions/decisions/validations.jsonl
 │   ├── schemas/             ← result.schema.json 등
 │   └── ...                  ← 모든 framework 데이터
@@ -114,19 +117,19 @@ project-root/
 #### 5 가지 연결 메커니즘
 
 ```
-1. POSITIONAL BINDING (가장 강력)
+1. POSITIONAL BINDING (wrapper → framework)
    같은 project root 안에 둘 다 있을 때만 자동 동작.
-   .jcode/skills/.../*.sh 가 PWD 기반으로 .lazy-harness/ 를 찾는다.
+   .jcode/skills/.../*.sh wrapper 가 PWD 기반으로 .lazy-harness/ 를 찾는다.
 
-   예 (init/doctor/update.sh 모두 동일):
+   예 (init/update wrapper):
      TARGET="${PWD}"
      LAZY_DIR="$TARGET/.lazy-harness"
 
    → 다른 곳에서 호출하면 명시적 --target 필요.
 
-2. SLASH COMMAND DISCOVERY
+2. SLASH COMMAND DISCOVERY (optional)
    jcode 가 .jcode/skills/<name>/SKILL.md 를 자동 인식.
-   사용자 "/harness-doctor" 입력 → jcode 가 SKILL.md 의 allowed-tools 에 따라 실행.
+   사용자 slash command 입력 → jcode 가 SKILL.md 의 allowed-tools 에 따라 wrapper 실행.
 
    인식되는 6 위치 (jcode 바이너리 strings 결과):
    - ~/.claude/skills/<name>/SKILL.md          (global Claude Code)
@@ -138,11 +141,13 @@ project-root/
 
    → .jcode/skills/ 가 항상 인식되므로 위치 불변.
 
-3. PREFERRED DOCTOR LOOKUP
-   update.sh 가 doctor.sh 를 호출할 때 우선순위:
-   1순위: $TARGET/.jcode/skills/harness-doctor/scripts/doctor.sh   ← 같은 프로젝트
-   2순위: $HOME/.jcode/skills/harness-doctor/scripts/doctor.sh     ← 글로벌 폴백
-   둘 다 없으면 doctor 검증 skip (warn 출력).
+3. FRAMEWORK-OWNED VALIDATION (ADR 0022)
+   primary gate 는 framework 내부에 있다:
+     bun run lazy:test
+     → .lazy-harness/scripts/self-test.py
+
+   Jcode doctor/skill 은 있더라도 wrapper 일 뿐이며 primary source of truth 가 아니다.
+   C1~C17 style doctor 는 후속으로 .lazy-harness/scripts/doctor.* 에 흡수한다.
 
 4. CANONICAL SOURCE BRIDGE
    update.sh 가 framework-contract.md sync 시 source 우선순위:
@@ -155,10 +160,12 @@ project-root/
    → 한 프로젝트에서 ADR 추가 후 ~/.jcode/ 에 sync → 다른 프로젝트가 update 로 받음.
 
 5. SAFETY GUARD COVERAGE
-   .git/hooks/pre-commit (init.sh 가 설치) 가 둘 다 차단:
+   .git/hooks/pre-commit (init.sh 가 설치) 가 일반 branch 에서 둘 다 차단:
    - ^\.lazy-harness/    ← framework 데이터
    - ^\.jcode/           ← skill 코드 (개인 영역)
    - ^packages/medivance-harness/src/framework/  ← legacy
+
+   단, ADR 0021 에 따라 experimental/lazy-harness branch 에서는 .lazy-harness/ 변경을 허용한다.
 
    .git/info/exclude 도 둘 다 등록:
    - .lazy-harness/
@@ -195,7 +202,8 @@ project-root/
 ✗ .jcode/lazy-harness/                ← M9 마이그레이션 강제됨
 ✗ .jcode/skills/...framework-data/    ← skill 폴더에 ADR 들어가는 layering 위반
 ✗ ~/.lazy-harness/                    ← 프로젝트별 분리 깨짐 (모든 프로젝트가 같은 framework 공유 X)
-✗ .lazy-harness/skills/               ← framework 가 jcode 종속됨
+✗ .lazy-harness/skills/               ← slash-command wrapper 와 framework 본체가 섞임
+✗ .jcode/skills/harness-doctor 가 primary gate ← ADR 0022 위반, 검증 로직은 framework 가 소유
 ```
 
 ---

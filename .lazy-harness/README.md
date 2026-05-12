@@ -28,7 +28,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 |---|---|
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 21 ADR (의사결정 영구 기록) |
+| [`decisions/`](decisions/) | 22 ADR (의사결정 영구 기록) |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -65,7 +65,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 21 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 22 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태

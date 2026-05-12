@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Lazy-Harness reproducible self-test.
 
-Checks the operational invariants that replaced the missing project-local
-.jcode doctor in this experimental branch:
+Checks the framework-owned operational invariants defined by ADR 0022:
 - every .lazy-harness XML file parses
 - permanent JSONL logs parse line-by-line
 - trigger fixtures produce DDD/SDD/BDD/SSOT candidates
@@ -73,22 +72,52 @@ def check_triggers() -> None:
     result = run_trigger("all")
     if not result.get("ok"):
         fail("trigger result ok=false")
+    if result.get("warnings"):
+        fail("trigger warnings must be empty: " + json.dumps(result.get("warnings"), ensure_ascii=False))
     candidates = result.get("candidates", [])
     by_layer: dict[str, int] = {}
     for candidate in candidates:
         by_layer[candidate.get("layer", "unknown")] = by_layer.get(candidate.get("layer", "unknown"), 0) + 1
-    minimums = {"ddd": 3, "sdd": 1, "bdd": 1, "ssot": 3}
-    missing = [f"{layer}>={count} got {by_layer.get(layer, 0)}" for layer, count in minimums.items() if by_layer.get(layer, 0) < count]
-    if missing:
-        fail("trigger fixture coverage too low: " + ", ".join(missing))
+    expected_counts = {"ddd": 5, "sdd": 1, "bdd": 1, "ssot": 4}
+    if by_layer != expected_counts:
+        fail(f"trigger fixture counts changed: expected {expected_counts}, got {by_layer}")
+
+    expected_all = {
+        ("ddd", "EMR"),
+        ("ddd", "Emr"),
+        ("ddd", "PatientDto"),
+        ("ddd", "PatientRiskProfile"),
+        ("sdd", "orderItemSchema"),
+        ("bdd", "PatientSearchAutocomplete"),
+        ("ssot", "mapPatientToDto"),
+        ("ssot", "calculateChecksum"),
+        ("ssot", "validatePatientRiskProfile"),
+        ("ssot", "normalizeAppointmentStatus"),
+    }
+    actual_all = {(candidate.get("layer"), candidate.get("name")) for candidate in candidates}
+    missing_expected = sorted(expected_all - actual_all)
+    if missing_expected:
+        fail("missing expected fixture candidates: " + json.dumps(missing_expected, ensure_ascii=False))
 
     ssot = run_trigger("ssot")
-    ssot_names = {candidate.get("name") for candidate in ssot.get("candidates", [])}
+    if ssot.get("warnings"):
+        fail("SSOT trigger warnings must be empty: " + json.dumps(ssot.get("warnings"), ensure_ascii=False))
+    ssot_candidates = ssot.get("candidates", [])
+    ssot_names = {candidate.get("name") for candidate in ssot_candidates}
     if "formatPatientName" in ssot_names:
         fail("registered SSOT utility formatPatientName should be suppressed")
-    for expected in ["mapPatientToDto", "validatePatientRiskProfile", "normalizeAppointmentStatus"]:
+    for expected in ["mapPatientToDto", "calculateChecksum", "validatePatientRiskProfile", "normalizeAppointmentStatus"]:
         if expected not in ssot_names:
             fail(f"missing SSOT fixture candidate: {expected}")
+    ssot_confidence = {candidate.get("name"): candidate.get("confidence") for candidate in ssot_candidates}
+    expected_confidence = {
+        "mapPatientToDto": "high",
+        "validatePatientRiskProfile": "high",
+        "normalizeAppointmentStatus": "high",
+        "calculateChecksum": "medium",
+    }
+    if ssot_confidence != expected_confidence:
+        fail(f"SSOT confidence changed: expected {expected_confidence}, got {ssot_confidence}")
     print(f"✓ trigger fixtures ok {by_layer}")
 
 

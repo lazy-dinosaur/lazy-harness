@@ -60,17 +60,29 @@ fi
 
 if ! echo "$TEST_OUT" | grep -q 'lazy-harness self-test ok'; then
     SUMMARY=$(printf '%s' "$TEST_OUT" | tail -5 | tr '\n' '; ' | head -c 500)
-    cat >> "$RESULT_LOG" <<JSON
-{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"fail","category":"infra","humanRequired":true,"details":["lazy:test failed: $SUMMARY"],"suggestedFix":"run bun run lazy:test and address framework self-test failures","confidence":"high"}
-JSON
+    TIMESTAMP="$TIMESTAMP" SUMMARY="$SUMMARY" python3 - <<'PY' >> "$RESULT_LOG"
+import json
+import os
+
+print(json.dumps({
+    "timestamp": os.environ["TIMESTAMP"],
+    "id": "PRE-PUSH-001",
+    "status": "fail",
+    "category": "infra",
+    "humanRequired": True,
+    "details": [f"lazy:test failed: {os.environ.get('SUMMARY', '')}"],
+    "suggestedFix": "run bun run lazy:test and address framework self-test failures",
+    "confidence": "high",
+}, ensure_ascii=False))
+PY
     echo ""
     echo "🚨 pre-push blocked: lazy:test 실패"
     echo "→ bun run lazy:test 실행해서 fix 후 다시 push"
     exit 1
 fi
 
-cat >> "$RESULT_LOG" <<JSON
-{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"pass","category":"infra","humanRequired":false,"details":["lazy:test all green"],"confidence":"high"}
-JSON
+# Success intentionally does not write to tracked validations.jsonl.
+# A successful push gate should not dirty the working tree.
+echo "✅ lazy:test all green"
 
 exit 0
