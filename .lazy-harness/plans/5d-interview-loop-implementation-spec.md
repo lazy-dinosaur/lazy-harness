@@ -2,7 +2,7 @@
 
 Date: 2026-05-12
 Branch: `experimental/lazy-harness`
-Status: draft-ready for implementation
+Status: implemented and verified through 5d-6
 Owner boundary: `.lazy-harness/` framework work only
 
 ## 0. Verified starting point
@@ -373,33 +373,25 @@ Self-test additions should pin:
 - Do not make `pre-push` depend on external SaaS/network.
 - Do not auto-edit DDD/SDD/BDD/SSOT registries without preview/apply split.
 
-## 8. Remaining roadmap after this spec
+## 8. Completion status and remaining roadmap after 5d
 
-### Immediate remaining work
+### Completed in 5d
 
-1. Implement `interview-loop.ts --mode collect`.
-2. Add `.lazy-harness/questions/open.xml` if absent.
-3. Add interview-loop fixture and self-test pin.
-4. Implement `--mode answer` preview/apply.
-5. Add decision log schema check.
+1. `interview-loop.ts --mode collect` implemented and pinned.
+2. `.lazy-harness/questions/open.xml` durable question queue exists.
+3. `--mode answer` preview/apply implemented with `decisions.jsonl`.
+4. TDD cross-verify v0 implemented and wired to lifecycle hook.
+5. Aftershock re-analysis implemented with depth cap and follow-up effects.
+6. Response.completed hook integration implemented.
+7. `referral-priority-queue` walkthrough reaches depth >= 2.
 
-### Next remaining work
+### Remaining post-5d / 5e work
 
-6. Implement TDD cross-verify v0: test existence + force gate.
-7. Add TDD fixtures and hook helper.
-8. Implement aftershock-check with max depth 3.
-9. Integrate response.completed hook once CLI behavior is stable.
-
-### Later remaining work
-
-10. Optimize doctor profiles if pre-push cost is too high:
-    - `smoke`: cheap structural checks.
-    - `full`: includes D07 typecheck.
-    - optional `ci`: full + slow e2e.
-11. Run one medivance feature through 5d depth >= 2.
-12. Enter 5e real feature release flow.
-13. Prepare framework extract/portability plan.
-14. Push/PR after final audit.
+1. Run same flow against a real medivance feature branch, not only fixture-backed proof.
+2. Expand TDD cross-verify from test-exists to BDD/DDD/SDD/SSOT semantic matching.
+3. Replace aftershock v0 heuristics with artifact diff-based re-analysis.
+4. Prepare framework extract/portability plan.
+5. Push/PR after final MVP audit.
 
 ## 9. Definition of done for 5d
 

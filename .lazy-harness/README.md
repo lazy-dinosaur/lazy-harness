@@ -2,7 +2,7 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Phase 5c 완료 + post-5c detector extraction 완료 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
+**현재 상태**: Phase 5d 완료 + 5e MVP proof 진행 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
 
 ## ⚠ Branch 룰 (ADR 0021)
 
@@ -57,8 +57,8 @@ flowchart LR
 | **5a** | ✅ closed (2026-05-10) | Self-Bootstrap (harness init / doctor / update) |
 | **5b** | ✅ closed (2026-05-10) | Lifecycle Hooks 진짜 작동 (M11 cascade) |
 | **5c** | ✅ complete (2026-05-12) | Code-Trigger Adapters (DDD/SDD/BDD/SSOT + cross-layer + structured ask + doctor) |
-| **5d** | 🔵 planned | Interview Loop (양방향 conflict resolution) |
-| **5e** | 🔵 planned | 실전 1 회 (medivance 다음 feature 통째로) |
+| **5d** | ✅ complete (2026-05-12) | Interview Loop (collect/answer/TDD/aftershock/hooks/walkthrough depth ≥ 2) |
+| **5e** | 🔄 in progress | MVP proof + 실전 1 회 준비 |
 
 ## 디렉토리 구조
 
@@ -141,7 +141,7 @@ $ bun run lazy:doctor    # full framework doctor: D01~D07
 
 ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `lazy:test`이고, framework-owned full doctor 는 `.lazy-harness/scripts/doctor.py` / `bun run lazy:doctor` 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant 와 D07 package health classification 까지 검사한다.
 
-## 다음 단계 — 5c 진입
+## 완료된 5c/5d 및 다음 단계 — 5e MVP proof
 
 | Sub-criterion | 내용 | 상태 |
 |---|---|---|
@@ -160,7 +160,7 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 - SDD type → DDD term 미등록 발견
 - DDD term → BDD scenario 의 noun 으로 사용?
 
-TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0019 예정).
+TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 5d-6 walkthrough 에서 hook 경유까지 검증됨.
 
 ## Related Docs
 
@@ -172,3 +172,17 @@ TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (
 
 Internal medivance use only. Do not push to public origins.
 `.husky/<3 hooks>` 만 framework public surface (ADR 0009).
+
+
+## 5d Interview Loop 완료 요약 (2026-05-12)
+
+| Criterion | 상태 | 증거 |
+|---|---|---|
+| 5d-1 open question queue | ✅ | `interview-loop.ts --mode collect`, self-test `5d-1` |
+| 5d-2 answer ingestion | ✅ | preview/apply split + `decisions.jsonl`, self-test `5d-2` |
+| 5d-3 TDD cross-verify | ✅ | `tdd-cross-verify.ts`, lifecycle helper, self-test `5d-3` |
+| 5d-4 aftershock re-analysis | ✅ | `aftershock-reanalysis.ts`, depth cap, self-test `5d-4` |
+| 5d-5 hook integration | ✅ | `on-response-completed.sh` integration, self-test `5d-5` |
+| 5d-6 walkthrough | ✅ | `referral-priority-queue` depth ≥ 2, self-test `5d-6` |
+
+5e MVP proof entry: [`retrospective/e2e/5e-mvp-proof.md`](retrospective/e2e/5e-mvp-proof.md).

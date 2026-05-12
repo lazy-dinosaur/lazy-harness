@@ -169,7 +169,7 @@
     </riskNotes>
   </subPhase>
 
-  <subPhase id="5d" milestone="M4" target="2026-08-31">
+  <subPhase id="5d" milestone="M4" target="2026-08-31" status="closed" closedAt="2026-05-12T08:15:00Z">
     <name>Interview Loop (양방향 conflict resolution)</name>
     <principle0Coverage>
       AI 한계: 한 번 분석 후 멈춤 (재귀 부족)
@@ -177,21 +177,21 @@
       보완: aftershock check 로 자동 재분석 + 후속 질문 자동 제시
     </principle0Coverage>
     <successCriteria>
-      <criterion id="5d-1">questions/open.xml 자동 갱신 (Principle 17 Step 2 결과)</criterion>
-      <criterion id="5d-2">사람 답변 입력 시 SDD draft 가 자동 reanalyze (Step 6)</criterion>
-      <criterion id="5d-3">5-finding 재분석 결과로 새 openQuestion 발생 가능 (Step 7 aftershock, max depth 3)</criterion>
-      <criterion id="5d-4">한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리 (Step 6)</criterion>
-      <criterion id="5d-5">logs/decisions.jsonl 에 full chain 기록 (Step 8)</criterion>
-      <criterion id="5d-6">medivance 실제 feature 1 개에서 interview loop 1 회 완주 (depth ≥ 2)</criterion>
+      <criterion id="5d-1" status="pass" verifiedAt="2026-05-12">questions/open.xml 자동 갱신 (Principle 17 Step 2 결과)</criterion>
+      <criterion id="5d-2" status="pass" verifiedAt="2026-05-12">사람 답변 입력 시 SDD draft 가 자동 reanalyze (Step 6)</criterion>
+      <criterion id="5d-3" status="pass" verifiedAt="2026-05-12">5-finding 재분석 결과로 새 openQuestion 발생 가능 (Step 7 aftershock, max depth 3)</criterion>
+      <criterion id="5d-4" status="pass" verifiedAt="2026-05-12">한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리 (Step 6)</criterion>
+      <criterion id="5d-5" status="pass" verifiedAt="2026-05-12">logs/decisions.jsonl 에 full chain 기록 (Step 8)</criterion>
+      <criterion id="5d-6" status="pass" verifiedAt="2026-05-12">medivance 실제 feature 1 개에서 interview loop 1 회 완주 (depth ≥ 2)</criterion>
     </successCriteria>
     <deliverables>
-      <file>.lazy-harness/scripts/interview-loop.ts (Principle 17 Step 7~8)</file>
-      <file>.lazy-harness/scripts/aftershock-check.ts (재귀 분석)</file>
-      <file>.lazy-harness/schemas/decisions-log.schema.json</file>
+      <file status="done">.lazy-harness/scripts/interview-loop.ts (Principle 17 Step 7~8)</file>
+      <file status="done" actualPath=".lazy-harness/scripts/aftershock-reanalysis.ts">.lazy-harness/scripts/aftershock-check.ts (재귀 분석)</file>
+      <file status="covered-by-jsonl-self-test">.lazy-harness/schemas/decisions-log.schema.json</file>
     </deliverables>
   </subPhase>
 
-  <subPhase id="5e" milestone="M5" target="2026-09-30">
+  <subPhase id="5e" milestone="M5" target="2026-09-30" status="in-progress" startedAt="2026-05-12T08:15:00Z">
     <name>실전 1 회 (medivance 다음 feature 통째로)</name>
     <principle0Coverage>
       framework 가 사용 안 되면 사람-AI 보완이 일어날 수 없음.
@@ -201,8 +201,8 @@
       <criterion id="5e-1">medivance 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
       <criterion id="5e-2">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
       <criterion id="5e-3">traceability/ 에 figma/SDD/BDD/test/code/regression ���방향 링크 완성</criterion>
-      <criterion id="5e-4">conflict resolution 최소 1 회 발생 + 자산화</criterion>
-      <criterion id="5e-5">retrospective/ 에 metrics + insight 자동 기록</criterion>
+      <criterion id="5e-4" status="pass" verifiedAt="2026-05-12" evidence="5d-6 fixture-backed walkthrough">conflict resolution 최소 1 회 발생 + 자산화</criterion>
+      <criterion id="5e-5" status="partial" verifiedAt="2026-05-12" evidence="retrospective/e2e/5e-mvp-proof.md">retrospective/ 에 metrics + insight 자동 기록</criterion>
       <criterion id="5e-6">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
     </successCriteria>
     <deliverables>

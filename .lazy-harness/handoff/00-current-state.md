@@ -24,7 +24,7 @@
    ```bash
    cd /home/lazydino/dev/medivance.experimental-lazy-harness
    git branch --show-current  # experimental/lazy-harness
-   ls .lazy-harness/triggers/  # code-change.ts (1502 lines)
+   ls .lazy-harness/triggers/  # code-change.ts (376 lines, orchestration only)
    bun run lazy:test  # XML + JSONL + trigger fixtures
    ```
 
@@ -33,7 +33,7 @@
 | 항목 | 값 |
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
-| **Origin push** | ⚠ local commit/push 확인 필요 (`git status -sb`) |
+| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at 5d-6) |
 | **ADRs** | **22** (0001~0022) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
@@ -50,7 +50,9 @@
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
 | **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile D01~D07 (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | 376 lines (CLI/orchestration only; detector bodies extracted) |
-| **Framework v1.4** | 975 lines, 23 principles |
+| **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
+| **5e MVP proof** | 🔄 in progress (proof artifacts + final audit) |
+| **Framework v1.4** | 983 lines, 23 principles |
 
 ## Oracle Audit 결과 (2026-05-12)
 
@@ -69,22 +71,18 @@
 상세 계획:
 - `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
 - `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
+- `.lazy-harness/retrospective/e2e/5e-mvp-proof.md`
 
 ```
-A. 5d Interview Loop 구현 시작
-   - spec: `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
-   - 5d-1 open question queue (`interview-loop.ts --mode collect`)
-   - 5d-2 human answer ingestion (`--mode answer`, preview/apply split)
-   - 5d-3 TDD cross-verify v0 (test existence + force gate)
+A. 5e MVP proof 마무리
+   - handoff/README/phase plan stale 정리
+   - 5d-6 walkthrough 증거를 5e MVP proof 로 연결
+   - final audit + lazy:test/lazy:doctor/pre-push 재검증
 
-B. Aftershock / hook integration
-   - 5d-4 aftershock-check with max depth 3
-   - 5d-5 response.completed hook integration only after CLI is stable
-
-C. Real-world proof and 5e
-   - 5d-6 medivance feature walkthrough depth ≥ 2
-   - 5e 실전 feature release flow
-   - push/PR after final audit
+B. Post-MVP 후보
+   - 실제 medivance feature branch 에 동일 flow 적용
+   - TDD cross-verify 5 checks 중 BDD/DDD/SDD/SSOT 매칭 확장
+   - aftershock v0 heuristic 을 artifact diff 기반으로 강화
 ```
 
 ## Worktree 배치 (최종 상태)
@@ -110,7 +108,7 @@ C. Real-world proof and 5e
 ## 절대 금지
 - git commit ❌ (.lazy-harness 는 experimental branch 에서만, ADR 0021)
 - 옛 fixture 삭제 ❌
-- code-change.ts wipeout ❌ (1502 lines 보존)
+- code-change.ts wipeout ❌ (376 lines orchestration-only 상태 보존)
 
 ## 검증 명령
 bun run lazy:test
