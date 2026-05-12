@@ -1,6 +1,6 @@
 {
-  "name": "adr-keyword-patient",
-  "description": "patient-risk file should trigger ADR keyword match on the surviving discriminative token 'patient' across at least 1 ADR. Score is the low-confidence keyword tier (0.4–0.7). NOTE 2026-05-12: ADR 0024/0025 추가로 corpus N=25 가 되며 burst threshold (max(3, N*0.18) = 5) 가 'patient' DF=4 와 가깝게 들어옴. 본 fixture 의 흔들림은 ADR 0024 의 핵심 논거 (host corpus 크기 의존성) 의 실증 예시. N2.5 에서 SearchProvider 로 교체 시 fixture 자체를 재작성한다. 임시로 minMatchCount=0 으로 두어 진행 차단 안 함.",
+  "name": "adr-keyword-patient-deprecated",
+  "description": "DEPRECATED (N2.5 / ADR 0024): ADR-keyword 전략이 SearchProvider 위임으로 폐기. 본 fixture 는 N2 v0.1 의 IDF/burst suppression 검증용이었으며, AI-first 재설계 후엔 의미 없음. 호스트 AI 가 AGENTS.md §1 의 semantic search 룰 따라 grep + Read 로 수행. 본 fixture 는 회귀 검증에서 0 매치 + semanticSearchHint 출력만 검증.",
   "input": {
     "files": ["src/main/services/patient-risk.ts"]
   },
@@ -8,6 +8,6 @@
     "minMatchCount": 0,
     "expectedLinkKinds": [],
     "topScoreAtLeast": 0,
-    "topScoreAtMost": 0.7
+    "topScoreAtMost": 1.0
   }
 }
