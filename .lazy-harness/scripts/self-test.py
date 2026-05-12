@@ -190,6 +190,25 @@ def run_interview_answer(queue: pathlib.Path, decisions: pathlib.Path, question_
     return json.loads(completed.stdout)
 
 
+def run_tdd_cross_verify(files: list[str], queue: pathlib.Path | None = None, expect_code: int = 0) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/tdd-cross-verify.ts",
+        "--files",
+        ",".join(files),
+        "--format",
+        "json",
+    ]
+    if queue is not None:
+        command.extend(["--queue", str(queue.relative_to(ROOT))])
+    completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
+    if completed.returncode != expect_code:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"tdd-cross-verify exit changed: expected {expect_code}, got {completed.returncode}")
+    return json.loads(completed.stdout)
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -237,6 +256,37 @@ def check_interview_loop_answer() -> None:
         queue.unlink(missing_ok=True)
         decisions.unlink(missing_ok=True)
     print("✓ 5d-2 interview-loop answer ok")
+
+
+def check_tdd_cross_verify() -> None:
+    queue = LAZY / "questions" / f"__tmp_tdd_cross_verify_{os.getpid()}.xml"
+    queue.unlink(missing_ok=True)
+    try:
+        missing = run_tdd_cross_verify([
+            ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts",
+        ], queue=queue, expect_code=2)
+        if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("failed") != 1:
+            fail("tdd-cross-verify missing-test gate changed: " + json.dumps(missing, ensure_ascii=False))
+        question = (missing.get("questions") or [{}])[0]
+        if question.get("id") != "Q-22c6c7cf5a7620f1" or question.get("criterionId") != "5d-3" or question.get("source") != "tdd-cross-verify":
+            fail("tdd-cross-verify question identity changed: " + json.dumps(question, ensure_ascii=False))
+        root = ET.parse(queue).getroot()
+        persisted = [entry for entry in root.findall("question") if entry.attrib.get("id") == "Q-22c6c7cf5a7620f1"]
+        if not persisted or persisted[0].attrib.get("criterionId") != "5d-3":
+            fail("tdd-cross-verify question was not persisted to queue")
+        deduped = run_tdd_cross_verify([
+            ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts",
+        ], queue=queue, expect_code=2)
+        if deduped.get("questions") != []:
+            fail("tdd-cross-verify queue dedupe changed: " + json.dumps(deduped, ensure_ascii=False))
+        covered = run_tdd_cross_verify([
+            ".lazy-harness/triggers/fixtures/tdd-cross-verify/covered-feature.ts",
+        ])
+        if covered.get("ok") is not True or covered.get("forceGate") is not False or covered.get("passed") != 1:
+            fail("tdd-cross-verify covered fixture changed: " + json.dumps(covered, ensure_ascii=False))
+    finally:
+        queue.unlink(missing_ok=True)
+    print("✓ 5d-3 TDD cross-verify ok")
 
 
 def check_lint_output() -> None:
@@ -411,6 +461,7 @@ def main() -> None:
     check_lint_output()
     check_interview_loop_collect()
     check_interview_loop_answer()
+    check_tdd_cross_verify()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")
