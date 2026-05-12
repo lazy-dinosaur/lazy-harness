@@ -268,6 +268,26 @@ def check_package_health() -> CheckResult:
     return warn("D07", "package health environment warning", combined.splitlines()[:20])
 
 
+def check_unicode_replacement_chars() -> CheckResult:
+    scan_suffixes = {".md", ".xml", ".json", ".jsonl", ".txt"}
+    hits: list[str] = []
+    for root in [LAZY, ROOT / "docs"]:
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix not in scan_suffixes:
+                continue
+            text = read_text(path)
+            for index, line in enumerate(text.splitlines(), start=1):
+                if "�" in line:
+                    hits.append(f"{rel(path)}:{index}: {line.strip()[:160]}")
+                    if len(hits) >= 40:
+                        return warn("D08", "Unicode replacement characters found", hits)
+    if hits:
+        return warn("D08", "Unicode replacement characters found", hits)
+    return ok("D08", "Unicode replacement characters absent")
+
+
 SMOKE_CHECKS: list[Check] = [
     check_xml_parse,
     check_jsonl_parse,
@@ -280,6 +300,7 @@ FULL_CHECKS: list[Check] = [
     *SMOKE_CHECKS,
     check_external_dependency_invariant,
     check_package_health,
+    check_unicode_replacement_chars,
 ]
 
 

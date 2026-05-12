@@ -43,7 +43,7 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 - ADR 작성 detect (recent_tool_calls 안 .lazy-harness/decisions/00XX-*.md Write) → plan addedDuringPhase 갱신 검증
 - handoff 안 stale 표기 ("pending ADR XXXX") detect → ADR closed 면 갱신 강제
 - Fix commit 후 regression 엔트리 미생성 detect
-- doctor C16 quick run
+- doctor/lazy-harness consistency checks and current 5c/5d/affected-test gates
 
 **deny 패턴**:
 ```json
@@ -83,9 +83,16 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
   on-response-completed.sh      # PRIMARY 검증 게이트
   on-client-disconnect.sh       # 세션 종료 cleanup
   helpers/
-    check-adr-sync.sh           # ADR 작성 후 plan/handoff sync 검증
-    check-handoff-stale.sh      # handoff 안 stale 표기 detect
-    check-fix-regression.sh     # Fix commit 후 regression 엔트리 검증
+    check-handoff-stale.sh          # handoff 안 stale 표기 detect
+    check-ddd-trigger.sh            # DDD trigger force gate
+    check-sdd-trigger.sh            # SDD trigger force gate
+    check-bdd-trigger.sh            # BDD trigger force gate
+    check-ssot-trigger.sh           # SSOT trigger force gate
+    check-tdd-cross-verify.sh       # missing test / TDD strategy gate
+    check-affected-tests.sh         # matching Vitest run or test-strategy gate
+    check-aftershock-reanalysis.sh  # aftershock recursion gate
+    check-fix-regression.sh         # Fix commit 후 regression 엔트리 검증
+    check-adr-sync.sh               # ADR 작성 후 plan/handoff sync 검증
 ```
 
 `.jcode/config.toml` 에 등록:
@@ -149,7 +156,7 @@ jcode M11 Stage 3 (loop guard 3회) 외 우리 추가 안전망:
 ### Negative
 
 - response.completed 가 매 응답마다 fire → 검증 비용 (현재 doctor ~400ms, 허용 가능)
-- false positive 시 AI 가 ���필요한 작업 수행 (loop guard 가 3회 후 catch)
+- false positive 시 AI 가 불필요한 작업 수행 (loop guard 가 3회 후 catch)
 - hook script 자체 버그 시 framework 자기마비 가능성 (loop guard + dry-run flag 가 mitigate)
 
 ### Risk
@@ -161,3 +168,10 @@ jcode M11 Stage 3 (loop guard 3회) 외 우리 추가 안전망:
 
 - ADR 0017 (예정) — sync-guard 의 정확도 측정 + tuning
 - ADR 0018 (예정) — `session.end` event (logical session end) 가 jcode 코어에 추가되면 framework 활용
+
+
+## Addendum — 2026-05-12 current helper chain
+
+ADR 0016 originally described the first 3 response helpers. The live chain has grown to 10 helpers as 5c/5d matured. The current source of truth is `.lazy-harness/hooks/README.md` and `.lazy-harness/hooks/lifecycle/on-response-completed.sh`.
+
+Read-only audits should disable hooks with `.lazy-harness/.hooks-disabled` or equivalent dry-run mode to avoid lifecycle continuation edits during audit collection.

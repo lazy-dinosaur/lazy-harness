@@ -38,12 +38,12 @@
       <criterion id="5a-8" status="pass">fresh tmp 디렉토리에서 init → doctor → 정상 통과 1 회 시연 (E2E test)</criterion>
     </successCriteria>
     <deliverables>
-      <file status="done">.jcode/skills/harness-init/SKILL.md</file>
-      <file status="done">.jcode/skills/harness-init/scripts/init-lazy-harness.sh</file>
-      <file status="done">.jcode/skills/harness-doctor/SKILL.md</file>
-      <file status="done">.jcode/skills/harness-doctor/scripts/doctor.sh</file>
-      <file status="done">.jcode/skills/harness-update/SKILL.md</file>
-      <file status="done">.jcode/skills/harness-update/scripts/update.sh</file>
+      <file status="retired" replacedBy="standalone lazy-harness extract" reason="ADR 0022: Jcode skills are wrappers only; framework logic lives in .lazy-harness">.jcode/skills/harness-init/SKILL.md</file>
+      <file status="retired" replacedBy="standalone lazy-harness extract" reason="ADR 0022: Jcode skills are wrappers only; framework logic lives in .lazy-harness">.jcode/skills/harness-init/scripts/init-lazy-harness.sh</file>
+      <file status="retired" replacedBy="bun run lazy:doctor" reason="ADR 0022: framework-owned doctor replaces .jcode primary doctor">.jcode/skills/harness-doctor/SKILL.md</file>
+      <file status="retired" replacedBy=".lazy-harness/scripts/doctor.py" reason="ADR 0022: framework-owned doctor replaces .jcode primary doctor">.jcode/skills/harness-doctor/scripts/doctor.sh</file>
+      <file status="retired" replacedBy="standalone lazy-harness extract" reason="ADR 0022: Jcode skills are wrappers only; framework logic lives in .lazy-harness">.jcode/skills/harness-update/SKILL.md</file>
+      <file status="retired" replacedBy="standalone lazy-harness extract" reason="ADR 0022: Jcode skills are wrappers only; framework logic lives in .lazy-harness">.jcode/skills/harness-update/scripts/update.sh</file>
       <file status="done">.lazy-harness/schemas/result.schema.json</file>
       <file status="done">.lazy-harness/schemas/decision.schema.json</file>
       <file status="deferred-to-5e">TS migration of init/doctor/update (Thin sh + Thick TS, Principle #8)</file>
@@ -110,7 +110,7 @@
       <note>AGENTS.md 78 → 142 lines (23 principle 반영, 다음 세션 entry point fresh)</note>
       <note>Husky chain medivance origin commit `b95dd3f7` push 완료 (.husky/&lt;3 hooks&gt; framework public surface 정착)</note>
       <note>**M11 jcode core patch** (사용자 직접 작업, 5 stage) — lifecycle hook decision parsing + reminder inject + loop guard + client.disconnect 분리 + payload context. Stage 6 = continuation user msg inject (Anthropic API 400 fix). Commits: e345d632 / b78e2bf5 / f382011c / dc26f1e8 / f372c801</note>
-      <note>**ADR 0016 — Lifecycle Hook Strategy** — response.completed = primary sync gate. Hook scripts 5종 (`hooks/lifecycle/on-response-completed.sh`, `on-client-disconnect.sh`, 3 helpers). **Live E2E 33초 자동 sync 완료** (사용자 prompt 1번에 5 tool calls).</note>
+      <note>**ADR 0016 — Lifecycle Hook Strategy** — response.completed = primary sync gate. Live helper chain is documented in hooks/README.md and currently includes DDD/SDD/BDD/SSOT/TDD/affected-test/aftershock/fix/ADR/handoff gates.</note>
       <note>**ADR 0017 — User Input as Universal Trigger** — 5c-6 (external opt-in) 폐기. 사용자 발화는 jcode payload (last_user_message + recent_tool_calls) 안으로. ADR 0013 cascade 의 incompleteness fix.</note>
       <note>**ADR 0018 — Cross-Layer Cascade** — 4 detector (DDD/SDD/BDD/SSOT) 가 유기적 cross-reference, 한 layer 누락이 다른 layer 가 catch. 5c criteria 9개로 재할당 + cross-layer consistency map (5c-5) 신규.</note>
       <note>**ADR 0019 — Ambiguous Detection → Force Gate Ask** — AI 가 confidence 못 매기는 케이스 (Emr 3글자 약어 등) 는 자동 처리 금지, force gate 로 사용자 ask. Principle 1.6 (gate) + 1.7 (confidence) + 17 (structured ask) 결합 룰.</note>

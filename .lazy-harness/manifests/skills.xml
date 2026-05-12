@@ -6,26 +6,26 @@
   Schema: each <skill> has id, location, status, phase, dependsOn (optional).
   status values: stable | beta | deferred | retired
 -->
-  <skillsManifest version="1" updatedAt="2026-05-12T01:16:00Z">
+  <skillsManifest version="1" updatedAt="2026-05-12T10:51:00Z">
 
   <!-- Jcode skills are optional wrappers. ADR 0022: framework logic lives in .lazy-harness. -->
-  <skill id="harness-init" status="stable" phase="5a">
+  <skill id="harness-init" status="retired" phase="5a" replacedBy="standalone lazy-harness extract">
     <location>.jcode/skills/harness-init/</location>
-    <description>Initialize a project-local lazy-harness directory tree</description>
+    <description>Retired Jcode wrapper concept. Future init belongs to standalone lazy-harness.</description>
     <slashCommand>/harness-init</slashCommand>
     <emitsLogs>true</emitsLogs>
   </skill>
 
   <skill id="lazy-test" status="stable" phase="5c">
     <location>.lazy-harness/scripts/self-test.py</location>
-    <description>Framework-owned reproducible self-test: XML, JSONL, and trigger fixtures</description>
+    <description>Framework-owned reproducible self-test: XML, JSONL, trigger fixtures, interview loop, affected test runner</description>
     <command>bun run lazy:test</command>
     <emitsLogs>true</emitsLogs>
   </skill>
 
-  <skill id="harness-update" status="stable" phase="5a">
+  <skill id="harness-update" status="retired" phase="5a" replacedBy="standalone lazy-harness extract">
     <location>.jcode/skills/harness-update/</location>
-    <description>Sync framework-contract.md from canonical source with auto-rollback</description>
+    <description>Retired Jcode wrapper concept. Future update belongs to standalone lazy-harness.</description>
     <slashCommand>/harness-update</slashCommand>
     <emitsLogs>true</emitsLogs>
     <dependsOn>lazy-test</dependsOn>

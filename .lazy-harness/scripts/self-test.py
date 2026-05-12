@@ -74,6 +74,11 @@ def check_doctor_package_health() -> None:
         fail("doctor D07 should be ok or warn, got: " + json.dumps(d07, ensure_ascii=False))
     if d07.get("status") == "warn" and "environment" not in d07.get("message", ""):
         fail("doctor D07 warning should classify environment/package health: " + json.dumps(d07, ensure_ascii=False))
+    d08 = results.get("D08")
+    if not d08:
+        fail("doctor full missing D08 unicode replacement result")
+    if d08.get("status") not in {"ok", "warn"}:
+        fail("doctor D08 should be ok or warn, got: " + json.dumps(d08, ensure_ascii=False))
     print(f"✓ doctor D07 package health {d07.get('status')}")
 
 

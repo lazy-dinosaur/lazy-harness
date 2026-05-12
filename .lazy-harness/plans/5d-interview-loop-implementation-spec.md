@@ -145,8 +145,8 @@ Deliverables:
 ```text
 .lazy-harness/plans/5d-interview-loop-implementation-spec.md
 .lazy-harness/questions/open.xml                    # if missing, create empty valid container
-.lazy-harness/questions/answered.jsonl              # optional durable answer log
-.lazy-harness/schemas/interview-question.schema.json
+.lazy-harness/questions/answered.jsonl              # optional, not implemented; decisions.jsonl is current durable log
+.lazy-harness/schemas/interview-question.schema.json  # optional future schema; self-test pins current shape
 ```
 
 Success criteria:
