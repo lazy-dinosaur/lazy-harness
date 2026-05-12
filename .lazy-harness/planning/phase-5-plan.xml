@@ -114,6 +114,10 @@
       <note>**ADR 0017 — User Input as Universal Trigger** — 5c-6 (external opt-in) 폐기. 사용자 발화는 jcode payload (last_user_message + recent_tool_calls) 안으로. ADR 0013 cascade 의 incompleteness fix.</note>
       <note>**ADR 0018 — Cross-Layer Cascade** — 4 detector (DDD/SDD/BDD/SSOT) 가 유기적 cross-reference, 한 layer 누락이 다른 layer 가 catch. 5c criteria 9개로 재할당 + cross-layer consistency map (5c-5) 신규.</note>
       <note>**ADR 0019 — Ambiguous Detection → Force Gate Ask** — AI 가 confidence 못 매기는 케이스 (Emr 3글자 약어 등) 는 자동 처리 금지, force gate 로 사용자 ask. Principle 1.6 (gate) + 1.7 (confidence) + 17 (structured ask) 결합 룰.</note>
+      <note>**ADR 0020 — TDD Cross-Verify Gate in 5d** — TDD 는 5c detector 아닌 5d Interview Loop 안의 cross-verify gate. 4 detector 모두 채워진 후 test ↔ DDD/SDD/BDD/SSOT 일관성 검증.</note>
+      <note>**ADR 0021 — Experimental Branch + Extract Strategy** — `.lazy-harness/` 작업은 `experimental/lazy-harness` branch 전용. 다른 branch 는 0 tracked. Cleanup 시 `git rm --cached` (disk 유지). 미래 별도 repo extract 준비. Doctor C4 branch exception 추가. ADR 0009 운영 룰 보완.</note>
+      <note>**5c-1 / 5c-2 / 5c-3 완료** (2026-05-11~12) — DDD detector (137 candidates) + SDD detector (724 candidates) + acronym ambiguous (ADR 0019 첫 적용) + BDD detector (자연어 + UI heuristic). 24/24 통과 조건 PASS. code-change.ts 1502 lines.</note>
+      <note>**Legacy `packages/medivance-harness/` 완전 폐기** (2026-05-12) — disk + git 모두 삭제. ADR 0013 cascade 마무리.</note>
       <note>`.lazy-harness/README.md` 154 lines — framework entry point 처음 작성</note>
       <note>5c re-scope cascade: plan (5c-6 삭제) + trails (M3 Adapter Funnel → Code-Trigger Adapters) + handoff (Next phase + Husky tracked 표기) + decisions/0013 (cascade table)</note>
     </addedDuringPhase>

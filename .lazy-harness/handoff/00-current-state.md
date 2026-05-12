@@ -14,8 +14,8 @@
 | **Husky integration** | ✅ `.husky/<3 hooks>` chain → `.lazy-harness/hooks/*.sh`, **commit b95dd3f7 medivance origin push 완료** (ADR 0009 enforced) |
 | **Framework contract** | **v1.4**, **975 lines**, **23 principle sections** (incl. 21.8 audit log retention split) |
 | **Cross-layer maps** | 17 XML placeholders |
-| **ADRs** | **20** (0001~0020) |
-| **Decisions logged** | **21** entries |
+| **ADRs** | **21** (0001~0021) |
+| **Decisions logged** | **22** entries |
 | **Actions logged** | **110+** entries (3 invalid → fixed by Oracle/Sisyphus) (3 invalid lines fixed by Oracle/Sisyphus audit) |
 | **Doctor checks** | **C1~C16** (16 total) — 12 pass, 1 warn, 2 skip, 1 fail (C15 untracked) |
 | **Skills manifest** | 11 skills declared |
