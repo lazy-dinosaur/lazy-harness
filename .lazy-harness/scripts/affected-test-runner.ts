@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -6,12 +7,13 @@ interface CliOptions {
   files: string[];
   queue?: string;
   format: 'json' | 'text';
+  run: boolean;
 }
 
-interface TddQuestion {
+interface AffectedQuestion {
   id: string;
   criterionId: '5d-3';
-  source: 'tdd-cross-verify';
+  source: 'affected-test-runner';
   status: 'open';
   depth: 0;
   fingerprint: string;
@@ -28,25 +30,36 @@ interface TddQuestion {
   createdAt: string;
 }
 
-interface FileCheck {
+interface FilePlan {
   file: string;
   kind: 'source' | 'test' | 'ignored';
-  ok: boolean;
   matchingTests: string[];
-  question?: TddQuestion;
+  question?: AffectedQuestion;
   reason?: string;
 }
 
-interface VerifyResult {
+interface TestRunResult {
+  command: string[];
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+interface AffectedTestResult {
   ok: boolean;
-  mode: 'tdd-cross-verify';
+  mode: 'affected-test-runner';
   checked: number;
-  passed: number;
-  failed: number;
+  runnableTests: string[];
   forceGate: boolean;
   queue?: string;
-  files: FileCheck[];
-  questions: TddQuestion[];
+  framework: {
+    detected: boolean;
+    runner: 'vitest' | 'unknown';
+    reason?: string;
+  };
+  files: FilePlan[];
+  questions: AffectedQuestion[];
+  run?: TestRunResult;
   warnings: string[];
 }
 
@@ -55,7 +68,7 @@ const SOURCE_EXT_RE = /\.(ts|tsx|js|jsx)$/;
 const TEST_FILE_RE = /\.(test|spec)\.(ts|tsx|js|jsx)$/;
 
 function parseCliArgs(argv: string[]): CliOptions {
-  const opts: CliOptions = { files: [], format: 'json' };
+  const opts: CliOptions = { files: [], format: 'json', run: true };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const next = argv[i + 1];
@@ -71,6 +84,8 @@ function parseCliArgs(argv: string[]): CliOptions {
     } else if (arg === '--format' && (next === 'json' || next === 'text')) {
       opts.format = next;
       i += 1;
+    } else if (arg === '--no-run') {
+      opts.run = false;
     }
   }
   return opts;
@@ -95,16 +110,16 @@ function normalizePath(file: string): string {
   return file.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
+function uniqueFiles(files: string[]): string[] {
+  return [...new Set(files.map(normalizePath))];
+}
+
 function isTestFile(file: string): boolean {
   return TEST_FILE_RE.test(path.basename(file));
 }
 
 function isSourceFile(file: string): boolean {
   return SOURCE_EXT_RE.test(file) && !isTestFile(file) && !file.endsWith('.d.ts');
-}
-
-function uniqueFiles(files: string[]): string[] {
-  return [...new Set(files.map(normalizePath))];
 }
 
 function candidateTestPaths(file: string): string[] {
@@ -131,9 +146,24 @@ function siblingTestFiles(file: string): string[] {
 }
 
 function matchingTests(file: string): string[] {
+  if (isTestFile(file)) return [file];
   const direct = candidateTestPaths(file).filter((candidate) => existsSync(candidate));
   const siblings = siblingTestFiles(file).filter((candidate) => existsSync(candidate));
   return uniqueFiles([...direct, ...siblings]);
+}
+
+function detectVitest(): AffectedTestResult['framework'] {
+  if (!existsSync('package.json')) return { detected: false, runner: 'unknown', reason: 'package.json not found' };
+  try {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string>; devDependencies?: Record<string, string>; dependencies?: Record<string, string> };
+    const hasScript = Object.values(packageJson.scripts ?? {}).some((script) => script.includes('vitest'));
+    const hasDependency = Boolean(packageJson.devDependencies?.vitest ?? packageJson.dependencies?.vitest);
+    const hasConfig = existsSync('vitest.config.ts') || existsSync('vitest.config.js') || existsSync('vitest.config.mts');
+    if (hasScript || hasDependency || hasConfig) return { detected: true, runner: 'vitest' };
+    return { detected: false, runner: 'unknown', reason: 'vitest script/dependency/config not detected' };
+  } catch (error) {
+    return { detected: false, runner: 'unknown', reason: `package.json parse failed: ${String(error)}` };
+  }
 }
 
 function escapeXml(value: unknown): string {
@@ -156,7 +186,7 @@ function existingFingerprints(queue: string): Set<string> {
   return fingerprints;
 }
 
-function renderQuestion(question: TddQuestion): string {
+function renderQuestion(question: AffectedQuestion): string {
   const options = question.options.map((option) => [
     `      <option id="${escapeXml(option.id)}">`,
     `        <label>${escapeXml(option.label)}</label>`,
@@ -176,7 +206,7 @@ function renderQuestion(question: TddQuestion): string {
   ].join('\n');
 }
 
-function appendQuestions(queue: string, questions: TddQuestion[]): void {
+function appendQuestions(queue: string, questions: AffectedQuestion[]): void {
   if (questions.length === 0) return;
   mkdirSync(path.dirname(queue), { recursive: true });
   const addition = questions.map(renderQuestion).join('\n');
@@ -184,7 +214,7 @@ function appendQuestions(queue: string, questions: TddQuestion[]): void {
     writeFileSync(queue, [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<openQuestions version="1.0" owner="lazy-harness" criterionId="mixed">',
-      '  <!-- Generated by .lazy-harness/scripts/tdd-cross-verify.ts. Empty is valid. -->',
+      '  <!-- Generated by .lazy-harness/scripts/affected-test-runner.ts. Empty is valid. -->',
       addition,
       '</openQuestions>',
       '',
@@ -198,24 +228,25 @@ function appendQuestions(queue: string, questions: TddQuestion[]): void {
   writeFileSync(queue, next, 'utf8');
 }
 
-function questionForMissingTest(file: string, now: string): TddQuestion {
+function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-framework', now: string): AffectedQuestion {
   const suggestedPath = candidateTestPaths(file)[0];
-  const fingerprint = hashFingerprint({ source: 'tdd-cross-verify', check: 'test-exists', file });
+  const fingerprint = hashFingerprint({ source: 'affected-test-runner', reason, file });
+  const reasonLabel = reason === 'missing-test' ? '대응 test/spec 파일이 없습니다' : '테스트 runner 설정이 명확하지 않습니다';
   return {
     id: `Q-${fingerprint}`,
     criterionId: '5d-3',
-    source: 'tdd-cross-verify',
+    source: 'affected-test-runner',
     status: 'open',
     depth: 0,
     fingerprint,
     layer: 'tdd',
-    question: `[5d-3 TDD Cross-Verify] '${file}' 변경에 대응하는 test/spec 파일이 없습니다. 어떻게 처리할까요?`,
+    question: `[5d-3 Affected Test] '${file}' 검증 중 ${reasonLabel}. 어떤 방식으로 진행할까요?`,
     recommended: 'A',
     options: [
       {
         id: 'A',
         label: `Vitest로 ${suggestedPath} 작성 후 실행`,
-        description: 'Recommended. 현재 repo의 기본 테스트 runner는 Vitest입니다.',
+        description: 'Recommended. 현재 repo는 vitest 기반 테스트 인프라가 있습니다.',
         effects: [{ kind: 'tdd-require-test', target: file, suggestedPath, runner: 'vitest' }],
       },
       {
@@ -228,7 +259,7 @@ function questionForMissingTest(file: string, now: string): TddQuestion {
         id: 'C',
         label: '이번 변경에서는 테스트 실행을 명시적으로 skip/defer',
         description: '스킵 사유를 decision log에 남겨 silent skip을 방지합니다.',
-        effects: [{ kind: 'defer', reason: `missing-test:${file}` }],
+        effects: [{ kind: 'defer', reason: `affected-test:${reason}:${file}` }],
       },
       {
         id: 'D',
@@ -236,63 +267,81 @@ function questionForMissingTest(file: string, now: string): TddQuestion {
         effects: [],
       },
     ],
-    crossRef: { check: 'test-exists', file, suggestedPath, candidates: candidateTestPaths(file) },
+    crossRef: { check: 'affected-test-runner', reason, file, suggestedPath, candidates: candidateTestPaths(file) },
     createdAt: now,
   };
 }
 
-export function verifyTddCrossReferences(files: string[], queue?: string): VerifyResult {
-  const now = new Date().toISOString();
-  const checks: FileCheck[] = [];
-  const questions: TddQuestion[] = [];
-  const seenQueue = queue ? existingFingerprints(queue) : new Set<string>();
-  for (const file of uniqueFiles(files)) {
-    if (!SOURCE_EXT_RE.test(file)) {
-      checks.push({ file, kind: 'ignored', ok: true, matchingTests: [], reason: 'unsupported-extension' });
-      continue;
-    }
-    if (isTestFile(file)) {
-      checks.push({ file, kind: 'test', ok: true, matchingTests: [file] });
-      continue;
-    }
-    if (!isSourceFile(file)) {
-      checks.push({ file, kind: 'ignored', ok: true, matchingTests: [], reason: 'not-source' });
-      continue;
-    }
-    const tests = matchingTests(file);
-    if (tests.length > 0) {
-      checks.push({ file, kind: 'source', ok: true, matchingTests: tests });
-      continue;
-    }
-    const question = questionForMissingTest(file, now);
-    checks.push({ file, kind: 'source', ok: false, matchingTests: [], question, reason: 'missing-test' });
-    if (!seenQueue.has(question.fingerprint)) {
-      questions.push(question);
-      seenQueue.add(question.fingerprint);
-    }
-  }
-  if (queue) appendQuestions(queue, questions);
-  const sourceChecks = checks.filter((check) => check.kind === 'source');
-  const failed = sourceChecks.filter((check) => !check.ok).length;
+function runVitest(tests: string[]): TestRunResult {
+  const command = ['bun', 'vitest', 'run', ...tests];
+  const completed = spawnSync(command[0], command.slice(1), { encoding: 'utf8' });
   return {
-    ok: failed === 0,
-    mode: 'tdd-cross-verify',
-    checked: sourceChecks.length,
-    passed: sourceChecks.length - failed,
-    failed,
-    forceGate: failed > 0,
-    ...(queue ? { queue } : {}),
-    files: checks,
-    questions,
-    warnings: sourceChecks.length === 0 ? ['No source files to verify'] : [],
+    command,
+    exitCode: completed.status ?? 1,
+    stdout: completed.stdout ?? '',
+    stderr: completed.stderr ?? '',
   };
 }
 
-function formatText(result: VerifyResult): string {
-  const lines = [`[5d-3 tdd-cross-verify] ok=${result.ok} checked=${result.checked} failed=${result.failed} forceGate=${result.forceGate}`];
-  for (const check of result.files) {
-    if (check.kind === 'source') lines.push(`- ${check.ok ? 'PASS' : 'FAIL'} ${check.file}${check.reason ? ` ${check.reason}` : ''}`);
+export function runAffectedTests(files: string[], options: { queue?: string; run?: boolean } = {}): AffectedTestResult {
+  const now = new Date().toISOString();
+  const queue = options.queue;
+  const framework = detectVitest();
+  const filePlans: FilePlan[] = [];
+  const questions: AffectedQuestion[] = [];
+  const existing = queue ? existingFingerprints(queue) : new Set<string>();
+  for (const file of uniqueFiles(files)) {
+    if (!SOURCE_EXT_RE.test(file)) {
+      filePlans.push({ file, kind: 'ignored', matchingTests: [], reason: 'unsupported-extension' });
+      continue;
+    }
+    if (isTestFile(file)) {
+      filePlans.push({ file, kind: 'test', matchingTests: [file] });
+      continue;
+    }
+    if (!isSourceFile(file)) {
+      filePlans.push({ file, kind: 'ignored', matchingTests: [], reason: 'not-source' });
+      continue;
+    }
+    const tests = matchingTests(file);
+    if (!framework.detected) {
+      const question = testStrategyQuestion(file, 'missing-framework', now);
+      filePlans.push({ file, kind: 'source', matchingTests: tests, question, reason: 'missing-framework' });
+      if (!existing.has(question.fingerprint)) questions.push(question);
+      continue;
+    }
+    if (tests.length === 0) {
+      const question = testStrategyQuestion(file, 'missing-test', now);
+      filePlans.push({ file, kind: 'source', matchingTests: [], question, reason: 'missing-test' });
+      if (!existing.has(question.fingerprint)) questions.push(question);
+      continue;
+    }
+    filePlans.push({ file, kind: 'source', matchingTests: tests });
   }
+  if (queue) appendQuestions(queue, questions);
+  const runnableTests = uniqueFiles(filePlans.flatMap((plan) => plan.matchingTests));
+  const run = framework.detected && runnableTests.length > 0 && options.run !== false ? runVitest(runnableTests) : undefined;
+  const needsInterview = filePlans.some((plan) => plan.kind === 'source' && plan.question !== undefined);
+  const forceGate = needsInterview || (run ? run.exitCode !== 0 : false);
+  const checked = filePlans.filter((plan) => plan.kind === 'source').length;
+  return {
+    ok: !forceGate,
+    mode: 'affected-test-runner',
+    checked,
+    runnableTests,
+    forceGate,
+    ...(queue ? { queue } : {}),
+    framework,
+    files: filePlans,
+    questions,
+    ...(run ? { run } : {}),
+    warnings: checked === 0 ? ['No source files to verify'] : [],
+  };
+}
+
+function formatText(result: AffectedTestResult): string {
+  const lines = [`[affected-test-runner] ok=${result.ok} checked=${result.checked} tests=${result.runnableTests.length} forceGate=${result.forceGate}`];
+  if (result.run) lines.push(`run: ${result.run.command.join(' ')} exit=${result.run.exitCode}`);
   for (const question of result.questions) lines.push(`ask ${question.id}: ${question.question}`);
   for (const warning of result.warnings) lines.push(`warning: ${warning}`);
   return lines.join('\n');
@@ -300,7 +349,7 @@ function formatText(result: VerifyResult): string {
 
 function main(): void {
   const opts = parseCliArgs(process.argv.slice(2));
-  const result = verifyTddCrossReferences(opts.files, opts.queue);
+  const result = runAffectedTests(opts.files, { queue: opts.queue, run: opts.run });
   if (opts.format === 'json') console.log(JSON.stringify(result, null, 2));
   else console.log(formatText(result));
   if (result.forceGate) process.exitCode = 2;

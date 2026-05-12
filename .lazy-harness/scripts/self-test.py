@@ -209,6 +209,25 @@ def run_tdd_cross_verify(files: list[str], queue: pathlib.Path | None = None, ex
     return json.loads(completed.stdout)
 
 
+
+def run_affected_tests(files: list[str], queue: pathlib.Path | None = None, expect_code: int = 0) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/affected-test-runner.ts",
+        "--files",
+        ",".join(files),
+        "--format",
+        "json",
+    ]
+    if queue is not None:
+        command.extend(["--queue", str(queue.relative_to(ROOT))])
+    completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
+    if completed.returncode != expect_code:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"affected-test-runner exit changed: expected {expect_code}, got {completed.returncode}")
+    return json.loads(completed.stdout)
+
 def run_aftershock_reanalysis(queue: pathlib.Path, decisions_path: str = ".lazy-harness/triggers/fixtures/aftershock/decisions.jsonl") -> dict:
     command = [
         "bun",
@@ -323,6 +342,43 @@ def check_tdd_cross_verify() -> None:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 TDD cross-verify ok")
 
+
+
+def check_affected_test_runner() -> None:
+    queue = LAZY / "questions" / f"__tmp_affected_tests_{os.getpid()}.xml"
+    queue.unlink(missing_ok=True)
+    try:
+        covered = run_affected_tests(["tests/lazy-harness/affected/covered.ts"], queue=queue)
+        if covered.get("ok") is not True or covered.get("forceGate") is not False:
+            fail("affected-test-runner covered fixture changed: " + json.dumps(covered, ensure_ascii=False))
+        if covered.get("runnableTests") != ["tests/lazy-harness/affected/covered.test.ts"]:
+            fail("affected-test-runner runnable tests changed: " + json.dumps(covered.get("runnableTests"), ensure_ascii=False))
+        run = covered.get("run") or {}
+        if run.get("exitCode") != 0 or "1 passed" not in (run.get("stdout") or ""):
+            fail("affected-test-runner did not execute vitest successfully: " + json.dumps(run, ensure_ascii=False))
+
+        missing = run_affected_tests(["tests/lazy-harness/affected/missing.ts"], queue=queue, expect_code=2)
+        if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("questions") == []:
+            fail("affected-test-runner missing fixture changed: " + json.dumps(missing, ensure_ascii=False))
+        question = missing["questions"][0]
+        if question.get("id") != "Q-8e866d44709ff49c" or question.get("source") != "affected-test-runner":
+            fail("affected-test-runner question identity changed: " + json.dumps(question, ensure_ascii=False))
+        labels = [option.get("label", "") for option in question.get("options", [])]
+        if not any("Vitest" in label for label in labels) or not any("skip/defer" in label for label in labels):
+            fail("affected-test-runner interview options changed: " + json.dumps(labels, ensure_ascii=False))
+
+        pass_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/covered.ts"}]}
+        pass_out = run_response_completed_hook(pass_payload, queue)
+        if pass_out.strip():
+            fail("affected test hook should stay silent when vitest passes:\n" + pass_out)
+
+        fail_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing.ts"}]}
+        fail_out = run_response_completed_hook(fail_payload, queue)
+        if "5d-3 Affected Test Gate" not in fail_out or "Q-8e866d44709ff49c" not in fail_out:
+            fail("affected test hook did not surface interview gate:\n" + fail_out)
+    finally:
+        queue.unlink(missing_ok=True)
+    print("✓ 5d-3 affected test runner ok")
 
 def check_aftershock_reanalysis() -> None:
     queue = LAZY / "questions" / f"__tmp_aftershock_{os.getpid()}.xml"
@@ -599,6 +655,7 @@ def main() -> None:
     check_interview_loop_collect()
     check_interview_loop_answer()
     check_tdd_cross_verify()
+    check_affected_test_runner()
     check_aftershock_reanalysis()
     check_lifecycle_hook_integration()
     check_real_feature_walkthrough()

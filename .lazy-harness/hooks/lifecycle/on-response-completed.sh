@@ -17,6 +17,7 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh \
+  .lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-aftershock-reanalysis.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-fix-regression.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-adr-sync.sh \
