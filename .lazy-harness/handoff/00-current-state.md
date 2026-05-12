@@ -60,6 +60,8 @@
 
 ## 다음 작업 우선순위
 
+상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
+
 ```
 A. 5c-5 Cross-layer consistency map
    - 4 detector 결과 통합
