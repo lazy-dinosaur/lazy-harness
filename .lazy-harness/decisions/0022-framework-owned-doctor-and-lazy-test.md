@@ -24,7 +24,7 @@ Lazy-Harness의 검증/운영 로직은 framework가 소유한다.
 |---|---|
 | Jcode / `.jcode` | framework 사용 편의, slash command, adapter UI, local tool bridge |
 | `.lazy-harness` | framework data, rules, hooks, doctor, self-test, trigger detectors, registry consistency |
-| product code | medivance feature implementation |
+| product code | host-project feature implementation |
 
 ### Immediate executable gate
 

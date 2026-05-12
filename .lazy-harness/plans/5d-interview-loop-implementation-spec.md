@@ -306,7 +306,7 @@ Acceptance:
 - Repeated same question does not create infinite deny loop.
 - Hook output is concise and cites question ID.
 
-### 5d-6: Real medivance feature walkthrough
+### 5d-6: Real host-project feature walkthrough
 
 Deliverables:
 
@@ -368,7 +368,7 @@ Self-test additions should pin:
 ## 7. Non-goals
 
 - Do not implement DB migrations.
-- Do not touch medivance feature code during 5d framework build, except fixture/e2e phase.
+- Do not touch host-project feature code during 5d framework build, except fixture/e2e phase.
 - Do not use `.jcode` as primary state store.
 - Do not make `pre-push` depend on external SaaS/network.
 - Do not auto-edit DDD/SDD/BDD/SSOT registries without preview/apply split.
@@ -387,7 +387,7 @@ Self-test additions should pin:
 
 ### Remaining post-5d / 5e work
 
-1. Run same flow against a real medivance feature branch, not only fixture-backed proof.
+1. Run same flow against a real host-project feature branch, not only fixture-backed proof.
 2. Expand TDD cross-verify from test-exists to BDD/DDD/SDD/SSOT semantic matching.
 3. Replace aftershock v0 heuristics with artifact diff-based re-analysis.
 4. Prepare framework extract/portability plan.
@@ -403,5 +403,5 @@ Self-test additions should pin:
 - Aftershock re-analysis can create follow-up questions with depth cap.
 - TDD cross-verify gate covers at least test existence and one cross-layer check.
 - Hook integration can block stop only for force gates.
-- One real medivance feature completes an interview loop with depth >= 2.
+- One real host-project feature completes an interview loop with depth >= 2.
 - `lazy:test`, `lazy:doctor`, and pre-push all pass.

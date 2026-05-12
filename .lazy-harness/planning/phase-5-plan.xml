@@ -9,7 +9,7 @@
   <overview>
     <goal>
       lazy-harness 의 18 principle 을 명세 단계 → 실제 동작 단계로 끌어올린다.
-      Phase 5 끝나면 medivance 의 다음 feature 1 개를 lazy-harness 통과시켜 출시 가능.
+      Phase 5 끝나면 host project 의 다음 feature 1 개를 lazy-harness 통과시켜 출시 가능.
     </goal>
     <duration>2026-05-10 ~ 2026-09-30 (약 5 개월)</duration>
     <prerequisites>
@@ -182,7 +182,7 @@
       <criterion id="5d-3" status="pass" verifiedAt="2026-05-12">5-finding 재분석 결과로 새 openQuestion 발생 가능 (Step 7 aftershock, max depth 3)</criterion>
       <criterion id="5d-4" status="pass" verifiedAt="2026-05-12">한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리 (Step 6)</criterion>
       <criterion id="5d-5" status="pass" verifiedAt="2026-05-12">logs/decisions.jsonl 에 full chain 기록 (Step 8)</criterion>
-      <criterion id="5d-6" status="pass" verifiedAt="2026-05-12">medivance 실제 feature 1 개에서 interview loop 1 회 완주 (depth ≥ 2)</criterion>
+      <criterion id="5d-6" status="pass" verifiedAt="2026-05-12" evidence="fixture-backed referral-priority-queue walkthrough">feature-like interview loop 1 회 완주 (depth ≥ 2). 실제 host-project feature 출시는 5e-1 로 유지.</criterion>
     </successCriteria>
     <deliverables>
       <file status="done">.lazy-harness/scripts/interview-loop.ts (Principle 17 Step 7~8)</file>
@@ -191,19 +191,19 @@
     </deliverables>
   </subPhase>
 
-  <subPhase id="5e" milestone="M5" target="2026-09-30" status="in-progress" startedAt="2026-05-12T08:15:00Z">
-    <name>실전 1 회 (medivance 다음 feature 통째로)</name>
+  <subPhase id="5e" milestone="M5" target="2026-09-30" status="pilot-ready" startedAt="2026-05-12T08:15:00Z" frameworkMvpProof="complete">
+    <name>실전 1 회 (host project 다음 feature 통째로)</name>
     <principle0Coverage>
       framework 가 사용 안 되면 사람-AI 보완이 일어날 수 없음.
       실전 1 회 통과가 framework 의 진짜 가치 입증.
     </principle0Coverage>
     <successCriteria>
-      <criterion id="5e-1">medivance 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
-      <criterion id="5e-2">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
-      <criterion id="5e-3">traceability/ 에 figma/SDD/BDD/test/code/regression ���방향 링크 완성</criterion>
+      <criterion id="5e-1" status="pending" blocker="Phase 5 close">host project 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
+      <criterion id="5e-2" status="ready" recommendation="inside-out">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
+      <criterion id="5e-3" status="fixture-partial" evidence="traceability/referral-priority-queue.xml">traceability/ 에 figma/SDD/BDD/test/code/regression 양방향 링크 완성</criterion>
       <criterion id="5e-4" status="pass" verifiedAt="2026-05-12" evidence="5d-6 fixture-backed walkthrough">conflict resolution 최소 1 회 발생 + 자산화</criterion>
-      <criterion id="5e-5" status="partial" verifiedAt="2026-05-12" evidence="retrospective/e2e/5e-mvp-proof.md">retrospective/ 에 metrics + insight 자동 기록</criterion>
-      <criterion id="5e-6">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
+      <criterion id="5e-5" status="pass-for-MVP" verifiedAt="2026-05-12" evidence="retrospective/e2e/5e-mvp-proof.md; plans/post-mvp-gap-map.md">retrospective/ 에 metrics + insight 자동 기록</criterion>
+      <criterion id="5e-6" status="partial" evidence="hook lifecycle, fixture-scope pollution, affected-test routing, aftershock heuristic limits">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
     </successCriteria>
     <deliverables>
       <file>.lazy-harness/intent/active/&lt;feature-name&gt;.xml (실전 Intent Spec)</file>
@@ -228,7 +228,7 @@
       <mitigation>max depth 3 hard cap. depth 3 시 사람 강제 escalation.</mitigation>
     </risk>
     <risk id="P5-R4" severity="medium">
-      <description>5e 실전 적용 시 framework 가 medivance 작업 속도 저하시킴</description>
+      <description>5e 실전 적용 시 framework 가 host-project 작업 속도 저하시킴</description>
       <mitigation>실전 적용은 작은 feature 부터. framework off mode (manual) 도 항상 가능하게.</mitigation>
     </risk>
     <risk id="P5-R5" severity="medium">
@@ -253,6 +253,7 @@
     - 5e 의 실전 feature 1 개 출시 완료
     - 모든 success criteria (5a-1 ~ 5e-6) 통과
     - retrospective/m5-postmortem.md 작성
+    - standalone `lazy-harness` repository extract 계획 확정
     - Phase 6 (Skill 생태계) 시작 가능한 데이터 수집 완료
   </exitCriteria>
 </phase5Plan>

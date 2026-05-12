@@ -160,20 +160,20 @@
         <criterion>사람 답변 입력 시 SDD draft 가 자동 reanalyze</criterion>
         <criterion>5 - finding 재분석 결과로 새 openQuestion 발생 가능 (재귀 가능)</criterion>
         <criterion>한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리</criterion>
-        <criterion>medivance 실제 feature 1 개에서 interview loop 1 회 완주</criterion>
+        <criterion>host-project 실제 feature 1 개에서 interview loop 1 회 완주</criterion>
       </successCriteria>
     </milestone>
 
     <!-- M5: 실전 적용 (Phase 5e) -->
     <milestone id="M5" target="2026-09-30" priority="critical">
-      <name>실전 1 회 (medivance 다음 feature 통째로)</name>
+      <name>실전 1 회 (host project 다음 feature 통째로)</name>
       <rationale>
         tsq 가 v3.8 에 도달한 건 실전 사용 때문. 우리도 1 회 진짜 사용 안 하면
         framework 가 vibe code 수준에서 멈춤.
       </rationale>
       <subPhase>Phase 5e</subPhase>
       <successCriteria>
-        <criterion>medivance 의 다음 feature 1 개를 우리 harness 통과시켜 출시</criterion>
+        <criterion>host project 의 다음 feature 1 개를 우리 harness 통과시켜 출시</criterion>
         <criterion>4 pattern 중 하나 명시적 선택 후 진행</criterion>
         <criterion>traceability/ 에 figma/SDD/BDD/test/code/regression 양방향 링크 완성</criterion>
         <criterion>회고 (retrospective/) 에 metrics + insight 자동 기록</criterion>
@@ -230,7 +230,7 @@
       <successCriteria>
         <criterion>retrospective metrics 가 다음 phase 의 plan 에 자동 영향</criterion>
         <criterion>VER-* 검증이 자기 검증 (자기 코드도 framework 로 통과)</criterion>
-        <criterion>medivance 외 1 개 프로젝트에서 동일한 가치 입증</criterion>
+        <criterion>host project 외 1 개 프로젝트에서 동일한 가치 입증</criterion>
       </successCriteria>
     </milestone>
   </milestones>

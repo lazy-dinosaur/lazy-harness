@@ -2,7 +2,7 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Phase 5d 완료 + 5e MVP proof 진행 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
+**현재 상태**: Framework MVP proof 완료 + 실제 host-project 5e pilot 준비 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
 
 ## ⚠ Branch 룰 (ADR 0021)
 
@@ -58,7 +58,7 @@ flowchart LR
 | **5b** | ✅ closed (2026-05-10) | Lifecycle Hooks 진짜 작동 (M11 cascade) |
 | **5c** | ✅ complete (2026-05-12) | Code-Trigger Adapters (DDD/SDD/BDD/SSOT + cross-layer + structured ask + doctor) |
 | **5d** | ✅ complete (2026-05-12) | Interview Loop (collect/answer/TDD/aftershock/hooks/walkthrough depth ≥ 2) |
-| **5e** | 🔄 in progress | MVP proof + 실전 1 회 준비 |
+| **5e** | ✅ framework MVP proof 완료 / 🔄 real host-project pilot pending | fixture-backed full loop proof 완료, 실제 host-project feature 1 회가 Phase 5 close blocker |
 
 ## 디렉토리 구조
 
@@ -160,7 +160,11 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 - SDD type → DDD term 미등록 발견
 - DDD term → BDD scenario 의 noun 으로 사용?
 
-TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 5d-6 walkthrough 에서 hook 경유까지 검증됨.
+TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 이후 affected regression test runner 가 matching Vitest 실행 또는 test-strategy interview gate 까지 확장함.
+
+## Standalone repo extraction boundary
+
+현재 repository 는 lazy-harness 의 host-project incubation worktree 이다. Framework MVP proof + host-project pilot 검증 후에는 framework internals 를 **독립 `lazy-harness` repository** 로 옮긴다. 이 경계는 잊으면 안 되는 next-stage rule 이며, 상세 체크리스트는 [`plans/extract-to-lazy-harness-repo.md`](plans/extract-to-lazy-harness-repo.md)에 둔다.
 
 ## Related Docs
 
@@ -186,3 +190,5 @@ Internal medivance use only. Do not push to public origins.
 | 5d-6 walkthrough | ✅ | `referral-priority-queue` depth ≥ 2, self-test `5d-6` |
 
 5e MVP proof entry: [`retrospective/e2e/5e-mvp-proof.md`](retrospective/e2e/5e-mvp-proof.md).
+Post-MVP gap map: [`plans/post-mvp-gap-map.md`](plans/post-mvp-gap-map.md).
+Standalone extraction plan: [`plans/extract-to-lazy-harness-repo.md`](plans/extract-to-lazy-harness-repo.md).

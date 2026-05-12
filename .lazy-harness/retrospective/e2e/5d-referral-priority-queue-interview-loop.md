@@ -20,4 +20,4 @@ Status: self-test-backed fixture walkthrough
 
 ## Remaining limitation
 
-This walkthrough is fixture-backed. The next MVP proof should run the same flow against a real medivance feature branch artifact and decide whether missing TDD is written immediately or explicitly deferred.
+This walkthrough is fixture-backed. The next MVP proof should run the same flow against a real host-project feature branch artifact and decide whether missing TDD is written immediately or explicitly deferred.

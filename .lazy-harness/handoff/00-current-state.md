@@ -33,7 +33,7 @@
 | 항목 | 값 |
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
-| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at 5d-6) |
+| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `43622e8b`) |
 | **ADRs** | **22** (0001~0022) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
@@ -51,8 +51,9 @@
 | **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile D01~D07 (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | 376 lines (CLI/orchestration only; detector bodies extracted) |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
-| **5e MVP proof** | 🔄 in progress (proof artifacts + final audit) |
+| **5e framework MVP proof** | ✅ done (fixture-backed full loop + affected Vitest gate, real host-project pilot still pending) |
 | **Framework v1.4** | 983 lines, 23 principles |
+| **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, Vitest run or structured interview) |
 
 ## Oracle Audit 결과 (2026-05-12)
 
@@ -72,17 +73,27 @@
 - `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
 - `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
 - `.lazy-harness/retrospective/e2e/5e-mvp-proof.md`
+- `.lazy-harness/plans/post-mvp-gap-map.md`
+- `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
 
 ```
-A. 5e MVP proof 마무리
-   - handoff/README/phase plan stale 정리
-   - 5d-6 walkthrough 증거를 5e MVP proof 로 연결
-   - final audit + lazy:test/lazy:doctor/pre-push 재검증
+A. 5e 실제 host-project pilot 시작
+   - 작은 feature 선택
+   - 4 pattern 중 하나 명시 (`inside-out` 권장)
+   - intent/spec/behavior/traceability seed 작성
+   - feature branch 에서 affected Vitest gate + interview loop 통과
+   - pilot 결과를 post-mvp-gap-map 에 반영
 
-B. Post-MVP 후보
-   - 실제 medivance feature branch 에 동일 flow 적용
-   - TDD cross-verify 5 checks 중 BDD/DDD/SDD/SSOT 매칭 확장
+B. Standalone lazy-harness repo extract 준비 (잊지 말 것)
+   - 여기 repo 는 incubation/validation worktree 일 뿐
+   - framework internals 는 `lazy-harness` 독립 repo 로 이동 예정
+   - 상세 체크리스트: `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
+
+C. Post-MVP hardening
+   - decision consume/effect executor 확장
+   - custom test command / Playwright routing
    - aftershock v0 heuristic 을 artifact diff 기반으로 강화
+   - jcode lifecycle hook semantics 문서 최종화
 ```
 
 ## Worktree 배치 (최종 상태)
@@ -114,5 +125,5 @@ B. Post-MVP 후보
 bun run lazy:test
 bun run lazy:doctor
 .lazy-harness/hooks/pre-push.sh origin dummy
-→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + D07 package health 통과
+→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + interview loop + affected Vitest gate + D07 package health 통과
 ```
