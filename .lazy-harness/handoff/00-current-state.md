@@ -66,22 +66,25 @@
 
 ## 다음 작업 우선순위
 
-상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
+상세 계획:
+- `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
+- `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
 
 ```
-A. Post-5c refactor `code-change.ts` monolith
-   - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
-   - ✅ detector bodies extracted, `code-change.ts` now 376 lines orchestration
-   - 5c behavior 는 `lazy:test`로 pin 됨
+A. 5d Interview Loop 구현 시작
+   - spec: `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
+   - 5d-1 open question queue (`interview-loop.ts --mode collect`)
+   - 5d-2 human answer ingestion (`--mode answer`, preview/apply split)
+   - 5d-3 TDD cross-verify v0 (test existence + force gate)
 
-B. Package/dependency health
-   - plan: `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
-   - `typecheck:node` fails on missing `electron-vite/node` + `@electron-toolkit/tsconfig`
-   - ✅ `lazy:doctor` D07 classifies this as environment/package health warning, not code drift
+B. Aftershock / hook integration
+   - 5d-4 aftershock-check with max depth 3
+   - 5d-5 response.completed hook integration only after CLI is stable
 
-C. 5d Interview Loop 진입 준비
-   - TDD cross-verify gate (ADR 0020)
-   - 양방향 conflict resolution
+C. Real-world proof and 5e
+   - 5d-6 medivance feature walkthrough depth ≥ 2
+   - 5e 실전 feature release flow
+   - push/PR after final audit
 ```
 
 ## Worktree 배치 (최종 상태)
@@ -111,5 +114,7 @@ C. 5d Interview Loop 진입 준비
 
 ## 검증 명령
 bun run lazy:test
-→ XML/JSONL/DDD/SDD/BDD/SSOT fixture 통과
+bun run lazy:doctor
+.lazy-harness/hooks/pre-push.sh origin dummy
+→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + D07 package health 통과
 ```
