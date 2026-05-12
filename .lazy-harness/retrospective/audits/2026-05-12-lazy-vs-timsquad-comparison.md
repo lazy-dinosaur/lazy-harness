@@ -136,14 +136,14 @@ north-star §1 의 9 종 실패 유형 기준 평가:
 | npm publish | M9 Public 0.1 | high |
 | 학습 자료 | M9 와 함께 | high |
 
-동시에 우리만의 차별점은 **north-star N1~N8 마일스���** 으로 깊이 굳힌다 (`trails/02-north-star-milestones.xml`).
+동시에 우리만의 차별점은 **north-star N1~N8 마일스톤** 으로 깊이 굳힌다 (`trails/02-north-star-milestones.xml`).
 
 ---
 
 ## 7. 결론
 
 1. **추격 vs 차별화**: lazy-harness 의 목적은 tsq 추격이 아니다. **north-star 9 종 실패 차단**.
-2. **단계별 전략**: M0~M5 에�� 우리 차별점 (gate / Principle / Recovery) 을 굳히고, M6~M9 에서 tsq 가 가진 패키징/skill/publish 격차를 좁힌다.
+2. **단계별 전략**: M0~M5 에서 우리 차별점 (gate / Principle / Recovery) 을 굳히고, M6~M9 에서 tsq 가 가진 패키징/skill/publish 격차를 좁힌다.
 3. **lessons from tsq**: init 1 줄, skill 단위 분해, daemon — 이 셋은 **컨셉을 차용** 하되 구현은 우리 라이프사이클에 맞게.
 4. **우리만 가능한 것**: Principle 0 (사람-AI 상호 보완), 5-finding 분석, Trigger 강도 5 단계, 8-step Conflict Resolution, R1~R4 Recovery, Bidirectional Traceability, Unified Result Schema, Empty-Container Tolerance. **이 8 개는 학술/산업 어디에도 같은 명제 없음.**
 

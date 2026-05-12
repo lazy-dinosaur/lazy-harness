@@ -70,7 +70,7 @@ class RAGSearch implements SearchProvider {
 | `findAdrKeyword()` (ADR body 전체 토큰화 + 매칭) | 검색 알고리즘 직접 구현, AI 가 더 잘 함 |
 | `findPathStem()` 의 partial substring match | 오탐 다수 |
 | `computeIdfStopwords()` (런타임 IDF 계산) | O(ADRs × tokens) 비용, host-specific 튜닝 필요 |
-| `MANUAL_STOPWORDS` (37개 하드코���) | 도메인마다 재작성 필요 |
+| `MANUAL_STOPWORDS` (37개 하드코딩) | 도메인마다 재작성 필요 |
 | `ADR_BURST_THRESHOLD = max(3, N × 0.18)` | corpus 크기 의존 매직 상수 |
 | `MATCH_SCORE_FLOOR = 0.5` | 매직 상수 |
 | `IDF_STOPWORD_THRESHOLD = 0.3` | 매직 상수 |

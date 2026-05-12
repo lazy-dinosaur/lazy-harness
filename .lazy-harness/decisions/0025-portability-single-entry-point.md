@@ -51,7 +51,7 @@ inspect() {
 ### interview (구조화 옵션 질문 5~10개)
 
 ```
-질문 ���시:
+질문 예시:
 1. 이 프로젝트의 stack 은? (자동감지: Electron + React + Prisma) [확인/수정]
 2. Force gate 모드는? [strict / observation / relaxed (Recommended for new host)]
 3. BDD 시나리오는 어디에 보관? [.lazy-harness/bdd/ (default) / 다른 경로]

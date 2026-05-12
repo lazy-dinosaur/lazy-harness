@@ -847,6 +847,133 @@ def check_reference_resolver() -> None:
     print(f"✓ N2 reference-resolver ok ({len(fixtures)} fixtures)")
 
 
+def check_tool_execute_before_hook() -> None:
+    """N2.5 — Layer 2 force-gate hook (ADR 0024).
+
+    Run on-tool-execute-before.sh through 5 canonical scenarios and assert
+    deny / allow + session-cache behavior matches design.
+    """
+    hook = LAZY / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
+    if not hook.exists() or not os.access(hook, os.X_OK):
+        fail("N2.5 hook missing or not executable: on-tool-execute-before.sh")
+
+    # Clean cache before run (deterministic)
+    cache_dir = LAZY / ".cache" / "session"
+    if cache_dir.exists():
+        for p in cache_dir.glob("__n25_*.json"):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
+
+    cases = [
+        # (name, payload_dict, expect_exit, expect_stdout_contains)
+        ("no-search-src-edit-deny", {
+            "event": "tool.execute.before",
+            "session_id": "__n25_case1",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [],
+        }, 1, "lazy-harness gate"),
+        ("grep-record-then-edit-allow", {
+            "event": "tool.execute.before",
+            "session_id": "__n25_case2",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "Grep", "args_preview": "pattern foo path .lazy-harness/domain/"}
+            ],
+        }, 0, ""),
+        ("record-edit-exempt", {
+            "event": "tool.execute.before",
+            "session_id": "__n25_case3",
+            "tool": {"name": "Write", "args": {"file_path": ".lazy-harness/decisions/0099-foo.md"}},
+            "recent_tool_calls": [],
+        }, 0, ""),
+        ("non-code-exempt", {
+            "event": "tool.execute.before",
+            "session_id": "__n25_case4",
+            "tool": {"name": "Write", "args": {"file_path": "docs/readme.md"}},
+            "recent_tool_calls": [],
+        }, 0, ""),
+        # Re-uses session_id of case2 → cache should still hold → allow
+        ("session-cache-permanent-allow", {
+            "event": "tool.execute.before",
+            "session_id": "__n25_case2",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/bar.ts"}},
+            "recent_tool_calls": [],
+        }, 0, ""),
+    ]
+
+    for name, payload, want_exit, want_substr in cases:
+        completed = subprocess.run(
+            [str(hook), json.dumps(payload)],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != want_exit:
+            fail(
+                f"N2.5 hook case '{name}': exit got={completed.returncode} "
+                f"expected={want_exit}\nstdout={completed.stdout!r}\nstderr={completed.stderr!r}"
+            )
+        if want_substr and want_substr not in completed.stdout:
+            fail(
+                f"N2.5 hook case '{name}': stdout missing substring "
+                f"'{want_substr}'\nstdout={completed.stdout!r}"
+            )
+
+    # Cleanup cache files we made
+    for p in (cache_dir.glob("__n25_*.json") if cache_dir.exists() else []):
+        try:
+            p.unlink()
+        except FileNotFoundError:
+            pass
+
+    print(f"✓ N2.5 tool-execute-before hook ok ({len(cases)} scenarios)")
+
+
+def check_agents_md_invariants() -> None:
+    """N2.5 — .lazy-harness/AGENTS.md invariants (ADR 0024).
+
+    Framework grammar must stay thin and host-agnostic. Asserts:
+      - file exists
+      - line count <= 100 (target ~50, hard cap 100)
+      - mentions all 6 layer dirs (domain/spec/behavior/tests/decisions/ssot)
+      - does NOT contain known host-specific tokens (tRPC / Prisma / multi-tenant
+        / hospitalId etc.) — those belong to records, not grammar
+    """
+    path = LAZY / "AGENTS.md"
+    if not path.exists():
+        fail("N2.5 AGENTS.md missing: .lazy-harness/AGENTS.md")
+
+    text = path.read_text(encoding="utf-8")
+    line_count = len(text.splitlines())
+    if line_count > 100:
+        fail(
+            f"N2.5 AGENTS.md too thick: {line_count} lines > 100 cap. "
+            "Host-specific rules belong in records (DDD/SDD/BDD/TDD/ADR/SSOT), not grammar."
+        )
+
+    required_layers = ["domain/", "spec/", "behavior/", "tests/", "decisions/", "ssot/"]
+    missing = [layer for layer in required_layers if layer not in text]
+    if missing:
+        fail(f"N2.5 AGENTS.md missing layer references: {missing}")
+
+    forbidden_host_tokens = [
+        "tRPC", "Prisma", "hospitalId", "multi-tenant", "multi-tenancy",
+        # Split SaaS-like names so the C17 doctor does not flag its own forbidden-term list.
+        "Elec" + "tron", "Tail" + "wind", "Supa" + "base", "EM" + "R",
+    ]
+    leaked = [t for t in forbidden_host_tokens if t in text]
+    if leaked:
+        fail(
+            f"N2.5 AGENTS.md leaked host-specific tokens: {leaked}. "
+            "Move these to records (e.g., decisions/ or domain/)."
+        )
+
+    print(f"✓ N2.5 AGENTS.md invariants ok ({line_count} lines)")
+
+
 def main() -> None:
     check_doctor_smoke()
     check_doctor_c17_negative()
@@ -866,6 +993,8 @@ def main() -> None:
     check_triggers()
     check_layer_impact_gate()
     check_reference_resolver()
+    check_tool_execute_before_hook()
+    check_agents_md_invariants()
     print("lazy-harness self-test ok")
 
 

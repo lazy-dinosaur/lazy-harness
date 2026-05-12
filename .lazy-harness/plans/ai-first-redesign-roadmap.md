@@ -231,7 +231,7 @@ N3 의 3 스캐너 모두 SearchProvider 를 통해 record 검색. **검색 알�
 
 ## N6 — Drift / Conflict Detector (8h)
 
-**목적**: 같은 개념이 여��� 곳 다르게 정의 → 자동 검출 + 8-step Conflict Resolution 진입.
+**목적**: 같은 개념이 여러 곳 다르게 정의 → 자동 검출 + 8-step Conflict Resolution 진입.
 
 ### 작업 분해
 
