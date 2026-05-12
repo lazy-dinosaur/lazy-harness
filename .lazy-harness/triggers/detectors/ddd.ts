@@ -314,29 +314,7 @@ export function isZodExpressionText(value: string): boolean {
   return /\bz\s*\./.test(value) || /\bZ(?:od)?(?:Object|String|Number|Array|Enum|Boolean|Date|Union|Literal)\b/i.test(value);
 }
 
-
-
-
-// === BDD detector (5c-3, ADR 0018 cross-ref + ADR 0019 force gate) ===
-// Integration notes:
-// - DDD detector remains the source of truth for nouns and ubiquitous language.
-// - SDD detector remains the source of truth for contracts, procedures, and endpoints.
-// - BDD only proposes user-visible behavior scenarios expressed as given/when/then.
-// - Natural-language messages are primary because they usually express intent.
-// - UI-code heuristics are secondary because they can only infer behavior from implementation evidence.
-// - A single button click is intentionally not enough evidence for a scenario.
-// - Multi-step UI requires multiple states, multiple UI events, and multiple handlers.
-// - Registered behavior markers suppress duplicate prompts.
-// - Cross-ref matched lists are affirmative hints, not auto-registrations.
-// - Cross-ref missing lists are force-gate prompts that keep human control.
-// - Patient/search/autocomplete is explicit because it is the current 5c-3 acceptance fixture.
-// - Generic scenarios remain possible for future UI flows without adding new fixture-specific code.
-// - The detector returns TriggerCandidate objects compatible with existing ask/json output.
-// - No registry files are mutated here. The trigger only reports candidates.
-// - ADR 0009: this integration intentionally leaves changes on disk without committing.
-
-
-function isMeaningfulDddTerm(term: string): boolean {
+export function isMeaningfulDddTerm(term: string): boolean {
   if (!term || isZodExpressionText(term)) return false;
 
   const words = filterDddTermWords(splitIdentifierWords(term));
@@ -355,7 +333,7 @@ export function classifyNounWord(word: string): 'noise' | 'acronym-candidate' | 
   return 'meaningful';
 }
 
-function filterDddTermWords(words: string[]): string[] {
+export function filterDddTermWords(words: string[]): string[] {
   return words.filter((word) => !DDD_INFERENCE_STOP_WORDS.has(word) && !SHORT_ACRONYM_NOISE_WORDS.has(word) && !ZOD_HELPER_WORDS.has(word));
 }
 

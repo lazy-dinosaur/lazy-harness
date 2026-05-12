@@ -9,12 +9,7 @@ import {
 } from 'ts-morph';
 import { compactSignature, normalizePath, splitIdentifierWords, unique } from '../common';
 import {
-  ACRONYM_LENGTH,
-  DDD_INFERENCE_STOP_WORDS,
-  DOMAIN_SEED_NOUNS,
   KNOWN_ACRONYM_EXPANSIONS,
-  SHORT_ACRONYM_NOISE_WORDS,
-  ZOD_HELPER_WORDS,
   canonicalAcronymDisplay,
   filterDddTermWords,
   filePathToDomainHint,
@@ -23,6 +18,7 @@ import {
   inferAmbiguousAcronymsFromObjectFields,
   inferMatchedDddTerms,
   isAcronymCandidate,
+  isMeaningfulDddTerm,
   isZodExpressionText,
 } from './ddd';
 import type { StructuredAsk, TriggerCandidate, TriggerConfidence } from '../types';
@@ -226,35 +222,6 @@ function uniqueTermsByLower(terms: string[]): string[] {
 }
 
 
-function isMeaningfulDddTerm(term: string): boolean {
-  if (!term || isZodExpressionText(term)) return false;
-
-  const words = filterDddTermWords(splitIdentifierWords(term));
-  if (words.length === 0) return false;
-  if (isZodHelperComposite(words)) return false;
-
-  if (words.length === 1) return classifyNounWord(words[0]) !== 'noise';
-
-  return words.some((word) => classifyNounWord(word) !== 'noise');
-}
-
-function classifyNounWord(word: string): 'noise' | 'acronym-candidate' | 'meaningful' {
-  if (SHORT_ACRONYM_NOISE_WORDS.has(word)) return 'noise';
-  if (DOMAIN_SEED_NOUNS.some((noun) => noun.toLowerCase() === word)) return 'meaningful';
-  if (word.length === ACRONYM_LENGTH) return 'acronym-candidate';
-  return 'meaningful';
-}
-
-function filterDddTermWords(words: string[]): string[] {
-  return words.filter((word) => !DDD_INFERENCE_STOP_WORDS.has(word) && !SHORT_ACRONYM_NOISE_WORDS.has(word) && !ZOD_HELPER_WORDS.has(word));
-}
-
-function isZodHelperComposite(words: string[]): boolean {
-  const joined = words.join('');
-  if (ZOD_HELPER_WORDS.has(joined)) return true;
-  return joined.startsWith('z') && ZOD_HELPER_WORDS.has(joined.slice(1));
-}
-
 function getSddConfidence(contract: ContractCandidate, ambiguousDddTerms: string[] = []): TriggerConfidence {
   if (ambiguousDddTerms.length > 0) return 'ambiguous';
   if (contract.kind === 'trpc-procedure') return 'high';
@@ -428,8 +395,3 @@ function inferDddTerms(name: string): string[] {
   const term = nounWords.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join('');
   return isMeaningfulDddTerm(term) ? [term] : [];
 }
-
-function isZodExpressionText(value: string): boolean {
-  return /\bz\s*\./.test(value) || /\bZ(?:od)?(?:Object|String|Number|Array|Enum|Boolean|Date|Union|Literal)\b/i.test(value);
-}
-
