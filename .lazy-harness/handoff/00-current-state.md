@@ -34,8 +34,8 @@
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
 | **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `ebee2671`; current edits pending validation) |
-| **ADRs** | **23** (0001~0023) |
-| **Decisions logged** | 23+ entries |
+| **ADRs** | **25** (0001~0025; 0024 AI-first redesign, 0025 portability single entry point) |
+| **Decisions logged** | 25+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
 | **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
@@ -54,8 +54,10 @@
 | **5e host-project pilot** | ✅ complete (inside-out pilot commit `ba162ab1`; command-routing gap found and remediation in progress) |
 | **Framework v1.4** | 983 lines, 23 principles |
 | **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, project test-strategy/package-script routing or structured interview) |
-| **N1 Layer Impact Gate** | 🟡 in-progress — schema + script + 3 fixtures + self-test green + **response.completed + pre-commit hook integration (observation mode)** + **N2 resolver wired in** (candidateRecords + resolverVersion). Host-pilot true-positive 검증 1 criterion 남음. (`.lazy-harness/scripts/layer-impact-gate.ts`, `schemas/layer-impact-result.schema.json`, `triggers/fixtures/layer-impact/`, `hooks/lifecycle/helpers/check-layer-impact.sh`, `hooks/pre-commit-layer-impact.sh`) |
-| **N2 Reference Resolver** | 🟡 in-progress — schema + script + 4 fixtures + self-test green + **wired into N1 layer-impact-gate**. Strategies: cross-layer-link 1.0, test-stem 0.95, path-stem 0.85, ADR-keyword 0.4-0.7. Index cache at `generated/reference-index.json` (sha1 fingerprint, lazy rebuild). Host-pilot recall/precision 검증 1 criterion 남음. (`.lazy-harness/scripts/reference-resolver.ts`, `schemas/reference-map.schema.json`, `triggers/fixtures/reference-resolver/`) |
+| **N1 Layer Impact Gate** | ✅ done — schema + script + 3 fixtures + self-test green + response.completed + pre-commit hook (observation mode) + N2 resolver wired in. Host-pilot precision/recall = 1.0 over 4 evaluable commits (ADR 0023). |
+| **N2 Reference Resolver** | ✅ done (baseline 검증) — host-pilot precision/recall = 1.0 (ADR 0023). 단 구현 70% 는 N2.5 에서 AI-first 로 교체 예정 (ADR 0024). |
+| **N2.5 AI-first Redesign** | 🟡 planned (critical, 5~7h) — SearchProvider abstraction + .lazy-harness/AGENTS.md (grammar, ~50줄) + tool.execute.before hook + session-cache. reference-resolver.ts ~459→~80 줄 단순화. ADR 0024 근거. |
+| **N4 Portability Entry Point** | 🟡 planned (priority 격상 high → critical, 15.5h) — lazy init (inspect/interview/apply). 모든 portability 책임 흡수, N9 별도 milestone 신설 안 함. ADR 0025 근거. |
 
 ## Oracle Audit 결과 (2026-05-12)
 

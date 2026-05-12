@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<northStarMilestones version="1.0" lastUpdated="2026-05-12">
+<northStarMilestones version="1.1" lastUpdated="2026-05-12">
   <!--
     이 파일은 north-star (accuracy + no-regression) 를 달성하기 위한
     **실행 축 마일스톤** 을 정의한다.
@@ -93,6 +93,51 @@
         suppression; pass-5 precision/recall = 1.0 over 4 evaluable commits.
         Stopword list is now two-layer (MANUAL_STOPWORDS + IDF auto-derived ≥30%).
         Detailed validation: ADR 0023.
+
+        2026-05-12 후 결정 (ADR 0024 supersedes partially): host-pilot 종료 직후
+        사용자 통찰로 N2 구현의 70% (IDF / burst / stopwords / ADR-keyword / path-stem
+        partial match) 가 잘못된 추상화로 판명. N2.5 에서 SearchProvider abstraction
+        + AI direct search 로 교체, reference-resolver.ts ~459 → ~80 줄로 단순화 예정.
+        검증 결과 (precision/recall = 1.0) 자체는 유지 — N2 가 "검색 가능하다"는 증명
+        역할로 충분. 구현 교체 후 N2.5 의 회귀 검증으로 재확인.
+      </notes>
+    </milestone>
+
+    <!-- N2.5: AI-first Resolver Redesign + AGENTS.md + 3-Layer Defense (north-star B 보강) -->
+    <milestone id="N2.5" status="planned" priority="critical" target="2026-06-15">
+      <name>AI-first Reference Resolver Redesign + AGENTS.md + 3-Layer Defense</name>
+      <northStarPriority>B (2nd 보강)</northStarPriority>
+      <rationale>
+        N2 의 검증은 통과했으나 (ADR 0023), 구현 70% 가 host-corpus 의존적 검색 알고리즘
+        직접 구현이라 portability 깨짐 (ADR 0024). AI 가 직접 검색하도록 SearchProvider
+        abstraction 으로 교체 + AGENTS.md 로 AI 행동 grammar 박음 + tool.execute.before
+        hook 으로 안전망. 이 3 layer 가 AI-first lifecycle enforcement 의 기반.
+      </rationale>
+      <successCriteria>
+        <criterion>SearchProvider abstraction (interface + DirectAISearch 구현)</criterion>
+        <criterion>reference-resolver.ts 단순화: IDF / burst / stopwords / ADR-keyword / path-stem partial match 제거, ~459 → ~80 줄</criterion>
+        <criterion>cross-layer-link + test-stem + path-stem (exact only) 만 유지</criterion>
+        <criterion>.lazy-harness/AGENTS.md 작성 (framework 공통 grammar, ~40~50 줄, host 특화 룰 박지 않음)</criterion>
+        <criterion>tool.execute.before hook 신설 (.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh)</criterion>
+        <criterion>session-cache 메커니즘 (.lazy-harness/.session-cache/searched-layers.txt)</criterion>
+        <criterion>jcode 통합 (.lazy-harness/AGENTS.md 자동 인식 — jcode patch 또는 .jcode/AGENTS.md @include)</criterion>
+        <criterion>기존 4 fixtures + host-pilot 5 commits 모두 회귀 없이 통과 (precision/recall ≥ 1.0 유지)</criterion>
+      </successCriteria>
+      <dependsOn>N2</dependsOn>
+      <relatedFR>FR-1, FR-2</relatedFR>
+      <estimatedHours>5~7</estimatedHours>
+      <notes>
+        ADR 0024 (AI-first framework redesign) 가 본 milestone 의 설계 근거.
+        핵심 원칙: AGENTS.md = grammar (얇음, framework 공통), record = vocabulary
+        (host 특화). 7 차원 비교에서 5/7 우위, cold-start 약점은 Layer 2 hook 으로
+        보완. 효과 측정은 dogfooding 6 주 ~ 3 개월 후.
+
+        Layer 매핑:
+        - Layer 1 (AGENTS.md): AI 능동 검색 (자발적 준수)
+        - Layer 2 (tool.execute.before): 검색 안 했으면 force-gate (사전 차단)
+        - Layer 3 (response.completed): 사후 검증 (기존 helper, ADR 0010~0014)
+
+        N4 가 본 milestone 의 AGENTS.md 템플릿을 lazy init 의 apply 단계에서 사용.
       </notes>
     </milestone>
 
@@ -111,28 +156,55 @@
         <criterion>3 검사 통합 result schema (schemas/gate-bundle-result.schema.json)</criterion>
         <criterion>위반 시 block + 구조화 옵션 질문 (자유 문답 금지)</criterion>
         <criterion>host-project 실제 변경에서 cache-invalidation 누락 1 건 자동 catch</criterion>
+        <criterion>AI-first 원칙 적용: 검색 알고리즘 직접 구현 패턴 반복 금지 (ADR 0024 E2)</criterion>
       </successCriteria>
-      <dependsOn>N2</dependsOn>
+      <dependsOn>N2.5</dependsOn>
       <relatedFR>FR-3, FR-4, FR-5</relatedFR>
     </milestone>
 
-    <!-- N4: Project Profile Skill (north-star D) -->
-    <milestone id="N4" status="planned" priority="high" target="2026-08-15">
-      <name>Project Profile Skill (skill-first 진입)</name>
-      <northStarPriority>D (4th)</northStarPriority>
+    <!-- N4: Project Profile + Bootstrap (north-star D, portability single entry) -->
+    <milestone id="N4" status="planned" priority="critical" target="2026-08-15">
+      <name>Project Profile + AGENTS.md Bootstrap (portability single entry point)</name>
+      <northStarPriority>D (4th, 격상 high → critical)</northStarPriority>
       <rationale>
-        작업 시작 시 project profile + feature navigation map 을 먼저 읽도록 강제.
-        skill-first 로 묶어 모든 host-project 에서 동일 진입.
+        Framework portability 의 단일 진입점 (ADR 0025). 새 host 에서 `lazy init` 한 번
+        실행으로 30분 이내 첫 작업 가능. inspect (자동 감지) → interview (옵션 질문) →
+        apply (산출물 생성) 3 단계. N2.5 의 AGENTS.md 템플릿을 host 별 적용 + config.json
+        구조화 + rule pack 자동 생성 + doctor 검증까지.
+
+        별도 N9 (portability) milestone 신설 안 함 — 모든 portability 책임 흡수.
       </rationale>
       <successCriteria>
-        <criterion>scripts/project-profile.ts --mode inspect / interview / apply</criterion>
-        <criterion>project/feature-navigation.xml schema + 자동 생성</criterion>
-        <criterion>skill 등록 (manifests/skills.xml: lazy-project-profile)</criterion>
-        <criterion>session start 시 profile 누락 → force question</criterion>
-        <criterion>host-project 에서 1 회 인터뷰 → durable decision JSONL append</criterion>
+        <criterion>scripts/lazy-init.ts (inspect / interview / apply 3 모드 통합)</criterion>
+        <criterion>inspect: stack 자동 감지 + 폴더 패턴 추출 + fixture path 자동 (host 의 기존 AGENTS 는 안 건드림)</criterion>
+        <criterion>interview: 5~10 구조화 옵션 질문 (자유 문답 금지, ADR 0019/Principle 21)</criterion>
+        <criterion>apply: AGENTS.md (framework 공통 1 종 템플릿 복사) + config.json + rules/ 자동 생성</criterion>
+        <criterion>apply: 빈 record 폴더 (ddd/sdd/bdd/tdd/decisions/ssot) + decisions/0001-bootstrap.md ledger</criterion>
+        <criterion>jcode 통합: .lazy-harness/AGENTS.md 자동 인식 (jcode patch 또는 .jcode/AGENTS.md @include)</criterion>
+        <criterion>lazy doctor D01~D07 통과 (init 직후 즉시)</criterion>
+        <criterion>새 host (medivance 외 다른 repo) 에서 30 분 이내 첫 commit 통과 (cold-start budget)</criterion>
+        <criterion>AGENTS.md 는 모든 host 동일 (host 별 변종 0, framework 공통 단일 템플릿)</criterion>
       </successCriteria>
-      <dependsOn>N2</dependsOn>
+      <dependsOn>N2.5</dependsOn>
       <relatedFR>FR-8, FR-9</relatedFR>
+      <estimatedHours>15.5</estimatedHours>
+      <notes>
+        ADR 0025 (portability single entry point) 가 본 milestone 의 설계 근거.
+        원래 8h 추정 → 24h ballooned → 15.5h 보정 (얇은 AGENTS.md 결정으로
+        LLM 보강 작업 8h 제거).
+
+        시간 분해:
+        - inspect (stack/폴더/path 자동 감지): 2h
+        - interview (옵션 질문 시스템): 2h
+        - apply (템플릿 복사 + config + rules + 빈 폴더): 2h
+        - AGENTS.md 템플릿 작성 (1 종, framework 공통): 0.5h
+        - rule pack 자동 생성 (stack 기반): 3h
+        - jcode 통합 (.lazy-harness/AGENTS.md 인식): 2h
+        - 2번째 host 검증 + 회귀 fix: 3h
+        - CLI 골격 + 분기 + doctor 통합: 1h
+
+        cold-start 30 분 약속은 dogfooding 후 보정.
+      </notes>
     </milestone>
 
     <!-- N5: Auto Record Update Executor (north-star E) -->
@@ -167,8 +239,9 @@
         <criterion>탐지 시 8-step strict Conflict Resolution flow 진입</criterion>
         <criterion>자동 정정 가능 케이스 + 사람 ask 케이스 분리</criterion>
         <criterion>logs/validations.jsonl 에 drift 결과 append</criterion>
+        <criterion>AI-first 원칙 적용: 검색은 SearchProvider 사용 (ADR 0024)</criterion>
       </successCriteria>
-      <dependsOn>N2</dependsOn>
+      <dependsOn>N2.5</dependsOn>
       <relatedFR>FR-6</relatedFR>
     </milestone>
 
@@ -212,8 +285,8 @@
 
   <mapToFrameworkPhase>
     <!-- north-star 마일스톤이 long-term roadmap M 와 어떻게 겹치는가 -->
-    <entry phaseM="M2 (Lifecycle Hooks)" nIds="N1, N8"/>
-    <entry phaseM="M3 (Code-Trigger Adapters)" nIds="N2, N3, N6"/>
+    <entry phaseM="M2 (Lifecycle Hooks)" nIds="N1, N2.5, N8"/>
+    <entry phaseM="M3 (Code-Trigger Adapters)" nIds="N2, N2.5, N3, N6"/>
     <entry phaseM="M4 (Interview Loop)" nIds="N4, N5"/>
     <entry phaseM="M5 (실전 적용)" nIds="N1~N8 host-project pilot"/>
     <entry phaseM="M6+ (Skill 생태계 / Daemon / Template)" nIds="N7 portable report, N4 skill"/>
