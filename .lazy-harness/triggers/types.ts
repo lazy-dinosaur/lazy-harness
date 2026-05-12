@@ -44,10 +44,27 @@ export interface TriggerCandidate {
   metadata?: Record<string, unknown>;
 }
 
+export interface TriggerCrossLayerGap {
+  fromLayer: TriggerLayer;
+  targetLayer: 'ddd' | 'sdd' | 'bdd' | 'ssot';
+  term: string;
+  candidateName: string;
+  filePath: string;
+  severity: 'gap' | 'ambiguous';
+  reason: string;
+}
+
+export interface TriggerCrossLayerMap {
+  criterionId: '5c-5';
+  gaps: TriggerCrossLayerGap[];
+  summary: Record<string, number>;
+}
+
 export interface TriggerRunResult {
   ok: boolean;
   trigger: string;
   scannedFiles: string[];
   candidates: TriggerCandidate[];
+  crossLayer?: TriggerCrossLayerMap;
   warnings: string[];
 }

@@ -145,14 +145,13 @@
       <criterion id="5c-2" status="done" doneAt="2026-05-12T08:32:00+09:00">triggers/code-change.ts: contract zone (zod/trpc/prisma) 시그니처 변경 검출 → SDD spec 갱신 후보 ask + DDD reference check (ADR 0018) + acronym ambiguous handling (ADR 0019 첫 적용). **8/8 통과 + medivance src/main/trpc/routers 724 candidates + acronym 처리 완료 (Emr/EMR → ambiguous, ask 5 옵션, RecA). Commits: 48369359 (init) / d68adf66 (noise tuning) / 9da37c86 (acronym detection) / 6264173f (tight acronym)**.</criterion>
       <criterion id="5c-3" status="done" doneAt="2026-05-12T09:00:00+09:00">triggers/code-change.ts: **PRIMARY** = last_user_message 자연어 flow 분석 (given/when/then draft), **SECONDARY** = git diff + UI heuristic (onClick/form submit/multi-step state) → BDD scenario 후보 ask + DDD/SDD reference check (ADR 0018) — scenario noun 이 DDD 안에? verb 가 SDD endpoint 와 매칭? **8/8 fixture 검증 통과**.</criterion>
       <criterion id="5c-4" status="done" doneAt="2026-05-12T01:10:00Z">triggers/code-change.ts: AST → 새 helper/mapper/validator/normalizer/formatter/parser 검출 → SSOT registry duplicate check + 등록 후보 ask. `--layer ssot` CLI + `ssot/registry.xml` 최소 schema + `__ssot-duplicate.ts` / `__ssot-known-helper.ts` fixtures + lifecycle `check-ssot-trigger.sh` 통합.</criterion>
-      <criterion id="5c-5">**Cross-layer consistency map (ADR 0018)** — 4 detector (DDD/SDD/BDD/SSOT) 결과를 통합하여 gap detect. 예: BDD scenario 의 'then 자동완성 list' → SDD endpoint 'autocomplete' 누락 발견 → 통합 ask 로 사용자에게 한번에 routing 제안.</criterion>
+      <criterion id="5c-5" status="done" doneAt="2026-05-12T01:50:00Z">**Cross-layer consistency map (ADR 0018)** — 4 detector (DDD/SDD/BDD/SSOT) 결과를 통합하여 gap detect. `TriggerRunResult.crossLayer` + `crossLayer.gaps` + integrated `--format ask` 출력. Fixtures: `__cross-layer-autocomplete.tsx`, `__cross-layer-missing-domain.ts`. `lazy:test` exact summary/gap 검증.</criterion>
       <criterion id="5c-6">triggers/lint-output.ts: tsc/eslint warning 누적 → drift candidate 자동 분류</criterion>
       <criterion id="5c-7">**Principle 17/21 결합** — 모든 trigger 검출 시 자유 문답 X, 구조화된 옵션 (3~5 choice + Recommended + type-your-own) ask</criterion>
       <criterion id="5c-8">medivance 의 실제 코드 변경 1 회로 5c-1~5c-5 end-to-end 시연 (DDD/SDD/BDD/SSOT 4 layer + cross-ref map 모두 trigger 1+). 사용자 발화(자연어/Figma URL/말) → response.completed payload (last_user_message + recent_tool_calls) → trigger 검증도 포함.</criterion>
       <criterion id="5c-9">Doctor C17 — `.lazy-harness/{triggers,hooks,framework,scripts}/` 안 외부 SaaS 호출 grep 검출 시 fail (Principle 22 enforce)</criterion>
     </successCriteria>
     <deliverables>
-      <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/SSOT detector)</file>
       <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/BDD/SSOT detector)</file>
       <file>.lazy-harness/triggers/lint-output.ts (tsc/eslint warning aggregator)</file>
       <file>.lazy-harness/triggers/types.ts (trigger 공통 인터페이스)</file>

@@ -78,7 +78,7 @@ def check_triggers() -> None:
     by_layer: dict[str, int] = {}
     for candidate in candidates:
         by_layer[candidate.get("layer", "unknown")] = by_layer.get(candidate.get("layer", "unknown"), 0) + 1
-    expected_counts = {"ddd": 5, "sdd": 1, "bdd": 1, "ssot": 4}
+    expected_counts = {"ddd": 5, "sdd": 1, "bdd": 2, "ssot": 5}
     if by_layer != expected_counts:
         fail(f"trigger fixture counts changed: expected {expected_counts}, got {by_layer}")
 
@@ -89,8 +89,10 @@ def check_triggers() -> None:
         ("ddd", "PatientRiskProfile"),
         ("sdd", "orderItemSchema"),
         ("bdd", "PatientSearchAutocomplete"),
+        ("bdd", "CrossLayerPatientAutocomplete"),
         ("ssot", "mapPatientToDto"),
         ("ssot", "calculateChecksum"),
+        ("ssot", "calculateInvoiceChecksum"),
         ("ssot", "validatePatientRiskProfile"),
         ("ssot", "normalizeAppointmentStatus"),
     }
@@ -106,7 +108,7 @@ def check_triggers() -> None:
     ssot_names = {candidate.get("name") for candidate in ssot_candidates}
     if "formatPatientName" in ssot_names:
         fail("registered SSOT utility formatPatientName should be suppressed")
-    for expected in ["mapPatientToDto", "calculateChecksum", "validatePatientRiskProfile", "normalizeAppointmentStatus"]:
+    for expected in ["mapPatientToDto", "calculateChecksum", "calculateInvoiceChecksum", "validatePatientRiskProfile", "normalizeAppointmentStatus"]:
         if expected not in ssot_names:
             fail(f"missing SSOT fixture candidate: {expected}")
     ssot_confidence = {candidate.get("name"): candidate.get("confidence") for candidate in ssot_candidates}
@@ -115,10 +117,41 @@ def check_triggers() -> None:
         "validatePatientRiskProfile": "high",
         "normalizeAppointmentStatus": "high",
         "calculateChecksum": "medium",
+        "calculateInvoiceChecksum": "medium",
     }
     if ssot_confidence != expected_confidence:
         fail(f"SSOT confidence changed: expected {expected_confidence}, got {ssot_confidence}")
+    check_cross_layer(result)
     print(f"✓ trigger fixtures ok {by_layer}")
+
+
+def check_cross_layer(result: dict) -> None:
+    cross_layer = result.get("crossLayer") or {}
+    if cross_layer.get("criterionId") != "5c-5":
+        fail(f"missing 5c-5 crossLayer map: {cross_layer}")
+    expected_summary = {
+        "sdd->ddd:gap": 1,
+        "bdd->ddd:gap": 2,
+        "bdd->sdd:gap": 2,
+        "ssot->ddd:gap": 2,
+    }
+    if cross_layer.get("summary") != expected_summary:
+        fail(f"cross-layer summary changed: expected {expected_summary}, got {cross_layer.get('summary')}")
+    expected_gaps = {
+        ("sdd", "ddd", "OrderItem", "orderItemSchema"),
+        ("bdd", "ddd", "자동완성", "PatientSearchAutocomplete"),
+        ("bdd", "sdd", "autocomplete", "PatientSearchAutocomplete"),
+        ("bdd", "ddd", "자동완성", "CrossLayerPatientAutocomplete"),
+        ("bdd", "sdd", "autocomplete", "CrossLayerPatientAutocomplete"),
+        ("ssot", "ddd", "Checksum", "calculateChecksum"),
+        ("ssot", "ddd", "Invoice", "calculateInvoiceChecksum"),
+    }
+    actual_gaps = {
+        (gap.get("fromLayer"), gap.get("targetLayer"), gap.get("term"), gap.get("candidateName"))
+        for gap in cross_layer.get("gaps", [])
+    }
+    if actual_gaps != expected_gaps:
+        fail(f"cross-layer gaps changed: expected {sorted(expected_gaps)}, got {sorted(actual_gaps)}")
 
 
 def main() -> None:

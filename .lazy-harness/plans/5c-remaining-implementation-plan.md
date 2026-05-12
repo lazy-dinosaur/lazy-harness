@@ -27,6 +27,7 @@ bun run lazy:test
 | 5c-2 SDD detector + DDD cross-ref + acronym | ✅ | `orderItemSchema`, `EMR/Emr` ambiguous fixtures |
 | 5c-3 BDD detector | ✅ | `PatientSearchAutocomplete` fixture, NL + UI heuristic |
 | 5c-4 SSOT detector | ✅ | `--layer ssot`, `ssot/registry.xml`, SSOT lifecycle helper |
+| 5c-5 Cross-layer consistency map | ✅ | `TriggerRunResult.crossLayer`, integrated ask, exact gap fixtures in `lazy:test` |
 | Framework-owned gate | ✅ | ADR 0022, `bun run lazy:test`, pre-push uses lazy:test |
 | Branch policy | ✅ basic | ADR 0021, branch-aware pre-commit/pre-push |
 
@@ -34,21 +35,13 @@ bun run lazy:test
 
 ### P0 — must do before declaring 5c complete
 
-1. **5c-5 Cross-layer consistency map**
-   - Status: not implemented.
-   - Goal: combine DDD/SDD/BDD/SSOT candidates into one consistency graph.
-   - Required detections:
-     - BDD scenario noun missing in DDD.
-     - BDD scenario verb/result missing in SDD endpoint/spec.
-     - SDD contract inferred DDD term missing in DDD.
-     - SSOT utility domain missing or ambiguous in DDD.
-     - Same concept appears in multiple layers with conflicting names.
+1. **Structured ask validator (5c-7)**
+   - Status: partially implemented per detector.
+   - Gap: no common validator ensuring each candidate has 3~5 options, recommended ID exists, confidence/gate rule consistent.
    - Deliverables:
-     - `TriggerRunResult.crossLayer` or metadata-level aggregate map.
-     - `--format ask` integrated multi-layer ask.
-     - fixtures: `__cross-layer-autocomplete.tsx`, `__cross-layer-missing-domain.ts`.
-   - Validation:
-     - `lazy:test` exact cross-layer fixture checks.
+     - shared `validateStructuredAsk(candidate)`.
+     - `lazy:test` checks all fixture candidates.
+     - cross-layer integrated ask checked for A/B/C/D options.
 
 2. **Framework-owned doctor expansion**
    - Status: `lazy:test` is minimum gate only.
@@ -80,14 +73,7 @@ bun run lazy:test
      - `triggers/lint-output.ts` or framework-owned equivalent.
      - fixtures for tsc error classification.
 
-5. **5c-7 Structured ask enforcement**
-   - Status: partially implemented per detector.
-   - Gap: no common validator ensuring each candidate has 3~5 options, recommended ID exists, confidence/gate rule consistent.
-   - Deliverables:
-     - shared `validateStructuredAsk(candidate)`.
-     - `lazy:test` checks all fixture candidates.
-
-6. **5c-8 E2E demonstration**
+5. **5c-8 E2E demonstration**
    - Status: not implemented.
    - Goal: one realistic medivance change produces DDD/SDD/BDD/SSOT + cross-layer map candidates.
    - Deliverables:
@@ -117,20 +103,9 @@ bun run lazy:test
 
 ## Recommended next sequence
 
-### Step 1 — implement 5c-5 cross-layer map
+### Step 1 — add structured ask validator
 
-Why first: it is the direct continuation of 5c-1~5c-4 and makes the four detectors valuable as a system, not isolated tools.
-
-Acceptance criteria:
-
-- `--layer all` returns an aggregate cross-layer map.
-- At least two negative fixtures catch gaps across layers.
-- `lazy:test` verifies exact expected cross-layer gaps.
-- `--format ask` can show one integrated structured ask.
-
-### Step 2 — add structured ask validator
-
-Why second: after cross-layer integrated ask exists, enforce the output contract so future detectors cannot regress.
+Why first now: cross-layer integrated ask exists, so enforce the output contract before more detectors are added.
 
 Acceptance criteria:
 
@@ -138,16 +113,16 @@ Acceptance criteria:
 - recommended option ID exists.
 - ambiguous/missing DDD cases recommend force gate path.
 
-### Step 3 — framework-owned doctor skeleton
+### Step 2 — framework-owned doctor skeleton
 
-Why third: `lazy:test` can remain fast while doctor grows into broader C1~C17 audit.
+Why second: `lazy:test` can remain fast while doctor grows into broader C1~C17 audit.
 
 Acceptance criteria:
 
 - `doctor.py --profile smoke` equals current `lazy:test`.
 - `doctor.py --profile full` includes ADR sequence + README/handoff stale checks.
 
-### Step 4 — 5c-6/5c-9 and E2E
+### Step 3 — 5c-6/5c-9 and E2E
 
 Why later: lint drift and external dependency enforcement are valuable but depend on clearer doctor profiles and environment classification.
 

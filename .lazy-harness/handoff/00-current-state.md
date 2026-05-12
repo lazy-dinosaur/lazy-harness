@@ -40,10 +40,10 @@
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
 | **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
 | **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
-| **5c-5 Cross-layer map** | 🔵 next |
-| **5c-6/7/8/9** | 🔵 |
+| **5c-5 Cross-layer map** | ✅ done (`crossLayer.gaps`, integrated ask, exact fixture 검증) |
+| **5c-6/7/8/9** | 🔵 next |
 | **Framework self-test** | ✅ `bun run lazy:test` primary gate (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
-| **code-change.ts** | 1720 lines (DDD + SDD + acronym + BDD + SSOT 통합) |
+| **code-change.ts** | 1830 lines (DDD + SDD + acronym + BDD + SSOT + cross-layer map 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
 
 ## Oracle Audit 결과 (2026-05-12)
@@ -63,9 +63,9 @@
 상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
 
 ```
-A. 5c-5 Cross-layer consistency map
-   - 4 detector 결과 통합
-   - gap detect (BDD missing → SDD endpoint, etc.)
+A. 5c-7 Structured ask validator
+   - 모든 candidate 의 ask schema 검증
+   - recommended option 존재 / confidence-gate rule 일치 검증
 
 B. Framework doctor/self-test hardening
    - C1~C17 style checks 를 `.lazy-harness/scripts/doctor.*` 로 흡수

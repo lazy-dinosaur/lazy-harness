@@ -12,7 +12,7 @@ import {
   TypeAliasDeclaration,
   VariableDeclaration,
 } from 'ts-morph';
-import type { StructuredAsk, TriggerCandidate, TriggerConfidence, TriggerCrossRef, TriggerRunResult, TriggerScenarioStep } from './types';
+import type { StructuredAsk, TriggerCandidate, TriggerConfidence, TriggerCrossLayerGap, TriggerCrossLayerMap, TriggerCrossRef, TriggerRunResult, TriggerScenarioStep } from './types';
 
 type CodeChangeLayer = 'ddd' | 'sdd' | 'bdd' | 'ssot' | 'all';
 
@@ -328,12 +328,15 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
   const ssotCandidates = ssotUtilities
     .map((utility) => toSsotCandidate(utility, knownSsotTerms, knownDddTerms, forbiddenTerms))
     .filter((candidate): candidate is TriggerCandidate => candidate !== null);
+  const candidates = [...dddCandidates, ...sddCandidates, ...bddCandidates, ...ssotCandidates];
+  const crossLayer = opts.layer === 'all' ? buildCrossLayerMap(candidates) : undefined;
 
   return {
     ok: true,
     trigger: 'code-change',
     scannedFiles,
-    candidates: [...dddCandidates, ...sddCandidates, ...bddCandidates, ...ssotCandidates],
+    candidates,
+    ...(crossLayer ? { crossLayer } : {}),
     warnings,
   };
 }
@@ -580,6 +583,75 @@ function getPreviousContractKeys(project: Project, filePath: string, warnings: s
 
 function contractKey(contract: ContractCandidate): string {
   return `${contract.kind}:${contract.name}:${contract.operation ?? ''}`;
+}
+
+function buildCrossLayerMap(candidates: TriggerCandidate[]): TriggerCrossLayerMap {
+  const gaps: TriggerCrossLayerGap[] = [];
+  for (const candidate of candidates) {
+    const crossRef = getCandidateCrossRef(candidate);
+    if (!crossRef) continue;
+
+    for (const targetLayer of ['ddd', 'sdd', 'bdd'] as const) {
+      const ref = crossRef[targetLayer];
+      if (!ref) continue;
+      for (const term of ref.missing ?? []) {
+        gaps.push({
+          fromLayer: candidate.layer,
+          targetLayer,
+          term,
+          candidateName: candidate.name,
+          filePath: candidate.filePath,
+          severity: 'gap',
+          reason: `${candidate.layer.toUpperCase()} '${candidate.name}' references missing ${targetLayer.toUpperCase()} '${term}'`,
+        });
+      }
+      for (const term of ref.ambiguous ?? []) {
+        gaps.push({
+          fromLayer: candidate.layer,
+          targetLayer,
+          term,
+          candidateName: candidate.name,
+          filePath: candidate.filePath,
+          severity: 'ambiguous',
+          reason: `${candidate.layer.toUpperCase()} '${candidate.name}' has ambiguous ${targetLayer.toUpperCase()} ownership for '${term}'`,
+        });
+      }
+    }
+  }
+
+  const summary: Record<string, number> = {};
+  for (const gap of gaps) {
+    const key = `${gap.fromLayer}->${gap.targetLayer}:${gap.severity}`;
+    summary[key] = (summary[key] ?? 0) + 1;
+  }
+
+  return {
+    criterionId: '5c-5',
+    gaps: dedupeCrossLayerGaps(gaps),
+    summary,
+  };
+}
+
+function getCandidateCrossRef(candidate: TriggerCandidate): TriggerCrossRef | null {
+  const metadataCrossRef = candidate.metadata?.crossRef;
+  if (isTriggerCrossRef(metadataCrossRef)) return metadataCrossRef;
+  if (isTriggerCrossRef(candidate.ask.crossRef)) return candidate.ask.crossRef;
+  return null;
+}
+
+function isTriggerCrossRef(value: unknown): value is TriggerCrossRef {
+  if (!value || typeof value !== 'object') return false;
+  return ['ddd', 'sdd', 'bdd'].some((key) => key in value);
+}
+
+function dedupeCrossLayerGaps(gaps: TriggerCrossLayerGap[]): TriggerCrossLayerGap[] {
+  const seen = new Set<string>();
+  return gaps.filter((gap) => {
+    const key = `${gap.fromLayer}:${gap.targetLayer}:${gap.severity}:${gap.candidateName}:${gap.term}:${gap.filePath}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function extractSsotUtilities(sourceFile: SourceFile): SsotUtilityCandidate[] {
@@ -1691,7 +1763,7 @@ function formatAsk(result: TriggerRunResult): string {
     return '[code-change trigger] 후보 없음';
   }
 
-  return result.candidates
+  const candidateText = result.candidates
     .map((candidate) => {
       const heading = candidate.layer === 'sdd'
         ? 'SDD contract 후보:'
@@ -1717,6 +1789,29 @@ function formatAsk(result: TriggerRunResult): string {
       return lines.join('\n');
     })
     .join('\n\n---\n\n');
+
+  const crossLayerText = formatCrossLayerAsk(result.crossLayer);
+  return crossLayerText ? `${candidateText}\n\n=== Cross-layer consistency map (5c-5) ===\n\n${crossLayerText}` : candidateText;
+}
+
+function formatCrossLayerAsk(crossLayer: TriggerCrossLayerMap | undefined): string {
+  if (!crossLayer || crossLayer.gaps.length === 0) return '';
+  const lines = [
+    '[5c-5 Cross-layer trigger] layer 간 gap 이 검출되었습니다. 한 번에 정리할까요?',
+    '',
+    '요약:',
+    ...Object.entries(crossLayer.summary).sort().map(([key, count]) => `- ${key}: ${count}`),
+    '',
+    'Gap 목록:',
+    ...crossLayer.gaps.map((gap) => `- [${gap.severity}] ${gap.fromLayer} → ${gap.targetLayer}: ${gap.term} (${gap.candidateName}, ${gap.filePath})`),
+    '',
+    '옵션:',
+    '  A. 관련 DDD/SDD/BDD/SSOT 후보를 통합 등록 ask 로 묶기 (Recommended)',
+    '  B. DDD apex 부터 먼저 확정하고 나머지 layer 를 재계산',
+    '  C. 특정 gap 은 intentional 로 기록',
+    '  D. 직접 입력 / skip',
+  ];
+  return lines.join('\n');
 }
 
 function main(): void {
