@@ -102,6 +102,21 @@ def run_trigger(layer: str) -> dict:
     return json.loads(completed.stdout)
 
 
+def run_trigger_scope(scope: str, layer: str = "all") -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/triggers/code-change.ts",
+        "--scope",
+        scope,
+        "--layer",
+        layer,
+        "--format",
+        "json",
+    ]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
 def run_lint_output_fixture(name: str) -> dict:
     command = [
         "bun",
@@ -141,6 +156,37 @@ def check_lint_output() -> None:
     print("✓ lint-output fixtures ok")
 
 
+def check_e2e_demo() -> None:
+    result = run_trigger_scope(".lazy-harness/triggers/fixtures/e2e")
+    candidates = result.get("candidates", [])
+    by_layer: dict[str, int] = {}
+    for candidate in candidates:
+        by_layer[candidate.get("layer", "unknown")] = by_layer.get(candidate.get("layer", "unknown"), 0) + 1
+    expected_counts = {"ddd": 1, "sdd": 1, "bdd": 1, "ssot": 2}
+    if by_layer != expected_counts:
+        fail(f"5c-8 E2E layer counts changed: expected {expected_counts}, got {by_layer}")
+    expected_names = {
+        ("ddd", "ReferralIntakeRecord"),
+        ("sdd", "referralIntakeSchema"),
+        ("bdd", "ReferralIntakePatientSearch"),
+        ("ssot", "calculateReferralChecksum"),
+        ("ssot", "normalizeReferralStatus"),
+    }
+    actual_names = {(candidate.get("layer"), candidate.get("name")) for candidate in candidates}
+    if actual_names != expected_names:
+        fail(f"5c-8 E2E candidates changed: expected {sorted(expected_names)}, got {sorted(actual_names)}")
+    expected_summary = {"sdd->ddd:gap": 1, "bdd->ddd:gap": 1, "bdd->sdd:gap": 1}
+    if (result.get("crossLayer") or {}).get("summary") != expected_summary:
+        fail(f"5c-8 E2E cross-layer summary changed: expected {expected_summary}, got {(result.get('crossLayer') or {}).get('summary')}")
+    structured_ask = result.get("structuredAskValidation") or {}
+    if not structured_ask.get("ok") or structured_ask.get("checkedCandidates") != 6:
+        fail(f"5c-8 E2E structured ask validation changed: {structured_ask}")
+    lint_result = run_lint_output_fixture("typecheck-env")
+    if not all(key.startswith("tsc:environment:") for key in lint_result.get("summary", {})):
+        fail(f"5c-8 E2E lint drift env classification changed: {lint_result.get('summary')}")
+    print("✓ 5c-8 E2E demo ok")
+
+
 def check_triggers() -> None:
     result = run_trigger("all")
     if not result.get("ok"):
@@ -151,7 +197,7 @@ def check_triggers() -> None:
     by_layer: dict[str, int] = {}
     for candidate in candidates:
         by_layer[candidate.get("layer", "unknown")] = by_layer.get(candidate.get("layer", "unknown"), 0) + 1
-    expected_counts = {"ddd": 5, "sdd": 1, "bdd": 2, "ssot": 5}
+    expected_counts = {"ddd": 6, "sdd": 2, "bdd": 3, "ssot": 7}
     if by_layer != expected_counts:
         fail(f"trigger fixture counts changed: expected {expected_counts}, got {by_layer}")
 
@@ -161,13 +207,17 @@ def check_triggers() -> None:
         ("ddd", "PatientDto"),
         ("ddd", "PatientRiskProfile"),
         ("sdd", "orderItemSchema"),
+        ("sdd", "referralIntakeSchema"),
         ("bdd", "PatientSearchAutocomplete"),
         ("bdd", "CrossLayerPatientAutocomplete"),
+        ("bdd", "ReferralIntakePatientSearch"),
         ("ssot", "mapPatientToDto"),
         ("ssot", "calculateChecksum"),
         ("ssot", "calculateInvoiceChecksum"),
         ("ssot", "validatePatientRiskProfile"),
         ("ssot", "normalizeAppointmentStatus"),
+        ("ssot", "calculateReferralChecksum"),
+        ("ssot", "normalizeReferralStatus"),
     }
     actual_all = {(candidate.get("layer"), candidate.get("name")) for candidate in candidates}
     missing_expected = sorted(expected_all - actual_all)
@@ -181,7 +231,7 @@ def check_triggers() -> None:
     ssot_names = {candidate.get("name") for candidate in ssot_candidates}
     if "formatPatientName" in ssot_names:
         fail("registered SSOT utility formatPatientName should be suppressed")
-    for expected in ["mapPatientToDto", "calculateChecksum", "calculateInvoiceChecksum", "validatePatientRiskProfile", "normalizeAppointmentStatus"]:
+    for expected in ["mapPatientToDto", "calculateChecksum", "calculateInvoiceChecksum", "validatePatientRiskProfile", "normalizeAppointmentStatus", "calculateReferralChecksum", "normalizeReferralStatus"]:
         if expected not in ssot_names:
             fail(f"missing SSOT fixture candidate: {expected}")
     ssot_confidence = {candidate.get("name"): candidate.get("confidence") for candidate in ssot_candidates}
@@ -189,6 +239,8 @@ def check_triggers() -> None:
         "mapPatientToDto": "high",
         "validatePatientRiskProfile": "high",
         "normalizeAppointmentStatus": "high",
+        "calculateReferralChecksum": "high",
+        "normalizeReferralStatus": "high",
         "calculateChecksum": "medium",
         "calculateInvoiceChecksum": "medium",
     }
@@ -203,19 +255,22 @@ def check_cross_layer(result: dict) -> None:
     if cross_layer.get("criterionId") != "5c-5":
         fail(f"missing 5c-5 crossLayer map: {cross_layer}")
     expected_summary = {
-        "sdd->ddd:gap": 1,
-        "bdd->ddd:gap": 2,
-        "bdd->sdd:gap": 2,
+        "sdd->ddd:gap": 2,
+        "bdd->ddd:gap": 3,
+        "bdd->sdd:gap": 3,
         "ssot->ddd:gap": 2,
     }
     if cross_layer.get("summary") != expected_summary:
         fail(f"cross-layer summary changed: expected {expected_summary}, got {cross_layer.get('summary')}")
     expected_gaps = {
         ("sdd", "ddd", "OrderItem", "orderItemSchema"),
+        ("sdd", "ddd", "ReferralIntake", "referralIntakeSchema"),
         ("bdd", "ddd", "자동완성", "PatientSearchAutocomplete"),
         ("bdd", "sdd", "autocomplete", "PatientSearchAutocomplete"),
         ("bdd", "ddd", "자동완성", "CrossLayerPatientAutocomplete"),
         ("bdd", "sdd", "autocomplete", "CrossLayerPatientAutocomplete"),
+        ("bdd", "ddd", "자동완성", "ReferralIntakePatientSearch"),
+        ("bdd", "sdd", "autocomplete", "ReferralIntakePatientSearch"),
         ("ssot", "ddd", "Checksum", "calculateChecksum"),
         ("ssot", "ddd", "Invoice", "calculateInvoiceChecksum"),
     }
@@ -244,6 +299,7 @@ def main() -> None:
     check_xml()
     check_jsonl()
     check_lint_output()
+    check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")
 

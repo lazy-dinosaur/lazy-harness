@@ -58,14 +58,14 @@ bun run lazy:test
   - Fixtures classify environment issues (`missing-type-definition`, `missing-config`, `missing-module`) separately from code drift (`type-mismatch`, `property-missing`, `eslint-rule`).
   - `lazy:test` pins fixture summaries.
 
-### P0 — must do before declaring 5c complete
+- **5c-8 E2E demonstration**
+  - `.lazy-harness/triggers/fixtures/e2e/medivance-referral-intake.tsx` added.
+  - `retrospective/e2e/2026-05-12-5c-8-referral-intake.md` transcript added.
+  - `lazy:test` pins all-layer counts, cross-layer summary, structured ask report, and lint drift environment classification.
 
-1. **5c-8 E2E demonstration**
-   - Status: not implemented.
-   - Goal: one realistic medivance change produces DDD/SDD/BDD/SSOT + cross-layer map candidates.
-   - Deliverables:
-     - documented E2E scenario.
-     - command transcript or reproducible fixture.
+### P0 — 5c complete
+
+All 5c criteria are implemented and pinned by `lazy:test`. Remaining items are post-5c hardening.
 
 ### P2 — maintainability / scale
 
@@ -90,24 +90,26 @@ bun run lazy:test
 
 ## Recommended next sequence
 
-### Step 1 — 5c-8 E2E demonstration
+### Step 1 — post-5c refactor after behavior pin
 
-Why now: 5c-1/2/3/4/5/6/7/9 are pinned, so a realistic medivance change can exercise the complete detector cascade.
+Why now: 5c-1~5c-9 are pinned by fixtures, so `code-change.ts` can be split with safety.
 
 Acceptance criteria:
 
-- One reproducible scenario produces DDD/SDD/BDD/SSOT candidates.
-- Lint/typecheck drift detector fixture or transcript is included.
-- Cross-layer map and structured ask report are present.
-- Transcript or fixture is committed.
+- Split detectors without changing `lazy:test` output.
+- Keep `code-change.ts` as orchestrator.
+- No `.jcode` primary doctor reintroduction.
 
-### Step 2 — refactor after behavior pin
+### Step 2 — package/dependency health
 
-Why later: `code-change.ts` is 1928 lines, but detector behavior is now better pinned. Split only after 5c-8 acceptance tests are in place.
+Why second: current `bun run typecheck:node` still fails from missing deps/types, now classified by 5c-6 but not remediated.
+
+Acceptance criteria:
+
+- Missing deps/types bootstrap documented or fixed.
+- Typecheck failure remains classified as environment until dependencies are restored.
 
 ## Do not do yet
 
-- Do not split `code-change.ts` before 5c-8 behavior has exact tests.
 - Do not reintroduce `.jcode` as primary doctor path.
 - Do not push `.lazy-harness/` changes from any branch except `experimental/lazy-harness`.
-- Do not mark 5c complete until 5c-8 has explicit status and validation.

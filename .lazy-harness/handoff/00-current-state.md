@@ -43,8 +43,9 @@
 | **5c-5 Cross-layer map** | ✅ done (`crossLayer.gaps`, integrated ask, exact fixture 검증) |
 | **5c-6 Lint/typecheck drift** | ✅ done (`lint-output.ts`, environment vs code drift fixtures) |
 | **5c-7 Structured ask** | ✅ done (`structuredAskValidation`, shared validator, `lazy:test` fixture gate) |
+| **5c-8 E2E** | ✅ done (referral intake fixture + lint drift + cross-layer + structured ask transcript) |
 | **5c-9 Doctor C17** | ✅ done (`lazy:doctor` D06 + `lazy:test` negative fixture) |
-| **5c-8** | 🔵 next |
+| **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
 | **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | ~1920 lines (DDD + SDD + acronym + BDD + SSOT + cross-layer map + structured ask validator 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
@@ -66,16 +67,16 @@
 상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
 
 ```
-A. 5c-8 E2E demonstration
-   - 실제 medivance change 1회
-   - DDD/SDD/BDD/SSOT + lint drift + cross-layer map + structured ask 검증
+A. Post-5c refactor `code-change.ts` monolith
+   - 현재 1928+ lines
+   - 5c behavior 는 `lazy:test`로 pin 됨
 
-B. Refactor `code-change.ts` monolith
-   - 현재 1928 lines
-   - detector 별 split 전 behavior pin 유지
-
-C. Package/dependency health
+B. Package/dependency health
    - typecheck missing deps/types 의 install/bootstrap 문서화
+
+C. 5d Interview Loop 진입 준비
+   - TDD cross-verify gate (ADR 0020)
+   - 양방향 conflict resolution
 ```
 
 ## Worktree 배치 (최종 상태)
