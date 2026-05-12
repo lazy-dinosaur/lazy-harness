@@ -6,6 +6,10 @@
 > 글로벌 prompt overlay (~/.jcode/prompt-overlay.md) 의 framework-contract 와 동일한 내용을
 > 프로젝트-로컬에 박아둔 사본. **충돌 시 이 파일이 우선** (프로젝트별 customization 반영).
 
+> **목표 그림은 별도 문서**: [`../plans/north-star-accuracy-and-no-regression.md`](../plans/north-star-accuracy-and-no-regression.md)
+> — "왜 lazy-harness 를 만드는가" 와 "막으려는 실패 9 종 / 필수 gate / 성공 정의" 는 north-star 에 정리.
+> 이 contract 는 그 north-star 를 강제하기 위한 **규칙층** (principle / pattern / trigger).
+
 ---
 
 ## Principle 0 — 존재 이유 (모든 18 principle 위에)

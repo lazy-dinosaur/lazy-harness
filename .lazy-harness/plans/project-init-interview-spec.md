@@ -4,11 +4,38 @@ Date: 2026-05-12
 Status: planned as a skill-first Project Profile flow; full standalone CLI comes later
 Purpose: create a new project's lazy-harness SSOT through structured interview, not silent defaults
 
+> 상위 목표 (north-star): [`./north-star-accuracy-and-no-regression.md`](./north-star-accuracy-and-no-regression.md)
+> 이 spec 은 north-star 의 "Map-aware Reference Resolver" + "Project Profile Skill" 토대를 만드는 하위 plan.
+
 ## 1. Core idea
 
 Project Init / Project Profile must not only create folders. It must interview the user and generate a durable project profile that defines how this project should be built, tested, designed, and evolved.
 
 The output is a project-local SSOT that future agents can read before touching code.
+
+Before implementing any feature, the agent must use the project profile to find the correct map path first. A feature should not start from a guessed file edit. It should start from the relevant DDD / SDD / BDD / TDD / ADR / SSOT maps, then follow those maps into code, tests, and records.
+
+```text
+feature request or code change
+→ project profile
+→ relevant maps
+→ existing records/specs/tests
+→ gap/conflict/missing/unclear check
+→ side-effect / regression / domain-invariant check
+→ structured question if needed
+→ implementation + record updates
+→ validation
+```
+
+The map structure is therefore part of the project contract, not just documentation.
+
+Correct development also requires every code change to be checked against:
+
+1. **Side effects** — which nearby flows, components, APIs, data paths, or user journeys can be affected?
+2. **Regression risk** — which past bugs, tests, BDD scenarios, or ADR constraints can be broken again?
+3. **Domain invariants** — does the change violate DDD vocabulary, bounded-context rules, business policies, or protected assumptions?
+
+If the framework cannot confidently answer these from maps/records/tests, it must create a structured question or block completion. Silent "looks fine" is not acceptable.
 
 ```text
 project purpose
@@ -118,6 +145,28 @@ Outputs:
 - `.lazy-harness/project/filesystem.xml`
 - detector include/exclude path config
 - generated/runtime artifact policy
+
+### D2. Map-first feature navigation
+
+Ask:
+
+1. Which map is the entry point for a feature request?
+2. How do DDD terms map to SDD contracts and BDD scenarios?
+3. How do BDD scenarios map to TDD/affected tests?
+4. How do ADRs link to long-lived architecture or policy decisions?
+5. Which map gaps should block implementation vs create follow-up questions?
+6. Which records define side-effect boundaries for a feature area?
+7. Which regression history or protected BDD/TDD cases must be checked before editing this area?
+8. Which domain invariants must never be violated without an ADR/decision?
+
+Outputs:
+
+- `.lazy-harness/project/feature-navigation.xml`
+- map lookup order for future agents
+- cross-layer relation policy
+- missing-map force gate policy
+- side-effect and regression lookup policy
+- domain-invariant validation policy
 
 ### E. Frontend design system and system design
 

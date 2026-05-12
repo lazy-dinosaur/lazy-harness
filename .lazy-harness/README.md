@@ -26,6 +26,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 
 | 첫 발은 여기서 | 내용 |
 |---|---|
+| [`plans/north-star-accuracy-and-no-regression.md`](plans/north-star-accuracy-and-no-regression.md) | **목표 그림 (north-star)** — 왜 lazy-harness 를 만드는가, 막으려는 실패 9 종, 핵심 개발 루프, 필수 게이트 |
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
 | [`decisions/`](decisions/) | 22 ADR (의사결정 영구 기록) |
