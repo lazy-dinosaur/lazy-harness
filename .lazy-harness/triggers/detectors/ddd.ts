@@ -348,7 +348,7 @@ function isMeaningfulDddTerm(term: string): boolean {
   return words.some((word) => classifyNounWord(word) !== 'noise');
 }
 
-function classifyNounWord(word: string): 'noise' | 'acronym-candidate' | 'meaningful' {
+export function classifyNounWord(word: string): 'noise' | 'acronym-candidate' | 'meaningful' {
   if (SHORT_ACRONYM_NOISE_WORDS.has(word)) return 'noise';
   if (DOMAIN_SEED_NOUNS.some((noun) => noun.toLowerCase() === word)) return 'meaningful';
   if (word.length === ACRONYM_LENGTH) return 'acronym-candidate';
