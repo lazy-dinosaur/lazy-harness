@@ -81,3 +81,9 @@ Those wrappers should call the standalone lazy-harness package/repo instead of o
 - Do not use a product repository as the long-term SSOT for framework internals.
 - Do not commit `.lazy-harness/` internals to normal product branches.
 - Do not make Jcode own framework logic. Jcode remains a harness/tool wrapper.
+
+## First standalone feature: Project Init Interview
+
+After extraction, the first major feature should be `lazy-harness init` as an interview-driven project setup flow. It must ask about purpose, stack, testing, filesystem, frontend design system, backend architecture, agent rules, and validation commands before generating project SSOT files.
+
+Spec: `.lazy-harness/plans/project-init-interview-spec.md`.

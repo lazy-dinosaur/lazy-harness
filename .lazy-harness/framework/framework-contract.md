@@ -460,7 +460,7 @@ AI [Step 4~5]:
 ## 18. Recovery Path (NEW)
 
 > **framework 자체가 깨졌을 때의 fallback.**
-> framework 는 ��업의 핵심 의존성이 되므로 회복 절차가 미리 명세돼야 함.
+> framework 는 작업의 핵심 의존성이 되므로 회복 절차가 미리 명세돼야 함.
 
 ### 18.1 Recovery Levels
 

@@ -45,6 +45,7 @@ Phase 5 is not production-complete because `5e-1` still requires one real host-p
 | Aftershock v0 is heuristic | Medium | It proves recursion, not full artifact-diff dependency analysis | Add artifact-diff based effect mapping after pilot data |
 | Hook lifecycle docs need final alignment with jcode core | Medium | Users must understand when lifecycle outputs re-enter the LLM | Finalize hook lifecycle documentation with concrete payload/continuation examples |
 | Standalone extraction not performed yet | Critical after pilot | lazy-harness must not keep living as host-project internals | Execute `.lazy-harness/plans/extract-to-lazy-harness-repo.md` |
+| Project Init Interview not implemented yet | High | new projects need stack/test/architecture/design decisions captured before coding | Implement `.lazy-harness/plans/project-init-interview-spec.md` after extraction |
 
 ## 4. Recommended next execution sequence
 

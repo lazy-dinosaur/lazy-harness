@@ -75,6 +75,7 @@
 - `.lazy-harness/retrospective/e2e/5e-mvp-proof.md`
 - `.lazy-harness/plans/post-mvp-gap-map.md`
 - `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
+- `.lazy-harness/plans/project-init-interview-spec.md`
 
 ```
 A. 5e 실제 host-project pilot 시작
@@ -88,6 +89,7 @@ B. Standalone lazy-harness repo extract 준비 (잊지 말 것)
    - 여기 repo 는 incubation/validation worktree 일 뿐
    - framework internals 는 `lazy-harness` 독립 repo 로 이동 예정
    - 상세 체크리스트: `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
+   - standalone 첫 핵심 기능: Project Init Interview (`project-init-interview-spec.md`)
 
 C. Post-MVP hardening
    - decision consume/effect executor 확장

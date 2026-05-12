@@ -192,3 +192,4 @@ Internal medivance use only. Do not push to public origins.
 5e MVP proof entry: [`retrospective/e2e/5e-mvp-proof.md`](retrospective/e2e/5e-mvp-proof.md).
 Post-MVP gap map: [`plans/post-mvp-gap-map.md`](plans/post-mvp-gap-map.md).
 Standalone extraction plan: [`plans/extract-to-lazy-harness-repo.md`](plans/extract-to-lazy-harness-repo.md).
+Project init interview spec: [`plans/project-init-interview-spec.md`](plans/project-init-interview-spec.md).

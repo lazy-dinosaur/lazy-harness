@@ -135,7 +135,7 @@
       <conceptual>7</conceptual>
       <us_vs_them>
         BDD scenario 표준은 ours 보다 정밀 (Cucumber/Gherkin).
-        우리는 protectedBy + step ≤ 7 같�� 정책 추가.
+        우리는 protectedBy + step ≤ 7 같은 정책 추가.
       </us_vs_them>
     </bdd>
 

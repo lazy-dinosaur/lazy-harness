@@ -89,7 +89,7 @@ C16 코드 변경은 5c 의 doctor 확장 작업으로 묶음.
 ## Verification
 
 - L0: file written
-- L2 marker: 다음 세션 ���입 시 doctor C16 새 검사 발동 → 이번 세션 같은 누락 자동 감지
+- L2 marker: 다음 세션 진입 시 doctor C16 새 검사 발동 → 이번 세션 같은 누락 자동 감지
 - L4 사람 review: 5c 시작 전 사용자에게 doctor C16 확장 동의 ask
 
 ## Consequences

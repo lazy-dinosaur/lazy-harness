@@ -88,7 +88,7 @@ weekly-snapshot.sh     manual / cron
 - post-commit 의 actions.jsonl 자동 기록도 안 됨 → 직접 sh 실행만이 entry 만들었음
 - 이 ADR 의 검증 실험 (marker file) 없었으면 영영 모를 뻔
 
-→ **새 hook 추가 시 항상 marker 실험으로 진�� 호출 검증**.
+→ **새 hook 추가 시 항상 marker 실험으로 진짜 호출 검증**.
 
 ## What changes
 

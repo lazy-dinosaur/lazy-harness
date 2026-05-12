@@ -52,7 +52,7 @@ Hard rules:
 
 ### Negative / Trade-offs
 - 모든 새 정보 입력에 latency 추가 (최소 +30s, conflict 있으면 +수분)
-- 사용자에��� 의사결정 요구 횟수 증가 (단, 자산화로 보상)
+- 사용자에게 의사결정 요구 횟수 증가 (단, 자산화로 보상)
 - aftershock recursion 으로 복잡한 변경 시 다단계 결정 필요
 
 ### Mitigations

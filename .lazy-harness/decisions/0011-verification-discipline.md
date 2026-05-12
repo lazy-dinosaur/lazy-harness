@@ -149,7 +149,7 @@ C13 — Verify Quality
 
 - AI verify quality 자체 평가 불가능 → L0~L4 명시로 측정 가능
 - High-risk task 의 dead code 사고 자동 catch
-- 사용자 catch 의존도 분��� (자동 ask 가 사람 review trigger)
+- 사용자 catch 의존도 분산 (자동 ask 가 사람 review trigger)
 - C13 fail/warn 출력으로 phase 진실성 보장
 
 ### Negative

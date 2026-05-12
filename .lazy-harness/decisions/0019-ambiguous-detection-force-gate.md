@@ -104,7 +104,7 @@ Ask (Principle 17):
 ❌ auto-classify("Emr") = noise; // AI 가 단정
 ```
 
-### ���바른 패턴 (필수)
+### 올바른 패턴 (필수)
 
 ```
 ✅ confidence = classify(name);

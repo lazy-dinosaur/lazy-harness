@@ -64,7 +64,7 @@
 {"timestamp": "2026-05-10T15:04:37+09:00", "actor": "AI", "action": "file-create", "path": ".lazy-harness/scripts/contract-diff.ts", "note": "Skeleton interface (65 lines) — diffContracts throws, summarizeTouchedContracts works as interim"}
 {"timestamp": "2026-05-10T15:05:29+09:00", "actor": "AI", "action": "file-create", "path": ".lazy-harness/manifests/skills.xml", "note": "Skills manifest (89 lines, 11 skills declared)"}
 {"timestamp": "2026-05-10T15:05:29+09:00", "actor": "AI", "action": "file-create", "path": ".lazy-harness/retrospective/cycles/5b-progress.md", "note": "5b in-progress retrospective — 5/7 done, 1 deferred (5b-2), 1 passive (5b-6)"}
-{"timestamp": "2026-05-10T15:07:00+09:00", "actor": "User", "action": "question", "input": "husky 도 우선 추가해둬야하는게 맞지?? 근데 프로젝트에서 ��용하고 있는게 있어서 그런거잔아 그지?? 이거 고민이 되네"}
+{"timestamp": "2026-05-10T15:07:00+09:00", "actor": "User", "action": "question", "input": "husky 도 우선 추가해둬야하는게 맞지?? 근데 프로젝트에서 사용하고 있는게 있어서 그런거잔아 그지?? 이거 고민이 되네"}
 {"timestamp": "2026-05-10T15:07:30+09:00", "actor": "AI", "action": "discovery", "check": "git config core.hooksPath", "result": ".husky/_", "note": "5a/5b의 .git/hooks/ 들이 모두 dead code였음 — husky가 path 가로챔"}
 {"timestamp": "2026-05-10T15:08:00+09:00", "actor": "AI", "action": "verification", "check": "marker-experiment-on-pre-commit", "result": "fail", "note": "실 commit으로 marker 파일 작성 실험 → /tmp/git-hooks-test-marker 안 만들어짐 → .git/hooks/pre-commit 한 번도 호출 안 됨 확인"}
 {"timestamp": "2026-05-10T15:10:47+09:00", "actor": "User", "action": "decide", "input": "이게 프레임워크이기 때문에 들어가야하는 내용이잔아 맞지??", "value": "A", "note": "husky chain 안에 lazy wiring 추가 — framework public surface로 인정"}

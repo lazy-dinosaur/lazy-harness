@@ -97,7 +97,7 @@ framework 코어가 의존할 수 있는 것 strict list:
 ## Consequences
 
 ### Positive
-- Framework 가 진짜로 portable (어떤 프로젝트에 init 해�� 작동)
+- Framework 가 진짜로 portable (어떤 프로젝트에 init 해도 작동)
 - 5c 의 진짜 needs 명확 (사용자 코드 변경 = 모든 layer trigger 의 source)
 - AST 채택 즉시 — DDD/SDD/BDD 모두 즉시 시작 가능
 - Opt-in 외부 어댑터는 framework 외 plugin pattern 으로 자연스럽게
@@ -127,7 +127,7 @@ framework 코어가 의존할 수 있는 것 strict list:
 ## References
 
 - ADR 0008 (AST contract diff deferred) — 이 결정으로 reversed
-- 사용자 통찰: "구현하면서 나타나는 사실을 기반으로 판단하고 평가하�� 시스템"
+- 사용자 통찰: "구현하면서 나타나는 사실을 기반으로 판단하고 평가하는 시스템"
 - Principle 0 (사람-AI 상호보완)
 - Principle 1.6 (Trigger-Based Growth) — 이번에 trigger source 가 명확화
 - Principle 1.8 (Thin sh + Thick TS) — 5c 부터 ts-morph 본격 활용
