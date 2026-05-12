@@ -34,7 +34,7 @@
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
 | **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `ebee2671`; current edits pending validation) |
-| **ADRs** | **22** (0001~0022) |
+| **ADRs** | **23** (0001~0023) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |

@@ -263,13 +263,16 @@ function findPathStem(inputFile: string, index: ReferenceIndex): Match[] {
 }
 
 // Generic / framework-noise tokens that we never use for ADR keyword matching.
-// These are either project-structural (src/main/etc) or so common across the
-// ADR corpus they have no discriminative power. The list was derived by:
-//   cat .lazy-harness/decisions/*.md | grep -oE '\b[a-z]{5,}\b' | sort | uniq -c
-// any term appearing in ≥30% of ADRs is treated as stopword (low IDF). When
-// the ADR corpus changes shape this list should be regenerated; an automated
-// IDF pass is a v1+ improvement.
-const ADR_STOPWORDS = new Set([
+// Two-layer defense:
+//   (a) MANUAL_STOPWORDS — hand-curated path/structural words ('src','main',
+//       'services', 'lazy', 'harness', etc) that have no semantic role even if
+//       they happen to be rare in the corpus.
+//   (b) computeIdfStopwords() — automatically derived from the current ADR
+//       corpus. Any token of length ≥ TOKEN_MIN_LEN appearing in ≥30% of
+//       ADR files is treated as stopword (low IDF, no discriminative power).
+//       Re-computed on every resolver invocation off the loaded index, so
+//       the list self-tunes as the ADR corpus grows.
+const MANUAL_STOPWORDS = new Set([
   // Project-structural / path-noise
   'lazy',
   'harness',
@@ -280,37 +283,17 @@ const ADR_STOPWORDS = new Set([
   'service',
   'src',
   'project',
-  'framework',
-  // Common framework concepts (high freq in our ADR corpus)
-  'principle',
-  'trigger',
-  'commit',
-  'contract',
-  'phase',
-  'husky',
-  'hook',
-  'hooks',
-  'detector',
-  'status',
-  'layer',
-  'layers',
-  'jsonl',
-  'cross',
-  'cascade',
-  'negative',
-  'verify',
-  'guard',
-  'conflict',
-  'handoff',
-  'entry',
-  'doctor',
-  'scripts',
-  'script',
-  'reference',
-  'references',
-  'record',
-  'records',
-  // English common nouns (length ≥4, removed by length filter except where 5+)
+  'shared',
+  'routers',
+  'router',
+  'preload',
+  'renderer',
+  'screens',
+  'screen',
+  'modal',
+  'modals',
+  // Common English nouns that are too generic to be discriminative even when
+  // they happen to be rare in the current ADR corpus.
   'value',
   'values',
   'change',
@@ -333,13 +316,53 @@ const ADR_STOPWORDS = new Set([
   'list',
   'lists',
   'level',
-  'levels'
+  'levels',
+  'schema',
+  'schemas',
+  'data'
 ])
 
-function tokensFromPath(filePath: string): string[] {
+const TOKEN_MIN_LEN = 5
+const IDF_STOPWORD_THRESHOLD = 0.3 // ≥30% of ADR corpus → stopword
+
+function computeIdfStopwords(index: ReferenceIndex): {
+  stop: Set<string>
+  df: Map<string, number>
+  total: number
+} {
+  // Walk every ADR body, compute document-frequency for each token, and
+  // promote any token with DF/total ≥ IDF_STOPWORD_THRESHOLD to stopword.
+  // Cheap: O(ADRs × tokens), runs once per resolver invocation.
+  const adrs = index.records.filter((r) => r.layer === 'adr')
+  if (adrs.length === 0) return { stop: new Set(), df: new Map(), total: 0 }
+  const df = new Map<string, number>()
+  for (const rec of adrs) {
+    let body = ''
+    try {
+      body = readFileSync(rec.path, 'utf8').toLowerCase()
+    } catch {
+      continue
+    }
+    const seen = new Set<string>()
+    for (const match of body.matchAll(/\b[a-z]{5,}\b/g)) {
+      seen.add(match[0])
+    }
+    for (const tk of seen) {
+      df.set(tk, (df.get(tk) ?? 0) + 1)
+    }
+  }
+  const cutoff = Math.ceil(adrs.length * IDF_STOPWORD_THRESHOLD)
+  const stop = new Set<string>()
+  for (const [tk, n] of df) {
+    if (n >= cutoff) stop.add(tk)
+  }
+  return { stop, df, total: adrs.length }
+}
+
+function tokensFromPath(filePath: string, stopwords: Set<string>): string[] {
   // Break a path like src/main/services/patient-risk.ts into searchable tokens.
-  // Token length threshold = 5 to avoid English common-word noise (e.g. 'risk',
-  // 'data', 'mode'); domain-meaningful identifiers tend to be longer
+  // Token length ≥ TOKEN_MIN_LEN to avoid English common-word noise (e.g.
+  // 'risk', 'data', 'mode'); domain-meaningful identifiers tend to be longer
   // ('patient', 'appointment', 'prescription', 'risk-score').
   const base = basenameStem(filePath).toLowerCase()
   const dirTokens = filePath
@@ -350,17 +373,39 @@ function tokensFromPath(filePath: string): string[] {
   const splitTokens = new Set<string>()
   for (const token of [base, ...dirTokens]) {
     for (const piece of token.split(/[-_.]/)) {
-      if (piece.length >= 5 && !ADR_STOPWORDS.has(piece)) splitTokens.add(piece)
+      if (
+        piece.length >= TOKEN_MIN_LEN &&
+        !MANUAL_STOPWORDS.has(piece) &&
+        !stopwords.has(piece)
+      ) {
+        splitTokens.add(piece)
+      }
     }
   }
   return Array.from(splitTokens)
 }
 
-function findAdrKeyword(inputFile: string, index: ReferenceIndex): Match[] {
-  const tokens = tokensFromPath(inputFile)
+function findAdrKeyword(
+  inputFile: string,
+  index: ReferenceIndex,
+  stopwords: Set<string>,
+  df: Map<string, number>,
+  totalAdrs: number
+): Match[] {
+  const tokens = tokensFromPath(inputFile, stopwords)
   if (tokens.length === 0) return []
   const matches: Match[] = []
   const adrRecords = index.records.filter((r) => r.layer === 'adr')
+  // IDF-weighted scoring. For each matching token:
+  //   tokenScore = 0.4 + 0.4 * idf
+  //   idf = log(N / (1 + df)) / log(N)         ∈ (0, 1)
+  // The 0.4 base ensures any keyword match starts above the 0.0 floor; rare
+  // tokens (df=1) approach 0.8, common-but-not-stopword (df~6/22≈27%) drop to
+  // ~0.5 which is below the candidate-cap default and easy to filter out.
+  // A match-level threshold (MATCH_SCORE_FLOOR) drops matches whose weighted
+  // score lands too close to the base, which kills the "5 ADRs all matched on
+  // a single high-DF token" pattern observed in host-pilot pass 2 ('hooks').
+  const MATCH_SCORE_FLOOR = 0.5
   for (const rec of adrRecords) {
     let body = ''
     try {
@@ -370,10 +415,15 @@ function findAdrKeyword(inputFile: string, index: ReferenceIndex): Match[] {
     }
     const evidence: Match['evidence'] = []
     const hitTokens: string[] = []
+    let weightSum = 0
     for (const tk of tokens) {
       if (body.includes(tk)) {
         hitTokens.push(tk)
-        // Find first line containing the token for evidence
+        const tkDf = df.get(tk) ?? 1
+        // idf ∈ (0, 1] — extremely rare token (df=1, N=20) gives ~1.0,
+        // moderately common (df=N/2) gives ~0.23.
+        const idf = totalAdrs > 1 ? Math.log(totalAdrs / (1 + tkDf)) / Math.log(totalAdrs) : 1
+        weightSum += Math.max(idf, 0)
         const lines = body.split('\n')
         const lineIdx = lines.findIndex((l) => l.includes(tk))
         if (lineIdx >= 0) {
@@ -386,16 +436,52 @@ function findAdrKeyword(inputFile: string, index: ReferenceIndex): Match[] {
       }
     }
     if (hitTokens.length === 0) continue
-    // Score: 0.4 + 0.05 per matching token, capped at 0.7
-    const score = Math.min(0.7, 0.4 + hitTokens.length * 0.05)
+    // Average IDF across hits so multiple weak hits don't compound into a
+    // false-positive (a commit mentioning 3 mid-DF tokens shouldn't outscore
+    // a commit mentioning 1 rare token).
+    const avgIdf = weightSum / hitTokens.length
+    const rawScore = 0.4 + 0.4 * avgIdf
+    const score = Math.min(0.8, Math.max(0, rawScore))
+    if (score < MATCH_SCORE_FLOOR) continue
     matches.push({
       inputFile,
       recordPath: rec.path,
       layer: 'adr',
       linkKind: 'keyword',
       score: Math.round(score * 100) / 100,
-      reason: `ADR body mentions: ${hitTokens.join(', ')}`,
+      reason: `ADR body mentions: ${hitTokens.join(', ')} (avg IDF ${avgIdf.toFixed(2)})`,
       evidence: evidence.slice(0, 3)
+    })
+  }
+  // Burst suppression: if a single token fires across ≥ADR_BURST_THRESHOLD
+  // ADRs for the same input file, that token is almost certainly under the
+  // IDF stopword cutoff but still corpus-wide noise (host-pilot pass 3:
+  // 'hooks' df=5/23=22% matched 5 ADRs with identical score). Drop any
+  // single-token match that appears in a burst — multi-token matches survive
+  // because the combination is far less likely to be coincidence.
+  //
+  // Threshold is scaled with corpus size so it's not a magic constant: at
+  // N=23 ADRs the floor is 5 (≈22%); at N=10 ADRs it's still ≥3.
+  // The fixture C case ('patient' df=3) sits at ~13% which we want to keep.
+  const ADR_BURST_THRESHOLD = Math.max(3, Math.ceil(totalAdrs * 0.18))
+  const singleTokenMatches = matches.filter((m) => /^ADR body mentions: [^,]+ /.test(m.reason))
+  if (singleTokenMatches.length >= ADR_BURST_THRESHOLD) {
+    const tokenCounts = new Map<string, number>()
+    for (const m of singleTokenMatches) {
+      const tok = m.reason.match(/^ADR body mentions: ([^,]+) /)?.[1]
+      if (tok) tokenCounts.set(tok, (tokenCounts.get(tok) ?? 0) + 1)
+    }
+    const burstTokens = new Set<string>()
+    for (const [tok, n] of tokenCounts) {
+      if (n >= ADR_BURST_THRESHOLD) burstTokens.add(tok)
+    }
+    return matches.filter((m) => {
+      const tok = m.reason.match(/^ADR body mentions: ([^,]+) /)?.[1]
+      // Multi-token matches have a comma; single-token reason has no comma
+      // before the parenthetical. Burst-flagged single-token matches drop.
+      if (!tok) return true
+      if (m.reason.includes(', ')) return true
+      return !burstTokens.has(tok)
     })
   }
   return matches
@@ -446,13 +532,14 @@ export function resolveReferences(
   const out = opts.indexOut ?? DEFAULT_INDEX_PATH
   const index = loadIndex(out, opts.rebuildIndex ?? false)
   const links = loadCrossLayerLinks()
+  const idfData = computeIdfStopwords(index)
 
   const collected: Match[] = []
   for (const f of files) {
     collected.push(...findCrossLayer(f, links))
     collected.push(...findTestStem(f, index))
     collected.push(...findPathStem(f, index))
-    collected.push(...findAdrKeyword(f, index))
+    collected.push(...findAdrKeyword(f, index, idfData.stop, idfData.df, idfData.total))
   }
 
   // De-dup by (inputFile, recordPath, linkKind), keep highest score
