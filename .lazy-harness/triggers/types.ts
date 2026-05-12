@@ -44,6 +44,20 @@ export interface TriggerCandidate {
   metadata?: Record<string, unknown>;
 }
 
+export interface StructuredAskValidationIssue {
+  candidateName: string;
+  candidateLayer: TriggerLayer | 'cross-layer';
+  field: string;
+  message: string;
+}
+
+export interface StructuredAskValidationReport {
+  criterionId: '5c-7';
+  ok: boolean;
+  checkedCandidates: number;
+  issues: StructuredAskValidationIssue[];
+}
+
 export interface TriggerCrossLayerGap {
   fromLayer: TriggerLayer;
   targetLayer: 'ddd' | 'sdd' | 'bdd' | 'ssot';
@@ -66,5 +80,6 @@ export interface TriggerRunResult {
   scannedFiles: string[];
   candidates: TriggerCandidate[];
   crossLayer?: TriggerCrossLayerMap;
+  structuredAskValidation?: StructuredAskValidationReport;
   warnings: string[];
 }

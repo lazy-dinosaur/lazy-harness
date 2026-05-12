@@ -33,17 +33,24 @@ bun run lazy:test
 
 ## Not done / partial
 
+### Done in this branch
+
+- **5c-4 SSOT detector**
+  - shared registry suppression via `.lazy-harness/ssot/registry.xml`.
+  - helper/mapper/validator/normalizer/formatter/parser detection.
+  - `--layer ssot` CLI + lifecycle helper.
+- **5c-5 Cross-layer consistency map**
+  - `TriggerRunResult.crossLayer` with exact `summary` + deduped `gaps`.
+  - Integrated `--format ask` section with A/B/C/D options.
+  - `lazy:test` pins exact fixture counts and gaps.
+- **5c-7 Structured ask validator**
+  - `validateStructuredAsk(candidate)` and `validateStructuredAsks(...)` added.
+  - `TriggerRunResult.structuredAskValidation` added.
+  - `lazy:test` now validates every fixture candidate plus cross-layer integrated ask.
+
 ### P0 — must do before declaring 5c complete
 
-1. **Structured ask validator (5c-7)**
-   - Status: partially implemented per detector.
-   - Gap: no common validator ensuring each candidate has 3~5 options, recommended ID exists, confidence/gate rule consistent.
-   - Deliverables:
-     - shared `validateStructuredAsk(candidate)`.
-     - `lazy:test` checks all fixture candidates.
-     - cross-layer integrated ask checked for A/B/C/D options.
-
-2. **Framework-owned doctor expansion**
+1. **Framework-owned doctor expansion**
    - Status: `lazy:test` is minimum gate only.
    - Goal: absorb C1~C17 style checks into `.lazy-harness/scripts/doctor.*`.
    - First checks to port:
@@ -57,7 +64,7 @@ bun run lazy:test
      - `.lazy-harness/scripts/doctor.py` or `doctor.ts`.
      - `lazy:test` calls doctor smoke profile or doctor calls self-test.
 
-3. **5c-9 Doctor C17 / External dependency invariant enforcement**
+2. **5c-9 Doctor C17 / External dependency invariant enforcement**
    - Status: not implemented.
    - Goal: grep `.lazy-harness/{triggers,hooks,framework,scripts}/` for external SaaS/API calls except allowed tools.
    - Validation:
@@ -65,7 +72,7 @@ bun run lazy:test
 
 ### P1 — should do before real feature E2E
 
-4. **5c-6 lint/typecheck drift detector**
+3. **5c-6 lint/typecheck drift detector**
    - Status: not implemented.
    - Goal: ingest tsc/eslint output and classify drift candidates.
    - Constraint: current `bun run typecheck:node` fails because dependencies/types are missing, so detector must distinguish environment-missing vs code drift.
@@ -73,7 +80,7 @@ bun run lazy:test
      - `triggers/lint-output.ts` or framework-owned equivalent.
      - fixtures for tsc error classification.
 
-5. **5c-8 E2E demonstration**
+4. **5c-8 E2E demonstration**
    - Status: not implemented.
    - Goal: one realistic medivance change produces DDD/SDD/BDD/SSOT + cross-layer map candidates.
    - Deliverables:
@@ -82,8 +89,8 @@ bun run lazy:test
 
 ### P2 — maintainability / scale
 
-7. **Refactor `code-change.ts` monolith**
-   - Status: 1720 lines.
+6. **Refactor `code-change.ts` monolith**
+   - Status: ~1920 lines after 5c-7 validator integration.
    - Goal: keep `code-change.ts` as orchestrator and split detectors.
    - Suggested layout:
      - `triggers/detectors/ddd.ts`

@@ -153,6 +153,17 @@ def check_cross_layer(result: dict) -> None:
     if actual_gaps != expected_gaps:
         fail(f"cross-layer gaps changed: expected {sorted(expected_gaps)}, got {sorted(actual_gaps)}")
 
+    structured_ask = result.get("structuredAskValidation") or {}
+    if structured_ask.get("criterionId") != "5c-7":
+        fail(f"missing 5c-7 structured ask validation report: {structured_ask}")
+    if not structured_ask.get("ok"):
+        fail("structured ask validation failed: " + json.dumps(structured_ask.get("issues"), ensure_ascii=False))
+    expected_checked = len(result.get("candidates", [])) + 1  # + cross-layer integrated ask
+    if structured_ask.get("checkedCandidates") != expected_checked:
+        fail(f"structured ask checked count changed: expected {expected_checked}, got {structured_ask.get('checkedCandidates')}")
+    if structured_ask.get("issues") != []:
+        fail("structured ask validation issues must be empty: " + json.dumps(structured_ask.get("issues"), ensure_ascii=False))
+
 
 def main() -> None:
     check_xml()
