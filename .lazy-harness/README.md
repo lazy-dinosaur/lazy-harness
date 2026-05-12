@@ -150,7 +150,7 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 | **5c-3** | BDD scenario (자연어 우선) + DDD/SDD reference check | ✅ **완료 (2026-05-12)** — 자연어 + UI heuristic, fixture 검증 |
 | **5c-4** | SSOT duplicate detector | ✅ **완료 (2026-05-12)** — helper/mapper/validator/normalizer/formatter/parser + registry suppression |
 | **5c-5** | **Cross-layer consistency map (ADR 0018)** — 4 detector 결과 통합, gap catch | ✅ **완료 (2026-05-12)** — `crossLayer.gaps` + integrated ask + exact fixture 검증 |
-| 5c-6 | Lint/typecheck drift | 🔵 |
+| **5c-6** | Lint/typecheck drift | ✅ **완료 (2026-05-12)** — `lint-output.ts` environment/code-drift classifier + fixtures |
 | **5c-7** | 구조화 옵션 ask (Principle 17/21) | ✅ **완료 (2026-05-12)** — shared validator + `structuredAskValidation` + `lazy:test` fixture gate |
 | 5c-8 | E2E 시연 (4 layer + cross-ref) | 🔵 |
 | **5c-9** | Doctor C17 — external SaaS grep | ✅ **완료 (2026-05-12)** — `lazy:doctor` D06 + `lazy:test` negative fixture |

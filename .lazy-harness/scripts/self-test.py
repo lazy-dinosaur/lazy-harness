@@ -102,6 +102,45 @@ def run_trigger(layer: str) -> dict:
     return json.loads(completed.stdout)
 
 
+def run_lint_output_fixture(name: str) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/triggers/lint-output.ts",
+        "--input",
+        f".lazy-harness/triggers/fixtures/lint-output/{name}.txt",
+        "--format",
+        "json",
+    ]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
+def check_lint_output() -> None:
+    expected = {
+        "typecheck-env": {
+            "tsc:environment:missing-type-definition": 1,
+            "tsc:environment:missing-config": 1,
+            "tsc:environment:missing-module": 1,
+        },
+        "typecheck-code": {
+            "tsc:code-drift:type-mismatch": 1,
+            "tsc:code-drift:property-missing": 1,
+        },
+        "eslint-code": {
+            "eslint:code-drift:eslint-rule": 1,
+        },
+    }
+    for fixture, summary in expected.items():
+        result = run_lint_output_fixture(fixture)
+        if not result.get("ok"):
+            fail(f"lint-output fixture {fixture} ok=false")
+        if result.get("warnings"):
+            fail(f"lint-output fixture {fixture} warnings must be empty: " + json.dumps(result.get("warnings"), ensure_ascii=False))
+        if result.get("summary") != summary:
+            fail(f"lint-output fixture {fixture} summary changed: expected {summary}, got {result.get('summary')}")
+    print("✓ lint-output fixtures ok")
+
+
 def check_triggers() -> None:
     result = run_trigger("all")
     if not result.get("ok"):
@@ -204,6 +243,7 @@ def main() -> None:
     check_doctor_c17_negative()
     check_xml()
     check_jsonl()
+    check_lint_output()
     check_triggers()
     print("lazy-harness self-test ok")
 

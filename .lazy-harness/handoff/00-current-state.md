@@ -41,9 +41,10 @@
 | **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
 | **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
 | **5c-5 Cross-layer map** | ✅ done (`crossLayer.gaps`, integrated ask, exact fixture 검증) |
+| **5c-6 Lint/typecheck drift** | ✅ done (`lint-output.ts`, environment vs code drift fixtures) |
 | **5c-7 Structured ask** | ✅ done (`structuredAskValidation`, shared validator, `lazy:test` fixture gate) |
 | **5c-9 Doctor C17** | ✅ done (`lazy:doctor` D06 + `lazy:test` negative fixture) |
-| **5c-6/8** | 🔵 next |
+| **5c-8** | 🔵 next |
 | **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | ~1920 lines (DDD + SDD + acronym + BDD + SSOT + cross-layer map + structured ask validator 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
@@ -65,18 +66,16 @@
 상세 계획: `.lazy-harness/plans/5c-remaining-implementation-plan.md`
 
 ```
-A. 5c-6 lint/typecheck drift detector
-   - tsc/eslint output ingestion
-   - environment-missing vs code drift 분류
-   - 현재 `bun run typecheck:node` missing deps/types 실패를 framework-owned detector 로 분류
-
-B. 5c-8 E2E demonstration
+A. 5c-8 E2E demonstration
    - 실제 medivance change 1회
-   - DDD/SDD/BDD/SSOT + cross-layer map + structured ask 검증
+   - DDD/SDD/BDD/SSOT + lint drift + cross-layer map + structured ask 검증
 
-C. Refactor `code-change.ts` monolith
+B. Refactor `code-change.ts` monolith
    - 현재 1928 lines
    - detector 별 split 전 behavior pin 유지
+
+C. Package/dependency health
+   - typecheck missing deps/types 의 install/bootstrap 문서화
 ```
 
 ## Worktree 배치 (최종 상태)

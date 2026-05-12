@@ -119,13 +119,13 @@ def check_plan_freshness() -> CheckResult:
     phase_plan = read_text(LAZY / "planning" / "phase-5-plan.xml")
     readme = read_text(LAZY / "README.md")
     handoff = read_text(LAZY / "handoff" / "00-current-state.md")
-    required_done = ["5c-1", "5c-2", "5c-3", "5c-4", "5c-5", "5c-7"]
+    required_done = ["5c-1", "5c-2", "5c-3", "5c-4", "5c-5", "5c-6", "5c-7", "5c-9"]
     details: list[str] = []
     for criterion in required_done:
         pattern = rf'<criterion id="{re.escape(criterion)}" status="done"'
         if not re.search(pattern, phase_plan):
             details.append(f"phase-5-plan.xml: {criterion} must be status=done")
-    for marker in ["5c-5 Cross-layer", "5c-7 Structured ask", "5c-9 Doctor C17", "5c-6/8"]:
+    for marker in ["5c-5 Cross-layer", "5c-6 Lint/typecheck", "5c-7 Structured ask", "5c-9 Doctor C17", "5c-8"]:
         if marker not in handoff:
             details.append(f"handoff missing marker: {marker}")
     for marker in ["**5c-5**", "**5c-7**", "5c-6", "5c-8", "5c-9"]:
