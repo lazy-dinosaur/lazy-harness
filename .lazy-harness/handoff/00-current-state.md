@@ -54,7 +54,7 @@
 | **5e host-project pilot** | ✅ complete (inside-out pilot commit `ba162ab1`; command-routing gap found and remediation in progress) |
 | **Framework v1.4** | 983 lines, 23 principles |
 | **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, project test-strategy/package-script routing or structured interview) |
-| **N1 Layer Impact Gate** | 🟡 in-progress — schema + script + 3 fixtures + self-test green. Hook 통합 (response.completed / pre-commit / pre-push) 과 host-project pilot 남음. (`.lazy-harness/scripts/layer-impact-gate.ts`, `schemas/layer-impact-result.schema.json`, `triggers/fixtures/layer-impact/`) |
+| **N1 Layer Impact Gate** | 🟡 in-progress — schema + script + 3 fixtures + self-test green + **response.completed + pre-commit hook integration (observation mode)**. Host-pilot true-positive 검증 1 criterion 남음. (`.lazy-harness/scripts/layer-impact-gate.ts`, `schemas/layer-impact-result.schema.json`, `triggers/fixtures/layer-impact/`, `hooks/lifecycle/helpers/check-layer-impact.sh`, `hooks/pre-commit-layer-impact.sh`) |
 
 ## Oracle Audit 결과 (2026-05-12)
 

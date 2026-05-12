@@ -43,8 +43,8 @@
       <successCriteria>
         <criterion status="done">schemas/layer-impact-result.schema.json 정의 (Unified Result Schema 준수)</criterion>
         <criterion status="done">scripts/layer-impact-gate.ts (변경된 파일 → 영향 layer 목록 산출; heuristic-only v0)</criterion>
-        <criterion status="planned">response.completed hook 에서 호출, 누락 시 force-gate</criterion>
-        <criterion status="planned">pre-commit / pre-push 동일 호출 일관성 유지</criterion>
+        <criterion status="done">response.completed hook 에서 호출 (observation 모드; force-gate 는 host-pilot 후 promotion)</criterion>
+        <criterion status="done">pre-commit hook 통합 (.husky/pre-commit chain; pre-push 는 lazy:test 가 fixture 검증으로 cover)</criterion>
         <criterion status="done">logs/validations.jsonl 에 결과 append (--append-validation flag)</criterion>
         <criterion status="planned">host-project 실제 변경 3 회로 true positive 검증 (fixture 3 OK; host pilot 별도)</criterion>
       </successCriteria>
@@ -56,9 +56,16 @@
         <file>.lazy-harness/triggers/fixtures/layer-impact/A-prod-only-no-records.json</file>
         <file>.lazy-harness/triggers/fixtures/layer-impact/B-prod-with-domain-record-update.json</file>
         <file>.lazy-harness/triggers/fixtures/layer-impact/C-record-only.json</file>
+        <file>.lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh</file>
+        <file>.lazy-harness/hooks/pre-commit-layer-impact.sh</file>
         <file>.lazy-harness/manifests/skills.xml (lazy-layer-impact-gate entry)</file>
         <test>self-test.py check_layer_impact_gate (3 fixtures green)</test>
+        <integration>.husky/pre-commit chain entry</integration>
+        <integration>hooks/lifecycle/on-response-completed.sh chain entry</integration>
       </currentArtifacts>
+      <promotionPath>
+        <note>v0 = observation only. Promote to strict gate after host-pilot data shows acceptable FP rate.</note>
+      </promotionPath>
     </milestone>
 
     <!-- N2: Map-aware Reference Resolver (north-star B) -->

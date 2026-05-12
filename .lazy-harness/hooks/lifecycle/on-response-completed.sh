@@ -13,6 +13,7 @@ cd "$REPO_ROOT" || exit 0
 PAYLOAD=$(cat || echo '{}')
 
 for helper in \
+  .lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh \
