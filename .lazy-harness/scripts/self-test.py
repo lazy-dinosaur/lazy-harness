@@ -150,6 +150,43 @@ def run_lint_output_fixture(name: str) -> dict:
     return json.loads(completed.stdout)
 
 
+def run_interview_collect(queue: pathlib.Path) -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/interview-loop.ts",
+        "--mode",
+        "collect",
+        "--input",
+        ".lazy-harness/triggers/fixtures/interview-loop/cross-layer-gap.json",
+        "--queue",
+        str(queue.relative_to(ROOT)),
+        "--format",
+        "json",
+    ]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
+def check_interview_loop_collect() -> None:
+    queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
+    queue.unlink(missing_ok=True)
+    try:
+        first = run_interview_collect(queue)
+        if first.get("created") != 3 or first.get("existing") != 0 or first.get("totalOpen") != 3:
+            fail("interview-loop first collect changed: " + json.dumps(first, ensure_ascii=False))
+        ids = [question.get("id") for question in first.get("questions", [])]
+        expected_ids = ["Q-ec56f39bb7555484", "Q-3e77e39bd09c434f", "Q-17029903de55218f"]
+        if ids != expected_ids:
+            fail(f"interview-loop question ids changed: expected {expected_ids}, got {ids}")
+        ET.parse(queue)
+        second = run_interview_collect(queue)
+        if second.get("created") != 0 or second.get("existing") != 3 or second.get("totalOpen") != 3:
+            fail("interview-loop dedupe changed: " + json.dumps(second, ensure_ascii=False))
+    finally:
+        queue.unlink(missing_ok=True)
+    print("✓ 5d-1 interview-loop collect ok")
+
+
 def check_lint_output() -> None:
     expected = {
         "typecheck-env": {
@@ -320,6 +357,7 @@ def main() -> None:
     check_xml()
     check_jsonl()
     check_lint_output()
+    check_interview_loop_collect()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")

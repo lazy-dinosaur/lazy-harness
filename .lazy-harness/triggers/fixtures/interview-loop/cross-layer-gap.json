@@ -1,0 +1,77 @@
+{
+  "ok": true,
+  "trigger": "code-change",
+  "scannedFiles": [
+    ".lazy-harness/triggers/fixtures/interview-loop/patient-autocomplete.tsx"
+  ],
+  "candidates": [
+    {
+      "layer": "ddd",
+      "criterionId": "5c-1",
+      "kind": "interface",
+      "name": "PatientAutocompleteResult",
+      "filePath": ".lazy-harness/triggers/fixtures/interview-loop/patient-autocomplete.tsx",
+      "line": 1,
+      "confidence": "high",
+      "reason": "fixture domain candidate",
+      "ask": {
+        "question": "[5c-1 DDD trigger] 새 interface 'PatientAutocompleteResult' 검출. DDD ubiquitous-language 후보로 등록할까요?",
+        "recommended": "A",
+        "options": [
+          { "id": "A", "label": "ubiquitous-language.xml 에 등록", "description": "PatientAutocompleteResult 을 canonical domain term 후보로 기록" },
+          { "id": "B", "label": "기존 term 의 alias 로 등록" },
+          { "id": "C", "label": "domain 용어 아님, 제외" },
+          { "id": "D", "label": "직접 입력" }
+        ]
+      }
+    },
+    {
+      "layer": "bdd",
+      "criterionId": "5c-3",
+      "kind": "scenario",
+      "name": "PatientAutocompleteScenario",
+      "filePath": ".lazy-harness/triggers/fixtures/interview-loop/patient-autocomplete.tsx",
+      "line": 10,
+      "confidence": "medium",
+      "reason": "fixture behavior candidate",
+      "ask": {
+        "question": "[5c-3 BDD trigger] UI flow 'PatientAutocompleteScenario' 검출. behavior scenario 로 등록할까요?",
+        "recommended": "A",
+        "options": [
+          { "id": "A", "label": "BDD scenario 등록" },
+          { "id": "B", "label": "DDD/SDD 확인 후 등록" },
+          { "id": "C", "label": "이번 범위 밖" },
+          { "id": "D", "label": "직접 입력" }
+        ],
+        "crossRef": {
+          "ddd": { "matched": ["Patient"], "missing": ["자동완성"] },
+          "sdd": { "matched": [], "missing": ["autocomplete"] }
+        }
+      }
+    }
+  ],
+  "crossLayer": {
+    "criterionId": "5c-5",
+    "gaps": [
+      {
+        "fromLayer": "bdd",
+        "targetLayer": "sdd",
+        "term": "autocomplete",
+        "candidateName": "PatientAutocompleteScenario",
+        "filePath": ".lazy-harness/triggers/fixtures/interview-loop/patient-autocomplete.tsx",
+        "severity": "gap",
+        "reason": "BDD 'PatientAutocompleteScenario' references missing SDD 'autocomplete'"
+      }
+    ],
+    "summary": {
+      "bdd->sdd:gap": 1
+    }
+  },
+  "structuredAskValidation": {
+    "criterionId": "5c-7",
+    "ok": true,
+    "checkedCandidates": 3,
+    "issues": []
+  },
+  "warnings": []
+}

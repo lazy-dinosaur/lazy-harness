@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openQuestions version="1.0" owner="lazy-harness" criterionId="5d-1">
+  <!-- Empty is valid. Filled by .lazy-harness/scripts/interview-loop.ts in collect mode. -->
+</openQuestions>
