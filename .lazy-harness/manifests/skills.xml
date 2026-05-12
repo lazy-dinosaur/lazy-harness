@@ -6,9 +6,9 @@
   Schema: each <skill> has id, location, status, phase, dependsOn (optional).
   status values: stable | beta | deferred | retired
 -->
-<skillsManifest version="1" updatedAt="2026-05-10T15:05:00+09:00">
+  <skillsManifest version="1" updatedAt="2026-05-12T01:16:00Z">
 
-  <!-- Phase 5a foundation: 3 stable skills -->
+  <!-- Jcode skills are optional wrappers. ADR 0022: framework logic lives in .lazy-harness. -->
   <skill id="harness-init" status="stable" phase="5a">
     <location>.jcode/skills/harness-init/</location>
     <description>Initialize a project-local lazy-harness directory tree</description>
@@ -16,10 +16,10 @@
     <emitsLogs>true</emitsLogs>
   </skill>
 
-  <skill id="harness-doctor" status="stable" phase="5a">
-    <location>.jcode/skills/harness-doctor/</location>
-    <description>Run 10 structural / safety checks; output Unified Result Schema</description>
-    <slashCommand>/harness-doctor</slashCommand>
+  <skill id="lazy-test" status="stable" phase="5c">
+    <location>.lazy-harness/scripts/self-test.py</location>
+    <description>Framework-owned reproducible self-test: XML, JSONL, and trigger fixtures</description>
+    <command>bun run lazy:test</command>
     <emitsLogs>true</emitsLogs>
   </skill>
 
@@ -28,7 +28,7 @@
     <description>Sync framework-contract.md from canonical source with auto-rollback</description>
     <slashCommand>/harness-update</slashCommand>
     <emitsLogs>true</emitsLogs>
-    <dependsOn>harness-doctor</dependsOn>
+    <dependsOn>lazy-test</dependsOn>
   </skill>
 
   <!-- Phase 5b: 3 hooks (sh, no skill UI yet) -->
@@ -41,10 +41,10 @@
 
   <skill id="pre-push-validator" status="stable" phase="5b">
     <location>.lazy-harness/hooks/pre-push.sh</location>
-    <description>Block push if doctor fails or private files leaked; emit Unified Result Schema</description>
+    <description>Block push if lazy:test fails or private files leaked; emit Unified Result Schema</description>
     <wiredAt>.git/hooks/pre-push (delegate)</wiredAt>
     <emitsLogs>true</emitsLogs>
-    <dependsOn>harness-doctor</dependsOn>
+    <dependsOn>lazy-test</dependsOn>
   </skill>
 
   <skill id="weekly-snapshot" status="stable" phase="5b">

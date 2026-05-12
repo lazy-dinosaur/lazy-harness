@@ -34,7 +34,7 @@
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
 | **Origin push** | ⚠ local commit/push 확인 필요 (`git status -sb`) |
-| **ADRs** | **21** (0001~0021) |
+| **ADRs** | **22** (0001~0022) |
 | **Decisions logged** | 23+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
@@ -42,7 +42,7 @@
 | **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
 | **5c-5 Cross-layer map** | 🔵 next |
 | **5c-6/7/8/9** | 🔵 |
-| **Doctor (C1~C16)** | ⚠ `.jcode/skills` 실체 없음. `bun run lazy:test` 로 대체 검증 |
+| **Framework self-test** | ✅ `bun run lazy:test` primary gate (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
 | **code-change.ts** | 1720 lines (DDD + SDD + acronym + BDD + SSOT 통합) |
 | **Framework v1.4** | 975 lines, 23 principles |
 
@@ -65,8 +65,8 @@ A. 5c-5 Cross-layer consistency map
    - 4 detector 결과 통합
    - gap detect (BDD missing → SDD endpoint, etc.)
 
-B. Doctor/self-test hardening
-   - `.jcode` doctor 복구 또는 `.lazy-harness/scripts/doctor` 이전
+B. Framework doctor/self-test hardening
+   - C1~C17 style checks 를 `.lazy-harness/scripts/doctor.*` 로 흡수
    - branch-aware hook L3 검증
 
 C. 5c-9 Doctor C17

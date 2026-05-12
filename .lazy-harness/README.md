@@ -132,13 +132,13 @@ flowchart LR
 
 자세한 내용: [`framework/framework-contract.md`](framework/framework-contract.md)
 
-## Doctor (자동 검증)
+## Framework self-test (자동 검증)
 
 ```bash
 $ bun run lazy:test
 ```
 
-현재 worktree 에는 `.jcode/skills/harness-doctor/` 실체가 없으므로, XML/JSONL/trigger fixture 를 재현 가능한 `lazy:test`로 우선 검증한다. Doctor C1~C16 복구/이전은 후속 P1 작업.
+ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 XML/JSONL/trigger fixture 를 재현 검증하는 `lazy:test`이다. C1~C17 style doctor 는 후속으로 `.lazy-harness/scripts/doctor.*`에 흡수한다.
 
 ## 다음 단계 — 5c 진입
 

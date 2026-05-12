@@ -47,33 +47,30 @@ if [ -n "$LEAKED" ]; then
     exit 1
 fi
 
-# Run doctor (concise output) — fail blocks push
-DOCTOR="$LAZY/.jcode-skills-link/harness-doctor/scripts/doctor.sh"
-[ ! -x "$DOCTOR" ] && DOCTOR="$REPO_ROOT/.jcode/skills/harness-doctor/scripts/doctor.sh"
+# ADR 0022: framework-owned validation. Jcode skills are wrappers only.
+TIMESTAMP=$(date -Iseconds)
+RESULT_LOG="$LAZY/logs/validations.jsonl"
+mkdir -p "$(dirname "$RESULT_LOG")"
 
-if [ -x "$DOCTOR" ]; then
-    DOCTOR_OUT=$("$DOCTOR" 2>&1 || true)
-    FAILS=$(echo "$DOCTOR_OUT" | grep -cE '^\[C[0-9]+\].*✗ fail' | head -1 | tr -d ' \n' || echo 0)
-    [ -z "$FAILS" ] && FAILS=0
-
-    # Emit Unified Result Schema
-    TIMESTAMP=$(date -Iseconds)
-    RESULT_LOG="$LAZY/logs/validations.jsonl"
-    mkdir -p "$(dirname "$RESULT_LOG")"
-
-    if [ "$FAILS" -gt 0 ]; then
-        cat >> "$RESULT_LOG" <<JSON
-{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"fail","category":"infra","humanRequired":true,"details":["doctor reports $FAILS fail check(s)"],"suggestedFix":"run /harness-doctor and address fails before push","confidence":"high"}
-JSON
-        echo ""
-        echo "🚨 pre-push blocked: doctor 가 $FAILS 개 check 실패 보고"
-        echo "→ /harness-doctor 실행해서 fix 후 다시 push"
-        exit 1
-    else
-        cat >> "$RESULT_LOG" <<JSON
-{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"pass","category":"infra","humanRequired":false,"details":["doctor all green"],"confidence":"high"}
-JSON
-    fi
+if command -v bun >/dev/null 2>&1; then
+    TEST_OUT=$(bun run lazy:test 2>&1 || true)
+else
+    TEST_OUT=$(.lazy-harness/scripts/self-test.py 2>&1 || true)
 fi
+
+if ! echo "$TEST_OUT" | grep -q 'lazy-harness self-test ok'; then
+    SUMMARY=$(printf '%s' "$TEST_OUT" | tail -5 | tr '\n' '; ' | head -c 500)
+    cat >> "$RESULT_LOG" <<JSON
+{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"fail","category":"infra","humanRequired":true,"details":["lazy:test failed: $SUMMARY"],"suggestedFix":"run bun run lazy:test and address framework self-test failures","confidence":"high"}
+JSON
+    echo ""
+    echo "🚨 pre-push blocked: lazy:test 실패"
+    echo "→ bun run lazy:test 실행해서 fix 후 다시 push"
+    exit 1
+fi
+
+cat >> "$RESULT_LOG" <<JSON
+{"timestamp":"$TIMESTAMP","id":"PRE-PUSH-001","status":"pass","category":"infra","humanRequired":false,"details":["lazy:test all green"],"confidence":"high"}
+JSON
 
 exit 0
