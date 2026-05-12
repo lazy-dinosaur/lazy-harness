@@ -135,6 +135,14 @@ function aftershockLayer(kind: string): AftershockQuestion['layer'] {
   return 'ddd';
 }
 
+function followUpEffect(layer: AftershockQuestion['layer'], name: string, decisionId: string): Record<string, unknown> {
+  if (layer === 'sdd') return { kind: 'sdd-register-contract', name: `${name}Contract`, reason: `aftershock:${decisionId}` };
+  if (layer === 'bdd') return { kind: 'bdd-register-scenario', name: `${name}Scenario`, given: name, when: 'decision-applied', then: 'cross-layer-consistency' };
+  if (layer === 'tdd') return { kind: 'tdd-require-test', target: name, suggestedPath: `${name}.test.ts` };
+  if (layer === 'ssot') return { kind: 'ssot-register-utility', name: `${name}Utility`, domain: name, kindHint: 'aftershock' };
+  return { kind: 'decision-log', summary: `aftershock-follow-up:${name}`, reason: decisionId };
+}
+
 function aftershockQuestion(decision: DecisionRecord, effect: Record<string, unknown>, now: string): AftershockQuestion | null {
   const kind = effectKind(effect);
   if (kind === 'defer' || kind === 'decision-log' || kind === 'unknown') return null;
@@ -158,7 +166,7 @@ function aftershockQuestion(decision: DecisionRecord, effect: Record<string, unk
         id: 'A',
         label: `${layer.toUpperCase()} 후속 항목을 이번 결정 cascade 에 포함`,
         description: 'Recommended. 한 결정이 만든 cross-layer cascade 를 같은 루프에서 닫습니다.',
-        effects: [{ kind: 'decision-log', summary: `aftershock-follow-up:${kind}:${name}`, reason: decision.id }],
+        effects: [followUpEffect(layer, name, decision.id)],
       },
       {
         id: 'B',

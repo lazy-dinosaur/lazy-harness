@@ -1,0 +1,57 @@
+{
+  "ok": true,
+  "trigger": "code-change",
+  "scannedFiles": [
+    ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"
+  ],
+  "candidates": [
+    {
+      "layer": "ddd",
+      "criterionId": "5c-1",
+      "kind": "interface",
+      "name": "ReferralPriorityQueue",
+      "filePath": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts",
+      "line": 1,
+      "confidence": "high",
+      "reason": "walkthrough feature domain candidate",
+      "ask": {
+        "question": "[5d-6 walkthrough] ReferralPriorityQueue 를 DDD term 으로 확정하고 후속 SDD/TDD cascade 를 열까요?",
+        "recommended": "A",
+        "options": [
+          {
+            "id": "A",
+            "label": "ReferralPriorityQueue 를 DDD term 으로 등록",
+            "description": "실제 feature walkthrough 에서 answer -> decision -> aftershock 를 증명",
+            "effects": [
+              { "kind": "ddd-register-term", "term": "ReferralPriorityQueue", "reason": "5d-6 walkthrough feature" }
+            ]
+          },
+          { "id": "B", "label": "기존 Referral term 의 alias 로 등록" },
+          { "id": "C", "label": "이번 범위 밖으로 defer", "effects": [{ "kind": "defer", "reason": "5d-6 walkthrough out of scope" }] },
+          { "id": "D", "label": "직접 입력" }
+        ],
+        "crossRef": {
+          "sdd": { "missing": ["referralPriorityQueueSchema"] },
+          "bdd": { "missing": ["ReferralPriorityQueueScenario"] },
+          "tdd": { "missing": ["referral-priority-feature.test.ts"] }
+        }
+      }
+    }
+  ],
+  "crossLayer": {
+    "criterionId": "5c-5",
+    "gaps": [
+      {
+        "fromLayer": "ddd",
+        "targetLayer": "sdd",
+        "term": "ReferralPriorityQueue",
+        "candidateName": "ReferralPriorityQueue",
+        "filePath": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts",
+        "severity": "gap",
+        "reason": "DDD term needs SDD contract follow-up"
+      }
+    ],
+    "summary": { "ddd->sdd:gap": 1 }
+  },
+  "warnings": []
+}

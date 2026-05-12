@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<traceability id="referral-priority-queue" phase="5d-6">
+  <links>
+    <link layer="intent" path=".lazy-harness/intent/active/referral-priority-queue.xml" />
+    <link layer="trigger" path=".lazy-harness/triggers/fixtures/walkthrough/referral-priority-feature.json" />
+    <link layer="decision" path=".lazy-harness/logs/decisions.jsonl" mode="runtime-temp-in-self-test" />
+    <link layer="questions" path=".lazy-harness/questions/open.xml" mode="runtime-temp-in-self-test" />
+  </links>
+  <proof>
+    <step id="collect" criterionId="5d-1" />
+    <step id="answer" criterionId="5d-2" />
+    <step id="tdd" criterionId="5d-3" />
+    <step id="aftershock" criterionId="5d-4" minDepth="2" />
+    <step id="hook" criterionId="5d-5" />
+  </proof>
+</traceability>

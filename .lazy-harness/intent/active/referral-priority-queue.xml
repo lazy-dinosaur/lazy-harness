@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<activeIntent id="referral-priority-queue" phase="5d-6" status="walkthrough-fixture">
+  <summary>Referral priority queue feature used to prove the 5d interview loop end-to-end.</summary>
+  <entrypoints>
+    <fixture>.lazy-harness/triggers/fixtures/walkthrough/referral-priority-feature.json</fixture>
+  </entrypoints>
+  <acceptance>
+    <item>Collect creates structured questions.</item>
+    <item>Answer persists a decision with effects.</item>
+    <item>TDD hook produces an explicit missing-test gate.</item>
+    <item>Aftershock re-analysis reaches depth 2 through fixture replay.</item>
+  </acceptance>
+</activeIntent>

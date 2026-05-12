@@ -150,14 +150,14 @@ def run_lint_output_fixture(name: str) -> dict:
     return json.loads(completed.stdout)
 
 
-def run_interview_collect(queue: pathlib.Path) -> dict:
+def run_interview_collect(queue: pathlib.Path, input_path: str = ".lazy-harness/triggers/fixtures/interview-loop/cross-layer-gap.json") -> dict:
     command = [
         "bun",
         ".lazy-harness/scripts/interview-loop.ts",
         "--mode",
         "collect",
         "--input",
-        ".lazy-harness/triggers/fixtures/interview-loop/cross-layer-gap.json",
+        input_path,
         "--queue",
         str(queue.relative_to(ROOT)),
         "--format",
@@ -209,12 +209,12 @@ def run_tdd_cross_verify(files: list[str], queue: pathlib.Path | None = None, ex
     return json.loads(completed.stdout)
 
 
-def run_aftershock_reanalysis(queue: pathlib.Path) -> dict:
+def run_aftershock_reanalysis(queue: pathlib.Path, decisions_path: str = ".lazy-harness/triggers/fixtures/aftershock/decisions.jsonl") -> dict:
     command = [
         "bun",
         ".lazy-harness/scripts/aftershock-reanalysis.ts",
         "--decisions",
-        ".lazy-harness/triggers/fixtures/aftershock/decisions.jsonl",
+        decisions_path,
         "--queue",
         str(queue.relative_to(ROOT)),
         "--format",
@@ -382,6 +382,49 @@ def check_lifecycle_hook_integration() -> None:
             path.unlink(missing_ok=True)
     print("✓ 5d-5 lifecycle hook integration ok")
 
+
+
+def check_real_feature_walkthrough() -> None:
+    queue = LAZY / "questions" / f"__tmp_5d6_walkthrough_{os.getpid()}.xml"
+    decisions = LAZY / "logs" / f"__tmp_5d6_walkthrough_{os.getpid()}.jsonl"
+    for path in [queue, decisions]:
+        path.unlink(missing_ok=True)
+    try:
+        collect = run_interview_collect(queue, ".lazy-harness/triggers/fixtures/walkthrough/referral-priority-feature.json")
+        if collect.get("created") != 2 or collect.get("totalOpen") != 2:
+            fail("5d-6 walkthrough collect changed: " + json.dumps(collect, ensure_ascii=False))
+        first_question = collect["questions"][0]
+        if first_question.get("id") != "Q-a13961244b7dcc40":
+            fail("5d-6 walkthrough first question id changed: " + json.dumps(first_question, ensure_ascii=False))
+        answer = run_interview_answer(queue, decisions, first_question["id"], "A", apply=True)
+        if answer.get("applied") is not True or answer.get("effects", [{}])[0].get("kind") != "ddd-register-term":
+            fail("5d-6 walkthrough answer did not persist DDD effect: " + json.dumps(answer, ensure_ascii=False))
+        first_aftershock = run_aftershock_reanalysis(queue, str(decisions.relative_to(ROOT)))
+        if first_aftershock.get("created") != 1 or first_aftershock["questions"][0].get("depth") != 1 or first_aftershock["questions"][0].get("layer") != "sdd":
+            fail("5d-6 walkthrough first aftershock changed: " + json.dumps(first_aftershock, ensure_ascii=False))
+        aftershock_question = first_aftershock["questions"][0]
+        second_answer = run_interview_answer(queue, decisions, aftershock_question["id"], "A", apply=True)
+        if second_answer.get("applied") is not True or second_answer.get("effects", [{}])[0].get("kind") != "sdd-register-contract":
+            fail("5d-6 walkthrough aftershock answer did not carry SDD effect: " + json.dumps(second_answer, ensure_ascii=False))
+        second_aftershock = run_aftershock_reanalysis(queue, str(decisions.relative_to(ROOT)))
+        depth_two = [question for question in second_aftershock.get("questions", []) if question.get("depth") == 2]
+        if not depth_two or depth_two[0].get("layer") != "bdd":
+            fail("5d-6 walkthrough did not reach depth 2: " + json.dumps(second_aftershock, ensure_ascii=False))
+        tdd = run_tdd_cross_verify([".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"], queue=queue, expect_code=2)
+        if tdd.get("forceGate") is not True or tdd.get("failed") != 1:
+            fail("5d-6 walkthrough TDD force gate changed: " + json.dumps(tdd, ensure_ascii=False))
+        hook_payload = {
+            "recent_tool_calls": [
+                {"name": "Edit", "args_preview": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"},
+            ],
+        }
+        hook_out = run_response_completed_hook(hook_payload, queue)
+        if "5d-3 TDD Cross-Verify Gate" not in hook_out:
+            fail("5d-6 walkthrough hook did not surface TDD gate:\n" + hook_out)
+    finally:
+        for path in [queue, decisions]:
+            path.unlink(missing_ok=True)
+    print("✓ 5d-6 real feature walkthrough ok")
 
 def check_lint_output() -> None:
     expected = {
@@ -558,6 +601,7 @@ def main() -> None:
     check_tdd_cross_verify()
     check_aftershock_reanalysis()
     check_lifecycle_hook_integration()
+    check_real_feature_walkthrough()
     check_e2e_demo()
     check_triggers()
     print("lazy-harness self-test ok")

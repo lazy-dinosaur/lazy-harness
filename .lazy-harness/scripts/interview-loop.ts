@@ -17,6 +17,7 @@ interface TriggerAskOption {
   id: string;
   label: string;
   description?: string;
+  effects?: Array<Record<string, unknown>>;
 }
 
 interface TriggerAsk {
@@ -184,7 +185,7 @@ function normalizeOptions(options: TriggerAskOption[] | undefined): InterviewOpt
     id: option.id,
     label: option.label,
     ...(option.description ? { description: option.description } : {}),
-    effects: [],
+    effects: option.effects ?? [],
   }));
 }
 
