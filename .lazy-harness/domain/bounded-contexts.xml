@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  bounded-contexts.xml
+  Layer: domain | Subtype: boundaries
+  Created by harness-init per ADR 0004 (Cross-Layer Maps).
+  Empty container is valid (Principle #10 Empty-Container Tolerance).
+-->
+<map type="domain"
+     subtype="boundaries"
+     version="1.0"
+     created="2026-05-10T14:37:31+09:00"
+     last-modified="2026-05-10T14:37:31+09:00">
+
+  <description>
+    Bounded Context 정의 — 도메인 모델의 일관성 경계.
+  </description>
+
+  <entries>
+    <!-- Empty until triggers fill (Principle #6 Trigger-Based Growth). -->
+  </entries>
+
+  <triggers-to-fill>
+    <trigger>새 context 출현</trigger>
+    <trigger>같은 단어가 두 context 에서 다르게 쓰임</trigger>
+  </triggers-to-fill>
+
+  <links>
+    <!-- Cross-references to other maps / specs / regressions / decisions. -->
+  </links>
+</map>

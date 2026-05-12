@@ -1,0 +1,73 @@
+# D-2026-05-10-003 — Principle 18: Recovery Path
+
+## Status
+
+Accepted (2026-05-10)
+
+## Context
+
+lazy-harness 가 시간 갈수록 medivance 작업의 핵심 의존성이 됨.
+framework 자체가 깨졌을 때의 회복 절차가 framework-contract 에 명세 없으면:
+- backup 정책 즉흥적 → 데이터 유실 위험
+- 깨진 후 어디까지 rollback 할지 결정 못함
+- AI 자율성 정책 (#5 self-loop) 과 충돌 시 대응 모름
+- 점진적 부패 (silent corruption) 방지 못함
+
+특히 우리 framework 는 self-loop 가 spec 수정 금지 같은 hard rule 을 가지므로,
+framework 자체가 깨지면 AI 가 어떻게 행동할지 명세돼 있어야 함.
+
+## Decision
+
+**Principle 18 — Recovery Path** 를 framework-contract 에 추가.
+
+4 단계 recovery level:
+
+```
+R1 (Container Damage)     — 단일 컨테이너 손상, 다른 부분 정상
+R2 (Hook Malfunction)     — hook 오작동 반복
+R3 (Trust Loss)           — 사람이 framework 신뢰 잃음
+R4 (Catastrophic)         — .lazy-harness/ 자체 손상
+```
+
+각 level 마다:
+- Trigger (감지 조건)
+- Detection (자동 감지 방법)
+- Fallback (즉시 동작)
+- Recovery (회복 절차)
+
+Backup 전략:
+- Weekly snapshot (자동, .lazy-harness-backup/)
+- Pre-major-change snapshot (각 milestone 시작 전)
+- Offsite copy (월 1 회 권장)
+
+## Consequences
+
+### Positive
+- framework 장기 사용 가능 (1 년+ 의존성 됐을 때 안전망)
+- 깨졌을 때 panic 안 함 — 명세된 절차 따름
+- backup 데이터로 진짜 복구 가능 (특히 R4)
+- post-mortem ADR 의무 → 재발 방지
+
+### Negative / Trade-offs
+- backup 디스크 사용량 (.lazy-harness 크기 × 4 weeks rolling + milestone 영구)
+- backup 자동화 구현 비용 (M2 lifecycle hook 의 일부)
+- offsite copy 는 사용자 수동 작업 필요
+
+### Mitigations
+- backup 은 .gitignored (git push 금지) — 보안 보장
+- weekly snapshot 자동 정리 (4 weeks 이상 자동 삭제)
+- harness-doctor 가 backup 상태 검증 (M1 milestone)
+
+## Hard Rules
+
+- backup 은 .gitignored (보안 위반 시 backup 자체가 leak)
+- R3 발생 시 freeze 즉시 (debate 불가, 신뢰 회복 우선)
+- R4 발생 시 미반영 작업 manual 기록 의무 (영원히 남는 데이터 유실 방지)
+
+## Related
+
+- framework-contract.md Principle 18
+- D-2026-05-10-001 (Principle 0 — recovery 도 사람-AI 보완의 일부)
+- D-2026-05-10-002 (Principle 17 — conflict resolution 결정도 backup 대상)
+- M1 (harness-doctor 에 backup 검증 포함)
+- M2 (lifecycle hook 에 weekly snapshot 자동화)

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Lazy-Harness Roadmap — 마일스톤</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#c9d1d9;margin:0;padding:40px;line-height:1.6;}
+  .container{max-width:1100px;margin:0 auto;}
+  h1{color:#58a6ff;border-bottom:2px solid #30363d;padding-bottom:12px;margin-bottom:6px;}
+  .subtitle{color:#8b949e;margin-bottom:32px;}
+  .vision{background:linear-gradient(135deg,#1f2937 0%,#111827 100%);border-left:4px solid #58a6ff;padding:20px 24px;border-radius:6px;margin-bottom:32px;}
+  .vision h2{color:#79c0ff;margin-top:0;}
+  .vision p{margin:8px 0;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:8px;}
+  .badge.crit{background:#da3633;color:#fff;}
+  .badge.high{background:#bf8700;color:#fff;}
+  .badge.med{background:#388bfd;color:#fff;}
+  .badge.long{background:#6e7681;color:#fff;}
+  .status{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+  .status.done{background:#238636;color:#fff;}
+  .status.todo{background:#30363d;color:#8b949e;}
+  .timeline{position:relative;margin:32px 0;}
+  .timeline::before{content:'';position:absolute;left:24px;top:0;bottom:0;width:2px;background:#30363d;}
+  .ms{position:relative;padding-left:64px;margin-bottom:32px;}
+  .ms::before{content:'';position:absolute;left:18px;top:8px;width:14px;height:14px;border-radius:50%;background:#30363d;border:3px solid #0d1117;}
+  .ms.done::before{background:#238636;}
+  .ms.crit::before{background:#da3633;}
+  .ms.high::before{background:#bf8700;}
+  .ms-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px 22px;}
+  .ms-card h3{margin-top:0;color:#e6edf3;display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
+  .ms-meta{color:#8b949e;font-size:13px;margin-bottom:10px;}
+  .ms-rationale{background:#0d1117;border-left:3px solid #58a6ff;padding:10px 14px;margin:10px 0;font-size:14px;color:#c9d1d9;}
+  .ms-criteria{margin:10px 0;}
+  .ms-criteria li{margin:4px 0;font-size:14px;}
+  .ms-tsq{font-size:12px;color:#8b949e;font-style:italic;margin-top:8px;}
+  .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px;}
+  .score-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;}
+  .score-card h3{margin:0 0 12px;color:#79c0ff;font-size:15px;}
+  .score-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #21262d;font-size:13px;}
+  .score-row:last-child{border-bottom:none;}
+  .score-row .me{color:#3fb950;font-weight:600;}
+  .score-row .tsq{color:#f85149;font-weight:600;}
+  .risk{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px 20px;margin:8px 0;}
+  .risk h4{margin:0 0 6px;color:#f85149;font-size:14px;}
+  .risk p{margin:4px 0;font-size:13px;}
+  .pre{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-family:'SF Mono',Consolas,monospace;font-size:12px;white-space:pre;overflow-x:auto;}
+  details{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 20px;margin:12px 0;}
+  details summary{cursor:pointer;font-weight:600;color:#79c0ff;}
+  .differentiators{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;margin-top:12px;}
+  .diff-item{background:#0d1117;padding:8px 12px;border-radius:4px;font-size:13px;border-left:2px solid #58a6ff;}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🎯 Lazy-Harness — 1 년 로드맵</h1>
+<div class="subtitle">2026-05-10 기준 · framework-contract 18 principle (Principle 0 + 16 + 17 Conflict Resolution + 18 Recovery) · tsq v3.8 비교 후 재정의</div>
+
+<div class="vision">
+  <h2>🎯 Principle 0 — 존재 이유</h2>
+  <p style="font-size:16px;font-weight:600;color:#79c0ff;">
+    사람도 AI 도 불완전하다. 그래서 상호 보완하며 진행한다.
+  </p>
+  <p>이게 lazy-harness 의 존재 이유이자 모든 18 principle 의 메타 원칙.</p>
+  <p><strong>tsq</strong> 가 잘 만든 정적 SSOT 도구라면, <strong>우리</strong>는 사람-AI 상호 보완 라이프사이클 framework.</p>
+  <p>입력(figma/req/bug/api/log/regression) → adapter funnel → 5-finding 분석 → <strong>Conflict Resolution Protocol</strong> → human decision → DDD/SDD/BDD/TDD 자동 갱신 → code → traceability.</p>
+  <h3 style="color:#79c0ff;font-size:14px;margin-top:18px;">우리만의 차별점 (tsq / 학술 / 산업 어디에도 없음)</h3>
+  <div class="differentiators">
+    <div class="diff-item"><strong>Principle 0</strong> (사람-AI 상호 보완)</div>
+    <div class="diff-item"><strong>Conflict Resolution Protocol</strong> (Principle 17, 8-step strict)</div>
+    <div class="diff-item"><strong>Recovery Path</strong> (Principle 18, R1~R4)</div>
+    <div class="diff-item">Adapter funnel (입력 6 종 단일 진입점)</div>
+    <div class="diff-item">5-finding 분류 (gap/conflict/missing/drift/unclear)</div>
+    <div class="diff-item">4 pattern (top-down/outside-in/inside-out/bug-first)</div>
+    <div class="diff-item">5 trigger 강도 (force/recommend/auto+review/auto/human-author)</div>
+    <div class="diff-item">Self-loop hard limits (3 retry, spec 수정 금지)</div>
+    <div class="diff-item">Empty-container tolerance (빈 게 valid)</div>
+    <div class="diff-item">Bidirectional traceability</div>
+    <div class="diff-item">Confidence + risk tier (자동 라우팅)</div>
+    <div class="diff-item">Unified result schema (모든 hook 동일 JSON)</div>
+  </div>
+</div>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">🧠 Principle 0 — 사람-AI 한계 보완 매핑</h2>
+<table style="width:100%;border-collapse:collapse;background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden;">
+  <thead>
+    <tr style="background:#21262d;">
+      <th style="padding:10px;text-align:left;color:#79c0ff;border-bottom:1px solid #30363d;">사람의 한계</th>
+      <th style="padding:10px;text-align:left;color:#79c0ff;border-bottom:1px solid #30363d;">AI 의 한계</th>
+      <th style="padding:10px;text-align:left;color:#79c0ff;border-bottom:1px solid #30363d;">framework 의 보완</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">기억력 (이전 결정 잊음)</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">환각</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">#1 Living Document</td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">모순 인식 어려움</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">모순 무시하고 진행</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;"><strong>#2 + #17 Conflict Resolution</strong></td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">영향 추적 불가</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">영향 추측</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">#14 Bidirectional Traceability</td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">일관성 어려움</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">매 응답 다름</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">#6 Trigger Growth + Schema</td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">자율 부담</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">자율 폭주</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">#5 Self-Loop + #1.6 5 강도</td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">빠짐 인지 불가</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">hallucinated knowledge</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">#10 Empty Tolerance + Audit</td></tr>
+    <tr><td style="padding:8px 10px;border-bottom:1px solid #21262d;">회복 즉흥적</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;">깨짐 모름</td><td style="padding:8px 10px;border-bottom:1px solid #21262d;"><strong>#18 Recovery Path</strong></td></tr>
+    <tr><td style="padding:8px 10px;">도구 비일관</td><td style="padding:8px 10px;">호출 누락</td><td style="padding:8px 10px;">#9 Unified Result + #3 Adapter Funnel</td></tr>
+  </tbody>
+</table>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">📊 현재 상태 (정직)</h2>
+
+<div class="scorecard">
+  <div class="score-card">
+    <h3>tsq vs 우리 — 점수</h3>
+    <div class="score-row"><span>개념 독창성</span><span><span class="me">우리 9</span> / <span class="tsq">tsq 5</span></span></div>
+    <div class="score-row"><span>라이프사이클 명세</span><span><span class="me">우리 10</span> / <span class="tsq">tsq 6</span></span></div>
+    <div class="score-row"><span>AI 자율성 경계</span><span><span class="me">우리 9</span> / <span class="tsq">tsq 4</span></span></div>
+    <div class="score-row"><span>Adapter funnel</span><span><span class="me">우리 8</span> / <span class="tsq">tsq 2</span></span></div>
+    <div class="score-row"><span>5-finding 분석</span><span><span class="me">우리 9</span> / <span class="tsq">tsq 3</span></span></div>
+    <div class="score-row"><span>즉시 사용</span><span><span class="tsq">우리 2</span> / <span class="me">tsq 9</span></span></div>
+    <div class="score-row"><span>실전 검증</span><span><span class="tsq">우리 1</span> / <span class="me">tsq 9</span></span></div>
+    <div class="score-row"><span>패키징</span><span><span class="tsq">우리 1</span> / <span class="me">tsq 10</span></span></div>
+    <div class="score-row"><span>Skill 생태계</span><span><span class="tsq">우리 1</span> / <span class="me">tsq 10</span></span></div>
+  </div>
+
+  <div class="score-card">
+    <h3>실측 (2026-05-10)</h3>
+    <div class="score-row"><span>framework-contract 명세 디렉토리 중 존재</span><span><span class="me">7 / 30</span></span></div>
+    <div class="score-row"><span>실제 동작하는 자동화</span><span><span class="tsq">0 개</span></span></div>
+    <div class="score-row"><span>Skill 등록</span><span><span class="tsq">0 개</span></span></div>
+    <div class="score-row"><span>Hook (framework 영역)</span><span><span class="tsq">0 개</span></span></div>
+    <div class="score-row"><span>실전 사용 횟수</span><span><span class="tsq">0 회</span></span></div>
+    <div class="score-row"><span>Private 영역 git 노출</span><span><span class="me">0 (안전)</span></span></div>
+    <div class="score-row"><span>핵심 문서 (이번 세션)</span><span><span class="me">3 개 작성</span></span></div>
+  </div>
+</div>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">🗓 마일스톤</h2>
+
+<div class="timeline">
+
+<div class="ms done">
+  <div class="ms-card">
+    <h3>M0 · 출발선 정직하게 기록 <span class="status done">DONE</span></h3>
+    <div class="ms-meta">2026-05-10 · 이번 세션</div>
+    <div class="ms-rationale">이전 세션 요약은 hallucinated. 진짜 상태 기록 후 재출발.</div>
+    <ul class="ms-criteria">
+      <li>✅ handoff/00-current-state.md 작성 (98 줄)</li>
+      <li>✅ trails/01-long-term-roadmap.xml 작성 (253 줄)</li>
+      <li>✅ planning/phase-5-plan.xml (다음 단계)</li>
+      <li>✅ retrospective/metrics/completeness-scorecard.xml (다음 단계)</li>
+      <li>✅ .git/hooks/pre-commit 안전 가드 (49 줄)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms crit">
+  <div class="ms-card">
+    <h3>M1 · Self-Bootstrap (harness init / doctor / update) <span class="badge crit">CRITICAL</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-05-31 · Phase 5a</div>
+    <div class="ms-rationale">새 프로젝트에 30 분 수동 복사 → 1 줄 명령으로 끝나야 함. tsq 의 가장 큰 강점이 init 한 줄. 우리도 이거 없으면 평생 못 따라감.</div>
+    <ul class="ms-criteria">
+      <li>jcode skill 시스템에 harness-init 등록 (`/harness-init` 호출 가능)</li>
+      <li>실행 시 framework-contract 가 명세하는 30 컨테이너 자동 생성</li>
+      <li>harness-doctor 가 schema/구조/링크 검증 후 unified result schema 반환</li>
+      <li>harness-update 가 dry-run / rollback 지원</li>
+      <li>fresh tmp 디렉토리에서 init → doctor → 정상 통과 1 회 시연</li>
+    </ul>
+    <div class="ms-tsq">→ tsq init / update 동일 수준 패키징 학습 후 차용</div>
+  </div>
+</div>
+
+<div class="ms crit">
+  <div class="ms-card">
+    <h3>M2 · Lifecycle Hooks 진짜 동작 <span class="badge crit">CRITICAL</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-06-30 · Phase 5b</div>
+    <div class="ms-rationale">post-commit / post-impact / pre-push 가 실제로 contract diff 잡고 traceability 갱신해야 우리 framework 의 핵심 가치 실현.</div>
+    <ul class="ms-criteria">
+      <li>post-commit hook 이 actions.jsonl 자동 append</li>
+      <li>post-impact hook 이 ts-morph AST diff 로 contract-history.xml 갱신</li>
+      <li>pre-push hook 이 unified result schema 로 결과 출력</li>
+      <li>regression entry 가 bug-fix 커밋 시 자동 등록 후보 제시</li>
+      <li>medivance dev-ian 브랜치 1 주 사용 후 logs/ 가 실제 데이터로 채워짐</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms crit">
+  <div class="ms-card">
+    <h3>M3 · Adapter Funnel 실작동 (Figma 우선) <span class="badge crit">CRITICAL</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-07-31 · Phase 5c</div>
+    <div class="ms-rationale">adapter 6 종 중 figma 부터. 동작하면 tsq 에 없는 우리만의 실전 가치 첫 입증.</div>
+    <ul class="ms-criteria">
+      <li>adapters/figma.ts 가 real Figma REST API 호출</li>
+      <li>component tree 파싱 후 SDD draft 자동 생성</li>
+      <li>missing-action 휴리스틱 (onClick 빠진 button 등) 검출</li>
+      <li>5-finding 분석 (gap/conflict/missing/drift/unclear) 분류 출력</li>
+      <li>medivance 의 실제 figma URL 1 개로 end-to-end 1 회 시연</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms high">
+  <div class="ms-card">
+    <h3>M4 · Interview Loop <span class="badge high">HIGH</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-08-31 · Phase 5d</div>
+    <div class="ms-rationale">openQuestions ↔ 사람 답변 ↔ SDD 갱신 양방향 흐름. tsq /tsq-grill 보다 한 단계 깊은 차별점.</div>
+    <ul class="ms-criteria">
+      <li>questions/open.xml 자동 갱신</li>
+      <li>사람 답변 입력 시 SDD draft 가 자동 reanalyze</li>
+      <li>5-finding 재분석 결과로 새 openQuestion 발생 가능 (재귀)</li>
+      <li>한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리</li>
+      <li>medivance 실제 feature 1 개에서 interview loop 1 회 완주</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms crit">
+  <div class="ms-card">
+    <h3>M5 · 실전 1 회 (medivance 다음 feature 통째로) <span class="badge crit">CRITICAL</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-09-30 · Phase 5e</div>
+    <div class="ms-rationale">tsq 가 v3.8 도달한 건 실전 사용 때문. 1 회 진짜 사용 안 하면 framework 가 vibe 수준에서 멈춤.</div>
+    <ul class="ms-criteria">
+      <li>medivance 의 다음 feature 1 개를 우리 harness 통과시켜 출시</li>
+      <li>4 pattern 중 하나 명시적 선택 후 진행</li>
+      <li>traceability/ 에 figma/SDD/BDD/test/code/regression 양방향 링크 완성</li>
+      <li>회고 (retrospective/) 에 metrics + insight 자동 기록</li>
+      <li>Phase 6 정의 가능한 데이터가 모임</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms">
+  <div class="ms-card">
+    <h3>M6 · Skill 생태계 (10 개 시작) <span class="badge med">MEDIUM</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-10-31 · Phase 6</div>
+    <ul class="ms-criteria">
+      <li>harness-init / doctor / update / status / start / quick / full / grill / decompose / retro</li>
+      <li>각 skill 이 unified result schema 로 작동</li>
+    </ul>
+    <div class="ms-tsq">→ tsq 37 skill → 우리 10 skill 부터. 차별화 영역에 집중.</div>
+  </div>
+</div>
+
+<div class="ms">
+  <div class="ms-card">
+    <h3>M7 · Daemon (lite mode) <span class="badge med">MEDIUM</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2026-11-30 · Phase 7</div>
+    <ul class="ms-criteria">
+      <li>file watcher + meta cache + IPC notify</li>
+      <li>lite mode (JSONL 옵셔널)</li>
+      <li>다운돼도 main pipeline 영향 없음</li>
+    </ul>
+    <div class="ms-tsq">→ tsq daemon 학습 후 우리 라이프사이클에 맞게 구현</div>
+  </div>
+</div>
+
+<div class="ms">
+  <div class="ms-card">
+    <h3>M8 · Template 시스템 <span class="badge med">MEDIUM</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2027-01-31 · Phase 8</div>
+    <ul class="ms-criteria">
+      <li>최소 2 개 project type (medivance like / general electron app)</li>
+      <li>fresh tmp 에 init → doctor → 정상 통과</li>
+    </ul>
+  </div>
+</div>
+
+<div class="ms high">
+  <div class="ms-card">
+    <h3>M9 · Public 0.1 (npm publish 가능 상태) <span class="badge high">HIGH</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2027-03-31 · Phase 9</div>
+    <ul class="ms-criteria">
+      <li>monorepo 에서 분리된 standalone repo</li>
+      <li>CHANGELOG.md 시작</li>
+      <li>README + 학습 자료</li>
+      <li>다른 1 개 프로젝트에 적용 시도 (실험)</li>
+    </ul>
+    <div class="ms-tsq">→ 이 시점부터 본격적으로 tsq 추격 가능. 그 전엔 비공개 실험.</div>
+  </div>
+</div>
+
+<div class="ms">
+  <div class="ms-card">
+    <h3>M10 · 1 주년: 자기 학습 루프 폐쇄 <span class="badge long">LONG-TERM</span> <span class="status todo">TODO</span></h3>
+    <div class="ms-meta">목표 2027-05-10 · Phase 10</div>
+    <ul class="ms-criteria">
+      <li>retrospective metrics 가 다음 phase 의 plan 에 자동 영향</li>
+      <li>VER-* 검증이 자기 검증 (자기 코드도 framework 로 통과)</li>
+      <li>medivance 외 1 개 프로젝트에서 동일한 가치 입증</li>
+    </ul>
+  </div>
+</div>
+
+</div>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">⚠️ Risk Register</h2>
+
+<div class="risk">
+  <h4>R1 (high) · 이번 세션처럼 hallucinated 진행 다시 발생</h4>
+  <p><strong>완화</strong>: 모든 phase 끝에 handoff/ 에 실제 파일 목록 기록. 다음 세션은 이 파일을 단일 진실로 본다.</p>
+</div>
+<div class="risk">
+  <h4>R2 (high) · framework 만들다 medivance 본체 작업 못 함</h4>
+  <p><strong>완화</strong>: 매 phase 마다 medivance 에 실전 적용 1 회 강제. M5 가 그 첫 시점.</p>
+</div>
+<div class="risk">
+  <h4>R3 (medium) · tsq 가 v4 / v5 진화하면서 격차 더 벌어짐</h4>
+  <p><strong>완화</strong>: tsq 추격이 목적이 아님. 우리 차별점에 집중. 추격은 M6 부터.</p>
+</div>
+<div class="risk">
+  <h4>R4 (medium) · 16 principle 이 너무 깊어 실 구현이 따라가지 못함</h4>
+  <p><strong>완화</strong>: 각 milestone 에서 implementation 우선. 명세 추가는 trigger fire 시에만.</p>
+</div>
+<div class="risk">
+  <h4>R5 (medium) · monorepo 종속성 → 분리 어려움</h4>
+  <p><strong>완화</strong>: M9 까지는 monorepo OK. 그 전에 import boundary 명확하게 (ADR-0017).</p>
+</div>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">🔁 Review Schedule</h2>
+<details open>
+<summary>주기별 review 정책</summary>
+<ul>
+  <li><strong>Weekly</strong>: retrospective metrics 자동 수집 (실측 가능 지표만)</li>
+  <li><strong>Monthly</strong>: 이 파일 review + milestone 진척률 갱신</li>
+  <li><strong>Per milestone</strong>: 완료 시 lessonsLearned 추가, 다음 milestone 보정</li>
+</ul>
+</details>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">📁 파일 위치</h2>
+<div class="pre">.lazy-harness/                           # platform-independent framework
+├── handoff/00-current-state.md         # 진실의 단일 소스 (현재 상태)
+├── trails/01-long-term-roadmap.xml     # 1 년 로드맵 (XML 원본)
+├── planning/phase-5-plan.xml           # Phase 5 sub-phase 5 개 (다음 작성)
+├── retrospective/metrics/
+│   └── completeness-scorecard.xml      # tsq 대비 측정 지표 (다음 작성)
+├── visual/
+│   └── roadmap.html                    # 이 파일 (HTML view)
+├── decisions/                           # ADR + decision 로그
+└── questions/                           # openQuestions
+
+.jcode/                                  # jcode 전용 (지금만 사용)
+├── AGENTS.md                            # jcode 의도
+├── config.toml                          # jcode 설정
+├── hooks/                               # jcode hook (현재 2 개)
+└── harness/                             # jcode 전용 routing/rules
+
+→ 미래 (M9 이후): claude code 는 .claude/, codex 는 codex 방식으로
+   각자 lazy-harness 를 인식하도록 wiring. lazy-harness 자체는 platform 독립.</div>
+
+<h2 style="color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:8px;">🔒 Private 영역 안전성</h2>
+<div class="pre">.lazy-harness/                           → .git/info/exclude 등록 ✅
+.jcode/                                  → .git/info/exclude 등록 ✅
+packages/medivance-harness/src/framework/ → .git/info/exclude 등록 ✅ (legacy)
+.git/hooks/pre-commit                    → 실수로 staged 시 차단 ✅
+git ls-files | grep .lazy-harness        → 0 개 (안전 검증) ✅
+git ls-files | grep .jcode               → 0 개 (안전 검증) ✅
+origin/dev-ian 에 .lazy-harness 존재     → 없음 ✅</div>
+
+<p style="color:#8b949e;font-size:12px;text-align:center;margin-top:48px;">
+Generated 2026-05-10 · Updated when milestone progresses
+</p>
+
+</div>
+</body>
+</html>

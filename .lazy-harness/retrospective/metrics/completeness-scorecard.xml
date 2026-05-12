@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<completenessScorecard version="1.0" lastUpdated="2026-05-10">
+  <!--
+    lazy-harness vs tsq vs 기타 framework / 방법론 비교 측정.
+    매월 갱신해서 진척 추적.
+  -->
+
+  <metaPrinciple>
+    <statement>
+      개념적 완성도 ≠ 실현 완성도.
+      이 scorecard 는 두 차원을 분리해서 측정한다.
+      목표: 개념 9.5+ 유지, 실현 0 → 9 까지 끌어올림.
+    </statement>
+  </metaPrinciple>
+
+  <!-- 차원 1: 개념적 완성도 -->
+  <conceptualCompleteness asOf="2026-05-10">
+    <currentScore>8.5 / 10</currentScore>
+    <targetScore>9.5 / 10</targetScore>
+    <breakdown>
+      <criterion name="문제 인식의 깊이" score="9">
+        AI hallucination + 자율성 경계 + 라이프사이클 통합 = 진짜 문제
+      </criterion>
+      <criterion name="18 principle 자체 품질" score="9">
+        9 개 strong, 7 개 standard~medium, 2 개 (Principle 17, 18) 새로 추가됨
+      </criterion>
+      <criterion name="구조 통합도" score="9">
+        Principle 0 위에 18 개가 닫힌 시스템 형성
+      </criterion>
+      <criterion name="명세 명확성" score="9">
+        framework-contract 461 줄, 모호함 거의 없음 (Principle 17 example 까지)
+      </criterion>
+      <criterion name="기존 사상 활용" score="8">
+        DDD/BDD/TDD/SARIF/conventional commits 잘 차용
+      </criterion>
+      <criterion name="새로운 추가" score="9">
+        Principle 0, Conflict Resolution Protocol, Recovery Path, 5-finding, 5 trigger 강도, empty tolerance
+      </criterion>
+      <criterion name="실현 가능성 (개념만)" score="8">
+        18 개 동시 적용 가능. Principle 17 의 무게는 trade-off.
+      </criterion>
+      <criterion name="Trade-off 인식" score="7">
+        각 principle 의 비용 명시 약함. 실측 후 보강 필요.
+      </criterion>
+    </breakdown>
+    <gapsToClose>
+      <gap>각 principle 의 cost 명시 (latency, cognitive load) — phase 5 실측 후 추가</gap>
+      <gap>anti-pattern catalog — phase 5 실전 후 자연 발견 시 추가</gap>
+      <gap>Cross-Container Learning 명세 — Conflict Resolution 동작 후 자연 도출</gap>
+    </gapsToClose>
+  </conceptualCompleteness>
+
+  <!-- 차원 2: 실현 완성도 -->
+  <implementationCompleteness asOf="2026-05-10">
+    <currentScore>0.5 / 10</currentScore>
+    <targetScore>9 / 10 (1 년 후)</targetScore>
+    <breakdown>
+      <criterion name="컨테이너 생성" score="0.3">
+        framework-contract 명세 30 컨테이너 중 7 개 생성 (이번 세션)
+      </criterion>
+      <criterion name="동작하는 자동화" score="0">
+        hook / script / skill 모두 0 개
+      </criterion>
+      <criterion name="실전 사용 횟수" score="0">
+        medivance 에서 0 회
+      </criterion>
+      <criterion name="Skill 등록" score="0">
+        jcode skill 0 개 (M1 에서 시작)
+      </criterion>
+      <criterion name="Backup 시스템" score="0">
+        Principle 18 명세만, 자동화 0
+      </criterion>
+      <criterion name="Conflict Resolution 동작" score="0">
+        Principle 17 명세만, 실작동 0 (M3 에서 시작)
+      </criterion>
+    </breakdown>
+  </implementationCompleteness>
+
+  <!-- 비교: tsq -->
+  <comparisonToTsq>
+    <tsqVersion>v3.8.0</tsqVersion>
+    <tsqUrl>https://github.com/sonature-lab/timsquad</url>
+
+    <conceptual>
+      <tsq>5.5 / 10</tsq>
+      <us>8.5 / 10 (+3.0 우위)</us>
+      <reasoning>
+        tsq 는 정적 SSOT 중심. 우리는 동적 라이프사이클 + Principle 0 (사람-AI 보완).
+        tsq 의 5-layer enforcement 와 7 agent 분업은 좋지만 라이프사이클 깊이 부족.
+      </reasoning>
+    </conceptual>
+
+    <implementation>
+      <tsq>9 / 10</tsq>
+      <us>0.5 / 10 (-8.5 열위)</us>
+      <reasoning>
+        tsq: npm publish, 53 TS files, 330 templates, 23 tests, 37 skills.
+        우리: 14 디렉토리만, 코드 0, skill 0.
+        실현 격차 -8.5. 1 년 내 -2 이하로 줄이는 게 목표.
+      </reasoning>
+    </implementation>
+
+    <byPrinciple>
+      <principle name="Living Document" us="9" tsq="3" winner="us"/>
+      <principle name="5-finding 분류" us="9" tsq="3" winner="us"/>
+      <principle name="Adapter Funnel" us="8" tsq="2" winner="us"/>
+      <principle name="Self-Loop Limits" us="9" tsq="4" winner="us"/>
+      <principle name="Trigger 5 강도" us="9" tsq="4" winner="us"/>
+      <principle name="Empty Tolerance" us="9" tsq="2" winner="us"/>
+      <principle name="Conflict Resolution Protocol (NEW)" us="9" tsq="0" winner="us"/>
+      <principle name="Recovery Path (NEW)" us="8" tsq="3" winner="us"/>
+      <principle name="Risk + Confidence 자동 라우팅" us="9" tsq="0" winner="us"/>
+      <principle name="Bidirectional Traceability" us="8" tsq="4" winner="us"/>
+      <principle name="Result Schema 통일" us="8" tsq="0" winner="us"/>
+      <principle name="즉시 사용성" us="2" tsq="9" winner="tsq"/>
+      <principle name="실전 검증" us="1" tsq="9" winner="tsq"/>
+      <principle name="패키징" us="1" tsq="10" winner="tsq"/>
+      <principle name="Skill 생태계" us="1" tsq="10" winner="tsq"/>
+      <principle name="Template 다양성" us="1" tsq="10" winner="tsq"/>
+    </byPrinciple>
+  </comparisonToTsq>
+
+  <!-- 비교: 산업/학술 사상 -->
+  <comparisonToOthers>
+    <ddd author="Eric Evans">
+      <conceptual>9</conceptual>
+      <implementation>n/a (책)</implementation>
+      <us_vs_them>
+        DDD 자체는 우리보다 깊은 도메인 모델링. 우리는 DDD 를 18 principle 중 하나로 활용.
+        ubiquitous-language 자동 검증 같은 우리만의 추가가 차별.
+      </us_vs_them>
+    </ddd>
+
+    <bdd author="Dan North">
+      <conceptual>7</conceptual>
+      <us_vs_them>
+        BDD scenario 표준은 ours 보다 정밀 (Cucumber/Gherkin).
+        우리는 protectedBy + step ≤ 7 같�� 정책 추가.
+      </us_vs_them>
+    </bdd>
+
+    <c4Model author="Simon Brown">
+      <conceptual>7</conceptual>
+      <us_vs_them>
+        시각화 표준 (System/Container/Component/Code) 우리가 약함.
+        대신 우리는 SDD 6 area 분리 + traceability 강함.
+      </us_vs_them>
+    </c4Model>
+
+    <openTelemetry>
+      <conceptual>8</conceptual>
+      <us_vs_them>
+        observability 표준 깊음. 우리 Unified Result Schema 가 SARIF/OTel 영향 받음.
+      </us_vs_them>
+    </openTelemetry>
+
+    <pragmaticProgrammer>
+      <conceptual>n/a (개인 습관)</conceptual>
+      <us_vs_them>차원 다름. 비교 부적절.</us_vs_them>
+    </pragmaticProgrammer>
+
+    <claudeCodeBuiltin>
+      <conceptual>5</conceptual>
+      <us_vs_them>
+        Claude Code 기본은 agent + tool 추상화. 라이프사이클 / 지식 자산화 명세 약함.
+        우리가 그 위에 얹는 layer.
+      </us_vs_them>
+    </claudeCodeBuiltin>
+  </comparisonToOthers>
+
+  <!-- 우리만의 차별점 — 학술/산업 어디에도 없음 -->
+  <uniqueContributions>
+    <contribution name="Principle 0 (사람-AI 상호 보완)">
+      <novelty>학술/산업 어디에도 같은 명제 못 본 듯</novelty>
+      <impact>모든 design decision 의 정렬 기준</impact>
+    </contribution>
+    <contribution name="5-finding 분류 (gap/conflict/missing/drift/unclear)">
+      <novelty>분류 자체에 이름 붙인 사례 거의 없음</novelty>
+      <impact>AI 가 분석한 결과를 표준화된 5 분류로 보고 → 사람 결정 명확</impact>
+    </contribution>
+    <contribution name="Adapter Funnel (입력 6 종 단일 진입점)">
+      <novelty>figma/req/bug/api/log/regression 통일 funnel 본 적 없음</novelty>
+      <impact>모든 입력이 동일 audit 통과 → 일관성</impact>
+    </contribution>
+    <contribution name="Conflict Resolution Protocol (Principle 17)">
+      <novelty>학술/산업 어디에도 같은 8-step strict protocol 없음</novelty>
+      <impact>framework 가 사용할수록 견고해짐 (Principle 0 핵심 실현)</impact>
+    </contribution>
+    <contribution name="Self-Loop Hard Limits (3 retry, spec lock)">
+      <novelty>AI agent framework 중 명시 사례 거의 없음</novelty>
+      <impact>AI 자율성 폭주 방지</impact>
+    </contribution>
+    <contribution name="Empty-Container Tolerance">
+      <novelty>hallucination 방지 관점의 발견</novelty>
+      <impact>AI 가 빈 문서 채우려고 환각 안 함</impact>
+    </contribution>
+    <contribution name="Trigger 5 강도">
+      <novelty>force/recommend/auto+review/auto/human-author 5 단계 본 적 없음</novelty>
+      <impact>문서별 자동/수동 정도 명세화</impact>
+    </contribution>
+  </uniqueContributions>
+
+  <!-- 진척 추적 -->
+  <progressTracking>
+    <snapshot date="2026-05-10">
+      <conceptual>8.5</conceptual>
+      <implementation>0.5</implementation>
+      <event>Principle 0/17/18 추가, framework-contract v1.1 작성</event>
+    </snapshot>
+    <!-- 매월 추가 예정 -->
+  </progressTracking>
+
+  <!-- 다음 측정 시점 -->
+  <nextReview date="2026-06-10">
+    <expected>
+      M1 (5a) 완료 후. implementation 1.5~2.0 도달 예상.
+      conceptual 8.5 유지 (새 principle 추가 없으면).
+    </expected>
+  </nextReview>
+</completenessScorecard>

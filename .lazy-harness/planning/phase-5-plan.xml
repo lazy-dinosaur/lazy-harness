@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phase5Plan version="1.0" lastUpdated="2026-05-10">
+  <!--
+    Phase 5 의 5 개 sub-phase 를 측정 가능한 단위로 정의.
+    framework-contract Principle 0 (사람-AI 상호 보완) 에 따라
+    각 sub-phase 가 어느 한계를 보완하는지 명시.
+  -->
+
+  <overview>
+    <goal>
+      lazy-harness 의 18 principle 을 명세 단계 → 실제 동작 단계로 끌어올린다.
+      Phase 5 끝나면 medivance 의 다음 feature 1 개를 lazy-harness 통과시켜 출시 가능.
+    </goal>
+    <duration>2026-05-10 ~ 2026-09-30 (약 5 개월)</duration>
+    <prerequisites>
+      <item>framework-contract.md v1.1 (이번 세션에 작성)</item>
+      <item>handoff/00-current-state.md (진실 단일 소스)</item>
+      <item>trails/01-long-term-roadmap.xml (M0~M10 마일스톤)</item>
+      <item>decisions/0001~0003 (Principle 0/17/18)</item>
+    </prerequisites>
+  </overview>
+
+  <subPhase id="5a" milestone="M1" target="2026-05-31" status="closed" closedAt="2026-05-10T14:46:00+09:00">
+    <name>Self-Bootstrap (harness init / doctor / update)</name>
+    <principle0Coverage>
+      AI 한계: 새 프로젝트 셋업 시 30 분 수동 복사 → 일관성 깨짐
+      사람 한계: 셋업 절차 외우기 어려움
+      보완: 1 줄 명령으로 framework-contract 명세 그대로 자동 셋업
+    </principle0Coverage>
+    <successCriteria>
+      <criterion id="5a-1" status="deferred" reason="requires next jcode session reload">jcode skill 시스템에 harness-init 등록 (`/harness-init` 호출 가능)</criterion>
+      <criterion id="5a-2" status="pass">실행 시 framework-contract 가 명세하는 30 컨테이너 자동 생성</criterion>
+      <criterion id="5a-3" status="pass">각 컨테이너에 schema 파일 + 빈 placeholder 자동 박힘</criterion>
+      <criterion id="5a-4" status="pass">harness-doctor 가 schema/구조/링크 검증 후 unified result schema 반환</criterion>
+      <criterion id="5a-5" status="deferred" reason="backup automation = M3">harness-doctor 가 backup 상태도 검증 (Principle 18)</criterion>
+      <criterion id="5a-6" status="pass">harness-update 가 dry-run 지원 (변경 미리 보여줌)</criterion>
+      <criterion id="5a-7" status="pass">harness-update 가 rollback 지원 (이전 버전 복구)</criterion>
+      <criterion id="5a-8" status="pass">fresh tmp 디렉토리에서 init → doctor → 정상 통과 1 회 시연 (E2E test)</criterion>
+    </successCriteria>
+    <deliverables>
+      <file status="done">.jcode/skills/harness-init/SKILL.md</file>
+      <file status="done">.jcode/skills/harness-init/scripts/init-lazy-harness.sh</file>
+      <file status="done">.jcode/skills/harness-doctor/SKILL.md</file>
+      <file status="done">.jcode/skills/harness-doctor/scripts/doctor.sh</file>
+      <file status="done">.jcode/skills/harness-update/SKILL.md</file>
+      <file status="done">.jcode/skills/harness-update/scripts/update.sh</file>
+      <file status="done">.lazy-harness/schemas/result.schema.json</file>
+      <file status="done">.lazy-harness/schemas/decision.schema.json</file>
+      <file status="deferred-to-5e">TS migration of init/doctor/update (Thin sh + Thick TS, Principle #8)</file>
+      <file status="deferred-to-5b">.lazy-harness/manifests/skills.xml (skill 등록부)</file>
+    </deliverables>
+    <addedDuringPhase>
+      <note>ADR 0004 — Cross-Layer Maps (D-2026-05-10-001)</note>
+      <note>ADR 0005 — Meaning of Lazy (D-2026-05-10-002)</note>
+      <note>17 cross-layer map XML placeholders (DDD 5 + SDD 4 + BDD 4 + TDD 4)</note>
+      <note>framework-contract.md Section 0.1 / 0.2 / 19.1 / 19.2 / 19.3</note>
+      <note>Doctor C6 hardened (broken contract auto-detected) — caught real bug during Test 6</note>
+      <note>Update auto-rollback verified (BEFORE/AFTER MD5 unchanged)</note>
+    </addedDuringPhase>
+    <closingNotes>
+      <note>경로: deliverables 섹션 path 가 .claude/skills/.. 였는데 실제는 .jcode/skills/.. — corrected</note>
+      <note>Conflict Resolution Protocol 자연 발동 (D-001) → 검증됨</note>
+      <note>전체 진척 trace: .lazy-harness/logs/actions.jsonl (31 entries) + retrospective/cycles/5a-closing.md</note>
+    </closingNotes>
+    <riskNotes>
+      tsq 의 init 패턴 참고 가능 (/tmp/timsquad/bin/tsq.js, src/lib/template.ts).
+      단, tsq 의 SSOT 모델 ≠ 우리 18 principle 모델. 패턴만 차용, 구조는 우리 것.
+    </riskNotes>
+  </subPhase>
+
+  <subPhase id="5b" milestone="M2" target="2026-06-30" status="closed" closedAt="2026-05-10T15:18:00+09:00">
+    <name>Lifecycle Hooks 진짜 동작</name>
+    <principle0Coverage>
+      AI 한계: contract diff 자기가 못 본 채 수정 진행
+      사람 한계: 모든 영향 범위 추적 불가
+      보완: post-commit / post-impact / pre-push 가 자동으로 영향 추적
+    </principle0Coverage>
+    <successCriteria>
+      <criterion id="5b-1" status="pass" verifiedAt="2026-05-10T15:03:51+09:00">post-commit hook 이 logs/actions.jsonl 자동 append</criterion>
+      <criterion id="5b-2" status="closed-redirected" redirectedTo="5c-2" reason="ADR 0013 reverses ADR 0008 — ts-morph 즉시 채택, 5c-2 로 통합 (1주 측정 단계 skip)">post-impact hook 이 ts-morph AST diff 로 contract-history.xml 갱신</criterion>
+      <criterion id="5b-3" status="pass" verifiedAt="2026-05-10T15:03:51+09:00">pre-push hook 이 unified result schema 로 결과 출력</criterion>
+      <criterion id="5b-4" status="pass" verifiedAt="2026-05-10T15:03:29+09:00" maturity="beta">regression entry 가 bug-fix 커밋 시 자동 등록 후보 제시</criterion>
+      <criterion id="5b-5" status="pass" verifiedAt="2026-05-10T15:03:51+09:00">weekly snapshot (Principle 18 backup) 자동화</criterion>
+      <criterion id="5b-6" status="passive" reason="시간 의존 — 1주 자연 누적 대기. logs/ 자동 채워지는 메커니즘 자체는 5b-1 으로 검증됨">medivance dev-ian 1 주 사용 후 logs/ 가 실제 데이터로 채워짐 (실측)</criterion>
+      <criterion id="5b-7" status="pass" verifiedAt="2026-05-10T15:03:51+09:00">hook 실패 시 R2 fallback (auto-disable + manual mode) 동작</criterion>
+    </successCriteria>
+    <deliverables>
+      <file status="done">.lazy-harness/hooks/post-commit.sh</file>
+      <file status="done">.lazy-harness/hooks/pre-push.sh</file>
+      <file status="done">.lazy-harness/hooks/weekly-snapshot.sh</file>
+      <file status="done" addedDuringPhase="true">.lazy-harness/hooks/pre-commit-guard.sh (ADR 0009)</file>
+      <file status="done">.lazy-harness/scripts/contract-diff.ts (skeleton — ADR 0008)</file>
+      <file status="deferred-to-5b-2a">.lazy-harness/hooks/post-impact.sh</file>
+      <file status="deferred-to-5c">.lazy-harness/scripts/regression-detect.ts (rough version inline in post-commit.sh)</file>
+      <file status="done" addedDuringPhase="true">.lazy-harness/manifests/skills.xml (5a 에서 deferred-to-5b 였던 것)</file>
+      <file status="done" addedDuringPhase="true">.husky/pre-commit, .husky/post-commit, .husky/pre-push (ADR 0009)</file>
+    </deliverables>
+    <addedDuringPhase>
+      <note>ADR 0006 — Directory Bridge Architecture (D-2026-05-10-003): .jcode 와 .lazy-harness 의 5 가지 연결 메커니즘 명시</note>
+      <note>ADR 0007 — AGENTS.md Auto-Injection (D-2026-05-10-004): init Step 2.6 + doctor C9</note>
+      <note>ADR 0008 — AST Contract Diff Deferred: 5b-2 를 5b-2a 로 defer 결정 (REVERSED by ADR 0013, 5c-2 로 elevate)</note>
+      <note>ADR 0009 — Husky Integration Policy: 5a/5b 의 .git/hooks/ 들이 dead code 였음 발각, husky chain 으로 이전. doctor C5 husky-aware + C11/C11b 추가</note>
+      <note>ADR 0010 — Plan Status Hygiene (Principle #20) — closed phase status 의무 + doctor C12</note>
+      <note>ADR 0011 — Verification Discipline (Principle #21) — L0~L4 + 사람 ask 4 시점 + doctor C13</note>
+      <note>ADR 0012 — Oracle/Sisyphus Audit Cascade Fix — 9 항목 (3 Oracle + 6 Sisyphus) 검출 후 fix. doctor C14/C15/C16 추가, JSONL 3 invalid lines 복구, hook init regression fix, leak guard ALL push</note>
+      <note>ADR 0013 — Framework External Dependency Invariant + 5c re-scope (Principle #22 + #23) — Figma adapter 폐기 → Code-Trigger Adapter</note>
+      <note>ADR 0014 — Validations.jsonl Retention (rotation when >1000 lines, keep 500). framework 21.8 — Audit log 책임 분리</note>
+      <note>doctor 10 → 16 checks (C9 + C11 + C11b + C13/C14/C15/C16)</note>
+      <note>init.sh 825 → 925 → 950+ lines (Step 2.6b + 2.7 + AGENTS.md template v1.4 sync)</note>
+      <note>AGENTS.md 78 → 142 lines (23 principle 반영, 다음 세션 entry point fresh)</note>
+      <note>Husky chain medivance origin commit `b95dd3f7` push 완료 (.husky/<3 hooks> framework public surface 정착)</note>
+      <note>**M11 jcode core patch** (사용자 직접 작업, 5 stage) — lifecycle hook decision parsing + reminder inject + loop guard + client.disconnect 분리 + payload context. Stage 6 = continuation user msg inject (Anthropic API 400 fix). Commits: e345d632 / b78e2bf5 / f382011c / dc26f1e8 / f372c801</note>
+      <note>**ADR 0016 — Lifecycle Hook Strategy** — response.completed = primary sync gate. Hook scripts 5종 (`hooks/lifecycle/on-response-completed.sh`, `on-client-disconnect.sh`, 3 helpers). **Live E2E 33초 자동 sync 완료** (사용자 prompt 1번에 5 tool calls).</note>
+      <note>**ADR 0017 — User Input as Universal Trigger** — 5c-6 (external opt-in) 폐기. 사용자 발화는 jcode payload (last_user_message + recent_tool_calls) 안으로. ADR 0013 cascade 의 incompleteness fix.</note>
+      <note>**ADR 0018 — Cross-Layer Cascade** — 4 detector (DDD/SDD/BDD/SSOT) 가 유기적 cross-reference, 한 layer 누락이 다른 layer 가 catch. 5c criteria 9개로 재할당 + cross-layer consistency map (5c-5) 신규.</note>
+      <note>**ADR 0019 — Ambiguous Detection → Force Gate Ask** — AI 가 confidence 못 매기는 케이스 (Emr 3글자 약어 등) 는 자동 처리 금지, force gate 로 사용자 ask. Principle 1.6 (gate) + 1.7 (confidence) + 17 (structured ask) 결합 룰.</note>
+      <note>`.lazy-harness/README.md` 154 lines — framework entry point 처음 작성</note>
+      <note>5c re-scope cascade: plan (5c-6 삭제) + trails (M3 Adapter Funnel → Code-Trigger Adapters) + handoff (Next phase + Husky tracked 표기) + decisions/0013 (cascade table)</note>
+    </addedDuringPhase>
+    <closingNotes>
+      <note>5/7 done + 1 redirected (5b-2 → 5c-2 by ADR 0013) + 1 passive (5b-6, 시간 의존)</note>
+      <note>Phase 진행 도중 husky integration 대형 hardening 발생 — Principle 0 가 catch (사용자 직감)</note>
+      <note>"내가 만든 hook 들이 한 번도 호출 안 됐던" 것 발각 — marker 실험 검증 패턴 정착</note>
+      <note>5b 종료 후 사용자 trigger 로 ADR 0011/0012/0013/0014 추가 cascade — 9/14 ADR 사용자 catch 패턴</note>
+      <note>**M11 cascade + Stage 6 live test 성공** (2026-05-11) — 9/15 사용자 catch 패턴이 framework self-correcting 안으로 흡수됨. ADR 0010~0017 자동화 메커니즘 완성. 5b 진짜 close.</note>
+    </closingNotes>
+    <riskNotes>
+      5b-6 의 1주 측정 결과로 ADR 0008 의 5b-2a (ts-morph 도입) 결정. 측정 결과 contract drift 빈도 낮으면 5b-2a 영구 defer 가능.
+    </riskNotes>
+  </subPhase>
+
+  <subPhase id="5c" milestone="M3" target="2026-07-31">
+    <name>Code-Trigger Adapters (ADR 0013 — Figma adapter 폐기 후 재정의)</name>
+    <principle0Coverage>
+      AI 한계: 사용자 명령 (자연어/Figma/Slack 등) 으로 input source 가정 → 실제 needs 와 mismatch
+      사람 한계: 코드 변경 시 DDD/SDD/BDD 갱신 의무를 매번 수동 인지
+      보완: 사용자 코드 변경 자체를 universal trigger source 로 → AST + git diff + lint output 만으로 모든 layer trigger 검출 → 사람에게 후보 ask
+    </principle0Coverage>
+    <successCriteria>
+      <criterion id="5c-1" status="done" doneAt="2026-05-11T13:30:00+09:00">triggers/code-change.ts: AST diff (ts-morph) → 새 type/interface/domain noun 검출 → DDD ubiquitous-language 후보 ask. **8/8 통과 + medivance src/main 138 candidates + FP ~15-20%**.</criterion>
+      <criterion id="5c-2" status="done" doneAt="2026-05-12T08:32:00+09:00">triggers/code-change.ts: contract zone (zod/trpc/prisma) 시그니처 변경 검출 → SDD spec 갱신 후보 ask + DDD reference check (ADR 0018) + acronym ambiguous handling (ADR 0019 첫 적용). **8/8 통과 + medivance src/main/trpc/routers 724 candidates + acronym 처리 완료 (Emr/EMR → ambiguous, ask 5 옵션, RecA). Commits: 48369359 (init) / d68adf66 (noise tuning) / 9da37c86 (acronym detection) / 6264173f (tight acronym)**.</criterion>
+      <criterion id="5c-3">triggers/commit-change.ts: **PRIMARY** = last_user_message 자연어 flow 분석 (given/when/then draft), **SECONDARY** = git diff + UI heuristic (onClick/form submit/multi-step state) → BDD scenario 후보 ask + DDD/SDD reference check (ADR 0018) — scenario noun 이 DDD 안에? verb 가 SDD endpoint 와 매칭?</criterion>
+      <criterion id="5c-4">triggers/code-change.ts: AST → 새 helper/mapper/validator 검출 → SSOT registry duplicate check + 등록 후보 ask</criterion>
+      <criterion id="5c-5">**Cross-layer consistency map (ADR 0018)** — 4 detector (DDD/SDD/BDD/SSOT) 결과를 통합하여 gap detect. 예: BDD scenario 의 'then 자동완성 list' → SDD endpoint 'autocomplete' 누락 발견 → 통합 ask 로 사용자에게 한번에 routing 제안.</criterion>
+      <criterion id="5c-6">triggers/lint-output.ts: tsc/eslint warning 누적 → drift candidate 자동 분류</criterion>
+      <criterion id="5c-7">**Principle 17/21 결합** — 모든 trigger 검출 시 자유 문답 X, 구조화된 옵션 (3~5 choice + Recommended + type-your-own) ask</criterion>
+      <criterion id="5c-8">medivance 의 실제 코드 변경 1 회로 5c-1~5c-5 end-to-end 시연 (DDD/SDD/BDD/SSOT 4 layer + cross-ref map 모두 trigger 1+). 사용자 발화(자연어/Figma URL/말) → response.completed payload (last_user_message + recent_tool_calls) → trigger 검증도 포함.</criterion>
+      <criterion id="5c-9">Doctor C17 — `.lazy-harness/{triggers,hooks,framework,scripts}/` 안 외부 SaaS 호출 grep 검출 시 fail (Principle 22 enforce)</criterion>
+    </successCriteria>
+    <deliverables>
+      <file>.lazy-harness/triggers/code-change.ts (ts-morph AST + DDD/SDD/SSOT detector)</file>
+      <file>.lazy-harness/triggers/commit-change.ts (git diff + BDD/regression heuristic)</file>
+      <file>.lazy-harness/triggers/lint-output.ts (tsc/eslint warning aggregator)</file>
+      <file>.lazy-harness/triggers/types.ts (trigger 공통 인터페이스)</file>
+      <file>.lazy-harness/triggers/external/README.md (opt-in plugin 패턴 docs)</file>
+      <file>.lazy-harness/triggers/external/figma.ts (opt-in, FIGMA_PERSONAL_ACCESS_TOKEN 활성화 시만)</file>
+      <file>package.json — ts-morph dependency 추가</file>
+      <file>doctor C17 — external SaaS reference 검출</file>
+      <file>옛 .lazy-harness/adapters/* → 폐기 (rename to triggers/)</file>
+    </deliverables>
+    <addedDuringPhase>
+      ADR 0013 (External Dependency Invariant + 5c re-scope) 추가 — 5c 가 Figma adapter 에서 Code-Trigger Adapter 로 변경
+    </addedDuringPhase>
+    <riskNotes>
+      AST analyzer 가 false positive 많으면 사용자 fatigue. mitigation: Principle 21.4/21.5 (구조화된 옵션 ask) 활용 — silent 적용 X.
+      ts-morph 학습 비용 — 1주 측정 단계 skip 했으므로 5c-1 시작 시 PoC 먼저.
+    </riskNotes>
+  </subPhase>
+
+  <subPhase id="5d" milestone="M4" target="2026-08-31">
+    <name>Interview Loop (양방향 conflict resolution)</name>
+    <principle0Coverage>
+      AI 한계: 한 번 분석 후 멈춤 (재귀 부족)
+      사람 한계: 답변 후 또 다른 모순 인지 어려움
+      보완: aftershock check 로 자동 재분석 + 후속 질문 자동 제시
+    </principle0Coverage>
+    <successCriteria>
+      <criterion id="5d-1">questions/open.xml 자동 갱신 (Principle 17 Step 2 결과)</criterion>
+      <criterion id="5d-2">사람 답변 입력 시 SDD draft 가 자동 reanalyze (Step 6)</criterion>
+      <criterion id="5d-3">5-finding 재분석 결과로 새 openQuestion 발생 가능 (Step 7 aftershock, max depth 3)</criterion>
+      <criterion id="5d-4">한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리 (Step 6)</criterion>
+      <criterion id="5d-5">logs/decisions.jsonl 에 full chain 기록 (Step 8)</criterion>
+      <criterion id="5d-6">medivance 실제 feature 1 개에서 interview loop 1 회 완주 (depth ≥ 2)</criterion>
+    </successCriteria>
+    <deliverables>
+      <file>.lazy-harness/scripts/interview-loop.ts (Principle 17 Step 7~8)</file>
+      <file>.lazy-harness/scripts/aftershock-check.ts (재귀 분석)</file>
+      <file>.lazy-harness/schemas/decisions-log.schema.json</file>
+    </deliverables>
+  </subPhase>
+
+  <subPhase id="5e" milestone="M5" target="2026-09-30">
+    <name>실전 1 회 (medivance 다음 feature 통째로)</name>
+    <principle0Coverage>
+      framework 가 사용 안 되면 사람-AI 보완이 일어날 수 없음.
+      실전 1 회 통과가 framework 의 진짜 가치 입증.
+    </principle0Coverage>
+    <successCriteria>
+      <criterion id="5e-1">medivance 의 다음 feature 1 개를 lazy-harness 통과시켜 출시</criterion>
+      <criterion id="5e-2">4 pattern 중 하나 명시적 선택 후 진행 (top-down/outside-in/inside-out/bug-first)</criterion>
+      <criterion id="5e-3">traceability/ 에 figma/SDD/BDD/test/code/regression ���방향 링크 완성</criterion>
+      <criterion id="5e-4">conflict resolution 최소 1 회 발생 + 자산화</criterion>
+      <criterion id="5e-5">retrospective/ 에 metrics + insight 자동 기록</criterion>
+      <criterion id="5e-6">Phase 6 정의 가능한 데이터가 모임 (anti-pattern 후보, knowledge decay 패턴 등)</criterion>
+    </successCriteria>
+    <deliverables>
+      <file>.lazy-harness/intent/active/&lt;feature-name&gt;.xml (실전 Intent Spec)</file>
+      <file>.lazy-harness/spec/&lt;feature-name&gt;.xml (생성된 SDD)</file>
+      <file>.lazy-harness/behavior/scenarios/&lt;feature&gt;-001.xml (BDD)</file>
+      <file>.lazy-harness/traceability/&lt;feature-name&gt;.xml (양방향 링크)</file>
+      <file>.lazy-harness/retrospective/m5-postmortem.md (실전 회고)</file>
+    </deliverables>
+  </subPhase>
+
+  <riskRegister>
+    <risk id="P5-R1" severity="high">
+      <description>5a 의 init skill 이 jcode skill 시스템과 호환 안 될 수 있음</description>
+      <mitigation>jcode 의 ~/.jcode/config.toml + skill 사양 먼저 확인. ToolSearch 활용.</mitigation>
+    </risk>
+    <risk id="P5-R2" severity="high">
+      <description>5c 의 Conflict Resolution Protocol 이 너무 무거워 매 입력마다 30 초+ 걸리면 사용 포기</description>
+      <mitigation>"작은 변경 자동 skip" 휴리스틱 추가 (typo, comment, format change). M3 후반에 측정.</mitigation>
+    </risk>
+    <risk id="P5-R3" severity="medium">
+      <description>5d 의 aftershock recursion 이 무한 루프 빠짐</description>
+      <mitigation>max depth 3 hard cap. depth 3 시 사람 강제 escalation.</mitigation>
+    </risk>
+    <risk id="P5-R4" severity="medium">
+      <description>5e 실전 적용 시 framework 가 medivance 작업 속도 저하시킴</description>
+      <mitigation>실전 적용은 작은 feature 부터. framework off mode (manual) 도 항상 가능하게.</mitigation>
+    </risk>
+    <risk id="P5-R5" severity="medium">
+      <description>이전 세션처럼 hallucinated 진행 재발</description>
+      <mitigation>각 sub-phase 끝에 handoff/ 갱신 + 실제 파일 목록 git ls-files 검증.</mitigation>
+    </risk>
+  </riskRegister>
+
+  <metricsToTrack>
+    <!-- Phase 5 진행 중 자동 수집할 metric -->
+    <metric>conflict 발견 횟수 / 결정 횟수 (5c~5d)</metric>
+    <metric>aftershock recursion depth 분포 (5d)</metric>
+    <metric>5-finding 분류 비율 (gap / conflict / missing / drift / unclear)</metric>
+    <metric>self-loop 성공 / 실패 ratio (5b 이후)</metric>
+    <metric>hook 실패 빈도 (5b)</metric>
+    <metric>실전 적용 시 작업 속도 변화 (5e — before/after lazy-harness)</metric>
+    <metric>backup 데이터 크기 증가 (5b 이후)</metric>
+  </metricsToTrack>
+
+  <exitCriteria>
+    Phase 5 종료 조건 (M5 완료 = Phase 5 완료):
+    - 5e 의 실전 feature 1 개 출시 완료
+    - 모든 success criteria (5a-1 ~ 5e-6) 통과
+    - retrospective/m5-postmortem.md 작성
+    - Phase 6 (Skill 생태계) 시작 가능한 데이터 수집 완료
+  </exitCriteria>
+</phase5Plan>

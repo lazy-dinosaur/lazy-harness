@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scenario-language.xml
+  Layer: behavior | Subtype: language
+  Created by harness-init per ADR 0004 (Cross-Layer Maps).
+  Empty container is valid (Principle #10 Empty-Container Tolerance).
+-->
+<map type="behavior"
+     subtype="language"
+     version="1.0"
+     created="2026-05-10T14:37:31+09:00"
+     last-modified="2026-05-10T14:37:31+09:00">
+
+  <description>
+    BDD 도메인 용어 (given / when / then 외).
+  </description>
+
+  <entries>
+    <!-- Empty until triggers fill (Principle #6 Trigger-Based Growth). -->
+  </entries>
+
+  <triggers-to-fill>
+    <trigger>새 scenario 용어 등장</trigger>
+  </triggers-to-fill>
+
+  <links>
+    <!-- Cross-references to other maps / specs / regressions / decisions. -->
+  </links>
+</map>

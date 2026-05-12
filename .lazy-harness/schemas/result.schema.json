@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lazy-harness/result.schema.json",
+  "title": "Unified Result Schema (Principle #9)",
+  "description": "All hooks/checks/validations emit this JSON shape.",
+  "type": "object",
+  "required": ["id", "status", "category", "humanRequired", "details", "evidence", "confidence"],
+  "properties": {
+    "id":            { "type": "string", "pattern": "^(VER|HOOK|CHECK|AUDIT)-[0-9A-Z-]+$" },
+    "status":        { "enum": ["pass", "fail", "error"] },
+    "category":      { "enum": ["impl", "spec", "test", "env", "ssot", "infra", "unknown"] },
+    "humanRequired": { "type": "boolean" },
+    "details":       { "type": "array", "items": { "type": "string" } },
+    "suggestedFix":  { "type": ["string", "null"] },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "line", "reason"],
+        "properties": {
+          "path":   { "type": "string" },
+          "line":   { "type": "integer", "minimum": 0 },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "confidence":    { "enum": ["high", "medium", "low"] },
+    "riskTier":      { "enum": ["db", "release", "platform", "integration", "backend", "frontend", "docs"] }
+  }
+}

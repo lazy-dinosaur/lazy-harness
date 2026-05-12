@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  test-coverage.xml
+  Layer: tests | Subtype: coverage
+  Created by harness-init per ADR 0004 (Cross-Layer Maps).
+  Empty container is valid (Principle #10 Empty-Container Tolerance).
+-->
+<map type="tests"
+     subtype="coverage"
+     version="1.0"
+     created="2026-05-10T14:37:31+09:00"
+     last-modified="2026-05-10T14:37:31+09:00">
+
+  <description>
+    spec ↔ test 매핑 — 어느 spec 이 test 보호 받는지.
+  </description>
+
+  <entries>
+    <!-- Empty until triggers fill (Principle #6 Trigger-Based Growth). -->
+  </entries>
+
+  <triggers-to-fill>
+    <trigger>새 test 추가</trigger>
+    <trigger>spec 추가 후 test 부재 감지</trigger>
+  </triggers-to-fill>
+
+  <links>
+    <!-- Cross-references to other maps / specs / regressions / decisions. -->
+  </links>
+</map>

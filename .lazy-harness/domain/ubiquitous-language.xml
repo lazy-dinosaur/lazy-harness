@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ubiquitous-language.xml
+  Layer: domain | Subtype: language
+  Created by harness-init per ADR 0004 (Cross-Layer Maps).
+  Empty container is valid (Principle #10 Empty-Container Tolerance).
+-->
+<map type="domain"
+     subtype="language"
+     version="1.0"
+     created="2026-05-10T14:37:31+09:00"
+     last-modified="2026-05-10T14:37:31+09:00">
+
+  <description>
+    도메인 표준 용어 사전 — canonical / alias / forbidden 포함.
+  </description>
+
+  <entries>
+    <!-- Empty until triggers fill (Principle #6 Trigger-Based Growth). -->
+  </entries>
+
+  <triggers-to-fill>
+    <trigger>새 용어 등장 또는 동의어 발견</trigger>
+    <trigger>UI label 또는 코드 식별자가 표준어를 위반</trigger>
+  </triggers-to-fill>
+
+  <links>
+    <!-- Cross-references to other maps / specs / regressions / decisions. -->
+  </links>
+</map>

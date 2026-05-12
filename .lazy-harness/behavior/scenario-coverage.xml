@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  scenario-coverage.xml
+  Layer: behavior | Subtype: coverage
+  Created by harness-init per ADR 0004 (Cross-Layer Maps).
+  Empty container is valid (Principle #10 Empty-Container Tolerance).
+-->
+<map type="behavior"
+     subtype="coverage"
+     version="1.0"
+     created="2026-05-10T14:37:31+09:00"
+     last-modified="2026-05-10T14:37:31+09:00">
+
+  <description>
+    화면 / 유스케이스 ↔ scenario 커버리지 매트릭스.
+  </description>
+
+  <entries>
+    <!-- Empty until triggers fill (Principle #6 Trigger-Based Growth). -->
+  </entries>
+
+  <triggers-to-fill>
+    <trigger>새 화면/유스케이스 추가</trigger>
+    <trigger>scenario 가 어느 화면도 커버하지 않음 발견</trigger>
+  </triggers-to-fill>
+
+  <links>
+    <!-- Cross-references to other maps / specs / regressions / decisions. -->
+  </links>
+</map>

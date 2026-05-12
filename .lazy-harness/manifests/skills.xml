@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lazy-Harness Skills Manifest
+  Single source of truth for which skills exist and their lifecycle status.
+
+  Schema: each <skill> has id, location, status, phase, dependsOn (optional).
+  status values: stable | beta | deferred | retired
+-->
+<skillsManifest version="1" updatedAt="2026-05-10T15:05:00+09:00">
+
+  <!-- Phase 5a foundation: 3 stable skills -->
+  <skill id="harness-init" status="stable" phase="5a">
+    <location>.jcode/skills/harness-init/</location>
+    <description>Initialize a project-local lazy-harness directory tree</description>
+    <slashCommand>/harness-init</slashCommand>
+    <emitsLogs>true</emitsLogs>
+  </skill>
+
+  <skill id="harness-doctor" status="stable" phase="5a">
+    <location>.jcode/skills/harness-doctor/</location>
+    <description>Run 10 structural / safety checks; output Unified Result Schema</description>
+    <slashCommand>/harness-doctor</slashCommand>
+    <emitsLogs>true</emitsLogs>
+  </skill>
+
+  <skill id="harness-update" status="stable" phase="5a">
+    <location>.jcode/skills/harness-update/</location>
+    <description>Sync framework-contract.md from canonical source with auto-rollback</description>
+    <slashCommand>/harness-update</slashCommand>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>harness-doctor</dependsOn>
+  </skill>
+
+  <!-- Phase 5b: 3 hooks (sh, no skill UI yet) -->
+  <skill id="post-commit-logger" status="stable" phase="5b">
+    <location>.lazy-harness/hooks/post-commit.sh</location>
+    <description>Append commit metadata to logs/actions.jsonl + suggest regression candidate on Fix:</description>
+    <wiredAt>.git/hooks/post-commit (delegate)</wiredAt>
+    <emitsLogs>true</emitsLogs>
+  </skill>
+
+  <skill id="pre-push-validator" status="stable" phase="5b">
+    <location>.lazy-harness/hooks/pre-push.sh</location>
+    <description>Block push if doctor fails or private files leaked; emit Unified Result Schema</description>
+    <wiredAt>.git/hooks/pre-push (delegate)</wiredAt>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>harness-doctor</dependsOn>
+  </skill>
+
+  <skill id="weekly-snapshot" status="stable" phase="5b">
+    <location>.lazy-harness/hooks/weekly-snapshot.sh</location>
+    <description>rsync .lazy-harness/ → .lazy-harness-backup/ISO-week/ (manual or cron)</description>
+    <wiredAt>cron (user installs manually): 0 18 * * 5</wiredAt>
+    <retention>last 8 weeks auto-pruned</retention>
+  </skill>
+
+  <!-- Phase 5b deferred -->
+  <skill id="contract-diff-ast" status="deferred" phase="5b-2a"
+         deferReason="ADR 0008 — measure first; ts-morph adoption gated on 1-week real usage data">
+    <location>.lazy-harness/scripts/contract-diff.ts (skeleton only)</location>
+    <description>ts-morph based contract drift detection</description>
+    <decisionDoc>.lazy-harness/decisions/0008-ast-contract-diff-deferred.md</decisionDoc>
+  </skill>
+
+  <skill id="regression-detect" status="beta" phase="5b">
+    <location>.lazy-harness/hooks/post-commit.sh (inline)</location>
+    <description>Auto-suggest regression candidates on Fix: commits</description>
+    <currentBehavior>Append to regression/candidates.jsonl; human promotes manually</currentBehavior>
+    <futureWork>Auto-extract symbol from Fix: subject + scan for tests covering it (5c)</futureWork>
+  </skill>
+
+  <!-- Phase 5c+ planned -->
+  <skill id="adapter-figma" status="planned" phase="5c">
+    <location>.lazy-harness/adapters/figma.ts (not started)</location>
+    <description>Figma file URL → SDD draft via REST API</description>
+    <usesEnv>FIGMA_PERSONAL_ACCESS_TOKEN</usesEnv>
+  </skill>
+
+  <skill id="adapter-requirement" status="planned" phase="5c">
+    <location>.lazy-harness/adapters/requirement.ts (not started)</location>
+    <description>Natural language requirement → SDD draft + extracted nouns/verbs</description>
+  </skill>
+
+  <skill id="adapter-bug" status="planned" phase="5c">
+    <location>.lazy-harness/adapters/bug.ts (not started)</location>
+    <description>Bug report → reproduction scenario + regression candidate</description>
+  </skill>
+
+</skillsManifest>

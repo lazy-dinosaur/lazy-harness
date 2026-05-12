@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  forbidden-terms.xml
+  Layer: domain | Subtype: forbidden
+  Created by ADR 0019 (Ambiguous Detection → Force Gate)
+  Empty container is valid (Principle #10).
+-->
+<map type="domain" subtype="forbidden" version="1.0">
+  <description>noise 로 분류된 term — re-detection 방지</description>
+  <entries>
+    <!-- Empty until user marks first noise -->
+  </entries>
+</map>

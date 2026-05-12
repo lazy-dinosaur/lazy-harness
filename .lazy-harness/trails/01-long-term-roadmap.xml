@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<longTermRoadmap version="1.0" lastUpdated="2026-05-10">
+  <!--
+    이 파일은 우리 framework의 1년 로드맵을 박아두는 단일 진실 소스.
+    framework-contract 의 mandatory document 중 하나 (trails/).
+
+    원칙:
+    - 마일스톤은 측정 가능해야 함 (파일 존재, 테스트 통과, 시나리오 완주 등)
+    - 추정 시간보다 측정 지표가 우선
+    - tsq v3.8 비교 후 우리 위치를 솔직하게 적음
+    - 변경 시 반드시 ADR 또는 decision 로그
+  -->
+
+  <vision>
+    <metaPrinciple name="Principle 0">
+      사람도 AI 도 불완전하다. 그래서 상호 보완하며 진행한다.
+      이게 lazy-harness 의 존재 이유이자 모든 18 principle 의 메타 원칙.
+    </metaPrinciple>
+    <statement>
+      AI-사람 경계가 명확한 라이프사이클 framework.
+      입력(figma/req/bug/api/log/regression) → adapter funnel → 5-finding 분석 →
+      Conflict Resolution Protocol (Principle 17) → human decision →
+      DDD/SDD/BDD/TDD 자동 갱신 → code → traceability.
+      tsq 가 잘 만든 정적 SSOT 도구라면, 우리는 동적 라이프사이클 framework.
+    </statement>
+    <differentiators>
+      <item>Principle 0 (사람-AI 상호 보완) — 학술/산업 어디에도 같은 명제 없음</item>
+      <item>Adapter funnel (단일 진입점, 입력 6 종 통일)</item>
+      <item>5-finding 분석 (gap/conflict/missing/drift/unclear) - 분류 자체의 이름</item>
+      <item>Conflict Resolution Protocol (Principle 17) — 8-step strict, 사용할수록 견고</item>
+      <item>Recovery Path (Principle 18) — R1~R4 4 단계 fallback</item>
+      <item>4 pattern (top-down/outside-in/inside-out/bug-first) - 작업 패턴 분기</item>
+      <item>5 trigger 강도 (force/recommend/auto+review/auto/human-author)</item>
+      <item>Self-loop hard limits (3 retry, spec 수정 금지, diff cap)</item>
+      <item>Empty-container tolerance (빈 게 valid)</item>
+      <item>Bidirectional traceability (regression ↔ test ↔ BDD ↔ contract)</item>
+      <item>Confidence + risk tier (변경마다 자동 라우팅)</item>
+      <item>Unified result schema (모든 hook/check 동일 JSON)</item>
+    </differentiators>
+  </vision>
+
+  <currentBaseline date="2026-05-10">
+    <fileSystemReality>
+      <existing>
+        <item>.jcode/AGENTS.md</item>
+        <item>.jcode/config.toml</item>
+        <item>.jcode/hooks/check-bash.sh (jcode 기본)</item>
+        <item>.jcode/hooks/log-tool.sh (jcode 기본)</item>
+        <item>.jcode/harness/10-routing-policy.md</item>
+        <item>.jcode/harness/20-project-rules.md</item>
+        <item>~/.jcode/prompt-overlay.md (글로벌 - 모든 개념 명세)</item>
+      </existing>
+      <missingFromContract>
+        domain spec behavior tests contracts ssot intent prd
+        traceability regression git schemas scripts manifests
+        generated logs plans progress adapters
+      </missingFromContract>
+      <created2026_05_10>
+        trails planning handoff retrospective/metrics decisions questions visual
+      </created2026_05_10>
+    </fileSystemReality>
+
+    <conceptualMaturity score="9/10">
+      framework-contract.md 577 줄 + 16 principle + 4 pattern + 5 trigger 강도.
+      tsq 와 비교해도 개념 깊이는 우월.
+    </conceptualMaturity>
+
+    <implementationMaturity score="0.5/10">
+      실제 동작하는 자동화 0. 디렉토리 7 개만 생성 (이번 세션).
+    </implementationMaturity>
+
+    <comparisonToTsq>
+      tsq: v3.8.0, npm publish, 53 TS files, 330 templates, 23 tests, 37 skills.
+      우리: v0.0, 14 디렉토리만, TS 0, template 0, test 0, skill 0.
+      개념 +41 우위, 패키징/실전 -42 열위. 둘이 다른 차원.
+    </comparisonToTsq>
+  </currentBaseline>
+
+  <milestones>
+    <!-- M0: 출발선 (이미 도달) -->
+    <milestone id="M0" status="done" date="2026-05-10">
+      <name>출발선 정직하게 기록</name>
+      <successCriteria>
+        <criterion>handoff/00-current-state.md 존재</criterion>
+        <criterion>trails/01-long-term-roadmap.xml 존재 (이 파일)</criterion>
+        <criterion>planning/phase-5-plan.xml 존재</criterion>
+        <criterion>retrospective/metrics/completeness-scorecard.xml 존재</criterion>
+      </successCriteria>
+      <evidence>이번 세션에서 4 개 핵심 문서 생성</evidence>
+    </milestone>
+
+    <!-- M1: 자기 부트스트랩 (Phase 5a) -->
+    <milestone id="M1" target="2026-05-31" priority="critical">
+      <name>Self-Bootstrap (harness init / doctor / update)</name>
+      <rationale>
+        새 프로젝트에 30 분 수동 복사 → 1 줄 명령으로 끝나야 함.
+        tsq 의 가장 큰 강점이 init 한 줄. 우리도 이거 없으면 평생 못 따라감.
+      </rationale>
+      <subPhase>Phase 5a</subPhase>
+      <successCriteria>
+        <criterion>jcode 의 skill 시스템에 harness-init 등록 (`/harness-init` 호출 가능)</criterion>
+        <criterion>실행 시 framework-contract 가 명세하는 30 컨테이너 자동 생성</criterion>
+        <criterion>harness-doctor 가 schema/구조/링크 검증 후 unified result schema 반환</criterion>
+        <criterion>harness-update 가 dry-run / rollback 지원</criterion>
+        <criterion>fresh tmp 디렉토리에서 init → doctor → 정상 통과 1 회 시연</criterion>
+      </successCriteria>
+      <ledgerToTsq>tsq init / update 동일 수준 패키징 학습 후 차용</ledgerToTsq>
+    </milestone>
+
+    <!-- M2: 라이프사이클 hook (Phase 5b) -->
+    <milestone id="M2" target="2026-06-30" priority="critical">
+      <name>Lifecycle Hooks 진짜 동작</name>
+      <rationale>
+        post-commit / post-impact / pre-push 가 실제로 contract diff 잡고
+        traceability 갱신해야 우리 framework 의 핵심 가치 실현.
+      </rationale>
+      <subPhase>Phase 5b</subPhase>
+      <successCriteria>
+        <criterion>post-commit hook 이 actions.jsonl 자동 append</criterion>
+        <criterion>post-impact hook 이 ts-morph AST diff 로 contract-history.xml 갱신</criterion>
+        <criterion>pre-push hook 이 unified result schema 로 결과 출력</criterion>
+        <criterion>regression entry 가 bug-fix 커밋 시 자동 등록 후보 제시</criterion>
+        <criterion>medivance dev-ian 브랜치 1 주 사용 후 logs/ 가 실제 데이터로 채워짐</criterion>
+      </successCriteria>
+    </milestone>
+
+    <!-- M3: Code-Trigger Adapters 실작동 (Phase 5c) — re-scoped by ADR 0013/0017 -->
+    <milestone id="M3" target="2026-07-31" priority="critical">
+      <name>Code-Trigger Adapters 실작동 (사용자 발화 + 코드 변경)</name>
+      <rationale>
+        ADR 0013/0017 로 Figma adapter 폐기. 사용자 발화 (자연어 / Figma URL / 말 등 어떤 형태든)
+        는 response.completed hook 의 last_user_message + recent_tool_calls payload 안으로
+        자연스럽게 잡힘. 별도 external adapter 디렉토리 불필요.
+        Code-First Trigger (ADR 0013 Principle 23) — AST diff / git diff / lint output 으로
+        DDD/SDD/BDD/SSOT 4 layer 자동 trigger.
+        이게 동작하면 tsq 에 없는 우리만의 실전 가치 첫 입증.
+      </rationale>
+      <subPhase>Phase 5c</subPhase>
+      <successCriteria>
+        <criterion>triggers/code-change.ts (ts-morph AST) — DDD term / SDD contract / SSOT duplicate 검출</criterion>
+        <criterion>triggers/commit-change.ts — BDD scenario (last_user_message 자연어 우선) + git diff regression candidate</criterion>
+        <criterion>triggers/lint-output.ts (tsc/eslint) — drift candidate 자동 분류</criterion>
+        <criterion>**Cross-layer cascade (ADR 0018)** — 4 detector 결과 통합, 한 layer 누락이 다른 layer 가 catch</criterion>
+        <criterion>구조화 옵션 ask (Principle 17/21) — 자유 문답 X, 3~5 choice + Recommended</criterion>
+        <criterion>medivance 실제 코드 변경 1 회로 4 layer + cross-ref end-to-end 시연</criterion>
+        <criterion>Doctor C17 — framework 코드 안 외부 SaaS 호출 grep fail (Principle 22 enforce)</criterion>
+      </successCriteria>
+    </milestone>
+
+    <!-- M4: Interview loop (Phase 5d) -->
+    <milestone id="M4" target="2026-08-31" priority="high">
+      <name>Interview Loop (openQuestions ↔ human decision ↔ SDD 갱신)</name>
+      <rationale>
+        adapter 가 openQuestions 를 만들면, 사람이 답하고, SDD 가 갱신되는 양방향 흐름.
+        tsq 의 /tsq-grill 보다 한 단계 깊은 우리만의 차별점.
+      </rationale>
+      <subPhase>Phase 5d</subPhase>
+      <successCriteria>
+        <criterion>questions/open.xml 자동 갱신</criterion>
+        <criterion>사람 답변 입력 시 SDD draft 가 자동 reanalyze</criterion>
+        <criterion>5 - finding 재분석 결과로 새 openQuestion 발생 가능 (재귀 가능)</criterion>
+        <criterion>한 사이클이 decisions/ 에 ADR 후보 또는 decision 로그로 자동 정리</criterion>
+        <criterion>medivance 실제 feature 1 개에서 interview loop 1 회 완주</criterion>
+      </successCriteria>
+    </milestone>
+
+    <!-- M5: 실전 적용 (Phase 5e) -->
+    <milestone id="M5" target="2026-09-30" priority="critical">
+      <name>실전 1 회 (medivance 다음 feature 통째로)</name>
+      <rationale>
+        tsq 가 v3.8 에 도달한 건 실전 사용 때문. 우리도 1 회 진짜 사용 안 하면
+        framework 가 vibe code 수준에서 멈춤.
+      </rationale>
+      <subPhase>Phase 5e</subPhase>
+      <successCriteria>
+        <criterion>medivance 의 다음 feature 1 개를 우리 harness 통과시켜 출시</criterion>
+        <criterion>4 pattern 중 하나 명시적 선택 후 진행</criterion>
+        <criterion>traceability/ 에 figma/SDD/BDD/test/code/regression 양방향 링크 완성</criterion>
+        <criterion>회고 (retrospective/) 에 metrics + insight 자동 기록</criterion>
+        <criterion>Phase 6 정의 가능한 데이터가 모임</criterion>
+      </successCriteria>
+    </milestone>
+
+    <!-- M6 ~ M10: tsq 추격 -->
+    <milestone id="M6" target="2026-10-31" priority="medium">
+      <name>Skill 생태계 (10 개 시작)</name>
+      <subPhase>Phase 6</subPhase>
+      <successCriteria>
+        <criterion>harness-init / doctor / update / status / start / quick / full / grill / decompose / retro</criterion>
+        <criterion>각 skill 이 unified result schema 로 작동</criterion>
+      </successCriteria>
+      <ledgerToTsq>tsq 37 skill → 우리 10 skill 부터. 차별화 영역에 집중.</ledgerToTsq>
+    </milestone>
+
+    <milestone id="M7" target="2026-11-30" priority="medium">
+      <name>Daemon (lite mode)</name>
+      <subPhase>Phase 7</subPhase>
+      <successCriteria>
+        <criterion>file watcher + meta cache + IPC notify</criterion>
+        <criterion>lite mode (JSONL 옵셔널)</criterion>
+        <criterion>다운돼도 main pipeline 영향 없음</criterion>
+      </successCriteria>
+      <ledgerToTsq>tsq daemon 학습 후 우리 라이프사이클에 맞게 구현</ledgerToTsq>
+    </milestone>
+
+    <milestone id="M8" target="2027-01-31" priority="medium">
+      <name>Template 시스템 (medivance 1 type → 일반화)</name>
+      <subPhase>Phase 8</subPhase>
+      <successCriteria>
+        <criterion>최소 2 개 project type (medivance like / general electron app)</criterion>
+        <criterion>fresh tmp 에 init → doctor → 정상 통과</criterion>
+      </successCriteria>
+    </milestone>
+
+    <milestone id="M9" target="2027-03-31" priority="high">
+      <name>Public 0.1 (npm publish 가능 상태)</name>
+      <subPhase>Phase 9</subPhase>
+      <successCriteria>
+        <criterion>monorepo 에서 분리된 standalone repo</criterion>
+        <criterion>CHANGELOG.md 시작</criterion>
+        <criterion>README + 학습 자료</criterion>
+        <criterion>다른 1 개 프로젝트에 적용 시도 (실험)</criterion>
+      </successCriteria>
+      <ledgerToTsq>이 시점부터 본격적으로 tsq 추격 가능. 그 전엔 비공개 실험.</ledgerToTsq>
+    </milestone>
+
+    <milestone id="M10" target="2027-05-10" priority="long-term">
+      <name>1 주년: 자기 학습 루프 폐쇄</name>
+      <subPhase>Phase 10</subPhase>
+      <successCriteria>
+        <criterion>retrospective metrics 가 다음 phase 의 plan 에 자동 영향</criterion>
+        <criterion>VER-* 검증이 자기 검증 (자기 코드도 framework 로 통과)</criterion>
+        <criterion>medivance 외 1 개 프로젝트에서 동일한 가치 입증</criterion>
+      </successCriteria>
+    </milestone>
+  </milestones>
+
+  <riskRegister>
+    <risk id="R1" severity="high">
+      <description>이번 세션처럼 hallucinated 진행 다시 발생</description>
+      <mitigation>모든 phase 끝에 handoff/ 에 실제 파일 목록 기록. 다음 세션은 이 파일을 단일 진실로 본다.</mitigation>
+    </risk>
+    <risk id="R2" severity="high">
+      <description>framework 만들다 medivance 본체 작업 못 함</description>
+      <mitigation>매 phase 마다 medivance 에 실전 적용 1 회 강제. M5 가 그 첫 시점.</mitigation>
+    </risk>
+    <risk id="R3" severity="medium">
+      <description>tsq 가 v4 / v5 로 진화하면서 격차 더 벌어짐</description>
+      <mitigation>tsq 추격이 목적이 아님. 우리 차별점 (라이프사이클 깊이) 에 집중. 추격은 M6 부터.</mitigation>
+    </risk>
+    <risk id="R4" severity="medium">
+      <description>16 principle 이 너무 깊어 실 구현이 따라가지 못함</description>
+      <mitigation>각 milestone 에서 implementation 우선. 명세 추가는 trigger fire 시에만.</mitigation>
+    </risk>
+    <risk id="R5" severity="medium">
+      <description>monorepo 종속성 → 분리 어려움</description>
+      <mitigation>M9 까지는 monorepo OK. 그 전에 import boundary 명확하게 (ADR-0017).</mitigation>
+    </risk>
+  </riskRegister>
+
+  <reviewSchedule>
+    <weekly>retrospective metrics 자동 수집 (실측 가능 지표만)</weekly>
+    <monthly>이 파일 review + milestone 진척률 갱신</monthly>
+    <perMilestone>완료 시 lessonsLearned 추가, 다음 milestone 보정</perMilestone>
+  </reviewSchedule>
+</longTermRoadmap>

@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lazy-harness/decision.schema.json",
+  "title": "Decision Log Entry (Principle #17 Conflict Resolution)",
+  "type": "object",
+  "required": ["id", "timestamp", "input", "conflict", "presentedChoices", "humanChose", "impact", "persisted", "aftershock"],
+  "properties": {
+    "id":              { "type": "string", "pattern": "^D-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{3}$" },
+    "timestamp":       { "type": "string", "format": "date-time" },
+    "input":           { "type": "string" },
+    "conflict": {
+      "type": "object",
+      "required": ["finding", "sources"],
+      "properties": {
+        "finding":  { "enum": ["gap", "conflict", "missing", "drift", "unclear"] },
+        "sources":  {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line", "quote", "lastModified"],
+            "properties": {
+              "path":         { "type": "string" },
+              "line":         { "type": "integer" },
+              "quote":        { "type": "string" },
+              "lastModified": { "type": "string", "format": "date-time" },
+              "author":       { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "presentedChoices": { "type": "array", "minItems": 5 },
+    "humanChose":       { "type": "string" },
+    "reasoning":        { "type": "string" },
+    "impact": {
+      "type": "object",
+      "properties": {
+        "filesModified":      { "type": "array", "items": { "type": "string" } },
+        "testsAffected":      { "type": "array", "items": { "type": "string" } },
+        "regressionRisks":    { "type": "array", "items": { "type": "string" } },
+        "cascadeDepth":       { "type": "integer" }
+      }
+    },
+    "persisted": {
+      "type": "object",
+      "properties": {
+        "documentsUpdated": { "type": "array", "items": { "type": "string" } },
+        "adrDrafted":       { "type": ["string", "null"] },
+        "commitTag":        { "type": "string" }
+      }
+    },
+    "aftershock": {
+      "type": "object",
+      "properties": {
+        "depth":         { "type": "integer", "minimum": 0, "maximum": 3 },
+        "newConflicts":  { "type": "array" },
+        "halted":        { "type": "boolean" }
+      }
+    }
+  }
+}
