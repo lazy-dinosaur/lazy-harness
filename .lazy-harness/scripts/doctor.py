@@ -103,14 +103,28 @@ def check_jsonl_parse() -> CheckResult:
 
 
 def decision_files() -> list[pathlib.Path]:
-    return sorted((LAZY / "decisions").glob("[0-9][0-9][0-9][0-9]-*.md"))
+    """ADR files follow strict `NNNN-slug.md` convention where NNNN is 0001~9999.
+    The leading-zero glob `0[0-9][0-9][0-9]-*.md` deliberately excludes date-based
+    decision notes (e.g. `2026-05-13-foo.md`) which hosts may also keep alongside
+    ADRs but are not part of the ADR sequence."""
+    return sorted((LAZY / "decisions").glob("0[0-9][0-9][0-9]-*.md"))
 
 
 def check_adr_sequence() -> CheckResult:
-    """BOTH scope (ADR 0026): pure ADR number contiguity. Host ADRs also need this."""
+    """BOTH scope (ADR 0026): pure ADR number contiguity. Host ADRs also need this.
+
+    Framework philosophy: a host that has not started its institutional memory yet
+    (zero ADRs) should not be punished. The sequence check only kicks in once the
+    host has at least one ADR — at that point contiguity actually means something."""
     files = decision_files()
+    if not files:
+        # Host hasn't started accumulating ADRs yet — sequence check is meaningless.
+        # This is the expected state for early-stage hosts; they fill ADRs as they
+        # make architectural decisions.
+        return ok("D03", "no ADRs yet — sequence check skipped (host pre-decision phase)")
+
     numbers = [int(path.name[:4]) for path in files]
-    expected = list(range(1, (max(numbers) if numbers else 0) + 1))
+    expected = list(range(1, max(numbers) + 1))
     details: list[str] = []
     if numbers != expected:
         missing = sorted(set(expected) - set(numbers))
@@ -122,7 +136,7 @@ def check_adr_sequence() -> CheckResult:
         return fail("D03", "ADR sequence is not contiguous", details)
 
     count = len(files)
-    max_id = numbers[-1] if numbers else 0
+    max_id = numbers[-1]
     return ok("D03", f"ADR sequence ok ({count}, 0001~{max_id:04d})")
 
 
