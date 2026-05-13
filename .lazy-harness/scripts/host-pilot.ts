@@ -37,6 +37,10 @@ import path from 'node:path'
 import { runLayerImpactGate } from './layer-impact-gate'
 
 type ChangeKind = 'added' | 'modified' | 'deleted' | 'renamed'
+type LayerImpactGateResult = ReturnType<typeof runLayerImpactGate>
+type LayerKey = keyof LayerImpactGateResult['layerImpact']
+type LayerImpactEntry = LayerImpactGateResult['layerImpact'][LayerKey]
+type CandidateRecord = LayerImpactEntry['candidateRecords'][number]
 
 interface ChangedFile {
   path: string
@@ -48,6 +52,24 @@ interface CommitMeta {
   subject: string
   author: string
   date: string
+}
+
+interface HostPilotRecord {
+  sha: string
+  subject: string
+  author: string
+  date: string
+  changedFiles: ChangedFile[]
+  gate: LayerImpactGateResult
+  summary: {
+    missingLayers: LayerImpactGateResult['missingLayers']
+    candidateCountByLayer: Partial<Record<LayerKey, number>>
+    resolverVersion: string | null
+    productionFileCount: number
+    testFileCount: number
+    recordFileCount: number
+  }
+  label: null
 }
 
 function gitShow(args: string[]): string {
@@ -129,7 +151,7 @@ function main(): void {
   }
   const dir = path.dirname(opts.outPath)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  const records: any[] = []
+  const records: HostPilotRecord[] = []
   for (const sha of shas) {
     const meta = getCommitMeta(sha)
     const files = getChangedFiles(sha)
@@ -147,11 +169,11 @@ function main(): void {
       strict: false,
       noResolver: false
     })
-    const candidateCountByLayer: Record<string, number> = {}
-    for (const [layer, entry] of Object.entries(result.layerImpact)) {
-      candidateCountByLayer[layer] = (entry as any).candidateRecords.length
+    const candidateCountByLayer: Partial<Record<LayerKey, number>> = {}
+    for (const [layer, entry] of Object.entries(result.layerImpact) as Array<[LayerKey, LayerImpactEntry]>) {
+      candidateCountByLayer[layer] = entry.candidateRecords.length
     }
-    const record = {
+    const record: HostPilotRecord = {
       sha: meta.sha,
       subject: meta.subject,
       author: meta.author,
@@ -187,8 +209,8 @@ function main(): void {
   console.log('Per-commit top hits (sha · missingLayers · top candidateRecord):')
   for (const r of records) {
     const top: string[] = []
-    for (const [layer, entry] of Object.entries(r.gate.layerImpact)) {
-      const cands = (entry as any).candidateRecords as Array<{ recordPath: string; score: number | null }>
+    for (const [layer, entry] of Object.entries(r.gate.layerImpact) as Array<[LayerKey, LayerImpactEntry]>) {
+      const cands: CandidateRecord[] = entry.candidateRecords
       if (cands.length > 0) {
         top.push(`${layer}:${cands[0].recordPath}(${cands[0].score})`)
       }

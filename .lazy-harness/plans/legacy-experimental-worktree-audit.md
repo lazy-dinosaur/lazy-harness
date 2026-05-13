@@ -54,7 +54,7 @@ Goal: determine whether the `decisions.jsonl` replacement character warning exis
 
 Steps:
 
-1. Locate `�` in legacy `.lazy-harness/logs/decisions.jsonl`.
+1. Locate Unicode replacement characters in legacy `.lazy-harness/logs/decisions.jsonl`.
 2. Compare canonical `.lazy-harness/logs/decisions.jsonl` and doctor D08 result.
 3. If canonical contains the bad character, fix with evidence preserving original meaning.
 4. If legacy-only, record as obsolete legacy drift.
