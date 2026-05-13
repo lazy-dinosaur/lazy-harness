@@ -11,7 +11,6 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 | Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `lazy:test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
-| Jcode context-first preflight | `.lazy-harness/hooks/lifecycle/on-context-first.sh` | Optional tool.execute.before wrapper for batch/agentgrep/grep/read/bash that blocks premature source searches before record/context lookup. |
 | Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
 
 ## `response.completed` helper chain
@@ -48,16 +47,3 @@ or run helpers with dry-run semantics when available. This prevents response lif
 - Current operational gate: `bun run lazy:test` and `bun run lazy:doctor`.
 - Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.
-
-## `tool.execute.before` bash context-first helper
-
-`check-context-first.sh` is a reusable helper for `on-context-first.sh` or private `.jcode/hooks/check-bash.sh`. It prevents the agent from immediately running `rg`/`grep`/`sed`/`cat`, `agentgrep`, `read`, or `batch` source inspections for feature/domain topics such as chat, messages, notifications, patients, referrals, appointments, auth, or EMR.
-
-The helper stays silent for build/test/git/status commands and for record-first searches under `.lazy-harness/{domain,spec,behavior,decisions,ssot,regression}`. When it blocks, the wrapper must convert the plain text into Jcode hook decision JSON.
-
-This is intentionally a fallback gate. M45 private instructions and graph-based context retrieval remain the preferred instruction substrate.
-
-
-### Missing ideal lifecycle
-
-The best long-term hook would run before the model chooses its first action for a turn, for example `turn.started`, `prompt.assemble.before`, or `model.request.before`. That lifecycle should inject a compact record/context summary up front. Until Jcode exposes that hook, `tool.execute.before` coverage for `batch`, `agentgrep`, `grep`, `read`, and `bash` is the practical enforcement layer.
