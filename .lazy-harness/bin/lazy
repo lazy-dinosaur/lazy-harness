@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# .lazy-harness/bin/lazy — per-host lazy-harness CLI
+#
+# This file lives inside each host's .lazy-harness/ copy (untracked from the
+# host's perspective; tracked in the framework master repo). Hooks and the user
+# launcher (~/.local/bin/lazy) call this entry point.
+#
+# Subcommands delegate to scripts/ inside the same .lazy-harness/ tree, which
+# means every host runs ITS OWN test/doctor/sync logic — never another host's.
+#
+# Design notes:
+#   - This script must be relocatable: it resolves paths from its own location,
+#     not from $PWD. A user can run `.lazy-harness/bin/lazy test` from any
+#     subdirectory of the host.
+#   - Subcommands are minimal on purpose; richer UX (interview, config) is the
+#     responsibility of the scripts/ files, not this dispatcher.
+
+set -euo pipefail
+
+# Resolve the .lazy-harness/ root from this script's location.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LAZY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+HOST_ROOT="$(cd "$LAZY_ROOT/.." && pwd)"
+
+SCRIPTS="$LAZY_ROOT/scripts"
+
+# All subcommands are invoked from the host root so that relative paths inside
+# self-test.py / doctor.py / lazy-init.ts behave consistently.
+cd "$HOST_ROOT"
+
+usage() {
+  cat <<'USAGE'
+Usage: lazy <command> [options]
+
+Commands:
+  test [--profile=smoke|full]   Run framework self-test (default: smoke)
+  doctor [--profile=smoke|full] Run framework health check (default: smoke)
+  init [--target=DIR] [--dry-run]
+                                Bootstrap .lazy-harness/ in a new host
+  sync [--dry-run]              Refresh framework body (Category A) from canonical source
+  affected [--files F1,F2,...]  Run affected tests for given files
+  version                       Print framework version + host path
+  help                          Show this help
+
+Subcommands run against the .lazy-harness/ at:
+  HOST_ROOT (resolved): see `lazy version`
+USAGE
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  test)
+    exec python3 "$SCRIPTS/self-test.py" "$@"
+    ;;
+  doctor)
+    # Default profile = smoke. Pass-through any user flags.
+    profile="smoke"
+    args=()
+    for a in "$@"; do
+      case "$a" in
+        --profile=*) profile="${a#--profile=}" ;;
+        *) args+=("$a") ;;
+      esac
+    done
+    exec python3 "$SCRIPTS/doctor.py" --profile "$profile" "${args[@]}"
+    ;;
+  init)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy init: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/lazy-init.ts" "$@"
+    ;;
+  sync)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy sync: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/lazy-sync.ts" "$@"
+    ;;
+  affected)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy affected: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/affected-test-runner.ts" "$@"
+    ;;
+  version)
+    echo "lazy-harness CLI"
+    echo "  host_root:  $HOST_ROOT"
+    echo "  lazy_root:  $LAZY_ROOT"
+    if [ -f "$LAZY_ROOT/framework/framework-contract.md" ]; then
+      # Capture the first line that mentions a version like "v1.4" anywhere.
+      ver=$(grep -m1 -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' "$LAZY_ROOT/framework/framework-contract.md" 2>/dev/null || true)
+      if [ -n "$ver" ]; then
+        echo "  contract:   $ver"
+      fi
+    fi
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  "")
+    usage
+    exit 1
+    ;;
+  *)
+    echo "lazy: unknown command '$cmd'" >&2
+    usage
+    exit 1
+    ;;
+esac
