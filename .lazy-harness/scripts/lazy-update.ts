@@ -7,7 +7,8 @@
  *   1. Determine persistent source checkout from state/synced-from-commit,
  *      --source, or ~/.cache/lazy-harness/source.
  *   2. Fetch/checkout the requested ref from the public repo.
- *   3. Run this host's lazy-sync.ts against that source.
+ *   3. Run the source checkout's lazy-sync.ts against this host, so newly
+ *      introduced sync behavior applies even when the host is outdated.
  */
 
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
@@ -222,7 +223,7 @@ function main(): void {
       process.exit(1)
     }
 
-    const syncScript = join(targetRoot, '.lazy-harness', 'scripts', 'lazy-sync.ts')
+    const syncScript = join(sourceRoot, '.lazy-harness', 'scripts', 'lazy-sync.ts')
     const syncArgs = [syncScript, '--from', sourceRoot, '--target', targetRoot]
     if (args.dryRun) syncArgs.push('--dry-run')
     if (args.force) syncArgs.push('--force')
