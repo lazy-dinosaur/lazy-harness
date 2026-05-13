@@ -401,6 +401,27 @@ Output example:
 
 There are two different meanings of injection:
 
+### 17.0 Private instruction substrate, Jcode M45
+
+This plan should prefer Jcode private instruction loading over noisy hook spam whenever possible.
+
+M45-style private instruction behavior is the desired substrate:
+
+- `.jcode/AGENTS.md`, `.jcode/harness/*.md`, future `.jcode/instructions.md`, and `.jcode/rules/*.md` are treated as user-private Jcode instructions, not team-shared project files.
+- `/info` should show exactly which private instruction files were loaded or skipped, for example:
+  - `loaded: /project/.jcode/AGENTS.md`
+  - `loaded: /project/.jcode/harness/debug.md`
+  - `skipped: /project/AGENTS.md because ignore_project_agents=true`
+- `ignore_project_agents=true` should suppress shared project `AGENTS.md`, but must not suppress private `.jcode/*` instructions.
+- Later stages can add private instruction globs such as `.jcode/rules/*.md` and nested `.jcode/AGENTS.md` lookup near edited files.
+
+Implication for lazy-harness:
+
+- Stable operating rules belong in private `.jcode/*` instructions.
+- Hooks should stay short, conditional, and action-oriented.
+- Knowledge graph context should be injected only when relevant, with citations.
+- Forced hook messages remain as safety gates, not the primary instruction channel.
+
 ### 17.1 Prompt injection
 
 Make the agent aware of relevant existing records before work.
