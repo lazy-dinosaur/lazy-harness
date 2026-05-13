@@ -102,11 +102,6 @@
           "description": "SDD contract for knowledge graph candidates, drafts, canonical records, query, confirm/reject, and promotion."
         },
         {
-          "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
-          "kind": "file",
-          "description": "ADR 0028: progressive knowledge graph as the DDD/SDD/BDD/TDD/ADR/SSOT backbone."
-        },
-        {
           "path": "ssot/knowledge-graph-storage.md",
           "kind": "file",
           "description": "SSOT for knowledge graph storage paths and mutability rules."
