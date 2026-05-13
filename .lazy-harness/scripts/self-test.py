@@ -310,6 +310,27 @@ def run_context_first_hook(command: str) -> str:
     return completed.stdout
 
 
+def run_context_first_payload(payload: dict, wrapper: bool = False) -> str:
+    script = ".lazy-harness/hooks/lifecycle/on-context-first.sh" if wrapper else ".lazy-harness/hooks/lifecycle/helpers/check-context-first.sh"
+    completed = subprocess.run(
+        [script],
+        cwd=ROOT,
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if wrapper and completed.returncode not in {0, 1}:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"context-first wrapper exit changed: {completed.returncode}")
+    if not wrapper and completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"context-first hook exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
     env = {**os.environ, "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT))}
     if decisions is not None:
@@ -573,6 +594,43 @@ def check_context_first_gate() -> None:
     blocked = run_context_first_hook("rg -n 'chat' src/main src/renderer")
     if "context-first gate" not in blocked or ".lazy-harness/domain" not in blocked:
         fail("context-first gate should block premature source search:\n" + blocked)
+
+    agentgrep_payload = {
+        "event": "tool.execute.before",
+        "tool": {"name": "agentgrep", "args": {"query": "PC", "path": "src/main/trpc/routers/chat.ts"}},
+    }
+    agentgrep_blocked = run_context_first_payload(agentgrep_payload)
+    if "context-first gate" not in agentgrep_blocked or "agentgrep" not in agentgrep_blocked:
+        fail("context-first gate should block premature agentgrep source search:\n" + agentgrep_blocked)
+
+    batch_payload = {
+        "event": "tool.execute.before",
+        "tool": {
+            "name": "batch",
+            "args": {
+                "tool_calls": [
+                    {"tool": "agentgrep", "query": "person", "path": "src/renderer/src/screens/ChatWindow"},
+                    {"tool": "read", "file_path": "src/main/trpc/routers/chat.ts"},
+                ]
+            },
+        },
+    }
+    batch_blocked = run_context_first_payload(batch_payload)
+    if "context-first gate" not in batch_blocked or "agentgrep" not in batch_blocked:
+        fail("context-first gate should block premature batch source search:\n" + batch_blocked)
+
+    read_payload = {
+        "event": "tool.execute.before",
+        "tool": {"name": "read", "args": {"file_path": "src/main/trpc/routers/chat.ts"}},
+    }
+    read_blocked = run_context_first_payload(read_payload)
+    if "context-first gate" not in read_blocked or "read" not in read_blocked:
+        fail("context-first gate should block premature read of source chat file:\n" + read_blocked)
+
+    wrapper_out = run_context_first_payload(agentgrep_payload, wrapper=True)
+    wrapper_json = json.loads(wrapper_out)
+    if wrapper_json.get("action") != "deny" or "context-first gate" not in wrapper_json.get("reason", ""):
+        fail("context-first wrapper should emit deny JSON:\n" + wrapper_out)
 
     record_first = run_context_first_hook("rg -n 'chat' .lazy-harness/domain .lazy-harness/spec .lazy-harness/behavior .lazy-harness/regression")
     if record_first.strip():
