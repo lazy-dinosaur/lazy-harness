@@ -6,12 +6,35 @@
   Schema: each <skill> has id, location, status, phase, dependsOn (optional).
   status values: stable | beta | deferred | retired
 -->
-  <skillsManifest version="1" updatedAt="2026-05-12T10:51:00Z">
+  <skillsManifest version="1" updatedAt="2026-05-13T00:30:00Z">
 
   <!-- Jcode skills are optional wrappers. ADR 0022: framework logic lives in .lazy-harness. -->
-  <skill id="harness-init" status="retired" phase="5a" replacedBy="standalone lazy-harness extract">
-    <location>.jcode/skills/harness-init/</location>
-    <description>Retired Jcode wrapper concept. Future init belongs to standalone lazy-harness.</description>
+  <!-- ADR 0025: lazy-init / lazy-sync 로 portability single entry point 구현. -->
+
+  <skill id="lazy-init" status="stable" phase="dogfooding">
+    <location>.jcode/skills/lazy-init/</location>
+    <description>Bootstrap lazy-harness on a host project. Category A (framework 본체 rsync) + Category B (institutional memory 빈 골격) + post-init wiring (.git/info/exclude, pre-commit hook, jcode skills, version marker).</description>
+    <command>bun run lazy:init --target &lt;dir&gt;</command>
+    <command>bun .lazy-harness/scripts/lazy-init.ts --target &lt;dir&gt; [--dry-run|--force|--skip-jcode|--skip-hooks]</command>
+    <emitsLogs>true</emitsLogs>
+    <ownsArtifacts>.lazy-harness/manifests/init-categories.json</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/scripts/lazy-init.ts</ownsArtifacts>
+  </skill>
+
+  <skill id="lazy-sync" status="stable" phase="dogfooding">
+    <location>.jcode/skills/lazy-sync/</location>
+    <description>Update framework 본체 (Category A only) on an already-initialized host. Drift detection via state/synced-from-commit. Preserves Category B institutional memory.</description>
+    <command>bun run lazy:sync [--from &lt;dir&gt;] [--target &lt;dir&gt;]</command>
+    <command>bun .lazy-harness/scripts/lazy-sync.ts [--dry-run|--force]</command>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>lazy-init</dependsOn>
+    <ownsArtifacts>.lazy-harness/scripts/lazy-sync.ts</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/state/synced-from-commit</ownsArtifacts>
+  </skill>
+
+  <skill id="harness-init" status="retired" phase="5a" replacedBy="lazy-init">
+    <location>.lazy-harness/framework/legacy-skills-2026-05-10/harness-init/</location>
+    <description>Retired 2026-05-13. Replaced by lazy-init. Archive preserved in framework/legacy-skills-2026-05-10/ for helper pattern reference.</description>
     <slashCommand>/harness-init</slashCommand>
     <emitsLogs>true</emitsLogs>
   </skill>

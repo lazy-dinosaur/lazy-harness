@@ -30,6 +30,14 @@
           "description": "Framework 본문 spec (v1.4+, 23 principle)."
         },
         {
+          "path": "bin/",
+          "kind": "directory",
+          "glob": [
+            "lazy"
+          ],
+          "description": "Per-host CLI entry. Hooks 와 ~/.local/bin/lazy launcher 가 이걸 호출. 모든 subcommand 가 자기 host 의 .lazy-harness/scripts/ 로 위임 — host 격리 보장."
+        },
+        {
           "path": "scripts/",
           "kind": "directory",
           "glob": [
@@ -360,6 +368,11 @@
           "lazy-sync",
           "lazy-test"
         ]
+      },
+      {
+        "kind": "cli-launcher",
+        "description": "~/.local/bin/lazy launcher 박음. cwd 위로 .lazy-harness/ 탐색해서 그 host 의 bin/lazy 에 위임. PATH 통해 어디서든 'lazy test' 실행 가능. 이미 존재하면 (다른 host 가 박았으면) skip.",
+        "path": "~/.local/bin/lazy"
       }
     ]
   }
