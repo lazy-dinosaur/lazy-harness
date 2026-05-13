@@ -1,0 +1,129 @@
+# Lazy-Harness
+
+AI-first development harness that turns project knowledge, decisions, behavior, tests, and recovery rules into a living framework.
+
+> Status: standalone source-of-truth repository extracted from Medivance dogfooding, with framework self-test and host sync validation passing.
+
+## What this repo is
+
+`lazy-harness` is a portable `.lazy-harness/` framework body plus project-local operating rules for AI coding agents.
+It is designed so an agent must consult the host's records before changing code, then preserve newly confirmed knowledge as structured records.
+
+Core goals:
+
+- **Context-first work**: DDD, SDD, BDD, TDD, ADR, and SSOT records guide every change.
+- **Progressive knowledge graph**: conversations and implementation discoveries become candidate records, then confirmed graph-backed knowledge.
+- **Regression resistance**: fixes require regression registration and protection evidence.
+- **Portable host sync**: the canonical framework in this repository syncs into real host projects such as Medivance.
+- **Jcode integration**: private `.jcode/*` instructions can load the harness behavior without modifying team-shared files.
+
+## Repository layout
+
+```text
+.
+├── AGENTS.md                 # Root agent policy, mirrors lazy-harness behavior rules
+├── README.md                 # GitHub-facing project overview
+├── package.json              # Minimal package metadata and test hook
+├── src/                      # Small fixture/source surface for framework tests
+├── tests/                    # Test fixtures for lazy-harness behavior
+└── .lazy-harness/            # Canonical framework body, source of truth
+    ├── AGENTS.md             # Installed host agent instructions
+    ├── README.md             # Full framework documentation
+    ├── JCODE-INTEGRATION.md  # Optional host-side Jcode wiring guide
+    ├── framework/            # Framework contract and principles
+    ├── decisions/            # ADRs
+    ├── domain/               # DDD records
+    ├── spec/                 # SDD records and platform specs
+    ├── behavior/             # BDD scenarios
+    ├── tests/                # TDD plans and mappings
+    ├── ssot/                 # Single-source-of-truth records
+    ├── knowledge/            # Progressive knowledge graph stores
+    ├── manifests/            # Init/sync manifests and skills
+    ├── hooks/                # Lifecycle and git hooks
+    ├── scripts/              # Doctor, self-test, sync, trigger tooling
+    └── schemas/              # JSON/XML schemas
+```
+
+## Source-of-truth rule
+
+Framework development happens in this repository:
+
+```text
+/home/lazydino/dev/lazy-harness
+```
+
+Dogfooding hosts, for example `/home/lazydino/dev/medivance/.lazy-harness`, are installed copies.
+Do not treat host copies as source. Update them via `lazy-sync` from this repo.
+
+## Quick validation
+
+Run the primary framework gates from the repo root:
+
+```bash
+python3 .lazy-harness/scripts/doctor.py --profile smoke
+python3 .lazy-harness/scripts/self-test.py --scope framework
+```
+
+Expected smoke output includes:
+
+```text
+lazy-harness doctor ok (smoke, scope=framework)
+```
+
+## Sync into a host project
+
+Example dogfooding sync into Medivance:
+
+```bash
+cd /home/lazydino/dev/medivance
+bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from ~/dev/lazy-harness \
+  --target ~/dev/medivance \
+  --force
+.lazy-harness/bin/lazy test
+```
+
+The sync manifest intentionally includes important explanation and instruction documents such as:
+
+- `.lazy-harness/AGENTS.md`
+- `.lazy-harness/README.md`
+- `.lazy-harness/JCODE-INTEGRATION.md`
+- `.lazy-harness/framework/framework-contract.md`
+- progressive knowledge graph plan/spec/SSOT/schema files
+
+These documents are part of the product contract, not optional extras.
+
+## Progressive knowledge graph direction
+
+The current design keeps human-readable layer documents and adds machine-readable graph stores:
+
+- `.lazy-harness/knowledge/candidates.jsonl`
+- `.lazy-harness/knowledge/graph-drafts.jsonl`
+- `.lazy-harness/knowledge/graph.jsonl`
+
+Canonical graph writes require confirmation. Candidate/draft capture may be automatic, but confirmed project knowledge should be traceable, typed, and conflict-aware.
+
+See:
+
+- `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
+- `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+- `.lazy-harness/ssot/knowledge-graph-storage.md`
+- `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
+
+## Jcode private instruction support
+
+For Jcode hosts, prefer private `.jcode/*` instruction loading over fragile blocking prompt hooks.
+The harness expects private instructions to remain user-local while shared `.lazy-harness/AGENTS.md` stays the portable behavior contract.
+
+See `.lazy-harness/JCODE-INTEGRATION.md` for wiring details.
+
+## Development notes
+
+- Do not push host-only institutional memory back into this framework repo unless it belongs to the reusable framework.
+- Keep `AGENTS.md`, README files, integration docs, schemas, specs, and manifests in sync when behavior changes.
+- Run focused validation after code or framework changes.
+- Do not delete legacy worktrees or host data without explicit confirmation.
+
+## License
+
+Private/internal unless a license is added later.
