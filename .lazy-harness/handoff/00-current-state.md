@@ -4,60 +4,48 @@
 
 ## 즉시 실행할 것 (다음 세션 시작 시)
 
-1. **반드시 새 jcode 창은 이 위치에서 시작**:
-   `cd /home/lazydino/dev/medivance.experimental-lazy-harness && jcode`
-   (이 worktree 가 없으면 아래 setup 진행)
+1. **framework 개발은 반드시 standalone source repo 에서 시작**:
+   `cd /home/lazydino/dev/lazy-harness && jcode`
 
-2. **옛 worktree 정리** (있다면):
+2. **수정 후 framework 자체 검증**:
+   ```bash
+   cd /home/lazydino/dev/lazy-harness
+   .lazy-harness/scripts/self-test.py
+   python3 .lazy-harness/scripts/doctor.py --profile smoke
+   ```
+
+3. **Medivance dogfooding host 반영/검증**:
    ```bash
    cd /home/lazydino/dev/medivance
-   git worktree remove /home/lazydino/dev/medivance.experiment-medivance-harness 2>/dev/null
+   bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+     --from ~/dev/lazy-harness \
+     --target ~/dev/medivance \
+     --force
+   .lazy-harness/bin/lazy test
    ```
 
-3. **새 worktree 생성** (한 번만):
-   ```bash
-   cd /home/lazydino/dev/medivance
-   git worktree add /home/lazydino/dev/medivance.experimental-lazy-harness experimental/lazy-harness
-   ```
+4. **주의**: `/home/lazydino/dev/medivance.experimental-lazy-harness` 는 legacy extraction scaffold. 더 이상 framework 개발 기준 아님.
 
-4. **검증**:
-   ```bash
-   cd /home/lazydino/dev/medivance.experimental-lazy-harness
-   git branch --show-current  # experimental/lazy-harness
-   ls .lazy-harness/triggers/  # code-change.ts (376 lines, orchestration only)
-   bun run lazy:test  # XML + JSONL + trigger fixtures
-   ```
-
-## 현재 상태 (2026-05-12)
+## 현재 상태 (2026-05-13)
 
 | 항목 | 값 |
 |---|---|
-| **활성 branch** | `experimental/lazy-harness` |
-| **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `ebee2671`; current edits pending validation) |
-| **ADRs** | **26** (0001~0026; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation) |
-| **Decisions logged** | 26+ entries |
-| **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
-| **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
-| **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
-| **5c-4 SSOT** | ✅ done (`--layer ssot`, registry suppression, lifecycle helper) |
-| **5c-5 Cross-layer map** | ✅ done (`crossLayer.gaps`, integrated ask, exact fixture 검증) |
-| **5c-6 Lint/typecheck drift** | ✅ done (`lint-output.ts`, environment vs code drift fixtures) |
-| **5c-7 Structured ask** | ✅ done (`structuredAskValidation`, shared validator, `lazy:test` fixture gate) |
-| **5c-8 E2E** | ✅ done (referral intake fixture + lint drift + cross-layer + structured ask transcript) |
-| **5c-9 Doctor C17** | ✅ done (`lazy:doctor` D06 + `lazy:test` negative fixture) |
-| **Post-5c detector refactor** | ✅ done (`code-change.ts` 376 lines + `detectors/{ddd,sdd,bdd,ssot}.ts`) |
-| **Post-5c package health D07** | ✅ done (`typecheck:node` missing package/config is classified as environment warning, not framework regression) |
+| **Source of truth** | `~/dev/lazy-harness` (`main`) — ADR 0027 |
+| **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
+| **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
+| **Origin push** | ❌ local only. DO NOT PUSH 기본 원칙 유지 |
+| **ADRs** | **27** (0001~0027; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo) |
+| **Decisions logged** | 27+ entries |
+| **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=20, skipped=0)` |
+| **Medivance sync validation** | ✅ `~/dev/medivance`: `lazy-harness self-test ok (scope=host, ran=10, skipped=10)` |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
-| **Framework self-test/doctor** | ✅ `bun run lazy:test` primary gate + `bun run lazy:doctor` full profile D01~D07 (ADR 0022). `.jcode` doctor 는 wrapper/future migration 대상 |
-| **code-change.ts** | 376 lines (CLI/orchestration only; detector bodies extracted) |
+| **5c completion markers** | ✅ 5c-5 Cross-layer, 5c-6 Lint/typecheck, 5c-7 Structured ask, 5c-8 E2E, 5c-9 Doctor C17 |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
-| **5e host-project pilot** | ✅ complete (inside-out pilot commit `ba162ab1`; command-routing gap found and remediation in progress) |
-| **Framework v1.4** | 983 lines, 23 principles |
-| **Affected regression test gate** | ✅ done (`lazy:test:affected`, response.completed helper, project test-strategy/package-script routing or structured interview) |
-| **N1 Layer Impact Gate** | ✅ done — schema + script + 3 fixtures + self-test green + response.completed + pre-commit hook (observation mode) + N2 resolver wired in. Host-pilot precision/recall = 1.0 over 4 evaluable commits (ADR 0023). |
-| **N2 Reference Resolver** | ✅ done (baseline 검증) — host-pilot precision/recall = 1.0 (ADR 0023). 단 구현 70% 는 N2.5 에서 AI-first 로 교체 예정 (ADR 0024). |
-| **N2.5 AI-first Redesign** | 🟡 planned (critical, 5~7h) — SearchProvider abstraction + .lazy-harness/AGENTS.md (grammar, ~50줄) + tool.execute.before hook + session-cache. reference-resolver.ts ~459→~80 줄 단순화. ADR 0024 근거. |
-| **N4 Portability Entry Point** | 🟡 planned (priority 격상 high → critical, 15.5h) — lazy init (inspect/interview/apply). 모든 portability 책임 흡수, N9 별도 milestone 신설 안 함. ADR 0025 근거. |
+| **5e dogfooding** | ✅ standalone source extraction + Medivance sync/lazy test 완료 |
+| **AGENTS governance** | ✅ §0 정체성 + §2.4 layer 규칙 + §2.5 epistemic baseline (165 lines, self-test cap 180) |
+| **CLI/init/sync** | ✅ `.lazy-harness/bin/lazy`, `lazy-init.ts`, `lazy-sync.ts` source repo 에 정식 편입 |
+| **user-level launcher** | ⏸ `~/.local/bin/lazy` 는 packaging 단계로 defer. 현재는 per-host dispatcher 만 소유 |
+| **N4 Portability Entry Point** | 🟡 next: Project Init Interview (`project-init-interview-spec.md`) |
 
 ## Oracle Audit 결과 (2026-05-12)
 
@@ -74,62 +62,62 @@
 ## 다음 작업 우선순위
 
 상세 계획:
-- `.lazy-harness/plans/post-5c-refactor-and-package-health.md`
-- `.lazy-harness/plans/5d-interview-loop-implementation-spec.md`
-- `.lazy-harness/retrospective/e2e/5e-mvp-proof.md`
-- `.lazy-harness/plans/post-mvp-gap-map.md`
-- `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
 - `.lazy-harness/plans/project-init-interview-spec.md`
+- `.lazy-harness/plans/post-mvp-gap-map.md`
+- `.lazy-harness/plans/extract-to-lazy-harness-repo.md` (completed historical checklist)
 
 ```
-A. 5e host-project pilot 결과 반영
-   - pilot branch `feature/pilot-lazy-harness-5e` 완료
-   - pattern: `inside-out`
-   - product/test only commit: `ba162ab1`
-   - 결과 artifact: `.lazy-harness/retrospective/e2e/5e-host-project-pilot.md`
-   - 발견 gap: affected runner command routing. Vitest direct call 금지, project test-strategy/package script 사용
+A. Source-of-truth 운영 고정
+   - 개발 기준: ~/dev/lazy-harness
+   - host 반영: lazy-sync --from ~/dev/lazy-harness --target <host>
+   - Medivance host 는 sync + lazy test 이미 통과
 
-B. Standalone lazy-harness repo extract 준비 (잊지 말 것)
-   - 여기 repo 는 incubation/validation worktree 일 뿐
-   - framework internals 는 `lazy-harness` 독립 repo 로 이동 예정
-   - 상세 체크리스트: `.lazy-harness/plans/extract-to-lazy-harness-repo.md`
-   - standalone 첫 핵심 기능: Project Init Interview (`project-init-interview-spec.md`)
+B. Legacy worktree 정리
+   - ~/dev/medivance.experimental-lazy-harness 는 더 이상 개발 기준 아님
+   - 삭제/ worktree remove 는 destructive 이므로 사용자 confirm 후 진행
 
-C. Post-MVP hardening
+C. Project Init Interview (N4)
+   - inspect/interview/apply 구현
+   - host test-strategy/config 결정 ledger
+   - ~/.local/bin/lazy 는 packaging 단계로 유지
+
+D. Post-MVP hardening
    - decision consume/effect executor 확장
    - custom test command / Playwright routing beyond v1 package-script fallback
    - aftershock v0 heuristic 을 artifact diff 기반으로 강화
    - jcode lifecycle hook semantics 문서 최종화
 ```
 
-## Worktree 배치 (최종 상태)
+## Repository 배치 (현재 기준)
 
 ```
-/home/lazydino/dev/medivance                       (dev-ian, medivance 본 작업)
-/home/lazydino/dev/medivance.experimental-lazy-harness  (★ framework 작업)
-/home/lazydino/dev/medivance.feat-*                 (각 feature branch)
+/home/lazydino/dev/lazy-harness                      (main, ✅ framework source of truth)
+/home/lazydino/dev/medivance                         (dev-ian, Medivance app + dogfooding host)
+/home/lazydino/dev/medivance.experimental-lazy-harness (legacy extraction scaffold, 정리 예정)
+/home/lazydino/dev/medivance.feat-*                  (각 feature branch)
 ```
 
-→ medivance 본 작업과 framework 작업 완전 격리 (ADR 0021).
+→ framework 본체 개발은 `~/dev/lazy-harness` 에서만 한다 (ADR 0027).
 
-## Branch 룰 (ADR 0021) — 절대 어기지 말 것
+## Source-of-truth 룰 (ADR 0027) — 절대 어기지 말 것
 
-- `.lazy-harness/` 작업은 **`experimental/lazy-harness` branch 전용**
-- 다른 branch 에서 `.lazy-harness/` 가 staged 되면 pre-commit-guard 가 차단
-- Cleanup 필요 시 `git rm --cached` (disk 유지)
-- 절대 `git rm` 사용 안 함 (disk 파일까지 잃음)
+- `.lazy-harness/` framework body 수정은 `~/dev/lazy-harness` 에서 commit
+- `~/dev/medivance/.lazy-harness` 는 installed copy. 직접 framework 개발 금지
+- host 반영은 `lazy-sync --from ~/dev/lazy-harness --target <host>` 로 수행
+- `~/.local/bin/lazy` user launcher 는 packaging 단계까지 defer
+- legacy worktree 삭제/정리는 사용자 confirm 후 진행
 
 ## Swarm 위임 시 명세에 항상 포함
 
 ```
 ## 절대 금지
-- git commit ❌ (.lazy-harness 는 experimental branch 에서만, ADR 0021)
-- 옛 fixture 삭제 ❌
-- code-change.ts wipeout ❌ (376 lines orchestration-only 상태 보존)
+- git push ❌ (local only)
+- ~/dev/medivance/.lazy-harness 직접 source-of-truth 수정 ❌
+- legacy worktree 삭제 ❌ (사용자 confirm 전)
+- host memory / logs / decisions 삭제 ❌
 
 ## 검증 명령
-bun run lazy:test
-bun run lazy:doctor
-.lazy-harness/hooks/pre-push.sh origin dummy
-→ XML/JSONL/DDD/SDD/BDD/SSOT fixture + interview loop + affected project-test gate + D07 package health 통과
+cd ~/dev/lazy-harness && .lazy-harness/scripts/self-test.py
+cd ~/dev/medivance && .lazy-harness/bin/lazy test
+→ framework scope 20 checks + host scope 10 checks 통과
 ```

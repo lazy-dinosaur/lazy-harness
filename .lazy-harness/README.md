@@ -2,18 +2,31 @@
 
 > medivance 프로젝트의 사내 framework. Anthropic claude-code / timsquad / oh-my-opencode 영향 받음, 자체 진화.
 
-**현재 상태**: Framework MVP proof 완료 + 실제 host-project 5e pilot 준비 — framework-owned `lazy:test` / `lazy:doctor` D01~D07 운영
+**현재 상태**: Standalone source-of-truth repo 추출 완료 + framework-owned self-test 통과 + Medivance dogfooding host sync 검증 완료
 
-## ⚠ Branch 룰 (ADR 0021)
+## ⚠ Source-of-truth 룰 (ADR 0027)
 
-| Branch | `.lazy-harness/` |
-|---|---|
-| `dev-ian`, `dev`, `main`, `test` | **0 tracked** (절대 commit 안 함) |
-| **`experimental/lazy-harness`** | ✅ 모든 framework 작업 |
+| 위치 | 역할 | 수정 원칙 |
+|---|---|---|
+| `~/dev/lazy-harness` | ✅ canonical framework source repo | framework 개발/commit 은 여기서 |
+| `~/dev/lazy-harness/.lazy-harness` | 실제 설치될 framework body | scripts/hooks/ADR/AGENTS/manifests 수정 위치 |
+| `~/dev/medivance/.lazy-harness` | dogfooding host 의 installed copy | 직접 수정 금지, `lazy-sync` 결과로만 갱신 |
+| `~/dev/medivance.experimental-lazy-harness` | legacy extraction worktree | 개발 기준 아님, 정리 예정 |
 
-- `.lazy-harness/` 작업은 **`experimental/lazy-harness` branch 전용**
-- 다른 branch 에서 cleanup 시 `git rm --cached` 사용 (disk 유지)
-- 미래 별도 repo extract 예정 (framework 의 portability)
+- lazy-harness 는 설치 시스템이면서 동시에 자기 자신도 host-shaped project 이다.
+- standalone repo 에서도 `.lazy-harness/` prefix 를 보존한다. 이 경로 contract 를 깨지 말 것.
+- host 반영은 명시 sync 로 수행한다:
+
+```bash
+cd ~/dev/medivance
+bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from ~/dev/lazy-harness \
+  --target ~/dev/medivance \
+  --force
+.lazy-harness/bin/lazy test
+```
+
+- user-level `~/.local/bin/lazy` launcher 는 packaging 단계에서 처리한다. 현재 source repo 는 per-host `.lazy-harness/bin/lazy` dispatcher 만 소유한다.
 
 ## 한 줄 개요
 
@@ -29,7 +42,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 | [`plans/north-star-accuracy-and-no-regression.md`](plans/north-star-accuracy-and-no-regression.md) | **목표 그림 (north-star)** — 왜 lazy-harness 를 만드는가, 막으려는 실패 9 종, 핵심 개발 루프, 필수 게이트 |
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 25 ADR (의사결정 영구 기록) |
+| [`decisions/`](decisions/) | 27 ADR (의사결정 영구 기록) |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -59,14 +72,14 @@ flowchart LR
 | **5b** | ✅ closed (2026-05-10) | Lifecycle Hooks 진짜 작동 (M11 cascade) |
 | **5c** | ✅ complete (2026-05-12) | Code-Trigger Adapters (DDD/SDD/BDD/SSOT + cross-layer + structured ask + doctor) |
 | **5d** | ✅ complete (2026-05-12) | Interview Loop (collect/answer/TDD/aftershock/hooks/walkthrough depth ≥ 2) |
-| **5e** | ✅ framework MVP proof 완료 / 🔄 real host-project pilot pending | fixture-backed full loop proof 완료, 실제 host-project feature 1 회가 Phase 5 close blocker |
+| **5e** | ✅ framework MVP proof + Medivance dogfooding sync 검증 완료 | fixture-backed full loop proof + standalone source extraction + host sync/lazy test 통과 |
 
 ## 디렉토리 구조
 
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 26 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 27 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태
@@ -163,14 +176,14 @@ ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 
 
 TDD 는 5c 의 detector 아님. **5d Interview Loop 안의 cross-verify gate** (ADR 0020). 5d-3 v0 는 test 존재 여부 force gate 를 구현했고, 이후 affected regression test runner 가 matching project-routed test 실행 또는 test-strategy interview gate 까지 확장함.
 
-## Standalone repo extraction boundary
+## Standalone source-of-truth boundary
 
-현재 repository 는 lazy-harness 의 host-project incubation worktree 이다. Framework MVP proof + host-project pilot 검증 후에는 framework internals 를 **독립 `lazy-harness` repository** 로 옮긴다. 이 경계는 잊으면 안 되는 next-stage rule 이며, 상세 체크리스트는 [`plans/extract-to-lazy-harness-repo.md`](plans/extract-to-lazy-harness-repo.md)에 둔다.
+현재 repository 는 lazy-harness 의 canonical source-of-truth repo 이다 (ADR 0027). Framework internals 는 `.lazy-harness/` prefix 를 보존한 채 개발/commit 하며, host project 는 `lazy-sync` 로 installed copy 를 받는다. 이전 `~/dev/medivance.experimental-lazy-harness` worktree 는 legacy extraction scaffold 로만 취급한다.
 
 ## Related Docs
 
 - [`framework/framework-contract.md`](framework/framework-contract.md) — full framework spec
-- [`AGENTS.md`](../.jcode/AGENTS.md) — agent entry point
+- [`AGENTS.md`](AGENTS.md) — agent entry point / framework grammar
 - [`docs/lazy-harness/`](../docs/lazy-harness/) — public-facing docs (if any)
 
 ## License
@@ -192,5 +205,5 @@ Internal medivance use only. Do not push to public origins.
 
 5e MVP proof entry: [`retrospective/e2e/5e-mvp-proof.md`](retrospective/e2e/5e-mvp-proof.md).
 Post-MVP gap map: [`plans/post-mvp-gap-map.md`](plans/post-mvp-gap-map.md).
-Standalone extraction plan: [`plans/extract-to-lazy-harness-repo.md`](plans/extract-to-lazy-harness-repo.md).
+Standalone source-of-truth decision: [`decisions/0027-standalone-source-of-truth-repository.md`](decisions/0027-standalone-source-of-truth-repository.md).
 Project init interview spec: [`plans/project-init-interview-spec.md`](plans/project-init-interview-spec.md).
