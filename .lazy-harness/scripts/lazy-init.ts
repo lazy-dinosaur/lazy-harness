@@ -26,7 +26,7 @@
  *   --from <dir>     Optional. Framework source worktree. Defaults to script's resolved worktree.
  *   --dry-run        Print planned actions, don't modify filesystem.
  *   --force          Overwrite existing .lazy-harness/ (default: refuse if non-empty).
- *   --skip-jcode     Don't install .jcode/skills/. (Use when host doesn't use jcode.)
+ *   --skip-jcode     Don't generate project-local .jcode/ wiring. (Use when host doesn't use jcode.)
  *   --skip-hooks     Don't wire git pre-commit hook.
  *   --quiet          Suppress per-file logs.
  *
@@ -50,6 +50,7 @@ import {
 } from 'node:fs'
 import { join, dirname, basename, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
+import { installJcodeWiring } from './jcode-wiring'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -108,7 +109,7 @@ Options:
   --from <dir>      Framework source (defaults to script's worktree)
   --dry-run         Show planned actions only
   --force           Overwrite existing .lazy-harness/
-  --skip-jcode      Don't install .jcode/skills/
+  --skip-jcode      Don't generate project-local .jcode/ wiring
   --skip-hooks      Don't wire git pre-commit hook
   --quiet           Suppress per-file logs
 
@@ -567,24 +568,8 @@ function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPat
   log(`  ✓ version marker: ${markerPath} → ${sha.slice(0, 12)}`)
 }
 
-function postInitJcodeSkills(sourceRoot: string, targetRoot: string, skillNames: string[]): void {
-  const sourceSkills = join(sourceRoot, '.jcode', 'skills')
-  const targetSkills = join(targetRoot, '.jcode', 'skills')
-
-  for (const name of skillNames) {
-    const src = join(sourceSkills, name)
-    const dest = join(targetSkills, name)
-    if (!existsSync(src)) {
-      log(`  ⚠ skill source missing (will be created by lazy-init in source): ${src}`)
-      continue
-    }
-    // Copy entire skill directory
-    const files = walkFiles(src)
-    for (const f of files) {
-      copyFile(join(src, f), join(dest, f))
-    }
-    log(`  ✓ installed jcode skill: ${name}`)
-  }
+function postInitJcodeWiring(targetRoot: string): void {
+  installJcodeWiring({ targetRoot, dryRun: DRY, quiet: QUIET })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -629,10 +614,10 @@ function main(): void {
         if (action.path) postInitVersionMarker(sourceRoot, targetRoot, action.path)
         break
       case 'jcode-skill-install':
-        if (!args.skipJcode && action.skills) {
-          postInitJcodeSkills(sourceRoot, targetRoot, action.skills)
+        if (!args.skipJcode) {
+          postInitJcodeWiring(targetRoot)
         } else if (args.skipJcode) {
-          log(`  ⊘ skipped: jcode-skill-install (--skip-jcode)`)
+          log(`  ⊘ skipped: jcode wiring (--skip-jcode)`)
         }
         break
       default:

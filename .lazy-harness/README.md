@@ -37,7 +37,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 
 ## Public install entrypoint
 
-이 repo 가 public 으로 운영될 때 host 설치는 root `install.sh` 를 사용한다. 설치 스크립트는 generic/secret-free 이어야 하며 private `.jcode/` 내용은 기본 설치하지 않는다.
+이 repo 가 public 으로 운영될 때 host 설치는 root `install.sh` 를 사용한다. 설치 스크립트는 generic/secret-free 이어야 하며 host-local `.jcode/` wiring 은 public template 에서 생성한다.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/install.sh | bash
@@ -45,8 +45,10 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 
 - 설치 후 업데이트: `.lazy-harness/bin/lazy update`
 - 기본 source clone: `~/.cache/lazy-harness/source`
-- 실제 layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
-- host-local/private Jcode wiring 은 `JCODE-INTEGRATION.md` 기준으로 별도 적용
+- 실제 framework layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
+- host-local/private Jcode wiring 은 기본 생성한다: `.jcode/config.toml`, `.jcode/AGENTS.md`, `.jcode/harness/*.md`, `.jcode/hooks/*.sh`, `.jcode/skills/lazy-*`
+- `.jcode/harness/05-lazy-harness.md` 는 `.lazy-harness/AGENTS.md` symlink 이므로 AGENTS 변경은 `lazy update` 로 반영된다
+- generated marker 가 남아있는 `.jcode` 파일은 template 갱신 시 refresh, marker 없는 user-owned 파일은 보존
 
 ## 빠른 진입점
 

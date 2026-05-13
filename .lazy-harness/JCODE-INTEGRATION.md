@@ -1,6 +1,17 @@
-# Jcode Integration Guide (optional, host-side)
+# Jcode Integration Guide (generated host-side wiring)
 
-본 문서는 **lazy-harness 가 jcode hosted 환경에서 최대 효과를 내려면 host 가 어떻게 wire 해야 하는지** 가이드. 이 wiring 은 framework 가 자동 적용하지 않는다 (ADR 0024 §6 portability 보장 — framework 는 host 환경에 침투하지 않음). host owner 가 본인 `.jcode/` 또는 jcode 글로벌 config 에서 직접 적용한다.
+본 문서는 **lazy-harness 가 jcode hosted 환경에서 최대 효과를 내기 위한 host-side wiring** 가이드다. 현재 public `install.sh`, `lazy-init`, `lazy-sync` 는 generic/secret-free `.jcode/` template 을 기본 생성/보수한다. `.jcode/` 는 `.git/info/exclude` 에 들어가므로 host-local/private 상태를 유지한다.
+
+생성되는 기본 항목:
+
+- `.jcode/config.toml` — prompt loading, private instruction globs, lifecycle hooks
+- `.jcode/AGENTS.md` — host-local Jcode private entrypoint
+- `.jcode/harness/05-lazy-harness.md` — `../../.lazy-harness/AGENTS.md` symlink
+- `.jcode/harness/10-routing-policy.md`, `20-project-rules.md`
+- `.jcode/hooks/check-bash.sh`, `log-tool.sh`
+- `.jcode/skills/lazy-{init,sync,update,doctor,test}/SKILL.md`
+
+갱신 정책: `.lazy-harness/*` 는 `lazy update/sync` 로 framework source 를 따라 덮어쓴다. `.jcode/*` 는 generated marker 가 남아있는 파일만 template refresh 하고, marker 없는 user-owned 파일은 보존한다.
 
 ## 무엇을 얻는가
 
@@ -10,11 +21,21 @@
 | Layer 2 (force gate hook) | 실행 안 됨 | Edit/Write tool 호출 시 자동 호출 |
 | Layer 3 (response.completed) | 이미 작동 (별도 wiring) | — |
 
-즉 **본 wiring 없으면 Layer 1+2 가 dormant**. self-test 는 통과하지만 실전 효과 0.
+즉 **본 wiring 없으면 Layer 1+2 가 dormant**. self-test 는 통과하지만 실전 효과가 줄어든다.
 
-## 옵션 A — project-local (`<host>/.jcode/`)
+## 기본 옵션 — project-local (`<host>/.jcode/`)
 
-본인 host 한 곳에만 적용. team 에 영향 없음.
+본인 host 한 곳에만 적용. team 에 영향 없음. 일반적으로 별도 수동 작업 없이 설치/업데이트가 생성한다.
+
+```bash
+.lazy-harness/bin/lazy update --force
+```
+
+수동 repair 가 필요하면 source checkout 에서:
+
+```bash
+bun /path/to/lazy-harness/.lazy-harness/scripts/lazy-init.ts --target "$PWD" --from /path/to/lazy-harness --force
+```
 
 ### 1. project-local jcode init (없으면)
 

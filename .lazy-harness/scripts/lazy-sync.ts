@@ -28,6 +28,7 @@ import {
 } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
+import { installJcodeWiring } from './jcode-wiring'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -95,7 +96,7 @@ function log(msg: string): void {
   if (!QUIET) console.log(msg)
 }
 
-// ────────────────────────────────���────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // FS helpers
 // ─────────────────────────────────────────────────────────────
 
@@ -394,7 +395,8 @@ function main(): void {
   log(`  source: ${drift.sourceSha.slice(0, 12) || '(none)'}`)
 
   if (drift.status === 'equal') {
-    log('\n✓ Already in sync. Nothing to do.')
+    installJcodeWiring({ targetRoot, dryRun: DRY, quiet: QUIET })
+    log('\n✓ Already in sync. Jcode wiring checked.')
     process.exit(0)
   }
   if ((drift.status === 'ahead' || drift.status === 'divergent') && !args.force) {
@@ -409,6 +411,10 @@ function main(): void {
   // Update marker
   log('\n[Marker]')
   updateMarker(sourceRoot, targetRoot)
+
+  // Jcode local/private defaults are generated from framework templates. Existing
+  // customized files are preserved unless they still carry the generated marker.
+  installJcodeWiring({ targetRoot, dryRun: DRY, quiet: QUIET })
 
   // Summary
   log('\n[Summary]')
