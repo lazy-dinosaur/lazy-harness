@@ -52,7 +52,30 @@ TIMESTAMP=$(date -Iseconds)
 RESULT_LOG="$LAZY/logs/validations.jsonl"
 mkdir -p "$(dirname "$RESULT_LOG")"
 
-if command -v bun >/dev/null 2>&1; then
+# Detect whether this host has a runnable lazy:test gate.
+# Two equivalent paths are accepted:
+#   1) host package.json has a "lazy:test" npm script (preferred — `bun run lazy:test`)
+#   2) framework self-test.py is executable directly
+# When neither exists, the gate gracefully skips: an early-stage host that has not
+# wired any lazy-harness tests yet should not have push blocked.
+HAS_NPM_SCRIPT=0
+if command -v bun >/dev/null 2>&1 && [ -f package.json ]; then
+    if python3 -c "import json,sys;sys.exit(0 if 'lazy:test' in json.load(open('package.json')).get('scripts',{}) else 1)" 2>/dev/null; then
+        HAS_NPM_SCRIPT=1
+    fi
+fi
+
+HAS_SELFTEST=0
+if [ -x ".lazy-harness/scripts/self-test.py" ]; then
+    HAS_SELFTEST=1
+fi
+
+if [ "$HAS_NPM_SCRIPT" = "0" ] && [ "$HAS_SELFTEST" = "0" ]; then
+    echo "ℹ️  pre-push: lazy:test not wired on this host yet — skipping gate"
+    exit 0
+fi
+
+if [ "$HAS_NPM_SCRIPT" = "1" ]; then
     TEST_OUT=$(bun run lazy:test 2>&1 || true)
 else
     TEST_OUT=$(.lazy-harness/scripts/self-test.py 2>&1 || true)
