@@ -90,6 +90,35 @@
           "path": "manifests/init-categories.json",
           "kind": "file",
           "description": "본 manifest 자체. host 도 갖고 있어야 lazy-sync 가 동작."
+        },
+        {
+          "path": "plans/progressive-knowledge-graph-pipeline.md",
+          "kind": "file",
+          "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
+        },
+        {
+          "path": "spec/platform/progressive-knowledge-graph.md",
+          "kind": "file",
+          "description": "SDD contract for knowledge graph candidates, drafts, canonical records, query, confirm/reject, and promotion."
+        },
+        {
+          "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
+          "kind": "file",
+          "description": "ADR 0028: progressive knowledge graph as the DDD/SDD/BDD/TDD/ADR/SSOT backbone."
+        },
+        {
+          "path": "ssot/knowledge-graph-storage.md",
+          "kind": "file",
+          "description": "SSOT for knowledge graph storage paths and mutability rules."
+        },
+        {
+          "path": "knowledge/",
+          "kind": "directory",
+          "glob": [
+            "README.md",
+            "*.jsonl"
+          ],
+          "description": "Progressive knowledge graph stores: candidates, graph drafts, canonical graph. Empty JSONL containers are valid."
         }
       ]
     },
