@@ -11,6 +11,7 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 | Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `lazy:test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
+| Jcode bash preflight | `.lazy-harness/hooks/lifecycle/helpers/check-context-first.sh` | Optional private `.jcode/hooks/check-bash.sh` helper that blocks premature source searches before record/context lookup. |
 | Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
 
 ## `response.completed` helper chain
@@ -47,3 +48,11 @@ or run helpers with dry-run semantics when available. This prevents response lif
 - Current operational gate: `bun run lazy:test` and `bun run lazy:doctor`.
 - Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.
+
+## `tool.execute.before` bash context-first helper
+
+`check-context-first.sh` is a reusable helper for private `.jcode/hooks/check-bash.sh`. It prevents the agent from immediately running `rg`/`grep`/`sed`/`cat` against source code for feature/domain topics such as chat, messages, notifications, patients, referrals, appointments, auth, or EMR.
+
+The helper stays silent for build/test/git/status commands and for record-first searches under `.lazy-harness/{domain,spec,behavior,decisions,ssot,regression}`. When it blocks, the wrapper must convert the plain text into Jcode hook decision JSON.
+
+This is intentionally a fallback gate. M45 private instructions and graph-based context retrieval remain the preferred instruction substrate.

@@ -290,6 +290,26 @@ def run_knowledge_intake_fixture() -> dict:
     return json.loads(completed.stdout)
 
 
+def run_context_first_hook(command: str) -> str:
+    payload = {
+        "event": "tool.execute.before",
+        "tool": {"name": "bash", "args": {"command": command}},
+    }
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-context-first.sh"],
+        cwd=ROOT,
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"context-first hook exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
     env = {**os.environ, "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT))}
     if decisions is not None:
@@ -547,6 +567,26 @@ def check_knowledge_intake() -> None:
         fail("knowledge-intake ask format changed:\n" + ask)
 
     print(f"✓ knowledge-intake detector ok ({len(candidates)} candidates)")
+
+
+def check_context_first_gate() -> None:
+    blocked = run_context_first_hook("rg -n 'chat' src/main src/renderer")
+    if "context-first gate" not in blocked or ".lazy-harness/domain" not in blocked:
+        fail("context-first gate should block premature source search:\n" + blocked)
+
+    record_first = run_context_first_hook("rg -n 'chat' .lazy-harness/domain .lazy-harness/spec .lazy-harness/behavior .lazy-harness/regression")
+    if record_first.strip():
+        fail("context-first gate should allow record-first search:\n" + record_first)
+
+    neutral = run_context_first_hook("git status --short && bun run test:run")
+    if neutral.strip():
+        fail("context-first gate should allow neutral git/test commands:\n" + neutral)
+
+    unrelated = run_context_first_hook("rg -n 'Button' src/renderer/src/components")
+    if unrelated.strip():
+        fail("context-first gate should not block unrelated source searches:\n" + unrelated)
+
+    print("✓ context-first bash gate ok")
 
 
 
@@ -1083,6 +1123,7 @@ def main() -> None:
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
         (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
+        (check_context_first_gate, "BOTH"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),
