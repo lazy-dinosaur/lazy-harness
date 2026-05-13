@@ -230,3 +230,36 @@ No blocking source-search hook is required for normal operation.
 - `--capture` must write only candidate/draft stores.
 - confirmed graph query must find records by subject, predicate, layer, and text.
 - conflicts must not overwrite confirmed graph records.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md` — SDD contract for candidate, draft, canonical graph, query, promotion, and implementation-map extensions.
+  - `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md` — implementation plan and storage model for the progressive graph pipeline.
+  - `.lazy-harness/knowledge/README.md` — host-visible policy summary for graph stores.
+  - `.lazy-harness/schemas/knowledge-candidate.schema.json` — JSON schema for candidate queue records.
+  - `.lazy-harness/schemas/knowledge-graph-record.schema.json` — JSON schema for canonical/draft graph records and implementation-map edge rels.
+  - `.lazy-harness/schemas/implementation-index.schema.json` — JSON schema for generated AI/LSP implementation cache.
+- Key symbols:
+  - `KnowledgeCandidate` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — TypeScript contract for candidate queue entries.
+  - `KnowledgeGraphRecord` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — TypeScript contract for graph facts.
+  - `KnowledgeEvidence` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — evidence citation contract.
+  - `KnowledgeLink` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — cross-layer and implementation edge contract.
+- Flow:
+  1. `lazy intake --plan` detects candidates without writes.
+  2. `lazy intake --capture` appends candidates and graph drafts.
+  3. Confirmation promotes/supersedes graph records.
+  4. Layer docs project human-readable explanations and `Implementation map` summaries.
+  5. `generated/implementation-index.json` may cache file/symbol lookup for AI/LSP retrieval.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` — validates JSONL parse, schema metadata, and knowledge-intake detector behavior.
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke` — validates ADR freshness, schema metadata, and host/framework health gates.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
+  - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - SSOT: `.lazy-harness/ssot/knowledge-graph-storage.md`
+  - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
+- Machine index:
+  - graph ids: `pending`
+  - generated index key: `pending until implementation-index generator exists`

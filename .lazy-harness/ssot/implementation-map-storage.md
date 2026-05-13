@@ -34,3 +34,33 @@ When absent, agents should:
 2. query/read `knowledge/graph.jsonl`,
 3. inspect source via search/LSP/outline,
 4. only then update records.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/ssot/implementation-map-storage.md` — SSOT for ADR 0030 storage paths and mutability rules.
+  - `.lazy-harness/spec/platform/implementation-map-standard.md` — SDD standard for the three-layer implementation-map contract.
+  - `.lazy-harness/spec/platform/implementation-map-migration.md` — migration/audit guide for existing host records.
+  - `.lazy-harness/scripts/implementation-map-audit.ts` — read-only audit and Jcode prompt generator.
+  - `.lazy-harness/bin/lazy` — exposes `lazy impl-map` command.
+  - `.lazy-harness/schemas/implementation-index.schema.json` — generated index schema.
+- Key symbols:
+  - `implementation-map-audit.ts:parseArgs` — parses audit options.
+  - `implementation-map-audit.ts:audit` — scans layer Markdown records.
+  - `implementation-map-audit.ts:printJcodePrompt` — emits migration prompt for Jcode-assisted runs.
+- Flow:
+  1. Layer docs hold human implementation reports.
+  2. `knowledge/graph.jsonl` holds confirmed file/symbol/edge facts.
+  3. `generated/implementation-index.json` caches rebuildable AI/LSP retrieval data.
+  4. `lazy impl-map` audits host records without editing them.
+- Tests / protection:
+  - `.lazy-harness/bin/lazy impl-map --format=json` — smoke-validates audit output.
+  - `python3 .lazy-harness/scripts/self-test.py` — validates schema metadata and CLI invariants.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - SDD: `.lazy-harness/spec/platform/implementation-map-migration.md`
+- Machine index:
+  - graph ids: `pending`
+  - generated index key: `pending until implementation-index generator exists`

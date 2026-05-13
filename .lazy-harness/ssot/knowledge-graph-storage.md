@@ -42,3 +42,35 @@ The following files may be empty JSONL containers during KG-0:
 ```
 
 Empty files are valid and mean no knowledge has been captured yet.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/ssot/knowledge-graph-storage.md` — SSOT for candidate/draft/canonical graph paths and mutability.
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md` — SDD contract for graph records, evidence, links, and retrieval behavior.
+  - `.lazy-harness/knowledge/README.md` — host-visible graph store policy.
+  - `.lazy-harness/schemas/knowledge-candidate.schema.json` — candidate schema.
+  - `.lazy-harness/schemas/knowledge-graph-record.schema.json` — graph record schema.
+  - `.lazy-harness/schemas/implementation-index.schema.json` — generated implementation index schema.
+- Key symbols:
+  - `KnowledgeCandidate` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — candidate contract.
+  - `KnowledgeGraphRecord` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — canonical/draft graph contract.
+  - `KnowledgeEvidence` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — evidence contract used by graph facts.
+  - `KnowledgeLink` (`.lazy-harness/spec/platform/progressive-knowledge-graph.md`) — graph edge/link contract.
+- Flow:
+  1. Conversation/code/test facts enter `candidates.jsonl` and `graph-drafts.jsonl`.
+  2. Confirmed facts append/supersede records in `graph.jsonl`.
+  3. Layer docs project human-readable explanations.
+  4. Implementation maps add file/symbol edges and optional generated cache references.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` — validates JSONL parse and schema metadata.
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke` — validates schema metadata and ADR/document freshness.
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
+  - ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
+  - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+- Machine index:
+  - graph ids: `pending`
+  - generated index key: `pending until implementation-index generator exists`
