@@ -29,6 +29,8 @@ python3 .lazy-harness/scripts/doctor.py --profile full
   - D04 README/handoff/phase freshness
   - D05 branch/hook policy
   - D06 C17 external dependency invariant (full profile)
+- `lazy-sync.ts` — update Category A framework body on an already-initialized host while preserving host memory.
+- `lazy-update.ts` — public-safe updater. Refreshes the persistent source checkout, then delegates to `lazy-sync.ts`.
 - `contract-diff.ts` — existing contract diff helper.
 - `../triggers/lint-output.ts` — 5c-6 tsc/eslint output classifier, exposed as `bun run lazy:lint-drift`.
 

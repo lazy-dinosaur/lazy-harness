@@ -84,6 +84,24 @@ The installer keeps a persistent framework source clone at `~/.cache/lazy-harnes
 
 Jcode private instructions are not installed by default from the public repo. Use `.lazy-harness/JCODE-INTEGRATION.md` or pass `--jcode` only when the source checkout intentionally contains tracked public `.jcode/skills`.
 
+## Update an installed host
+
+After installation, update the host framework body with:
+
+```bash
+.lazy-harness/bin/lazy update
+```
+
+Useful update options:
+
+```bash
+.lazy-harness/bin/lazy update --dry-run
+.lazy-harness/bin/lazy update --force
+.lazy-harness/bin/lazy update --ref main
+```
+
+`lazy update` refreshes the persistent source checkout, then delegates to `lazy-sync` so host institutional memory is preserved.
+
 ## Quick validation
 
 Run the primary framework gates from the repo root:

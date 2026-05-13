@@ -43,6 +43,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/install.sh | bash
 ```
 
+- 설치 후 업데이트: `.lazy-harness/bin/lazy update`
 - 기본 source clone: `~/.cache/lazy-harness/source`
 - 실제 layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
 - host-local/private Jcode wiring 은 `JCODE-INTEGRATION.md` 기준으로 별도 적용

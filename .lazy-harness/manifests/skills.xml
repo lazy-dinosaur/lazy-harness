@@ -32,6 +32,16 @@
     <ownsArtifacts>.lazy-harness/state/synced-from-commit</ownsArtifacts>
   </skill>
 
+  <skill id="lazy-update" status="stable" phase="dogfooding">
+    <location>.lazy-harness/scripts/lazy-update.ts</location>
+    <description>Public-safe update entrypoint. Refreshes the persistent lazy-harness source checkout, then delegates to lazy-sync to update Category A while preserving host institutional memory.</description>
+    <command>.lazy-harness/bin/lazy update [--dry-run|--force|--ref &lt;ref&gt;]</command>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>lazy-sync</dependsOn>
+    <ownsArtifacts>.lazy-harness/scripts/lazy-update.ts</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/bin/lazy</ownsArtifacts>
+  </skill>
+
   <skill id="harness-init" status="retired" phase="5a" replacedBy="lazy-init">
     <location>.lazy-harness/framework/legacy-skills-2026-05-10/harness-init/</location>
     <description>Retired 2026-05-13. Replaced by lazy-init. Archive preserved in framework/legacy-skills-2026-05-10/ for helper pattern reference.</description>
