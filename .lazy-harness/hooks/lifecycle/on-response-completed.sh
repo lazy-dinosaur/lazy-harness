@@ -27,7 +27,17 @@ for helper in \
   [ -x "$helper" ] || continue
   OUT=$("$helper" "$PAYLOAD" 2>/dev/null || true)
   [ -z "$OUT" ] && continue
-  printf '%s\n' "$OUT"
+  HOOK_BODY="$OUT" python3 <<'PY'
+import json
+import os
+
+print(json.dumps({
+    "inject": {
+        "body": os.environ.get("HOOK_BODY", ""),
+        "format": "system_reminder",
+    }
+}, ensure_ascii=False))
+PY
   exit 0
 done
 
