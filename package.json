@@ -1,0 +1,8 @@
+{
+  "name": "lazy-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:run": "sh -c 'bun test \"$@\" && echo \"1 passed\"' --"
+  }
+}

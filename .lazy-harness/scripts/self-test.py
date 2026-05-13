@@ -939,7 +939,7 @@ def check_agents_md_invariants() -> None:
 
     Framework grammar must stay thin and host-agnostic. Asserts:
       - file exists
-      - line count <= 100 (target ~50, hard cap 100)
+      - line count <= 180 (Phase α governance expansion: §0 + §2.5; hard cap 180)
       - mentions all 6 layer dirs (domain/spec/behavior/tests/decisions/ssot)
       - does NOT contain known host-specific tokens (tRPC / Prisma / multi-tenant
         / hospitalId etc.) — those belong to records, not grammar
@@ -950,9 +950,9 @@ def check_agents_md_invariants() -> None:
 
     text = path.read_text(encoding="utf-8")
     line_count = len(text.splitlines())
-    if line_count > 100:
+    if line_count > 180:
         fail(
-            f"N2.5 AGENTS.md too thick: {line_count} lines > 100 cap. "
+            f"N2.5 AGENTS.md too thick: {line_count} lines > 180 cap. "
             "Host-specific rules belong in records (DDD/SDD/BDD/TDD/ADR/SSOT), not grammar."
         )
 

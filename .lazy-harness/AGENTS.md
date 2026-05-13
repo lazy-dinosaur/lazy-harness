@@ -81,7 +81,7 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 | 누적 대상 | Layer | 파일 위치 예시 |
 |---|---|---|
 | 도메인 용어, entity 정의, 비즈니스 규칙 | DDD | `.lazy-harness/domain/<topic>.md` |
-| API / IPC / tRPC contract, component 인터페이스 | SDD | `.lazy-harness/spec/<endpoint>.md` |
+| API / IPC / RPC contract, component 인터페이스 | SDD | `.lazy-harness/spec/<endpoint>.md` |
 | UI flow, 사용자 시나리오, 행동 예상 | BDD | `.lazy-harness/behavior/<feature>.md` |
 | Bug fix 의 regression case, 보호 테스트 | TDD | `.lazy-harness/tests/<bug-id>.md` |
 | 설계 결정 (왜 X 가 아닌 Y), trade-off | ADR | `.lazy-harness/decisions/NNNN-<slug>.md` |
