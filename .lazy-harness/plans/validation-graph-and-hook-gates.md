@@ -539,3 +539,225 @@ Without intake, validation has no facts.
 Without resolver, facts are not injected.
 Without validation graph, facts do not protect behavior.
 Without hooks, the agent can ignore the graph.
+
+## 23. Concrete staged execution roadmap
+
+This roadmap is the preferred implementation order. Do not start with validation-planner or full hook enforcement. Start by making knowledge registration observable and testable.
+
+### Stage 0 — Hook output protocol hardening (done 2026-05-13)
+
+Problem found during planning: Jcode lifecycle hooks require JSON hook decisions. Plain text helper output causes:
+
+```text
+invalid hook decision JSON from command: .lazy-harness/hooks/lifecycle/on-response-completed.sh
+```
+
+Required invariant:
+
+- `tool.execute.before` deny output must be JSON: `{"action":"deny","reason":"..."}`.
+- `response.completed` guidance output must be JSON injection: `{"inject":{"body":"...","format":"system_reminder"}}`.
+- Helper scripts may still emit plain text internally, but wrapper hooks must convert it.
+
+Evidence:
+
+- `3c538e2 Fix: emit JSON decisions from Jcode lifecycle hooks`
+- `9a3ea75 Chore: register Jcode hook JSON regression`
+- Source validation: `.lazy-harness/scripts/self-test.py`, `doctor.py --profile smoke`, `jcode doctor --no-update`
+- Host validation: synced to `/home/lazydino/dev/medivance`, `.lazy-harness/bin/lazy test` passed.
+
+### Stage 1 — Knowledge intake detector, no writes
+
+Deliverables:
+
+- `.lazy-harness/scripts/knowledge-intake.ts`
+- fixtures under `.lazy-harness/triggers/fixtures/knowledge-intake/`
+- self-test check for detector fixtures
+
+Command:
+
+```bash
+bun .lazy-harness/scripts/knowledge-intake.ts --text "Referral은 lead가 아니라 clinical intake record야" --plan
+```
+
+Supported candidate types in v1:
+
+1. DDD term/invariant
+2. SDD contract/source
+3. BDD user behavior/scenario
+4. TDD regression/test fact
+5. ADR decision/tradeoff
+6. SSOT config/source-of-truth
+7. ambiguous layer
+
+Exit policy:
+
+- Always exit 0 in `--plan` mode.
+- Output JSON by default plus `--format ask` for human-readable hook messages.
+- No filesystem writes.
+
+Validation:
+
+```bash
+bun .lazy-harness/scripts/knowledge-intake.ts --fixture all --plan
+.lazy-harness/scripts/self-test.py
+```
+
+### Stage 2 — Structured ask generation
+
+Deliverables:
+
+- knowledge candidate schema
+- A/B/C/D option generation
+- integration with `.lazy-harness/questions/open.xml` in dry-run mode first
+
+Policy:
+
+- high confidence single-layer candidate can recommend a target file
+- medium/low/ambiguous candidate must produce structured ask
+- no silent primary layer selection when DDD/BDD/ADR or SDD/SSOT overlap
+
+Validation fixtures:
+
+- `Referral means clinical intake record` → DDD recommended
+- `Coordinator must see urgent referral first` → BDD vs DDD ambiguous
+- `Use shadcn not MUI` → SDD/frontend or project profile ambiguous
+- `Bug happened when status was null` → TDD/regression recommended
+- `API status comes from external EMR` → SDD vs SSOT ambiguous
+
+### Stage 3 — Append-only record writer
+
+Deliverables:
+
+- `knowledge-intake.ts --apply --answer A|B|C|D`
+- append-only writers for safe records
+- dry-run diff output
+
+Safety rules:
+
+- ADR and SSOT require explicit confirmation.
+- Existing XML must remain parseable.
+- Writer must be append-only or narrowly scoped. No broad rewrite.
+- Every write emits decisions/log evidence.
+
+Initial write targets:
+
+| Layer | Target |
+|---|---|
+| DDD | `.lazy-harness/domain/ubiquitous-language.xml` |
+| SDD | `.lazy-harness/spec/spec-language.xml` or project profile spec file |
+| BDD | `.lazy-harness/behavior/scenarios/*.xml` or scenario queue |
+| TDD | `.lazy-harness/regression/registry.jsonl` / `tests/test-protection-matrix.xml` |
+| ADR | `.lazy-harness/logs/decisions.jsonl` candidate, ADR later |
+| SSOT | `.lazy-harness/ssot/registry.xml` candidate with confirmation |
+
+### Stage 4 — response.completed intake injection
+
+Deliverables:
+
+- lifecycle helper: `.lazy-harness/hooks/lifecycle/helpers/check-knowledge-intake.sh`
+- wrapper already emits JSON injection from helper text
+- dedupe/cache so the same candidate is not repeated forever
+
+Message budget:
+
+- max 30 lines
+- max 3 candidates
+- must include exact next actions
+
+Example injected body:
+
+```text
+[lazy-harness intake]
+Unregistered knowledge candidates:
+1. "Referral은 lead가 아니라 clinical intake record"
+   Recommended: DDD → ubiquitous-language.xml
+   Next: A) record B) ask C) defer with reason D) discard
+```
+
+Escalation:
+
+- first occurrence: inject warning
+- repeated candidate used before edit: block at tool.execute.before
+- confirmed candidate not recorded: create question entry
+
+### Stage 5 — Context injection before edit
+
+Deliverables:
+
+- `reference-resolver --format context` or `lazy context --file <path>`
+- `tool.execute.before` hook can ask for context lookup when no relevant records were loaded
+
+Policy:
+
+- inject top 3 to 5 relevant records only
+- include citations/path
+- never dump whole DDD/SDD/BDD/TDD folders
+
+Example:
+
+```text
+[lazy-harness context]
+src/referral.ts relevant records:
+- DDD: Referral = clinical intake record (.lazy-harness/domain/...)
+- BDD: urgent referrals first (.lazy-harness/behavior/...)
+- TDD: null status regression (.lazy-harness/regression/...)
+```
+
+### Stage 6 — Validation planner
+
+Deliverables:
+
+- `.lazy-harness/scripts/validation-planner.ts`
+- `--plan`, `--changed`, `--enforce`, `--full`, `--budget`
+- check registry and cache v1
+
+Policy:
+
+- default validates changed/risk impacted checks, not full suite
+- full remains explicit
+- cache only pure checks first
+- output must explain why each check was selected or skipped
+
+### Stage 7 — CLI unification
+
+Deliverables:
+
+```bash
+.lazy-harness/bin/lazy intake --text "..." --plan
+.lazy-harness/bin/lazy intake --apply
+.lazy-harness/bin/lazy context --file <path>
+.lazy-harness/bin/lazy validate --plan
+.lazy-harness/bin/lazy validate --changed
+.lazy-harness/bin/lazy test --full
+```
+
+Default policy:
+
+- `lazy test` eventually becomes changed/risk validation.
+- `lazy test --full` preserves current self-test.
+- `pre-push` can run full or smoke+changed based on project profile.
+
+### Stage 8 — Host dogfooding loop
+
+Every framework change that affects hooks/intake/validation must be synced to Medivance:
+
+```bash
+cd /home/lazydino/dev/medivance
+bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from ~/dev/lazy-harness \
+  --target ~/dev/medivance \
+  --force
+.lazy-harness/bin/lazy test
+```
+
+Record pilot findings back into this source repo. Do not edit framework source directly inside Medivance.
+
+## 24. Non-negotiable implementation rules
+
+1. Hook stdout must always be valid Jcode hook decision JSON when non-empty.
+2. Hook messages must be short, conditional, and action-oriented.
+3. Do not auto-write ambiguous knowledge.
+4. Do not rely on chat memory as durable knowledge.
+5. Every confirmed reusable fact must have a path into DDD/SDD/BDD/TDD/ADR/SSOT.
+6. Every new `Fix:` commit must have a regression registry entry.
+7. Every hook/intake/validation framework change must be dogfooded on Medivance after source validation.
