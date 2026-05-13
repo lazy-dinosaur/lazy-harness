@@ -10,17 +10,14 @@
 2. **수정 후 framework 자체 검증**:
    ```bash
    cd /home/lazydino/dev/lazy-harness
-   .lazy-harness/scripts/self-test.py
+   python3 .lazy-harness/scripts/self-test.py --scope framework
    python3 .lazy-harness/scripts/doctor.py --profile smoke
    ```
 
 3. **Medivance dogfooding host 반영/검증**:
    ```bash
    cd /home/lazydino/dev/medivance
-   bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
-     --from ~/dev/lazy-harness \
-     --target ~/dev/medivance \
-     --force
+   .lazy-harness/bin/lazy update --dry-run --force
    .lazy-harness/bin/lazy test
    ```
 
@@ -33,17 +30,17 @@
 | **Source of truth** | `~/dev/lazy-harness` (`main`) — ADR 0027 |
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
-| **Origin push** | ❌ local only. DO NOT PUSH 기본 원칙 유지 |
+| **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
 | **ADRs** | **28** (0001~0028; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone) |
 | **Decisions logged** | 28+ entries |
-| **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=20, skipped=0)` |
-| **Medivance sync validation** | ✅ `~/dev/medivance`: `lazy-harness self-test ok (scope=host, ran=10, skipped=10)` |
+| **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=21, skipped=0)` |
+| **Medivance sync validation** | ✅ `~/dev/medivance`: synced to `031b5e7`, `lazy-harness self-test ok (scope=host, ran=10, skipped=11)` |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
 | **5c completion markers** | ✅ 5c-5 Cross-layer, 5c-6 Lint/typecheck, 5c-7 Structured ask, 5c-8 E2E, 5c-9 Doctor C17 |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
 | **5e dogfooding** | ✅ standalone source extraction + Medivance sync/lazy test 완료 |
 | **AGENTS governance** | ✅ §0 정체성 + §2.4 layer 규칙 + §2.5 epistemic baseline (165 lines, self-test cap 180) |
-| **CLI/init/sync** | ✅ `.lazy-harness/bin/lazy`, `lazy-init.ts`, `lazy-sync.ts` source repo 에 정식 편입 |
+| **CLI/init/sync/update** | ✅ `.lazy-harness/bin/lazy`, `lazy-init.ts`, `lazy-sync.ts`, `lazy-update.ts`, public `install.sh` source repo 에 정식 편입 |
 | **user-level launcher** | ⏸ `~/.local/bin/lazy` 는 packaging 단계로 defer. 현재는 per-host dispatcher 만 소유 |
 | **N4 Portability Entry Point** | 🟡 next: Project Init Interview (`project-init-interview-spec.md`) |
 
@@ -65,6 +62,7 @@
 - `.lazy-harness/plans/project-init-interview-spec.md`
 - `.lazy-harness/plans/post-mvp-gap-map.md`
 - `.lazy-harness/plans/extract-to-lazy-harness-repo.md` (completed historical checklist)
+- `.lazy-harness/plans/legacy-experimental-worktree-audit.md`
 
 ```
 A. Source-of-truth 운영 고정
@@ -74,6 +72,8 @@ A. Source-of-truth 운영 고정
 
 B. Legacy worktree 정리
    - ~/dev/medivance.experimental-lazy-harness 는 더 이상 개발 기준 아님
+   - 업무큐: fixture baseline drift(BDD expected 3 actual 2) + decisions.jsonl Unicode replacement warning 확인
+   - 업무큐: source repo 에 없는 recoverable work 가 있는지 diff audit
    - 삭제/ worktree remove 는 destructive 이므로 사용자 confirm 후 진행
 
 C. Project Init Interview (N4)
