@@ -1,0 +1,3 @@
+{
+  "text": "status가 null일 때 referral sorting bug가 재발했으니 regression test로 보호해야 해."
+}

@@ -1,0 +1,3 @@
+{
+  "text": "AUTH_TOKEN env 설정은 config registry가 single source of truth다."
+}

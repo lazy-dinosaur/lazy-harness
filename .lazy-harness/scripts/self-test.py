@@ -278,6 +278,18 @@ def run_aftershock_reanalysis(queue: pathlib.Path, decisions_path: str = ".lazy-
     return json.loads(completed.stdout)
 
 
+def run_knowledge_intake_fixture() -> dict:
+    command = [
+        "bun",
+        ".lazy-harness/scripts/knowledge-intake.ts",
+        "--fixture",
+        "all",
+        "--plan",
+    ]
+    completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    return json.loads(completed.stdout)
+
+
 def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
     env = {**os.environ, "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT))}
     if decisions is not None:
@@ -474,6 +486,67 @@ def check_lifecycle_hook_integration() -> None:
         for path in [tdd_queue, aftershock_queue, decisions]:
             path.unlink(missing_ok=True)
     print("✓ 5d-5 lifecycle hook integration ok")
+
+
+def check_knowledge_intake() -> None:
+    before_status = subprocess.run(
+        ["git", "status", "--short", ".lazy-harness"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    result = run_knowledge_intake_fixture()
+    after_status = subprocess.run(
+        ["git", "status", "--short", ".lazy-harness"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+
+    if before_status != after_status:
+        fail("knowledge-intake Stage 1 must not write files")
+    if result.get("ok") is not True or result.get("mode") != "plan" or result.get("checkedTexts") != 7:
+        fail("knowledge-intake fixture result changed: " + json.dumps(result, ensure_ascii=False))
+
+    candidates = result.get("candidates", [])
+    layers = {candidate.get("recommendedLayer") for candidate in candidates}
+    required_layers = {"ddd", "sdd", "bdd", "tdd", "adr", "ssot"}
+    missing_layers = sorted(required_layers - layers)
+    if missing_layers:
+        fail(f"knowledge-intake missing layers: {missing_layers}")
+
+    candidate_types = {candidate.get("candidateType") for candidate in candidates}
+    required_types = {
+        "domain-term",
+        "business-invariant",
+        "contract-source",
+        "user-behavior",
+        "regression-fact",
+        "decision-tradeoff",
+        "source-of-truth",
+    }
+    missing_types = sorted(required_types - candidate_types)
+    if missing_types:
+        fail(f"knowledge-intake missing candidate types: {missing_types}")
+
+    if not any(candidate.get("confidence") == "ambiguous" for candidate in candidates):
+        fail("knowledge-intake should surface at least one ambiguous candidate")
+    if not all(candidate.get("action") in {"ask", "record-candidate", "ignore"} for candidate in candidates):
+        fail("knowledge-intake emitted invalid action")
+
+    ask = subprocess.run(
+        ["bun", ".lazy-harness/scripts/knowledge-intake.ts", "--fixture", "bdd-behavior", "--plan", "--format", "ask"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    if "[lazy-harness intake]" not in ask or "Recommended" not in ask:
+        fail("knowledge-intake ask format changed:\n" + ask)
+
+    print(f"✓ knowledge-intake detector ok ({len(candidates)} candidates)")
 
 
 
@@ -1009,6 +1082,7 @@ def main() -> None:
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
         (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
+        (check_knowledge_intake, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),
