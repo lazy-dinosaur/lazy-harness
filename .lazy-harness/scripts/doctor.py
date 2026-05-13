@@ -4,6 +4,12 @@
 ADR 0022 boundary:
 - Jcode may wrap this command, but operational checks live in .lazy-harness.
 - `lazy:test` remains the primary reproducible gate and calls the smoke profile.
+
+ADR 0026 scope separation:
+- Same script runs both in framework dev repo and on hosts after lazy-init.
+- `detect_scope()` auto-detects via framework-own markers; `--scope` overrides.
+- Checks are tagged BOTH | FRAMEWORK_ONLY | HOST_ONLY. Scope-irrelevant checks
+  are silently skipped with a [skipped] note in text output.
 """
 from __future__ import annotations
 
@@ -15,10 +21,23 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LAZY = ROOT / ".lazy-harness"
+
+Scope = Literal["framework", "host"]
+CheckTag = Literal["BOTH", "FRAMEWORK_ONLY", "HOST_ONLY"]
+
+
+def detect_scope() -> Scope:
+    """ADR 0026: framework dev repo has both markers; hosts have neither."""
+    return (
+        "framework"
+        if (LAZY / "framework" / "framework-contract.md").exists()
+        and (LAZY / "planning" / "phase-5-plan.xml").exists()
+        else "host"
+    )
 
 
 @dataclass
@@ -27,6 +46,7 @@ class CheckResult:
     status: str
     message: str
     details: list[str]
+    scope: str = "both"  # ADR 0026: which scope this check applies to
 
 
 Check = Callable[[], CheckResult]
@@ -87,6 +107,7 @@ def decision_files() -> list[pathlib.Path]:
 
 
 def check_adr_sequence() -> CheckResult:
+    """BOTH scope (ADR 0026): pure ADR number contiguity. Host ADRs also need this."""
     files = decision_files()
     numbers = [int(path.name[:4]) for path in files]
     expected = list(range(1, (max(numbers) if numbers else 0) + 1))
@@ -102,17 +123,27 @@ def check_adr_sequence() -> CheckResult:
 
     count = len(files)
     max_id = numbers[-1] if numbers else 0
+    return ok("D03", f"ADR sequence ok ({count}, 0001~{max_id:04d})")
+
+
+def check_framework_adr_freshness() -> CheckResult:
+    """FRAMEWORK_ONLY scope (ADR 0026): README / handoff must reflect ADR count.
+    Host doesn't need this — host's README/handoff drift policy is its own concern."""
+    files = decision_files()
+    numbers = [int(path.name[:4]) for path in files]
+    count = len(files)
+    max_id = numbers[-1] if numbers else 0
+    details: list[str] = []
     readme = read_text(LAZY / "README.md")
     handoff = read_text(LAZY / "handoff" / "00-current-state.md")
     if f"# {count} ADRs" not in readme and f"# {count} ADR" not in readme and f"# {count}" not in readme:
-        # README stores this as a tree comment, not a heading.
         if f"decisions/          # {count} ADRs" not in readme:
             details.append(f"README ADR count does not mention {count}")
     if f"**{count}**" not in handoff or f"0001~{max_id:04d}" not in handoff:
         details.append(f"handoff ADR line should mention **{count}** and 0001~{max_id:04d}")
     if details:
-        return fail("D03", "ADR docs are stale", details)
-    return ok("D03", f"ADR sequence ok ({count}, 0001~{max_id:04d})")
+        return fail("D03F", "ADR docs are stale", details)
+    return ok("D03F", f"framework ADR docs fresh ({count}, 0001~{max_id:04d})")
 
 
 def check_plan_freshness() -> CheckResult:
@@ -196,6 +227,9 @@ def check_external_dependency_invariant() -> CheckResult:
         for path in sorted(scan_root.rglob("*")):
             if not path.is_file() or path.suffix not in code_suffixes:
                 continue
+            # Skip legacy-* directories (archived/retired tooling, not active code).
+            if any(part.startswith("legacy-") for part in path.relative_to(LAZY).parts):
+                continue
             if path.name.startswith("__doctor_c17_negative_tmp") and not include_negative_fixture:
                 continue
             text = read_text(path)
@@ -238,7 +272,7 @@ def classify_typecheck_line(line: str) -> str | None:
 
 def check_package_health() -> CheckResult:
     if not (ROOT / "package.json").exists():
-        return warn("D07", "package health skipped: package.json missing")
+        return warn("D07", "package health skipped: environment without package.json")
 
     try:
         completed = subprocess.run(
@@ -288,38 +322,75 @@ def check_unicode_replacement_chars() -> CheckResult:
     return ok("D08", "Unicode replacement characters absent")
 
 
-SMOKE_CHECKS: list[Check] = [
-    check_xml_parse,
-    check_jsonl_parse,
-    check_adr_sequence,
-    check_plan_freshness,
-    check_branch_policy,
+SMOKE_CHECKS: list[tuple[Check, CheckTag]] = [
+    (check_xml_parse, "BOTH"),
+    (check_jsonl_parse, "BOTH"),
+    (check_adr_sequence, "BOTH"),
+    (check_framework_adr_freshness, "FRAMEWORK_ONLY"),
+    (check_plan_freshness, "FRAMEWORK_ONLY"),
+    (check_branch_policy, "FRAMEWORK_ONLY"),
 ]
 
-FULL_CHECKS: list[Check] = [
+FULL_CHECKS: list[tuple[Check, CheckTag]] = [
     *SMOKE_CHECKS,
-    check_external_dependency_invariant,
-    check_package_health,
-    check_unicode_replacement_chars,
+    (check_external_dependency_invariant, "BOTH"),
+    (check_package_health, "BOTH"),
+    (check_unicode_replacement_chars, "BOTH"),
 ]
 
 
-def run_checks(profile: str) -> list[CheckResult]:
+def run_checks(profile: str, scope: Scope) -> list[CheckResult]:
+    """ADR 0026: filter checks by scope. BOTH always runs; FRAMEWORK_ONLY only on
+    framework scope; HOST_ONLY only on host scope. Skipped checks are not in the result list."""
     checks = SMOKE_CHECKS if profile == "smoke" else FULL_CHECKS
-    return [check() for check in checks]
+    results: list[CheckResult] = []
+    for check, tag in checks:
+        if tag == "BOTH":
+            applies = True
+        elif tag == "FRAMEWORK_ONLY":
+            applies = scope == "framework"
+        elif tag == "HOST_ONLY":
+            applies = scope == "host"
+        else:
+            applies = True
+        if applies:
+            result = check()
+            # Annotate scope for result schema (ADR 0026)
+            result.scope = "both" if tag == "BOTH" else tag.lower().replace("_only", "")
+            results.append(result)
+    return results
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lazy-Harness framework-owned doctor")
     parser.add_argument("--profile", choices=["smoke", "full"], default="smoke")
     parser.add_argument("--format", choices=["text", "json"], default="text")
+    parser.add_argument(
+        "--scope",
+        choices=["auto", "framework", "host"],
+        default="auto",
+        help="ADR 0026: which scope to validate. 'auto' detects via framework-own markers.",
+    )
     args = parser.parse_args()
 
-    results = run_checks(args.profile)
+    scope: Scope = detect_scope() if args.scope == "auto" else args.scope  # type: ignore[assignment]
+
+    results = run_checks(args.profile, scope)
     failed = [result for result in results if result.status == "fail"]
 
     if args.format == "json":
-        print(json.dumps({"ok": not failed, "profile": args.profile, "results": [result.__dict__ for result in results]}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {
+                    "ok": not failed,
+                    "profile": args.profile,
+                    "scope": scope,
+                    "results": [result.__dict__ for result in results],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
         for result in results:
             icon = "✓" if result.status == "ok" else "⚠" if result.status == "warn" else "✗"
@@ -327,9 +398,9 @@ def main() -> None:
             for detail in result.details:
                 print(f"  - {detail}")
         if failed:
-            print("lazy-harness doctor failed")
+            print(f"lazy-harness doctor failed (scope={scope})")
         else:
-            print(f"lazy-harness doctor ok ({args.profile})")
+            print(f"lazy-harness doctor ok ({args.profile}, scope={scope})")
 
     if failed:
         raise SystemExit(1)

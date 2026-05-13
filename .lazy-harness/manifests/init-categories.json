@@ -1,0 +1,366 @@
+{
+  "$schema": "./init-categories.schema.json",
+  "version": "1.0",
+  "description": "lazy-init 이 host 에 박을 폴더/파일 정의. Category A/B/C 분류 + glob 패턴.",
+  "createdAt": "2026-05-13T00:30:00+09:00",
+  "categories": {
+    "A": {
+      "label": "Framework 본체",
+      "intent": "framework 가 host 에서 동작하려면 반드시 박혀야 하는 코드/schema/contract. 본 worktree 의 파일을 그대로 copy.",
+      "behavior": "rsync from source",
+      "items": [
+        {
+          "path": "AGENTS.md",
+          "kind": "file",
+          "description": "Framework grammar (57 줄, ADR 0024). Layer ↔ Trigger 매핑 + 4 단계 흐름 + Silent Skip 금지."
+        },
+        {
+          "path": "JCODE-INTEGRATION.md",
+          "kind": "file",
+          "description": "Host 가 jcode wiring 시 참고할 통합 가이드."
+        },
+        {
+          "path": "README.md",
+          "kind": "file",
+          "description": "Framework 소개 + 빠른 시작."
+        },
+        {
+          "path": "framework/framework-contract.md",
+          "kind": "file",
+          "description": "Framework 본문 spec (v1.4+, 23 principle)."
+        },
+        {
+          "path": "scripts/",
+          "kind": "directory",
+          "glob": [
+            "*.ts",
+            "*.py"
+          ],
+          "exclude": [
+            "__pycache__/",
+            "__doctor_c17_negative_tmp_*.py"
+          ],
+          "description": "Framework 코드: reference-resolver, search-provider, self-test, doctor, layer-impact-gate, interview-loop, affected-test-runner, tdd-cross-verify, contract-diff, aftershock-reanalysis, host-pilot. doctor/self-test 는 ADR 0026 scope auto-detection 으로 host 에서는 BOTH check 만, framework dev 에서는 BOTH + FRAMEWORK_ONLY 둘 다 실행."
+        },
+        {
+          "path": "hooks/",
+          "kind": "directory",
+          "glob": [
+            "*.sh",
+            "lifecycle/*.sh",
+            "lifecycle/helpers/*.sh",
+            "README.md"
+          ],
+          "description": "Git hooks (post-commit, pre-push, pre-commit-*) + N2.5 lifecycle hooks (on-tool-execute-before, on-response-completed, on-client-disconnect) + helpers."
+        },
+        {
+          "path": "schemas/",
+          "kind": "directory",
+          "glob": [
+            "*.schema.json",
+            "README.md"
+          ],
+          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema."
+        },
+        {
+          "path": "triggers/",
+          "kind": "directory",
+          "glob": [
+            "*.ts",
+            "detectors/*.ts",
+            "fixtures/**/*.json",
+            "walkthrough-fixtures/*.ts"
+          ],
+          "description": "39 trigger 파일: code-change/cross-layer/structured-ask 등 trigger 정의 + detector + fixture."
+        },
+        {
+          "path": "manifests/skills.xml",
+          "kind": "file",
+          "description": "Skill manifest. lazy-init/sync/doctor/test 등 어떤 skill 이 어디 있는지 single source."
+        },
+        {
+          "path": "manifests/init-categories.json",
+          "kind": "file",
+          "description": "본 manifest 자체. host 도 갖고 있어야 lazy-sync 가 동작."
+        }
+      ]
+    },
+    "B": {
+      "label": "Host institutional memory (빈 골격)",
+      "intent": "Host 가 trigger 따라 채울 record container. mkdir + README placeholder + (필요 시 XML placeholder).",
+      "behavior": "mkdir + README only (no content sync)",
+      "items": [
+        {
+          "path": "domain/",
+          "trigger": "도메인 용어 / 비즈니스 규칙 등장",
+          "description": "DDD aggregate, ubiquitous-language, bounded-context."
+        },
+        {
+          "path": "spec/",
+          "trigger": "API / contract / component 만짐",
+          "subdirs": [
+            "frontend",
+            "backend",
+            "data",
+            "integration",
+            "infra",
+            "platform"
+          ],
+          "description": "SDD: 6 카테고리 (frontend/backend/data/integration/infra/platform)."
+        },
+        {
+          "path": "behavior/",
+          "trigger": "UI flow / 사용자 행동 변경",
+          "subdirs": ["scenarios"],
+          "description": "BDD scenario. Step ≤ 7."
+        },
+        {
+          "path": "tests/",
+          "trigger": "버그 fix / regression / 보호 케이스",
+          "description": "TDD plan 및 mapping."
+        },
+        {
+          "path": "decisions/",
+          "trigger": "설계 결정 / trade-off / '왜 이렇게'",
+          "description": "ADR. Host 가 자기 ADR 박음 (framework own ADR 0001-0025 는 host 에 박지 않음)."
+        },
+        {
+          "path": "ssot/",
+          "trigger": "config / schema / env / 단일 진실원",
+          "description": "Single Source Of Truth registry."
+        },
+        {
+          "path": "contracts/",
+          "trigger": "signature / contract 변경",
+          "description": "Contract zone index: zod, prisma, trpc, ipc, external."
+        },
+        {
+          "path": "intent/",
+          "trigger": "새 작업 시작",
+          "subdirs": [
+            "active",
+            "archive",
+            "templates"
+          ],
+          "description": "Intent Spec (feature/fix/refactor/investigation)."
+        },
+        {
+          "path": "prd/",
+          "trigger": "큰 단위 신규 화면 / flow / user group",
+          "description": "PRD (optional, large units)."
+        },
+        {
+          "path": "questions/",
+          "trigger": "ambiguity / conflict / pending decision 발생",
+          "description": "Open question registry."
+        },
+        {
+          "path": "planning/",
+          "trigger": "work scope 변경",
+          "description": "Mission, plan, backlog, change-plan."
+        },
+        {
+          "path": "traceability/",
+          "trigger": "every commit (post-commit hook)",
+          "description": "Commit ↔ spec/regression bidirectional mapping."
+        },
+        {
+          "path": "regression/",
+          "trigger": "Fix: commit OR contract diff detected",
+          "description": "Regression registry."
+        },
+        {
+          "path": "git/",
+          "trigger": "every commit (post-commit hook)",
+          "description": "Commit-log, branch-events (auto-collected)."
+        },
+        {
+          "path": "retrospective/",
+          "trigger": "weekly OR milestone completion",
+          "subdirs": [
+            "metrics",
+            "cycles",
+            "audits",
+            "e2e"
+          ],
+          "description": "Weekly auto + milestone manual."
+        },
+        {
+          "path": "visual/",
+          "trigger": "phase boundary visualization",
+          "description": "HTML visualizations from XML data."
+        },
+        {
+          "path": "generated/",
+          "trigger": "XML source updated",
+          "description": "Derived artifacts (json/md from xml). Read-only outputs."
+        },
+        {
+          "path": "logs/",
+          "trigger": "auto by hooks",
+          "description": "JSONL logs: actions, decisions, questions, validations. Append-only.",
+          "seed": [
+            "actions.jsonl",
+            "decisions.jsonl",
+            "questions.jsonl",
+            "validations.jsonl"
+          ]
+        },
+        {
+          "path": "handoff/",
+          "trigger": "session ends",
+          "description": "Session handoff. First file new sessions read."
+        },
+        {
+          "path": "plans/",
+          "trigger": "major task begins",
+          "description": "Completion plans (per task)."
+        },
+        {
+          "path": "trails/",
+          "trigger": "strategy / milestone update",
+          "description": "Long-term roadmap (1+ year)."
+        },
+        {
+          "path": "progress/",
+          "trigger": "daily",
+          "description": "Daily progress notes."
+        },
+        {
+          "path": "adapters/",
+          "trigger": "new input source",
+          "description": "Input adapters: figma, requirement, bug, external-api, log, regression."
+        },
+        {
+          "path": "state/",
+          "trigger": "framework runtime state",
+          "description": "N1 추가. Host 의 framework state (last-sync, fingerprint 등)."
+        }
+      ]
+    },
+    "C": {
+      "label": "Framework own memory (host 에 박지 않음)",
+      "intent": "Framework dev repo 만 갖는 자체 memory. host 에 박을 이유 없음.",
+      "behavior": "skip during init",
+      "items": [
+        {
+          "path": "framework/legacy-skills-2026-05-10/",
+          "description": "5월 10일 옛 framework v1.1 skill archive (lazy-init helper 패턴 참고용)."
+        },
+        {
+          "path": "retrospective/host-pilot-*.jsonl",
+          "description": "Framework dev 의 host-pilot 결과 (N2 5 회 pass)."
+        },
+        {
+          "path": "decisions/0001-*.md ~ 0025-*.md",
+          "description": "Framework own ADR. Host 는 자기 ADR 부터 0001 로 시작."
+        },
+        {
+          "path": "retrospective/cycles/pre-dogfooding-state.md",
+          "description": "Framework dev cycle 회고. Host 는 자기 cycle 박음."
+        },
+        {
+          "path": "plans/*.md",
+          "description": "Framework own plan (project-init-interview-spec, report-and-knowledge-roadmap 등)."
+        },
+        {
+          "path": "domain/*.md",
+          "description": "Framework own domain 정의 (DDD 메타-domain). Host 는 자기 domain 박음."
+        },
+        {
+          "path": "spec/**/*.md",
+          "description": "Framework own spec. Host 는 자기 spec 박음."
+        },
+        {
+          "path": "behavior/**/*.md",
+          "description": "Framework own BDD scenario. Host 는 자기 scenario 박음."
+        },
+        {
+          "path": "tests/**/*.md",
+          "description": "Framework own TDD plan. Host 는 자기 test 박음."
+        },
+        {
+          "path": "intent/**/*.md",
+          "description": "Framework own intent. Host 는 자기 intent 박음."
+        },
+        {
+          "path": "questions/*.xml",
+          "description": "Framework own open question. Host 는 자기 question 박음."
+        },
+        {
+          "path": "regression/*.{md,jsonl}",
+          "description": "Framework own regression entry. Host 는 자기 regression 박음."
+        },
+        {
+          "path": "logs/*.jsonl",
+          "description": "Framework own log. Host 는 빈 jsonl 로 시작 (Category B seed)."
+        },
+        {
+          "path": "adapters/*.md",
+          "description": "Framework own adapter. Host 는 자기 adapter 박음."
+        },
+        {
+          "path": "handoff/*.md",
+          "description": "Framework own handoff. Host 는 자기 handoff 박음."
+        },
+        {
+          "path": "progress/*.md",
+          "description": "Framework own progress. Host 는 자기 progress 박음."
+        },
+        {
+          "path": "trails/*.md",
+          "description": "Framework own trail (long-term). Host 는 자기 trail 박음."
+        },
+        {
+          "path": "ssot/*.{md,xml}",
+          "description": "Framework own SSOT. Host 는 자기 SSOT 박음."
+        },
+        {
+          "path": "traceability/*.md",
+          "description": "Framework own traceability. Host 는 hook 자동 수집."
+        },
+        {
+          "path": "prd/*.md",
+          "description": "Framework own PRD. Host 는 자기 PRD 박음."
+        },
+        {
+          "path": "planning/*.md",
+          "description": "Framework own planning. Host 는 자기 planning 박음."
+        }
+      ]
+    }
+  },
+  "postInit": {
+    "description": "lazy-init 종료 시 처리할 부수 효과.",
+    "actions": [
+      {
+        "kind": "git-info-exclude",
+        "description": ".git/info/exclude 에 /.jcode/, /.lazy-harness/, /.lazy-harness-backup/ 추가 (host 의 git 이 ignore 하도록).",
+        "lines": [
+          "/.jcode/",
+          "/.lazy-harness/",
+          "/.lazy-harness-backup/"
+        ]
+      },
+      {
+        "kind": "pre-commit-hook",
+        "description": "Host 의 .git/hooks/pre-commit 에 .lazy-harness/hooks/pre-commit-guard.sh delegate. 기존 hook 이 있으면 .bak 백업 후 chain."
+      },
+      {
+        "kind": "version-marker",
+        "description": ".lazy-harness/state/synced-from-commit 파일에 sync source commit sha 박음. 다음 lazy-sync 가 drift 검출 가능.",
+        "path": "state/synced-from-commit"
+      },
+      {
+        "kind": "jcode-skill-install",
+        "description": ".jcode/skills/lazy-{init,doctor,sync,test}/ 박음. wrapper SKILL.md + scripts/ delegation.",
+        "skills": [
+          "lazy-init",
+          "lazy-doctor",
+          "lazy-sync",
+          "lazy-test"
+        ]
+      }
+    ]
+  }
+}

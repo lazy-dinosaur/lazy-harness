@@ -8,6 +8,7 @@ Checks the framework-owned operational invariants defined by ADR 0022:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import pathlib
@@ -27,7 +28,8 @@ def fail(message: str) -> None:
 def check_doctor_smoke() -> None:
     command = ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "smoke"]
     completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
-    if "lazy-harness doctor ok (smoke)" not in completed.stdout:
+    # ADR 0026: doctor now prints "lazy-harness doctor ok (smoke, scope=<scope>)".
+    if "lazy-harness doctor ok (smoke" not in completed.stdout:
         fail("doctor smoke did not report ok:\n" + completed.stdout)
     print("✓ doctor smoke ok")
 
@@ -975,27 +977,78 @@ def check_agents_md_invariants() -> None:
 
 
 def main() -> None:
-    check_doctor_smoke()
-    check_doctor_c17_negative()
-    check_doctor_package_health()
-    check_xml()
-    check_jsonl()
-    check_schemas()
-    check_lint_output()
-    check_interview_loop_collect()
-    check_interview_loop_answer()
-    check_tdd_cross_verify()
-    check_affected_test_runner()
-    check_aftershock_reanalysis()
-    check_lifecycle_hook_integration()
-    check_real_feature_walkthrough()
-    check_e2e_demo()
-    check_triggers()
-    check_layer_impact_gate()
-    check_reference_resolver()
-    check_tool_execute_before_hook()
-    check_agents_md_invariants()
-    print("lazy-harness self-test ok")
+    """ADR 0026 scope separation:
+    - BOTH checks run in both framework dev repo and on hosts.
+    - FRAMEWORK_ONLY checks are skipped on hosts (their fixtures are not copied by lazy-init).
+    - --scope CLI flag (auto|framework|host) lets caller force a scope; default auto.
+    """
+    parser = argparse.ArgumentParser(description="Lazy-Harness self-test (ADR 0026 scope-aware)")
+    parser.add_argument(
+        "--scope",
+        choices=["auto", "framework", "host"],
+        default="auto",
+        help="Validation scope. 'auto' detects via framework-own markers (planning/phase-5-plan.xml + framework/framework-contract.md).",
+    )
+    args = parser.parse_args()
+
+    scope = _detect_scope() if args.scope == "auto" else args.scope
+
+    # ADR 0026: (check_callable, tag) tuples. BOTH = runs everywhere. FRAMEWORK_ONLY
+    # = skipped on hosts because its fixtures are framework-own and not copied by lazy-init.
+    checks: list[tuple[callable, str]] = [
+        (check_doctor_smoke, "BOTH"),
+        (check_doctor_c17_negative, "BOTH"),
+        (check_doctor_package_health, "BOTH"),
+        (check_xml, "BOTH"),
+        (check_jsonl, "BOTH"),
+        (check_schemas, "BOTH"),
+        (check_lint_output, "FRAMEWORK_ONLY"),
+        (check_interview_loop_collect, "BOTH"),
+        (check_interview_loop_answer, "BOTH"),
+        (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
+        (check_affected_test_runner, "FRAMEWORK_ONLY"),
+        (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
+        (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
+        (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
+        (check_e2e_demo, "FRAMEWORK_ONLY"),
+        (check_triggers, "FRAMEWORK_ONLY"),
+        (check_layer_impact_gate, "FRAMEWORK_ONLY"),
+        (check_reference_resolver, "FRAMEWORK_ONLY"),
+        (check_tool_execute_before_hook, "BOTH"),
+        (check_agents_md_invariants, "BOTH"),
+    ]
+
+    ran = 0
+    skipped = 0
+    for check, tag in checks:
+        if tag == "BOTH":
+            applies = True
+        elif tag == "FRAMEWORK_ONLY":
+            applies = scope == "framework"
+        elif tag == "HOST_ONLY":
+            applies = scope == "host"
+        else:
+            applies = True
+
+        if not applies:
+            print(f"[skipped] {check.__name__} (scope={scope}, tag={tag})")
+            skipped += 1
+            continue
+        check()
+        ran += 1
+
+    print(f"lazy-harness self-test ok (scope={scope}, ran={ran}, skipped={skipped})")
+
+
+def _detect_scope() -> str:
+    """ADR 0026: framework dev repo has both markers; hosts have neither."""
+    lazy = ROOT / ".lazy-harness"
+    return (
+        "framework"
+        if (lazy / "framework" / "framework-contract.md").exists()
+        and (lazy / "planning" / "phase-5-plan.xml").exists()
+        else "host"
+    )
 
 
 if __name__ == "__main__":

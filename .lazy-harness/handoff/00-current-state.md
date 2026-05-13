@@ -34,8 +34,8 @@
 |---|---|
 | **활성 branch** | `experimental/lazy-harness` |
 | **Origin push** | ✅ pushed (`experimental/lazy-harness` clean/synced at `ebee2671`; current edits pending validation) |
-| **ADRs** | **25** (0001~0025; 0024 AI-first redesign, 0025 portability single entry point) |
-| **Decisions logged** | 25+ entries |
+| **ADRs** | **26** (0001~0026; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation) |
+| **Decisions logged** | 26+ entries |
 | **5c-1 DDD** | ✅ done (137 candidates, 8/8 pass) |
 | **5c-2 SDD + acronym** | ✅ done (724 candidates, 8/8 pass) |
 | **5c-3 BDD** | ✅ done (NL + UI heuristic, 8/8 pass) |
