@@ -55,6 +55,35 @@ Framework development happens in this repository:
 Dogfooding hosts, for example `/home/lazydino/dev/medivance/.lazy-harness`, are installed copies.
 Do not treat host copies as source. Update them via `lazy-sync` from this repo.
 
+## Install into a host project
+
+This repository is public and the installer is intentionally generic and secret-free.
+
+From the target project's git root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/install.sh | bash
+```
+
+Or from a local checkout:
+
+```bash
+./install.sh --target /path/to/host
+```
+
+Useful options:
+
+```bash
+./install.sh --target /path/to/host --dry-run
+./install.sh --target /path/to/host --force
+./install.sh --target /path/to/host --skip-hooks
+./install.sh --target /path/to/host --source /home/lazydino/dev/lazy-harness --force
+```
+
+The installer keeps a persistent framework source clone at `~/.cache/lazy-harness/source` by default. That lets future `lazy-sync` operations know which source checkout the host was installed from.
+
+Jcode private instructions are not installed by default from the public repo. Use `.lazy-harness/JCODE-INTEGRATION.md` or pass `--jcode` only when the source checkout intentionally contains tracked public `.jcode/skills`.
+
 ## Quick validation
 
 Run the primary framework gates from the repo root:

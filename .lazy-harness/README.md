@@ -35,6 +35,18 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 사용자 catch cascade 를 framework 의 self-correcting 안으로 흡수.
 ```
 
+## Public install entrypoint
+
+이 repo 가 public 으로 운영될 때 host 설치는 root `install.sh` 를 사용한다. 설치 스크립트는 generic/secret-free 이어야 하며 private `.jcode/` 내용은 기본 설치하지 않는다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/install.sh | bash
+```
+
+- 기본 source clone: `~/.cache/lazy-harness/source`
+- 실제 layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
+- host-local/private Jcode wiring 은 `JCODE-INTEGRATION.md` 기준으로 별도 적용
+
 ## 빠른 진입점
 
 | 첫 발은 여기서 | 내용 |
