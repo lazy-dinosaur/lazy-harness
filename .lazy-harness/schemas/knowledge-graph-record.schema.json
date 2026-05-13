@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/knowledge-graph-record.schema.json",
+  "title": "KnowledgeGraphRecord",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "createdAt", "updatedAt", "layer", "kind", "subject", "predicate", "object", "status", "confidence", "evidence", "links", "provenance"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": "string", "minLength": 1 },
+    "layer": { "type": "string", "enum": ["ddd", "sdd", "bdd", "tdd", "adr", "ssot"] },
+    "kind": {
+      "type": "string",
+      "enum": ["claim", "term", "invariant", "contract", "scenario", "test", "decision", "source-of-truth"]
+    },
+    "subject": { "type": "string", "minLength": 1 },
+    "predicate": { "type": "string", "minLength": 1 },
+    "object": {},
+    "status": {
+      "type": "string",
+      "enum": ["needs-confirmation", "confirmed", "superseded", "rejected", "stale", "needs-review"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["candidate", "confirmed", "code-evidence", "user-confirmed"]
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/evidence" }
+    },
+    "links": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/link" }
+    },
+    "provenance": { "$ref": "#/definitions/provenance" },
+    "supersedes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "definitions": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["conversation", "code", "test", "doc", "user-confirmation", "validation"] },
+        "path": { "type": "string" },
+        "lines": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "quote": { "type": "string" },
+        "messageId": { "type": "string" },
+        "commit": { "type": "string" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rel", "target"],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "enum": ["specified_by", "validated_by", "implements", "depends_on", "protected_by", "decided_by", "supersedes", "conflicts_with", "source_of_truth_for"]
+        },
+        "target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "candidateId": { "type": "string" },
+        "source": { "type": "string" },
+        "confirmedBy": { "type": "string" },
+        "confirmedAt": { "type": "string" }
+      }
+    }
+  }
+}

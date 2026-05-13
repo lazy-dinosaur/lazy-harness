@@ -34,8 +34,8 @@
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
 | **Origin push** | ❌ local only. DO NOT PUSH 기본 원칙 유지 |
-| **ADRs** | **27** (0001~0027; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo) |
-| **Decisions logged** | 27+ entries |
+| **ADRs** | **28** (0001~0028; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone) |
+| **Decisions logged** | 28+ entries |
 | **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=20, skipped=0)` |
 | **Medivance sync validation** | ✅ `~/dev/medivance`: `lazy-harness self-test ok (scope=host, ran=10, skipped=10)` |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/knowledge-candidate.schema.json",
+  "title": "KnowledgeCandidate",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "createdAt", "source", "utterance", "detectedLayers", "candidateType", "status", "confidence"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "string",
+      "enum": ["conversation", "code", "test", "user-correction", "hook", "manual"]
+    },
+    "utterance": { "type": "string" },
+    "detectedLayers": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["ddd", "sdd", "bdd", "tdd", "adr", "ssot"] },
+      "uniqueItems": true
+    },
+    "candidateType": {
+      "type": "string",
+      "enum": [
+        "domain-term",
+        "business-invariant",
+        "contract-source",
+        "user-behavior",
+        "regression-fact",
+        "decision-tradeoff",
+        "source-of-truth",
+        "ambiguous-knowledge"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["needs-confirmation", "confirmed", "rejected", "superseded"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "ambiguous"]
+    },
+    "graphDraftIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "knowledge-graph-record.schema.json#/definitions/evidence" }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  }
+}
