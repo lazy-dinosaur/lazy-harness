@@ -5,7 +5,7 @@
 # (grep/reference-resolver/Bash) 이 한 번이라도 있었는지 확인.
 #
 # 검색 감지 정책 (보수적: false-deny 보다 false-allow 우선):
-#   - tool_calls 에 Grep / Bash:grep / Bash:rg / Bash:reference-resolver
+#   - tool_calls 에 Grep / AgentGrep / Bash:grep / Bash:rg / Bash:reference-resolver
 #     중 .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/ 를
 #     query 한 흔적 → SEARCH_OK
 #   - tool_calls 에 Read 가 .lazy-harness/ 하위 record 를 읽었으면 → SEARCH_OK
@@ -95,6 +95,9 @@ search_seen = False
 for call in recent:
     name = str(call.get("name", "")).lower()
     blob = args_blob(call)
+    if name in ("grep", "agentgrep") or name.endswith(".agentgrep"):
+        if hit_record_dir(blob):
+            search_seen = True; break
     if name in ("grep",) and hit_record_dir(blob):
         search_seen = True; break
     if name in ("bash",) and (("grep" in blob or "rg " in blob or "reference-resolver" in blob) and hit_record_dir(blob)):
