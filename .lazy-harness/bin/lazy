@@ -40,6 +40,8 @@ Commands:
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   affected [--files F1,F2,...]  Run affected tests for given files
+  impl-map [--format=markdown|json|jcode-prompt]
+                                Audit records for ADR 0030 Implementation map migration
   version                       Print framework version + host path
   help                          Show this help
 
@@ -94,6 +96,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/affected-test-runner.ts" "$@"
+    ;;
+  impl-map)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy impl-map: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/implementation-map-audit.ts" "$@"
     ;;
   version)
     echo "lazy-harness CLI"

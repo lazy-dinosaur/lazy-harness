@@ -102,9 +102,24 @@
           "description": "SDD contract for knowledge graph candidates, drafts, canonical records, query, confirm/reject, and promotion."
         },
         {
+          "path": "spec/platform/implementation-map-standard.md",
+          "kind": "file",
+          "description": "ADR 0030 SDD standard for Markdown Implementation map sections, JSONL implementation graph facts, and generated implementation-index cache."
+        },
+        {
+          "path": "spec/platform/implementation-map-migration.md",
+          "kind": "file",
+          "description": "Non-destructive migration guide and automation levels for upgrading host records to ADR 0030 implementation maps."
+        },
+        {
           "path": "ssot/knowledge-graph-storage.md",
           "kind": "file",
           "description": "SSOT for knowledge graph storage paths and mutability rules."
+        },
+        {
+          "path": "ssot/implementation-map-storage.md",
+          "kind": "file",
+          "description": "SSOT for implementation map storage paths: layer Markdown, knowledge graph JSONL, generated implementation index."
         },
         {
           "path": "knowledge/",
@@ -114,6 +129,11 @@
             "*.jsonl"
           ],
           "description": "Progressive knowledge graph stores: candidates, graph drafts, canonical graph. Empty JSONL containers are valid."
+        },
+        {
+          "path": "generated/README.md",
+          "kind": "file",
+          "description": "Policy for generated artifacts, including non-canonical implementation-index.json cache. Does not sync host generated cache contents."
         }
       ]
     },

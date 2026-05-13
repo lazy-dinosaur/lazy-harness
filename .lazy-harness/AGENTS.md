@@ -87,6 +87,20 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 | 설계 결정 (왜 X 가 아닌 Y), trade-off | ADR | `.lazy-harness/decisions/NNNN-<slug>.md` |
 | config, env, schema 의 단일 진실원 | SSOT | `.lazy-harness/ssot/<key>.md` |
 
+**Implementation map 의무 (ADR 0030)**:
+
+구현이 있거나 구현을 바꾸는 record 는 설명만 저장하지 말고 3층으로 매핑한다.
+
+1. **MD 보고서**: DDD/SDD/BDD/TDD/ADR/SSOT 문서에 `Implementation map` 섹션 추가
+   - 관련 파일, 파일 역할, 핵심 함수/클래스/컴포넌트, 흐름, 보호 테스트, cross-layer 링크
+2. **JSONL graph**: 확인된 파일/심볼/edge 는 `.lazy-harness/knowledge/graph.jsonl` 에 저장
+   - 예: `implemented_by`, `defines_symbol`, `calls`, `protected_by`, `configured_by`, `indexed_by`
+3. **Generated index**: AI/LSP 검색용 cache 는 `.lazy-harness/generated/implementation-index.json`
+   - LSP/AST/outline/source read 로 재생성 가능한 파생물. canonical truth 아님.
+
+함수/클래스 목록은 추정으로 쓰지 말고 LSP/outline/AST/source read 등 확인 가능한 근거로만 쓴다.
+세부 contract 는 `.lazy-harness/spec/platform/implementation-map-standard.md` 와 `.lazy-harness/ssot/implementation-map-storage.md` 를 따른다.
+
 **Layer 가 애매하면 §2.3 옵션 게이트 발동**. AI 가 혼자 결정 금지.
 
 예: 사용자가 "ChatMessage 는 chat 도메인의 entity 야" 확인

@@ -14,8 +14,10 @@ These paths are the single source of truth for progressive knowledge graph stora
 | Raw candidates | `.lazy-harness/knowledge/candidates.jsonl` | `knowledge-intake.ts` | append-only |
 | Graph drafts | `.lazy-harness/knowledge/graph-drafts.jsonl` | `knowledge-intake.ts` / `knowledge-graph.ts` | append-only/dedupe |
 | Canonical graph | `.lazy-harness/knowledge/graph.jsonl` | `knowledge-graph.ts` | append-only events, supersession over overwrite |
+| Generated implementation index | `.lazy-harness/generated/implementation-index.json` | future LSP/AST/outline indexer | derived, overwrite-on-regenerate |
 | Candidate schema | `.lazy-harness/schemas/knowledge-candidate.schema.json` | framework | versioned |
 | Graph record schema | `.lazy-harness/schemas/knowledge-graph-record.schema.json` | framework | versioned |
+| Implementation index schema | `.lazy-harness/schemas/implementation-index.schema.json` | framework | versioned |
 
 ## Invariants
 
@@ -26,6 +28,8 @@ These paths are the single source of truth for progressive knowledge graph stora
 5. Conflicts are represented as graph state, not silent overwrites.
 6. Supersession preserves old records with `status=superseded` and a `supersedes` link.
 7. Blocking source-search hooks are not the primary mechanism; M45 private instructions and graph query are the normal path.
+8. Implementation maps use the ADR 0030 three-layer model: Markdown summary, JSONL graph facts, generated implementation index cache.
+9. `generated/implementation-index.json` is derived and non-canonical; absence is valid until generated.
 
 ## Empty-container tolerance
 

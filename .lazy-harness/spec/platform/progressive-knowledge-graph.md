@@ -25,6 +25,7 @@ It stores reusable facts from conversation, implementation, tests, user correcti
 | Candidate queue | `.lazy-harness/knowledge/candidates.jsonl` | Raw reusable knowledge candidates | append-only |
 | Graph drafts | `.lazy-harness/knowledge/graph-drafts.jsonl` | Machine-readable draft graph records | append-only / dedupe by id |
 | Canonical graph | `.lazy-harness/knowledge/graph.jsonl` | Confirmed graph records | append-only events, supersede not overwrite |
+| Generated implementation index | `.lazy-harness/generated/implementation-index.json` | Rebuildable AI/LSP/AST/outline retrieval cache for file/symbol maps | derived / overwrite-on-regenerate |
 | Layer docs | `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/**` | Human-readable projections | narrow append/update after confirmation |
 
 ## 4. Candidate record contract
@@ -61,7 +62,19 @@ type KnowledgeGraphRecord = {
   createdAt: string;
   updatedAt: string;
   layer: 'ddd' | 'sdd' | 'bdd' | 'tdd' | 'adr' | 'ssot';
-  kind: 'claim' | 'term' | 'invariant' | 'contract' | 'scenario' | 'test' | 'decision' | 'source-of-truth';
+  kind:
+    | 'claim'
+    | 'term'
+    | 'invariant'
+    | 'contract'
+    | 'scenario'
+    | 'test'
+    | 'decision'
+    | 'source-of-truth'
+    | 'implementation'
+    | 'file'
+    | 'symbol'
+    | 'generated-index';
   subject: string;
   predicate: string;
   object: unknown;
@@ -101,10 +114,27 @@ type KnowledgeLink = {
     | 'decided_by'
     | 'supersedes'
     | 'conflicts_with'
-    | 'source_of_truth_for';
+    | 'source_of_truth_for'
+    | 'implemented_by'
+    | 'defines_symbol'
+    | 'calls'
+    | 'configured_by'
+    | 'generates'
+    | 'indexed_by';
   target: string;
 };
 ```
+
+## 7.1 Implementation map contract
+
+Implementation mapping follows `.lazy-harness/spec/platform/implementation-map-standard.md`.
+
+Rules:
+
+- Human-facing layer records include a concise `Implementation map` section when implementation exists or is planned.
+- Confirmed file/symbol/edge facts are represented in `knowledge/graph.jsonl` using implementation predicates such as `implemented_by`, `defines_symbol`, `calls`, `protected_by`, `configured_by`, and `indexed_by`.
+- `generated/implementation-index.json` is a derived cache for AI/LSP retrieval and is not canonical truth.
+- Function/class/component names must be verified through LSP/AST/outline/source read or equivalent evidence, not guessed.
 
 ## 8. Required CLI behavior
 

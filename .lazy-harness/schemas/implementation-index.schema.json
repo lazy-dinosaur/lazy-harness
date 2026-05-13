@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/implementation-index.schema.json",
+  "title": "ImplementationIndex",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "source", "records"],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["1.0"] },
+    "generatedAt": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["root", "method"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string" },
+        "method": { "type": "string", "enum": ["lsp", "ast", "outline", "manual", "mixed"] },
+        "tool": { "type": "string" }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/recordEntry" }
+    }
+  },
+  "definitions": {
+    "recordEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["recordPath", "layer", "files"],
+      "properties": {
+        "recordPath": { "type": "string", "minLength": 1 },
+        "layer": { "type": "string", "enum": ["ddd", "sdd", "bdd", "tdd", "adr", "ssot"] },
+        "status": { "type": "string", "enum": ["fresh", "stale", "needs-review", "partial"] },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/fileEntry" }
+        },
+        "tests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "graphIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "fileEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "role": { "type": "string" },
+        "symbols": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/symbolEntry" }
+        }
+      }
+    },
+    "symbolEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "kind"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "signature": { "type": "string" },
+        "exported": { "type": "boolean" }
+      }
+    }
+  }
+}

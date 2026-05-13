@@ -28,6 +28,8 @@
         "regression-fact",
         "decision-tradeoff",
         "source-of-truth",
+        "implementation-map",
+        "file-symbol-map",
         "ambiguous-knowledge"
       ]
     },
