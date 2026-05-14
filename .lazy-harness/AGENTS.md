@@ -144,6 +144,11 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 `package.json`, `vitest.config.*`, `playwright.config.*`, `tests/**`, 기존 docs 를 읽고
 그 XML 로 수렴시킨다. 일반 `docs/` 문서는 보조 보고서일 뿐 canonical 이 아니다.
 
+**사용자 정정 수렴 규칙 (ADR 0032)**: 사용자가 "아니", "여기가 아니라", "X 는 Y 가 source-of-truth"처럼
+host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝트 역할 / upstream-downstream / DB·API·schema·env
+소유권 / 수정 금지 영역은 기본 SSOT 로 보고 같은 turn 안에서 `.lazy-harness/ssot/project-identity.md`,
+`.lazy-harness/ssot/*ownership*.md`, 또는 더 적합한 primary record 에 누적한다. Implementation map 에 관련 파일, 허용/금지 경계, upstream host/service, 예외 시 확인 절차를 포함한다. 애매하면 §2.3 옵션 게이트.
+
 **Forbidden 변형**:
 - 조사 skip → 옵션 질문 (사용자에 책임 떠넘김)
 - 조사 → 추정 → 자단언 (옆 세션 실패 모드)

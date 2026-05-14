@@ -17,6 +17,7 @@ A record is not complete if it only explains intent. When implementation exists 
 - tests or fixtures that protect it
 - cross-layer records that explain, specify, validate, or decide it
 - generated search/index artifacts that can be rebuilt by tooling
+- ownership boundaries that say which host/service/file owns a behavior and what must not be changed here
 
 ## 2. Three-layer storage model
 
@@ -44,6 +45,10 @@ When a DDD/SDD/BDD/TDD/ADR/SSOT record refers to implemented behavior, add this 
   3. Output, side effect, or persisted state
 - Tests / protection:
   - `path/to/test.ts` — what it guards
+- Ownership boundaries:
+  - Owner/upstream: `host/service/path`
+  - This host may change: `compatibility/API/query/UI glue`
+  - This host must not change without explicit confirmation: `shared DB schema/data migrations/upstream contracts`
 - Cross-layer links:
   - DDD: `...`
   - SDD: `...`
@@ -62,6 +67,7 @@ Rules:
 2. Put detailed node/edge facts in `knowledge/graph.jsonl`, not duplicated prose.
 3. Treat generated index data as a cache. If Markdown/graph and generated index disagree, inspect source and update the graph or mark the index stale.
 4. Do not invent symbols. Use file reads, LSP/outline, TypeScript AST, or equivalent verified source inspection.
+5. For user-confirmed project role or ownership facts, map the boundary explicitly even when there is no single implementing function.
 
 ## 4. Graph predicates and links
 
