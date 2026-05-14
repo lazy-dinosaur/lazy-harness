@@ -139,9 +139,10 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 5. **누적**: §2.4 발동, 적절한 layer 에 record — 다음 세션이 안 헤매도록
 
 **Missing record 수렴 규칙**: `.lazy-harness` 에 필요한 record 가 없으면,
-현재 host 내부 근거에서 내용을 가져와 새 record 를 만든다. 예: 테스트 전략은
+현재 host 내부 근거에서 내용을 가져와 새 record 를 만든다. 테스트 전략 질문 / 검증 기준 / "Vitest 강제?" 류는
+예외 없이 **먼저** `.lazy-harness/tests/test-strategy.xml` 을 read 한다. 없거나 비어 있으면
 `package.json`, `vitest.config.*`, `playwright.config.*`, `tests/**`, 기존 docs 를 읽고
-`.lazy-harness/tests/test-strategy.xml` 로 수렴시킨다. 일반 `docs/` 문서는 보조 보고서일 뿐 canonical 이 아니다.
+그 XML 로 수렴시킨다. 일반 `docs/` 문서는 보조 보고서일 뿐 canonical 이 아니다.
 
 **Forbidden 변형**:
 - 조사 skip → 옵션 질문 (사용자에 책임 떠넘김)

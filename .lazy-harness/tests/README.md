@@ -4,6 +4,7 @@ TDD plan and mapping. Auto-generated tests start as expected-fail or .skip until
 
 ## Canonical test strategy
 
+- For any test strategy / validation gate / "is Vitest required?" question, read `.lazy-harness/tests/test-strategy.xml` first before docs or package scripts.
 - Store host test strategy in `.lazy-harness/tests/test-strategy.xml`.
 - If missing or stale, discover from the current host root only: `package.json`, test configs, `tests/**`, source-local `__tests__`, and project docs.
 - Do not use `find ..`, `grep ../`, or sibling repositories to infer host strategy.

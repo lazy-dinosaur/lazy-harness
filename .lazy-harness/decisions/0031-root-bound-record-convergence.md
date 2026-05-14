@@ -38,6 +38,8 @@ Test strategy is canonical at:
 
 If it is missing or stale, agents must derive it from current host evidence such as package scripts, test configs, and existing tests. Human-facing `docs/test-strategy.md` is optional and secondary.
 
+For any test strategy / validation gate / "Vitest required?" question, agents must read `.lazy-harness/tests/test-strategy.xml` first. Reading `docs/test-strategy.md` or package scripts first is the wrong order unless the XML is missing or empty.
+
 ## Implementation map
 
 - Status: `verified`
