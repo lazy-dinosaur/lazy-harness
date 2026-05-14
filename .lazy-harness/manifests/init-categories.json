@@ -130,6 +130,11 @@
           "description": "Non-destructive migration guide and automation levels for upgrading host records to ADR 0030 implementation maps."
         },
         {
+          "path": "spec/platform/sdd-component-contract-trigger.md",
+          "kind": "file",
+          "description": "SDD detector standard for exported UI component props/window-control contracts such as ChatWindow and WindowControls."
+        },
+        {
           "path": "ssot/knowledge-graph-storage.md",
           "kind": "file",
           "description": "SSOT for knowledge graph storage paths and mutability rules."
