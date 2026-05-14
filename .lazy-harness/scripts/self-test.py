@@ -310,6 +310,21 @@ def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: p
     return completed.stdout
 
 
+def run_layer_completeness_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"layer completeness helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -388,6 +403,40 @@ def check_tdd_cross_verify() -> None:
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 TDD cross-verify ok")
+
+
+def check_layer_completeness_helper() -> None:
+    """AGENTS §2.4 — TDD/regression records must not complete without layer judgement."""
+    tdd = LAZY / "tests" / f"__tmp_layer_completeness_{os.getpid()}.md"
+    try:
+        tdd.write_text("# Regression only\n\nNo cross-layer judgement yet.\n", encoding="utf-8")
+        payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": str(tdd.relative_to(ROOT))}]}
+        blocked = run_layer_completeness_helper(payload)
+        if "Layer completeness gate" not in blocked or "SDD/BDD/SSOT/DDD" not in blocked:
+            fail("layer completeness helper did not block TDD-only record:\n" + blocked)
+
+        tdd.write_text(
+            "# Regression with judgement\n\n"
+            "## Layer completeness\n\n"
+            "- SDD: 영향 없음\n- BDD: 영향 없음\n- SSOT: 영향 없음\n- DDD: 영향 없음\n",
+            encoding="utf-8",
+        )
+        passed = run_layer_completeness_helper(payload)
+        if passed.strip():
+            fail("layer completeness helper should pass with explicit judgement:\n" + passed)
+
+        paired = {
+            "recent_tool_calls": [{
+                "name": "Edit",
+                "args_preview": f"{tdd.relative_to(ROOT)} .lazy-harness/spec/example.md",
+            }]
+        }
+        paired_out = run_layer_completeness_helper(paired)
+        if paired_out.strip():
+            fail("layer completeness helper should pass when SDD is updated in same turn:\n" + paired_out)
+    finally:
+        tdd.unlink(missing_ok=True)
+    print("✓ layer completeness helper ok")
 
 
 
@@ -1038,6 +1087,11 @@ def check_agents_md_invariants() -> None:
     if missing:
         fail(f"N2.5 AGENTS.md missing layer references: {missing}")
 
+    required_phrases = ["Layer completeness gate", "TDD/regression/bug", "SDD/BDD/SSOT/DDD"]
+    missing_phrases = [phrase for phrase in required_phrases if phrase not in text]
+    if missing_phrases:
+        fail(f"N2.5 AGENTS.md missing layer-completeness guard phrases: {missing_phrases}")
+
     forbidden_host_tokens = [
         "tRPC", "Prisma", "hospitalId", "multi-tenant", "multi-tenancy",
         # Split SaaS-like names so the C17 doctor does not flag its own forbidden-term list.
@@ -1082,6 +1136,7 @@ def main() -> None:
         (check_lint_output, "FRAMEWORK_ONLY"),
         (check_interview_loop_collect, "BOTH"),
         (check_interview_loop_answer, "BOTH"),
+        (check_layer_completeness_helper, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),

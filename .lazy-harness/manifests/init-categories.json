@@ -110,6 +110,12 @@
           "targetPath": "framework/operational-adrs/0032-user-correction-ownership-ssot-convergence.md"
         },
         {
+          "path": "decisions/0033-layer-completeness-gate.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS: TDD/regression records must include SDD/BDD/SSOT/DDD impact judgement or cross-layer record updates. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0033-layer-completeness-gate.md"
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -133,6 +139,11 @@
           "path": "spec/platform/sdd-component-contract-trigger.md",
           "kind": "file",
           "description": "SDD detector standard for exported UI component props/window-control contracts such as ChatWindow and WindowControls."
+        },
+        {
+          "path": "spec/platform/layer-completeness-gate.md",
+          "kind": "file",
+          "description": "SDD standard for TDD/regression layer completeness: require SDD/BDD/SSOT/DDD judgement or cross-layer updates."
         },
         {
           "path": "ssot/knowledge-graph-storage.md",

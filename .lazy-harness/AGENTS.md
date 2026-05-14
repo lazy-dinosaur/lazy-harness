@@ -109,16 +109,16 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 
 **Layer 가 애매하면 §2.3 옵션 게이트 발동**. AI 가 혼자 결정 금지.
 
-예: 사용자가 "ChatMessage 는 chat 도메인의 entity 야" 확인
-→ DDD (`.lazy-harness/domain/messaging.md`) — 명확.
-
-예: 사용자가 "Twilio webhook 은 retry 가능해야 해" 확인
-→ BDD (시나리오)? SDD (API contract)? ADR (결정)? — **애매 → 옵션 질문**.
+**Layer completeness gate**: TDD/regression/bug record 를 쓸 때는 같은 turn 에 SDD/BDD/SSOT/DDD 영향도 검색·판단한다.
+- API/컴포넌트/IPC/scroll/focus 계약 변화 → SDD 추가/갱신
+- 사용자 visible flow/시나리오 변화 → BDD 추가/갱신
+- 라우팅/ownership/config/schema/source-of-truth invariant → SSOT 추가/갱신; 새 도메인 용어/비즈니스 규칙 → DDD, 없으면 "DDD 영향 없음" 을 관련 record 에 적는다.
 
 **Forbidden**:
 - 사용자 확인 없이 record 박기 (§2.5 위반)
 - Layer 결정도 추정으로 박기 (§2.3 위반)
 - 같은 사실을 여러 layer 에 중복 (cross-reference 만, primary 는 1 곳)
+- TDD 만 추가하고 SDD/BDD/SSOT/DDD 판단을 생략
 
 ### 2.5 모름이 디폴트 (epistemic baseline)
 

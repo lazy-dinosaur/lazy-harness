@@ -145,3 +145,13 @@ When implementation changes:
 3. Append or supersede graph records in `knowledge/graph.jsonl` after confirmation or validated safe rule.
 4. Regenerate `generated/implementation-index.json` when tooling exists. Until then, mark generated index as missing/stale instead of inventing data.
 5. If the layer for a fact is ambiguous, ask the user using the standard option gate before writing canonical records.
+
+## 7. TDD / regression layer completeness
+
+When adding or updating TDD/regression records, do not stop at the protection case. Apply `.lazy-harness/spec/platform/layer-completeness-gate.md`:
+
+1. check whether SDD, BDD, SSOT, or DDD records are impacted,
+2. update impacted primary records and cross-link them,
+3. or add a local `Layer completeness` judgement that explicitly mentions SDD, BDD, SSOT, and DDD.
+
+The `Implementation map` should then link to the affected cross-layer records and protection tests.
