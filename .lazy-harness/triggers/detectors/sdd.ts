@@ -24,7 +24,7 @@ import {
 import type { StructuredAsk, TriggerCandidate, TriggerConfidence } from '../types';
 
 export interface ContractCandidate {
-  kind: 'zod-schema' | 'trpc-procedure';
+  kind: 'zod-schema' | 'trpc-procedure' | 'component-contract';
   name: string;
   filePath: string;
   line: number;
@@ -33,13 +33,18 @@ export interface ContractCandidate {
   operation?: 'query' | 'mutation' | 'subscription';
   inputSchema?: string;
   zodCall?: string;
+  props?: string[];
   inferredDddTerms: string[];
   ambiguousAcronyms: string[];
 }
 
 export function extractContracts(sourceFile: SourceFile): ContractCandidate[] {
   const filePath = normalizePath(sourceFile.getFilePath());
-  return [...extractZodSchemas(sourceFile, filePath), ...extractTrpcProcedures(sourceFile, filePath)];
+  return [
+    ...extractZodSchemas(sourceFile, filePath),
+    ...extractTrpcProcedures(sourceFile, filePath),
+    ...extractComponentContracts(sourceFile, filePath),
+  ];
 }
 
 function extractZodSchemas(sourceFile: SourceFile, filePath: string): ContractCandidate[] {
@@ -113,6 +118,105 @@ function extractTrpcProcedures(sourceFile: SourceFile, filePath: string): Contra
   return procedures;
 }
 
+function extractComponentContracts(sourceFile: SourceFile, filePath: string): ContractCandidate[] {
+  if (!/\.(tsx|jsx)$/.test(filePath) && !/(component|components|renderer|ui|window|chat)/i.test(filePath)) return [];
+  const components: ContractCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const declaration of sourceFile.getDescendantsOfKind(SyntaxKind.FunctionDeclaration)) {
+    const name = declaration.getName();
+    if (!name || !isComponentName(name)) continue;
+    if (!isExportedFunctionDeclaration(declaration)) continue;
+    if (!hasComponentSurface(declaration)) continue;
+    const props = extractPropsFromParameters(declaration.getParameters().map((param) => param.getText()));
+    if (props.length === 0 && declaration.getParameters().length === 0) continue;
+    const candidate = componentCandidate(name, filePath, declaration.getStartLineNumber(), declaration.getText(), props, true);
+    if (!seen.has(contractKey(candidate))) {
+      seen.add(contractKey(candidate));
+      components.push(candidate);
+    }
+  }
+
+  for (const declaration of sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+    const name = declaration.getName();
+    if (!isComponentName(name)) continue;
+    const initializer = declaration.getInitializer();
+    if (!initializer) continue;
+    if (!isExportedVariableDeclaration(declaration)) continue;
+    if (!hasComponentSurface(initializer)) continue;
+    const params = Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer)
+      ? initializer.getParameters().map((param) => param.getText())
+      : [];
+    const props = extractPropsFromParameters(params);
+    if (props.length === 0 && params.length === 0) continue;
+    const candidate = componentCandidate(name, filePath, declaration.getStartLineNumber(), initializer.getText(), props, true);
+    if (!seen.has(contractKey(candidate))) {
+      seen.add(contractKey(candidate));
+      components.push(candidate);
+    }
+  }
+
+  return components;
+}
+
+function componentCandidate(
+  name: string,
+  filePath: string,
+  line: number,
+  text: string,
+  props: string[],
+  exported: boolean,
+): ContractCandidate {
+  return {
+    kind: 'component-contract',
+    name,
+    filePath,
+    line,
+    exported,
+    signature: compactSignature(text),
+    props,
+    inferredDddTerms: unique([...inferDddTerms(name), ...props.flatMap(inferDddTerms)]),
+    ambiguousAcronyms: unique([
+      ...inferAmbiguousAcronyms(name),
+      ...props.flatMap((prop) => inferAmbiguousAcronyms(prop)),
+      ...inferAmbiguousAcronyms(filePathToDomainHint(filePath)),
+    ])
+      .filter((term) => !['USE', 'ON', 'HANDLE'].includes(term.toUpperCase()))
+      .sort(),
+  };
+}
+
+function isComponentName(name: string): boolean {
+  return /^[A-Z][A-Za-z0-9]*$/.test(name);
+}
+
+function hasComponentSurface(node: Node): boolean {
+  if (node.getDescendantsOfKind(SyntaxKind.JsxElement).length > 0) return true;
+  if (node.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement).length > 0) return true;
+  if (node.getDescendantsOfKind(SyntaxKind.JsxFragment).length > 0) return true;
+  return /\bReact\.createElement\s*\(/.test(node.getText());
+}
+
+function extractPropsFromParameters(parameters: string[]): string[] {
+  const props: string[] = [];
+  for (const parameter of parameters) {
+    const destructured = parameter.match(/^\s*\{([^}]+)\}/);
+    if (destructured) {
+      for (const part of destructured[1].split(',')) {
+        const prop = part.split(':')[0]?.trim().replace(/\.\.\./g, '');
+        if (prop && /^[A-Za-z_$][\w$]*$/.test(prop)) props.push(prop);
+      }
+    }
+    const typeNames = parameter.match(/:\s*([A-Za-z_$][\w$]*(?:Props|Contract|Controls)?)/g) ?? [];
+    for (const typeName of typeNames) {
+      const cleaned = typeName.replace(/^:\s*/, '');
+      if (cleaned && !['string', 'number', 'boolean', 'void', 'React'].includes(cleaned)) props.push(cleaned);
+    }
+  }
+  return unique(props).sort();
+}
+
+
 export function getPreviousContractKeys(project: Project, filePath: string, warnings: string[]): Set<string> {
   const names = new Set<string>();
   let previousText = '';
@@ -172,7 +276,13 @@ export function toSddCandidate(
     },
   };
   const confidence = getSddConfidence(contract, ambiguousDddTerms);
-  const reasonParts = [contract.kind === 'zod-schema' ? 'Zod contract signature' : `tRPC ${contract.operation} input contract`];
+  const reasonParts = [
+    contract.kind === 'zod-schema'
+      ? 'Zod contract signature'
+      : contract.kind === 'component-contract'
+        ? 'UI component props/interaction contract'
+        : `tRPC ${contract.operation} input contract`,
+  ];
   if (contract.exported) reasonParts.push('exported');
   if (missingDddTerms.length > 0) reasonParts.push(`DDD reference gap: ${missingDddTerms.join(', ')}`);
   if (ambiguousDddTerms.length > 0) reasonParts.push(`ambiguous acronym candidate: ${ambiguousDddTerms.join(', ')}`);
@@ -194,6 +304,7 @@ export function toSddCandidate(
       operation: contract.operation,
       inputSchema: contract.inputSchema,
       zodCall: contract.zodCall,
+      props: contract.props,
       inferredDddTerms: unique([...dddReferenceTerms, ...ambiguousDddTerms]).sort(),
       ambiguousAcronyms: ambiguousDddTerms,
       ddd: crossRef.ddd,
@@ -225,6 +336,7 @@ function uniqueTermsByLower(terms: string[]): string[] {
 function getSddConfidence(contract: ContractCandidate, ambiguousDddTerms: string[] = []): TriggerConfidence {
   if (ambiguousDddTerms.length > 0) return 'ambiguous';
   if (contract.kind === 'trpc-procedure') return 'high';
+  if (contract.kind === 'component-contract' && contract.exported) return 'high';
   if (contract.exported && /z\.object\(/.test(contract.signature)) return 'high';
   if (contract.exported) return 'medium';
   return 'low';
@@ -286,7 +398,7 @@ function buildSddAsk(contract: ContractCandidate, crossRef: { ddd: { missing: st
       {
         id: 'A',
         label: 'SDD spec-language/spec-map 에 contract 등록',
-        description: `${contract.name} 을 contract/procedure 후보로 기록하고 DDD cross-ref gap 을 함께 남김`,
+        description: `${contract.name} 을 contract/procedure/component contract 후보로 기록하고 DDD cross-ref gap 을 함께 남김`,
       },
       {
         id: 'B',
@@ -339,6 +451,10 @@ export function isExportedVariableDeclaration(declaration: VariableDeclaration):
   return declaration.getFirstAncestorByKind(SyntaxKind.VariableStatement)?.getText().trimStart().startsWith('export ') ?? false;
 }
 
+function isExportedFunctionDeclaration(node: Node): boolean {
+  return node.getText().trimStart().startsWith('export ');
+}
+
 function isInExportedDeclaration(node: Node): boolean {
   return node.getAncestors().some((ancestor) => {
     if (Node.isVariableStatement(ancestor) || Node.isFunctionDeclaration(ancestor) || Node.isClassDeclaration(ancestor)) {
@@ -385,7 +501,8 @@ function inferDddTerms(name: string): string[] {
 
   const normalized = name
     .replace(/^['"]|['"]$/g, '')
-    .replace(/(?:Schema|Input|Output|Request|Response|Procedure|Router|Contract|Dto|DTO)$/i, '');
+    .replace(/^(?:use|on|handle)(?=[A-Z])/i, '')
+    .replace(/(?:Schema|Input|Output|Request|Response|Procedure|Router|Contract|Props|Dto|DTO)$/i, '');
   if (normalized.length <= 2) return [];
   if (isAcronymCandidate(normalized)) return [normalized.toUpperCase()];
 
