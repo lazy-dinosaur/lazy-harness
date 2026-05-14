@@ -51,7 +51,9 @@ A host ownership SSOT record should include:
   - `.lazy-harness/AGENTS.md` — adds the user-correction convergence rule and SSOT ownership default.
   - `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md` — this ADR.
   - `.lazy-harness/spec/platform/implementation-map-standard.md` — extends implementation maps with ownership boundaries.
-  - `.lazy-harness/manifests/init-categories.json` — syncs operational ADR 0030~0032 to hosts so AGENTS references resolve locally.
+  - `.lazy-harness/manifests/init-categories.json` — syncs operational ADR 0030~0032 to hosts under `framework/operational-adrs/`.
+  - `.lazy-harness/scripts/lazy-init.ts` — supports manifest `targetPath` so source files can install into host-safe reference paths.
+  - `.lazy-harness/scripts/lazy-sync.ts` — supports manifest `targetPath` during host updates.
   - `.lazy-harness/knowledge/graph.jsonl` — stores confirmed machine-readable edges for this decision.
 - Key symbols / config:
   - `§2.5 Missing record 수렴 규칙` (`.lazy-harness/AGENTS.md`) — operational prompt section that forces missing/incorrect host knowledge to converge into records.
@@ -61,14 +63,14 @@ A host ownership SSOT record should include:
   2. Agent searches existing `.lazy-harness` records inside current host.
   3. Agent updates or creates the primary SSOT/layer record with implementation map.
   4. Future agents read that record before touching DB/API/schema/project-boundary work.
-  5. `lazy-sync` copies operational ADR 0030~0032 so host agents can read the detailed rule locally.
+  5. `lazy-sync` copies operational ADR 0030~0032 into `framework/operational-adrs/` so host agents can read the detailed rule without polluting host ADR numbering.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
   - host dogfooding sync + `.lazy-harness/bin/lazy test`
 - Ownership boundaries:
   - Owner/upstream: current host `.lazy-harness` record for confirmed host facts.
-  - This framework may change: prompt grammar, ADRs, standards, seed/sync assets.
+  - This framework may change: prompt grammar, ADRs, standards, seed/sync assets, manifest target-path routing.
   - This framework must not change: host-specific DB/schema ownership without writing the host-local SSOT record and obtaining confirmation when ambiguous.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0031-root-bound-record-convergence.md`

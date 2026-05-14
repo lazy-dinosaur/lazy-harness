@@ -142,6 +142,7 @@ function detectFrameworkSource(): string {
 
 interface ManifestItem {
   path: string
+  targetPath?: string
   kind?: 'file' | 'directory'
   description?: string
   glob?: string[]
@@ -329,7 +330,7 @@ function copyCategoryA(
     // Top-level files (AGENTS.md, JCODE-INTEGRATION.md, README.md)
     if (item.path === 'AGENTS.md' || item.path === 'JCODE-INTEGRATION.md' || item.path === 'README.md') {
       const src = join(sourceLazy, item.path)
-      const dest = join(targetLazy, item.path)
+      const dest = join(targetLazy, item.targetPath ?? item.path)
       if (existsSync(src)) {
         copyFile(src, dest)
         copied++
@@ -342,7 +343,7 @@ function copyCategoryA(
 
     if (item.kind === 'file') {
       const src = join(sourceLazy, item.path)
-      const dest = join(targetLazy, item.path)
+      const dest = join(targetLazy, item.targetPath ?? item.path)
       if (existsSync(src)) {
         copyFile(src, dest)
         copied++
@@ -365,7 +366,7 @@ function copyCategoryA(
     for (const f of files) {
       if (!shouldInclude(f, item.glob, item.exclude)) continue
       const src = join(srcDir, f)
-      const dest = join(targetLazy, item.path, f)
+      const dest = join(targetLazy, item.targetPath ?? item.path, f)
       copyFile(src, dest)
       copied++
     }

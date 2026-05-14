@@ -24,7 +24,8 @@ import {
   writeFileSync,
   copyFileSync,
   statSync,
-  readdirSync
+  readdirSync,
+  unlinkSync
 } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
@@ -120,6 +121,19 @@ function copyFile(src: string, dest: string): void {
   } catch {
     /* ignore */
   }
+}
+
+
+function removeRelocatedStaleCopy(src: string, staleDest: string, dest: string): boolean {
+  if (staleDest === dest || !existsSync(staleDest)) return false
+  if (readFileSync(src).compare(readFileSync(staleDest)) !== 0) return false
+  if (DRY) {
+    log(`  [dry] would remove relocated stale copy: ${staleDest}`)
+    return true
+  }
+  unlinkSync(staleDest)
+  log(`  removed relocated stale copy: ${staleDest}`)
+  return true
 }
 
 function walkFiles(dir: string, baseDir: string = dir): string[] {
@@ -246,6 +260,7 @@ function detectSourceFromMarker(targetRoot: string): string {
 
 interface ManifestItem {
   path: string
+  targetPath?: string
   kind?: 'file' | 'directory'
   glob?: string[]
   exclude?: string[]
@@ -288,7 +303,7 @@ function syncCategoryA(
       item.kind === 'file'
     ) {
       const src = join(sourceLazy, item.path)
-      const dest = join(targetLazy, item.path)
+      const dest = join(targetLazy, item.targetPath ?? item.path)
       if (!existsSync(src)) {
         missing++
         continue
@@ -298,6 +313,10 @@ function syncCategoryA(
       } else {
         copyFile(src, dest)
         updated++
+      }
+      if (item.targetPath) {
+        const staleDest = join(targetLazy, item.path)
+        if (removeRelocatedStaleCopy(src, staleDest, dest)) updated++
       }
       continue
     }
@@ -311,7 +330,7 @@ function syncCategoryA(
     for (const f of files) {
       if (!shouldInclude(f, item.glob, item.exclude)) continue
       const src = join(srcDir, f)
-      const dest = join(targetLazy, item.path, f)
+      const dest = join(targetLazy, item.targetPath ?? item.path, f)
       if (existsSync(dest) && readFileSync(src).compare(readFileSync(dest)) === 0) {
         unchanged++
       } else {

@@ -94,17 +94,20 @@
         {
           "path": "decisions/0030-implementation-map-three-layer-storage.md",
           "kind": "file",
-          "description": "Operational framework ADR referenced by AGENTS: implementation maps require Markdown, JSONL graph facts, and generated index cache."
+          "description": "Operational framework ADR referenced by AGENTS: implementation maps require Markdown, JSONL graph facts, and generated index cache. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0030-implementation-map-three-layer-storage.md"
         },
         {
           "path": "decisions/0031-root-bound-record-convergence.md",
           "kind": "file",
-          "description": "Operational framework ADR referenced by AGENTS: host knowledge search stays root-bound and missing records converge into current host .lazy-harness."
+          "description": "Operational framework ADR referenced by AGENTS: host knowledge search stays root-bound and missing records converge into current host .lazy-harness. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0031-root-bound-record-convergence.md"
         },
         {
           "path": "decisions/0032-user-correction-ownership-ssot-convergence.md",
           "kind": "file",
-          "description": "Operational framework ADR referenced by AGENTS: user corrections about host role/source-of-truth/ownership converge into SSOT records."
+          "description": "Operational framework ADR referenced by AGENTS: user corrections about host role/source-of-truth/ownership converge into SSOT records. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0032-user-correction-ownership-ssot-convergence.md"
         },
         {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
