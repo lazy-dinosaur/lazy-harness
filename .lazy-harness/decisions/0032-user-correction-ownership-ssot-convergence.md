@@ -51,6 +51,7 @@ A host ownership SSOT record should include:
   - `.lazy-harness/AGENTS.md` — adds the user-correction convergence rule and SSOT ownership default.
   - `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md` — this ADR.
   - `.lazy-harness/spec/platform/implementation-map-standard.md` — extends implementation maps with ownership boundaries.
+  - `.lazy-harness/manifests/init-categories.json` — syncs operational ADR 0030~0032 to hosts so AGENTS references resolve locally.
   - `.lazy-harness/knowledge/graph.jsonl` — stores confirmed machine-readable edges for this decision.
 - Key symbols / config:
   - `§2.5 Missing record 수렴 규칙` (`.lazy-harness/AGENTS.md`) — operational prompt section that forces missing/incorrect host knowledge to converge into records.
@@ -60,6 +61,7 @@ A host ownership SSOT record should include:
   2. Agent searches existing `.lazy-harness` records inside current host.
   3. Agent updates or creates the primary SSOT/layer record with implementation map.
   4. Future agents read that record before touching DB/API/schema/project-boundary work.
+  5. `lazy-sync` copies operational ADR 0030~0032 so host agents can read the detailed rule locally.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`

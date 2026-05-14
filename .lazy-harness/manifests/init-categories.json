@@ -92,6 +92,21 @@
           "description": "본 manifest 자체. host 도 갖고 있어야 lazy-sync 가 동작."
         },
         {
+          "path": "decisions/0030-implementation-map-three-layer-storage.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS: implementation maps require Markdown, JSONL graph facts, and generated index cache."
+        },
+        {
+          "path": "decisions/0031-root-bound-record-convergence.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS: host knowledge search stays root-bound and missing records converge into current host .lazy-harness."
+        },
+        {
+          "path": "decisions/0032-user-correction-ownership-ssot-convergence.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS: user corrections about host role/source-of-truth/ownership converge into SSOT records."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -163,7 +178,9 @@
         {
           "path": "behavior/",
           "trigger": "UI flow / 사용자 행동 변경",
-          "subdirs": ["scenarios"],
+          "subdirs": [
+            "scenarios"
+          ],
           "description": "BDD scenario. Step ≤ 7."
         },
         {
