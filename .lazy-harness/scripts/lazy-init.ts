@@ -400,6 +400,49 @@ function makeReadme(item: ManifestItem): string {
 }
 
 function makeSeedFile(name: string): string {
+  if (name === 'test-strategy.xml') {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<testStrategy version="1.0" status="draft" source="lazy-init">
+  <!--
+    Canonical host test strategy.
+    If this is empty/stale, fill it from current host-root evidence only:
+    package.json scripts, test config files, tests/**, and project docs.
+    Do not inspect parent/sibling repositories.
+  -->
+  <discovery rootBound="true">
+    <allowedSources>
+      <source>package.json</source>
+      <source>vitest.config.*</source>
+      <source>jest.config.*</source>
+      <source>playwright.config.*</source>
+      <source>tests/**</source>
+      <source>src/**/__tests__/**</source>
+      <source>docs/**</source>
+      <source>AGENTS.md</source>
+    </allowedSources>
+    <forbiddenSources>
+      <source>../**</source>
+      <source>sibling repositories</source>
+    </forbiddenSources>
+  </discovery>
+  <commands>
+    <lint command="" required="project" />
+    <typecheck command="" required="project" />
+    <unit command="" required="project" />
+    <e2e command="" required="optional" />
+  </commands>
+  <affectedTestRouting command="" />
+  <fallback>
+    <packageScripts order="test:run,test:unit,test" />
+    <ifMissing>ask-user-and-record</ifMissing>
+  </fallback>
+  <implementationMap>
+    <file path="package.json" role="test command source" />
+    <file path=".lazy-harness/tests/test-strategy.xml" role="canonical test strategy" />
+  </implementationMap>
+</testStrategy>
+`
+  }
   if (name.endsWith('.jsonl')) {
     return '' // empty JSONL
   }

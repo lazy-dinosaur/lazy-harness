@@ -169,7 +169,10 @@
         {
           "path": "tests/",
           "trigger": "버그 fix / regression / 보호 케이스",
-          "description": "TDD plan 및 mapping."
+          "description": "TDD plan 및 mapping.",
+          "seed": [
+            "test-strategy.xml"
+          ]
         },
         {
           "path": "decisions/",

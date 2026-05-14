@@ -42,6 +42,12 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/
 ```
 
+**Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.
+`find ..`, `grep ../`, sibling repo 참조로 host 지식을 가져오는 것은 금지다.
+record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs / package / config 를 읽어
+`.lazy-harness/<layer>/...` 에 새 record 를 만들고 Implementation map 으로 연결한다.
+Jcode 전용 운영 메모만 `.jcode/harness/20-project-rules.md` 에 둔다.
+
 또는 N2 resolver 활용:
 
 ```bash
@@ -132,6 +138,11 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 4. **확인**: 사용자 응답으로 override 획득
 5. **누적**: §2.4 발동, 적절한 layer 에 record — 다음 세션이 안 헤매도록
 
+**Missing record 수렴 규칙**: `.lazy-harness` 에 필요한 record 가 없으면,
+현재 host 내부 근거에서 내용을 가져와 새 record 를 만든다. 예: 테스트 전략은
+`package.json`, `vitest.config.*`, `playwright.config.*`, `tests/**`, 기존 docs 를 읽고
+`.lazy-harness/tests/test-strategy.xml` 로 수렴시킨다. 일반 `docs/` 문서는 보조 보고서일 뿐 canonical 이 아니다.
+
 **Forbidden 변형**:
 - 조사 skip → 옵션 질문 (사용자에 책임 떠넘김)
 - 조사 → 추정 → 자단언 (옆 세션 실패 모드)
@@ -145,25 +156,9 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 - 같은 영역에서 두 번째 grep 결과가 첫 번째와 충돌
 - 불확실 부사가 응답에 들어가려는 순간
 
-**Negative 예시 (실패 사례 — 반복 금지)**:
-
-실제 사례 (2026-05-13 옆 세션):
-
-> 사용자: "메세지에 대해 알려줘 너가알고있는거"
-
-❌ 옆 세션 AI 의 응답:
-- 즉시 grep / 코드 탐색 시작
-- "chat/message 도메인 코드 분석..." 으로 추정 응답 생성
-- 사용자가 정정: "프로젝트 내에서 여야하잖아"
-
-✅ 올바른 응답:
-- §2.5 자각: "내가 '메세지' 의 정의를 모름. ChatMessage / NotificationMessage / Twilio SMS / log message 다 가능"
-- §2.1 조사: `.lazy-harness/domain/` + `src/main/services/` grep
-- 분류: 후보 여러 개 → §2.3 옵션 게이트
-- "어떤 '메세지'? A) chat ChatMessage B) NotificationMessage C) Twilio SMS D) 다른거"
-- 사용자 답 → §2.4 누적: `.lazy-harness/domain/messaging.md`
-
-핵심 실패 메커니즘: **자각 안 함 → 조사 → 추정 → 자단언**. §2.5 는 이걸 차단.
+**Negative 예시 (반복 금지)**: "메세지" 같은 비특정 명사를 받으면
+자각 없이 grep → 추정 답변 금지. 먼저 후보를 나누고 옵션 게이트로 확인한 뒤,
+사용자 답을 `.lazy-harness/domain/...` 등 적절한 layer 에 누적한다.
 
 ## 3. Silent Skip 금지
 
