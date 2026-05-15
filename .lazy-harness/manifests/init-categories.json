@@ -116,6 +116,12 @@
           "targetPath": "framework/operational-adrs/0033-layer-completeness-gate.md"
         },
         {
+          "path": "decisions/0034-analysis-discovery-plan-capture-gate.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS: substantial analysis/planning discoveries must converge to records, candidates, or planning artifacts instead of chat-only knowledge. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0034-analysis-discovery-plan-capture-gate.md"
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -144,6 +150,11 @@
           "path": "spec/platform/layer-completeness-gate.md",
           "kind": "file",
           "description": "SDD standard for TDD/regression layer completeness: require SDD/BDD/SSOT/DDD judgement or cross-layer updates."
+        },
+        {
+          "path": "spec/platform/analysis-discovery-capture-gate.md",
+          "kind": "file",
+          "description": "SDD standard for ADR 0034 analysis discovery capture: trigger cues, completion contract, Discovery capture judgement, candidate/planning sinks, and lifecycle helper behavior."
         },
         {
           "path": "ssot/knowledge-graph-storage.md",

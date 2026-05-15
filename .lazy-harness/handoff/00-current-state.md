@@ -31,15 +31,15 @@
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
 | **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
-| **ADRs** | **33** (0001~0033; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate) |
+| **ADRs** | **34** (0001~0034; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate) |
 | **Decisions logged** | 28+ entries |
-| **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=21, skipped=0)` |
+| **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=23, skipped=0)` |
 | **Medivance sync validation** | ✅ `~/dev/medivance`: synced to `031b5e7`, `lazy-harness self-test ok (scope=host, ran=10, skipped=11)` |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
 | **5c completion markers** | ✅ 5c-5 Cross-layer, 5c-6 Lint/typecheck, 5c-7 Structured ask, 5c-8 E2E, 5c-9 Doctor C17 |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |
 | **5e dogfooding** | ✅ standalone source extraction + Medivance sync/lazy test 완료 |
-| **AGENTS governance** | ✅ §0 정체성 + §2.4 layer 규칙 + §2.5 epistemic baseline (165 lines, self-test cap 180) |
+| **AGENTS governance** | ✅ §0 정체성 + §2.4 layer 규칙 + §2.5 epistemic baseline (176 lines, self-test cap 180) |
 | **CLI/init/sync/update** | ✅ `.lazy-harness/bin/lazy`, `lazy-init.ts`, `lazy-sync.ts`, `lazy-update.ts`, public `install.sh` source repo 에 정식 편입 |
 | **user-level launcher** | ⏸ `~/.local/bin/lazy` 는 packaging 단계로 defer. 현재는 per-host dispatcher 만 소유 |
 | **N4 Portability Entry Point** | 🟡 next: Project Init Interview (`project-init-interview-spec.md`) |

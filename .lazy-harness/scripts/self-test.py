@@ -325,6 +325,21 @@ def run_layer_completeness_helper(payload: dict) -> str:
     return completed.stdout
 
 
+def run_analysis_discovery_capture_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"analysis discovery capture helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -438,6 +453,64 @@ def check_layer_completeness_helper() -> None:
         tdd.unlink(missing_ok=True)
     print("✓ layer completeness helper ok")
 
+
+
+def check_analysis_discovery_capture_helper() -> None:
+    """ADR 0034 — non-trivial analysis/planning discoveries must be captured."""
+    blocked_payload = {
+        "assistant_response": (
+            "I analyzed the redesign and found DDD, SDD, BDD, TDD, ADR, SSOT, and Planning impacts.\n"
+            "Implementation plan:\n"
+            "1. Update contracts.\n"
+            "2. Add regression tests.\n"
+            "3. Record backlog.\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    blocked = run_analysis_discovery_capture_helper(blocked_payload)
+    if "Analysis discovery capture gate" not in blocked or "DDD" not in blocked or "SSOT" not in blocked:
+        fail("analysis discovery capture helper did not block uncaptured analysis:\n" + blocked)
+
+    judgement_payload = {
+        "assistant_response": (
+            "## Discovery capture\n"
+            "- DDD: none because no domain fact changed.\n"
+            "- SDD: none because no contract changed.\n"
+            "- BDD: none because no behavior changed.\n"
+            "- TDD: none because no regression changed.\n"
+            "- ADR: none because no decision changed.\n"
+            "- SSOT: none because no source of truth changed.\n"
+            "- Planning: none because no backlog remains.\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    judgement = run_analysis_discovery_capture_helper(judgement_payload)
+    if judgement.strip():
+        fail("analysis discovery capture helper should pass with explicit judgement:\n" + judgement)
+
+    planning_payload = {
+        "assistant_response": blocked_payload["assistant_response"],
+        "recent_tool_calls": [{
+            "name": "Write",
+            "args_preview": ".lazy-harness/planning/example-backlog.md",
+        }],
+    }
+    planning = run_analysis_discovery_capture_helper(planning_payload)
+    if planning.strip():
+        fail("analysis discovery capture helper should pass when planning is updated:\n" + planning)
+
+    candidate_payload = {
+        "assistant_response": blocked_payload["assistant_response"],
+        "recent_tool_calls": [{
+            "name": "Edit",
+            "args_preview": ".lazy-harness/knowledge/candidates.jsonl",
+        }],
+    }
+    candidate = run_analysis_discovery_capture_helper(candidate_payload)
+    if candidate.strip():
+        fail("analysis discovery capture helper should pass when candidates are updated:\n" + candidate)
+
+    print("✓ analysis discovery capture helper ok")
 
 
 def check_affected_test_runner() -> None:
@@ -1087,7 +1160,13 @@ def check_agents_md_invariants() -> None:
     if missing:
         fail(f"N2.5 AGENTS.md missing layer references: {missing}")
 
-    required_phrases = ["Layer completeness gate", "TDD/regression/bug", "SDD/BDD/SSOT/DDD"]
+    required_phrases = [
+        "Layer completeness gate",
+        "TDD/regression/bug",
+        "SDD/BDD/SSOT/DDD",
+        "Analysis discovery capture",
+        "Discovery capture",
+    ]
     missing_phrases = [phrase for phrase in required_phrases if phrase not in text]
     if missing_phrases:
         fail(f"N2.5 AGENTS.md missing layer-completeness guard phrases: {missing_phrases}")
@@ -1137,6 +1216,7 @@ def main() -> None:
         (check_interview_loop_collect, "BOTH"),
         (check_interview_loop_answer, "BOTH"),
         (check_layer_completeness_helper, "BOTH"),
+        (check_analysis_discovery_capture_helper, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
