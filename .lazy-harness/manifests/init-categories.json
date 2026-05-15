@@ -162,6 +162,11 @@
           "description": "SDD standard for project-specific rule placement: route new rules to AGENTS, SSOT/ADR/layer records, planning, or .jcode-local workflow with an explicit Rule placement judgement."
         },
         {
+          "path": "spec/platform/jcode-skill-creation.md",
+          "kind": "file",
+          "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."
+        },
+        {
           "path": "ssot/knowledge-graph-storage.md",
           "kind": "file",
           "description": "SSOT for knowledge graph storage paths and mutability rules."
@@ -183,7 +188,7 @@
             "README.md",
             "*.jsonl"
           ],
-          "description": "Progressive knowledge graph stores: candidates, graph drafts, canonical graph. Empty JSONL containers are valid."
+          "description": "Progressive knowledge graph stores plus host-local custom skill metadata: candidates, graph drafts, canonical graph, skills.jsonl. Empty JSONL containers are valid."
         },
         {
           "path": "generated/README.md",

@@ -9,9 +9,11 @@
 - `.jcode/harness/05-lazy-harness.md` — `../../.lazy-harness/AGENTS.md` symlink
 - `.jcode/harness/10-routing-policy.md`, `20-project-rules.md`
 - `.jcode/hooks/check-bash.sh`, `log-tool.sh`
-- `.jcode/skills/lazy-{init,sync,update,doctor,test}/SKILL.md`
+- `.jcode/skills/lazy-{init,sync,update,doctor,test,skill-create}/SKILL.md`
 
 갱신 정책: `.lazy-harness/*` 는 `lazy update/sync` 로 framework source 를 따라 덮어쓴다. `.jcode/*` 는 generated marker 가 남아있는 파일만 template refresh 하고, marker 없는 user-owned 파일은 보존한다.
+
+Custom project skill 생성은 `.lazy-harness/bin/lazy skill create <name>` 을 사용한다. 자세한 contract 는 `.lazy-harness/spec/platform/jcode-skill-creation.md` 가 source of truth 다.
 
 ## 무엇을 얻는가
 

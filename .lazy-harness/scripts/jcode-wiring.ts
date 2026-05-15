@@ -32,6 +32,11 @@ const SKILLS = [
     name: 'lazy-test',
     description: 'Run lazy-harness reproducible self-test for the host.',
     usage: '.lazy-harness/bin/lazy test'
+  },
+  {
+    name: 'lazy-skill-create',
+    description: 'Create a project-local custom Jcode skill wrapper.',
+    usage: '.lazy-harness/bin/lazy skill create <name> [--description <text>] [--script <file>]'
   }
 ]
 

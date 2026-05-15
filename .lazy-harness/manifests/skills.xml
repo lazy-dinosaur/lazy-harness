@@ -86,6 +86,17 @@
     <ownsArtifacts>.lazy-harness/generated/reference-index.json</ownsArtifacts>
   </skill>
 
+
+  <skill id="lazy-skill-create" status="stable" phase="custom-skills">
+    <location>.lazy-harness/scripts/skill-create.ts</location>
+    <description>Create host-local custom Jcode skill wrappers under .jcode/skills while logging generated skill metadata to .lazy-harness/knowledge/skills.jsonl.</description>
+    <command>.lazy-harness/bin/lazy skill create &lt;name&gt; [--description &lt;text&gt;] [--script &lt;file&gt;]</command>
+    <emitsLogs>true</emitsLogs>
+    <ownsArtifacts>.lazy-harness/scripts/skill-create.ts</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/spec/platform/jcode-skill-creation.md</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/knowledge/skills.jsonl</ownsArtifacts>
+  </skill>
+
   <!-- DDD/SDD/BDD/TDD/ADR are core record layers, not automatically separate skills.
        Promote a layer-specific skill only when repeated real host-project use proves
        a concrete workflow, command, and artifact contract. -->
