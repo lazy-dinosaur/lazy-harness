@@ -28,7 +28,7 @@ A triggered turn is complete only if one condition is true:
 
 1. A `.lazy-harness` record/planning artifact is updated for the rule.
 2. The response includes a complete `Rule placement` judgement.
-3. `.jcode/harness/20-project-rules.md` is updated and the response or file content includes `jcode-local` or `local-only` judgement.
+3. `.jcode/harness/20-project-rules.md` is updated only as a pointer to canonical `.lazy-harness` records, or the response/file content includes `jcode-local` or `local-only` judgement.
 4. The agent stops with an option gate because placement is ambiguous.
 
 ## Rule placement judgement
@@ -52,7 +52,7 @@ A triggered turn is complete only if one condition is true:
 | `host-project` | `.lazy-harness/ssot/project-identity.md` or dedicated SSOT |
 | `team-policy` | `.lazy-harness/ssot/rule-sources.md` or dedicated SSOT/ADR |
 | `layer-fact` | DDD/SDD/BDD/TDD/ADR/SSOT based on the fact type |
-| `jcode-local` | `.jcode/harness/20-project-rules.md` |
+| `jcode-local` | `.jcode/harness/20-project-rules.md` as local-only note |
 | `transient-plan` | `.lazy-harness/planning/**` |
 | `ambiguous` | option gate before writing |
 
@@ -68,6 +68,10 @@ It emits STOP text when:
 - especially when the response chooses `.jcode` for a project rule without `jcode-local` or `local-only` scope.
 
 The helper must avoid false positives on casual mentions of AGENTS.md or `.jcode` without rule-placement language.
+
+Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into `.jcode`.
+
+Existing user-owned `.jcode/harness/20-project-rules.md` files that predate pointer-only behavior are migrated by Jcode wiring: the active file becomes the generated pointer-only note, and the previous content is archived under `.jcode/archive/20-project-rules.pre-pointer-only-migration.md` so it is not loaded as active harness instructions.
 
 ## Implementation map
 

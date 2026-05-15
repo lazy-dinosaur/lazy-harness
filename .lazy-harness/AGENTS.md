@@ -46,7 +46,7 @@ grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,
 `find ..`, `grep ../`, sibling repo 참조로 host 지식을 가져오는 것은 금지다.
 record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs / package / config 를 읽어
 `.lazy-harness/<layer>/...` 에 새 record 를 만들고 Implementation map 으로 연결한다.
-Jcode 전용 운영 메모만 `.jcode/harness/20-project-rules.md` 에 둔다.
+Jcode 전용 로컬/개인 실행 메모만 `.jcode/harness/20-project-rules.md` 에 둔다. 프로젝트별 확장/커스텀 규칙 본문은 `.lazy-harness` record 에 두고 `.jcode` 는 pointer-only 로 유지한다.
 
 또는 N2 resolver 활용:
 

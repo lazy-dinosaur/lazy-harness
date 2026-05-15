@@ -622,6 +622,30 @@ def check_project_rule_placement_helper() -> None:
     print("✓ project rule placement helper ok")
 
 
+def check_jcode_wiring_pointer_only() -> None:
+    """Generated .jcode project-rules file must not invite host-rule bodies."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    required = [
+        "pointer-only by default",
+        "Do not store host/team rule bodies here",
+        ".lazy-harness/ssot/rule-sources.md",
+        "Scope: jcode-local",
+        "migrateProjectRulesPointerOnly",
+        "20-project-rules.pre-pointer-only-migration.md",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring template missing pointer-only guard phrases: " + json.dumps(missing, ensure_ascii=False))
+    forbidden = [
+        "Add project-specific workflow notes here",
+        "Add project-specific discoveries in `.jcode/harness/20-project-rules.md`",
+    ]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("jcode wiring template still invites rule-body pollution: " + json.dumps(leaked, ensure_ascii=False))
+    print("✓ jcode wiring pointer-only template ok")
+
+
 def check_affected_test_runner() -> None:
     queue = LAZY / "questions" / f"__tmp_affected_tests_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -1329,6 +1353,7 @@ def main() -> None:
         (check_layer_completeness_helper, "BOTH"),
         (check_analysis_discovery_capture_helper, "BOTH"),
         (check_project_rule_placement_helper, "BOTH"),
+        (check_jcode_wiring_pointer_only, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),

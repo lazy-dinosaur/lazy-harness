@@ -12,7 +12,9 @@ Related ADR: `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
 
 This record is the source of truth for deciding where newly discovered project-specific rules belong.
 
-Agents must not default to `.jcode/harness/20-project-rules.md` for project/team policy. `.jcode` is only for local/private Jcode workflow notes unless a rule placement judgement explicitly says the rule is local-only.
+Agents must not default to `.jcode/harness/20-project-rules.md` for project/team policy. `.jcode` is only for generated/private Jcode wiring and pointer-only reminders unless a rule placement judgement explicitly says the rule is local-only.
+
+`.jcode/harness/20-project-rules.md` must not accumulate host/team rule bodies as a mirror of `.lazy-harness` records. When a rule is discovered, corrected, or customized for a host, the durable content belongs in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`; `.jcode` may only point to those canonical records or store truly local/private execution preferences.
 
 ## Priority order
 
@@ -37,7 +39,7 @@ When instructions conflict, use this order:
 | User-visible workflow or expected behavior | `.lazy-harness/behavior/**` |
 | Regression/protection expectation | `.lazy-harness/tests/**` |
 | Trade-off or why decision | `.lazy-harness/decisions/**` |
-| Local/private Jcode preference or workflow | `.jcode/harness/20-project-rules.md` |
+| Local/private Jcode preference or workflow | `.jcode/harness/20-project-rules.md` as pointer-only or explicit `jcode-local` |
 | Multi-step work plan/backlog | `.lazy-harness/planning/**` |
 
 ## Required judgement
@@ -70,6 +72,7 @@ E. 직접 입력
 - PR/worktree tracker policy used by future agents: `.lazy-harness/planning/**` plus SSOT/ADR if enduring.
 - “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/rule-sources.md` or dedicated SSOT, not `.jcode` by default.
 - Personal shortcut, preferred shell alias, or Jcode-only UI workflow: `.jcode/harness/20-project-rules.md` with `Scope: jcode-local`.
+- Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
 
 ## Implementation map
@@ -87,7 +90,7 @@ E. 직접 입력
 - Flow:
   1. User or analysis introduces a rule/correction/workflow policy.
   2. Agent reads this registry and project identity.
-  3. Agent writes the correct `.lazy-harness` record or records explicit local-only `.jcode` judgement.
+  3. Agent writes the correct `.lazy-harness` record; `.jcode` receives only a pointer unless the rule is explicitly `jcode-local`.
   4. Ambiguity triggers the option gate.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
