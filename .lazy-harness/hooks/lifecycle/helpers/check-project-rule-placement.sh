@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# check-project-rule-placement.sh — project-specific rule routing gate
+#
+# Prevent project/team rules from being routed to .jcode by default without
+# a Rule placement judgement.
+
+set -euo pipefail
+
+PAYLOAD="${1:-}"
+[ -z "$PAYLOAD" ] && exit 0
+
+PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
+import json
+import os
+import re
+import sys
+
+try:
+    payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
+except Exception:
+    sys.exit(0)
+
+WRITE_TOOLS = {
+    "Write", "Edit", "MultiEdit", "write", "edit", "multiedit",
+    "mcp__filesystem__write_file", "mcp__filesystem__edit_file",
+}
+LAZY_CAPTURE_RE = re.compile(
+    r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph-drafts)\.jsonl)"
+)
+JCODE_RULES = ".jcode/harness/20-project-rules.md"
+
+strings: list[str] = []
+
+def walk(value):
+    if isinstance(value, str):
+        strings.append(value)
+    elif isinstance(value, dict):
+        for child in value.values():
+            walk(child)
+    elif isinstance(value, list):
+        for child in value:
+            walk(child)
+
+walk(payload)
+blob = "\n".join(strings)
+lower = blob.lower()
+if not blob.strip():
+    sys.exit(0)
+
+# Complete Rule placement judgement satisfies the gate.
+required = ["Rule placement", "Rule:", "Scope:", "Primary record:", "Why not AGENTS.md", "Why not `.jcode`", "Confirmation:"]
+if all(term in blob for term in required):
+    sys.exit(0)
+
+# Same-turn .lazy-harness record/planning capture satisfies the gate.
+for call in payload.get("recent_tool_calls", []) or []:
+    if str(call.get("name", "")) not in WRITE_TOOLS:
+        continue
+    args_blob = str(call.get("args_preview", ""))
+    if LAZY_CAPTURE_RE.search(args_blob):
+        sys.exit(0)
+
+# .jcode write is allowed only with explicit local-only judgement.
+jcode_touched = False
+for call in payload.get("recent_tool_calls", []) or []:
+    if str(call.get("name", "")) not in WRITE_TOOLS:
+        continue
+    args_blob = str(call.get("args_preview", ""))
+    if JCODE_RULES in args_blob:
+        jcode_touched = True
+        if "jcode-local" in lower or "local-only" in lower or "local only" in lower:
+            sys.exit(0)
+
+rule_cues = [
+    "프로젝트 규칙", "프로젝트마다 규칙", "규칙 추가", "룰 추가", "rule", "rules differ", "project-specific",
+    "어디에 기록", "어디에 저장", "문서화", "source of truth", "ssot",
+]
+placement_cues = [".jcode", "20-project-rules", "agents.md", "agENTS.md".lower(), ".lazy-harness", "rule-sources"]
+workflow_cues = ["workflow", "ownership", "source-of-truth", "forbidden", "운영", "정책", "소유권", "수정 금지"]
+
+has_rule = any(cue in lower for cue in [c.lower() for c in rule_cues])
+has_placement = any(cue in lower for cue in [c.lower() for c in placement_cues])
+has_workflow = any(cue in lower for cue in [c.lower() for c in workflow_cues])
+
+# High-confidence only. Casual AGENTS/.jcode mentions should stay silent.
+if not (jcode_touched or (has_rule and (has_placement or has_workflow))):
+    sys.exit(0)
+
+print("STOP. Project rule placement gate: 프로젝트별 rule/correction 을 어디에 둘지 판정 없이 진행하면 안 됩니다.\n")
+print("해야 할 일:")
+print("  A. .lazy-harness/ssot/... shared project rule 로 기록 (Recommended for team/project policy)")
+print("  B. .lazy-harness/decisions/... trade-off/why decision 으로 기록")
+print("  C. .lazy-harness/planning/... transient plan/backlog 로 기록")
+print("  D. .jcode/harness/20-project-rules.md local/private Jcode-only 로 기록하고 `Rule placement` 에 jcode-local 명시")
+print("  E. 직접 입력 / ambiguous 면 옵션 게이트로 사용자 확인")
+print("\n필수 판단:")
+print("  ## Rule placement")
+print("  - Rule: ...")
+print("  - Scope: framework-global | host-project | team-policy | layer-fact | jcode-local | transient-plan | ambiguous")
+print("  - Primary record: ...")
+print("  - Why not AGENTS.md: ...")
+print("  - Why not `.jcode`: ...")
+print("  - Confirmation: user-confirmed | inferred-from-record | needs-option-gate")
+print("\n규칙: .lazy-harness/ssot/rule-sources.md + SDD project-rule-router.")
+PY

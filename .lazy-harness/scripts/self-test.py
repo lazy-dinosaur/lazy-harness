@@ -340,6 +340,21 @@ def run_analysis_discovery_capture_helper(payload: dict) -> str:
     return completed.stdout
 
 
+def run_project_rule_placement_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"project rule placement helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -511,6 +526,73 @@ def check_analysis_discovery_capture_helper() -> None:
         fail("analysis discovery capture helper should pass when candidates are updated:\n" + candidate)
 
     print("✓ analysis discovery capture helper ok")
+
+
+def check_project_rule_placement_helper() -> None:
+    """Project-specific rules must route to .lazy-harness or explicit jcode-local judgement."""
+    blocked_payload = {
+        "assistant_response": (
+            "프로젝트마다 규칙이 다르니까 이 프로젝트 규칙은 .jcode/harness/20-project-rules.md 에 추가하겠습니다."
+        ),
+        "recent_tool_calls": [{
+            "name": "Edit",
+            "args_preview": ".jcode/harness/20-project-rules.md",
+        }],
+    }
+    blocked = run_project_rule_placement_helper(blocked_payload)
+    if "Project rule placement gate" not in blocked or "Rule placement" not in blocked:
+        fail("project rule placement helper did not block uncategorized .jcode project rule:\n" + blocked)
+
+    shared_payload = {
+        "assistant_response": "프로젝트 규칙을 shared SSOT 로 기록했습니다.",
+        "recent_tool_calls": [{
+            "name": "Write",
+            "args_preview": ".lazy-harness/ssot/rule-sources.md",
+        }],
+    }
+    shared = run_project_rule_placement_helper(shared_payload)
+    if shared.strip():
+        fail("project rule placement helper should pass when SSOT is updated:\n" + shared)
+
+    local_payload = {
+        "assistant_response": (
+            "## Rule placement\n"
+            "- Rule: local Jcode workflow preference.\n"
+            "- Scope: jcode-local\n"
+            "- Primary record: .jcode/harness/20-project-rules.md\n"
+            "- Why not AGENTS.md: not framework-global.\n"
+            "- Why not `.jcode`: it is intentionally local-only.\n"
+            "- Confirmation: user-confirmed\n"
+        ),
+        "recent_tool_calls": [{
+            "name": "Edit",
+            "args_preview": ".jcode/harness/20-project-rules.md",
+        }],
+    }
+    local = run_project_rule_placement_helper(local_payload)
+    if local.strip():
+        fail("project rule placement helper should pass with jcode-local judgement:\n" + local)
+
+    planning_payload = {
+        "assistant_response": "이 프로젝트 규칙 개선은 backlog 로 남겼습니다.",
+        "recent_tool_calls": [{
+            "name": "Write",
+            "args_preview": ".lazy-harness/planning/project-rule-router.md",
+        }],
+    }
+    planning = run_project_rule_placement_helper(planning_payload)
+    if planning.strip():
+        fail("project rule placement helper should pass when planning artifact is updated:\n" + planning)
+
+    casual_payload = {
+        "assistant_response": "AGENTS.md and .jcode exist in the project.",
+        "recent_tool_calls": [],
+    }
+    casual = run_project_rule_placement_helper(casual_payload)
+    if casual.strip():
+        fail("project rule placement helper false-positive on casual mention:\n" + casual)
+
+    print("✓ project rule placement helper ok")
 
 
 def check_affected_test_runner() -> None:
@@ -1166,6 +1248,8 @@ def check_agents_md_invariants() -> None:
         "SDD/BDD/SSOT/DDD",
         "Analysis discovery capture",
         "Discovery capture",
+        "rule-sources",
+        "Rule placement",
     ]
     missing_phrases = [phrase for phrase in required_phrases if phrase not in text]
     if missing_phrases:
@@ -1217,6 +1301,7 @@ def main() -> None:
         (check_interview_loop_answer, "BOTH"),
         (check_layer_completeness_helper, "BOTH"),
         (check_analysis_discovery_capture_helper, "BOTH"),
+        (check_project_rule_placement_helper, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),

@@ -111,7 +111,7 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 
 **Layer completeness gate**: TDD/regression/bug record 를 쓸 때는 같은 turn 에 SDD/BDD/SSOT/DDD 영향도 검색·판단한다. SDD=API/컴포넌트/IPC/scroll/focus 계약, BDD=visible flow, SSOT=라우팅/ownership/config/schema/source-of-truth, DDD=도메인 용어/비즈니스 규칙. 없으면 "영향 없음" 을 기록.
 
-**Analysis discovery capture (ADR 0034)**: 비 trivial 분석/계획 중 DDD/SDD/BDD/TDD/ADR/SSOT/Planning 후보나 다단계 backlog 가 나오면 답변 전에 records 를 갱신하거나 `.lazy-harness/knowledge/candidates.jsonl`/`.lazy-harness/planning/` 에 남기고 `Discovery capture` 판단을 적는다.
+**Analysis discovery capture (ADR 0034)**: 비 trivial 분석/계획 중 DDD/SDD/BDD/TDD/ADR/SSOT/Planning 후보나 다단계 backlog 가 나오면 답변 전에 records 를 갱신하거나 `.lazy-harness/knowledge/candidates.jsonl`/`.lazy-harness/planning/` 에 남기고 `Discovery capture` 판단을 적는다. 프로젝트별 rule/correction 은 `.lazy-harness/ssot/rule-sources.md` 로 위치 판정 후 `Rule placement` 를 남긴다.
 
 **Forbidden**:
 - 사용자 확인 없이 record 박기 / layer 추정 기록 / 중복 기록 / TDD 만 추가하고 SDD/BDD/SSOT/DDD 판단 생략 / 분석·계획에서 발견한 layer 지식이나 backlog 를 chat 에만 남기기
