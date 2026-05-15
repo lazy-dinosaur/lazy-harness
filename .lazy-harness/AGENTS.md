@@ -36,7 +36,7 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 요청 받자마자 검색 (필수)
 
-구현 / 수정 / 추가 / 디버그 의도가 보이면 즉시:
+구현 / 수정 / 추가 / 디버그 / 기록·계획·하려던 일 조회 의도가 보이면 즉시:
 
 ```bash
 grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/
@@ -45,7 +45,7 @@ grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,
 **Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.
 `find ..`, `grep ../`, sibling repo 참조로 host 지식을 가져오는 것은 금지다.
 record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs / package / config 를 읽어
-`.lazy-harness/<layer>/...` 에 새 record 를 만들고 Implementation map 으로 연결한다.
+`.lazy-harness/<layer>/...` 에 새 record 를 만들고 Implementation map 으로 연결한다. 기록/계획/하려던 일은 `session_search` 보다 `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,knowledge}/` 를 먼저 찾고, 세션 대화는 fallback/보조 증거로만 쓴다.
 Jcode 전용 로컬/개인 실행 메모만 `.jcode/harness/20-project-rules.md` 에 둔다. 프로젝트별 확장/커스텀 규칙 본문은 `.lazy-harness` record 에 두고 `.jcode` 는 pointer-only 로 유지한다.
 
 또는 N2 resolver 활용:

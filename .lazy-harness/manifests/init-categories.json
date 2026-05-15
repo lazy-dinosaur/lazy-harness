@@ -167,6 +167,11 @@
           "description": "SDD standard for option gate discipline: needs-option-gate is a waiting state, not approval to run tools, repeat prompts, or self-select Recommended."
         },
         {
+          "path": "spec/platform/record-before-session-history.md",
+          "kind": "file",
+          "description": "SDD standard requiring .lazy-harness records/planning/knowledge search before session history when looking for recorded plans, rules, or intended work."
+        },
+        {
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."

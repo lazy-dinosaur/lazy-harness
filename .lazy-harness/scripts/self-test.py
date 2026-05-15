@@ -372,6 +372,21 @@ def run_option_gate_discipline_helper(payload: dict) -> str:
     return completed.stdout
 
 
+def run_record_before_session_history_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"record-before-session-history helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -721,6 +736,58 @@ def check_option_gate_discipline_helper() -> None:
         fail("option gate discipline helper should pass non-gated inferred judgement:\n" + inferred)
 
     print("✓ option gate discipline helper ok")
+
+
+def check_record_before_session_history_helper() -> None:
+    """Recorded plans/rules must search .lazy-harness before session history."""
+    blocked_payload = {
+        "assistant_response": "기록해둔 예약시트 계획을 찾아보겠습니다.",
+        "recent_tool_calls": [{
+            "name": "session_search",
+            "query": "reservation sheet plan",
+        }],
+    }
+    blocked = run_record_before_session_history_helper(blocked_payload)
+    if "Record-before-session-history gate" not in blocked:
+        fail("record-before-session-history helper should block session_search-first lookup:\n" + blocked)
+
+    record_first_payload = {
+        "assistant_response": "기록해둔 예약시트 계획을 찾아보겠습니다.",
+        "recent_tool_calls": [
+            {
+                "name": "agentgrep",
+                "args_preview": "Search .lazy-harness/planning for reservation sheet notes",
+            },
+            {
+                "name": "session_search",
+                "query": "reservation sheet plan",
+            },
+        ],
+    }
+    record_first = run_record_before_session_history_helper(record_first_payload)
+    if record_first.strip():
+        fail("record-before-session-history helper should pass record-first lookup:\n" + record_first)
+
+    chat_only_payload = {
+        "assistant_response": "사용자가 대화 로그만 요청했으므로 이전 세션 대화만 찾겠습니다.",
+        "recent_tool_calls": [{
+            "name": "session_search",
+            "query": "exact transcript phrase",
+        }],
+    }
+    chat_only = run_record_before_session_history_helper(chat_only_payload)
+    if chat_only.strip():
+        fail("record-before-session-history helper should pass explicit chat-only lookup:\n" + chat_only)
+
+    unrelated_payload = {
+        "assistant_response": "이전 대화에서 정확한 표현을 찾아보겠습니다.",
+        "recent_tool_calls": [{"name": "session_search", "query": "exact words"}],
+    }
+    unrelated = run_record_before_session_history_helper(unrelated_payload)
+    if unrelated.strip():
+        fail("record-before-session-history helper should not block non-record chat recall:\n" + unrelated)
+
+    print("✓ record-before-session-history helper ok")
 
 
 
@@ -1511,6 +1578,7 @@ def main() -> None:
         (check_analysis_discovery_capture_helper, "BOTH"),
         (check_project_rule_placement_helper, "BOTH"),
         (check_option_gate_discipline_helper, "BOTH"),
+        (check_record_before_session_history_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
