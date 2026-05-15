@@ -162,6 +162,11 @@
           "description": "SDD standard for project-specific rule placement: route new rules to AGENTS, SSOT/ADR/layer records, planning, or .jcode-local workflow with an explicit Rule placement judgement."
         },
         {
+          "path": "spec/platform/option-gate-discipline.md",
+          "kind": "file",
+          "description": "SDD standard for option gate discipline: needs-option-gate is a waiting state, not approval to run tools, repeat prompts, or self-select Recommended."
+        },
+        {
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."

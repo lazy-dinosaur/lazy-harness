@@ -59,13 +59,15 @@ When a new rule is discussed, corrected, or routed, use this compact judgement u
 
 ## Ambiguous placement option gate
 
-If the rule could belong to both `.lazy-harness` and `.jcode`, stop and ask:
+If the rule could belong to both `.lazy-harness` and `.jcode`, stop and ask exactly once:
 
 A. `.lazy-harness/ssot/...` shared project rule (Recommended for team/project policy)
 B. `.lazy-harness/decisions/...` trade-off/why decision
 C. `.lazy-harness/planning/...` transient plan/backlog
 D. `.jcode/harness/20-project-rules.md` local/private Jcode-only workflow
 E. 직접 입력
+
+`Confirmation: needs-option-gate` is a waiting state, not a completed judgement. The agent must not run tools, write records, dispatch releases, or self-select the Recommended option until the user chooses. Once the user chooses, record the result as `Confirmation: user-confirmed` and do not ask the same gate again.
 
 ## Examples
 

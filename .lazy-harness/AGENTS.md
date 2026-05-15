@@ -60,7 +60,7 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 
 ### 2.3 결정 분기 시 옵션 질문 (자유 문답 금지)
 
-3~5 후보 + `(Recommended)` 표시 + type-your-own 마지막. ADR 0019 / Principle 21.
+3~5 후보 + `(Recommended)` 표시 + type-your-own 마지막. ADR 0019 / Principle 21. `needs-option-gate` 는 완료가 아니라 정지 상태다. 사용자 선택 전 반복 질문/Recommended 자가선택/도구 실행 금지. 사용자가 고르면 그 답을 `user-confirmed` 로 수렴하고 다시 묻지 않는다.
 
 **게이트 시점 (이 중 하나라도 해당되면 다음 도구 호출 전 무조건 멈춤)**:
 

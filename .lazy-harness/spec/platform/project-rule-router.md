@@ -27,9 +27,9 @@ The router applies when a response or user correction mentions any of:
 A triggered turn is complete only if one condition is true:
 
 1. A `.lazy-harness` record/planning artifact is updated for the rule.
-2. The response includes a complete `Rule placement` judgement.
+2. The response includes a complete `Rule placement` judgement with `Confirmation: user-confirmed` or `Confirmation: inferred-from-record`.
 3. `.jcode/harness/20-project-rules.md` is updated only as a pointer to canonical `.lazy-harness` records, or the response/file content includes `jcode-local` or `local-only` judgement.
-4. The agent stops with an option gate because placement is ambiguous.
+4. The agent stops with an option gate because placement is ambiguous. `Confirmation: needs-option-gate` is not complete and must not be followed by tool calls or self-selected Recommended execution.
 
 ## Rule placement judgement
 

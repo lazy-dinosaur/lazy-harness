@@ -357,6 +357,21 @@ def run_project_rule_placement_helper(payload: dict) -> str:
     return completed.stdout
 
 
+def run_option_gate_discipline_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"option gate discipline helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -634,6 +649,78 @@ def check_project_rule_placement_helper() -> None:
         fail("project rule placement helper false-positive on existing-record status report:\n" + status_report)
 
     print("✓ project rule placement helper ok")
+
+
+def check_option_gate_discipline_helper() -> None:
+    """Option gates must stop for the user and must not self-select Recommended."""
+    plain_gate_payload = {
+        "assistant_response": (
+            "## Rule placement\n"
+            "- Rule: release execution policy.\n"
+            "- Scope: ambiguous\n"
+            "- Confirmation: needs-option-gate\n\n"
+            "선택해주세요:\n"
+            "A. SSOT 기록 후 test release dispatch (Recommended)\n"
+            "B. SSOT 기록 후 --watch 포함 dispatch\n"
+            "C. dry-run first\n"
+            "D. cancel\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    plain_gate = run_option_gate_discipline_helper(plain_gate_payload)
+    if plain_gate.strip():
+        fail("option gate discipline helper should allow a plain ask-once gate:\n" + plain_gate)
+
+    write_after_gate_payload = {
+        "assistant_response": plain_gate_payload["assistant_response"],
+        "recent_tool_calls": [{
+            "name": "Write",
+            "args_preview": ".lazy-harness/ssot/release-sources.md",
+        }],
+    }
+    write_after_gate = run_option_gate_discipline_helper(write_after_gate_payload)
+    if "Option gate discipline" not in write_after_gate:
+        fail("option gate discipline helper should block write after unresolved gate:\n" + write_after_gate)
+
+    exec_after_gate_payload = {
+        "assistant_response": plain_gate_payload["assistant_response"],
+        "recent_tool_calls": [{
+            "name": "bash",
+            "args_preview": "bun release test --force --with-notes",
+        }],
+    }
+    exec_after_gate = run_option_gate_discipline_helper(exec_after_gate_payload)
+    if "Option gate discipline" not in exec_after_gate:
+        fail("option gate discipline helper should block command execution after unresolved gate:\n" + exec_after_gate)
+
+    self_select_payload = {
+        "assistant_response": (
+            "## Rule placement\n"
+            "- Rule: release execution policy.\n"
+            "- Confirmation: needs-option-gate\n\n"
+            "진행 선택: A. SSOT 기록 후 test release dispatch (Recommended)\n"
+            "SSOT 기록 완료했습니다. 이제 dispatch 하겠습니다. Confirmation: user-confirmed"
+        ),
+        "recent_tool_calls": [],
+    }
+    self_select = run_option_gate_discipline_helper(self_select_payload)
+    if "Option gate discipline" not in self_select:
+        fail("option gate discipline helper should block self-selected Recommended path:\n" + self_select)
+
+    inferred_payload = {
+        "assistant_response": (
+            "## Rule placement\n"
+            "- Rule: existing release policy.\n"
+            "- Confirmation: inferred-from-record\n"
+            "기존 SSOT 근거로 게이트 없이 진행합니다."
+        ),
+        "recent_tool_calls": [],
+    }
+    inferred = run_option_gate_discipline_helper(inferred_payload)
+    if inferred.strip():
+        fail("option gate discipline helper should pass non-gated inferred judgement:\n" + inferred)
+
+    print("✓ option gate discipline helper ok")
 
 
 
@@ -1423,6 +1510,7 @@ def main() -> None:
         (check_layer_completeness_helper, "BOTH"),
         (check_analysis_discovery_capture_helper, "BOTH"),
         (check_project_rule_placement_helper, "BOTH"),
+        (check_option_gate_discipline_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
