@@ -107,13 +107,31 @@ rule_cues = [
 ]
 placement_cues = [".jcode", "20-project-rules", "agents.md", "agENTS.md".lower(), ".lazy-harness", "rule-sources"]
 workflow_cues = ["workflow", "ownership", "source-of-truth", "forbidden", "운영", "정책", "소유권", "수정 금지"]
+action_cues = [
+    "추가", "기록", "저장", "옮", "이동", "마이그레이션", "바꾸", "변경", "정정", "고정",
+    "add", "record", "store", "move", "migrate", "change", "correct", "route", "place",
+]
+status_only_cues = [
+    "적용됨", "적용됐", "있음", "이미", "확인", "status", "applied", "synced", "exists",
+]
 
 has_rule = any(cue in lower for cue in [c.lower() for c in rule_cues])
 has_placement = any(cue in lower for cue in [c.lower() for c in placement_cues])
 has_workflow = any(cue in lower for cue in [c.lower() for c in workflow_cues])
+has_action = any(cue in lower for cue in [c.lower() for c in action_cues])
+has_status_only = any(cue in lower for cue in [c.lower() for c in status_only_cues])
+has_forward_action = any(cue in lower for cue in [
+    "해야", "하겠", "할게", "하자", "필요", "빠져", "누락", "추가해야", "기록해야",
+    "will", "need", "needs", "missing", "should", "must",
+])
+write_touched = any(str(call.get("name", "")) in WRITE_TOOLS for call in payload.get("recent_tool_calls", []) or [])
 
-# High-confidence only. Casual AGENTS/.jcode mentions should stay silent.
-if not (jcode_touched or (has_rule and (has_placement or has_workflow))):
+# High-confidence only. Casual/status reporting about existing records should stay silent.
+# The gate is for newly discovered/corrected/routed project rules, not for answers
+# that merely report whether a known policy is already recorded or synced.
+if has_status_only and not has_forward_action and not write_touched and not jcode_touched:
+    sys.exit(0)
+if not (jcode_touched or (has_rule and has_action and (has_placement or has_workflow))):
     sys.exit(0)
 
 print("STOP. Project rule placement gate: 프로젝트별 rule/correction 을 어디에 둘지 판정 없이 진행하면 안 됩니다.\n")

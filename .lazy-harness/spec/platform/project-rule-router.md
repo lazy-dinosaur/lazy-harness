@@ -63,6 +63,7 @@ A triggered turn is complete only if one condition is true:
 It emits STOP text when:
 
 - high-confidence project-rule placement cues are detected,
+- the response is creating, correcting, moving, or newly routing a rule rather than merely reporting that an existing record/policy is already applied,
 - no `.lazy-harness` record/planning artifact was touched,
 - and there is no complete `Rule placement` judgement,
 - especially when the response chooses `.jcode` for a project rule without `jcode-local` or `local-only` scope.

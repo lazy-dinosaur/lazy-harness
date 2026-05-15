@@ -619,6 +619,18 @@ def check_project_rule_placement_helper() -> None:
     if casual.strip():
         fail("project rule placement helper false-positive on casual mention:\n" + casual)
 
+    status_report_payload = {
+        "assistant_response": (
+            "framework gate는 두 프로젝트에 적용됨. Medivance release dispatch 정책은 "
+            ".lazy-harness/ssot/release-branch-policy.md record에 이미 있음. "
+            "medivance-pwa는 release script가 없어 적용 대상이 아님."
+        ),
+        "recent_tool_calls": [],
+    }
+    status_report = run_project_rule_placement_helper(status_report_payload)
+    if status_report.strip():
+        fail("project rule placement helper false-positive on existing-record status report:\n" + status_report)
+
     print("✓ project rule placement helper ok")
 
 
