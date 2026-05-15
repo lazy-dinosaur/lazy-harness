@@ -47,16 +47,46 @@ lower = blob.lower()
 if not blob.strip():
     sys.exit(0)
 
-# Complete Rule placement judgement satisfies the gate.
-required = ["Rule placement", "Rule:", "Scope:", "Primary record:", "Why not AGENTS.md", "Why not `.jcode`", "Confirmation:"]
-if all(term in blob for term in required):
+
+def call_blob(call):
+    parts = []
+    for key in ("args_preview", "args", "input", "arguments"):
+        value = call.get(key)
+        if value is None:
+            continue
+        if isinstance(value, str):
+            parts.append(value)
+        else:
+            try:
+                parts.append(json.dumps(value, ensure_ascii=False))
+            except Exception:
+                parts.append(str(value))
+    return "\n".join(parts)
+
+
+def has_rule_placement_judgement(text: str) -> bool:
+    normalized = text.lower().replace("`", "")
+    required_patterns = [
+        r"rule\s*placement",
+        r"rule\s*:",
+        r"scope\s*:",
+        r"primary\s+record\s*:",
+        r"why\s+not\s+agents\.md\s*:",
+        r"why\s+not\s+\.?jcode\s*:",
+        r"confirmation\s*:",
+    ]
+    return all(re.search(pattern, normalized, re.IGNORECASE) for pattern in required_patterns)
+
+# Complete Rule placement judgement satisfies the gate. Accept bullets, missing
+# Markdown heading markers, and `.jcode` with or without backticks.
+if has_rule_placement_judgement(blob):
     sys.exit(0)
 
 # Same-turn .lazy-harness record/planning capture satisfies the gate.
 for call in payload.get("recent_tool_calls", []) or []:
     if str(call.get("name", "")) not in WRITE_TOOLS:
         continue
-    args_blob = str(call.get("args_preview", ""))
+    args_blob = call_blob(call)
     if LAZY_CAPTURE_RE.search(args_blob):
         sys.exit(0)
 
@@ -65,7 +95,7 @@ jcode_touched = False
 for call in payload.get("recent_tool_calls", []) or []:
     if str(call.get("name", "")) not in WRITE_TOOLS:
         continue
-    args_blob = str(call.get("args_preview", ""))
+    args_blob = call_blob(call)
     if JCODE_RULES in args_blob:
         jcode_touched = True
         if "jcode-local" in lower or "local-only" in lower or "local only" in lower:

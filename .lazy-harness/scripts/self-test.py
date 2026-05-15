@@ -584,6 +584,33 @@ def check_project_rule_placement_helper() -> None:
     if planning.strip():
         fail("project rule placement helper should pass when planning artifact is updated:\n" + planning)
 
+    real_world_judgement_payload = {
+        "assistant_response": (
+            "Rule placement\n"
+            "• Rule: Medivance PR descriptions must use Why, What, Task, Validation, then User-note-type / User-note when applicable.\n"
+            "• Scope: team-policy\n"
+            "• Primary record: .lazy-harness/ssot/pr-description-format.md\n"
+            "• Why not AGENTS.md: This is a Medivance team PR workflow policy, not framework-global guidance.\n"
+            "• Why not .jcode: .jcode is local/private Jcode memory only; canonical shared team policy belongs in .lazy-harness/ssot.\n"
+            "• Confirmation: user-confirmed\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    real_world_judgement = run_project_rule_placement_helper(real_world_judgement_payload)
+    if real_world_judgement.strip():
+        fail("project rule placement helper should pass real-world bullet/no-backtick judgement:\n" + real_world_judgement)
+
+    args_payload = {
+        "assistant_response": "PR 규격 SSOT를 recognized edit로 갱신했습니다.",
+        "recent_tool_calls": [{
+            "name": "edit",
+            "args": {"file_path": ".lazy-harness/ssot/pr-description-format.md"},
+        }],
+    }
+    args_out = run_project_rule_placement_helper(args_payload)
+    if args_out.strip():
+        fail("project rule placement helper should pass .lazy-harness path from structured args:\n" + args_out)
+
     casual_payload = {
         "assistant_response": "AGENTS.md and .jcode exist in the project.",
         "recent_tool_calls": [],
