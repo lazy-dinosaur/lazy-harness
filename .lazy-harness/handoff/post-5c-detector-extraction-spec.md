@@ -55,7 +55,7 @@ Still monolithic:
 3. Do not change JSON output shape.
 4. Do not change detector heuristics during extraction.
 5. Do not broaden fixture baselines unless behavior change is deliberate, documented, and approved.
-6. Do not reintroduce `.jcode` as the primary doctor. Lazy-harness owns `lazy:test` and `lazy:doctor`.
+6. Do not reintroduce `.jcode` as the primary doctor. Lazy-harness owns `.lazy-harness/bin/lazy test` and `.lazy-harness/bin/lazy doctor`.
 7. Do not delete fixtures or old validation artifacts.
 8. Because `.lazy-harness/` is ignored, new files must be staged with `git add -f`.
 
@@ -306,13 +306,13 @@ Run after each detector extraction:
 
 ```bash
 git diff --check
-bun run lazy:test
+.lazy-harness/bin/lazy test
 ```
 
 Run before each commit:
 
 ```bash
-bun run lazy:doctor
+.lazy-harness/bin/lazy doctor --profile smoke
 .lazy-harness/hooks/pre-push.sh origin dummy
 git status --short
 ```
@@ -387,13 +387,13 @@ Adjust paths per detector.
 
 ## Known risk from previous extraction
 
-During the first refactor pass, `uniqueTermsByLower` was accidentally removed and `lazy:test` caught:
+During the first refactor pass, `uniqueTermsByLower` was accidentally removed and `.lazy-harness/bin/lazy test` caught:
 
 ```text
 ReferenceError: uniqueTermsByLower is not defined
 ```
 
-So do not rely on static reading only. Always run `bun run lazy:test` after each extraction.
+So do not rely on static reading only. Always run `.lazy-harness/bin/lazy test` after each extraction.
 
 ## Package health is separate
 
@@ -413,8 +413,8 @@ This handoff task is done when:
 1. `code-change.ts` is orchestration-focused and significantly smaller.
 2. All four detector files exist under `.lazy-harness/triggers/detectors/`.
 3. CLI flags and output shape are unchanged.
-4. `bun run lazy:test` passes.
-5. `bun run lazy:doctor` passes.
+4. `.lazy-harness/bin/lazy test` passes.
+5. `.lazy-harness/bin/lazy doctor --profile smoke` passes.
 6. `.lazy-harness/hooks/pre-push.sh origin dummy` passes and leaves the working tree clean.
 7. Each detector extraction is committed separately on `experimental/lazy-harness`.
 
@@ -423,6 +423,6 @@ This handoff task is done when:
 ```bash
 cd /home/lazydino/dev/medivance.experimental-lazy-harness \
   && git status -sb \
-  && bun run lazy:test \
+  && .lazy-harness/bin/lazy test \
   && rg -n "^(export function|function) " .lazy-harness/triggers/code-change.ts
 ```

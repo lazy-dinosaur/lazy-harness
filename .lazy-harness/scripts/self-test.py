@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import pathlib
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -84,6 +85,30 @@ def check_doctor_package_health() -> None:
     if d08.get("status") not in {"ok", "warn"}:
         fail("doctor D08 should be ok or warn, got: " + json.dumps(d08, ensure_ascii=False))
     print(f"✓ doctor D07 package health {d07.get('status')}")
+
+
+def check_package_health_generate_remediation_heuristic() -> None:
+    """D07 should detect safe generated-artifact remediation commands before stopping."""
+    ns = runpy.run_path(str(LAZY / "scripts" / "doctor.py"))
+    find_generate_command = ns["find_generate_command"]
+    should_try_generate = ns["should_try_generate"]
+
+    pkg = {"scripts": {"db:generate": "prisma generate"}}
+    command = find_generate_command(pkg, "")
+    if command != ["bun", "run", "db:generate"]:
+        fail(f"doctor generate command precedence changed: {command}")
+
+    prisma_pkg = {"dependencies": {"@prisma/client": "latest", "prisma": "latest"}}
+    fallback = find_generate_command(prisma_pkg, "error TS2305: @prisma/client has no exported member ActionVisibility")
+    if fallback != ["bun", "x", "prisma", "generate"]:
+        fail(f"doctor Prisma fallback generate command changed: {fallback}")
+
+    if not should_try_generate('error TS2305: Module "@prisma/client" has no exported member ActionVisibility', [], prisma_pkg):
+        fail("doctor should try generate for Prisma generated-client drift")
+    if should_try_generate("error TS2322: Type string is not assignable to number", [], {}):
+        fail("doctor should not try generate for unrelated app code drift")
+
+    print("✓ package health generate remediation heuristic ok")
 
 
 def check_xml() -> None:
@@ -384,6 +409,21 @@ def run_record_before_session_history_helper(payload: dict) -> str:
         sys.stdout.write(completed.stdout)
         sys.stderr.write(completed.stderr)
         fail(f"record-before-session-history helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
+def run_lazy_cli_entrypoint_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"lazy CLI entrypoint helper exit changed: {completed.returncode}")
     return completed.stdout
 
 
@@ -790,6 +830,35 @@ def check_record_before_session_history_helper() -> None:
     print("✓ record-before-session-history helper ok")
 
 
+
+
+def check_lazy_cli_entrypoint_helper() -> None:
+    """Current lazy CLI is .lazy-harness/bin/lazy, not stale package scripts."""
+    blocked_payload = {
+        "assistant_response": "lazy test 실패를 재현하려고 bun run lazy:test 를 실행했는데 package.json에 스크립트가 없어 실패했습니다.",
+        "recent_tool_calls": [{"name": "bash", "args_preview": "bun run lazy:test"}],
+    }
+    blocked = run_lazy_cli_entrypoint_helper(blocked_payload)
+    if "Lazy CLI entrypoint gate" not in blocked or ".lazy-harness/bin/lazy test" not in blocked:
+        fail("lazy CLI entrypoint helper should block stale package-script usage:\n" + blocked)
+
+    canonical_payload = {
+        "assistant_response": ".lazy-harness/bin/lazy version 후 .lazy-harness/bin/lazy test 로 재현합니다.",
+        "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy test"}],
+    }
+    canonical = run_lazy_cli_entrypoint_helper(canonical_payload)
+    if canonical.strip():
+        fail("lazy CLI entrypoint helper should pass canonical CLI usage:\n" + canonical)
+
+    corrective_payload = {
+        "assistant_response": "`bun run lazy:test` 는 낡은 호출이라 쓰지 말고 대신 .lazy-harness/bin/lazy test 를 사용합니다.",
+        "recent_tool_calls": [],
+    }
+    corrective = run_lazy_cli_entrypoint_helper(corrective_payload)
+    if corrective.strip():
+        fail("lazy CLI entrypoint helper should pass corrective stale-command explanation:\n" + corrective)
+
+    print("✓ lazy CLI entrypoint helper ok")
 
 
 def check_skill_create_cli() -> None:
@@ -1615,6 +1684,7 @@ def main() -> None:
         (check_doctor_smoke, "BOTH"),
         (check_doctor_c17_negative, "BOTH"),
         (check_doctor_package_health, "BOTH"),
+        (check_package_health_generate_remediation_heuristic, "BOTH"),
         (check_xml, "BOTH"),
         (check_jsonl, "BOTH"),
         (check_schemas, "BOTH"),
@@ -1626,6 +1696,7 @@ def main() -> None:
         (check_project_rule_placement_helper, "BOTH"),
         (check_option_gate_discipline_helper, "BOTH"),
         (check_record_before_session_history_helper, "BOTH"),
+        (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_skill_create_cli, "BOTH"),

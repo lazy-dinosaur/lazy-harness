@@ -22,6 +22,7 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh \
+  .lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-aftershock-reanalysis.sh \

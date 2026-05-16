@@ -51,8 +51,8 @@
 ### Critical issues 3
 
 1. **SSOT 문서 stale** — registry 가 실제 SSOT 와 mismatch → ✅ `ssot/registry.xml` 생성
-2. **XML 파싱 실패** — 일부 XML 깨짐 → ✅ `bun run lazy:test` XML parse 통과
-3. **Doctor false-green** — stale/XML/C17 blind spot → ✅ `lazy:test` + framework-owned `lazy:doctor` D01~D07 로 복구
+2. **XML 파싱 실패** — 일부 XML 깨짐 → ✅ `.lazy-harness/bin/lazy test` XML parse 통과
+3. **Doctor false-green** — stale/XML/C17 blind spot → ✅ `.lazy-harness/bin/lazy test` + `.lazy-harness/bin/lazy doctor` D01~D07 로 복구
 
 → 5c-4 SSOT detector 진입 시 동시에 해결.
 

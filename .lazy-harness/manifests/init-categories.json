@@ -177,6 +177,16 @@
           "description": "SDD standard for resolving caller git worktree root through LAZY_HOST_ROOT so symlinked .lazy-harness scripts validate the intended host checkout."
         },
         {
+          "path": "spec/platform/lazy-cli-entrypoint.md",
+          "kind": "file",
+          "description": "SDD standard for the canonical per-host lazy CLI entrypoint and stale package-script lazy:test guard."
+        },
+        {
+          "path": "spec/platform/package-health-generate-remediation.md",
+          "kind": "file",
+          "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."
+        },
+        {
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."

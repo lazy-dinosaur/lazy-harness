@@ -3,7 +3,7 @@
 
 ADR 0022 boundary:
 - Jcode may wrap this command, but operational checks live in .lazy-harness.
-- `lazy:test` remains the primary reproducible gate and calls the smoke profile.
+- `.lazy-harness/bin/lazy test` is the primary reproducible gate and calls the scope-aware self-test.
 
 ADR 0026 scope separation:
 - Same script runs both in framework dev repo and on hosts after lazy-init.
@@ -284,35 +284,130 @@ def classify_typecheck_line(line: str) -> str | None:
     return None
 
 
+def run_typecheck_node() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bun", "run", "typecheck:node"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def package_json() -> dict:
+    try:
+        return json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def classify_typecheck_output(completed: subprocess.CompletedProcess[str]) -> tuple[str, list[str], set[str]]:
+    combined = "\n".join(part for part in [completed.stdout, completed.stderr] if part)
+    diagnostics = [line.strip() for line in combined.splitlines() if classify_typecheck_line(line)]
+    categories = {classify_typecheck_line(line) for line in diagnostics}
+    categories.discard(None)
+    return combined, diagnostics, categories
+
+
+def find_generate_command(pkg: dict, combined: str) -> list[str] | None:
+    scripts = pkg.get("scripts") if isinstance(pkg, dict) else {}
+    scripts = scripts if isinstance(scripts, dict) else {}
+    for name in ["generate", "db:generate", "prisma:generate", "prisma:gen"]:
+        if name in scripts:
+            return ["bun", "run", name]
+
+    deps_text = json.dumps({
+        "dependencies": pkg.get("dependencies", {}),
+        "devDependencies": pkg.get("devDependencies", {}),
+    })
+    if "prisma" in deps_text.lower() or "prisma" in combined.lower():
+        return ["bun", "x", "prisma", "generate"]
+    return None
+
+
+def should_try_generate(combined: str, diagnostics: list[str], pkg: dict) -> bool:
+    haystack = "\n".join([combined, *diagnostics]).lower()
+    markers = [
+        "@prisma/client",
+        "prisma",
+        "generated",
+        "src/generated",
+        ".generated",
+        "generated/prisma",
+        "has no exported member",
+        "actionvisibility",
+    ]
+    if any(marker in haystack for marker in markers):
+        return True
+    scripts = pkg.get("scripts") if isinstance(pkg, dict) else {}
+    if isinstance(scripts, dict) and any(name in scripts for name in ["generate", "db:generate", "prisma:generate", "prisma:gen"]):
+        return True
+    return False
+
+
+def run_generate_remediation(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+
+
 def check_package_health() -> CheckResult:
     if not (ROOT / "package.json").exists():
         return warn("D07", "package health skipped: environment without package.json")
 
     try:
-        completed = subprocess.run(
-            ["bun", "run", "typecheck:node"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            timeout=120,
-            check=False,
-        )
+        completed = run_typecheck_node()
     except FileNotFoundError:
         return warn("D07", "package health environment warning", ["bun executable not found"])
     except subprocess.TimeoutExpired:
         return warn("D07", "package health environment warning", ["typecheck:node timed out after 120s"])
 
-    combined = "\n".join(part for part in [completed.stdout, completed.stderr] if part)
-    diagnostics = [line.strip() for line in combined.splitlines() if classify_typecheck_line(line)]
-    categories = {classify_typecheck_line(line) for line in diagnostics}
-    categories.discard(None)
+    combined, diagnostics, categories = classify_typecheck_output(completed)
 
     if completed.returncode == 0:
         return ok("D07", "package health ok")
     if categories and categories <= {"environment"}:
         return warn("D07", "package health environment warning", diagnostics[:20])
+
+    pkg = package_json()
+    generate_command = find_generate_command(pkg, combined)
+    if generate_command and should_try_generate(combined, diagnostics, pkg):
+        try:
+            generated = run_generate_remediation(generate_command)
+        except FileNotFoundError:
+            generated = None
+        except subprocess.TimeoutExpired:
+            generated = None
+
+        command_text = " ".join(generate_command)
+        if generated is None:
+            return fail("D07", "package health typecheck failed; generate remediation unavailable", [f"attempted: {command_text}", *(diagnostics[:18] or combined.splitlines()[:18])])
+        generate_output = "\n".join(part for part in [generated.stdout, generated.stderr] if part)
+        if generated.returncode == 0:
+            try:
+                retry = run_typecheck_node()
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                retry = None
+            if retry is not None:
+                retry_combined, retry_diagnostics, retry_categories = classify_typecheck_output(retry)
+                if retry.returncode == 0:
+                    return ok("D07", "package health ok after generate remediation", [f"remediation: {command_text}"])
+                if retry_categories and retry_categories <= {"environment"}:
+                    return warn("D07", "package health environment warning after generate remediation", [f"remediation: {command_text}", *retry_diagnostics[:19]])
+                return fail("D07", "package health typecheck failed after generate remediation", [f"remediation: {command_text}", *(retry_diagnostics[:19] or retry_combined.splitlines()[:19])])
+        return fail("D07", "package health generate remediation failed", [f"remediation: {command_text}", *generate_output.splitlines()[:19]])
+
     if "code-drift" in categories or "unknown" in categories:
-        return fail("D07", "package health typecheck failed", diagnostics[:20] or combined.splitlines()[:20])
+        details = diagnostics[:20] or combined.splitlines()[:20]
+        if not generate_command and should_try_generate(combined, diagnostics, pkg):
+            details = ["generated-artifact drift suspected but no generate/prisma generate command was found", *details[:19]]
+        return fail("D07", "package health typecheck failed", details)
     return warn("D07", "package health environment warning", combined.splitlines()[:20])
 
 

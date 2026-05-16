@@ -110,7 +110,7 @@ project-root/
 │   ├── framework/framework-contract.md  ← single source of truth
 │   ├── domain/, spec/, behavior/, tests/  ← 17 cross-layer maps
 │   ├── decisions/           ← ADR
-│   ├── scripts/self-test.py ← primary executable gate (`bun run lazy:test`)
+│   ├── bin/lazy + scripts/self-test.py ← primary executable gate (`.lazy-harness/bin/lazy test`)
 │   ├── logs/                ← actions/decisions/validations.jsonl
 │   ├── schemas/             ← result.schema.json 등
 │   └── ...                  ← 모든 framework 데이터
@@ -147,7 +147,7 @@ project-root/
 
 3. FRAMEWORK-OWNED VALIDATION (ADR 0022)
    primary gate 는 framework 내부에 있다:
-     bun run lazy:test
+     .lazy-harness/bin/lazy test
      → .lazy-harness/scripts/self-test.py
 
    Jcode doctor/skill 은 있더라도 wrapper 일 뿐이며 primary source of truth 가 아니다.
