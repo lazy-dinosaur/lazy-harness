@@ -52,39 +52,29 @@ TIMESTAMP=$(date -Iseconds)
 RESULT_LOG="$LAZY/logs/validations.jsonl"
 mkdir -p "$(dirname "$RESULT_LOG")"
 
-# Detect whether this host has a runnable lazy:test gate.
-# Three execution paths, in order of preference:
-#   1) .lazy-harness/bin/lazy (per-host CLI dispatcher — Z2 phase, current)
-#   2) "lazy:test" npm script in package.json (legacy, pre-CLI hosts)
-#   3) .lazy-harness/scripts/self-test.py directly (fallback)
-# When none exist, the gate gracefully skips: an early-stage host that has not
-# wired any lazy-harness tests yet should not have push blocked.
+# Detect whether this host has a runnable canonical lazy-harness gate.
+# Execution paths, in order of preference:
+#   1) .lazy-harness/bin/lazy test (per-host CLI dispatcher, current)
+#   2) .lazy-harness/scripts/self-test.py directly (fallback for transitional hosts)
+# Never call historical package-script aliases from this hook. They are stale
+# and can point agents at the wrong diagnosis path.
 HAS_CLI=0
 if [ -x ".lazy-harness/bin/lazy" ]; then
     HAS_CLI=1
 fi
 
-HAS_NPM_SCRIPT=0
-if [ "$HAS_CLI" = "0" ] && command -v bun >/dev/null 2>&1 && [ -f package.json ]; then
-    if python3 -c "import json,sys;sys.exit(0 if 'lazy:test' in json.load(open('package.json')).get('scripts',{}) else 1)" 2>/dev/null; then
-        HAS_NPM_SCRIPT=1
-    fi
-fi
-
 HAS_SELFTEST=0
-if [ "$HAS_CLI" = "0" ] && [ "$HAS_NPM_SCRIPT" = "0" ] && [ -x ".lazy-harness/scripts/self-test.py" ]; then
+if [ "$HAS_CLI" = "0" ] && [ -x ".lazy-harness/scripts/self-test.py" ]; then
     HAS_SELFTEST=1
 fi
 
-if [ "$HAS_CLI" = "0" ] && [ "$HAS_NPM_SCRIPT" = "0" ] && [ "$HAS_SELFTEST" = "0" ]; then
-    echo "ℹ️  pre-push: lazy:test not wired on this host yet — skipping gate"
+if [ "$HAS_CLI" = "0" ] && [ "$HAS_SELFTEST" = "0" ]; then
+    echo "ℹ️  pre-push: .lazy-harness/bin/lazy test not wired on this host yet — skipping gate"
     exit 0
 fi
 
 if [ "$HAS_CLI" = "1" ]; then
     TEST_OUT=$(./.lazy-harness/bin/lazy test 2>&1 || true)
-elif [ "$HAS_NPM_SCRIPT" = "1" ]; then
-    TEST_OUT=$(bun run lazy:test 2>&1 || true)
 else
     TEST_OUT=$(.lazy-harness/scripts/self-test.py 2>&1 || true)
 fi
@@ -101,19 +91,19 @@ print(json.dumps({
     "status": "fail",
     "category": "infra",
     "humanRequired": True,
-    "details": [f"lazy:test failed: {os.environ.get('SUMMARY', '')}"],
-    "suggestedFix": "run bun run lazy:test and address framework self-test failures",
+    "details": [f".lazy-harness/bin/lazy test failed: {os.environ.get('SUMMARY', '')}"],
+    "suggestedFix": "run .lazy-harness/bin/lazy test and address framework self-test failures",
     "confidence": "high",
 }, ensure_ascii=False))
 PY
     echo ""
-    echo "🚨 pre-push blocked: lazy:test 실패"
-    echo "→ bun run lazy:test 실행해서 fix 후 다시 push"
+    echo "🚨 pre-push blocked: .lazy-harness/bin/lazy test 실패"
+    echo "→ .lazy-harness/bin/lazy test 실행해서 fix 후 다시 push"
     exit 1
 fi
 
 # Success intentionally does not write to tracked validations.jsonl.
 # A successful push gate should not dirty the working tree.
-echo "✅ lazy:test all green"
+echo "✅ .lazy-harness/bin/lazy test all green"
 
 exit 0

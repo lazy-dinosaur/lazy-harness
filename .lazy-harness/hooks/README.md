@@ -8,7 +8,7 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 |---|---|---|
 | Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on non-framework branches. |
 | Git post-commit | `.lazy-harness/hooks/post-commit.sh` | Append action log metadata and regression hints. |
-| Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `lazy:test` before push and enforce branch leak policy. |
+| Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
 | Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
@@ -44,6 +44,6 @@ or run helpers with dry-run semantics when available. This prevents response lif
 
 ## Status
 
-- Current operational gate: `bun run lazy:test` and `bun run lazy:doctor`.
+- Current operational gate: `.lazy-harness/bin/lazy test` and `.lazy-harness/bin/lazy doctor --profile smoke`.
 - Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.

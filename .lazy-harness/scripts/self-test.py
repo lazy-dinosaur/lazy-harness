@@ -832,6 +832,20 @@ def check_record_before_session_history_helper() -> None:
 
 
 
+def check_pre_push_uses_canonical_lazy_cli() -> None:
+    """Git pre-push must not call stale package-script lazy:test."""
+    hook = (LAZY / "hooks" / "pre-push.sh").read_text(encoding="utf-8")
+    forbidden = ["bun run lazy:test", "bun run lazy:doctor", "HAS_NPM_SCRIPT", "suggestedFix: run bun run lazy:test"]
+    leaked = [token for token in forbidden if token in hook]
+    if leaked:
+        fail("pre-push hook still references stale lazy package-script path: " + ", ".join(leaked))
+    required = ["./.lazy-harness/bin/lazy test", ".lazy-harness/scripts/self-test.py"]
+    missing = [token for token in required if token not in hook]
+    if missing:
+        fail("pre-push hook missing canonical lazy CLI/fallback path: " + ", ".join(missing))
+    print("✓ pre-push canonical lazy CLI ok")
+
+
 def check_lazy_cli_entrypoint_helper() -> None:
     """Current lazy CLI is .lazy-harness/bin/lazy, not stale package scripts."""
     blocked_payload = {
@@ -1696,6 +1710,7 @@ def main() -> None:
         (check_project_rule_placement_helper, "BOTH"),
         (check_option_gate_discipline_helper, "BOTH"),
         (check_record_before_session_history_helper, "BOTH"),
+        (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),

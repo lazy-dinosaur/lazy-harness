@@ -61,12 +61,14 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md` — this SDD contract.
   - `.lazy-harness/bin/lazy` — canonical per-host dispatcher.
   - `.lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh` — response-completed guard.
+  - `.lazy-harness/hooks/pre-push.sh` — git pre-push gate using the canonical CLI, never package script `lazy:test`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the guard.
   - `.lazy-harness/scripts/self-test.py` — regression fixtures.
   - `.lazy-harness/scripts/doctor.py` — package health generate remediation and retry.
   - `README.md`, `.lazy-harness/framework/framework-contract.md`, `.lazy-harness/handoff/00-current-state.md` — current docs using canonical command.
 - Key symbols:
   - `check_lazy_cli_entrypoint_helper` (`.lazy-harness/scripts/self-test.py`) — verifies stale CLI block/canonical pass.
+  - `check_pre_push_uses_canonical_lazy_cli` (`.lazy-harness/scripts/self-test.py`) — verifies pre-push does not call stale package scripts.
   - `.lazy-harness/bin/lazy version` — root diagnostic command.
 - Flow:
   1. Agent needs to reproduce lazy-harness validation.
