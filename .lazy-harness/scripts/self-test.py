@@ -318,7 +318,13 @@ def run_knowledge_intake_fixture() -> dict:
 
 
 def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
-    env = {**os.environ, "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT))}
+    validations = LAZY / "logs" / f"__tmp_hook_validations_{os.getpid()}.jsonl"
+    validations.unlink(missing_ok=True)
+    env = {
+        **os.environ,
+        "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT)),
+        "LAZY_HARNESS_VALIDATIONS_FILE": str(validations.relative_to(ROOT)),
+    }
     if decisions is not None:
         env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
     completed = subprocess.run(
@@ -330,11 +336,14 @@ def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: p
         capture_output=True,
         check=False,
     )
-    if completed.returncode != 0:
-        sys.stdout.write(completed.stdout)
-        sys.stderr.write(completed.stderr)
-        fail(f"response.completed hook exit changed: {completed.returncode}")
-    return completed.stdout
+    try:
+        if completed.returncode != 0:
+            sys.stdout.write(completed.stdout)
+            sys.stderr.write(completed.stderr)
+            fail(f"response.completed hook exit changed: {completed.returncode}")
+        return completed.stdout
+    finally:
+        validations.unlink(missing_ok=True)
 
 
 def run_layer_completeness_helper(payload: dict) -> str:
@@ -839,7 +848,15 @@ def check_pre_push_uses_canonical_lazy_cli() -> None:
     leaked = [token for token in forbidden if token in hook]
     if leaked:
         fail("pre-push hook still references stale lazy package-script path: " + ", ".join(leaked))
-    required = ["./.lazy-harness/bin/lazy test", ".lazy-harness/scripts/self-test.py"]
+    required = [
+        'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test',
+        'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py"',
+        'LAZY_HOST_ROOT="$REPO_ROOT"',
+        "IS_FRAMEWORK_REPO",
+        "framework/framework-contract.md",
+        "planning/phase-5-plan.xml",
+        "standalone lazy-harness source repo",
+    ]
     missing = [token for token in required if token not in hook]
     if missing:
         fail("pre-push hook missing canonical lazy CLI/fallback path: " + ", ".join(missing))
@@ -960,19 +977,26 @@ def check_lazy_host_root_resolution() -> None:
         subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
         (temp / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
 
+        poisoned_git_env = {
+            **os.environ,
+            "LAZY_HOST_ROOT": str(temp.resolve()),
+            "GIT_DIR": str((ROOT / ".git").resolve()),
+            "GIT_WORK_TREE": str(ROOT),
+        }
         completed = subprocess.run(
             [str(temp / ".lazy-harness" / "bin" / "lazy"), "version"],
             cwd=temp,
+            env=poisoned_git_env,
             text=True,
             capture_output=True,
             check=True,
         )
         expected = f"host_root:  {temp.resolve()}"
         if expected not in completed.stdout:
-            fail("lazy version should resolve host_root to caller git worktree, not symlink target:\n" + completed.stdout)
+            fail("lazy version should prefer LAZY_HOST_ROOT even when GIT_DIR/GIT_WORK_TREE are inherited:\n" + completed.stdout)
 
         snippet = f"import runpy; print(runpy.run_path({json.dumps(str(LAZY / 'scripts' / 'doctor.py'))})['ROOT'])"
-        env = {**os.environ, "LAZY_HOST_ROOT": str(temp.resolve())}
+        env = poisoned_git_env
         root_out = subprocess.run(
             ["python3", "-c", snippet],
             cwd=temp,

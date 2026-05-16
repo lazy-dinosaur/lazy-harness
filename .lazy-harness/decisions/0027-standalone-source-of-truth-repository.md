@@ -77,6 +77,42 @@ bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
 - `state/synced-from-commit` in existing hosts will show divergent history once, requiring `lazy-sync --force` for the first transition.
 - User-level `~/.local/bin/lazy` launcher remains deferred to packaging. The source-of-truth repository only owns the per-host `.lazy-harness/bin/lazy` dispatcher.
 
+## Pre-push policy update (2026-05-16)
+
+ADR 0021's `experimental/lazy-harness` branch exception is historical for the old in-medivance development model. In the standalone source repository, `.lazy-harness/` is tracked first-class source and must be allowed on `main` when the repo has framework markers:
+
+- `.lazy-harness/framework/framework-contract.md`
+- `.lazy-harness/planning/phase-5-plan.xml`
+
+Dogfooding hosts without those markers must continue to block `.lazy-harness/` / `.jcode/` leakage during product pushes.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md` — standalone source-of-truth policy.
+  - `.lazy-harness/hooks/pre-push.sh` — detects standalone framework repo markers and bypasses host leak guard only there.
+  - `.lazy-harness/scripts/self-test.py` — protects the pre-push standalone exception and env-clearing contract.
+  - `.lazy-harness/scripts/lazy-sync.ts` — syncs Category A framework body into dogfooding hosts.
+- Key symbols:
+  - `IS_FRAMEWORK_REPO` (`.lazy-harness/hooks/pre-push.sh`)
+  - `check_pre_push_uses_canonical_lazy_cli` (`.lazy-harness/scripts/self-test.py`)
+- Flow:
+  1. In `~/dev/lazy-harness`, framework markers identify the standalone source repository.
+  2. Pre-push allows tracked `.lazy-harness/` changes there and still runs framework-owned validation.
+  3. In downstream hosts without framework markers, pre-push blocks `.lazy-harness/` / `.jcode/` leak ranges.
+  4. `lazy-sync` propagates source changes to hosts without making hosts source-of-truth.
+- Tests / protection:
+  - `.lazy-harness/bin/lazy test`
+  - `.lazy-harness/hooks/pre-push.sh origin <url>`
+  - downstream host `lazy-sync --force` then `.lazy-harness/bin/lazy test`
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
+  - TDD: `.lazy-harness/tests/git-env-isolation.md`
+- Machine index:
+  - graph ids: `kg_adr_standalone_source_repo`, `kg_prepush_framework_repo_exception`
+  - generated index key: `pending until implementation-index generator exists`
+
 ## Validation
 
 Completed on 2026-05-13:

@@ -472,7 +472,7 @@ export function runLayerImpactGate(opts: CliOptions): LayerImpactResult {
 }
 
 function appendValidationLog(result: LayerImpactResult): void {
-  const logPath = path.join('.lazy-harness', 'logs', 'validations.jsonl')
+  const logPath = process.env.LAZY_HARNESS_VALIDATIONS_FILE || path.join('.lazy-harness', 'logs', 'validations.jsonl')
   const dir = path.dirname(logPath)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   appendFileSync(logPath, JSON.stringify(result) + '\n', 'utf8')

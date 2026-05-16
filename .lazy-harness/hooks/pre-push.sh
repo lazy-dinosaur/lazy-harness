@@ -21,11 +21,15 @@ LAZY="$REPO_ROOT/.lazy-harness"
 REMOTE="${1:-origin}"
 URL="${2:-}"
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+IS_FRAMEWORK_REPO=0
+if [ -f "$LAZY/framework/framework-contract.md" ] && [ -f "$LAZY/planning/phase-5-plan.xml" ]; then
+    IS_FRAMEWORK_REPO=1
+fi
 
 # CRITICAL: ALL push 에서 private file leak 차단 (URL 무관 — bug-2 fix from Sisyphus 2026-05-10)
 # .husky/<3 hooks> 는 ADR 0009 에 의해 framework public surface 로 ALLOW.
 LEAKED=""
-if [ "$BRANCH" != "experimental/lazy-harness" ]; then
+if [ "$IS_FRAMEWORK_REPO" != "1" ] && [ "$BRANCH" != "experimental/lazy-harness" ]; then
     UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
     if [ -n "$UPSTREAM" ]; then
         RANGE="$UPSTREAM..HEAD"
@@ -42,7 +46,7 @@ if [ -n "$LEAKED" ]; then
     echo "$LEAKED" | sed 's/^/  - /'
     echo ""
     echo "→ 해당 파일 git rm --cached 로 제거 후 다시 push"
-    echo "→ framework 작업이면 experimental/lazy-harness branch 에서 push"
+    echo "→ framework 작업이면 standalone lazy-harness source repo 에서 push"
     echo "→ remote: $REMOTE ($URL)"
     exit 1
 fi
@@ -74,9 +78,9 @@ if [ "$HAS_CLI" = "0" ] && [ "$HAS_SELFTEST" = "0" ]; then
 fi
 
 if [ "$HAS_CLI" = "1" ]; then
-    TEST_OUT=$(./.lazy-harness/bin/lazy test 2>&1 || true)
+    TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test 2>&1 || true)
 else
-    TEST_OUT=$(.lazy-harness/scripts/self-test.py 2>&1 || true)
+    TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py" 2>&1 || true)
 fi
 
 if ! echo "$TEST_OUT" | grep -q 'lazy-harness self-test ok'; then
