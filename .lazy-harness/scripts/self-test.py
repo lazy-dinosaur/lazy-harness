@@ -1554,17 +1554,18 @@ def check_tool_execute_before_hook() -> None:
             except FileNotFoundError:
                 pass
 
+    session_prefix = f"__n25_{os.getpid()}_"
     cases = [
         # (name, payload_dict, expect_exit, expect_stdout_contains)
         ("no-search-src-edit-deny", {
             "event": "tool.execute.before",
-            "session_id": "__n25_case1",
+            "session_id": session_prefix + "case1",
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
             "recent_tool_calls": [],
         }, 1, "lazy-harness gate"),
         ("grep-record-then-edit-allow", {
             "event": "tool.execute.before",
-            "session_id": "__n25_case2",
+            "session_id": session_prefix + "case2",
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
             "recent_tool_calls": [
                 {"name": "Grep", "args_preview": "pattern foo path .lazy-harness/domain/"}
@@ -1572,20 +1573,20 @@ def check_tool_execute_before_hook() -> None:
         }, 0, ""),
         ("record-edit-exempt", {
             "event": "tool.execute.before",
-            "session_id": "__n25_case3",
+            "session_id": session_prefix + "case3",
             "tool": {"name": "Write", "args": {"file_path": ".lazy-harness/decisions/0099-foo.md"}},
             "recent_tool_calls": [],
         }, 0, ""),
         ("non-code-exempt", {
             "event": "tool.execute.before",
-            "session_id": "__n25_case4",
+            "session_id": session_prefix + "case4",
             "tool": {"name": "Write", "args": {"file_path": "docs/readme.md"}},
             "recent_tool_calls": [],
         }, 0, ""),
-        # Re-uses session_id of case2 → cache should still hold → allow
+        # Re-uses session_id of case2 → cache should still hold within this process only.
         ("session-cache-permanent-allow", {
             "event": "tool.execute.before",
-            "session_id": "__n25_case2",
+            "session_id": session_prefix + "case2",
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/bar.ts"}},
             "recent_tool_calls": [],
         }, 0, ""),
