@@ -18,7 +18,7 @@ import tempfile
 import shutil
 import xml.etree.ElementTree as ET
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(os.environ.get("LAZY_HOST_ROOT", pathlib.Path(__file__).resolve().parents[2])).resolve()
 LAZY = ROOT / ".lazy-harness"
 
 
@@ -870,6 +870,53 @@ def check_jcode_wiring_pointer_only() -> None:
     print("✓ jcode wiring pointer-only template ok")
 
 
+def check_lazy_host_root_resolution() -> None:
+    """lazy CLI and Python validators must use the caller worktree as host root."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_host_root_"))
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        (temp / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
+
+        completed = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "version"],
+            cwd=temp,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        expected = f"host_root:  {temp.resolve()}"
+        if expected not in completed.stdout:
+            fail("lazy version should resolve host_root to caller git worktree, not symlink target:\n" + completed.stdout)
+
+        snippet = f"import runpy; print(runpy.run_path({json.dumps(str(LAZY / 'scripts' / 'doctor.py'))})['ROOT'])"
+        env = {**os.environ, "LAZY_HOST_ROOT": str(temp.resolve())}
+        root_out = subprocess.run(
+            ["python3", "-c", snippet],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        if root_out != str(temp.resolve()):
+            fail(f"doctor.py should prefer LAZY_HOST_ROOT; got {root_out}, expected {temp.resolve()}")
+
+        snippet = f"import runpy; print(runpy.run_path({json.dumps(str(LAZY / 'scripts' / 'self-test.py'))})['ROOT'])"
+        root_out = subprocess.run(
+            ["python3", "-c", snippet],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        if root_out != str(temp.resolve()):
+            fail(f"self-test.py should prefer LAZY_HOST_ROOT; got {root_out}, expected {temp.resolve()}")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ LAZY_HOST_ROOT worktree root resolution ok")
+
+
 def check_affected_test_runner() -> None:
     queue = LAZY / "questions" / f"__tmp_affected_tests_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -1580,6 +1627,7 @@ def main() -> None:
         (check_option_gate_discipline_helper, "BOTH"),
         (check_record_before_session_history_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
+        (check_lazy_host_root_resolution, "BOTH"),
         (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),

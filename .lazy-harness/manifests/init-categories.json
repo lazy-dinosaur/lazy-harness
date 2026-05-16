@@ -172,6 +172,11 @@
           "description": "SDD standard requiring .lazy-harness records/planning/knowledge search before session history when looking for recorded plans, rules, or intended work."
         },
         {
+          "path": "spec/platform/host-root-resolution.md",
+          "kind": "file",
+          "description": "SDD standard for resolving caller git worktree root through LAZY_HOST_ROOT so symlinked .lazy-harness scripts validate the intended host checkout."
+        },
+        {
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."
