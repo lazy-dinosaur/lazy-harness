@@ -1596,6 +1596,7 @@ def check_tool_execute_before_hook() -> None:
         completed = subprocess.run(
             [str(hook), json.dumps(payload)],
             cwd=ROOT,
+            env={**os.environ, "LAZY_HOST_ROOT": str(ROOT)},
             check=False,
             capture_output=True,
             text=True,

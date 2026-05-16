@@ -27,8 +27,9 @@ user runs pre-push / lazy test in PR worktree
 1. `.lazy-harness/bin/lazy` resolves the caller host root with `git rev-parse --show-toplevel` first.
 2. It exports `LAZY_HOST_ROOT=<caller git root>` for delegated scripts.
 3. Python validators (`doctor.py`, `self-test.py`) must prefer `LAZY_HOST_ROOT` over `__file__.resolve().parents[2]`.
-4. If no caller git root with `.lazy-harness` exists, fallback to the script-location parent keeps direct framework execution working.
-5. Subcommands must still execute from the resolved host root so relative paths are host-local.
+4. Lifecycle hooks must prefer `LAZY_HOST_ROOT` before `git rev-parse --show-toplevel`, because some hook/test contexts can make git refuse worktree discovery.
+5. If no caller git root with `.lazy-harness` exists, fallback to the script-location parent keeps direct framework execution working.
+6. Subcommands and hooks must still execute from the resolved host root so relative paths are host-local.
 
 ## Non-goals
 
@@ -45,7 +46,7 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
 - DDD: none.
 - SDD: this contract governs CLI/script root resolution.
 - BDD: user-visible behavior is that PR worktree validation checks the PR worktree, not the primary checkout.
-- TDD: `check_lazy_host_root_resolution` protects symlink/worktree root handling.
+- TDD: `check_lazy_host_root_resolution` protects symlink/worktree root handling; `check_tool_execute_before_hook` protects hook deny behavior through `LAZY_HOST_ROOT`.
 - ADR: no separate trade-off needed unless root resolution expands beyond git worktrees.
 - SSOT: project identity still forbids treating downstream installed copies as source of truth.
 - Planning: none.
@@ -58,6 +59,8 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
   - `.lazy-harness/bin/lazy` — resolves caller git root and exports `LAZY_HOST_ROOT`.
   - `.lazy-harness/scripts/doctor.py` — uses `LAZY_HOST_ROOT` before script physical path.
   - `.lazy-harness/scripts/self-test.py` — uses `LAZY_HOST_ROOT` before script physical path and includes regression coverage.
+  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — uses `LAZY_HOST_ROOT` before git root discovery.
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — uses `LAZY_HOST_ROOT` before git root discovery.
 - Key symbols:
   - `LAZY_HOST_ROOT` — environment variable carrying caller host root.
   - `check_lazy_host_root_resolution` (`.lazy-harness/scripts/self-test.py`) — symlink/worktree regression test.
@@ -65,7 +68,8 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
   1. User invokes `lazy` from a git worktree.
   2. Launcher resolves caller git root and exports `LAZY_HOST_ROOT`.
   3. Python validators use the env root for `ROOT` and `.lazy-harness` path calculations.
-  4. Validation reads the intended worktree.
+  4. Lifecycle hooks use the same env root before asking git for the worktree.
+  5. Validation and gates read the intended worktree.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`

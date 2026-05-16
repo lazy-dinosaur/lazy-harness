@@ -19,11 +19,14 @@
 
 set +e
 
-[ -f .lazy-harness/.hooks-disabled ] && exit 0
+ROOT_CANDIDATE="${LAZY_HOST_ROOT:-}"
+if [ -z "$ROOT_CANDIDATE" ] || [ ! -d "$ROOT_CANDIDATE/.lazy-harness" ]; then
+  ROOT_CANDIDATE="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+fi
+[ -z "$ROOT_CANDIDATE" ] || [ ! -d "$ROOT_CANDIDATE/.lazy-harness" ] && exit 0
+cd "$ROOT_CANDIDATE" || exit 0
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-[ -z "$REPO_ROOT" ] || [ ! -d "$REPO_ROOT/.lazy-harness" ] && exit 0
-cd "$REPO_ROOT" || exit 0
+[ -f .lazy-harness/.hooks-disabled ] && exit 0
 
 # Stdin OR argv1
 PAYLOAD="${1:-}"
