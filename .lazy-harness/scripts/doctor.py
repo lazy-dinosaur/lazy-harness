@@ -193,7 +193,12 @@ def check_branch_policy() -> CheckResult:
     details: list[str] = []
     if not (LAZY / "decisions" / "0021-experimental-branch-and-extract-strategy.md").exists():
         details.append("missing ADR 0021 branch/extract strategy")
-    if branch != "experimental/lazy-harness":
+    # ADR 0027: standalone source-of-truth repo (~/dev/lazy-harness) has no
+    # synced-from-commit marker. The experimental/lazy-harness branch policy
+    # only applies to host installs where the framework lives inside another
+    # project repo. Skip the non-framework-branch check on the standalone repo.
+    is_standalone_source = not (LAZY / "state" / "synced-from-commit").exists()
+    if not is_standalone_source and branch != "experimental/lazy-harness":
         status = subprocess.check_output(["git", "status", "--short", "--", ".lazy-harness", ".jcode"], cwd=ROOT, text=True)
         if status.strip():
             details.append(f"private harness files modified on non-framework branch {branch}: {status.strip()}")
@@ -204,7 +209,8 @@ def check_branch_policy() -> CheckResult:
             details.append(f"hook is not executable: {rel(path)}")
     if details:
         return fail("D05", "branch/hook policy failed", details)
-    return ok("D05", f"branch/hook policy ok ({branch})")
+    suffix = " [standalone source]" if is_standalone_source else ""
+    return ok("D05", f"branch/hook policy ok ({branch}){suffix}")
 
 
 def external_pattern_terms() -> list[str]:

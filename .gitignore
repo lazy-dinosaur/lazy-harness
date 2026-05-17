@@ -1,0 +1,14 @@
+# Temporary test artifacts left by self-test.py (cleaned in finally blocks,
+# but ignored here to guard against partial runs).
+.lazy-harness/questions/__tmp_*.xml
+.lazy-harness/logs/__tmp_*.jsonl
+
+# Python bytecode cache
+.lazy-harness/scripts/__pycache__/
+__pycache__/
+*.pyc
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
