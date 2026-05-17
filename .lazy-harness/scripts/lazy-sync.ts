@@ -190,6 +190,18 @@ function getCommitSha(repoRoot: string): string {
   }
 }
 
+function isSourceWorkingTreeDirty(sourceRoot: string): boolean {
+  try {
+    const out = execSync('git status --porcelain -- .lazy-harness', {
+      cwd: sourceRoot,
+      encoding: 'utf8'
+    }).trim()
+    return out.length > 0
+  } catch {
+    return false
+  }
+}
+
 function detectDrift(sourceRoot: string, targetRoot: string): DriftStatus {
   const markerPath = join(targetRoot, '.lazy-harness', 'state', 'synced-from-commit')
   let hostSha = ''
@@ -215,6 +227,16 @@ function detectDrift(sourceRoot: string, targetRoot: string): DriftStatus {
     }
   }
   if (hostSha === sourceSha) {
+    // Same commit, but check working-tree for uncommitted source changes that
+    // would otherwise be silently skipped by the equal-fast-path.
+    if (isSourceWorkingTreeDirty(sourceRoot)) {
+      return {
+        status: 'ahead',
+        hostSha,
+        sourceSha,
+        message: 'Source working-tree has uncommitted .lazy-harness changes (dirty)'
+      }
+    }
     return { status: 'equal', hostSha, sourceSha, message: 'Already in sync' }
   }
   // Try to use git to determine relationship
