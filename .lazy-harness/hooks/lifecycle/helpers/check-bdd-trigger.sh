@@ -20,6 +20,7 @@ except Exception:
     raise SystemExit(0)
 
 last = payload.get('last_user_message') or ''
+assistant = payload.get('assistant_response') or payload.get('response') or ''
 paths = []
 allowed = {'Write','Edit','MultiEdit','write','edit','multiedit','mcp__filesystem__write_file','mcp__filesystem__edit_file'}
 pattern = re.compile(r'(?:src/renderer/src|\.lazy-harness/triggers/fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts)')
@@ -30,13 +31,22 @@ for call in payload.get('recent_tool_calls', []):
     for match in pattern.finditer(args):
         paths.append(match.group(0))
 
-print(json.dumps({'last': last, 'files': list(dict.fromkeys(paths))}, ensure_ascii=False))
+print(json.dumps({'last': last, 'assistant': assistant, 'files': list(dict.fromkeys(paths))}, ensure_ascii=False))
 PY
 )
 [ -z "$PARSED" ] && exit 0
 
 LAST_USER_MESSAGE=$(printf '%s' "$PARSED" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("last", ""))' 2>/dev/null || true)
+ASSISTANT_RESPONSE=$(printf '%s' "$PARSED" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("assistant", ""))' 2>/dev/null || true)
 FILES=$(printf '%s' "$PARSED" | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin).get("files", [])))' 2>/dev/null || true)
+
+# If the assistant has already surfaced the BDD option gate and is waiting for
+# the user's A/B/C/D choice, do not emit the same gate again. Repeated gate
+# injection causes a loop because last_user_message remains unchanged across
+# responses while the assistant keeps reprinting the options.
+case "$ASSISTANT_RESPONSE" in
+  *"5c-3 BDD"*|*"BDD scenario 등록"*|*"BDD 후"*"선택"*|*"BackgroundTask"*"BDD"*"선택"*) exit 0 ;;
+esac
 
 EXISTING_FILES=""
 while IFS= read -r file; do

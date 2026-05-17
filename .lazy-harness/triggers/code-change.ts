@@ -1,33 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  Project,
-  SourceFile,
-} from 'ts-morph';
+import type { Project, SourceFile } from 'ts-morph';
 import { isTypescriptFile, normalizePath } from './common';
-import {
-  extractDeclarations,
-  getPreviousDeclarationNames,
-  toDddCandidate,
-  type DeclarationCandidate,
-} from './detectors/ddd';
-import {
-  contractKey,
-  extractContracts,
-  getPreviousContractKeys,
-  toSddCandidate,
-  type ContractCandidate,
-} from './detectors/sdd';
+import type { DeclarationCandidate } from './detectors/ddd';
+import type { ContractCandidate } from './detectors/sdd';
 import { detectBdd } from './detectors/bdd';
-import {
-  extractSsotUtilities,
-  getPreviousSsotKeys,
-  ssotKey,
-  toSsotCandidate,
-  type SsotUtilityCandidate,
-} from './detectors/ssot';
+import type { SsotUtilityCandidate } from './detectors/ssot';
 import { buildCrossLayerMap } from './cross-layer';
 import { readKnownTerms } from './registries';
 import { validateStructuredAsks } from './structured-ask';
@@ -60,6 +41,23 @@ const DEFAULT_UBIQUITOUS_LANGUAGE = '.lazy-harness/domain/ubiquitous-language.xm
 const DEFAULT_SPEC_LANGUAGE = '.lazy-harness/spec/spec-language.xml';
 const DEFAULT_SSOT_REGISTRY = '.lazy-harness/ssot/registry.xml';
 const DEFAULT_FORBIDDEN_TERMS = '.lazy-harness/domain/forbidden-terms.xml';
+const require = createRequire(import.meta.url);
+
+function loadTsMorph(): { Project: typeof import('ts-morph').Project } {
+  return require('ts-morph') as { Project: typeof import('ts-morph').Project };
+}
+
+function loadNonBddDetectors(): {
+  ddd: typeof import('./detectors/ddd');
+  sdd: typeof import('./detectors/sdd');
+  ssot: typeof import('./detectors/ssot');
+} {
+  return {
+    ddd: require('./detectors/ddd') as typeof import('./detectors/ddd'),
+    sdd: require('./detectors/sdd') as typeof import('./detectors/sdd'),
+    ssot: require('./detectors/ssot') as typeof import('./detectors/ssot'),
+  };
+}
 
 export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): TriggerRunResult {
   const cwd = process.cwd();
@@ -87,62 +85,68 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
   const knownSsotTerms = readKnownTerms(opts.ssotRegistryFile);
   const forbiddenTerms = readKnownTerms(opts.forbiddenTermsFile);
 
-  const project = new Project({
-    tsConfigFilePath: existsSync(opts.tsconfig) ? opts.tsconfig : undefined,
-    skipAddingFilesFromTsConfig: false,
-  });
-
   const declarations: DeclarationCandidate[] = [];
   const contracts: ContractCandidate[] = [];
   const ssotUtilities: SsotUtilityCandidate[] = [];
-  for (const filePath of scannedFiles) {
-    try {
-      const sourceFile = getSourceFile(project, filePath);
-      if (opts.layer === 'ddd' || opts.layer === 'all') {
-        const currentDeclarations = extractDeclarations(sourceFile);
-        if (opts.newOnly) {
-          const previousNames = getPreviousDeclarationNames(project, filePath, warnings);
-          declarations.push(...currentDeclarations.filter((declaration) => !previousNames.has(`${declaration.kind}:${declaration.name}`)));
-        } else {
-          declarations.push(...currentDeclarations);
-        }
-      }
+  let nonBddDetectors: ReturnType<typeof loadNonBddDetectors> | null = null;
 
-      if (opts.layer === 'sdd' || opts.layer === 'all') {
-        const currentContracts = extractContracts(sourceFile);
-        if (opts.newOnly) {
-          const previousKeys = getPreviousContractKeys(project, filePath, warnings);
-          contracts.push(...currentContracts.filter((contract) => !previousKeys.has(contractKey(contract))));
-        } else {
-          contracts.push(...currentContracts);
-        }
-      }
+  if (opts.layer !== 'bdd') {
+    const { Project } = loadTsMorph();
+    nonBddDetectors = loadNonBddDetectors();
+    const project = new Project({
+      tsConfigFilePath: existsSync(opts.tsconfig) ? opts.tsconfig : undefined,
+      skipAddingFilesFromTsConfig: false,
+    });
 
-      if (opts.layer === 'ssot' || opts.layer === 'all') {
-        const currentUtilities = extractSsotUtilities(sourceFile);
-        if (opts.newOnly) {
-          const previousKeys = getPreviousSsotKeys(project, filePath, warnings);
-          ssotUtilities.push(...currentUtilities.filter((utility) => !previousKeys.has(ssotKey(utility))));
-        } else {
-          ssotUtilities.push(...currentUtilities);
+    for (const filePath of scannedFiles) {
+      try {
+        const sourceFile = getSourceFile(project, filePath);
+        if (opts.layer === 'ddd' || opts.layer === 'all') {
+          const currentDeclarations = nonBddDetectors.ddd.extractDeclarations(sourceFile);
+          if (opts.newOnly) {
+            const previousNames = nonBddDetectors.ddd.getPreviousDeclarationNames(project, filePath, warnings);
+            declarations.push(...currentDeclarations.filter((declaration) => !previousNames.has(`${declaration.kind}:${declaration.name}`)));
+          } else {
+            declarations.push(...currentDeclarations);
+          }
         }
+
+        if (opts.layer === 'sdd' || opts.layer === 'all') {
+          const currentContracts = nonBddDetectors.sdd.extractContracts(sourceFile);
+          if (opts.newOnly) {
+            const previousKeys = nonBddDetectors.sdd.getPreviousContractKeys(project, filePath, warnings);
+            contracts.push(...currentContracts.filter((contract) => !previousKeys.has(nonBddDetectors.sdd.contractKey(contract))));
+          } else {
+            contracts.push(...currentContracts);
+          }
+        }
+
+        if (opts.layer === 'ssot' || opts.layer === 'all') {
+          const currentUtilities = nonBddDetectors.ssot.extractSsotUtilities(sourceFile);
+          if (opts.newOnly) {
+            const previousKeys = nonBddDetectors.ssot.getPreviousSsotKeys(project, filePath, warnings);
+            ssotUtilities.push(...currentUtilities.filter((utility) => !previousKeys.has(nonBddDetectors.ssot.ssotKey(utility))));
+          } else {
+            ssotUtilities.push(...currentUtilities);
+          }
+        }
+      } catch (error) {
+        warnings.push(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
       }
-    } catch (error) {
-      warnings.push(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   const dddCandidates = declarations
-    .map((declaration) => toDddCandidate(declaration, knownDddTerms, forbiddenTerms))
+    .map((declaration) => nonBddDetectors!.ddd.toDddCandidate(declaration, knownDddTerms, forbiddenTerms))
     .filter((candidate): candidate is TriggerCandidate => candidate !== null);
   const sddCandidates = contracts
-    .map((contract) => toSddCandidate(contract, knownSddTerms, knownDddTerms, forbiddenTerms))
+    .map((contract) => nonBddDetectors!.sdd.toSddCandidate(contract, knownSddTerms, knownDddTerms, forbiddenTerms))
     .filter((candidate): candidate is TriggerCandidate => candidate !== null);
   const bddCandidates = opts.layer === 'bdd' || opts.layer === 'all'
     ? detectBdd(opts, scannedFiles, knownDddTerms)
     : [];
   const ssotCandidates = ssotUtilities
-    .map((utility) => toSsotCandidate(utility, knownSsotTerms, knownDddTerms, forbiddenTerms))
+    .map((utility) => nonBddDetectors!.ssot.toSsotCandidate(utility, knownSsotTerms, knownDddTerms, forbiddenTerms))
     .filter((candidate): candidate is TriggerCandidate => candidate !== null);
   const candidates = [...dddCandidates, ...sddCandidates, ...bddCandidates, ...ssotCandidates];
   const crossLayer = opts.layer === 'all' ? buildCrossLayerMap(candidates) : undefined;

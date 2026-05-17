@@ -441,6 +441,21 @@ def run_lazy_cli_entrypoint_helper(payload: dict) -> str:
     return completed.stdout
 
 
+def run_bdd_trigger_helper(payload: dict) -> str:
+    completed = subprocess.run(
+        [".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh", json.dumps(payload)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail(f"BDD trigger helper exit changed: {completed.returncode}")
+    return completed.stdout
+
+
 def check_interview_loop_collect() -> None:
     queue = LAZY / "questions" / f"__tmp_interview_open_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -808,6 +823,53 @@ def check_option_gate_discipline_helper() -> None:
         fail("option gate discipline helper should pass non-gated inferred judgement:\n" + inferred)
 
     print("✓ option gate discipline helper ok")
+
+
+def check_bdd_trigger_loop_suppression() -> None:
+    """BDD helper must ask once and not re-inject the same option gate."""
+    first_payload = {
+        "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.",
+        "assistant_response": "BDD 후보를 확인하겠습니다.",
+        "recent_tool_calls": [],
+    }
+    first = run_bdd_trigger_helper(first_payload)
+    if "BDD scenario 후보" not in first or "BDD scenario 등록" not in first:
+        fail("BDD trigger helper should surface first natural-language scenario gate:\n" + first)
+
+    repeated_payload = {
+        "last_user_message": first_payload["last_user_message"],
+        "assistant_response": (
+            "BackgroundTask814404jms1 BDD 후보 처리 선택이 필요합니다.\n"
+            "A. BDD scenario 등록 (Recommended)\n"
+            "B. 기존 scenario의 alias / 확장\n"
+            "C. scenario 아님, 다른 layer 또는 skip\n"
+            "D. 직접 입력"
+        ),
+        "recent_tool_calls": [],
+    }
+    repeated = run_bdd_trigger_helper(repeated_payload)
+    if repeated.strip():
+        fail("BDD trigger helper should suppress already-open repeated option gate:\n" + repeated)
+    print("✓ BDD trigger loop suppression ok")
+
+
+def check_bdd_trigger_avoids_runtime_tsmorph() -> None:
+    """BDD last-message trigger must not require ts-morph in installed hosts."""
+    source = (LAZY / "triggers" / "code-change.ts").read_text(encoding="utf-8")
+    runtime_imports = [line for line in source.splitlines() if "from 'ts-morph'" in line and not line.strip().startswith("import type")]
+    if runtime_imports:
+        fail("code-change.ts must not runtime-import ts-morph; BDD host trigger must work without host ts-morph")
+    detector_runtime_imports = [
+        line for line in source.splitlines()
+        if "from './detectors/" in line and not line.strip().startswith("import type") and "./detectors/bdd" not in line
+    ]
+    if detector_runtime_imports:
+        fail("code-change.ts must not runtime-import non-BDD detectors on the BDD path")
+    if "if (opts.layer !== 'bdd')" not in source or "loadTsMorph()" not in source:
+        fail("code-change.ts should lazy-load ts-morph only for non-BDD layers")
+    if "loadNonBddDetectors()" not in source:
+        fail("code-change.ts should lazy-load non-BDD detectors only for non-BDD layers")
+    print("✓ BDD trigger ts-morph isolation ok")
 
 
 def check_record_before_session_history_helper() -> None:
@@ -1760,6 +1822,8 @@ def main() -> None:
         (check_analysis_discovery_capture_helper, "BOTH"),
         (check_project_rule_placement_helper, "BOTH"),
         (check_option_gate_discipline_helper, "BOTH"),
+        (check_bdd_trigger_loop_suppression, "BOTH"),
+        (check_bdd_trigger_avoids_runtime_tsmorph, "BOTH"),
         (check_record_before_session_history_helper, "BOTH"),
         (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
