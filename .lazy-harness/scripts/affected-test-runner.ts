@@ -429,7 +429,14 @@ export function runAffectedTests(files: string[], options: { queue?: string; run
   if (queue) appendQuestions(queue, questions);
   const runnableTests = uniqueFiles(filePlans.flatMap((plan) => plan.matchingTests));
   const run = framework.detected && runnableTests.length > 0 && options.run !== false ? runConfiguredTests(framework, runnableTests) : undefined;
-  const needsInterview = filePlans.some((plan) => plan.kind === 'source' && plan.question !== undefined);
+  // tests/tdd-cross-verify-forcegate-loop.md (regression):
+  // forceGate must only trigger when there is at least one NEW unanswered
+  // question (i.e. fingerprint not yet in queue). Otherwise the same question
+  // ask-loops every response.completed until `recent_tool_calls` no longer
+  // mentions the source path. Plan.question being non-undefined alone is not
+  // enough — that question may already be open in the queue.
+  const newQuestionFiles = new Set(questions.map((question) => question.id));
+  const needsInterview = filePlans.some((plan) => plan.kind === 'source' && plan.question !== undefined && newQuestionFiles.has(plan.question.id));
   const forceGate = needsInterview || (run ? run.exitCode !== 0 : false);
   const checked = filePlans.filter((plan) => plan.kind === 'source').length;
   return {

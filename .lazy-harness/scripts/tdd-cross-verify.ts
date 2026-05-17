@@ -274,13 +274,19 @@ export function verifyTddCrossReferences(files: string[], queue?: string): Verif
   if (queue) appendQuestions(queue, questions);
   const sourceChecks = checks.filter((check) => check.kind === 'source');
   const failed = sourceChecks.filter((check) => !check.ok).length;
+  // tests/tdd-cross-verify-forcegate-loop.md (regression):
+  // forceGate fires only when there is at least one NEW unanswered question for
+  // this response. Questions whose fingerprints are already tracked in the queue
+  // must not re-trigger the gate, otherwise the same question loops every
+  // response.completed until `recent_tool_calls` happens to drop the source
+  // path. Dedup intent: ask once per fingerprint, never repeat.
   return {
     ok: failed === 0,
     mode: 'tdd-cross-verify',
     checked: sourceChecks.length,
     passed: sourceChecks.length - failed,
     failed,
-    forceGate: failed > 0,
+    forceGate: questions.length > 0,
     ...(queue ? { queue } : {}),
     files: checks,
     questions,

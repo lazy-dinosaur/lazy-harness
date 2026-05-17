@@ -523,9 +523,11 @@ def check_tdd_cross_verify() -> None:
             fail("tdd-cross-verify question was not persisted to queue")
         deduped = run_tdd_cross_verify([
             ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts",
-        ], queue=queue, expect_code=2)
+        ], queue=queue, expect_code=0)
         if deduped.get("questions") != []:
             fail("tdd-cross-verify queue dedupe changed: " + json.dumps(deduped, ensure_ascii=False))
+        if deduped.get("forceGate") is not False:
+            fail("tdd-cross-verify dedup forceGate must be false to break ask-loop: " + json.dumps(deduped, ensure_ascii=False))
         covered = run_tdd_cross_verify([
             ".lazy-harness/triggers/fixtures/tdd-cross-verify/covered-feature.ts",
         ])
@@ -1141,8 +1143,28 @@ def check_affected_test_runner() -> None:
 
         fail_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing.ts"}]}
         fail_out = run_response_completed_hook(fail_payload, queue)
-        if "5d-3 Affected Test Gate" not in fail_out or "Q-8e866d44709ff49c" not in fail_out:
-            fail("affected test hook did not surface interview gate:\n" + fail_out)
+        # Ask-once policy: the missing-test question was already persisted by the
+        # first run_affected_tests call above. The hook must NOT re-surface it on
+        # subsequent response.completed events, otherwise the same question
+        # ask-loops until `recent_tool_calls` drops the path. See
+        # .lazy-harness/tests/tdd-cross-verify-forcegate-loop.md.
+        if fail_out.strip():
+            fail("affected test hook must stay silent when question fingerprint already queued:\n" + fail_out)
+
+        # Sanity: a brand-new missing source path must still trigger the gate exactly once.
+        fresh_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing-fresh.ts"}]}
+        try:
+            (ROOT / "tests/lazy-harness/affected").mkdir(parents=True, exist_ok=True)
+            fresh_source = ROOT / "tests/lazy-harness/affected/missing-fresh.ts"
+            fresh_source.write_text("export const sentinel = 1\n", encoding="utf-8")
+            fresh_out = run_response_completed_hook(fresh_payload, queue)
+            if "5d-3 Affected Test Gate" not in fresh_out:
+                fail("affected test hook did not surface gate for a fresh missing-test fingerprint:\n" + fresh_out)
+            fresh_again = run_response_completed_hook(fresh_payload, queue)
+            if fresh_again.strip():
+                fail("affected test hook re-surfaced gate for already-queued fresh fingerprint:\n" + fresh_again)
+        finally:
+            fresh_source.unlink(missing_ok=True)
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 affected test runner ok")
@@ -1293,9 +1315,20 @@ def check_real_feature_walkthrough() -> None:
         depth_two = [question for question in second_aftershock.get("questions", []) if question.get("depth") == 2]
         if not depth_two or depth_two[0].get("layer") != "bdd":
             fail("5d-6 walkthrough did not reach depth 2: " + json.dumps(second_aftershock, ensure_ascii=False))
-        tdd = run_tdd_cross_verify([".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"], queue=queue, expect_code=2)
-        if tdd.get("forceGate") is not True or tdd.get("failed") != 1:
-            fail("5d-6 walkthrough TDD force gate changed: " + json.dumps(tdd, ensure_ascii=False))
+        # Use a separate queue for the assertion-only cross-verify run so the
+        # hook below can still detect a fresh fingerprint. After the regression
+        # fix (tests/tdd-cross-verify-forcegate-loop.md) forceGate fires only on
+        # NEW unanswered questions, so re-running cross-verify on the main queue
+        # would silently consume the fingerprint and break the hook surface
+        # below.
+        tdd_probe_queue = LAZY / f"questions/__tmp_5d6_walkthrough_probe_{os.getpid()}.xml"
+        tdd_probe_queue.unlink(missing_ok=True)
+        try:
+            tdd = run_tdd_cross_verify([".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"], queue=tdd_probe_queue, expect_code=2)
+            if tdd.get("forceGate") is not True or tdd.get("failed") != 1:
+                fail("5d-6 walkthrough TDD force gate changed: " + json.dumps(tdd, ensure_ascii=False))
+        finally:
+            tdd_probe_queue.unlink(missing_ok=True)
         hook_payload = {
             "recent_tool_calls": [
                 {"name": "Edit", "args_preview": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"},
