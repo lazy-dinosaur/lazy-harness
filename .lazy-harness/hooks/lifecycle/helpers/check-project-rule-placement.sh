@@ -24,6 +24,7 @@ WRITE_TOOLS = {
     "Write", "Edit", "MultiEdit", "write", "edit", "multiedit",
     "mcp__filesystem__write_file", "mcp__filesystem__edit_file",
 }
+MEMORY_TOOLS = {"memory", "functions.memory"}
 LAZY_CAPTURE_RE = re.compile(
     r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph-drafts)\.jsonl)"
 )
@@ -82,13 +83,29 @@ def has_rule_placement_judgement(text: str) -> bool:
 if has_rule_placement_judgement(blob):
     sys.exit(0)
 
-# Same-turn .lazy-harness record/planning capture satisfies the gate.
+MEMORY_RULE_CUES = [
+    "프로젝트 규칙", "프로젝트마다 규칙", "규칙", "룰", "team policy", "project policy",
+    "project-specific", "workflow", "ownership", "source-of-truth", "forbidden",
+    "운영", "정책", "소유권", "수정 금지", "worktree", "cwd", "bun wt",
+]
+memory_rule_touched = False
 for call in payload.get("recent_tool_calls", []) or []:
-    if str(call.get("name", "")) not in WRITE_TOOLS:
+    if str(call.get("name", "")) not in MEMORY_TOOLS:
         continue
     args_blob = call_blob(call)
-    if LAZY_CAPTURE_RE.search(args_blob):
-        sys.exit(0)
+    args_lower = args_blob.lower()
+    is_remember = "remember" in args_lower or ('"action"' in args_lower and '"remember"' in args_lower)
+    if is_remember and any(cue.lower() in args_lower for cue in MEMORY_RULE_CUES):
+        memory_rule_touched = True
+
+# Same-turn .lazy-harness record/planning capture satisfies the gate.
+if not memory_rule_touched:
+    for call in payload.get("recent_tool_calls", []) or []:
+        if str(call.get("name", "")) not in WRITE_TOOLS:
+            continue
+        args_blob = call_blob(call)
+        if LAZY_CAPTURE_RE.search(args_blob):
+            sys.exit(0)
 
 # .jcode write is allowed only with explicit local-only judgement.
 jcode_touched = False
@@ -129,9 +146,9 @@ write_touched = any(str(call.get("name", "")) in WRITE_TOOLS for call in payload
 # High-confidence only. Casual/status reporting about existing records should stay silent.
 # The gate is for newly discovered/corrected/routed project rules, not for answers
 # that merely report whether a known policy is already recorded or synced.
-if has_status_only and not has_forward_action and not write_touched and not jcode_touched:
+if has_status_only and not has_forward_action and not write_touched and not jcode_touched and not memory_rule_touched:
     sys.exit(0)
-if not (jcode_touched or (has_rule and has_action and (has_placement or has_workflow))):
+if not (jcode_touched or memory_rule_touched or (has_rule and has_action and (has_placement or has_workflow))):
     sys.exit(0)
 
 print("STOP. Project rule placement gate: 프로젝트별 rule/correction 을 어디에 둘지 판정 없이 진행하면 안 됩니다.\n")
@@ -140,7 +157,8 @@ print("  A. .lazy-harness/ssot/... shared project rule 로 기록 (Recommended f
 print("  B. .lazy-harness/decisions/... trade-off/why decision 으로 기록")
 print("  C. .lazy-harness/planning/... transient plan/backlog 로 기록")
 print("  D. .jcode/harness/20-project-rules.md local/private Jcode-only 로 기록하고 `Rule placement` 에 jcode-local 명시")
-print("  E. 직접 입력 / ambiguous 면 옵션 게이트로 사용자 확인")
+print("  E. Jcode memory 에 잘못 저장했다면 memory forget 후 canonical .lazy-harness record 로 재기록")
+print("  F. 직접 입력 / ambiguous 면 옵션 게이트로 사용자 확인")
 print("\n필수 판단:")
 print("  ## Rule placement")
 print("  - Rule: ...")

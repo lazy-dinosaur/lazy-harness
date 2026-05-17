@@ -624,6 +624,24 @@ def check_project_rule_placement_helper() -> None:
     if "Project rule placement gate" not in blocked or "Rule placement" not in blocked:
         fail("project rule placement helper did not block uncategorized .jcode project rule:\n" + blocked)
 
+    memory_blocked_payload = {
+        "assistant_response": (
+            "알겠어. 프로젝트 메모리에 저장해뒀어. 앞으로 bun wt new 후 Jcode cwd 를 새 worktree 로 옮길게."
+        ),
+        "recent_tool_calls": [{
+            "name": "memory",
+            "args": {
+                "action": "remember",
+                "category": "preference",
+                "content": "Medivance worktree workflow: after creating a worktree with bun wt new, immediately switch Jcode cwd to the new worktree.",
+                "scope": "project",
+            },
+        }],
+    }
+    memory_blocked = run_project_rule_placement_helper(memory_blocked_payload)
+    if "Project rule placement gate" not in memory_blocked or "memory forget" not in memory_blocked:
+        fail("project rule placement helper did not block project rule stored in Jcode memory:\n" + memory_blocked)
+
     shared_payload = {
         "assistant_response": "프로젝트 규칙을 shared SSOT 로 기록했습니다.",
         "recent_tool_calls": [{

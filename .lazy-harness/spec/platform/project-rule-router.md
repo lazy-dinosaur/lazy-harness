@@ -10,7 +10,7 @@ Related backlog: `.lazy-harness/planning/project-rule-discovery-router-backlog.m
 
 Route newly discovered project-specific rules to the right durable source of truth.
 
-This prevents agents from treating `.jcode/harness/20-project-rules.md` as a catch-all when a rule should be visible through `.lazy-harness` records across sessions and hosts.
+This prevents agents from treating `.jcode/harness/20-project-rules.md` or Jcode `memory.remember` as a catch-all when a rule should be visible through `.lazy-harness` records across sessions and hosts.
 
 ## Trigger cues
 
@@ -18,7 +18,7 @@ The router applies when a response or user correction mentions any of:
 
 - `프로젝트 규칙`, `프로젝트마다 규칙`, `규칙 추가`, `룰 추가`
 - `AGENTS.md 수정`, `AGENTS에 넣`, `agents.md`
-- `.jcode`, `.lazy-harness`, `20-project-rules`
+- `.jcode`, `.lazy-harness`, `20-project-rules`, Jcode `memory.remember` / “프로젝트 메모리”
 - `어디에 기록`, `어디에 저장`, `문서화`, `source of truth`, `SSOT`
 - user correction about workflow, source-of-truth, ownership, forbidden mutation, or project-specific operating policy
 
@@ -29,7 +29,8 @@ A triggered turn is complete only if one condition is true:
 1. A `.lazy-harness` record/planning artifact is updated for the rule.
 2. The response includes a complete `Rule placement` judgement with `Confirmation: user-confirmed` or `Confirmation: inferred-from-record`.
 3. `.jcode/harness/20-project-rules.md` is updated only as a pointer to canonical `.lazy-harness` records, or the response/file content includes `jcode-local` or `local-only` judgement.
-4. The agent stops with an option gate because placement is ambiguous. `Confirmation: needs-option-gate` is not complete and must not be followed by tool calls or self-selected Recommended execution.
+4. A mistaken Jcode `memory.remember` project-rule write is removed with `memory forget` and the rule is re-recorded in canonical `.lazy-harness` records.
+5. The agent stops with an option gate because placement is ambiguous. `Confirmation: needs-option-gate` is not complete and must not be followed by tool calls or self-selected Recommended execution.
 
 ## Rule placement judgement
 
@@ -66,7 +67,8 @@ It emits STOP text when:
 - the response is creating, correcting, moving, or newly routing a rule rather than merely reporting that an existing record/policy is already applied,
 - no `.lazy-harness` record/planning artifact was touched,
 - and there is no complete `Rule placement` judgement,
-- especially when the response chooses `.jcode` for a project rule without `jcode-local` or `local-only` scope.
+- especially when the response chooses `.jcode` or Jcode memory for a project rule without canonical `.lazy-harness` placement.
+- when a `memory.remember` call stores a project/team workflow, ownership, source-of-truth, or operating policy. The fix is `memory forget` plus canonical `.lazy-harness` record capture, not treating memory as the source of truth.
 
 The helper must avoid false positives on casual mentions of AGENTS.md or `.jcode` without rule-placement language.
 
@@ -80,7 +82,7 @@ Existing user-owned `.jcode/harness/20-project-rules.md` files that predate poin
 - Primary files:
   - `.lazy-harness/spec/platform/project-rule-router.md` — this SDD contract.
   - `.lazy-harness/ssot/rule-sources.md` — canonical placement registry.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — enforcement helper.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — enforcement helper, including Jcode memory misuse detection.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the helper.
   - `.lazy-harness/scripts/self-test.py` — fixture tests.
   - `.lazy-harness/AGENTS.md` — concise grammar pointer.
@@ -88,10 +90,12 @@ Existing user-owned `.jcode/harness/20-project-rules.md` files that predate poin
   - `check_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — validates block/pass/no-false-positive cases.
   - `run_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — helper runner.
   - `Rule placement` judgement — completion signal.
+  - `MEMORY_TOOLS` / `MEMORY_RULE_CUES` (`check-project-rule-placement.sh`) — detects project rules written to Jcode memory.
 - Flow:
   1. Rule placement cues appear in a response.
-  2. Helper checks for `.lazy-harness` record/planning capture or explicit judgement.
-  3. Missing placement injects STOP with A/B/C/D/E options.
+  2. Helper checks for Jcode memory misuse before accepting `.lazy-harness` record/planning capture.
+  3. Helper checks for `.lazy-harness` record/planning capture or explicit judgement.
+  4. Missing placement or memory misuse injects STOP with A/B/C/D/E/F options.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`

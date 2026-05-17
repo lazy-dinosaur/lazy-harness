@@ -12,9 +12,9 @@ Related ADR: `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
 
 This record is the source of truth for deciding where newly discovered project-specific rules belong.
 
-Agents must not default to `.jcode/harness/20-project-rules.md` for project/team policy. `.jcode` is only for generated/private Jcode wiring and pointer-only reminders unless a rule placement judgement explicitly says the rule is local-only.
+Agents must not default to `.jcode/harness/20-project-rules.md` or Jcode `memory.remember` for project/team policy. `.jcode` is only for generated/private Jcode wiring and pointer-only reminders unless a rule placement judgement explicitly says the rule is local-only; Jcode memory is not a canonical store for host/team rules.
 
-`.jcode/harness/20-project-rules.md` must not accumulate host/team rule bodies as a mirror of `.lazy-harness` records. When a rule is discovered, corrected, or customized for a host, the durable content belongs in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`; `.jcode` may only point to those canonical records or store truly local/private execution preferences.
+`.jcode/harness/20-project-rules.md` and Jcode memory must not accumulate host/team rule bodies as a mirror of `.lazy-harness` records. When a rule is discovered, corrected, or customized for a host, the durable content belongs in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`; `.jcode` may only point to those canonical records or store truly local/private execution preferences. If an agent mistakenly writes a project rule to Jcode memory, it must forget that memory and write/update the canonical record in the same turn.
 
 ## Priority order
 
@@ -39,7 +39,7 @@ When instructions conflict, use this order:
 | User-visible workflow or expected behavior | `.lazy-harness/behavior/**` |
 | Regression/protection expectation | `.lazy-harness/tests/**` |
 | Trade-off or why decision | `.lazy-harness/decisions/**` |
-| Local/private Jcode preference or workflow | `.jcode/harness/20-project-rules.md` as pointer-only or explicit `jcode-local` |
+| Local/private Jcode preference or workflow | `.jcode/harness/20-project-rules.md` as pointer-only or explicit `jcode-local`; Jcode memory only for personal/user preferences, never project/team policy |
 | Multi-step work plan/backlog | `.lazy-harness/planning/**` |
 
 ## Required judgement
@@ -65,7 +65,8 @@ A. `.lazy-harness/ssot/...` shared project rule (Recommended for team/project po
 B. `.lazy-harness/decisions/...` trade-off/why decision
 C. `.lazy-harness/planning/...` transient plan/backlog
 D. `.jcode/harness/20-project-rules.md` local/private Jcode-only workflow
-E. 직접 입력
+E. `memory forget` mistaken Jcode memory then record canonical `.lazy-harness` source
+F. 직접 입력
 
 `Confirmation: needs-option-gate` is a waiting state, not a completed judgement. The agent must not run tools, write records, dispatch releases, or self-select the Recommended option until the user chooses. Once the user chooses, record the result as `Confirmation: user-confirmed` and do not ask the same gate again.
 
@@ -74,7 +75,7 @@ E. 직접 입력
 - PR/worktree tracker policy used by future agents: `.lazy-harness/planning/**` plus SSOT/ADR if enduring.
 - “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/rule-sources.md` or dedicated SSOT, not `.jcode` by default.
 - Personal shortcut, preferred shell alias, or Jcode-only UI workflow: `.jcode/harness/20-project-rules.md` with `Scope: jcode-local`.
-- Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record.
+- Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record; Jcode memory must not be used as durable policy storage.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
 
 ## Implementation map
@@ -83,17 +84,19 @@ E. 직접 입력
 - Primary files:
   - `.lazy-harness/ssot/rule-sources.md` — this SSOT placement registry.
   - `.lazy-harness/spec/platform/project-rule-router.md` — SDD operating standard.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — response-completed guard.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — response-completed guard, including Jcode memory misuse detection.
   - `.lazy-harness/scripts/self-test.py` — helper tests and AGENTS invariant.
   - `.lazy-harness/AGENTS.md` — concise grammar pointer.
 - Key symbols:
   - `Rule placement` judgement — completion signal for routing.
+  - `memory forget` — required cleanup when a project/team rule is mistakenly stored in Jcode memory.
   - `check_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — fixture coverage.
 - Flow:
   1. User or analysis introduces a rule/correction/workflow policy.
   2. Agent reads this registry and project identity.
   3. Agent writes the correct `.lazy-harness` record; `.jcode` receives only a pointer unless the rule is explicitly `jcode-local`.
-  4. Ambiguity triggers the option gate.
+  4. If the rule was placed in Jcode memory, agent forgets that memory and records the canonical `.lazy-harness` source.
+  5. Ambiguity triggers the option gate.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
