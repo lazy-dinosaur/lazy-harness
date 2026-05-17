@@ -36,7 +36,7 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 요청 받자마자 검색 (필수)
 
-구현 / 수정 / 추가 / 디버그 / 기록·계획·하려던 일 조회 의도가 보이면 즉시:
+발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 의 디테일·이름·경로·동작·룰이 등장하면 즉시:
 
 ```bash
 grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/
