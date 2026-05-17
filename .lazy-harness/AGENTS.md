@@ -63,6 +63,8 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 
 3~5 후보 + `(Recommended)` 표시 + type-your-own 마지막. ADR 0019 / Principle 21. `needs-option-gate` 는 완료가 아니라 정지 상태다. 사용자 선택 전 반복 질문/Recommended 자가선택/도구 실행 금지. 사용자가 고르면 그 답을 `user-confirmed` 로 수렴하고 다시 묻지 않는다.
 
+**Queue close 의무 (ADR 0035)**: `.lazy-harness/questions/open.xml` 에 박힌 question 의 답을 사용자에게 받으면 같은 turn 안에서 반드시 `bun .lazy-harness/scripts/interview-loop.ts --mode answer --question-id Q-<id> --answer <A|B|C|D> --apply` 로 close 처리한다. `--apply` 없으면 preview-only. 자세한 룰은 ADR 0035 참조.
+
 **게이트 시점 (이 중 하나라도 해당되면 다음 도구 호출 전 무조건 멈춤)**:
 
 - 분석 / 변경 범위 파악 결과 보고 직후 (예: "이런 변경으로 보입니다", "X 같아 보입니다")

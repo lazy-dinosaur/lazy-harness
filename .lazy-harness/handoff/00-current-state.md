@@ -31,7 +31,7 @@
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
 | **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
-| **ADRs** | **34** (0001~0034; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate) |
+| **ADRs** | **35** (0001~0035; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate, 0035 interview queue close mandate) |
 | **Decisions logged** | 28+ entries |
 | **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=23, skipped=0)` |
 | **Medivance sync validation** | ✅ `~/dev/medivance`: synced to `031b5e7`, `lazy-harness self-test ok (scope=host, ran=10, skipped=11)` |
