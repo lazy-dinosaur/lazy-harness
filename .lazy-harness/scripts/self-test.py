@@ -21,6 +21,11 @@ import xml.etree.ElementTree as ET
 
 ROOT = pathlib.Path(os.environ.get("LAZY_HOST_ROOT", pathlib.Path(__file__).resolve().parents[2])).resolve()
 LAZY = ROOT / ".lazy-harness"
+ACTIVE_SCOPE = "auto"
+
+
+def doctor_scope_args() -> list[str]:
+    return ["--scope", ACTIVE_SCOPE] if ACTIVE_SCOPE in {"framework", "host"} else []
 
 
 def fail(message: str) -> None:
@@ -29,7 +34,7 @@ def fail(message: str) -> None:
 
 
 def check_doctor_smoke() -> None:
-    command = ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "smoke"]
+    command = ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "smoke", *doctor_scope_args()]
     completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
     # ADR 0026: doctor now prints "lazy-harness doctor ok (smoke, scope=<scope>)".
     if "lazy-harness doctor ok (smoke" not in completed.stdout:
@@ -44,7 +49,7 @@ def check_doctor_c17_negative() -> None:
     try:
         env = {**os.environ, "LAZY_HARNESS_DOCTOR_INCLUDE_NEGATIVE": "1"}
         completed = subprocess.run(
-            ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full"],
+            ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", *doctor_scope_args()],
             cwd=ROOT,
             env=env,
             text=True,
@@ -58,13 +63,13 @@ def check_doctor_c17_negative() -> None:
     finally:
         fixture.unlink(missing_ok=True)
 
-    subprocess.run(["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full"], cwd=ROOT, check=True, text=True, capture_output=True)
+    subprocess.run(["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", *doctor_scope_args()], cwd=ROOT, check=True, text=True, capture_output=True)
     print("✓ doctor C17 negative fixture ok")
 
 
 def check_doctor_package_health() -> None:
     completed = subprocess.run(
-        ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", "--format", "json"],
+        ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", "--format", "json", *doctor_scope_args()],
         cwd=ROOT,
         check=True,
         text=True,
@@ -1735,6 +1740,8 @@ def main() -> None:
     args = parser.parse_args()
 
     scope = _detect_scope() if args.scope == "auto" else args.scope
+    global ACTIVE_SCOPE
+    ACTIVE_SCOPE = scope
 
     # ADR 0026: (check_callable, tag) tuples. BOTH = runs everywhere. FRAMEWORK_ONLY
     # = skipped on hosts because its fixtures are framework-own and not copied by lazy-init.

@@ -110,6 +110,15 @@ python3 .lazy-harness/scripts/self-test.py [--scope auto|framework|host]
 5. `.jcode/skills/lazy-doctor/SKILL.md` 와 `lazy-test/SKILL.md` 에 scope 동작 명시
 6. host 검증 (`/tmp/lazy-init-test/` + dev-ian) — 양쪽 scope 모두 통과 확인
 
+## Scope override propagation update (2026-05-17)
+
+`self-test.py --scope host|framework` must pass the chosen scope into every nested `doctor.py` subprocess. Without propagation, a host or legacy installed copy that still contains framework marker files can force `doctor.py` back into auto-detected framework scope, making host validation fail on framework-only freshness checks.
+
+Implementation map addendum:
+
+- `.lazy-harness/scripts/self-test.py` — `ACTIVE_SCOPE` and `doctor_scope_args()` propagate the resolved self-test scope to doctor smoke/full/json subprocesses.
+- Protection: run `.lazy-harness/bin/lazy test --scope host` in installed hosts that may retain framework markers.
+
 ## Notes
 
 이 ADR 은 lazy-init MVP dogfooding 의 *0 번째* finding 이다. 실제로 host 박기 직전에 발견됐기 때문에 lazy-init MVP 의 일부로 통합된다. 정상적인 dogfooding finding 이라면 host 박은 후에 발견되어 다음 cycle 로 미뤄질 수도 있었지만, 이 issue 는 lazy-init 의 첫 사용자 경험을 직접 깨뜨리므로 MVP 안에서 해결한다.
