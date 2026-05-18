@@ -633,10 +633,28 @@ def check_analysis_discovery_capture_helper() -> None:
 
 def check_project_rule_placement_helper() -> None:
     """Project-specific rules must route to .lazy-harness or explicit jcode-local judgement."""
+    state_file = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
+    if state_file.exists():
+        state_file.unlink()
+    try:
+        _check_project_rule_placement_helper_cases()
+    finally:
+        if backup is not None:
+            state_file.write_text(backup, encoding="utf-8")
+        elif state_file.exists():
+            state_file.unlink()
+
+    print("✓ project rule placement helper ok")
+
+
+def _check_project_rule_placement_helper_cases() -> None:
     blocked_payload = {
         "assistant_response": (
             "프로젝트마다 규칙이 다르니까 이 프로젝트 규칙은 .jcode/harness/20-project-rules.md 에 추가하겠습니다."
         ),
+        "message_id": "project-rule-test-blocked",
         "recent_tool_calls": [{
             "name": "Edit",
             "args_preview": ".jcode/harness/20-project-rules.md",
@@ -650,6 +668,7 @@ def check_project_rule_placement_helper() -> None:
         "assistant_response": (
             "알겠어. 프로젝트 메모리에 저장해뒀어. 앞으로 bun wt new 후 Jcode cwd 를 새 worktree 로 옮길게."
         ),
+        "message_id": "project-rule-test-memory",
         "recent_tool_calls": [{
             "name": "memory",
             "args": {
@@ -663,6 +682,26 @@ def check_project_rule_placement_helper() -> None:
     memory_blocked = run_project_rule_placement_helper(memory_blocked_payload)
     if "Project rule placement gate" not in memory_blocked or "memory forget" not in memory_blocked:
         fail("project rule placement helper did not block project rule stored in Jcode memory:\n" + memory_blocked)
+
+    loop_payload = {
+        "last_user_message": "이 프로젝트 규칙은 .jcode가 아니라 SSOT에 기록해야 해.",
+        "message_id": "project-rule-test-loop",
+        "recent_tool_calls": [{
+            "name": "Edit",
+            "args_preview": ".jcode/harness/20-project-rules.md",
+        }],
+    }
+    first_loop = run_project_rule_placement_helper(loop_payload)
+    if "Project rule placement gate" not in first_loop:
+        fail("project rule placement helper should emit first derived gate without assistant_response:\n" + first_loop)
+    repeated_loop = run_project_rule_placement_helper(loop_payload)
+    if repeated_loop.strip():
+        fail("project rule placement helper should suppress duplicate same-turn derived gate:\n" + repeated_loop)
+    new_turn_payload = dict(loop_payload)
+    new_turn_payload["message_id"] = "project-rule-test-loop-new-turn"
+    new_turn = run_project_rule_placement_helper(new_turn_payload)
+    if "Project rule placement gate" not in new_turn:
+        fail("project rule placement helper should re-fire on a new message_id:\n" + new_turn)
 
     shared_payload = {
         "assistant_response": "프로젝트 규칙을 shared SSOT 로 기록했습니다.",
@@ -751,9 +790,6 @@ def check_project_rule_placement_helper() -> None:
     status_report = run_project_rule_placement_helper(status_report_payload)
     if status_report.strip():
         fail("project rule placement helper false-positive on existing-record status report:\n" + status_report)
-
-    print("✓ project rule placement helper ok")
-
 
 def check_option_gate_discipline_helper() -> None:
     """Option gates must stop for the user and must not self-select Recommended."""

@@ -11,9 +11,12 @@ PAYLOAD="${1:-}"
 
 PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
 import json
+import hashlib
 import os
 import re
 import sys
+import time
+from pathlib import Path
 
 try:
     payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
@@ -149,6 +152,63 @@ write_touched = any(str(call.get("name", "")) in WRITE_TOOLS for call in payload
 if has_status_only and not has_forward_action and not write_touched and not jcode_touched and not memory_rule_touched:
     sys.exit(0)
 if not (jcode_touched or memory_rule_touched or (has_rule and has_action and (has_placement or has_workflow))):
+    sys.exit(0)
+
+
+def gate_already_open_this_turn() -> bool:
+    """Suppress duplicate project-rule placement gates for one response turn.
+
+    Production jcode response.completed payloads may omit assistant_response, so a
+    STOP reminder can be re-derived from the same stable inputs. The BDD helper
+    already protects this class with `.lazy-harness/state/open-gates.json`; use
+    the same state contract here to prevent visible Rule placement loops.
+    """
+    message_id = str(payload.get("message_id") or "unknown")
+    recent = []
+    for call in payload.get("recent_tool_calls", []) or []:
+        recent.append({
+            "name": str(call.get("name", "")),
+            "blob": call_blob(call),
+        })
+    fp_input = json.dumps({
+        "last_user_message": payload.get("last_user_message") or "",
+        "recent_tool_calls": recent,
+        "jcode_touched": jcode_touched,
+        "memory_rule_touched": memory_rule_touched,
+        "has_rule": has_rule,
+        "has_action": has_action,
+        "has_placement": has_placement,
+        "has_workflow": has_workflow,
+    }, ensure_ascii=False, sort_keys=True)
+    fingerprint = hashlib.sha1(fp_input.encode("utf-8")).hexdigest()[:16]
+    key = f"project-rule-placement:{fingerprint}"
+    state_path = Path(".lazy-harness/state/open-gates.json")
+    state = {"last_message_id": "", "open_fingerprints": {}}
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except Exception:
+            state = {"last_message_id": "", "open_fingerprints": {}}
+    if state.get("last_message_id") != message_id:
+        state = {"last_message_id": message_id, "open_fingerprints": {}}
+    opens = state.setdefault("open_fingerprints", {})
+    if key in opens:
+        return True
+    opens[key] = {
+        "first_seen_message_id": message_id,
+        "first_seen_ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    state["open_fingerprints"] = opens
+    state["last_message_id"] = message_id
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+    return False
+
+
+if gate_already_open_this_turn():
     sys.exit(0)
 
 print("STOP. Project rule placement gate: 프로젝트별 rule/correction 을 어디에 둘지 판정 없이 진행하면 안 됩니다.\n")

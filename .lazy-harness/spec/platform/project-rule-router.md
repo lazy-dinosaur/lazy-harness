@@ -5,6 +5,7 @@ Layer: SDD
 Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related backlog: `.lazy-harness/planning/project-rule-discovery-router-backlog.md`
+Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 
 ## Purpose
 
@@ -72,6 +73,8 @@ It emits STOP text when:
 
 The helper must avoid false positives on casual mentions of AGENTS.md or `.jcode` without rule-placement language.
 
+The helper must also avoid same-turn repeated STOP reminders. Production Jcode `response.completed` payloads may not include `assistant_response`, so the helper can repeatedly derive the same project-rule placement gate from stable fields such as `last_user_message` and `recent_tool_calls`. When it emits a derived gate, it records a deterministic `project-rule-placement:<fingerprint>` entry in `.lazy-harness/state/open-gates.json`; the same `(message_id, fingerprint)` exits silently, while a new `message_id` may re-fire.
+
 Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into `.jcode`.
 
 Existing user-owned `.jcode/harness/20-project-rules.md` files that predate pointer-only behavior are migrated by Jcode wiring: the active file becomes the generated pointer-only note, and the previous content is archived under `.jcode/archive/20-project-rules.pre-pointer-only-migration.md` so it is not loaded as active harness instructions.
@@ -83,6 +86,8 @@ Existing user-owned `.jcode/harness/20-project-rules.md` files that predate poin
   - `.lazy-harness/spec/platform/project-rule-router.md` — this SDD contract.
   - `.lazy-harness/ssot/rule-sources.md` — canonical placement registry.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — enforcement helper, including Jcode memory misuse detection.
+  - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime state schema shared by loop-prone option-gate helpers.
+  - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated `Rule placement` STOP reminders.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the helper.
   - `.lazy-harness/scripts/self-test.py` — fixture tests.
   - `.lazy-harness/AGENTS.md` — concise grammar pointer.
@@ -91,18 +96,23 @@ Existing user-owned `.jcode/harness/20-project-rules.md` files that predate poin
   - `run_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — helper runner.
   - `Rule placement` judgement — completion signal.
   - `MEMORY_TOOLS` / `MEMORY_RULE_CUES` (`check-project-rule-placement.sh`) — detects project rules written to Jcode memory.
+  - `gate_already_open_this_turn` (`check-project-rule-placement.sh`) — records and suppresses same-turn project-rule placement gate fingerprints.
 - Flow:
   1. Rule placement cues appear in a response.
   2. Helper checks for Jcode memory misuse before accepting `.lazy-harness` record/planning capture.
   3. Helper checks for `.lazy-harness` record/planning capture or explicit judgement.
-  4. Missing placement or memory misuse injects STOP with A/B/C/D/E/F options.
+  4. If missing placement or memory misuse would inject STOP, helper first checks the `(message_id, project-rule-placement fingerprint)` state.
+  5. First fire injects STOP with A/B/C/D/E/F options and records the fingerprint; repeated same-turn fire exits silently.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+  - focused: `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper` validates first fire, same-turn suppression, and new-turn re-fire without `assistant_response`.
 - Cross-layer links:
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
+  - SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`
+  - TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
   - ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
   - ADR: `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
 - Machine index:

@@ -52,7 +52,7 @@ It emits STOP text when an unresolved option gate appears together with either:
 - mutating/executing tool calls in the same response payload, or
 - self-selection/completion language such as `user-confirmed`, `inferred-from-record`, `기록 완료`, `dispatch 했`, `실행했습니다`, or `진행하겠습니다` without a user choice.
 
-Plainly asking a gate once is allowed. BDD trigger gates are a special loop-prone case: `check-bdd-trigger.sh` computes a deterministic fingerprint from BDD trigger inputs (`files + last_user_message`) and uses `.lazy-harness/state/open-gates.json` via `gate-fingerprint.sh`. If the same `(helper, fingerprint)` is already open for the current `message_id`, it exits silently even when `last_user_message` still matches a scenario candidate.
+Plainly asking a gate once is allowed. Helpers that derive gates from stable payload fields are loop-prone and must use turn-level fingerprint suppression. BDD trigger gates use `bdd:<fingerprint>` via `gate-fingerprint.sh`; project rule placement gates use compatible `project-rule-placement:<fingerprint>` entries. If the same helper-prefixed fingerprint is already open for the current `message_id`, the helper exits silently even when stable payload fields still match the candidate.
 
 ## Implementation map
 
@@ -64,8 +64,10 @@ Plainly asking a gate once is allowed. BDD trigger gates are a special loop-pron
   - `.lazy-harness/spec/platform/project-rule-router.md` — project-rule-specific completion contract.
   - `.lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh` — response-completed guard.
   - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — suppresses already-open BDD option gate loops using turn-level fingerprints.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — suppresses already-open project-rule placement STOP reminders using turn-level fingerprints.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns `.lazy-harness/state/open-gates.json` check/record behavior.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime state SSOT for `open-gates.json`.
+  - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated project rule placement reminders.
   - `.lazy-harness/triggers/code-change.ts` — lazy-loads non-BDD parser dependencies so BDD natural-language gates work in installed hosts without `ts-morph`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the helper.
   - `.lazy-harness/scripts/self-test.py` — regression fixtures.
