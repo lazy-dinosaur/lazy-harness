@@ -21,7 +21,7 @@
    .lazy-harness/bin/lazy test
    ```
 
-4. **주의**: `/home/lazydino/dev/medivance.experimental-lazy-harness` 는 legacy extraction scaffold. 더 이상 framework 개발 기준 아님.
+4. **참고**: `~/dev/medivance.experimental-lazy-harness` legacy scaffold 는 2026-05-17 worktree remove + branch 삭제 완료. 더 이상 존재하지 않음.
 
 ## 현재 상태 (2026-05-13)
 
@@ -29,7 +29,7 @@
 |---|---|
 | **Source of truth** | `~/dev/lazy-harness` (`main`) — ADR 0027 |
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
-| **Legacy scaffold** | `~/dev/medivance.experimental-lazy-harness` — 개발 기준 아님, 정리 예정 |
+| **Legacy scaffold** | (removed 2026-05-17 — `medivance.experimental-lazy-harness` worktree + branch 모두 삭제) |
 | **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
 | **ADRs** | **36** (0001~0036; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate, 0035 interview queue close mandate, 0036 record-search trigger by intent not keyword) |
 | **Decisions logged** | 28+ entries |
@@ -71,10 +71,8 @@ A. Source-of-truth 운영 고정
    - Medivance host 는 sync + lazy test 이미 통과
 
 B. Legacy worktree 정리
-   - ~/dev/medivance.experimental-lazy-harness 는 더 이상 개발 기준 아님
-   - 업무큐: fixture baseline drift(BDD expected 3 actual 2) + decisions.jsonl Unicode replacement warning 확인
-   - 업무큐: source repo 에 없는 recoverable work 가 있는지 diff audit
-   - 삭제/ worktree remove 는 destructive 이므로 사용자 confirm 후 진행
+   - ✅ 2026-05-17 완료: `git worktree remove --force` + `git branch -D experimental/lazy-harness`
+   - 잔여 큐: fixture baseline drift(BDD expected 3 actual 2) + decisions.jsonl Unicode replacement warning
 
 C. Project Init Interview (N4)
    - inspect/interview/apply 구현
@@ -93,7 +91,7 @@ D. Post-MVP hardening
 ```
 /home/lazydino/dev/lazy-harness                      (main, ✅ framework source of truth)
 /home/lazydino/dev/medivance                         (dev-ian, Medivance app + dogfooding host)
-/home/lazydino/dev/medivance.experimental-lazy-harness (legacy extraction scaffold, 정리 예정)
+(removed) /home/lazydino/dev/medivance.experimental-lazy-harness — 2026-05-17 삭제
 /home/lazydino/dev/medivance.feat-*                  (각 feature branch)
 ```
 
