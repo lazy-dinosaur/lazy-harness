@@ -828,30 +828,47 @@ def check_option_gate_discipline_helper() -> None:
 
 
 def check_bdd_trigger_loop_suppression() -> None:
-    """BDD helper must ask once and not re-inject the same option gate."""
-    first_payload = {
-        "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.",
-        "assistant_response": "BDD 후보를 확인하겠습니다.",
-        "recent_tool_calls": [],
-    }
-    first = run_bdd_trigger_helper(first_payload)
-    if "BDD scenario 후보" not in first or "BDD scenario 등록" not in first:
-        fail("BDD trigger helper should surface first natural-language scenario gate:\n" + first)
+    """BDD helper must ask once per turn (same message_id) via fingerprint state.
 
-    repeated_payload = {
-        "last_user_message": first_payload["last_user_message"],
-        "assistant_response": (
-            "BackgroundTask814404jms1 BDD 후보 처리 선택이 필요합니다.\n"
-            "A. BDD scenario 등록 (Recommended)\n"
-            "B. 기존 scenario의 alias / 확장\n"
-            "C. scenario 아님, 다른 layer 또는 skip\n"
-            "D. 직접 입력"
-        ),
-        "recent_tool_calls": [],
-    }
-    repeated = run_bdd_trigger_helper(repeated_payload)
-    if repeated.strip():
-        fail("BDD trigger helper should suppress already-open repeated option gate:\n" + repeated)
+    Note: jcode `response.completed` payload does NOT include `assistant_response`,
+    so the older suppression strategy that string-matched assistant text was a
+    no-op in production. The new contract uses
+    `.lazy-harness/state/open-gates.json` keyed by (helper, fingerprint,
+    message_id) so a given (files+last_user_message) signature fires at most
+    once per turn. See `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`.
+    """
+    state_file = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
+    if state_file.exists():
+        state_file.unlink()
+    try:
+        first_payload = {
+            "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.",
+            "message_id": "test-msg-turn-A",
+            "recent_tool_calls": [],
+        }
+        first = run_bdd_trigger_helper(first_payload)
+        if "BDD scenario 후보" not in first or "BDD scenario 등록" not in first:
+            fail("BDD trigger helper should surface first natural-language scenario gate:\n" + first)
+
+        # Same message_id (= same turn) + same fingerprint inputs → must be suppressed.
+        repeated_same_turn = run_bdd_trigger_helper(first_payload)
+        if repeated_same_turn.strip():
+            fail("BDD trigger helper should suppress duplicate fire in same turn (same message_id):\n" + repeated_same_turn)
+
+        # New message_id (= new turn) → fingerprint cleared, must fire again.
+        new_turn_payload = dict(first_payload)
+        new_turn_payload["message_id"] = "test-msg-turn-B"
+        repeated_new_turn = run_bdd_trigger_helper(new_turn_payload)
+        if "BDD scenario 후보" not in repeated_new_turn:
+            fail("BDD trigger helper should fire again on a new turn (different message_id):\n" + repeated_new_turn)
+    finally:
+        # Restore prior state so tests do not pollute host state file.
+        if backup is not None:
+            state_file.write_text(backup, encoding="utf-8")
+        elif state_file.exists():
+            state_file.unlink()
     print("✓ BDD trigger loop suppression ok")
 
 

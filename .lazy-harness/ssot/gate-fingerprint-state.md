@@ -1,0 +1,59 @@
+# Gate Fingerprint State
+
+Status: accepted
+Layer: SSOT
+Date: 2026-05-18
+Related SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
+Related TDD: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
+
+## Source of truth
+
+Lifecycle option-gate helpers that need same-turn duplicate suppression use:
+
+```text
+.lazy-harness/state/open-gates.json
+```
+
+This file is runtime state, not institutional memory. It is safe to regenerate and should not be treated as a canonical record. Canonical behavior is defined by this SSOT and the SDD contract.
+
+## State schema
+
+```json
+{
+  "last_message_id": "<jcode response.completed message_id>",
+  "open_fingerprints": {
+    "<helper>:<fingerprint>": {
+      "first_seen_message_id": "<message_id>",
+      "first_seen_ts": "<UTC timestamp>"
+    }
+  }
+}
+```
+
+## Contract
+
+- `message_id` is the turn boundary.
+- When `message_id` changes, `open_fingerprints` is cleared.
+- A helper may emit an option-gate reminder only if `(helper, fingerprint)` is not already present for the current `message_id`.
+- After emitting, the helper records `(helper, fingerprint)` in this file.
+- State read/write failures are best-effort and must not crash the lifecycle hook.
+- Helpers must not depend on `payload.assistant_response` because jcode `response.completed` payload does not include assistant text in production.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns read/write/check/record behavior for `open-gates.json`.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — uses `gate-fingerprint.sh` with BDD fingerprints.
+  - `.lazy-harness/scripts/self-test.py` — validates same-turn suppression and new-turn re-fire in `check_bdd_trigger_loop_suppression`.
+- Flow:
+  1. `check-bdd-trigger.sh` computes a deterministic fingerprint from BDD trigger inputs (`files + last_user_message`).
+  2. It calls `gate-fingerprint.sh check bdd <fingerprint> <message_id>`.
+  3. If already open, it exits silently.
+  4. If new, it emits the BDD option gate and records the fingerprint.
+  5. The next `message_id` clears prior entries.
+- Protection:
+  - `.lazy-harness/scripts/self-test.py` `check_bdd_trigger_loop_suppression`
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
+  - TDD: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
