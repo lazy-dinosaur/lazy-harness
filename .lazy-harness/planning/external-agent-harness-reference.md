@@ -53,6 +53,74 @@ External harnesses are therefore references for mechanisms, not replacements for
 | SWE-bench Verified | human-filtered subset and leaderboard discipline | reference for curated regression/eval corpus quality |
 | OpenHands benchmarks | multi-benchmark infra: SWE-bench, SWE-bench Pro, GAIA, Commit0, OpenAgentSafety, ProgramBench | reference for framework-wide evaluation matrix and safety benchmark integration |
 
+## Second-pass additions: product, control-plane, adapter, runtime, and eval harnesses
+
+This section records additional well-known harnesses and products discovered after the initial landscape pass. These are especially relevant because they show how the market is separating into execution agents, local fleet supervisors, cloud autonomous agents, universal adapters, sandbox runtimes, and evaluation harnesses.
+
+### Product / hosted coding agents
+
+| Harness / product | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| Cursor Agent / Cursor CLI | AI-native IDE plus terminal agent, background/cloud agents, rules, memories, checkpoints, worktree mode, headless CLI | `.cursor/rules`, AGENTS.md compatibility, plan/ask modes, queued messages, automatic checkpoints, cloud handoff, `--worktree` isolation | reference for scoped rules, checkpoint UX, cloud handoff, and noninteractive CI use |
+| Windsurf Cascade | IDE coding agent that tracks edits, terminal commands, browser/web context, rulebooks, deployment and PR review workflows | ambient workflow context, browser-to-IDE loop, saved rulebooks, team-scale curated knowledge | reference for passive context capture and team rule distribution |
+| GitHub Copilot coding agent | GitHub-native async agent assignable from Issues, IDE, CLI, Slack/Teams, Jira/Linear; produces plans/PRs and uses security checks | issue-to-PR flow, unified agent mission control, context traveling from issue/chat, code/security/supply-chain checks before PR | reference for async task ownership, PR-first output, and security scan integration |
+| Devin / Devin for Terminal | cloud autonomous software engineer plus local terminal agent; supports Ask/Agent modes, managed Devins, Playbooks, Secrets, Knowledge, Skills, Review/Auto-Fix | clear task suitability guidance, managed parallel sessions, cloud VM execution, review/auto-fix loop, repo-committed `SKILL.md` procedures | reference for task triage, cloud/local handoff, skills-as-reusable-procedures, review auto-fix loops |
+| Replit Agent | browser/cloud app builder from prompt to deployed app; sets up project, tests, fixes, previews, publishes | integrated build-test-reflection loop, browser verification, one-click deploy, non-coder product flow | reference for end-to-end preview/deploy validation and agent self-test reports |
+| Factory Droid | enterprise development agent CLI/TUI with spec mode, approvals, organizational knowledge, Jira/Notion/Slack/MCP context, review workflow | transparent proposed changes, spec mode for complex work, org knowledge and ticket integration, enterprise approvals | reference for spec-before-code and organizational context connectors |
+| JetBrains Junie | JetBrains IDE/CLI/headless coding agent; BYOK, MCP, planning mode, custom subagents, skills/guidelines, live prompting | IDE semantic checks, live steering while running, `.junie/AGENTS.md`, plan mode, custom subagents | reference for IDE-backed validation and mid-run prompt steering |
+| Amazon Q Developer / Kiro CLI lineage | AWS-focused agentic coding CLI and IDE agent; custom agent JSON format with prompt, MCP servers, tools, allowedTools, resources, hooks, model | first-class custom agent config schema and lifecycle hooks | reference for typed profile/config schema for lazy-harness agents |
+| Amp | frontier coding agent focused on long responsive threads, plugins/hooks/tools/policy, polished agent UX | event-hook plugins, policy standardization, thread responsiveness | reference for plugin/event surfaces and UX responsiveness during long runs |
+
+### Open-source / terminal coding agents not in first pass
+
+| Harness | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| Gemini CLI | open-source terminal agent with Google Search grounding, file/shell/web tools, MCP, checkpointing, GEMINI.md context, headless JSON/stream modes, GitHub Action | massive open-source adoption, checkpoint/resume, structured output for automation, GitHub PR review/issue triage workflows | reference for open terminal agent automation and structured stream integration |
+| Qwen Code | open-source terminal agent optimized for Qwen Coder but multi-provider; Skills, SubAgents, headless, IDE integrations, SDKs | Claude-Code-like open stack, local/custom provider support, subagent/skill primitives | reference for vendor-neutral skills/subagents and SDK embedding |
+| Goose | open-source local general agent by Block/AAIF; desktop, CLI, API, MCP extensions, recipes, subagents, sandbox/security, ACP server | recipes as YAML workflows, 70+ MCP extensions, subagents to keep main context clean, ACP compatibility, adversary reviewer | reference for recipes, standards-based interoperability, security reviewer, and ACP/MCP duality |
+| Crush | Charm terminal coding agent; multi-model, sessions, LSP context, MCP, hooks, skills, permissions, project initialization to AGENTS.md, logs | LSP-enhanced context, permission policy, hook support, agent skills standard, local/project config, attribution trailers | reference for LSP-backed context, config trust boundaries, permission prompts, and logs |
+| Kilo Code / Codebuff / Auggie / Mistral Vibe / Kimi Code / Pi / Rovo Dev / Open Interpreter | ecosystem of provider- or vendor-specific coding CLIs referenced by orchestration tools | CLI diversity and fast-changing provider surface | reason to design lazy-harness adapter boundary without hardcoding one agent |
+
+### Agent fleet / macro-orchestration harnesses
+
+| Harness | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| Daintree | local desktop control plane for supervising 3-10 concurrent CLI agents in isolated git worktrees | worktree lifecycle, dev server management, context injection, agent state detection, review-first dashboard, resource profiles, MCP server exposing orchestration actions | very strong reference for local agent fleet supervision and worktree/resource governance |
+| Emdash | open-source Agentic Development Environment; runs multiple coding agents in parallel locally or over SSH, each in its own worktree; supports 27 CLI providers and ticket/PR/CI workflows | provider-agnostic worktree isolation, remote SSH execution, ticket-to-agent dispatch, diff review, CI status, PR creation/merge | reference for ADE category and remote/local fleet workflow |
+| AgentPipe | CLI/TUI multi-agent room that lets different CLI agents communicate with shared rooms, metrics, cost tracking, user participation | agent-to-agent room protocol, cost tracking, live participation | reference for swarm communication and telemetry design |
+| AgentAPI | HTTP API wrapper for Claude Code, Goose, Aider, Gemini, Amp, Codex, Copilot, Cursor CLI, etc. | normalizes terminal agents behind `/messages`, `/message`, `/status`, `/events`; in-memory terminal emulator; SSE event stream; OpenAPI | strong reference for a universal adapter layer when native SDKs are missing |
+
+### Sandbox / runtime infrastructure
+
+| Runtime | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| E2B | secure Firecracker microVM sandboxes for coding agents, code execution, desktop/computer use, long sessions | isolated untrusted code execution, real tools, internet, templates, enterprise BYOC/on-prem | reference for safe test/eval execution outside the developer machine |
+| Daytona | open-source secure elastic sandbox runtime for AI-generated code and agent workflows; full composable computers, snapshots, persistence, APIs/SDKs | fast sandbox startup, stateful snapshots, preview links, full filesystem/process control, self-host/hybrid | reference for reproducible eval environments and snapshot-based checkpoints |
+| Morph Cloud / Infinibranch | cloud computers/devboxes with snapshot/replicate/autoscale/debug/deploy for agents | fast branching runtime snapshots and parallel code execution | reference for scalable parallel eval and branch-per-agent runtime design |
+
+### Evaluation / reliability harnesses beyond SWE-bench
+
+| Harness | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| Inspect AI | UK AISI frontier AI eval framework with 200+ evals, agent evals, multi-agent primitives, external agent execution, sandboxing, logs/viewer | Task/Dataset/Solver/Scorer model, sandbox providers, agent bridge, log viewer, compaction, concurrency, limits | strongest reference for lazy-harness eval architecture and trace/log viewer design |
+| HAL: Holistic Agent Leaderboard | Princeton framework-agnostic agent evaluation harness and cost-aware leaderboard across multiple benchmarks | cost-performance frontier, reliability dashboard, trace logging, benchmark/agent modularity | reference for evaluating reliability beyond raw pass rate: consistency, robustness, safety, self-awareness |
+| DeepEval | pytest-native LLM/agent eval framework with traces, CI integration, LLM-as-judge metrics, synthetic goldens | agent trace scoring, local test runner, regression loop, span-level reasons | reference for lazy-harness source-controlled AI checks and agent regression tests |
+| Ragas | systematic eval loops for LLM applications with experiments, metrics, datasets, RAG metrics | experiments-first eval loop and custom metrics | reference mainly if lazy-harness evaluates knowledge/RAG/context retrieval quality |
+| DSPy | programming-not-prompting framework with optimizers for prompts/weights and modular LM programs | measurable optimization of prompts/agent modules | reference for future prompt/hook optimization, not direct harness replacement |
+| AgentBench / WebArena / OSWorld / Mind2Web / tau-bench / Terminal-Bench / BFCL / AppWorld | benchmark families for tool-use, browser, OS, terminal, workflow, and function-calling agents | environment-specific eval tasks | candidate benchmark inputs for lazy-harness adapter/replay validation |
+
+### Updated ecosystem taxonomy
+
+| Layer | Examples | What they own | What lazy-harness should learn |
+|---|---|---|---|
+| Execution agent | Claude Code, Codex CLI, Gemini CLI, Qwen Code, Crush, Goose, Amp, Aider, OpenCode | one agent session and its tools | adapter protocol, permissions, logs, context files |
+| IDE pair agent | Cursor, Windsurf, Junie, Amazon Q, GitHub Copilot | IDE-integrated planning/edit/test loop | checkpoints, rules, semantic validation, PR/review loop |
+| Cloud autonomous engineer | Devin, Factory Droid cloud, GitHub Copilot coding agent, Replit Agent | long-running VM/cloud task and PR/deploy outcome | async ownership, skills/playbooks, review/fix, deploy validation |
+| Agent fleet control plane | Daintree, Emdash, AgentPipe | many agent sessions, worktrees, status, review/merge | worktree isolation, dashboard, resource governance, swarm telemetry |
+| Universal adapter | AgentAPI, ACP/A2A-style protocols | common API over heterogeneous CLIs | future HarnessAdapter implementation |
+| Runtime/sandbox | E2B, Daytona, Morph Cloud | isolated compute and snapshots | reproducible eval, safe execution, parallel runs |
+| Eval harness | Inspect, HAL, DeepEval, SWE-bench, Ragas | datasets, solvers, scorers, traces, metrics | lazy-harness self-eval and record/replay grading |
+
 ## Candidate design ideas for lazy-harness
 
 1. **Harness adapter boundary**: model Claude Code, Codex, Jcode, OpenCode, and future harnesses as adapters. Lazy-harness owns lifecycle/records; adapters provide tool execution semantics.
@@ -65,6 +133,11 @@ External harnesses are therefore references for mechanisms, not replacements for
 8. **Mode/role templates**: learn from Cline/Roo/CrewAI/Claude subagents but keep roles grounded in lazy-harness lifecycle layers.
 9. **Small-core discipline**: preserve mini-SWE-agent/smolagents lesson that a minimal core plus strong records/evals can outperform a large rigid framework.
 10. **Observability first**: log hook events, gates, skipped steps, option gates, and replayable traces as first-class artifacts.
+11. **Agent fleet supervision**: Daintree/Emdash show that worktree isolation, resource governance, and review dashboards become first-class when supervising several agents.
+12. **Universal terminal adapter**: AgentAPI shows a pragmatic bridge over heterogeneous CLIs before standards or SDKs converge.
+13. **Sandbox-first eval**: E2B/Daytona/Morph show that runtime snapshotting and safe execution can become part of the harness, not an afterthought.
+14. **Reliability metrics beyond pass/fail**: Inspect/HAL/DeepEval show the need for cost, trace, consistency, robustness, and span-level failure reasons.
+15. **Skills/rules convergence**: Devin, Cursor, Crush, Goose, Qwen Code, Gemini CLI, and Junie all converge on repo-local context/rules/skills files, validating lazy-harness's record-first direction while warning against one giant instruction file.
 
 ## Non-goals and cautions
 
@@ -81,6 +154,11 @@ External harnesses are therefore references for mechanisms, not replacements for
 - Compare shadow-git checkpoints versus normal git worktree commits for lazy-harness task safety.
 - Prototype a source-controlled AI check spec under `.lazy-harness/spec` or `.lazy-harness/tests` after layer ownership is decided.
 - Extend doctor/self-test metrics to include trace quality and record/replay readiness.
+- Study Daintree/Emdash for a local worktree/fleet supervision model before expanding lazy-harness swarm workflows.
+- Study AgentAPI/ACP/A2A-style protocol boundaries before implementing a universal adapter.
+- Study Inspect AI's Task/Dataset/Solver/Scorer and log viewer model before designing lazy-harness record/replay evals.
+- Study DeepEval's pytest-native agent trace scoring before adding source-controlled AI checks.
+- Study E2B/Daytona snapshot semantics before adding sandbox-backed framework tests.
 
 ## Implementation map
 
@@ -90,6 +168,7 @@ External harnesses are therefore references for mechanisms, not replacements for
   - `.lazy-harness/knowledge/candidates.jsonl` — discovery/candidate trail that first captured the online research summary.
   - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md` — identity constraint: AI-first lifecycle enforcement and SearchProvider delegation.
   - `.lazy-harness/README.md` — high-level lazy-harness identity and source-of-truth entry points.
+  - second-pass external references: Daintree, Emdash, AgentAPI, Gemini CLI, Qwen Code, Goose, Crush, Cursor, Devin, Replit Agent, Factory Droid, Junie, Amazon Q/Kiro, E2B, Daytona, Morph Cloud, Inspect AI, HAL, DeepEval, Ragas, DSPy.
 - Key symbols:
   - none; this is a planning/reference record, not an implemented code path.
 - Flow:
@@ -110,4 +189,5 @@ External harnesses are therefore references for mechanisms, not replacements for
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 - Machine index:
   - graph ids: `kg_external_agent_harness_reference_doc`, `kg_external_agent_harness_reference_decided_by_adr0024`, `kg_external_agent_harness_reference_candidate_source`
+  - second-pass graph ids: `kg_external_agent_harness_reference_second_pass`, `kg_external_agent_harness_reference_eval_runtime_axis`
   - generated index key: `pending until implementation-index generator exists`
