@@ -760,6 +760,29 @@ def _check_project_rule_placement_helper_cases() -> None:
     if real_world_judgement.strip():
         fail("project rule placement helper should pass real-world bullet/no-backtick judgement:\n" + real_world_judgement)
 
+    non_applicable_judgement_payload = {
+        "assistant_response": (
+            "## Rule placement\n"
+            "- Rule: 없음\n"
+            "- Scope: non-applicable\n"
+            "- Primary record: none\n"
+            "- Confirmation: user-confirmed\n"
+            "- Disposition: 기록하지 않음\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    non_applicable_judgement = run_project_rule_placement_helper(non_applicable_judgement_payload)
+    if non_applicable_judgement.strip():
+        fail("project rule placement helper should pass non-applicable/no-record judgement:\n" + non_applicable_judgement)
+
+    korean_noop_payload = {
+        "assistant_response": "처리: 기록하지 않음. 확정된 프로젝트 규칙이 없어서 primary record 없음.",
+        "recent_tool_calls": [],
+    }
+    korean_noop = run_project_rule_placement_helper(korean_noop_payload)
+    if korean_noop.strip():
+        fail("project rule placement helper false-positive on Korean no-record disposition:\n" + korean_noop)
+
     args_payload = {
         "assistant_response": "PR 규격 SSOT를 recognized edit로 갱신했습니다.",
         "recent_tool_calls": [{

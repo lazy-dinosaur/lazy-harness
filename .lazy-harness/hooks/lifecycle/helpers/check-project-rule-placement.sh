@@ -70,6 +70,17 @@ def call_blob(call):
 
 def has_rule_placement_judgement(text: str) -> bool:
     normalized = text.lower().replace("`", "")
+    # Non-applicable judgement: the assistant explicitly concluded there is no
+    # project rule to place. This is a completed no-op judgement and must not
+    # be reinterpreted as a new "record this rule" action just because Korean
+    # text includes "기록" inside "기록하지 않음".
+    has_noop_scope = re.search(r"scope\s*:\s*(?:non-applicable|not-applicable|none|n/a)", normalized)
+    has_noop_rule = re.search(r"rule\s*:\s*(?:없음|none|n/a|not applicable|non-applicable)", normalized)
+    has_noop_record = re.search(r"primary\s+record\s*:\s*(?:none|없음|n/a|not applicable|non-applicable)", normalized)
+    has_confirmation = re.search(r"confirmation\s*:\s*(?:user-confirmed|inferred-from-record)", normalized)
+    if has_noop_scope and has_noop_rule and has_noop_record and has_confirmation:
+        return True
+
     required_patterns = [
         r"rule\s*placement",
         r"rule\s*:",
@@ -134,12 +145,17 @@ action_cues = [
 status_only_cues = [
     "적용됨", "적용됐", "있음", "이미", "확인", "status", "applied", "synced", "exists",
 ]
+negative_noop_cues = [
+    "기록하지 않음", "기록 안 함", "기록하지 않았다", "기록하지 않아도", "기록할 필요 없음",
+    "not recording", "do not record", "no record", "no recording", "non-applicable", "not applicable",
+]
 
 has_rule = any(cue in lower for cue in [c.lower() for c in rule_cues])
 has_placement = any(cue in lower for cue in [c.lower() for c in placement_cues])
 has_workflow = any(cue in lower for cue in [c.lower() for c in workflow_cues])
 has_action = any(cue in lower for cue in [c.lower() for c in action_cues])
 has_status_only = any(cue in lower for cue in [c.lower() for c in status_only_cues])
+has_negative_noop = any(cue in lower for cue in [c.lower() for c in negative_noop_cues])
 has_forward_action = any(cue in lower for cue in [
     "해야", "하겠", "할게", "하자", "필요", "빠져", "누락", "추가해야", "기록해야",
     "will", "need", "needs", "missing", "should", "must",
@@ -150,6 +166,8 @@ write_touched = any(str(call.get("name", "")) in WRITE_TOOLS for call in payload
 # The gate is for newly discovered/corrected/routed project rules, not for answers
 # that merely report whether a known policy is already recorded or synced.
 if has_status_only and not has_forward_action and not write_touched and not jcode_touched and not memory_rule_touched:
+    sys.exit(0)
+if has_negative_noop and not write_touched and not jcode_touched and not memory_rule_touched:
     sys.exit(0)
 if not (jcode_touched or memory_rule_touched or (has_rule and has_action and (has_placement or has_workflow))):
     sys.exit(0)

@@ -12,6 +12,8 @@ A `Project rule placement gate` STOP reminder can loop visibly when production J
 
 Observed symptom: the assistant repeatedly answered the same Rule placement block for the Medivance named dev instance workflow, producing multiple near-identical `## Rule placement` sections.
 
+Additional observed symptom on 2026-05-19: a different session answered the gate with repeated non-applicable/no-record judgement text (`Rule: 없음`, `Scope: non-applicable`, `Primary record: none`, `Confirmation: user-confirmed`, `기록하지 않음`). The helper treated Korean negative text containing `기록` as a new record action and kept re-triggering/being amplified visibly.
+
 ## Root cause
 
 - Jcode production payload shape is a constraint: `response.completed` does not reliably include assistant response text.
@@ -23,6 +25,8 @@ Primary ownership: lazy-harness hook behavior. Jcode payload shape is an input c
 ## Fix
 
 `check-project-rule-placement.sh` now computes a deterministic fingerprint from stable project-rule-placement trigger inputs and records a `project-rule-placement:<fingerprint>` key in `.lazy-harness/state/open-gates.json`.
+
+2026-05-19 addendum: the helper also recognizes completed no-op/non-applicable judgements and negative no-record dispositions as terminal non-actions. `기록하지 않음` and equivalent English/Korean no-record cues no longer count as an action cue when no write/Jcode/memory tool was touched.
 
 Expected behavior:
 
@@ -37,6 +41,7 @@ Expected behavior:
 - SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md` now lists `project-rule-placement:<fingerprint>` as a known helper prefix.
 - DDD: no domain terminology change.
 - TDD: `check_project_rule_placement_helper` protects first fire, same-turn suppression, and new-turn re-fire without `assistant_response`.
+- TDD: `check_project_rule_placement_helper` also protects non-applicable/no-record judgement and Korean `기록하지 않음` false-positive cases.
 - ADR: no new ADR; existing option-gate discipline and project-rule router decisions cover the trade-off.
 
 ## Implementation map
@@ -44,11 +49,13 @@ Expected behavior:
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — computes and records same-turn project-rule placement fingerprints.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — recognizes no-op/non-applicable placement judgements and negative no-record dispositions.
   - `.lazy-harness/scripts/self-test.py` — regression test in `check_project_rule_placement_helper`.
   - `.lazy-harness/spec/platform/project-rule-router.md` — SDD contract for project-rule placement helper behavior.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — shared runtime state schema for option-gate helper fingerprints.
 - Key symbols:
   - `gate_already_open_this_turn` (`check-project-rule-placement.sh`) — duplicate suppression function.
+  - `has_rule_placement_judgement` (`check-project-rule-placement.sh`) — accepts full placement judgement and completed no-op judgement.
   - `check_project_rule_placement_helper` (`self-test.py`) — validates first fire, duplicate same-turn silence, and new-turn re-fire.
 - Flow:
   1. Project rule placement cues are detected and no complete placement/canonical record update satisfies the gate.
