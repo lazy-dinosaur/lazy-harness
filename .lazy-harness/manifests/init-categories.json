@@ -82,6 +82,14 @@
           "description": "39 trigger 파일: code-change/cross-layer/structured-ask 등 trigger 정의 + detector + fixture."
         },
         {
+          "path": "fixtures/",
+          "kind": "directory",
+          "glob": [
+            "task-router/*.json"
+          ],
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including ADR 0037 workflow route cases."
+        },
+        {
           "path": "manifests/skills.xml",
           "kind": "file",
           "description": "Skill manifest. lazy-init/sync/doctor/test 등 어떤 skill 이 어디 있는지 single source."
@@ -120,6 +128,12 @@
           "kind": "file",
           "description": "Operational framework ADR referenced by AGENTS: substantial analysis/planning discoveries must converge to records, candidates, or planning artifacts instead of chat-only knowledge. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
           "targetPath": "framework/operational-adrs/0034-analysis-discovery-plan-capture-gate.md"
+        },
+        {
+          "path": "decisions/0037-workflow-compression-not-safety-reduction.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS and lazy route: workflow compression is read-only advisory, not safety reduction. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0037-workflow-compression-not-safety-reduction.md"
         },
         {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
@@ -190,6 +204,11 @@
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."
+        },
+        {
+          "path": "spec/platform/workflow-compression-router.md",
+          "kind": "file",
+          "description": "SDD contract for ADR 0037 lazy route workflow compression: output schema, finite axes, default action table, and safety invariants."
         },
         {
           "path": "ssot/knowledge-graph-storage.md",
