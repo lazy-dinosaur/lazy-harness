@@ -1,0 +1,106 @@
+[
+  {
+    "name": "trivial copy style",
+    "message": "typo in README",
+    "expect": {
+      "intent": "docs",
+      "scope": "trivial",
+      "risk": "low",
+      "recordSearchMode": "none",
+      "recordCaptureMode": "none",
+      "implMapTier": "none",
+      "gateMode": "none"
+    }
+  },
+  {
+    "name": "host detail lookup requires records",
+    "message": "check the project config rule for env ownership",
+    "expect": {
+      "scope": "ownership",
+      "risk": "high",
+      "recordSearchMode": "required",
+      "recordCaptureMode": "canonical",
+      "implMapTier": "full-graph",
+      "gateMode": "option-gate",
+      "layersInclude": ["ssot", "adr"]
+    }
+  },
+  {
+    "name": "local refactor stays file map",
+    "message": "refactor internal helper names",
+    "changedFiles": ["src/utils/helpers.ts"],
+    "expect": {
+      "intent": "refactor",
+      "scope": "code-local",
+      "risk": "medium",
+      "recordSearchMode": "recommended",
+      "recordCaptureMode": "candidate",
+      "implMapTier": "file-map",
+      "gateMode": "none"
+    }
+  },
+  {
+    "name": "behavior change affects bdd tdd",
+    "message": "change the user flow when the save button is clicked",
+    "expect": {
+      "scope": "behavior",
+      "risk": "medium",
+      "recordSearchMode": "required",
+      "recordCaptureMode": "canonical",
+      "implMapTier": "symbol-flow",
+      "gateMode": "narrow-confirm",
+      "layersInclude": ["bdd", "sdd", "tdd"]
+    }
+  },
+  {
+    "name": "contract api change",
+    "message": "update the API schema and CLI contract",
+    "expect": {
+      "scope": "contract",
+      "risk": "medium",
+      "recordSearchMode": "required",
+      "recordCaptureMode": "canonical",
+      "implMapTier": "symbol-flow",
+      "gateMode": "narrow-confirm",
+      "layersInclude": ["sdd", "ssot", "tdd"]
+    }
+  },
+  {
+    "name": "ambiguous short request gates",
+    "message": "그거 고쳐",
+    "expect": {
+      "confidence": "low",
+      "recordSearchMode": "required",
+      "gateMode": "option-gate"
+    }
+  },
+  {
+    "name": "destructive risk gates",
+    "message": "drop the database and force push the fix",
+    "expect": {
+      "risk": "high",
+      "recordSearchMode": "required",
+      "recordCaptureMode": "canonical",
+      "implMapTier": "full-graph",
+      "gateMode": "option-gate",
+      "nonNegotiablesInclude": ["explicit-confirmation-before-risk"]
+    }
+  },
+  {
+    "name": "queued answer apply reminder",
+    "message": "answer queued question Q-123 with option A",
+    "expect": {
+      "recordCaptureMode": "candidate",
+      "nonNegotiablesInclude": ["candidate-is-not-canonical"]
+    }
+  },
+  {
+    "name": "candidate is not canonical for investigation",
+    "message": "evaluate whether this harness approach is too heavy",
+    "expect": {
+      "intent": "investigation",
+      "recordCaptureMode": "candidate",
+      "nonNegotiablesInclude": ["candidate-is-not-canonical"]
+    }
+  }
+]

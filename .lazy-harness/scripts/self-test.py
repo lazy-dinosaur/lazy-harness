@@ -1148,6 +1148,110 @@ def check_pre_commit_runs_lazy_test() -> None:
     print("✓ pre-commit lazy test gate ok")
 
 
+def _run_task_router(message: str, changed_files: list[str] | None = None) -> dict:
+    command = ["bun", ".lazy-harness/scripts/task-router.ts", "--message", message, "--format=json"]
+    if changed_files:
+        command.extend(["--changed-files", ",".join(changed_files)])
+    completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+    if completed.returncode != 0:
+        fail("task-router command failed:\nSTDOUT:\n" + completed.stdout + "\nSTDERR:\n" + completed.stderr)
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        fail(f"task-router did not emit JSON: {exc}\n{completed.stdout}")
+
+
+def check_task_router_read_only_contract() -> None:
+    """ADR 0037: route is advisory and must not mutate records or queues."""
+    source = (LAZY / "scripts" / "task-router.ts").read_text(encoding="utf-8")
+    forbidden = [
+        "writeFileSync",
+        "appendFileSync",
+        "mkdirSync",
+        "rmSync",
+        "unlinkSync",
+        "interview-loop",
+        "--apply",
+    ]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("task-router must stay read-only/advisory; forbidden phrase(s): " + json.dumps(leaked, ensure_ascii=False))
+
+    required = [
+        "router-read-only",
+        "no-recommended-auto-select",
+        "candidate-is-not-canonical",
+        "workflow-route",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("task-router missing invariant phrase(s): " + json.dumps(missing, ensure_ascii=False))
+
+    print("✓ task-router read-only contract ok")
+
+
+def check_task_router_fixtures() -> None:
+    """Route fixtures protect workflow compression without safety reduction."""
+    fixtures_path = LAZY / "fixtures" / "task-router" / "cases.json"
+    if not fixtures_path.exists():
+        fail("task-router fixtures missing: " + str(fixtures_path))
+    cases = json.loads(fixtures_path.read_text(encoding="utf-8"))
+    if len(cases) < 8:
+        fail("task-router fixtures should cover critical route cases")
+
+    for case in cases:
+        result = _run_task_router(case["message"], case.get("changedFiles"))
+        route = result.get("route", {})
+        expect = case.get("expect", {})
+        checks = {
+            "intent": route.get("intent"),
+            "scope": route.get("scope"),
+            "risk": route.get("risk"),
+            "confidence": route.get("confidence"),
+            "recordSearchMode": route.get("recordSearch", {}).get("mode"),
+            "recordCaptureMode": route.get("recordCapture", {}).get("mode"),
+            "implMapTier": route.get("implementationMap", {}).get("tier"),
+            "gateMode": route.get("gate", {}).get("mode"),
+        }
+        for key, expected in expect.items():
+            if key == "layersInclude":
+                missing_layers = [layer for layer in expected if layer not in route.get("affectedLayers", [])]
+                if missing_layers:
+                    fail(f"task-router fixture {case['name']} missing layers {missing_layers}: " + json.dumps(result, ensure_ascii=False))
+            elif key == "nonNegotiablesInclude":
+                missing_items = [item for item in expected if item not in route.get("nonNegotiables", [])]
+                if missing_items:
+                    fail(f"task-router fixture {case['name']} missing non-negotiables {missing_items}: " + json.dumps(result, ensure_ascii=False))
+            elif key in checks and checks[key] != expected:
+                fail(f"task-router fixture {case['name']} expected {key}={expected}, got {checks[key]}: " + json.dumps(result, ensure_ascii=False))
+
+        if route.get("recordCapture", {}).get("mode") == "candidate" and "candidate-is-not-canonical" not in route.get("nonNegotiables", []):
+            fail("task-router candidate route must include candidate-is-not-canonical: " + json.dumps(result, ensure_ascii=False))
+        if route.get("gate", {}).get("mode") != "none" and "unresolved-gate-blocks-progress" not in route.get("nonNegotiables", []):
+            fail("task-router gated route must preserve unresolved-gate-blocks-progress: " + json.dumps(result, ensure_ascii=False))
+
+    print(f"✓ task-router fixtures ok ({len(cases)} cases)")
+
+
+def check_lazy_route_cli_help() -> None:
+    """lazy help must truthfully advertise self-test scope and route command."""
+    completed = subprocess.run([".lazy-harness/bin/lazy", "--help"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if completed.returncode != 0:
+        fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
+    help_text = completed.stdout
+    required = ["test [--scope=auto|framework|host]", "route --message", "Read-only workflow compression route"]
+    missing = [phrase for phrase in required if phrase not in help_text]
+    if missing:
+        fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
+    if "test [--profile=smoke|full]" in help_text:
+        fail("lazy help still advertises unsupported self-test --profile")
+
+    result = _run_task_router("typo in README")
+    if result.get("route", {}).get("implementationMap", {}).get("tier") != "none":
+        fail("lazy route trivial fixture should not require implementation map: " + json.dumps(result, ensure_ascii=False))
+    print("✓ lazy route CLI help ok")
+
+
 def check_standalone_source_detection_uses_markers() -> None:
     """Standalone source repo detection must not depend on synced-from-commit absence."""
     doctor_source = (LAZY / "scripts" / "doctor.py").read_text(encoding="utf-8")
@@ -1978,6 +2082,9 @@ def main() -> None:
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
+        (check_task_router_read_only_contract, "BOTH"),
+        (check_task_router_fixtures, "BOTH"),
+        (check_lazy_route_cli_help, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_skill_create_cli, "BOTH"),

@@ -51,7 +51,8 @@ usage() {
 Usage: lazy <command> [options]
 
 Commands:
-  test [--profile=smoke|full]   Run framework self-test (default: smoke)
+  test [--scope=auto|framework|host]
+                                Run framework self-test (default: auto)
   doctor [--profile=smoke|full] Run framework health check (default: smoke)
   init [--target=DIR] [--dry-run]
                                 Bootstrap .lazy-harness/ in a new host
@@ -61,6 +62,8 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
+  route --message "..." [--format=json|md]
+                                Read-only workflow compression route (ADR 0037)
   version                       Print framework version + host path
   help                          Show this help
 
@@ -129,6 +132,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/implementation-map-audit.ts" "$@"
+    ;;
+  route)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy route: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/task-router.ts" "$@"
     ;;
   version)
     echo "lazy-harness CLI"
