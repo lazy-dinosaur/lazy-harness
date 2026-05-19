@@ -43,7 +43,7 @@ The command is read-only by default and exits 0 for all valid invocations. Inval
 
 ## Telemetry contract
 
-For real dogfooding work, agents should use `--log` when they use `lazy route`:
+For real dogfooding work, route telemetry is collected automatically by the Jcode `response.completed` lifecycle hook when `last_user_message` exists. Agents may also use `--log` for explicit route probes:
 
 ```bash
 .lazy-harness/bin/lazy route --message "..." --format=md --log
@@ -59,7 +59,7 @@ Telemetry entry requirements:
 
 - append-only JSONL,
 - no raw user message,
-- stable `messageHash` and `messageLength`,
+- stable `messageHash`, optional `messageIdHash`, and `messageLength`,
 - route axes: intent/scope/risk/confidence/gate/record/impl-map,
 - validation and non-negotiable summaries,
 - non-canonical, never sufficient to close a queue or satisfy a record obligation.
@@ -72,6 +72,8 @@ Summary command:
 ```
 
 `route-summary` reads `route-decisions.jsonl` and optional `route-feedback.jsonl` to report counts, ratios, and recommendations for second-stage AGENTS/profile/heuristic work.
+
+Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`.
 
 ## Output schema
 

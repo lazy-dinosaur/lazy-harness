@@ -1313,6 +1313,50 @@ def check_lazy_route_cli_help() -> None:
     print("✓ lazy route CLI help ok")
 
 
+def check_response_completed_auto_route_telemetry() -> None:
+    """response.completed should automatically log route telemetry once per message_id."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="route_auto_"))
+    try:
+        shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state"))
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
+        if telemetry.exists():
+            telemetry.unlink()
+        payload = {
+            "last_user_message": "fix a button click behavior bug",
+            "message_id": "auto-route-msg-1",
+            "recent_tool_calls": [],
+        }
+        hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
+        for _ in range(2):
+            completed = subprocess.run(
+                [str(hook)],
+                cwd=temp,
+                input=json.dumps(payload, ensure_ascii=False),
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if completed.returncode != 0:
+                fail("response.completed hook should stay best-effort for auto route telemetry:\n" + completed.stdout + completed.stderr)
+        if not telemetry.exists():
+            fail("response.completed hook should auto-create route telemetry")
+        lines = [line for line in telemetry.read_text(encoding="utf-8").splitlines() if line.strip()]
+        entries = [json.loads(line) for line in lines]
+        matching = [entry for entry in entries if entry.get("messageIdHash")]
+        if len(matching) != 1:
+            fail("response.completed auto telemetry should dedupe by message_id; got matching lines=" + str(len(matching)))
+        entry = matching[0]
+        if "message" in entry or "messagePreview" in entry:
+            fail("auto route telemetry must not store raw user message: " + json.dumps(entry, ensure_ascii=False))
+        if not entry.get("messageIdHash"):
+            fail("auto route telemetry should include messageIdHash for dedupe: " + json.dumps(entry, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ response.completed auto route telemetry ok")
+
+
 def check_standalone_source_detection_uses_markers() -> None:
     """Standalone source repo detection must not depend on synced-from-commit absence."""
     doctor_source = (LAZY / "scripts" / "doctor.py").read_text(encoding="utf-8")
@@ -2146,6 +2190,7 @@ def main() -> None:
         (check_task_router_read_only_contract, "BOTH"),
         (check_task_router_fixtures, "BOTH"),
         (check_lazy_route_cli_help, "BOTH"),
+        (check_response_completed_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_skill_create_cli, "BOTH"),

@@ -23,10 +23,11 @@ validation to an explicit commit boundary.
 
 When a request has many possible workflow obligations, agents may run
 `.lazy-harness/bin/lazy route --message "..." --format=md --log` as an advisory
-front door. The route output compresses existing obligations and `--log` appends
-non-canonical telemetry for later UX/false-positive review; it does not replace
-record-first search, option gates, queue close, response audit, or commit-time
-validation (ADR 0037).
+front door. Normal Jcode sessions also append route telemetry automatically from
+`response.completed` when `last_user_message` is present. Telemetry is
+non-canonical and exists only for later UX/false-positive review; it does not
+replace record-first search, option gates, queue close, response audit, or
+commit-time validation (ADR 0037).
 
 ## `response.completed` helper chain
 

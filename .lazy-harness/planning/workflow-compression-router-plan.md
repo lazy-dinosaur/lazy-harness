@@ -199,7 +199,7 @@ Only after the read-only router is stable:
 
 ### 2026-05-19 telemetry update
 
-Route-specific telemetry is now the prerequisite for judging the remaining 2nd-stage work. Real dogfooding use should call:
+Route-specific telemetry is now the prerequisite for judging the remaining 2nd-stage work. Normal Jcode dogfooding use is collected automatically by `response.completed` when `last_user_message` is present. Explicit route probes can also call:
 
 ```bash
 .lazy-harness/bin/lazy route --message "..." --format=md --log
@@ -211,7 +211,7 @@ Then review accumulated evidence with:
 .lazy-harness/bin/lazy route-summary --format=md
 ```
 
-The telemetry is append-only and non-canonical. It stores route axes and a stable message hash, not the raw user message. The goal is to make the next-session question "should we compress AGENTS / add profiles / adjust heuristics?" answerable from logs instead of memory.
+The telemetry is append-only and non-canonical. It stores route axes plus stable message/message-id hashes, not the raw user message. Duplicate lifecycle calls for the same message are deduped by `messageIdHash`. The goal is to make the next-session question "should we compress AGENTS / add profiles / adjust heuristics?" answerable from logs instead of memory.
 
 ## Acceptance criteria
 

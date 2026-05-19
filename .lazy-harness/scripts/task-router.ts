@@ -27,6 +27,7 @@ interface Args {
   format: OutputFormat
   log: boolean
   summary: boolean
+  messageId: string
 }
 
 interface RouteOutput {
@@ -62,7 +63,7 @@ const LAYER_TARGETS: Record<Layer, string> = {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { message: '', changedFiles: [], format: 'json', log: false, summary: false }
+  const args: Args = { message: '', changedFiles: [], format: 'json', log: false, summary: false, messageId: '' }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
@@ -90,6 +91,11 @@ function parseArgs(argv: string[]): Args {
       i += 1
     } else if (arg === '--log') {
       args.log = true
+    } else if (arg === '--message-id' && next) {
+      args.messageId = next
+      i += 1
+    } else if (arg.startsWith('--message-id=')) {
+      args.messageId = arg.slice('--message-id='.length)
     } else if (arg === '--summary' || arg === 'summary') {
       args.summary = true
     } else if (arg === '--help' || arg === '-h') {
@@ -112,7 +118,7 @@ function normalizePath(value: string): string {
 }
 
 function printHelp(): void {
-  console.log(`task-router — workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b] [--log]\n  lazy route-summary [--format=json|md]\n\nDefault route mode is advisory and read-only. --log appends telemetry only; it never writes records, mutates queues, or chooses Recommended options.`)
+  console.log(`task-router — workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b] [--log] [--message-id id]\n  lazy route-summary [--format=json|md]\n\nDefault route mode is advisory and read-only. --log appends telemetry only; it never writes records, mutates queues, or chooses Recommended options.`)
 }
 
 function has(text: string, pattern: RegExp): boolean {
@@ -382,15 +388,31 @@ function stableHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 16)
 }
 
-function appendTelemetry(result: RouteOutput): void {
+function appendTelemetry(result: RouteOutput, messageId = ''): void {
   const logsDir = join(hostRoot(), '.lazy-harness', 'logs')
   mkdirSync(logsDir, { recursive: true })
+  const path = telemetryPath('route-decisions.jsonl')
+  const messageIdHash = messageId ? stableHash(messageId) : ''
+  if (messageIdHash && existsSync(path)) {
+    const alreadyLogged = readFileSync(path, 'utf8')
+      .split('\n')
+      .filter((line) => line.trim())
+      .some((line) => {
+        try {
+          return JSON.parse(line).messageIdHash === messageIdHash
+        } catch {
+          return false
+        }
+      })
+    if (alreadyLogged) return
+  }
   const r = result.route
   const entry = {
     timestamp: new Date().toISOString(),
     source: 'lazy-route',
     schemaVersion: result.schemaVersion,
     messageHash: stableHash(result.message),
+    messageIdHash: messageIdHash || undefined,
     messageLength: result.message.length,
     changedFiles: result.changedFiles,
     intent: r.intent,
@@ -406,7 +428,7 @@ function appendTelemetry(result: RouteOutput): void {
     nonNegotiables: r.nonNegotiables,
     warningCount: result.warnings.length
   }
-  appendFileSync(telemetryPath('route-decisions.jsonl'), `${JSON.stringify(entry)}\n`, 'utf8')
+  appendFileSync(path, `${JSON.stringify(entry)}\n`, 'utf8')
 }
 
 function loadJsonl(path: string): any[] {
@@ -500,7 +522,7 @@ function main(): void {
     }
     if (!args.message.trim()) throw new Error('Missing --message')
     const result = classify(args)
-    if (args.log) appendTelemetry(result)
+    if (args.log) appendTelemetry(result, args.messageId)
     if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
     else console.log(toMarkdown(result))
   } catch (error) {

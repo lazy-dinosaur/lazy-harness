@@ -15,6 +15,31 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 PAYLOAD=$(cat || echo '{}')
 
+# ADR 0037 telemetry: collect one append-only route sample per response turn
+# when Jcode provides last_user_message. This is silent and best-effort; it does
+# not replace any gate or validation helper below.
+if command -v bun >/dev/null 2>&1 && [ -f .lazy-harness/scripts/task-router.ts ]; then
+  ROUTE_INPUT=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
+import json, os
+try:
+    payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
+except Exception:
+    raise SystemExit(0)
+last = (payload.get('last_user_message') or '').strip()
+mid = str(payload.get('message_id') or '')
+if last:
+    print(json.dumps({'message': last, 'message_id': mid}, ensure_ascii=False))
+PY
+)
+  if [ -n "$ROUTE_INPUT" ]; then
+    ROUTE_MESSAGE=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message", ""))' 2>/dev/null || true)
+    ROUTE_MESSAGE_ID=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message_id", ""))' 2>/dev/null || true)
+    if [ -n "$ROUTE_MESSAGE" ]; then
+      LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
 for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh \
