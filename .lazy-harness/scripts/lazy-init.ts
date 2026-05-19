@@ -557,8 +557,8 @@ function postInitPreCommitHook(targetRoot: string): void {
 
   const delegateLine = '.lazy-harness/hooks/pre-commit-guard.sh "$@" || exit $?'
   const newHook = `#!/usr/bin/env bash
-# pre-commit (lazy-harness delegate)
-# Auto-installed by lazy-init. Edit above this line to add project-specific checks.
+# pre-commit (lazy-harness commit-time validation delegate)
+# Auto-installed by lazy-init. Add project-specific checks before this delegate.
 
 ${delegateLine}
 `
@@ -588,6 +588,11 @@ ${delegateLine}
 }
 
 function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPath: string): void {
+  if (resolve(sourceRoot) === resolve(targetRoot)) {
+    log(`  ⊘ skipped: version marker (${markerPath}) for self-target source repo`)
+    return
+  }
+
   // Get source commit sha
   let sha = 'unknown'
   try {
@@ -640,8 +645,12 @@ function main(): void {
   // Category A
   const a = copyCategoryA(sourceRoot, targetRoot, manifest.categories.A.items)
 
+  const selfTargetSource = resolve(sourceRoot) === resolve(targetRoot)
+
   // Category B
-  const b = createCategoryB(targetRoot, manifest.categories.B.items)
+  const b = selfTargetSource
+    ? (log('\n[Category B] Host institutional memory (빈 골격)'), log('  ⊘ skipped: self-target source repo'), { created: 0 })
+    : createCategoryB(targetRoot, manifest.categories.B.items)
 
   // Post-init actions
   log('\n[Post-init] Side effects')

@@ -20,10 +20,10 @@ Custom project skill 생성은 `.lazy-harness/bin/lazy skill create <name>` 을 
 | Layer | 이 wiring 없을 때 | 적용 후 |
 |---|---|---|
 | Layer 1 (AGENTS.md grammar) | AI 가 우연히 읽음 | jcode 가 매 turn 시작에 자동 inject |
-| Layer 2 (force gate hook) | 실행 안 됨 | Edit/Write tool 호출 시 자동 호출 |
-| Layer 3 (response.completed) | 이미 작동 (별도 wiring) | — |
+| Layer 2 (development advisory) | AI 자율 준수만 존재 | `.lazy-harness/AGENTS.md` + response reminder, 비차단 |
+| Layer 3 (commit-time gate) | commit/push 전 누락 가능 | pre-commit/pre-push 에서 `.lazy-harness/bin/lazy test` blocking |
 
-즉 **본 wiring 없으면 Layer 1+2 가 dormant**. self-test 는 통과하지만 실전 효과가 줄어든다.
+즉 **본 wiring 없으면 Layer 1 이 dormant**. 개발 중 edit/write 는 빠르게 유지하고, 최종 일관성은 git hook gate 가 맡는다.
 
 ## 기본 옵션 — project-local (`<host>/.jcode/`)
 
@@ -63,9 +63,9 @@ load_jcode_agents = true  # .jcode/AGENTS.md 자동 로드
 
 → 매 session 시작 시 jcode 가 symlink 를 따라가 `.lazy-harness/AGENTS.md` 내용을 AI system prompt 에 자동 첨부. single source of truth 유지 (편집은 `.lazy-harness/AGENTS.md` 한 곳).
 
-### 3. tool.execute.before hook 등록
+### 3. tool.execute.before hook 정책
 
-`.jcode/config.toml` 에 추가. jcode 의 hook schema 는 `[[hooks.commands]]` (NOT `[[hooks]]`) 이며 `tool` filter 는 lowercase exact match:
+`.jcode/config.toml` 은 destructive bash safety hook 만 blocking 으로 둔다. edit/write/multiedit record force-gate 는 개발 속도를 위해 Jcode blocking hook 으로 등록하지 않는다. jcode 의 hook schema 는 `[[hooks.commands]]` (NOT `[[hooks]]`) 이며 `tool` filter 는 lowercase exact match:
 
 ```toml
 [hooks]
@@ -73,28 +73,14 @@ enabled = true
 
 [[hooks.commands]]
 event = "tool.execute.before"
-tool = "edit"
-command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
-blocking = true
-timeout_ms = 3000
-
-[[hooks.commands]]
-event = "tool.execute.before"
-tool = "write"
-command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
-blocking = true
-timeout_ms = 3000
-
-[[hooks.commands]]
-event = "tool.execute.before"
-tool = "multiedit"
-command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+tool = "bash"
+command = ".jcode/hooks/check-bash.sh"
 blocking = true
 timeout_ms = 3000
 ```
 
-→ jcode 가 edit/write/multiedit tool 호출 직전 본 hook 으로 payload pipe.
-→ hook 이 exit 1 + stdout 출력 시 jcode 가 tool 호출 차단 + 출력을 AI 에 전달.
+→ jcode 가 위험 bash 명령은 차단한다.
+→ edit/write/multiedit 일관성은 개발 중에는 advisory, commit 전에는 `.lazy-harness/hooks/pre-commit-guard.sh` 가 blocking 으로 검증한다.
 
 ### 4. response.completed hook 등록 (이미 있을 가능성)
 
@@ -113,16 +99,7 @@ timeout_ms = 5000
 
 본인 모든 lazy-harness host 에 동일 적용. wiring 은 같지만 path 를 절대로 박거나 `$PWD` 사용:
 
-```toml
-[[hooks.commands]]
-event = "tool.execute.before"
-tool = "edit"
-command = "bash -c '[ -x \"$PWD/.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\" ] && \"$PWD/.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\"'"
-blocking = true
-timeout_ms = 3000
-```
-
-→ lazy-harness 가 활성된 cwd 에서만 발동. 다른 프로젝트는 silent.
+전역 설정에서도 edit/write/multiedit record force-gate 는 등록하지 않는다. 위험 bash safety hook 만 global 로 둘 수 있고, framework consistency 는 host-local git pre-commit/pre-push delegate 에 맡긴다.
 
 ## 검증 (wiring 적용 후)
 
@@ -132,7 +109,7 @@ timeout_ms = 3000
 # Case 1: 검색 흔적 없음 → deny
 echo '{"event":"tool.execute.before","session_id":"verify-1","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}}}' \
   | bash .lazy-harness/hooks/lifecycle/on-tool-execute-before.sh
-# 기대: exit 1 + AGENTS.md §1 인용 메시지
+# 기대: exit 1 + AGENTS.md §1 인용 메시지. 이 스크립트는 직접 검증용이며 기본 Jcode edit/write hook 으로는 등록하지 않는다.
 
 # Case 2: 검색 흔적 있음 → cache 기록 + 통과
 echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}},"recent_tool_calls":[{"name":"grep","args_preview":".lazy-harness/decisions/0024"}]}' \
@@ -149,9 +126,9 @@ echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edi
 
 1. **AGENTS.md inject 확인**: 새 jcode session 시작 → AI 에게 "AGENTS.md §1 의 6 layer 폴더 나열해라" 질문. 6 개 (domain/spec/behavior/tests/decisions/ssot) 정확히 나오면 OK.
 
-2. **force gate 확인**: 새 session 에서 "src/main/foo.ts 파일에 한 줄 추가해줘" 같은 검색-bypass 요청. AI 가 edit 호출 시 hook 이 deny + AGENTS.md §1 인용 메시지 출력 → AI 가 grep 부터 다시 시작하면 OK.
+2. **개발 중 비차단 확인**: `.jcode/config.toml` 에 edit/write/multiedit `on-tool-execute-before.sh` blocking hook 이 없어야 한다.
 
-3. **session-cache 확인**: 같은 session 내 두 번째 edit 부터는 deny 없이 통과. `.lazy-harness/.cache/session/<session_id>.json` 생성 확인.
+3. **commit-time gate 확인**: `.git/hooks/pre-commit` 또는 husky pre-commit delegate 가 `.lazy-harness/hooks/pre-commit-guard.sh` 를 호출하고, 이 hook 이 `.lazy-harness/bin/lazy test` 실패 시 commit 을 차단해야 한다.
 
 ## 비활성화 (긴급 / debug)
 
@@ -166,7 +143,7 @@ touch .lazy-harness/.hooks-disabled
 본 wiring 은 jcode 전용. 다른 agent (Cursor / Aider / native Claude Code 등) 사용 시:
 
 - AGENTS.md inject 는 그 host 의 instruction 메커니즘으로 대체 가능
-- tool.execute.before 같은 hook 메커니즘이 없으면 Layer 2 는 작동 안 함 (Layer 1 grammar 만 의존)
+- tool.execute.before 같은 hook 메커니즘이 없더라도 개발 중 차단은 의도적으로 하지 않는다. commit-time git hook 과 manual `lazy test` 가 최종 gate 다.
 - 그래도 framework 자체 (record / triggers / N1 / N2) 는 정상 동작 — AI 가 자발적으로 AGENTS.md 따르기만 하면 됨
 
 ## 관련 문서

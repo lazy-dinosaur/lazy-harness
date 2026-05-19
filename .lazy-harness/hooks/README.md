@@ -6,12 +6,20 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 
 | Group | Entry point | Purpose |
 |---|---|---|
-| Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on non-framework branches. |
+| Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on host branches and run `.lazy-harness/bin/lazy test` as the commit-time blocking gate. |
 | Git post-commit | `.lazy-harness/hooks/post-commit.sh` | Append action log metadata and regression hints. |
 | Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
 | Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
+
+## Development-time vs commit-time enforcement
+
+Edit/write/multiedit Jcode hooks are not registered as blocking gates by default.
+Agents should still follow `.lazy-harness/AGENTS.md` proactively, but missed record
+or validation work is enforced at git pre-commit/pre-push via framework-owned
+checks. This keeps normal coding iterations fast and moves expensive or noisy
+validation to an explicit commit boundary.
 
 ## `response.completed` helper chain
 

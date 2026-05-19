@@ -1110,6 +1110,68 @@ def check_jcode_wiring_pointer_only() -> None:
     print("✓ jcode wiring pointer-only template ok")
 
 
+def check_jcode_dev_hooks_are_nonblocking() -> None:
+    """Generated Jcode wiring must keep edit/write/multiedit fast and non-blocking."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    forbidden = [
+        'tool = "edit"',
+        'tool = "write"',
+        'tool = "multiedit"',
+    ]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("jcode wiring must not register blocking edit/write hooks: " + json.dumps(leaked, ensure_ascii=False))
+    required = [
+        "development fast",
+        "pre-commit/pre-push",
+        "commit-time gates",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring missing commit-time gate explanation: " + json.dumps(missing, ensure_ascii=False))
+    print("✓ jcode development hooks non-blocking policy ok")
+
+
+def check_pre_commit_runs_lazy_test() -> None:
+    """pre-commit guard must move framework validation to the commit boundary."""
+    source = (LAZY / "hooks" / "pre-commit-guard.sh").read_text(encoding="utf-8")
+    required = [
+        "run_commit_gate()",
+        '"$LAZY/bin/lazy" test',
+        '"$LAZY/scripts/self-test.py"',
+        "pre-commit blocked: .lazy-harness/bin/lazy test 실패",
+        "IS_FRAMEWORK_REPO",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("pre-commit guard missing commit-time lazy test gate: " + json.dumps(missing, ensure_ascii=False))
+    print("✓ pre-commit lazy test gate ok")
+
+
+def check_standalone_source_detection_uses_markers() -> None:
+    """Standalone source repo detection must not depend on synced-from-commit absence."""
+    doctor_source = (LAZY / "scripts" / "doctor.py").read_text(encoding="utf-8")
+    required = [
+        '"framework" / "framework-contract.md"',
+        '"planning" / "phase-5-plan.xml"',
+        "Do not use state/synced-from-commit absence",
+    ]
+    missing = [phrase for phrase in required if phrase not in doctor_source]
+    if missing:
+        fail("doctor standalone source detection must use framework markers: " + json.dumps(missing, ensure_ascii=False))
+
+    lazy_init_source = (LAZY / "scripts" / "lazy-init.ts").read_text(encoding="utf-8")
+    required = [
+        "self-target source repo",
+        "resolve(sourceRoot) === resolve(targetRoot)",
+        "Host institutional memory",
+    ]
+    missing = [phrase for phrase in required if phrase not in lazy_init_source]
+    if missing:
+        fail("lazy-init must skip version marker for self-target source repo: " + json.dumps(missing, ensure_ascii=False))
+    print("✓ standalone source marker detection ok")
+
+
 def check_lazy_host_root_resolution() -> None:
     """lazy CLI and Python validators must use the caller worktree as host root."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_host_root_"))
@@ -1914,6 +1976,9 @@ def main() -> None:
         (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
+        (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
+        (check_pre_commit_runs_lazy_test, "BOTH"),
+        (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),

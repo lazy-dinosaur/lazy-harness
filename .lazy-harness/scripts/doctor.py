@@ -193,11 +193,10 @@ def check_branch_policy() -> CheckResult:
     details: list[str] = []
     if not (LAZY / "decisions" / "0021-experimental-branch-and-extract-strategy.md").exists():
         details.append("missing ADR 0021 branch/extract strategy")
-    # ADR 0027: standalone source-of-truth repo (~/dev/lazy-harness) has no
-    # synced-from-commit marker. The experimental/lazy-harness branch policy
-    # only applies to host installs where the framework lives inside another
-    # project repo. Skip the non-framework-branch check on the standalone repo.
-    is_standalone_source = not (LAZY / "state" / "synced-from-commit").exists()
+    # ADR 0027: standalone source-of-truth repo has framework-own markers.
+    # Do not use state/synced-from-commit absence here: a self-target lazy-init
+    # repair can leave that host-install marker behind even in the source repo.
+    is_standalone_source = (LAZY / "framework" / "framework-contract.md").exists() and (LAZY / "planning" / "phase-5-plan.xml").exists()
     if not is_standalone_source and branch != "experimental/lazy-harness":
         status = subprocess.check_output(["git", "status", "--short", "--", ".lazy-harness", ".jcode"], cwd=ROOT, text=True)
         if status.strip():

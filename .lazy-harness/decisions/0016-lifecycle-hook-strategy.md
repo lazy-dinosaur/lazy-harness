@@ -31,6 +31,16 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 
 5 lifecycle event 활용 strategy:
 
+### 0. 2026-05-19 amendment — development hooks advisory, commit hooks blocking
+
+사용자 확인: "좋아 이방향으로 가자". 개발 중 `edit/write/multiedit` 직전 blocking force-gate 는 제거하고, framework consistency 는 git pre-commit/pre-push 시점에 blocking 으로 검증한다. 이유는 매 코드 수정마다 gate 가 개입하면 개발 시간이 과도하게 늘어나기 때문이다.
+
+정책:
+- Jcode `tool.execute.before` 는 destructive bash safety 만 blocking 으로 유지한다.
+- `on-tool-execute-before.sh` 는 직접 검증/수동 audit 용으로 남기되 기본 generated `.jcode/config.toml` 에 edit/write/multiedit hook 으로 등록하지 않는다.
+- `.lazy-harness/hooks/pre-commit-guard.sh` 는 host private leak guard 후 `.lazy-harness/bin/lazy test` 를 실행해 commit 을 차단한다.
+- pre-push 는 기존처럼 `.lazy-harness/bin/lazy test` 를 blocking 으로 유지한다.
+
 ### 1. `response.completed` — 매 응답 검증 게이트 (PRIMARY)
 
 **Fire 시점**: turn loop 끝 + tool calls 없음 (AI 가 더 이상 도구 사용 안 함)
@@ -70,7 +80,7 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 
 ### 4. `tool.execute.before` — 위험 명령 차단 (기존 유지)
 
-이미 `.jcode/hooks/check-bash.sh` 가 등록. 변경 없음.
+이미 `.jcode/hooks/check-bash.sh` 가 등록. edit/write/multiedit record force-gate 는 2026-05-19 amendment 이후 기본 Jcode config 에 등록하지 않는다.
 
 ### 5. `tool.execute.after` — 로깅 (기존 유지)
 

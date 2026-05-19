@@ -1,8 +1,8 @@
 #!/bin/bash
 # Lazy-Harness pre-commit safety guard
 # Triggered: husky chain via .husky/pre-commit
-# Action: Block commit if .lazy-harness/, .jcode/, or framework/ files are staged
-# outside the dedicated experimental/lazy-harness branch.
+# Action: Block private-file leaks on host projects, then run the framework-owned
+# commit-time gate (`.lazy-harness/bin/lazy test` or self-test fallback).
 #
 # Defense-in-depth: .git/info/exclude is the 1st line, this hook is the 2nd.
 #
@@ -12,18 +12,47 @@ set -e
 
 [ -f ".lazy-harness/.hooks-disabled" ] && exit 0
 
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+LAZY="$REPO_ROOT/.lazy-harness"
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-if [ "$BRANCH" = "experimental/lazy-harness" ]; then
-    # ADR 0021: lazy-harness framework changes are allowed only on this branch.
-    exit 0
+
+IS_FRAMEWORK_REPO=0
+if [ -f "$LAZY/framework/framework-contract.md" ] && [ -f "$LAZY/planning/phase-5-plan.xml" ]; then
+    IS_FRAMEWORK_REPO=1
 fi
+
+run_commit_gate() {
+    [ ! -d "$LAZY" ] && return 0
+    [ -f "$LAZY/.hooks-disabled" ] && return 0
+
+    if [ -x "$LAZY/bin/lazy" ]; then
+        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test 2>&1 || true)
+    elif [ -x "$LAZY/scripts/self-test.py" ]; then
+        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py" 2>&1 || true)
+    else
+        echo "ℹ️  pre-commit: lazy test not wired on this host yet — skipping gate"
+        return 0
+    fi
+
+    if ! printf '%s' "$TEST_OUT" | grep -q 'lazy-harness self-test ok'; then
+        echo ""
+        echo "🚨 pre-commit blocked: .lazy-harness/bin/lazy test 실패"
+        echo "→ .lazy-harness/bin/lazy test 실행해서 fix 후 다시 commit"
+        echo ""
+        printf '%s\n' "$TEST_OUT" | tail -40
+        return 1
+    fi
+
+    echo "✅ .lazy-harness/bin/lazy test all green"
+    return 0
+}
 
 # private 영역 staged 검사
 LAZY_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.lazy-harness/' || true)
 JCODE_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.jcode/' || true)
 FRAMEWORK_STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^packages/medivance-harness/|^framework/' || true)
 
-if [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]; then
+if [ "$IS_FRAMEWORK_REPO" != "1" ] && [ "$BRANCH" != "experimental/lazy-harness" ] && { [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]; }; then
     echo ""
     echo "🚨 BLOCKED: Private 영역 파일이 staged 됐습니다!"
     echo ""
@@ -53,5 +82,7 @@ if [ -n "$LAZY_STAGED" ] || [ -n "$JCODE_STAGED" ] || [ -n "$FRAMEWORK_STAGED" ]
     echo ""
     exit 1
 fi
+
+run_commit_gate
 
 exit 0
