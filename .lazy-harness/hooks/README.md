@@ -22,10 +22,11 @@ checks. This keeps normal coding iterations fast and moves expensive or noisy
 validation to an explicit commit boundary.
 
 When a request has many possible workflow obligations, agents may run
-`.lazy-harness/bin/lazy route --message "..." --format=md` as a read-only
-advisory front door. The route output compresses existing obligations; it does
-not replace record-first search, option gates, queue close, response audit, or
-commit-time validation (ADR 0037).
+`.lazy-harness/bin/lazy route --message "..." --format=md --log` as an advisory
+front door. The route output compresses existing obligations and `--log` appends
+non-canonical telemetry for later UX/false-positive review; it does not replace
+record-first search, option gates, queue close, response audit, or commit-time
+validation (ADR 0037).
 
 ## `response.completed` helper chain
 
@@ -59,6 +60,7 @@ or run helpers with dry-run semantics when available. This prevents response lif
 ## Status
 
 - Current operational gate: `.lazy-harness/bin/lazy test` and `.lazy-harness/bin/lazy doctor --profile smoke`.
-- Current advisory workflow helper: `.lazy-harness/bin/lazy route --message "..." --format=md`.
+- Current advisory workflow helper: `.lazy-harness/bin/lazy route --message "..." --format=md --log`.
+- Route telemetry review: `.lazy-harness/bin/lazy route-summary --format=md`.
 - Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.

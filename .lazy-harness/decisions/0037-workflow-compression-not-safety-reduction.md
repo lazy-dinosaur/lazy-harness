@@ -42,6 +42,18 @@ The router and any future workflow profile must preserve these invariants:
 10. Router may not write records, mutate queues, or auto-select Recommended options.
 11. Commit-time `.lazy-harness/bin/lazy test` remains blocking.
 
+## Telemetry amendment — 2026-05-19
+
+Default `lazy route` remains read-only. For real dogfooding work, agents should call `lazy route --log` so the framework can collect append-only route telemetry for second-stage UX/false-positive review.
+
+Telemetry is not canonical truth and does not close gates. It records only route axes and a stable message hash, not the raw user message. It is append-only under `.lazy-harness/logs/route-decisions.jsonl` and summarized by `lazy route-summary`.
+
+This amendment preserves the read-only invariant by distinguishing:
+
+- **route decision**: no write, advisory classification only;
+- **route telemetry**: explicit `--log`, append-only metrics for later analysis;
+- **canonical record**: still only DDD/SDD/BDD/TDD/ADR/SSOT and their implementation maps.
+
 ## Router axes
 
 The router may emit these finite axes:

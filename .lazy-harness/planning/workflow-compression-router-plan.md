@@ -197,6 +197,22 @@ Only after the read-only router is stable:
 - Add fast/normal/strict/audit-only profiles as minimum-safe presets.
 - Collect UX/false-positive metrics.
 
+### 2026-05-19 telemetry update
+
+Route-specific telemetry is now the prerequisite for judging the remaining 2nd-stage work. Real dogfooding use should call:
+
+```bash
+.lazy-harness/bin/lazy route --message "..." --format=md --log
+```
+
+Then review accumulated evidence with:
+
+```bash
+.lazy-harness/bin/lazy route-summary --format=md
+```
+
+The telemetry is append-only and non-canonical. It stores route axes and a stable message hash, not the raw user message. The goal is to make the next-session question "should we compress AGENTS / add profiles / adjust heuristics?" answerable from logs instead of memory.
+
 ## Acceptance criteria
 
 1. Planning/ADR/SDD records exist and are internally consistent.

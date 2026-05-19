@@ -64,6 +64,8 @@ Commands:
                                 Audit records for ADR 0030 Implementation map migration
   route --message "..." [--format=json|md]
                                 Read-only workflow compression route (ADR 0037)
+  route-summary [--format=json|md]
+                                Summarize route telemetry for UX/FP review
   version                       Print framework version + host path
   help                          Show this help
 
@@ -139,6 +141,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/task-router.ts" "$@"
+    ;;
+  route-summary)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy route-summary: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/task-router.ts" --summary "$@"
     ;;
   version)
     echo "lazy-harness CLI"

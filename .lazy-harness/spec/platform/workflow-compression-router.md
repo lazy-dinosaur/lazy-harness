@@ -28,6 +28,8 @@ The router must not:
 ```bash
 .lazy-harness/bin/lazy route --message "..." --format=json
 .lazy-harness/bin/lazy route --message "..." --format=md
+.lazy-harness/bin/lazy route --message "..." --format=md --log
+.lazy-harness/bin/lazy route-summary --format=md
 ```
 
 Optional inputs:
@@ -37,7 +39,39 @@ Optional inputs:
 --file file1 --file file2
 ```
 
-The command is read-only and exits 0 for all valid invocations. Invalid CLI flags exit non-zero before routing.
+The command is read-only by default and exits 0 for all valid invocations. Invalid CLI flags exit non-zero before routing. `--log` intentionally appends non-canonical telemetry only.
+
+## Telemetry contract
+
+For real dogfooding work, agents should use `--log` when they use `lazy route`:
+
+```bash
+.lazy-harness/bin/lazy route --message "..." --format=md --log
+```
+
+Telemetry path:
+
+```text
+.lazy-harness/logs/route-decisions.jsonl
+```
+
+Telemetry entry requirements:
+
+- append-only JSONL,
+- no raw user message,
+- stable `messageHash` and `messageLength`,
+- route axes: intent/scope/risk/confidence/gate/record/impl-map,
+- validation and non-negotiable summaries,
+- non-canonical, never sufficient to close a queue or satisfy a record obligation.
+
+Summary command:
+
+```bash
+.lazy-harness/bin/lazy route-summary --format=json
+.lazy-harness/bin/lazy route-summary --format=md
+```
+
+`route-summary` reads `route-decisions.jsonl` and optional `route-feedback.jsonl` to report counts, ratios, and recommendations for second-stage AGENTS/profile/heuristic work.
 
 ## Output schema
 

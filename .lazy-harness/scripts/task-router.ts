@@ -2,9 +2,13 @@
 /**
  * task-router — read-only workflow compression router (ADR 0037).
  *
- * This script classifies a user request into finite routing axes. It never
- * writes records, mutates question queues, or selects a Recommended option.
+ * This script classifies a user request into finite routing axes. By default it
+ * is read-only. With --log it appends telemetry only; it never writes records,
+ * mutates question queues, or selects a Recommended option.
  */
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { join } from 'node:path'
 
 type Intent = 'feature' | 'fix' | 'refactor' | 'investigation' | 'docs' | 'release' | 'unknown'
 type Scope = 'trivial' | 'code-local' | 'behavior' | 'contract' | 'ownership' | 'unknown'
@@ -21,6 +25,8 @@ interface Args {
   message: string
   changedFiles: string[]
   format: OutputFormat
+  log: boolean
+  summary: boolean
 }
 
 interface RouteOutput {
@@ -56,7 +62,7 @@ const LAYER_TARGETS: Record<Layer, string> = {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { message: '', changedFiles: [], format: 'json' }
+  const args: Args = { message: '', changedFiles: [], format: 'json', log: false, summary: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
@@ -82,6 +88,10 @@ function parseArgs(argv: string[]): Args {
     } else if (arg === '--file' && next) {
       args.changedFiles.push(next)
       i += 1
+    } else if (arg === '--log') {
+      args.log = true
+    } else if (arg === '--summary' || arg === 'summary') {
+      args.summary = true
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -102,7 +112,7 @@ function normalizePath(value: string): string {
 }
 
 function printHelp(): void {
-  console.log(`task-router — read-only workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b]\n\nThis command is advisory and read-only. It never writes records, mutates queues, or chooses Recommended options.`)
+  console.log(`task-router — workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b] [--log]\n  lazy route-summary [--format=json|md]\n\nDefault route mode is advisory and read-only. --log appends telemetry only; it never writes records, mutates queues, or chooses Recommended options.`)
 }
 
 function has(text: string, pattern: RegExp): boolean {
@@ -360,11 +370,137 @@ function toMarkdown(result: RouteOutput): string {
   ].join('\n')
 }
 
+function hostRoot(): string {
+  return process.env.LAZY_HOST_ROOT || process.cwd()
+}
+
+function telemetryPath(name: string): string {
+  return join(hostRoot(), '.lazy-harness', 'logs', name)
+}
+
+function stableHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 16)
+}
+
+function appendTelemetry(result: RouteOutput): void {
+  const logsDir = join(hostRoot(), '.lazy-harness', 'logs')
+  mkdirSync(logsDir, { recursive: true })
+  const r = result.route
+  const entry = {
+    timestamp: new Date().toISOString(),
+    source: 'lazy-route',
+    schemaVersion: result.schemaVersion,
+    messageHash: stableHash(result.message),
+    messageLength: result.message.length,
+    changedFiles: result.changedFiles,
+    intent: r.intent,
+    scope: r.scope,
+    risk: r.risk,
+    confidence: r.confidence,
+    affectedLayers: r.affectedLayers,
+    recordSearchMode: r.recordSearch.mode,
+    recordCaptureMode: r.recordCapture.mode,
+    implementationMapTier: r.implementationMap.tier,
+    gateMode: r.gate.mode,
+    validation: r.validation,
+    nonNegotiables: r.nonNegotiables,
+    warningCount: result.warnings.length
+  }
+  appendFileSync(telemetryPath('route-decisions.jsonl'), `${JSON.stringify(entry)}\n`, 'utf8')
+}
+
+function loadJsonl(path: string): any[] {
+  if (!existsSync(path)) return []
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line))
+}
+
+function countBy(entries: any[], key: string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const entry of entries) {
+    const value = String(entry[key] ?? 'unknown')
+    counts[value] = (counts[value] || 0) + 1
+  }
+  return counts
+}
+
+function summarizeTelemetry(): any {
+  const decisions = loadJsonl(telemetryPath('route-decisions.jsonl'))
+  const feedback = loadJsonl(telemetryPath('route-feedback.jsonl'))
+  const total = decisions.length
+  const optionGate = decisions.filter((entry) => entry.gateMode === 'option-gate').length
+  const highRisk = decisions.filter((entry) => entry.risk === 'high').length
+  const lowConfidence = decisions.filter((entry) => entry.confidence === 'low').length
+  const candidate = decisions.filter((entry) => entry.recordCaptureMode === 'candidate').length
+  const canonical = decisions.filter((entry) => entry.recordCaptureMode === 'canonical').length
+  const recommendations: string[] = []
+  if (total === 0) recommendations.push('No route telemetry yet. Use lazy route --log during real work.')
+  if (total >= 5 && optionGate / total > 0.45) recommendations.push('High option-gate ratio; inspect false positives and consider narrower gate heuristics.')
+  if (total >= 5 && lowConfidence / total > 0.35) recommendations.push('High low-confidence ratio; inspect ambiguous input handling or add better context inputs.')
+  if (total >= 5 && canonical / total > 0.55) recommendations.push('High canonical capture ratio; inspect whether router is over-prescribing full records.')
+  if (feedback.length === 0 && total >= 10) recommendations.push('No route feedback logged yet; ask user/agent to label false positives or false negatives when noticed.')
+  return {
+    ok: true,
+    mode: 'route-summary',
+    schemaVersion: '1.0',
+    totalRoutes: total,
+    feedbackCount: feedback.length,
+    counts: {
+      intent: countBy(decisions, 'intent'),
+      scope: countBy(decisions, 'scope'),
+      risk: countBy(decisions, 'risk'),
+      confidence: countBy(decisions, 'confidence'),
+      gateMode: countBy(decisions, 'gateMode'),
+      recordSearchMode: countBy(decisions, 'recordSearchMode'),
+      recordCaptureMode: countBy(decisions, 'recordCaptureMode'),
+      implementationMapTier: countBy(decisions, 'implementationMapTier')
+    },
+    ratios: total === 0 ? {} : {
+      optionGate: optionGate / total,
+      highRisk: highRisk / total,
+      lowConfidence: lowConfidence / total,
+      candidateCapture: candidate / total,
+      canonicalCapture: canonical / total
+    },
+    recommendations
+  }
+}
+
+function summaryMarkdown(summary: any): string {
+  return [
+    '# lazy route summary',
+    '',
+    `- total routes: ${summary.totalRoutes}`,
+    `- feedback count: ${summary.feedbackCount}`,
+    `- option-gate ratio: ${summary.ratios.optionGate ?? 0}`,
+    `- low-confidence ratio: ${summary.ratios.lowConfidence ?? 0}`,
+    `- canonical-capture ratio: ${summary.ratios.canonicalCapture ?? 0}`,
+    '',
+    '## Counts',
+    `- scope: ${JSON.stringify(summary.counts.scope)}`,
+    `- risk: ${JSON.stringify(summary.counts.risk)}`,
+    `- gate: ${JSON.stringify(summary.counts.gateMode)}`,
+    `- record capture: ${JSON.stringify(summary.counts.recordCaptureMode)}`,
+    '',
+    '## Recommendations',
+    ...(summary.recommendations.length ? summary.recommendations.map((item: string) => `- ${item}`) : ['- No recommendations.'])
+  ].join('\n')
+}
+
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
+    if (args.summary) {
+      const summary = summarizeTelemetry()
+      if (args.format === 'json') console.log(JSON.stringify(summary, null, 2))
+      else console.log(summaryMarkdown(summary))
+      return
+    }
     if (!args.message.trim()) throw new Error('Missing --message')
     const result = classify(args)
+    if (args.log) appendTelemetry(result)
     if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
     else console.log(toMarkdown(result))
   } catch (error) {

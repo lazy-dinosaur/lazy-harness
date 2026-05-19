@@ -1148,11 +1148,13 @@ def check_pre_commit_runs_lazy_test() -> None:
     print("✓ pre-commit lazy test gate ok")
 
 
-def _run_task_router(message: str, changed_files: list[str] | None = None) -> dict:
+def _run_task_router(message: str, changed_files: list[str] | None = None, extra_args: list[str] | None = None, env: dict | None = None) -> dict:
     command = ["bun", ".lazy-harness/scripts/task-router.ts", "--message", message, "--format=json"]
     if changed_files:
         command.extend(["--changed-files", ",".join(changed_files)])
-    completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+    if extra_args:
+        command.extend(extra_args)
+    completed = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, check=False)
     if completed.returncode != 0:
         fail("task-router command failed:\nSTDOUT:\n" + completed.stdout + "\nSTDERR:\n" + completed.stderr)
     try:
@@ -1162,12 +1164,9 @@ def _run_task_router(message: str, changed_files: list[str] | None = None) -> di
 
 
 def check_task_router_read_only_contract() -> None:
-    """ADR 0037: route is advisory and must not mutate records or queues."""
+    """ADR 0037: route is read-only by default; --log is append-only telemetry."""
     source = (LAZY / "scripts" / "task-router.ts").read_text(encoding="utf-8")
     forbidden = [
-        "writeFileSync",
-        "appendFileSync",
-        "mkdirSync",
         "rmSync",
         "unlinkSync",
         "interview-loop",
@@ -1182,12 +1181,51 @@ def check_task_router_read_only_contract() -> None:
         "no-recommended-auto-select",
         "candidate-is-not-canonical",
         "workflow-route",
+        "route-decisions.jsonl",
+        "messageHash",
     ]
     missing = [phrase for phrase in required if phrase not in source]
     if missing:
         fail("task-router missing invariant phrase(s): " + json.dumps(missing, ensure_ascii=False))
 
-    print("✓ task-router read-only contract ok")
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="route_read_only_"))
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        (temp / ".lazy-harness").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "logs").mkdir(parents=True, exist_ok=True)
+        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        _run_task_router("typo in README", env=env)
+        telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
+        if telemetry.exists():
+            fail("task-router default mode must not create route telemetry")
+        _run_task_router("typo in README", extra_args=["--log"], env=env)
+        if not telemetry.exists():
+            fail("task-router --log should append route telemetry")
+        entry = json.loads(telemetry.read_text(encoding="utf-8").strip())
+        if "message" in entry or "messagePreview" in entry:
+            fail("route telemetry must not store raw message: " + json.dumps(entry, ensure_ascii=False))
+        required_keys = ["messageHash", "scope", "risk", "gateMode", "recordCaptureMode"]
+        missing_keys = [key for key in required_keys if key not in entry]
+        if missing_keys:
+            fail("route telemetry missing key(s): " + json.dumps(missing_keys, ensure_ascii=False))
+
+        completed = subprocess.run(
+            ["bun", ".lazy-harness/scripts/task-router.ts", "--summary", "--format=json"],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("task-router summary failed:\n" + completed.stdout + completed.stderr)
+        summary = json.loads(completed.stdout)
+        if summary.get("totalRoutes") != 1:
+            fail("route summary should count logged route: " + json.dumps(summary, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    print("✓ task-router read-only/log telemetry contract ok")
 
 
 def check_task_router_fixtures() -> None:
@@ -1239,7 +1277,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
