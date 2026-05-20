@@ -34,7 +34,7 @@
 | **ADRs** | **37** (0001~0037; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate, 0035 interview queue close mandate, 0036 record-search trigger by intent not keyword, 0037 workflow compression not safety reduction) |
 | **Decisions logged** | 28+ entries |
 | **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=23, skipped=0)` |
-| **Medivance sync validation** | ✅ `~/dev/medivance`: synced to `031b5e7`, `lazy-harness self-test ok (scope=host, ran=10, skipped=11)` |
+| **Medivance sync validation** | ✅ `~/dev/medivance`: synced to source `caa2a2b` on 2026-05-20, `lazy-harness self-test ok (scope=host, ran=30, skipped=11)` |
 | **5c complete** | ✅ 5c-1~5c-9 all done, refactor/package health are post-5c hardening |
 | **5c completion markers** | ✅ 5c-5 Cross-layer, 5c-6 Lint/typecheck, 5c-7 Structured ask, 5c-8 E2E, 5c-9 Doctor C17 |
 | **5d Interview Loop** | ✅ done (5d-1~5d-6: collect, answer, TDD, aftershock, hooks, walkthrough depth ≥ 2) |

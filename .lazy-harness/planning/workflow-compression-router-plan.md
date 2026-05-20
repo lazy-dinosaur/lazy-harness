@@ -215,6 +215,8 @@ The telemetry is append-only and non-canonical. It stores route axes plus stable
 
 User clarification on 2026-05-20: do not over-interpret telemetry immediately after implementation. First use it to confirm plumbing. Evaluate route quality and workflow-compression choices only after accumulated normal dogfooding use.
 
+2026-05-20 deployment note: automatic telemetry collection was fixed in source commit `caa2a2b` after normal use showed `response.completed` hooks firing without `route-decisions.jsonl` growth. The fix was synced to the known dogfooding host `/home/lazydino/dev/medivance` with `lazy-sync --force`, and `/home/lazydino/dev/medivance/.lazy-harness/bin/lazy test` passed. Manual sync smoke telemetry was removed from the host log so subsequent `route-summary` reflects normal use.
+
 ## Acceptance criteria
 
 1. Planning/ADR/SDD records exist and are internally consistent.
