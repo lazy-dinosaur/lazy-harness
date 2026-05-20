@@ -514,12 +514,15 @@
       },
       {
         "kind": "jcode-skill-install",
-        "description": ".jcode/skills/lazy-{init,doctor,sync,test}/ 박음. wrapper SKILL.md + scripts/ delegation.",
+        "description": ".jcode/skills/lazy-{init,sync,update,doctor,test,skill-create,project-profile}/ 박음. wrapper SKILL.md + scripts/ delegation.",
         "skills": [
           "lazy-init",
           "lazy-doctor",
           "lazy-sync",
-          "lazy-test"
+          "lazy-update",
+          "lazy-test",
+          "lazy-skill-create",
+          "lazy-project-profile"
         ]
       }
     ]

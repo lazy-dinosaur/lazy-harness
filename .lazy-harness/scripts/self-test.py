@@ -1155,6 +1155,27 @@ def check_jcode_dev_hooks_are_nonblocking() -> None:
     print("✓ jcode development hooks non-blocking policy ok")
 
 
+def check_jcode_project_profile_skill_wrapper() -> None:
+    """Generated Jcode wiring must install the framework-owned Project Profile skill."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    required = [
+        "lazy-project-profile",
+        "interview-first architecture flow",
+        ".lazy-harness/spec/platform/project-profile.md",
+        ".lazy-harness/plans/project-init-interview-spec.md",
+        "Do not silently invent architecture defaults",
+        "Ask 3-5 option gates",
+        "project-profile.ts --mode interview --apply",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring missing lazy-project-profile wrapper contract: " + json.dumps(missing, ensure_ascii=False))
+    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
+    if '<skill id="lazy-project-profile" status="beta"' not in manifest or ".jcode/skills/lazy-project-profile/" not in manifest:
+        fail("skills manifest must promote lazy-project-profile to beta framework-owned wrapper")
+    print("✓ jcode project profile skill wrapper ok")
+
+
 def check_pre_commit_runs_lazy_test() -> None:
     """pre-commit guard must move framework validation to the commit boundary."""
     source = (LAZY / "hooks" / "pre-commit-guard.sh").read_text(encoding="utf-8")
@@ -2202,6 +2223,7 @@ def main() -> None:
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
+        (check_jcode_project_profile_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
         (check_task_router_read_only_contract, "BOTH"),
         (check_task_router_fixtures, "BOTH"),

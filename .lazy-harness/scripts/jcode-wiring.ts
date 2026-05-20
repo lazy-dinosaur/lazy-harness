@@ -37,6 +37,32 @@ const SKILLS = [
     name: 'lazy-skill-create',
     description: 'Create a project-local custom Jcode skill wrapper.',
     usage: '.lazy-harness/bin/lazy skill create <name> [--description <text>] [--script <file>]'
+  },
+  {
+    name: 'lazy-project-profile',
+    description: 'Create or update the host Project Profile through an interview-first architecture flow.',
+    usage: 'Read .lazy-harness/spec/platform/project-profile.md and .lazy-harness/plans/project-init-interview-spec.md, then run the Project Profile interview flow before feature work.',
+    details: `## When to use
+
+Use this skill when a host project lacks or needs to update its Project Profile: project goal, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent operating policy.
+
+This is an interview-first framework skill. Do not silently invent architecture defaults. Inspect existing code and records, present structured options where decisions are missing, and write durable outputs under .lazy-harness/project/** plus relevant DDD/SDD/BDD/TDD/ADR/SSOT records.
+
+## Required record sources
+
+- .lazy-harness/spec/platform/project-profile.md
+- .lazy-harness/plans/project-init-interview-spec.md
+- .lazy-harness/decisions/0024-ai-first-framework-redesign.md
+
+## Flow
+
+1. Inspect existing host records and code structure.
+2. Identify missing profile sections.
+3. Ask 3-5 option gates for decisions that cannot be inferred.
+4. Write/update Project Profile records.
+5. Run lazy-harness validation.
+
+Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
   }
 ]
 
@@ -177,8 +203,28 @@ function logToolHook(): string {
   return `#!/usr/bin/env bash\nset -euo pipefail\n\nmkdir -p .jcode/hooks\npayload=$(cat || true)\nprintf '%s %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$payload\" >> .jcode/hooks/tool-events.jsonl\nexit 0\n`
 }
 
-function skillMarkdown(name: string, description: string, usage: string): string {
-  return `---\nname: ${name}\ndescription: ${description}\nallowed-tools: bash, read, grep\n---\n\n# ${name}\n\n${description}\n\nRun from the host project root:\n\n\`\`\`bash\n${usage}\n\`\`\`\n\nThis skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.\n`
+function skillMarkdown(name: string, description: string, usage: string, details = ''): string {
+  const detailsBlock = details ? `
+${details}
+` : ''
+  return `---
+name: ${name}
+description: ${description}
+allowed-tools: bash, read, grep
+---
+
+# ${name}
+
+${description}
+
+Run from the host project root:
+
+\`\`\`bash
+${usage}
+\`\`\`
+${detailsBlock}
+This skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.
+`
 }
 
 export function installJcodeWiring(options: JcodeWiringOptions): void {
@@ -206,7 +252,7 @@ export function installJcodeWiring(options: JcodeWiringOptions): void {
     writeManaged(
       options,
       join(root, '.jcode', 'skills', skill.name, 'SKILL.md'),
-      skillMarkdown(skill.name, skill.description, skill.usage)
+      skillMarkdown(skill.name, skill.description, skill.usage, 'details' in skill ? skill.details : '')
     )
   }
 

@@ -6,7 +6,7 @@
   Schema: each <skill> has id, location, status, phase, dependsOn (optional).
   status values: stable | beta | deferred | retired
 -->
-  <skillsManifest version="1" updatedAt="2026-05-13T00:30:00Z">
+  <skillsManifest version="1" updatedAt="2026-05-20T06:43:00Z">
 
   <!-- Jcode skills are optional wrappers. ADR 0022: framework logic lives in .lazy-harness. -->
   <!-- ADR 0025: lazy-init / lazy-sync 로 portability single entry point 구현. -->
@@ -119,13 +119,17 @@
     <dependsOn>lazy-interview</dependsOn>
   </skill>
 
-  <skill id="lazy-project-profile" status="planned" phase="5e">
-    <location>.lazy-harness/plans/project-init-interview-spec.md</location>
-    <description>Skill-first project profile flow: capture project purpose, folder structure, frontend/backend architecture, design system, test strategy, and agent rules before feature work</description>
+  <skill id="lazy-project-profile" status="beta" phase="5e">
+    <location>.jcode/skills/lazy-project-profile/</location>
+    <description>Framework-owned interview-first Project Profile skill: capture or update host project purpose, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent rules before feature work.</description>
+    <command>Use /lazy-project-profile in Jcode; wrapper reads .lazy-harness/spec/platform/project-profile.md and .lazy-harness/plans/project-init-interview-spec.md</command>
     <futureCommand>bun .lazy-harness/scripts/project-profile.ts --mode inspect</futureCommand>
     <futureCommand>bun .lazy-harness/scripts/project-profile.ts --mode interview --apply</futureCommand>
     <emitsLogs>true</emitsLogs>
     <dependsOn>lazy-interview</dependsOn>
+    <ownsArtifacts>.lazy-harness/spec/platform/project-profile.md</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/plans/project-init-interview-spec.md</ownsArtifacts>
+    <ownsArtifacts>.jcode/skills/lazy-project-profile/SKILL.md</ownsArtifacts>
   </skill>
 
   <skill id="lazy-report" status="planned" phase="post-5e">
