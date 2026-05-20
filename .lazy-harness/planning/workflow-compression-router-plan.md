@@ -217,6 +217,8 @@ User clarification on 2026-05-20: do not over-interpret telemetry immediately af
 
 2026-05-20 deployment note: automatic telemetry collection was fixed in source commit `caa2a2b` after normal use showed `response.completed` hooks firing without `route-decisions.jsonl` growth. The fix was synced to the known dogfooding host `/home/lazydino/dev/medivance` with `lazy-sync --force`, and `/home/lazydino/dev/medivance/.lazy-harness/bin/lazy test` passed. Manual sync smoke telemetry was removed from the host log so subsequent `route-summary` reflects normal use.
 
+2026-05-20 feedback-loop clarification: this source checkout is where the framework is built and improved. Downstream hosts such as Medivance are where the framework is applied and dogfooded. Workflow-compression decisions are made back in this source repo, using Medivance normal-use telemetry as practical evidence. Review with `cd /home/lazydino/dev/medivance && .lazy-harness/bin/lazy route-summary --format=md`, then implement framework improvements here.
+
 ## Acceptance criteria
 
 1. Planning/ADR/SDD records exist and are internally consistent.

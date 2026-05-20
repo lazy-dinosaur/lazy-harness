@@ -18,6 +18,7 @@ When the user shows screenshots, transcripts, or short ambiguous references duri
 - Framework product: lazy-harness
 - Local Jcode harness: `.jcode/` is private/local workflow wiring for this checkout.
 - Host installs such as `/home/lazydino/dev/medivance/.lazy-harness` are downstream installed copies, not the source of truth.
+- Dogfooding feedback loop: build and change the lazy-harness framework in this source checkout, sync it into downstream hosts such as `/home/lazydino/dev/medivance`, observe normal-use results there, then bring those results back here to improve the framework. Medivance telemetry is evidence for framework quality; it is not the source of truth and should not shift framework ownership away from this repo.
 
 ## Allowed work in this host
 
@@ -62,6 +63,7 @@ Project-specific rules should normally be records, not hardcoded into the shared
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
 - Ownership boundaries:
   - Owner/upstream: `/home/lazydino/dev/lazy-harness`
+  - Primary dogfooding feedback host: `/home/lazydino/dev/medivance`
   - This host may change: framework grammar, records, hooks, scripts, specs, ADRs, SSOT, tests, generated/reference assets.
   - This host must not change without explicit confirmation: downstream app behavior, releases/pushes, destructive worktree/database operations.
 - Cross-layer links:
