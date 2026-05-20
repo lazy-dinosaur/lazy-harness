@@ -112,6 +112,8 @@ Skill behavior:
 
 ## Slice 4 — Project Profile inspect/interview skeleton
 
+Status: inspect skeleton implemented in `.lazy-harness/scripts/project-profile.ts` on 2026-05-20. Interview/apply remains future work.
+
 Create `.lazy-harness/scripts/project-profile.ts` only after Slice 1/3 is usable.
 
 First behavior:
@@ -183,7 +185,7 @@ Reason:
 ## Discovery capture
 
 - DDD: candidate, ingested docs may seed domain vocabulary later.
-- SDD: updated, inspect CLI, plan/apply dry-run, and `/lazy-doc-ingest` wrapper implemented.
+- SDD: updated, document-ingestion inspect/plan/apply-dry-run, Project Profile inspect, and wrappers implemented.
 - BDD: none for first inspect slice.
 - TDD: updated, self-test fixture covers fresh/stale/duplicate/polluted docs, `.lazy-harness` exclusion, plan proposed writes, candidate confirmation requirements, and apply dry-run gate.
 - ADR: none, current split follows existing accepted SDD contracts.

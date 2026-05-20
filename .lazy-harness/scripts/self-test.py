@@ -1160,6 +1160,7 @@ def check_jcode_project_profile_skill_wrapper() -> None:
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         "lazy-project-profile",
+        "project-profile.ts --mode inspect",
         "interview-first architecture flow",
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/plans/project-init-interview-spec.md",
@@ -1801,6 +1802,46 @@ def check_document_resource_ingestion_inspect() -> None:
     print("✓ document-resource-ingestion inspect/plan ok")
 
 
+def check_project_profile_inspect() -> None:
+    """Project Profile inspect mode must report missing/present artifacts and document-ingestion handoff."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        (root / ".lazy-harness" / "project").mkdir(parents=True)
+        (root / ".lazy-harness" / "tests").mkdir(parents=True)
+        (root / ".lazy-harness" / "knowledge").mkdir(parents=True)
+        (root / ".lazy-harness" / "project" / "profile.xml").write_text("<profile />\n", encoding="utf-8")
+        (root / ".lazy-harness" / "project" / "document-intake.xml").write_text("<documentIntake />\n", encoding="utf-8")
+        (root / ".lazy-harness" / "knowledge" / "candidates.jsonl").write_text("{}\n", encoding="utf-8")
+        completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "inspect",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("project-profile inspect failed:\n" + completed.stdout + completed.stderr)
+        result = json.loads(completed.stdout)
+        if result.get("mode") != "project-profile.inspect":
+            fail("project-profile inspect mode changed: " + completed.stdout[:500])
+        if result.get("summary", {}).get("present") != 1 or result.get("summary", {}).get("missing") != 4:
+            fail("project-profile inspect should count required artifacts")
+        ingestion = result.get("documentIngestion") or {}
+        if ingestion.get("ledgerStatus") != "present" or ingestion.get("candidatesStatus") != "present" or ingestion.get("shouldOfferIngestion") is not False:
+            fail("project-profile inspect should detect document ingestion handoff outputs: " + json.dumps(ingestion, ensure_ascii=False))
+        if not any("Start interview" in option for option in result.get("optionGate", {}).get("options", [])):
+            fail("project-profile inspect should return an option gate")
+    print("✓ project-profile inspect ok")
+
+
 def check_real_feature_walkthrough() -> None:
     queue = LAZY / "questions" / f"__tmp_5d6_walkthrough_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_5d6_walkthrough_{os.getpid()}.jsonl"
@@ -2390,6 +2431,7 @@ def main() -> None:
         (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
+        (check_project_profile_inspect, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),

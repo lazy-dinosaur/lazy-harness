@@ -41,7 +41,7 @@ const SKILLS = [
   {
     name: 'lazy-project-profile',
     description: 'Create or update the host Project Profile through an interview-first architecture flow.',
-    usage: 'Read .lazy-harness/spec/platform/project-profile.md and .lazy-harness/plans/project-init-interview-spec.md, then run the Project Profile interview flow before feature work.',
+    usage: 'bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md',
     details: `## When to use
 
 Use this skill when a host project lacks or needs to update its Project Profile: project goal, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent operating policy.
@@ -56,13 +56,14 @@ This is an interview-first framework skill. Do not silently invent architecture 
 
 ## Flow
 
-1. Inspect existing host records and code structure.
-2. Check whether Document Resource Ingestion outputs exist and should be used.
-3. If outside docs need assimilation, offer to run the separate ingestion flow first.
-4. Identify missing profile sections.
-5. Ask 3-5 option gates for decisions that cannot be inferred.
-6. Write/update Project Profile records.
-7. Run lazy-harness validation.
+1. Run inspect first: bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md
+2. Inspect existing host records and code structure.
+3. Check whether Document Resource Ingestion outputs exist and should be used.
+4. If outside docs need assimilation, offer to run the separate ingestion flow first.
+5. Identify missing profile sections.
+6. Ask 3-5 option gates for decisions that cannot be inferred.
+7. Write/update Project Profile records only after confirmation.
+8. Run lazy-harness validation.
 
 Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
   },
