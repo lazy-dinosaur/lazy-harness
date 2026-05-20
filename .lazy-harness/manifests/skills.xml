@@ -6,7 +6,7 @@
   Schema: each <skill> has id, location, status, phase, dependsOn (optional).
   status values: stable | beta | deferred | retired
 -->
-  <skillsManifest version="1" updatedAt="2026-05-20T06:43:00Z">
+  <skillsManifest version="1" updatedAt="2026-05-20T11:05:00Z">
 
   <!-- Jcode skills are optional wrappers. ADR 0022: framework logic lives in .lazy-harness. -->
   <!-- ADR 0025: lazy-init / lazy-sync 로 portability single entry point 구현. -->
@@ -130,6 +130,17 @@
     <ownsArtifacts>.lazy-harness/spec/platform/project-profile.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/plans/project-init-interview-spec.md</ownsArtifacts>
     <ownsArtifacts>.jcode/skills/lazy-project-profile/SKILL.md</ownsArtifacts>
+  </skill>
+
+  <skill id="lazy-doc-ingest" status="beta" phase="5e">
+    <location>.jcode/skills/lazy-doc-ingest/</location>
+    <description>Framework-owned document resource ingestion wrapper: inspect non-harness host docs, score freshness/authority/duplication/contamination, and prepare reviewable evidence before any record promotion.</description>
+    <command>Use /lazy-doc-ingest in Jcode; wrapper runs document-resource-ingestion inspect first</command>
+    <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md</command>
+    <emitsLogs>false</emitsLogs>
+    <ownsArtifacts>.lazy-harness/spec/platform/document-resource-ingestion.md</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/scripts/document-resource-ingestion.ts</ownsArtifacts>
+    <ownsArtifacts>.jcode/skills/lazy-doc-ingest/SKILL.md</ownsArtifacts>
   </skill>
 
   <skill id="lazy-report" status="planned" phase="post-5e">

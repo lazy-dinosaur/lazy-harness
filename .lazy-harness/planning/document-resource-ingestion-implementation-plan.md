@@ -33,6 +33,8 @@ build framework here
 
 ## Slice 1 — Document Resource Ingestion inspect mode
 
+Status: implemented in `.lazy-harness/scripts/document-resource-ingestion.ts` on 2026-05-20.
+
 Create `.lazy-harness/scripts/document-resource-ingestion.ts`.
 
 CLI shape:
@@ -90,6 +92,8 @@ Rules:
 - Suspicious claims are quarantined, not promoted.
 
 ## Slice 3 — `/lazy-doc-ingest` framework skill
+
+Status: implemented in `.lazy-harness/scripts/jcode-wiring.ts` and `.lazy-harness/manifests/skills.xml` on 2026-05-20.
 
 Add generated skill wrapper via `.lazy-harness/scripts/jcode-wiring.ts`.
 
@@ -150,9 +154,9 @@ Reason:
 ## Discovery capture
 
 - DDD: candidate, ingested docs may seed domain vocabulary later.
-- SDD: candidate/update needed when CLI output schema is finalized.
+- SDD: updated, inspect CLI and `/lazy-doc-ingest` wrapper implemented.
 - BDD: none for first inspect slice.
-- TDD: candidate, add fixture coverage for stale/duplicate/polluted docs.
+- TDD: updated, self-test fixture covers fresh/stale/duplicate/polluted docs and `.lazy-harness` exclusion.
 - ADR: none, current split follows existing accepted SDD contracts.
 - SSOT: none for first inspect slice.
 - Planning: updated, this plan defines implementation slices.

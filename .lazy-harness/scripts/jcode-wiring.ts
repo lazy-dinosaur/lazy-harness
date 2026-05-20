@@ -65,6 +65,31 @@ This is an interview-first framework skill. Do not silently invent architecture 
 7. Run lazy-harness validation.
 
 Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
+  },
+  {
+    name: 'lazy-doc-ingest',
+    description: 'Inspect non-harness project documents and prepare reviewable document-resource evidence.',
+    usage: 'bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md',
+    details: `## When to use
+
+Use this skill before Project Profile work when README.md, docs/**, architecture notes, onboarding docs, product briefs, release notes, or legacy planning docs may contain useful project knowledge.
+
+This is a separate capability from /lazy-project-profile. It scans root-bound non-harness documents, scores freshness, authority, duplicate overlap, and contamination risk, and produces a reviewable report. It must not auto-promote external document claims into DDD/SDD/BDD/TDD/ADR/SSOT records.
+
+## Required record source
+
+- .lazy-harness/spec/platform/document-resource-ingestion.md
+
+## Flow
+
+1. Run inspect first: bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md
+2. Review authoritative/candidate/historical/duplicate/conflicting/rejected suggestions.
+3. Present an option gate before writing any ledger or records:
+   - A. create candidate ledger only
+   - B. run deeper plan
+   - C. skip docs and proceed to Project Profile
+   - D. custom
+4. Never auto-promote external facts without user confirmation.`
   }
 ]
 

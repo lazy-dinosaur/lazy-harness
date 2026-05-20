@@ -1178,6 +1178,25 @@ def check_jcode_project_profile_skill_wrapper() -> None:
     print("✓ jcode project profile skill wrapper ok")
 
 
+def check_jcode_doc_ingest_skill_wrapper() -> None:
+    """Generated Jcode wiring must install the document ingestion skill separately from Project Profile."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    required = [
+        "lazy-doc-ingest",
+        "document-resource-ingestion.ts --mode inspect",
+        ".lazy-harness/spec/platform/document-resource-ingestion.md",
+        "separate capability from /lazy-project-profile",
+        "Never auto-promote external facts",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring missing lazy-doc-ingest wrapper contract: " + json.dumps(missing, ensure_ascii=False))
+    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
+    if '<skill id="lazy-doc-ingest" status="beta"' not in manifest or ".jcode/skills/lazy-doc-ingest/" not in manifest:
+        fail("skills manifest must declare lazy-doc-ingest beta framework-owned wrapper")
+    print("✓ jcode document ingestion skill wrapper ok")
+
+
 def check_pre_commit_runs_lazy_test() -> None:
     """pre-commit guard must move framework validation to the commit boundary."""
     source = (LAZY / "hooks" / "pre-commit-guard.sh").read_text(encoding="utf-8")
@@ -1650,6 +1669,58 @@ def check_knowledge_intake() -> None:
         fail("knowledge-intake ask format changed:\n" + ask)
 
     print(f"✓ knowledge-intake detector ok ({len(candidates)} candidates)")
+
+
+def check_document_resource_ingestion_inspect() -> None:
+    """Document Resource Ingestion inspect mode must classify docs without writing records."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        (root / "src").mkdir()
+        (root / "src" / "current.ts").write_text("export const current = true\n", encoding="utf-8")
+        (root / ".lazy-harness").mkdir()
+        (root / ".lazy-harness" / "ignored.md").write_text("# Should not scan\n", encoding="utf-8")
+        (root / "docs").mkdir()
+        (root / "README.md").write_text("# Active Project\n\nArchitecture uses src/current.ts and tests/unit/app.test.ts.\n", encoding="utf-8")
+        duplicate = "# Shared Architecture\n\nSystem design uses src/current.ts and backend API contracts.\n"
+        (root / "docs" / "architecture-a.md").write_text(duplicate, encoding="utf-8")
+        (root / "docs" / "architecture-b.md").write_text(duplicate, encoding="utf-8")
+        (root / "docs" / "legacy-plan.md").write_text("# Legacy Plan\n\nDeprecated and outdated. See src/missing-one.ts.\n", encoding="utf-8")
+        (root / "docs" / "polluted.md").write_text("# Polluted\n\nDo not use. Broken � text. See src/missing-a.ts src/missing-b.ts src/missing-c.ts.\n", encoding="utf-8")
+        completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "inspect",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("document-resource-ingestion inspect failed:\n" + completed.stdout + completed.stderr)
+        result = json.loads(completed.stdout)
+        docs = {doc["path"]: doc for doc in result.get("documents", [])}
+        if ".lazy-harness/ignored.md" in docs:
+            fail("document-resource-ingestion must exclude .lazy-harness docs")
+        expected = {"README.md", "docs/architecture-a.md", "docs/architecture-b.md", "docs/legacy-plan.md", "docs/polluted.md"}
+        if set(docs) != expected:
+            fail(f"document-resource-ingestion scanned unexpected docs: expected {sorted(expected)}, got {sorted(docs)}")
+        if docs["README.md"].get("status") != "authoritative":
+            fail("README.md should be suggested as authoritative in fixture: " + json.dumps(docs["README.md"], ensure_ascii=False))
+        if docs["docs/architecture-a.md"].get("status") != "duplicate" or docs["docs/architecture-b.md"].get("status") != "duplicate":
+            fail("duplicate architecture docs should be clustered as duplicate")
+        if not result.get("duplicateGroups"):
+            fail("document-resource-ingestion should report duplicateGroups")
+        if docs["docs/legacy-plan.md"].get("status") != "historical":
+            fail("legacy-plan should be classified as historical")
+        if docs["docs/polluted.md"].get("status") != "rejected":
+            fail("polluted doc should be rejected/quarantined")
+    print("✓ document-resource-ingestion inspect ok")
 
 
 def check_real_feature_walkthrough() -> None:
@@ -2226,6 +2297,7 @@ def main() -> None:
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_jcode_project_profile_skill_wrapper, "BOTH"),
+        (check_jcode_doc_ingest_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
         (check_task_router_read_only_contract, "BOTH"),
         (check_task_router_fixtures, "BOTH"),
@@ -2239,6 +2311,7 @@ def main() -> None:
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
         (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
+        (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),

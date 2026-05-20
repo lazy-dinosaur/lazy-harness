@@ -63,10 +63,13 @@ scan external docs
 
 - `.lazy-harness/scripts/knowledge-intake.ts`
   - Existing Stage 1 detector for knowledge candidates from text; currently read-only and never writes records.
-- Future script: `.lazy-harness/scripts/document-resource-ingestion.ts`
-  - Planned inspect/plan/apply entrypoint for document scanning, scoring, clustering, and record reproduction.
-- Future skill: `/lazy-doc-ingest` or equivalent
-  - Planned framework-owned skill wrapper for running the ingestion flow separately from `/lazy-project-profile`.
+- `.lazy-harness/scripts/document-resource-ingestion.ts`
+  - Inspect-mode entrypoint for document scanning, scoring, clustering, and reviewable reporting. Current slice is read-only and does not write records.
+  - CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]`.
+- `/lazy-doc-ingest`
+  - Framework-owned Jcode wrapper for running the ingestion flow separately from `/lazy-project-profile`.
+- `.lazy-harness/scripts/self-test.py`
+  - `check_document_resource_ingestion_inspect` protects fresh/stale/duplicate/polluted classification, JSON parseability, and `.lazy-harness` exclusion.
 - `.lazy-harness/spec/platform/project-profile.md`
   - Consumes ingestion outputs when available but does not own document ingestion.
 

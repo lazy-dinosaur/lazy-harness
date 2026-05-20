@@ -522,6 +522,7 @@
           "lazy-update",
           "lazy-test",
           "lazy-skill-create",
+          "lazy-doc-ingest",
           "lazy-project-profile"
         ]
       }
