@@ -46,7 +46,7 @@ const SKILLS = [
 
 Use this skill when a host project lacks or needs to update its Project Profile: project goal, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent operating policy.
 
-This is an interview-first framework skill. Do not silently invent architecture defaults. Inspect existing code, existing records, and non-harness docs such as README.md or docs/** first. Present structured options where decisions are missing or documents conflict, then write durable outputs under .lazy-harness/project/** plus relevant DDD/SDD/BDD/TDD/ADR/SSOT records.
+This is an interview-first framework skill. Do not silently invent architecture defaults. Inspect existing code and records first. If non-harness docs such as README.md or docs/** need assimilation, offer to run the separate Document Resource Ingestion flow before Project Profile decisions. Present structured options where decisions are missing or evidence conflicts, then write durable outputs under .lazy-harness/project/** plus relevant DDD/SDD/BDD/TDD/ADR/SSOT records.
 
 ## Required record sources
 
@@ -56,12 +56,13 @@ This is an interview-first framework skill. Do not silently invent architecture 
 
 ## Flow
 
-1. Inspect existing host records, code structure, and non-harness docs.
-2. Create or update a document-intake ledger for facts assimilated from README/docs/legacy notes.
-3. Identify missing profile sections.
-4. Ask 3-5 option gates for decisions that cannot be inferred.
-5. Write/update Project Profile records.
-6. Run lazy-harness validation.
+1. Inspect existing host records and code structure.
+2. Check whether Document Resource Ingestion outputs exist and should be used.
+3. If outside docs need assimilation, offer to run the separate ingestion flow first.
+4. Identify missing profile sections.
+5. Ask 3-5 option gates for decisions that cannot be inferred.
+6. Write/update Project Profile records.
+7. Run lazy-harness validation.
 
 Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
   }

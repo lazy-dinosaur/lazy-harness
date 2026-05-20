@@ -42,7 +42,7 @@ If the framework cannot confidently answer these from maps/records/tests, it mus
 
 ```text
 project purpose
-→ existing docs / legacy notes intake
+→ optional document-resource ingestion outputs
 → stack choices
 → test strategy
 → architecture style
@@ -55,22 +55,23 @@ project purpose
 
 ## 2. Interview sections
 
-### 0. Existing document intake
+### 0. Optional document-resource ingestion handoff
 
-Before interviewing the user from scratch, inspect host-root documents outside `.lazy-harness` such as `README.md`, `docs/**`, architecture notes, onboarding docs, product briefs, legacy planning docs, and design-system notes.
+Project Profile creation and Document Resource Ingestion are separate capabilities.
+
+If `.lazy-harness/project/document-intake.xml` or equivalent ingestion outputs already exist, the Project Profile flow may use them as evidence. If important outside docs exist but have not been ingested, Project Profile should offer to run the separate Document Resource Ingestion flow first, or proceed with interview-only profile creation.
 
 Ask:
 
-1. Which existing documents are authoritative vs historical?
-2. Which documents should be internalized into `.lazy-harness` records?
-3. Which conflicts should be resolved now vs left as candidates?
+1. Should Project Profile use existing document-ingestion outputs?
+2. If outside docs have not been ingested, run the separate document ingestion flow first, or continue with interview-only setup?
+3. Are any ingestion outputs authoritative enough to seed project profile decisions, or should they remain candidates?
 
 Outputs:
 
-- `.lazy-harness/project/document-intake.xml`
-- candidate records in `.lazy-harness/knowledge/candidates.jsonl` when uncertain
-- DDD/SDD/BDD/TDD/ADR/SSOT records for confirmed durable facts
-- source provenance links from generated records back to the original document path/section
+- references from Project Profile records to ingestion output IDs when used
+- option-gate answer if document ingestion is deferred
+- no direct document scanning/reproduction inside Project Profile itself
 
 ### A. Project purpose and constraints
 
@@ -279,7 +280,7 @@ Every init run must produce:
 
 1. Structured question transcript.
 2. Decision log entries for non-default choices.
-3. Existing document intake ledger when non-harness docs exist.
+3. Optional references to Document Resource Ingestion outputs when used.
 4. Project profile XML.
 5. Test strategy XML.
 6. Filesystem policy XML.

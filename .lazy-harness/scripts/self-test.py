@@ -1164,8 +1164,8 @@ def check_jcode_project_profile_skill_wrapper() -> None:
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/plans/project-init-interview-spec.md",
         "Do not silently invent architecture defaults",
-        "non-harness docs",
-        "document-intake ledger",
+        "Document Resource Ingestion",
+        "separate ingestion flow",
         "Ask 3-5 option gates",
         "project-profile.ts --mode interview --apply",
     ]
