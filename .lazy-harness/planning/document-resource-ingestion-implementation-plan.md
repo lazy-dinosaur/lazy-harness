@@ -161,6 +161,15 @@ Dogfood improvement candidates:
 - Contamination scoring catches explicit deprecated/outdated wording but often leaves those docs as `candidate`; future plan mode should expose these as review warnings rather than auto-rejecting.
 - Medivance has enough docs that `--max-files` and sorted report UX matter; default JSON full scan was okay, but Markdown examples should communicate when truncated.
 
+2026-05-20 Slice 2 dogfood after source commit `c890c1a`:
+
+- Synced to `/home/lazydino/dev/medivance`; host smoke doctor passed.
+- `--mode plan --format=json --max-files=200` produced `document-resource-ingestion.plan`.
+- Plan summary: 77 documents, 76 candidate entries, proposed writes for `.lazy-harness/project/document-intake.xml` and `.lazy-harness/knowledge/candidates.jsonl`.
+- Status distribution remained `authoritative=1`, `candidate=66`, `conflicting=6`, `historical=4`, `duplicate=0`, `rejected=0`.
+- `--mode apply --dry-run --format=md --max-files=20` correctly reported dry-run, truncation warning, proposed writes, and option gate. No files were written.
+- Initial parallel dogfood command raced sync and hit the old CLI; rerunning sequentially after sync succeeded. Future dogfood scripts should avoid parallel sync+execute for host validation.
+
 ## Recommended next action
 
 Start with **Slice 1 + Slice 3 wrapper**.
