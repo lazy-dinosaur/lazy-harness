@@ -213,6 +213,8 @@ Then review accumulated evidence with:
 
 The telemetry is append-only and non-canonical. It stores route axes plus stable message/message-id hashes, not the raw user message. Duplicate lifecycle calls for the same message are deduped by `messageIdHash`. The goal is to make the next-session question "should we compress AGENTS / add profiles / adjust heuristics?" answerable from logs instead of memory.
 
+User clarification on 2026-05-20: do not over-interpret telemetry immediately after implementation. First use it to confirm plumbing. Evaluate route quality and workflow-compression choices only after accumulated normal dogfooding use.
+
 ## Acceptance criteria
 
 1. Planning/ADR/SDD records exist and are internally consistent.

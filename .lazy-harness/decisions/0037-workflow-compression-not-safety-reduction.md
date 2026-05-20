@@ -55,6 +55,8 @@ This amendment preserves the read-only invariant by distinguishing:
 - **automatic telemetry**: `response.completed` best-effort append keyed by `message_id` hash;
 - **canonical record**: still only DDD/SDD/BDD/TDD/ADR/SSOT and their implementation maps.
 
+Evaluation timing clarified on 2026-05-20: telemetry should be judged after sustained normal use. Immediate inspection is only a plumbing sanity check, not enough evidence to decide AGENTS compression, profile presets, or router heuristic changes.
+
 ## Router axes
 
 The router may emit these finite axes:

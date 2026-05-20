@@ -75,6 +75,8 @@ Summary command:
 
 Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`.
 
+Operational timing: telemetry is primarily useful **after sustained normal use**, not from one-off immediate inspection. Immediate checks may verify plumbing only: hook registration, append behavior, JSONL validity, and dedupe. Decisions such as AGENTS compression, profile presets, or router heuristic changes should wait for accumulated dogfooding samples and `route-summary` trends.
+
 ## Output schema
 
 ```json
