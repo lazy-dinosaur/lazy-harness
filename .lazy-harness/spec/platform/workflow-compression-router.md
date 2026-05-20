@@ -75,6 +75,8 @@ Summary command:
 
 Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`.
 
+The response hook must parse the lifecycle payload from stdin, not by copying the full payload into an environment variable. Real `response.completed` payloads can include large `recent_tool_calls` previews, so env-based parsing can silently fail before telemetry is appended. The hook accepts `last_user_message` plus camelCase/input aliases for forward compatibility. If no usable message field exists, it may append non-canonical diagnostics to `.lazy-harness/logs/route-telemetry-debug.jsonl`, but that file must store payload keys, byte counts, hashes, and alias presence only, never raw user message content.
+
 Operational timing: telemetry is primarily useful **after sustained normal use**, not from one-off immediate inspection. Immediate checks may verify plumbing only: hook registration, append behavior, JSONL validity, and dedupe. Decisions such as AGENTS compression, profile presets, or router heuristic changes should wait for accumulated dogfooding samples and `route-summary` trends.
 
 ## Output schema

@@ -1327,6 +1327,11 @@ def check_response_completed_auto_route_telemetry() -> None:
             "message_id": "auto-route-msg-1",
             "recent_tool_calls": [],
         }
+        large_payload = {
+            "last_user_message": "fix route telemetry for large response payloads",
+            "message_id": "auto-route-msg-large",
+            "recent_tool_calls": [{"name": "read", "args_preview": "x" * 160000}],
+        }
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
         for _ in range(2):
             completed = subprocess.run(
@@ -1340,13 +1345,24 @@ def check_response_completed_auto_route_telemetry() -> None:
             )
             if completed.returncode != 0:
                 fail("response.completed hook should stay best-effort for auto route telemetry:\n" + completed.stdout + completed.stderr)
+        large_completed = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(large_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if large_completed.returncode != 0:
+            fail("response.completed hook should tolerate live-sized payloads for auto route telemetry:\n" + large_completed.stdout + large_completed.stderr)
         if not telemetry.exists():
             fail("response.completed hook should auto-create route telemetry")
         lines = [line for line in telemetry.read_text(encoding="utf-8").splitlines() if line.strip()]
         entries = [json.loads(line) for line in lines]
         matching = [entry for entry in entries if entry.get("messageIdHash")]
-        if len(matching) != 1:
-            fail("response.completed auto telemetry should dedupe by message_id; got matching lines=" + str(len(matching)))
+        if len(matching) != 2:
+            fail("response.completed auto telemetry should dedupe by message_id and tolerate live-sized payloads; got matching lines=" + str(len(matching)))
         entry = matching[0]
         if "message" in entry or "messagePreview" in entry:
             fail("auto route telemetry must not store raw user message: " + json.dumps(entry, ensure_ascii=False))
