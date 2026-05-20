@@ -2,6 +2,7 @@
 
 Date: 2026-05-12
 Status: planned as a skill-first Project Profile flow; full standalone CLI comes later
+Related SDD: `.lazy-harness/spec/platform/project-profile.md`
 Purpose: create a new project's lazy-harness SSOT through structured interview, not silent defaults
 
 > 상위 목표 (north-star): [`./north-star-accuracy-and-no-regression.md`](./north-star-accuracy-and-no-regression.md)
@@ -10,6 +11,8 @@ Purpose: create a new project's lazy-harness SSOT through structured interview, 
 ## 1. Core idea
 
 Project Init / Project Profile must not only create folders. It must interview the user and generate a durable project profile that defines how this project should be built, tested, designed, and evolved.
+
+2026-05-20 clarification: Project Profile means the host architecture/structure/goal/pattern profile. It is not the same as workflow execution presets such as fast/normal/strict/audit-only. The profile should decide or create the host's architectural records when missing, then guide subsequent development.
 
 The output is a project-local SSOT that future agents can read before touching code.
 

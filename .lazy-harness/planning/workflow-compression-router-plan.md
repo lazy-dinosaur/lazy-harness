@@ -197,6 +197,8 @@ Only after the read-only router is stable:
 - Add fast/normal/strict/audit-only profiles as minimum-safe presets.
 - Collect UX/false-positive metrics.
 
+Note: these fast/normal/strict/audit-only items are workflow execution presets. They are not the same as the Project Profile architecture contract in `.lazy-harness/spec/platform/project-profile.md`.
+
 ### 2026-05-19 telemetry update
 
 Route-specific telemetry is now the prerequisite for judging the remaining 2nd-stage work. Normal Jcode dogfooding use is collected automatically by `response.completed` when `last_user_message` is present. Explicit route probes can also call:

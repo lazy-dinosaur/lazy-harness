@@ -1,0 +1,88 @@
+# SDD — Project Profile architecture contract
+
+Status: accepted
+Date: 2026-05-20
+Layer: SDD
+Related: `.lazy-harness/plans/project-init-interview-spec.md`, `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.lazy-harness/ssot/project-identity.md`
+
+## Contract
+
+`Project Profile` means the host project's durable architecture and operating profile, not a runtime strictness preset.
+
+It is the framework-owned mechanism that decides, creates, and maintains the project-level architecture records that future development must follow.
+
+When a host lacks this profile, lazy-harness should create it through structured inspection and interview instead of silently defaulting.
+
+## Scope
+
+The Project Profile covers:
+
+- project goal and product constraints
+- expected users and quality priorities
+- stack and platform choices
+- target folder structure and source roots
+- architecture style and system design theory
+- frontend design system and component policy
+- backend boundaries, API style, persistence boundary, validation, error/logging policy
+- domain boundaries and bounded contexts
+- test strategy and validation commands
+- agent operating policy, risk tier, confirmation boundaries, and forbidden edit areas
+- map-first feature navigation across DDD/SDD/BDD/TDD/ADR/SSOT
+
+## Required outputs
+
+At minimum, a host Project Profile must materialize as records, not just chat memory:
+
+- `.lazy-harness/project/profile.xml` or equivalent project profile root record
+- `.lazy-harness/project/stack.xml`
+- `.lazy-harness/project/filesystem.xml`
+- `.lazy-harness/project/feature-navigation.xml`
+- `.lazy-harness/tests/test-strategy.xml`
+- architecture records under `.lazy-harness/spec/**` and `.lazy-harness/decisions/**`
+- domain records under `.lazy-harness/domain/**` when bounded contexts or vocabulary exist
+- behavior/test records when UI flows or regression protections are known
+
+The exact format may evolve, but the profile must remain durable, inspectable, and sync-safe for downstream host use.
+
+## Development rule
+
+Before implementing a feature in a host project, agents should route through the Project Profile:
+
+```text
+request
+→ project profile
+→ relevant DDD/SDD/BDD/TDD/ADR/SSOT maps
+→ existing code/tests
+→ gap/conflict/risk check
+→ implementation + record updates
+→ validation
+```
+
+If the Project Profile is missing or incomplete for the requested area, the framework should create/update the profile or ask a structured option gate before implementation.
+
+## Non-goals
+
+- Not the same as `fast / normal / strict / audit-only` execution presets.
+- Not a place to hide host-specific rules in shared `AGENTS.md`.
+- Not a one-time init wizard only; normal use can discover profile gaps and fill them.
+
+## Implementation map
+
+- `.lazy-harness/plans/project-init-interview-spec.md`
+  - Existing plan defining the interview sections and output contract for Project Profile creation.
+- Future script: `.lazy-harness/scripts/project-profile.ts`
+  - Planned skill-first implementation entrypoint for inspect/interview/apply flow.
+- Future host records: `.lazy-harness/project/*.xml`
+  - Host-local durable profile outputs consumed before feature implementation.
+- `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - Defines Project Profile as the `config.json`/host profile part of the grammar+vocabulary model.
+
+## Discovery capture
+
+- DDD: candidate, Project Profile may seed bounded-context/domain vocabulary records per host.
+- SDD: updated, this contract defines Project Profile semantics.
+- BDD: candidate, UI/product flows can be generated as profile outputs.
+- TDD: candidate, test strategy is a required profile output.
+- ADR: none, existing ADR 0024 already establishes the grammar/vocabulary model.
+- SSOT: none, project identity remains unchanged.
+- Planning: updated by linking to the existing project init interview plan.
