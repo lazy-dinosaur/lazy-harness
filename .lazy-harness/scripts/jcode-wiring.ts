@@ -46,7 +46,7 @@ const SKILLS = [
 
 Use this skill when a host project lacks or needs to update its Project Profile: project goal, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent operating policy.
 
-This is an interview-first framework skill. Do not silently invent architecture defaults. Inspect existing code and records, present structured options where decisions are missing, and write durable outputs under .lazy-harness/project/** plus relevant DDD/SDD/BDD/TDD/ADR/SSOT records.
+This is an interview-first framework skill. Do not silently invent architecture defaults. Inspect existing code, existing records, and non-harness docs such as README.md or docs/** first. Present structured options where decisions are missing or documents conflict, then write durable outputs under .lazy-harness/project/** plus relevant DDD/SDD/BDD/TDD/ADR/SSOT records.
 
 ## Required record sources
 
@@ -56,11 +56,12 @@ This is an interview-first framework skill. Do not silently invent architecture 
 
 ## Flow
 
-1. Inspect existing host records and code structure.
-2. Identify missing profile sections.
-3. Ask 3-5 option gates for decisions that cannot be inferred.
-4. Write/update Project Profile records.
-5. Run lazy-harness validation.
+1. Inspect existing host records, code structure, and non-harness docs.
+2. Create or update a document-intake ledger for facts assimilated from README/docs/legacy notes.
+3. Identify missing profile sections.
+4. Ask 3-5 option gates for decisions that cannot be inferred.
+5. Write/update Project Profile records.
+6. Run lazy-harness validation.
 
 Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
   }

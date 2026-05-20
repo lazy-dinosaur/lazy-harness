@@ -42,6 +42,7 @@ If the framework cannot confidently answer these from maps/records/tests, it mus
 
 ```text
 project purpose
+→ existing docs / legacy notes intake
 → stack choices
 → test strategy
 → architecture style
@@ -53,6 +54,23 @@ project purpose
 ```
 
 ## 2. Interview sections
+
+### 0. Existing document intake
+
+Before interviewing the user from scratch, inspect host-root documents outside `.lazy-harness` such as `README.md`, `docs/**`, architecture notes, onboarding docs, product briefs, legacy planning docs, and design-system notes.
+
+Ask:
+
+1. Which existing documents are authoritative vs historical?
+2. Which documents should be internalized into `.lazy-harness` records?
+3. Which conflicts should be resolved now vs left as candidates?
+
+Outputs:
+
+- `.lazy-harness/project/document-intake.xml`
+- candidate records in `.lazy-harness/knowledge/candidates.jsonl` when uncertain
+- DDD/SDD/BDD/TDD/ADR/SSOT records for confirmed durable facts
+- source provenance links from generated records back to the original document path/section
 
 ### A. Project purpose and constraints
 
@@ -261,13 +279,14 @@ Every init run must produce:
 
 1. Structured question transcript.
 2. Decision log entries for non-default choices.
-3. Project profile XML.
-4. Test strategy XML.
-5. Filesystem policy XML.
-6. Architecture policy XML.
-7. Design-system policy XML when frontend exists.
-8. Validation command registry.
-9. Handoff entry summarizing how future agents should work.
+3. Existing document intake ledger when non-harness docs exist.
+4. Project profile XML.
+5. Test strategy XML.
+6. Filesystem policy XML.
+7. Architecture policy XML.
+8. Design-system policy XML when frontend exists.
+9. Validation command registry.
+10. Handoff entry summarizing how future agents should work.
 
 ## 5. No silent defaults
 
