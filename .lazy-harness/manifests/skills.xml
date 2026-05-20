@@ -137,6 +137,8 @@
     <description>Framework-owned document resource ingestion wrapper: inspect non-harness host docs, score freshness/authority/duplication/contamination, and prepare reviewable evidence before any record promotion.</description>
     <command>Use /lazy-doc-ingest in Jcode; wrapper runs document-resource-ingestion inspect first</command>
     <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md</command>
+    <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan --format=md</command>
+    <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run --format=md</command>
     <emitsLogs>false</emitsLogs>
     <ownsArtifacts>.lazy-harness/spec/platform/document-resource-ingestion.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/scripts/document-resource-ingestion.ts</ownsArtifacts>

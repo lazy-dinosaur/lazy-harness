@@ -1184,6 +1184,8 @@ def check_jcode_doc_ingest_skill_wrapper() -> None:
     required = [
         "lazy-doc-ingest",
         "document-resource-ingestion.ts --mode inspect",
+        "document-resource-ingestion.ts --mode plan",
+        "document-resource-ingestion.ts --mode apply --dry-run",
         ".lazy-harness/spec/platform/document-resource-ingestion.md",
         "separate capability from /lazy-project-profile",
         "Never auto-promote external facts",
@@ -1194,6 +1196,15 @@ def check_jcode_doc_ingest_skill_wrapper() -> None:
     manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
     if '<skill id="lazy-doc-ingest" status="beta"' not in manifest or ".jcode/skills/lazy-doc-ingest/" not in manifest:
         fail("skills manifest must declare lazy-doc-ingest beta framework-owned wrapper")
+    import_check = subprocess.run(
+        ["bun", "-e", "import('./.lazy-harness/scripts/jcode-wiring.ts').then(m => { if (typeof m.installJcodeWiring !== 'function') process.exit(2) })"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if import_check.returncode != 0:
+        fail("jcode wiring must import cleanly after skill wrapper edits:\n" + import_check.stdout + import_check.stderr)
     print("✓ jcode document ingestion skill wrapper ok")
 
 
@@ -1720,7 +1731,74 @@ def check_document_resource_ingestion_inspect() -> None:
             fail("legacy-plan should be classified as historical")
         if docs["docs/polluted.md"].get("status") != "rejected":
             fail("polluted doc should be rejected/quarantined")
-    print("✓ document-resource-ingestion inspect ok")
+        plan_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "plan",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if plan_completed.returncode != 0:
+            fail("document-resource-ingestion plan failed:\n" + plan_completed.stdout + plan_completed.stderr)
+        plan = json.loads(plan_completed.stdout)
+        if plan.get("mode") != "document-resource-ingestion.plan":
+            fail("document-resource-ingestion plan mode changed: " + json.dumps(plan, ensure_ascii=False)[:500])
+        proposed_paths = {write.get("path") for write in plan.get("proposedWrites", [])}
+        if ".lazy-harness/project/document-intake.xml" not in proposed_paths or ".lazy-harness/knowledge/candidates.jsonl" not in proposed_paths:
+            fail("document-resource-ingestion plan must propose intake ledger and candidates jsonl: " + json.dumps(plan.get("proposedWrites"), ensure_ascii=False))
+        if len(plan.get("candidateEntries", [])) != 4:
+            fail("document-resource-ingestion plan should create candidates for non-authoritative docs only")
+        if any(entry.get("promotion") != "requires-user-confirmation" for entry in plan.get("candidateEntries", [])):
+            fail("document-resource-ingestion candidates must require user confirmation")
+        if not any("No DDD/SDD/BDD/TDD/ADR/SSOT promotion" in warning for warning in plan.get("warnings", [])):
+            fail("document-resource-ingestion plan must warn against canonical promotion")
+        dry_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "apply",
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if dry_completed.returncode != 0:
+            fail("document-resource-ingestion apply --dry-run failed:\n" + dry_completed.stdout + dry_completed.stderr)
+        dry_plan = json.loads(dry_completed.stdout)
+        if dry_plan.get("mode") != "document-resource-ingestion.apply-dry-run" or dry_plan.get("dryRun") is not True:
+            fail("document-resource-ingestion apply --dry-run should be explicit dry-run")
+        blocked_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "apply",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if blocked_completed.returncode == 0 or "use --dry-run" not in blocked_completed.stderr:
+            fail("document-resource-ingestion apply without --dry-run must be blocked")
+    print("✓ document-resource-ingestion inspect/plan ok")
 
 
 def check_real_feature_walkthrough() -> None:

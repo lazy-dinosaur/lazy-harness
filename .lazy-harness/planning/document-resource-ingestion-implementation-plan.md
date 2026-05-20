@@ -72,6 +72,8 @@ Validation:
 
 ## Slice 2 — Document Resource Ingestion plan/apply dry-run
 
+Status: implemented in `.lazy-harness/scripts/document-resource-ingestion.ts` on 2026-05-20. `plan` proposes ledger/candidate writes without applying; `apply` currently requires `--dry-run` and prints the same write preview.
+
 After inspect works in Medivance, add:
 
 ```bash
@@ -172,9 +174,9 @@ Reason:
 ## Discovery capture
 
 - DDD: candidate, ingested docs may seed domain vocabulary later.
-- SDD: updated, inspect CLI and `/lazy-doc-ingest` wrapper implemented.
+- SDD: updated, inspect CLI, plan/apply dry-run, and `/lazy-doc-ingest` wrapper implemented.
 - BDD: none for first inspect slice.
-- TDD: updated, self-test fixture covers fresh/stale/duplicate/polluted docs and `.lazy-harness` exclusion.
+- TDD: updated, self-test fixture covers fresh/stale/duplicate/polluted docs, `.lazy-harness` exclusion, plan proposed writes, candidate confirmation requirements, and apply dry-run gate.
 - ADR: none, current split follows existing accepted SDD contracts.
 - SSOT: none for first inspect slice.
 - Planning: updated, this plan defines implementation slices.

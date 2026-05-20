@@ -64,12 +64,14 @@ scan external docs
 - `.lazy-harness/scripts/knowledge-intake.ts`
   - Existing Stage 1 detector for knowledge candidates from text; currently read-only and never writes records.
 - `.lazy-harness/scripts/document-resource-ingestion.ts`
-  - Inspect-mode entrypoint for document scanning, scoring, clustering, and reviewable reporting. Current slice is read-only and does not write records.
-  - CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]`.
+  - Entry point for document scanning, scoring, clustering, reviewable reporting, and write-preview planning. Current slice does not write records.
+  - Inspect CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]`.
+  - Plan CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan [--format md|json] [--root <path>] [--max-files N]`.
+  - Apply preview CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run [--format md|json] [--root <path>] [--max-files N]`.
 - `/lazy-doc-ingest`
   - Framework-owned Jcode wrapper for running the ingestion flow separately from `/lazy-project-profile`.
 - `.lazy-harness/scripts/self-test.py`
-  - `check_document_resource_ingestion_inspect` protects fresh/stale/duplicate/polluted classification, JSON parseability, and `.lazy-harness` exclusion.
+  - `check_document_resource_ingestion_inspect` protects fresh/stale/duplicate/polluted classification, JSON parseability, `.lazy-harness` exclusion, plan proposed writes, candidate confirmation requirements, and blocking apply without `--dry-run`.
 - `.lazy-harness/spec/platform/project-profile.md`
   - Consumes ingestion outputs when available but does not own document ingestion.
 

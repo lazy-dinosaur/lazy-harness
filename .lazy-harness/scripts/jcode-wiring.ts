@@ -74,7 +74,7 @@ Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview
 
 Use this skill before Project Profile work when README.md, docs/**, architecture notes, onboarding docs, product briefs, release notes, or legacy planning docs may contain useful project knowledge.
 
-This is a separate capability from /lazy-project-profile. It scans root-bound non-harness documents, scores freshness, authority, duplicate overlap, and contamination risk, and produces a reviewable report. It must not auto-promote external document claims into DDD/SDD/BDD/TDD/ADR/SSOT records.
+This is a separate capability from /lazy-project-profile. It scans root-bound non-harness documents, scores freshness, authority, duplicate overlap, and contamination risk, and produces a reviewable report. It can also produce plan/apply-dry-run previews for .lazy-harness/project/document-intake.xml and .lazy-harness/knowledge/candidates.jsonl. It must not auto-promote external document claims into DDD/SDD/BDD/TDD/ADR/SSOT records.
 
 ## Required record source
 
@@ -84,12 +84,14 @@ This is a separate capability from /lazy-project-profile. It scans root-bound no
 
 1. Run inspect first: bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md
 2. Review authoritative/candidate/historical/duplicate/conflicting/rejected suggestions.
-3. Present an option gate before writing any ledger or records:
+3. If the user wants a write preview, run: bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan --format=md
+4. For apply previews only, run: bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run --format=md
+5. Present an option gate before writing any ledger or records:
    - A. create candidate ledger only
    - B. run deeper plan
    - C. skip docs and proceed to Project Profile
    - D. custom
-4. Never auto-promote external facts without user confirmation.`
+6. Never auto-promote external facts without user confirmation.`
   }
 ]
 
