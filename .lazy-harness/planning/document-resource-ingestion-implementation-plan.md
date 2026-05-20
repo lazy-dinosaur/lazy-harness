@@ -141,6 +141,24 @@ After Slice 1 and `/lazy-doc-ingest` wrapper:
    - polluted/conflicting docs
 4. Record findings back here under planning/TDD/SDD as needed.
 
+Status: first document-only dogfood completed on 2026-05-20 after syncing source commit `b021451` to `/home/lazydino/dev/medivance`.
+
+Important correction: this dogfood was CLI document inspection only. It did **not** validate a running Medivance app instance, DB connectivity, UI behavior, or runtime profile. Any Medivance runtime/UI dogfood must first follow the Medivance named test instance policy: stop stale/conflicting instance, launch with `--test`, and verify `bun dev:inspect <name>` shows the test environment before judging behavior. See `.lazy-harness/ssot/medivance-dogfood-runtime-policy.md`.
+
+Observed Medivance inspect summary:
+
+- `/lazy-doc-ingest` wrapper installed in `.jcode/skills/lazy-doc-ingest/SKILL.md`.
+- `doctor --profile smoke --scope host` passed.
+- `document-resource-ingestion.ts --mode inspect --format=json --max-files=200` found 77 non-harness docs.
+- Status distribution: `authoritative=1`, `candidate=66`, `conflicting=6`, `historical=4`, `duplicate=0`, `rejected=0`.
+- Examples: `docs/action-system.md` candidate with current path refs; `docs/ai-service-plan.md` conflicting due missing service/router refs; `docs/archive/action-model-refactoring-plan.md` historical; `README.md` authoritative.
+
+Dogfood improvement candidates:
+
+- Duplicate detection may be too strict for semantically overlapping docs because Medivance reported no duplicate groups despite multiple architecture/auth/system docs.
+- Contamination scoring catches explicit deprecated/outdated wording but often leaves those docs as `candidate`; future plan mode should expose these as review warnings rather than auto-rejecting.
+- Medivance has enough docs that `--max-files` and sorted report UX matter; default JSON full scan was okay, but Markdown examples should communicate when truncated.
+
 ## Recommended next action
 
 Start with **Slice 1 + Slice 3 wrapper**.
