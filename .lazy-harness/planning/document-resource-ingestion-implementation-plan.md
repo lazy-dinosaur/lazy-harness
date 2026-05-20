@@ -114,6 +114,16 @@ Skill behavior:
 
 Status: inspect skeleton implemented in `.lazy-harness/scripts/project-profile.ts` on 2026-05-20. Interview/apply remains future work.
 
+2026-05-20 Medivance dogfood after source commit `957dace`:
+
+- Synced to `/home/lazydino/dev/medivance`; `project-profile.ts` installed under `.lazy-harness/scripts/`.
+- `--mode inspect --format=json` produced `project-profile.inspect`.
+- Required artifact summary: `present=1`, `missing=4`, `complete=false`.
+- Present: `.lazy-harness/tests/test-strategy.xml`.
+- Missing: `.lazy-harness/project/profile.xml`, `stack.xml`, `filesystem.xml`, `feature-navigation.xml`.
+- Document Resource Ingestion handoff: `document-intake.xml` missing, `knowledge/candidates.jsonl` present, so recommended option A is to run `/lazy-doc-ingest` first if docs may contain durable facts.
+- Dogfood note: sync and execution must run sequentially. Parallel sync+execute raced twice and hit stale/missing host files during validation.
+
 Create `.lazy-harness/scripts/project-profile.ts` only after Slice 1/3 is usable.
 
 First behavior:

@@ -26,12 +26,15 @@ bun dev:inspect <instance-name>
 
 The inspect output must show the test environment before behavior is judged or reported as ready.
 
+Framework sync and host execution must be sequential. Do not run `lazy-sync` and the host validation command in the same parallel batch, because the validation can race the sync and execute stale or missing host files. First sync, wait for success, then run the host command.
+
 ## Do not
 
 - Do not launch an unnamed/default Medivance dev app for runtime dogfood.
 - Do not reuse an already-running original instance when UI/runtime validation matters.
 - Do not use local/prod DB when the user expects test DB.
 - Do not judge UI persistence/runtime behavior until stale instances have been stopped and the named `--test` instance is inspected.
+- Do not parallelize source-to-Medivance sync with the command that validates the synced framework feature.
 
 ## Implementation map
 
