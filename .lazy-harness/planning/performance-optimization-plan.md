@@ -292,6 +292,18 @@ Replacement status:
 
 - Phase 3 is still blocked. The next safe step is either more host dogfood with real payload samples or a shadow-vs-legacy batch fixture runner before any production hook replacement.
 
+Host dogfood after commit `dc4fbbf`:
+
+- Synced `/home/lazydino/dev/medivance`; host smoke doctor passed.
+  - `lazy lifecycle-check` BDD payload produced `firstOutputHelper=.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh`, `outputEmitted=true`.
+- Synced `/home/lazydino/dev/medivance-pwa`; host smoke doctor passed.
+  - `lazy lifecycle-check` BDD payload produced `firstOutputHelper=.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh`, `outputEmitted=true`.
+
+Dogfood conclusion:
+
+- Expanded Phase 2 parity fixtures hold in source, and BDD shadow output is reproducible in both installed hosts.
+- Phase 3 remains blocked until a batch shadow-vs-legacy fixture runner compares more payloads automatically.
+
 
 ## Implementation map
 
