@@ -2023,6 +2023,89 @@ def check_project_profile_inspect() -> None:
         if interview_apply.get("mode") != "project-profile.interview-apply" or interview_apply.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-interview.xml":
             fail("project-profile interview --confirm should write open-question transcript")
         ET.parse(root / ".lazy-harness" / "project" / "profile-interview.xml")
+        answers_path = root / "answers.json"
+        answers_path.write_text(json.dumps({"answers": [
+            {"target": "profile.purpose", "value": "Build a safe test host", "source": "user-confirmed"},
+            {"target": "stack.frontend", "value": "React"},
+            {"target": "step[layer=DDD]", "value": "Start from domain records"},
+            {"target": "missing.field", "value": "ignored"},
+        ]}), encoding="utf-8")
+        fill_blocked = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "fill",
+                "--answers",
+                str(answers_path),
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fill_blocked.returncode == 0 or "requires --dry-run" not in fill_blocked.stderr:
+            fail("project-profile fill without --dry-run/--confirm must be blocked")
+        fill_dry_run = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "fill",
+                "--answers",
+                str(answers_path),
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fill_dry_run.returncode != 0:
+            fail("project-profile fill --dry-run failed:\n" + fill_dry_run.stdout + fill_dry_run.stderr)
+        fill_preview = json.loads(fill_dry_run.stdout)
+        if fill_preview.get("mode") != "project-profile.fill-dry-run" or len(fill_preview.get("proposedWrites", [])) != 3 or len(fill_preview.get("unmatchedAnswers", [])) != 1:
+            fail("project-profile fill --dry-run should preview matching explicit answers only")
+        fill_apply = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "fill",
+                "--answers",
+                str(answers_path),
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fill_apply.returncode != 0:
+            fail("project-profile fill --confirm failed:\n" + fill_apply.stdout + fill_apply.stderr)
+        fill = json.loads(fill_apply.stdout)
+        if fill.get("mode") != "project-profile.fill" or len(fill.get("appliedWrites", [])) != 3 or len(fill.get("unmatchedAnswers", [])) != 1:
+            fail("project-profile fill --confirm should update matched fields and preserve unmatched answers")
+        profile_content = (root / ".lazy-harness" / "project" / "profile.xml").read_text(encoding="utf-8")
+        stack_content = (root / ".lazy-harness" / "project" / "stack.xml").read_text(encoding="utf-8")
+        nav_content = (root / ".lazy-harness" / "project" / "feature-navigation.xml").read_text(encoding="utf-8")
+        if 'status="confirmed"' not in profile_content or "Build a safe test host" not in profile_content or 'source="user-confirmed"' not in profile_content:
+            fail("project-profile fill should confirm profile purpose with source")
+        if 'status="confirmed"' not in stack_content or "React" not in stack_content:
+            fail("project-profile fill should confirm stack frontend")
+        if 'layer="DDD" status="confirmed"' not in nav_content or "Start from domain records" not in nav_content:
+            fail("project-profile fill should confirm layer-specific navigation step")
+        for name in ["profile.xml", "stack.xml", "filesystem.xml", "feature-navigation.xml"]:
+            ET.parse(root / ".lazy-harness" / "project" / name)
     print("✓ project-profile inspect/plan/apply ok")
 
 

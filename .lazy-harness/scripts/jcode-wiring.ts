@@ -61,13 +61,15 @@ This is an interview-first framework skill. Do not silently invent architecture 
 3. Apply only needs-interview skeletons after confirmation: bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm --format=md
 4. Generate the open interview queue: bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run --format=md
 5. After user confirmation, persist only the open-question transcript: bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm --format=md
-6. Inspect existing host records and code structure.
-7. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
-8. Ask 3-5 option gates for decisions that cannot be inferred.
-9. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
-10. Run lazy-harness validation.
+6. Collect explicit confirmed answers in an answers JSON file, preview fill: bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run --format=md
+7. Only after confirmation, apply matching answers: bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm --format=md
+8. Inspect existing host records and code structure.
+9. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
+10. Ask 3-5 option gates for decisions that cannot be inferred.
+11. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
+12. Run lazy-harness validation.
 
-Current interview CLI writes only .lazy-harness/project/profile-interview.xml. A later fill step may apply confirmed answers into profile records.`
+Current interview CLI writes only .lazy-harness/project/profile-interview.xml. Fill applies only explicit answer targets and reports unmatched answers without writing them.`
   },
   {
     name: 'lazy-doc-ingest',

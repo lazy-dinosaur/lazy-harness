@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-type Mode = 'inspect' | 'plan' | 'apply' | 'interview'
+type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'fill'
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
 
@@ -20,6 +20,7 @@ interface Args {
   root: string
   dryRun: boolean
   confirm: boolean
+  answers?: string
 }
 
 interface RequiredArtifact {
@@ -109,6 +110,35 @@ interface InterviewResult {
   nextActions: string[]
 }
 
+interface ProfileAnswer {
+  target: string
+  value: string
+  source?: string
+}
+
+interface FillProposedWrite {
+  path: string
+  action: 'update'
+  matchedTargets: string[]
+  content: string
+  summary: string
+}
+
+interface FillResult {
+  ok: true
+  mode: 'project-profile.fill' | 'project-profile.fill-dry-run'
+  schemaVersion: '1.0'
+  root: string
+  generatedAt: string
+  dryRun: boolean
+  answersPath: string
+  answers: ProfileAnswer[]
+  proposedWrites: FillProposedWrite[]
+  appliedWrites?: Array<{ path: string; action: 'written' | 'skipped'; summary: string }>
+  unmatchedAnswers: ProfileAnswer[]
+  warnings: string[]
+}
+
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
   { path: '.lazy-harness/project/stack.xml', label: 'Stack and platform choices', layer: 'project' as const },
@@ -128,12 +158,12 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
-    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview'].includes(next)) {
+    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'fill'].includes(next)) {
       args.mode = next as Mode
       i += 1
     } else if (arg.startsWith('--mode=')) {
       const value = arg.slice('--mode='.length)
-      if (!['inspect', 'plan', 'apply', 'interview'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
+      if (!['inspect', 'plan', 'apply', 'interview', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
       args.mode = value as Mode
     } else if (arg === '--format' && (next === 'json' || next === 'md' || next === 'markdown')) {
       args.format = next === 'markdown' ? 'md' : next
@@ -151,6 +181,11 @@ function parseArgs(argv: string[]): Args {
       args.dryRun = true
     } else if (arg === '--confirm' || arg === '--yes') {
       args.confirm = true
+    } else if (arg === '--answers' && next) {
+      args.answers = next
+      i += 1
+    } else if (arg.startsWith('--answers=')) {
+      args.answers = arg.slice('--answers='.length)
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -162,7 +197,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -498,6 +533,130 @@ function renderInterviewMd(result: InterviewResult): string {
   return lines.join('\n')
 }
 
+function parseAnswers(args: Args): ProfileAnswer[] {
+  if (!args.answers) throw new Error('fill mode requires --answers <answers.json>')
+  const raw = JSON.parse(readFileSync(args.answers, 'utf8')) as unknown
+  const entries: unknown = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { answers?: unknown }).answers)
+      ? (raw as { answers: unknown[] }).answers
+      : raw && typeof raw === 'object'
+        ? Object.entries(raw as Record<string, unknown>).map(([target, value]) => ({ target, value }))
+        : []
+  if (!Array.isArray(entries)) throw new Error('answers file must be an array, an {answers: []} object, or a target/value object')
+  return entries.map((entry, index): ProfileAnswer => {
+    if (!entry || typeof entry !== 'object') throw new Error(`answers[${index}] must be an object`)
+    const target = String((entry as { target?: unknown }).target ?? '').trim()
+    const value = String((entry as { value?: unknown }).value ?? '').trim()
+    const sourceValue = (entry as { source?: unknown }).source
+    const source = sourceValue === undefined ? undefined : String(sourceValue).trim()
+    if (!target) throw new Error(`answers[${index}] missing target`)
+    if (!value) throw new Error(`answers[${index}] missing value`)
+    return { target, value, ...(source ? { source } : {}) }
+  })
+}
+
+function confirmedAttrs(attrs: string, answer: ProfileAnswer, confirmedAt: string): string {
+  const sourceAttr = answer.source ? ` source="${xmlEscape(answer.source)}"` : ''
+  return attrs.replace(/status="needs-interview"/, `status="confirmed" confirmedAt="${xmlEscape(confirmedAt)}"${sourceAttr}`)
+}
+
+function fillArtifact(root: string, artifact: RequiredArtifact, answers: ProfileAnswer[], generatedAt: string): { write?: FillProposedWrite; matched: Set<string> } {
+  if (artifact.status !== 'present') return { matched: new Set() }
+  const abs = join(root, artifact.path)
+  const original = readFileSync(abs, 'utf8')
+  const answersByTarget = new Map(answers.map((answer) => [answer.target, answer]))
+  const matched = new Set<string>()
+  const updated = original.replace(/<([A-Za-z][\w:-]*)([^>]*\sstatus="needs-interview"[^>]*)\/\s*>/g, (full, elementName: string, attrs: string) => {
+    if (['projectProfile', 'projectStack', 'projectFilesystem', 'featureNavigation', 'testStrategy'].includes(elementName)) return full
+    const target = labelForTarget(artifact.path, elementName, attrs)
+    const answer = answersByTarget.get(target)
+    if (!answer) return full
+    matched.add(target)
+    return `<${elementName}${confirmedAttrs(attrs, answer, generatedAt)}>${xmlEscape(answer.value)}</${elementName}>`
+  })
+  if (updated === original) return { matched }
+  return {
+    matched,
+    write: {
+      path: artifact.path,
+      action: 'update',
+      matchedTargets: [...matched],
+      content: updated,
+      summary: `Confirm ${matched.size} Project Profile field(s) from explicit answers`,
+    },
+  }
+}
+
+function buildFillResult(args: Args): FillResult {
+  if (!args.dryRun && !args.confirm) throw new Error('fill mode requires --dry-run for preview or --confirm to write explicit confirmed answers')
+  const answers = parseAnswers(args)
+  const inspectResult = inspect(args)
+  const generatedAt = new Date().toISOString()
+  const proposedWrites: FillProposedWrite[] = []
+  const matchedTargets = new Set<string>()
+  for (const artifact of inspectResult.requiredArtifacts) {
+    const result = fillArtifact(args.root, artifact, answers, generatedAt)
+    for (const target of result.matched) matchedTargets.add(target)
+    if (result.write) proposedWrites.push(result.write)
+  }
+  const unmatchedAnswers = answers.filter((answer) => !matchedTargets.has(answer.target))
+  return {
+    ok: true,
+    mode: args.confirm && !args.dryRun ? 'project-profile.fill' : 'project-profile.fill-dry-run',
+    schemaVersion: '1.0',
+    root: args.root,
+    generatedAt,
+    dryRun: args.dryRun || !args.confirm,
+    answersPath: args.answers ?? '',
+    answers,
+    proposedWrites,
+    unmatchedAnswers,
+    warnings: [
+      'Fill mode only updates status="needs-interview" self-closing fields that match explicit answer targets.',
+      'Unmatched answers are not written; rerun interview to inspect current open targets.',
+    ],
+  }
+}
+
+function applyFill(result: FillResult): FillResult {
+  const appliedWrites: NonNullable<FillResult['appliedWrites']> = []
+  for (const write of result.proposedWrites) {
+    const abs = join(result.root, write.path)
+    writeFileSync(abs, write.content, 'utf8')
+    appliedWrites.push({ path: write.path, action: 'written', summary: write.summary })
+  }
+  return { ...result, appliedWrites }
+}
+
+function renderFillMd(result: FillResult): string {
+  const lines: string[] = []
+  lines.push(result.mode === 'project-profile.fill' ? '# Project Profile fill' : '# Project Profile fill dry-run')
+  lines.push('')
+  lines.push(`- Root: \`${result.root}\``)
+  lines.push(`- Dry run: ${result.dryRun ? 'yes' : 'no'}`)
+  lines.push(`- Answers: ${result.answers.length}`)
+  lines.push(`- Proposed writes: ${result.proposedWrites.length}`)
+  lines.push(`- Unmatched answers: ${result.unmatchedAnswers.length}`)
+  lines.push('')
+  lines.push('## Proposed writes')
+  for (const write of result.proposedWrites) lines.push(`- \`${write.path}\`: ${write.summary} (${write.matchedTargets.join(', ')})`)
+  if (result.appliedWrites?.length) {
+    lines.push('')
+    lines.push('## Applied writes')
+    for (const write of result.appliedWrites) lines.push(`- ${write.action}: \`${write.path}\` — ${write.summary}`)
+  }
+  if (result.unmatchedAnswers.length) {
+    lines.push('')
+    lines.push('## Unmatched answers')
+    for (const answer of result.unmatchedAnswers) lines.push(`- \`${answer.target}\``)
+  }
+  lines.push('')
+  lines.push('## Warnings')
+  for (const warning of result.warnings) lines.push(`- ${warning}`)
+  return lines.join('\n')
+}
+
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
@@ -512,6 +671,13 @@ function main(): void {
       const result = args.confirm && !args.dryRun ? applyInterviewQueue(interview) : interview
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderInterviewMd(result))
+      return
+    }
+    if (args.mode === 'fill') {
+      const fill = buildFillResult(args)
+      const result = args.confirm && !args.dryRun ? applyFill(fill) : fill
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else console.log(renderFillMd(result))
       return
     }
     const plan = buildPlanResult(args)

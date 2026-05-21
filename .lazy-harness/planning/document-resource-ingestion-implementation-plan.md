@@ -123,6 +123,14 @@ Status: inspect/plan/apply skeleton implemented in `.lazy-harness/scripts/projec
 - `project-profile.ts --mode interview --confirm --format=json` wrote `.lazy-harness/project/profile-interview.xml` with 22 questions, and the XML parsed successfully.
 - Safety invariant held: no profile values, stack choices, filesystem paths, navigation policies, or test commands were filled without confirmed answers.
 
+2026-05-21 Medivance dogfood for fill mode:
+
+- Synced framework to `/home/lazydino/dev/medivance` sequentially with `lazy-sync --force` after implementing `--mode fill`.
+- Host smoke doctor passed after sync.
+- Ran `project-profile.ts --mode fill --answers <tmp>/answers.json --dry-run --format=json` in Medivance; result was `project-profile.fill-dry-run`, `dryRun=true`, 2 proposed writes, and 1 unmatched answer. No fake Medivance profile answers were written.
+- Ran `project-profile.ts --mode fill --answers <tmp>/answers.json --confirm --root <tmp-copied-root>` against a temporary root copied from Medivance skeletons; result was `project-profile.fill`, 2 applied writes, 0 unmatched answers, and XML parsed successfully.
+- Safety invariant held: real host fill writes require an explicit answers file plus `--confirm`; unmatched answers are reported rather than applied.
+
 2026-05-20 Medivance dogfood after source commit `957dace`:
 
 - Synced to `/home/lazydino/dev/medivance`; `project-profile.ts` installed under `.lazy-harness/scripts/`.

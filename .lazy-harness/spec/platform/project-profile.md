@@ -87,7 +87,9 @@ If the Project Profile is missing or incomplete for the requested area, the fram
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode interview [--dry-run|--confirm] [--format md|json] [--root <path>]`.
+  - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json [--dry-run|--confirm] [--format md|json] [--root <path>]`.
   - `interview --confirm` writes only `.lazy-harness/project/profile-interview.xml`, an open-question transcript. It does not fill stack, filesystem, architecture, or validation decisions without confirmed answers.
+  - `fill --confirm` updates only `status="needs-interview"` self-closing fields that match explicit answer targets from the answers file. Unmatched answers are reported and not written.
 - Future host records: `.lazy-harness/project/*.xml`
   - Host-local durable profile outputs consumed before feature implementation.
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
