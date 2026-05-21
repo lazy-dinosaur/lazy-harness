@@ -192,6 +192,19 @@ Dogfood improvement candidates:
 - Verification: `document-intake.xml` present, total candidates file lines 83, document-ingestion candidate entries 76, duplicate keys 0.
 - `project-profile.ts --mode inspect` now reports document ingestion ledger `present`, candidates `present`, and `shouldOfferIngestion=false`; Project Profile can consume ingestion evidence next.
 
+2026-05-21 Project Profile skeleton apply dogfood after source commit `3034145`:
+
+- Synced to `/home/lazydino/dev/medivance`; host smoke doctor passed.
+- `project-profile.ts --mode apply --confirm --format=json` produced `project-profile.apply` with `dryRun=false`.
+- Applied writes:
+  - `.lazy-harness/project/profile.xml`
+  - `.lazy-harness/project/stack.xml`
+  - `.lazy-harness/project/filesystem.xml`
+  - `.lazy-harness/project/feature-navigation.xml`
+- All generated records are `status="needs-interview"`; no architecture, stack, filesystem, or navigation decisions were inferred automatically.
+- `project-profile.ts --mode inspect` now reports `present=5`, `missing=0`, `complete=true` in Medivance.
+- Next framework step: implement the real interview/decision-fill flow that converts `needs-interview` placeholders into confirmed Project Profile decisions, using document-ingestion evidence where appropriate.
+
 ## Recommended next action
 
 Start with **Slice 1 + Slice 3 wrapper**.
