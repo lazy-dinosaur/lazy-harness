@@ -76,6 +76,8 @@ Commands:
                                 Summarize response.completed hook timing measurements
   lifecycle-check [--format=json|md]
                                 Run shadow response.completed lifecycle helper orchestrator
+  lifecycle-parity [--format=json|md] [--fail-on-mismatch]
+                                Compare legacy response hook with lifecycle-check shadow fixtures
   version                       Print framework version + host path
   help                          Show this help
 
@@ -185,6 +187,9 @@ case "$cmd" in
     ;;
   lifecycle-check)
     exec python3 "$SCRIPTS/lifecycle-check.py" "$@"
+    ;;
+  lifecycle-parity)
+    exec python3 "$SCRIPTS/lifecycle-parity-runner.py" "$@"
     ;;
   version)
     echo "lazy-harness CLI"

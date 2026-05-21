@@ -87,6 +87,7 @@ CLI:
 
 ```bash
 .lazy-harness/bin/lazy lifecycle-check --format=json < payload.json
+.lazy-harness/bin/lazy lifecycle-parity --format=json --fail-on-mismatch
 python3 .lazy-harness/scripts/lifecycle-check.py --format=md --payload '{"recent_tool_calls":[]}'
 ```
 
@@ -99,6 +100,12 @@ Contract:
 - May execute existing helpers and therefore uses the same queue/validation environment variables as legacy hook tests.
 - Replacement is forbidden until self-test parity covers representative STOP/no-STOP cases.
 
+Batch parity runner:
+
+- `lazy lifecycle-parity` runs production `on-response-completed.sh` and shadow `lifecycle-check` in fresh temp host copies for each fixture.
+- It compares output presence, first STOP/reminder body, expected helper, and expected marker text.
+- `--fail-on-mismatch` exits `2` on any mismatch and is intended for self-test/CI.
+
 ## Implementation map
 
 - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
@@ -106,14 +113,17 @@ Contract:
   - Applies Phase 1 read-only fast-path only for known read-only payloads, with full-check fallback for unknowns.
 - `.lazy-harness/scripts/lifecycle-check.py`
   - Phase 2 shadow orchestrator. Parses payload once, mirrors helper order/fast-path selection, runs existing helpers, and reports first-output parity data.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py`
+  - Batch parity runner that compares production hook output with lifecycle-check shadow output across representative fixtures in fresh temp hosts.
 - `.lazy-harness/scripts/hook-timing-summary.py`
   - Read-only timing summary CLI.
 - `.lazy-harness/bin/lazy`
-  - Exposes `lazy hook-timings` and `lazy lifecycle-check`.
+  - Exposes `lazy hook-timings`, `lazy lifecycle-check`, and `lazy lifecycle-parity`.
 - `.lazy-harness/scripts/self-test.py`
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
   - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
+  - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the fixture suite.
 
 ## Discovery capture
 

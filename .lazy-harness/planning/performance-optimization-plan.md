@@ -304,6 +304,34 @@ Dogfood conclusion:
 - Expanded Phase 2 parity fixtures hold in source, and BDD shadow output is reproducible in both installed hosts.
 - Phase 3 remains blocked until a batch shadow-vs-legacy fixture runner compares more payloads automatically.
 
+## 2026-05-21 Phase 2 batch parity runner
+
+Implemented `.lazy-harness/scripts/lifecycle-parity-runner.py` and `.lazy-harness/bin/lazy lifecycle-parity`.
+
+Behavior:
+
+- Creates fresh temporary host copies per fixture.
+- Runs production `on-response-completed.sh` and shadow `lifecycle-check` independently.
+- Compares output presence, first STOP/reminder body, expected helper, and expected text.
+- Supports `--fail-on-mismatch` for self-test/CI.
+
+Initial fixture suite:
+
+- read-only no-output
+- BDD natural-language STOP
+- option-gate discipline STOP
+- record-before-session-history STOP
+- TDD cross-verify STOP
+- aftershock STOP
+
+Validation:
+
+- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 6/6 fixtures locally.
+
+Replacement status:
+
+- Phase 3 remains blocked until this runner is dogfooded on installed hosts and additional real payload samples are added.
+
 
 ## Implementation map
 

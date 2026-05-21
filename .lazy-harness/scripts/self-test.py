@@ -1445,7 +1445,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1874,6 +1874,24 @@ def check_lifecycle_hook_integration() -> None:
         else:
             bdd_state.unlink(missing_ok=True)
     print("✓ 5d-5 lifecycle hook integration ok")
+
+
+def check_lifecycle_parity_runner() -> None:
+    completed = subprocess.run(
+        [".lazy-harness/bin/lazy", "lifecycle-parity", "--format=json", "--fail-on-mismatch"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        sys.stdout.write(completed.stdout)
+        sys.stderr.write(completed.stderr)
+        fail("lifecycle parity runner failed")
+    result = json.loads(completed.stdout)
+    if result.get("mode") != "lifecycle-parity-runner" or result.get("fixtures") != 6 or result.get("failed") != 0:
+        fail("lifecycle parity runner summary changed: " + completed.stdout[:800])
+    print("✓ lifecycle parity runner ok")
 
 
 def check_knowledge_intake() -> None:
@@ -3160,6 +3178,7 @@ def main() -> None:
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
         (check_lifecycle_hook_integration, "FRAMEWORK_ONLY"),
+        (check_lifecycle_parity_runner, "FRAMEWORK_ONLY"),
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
