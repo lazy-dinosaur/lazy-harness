@@ -16,6 +16,7 @@ The canonical executable entrypoint for installed hosts is the per-host dispatch
 .lazy-harness/bin/lazy doctor --profile smoke
 .lazy-harness/bin/lazy record-audit --format md
 .lazy-harness/bin/lazy graph-hygiene --format md
+.lazy-harness/bin/lazy hook-timings --format md
 .lazy-harness/bin/lazy version
 ```
 
@@ -74,10 +75,11 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `.lazy-harness/bin/lazy version` — root diagnostic command.
   - `.lazy-harness/bin/lazy record-audit` — read-only host record dashboard dispatcher to `.lazy-harness/scripts/record-audit.ts`.
   - `.lazy-harness/bin/lazy graph-hygiene` — read-only knowledge graph lint dispatcher to `.lazy-harness/scripts/graph-hygiene.ts`.
+  - `.lazy-harness/bin/lazy hook-timings` — read-only response hook timing summary dispatcher to `.lazy-harness/scripts/hook-timing-summary.py`.
 - Flow:
   1. Agent needs to reproduce lazy-harness validation or inspect accumulated host records.
   2. Agent runs `.lazy-harness/bin/lazy version` if root is uncertain.
-  3. Agent runs `.lazy-harness/bin/lazy test`, `doctor`, `record-audit`, or `graph-hygiene` depending on whether it needs validation, health diagnosis, record-quality summary, or graph lint details.
+  3. Agent runs `.lazy-harness/bin/lazy test`, `doctor`, `record-audit`, `graph-hygiene`, or `hook-timings` depending on whether it needs validation, health diagnosis, record-quality summary, graph lint details, or performance measurement summary.
   4. Hook blocks stale package-script diagnosis before it becomes final guidance.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

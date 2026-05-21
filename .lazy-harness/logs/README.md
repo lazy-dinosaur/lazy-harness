@@ -14,6 +14,22 @@ JSONL logs: actions, decisions, questions, validations, route telemetry. Append-
 
 Telemetry stores stable message/message-id hashes and route axes, not raw user messages. It never closes gates and never satisfies canonical record obligations. Duplicate lifecycle calls for the same `message_id` are deduped by `messageIdHash`.
 
+## Hook timing telemetry
+
+`response.completed` also appends measurement-only timing rows to:
+
+```text
+.lazy-harness/logs/hook-timings.jsonl
+```
+
+Timing rows contain component names, durations, exit codes, and emitted flags only. They do not store raw user messages or payload bodies. Use:
+
+```bash
+.lazy-harness/bin/lazy hook-timings --format=md
+```
+
+This is Phase 0 measurement data for performance optimization. It must not be used to skip gates until later conservative fast-path parity tests exist.
+
 ## Trigger to fill
 
 Auto by hooks.

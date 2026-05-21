@@ -72,6 +72,8 @@ Commands:
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
                                 Lint knowledge graph IDs and path hygiene
+  hook-timings [--format=json|md] [--limit=N]
+                                Summarize response.completed hook timing measurements
   version                       Print framework version + host path
   help                          Show this help
 
@@ -175,6 +177,9 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/graph-hygiene.ts" "$@"
+    ;;
+  hook-timings)
+    exec python3 "$SCRIPTS/hook-timing-summary.py" "$@"
     ;;
   version)
     echo "lazy-harness CLI"

@@ -13,3 +13,4 @@ __pycache__/
 *.swp
 *~
 .lazy-harness/logs/route-*.jsonl
+.lazy-harness/logs/hook-timings.jsonl

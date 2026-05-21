@@ -162,6 +162,25 @@ Implement Phase 0 only:
 - Dogfood on Medivance and Medivance PWA.
 - Do not change skip/orchestration behavior in this first slice.
 
+## 2026-05-21 Phase 0 implementation
+
+Implemented measurement-only instrumentation:
+
+- `.lazy-harness/hooks/lifecycle/on-response-completed.sh` now appends timing rows for `route-telemetry`, every lifecycle helper, and `hook-total`.
+- `.lazy-harness/scripts/hook-timing-summary.py` summarizes timing rows by component.
+- `.lazy-harness/bin/lazy hook-timings` exposes the summary.
+- `.lazy-harness/spec/platform/hook-performance-measurement.md` defines the measurement-only contract and safety constraints.
+
+Safety notes:
+
+- Helper order is unchanged.
+- Gate output behavior is unchanged.
+- Timing errors are best-effort and swallowed.
+- Timing data contains component names, durations, exit codes, and emitted flags only; it does not store raw user messages or payload bodies.
+- `LAZY_HOOK_TIMING=0` disables timing logs, and `LAZY_HOOK_TIMING_LOG` can redirect logs for tests/dogfood.
+
+Next slice remains Phase 1, but only after timing data is reviewed.
+
 ## Implementation map
 
 Potential files to inspect next:

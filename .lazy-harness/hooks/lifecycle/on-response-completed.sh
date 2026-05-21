@@ -15,10 +15,49 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 PAYLOAD=$(cat || echo '{}')
 
+TIMING_ENABLED="${LAZY_HOOK_TIMING:-1}"
+TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-.lazy-harness/logs/hook-timings.jsonl}"
+
+now_ns() {
+  date +%s%N 2>/dev/null || printf '0'
+}
+
+elapsed_ms() {
+  START_NS="$1"
+  END_NS="$2"
+  if [ "$START_NS" -gt 0 ] 2>/dev/null && [ "$END_NS" -ge "$START_NS" ] 2>/dev/null; then
+    printf '%s' $(( (END_NS - START_NS) / 1000000 ))
+  else
+    printf '0'
+  fi
+}
+
+log_timing() {
+  [ "$TIMING_ENABLED" = "0" ] && return 0
+  COMPONENT="$1"
+  START_NS="$2"
+  END_NS="$3"
+  EXIT_CODE="$4"
+  OUTPUT_EMITTED="$5"
+  DURATION_MS=$(elapsed_ms "$START_NS" "$END_NS")
+  mkdir -p "$(dirname "$TIMING_LOG")" 2>/dev/null || true
+  printf '{"ts":"%s","event":"response.completed","component":"%s","durationMs":%s,"exitCode":%s,"outputEmitted":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf '')" \
+    "$COMPONENT" \
+    "$DURATION_MS" \
+    "$EXIT_CODE" \
+    "$OUTPUT_EMITTED" >> "$TIMING_LOG" 2>/dev/null || true
+}
+
+HOOK_START_NS=$(now_ns)
+
 # ADR 0037 telemetry: collect one append-only route sample per response turn
 # when Jcode provides last_user_message. This is silent and best-effort; it does
 # not replace any gate or validation helper below.
 if command -v bun >/dev/null 2>&1 && [ -f .lazy-harness/scripts/task-router.ts ]; then
+  ROUTE_START_NS=$(now_ns)
+  ROUTE_EXIT=0
+  ROUTE_OUTPUT=false
   ROUTE_INPUT=$(printf '%s' "$PAYLOAD" | python3 -c '
 import json, sys
 try:
@@ -38,14 +77,14 @@ if last:
   if [ -n "$ROUTE_INPUT" ]; then
  	ROUTE_MESSAGE=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message", ""))' 2>/dev/null || true)
 	ROUTE_MESSAGE_ID=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message_id", ""))' 2>/dev/null || true)
-	if [ -n "$ROUTE_MESSAGE" ]; then
-	  ROUTE_CHANGED_FILES=$( (git diff --name-only; git diff --cached --name-only) 2>/dev/null | awk 'NF' | sort -u | head -200 | paste -sd, - )
-	  if [ -n "$ROUTE_CHANGED_FILES" ]; then
-	    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" --changed-files "$ROUTE_CHANGED_FILES" >/dev/null 2>&1 || true
-	  else
-	    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || true
-	  fi
-	fi
+		if [ -n "$ROUTE_MESSAGE" ]; then
+		  ROUTE_CHANGED_FILES=$( (git diff --name-only; git diff --cached --name-only) 2>/dev/null | awk 'NF' | sort -u | head -200 | paste -sd, - )
+		  if [ -n "$ROUTE_CHANGED_FILES" ]; then
+		    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" --changed-files "$ROUTE_CHANGED_FILES" >/dev/null 2>&1 || ROUTE_EXIT=$?
+		  else
+		    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || ROUTE_EXIT=$?
+		  fi
+		fi
   else
     # Non-canonical diagnostics only. Do not store raw payload values or messages.
     printf '%s' "$PAYLOAD" | LAZY_HOST_ROOT="$ROOT_CANDIDATE" python3 -c '
@@ -71,8 +110,10 @@ path = os.path.join(root, ".lazy-harness", "logs", "route-telemetry-debug.jsonl"
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "a", encoding="utf-8") as fh:
     fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
-' >/dev/null 2>&1 || true
-  fi
+	' >/dev/null 2>&1 || true
+	  fi
+  ROUTE_END_NS=$(now_ns)
+  log_timing "route-telemetry" "$ROUTE_START_NS" "$ROUTE_END_NS" "$ROUTE_EXIT" "$ROUTE_OUTPUT"
 fi
 
 for helper in \
@@ -94,8 +135,15 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-handoff-stale.sh
  do
   [ -x "$helper" ] || continue
-  OUT=$("$helper" "$PAYLOAD" 2>/dev/null || true)
-  [ -z "$OUT" ] && continue
+  HELPER_START_NS=$(now_ns)
+  OUT=$("$helper" "$PAYLOAD" 2>/dev/null)
+  HELPER_EXIT=$?
+  HELPER_END_NS=$(now_ns)
+  if [ -z "$OUT" ]; then
+    log_timing "$helper" "$HELPER_START_NS" "$HELPER_END_NS" "$HELPER_EXIT" false
+    continue
+  fi
+  log_timing "$helper" "$HELPER_START_NS" "$HELPER_END_NS" "$HELPER_EXIT" true
   HOOK_BODY="$OUT" python3 <<'PY'
 import json
 import os
@@ -107,7 +155,12 @@ print(json.dumps({
     }
 }, ensure_ascii=False))
 PY
+  HOOK_END_NS=$(now_ns)
+  log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 true
   exit 0
 done
+
+HOOK_END_NS=$(now_ns)
+log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 false
 
 exit 0

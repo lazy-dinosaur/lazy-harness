@@ -1406,7 +1406,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1435,6 +1435,9 @@ def check_response_completed_auto_route_telemetry() -> None:
         telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
         if telemetry.exists():
             telemetry.unlink()
+        timings = temp / ".lazy-harness" / "logs" / "hook-timings.jsonl"
+        if timings.exists():
+            timings.unlink()
         payload = {
             "last_user_message": "fix a button click behavior bug",
             "message_id": "auto-route-msg-1",
@@ -1454,7 +1457,7 @@ def check_response_completed_auto_route_telemetry() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(timings)},
             )
             if completed.returncode != 0:
                 fail("response.completed hook should stay best-effort for auto route telemetry:\n" + completed.stdout + completed.stderr)
@@ -1465,7 +1468,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             text=True,
             capture_output=True,
             check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(timings)},
         )
         if large_completed.returncode != 0:
             fail("response.completed hook should tolerate live-sized payloads for auto route telemetry:\n" + large_completed.stdout + large_completed.stderr)
@@ -1481,6 +1484,29 @@ def check_response_completed_auto_route_telemetry() -> None:
             fail("auto route telemetry must not store raw user message: " + json.dumps(entry, ensure_ascii=False))
         if not entry.get("messageIdHash"):
             fail("auto route telemetry should include messageIdHash for dedupe: " + json.dumps(entry, ensure_ascii=False))
+        if not timings.exists():
+            fail("response.completed hook should create timing telemetry in measure-only mode")
+        timing_entries = [json.loads(line) for line in timings.read_text(encoding="utf-8").splitlines() if line.strip()]
+        components = {entry.get("component") for entry in timing_entries}
+        if "route-telemetry" not in components or "hook-total" not in components:
+            fail("hook timings should include route-telemetry and hook-total components: " + json.dumps(sorted(components), ensure_ascii=False))
+        if not any(str(component).endswith("check-layer-impact.sh") for component in components):
+            fail("hook timings should include lifecycle helper components")
+        if any("durationMs" not in entry or "outputEmitted" not in entry or "exitCode" not in entry for entry in timing_entries):
+            fail("hook timing entries missing required fields")
+        summary_completed = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "hook-timings", "--format=json", "--limit=100"],
+            cwd=temp,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if summary_completed.returncode != 0:
+            fail("lazy hook-timings summary failed:\n" + summary_completed.stdout + summary_completed.stderr)
+        summary = json.loads(summary_completed.stdout)
+        if summary.get("mode") != "hook-timing-summary" or summary.get("rows", 0) < len(timing_entries):
+            fail("hook timing summary should report timing rows: " + summary_completed.stdout[:500])
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response.completed auto route telemetry ok")
