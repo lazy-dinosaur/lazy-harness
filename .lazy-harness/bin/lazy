@@ -70,6 +70,8 @@ Commands:
                                 Reclassify recent commits with route evidence
   record-audit [--format=json|md] [--source=DIR]
                                 Summarize accumulated host records and quality signals
+  graph-hygiene [--format=json|md] [--fail-on-issues]
+                                Lint knowledge graph IDs and path hygiene
   version                       Print framework version + host path
   help                          Show this help
 
@@ -166,6 +168,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/record-audit.ts" "$@"
+    ;;
+  graph-hygiene)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy graph-hygiene: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/graph-hygiene.ts" "$@"
     ;;
   version)
     echo "lazy-harness CLI"

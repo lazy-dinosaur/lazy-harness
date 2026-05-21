@@ -2283,6 +2283,90 @@ def check_record_audit_cli() -> None:
     print("✓ record-audit cli ok")
 
 
+def check_graph_hygiene_cli() -> None:
+    """Graph hygiene must report graph JSONL path/id issues without mutating the graph."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        (root / ".lazy-harness" / "domain").mkdir(parents=True)
+        (root / ".lazy-harness" / "knowledge").mkdir(parents=True)
+        (root / ".lazy-harness" / "domain" / "existing.md").write_text("ok\n", encoding="utf-8")
+        graph = root / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        graph.write_text(
+            '{"id":"a","path":".lazy-harness/domain/existing.md"}\n'
+            '{"id":"a","path":".lazy-harness/domain/missing.md"}\n'
+            '{"path":".lazy-harness/domain/no-id.md"}\n'
+            '{"id":"comma","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n'
+            '{"id":"evidence","evidence":[{"path":".lazy-harness/domain/evidence-missing.md"}],"links":[{"target":".lazy-harness/domain/link-missing.md"}]}\n'
+            'not-json\n',
+            encoding="utf-8",
+        )
+        before = graph.read_text(encoding="utf-8")
+        completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "graph-hygiene.ts"),
+                "--root",
+                str(root),
+                "--format=json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("graph-hygiene failed:\n" + completed.stdout + completed.stderr)
+        result = json.loads(completed.stdout)
+        summary = result.get("summary", {})
+        if result.get("mode") != "graph-hygiene.inspect" or result.get("ok") is not False:
+            fail("graph-hygiene mode/ok changed")
+        expected = {
+            "rows": 6,
+            "invalidRows": 1,
+            "duplicateIds": 1,
+            "missingIds": 1,
+            "missingPaths": 5,
+            "commaJoinedPaths": 1,
+        }
+        for key, value in expected.items():
+            if summary.get(key) != value:
+                fail(f"graph-hygiene summary {key} expected {value}, got {summary.get(key)}: " + completed.stdout[:500])
+        codes = {issue.get("code") for issue in result.get("issues", [])}
+        for code in ["invalid-json", "duplicate-id", "missing-id", "comma-joined-path", "missing-path"]:
+            if code not in codes:
+                fail("graph-hygiene missing issue code: " + code)
+        if graph.read_text(encoding="utf-8") != before:
+            fail("graph-hygiene must be read-only")
+        fail_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "graph-hygiene.ts"),
+                "--root",
+                str(root),
+                "--format=json",
+                "--fail-on-issues",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fail_completed.returncode != 2:
+            fail("graph-hygiene --fail-on-issues should exit 2 when issues exist")
+        cli_completed = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph-hygiene", "--root", str(root), "--format=json"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if cli_completed.returncode != 0:
+            fail("lazy graph-hygiene dispatcher failed:\n" + cli_completed.stdout + cli_completed.stderr)
+        if json.loads(cli_completed.stdout).get("summary", {}).get("rows") != 6:
+            fail("lazy graph-hygiene dispatcher should pass args through")
+    print("✓ graph-hygiene cli ok")
+
+
 def check_real_feature_walkthrough() -> None:
     queue = LAZY / "questions" / f"__tmp_5d6_walkthrough_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_5d6_walkthrough_{os.getpid()}.jsonl"
@@ -2874,6 +2958,7 @@ def main() -> None:
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
+        (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),
