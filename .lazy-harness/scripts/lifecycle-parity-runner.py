@@ -53,6 +53,36 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectContains": "Record-before-session-history",
         },
         {
+            "name": "analysis-discovery-capture-stop",
+            "payload": {
+                "assistant_response": "Analysis plan:\n1. DDD domain finding\n2. SDD contract finding\n3. BDD user flow finding\nBacklog: capture this later.",
+                "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}],
+            },
+            "expectOutput": True,
+            "expectHelperSuffix": "check-analysis-discovery-capture.sh",
+            "expectContains": "Analysis discovery capture gate",
+        },
+        {
+            "name": "project-rule-placement-stop",
+            "payload": {
+                "assistant_response": "프로젝트 규칙을 .jcode/harness/20-project-rules.md에 추가하겠습니다.",
+                "recent_tool_calls": [{"name": "Write", "args_preview": ".jcode/harness/20-project-rules.md"}],
+            },
+            "expectOutput": True,
+            "expectHelperSuffix": "check-project-rule-placement.sh",
+            "expectContains": "Project rule placement gate",
+        },
+        {
+            "name": "lazy-cli-entrypoint-stop",
+            "payload": {
+                "assistant_response": "검증은 bun run lazy:test 명령으로 실행하겠습니다.",
+                "recent_tool_calls": [],
+            },
+            "expectOutput": True,
+            "expectHelperSuffix": "check-lazy-cli-entrypoint.sh",
+            "expectContains": "Lazy CLI entrypoint gate",
+        },
+        {
             "name": "tdd-cross-verify-stop",
             "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"}]},
             "expectOutput": True,
@@ -67,6 +97,11 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectContains": "5d-4 Aftershock Re-analysis",
             "decisionsFixture": str(aftershock_decisions),
             "decisionsFallback": AFTERSHOCK_DECISIONS_FALLBACK,
+        },
+        {
+            "name": "unknown-full-fallback-no-output",
+            "payload": {"message_id": "parity-unknown-no-output", "recent_tool_calls": [{"name": "bash", "args_preview": "pwd"}]},
+            "expectOutput": False,
         },
     ]
 

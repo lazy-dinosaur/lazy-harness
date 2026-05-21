@@ -315,23 +315,49 @@ Behavior:
 - Compares output presence, first STOP/reminder body, expected helper, and expected text.
 - Supports `--fail-on-mismatch` for self-test/CI.
 
-Initial fixture suite:
+Current fixture suite:
 
 - read-only no-output
 - BDD natural-language STOP
 - option-gate discipline STOP
 - record-before-session-history STOP
+- analysis-discovery-capture STOP
+- project-rule-placement STOP
+- lazy-cli-entrypoint STOP
 - TDD cross-verify STOP
 - aftershock STOP
+- unknown full-fallback no-output
 
 Validation:
 
-- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 6/6 fixtures locally.
+- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 10/10 fixtures locally.
 - Host dogfood found that installed hosts do not include source-only `.lazy-harness/triggers/fixtures/aftershock/decisions.jsonl`, so the runner now embeds a fallback aftershock decision fixture.
 
 Replacement status:
 
 - Phase 3 remains blocked until this runner is dogfooded on installed hosts and additional real payload samples are added.
+
+## 2026-05-21 user-confirmed sequencing correction
+
+User confirmed that Phase 2 reinforcement comes before any Phase 3 readiness/replacement work.
+
+## Rule placement
+
+- Rule: lifecycle performance work must reinforce Phase 2 shadow parity before any Phase 3 replacement/readiness work.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/performance-optimization-plan.md`
+- Why not AGENTS.md: this is task-specific sequencing for the current performance optimization roadmap, not a permanent framework behavior rule.
+- Why not `.jcode`: this is shared lazy-harness implementation planning, not local/private Jcode workflow.
+- Confirmation: user-confirmed
+
+Required order from here:
+
+1. Keep production `on-response-completed.sh` on the legacy helper loop.
+2. Expand Phase 2 with more real/sample payload fixtures in `lifecycle-parity`.
+3. Dogfood expanded parity on Medivance and Medivance PWA.
+4. Only after Phase 2 parity is broad enough, discuss Phase 3 opt-in/replacement readiness.
+
+Phase 3 work is therefore explicitly not the next slice.
 
 
 ## Implementation map
