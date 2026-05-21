@@ -69,3 +69,33 @@ Dogfood conclusion:
 
 - The new CLI replaces the previous manual shell audit with a single reproducible dashboard.
 - It also confirms the next two improvement slices: Project Profile answer fill UX and graph hygiene/lint.
+
+## 2026-05-21 follow-up implementation results
+
+Project Profile completeness split:
+
+- Implemented `summary.artifactsComplete`, `summary.answersComplete`, `summary.needsInterviewFields`, and `summary.confirmedFields` in `project-profile inspect`.
+- Legacy `summary.complete` now follows answer completeness, so `present=5` no longer implies the profile is complete when `status="needs-interview"` fields remain.
+- Source self-test and smoke doctor passed before commit `fabc35a`.
+
+Graph hygiene lint:
+
+- Implemented `.lazy-harness/scripts/graph-hygiene.ts` and `.lazy-harness/bin/lazy graph-hygiene`.
+- Added `--fail-on-issues` for optional non-zero lint enforcement while keeping default mode report-only.
+- Fixed one source graph comma-joined path by converting it to a path array.
+- Source `lazy graph-hygiene --format=json` reported `issues=0` before commit `5c8fca2`.
+- Source self-test and smoke doctor passed.
+
+Host sync after push:
+
+- Pushed source through `5c8fca2` to origin `main`.
+- Synced `/home/lazydino/dev/medivance` to `5c8fca2`; host smoke doctor passed.
+  - `record-audit`: `hostOwnedOrChanged=120`, `answersComplete=false`, `needsInterviewFields=26`, `graphMissingPaths=22`, `commaJoinedPaths=0`.
+  - `graph-hygiene`: `rows=141`, `invalidRows=0`, `duplicateIds=0`, `commaJoinedPaths=0`, `missingPaths=32`.
+- Synced `/home/lazydino/dev/medivance-pwa` to `5c8fca2`; host smoke doctor passed.
+  - `record-audit`: `hostOwnedOrChanged=28`, `answersComplete=false`, `needsInterviewFields=0`, `graphMissingPaths=22`, `commaJoinedPaths=0`.
+  - `graph-hygiene`: `rows=141`, `invalidRows=0`, `duplicateIds=0`, `commaJoinedPaths=0`, `missingPaths=31`.
+
+Next dogfood insight:
+
+- Graph syntax/id/path-shape hygiene is now clean in source, but host copies still report missing paths because framework graph records reference source-only files not installed into hosts. The next graph improvement should distinguish framework-source paths from host-owned paths or add an ownership/scope field before treating host missing paths as actionable errors.
