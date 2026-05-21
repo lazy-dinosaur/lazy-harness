@@ -57,12 +57,12 @@ This is an interview-first framework skill. Do not silently invent architecture 
 ## Flow
 
 1. Run inspect first: bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md
-2. Inspect existing host records and code structure.
-3. Check whether Document Resource Ingestion outputs exist and should be used.
-4. If outside docs need assimilation, offer to run the separate ingestion flow first.
-5. Identify missing profile sections.
+2. If skeletons are missing, preview them: bun .lazy-harness/scripts/project-profile.ts --mode plan --format=md
+3. Apply only needs-interview skeletons after confirmation: bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm --format=md
+4. Inspect existing host records and code structure.
+5. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
 6. Ask 3-5 option gates for decisions that cannot be inferred.
-7. Write/update Project Profile records only after confirmation.
+7. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
 8. Run lazy-harness validation.
 
 Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`

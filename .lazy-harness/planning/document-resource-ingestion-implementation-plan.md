@@ -112,7 +112,7 @@ Skill behavior:
 
 ## Slice 4 — Project Profile inspect/interview skeleton
 
-Status: inspect skeleton implemented in `.lazy-harness/scripts/project-profile.ts` on 2026-05-20. Interview/apply remains future work.
+Status: inspect/plan/apply skeleton implemented in `.lazy-harness/scripts/project-profile.ts`. Apply creates only `status="needs-interview"` records; actual architecture decisions still require interview or confirmed evidence.
 
 2026-05-20 Medivance dogfood after source commit `957dace`:
 

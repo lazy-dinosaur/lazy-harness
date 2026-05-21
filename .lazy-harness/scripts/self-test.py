@@ -1161,6 +1161,8 @@ def check_jcode_project_profile_skill_wrapper() -> None:
     required = [
         "lazy-project-profile",
         "project-profile.ts --mode inspect",
+        "project-profile.ts --mode plan",
+        "project-profile.ts --mode apply --confirm",
         "interview-first architecture flow",
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/plans/project-init-interview-spec.md",
@@ -1859,7 +1861,6 @@ def check_project_profile_inspect() -> None:
         (root / ".lazy-harness" / "project").mkdir(parents=True)
         (root / ".lazy-harness" / "tests").mkdir(parents=True)
         (root / ".lazy-harness" / "knowledge").mkdir(parents=True)
-        (root / ".lazy-harness" / "project" / "profile.xml").write_text("<profile />\n", encoding="utf-8")
         (root / ".lazy-harness" / "project" / "document-intake.xml").write_text("<documentIntake />\n", encoding="utf-8")
         (root / ".lazy-harness" / "knowledge" / "candidates.jsonl").write_text("{}\n", encoding="utf-8")
         completed = subprocess.run(
@@ -1882,14 +1883,96 @@ def check_project_profile_inspect() -> None:
         result = json.loads(completed.stdout)
         if result.get("mode") != "project-profile.inspect":
             fail("project-profile inspect mode changed: " + completed.stdout[:500])
-        if result.get("summary", {}).get("present") != 1 or result.get("summary", {}).get("missing") != 4:
+        if result.get("summary", {}).get("present") != 0 or result.get("summary", {}).get("missing") != 5:
             fail("project-profile inspect should count required artifacts")
         ingestion = result.get("documentIngestion") or {}
         if ingestion.get("ledgerStatus") != "present" or ingestion.get("candidatesStatus") != "present" or ingestion.get("shouldOfferIngestion") is not False:
             fail("project-profile inspect should detect document ingestion handoff outputs: " + json.dumps(ingestion, ensure_ascii=False))
-        if not any("Start interview" in option for option in result.get("optionGate", {}).get("options", [])):
+        if not any("needs-interview skeleton" in option for option in result.get("optionGate", {}).get("options", [])):
             fail("project-profile inspect should return an option gate")
-    print("✓ project-profile inspect ok")
+        plan_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "plan",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if plan_completed.returncode != 0:
+            fail("project-profile plan failed:\n" + plan_completed.stdout + plan_completed.stderr)
+        plan = json.loads(plan_completed.stdout)
+        if plan.get("mode") != "project-profile.plan" or len(plan.get("proposedWrites", [])) != 4:
+            fail("project-profile plan should propose four missing project skeletons")
+        if any('status="needs-interview"' not in write.get("content", "") for write in plan.get("proposedWrites", [])):
+            fail("project-profile plan must only propose needs-interview skeletons")
+        blocked_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "apply",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if blocked_completed.returncode == 0 or "requires --dry-run" not in blocked_completed.stderr:
+            fail("project-profile apply without --dry-run/--confirm must be blocked")
+        apply_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "apply",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if apply_completed.returncode != 0:
+            fail("project-profile apply --confirm failed:\n" + apply_completed.stdout + apply_completed.stderr)
+        applied = json.loads(apply_completed.stdout)
+        if applied.get("mode") != "project-profile.apply" or len(applied.get("appliedWrites", [])) != 4:
+            fail("project-profile apply --confirm should write four skeletons")
+        for name in ["profile.xml", "stack.xml", "filesystem.xml", "feature-navigation.xml"]:
+            content = (root / ".lazy-harness" / "project" / name).read_text(encoding="utf-8")
+            if 'status="needs-interview"' not in content:
+                fail("project-profile skeleton must preserve needs-interview status: " + name)
+        after_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "inspect",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        after = json.loads(after_completed.stdout)
+        if after.get("summary", {}).get("complete") is not False or after.get("summary", {}).get("present") != 4:
+            fail("project-profile inspect after skeleton apply should see four project records and missing test strategy")
+    print("✓ project-profile inspect/plan/apply ok")
 
 
 def check_real_feature_walkthrough() -> None:

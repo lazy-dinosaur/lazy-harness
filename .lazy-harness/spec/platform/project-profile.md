@@ -82,8 +82,10 @@ If the Project Profile is missing or incomplete for the requested area, the fram
 - `.lazy-harness/scripts/jcode-wiring.ts`
   - Installs the `/lazy-project-profile` wrapper into host `.jcode/skills/` alongside other lazy-harness framework skills.
 - `.lazy-harness/scripts/project-profile.ts`
-  - Inspect-mode entrypoint that reports missing Project Profile artifacts and whether Document Resource Ingestion outputs exist.
+  - Entry point that reports missing Project Profile artifacts, plans missing skeletons, and applies only `status="needs-interview"` skeleton records after confirmation.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]`.
+  - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]`.
+  - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]`.
 - Future host records: `.lazy-harness/project/*.xml`
   - Host-local durable profile outputs consumed before feature implementation.
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`

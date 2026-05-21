@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
- * Project Profile — inspect skeleton (SDD: spec/platform/project-profile.md)
+ * Project Profile (SDD: spec/platform/project-profile.md)
  *
- * Current slice is read-only. It reports whether host Project Profile records
- * exist and whether Document Resource Ingestion outputs are available to use as
- * evidence before an interview/apply flow.
+ * Safe-by-default profile bootstrap. Inspect and plan are read-only. Apply with
+ * --confirm creates only needs-interview skeleton records, never silent
+ * architecture decisions.
  */
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-type Mode = 'inspect'
+type Mode = 'inspect' | 'plan' | 'apply'
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
 
@@ -17,6 +17,8 @@ interface Args {
   mode: Mode
   format: Format
   root: string
+  dryRun: boolean
+  confirm: boolean
 }
 
 interface RequiredArtifact {
@@ -56,6 +58,32 @@ interface ProjectProfileInspectResult {
   nextActions: string[]
 }
 
+interface ProposedWrite {
+  path: string
+  action: 'create' | 'skip-existing'
+  kind: 'project-profile-skeleton'
+  content: string
+  summary: string
+}
+
+interface PlanResult {
+  ok: true
+  mode: 'project-profile.plan' | 'project-profile.apply-dry-run' | 'project-profile.apply'
+  schemaVersion: '1.0'
+  root: string
+  generatedAt: string
+  dryRun: boolean
+  inspect: ProjectProfileInspectResult
+  proposedWrites: ProposedWrite[]
+  appliedWrites?: Array<{ path: string; action: 'written' | 'skipped'; summary: string }>
+  warnings: string[]
+  optionGate: {
+    prompt: string
+    options: string[]
+    recommended: string
+  }
+}
+
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
   { path: '.lazy-harness/project/stack.xml', label: 'Stack and platform choices', layer: 'project' as const },
@@ -69,17 +97,19 @@ function parseArgs(argv: string[]): Args {
     mode: 'inspect',
     format: 'md',
     root: process.env.LAZY_HOST_ROOT || process.cwd(),
+    dryRun: false,
+    confirm: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
-    if (arg === '--mode' && next === 'inspect') {
-      args.mode = 'inspect'
+    if (arg === '--mode' && next && ['inspect', 'plan', 'apply'].includes(next)) {
+      args.mode = next as Mode
       i += 1
     } else if (arg.startsWith('--mode=')) {
       const value = arg.slice('--mode='.length)
-      if (value !== 'inspect') throw new Error(`Unsupported --mode: ${value}`)
-      args.mode = 'inspect'
+      if (!['inspect', 'plan', 'apply'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
+      args.mode = value as Mode
     } else if (arg === '--format' && (next === 'json' || next === 'md' || next === 'markdown')) {
       args.format = next === 'markdown' ? 'md' : next
       i += 1
@@ -92,6 +122,10 @@ function parseArgs(argv: string[]): Args {
       i += 1
     } else if (arg.startsWith('--root=')) {
       args.root = arg.slice('--root='.length)
+    } else if (arg === '--dry-run') {
+      args.dryRun = true
+    } else if (arg === '--confirm' || arg === '--yes') {
+      args.confirm = true
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -103,7 +137,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n\nInspect mode is read-only. It checks required Project Profile artifacts and document-ingestion handoff state.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -158,20 +192,101 @@ function inspect(args: Args): ProjectProfileInspectResult {
           'D. Custom instruction',
         ]
         : [
-          'A. Run /lazy-doc-ingest first if docs may contain durable facts (Recommended)',
-          'B. Start interview-only Project Profile setup',
-          'C. Create only missing skeleton records',
+          'A. Create missing needs-interview skeleton records (Recommended)',
+          'B. Run /lazy-doc-ingest first if docs may contain durable facts',
+          'C. Start interview-only Project Profile setup',
           'D. Custom instruction',
         ],
       recommended: 'A',
     },
     nextActions: complete
       ? ['Review profile artifacts before feature work.', 'Use map-first navigation from profile to records/code/tests.']
-      : ['Do not silently invent profile defaults.', 'Run document ingestion or interview option gate before creating profile records.'],
+      : ['Do not silently invent profile defaults.', 'Create missing skeletons or ask interview option gates before making architecture decisions.'],
   }
 }
 
-function renderMd(result: ProjectProfileInspectResult): string {
+function xmlEscape(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function skeletonContent(path: string, generatedAt: string, inspectResult: ProjectProfileInspectResult): string {
+  const ingestionAttrs = `documentIntake="${inspectResult.documentIngestion.ledgerStatus}" candidates="${inspectResult.documentIngestion.candidatesStatus}"`
+  if (path.endsWith('/profile.xml')) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<projectProfile version="1" status="needs-interview" generatedAt="${xmlEscape(generatedAt)}" ${ingestionAttrs}>\n  <purpose status="needs-interview" />\n  <users status="needs-interview" />\n  <qualityPriorities status="needs-interview" />\n  <constraints status="needs-interview" />\n  <notes>No project goals or architecture decisions were inferred automatically.</notes>\n</projectProfile>\n`
+  }
+  if (path.endsWith('/stack.xml')) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<projectStack version="1" status="needs-interview" generatedAt="${xmlEscape(generatedAt)}" ${ingestionAttrs}>\n  <frontend status="needs-interview" />\n  <backend status="needs-interview" />\n  <database status="needs-interview" />\n  <runtime status="needs-interview" />\n  <validation status="needs-interview" />\n</projectStack>\n`
+  }
+  if (path.endsWith('/filesystem.xml')) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<projectFilesystem version="1" status="needs-interview" generatedAt="${xmlEscape(generatedAt)}" ${ingestionAttrs}>\n  <sourceRoots status="needs-interview" />\n  <testRoots status="needs-interview" />\n  <generatedRoots status="needs-interview" />\n  <forbiddenEditPaths status="needs-interview" />\n</projectFilesystem>\n`
+  }
+  if (path.endsWith('/feature-navigation.xml')) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<featureNavigation version="1" status="needs-interview" generatedAt="${xmlEscape(generatedAt)}" ${ingestionAttrs}>\n  <lookupOrder>\n    <step layer="DDD" status="needs-interview" />\n    <step layer="SDD" status="needs-interview" />\n    <step layer="BDD" status="needs-interview" />\n    <step layer="TDD" status="needs-interview" />\n    <step layer="ADR" status="needs-interview" />\n    <step layer="SSOT" status="needs-interview" />\n  </lookupOrder>\n  <sideEffectPolicy status="needs-interview" />\n  <regressionPolicy status="needs-interview" />\n  <domainInvariantPolicy status="needs-interview" />\n</featureNavigation>\n`
+  }
+  throw new Error(`No skeleton template for ${path}`)
+}
+
+function buildPlanResult(args: Args): PlanResult {
+  if (args.mode === 'apply' && !args.dryRun && !args.confirm) {
+    throw new Error('apply mode requires --dry-run for preview or --confirm to write needs-interview skeleton records')
+  }
+  const inspectResult = inspect(args)
+  const generatedAt = new Date().toISOString()
+  const proposedWrites = inspectResult.requiredArtifacts
+    .filter((artifact) => artifact.status === 'missing' && artifact.path.startsWith('.lazy-harness/project/'))
+    .map((artifact): ProposedWrite => ({
+      path: artifact.path,
+      action: 'create',
+      kind: 'project-profile-skeleton',
+      content: skeletonContent(artifact.path, generatedAt, inspectResult),
+      summary: `Create needs-interview skeleton for ${artifact.label}`,
+    }))
+  return {
+    ok: true,
+    mode: args.mode === 'apply' ? (args.dryRun ? 'project-profile.apply-dry-run' : 'project-profile.apply') : 'project-profile.plan',
+    schemaVersion: '1.0',
+    root: args.root,
+    generatedAt,
+    dryRun: args.mode === 'apply' ? args.dryRun : args.dryRun,
+    inspect: inspectResult,
+    proposedWrites,
+    warnings: [
+      'Project Profile skeleton apply does not decide architecture, stack, filesystem, or navigation policy.',
+      'Generated records are status="needs-interview" and must be completed by interview or confirmed evidence.',
+    ],
+    optionGate: {
+      prompt: 'How should Project Profile setup proceed?',
+      options: [
+        'A. Create missing needs-interview skeleton records (Recommended)',
+        'B. Run or review Document Resource Ingestion first',
+        'C. Start full interview before creating skeletons',
+        'D. Custom instruction',
+      ],
+      recommended: 'A',
+    },
+  }
+}
+
+function ensureParent(path: string): void {
+  mkdirSync(path.slice(0, path.lastIndexOf('/')), { recursive: true })
+}
+
+function applyConfirmed(result: PlanResult): PlanResult {
+  const appliedWrites: NonNullable<PlanResult['appliedWrites']> = []
+  for (const write of result.proposedWrites) {
+    const abs = join(result.root, write.path)
+    if (existsSync(abs)) {
+      appliedWrites.push({ path: write.path, action: 'skipped', summary: 'Already exists' })
+      continue
+    }
+    ensureParent(abs)
+    writeFileSync(abs, write.content, 'utf8')
+    appliedWrites.push({ path: write.path, action: 'written', summary: write.summary })
+  }
+  return { ...result, appliedWrites }
+}
+
+function renderInspectMd(result: ProjectProfileInspectResult): string {
   const lines: string[] = []
   lines.push('# Project Profile inspect report')
   lines.push('')
@@ -198,12 +313,49 @@ function renderMd(result: ProjectProfileInspectResult): string {
   return lines.join('\n')
 }
 
+function renderPlanMd(result: PlanResult): string {
+  const title = result.mode === 'project-profile.apply-dry-run'
+    ? 'Project Profile apply dry-run'
+    : result.mode === 'project-profile.apply'
+      ? 'Project Profile apply'
+      : 'Project Profile plan'
+  const lines: string[] = []
+  lines.push(`# ${title}`)
+  lines.push('')
+  lines.push(`- Root: \`${result.root}\``)
+  lines.push(`- Dry run: ${result.dryRun ? 'yes' : 'no'}`)
+  lines.push(`- Proposed writes: ${result.proposedWrites.length}`)
+  lines.push('')
+  lines.push('## Proposed writes')
+  for (const write of result.proposedWrites) lines.push(`- \`${write.path}\`: ${write.summary}`)
+  if (result.appliedWrites?.length) {
+    lines.push('')
+    lines.push('## Applied writes')
+    for (const write of result.appliedWrites) lines.push(`- ${write.action}: \`${write.path}\` — ${write.summary}`)
+  }
+  lines.push('')
+  lines.push('## Warnings')
+  for (const warning of result.warnings) lines.push(`- ${warning}`)
+  lines.push('')
+  lines.push('## Option gate')
+  lines.push(result.optionGate.prompt)
+  for (const option of result.optionGate.options) lines.push(`- ${option}`)
+  return lines.join('\n')
+}
+
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
-    const result = inspect(args)
+    if (args.mode === 'inspect') {
+      const result = inspect(args)
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else console.log(renderInspectMd(result))
+      return
+    }
+    const plan = buildPlanResult(args)
+    const result = args.mode === 'apply' && args.confirm && !args.dryRun ? applyConfirmed(plan) : plan
     if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
-    else console.log(renderMd(result))
+    else console.log(renderPlanMd(result))
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(1)
