@@ -261,6 +261,18 @@ Parity coverage added:
 
 Phase 3 replacement remains forbidden until more shadow fixtures cover natural-language BDD, option-gate discipline, record-before-session-history, and no-output cases under host dogfood.
 
+Host dogfood after commit `d6d5527`:
+
+- Synced `/home/lazydino/dev/medivance`; host smoke doctor passed.
+  - `lazy lifecycle-check` on known read-only payload: `fastPathReason=read-only-fast-path`, `selectedHelpers=10`, `skippedHelpers=6`, `outputEmitted=false`.
+- Synced `/home/lazydino/dev/medivance-pwa`; host smoke doctor passed.
+  - `lazy lifecycle-check` on known read-only payload: `fastPathReason=read-only-fast-path`, `selectedHelpers=10`, `skippedHelpers=6`, `outputEmitted=false`.
+
+Dogfood conclusion:
+
+- The shadow CLI works in both installed hosts and mirrors Phase 1 helper selection.
+- It is still not a production hook replacement. Next Phase 2 work should add more shadow parity fixtures before Phase 3.
+
 
 ## Implementation map
 
