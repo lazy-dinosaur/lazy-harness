@@ -113,7 +113,7 @@ Contract:
 - `.lazy-harness/scripts/self-test.py`
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
-  - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify and aftershock STOP outputs.
+  - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
 
 ## Discovery capture
 

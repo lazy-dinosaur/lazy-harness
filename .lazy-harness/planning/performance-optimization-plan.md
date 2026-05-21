@@ -273,6 +273,25 @@ Dogfood conclusion:
 - The shadow CLI works in both installed hosts and mirrors Phase 1 helper selection.
 - It is still not a production hook replacement. Next Phase 2 work should add more shadow parity fixtures before Phase 3.
 
+## 2026-05-21 Phase 2 parity expansion
+
+Expanded shadow parity coverage in `check_lifecycle_hook_integration`:
+
+- BDD natural-language scenario STOP parity.
+- Option-gate discipline STOP parity.
+- Record-before-session-history STOP parity.
+- Read-only no-output parity.
+- Existing TDD cross-verify and aftershock STOP parity remain covered.
+
+Validation:
+
+- Source self-test passed with all expanded fixtures.
+- Source smoke doctor passed.
+
+Replacement status:
+
+- Phase 3 is still blocked. The next safe step is either more host dogfood with real payload samples or a shadow-vs-legacy batch fixture runner before any production hook replacement.
+
 
 ## Implementation map
 

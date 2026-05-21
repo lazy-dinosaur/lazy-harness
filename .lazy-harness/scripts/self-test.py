@@ -380,6 +380,16 @@ def run_lifecycle_check_shadow(payload: dict, queue: pathlib.Path, decisions: pa
         validations.unlink(missing_ok=True)
 
 
+def hook_inject_body(stdout: str) -> str:
+    if not stdout.strip():
+        return ""
+    try:
+        return json.loads(stdout).get("inject", {}).get("body", "")
+    except json.JSONDecodeError:
+        fail("response.completed hook did not emit inject JSON:\n" + stdout)
+    return ""
+
+
 def run_layer_completeness_helper(payload: dict) -> str:
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh", json.dumps(payload)],
@@ -1753,10 +1763,16 @@ def check_lifecycle_hook_integration() -> None:
     tdd_shadow_queue = LAZY / "questions" / f"__tmp_shadow_tdd_{os.getpid()}.xml"
     aftershock_queue = LAZY / "questions" / f"__tmp_hook_aftershock_{os.getpid()}.xml"
     aftershock_shadow_queue = LAZY / "questions" / f"__tmp_shadow_aftershock_{os.getpid()}.xml"
+    bdd_queue = LAZY / "questions" / f"__tmp_hook_bdd_{os.getpid()}.xml"
+    bdd_shadow_queue = LAZY / "questions" / f"__tmp_shadow_bdd_{os.getpid()}.xml"
+    generic_queue = LAZY / "questions" / f"__tmp_hook_generic_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
     shadow_decisions = LAZY / "logs" / f"__tmp_shadow_decisions_{os.getpid()}.jsonl"
-    for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, decisions, shadow_decisions]:
+    bdd_state = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    bdd_state_backup = bdd_state.read_text(encoding="utf-8") if bdd_state.exists() else None
+    for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
         path.unlink(missing_ok=True)
+    bdd_state.unlink(missing_ok=True)
     try:
         tdd_payload = {
             "recent_tool_calls": [
@@ -1797,9 +1813,66 @@ def check_lifecycle_hook_integration() -> None:
             fail("lifecycle-check shadow should match aftershock first output helper: " + json.dumps(aftershock_shadow, ensure_ascii=False)[:800])
         if "5d-4 Aftershock Re-analysis" not in aftershock_shadow.get("firstOutput", "") or "Q-e69259ad4ca94b24" not in aftershock_shadow.get("firstOutput", ""):
             fail("lifecycle-check shadow did not surface aftershock gate output")
+
+        bdd_payload = {
+            "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.",
+            "message_id": "shadow-bdd-parity",
+            "recent_tool_calls": [],
+        }
+        bdd_hook_body = hook_inject_body(run_response_completed_hook(bdd_payload, bdd_queue))
+        if "BDD scenario 후보" not in bdd_hook_body:
+            fail("response.completed did not surface BDD gate for parity fixture:\n" + bdd_hook_body)
+        bdd_state.unlink(missing_ok=True)
+        bdd_shadow = run_lifecycle_check_shadow(bdd_payload, bdd_shadow_queue)
+        if bdd_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh":
+            fail("lifecycle-check shadow should match BDD first output helper: " + json.dumps(bdd_shadow, ensure_ascii=False)[:800])
+        if "BDD scenario 후보" not in bdd_shadow.get("firstOutput", ""):
+            fail("lifecycle-check shadow did not surface BDD gate output")
+
+        option_payload = {
+            "assistant_response": (
+                "## Rule placement\n"
+                "- Rule: release execution policy.\n"
+                "- Scope: ambiguous\n"
+                "- Confirmation: needs-option-gate\n\n"
+                "선택해주세요:\n"
+                "A. SSOT 기록 후 test release dispatch (Recommended)\n"
+            ),
+            "recent_tool_calls": [{"name": "Write", "args_preview": ".lazy-harness/ssot/release-sources.md"}],
+        }
+        option_hook_body = hook_inject_body(run_response_completed_hook(option_payload, generic_queue))
+        option_shadow = run_lifecycle_check_shadow(option_payload, generic_queue)
+        if "Option gate discipline" not in option_hook_body or "Option gate discipline" not in option_shadow.get("firstOutput", ""):
+            fail("option-gate parity fixture did not surface expected STOP")
+        if option_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh":
+            fail("lifecycle-check shadow should match option-gate first output helper")
+
+        record_before_payload = {
+            "assistant_response": "기록된 계획을 찾아보겠습니다.",
+            "recent_tool_calls": [{"name": "session_search", "args_preview": "계획"}],
+        }
+        record_hook_body = hook_inject_body(run_response_completed_hook(record_before_payload, generic_queue))
+        record_shadow = run_lifecycle_check_shadow(record_before_payload, generic_queue)
+        if "Record-before-session-history" not in record_hook_body or "Record-before-session-history" not in record_shadow.get("firstOutput", ""):
+            fail("record-before parity fixture did not surface expected STOP")
+        if record_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh":
+            fail("lifecycle-check shadow should match record-before first output helper")
+
+        read_only_payload = {
+            "message_id": "shadow-no-output-read-only",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}],
+        }
+        read_only_hook_out = run_response_completed_hook(read_only_payload, generic_queue)
+        read_only_shadow = run_lifecycle_check_shadow(read_only_payload, generic_queue)
+        if read_only_hook_out.strip() or read_only_shadow.get("outputEmitted") is not False or read_only_shadow.get("firstOutput"):
+            fail("read-only no-output parity fixture should stay silent")
     finally:
-        for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, decisions, shadow_decisions]:
+        for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
             path.unlink(missing_ok=True)
+        if bdd_state_backup is not None:
+            bdd_state.write_text(bdd_state_backup, encoding="utf-8")
+        else:
+            bdd_state.unlink(missing_ok=True)
     print("✓ 5d-5 lifecycle hook integration ok")
 
 
