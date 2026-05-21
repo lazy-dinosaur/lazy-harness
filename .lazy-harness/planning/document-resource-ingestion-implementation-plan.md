@@ -182,6 +182,16 @@ Dogfood improvement candidates:
 - `--mode apply --dry-run --format=md --max-files=20` correctly reported dry-run, truncation warning, proposed writes, and option gate. No files were written.
 - Initial parallel dogfood command raced sync and hit the old CLI; rerunning sequentially after sync succeeded. Future dogfood scripts should avoid parallel sync+execute for host validation.
 
+2026-05-21 confirmed apply dogfood after source commit `996740c`:
+
+- Synced to `/home/lazydino/dev/medivance`; host smoke doctor passed.
+- `--mode apply --confirm --format=json --max-files=200` produced `document-resource-ingestion.apply` with `dryRun=false`.
+- Applied writes:
+  - wrote `.lazy-harness/project/document-intake.xml` for 77 scanned docs
+  - appended 76 new `.lazy-harness/knowledge/candidates.jsonl` document-resource candidate entries
+- Verification: `document-intake.xml` present, total candidates file lines 83, document-ingestion candidate entries 76, duplicate keys 0.
+- `project-profile.ts --mode inspect` now reports document ingestion ledger `present`, candidates `present`, and `shouldOfferIngestion=false`; Project Profile can consume ingestion evidence next.
+
 ## Recommended next action
 
 Start with **Slice 1 + Slice 3 wrapper**.
