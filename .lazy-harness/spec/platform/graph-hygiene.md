@@ -16,7 +16,7 @@ The command reports issues and may optionally exit non-zero with `--fail-on-issu
 ## CLI
 
 ```bash
-bun .lazy-harness/scripts/graph-hygiene.ts --format=json --root <host>
+  bun .lazy-harness/scripts/graph-hygiene.ts --format=json --root <host> --source <lazy-harness-source>
 .lazy-harness/bin/lazy graph-hygiene --format=md
 .lazy-harness/bin/lazy graph-hygiene --fail-on-issues
 ```
@@ -24,6 +24,7 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json --root <host>
 Options:
 
 - `--root` / `--host`: host root. Defaults to `LAZY_HOST_ROOT` or current working directory.
+- `--source`: canonical lazy-harness source checkout or its `.lazy-harness` directory. When present, paths absent from the host but present in source are counted as `sourceOnlyPaths` instead of actionable `missingPaths`.
 - `--graph`: explicit graph JSONL path.
 - `--format md|json`: output format.
 - `--fail-on-issues`: exit `2` when any issue is found. Default is report-only.
@@ -36,23 +37,25 @@ The command detects:
 - rows missing a string `id`
 - duplicate `id` values
 - comma-joined path strings in `path`, `file`, `sourcePath`, `targetPath`, evidence paths, or graph link targets
-- host-relative paths that do not exist
+- host-relative paths that do not exist in either host or source
+- source-only paths that exist in framework source but are not installed into the host
 
 ## Non-goals
 
 - Not graph repair.
 - Not candidate promotion.
-- Not source-vs-host ownership resolution.
+- Not source-vs-host ownership repair. It only classifies source-only paths to avoid false actionable host-missing warnings.
 - Not a replacement for `record-audit`; `record-audit` gives a dashboard, `graph-hygiene` gives issue details.
 
 ## Implementation map
 
 - `.lazy-harness/scripts/graph-hygiene.ts`
   - Implements the read-only graph lint CLI and JSON/Markdown output.
+  - Classifies source-only framework paths separately from actionable host missing paths when `--source` or a default source checkout is available.
 - `.lazy-harness/bin/lazy`
   - Exposes `lazy graph-hygiene`.
 - `.lazy-harness/scripts/self-test.py`
-  - `check_graph_hygiene_cli` covers invalid JSON, duplicate/missing IDs, comma-joined paths, missing paths, dispatcher pass-through, and `--fail-on-issues` exit code.
+  - `check_graph_hygiene_cli` covers invalid JSON, duplicate/missing IDs, comma-joined paths, missing paths, source-only paths, dispatcher pass-through, and `--fail-on-issues` exit code.
 - `.lazy-harness/spec/platform/record-audit.md`
   - Related dashboard that summarizes graph hygiene counts.
 - `.lazy-harness/knowledge/graph.jsonl`

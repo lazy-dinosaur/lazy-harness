@@ -2220,6 +2220,7 @@ def check_record_audit_cli() -> None:
         ]:
             path.mkdir(parents=True)
         (source / ".lazy-harness" / "domain" / "base.md").write_text("base\n", encoding="utf-8")
+        (source / ".lazy-harness" / "domain" / "framework-only.md").write_text("framework source only\n", encoding="utf-8")
         (host / ".lazy-harness" / "domain" / "base.md").write_text("base changed\n", encoding="utf-8")
         (host / ".lazy-harness" / "domain" / "host.md").write_text("host only TODO\n", encoding="utf-8")
         (host / ".lazy-harness" / "project" / "profile.xml").write_text(
@@ -2229,7 +2230,8 @@ def check_record_audit_cli() -> None:
         (host / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
             '{"id":"a","path":".lazy-harness/domain/host.md"}\n'
             '{"id":"b","path":".lazy-harness/domain/missing.md"}\n'
-            '{"id":"c","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n',
+            '{"id":"c","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n'
+            '{"id":"framework","path":".lazy-harness/domain/framework-only.md"}\n',
             encoding="utf-8",
         )
         (host / ".lazy-harness" / "logs" / "actions.jsonl").write_text('{"ok":true}\nnot-json\n', encoding="utf-8")
@@ -2261,8 +2263,8 @@ def check_record_audit_cli() -> None:
         if profile.get("artifactsComplete") is not False or profile.get("answersComplete") is not False or profile.get("needsInterviewFields") != 1 or profile.get("confirmedFields") != 1:
             fail("record-audit should split Project Profile artifact and answer completeness")
         graph = result.get("graph", {})
-        if graph.get("rows") != 3 or graph.get("missingPaths") != 2 or graph.get("commaJoinedPaths") != 1:
-            fail("record-audit should report graph hygiene issues")
+        if graph.get("rows") != 4 or graph.get("missingPaths") != 2 or graph.get("sourceOnlyPaths") != 1 or graph.get("commaJoinedPaths") != 1:
+            fail("record-audit should report actionable graph hygiene and source-only paths")
         if sum(item.get("invalid", 0) for item in result.get("jsonl", [])) != 1:
             fail("record-audit should count invalid JSONL lines")
         marker_map = {item.get("marker"): item.get("files") for item in result.get("markers", [])}
@@ -2289,7 +2291,10 @@ def check_graph_hygiene_cli() -> None:
         root = pathlib.Path(tmp)
         (root / ".lazy-harness" / "domain").mkdir(parents=True)
         (root / ".lazy-harness" / "knowledge").mkdir(parents=True)
+        source = root / "framework-source"
+        (source / ".lazy-harness" / "domain").mkdir(parents=True)
         (root / ".lazy-harness" / "domain" / "existing.md").write_text("ok\n", encoding="utf-8")
+        (source / ".lazy-harness" / "domain" / "framework-only.md").write_text("source only\n", encoding="utf-8")
         graph = root / ".lazy-harness" / "knowledge" / "graph.jsonl"
         graph.write_text(
             '{"id":"a","path":".lazy-harness/domain/existing.md"}\n'
@@ -2297,6 +2302,7 @@ def check_graph_hygiene_cli() -> None:
             '{"path":".lazy-harness/domain/no-id.md"}\n'
             '{"id":"comma","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n'
             '{"id":"evidence","evidence":[{"path":".lazy-harness/domain/evidence-missing.md"}],"links":[{"target":".lazy-harness/domain/link-missing.md"}]}\n'
+            '{"id":"framework","path":".lazy-harness/domain/framework-only.md"}\n'
             'not-json\n',
             encoding="utf-8",
         )
@@ -2307,6 +2313,8 @@ def check_graph_hygiene_cli() -> None:
                 str(LAZY / "scripts" / "graph-hygiene.ts"),
                 "--root",
                 str(root),
+                "--source",
+                str(source),
                 "--format=json",
             ],
             cwd=ROOT,
@@ -2321,11 +2329,12 @@ def check_graph_hygiene_cli() -> None:
         if result.get("mode") != "graph-hygiene.inspect" or result.get("ok") is not False:
             fail("graph-hygiene mode/ok changed")
         expected = {
-            "rows": 6,
+            "rows": 7,
             "invalidRows": 1,
             "duplicateIds": 1,
             "missingIds": 1,
             "missingPaths": 5,
+            "sourceOnlyPaths": 1,
             "commaJoinedPaths": 1,
         }
         for key, value in expected.items():
@@ -2343,6 +2352,8 @@ def check_graph_hygiene_cli() -> None:
                 str(LAZY / "scripts" / "graph-hygiene.ts"),
                 "--root",
                 str(root),
+                "--source",
+                str(source),
                 "--format=json",
                 "--fail-on-issues",
             ],
@@ -2354,7 +2365,7 @@ def check_graph_hygiene_cli() -> None:
         if fail_completed.returncode != 2:
             fail("graph-hygiene --fail-on-issues should exit 2 when issues exist")
         cli_completed = subprocess.run(
-            [str(LAZY / "bin" / "lazy"), "graph-hygiene", "--root", str(root), "--format=json"],
+            [str(LAZY / "bin" / "lazy"), "graph-hygiene", "--root", str(root), "--source", str(source), "--format=json"],
             cwd=root,
             text=True,
             capture_output=True,
@@ -2362,7 +2373,7 @@ def check_graph_hygiene_cli() -> None:
         )
         if cli_completed.returncode != 0:
             fail("lazy graph-hygiene dispatcher failed:\n" + cli_completed.stdout + cli_completed.stderr)
-        if json.loads(cli_completed.stdout).get("summary", {}).get("rows") != 6:
+        if json.loads(cli_completed.stdout).get("summary", {}).get("rows") != 7:
             fail("lazy graph-hygiene dispatcher should pass args through")
     print("✓ graph-hygiene cli ok")
 

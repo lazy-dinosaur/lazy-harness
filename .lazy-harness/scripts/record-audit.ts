@@ -58,8 +58,10 @@ interface GraphSummary {
   rows: number
   invalidRows: number
   missingPaths: number
+  sourceOnlyPaths: number
   commaJoinedPaths: number
   sampleMissingPaths: string[]
+  sampleSourceOnlyPaths: string[]
   sampleCommaJoinedPaths: string[]
 }
 
@@ -314,12 +316,17 @@ function pathCandidatesFromGraphRow(row: Record<string, unknown>): string[] {
   return []
 }
 
-function graphSummary(root: string): GraphSummary {
+function existsInSource(source: string | undefined, path: string): boolean {
+  return Boolean(source && path.startsWith('.lazy-harness/') && existsSync(join(lazyDir(source), path.slice('.lazy-harness/'.length))))
+}
+
+function graphSummary(root: string, source: string | undefined): GraphSummary {
   const graphPath = join(root, '.lazy-harness', 'knowledge', 'graph.jsonl')
-  if (!existsSync(graphPath)) return { rows: 0, invalidRows: 0, missingPaths: 0, commaJoinedPaths: 0, sampleMissingPaths: [], sampleCommaJoinedPaths: [] }
+  if (!existsSync(graphPath)) return { rows: 0, invalidRows: 0, missingPaths: 0, sourceOnlyPaths: 0, commaJoinedPaths: 0, sampleMissingPaths: [], sampleSourceOnlyPaths: [], sampleCommaJoinedPaths: [] }
   let rows = 0
   let invalidRows = 0
   const missing: string[] = []
+  const sourceOnly: string[] = []
   const comma: string[] = []
   for (const line of safeText(graphPath).split(/\r?\n/)) {
     if (!line.trim()) continue
@@ -333,15 +340,20 @@ function graphSummary(root: string): GraphSummary {
     }
     for (const p of pathCandidatesFromGraphRow(row)) {
       if (p.includes(',')) comma.push(p)
-      if (p.startsWith('.') && !existsSync(join(root, p))) missing.push(p)
+      if (p.startsWith('.') && !existsSync(join(root, p))) {
+        if (existsInSource(source, p)) sourceOnly.push(p)
+        else missing.push(p)
+      }
     }
   }
   return {
     rows,
     invalidRows,
     missingPaths: missing.length,
+    sourceOnlyPaths: sourceOnly.length,
     commaJoinedPaths: comma.length,
     sampleMissingPaths: [...new Set(missing)].slice(0, 12),
+    sampleSourceOnlyPaths: [...new Set(sourceOnly)].slice(0, 12),
     sampleCommaJoinedPaths: [...new Set(comma)].slice(0, 12),
   }
 }
@@ -364,7 +376,7 @@ function buildAudit(args: Args): AuditResult {
   const jsonl = jsonlSummaries(args.root)
   const markers = markerSummaries(args.root)
   const projectProfile = projectProfileSummary(args.root)
-  const graph = graphSummary(args.root)
+  const graph = graphSummary(args.root, args.source)
   const warnings: string[] = []
   if (!args.source) warnings.push('No framework source was found; host-owned/changed counts are unavailable.')
   if (!projectProfile.answersComplete) warnings.push(`Project Profile incomplete: ${projectProfile.artifactsMissing} missing artifact(s), ${projectProfile.needsInterviewFields} field(s) still need interview answers.`)
@@ -433,6 +445,7 @@ function renderMd(result: AuditResult): string {
   lines.push(`- rows: ${result.graph.rows}`)
   lines.push(`- invalidRows: ${result.graph.invalidRows}`)
   lines.push(`- missingPaths: ${result.graph.missingPaths}`)
+  lines.push(`- sourceOnlyPaths: ${result.graph.sourceOnlyPaths}`)
   lines.push(`- commaJoinedPaths: ${result.graph.commaJoinedPaths}`)
   lines.push('')
   lines.push('## JSONL')

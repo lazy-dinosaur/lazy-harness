@@ -5,11 +5,13 @@
  * Read-only lint for .lazy-harness/knowledge/graph.jsonl path/id hygiene.
  */
 import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 interface Args {
   root: string
   graph: string
+  source?: string
   format: 'json' | 'md'
   failOnIssues: boolean
 }
@@ -38,6 +40,7 @@ interface GraphHygieneResult {
     missingIds: number
     pathReferences: number
     missingPaths: number
+    sourceOnlyPaths: number
     commaJoinedPaths: number
     issues: number
   }
@@ -50,6 +53,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     root,
     graph: join(root, '.lazy-harness', 'knowledge', 'graph.jsonl'),
+    source: process.env.LAZY_FRAMEWORK_SOURCE,
     format: 'md',
     failOnIssues: false,
   }
@@ -71,6 +75,11 @@ function parseArgs(argv: string[]): Args {
     } else if (arg.startsWith('--graph=')) {
       args.graph = arg.slice('--graph='.length)
       graphProvided = true
+    } else if (arg === '--source' && next) {
+      args.source = next
+      i += 1
+    } else if (arg.startsWith('--source=')) {
+      args.source = arg.slice('--source='.length)
     } else if (arg === '--format' && next) {
       if (next !== 'json' && next !== 'md' && next !== 'markdown') throw new Error(`Unsupported --format: ${next}`)
       args.format = next === 'markdown' ? 'md' : next
@@ -90,11 +99,34 @@ function parseArgs(argv: string[]): Args {
   }
   args.root = resolve(args.root)
   args.graph = resolve(graphProvided ? args.graph : join(args.root, '.lazy-harness', 'knowledge', 'graph.jsonl'))
+  if (args.source) args.source = lazyDir(resolve(args.source))
+  else args.source = defaultSource(args.root)
   return args
 }
 
 function printHelp(): void {
-  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--graph <path>] [--fail-on-issues]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, and missing host-relative paths.`)
+  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.`)
+}
+
+function lazyDir(path: string): string {
+  return path.endsWith('.lazy-harness') ? path : join(path, '.lazy-harness')
+}
+
+function defaultSource(root: string): string | undefined {
+  const candidates = [
+    process.env.LAZY_SOURCE_ROOT,
+    join(homedir(), 'dev', 'lazy-harness'),
+    join(homedir(), 'dev', 'lazy-harness', '.lazy-harness'),
+  ].filter(Boolean) as string[]
+  for (const candidate of candidates) {
+    const lazy = lazyDir(resolve(candidate))
+    if (existsSync(lazy) && resolve(lazy) !== resolve(join(root, '.lazy-harness'))) return lazy
+  }
+  return undefined
+}
+
+function existsInSource(args: Args, path: string): boolean {
+  return Boolean(args.source && path.startsWith('.lazy-harness/') && existsSync(join(args.source, path.slice('.lazy-harness/'.length))))
 }
 
 function extractPaths(row: Record<string, unknown>): string[] {
@@ -135,7 +167,7 @@ function inspect(args: Args): GraphHygieneResult {
       root: args.root,
       graphPath: args.graph,
       inspectedAt: new Date().toISOString(),
-      summary: { rows: 0, invalidRows: 0, uniqueIds: 0, duplicateIds: 0, missingIds: 0, pathReferences: 0, missingPaths: 0, commaJoinedPaths: 0, issues: 0 },
+      summary: { rows: 0, invalidRows: 0, uniqueIds: 0, duplicateIds: 0, missingIds: 0, pathReferences: 0, missingPaths: 0, sourceOnlyPaths: 0, commaJoinedPaths: 0, issues: 0 },
       issues: [],
       nextActions: ['No graph.jsonl found. Create graph records through implementation maps or knowledge intake before relying on graph navigation.'],
     }
@@ -145,6 +177,7 @@ function inspect(args: Args): GraphHygieneResult {
   let invalidRows = 0
   let pathReferences = 0
   let missingPaths = 0
+  let sourceOnlyPaths = 0
   let commaJoinedPaths = 0
   let missingIds = 0
   for (const [index, line] of readFileSync(args.graph, 'utf8').split(/\r?\n/).entries()) {
@@ -175,6 +208,10 @@ function inspect(args: Args): GraphHygieneResult {
         addIssue(issues, { code: 'comma-joined-path', severity: 'warning', line: lineNumber, id: id || undefined, path, message: 'Path field appears to contain multiple comma-joined paths; use one graph row per path or an explicit path array.' })
       }
       if (path.startsWith('.') && !existsSync(join(args.root, path))) {
+        if (existsInSource(args, path)) {
+          sourceOnlyPaths += 1
+          continue
+        }
         missingPaths += 1
         addIssue(issues, { code: 'missing-path', severity: 'warning', line: lineNumber, id: id || undefined, path, message: 'Host-relative path does not exist.' })
       }
@@ -188,12 +225,12 @@ function inspect(args: Args): GraphHygieneResult {
     root: args.root,
     graphPath: args.graph,
     inspectedAt: new Date().toISOString(),
-    summary: { rows, invalidRows, uniqueIds: seen.size, duplicateIds, missingIds, pathReferences, missingPaths, commaJoinedPaths, issues: issues.length },
+    summary: { rows, invalidRows, uniqueIds: seen.size, duplicateIds, missingIds, pathReferences, missingPaths, sourceOnlyPaths, commaJoinedPaths, issues: issues.length },
     issues,
     nextActions: [
       'Fix invalid JSON and duplicate/missing IDs before relying on graph queries.',
       'Replace comma-joined path strings with separate graph records or explicit path arrays.',
-      'For missing host paths, confirm whether the record belongs to framework source, host copy, or needs supersession.',
+      'For missing host paths, confirm whether the record belongs to the host copy or needs supersession; framework-source-only paths are counted separately.',
     ],
   }
 }
@@ -212,6 +249,7 @@ function renderMd(result: GraphHygieneResult): string {
   lines.push(`- Missing IDs: ${result.summary.missingIds}`)
   lines.push(`- Path references: ${result.summary.pathReferences}`)
   lines.push(`- Missing paths: ${result.summary.missingPaths}`)
+  lines.push(`- Source-only paths: ${result.summary.sourceOnlyPaths}`)
   lines.push(`- Comma-joined paths: ${result.summary.commaJoinedPaths}`)
   if (result.issues.length > 0) {
     lines.push('')

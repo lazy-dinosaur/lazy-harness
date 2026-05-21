@@ -41,7 +41,7 @@ The JSON output must include:
 - `jsonl`: line and invalid-line counts for knowledge/log JSONL files.
 - `markers`: file counts for incomplete/risk markers such as `needs-interview`, `TODO`, `FIXME`, `stale`, `conflict`, `ambiguous`, and `needs-option-gate`.
 - `projectProfile`: separate `artifactsComplete` from `answersComplete` and report `needsInterviewFields`.
-- `graph`: implementation graph row count plus invalid, missing path, and comma-joined path hygiene signals.
+- `graph`: implementation graph row count plus invalid, actionable missing path, source-only path, and comma-joined path hygiene signals.
 - `recentFiles`: recent non-framework record files for quick dogfood review.
 - `warnings` and `nextActions`: human/actionable summary.
 
@@ -60,6 +60,7 @@ The JSON output must include:
   - Compares host `.lazy-harness` records against an optional canonical source checkout.
   - Splits Project Profile artifact completeness from answer completeness.
   - Reports graph hygiene and JSONL parseability without mutating files.
+  - Separates `graph.sourceOnlyPaths` from actionable `graph.missingPaths` when `--source` is available.
 - `.lazy-harness/bin/lazy`
   - Adds `lazy record-audit` dispatcher entry.
 - `.lazy-harness/scripts/self-test.py`

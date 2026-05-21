@@ -99,3 +99,17 @@ Host sync after push:
 Next dogfood insight:
 
 - Graph syntax/id/path-shape hygiene is now clean in source, but host copies still report missing paths because framework graph records reference source-only files not installed into hosts. The next graph improvement should distinguish framework-source paths from host-owned paths or add an ownership/scope field before treating host missing paths as actionable errors.
+
+## 2026-05-21 source-only graph path classification
+
+Implemented the next graph improvement as source-aware classification rather than graph row mutation:
+
+- `graph-hygiene --source <lazy-harness-source>` now reports paths that are missing from the host but present in the framework source as `sourceOnlyPaths`.
+- `record-audit --source <lazy-harness-source>` mirrors the same split in `graph.sourceOnlyPaths` vs actionable `graph.missingPaths`.
+- `sourceOnlyPaths` do not create `missing-path` issues and do not cause `--fail-on-issues` to fail by themselves.
+- This keeps host dogfood audits focused on actionable host graph drift while still making framework-only graph references visible.
+- Self-test fixtures now include one source-only path for both CLIs.
+
+Remaining follow-up:
+
+- A future schema-level change may still add explicit `scope`/`sourceKind` to graph rows, but the current implementation solves the false-positive host audit problem without rewriting existing graph records.
