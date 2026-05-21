@@ -84,6 +84,7 @@ If the Project Profile is missing or incomplete for the requested area, the fram
 - `.lazy-harness/scripts/project-profile.ts`
   - Entry point that reports missing Project Profile artifacts, plans missing skeletons, applies only `status="needs-interview"` skeleton records after confirmation, and emits structured questions for open needs-interview fields.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]`.
+  - `inspect` splits artifact presence from answer completeness: `summary.artifactsComplete` means required files exist; `summary.answersComplete` means required files exist and no `status="needs-interview"` fields remain. Legacy `summary.complete` is retained as an alias for answer completeness to avoid the previous misleading `present=5 complete=true` state.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode interview [--dry-run|--confirm] [--format md|json] [--root <path>]`.

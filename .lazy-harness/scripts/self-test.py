@@ -1939,8 +1939,13 @@ def check_project_profile_inspect() -> None:
         result = json.loads(completed.stdout)
         if result.get("mode") != "project-profile.inspect":
             fail("project-profile inspect mode changed: " + completed.stdout[:500])
-        if result.get("summary", {}).get("present") != 0 or result.get("summary", {}).get("missing") != 5:
+        summary = result.get("summary", {})
+        if summary.get("present") != 0 or summary.get("missing") != 5:
             fail("project-profile inspect should count required artifacts")
+        if summary.get("artifactsComplete") is not False or summary.get("answersComplete") is not False or summary.get("complete") is not False:
+            fail("project-profile inspect should split artifact and answer completeness for missing profile")
+        if summary.get("needsInterviewFields") != 0 or summary.get("confirmedFields") != 0:
+            fail("project-profile inspect should count zero open fields when artifacts are missing")
         ingestion = result.get("documentIngestion") or {}
         if ingestion.get("ledgerStatus") != "present" or ingestion.get("candidatesStatus") != "present" or ingestion.get("shouldOfferIngestion") is not False:
             fail("project-profile inspect should detect document ingestion handoff outputs: " + json.dumps(ingestion, ensure_ascii=False))
@@ -2026,8 +2031,42 @@ def check_project_profile_inspect() -> None:
             check=False,
         )
         after = json.loads(after_completed.stdout)
-        if after.get("summary", {}).get("complete") is not False or after.get("summary", {}).get("present") != 4:
+        after_summary = after.get("summary", {})
+        if after_summary.get("complete") is not False or after_summary.get("present") != 4:
             fail("project-profile inspect after skeleton apply should see four project records and missing test strategy")
+        if after_summary.get("artifactsComplete") is not False or after_summary.get("answersComplete") is not False or after_summary.get("needsInterviewFields") != 26:
+            fail("project-profile inspect should show incomplete answers after skeleton apply")
+        (root / ".lazy-harness" / "tests" / "test-strategy.xml").write_text(
+            '<testStrategy version="1" status="confirmed"><command>lazy test</command></testStrategy>\n',
+            encoding="utf-8",
+        )
+        complete_artifacts_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "inspect",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if complete_artifacts_completed.returncode != 0:
+            fail("project-profile inspect with complete artifacts failed:\n" + complete_artifacts_completed.stdout + complete_artifacts_completed.stderr)
+        complete_artifacts = json.loads(complete_artifacts_completed.stdout)
+        complete_summary = complete_artifacts.get("summary", {})
+        if complete_summary.get("present") != 5 or complete_summary.get("missing") != 0:
+            fail("project-profile inspect should see all five artifacts after test strategy exists")
+        if complete_summary.get("artifactsComplete") is not True or complete_summary.get("answersComplete") is not False or complete_summary.get("complete") is not False:
+            fail("project-profile inspect must not report complete=true while needs-interview answers remain")
+        if complete_summary.get("needsInterviewFields") != 26 or complete_summary.get("confirmedFields") != 1:
+            fail("project-profile inspect should count needs-interview and confirmed fields across artifacts")
+        if not any("--mode fill" in action for action in complete_artifacts.get("nextActions", [])):
+            fail("project-profile inspect should point incomplete profiles to fill/interview flow")
         interview_completed = subprocess.run(
             [
                 "bun",

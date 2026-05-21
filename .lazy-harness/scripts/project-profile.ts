@@ -50,6 +50,11 @@ interface ProjectProfileInspectResult {
   summary: {
     present: number
     missing: number
+    artifactsComplete: boolean
+    needsInterviewFields: number
+    confirmedFields: number
+    answersComplete: boolean
+    /** @deprecated Use artifactsComplete and answersComplete. Kept for older callers. */
     complete: boolean
   }
   optionGate: {
@@ -213,6 +218,17 @@ function statusFor(root: string, path: string): ArtifactStatus {
   return existsSync(join(root, path)) ? 'present' : 'missing'
 }
 
+function statusCount(root: string, artifacts: RequiredArtifact[], status: 'needs-interview' | 'confirmed'): number {
+  let count = 0
+  const pattern = new RegExp(`status="${status}"`, 'g')
+  for (const artifact of artifacts) {
+    if (artifact.status !== 'present') continue
+    const content = readFileSync(join(root, artifact.path), 'utf8')
+    count += (content.match(pattern) || []).length
+  }
+  return count
+}
+
 function inspect(args: Args): ProjectProfileInspectResult {
   if (!existsSync(args.root)) throw new Error(`Root does not exist: ${args.root}`)
   const requiredArtifacts = REQUIRED_ARTIFACTS.map((item) => artifact(args.root, item))
@@ -223,7 +239,41 @@ function inspect(args: Args): ProjectProfileInspectResult {
   const ledgerStatus = statusFor(args.root, ledgerPath)
   const candidatesStatus = statusFor(args.root, candidatesPath)
   const shouldOfferIngestion = ledgerStatus === 'missing'
-  const complete = missing === 0
+  const artifactsComplete = missing === 0
+  const needsInterviewFields = statusCount(args.root, requiredArtifacts, 'needs-interview')
+  const confirmedFields = statusCount(args.root, requiredArtifacts, 'confirmed')
+  const answersComplete = artifactsComplete && needsInterviewFields === 0
+  const complete = answersComplete
+  const prompt = !artifactsComplete
+    ? 'Project Profile artifacts are incomplete. How should setup proceed?'
+    : !answersComplete
+      ? 'Project Profile artifacts exist, but interview answers are incomplete. What should happen next?'
+      : 'Project Profile is complete. What should happen next?'
+  const options = !artifactsComplete
+    ? [
+      'A. Create missing needs-interview skeleton records (Recommended)',
+      'B. Run /lazy-doc-ingest first if docs may contain durable facts',
+      'C. Start interview-only Project Profile setup',
+      'D. Custom instruction',
+    ]
+    : !answersComplete
+      ? [
+        'A. Generate/review Project Profile interview questions (Recommended)',
+        'B. Apply explicit confirmed answers with --mode fill',
+        'C. Defer; keep status="needs-interview" fields visible',
+        'D. Custom instruction',
+      ]
+      : [
+        'A. Review existing profile only (Recommended)',
+        'B. Refresh profile using document-ingestion outputs',
+        'C. Start interview to update architecture decisions',
+        'D. Custom instruction',
+      ]
+  const nextActions = !artifactsComplete
+    ? ['Do not silently invent profile defaults.', 'Create missing skeletons or ask interview option gates before making architecture decisions.']
+    : !answersComplete
+      ? ['Run `project-profile --mode interview` to see open questions.', 'Use `project-profile --mode fill --answers <file> --confirm` only with explicit confirmed answers.']
+      : ['Review profile artifacts before feature work.', 'Use map-first navigation from profile to records/code/tests.']
   return {
     ok: true,
     mode: 'project-profile.inspect',
@@ -241,27 +291,13 @@ function inspect(args: Args): ProjectProfileInspectResult {
         ? 'No document-intake ledger found; offer /lazy-doc-ingest before interview if outside docs may contain durable facts.'
         : 'Document-intake ledger exists; Project Profile may ask whether to use it as evidence.',
     },
-    summary: { present, missing, complete },
+    summary: { present, missing, artifactsComplete, needsInterviewFields, confirmedFields, answersComplete, complete },
     optionGate: {
-      prompt: complete ? 'Project Profile exists. What should happen next?' : 'Project Profile is incomplete. How should setup proceed?',
-      options: complete
-        ? [
-          'A. Review existing profile only (Recommended)',
-          'B. Refresh profile using document-ingestion outputs',
-          'C. Start interview to update architecture decisions',
-          'D. Custom instruction',
-        ]
-        : [
-          'A. Create missing needs-interview skeleton records (Recommended)',
-          'B. Run /lazy-doc-ingest first if docs may contain durable facts',
-          'C. Start interview-only Project Profile setup',
-          'D. Custom instruction',
-        ],
+      prompt,
+      options,
       recommended: 'A',
     },
-    nextActions: complete
-      ? ['Review profile artifacts before feature work.', 'Use map-first navigation from profile to records/code/tests.']
-      : ['Do not silently invent profile defaults.', 'Create missing skeletons or ask interview option gates before making architecture decisions.'],
+    nextActions,
   }
 }
 
@@ -351,7 +387,10 @@ function renderInspectMd(result: ProjectProfileInspectResult): string {
   lines.push('# Project Profile inspect report')
   lines.push('')
   lines.push(`- Root: \`${result.root}\``)
-  lines.push(`- Complete: ${result.summary.complete ? 'yes' : 'no'}`)
+  lines.push(`- Artifacts complete: ${result.summary.artifactsComplete ? 'yes' : 'no'}`)
+  lines.push(`- Answers complete: ${result.summary.answersComplete ? 'yes' : 'no'}`)
+  lines.push(`- Needs-interview fields: ${result.summary.needsInterviewFields}`)
+  lines.push(`- Confirmed fields: ${result.summary.confirmedFields}`)
   lines.push(`- Required artifacts: present=${result.summary.present}, missing=${result.summary.missing}`)
   lines.push('')
   lines.push('## Required artifacts')
