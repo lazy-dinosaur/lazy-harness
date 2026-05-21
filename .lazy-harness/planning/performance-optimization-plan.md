@@ -318,6 +318,7 @@ Behavior:
 Current fixture suite:
 
 - read-only no-output
+- real/sample record-audit read-only no-output
 - BDD natural-language STOP
 - option-gate discipline STOP
 - record-before-session-history STOP
@@ -325,12 +326,14 @@ Current fixture suite:
 - project-rule-placement STOP
 - lazy-cli-entrypoint STOP
 - TDD cross-verify STOP
+- layer-impact observation side-effect parity
 - aftershock STOP
 - unknown full-fallback no-output
 
 Validation:
 
-- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 10/10 fixtures locally.
+- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 12/12 fixtures locally.
+- The runner now compares validation side-effect rows after normalizing volatile `id`/timestamp fields, so observation-only helpers such as `check-layer-impact.sh` are covered too.
 - Host dogfood found that installed hosts do not include source-only `.lazy-harness/triggers/fixtures/aftershock/decisions.jsonl`, so the runner now embeds a fallback aftershock decision fixture.
 
 Replacement status:

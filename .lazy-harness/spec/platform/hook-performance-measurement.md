@@ -104,6 +104,7 @@ Batch parity runner:
 
 - `lazy lifecycle-parity` runs production `on-response-completed.sh` and shadow `lifecycle-check` in fresh temp host copies for each fixture.
 - It compares output presence, first STOP/reminder body, expected helper, and expected marker text.
+- It compares validation side-effect rows after removing volatile timestamp/id fields.
 - `--fail-on-mismatch` exits `2` on any mismatch and is intended for self-test/CI.
 - Fixtures must be self-contained enough to run in installed hosts; source-only fixture files need embedded fallbacks.
 
@@ -117,6 +118,7 @@ Batch parity runner:
 - `.lazy-harness/scripts/lifecycle-parity-runner.py`
   - Batch parity runner that compares production hook output with lifecycle-check shadow output across representative fixtures in fresh temp hosts.
   - Embeds a fallback aftershock decision fixture so installed hosts can run parity without framework-only `triggers/fixtures` files.
+  - Includes real/sample read-only payload and layer-impact observation side-effect parity coverage.
 - `.lazy-harness/scripts/hook-timing-summary.py`
   - Read-only timing summary CLI.
 - `.lazy-harness/bin/lazy`
@@ -125,7 +127,7 @@ Batch parity runner:
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
   - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
-  - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the fixture suite.
+  - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the 12-fixture suite.
 
 ## Discovery capture
 

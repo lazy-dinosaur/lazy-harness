@@ -29,6 +29,18 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectOutput": False,
         },
         {
+            "name": "real-sample-record-audit-read-only-no-output",
+            "payload": {
+                "message_id": "parity-real-sample-record-audit",
+                "last_user_message": "지금 기록이 얼마나 쌓였는지 볼까?",
+                "recent_tool_calls": [
+                    {"name": "read", "args_preview": ".lazy-harness/planning/performance-optimization-plan.md"},
+                    {"name": "agentgrep", "args_preview": "query=record-audit path=.lazy-harness"},
+                ],
+            },
+            "expectOutput": False,
+        },
+        {
             "name": "bdd-natural-language-stop",
             "payload": {"message_id": "parity-bdd", "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.", "recent_tool_calls": []},
             "expectOutput": True,
@@ -88,6 +100,11 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectOutput": True,
             "expectHelperSuffix": "check-tdd-cross-verify.sh",
             "expectContains": "5d-3 TDD Cross-Verify Gate",
+        },
+        {
+            "name": "layer-impact-observation-side-effect",
+            "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": "src/patient/example.ts"}]},
+            "expectValidationRows": 1,
         },
         {
             "name": "aftershock-stop",
@@ -153,6 +170,30 @@ def prepare_env(host: Path, fixture: dict[str, Any], queue_name: str) -> dict[st
     return env
 
 
+def read_validation_rows(host: Path, env: dict[str, str]) -> list[dict[str, Any]]:
+    rel = env.get("LAZY_HARNESS_VALIDATIONS_FILE")
+    if not rel:
+        return []
+    path = host / rel
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            row = {"__invalid__": line}
+        if isinstance(row, dict):
+            row.pop("id", None)
+            row.pop("createdAt", None)
+            row.pop("timestamp", None)
+            row.pop("ts", None)
+        rows.append(row)
+    return rows
+
+
 def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
     payload = json.dumps(fixture["payload"], ensure_ascii=False)
     legacy_host = copy_host(root)
@@ -178,6 +219,8 @@ def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             env=shadow_env,
             check=False,
         )
+        legacy_validations = read_validation_rows(legacy_host, legacy_env)
+        shadow_validations = read_validation_rows(shadow_host, shadow_env)
         legacy_body = hook_body(legacy.stdout).rstrip()
         shadow_json: dict[str, Any]
         try:
@@ -194,8 +237,12 @@ def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             issues.append("output-presence-mismatch")
         if legacy_body != shadow_body:
             issues.append("output-body-mismatch")
+        if legacy_validations != shadow_validations:
+            issues.append("validation-side-effect-mismatch")
         if fixture.get("expectOutput") is not None and bool(shadow_body) != bool(fixture["expectOutput"]):
             issues.append("expected-output-mismatch")
+        if fixture.get("expectValidationRows") is not None and len(shadow_validations) != int(fixture["expectValidationRows"]):
+            issues.append("expected-validation-rows-mismatch")
         suffix = fixture.get("expectHelperSuffix")
         if suffix and not str(shadow_json.get("firstOutputHelper") or "").endswith(str(suffix)):
             issues.append("expected-helper-mismatch")
@@ -212,6 +259,8 @@ def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             "fastPathReason": shadow_json.get("fastPathReason"),
             "selectedHelpers": len(shadow_json.get("selectedHelpers") or []),
             "skippedHelpers": len(shadow_json.get("skippedHelpers") or []),
+            "legacyValidationRows": len(legacy_validations),
+            "shadowValidationRows": len(shadow_validations),
         }
     finally:
         shutil.rmtree(legacy_host, ignore_errors=True)
@@ -233,6 +282,7 @@ def run(root: Path) -> dict[str, Any]:
         "results": results,
         "notes": [
             "Compares production response.completed hook output with lifecycle-check shadow output in fresh temp hosts.",
+            "Compares validation side-effect rows after normalizing volatile IDs.",
             "This is Phase 2 safety coverage only; production hook replacement remains forbidden until parity is broad enough.",
         ],
     }

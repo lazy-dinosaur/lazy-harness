@@ -1889,7 +1889,7 @@ def check_lifecycle_parity_runner() -> None:
         sys.stderr.write(completed.stderr)
         fail("lifecycle parity runner failed")
     result = json.loads(completed.stdout)
-    if result.get("mode") != "lifecycle-parity-runner" or result.get("fixtures") != 10 or result.get("failed") != 0:
+    if result.get("mode") != "lifecycle-parity-runner" or result.get("fixtures") != 12 or result.get("failed") != 0:
         fail("lifecycle parity runner summary changed: " + completed.stdout[:800])
     print("✓ lifecycle parity runner ok")
 
