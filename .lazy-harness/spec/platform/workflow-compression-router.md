@@ -30,6 +30,7 @@ The router must not:
 .lazy-harness/bin/lazy route --message "..." --format=md
 .lazy-harness/bin/lazy route --message "..." --format=md --log
 .lazy-harness/bin/lazy route-summary --format=md
+.lazy-harness/bin/lazy route-audit --commits=12 --format=md
 ```
 
 Optional inputs:
@@ -61,6 +62,7 @@ Telemetry entry requirements:
 - no raw user message,
 - stable `messageHash`, optional `messageIdHash`, and `messageLength`,
 - route axes: intent/scope/risk/confidence/gate/record/impl-map,
+- evidence axes: matched/risk/scope/path signals, gate reason code, changed-file kinds, truncation flag,
 - validation and non-negotiable summaries,
 - non-canonical, never sufficient to close a queue or satisfy a record obligation.
 
@@ -73,7 +75,19 @@ Summary command:
 
 `route-summary` reads `route-decisions.jsonl` and optional `route-feedback.jsonl` to report counts, ratios, and recommendations for second-stage AGENTS/profile/heuristic work.
 
-Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`.
+`route-audit` reclassifies recent git commits using commit subject hashes plus changed file paths. It stores no raw commit subjects in output by default; it emits subject hashes, file counts, route axes, evidence, and false-negative flags.
+
+Route audit flags include:
+
+- `risk-review-required` — route risk is high;
+- `destructive-evidence` — destructive/delete evidence is present;
+- `contract-risk-path` — Prisma/TRPC/auth/permission path evidence is present;
+- `possible-risk-undercall` — risk stayed low despite risk/path evidence;
+- `destructive-without-gate` — destructive evidence exists but gate is none;
+- `path-scope-undercall` — path evidence suggests behavior/contract but scope remains code-local;
+- `candidate-for-contract-behavior-risk` — canonical-looking work still routes as candidate.
+
+Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`. The response hook passes dirty/staged changed file paths to the router when available so risk visible only in diffs can influence telemetry.
 
 The response hook must parse the lifecycle payload from stdin, not by copying the full payload into an environment variable. Real `response.completed` payloads can include large `recent_tool_calls` previews, so env-based parsing can silently fail before telemetry is appended. The hook accepts `last_user_message` plus camelCase/input aliases for forward compatibility. If no usable message field exists, it may append non-canonical diagnostics to `.lazy-harness/logs/route-telemetry-debug.jsonl`, but that file must store payload keys, byte counts, hashes, and alias presence only, never raw user message content.
 
@@ -113,7 +127,17 @@ Operational timing: telemetry is primarily useful **after sustained normal use**
       "reason": null
     },
     "validation": ["commit-time-lazy-test"],
-    "nonNegotiables": []
+    "nonNegotiables": [],
+    "evidence": {
+      "matchedSignals": [],
+      "riskEvidence": [],
+      "scopeEvidence": [],
+      "pathEvidence": [],
+      "gateReasonCode": "none | short-reference | high-risk | behavior | contract | ownership | unknown",
+      "truncatedLikely": false,
+      "changedFileCount": 0,
+      "changedFileKinds": []
+    }
   },
   "rationale": [],
   "warnings": []
@@ -230,6 +254,9 @@ The initial router is deterministic and conservative:
 - API/IPC/schema/env/config/hook/CLI/component prop → contract.
 - UI/user flow/screen/button/click/behavior/scenario → behavior.
 - source-of-truth/ownership/upstream/downstream/rule placement/project identity → ownership.
+- Changed files under `prisma/schema/**`, `src/main/trpc/routers/**`, auth/permission paths, renderer screens/components, and tests produce path evidence independent of message text.
+- Combined route should use max-risk/max-scope semantics: changed-file evidence may escalate a seemingly trivial or vague message.
+- `messageLength >= 500` is marked `truncatedLikely` because lifecycle payload extraction can cap long messages.
 - bug/regression/fix → fix intent, tdd affected.
 - refactor/cleanup/internal → refactor intent.
 - docs/readme/comment/copy typo → docs/trivial unless host policy terms appear.
@@ -239,5 +266,6 @@ The initial router is deterministic and conservative:
 
 - `.lazy-harness/scripts/task-router.ts` implements the read-only CLI.
 - `.lazy-harness/bin/lazy` dispatches `route`.
+- `.lazy-harness/hooks/lifecycle/on-response-completed.sh` supplies dirty/staged changed-file path context to automatic route telemetry.
 - `.lazy-harness/fixtures/task-router/*.json` define self-test cases.
 - `.lazy-harness/scripts/self-test.py` validates fixtures and read-only invariants.

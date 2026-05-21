@@ -1286,7 +1286,7 @@ def check_task_router_read_only_contract() -> None:
         entry = json.loads(telemetry.read_text(encoding="utf-8").strip())
         if "message" in entry or "messagePreview" in entry:
             fail("route telemetry must not store raw message: " + json.dumps(entry, ensure_ascii=False))
-        required_keys = ["messageHash", "scope", "risk", "gateMode", "recordCaptureMode"]
+        required_keys = ["messageHash", "scope", "risk", "gateMode", "recordCaptureMode", "routeVersion", "matchedSignals", "riskEvidence", "scopeEvidence", "pathEvidence", "gateReasonCode", "truncatedLikely", "changedFileKinds"]
         missing_keys = [key for key in required_keys if key not in entry]
         if missing_keys:
             fail("route telemetry missing key(s): " + json.dumps(missing_keys, ensure_ascii=False))
@@ -1359,7 +1359,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1369,6 +1369,13 @@ def check_lazy_route_cli_help() -> None:
     result = _run_task_router("typo in README")
     if result.get("route", {}).get("implementationMap", {}).get("tier") != "none":
         fail("lazy route trivial fixture should not require implementation map: " + json.dumps(result, ensure_ascii=False))
+    risky = _run_task_router("Feat: 치료 기록 삭제 버튼 추가", ["src/main/trpc/routers/appointment.ts", "src/renderer/src/screens/Appointment/modal/TreatmentPatientDetailModal/index.tsx"])
+    route = risky["route"]
+    if route["risk"] != "high" or route["gate"]["mode"] != "option-gate" or "destructive-word" not in route["evidence"]["riskEvidence"] or "trpc-router" not in route["evidence"]["pathEvidence"]:
+        fail("lazy route should flag destructive TRPC/UI commit evidence: " + json.dumps(risky, ensure_ascii=False))
+    audit = subprocess.run([".lazy-harness/bin/lazy", "route-audit", "--commits=1", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if audit.returncode != 0 or json.loads(audit.stdout).get("mode") != "route-audit":
+        fail("lazy route-audit should emit route-audit JSON:\n" + audit.stdout + audit.stderr)
     print("✓ lazy route CLI help ok")
 
 

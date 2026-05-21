@@ -36,11 +36,16 @@ if last:
     print(json.dumps({"message": last, "message_id": mid}, ensure_ascii=False))
 ' 2>/dev/null || true)
   if [ -n "$ROUTE_INPUT" ]; then
-    ROUTE_MESSAGE=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message", ""))' 2>/dev/null || true)
-    ROUTE_MESSAGE_ID=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message_id", ""))' 2>/dev/null || true)
-    if [ -n "$ROUTE_MESSAGE" ]; then
-      LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || true
-    fi
+ 	ROUTE_MESSAGE=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message", ""))' 2>/dev/null || true)
+	ROUTE_MESSAGE_ID=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message_id", ""))' 2>/dev/null || true)
+	if [ -n "$ROUTE_MESSAGE" ]; then
+	  ROUTE_CHANGED_FILES=$( (git diff --name-only; git diff --cached --name-only) 2>/dev/null | awk 'NF' | sort -u | head -200 | paste -sd, - )
+	  if [ -n "$ROUTE_CHANGED_FILES" ]; then
+	    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" --changed-files "$ROUTE_CHANGED_FILES" >/dev/null 2>&1 || true
+	  else
+	    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || true
+	  fi
+	fi
   else
     # Non-canonical diagnostics only. Do not store raw payload values or messages.
     printf '%s' "$PAYLOAD" | LAZY_HOST_ROOT="$ROOT_CANDIDATE" python3 -c '

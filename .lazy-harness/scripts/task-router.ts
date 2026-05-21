@@ -9,6 +9,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 type Intent = 'feature' | 'fix' | 'refactor' | 'investigation' | 'docs' | 'release' | 'unknown'
 type Scope = 'trivial' | 'code-local' | 'behavior' | 'contract' | 'ownership' | 'unknown'
@@ -27,7 +28,20 @@ interface Args {
   format: OutputFormat
   log: boolean
   summary: boolean
+  audit: boolean
+  commits: number
   messageId: string
+}
+
+interface Evidence {
+  matchedSignals: string[]
+  riskEvidence: string[]
+  scopeEvidence: string[]
+  pathEvidence: string[]
+  gateReasonCode: string
+  truncatedLikely: boolean
+  changedFileCount: number
+  changedFileKinds: string[]
 }
 
 interface RouteOutput {
@@ -48,6 +62,7 @@ interface RouteOutput {
     gate: { mode: GateMode; reason: string | null }
     validation: string[]
     nonNegotiables: string[]
+    evidence: Evidence
   }
   rationale: string[]
   warnings: string[]
@@ -63,7 +78,7 @@ const LAYER_TARGETS: Record<Layer, string> = {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { message: '', changedFiles: [], format: 'json', log: false, summary: false, messageId: '' }
+  const args: Args = { message: '', changedFiles: [], format: 'json', log: false, summary: false, audit: false, commits: 12, messageId: '' }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
@@ -98,6 +113,13 @@ function parseArgs(argv: string[]): Args {
       args.messageId = arg.slice('--message-id='.length)
     } else if (arg === '--summary' || arg === 'summary') {
       args.summary = true
+    } else if (arg === '--audit' || arg === 'audit') {
+      args.audit = true
+    } else if (arg === '--commits' && next) {
+      args.commits = Number.parseInt(next, 10) || 12
+      i += 1
+    } else if (arg.startsWith('--commits=')) {
+      args.commits = Number.parseInt(arg.slice('--commits='.length), 10) || 12
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -118,7 +140,7 @@ function normalizePath(value: string): string {
 }
 
 function printHelp(): void {
-  console.log(`task-router — workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b] [--log] [--message-id id]\n  lazy route-summary [--format=json|md]\n\nDefault route mode is advisory and read-only. --log appends telemetry only; it never writes records, mutates queues, or chooses Recommended options.`)
+  console.log(`task-router — workflow compression router\n\nUsage:\n  lazy route --message "..." [--format=json|md] [--changed-files a,b] [--log] [--message-id id]\n  lazy route-summary [--format=json|md]\n  lazy route-audit [--commits=12] [--format=json|md]\n\nDefault route mode is advisory and read-only. --log appends telemetry only; it never writes records, mutates queues, or chooses Recommended options.`)
 }
 
 function has(text: string, pattern: RegExp): boolean {
@@ -129,6 +151,40 @@ function addLayer(layers: Set<Layer>, ...values: Layer[]): void {
   values.forEach((value) => layers.add(value))
 }
 
+function add(values: string[], ...items: string[]): void {
+  for (const item of items) {
+    if (item && !values.includes(item)) values.push(item)
+  }
+}
+
+function maxRisk(a: Risk, b: Risk): Risk {
+  const order: Record<Risk, number> = { low: 0, medium: 1, high: 2 }
+  return order[b] > order[a] ? b : a
+}
+
+function strongerScope(current: Scope, next: Scope): Scope {
+  const order: Record<Scope, number> = { trivial: 0, 'code-local': 1, behavior: 2, contract: 3, ownership: 4, unknown: -1 }
+  if (current === 'unknown') return next
+  if (next === 'unknown') return current
+  return order[next] > order[current] ? next : current
+}
+
+function textSignal(text: string, regex: RegExp): boolean {
+  return regex.test(text)
+}
+
+function fileKind(file: string): string {
+  if (/prisma\/schema\//.test(file)) return 'prisma-schema'
+  if (/src\/main\/trpc\/routers\//.test(file)) return 'trpc-router'
+  if (/auth|permission|PermissionsTab|AuthProvider/i.test(file)) return 'auth-permission'
+  if (/src\/renderer\/src\/screens\//.test(file)) return 'renderer-screen'
+  if (/src\/renderer\/src\/components\//.test(file)) return 'renderer-component'
+  if (/tests?\//.test(file) || /\.test\./.test(file) || /\.spec\./.test(file)) return 'test'
+  if (/docs?\//.test(file) || /\.(md|mdx|txt)$/.test(file)) return 'docs'
+  if (/schema|config|env|hooks?\//i.test(file)) return 'contract-config'
+  return 'code'
+}
+
 function classify(args: Args): RouteOutput {
   const raw = args.message.trim()
   const text = raw.toLowerCase()
@@ -136,6 +192,16 @@ function classify(args: Args): RouteOutput {
   const layers = new Set<Layer>()
   const rationale: string[] = []
   const warnings: string[] = []
+  const evidence: Evidence = {
+    matchedSignals: [],
+    riskEvidence: [],
+    scopeEvidence: [],
+    pathEvidence: [],
+    gateReasonCode: 'none',
+    truncatedLikely: raw.length >= 500,
+    changedFileCount: files.length,
+    changedFileKinds: []
+  }
 
   let intent: Intent = 'unknown'
   let scope: Scope = 'unknown'
@@ -145,6 +211,8 @@ function classify(args: Args): RouteOutput {
 
   const shortOrPronoun = !raw || raw.length < 12 || has(text, /\b(그거|이거|저거|그 부분|that|this|it)\b/i)
   if (shortOrPronoun) {
+    add(evidence.matchedSignals, 'short-or-pronoun')
+    evidence.gateReasonCode = 'short-reference'
     scope = 'unknown'
     risk = 'medium'
     confidence = 'low'
@@ -153,6 +221,8 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(release|deploy|publish|hotfix|version|build|릴리즈|배포|publish|버전|핫픽스)\b/i)) {
+    add(evidence.matchedSignals, 'release-word')
+    add(evidence.riskEvidence, 'release-deploy')
     intent = 'release'
     risk = 'high'
     scope = 'contract'
@@ -161,7 +231,11 @@ function classify(args: Args): RouteOutput {
     rationale.push('Release/deploy/build wording implies high-risk workflow.')
   }
 
-  if (has(text, /\b(delete|drop|destroy|wipe|force push|force-push|truncate|db push|migration|migrate|auth|permission|secret|token|삭제|드랍|강제|마이그레이션|권한|인증|보안)\b/i)) {
+  if (has(text, /\b(delete|drop|destroy|wipe|force push|force-push|truncate|db push|migration|migrate|auth|permission|secret|token)\b/i) || textSignal(text, /(삭제|제거|초기화|드랍|강제|마이그레이션|권한|인증|보안)/)) {
+    add(evidence.matchedSignals, 'risk-word')
+    if (textSignal(text, /(삭제|제거|delete|drop|destroy|wipe|truncate)/i)) add(evidence.riskEvidence, 'destructive-word')
+    if (textSignal(text, /(auth|permission|secret|token|권한|인증|보안)/i)) add(evidence.riskEvidence, 'auth-permission-word')
+    if (textSignal(text, /(migration|migrate|마이그레이션)/i)) add(evidence.riskEvidence, 'migration-word')
     risk = 'high'
     gate = 'option-gate'
     addLayer(layers, 'ssot', 'adr', 'tdd')
@@ -169,13 +243,17 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(api|ipc|rpc|schema|contract|config|env|hook|cli|props?|component interface|endpoint|migration|스키마|계약|설정|환경변수|훅)\b/i)) {
+    add(evidence.matchedSignals, 'contract-word')
+    add(evidence.scopeEvidence, 'contract-word')
     if (scope !== 'ownership') scope = 'contract'
     if (risk === 'low') risk = 'medium'
     addLayer(layers, 'sdd', 'ssot', 'tdd')
     rationale.push('Contract/config/API wording maps to SDD/SSOT/TDD.')
   }
 
-  if (has(text, /\b(ui|screen|button|click|flow|behavior|scenario|user|사용자|화면|버튼|클릭|동작|흐름|시나리오)\b/i)) {
+  if (has(text, /\b(ui|screen|button|click|flow|behavior|scenario|user)\b/i) || textSignal(text, /(사용자|화면|버튼|클릭|동작|흐름|시나리오|우클릭|드롭다운|모드|상세|표시)/)) {
+    add(evidence.matchedSignals, 'behavior-word')
+    add(evidence.scopeEvidence, 'behavior-word')
     if (scope === 'unknown' || scope === 'code-local' || scope === 'trivial') scope = 'behavior'
     if (risk === 'low') risk = 'medium'
     addLayer(layers, 'bdd', 'sdd', 'tdd')
@@ -183,6 +261,9 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(source of truth|source-of-truth|ownership|owner|upstream|downstream|project identity|rule placement|canonical|ssot|소스오브트루스|소유권|업스트림|다운스트림|프로젝트 정체성)\b/i)) {
+    add(evidence.matchedSignals, 'ownership-word')
+    add(evidence.scopeEvidence, 'ownership-word')
+    add(evidence.riskEvidence, 'ownership-boundary')
     scope = 'ownership'
     risk = 'high'
     gate = 'option-gate'
@@ -191,6 +272,7 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(fix|bug|regression|broken|error|fail|고쳐|버그|회귀|실패|에러)\b/i)) {
+    add(evidence.matchedSignals, 'fix-word')
     intent = 'fix'
     if (scope === 'unknown') scope = 'code-local'
     if (risk === 'low') risk = 'medium'
@@ -199,6 +281,7 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(refactor|cleanup|rename|move|internal|리팩터|정리|이름 변경)\b/i)) {
+    add(evidence.matchedSignals, 'refactor-word')
     if (intent === 'unknown') intent = 'refactor'
     if (scope === 'unknown') scope = 'code-local'
     addLayer(layers, 'tdd')
@@ -206,18 +289,21 @@ function classify(args: Args): RouteOutput {
   }
 
   if (has(text, /\b(investigate|evaluate|assess|plan|review|analy[sz]e|research|검토|평가|계획|분석|조사)\b/i)) {
+    add(evidence.matchedSignals, 'investigation-word')
     if (intent === 'unknown') intent = 'investigation'
     if (scope === 'unknown') scope = 'code-local'
     rationale.push('Investigation/planning wording maps to advisory capture.')
   }
 
   if (has(text, /\b(doc|docs|readme|comment|copy|typo|text|문서|주석|오타|문구)\b/i)) {
+    add(evidence.matchedSignals, 'docs-word')
     if (intent === 'unknown') intent = 'docs'
     if (scope === 'unknown') scope = 'trivial'
     rationale.push('Docs/copy wording is trivial unless host-specific policy terms override it.')
   }
 
-  if (has(text, /\b(add|create|implement|change|update|make|만들|추가|구현|변경|수정)\b/i) && intent === 'unknown') {
+  if ((has(text, /\b(feat|feature|add|create|implement|change|update|make)\b/i) || textSignal(text, /(만들|추가|구현|변경|수정)/)) && intent === 'unknown') {
+    add(evidence.matchedSignals, 'implementation-word')
     intent = 'feature'
     if (scope === 'unknown') scope = 'code-local'
     if (risk === 'low') risk = 'medium'
@@ -225,6 +311,9 @@ function classify(args: Args): RouteOutput {
   }
 
   for (const file of files) {
+    const kind = fileKind(file)
+    add(evidence.changedFileKinds, kind)
+    if (kind !== 'code') add(evidence.pathEvidence, kind)
     if (/\.(md|mdx|txt)$/.test(file)) {
       if (intent === 'unknown') intent = 'docs'
       if (scope === 'unknown') scope = 'trivial'
@@ -234,10 +323,26 @@ function classify(args: Args): RouteOutput {
       if (risk === 'low') risk = 'medium'
       addLayer(layers, 'tdd')
     }
-    if (file.includes('/api/') || file.includes('/ipc') || file.includes('/schema') || file.includes('/config') || file.includes('/hooks/')) {
-      scope = 'contract'
-      risk = risk === 'high' ? 'high' : 'medium'
+    if (kind === 'prisma-schema' || kind === 'trpc-router' || kind === 'contract-config' || file.includes('/api/') || file.includes('/ipc') || file.includes('/schema') || file.includes('/config') || file.includes('/hooks/')) {
+      scope = strongerScope(scope, 'contract')
+      risk = maxRisk(risk, 'medium')
       addLayer(layers, 'sdd', 'ssot', 'tdd')
+      add(evidence.scopeEvidence, `${kind}-path`)
+      add(evidence.riskEvidence, `${kind}-path`)
+    }
+    if (kind === 'auth-permission') {
+      scope = strongerScope(scope, 'ownership')
+      risk = maxRisk(risk, 'high')
+      gate = 'option-gate'
+      addLayer(layers, 'ssot', 'adr', 'tdd')
+      add(evidence.scopeEvidence, 'auth-permission-path')
+      add(evidence.riskEvidence, 'auth-permission-path')
+    }
+    if (kind === 'renderer-screen' || kind === 'renderer-component') {
+      scope = strongerScope(scope, 'behavior')
+      risk = maxRisk(risk, 'medium')
+      addLayer(layers, 'bdd', 'sdd', 'tdd')
+      add(evidence.scopeEvidence, `${kind}-path`)
     }
   }
 
@@ -252,6 +357,12 @@ function classify(args: Args): RouteOutput {
 
   if (risk === 'high') gate = 'option-gate'
   else if (gate === 'none' && (scope === 'contract' || scope === 'behavior') && confidence !== 'high') gate = 'narrow-confirm'
+  if (gate === 'option-gate' && evidence.gateReasonCode === 'none') evidence.gateReasonCode = risk === 'high' ? 'high-risk' : (scope === 'unknown' ? 'unknown' : scope)
+  if (gate === 'narrow-confirm' && evidence.gateReasonCode === 'none') evidence.gateReasonCode = scope
+  if (evidence.truncatedLikely) {
+    add(evidence.matchedSignals, 'truncated-likely')
+    warnings.push('Message length suggests possible lifecycle payload truncation; route confidence may be incomplete.')
+  }
 
   const affectedLayers = [...layers]
   const recordSearch = routeRecordSearch(scope, risk, confidence, affectedLayers)
@@ -283,7 +394,8 @@ function classify(args: Args): RouteOutput {
       implementationMap,
       gate: { mode: gate, reason: gateReason(gate, scope, risk, confidence) },
       validation,
-      nonNegotiables: nonNegotiables(gate, risk, recordSearch.mode)
+      nonNegotiables: nonNegotiables(gate, risk, recordSearch.mode),
+      evidence
     },
     rationale,
     warnings
@@ -366,6 +478,7 @@ function toMarkdown(result: RouteOutput): string {
     `- implementation map: ${r.implementationMap.tier}`,
     `- gate: ${r.gate.mode}${r.gate.reason ? ` (${r.gate.reason})` : ''}`,
     `- validation: ${r.validation.join(', ')}`,
+    `- evidence: signals=${r.evidence.matchedSignals.join(',') || 'none'} risk=${r.evidence.riskEvidence.join(',') || 'none'} path=${r.evidence.pathEvidence.join(',') || 'none'} gateReason=${r.evidence.gateReasonCode}`,
     '',
     '## Non-negotiables',
     ...r.nonNegotiables.map((entry) => `- ${entry}`),
@@ -424,6 +537,15 @@ function appendTelemetry(result: RouteOutput, messageId = ''): void {
     recordCaptureMode: r.recordCapture.mode,
     implementationMapTier: r.implementationMap.tier,
     gateMode: r.gate.mode,
+    routeVersion: '1.1',
+    matchedSignals: r.evidence.matchedSignals,
+    riskEvidence: r.evidence.riskEvidence,
+    scopeEvidence: r.evidence.scopeEvidence,
+    pathEvidence: r.evidence.pathEvidence,
+    gateReasonCode: r.evidence.gateReasonCode,
+    truncatedLikely: r.evidence.truncatedLikely,
+    changedFileCount: r.evidence.changedFileCount,
+    changedFileKinds: r.evidence.changedFileKinds,
     validation: r.validation,
     nonNegotiables: r.nonNegotiables,
     warningCount: result.warnings.length
@@ -457,6 +579,7 @@ function summarizeTelemetry(): any {
   const lowConfidence = decisions.filter((entry) => entry.confidence === 'low').length
   const candidate = decisions.filter((entry) => entry.recordCaptureMode === 'candidate').length
   const canonical = decisions.filter((entry) => entry.recordCaptureMode === 'canonical').length
+  const truncated = decisions.filter((entry) => entry.truncatedLikely).length
   const recommendations: string[] = []
   if (total === 0) recommendations.push('No route telemetry yet. Use lazy route --log during real work.')
   if (total >= 5 && optionGate / total > 0.45) recommendations.push('High option-gate ratio; inspect false positives and consider narrower gate heuristics.')
@@ -478,16 +601,33 @@ function summarizeTelemetry(): any {
       recordSearchMode: countBy(decisions, 'recordSearchMode'),
       recordCaptureMode: countBy(decisions, 'recordCaptureMode'),
       implementationMapTier: countBy(decisions, 'implementationMapTier')
+      , gateReasonCode: countBy(decisions, 'gateReasonCode')
+    },
+    evidenceCounts: {
+      riskEvidence: countArrayValues(decisions, 'riskEvidence'),
+      scopeEvidence: countArrayValues(decisions, 'scopeEvidence'),
+      pathEvidence: countArrayValues(decisions, 'pathEvidence'),
+      changedFileKinds: countArrayValues(decisions, 'changedFileKinds')
     },
     ratios: total === 0 ? {} : {
       optionGate: optionGate / total,
       highRisk: highRisk / total,
       lowConfidence: lowConfidence / total,
       candidateCapture: candidate / total,
-      canonicalCapture: canonical / total
+      canonicalCapture: canonical / total,
+      truncatedLikely: truncated / total
     },
     recommendations
   }
+}
+
+function countArrayValues(entries: any[], key: string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const entry of entries) {
+    const values = Array.isArray(entry[key]) ? entry[key] : []
+    for (const value of values) counts[String(value)] = (counts[String(value)] || 0) + 1
+  }
+  return counts
 }
 
 function summaryMarkdown(summary: any): string {
@@ -499,15 +639,72 @@ function summaryMarkdown(summary: any): string {
     `- option-gate ratio: ${summary.ratios.optionGate ?? 0}`,
     `- low-confidence ratio: ${summary.ratios.lowConfidence ?? 0}`,
     `- canonical-capture ratio: ${summary.ratios.canonicalCapture ?? 0}`,
+    `- truncated-likely ratio: ${summary.ratios.truncatedLikely ?? 0}`,
     '',
     '## Counts',
     `- scope: ${JSON.stringify(summary.counts.scope)}`,
     `- risk: ${JSON.stringify(summary.counts.risk)}`,
     `- gate: ${JSON.stringify(summary.counts.gateMode)}`,
     `- record capture: ${JSON.stringify(summary.counts.recordCaptureMode)}`,
+    `- gate reasons: ${JSON.stringify(summary.counts.gateReasonCode)}`,
+    `- risk evidence: ${JSON.stringify(summary.evidenceCounts.riskEvidence)}`,
+    `- path evidence: ${JSON.stringify(summary.evidenceCounts.pathEvidence)}`,
     '',
     '## Recommendations',
     ...(summary.recommendations.length ? summary.recommendations.map((item: string) => `- ${item}`) : ['- No recommendations.'])
+  ].join('\n')
+}
+
+function gitOutput(args: string[]): string {
+  try {
+    return execFileSync('git', args, { cwd: hostRoot(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  } catch {
+    return ''
+  }
+}
+
+function auditRecentCommits(count: number): any {
+  const lines = gitOutput(['log', `-${Math.max(1, count)}`, '--format=%H%x00%s']).split('\n').filter(Boolean)
+  const commits = lines.map((line) => {
+    const [sha, subject = ''] = line.split('\x00')
+    const files = gitOutput(['show', '--name-only', '--format=', sha]).split('\n').map((f) => f.trim()).filter(Boolean)
+    const route = classify({ message: subject, changedFiles: files, format: 'json', log: false, summary: false, audit: false, commits: count, messageId: '' }).route
+    const flags: string[] = []
+    if (route.risk === 'high') flags.push('risk-review-required')
+    if (route.evidence.riskEvidence.includes('destructive-word')) flags.push('destructive-evidence')
+    if (route.evidence.pathEvidence.some((p) => ['prisma-schema', 'trpc-router', 'auth-permission'].includes(p))) flags.push('contract-risk-path')
+    if (route.risk === 'low' && (route.evidence.riskEvidence.length || route.evidence.pathEvidence.some((p) => ['prisma-schema', 'trpc-router', 'auth-permission'].includes(p)))) flags.push('possible-risk-undercall')
+    if (route.gate.mode === 'none' && route.evidence.riskEvidence.includes('destructive-word')) flags.push('destructive-without-gate')
+    if (route.scope === 'code-local' && route.evidence.pathEvidence.some((p) => ['trpc-router', 'prisma-schema', 'auth-permission', 'renderer-screen'].includes(p))) flags.push('path-scope-undercall')
+    if (route.recordCapture.mode === 'candidate' && (route.scope === 'contract' || route.scope === 'behavior' || route.risk === 'high')) flags.push('candidate-for-contract-behavior-risk')
+    return { sha: sha.slice(0, 8), subjectHash: stableHash(subject), subjectLength: subject.length, fileCount: files.length, route, flags }
+  })
+  return {
+    ok: true,
+    mode: 'route-audit',
+    schemaVersion: '1.0',
+    commitCount: commits.length,
+    flaggedCount: commits.filter((c) => c.flags.length > 0).length,
+    commits
+  }
+}
+
+function auditMarkdown(audit: any): string {
+  return [
+    '# lazy route audit',
+    '',
+    `- commits: ${audit.commitCount}`,
+    `- flagged: ${audit.flaggedCount}`,
+    '',
+    ...audit.commits.map((c: any) => [
+      `## ${c.sha}`,
+      `- subjectHash: ${c.subjectHash}`,
+      `- files: ${c.fileCount}`,
+      `- route: intent=${c.route.intent} scope=${c.route.scope} risk=${c.route.risk} gate=${c.route.gate.mode} capture=${c.route.recordCapture.mode} map=${c.route.implementationMap.tier}`,
+      `- evidence: risk=${c.route.evidence.riskEvidence.join(',') || 'none'} path=${c.route.evidence.pathEvidence.join(',') || 'none'}`,
+      `- flags: ${c.flags.join(', ') || 'none'}`,
+      ''
+    ].join('\n'))
   ].join('\n')
 }
 
@@ -518,6 +715,12 @@ function main(): void {
       const summary = summarizeTelemetry()
       if (args.format === 'json') console.log(JSON.stringify(summary, null, 2))
       else console.log(summaryMarkdown(summary))
+      return
+    }
+    if (args.audit) {
+      const audit = auditRecentCommits(args.commits)
+      if (args.format === 'json') console.log(JSON.stringify(audit, null, 2))
+      else console.log(auditMarkdown(audit))
       return
     }
     if (!args.message.trim()) throw new Error('Missing --message')

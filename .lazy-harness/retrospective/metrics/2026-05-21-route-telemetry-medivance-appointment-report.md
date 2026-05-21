@@ -271,6 +271,18 @@ if message says trivial but changed files include prisma/schema or auth/permissi
 
 ## Recommended plan
 
+### 2026-05-21 implementation update
+
+The first improvement pass implemented the recommended Phase A/B/C foundations:
+
+- telemetry entries now include evidence fields: `routeVersion`, `matchedSignals`, `riskEvidence`, `scopeEvidence`, `pathEvidence`, `gateReasonCode`, `truncatedLikely`, `changedFileCount`, and `changedFileKinds`;
+- `response.completed` automatic telemetry passes dirty/staged changed-file paths to `lazy route`, so diff-visible risk can escalate routing even when the user message is vague;
+- `lazy route-summary` reports evidence counts and truncation ratio;
+- `lazy route-audit --commits=N` reclassifies recent commits from subject hash + changed file paths and emits risk flags;
+- Korean destructive/behavior words and important medivance path families (`prisma/schema`, `trpc/routers`, auth/permission, renderer screens/components) now produce evidence.
+
+The original false-negative candidate `Feat: 치료 기록 삭제 버튼 추가` is now classified as `risk=high`, `gate=option-gate`, `recordCapture=canonical`, `implementationMap=full-graph` when run with TRPC/router and Appointment UI changed files.
+
 ### Phase A — Improve telemetry before changing major heuristics
 
 Implement evidence fields without storing raw messages:
