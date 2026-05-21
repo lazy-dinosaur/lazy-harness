@@ -82,10 +82,12 @@ If the Project Profile is missing or incomplete for the requested area, the fram
 - `.lazy-harness/scripts/jcode-wiring.ts`
   - Installs the `/lazy-project-profile` wrapper into host `.jcode/skills/` alongside other lazy-harness framework skills.
 - `.lazy-harness/scripts/project-profile.ts`
-  - Entry point that reports missing Project Profile artifacts, plans missing skeletons, and applies only `status="needs-interview"` skeleton records after confirmation.
+  - Entry point that reports missing Project Profile artifacts, plans missing skeletons, applies only `status="needs-interview"` skeleton records after confirmation, and emits structured questions for open needs-interview fields.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]`.
   - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]`.
+  - CLI: `bun .lazy-harness/scripts/project-profile.ts --mode interview [--dry-run|--confirm] [--format md|json] [--root <path>]`.
+  - `interview --confirm` writes only `.lazy-harness/project/profile-interview.xml`, an open-question transcript. It does not fill stack, filesystem, architecture, or validation decisions without confirmed answers.
 - Future host records: `.lazy-harness/project/*.xml`
   - Host-local durable profile outputs consumed before feature implementation.
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`

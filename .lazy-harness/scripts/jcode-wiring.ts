@@ -59,13 +59,15 @@ This is an interview-first framework skill. Do not silently invent architecture 
 1. Run inspect first: bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md
 2. If skeletons are missing, preview them: bun .lazy-harness/scripts/project-profile.ts --mode plan --format=md
 3. Apply only needs-interview skeletons after confirmation: bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm --format=md
-4. Inspect existing host records and code structure.
-5. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
-6. Ask 3-5 option gates for decisions that cannot be inferred.
-7. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
-8. Run lazy-harness validation.
+4. Generate the open interview queue: bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run --format=md
+5. After user confirmation, persist only the open-question transcript: bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm --format=md
+6. Inspect existing host records and code structure.
+7. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
+8. Ask 3-5 option gates for decisions that cannot be inferred.
+9. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
+10. Run lazy-harness validation.
 
-Future CLI target: bun .lazy-harness/scripts/project-profile.ts --mode interview --apply`
+Current interview CLI writes only .lazy-harness/project/profile-interview.xml. A later fill step may apply confirmed answers into profile records.`
   },
   {
     name: 'lazy-doc-ingest',

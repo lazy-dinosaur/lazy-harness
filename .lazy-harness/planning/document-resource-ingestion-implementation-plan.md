@@ -112,7 +112,16 @@ Skill behavior:
 
 ## Slice 4 — Project Profile inspect/interview skeleton
 
-Status: inspect/plan/apply skeleton implemented in `.lazy-harness/scripts/project-profile.ts`. Apply creates only `status="needs-interview"` records; actual architecture decisions still require interview or confirmed evidence.
+Status: inspect/plan/apply skeleton implemented in `.lazy-harness/scripts/project-profile.ts`. Apply creates only `status="needs-interview"` records; actual architecture decisions still require interview or confirmed evidence. Interview question generation is now implemented as `--mode interview`; dry-run prints open questions and `--confirm` writes only `.lazy-harness/project/profile-interview.xml`.
+
+2026-05-21 Medivance dogfood for interview mode:
+
+- Synced framework to `/home/lazydino/dev/medivance` sequentially with `lazy-sync --force`.
+- Host smoke doctor passed: `python3 .lazy-harness/scripts/doctor.py --profile smoke --scope host`.
+- `project-profile.ts --mode interview --format=json` returned `project-profile.interview`, `dryRun=true`, and 22 open questions from existing needs-interview project skeletons.
+- First question target was `profile.purpose`, confirming deterministic field extraction from `.lazy-harness/project/profile.xml`.
+- `project-profile.ts --mode interview --confirm --format=json` wrote `.lazy-harness/project/profile-interview.xml` with 22 questions, and the XML parsed successfully.
+- Safety invariant held: no profile values, stack choices, filesystem paths, navigation policies, or test commands were filled without confirmed answers.
 
 2026-05-20 Medivance dogfood after source commit `957dace`:
 

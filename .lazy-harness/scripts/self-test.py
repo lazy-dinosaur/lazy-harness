@@ -1170,7 +1170,9 @@ def check_jcode_project_profile_skill_wrapper() -> None:
         "Document Resource Ingestion",
         "separate ingestion flow",
         "Ask 3-5 option gates",
-        "project-profile.ts --mode interview --apply",
+        "project-profile.ts --mode interview --dry-run",
+        "project-profile.ts --mode interview --confirm",
+        "profile-interview.xml",
     ]
     missing = [phrase for phrase in required if phrase not in source]
     if missing:
@@ -1972,6 +1974,55 @@ def check_project_profile_inspect() -> None:
         after = json.loads(after_completed.stdout)
         if after.get("summary", {}).get("complete") is not False or after.get("summary", {}).get("present") != 4:
             fail("project-profile inspect after skeleton apply should see four project records and missing test strategy")
+        interview_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "interview",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if interview_completed.returncode != 0:
+            fail("project-profile interview failed:\n" + interview_completed.stdout + interview_completed.stderr)
+        interview = json.loads(interview_completed.stdout)
+        questions = interview.get("questions", [])
+        if interview.get("mode") != "project-profile.interview" or len(questions) != 22:
+            fail("project-profile interview should emit open questions for all needs-interview skeleton fields: " + interview_completed.stdout[:500])
+        targets = {question.get("target") for question in questions}
+        for target in ["profile.purpose", "stack.frontend", "filesystem.sourceRoots", "step[layer=DDD]", "featureNavigation.sideEffectPolicy"]:
+            if target not in targets:
+                fail("project-profile interview missing expected target: " + target)
+        if any("Answer now with confirmed project truth" not in "\n".join(question.get("options", [])) for question in questions):
+            fail("project-profile interview questions must preserve A/B/C/D option gate wording")
+        interview_apply_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "interview",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if interview_apply_completed.returncode != 0:
+            fail("project-profile interview --confirm failed:\n" + interview_apply_completed.stdout + interview_apply_completed.stderr)
+        interview_apply = json.loads(interview_apply_completed.stdout)
+        if interview_apply.get("mode") != "project-profile.interview-apply" or interview_apply.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-interview.xml":
+            fail("project-profile interview --confirm should write open-question transcript")
+        ET.parse(root / ".lazy-harness" / "project" / "profile-interview.xml")
     print("✓ project-profile inspect/plan/apply ok")
 
 
