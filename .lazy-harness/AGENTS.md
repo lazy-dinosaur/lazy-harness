@@ -49,11 +49,7 @@ record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs
 Jcode 전용 로컬/개인 실행 메모만 `.jcode/harness/20-project-rules.md` 에 둔다. 프로젝트별 확장/커스텀 규칙 본문은 `.lazy-harness` record 에 두고 `.jcode` 는 pointer-only 로 유지한다.
 Jcode `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. 그런 규칙은 `.lazy-harness` record 로 수렴하고 잘못 저장한 memory 는 삭제한다.
 
-또는 N2 resolver 활용:
-
-```bash
-bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
-```
+또는 N2 resolver 활용: `bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask`
 
 ### 2.2 발견된 record 끝까지 Read
 
@@ -64,6 +60,9 @@ bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask
 3~5 후보 + `(Recommended)` 표시 + type-your-own 마지막. ADR 0019 / Principle 21. `needs-option-gate` 는 완료가 아니라 정지 상태다. 사용자 선택 전 반복 질문/Recommended 자가선택/도구 실행 금지. 사용자가 고르면 그 답을 `user-confirmed` 로 수렴하고 다시 묻지 않는다.
 
 **Queue close 의무 (ADR 0035)**: `.lazy-harness/questions/open.xml` 에 박힌 question 의 답을 사용자에게 받으면 같은 turn 안에서 반드시 `bun .lazy-harness/scripts/interview-loop.ts --mode answer --question-id Q-<id> --answer <A|B|C|D> --apply` 로 close 처리한다. `--apply` 없으면 preview-only. 자세한 룰은 ADR 0035 참조.
+
+**Requirements-first change gate (ADR 0038)**: 요구사항 형성 중에는 구현안 / 수정 계획 / 파일 변경으로 점프 금지. `Requirement gathering → Plan proposal → Execution approval → Implementation` 순서 준수. "이해하지?", "맞지?", "그지?" 는 실행 승인이 아니다.
+승인 후 새 제약 / 반례 / 우선순위 변경 / "아니" / "잠깐" / "그게 아니라" / "수정하기 전에" 가 나오면 승인은 stale 이며, 구현 / 수정 / mutating tool / subagent 실행 금지. 읽기 전용 조사와 명백한 mechanical edit 만 예외.
 
 **게이트 시점 (이 중 하나라도 해당되면 다음 도구 호출 전 무조건 멈춤)**:
 
