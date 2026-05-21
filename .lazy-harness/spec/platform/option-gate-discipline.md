@@ -41,7 +41,9 @@ A repeated gate is a bug unless one of these changed since the previous gate:
 - a record was found that converts the gate to `inferred-from-record`,
 - a record/write happened after a user-confirmed selection.
 
-Agents should summarize the already-open gate rather than reprinting the full option block multiple times. Trigger helpers that derive gates from stable context such as `last_user_message` must not rely on `payload.assistant_response`: jcode `response.completed` production payload does not include assistant text. Helpers that can repeatedly derive the same gate from stable inputs must use turn-level fingerprint suppression (`message_id` + helper + deterministic fingerprint) so the same gate fires at most once per turn.
+Agents should summarize the already-open gate rather than reprinting the full option block multiple times. Trigger helpers that derive gates from stable context such as `last_user_message` must not rely on `payload.assistant_response`: jcode `response.completed` production payload does not include assistant text.
+
+BDD scenario detection is a special case: raw BDD discoveries are institutional-memory intake, not execution approval for product code or canonical record mutation. Therefore the BDD lifecycle helper must not emit repeated STOP/option-gate prompts. It silently appends a deduped `bdd-scenario` candidate to `.lazy-harness/knowledge/candidates.jsonl`; promotion into `behavior/`, `domain/`, or `spec/` still requires explicit user-confirmed action later.
 
 ## Lifecycle helper behavior
 
@@ -52,7 +54,7 @@ It emits STOP text when an unresolved option gate appears together with either:
 - mutating/executing tool calls in the same response payload, or
 - self-selection/completion language such as `user-confirmed`, `inferred-from-record`, `기록 완료`, `dispatch 했`, `실행했습니다`, or `진행하겠습니다` without a user choice.
 
-Plainly asking a gate once is allowed. Helpers that derive gates from stable payload fields are loop-prone and must use turn-level fingerprint suppression. BDD trigger gates use `bdd:<fingerprint>` via `gate-fingerprint.sh`; project rule placement gates use compatible `project-rule-placement:<fingerprint>` entries. If the same helper-prefixed fingerprint is already open for the current `message_id`, the helper exits silently even when stable payload fields still match the candidate.
+Plainly asking a gate once is allowed for true decision/execution gates. Helpers that derive gates from stable payload fields are loop-prone and must suppress repeats. BDD trigger candidates use candidate-id dedupe in `.lazy-harness/knowledge/candidates.jsonl` and produce no hook output. Project rule placement gates use compatible `project-rule-placement:<fingerprint>` entries via `gate-fingerprint.sh`; if the same helper-prefixed fingerprint is already open for the current `message_id`, the helper exits silently even when stable payload fields still match the candidate.
 
 ## Implementation map
 
@@ -63,7 +65,7 @@ Plainly asking a gate once is allowed. Helpers that derive gates from stable pay
   - `.lazy-harness/ssot/rule-sources.md` — option-gate waiting-state rule for project rule placement.
   - `.lazy-harness/spec/platform/project-rule-router.md` — project-rule-specific completion contract.
   - `.lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh` — response-completed guard.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — suppresses already-open BDD option gate loops using turn-level fingerprints.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — silently captures deduped BDD scenario candidates instead of injecting repeated option gates.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — suppresses already-open project-rule placement STOP reminders using turn-level fingerprints.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns `.lazy-harness/state/open-gates.json` check/record behavior.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime state SSOT for `open-gates.json`.
@@ -74,14 +76,14 @@ Plainly asking a gate once is allowed. Helpers that derive gates from stable pay
 - Key symbols:
   - `check_option_gate_discipline_helper` (`.lazy-harness/scripts/self-test.py`) — validates ask/pass/block cases.
   - `run_option_gate_discipline_helper` (`.lazy-harness/scripts/self-test.py`) — helper runner.
-  - `check_bdd_trigger_loop_suppression` (`.lazy-harness/scripts/self-test.py`) — validates same-turn BDD suppression and new-turn re-fire.
+  - `check_bdd_trigger_loop_suppression` (`.lazy-harness/scripts/self-test.py`) — validates silent BDD candidate capture and cross-turn dedupe.
   - `gate_fingerprint_check` / `gate_fingerprint_record` (`.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh`) — manage turn-level fingerprint state.
   - `check_bdd_trigger_avoids_runtime_tsmorph` (`.lazy-harness/scripts/self-test.py`) — validates BDD trigger dependency isolation for installed hosts.
 - Flow:
   1. Assistant emits an option gate.
   2. Helper allows the turn only if no side-effect/self-selection is present.
   3. Any write/execute/self-selection after `needs-option-gate` is blocked.
-  4. BDD trigger helper suppresses repeated injection when the same BDD fingerprint is already open for the current `message_id`.
+  4. BDD trigger helper captures raw scenario candidates silently and does not block the conversation with A/B/C/D prompts.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh`

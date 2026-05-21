@@ -41,11 +41,9 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectOutput": False,
         },
         {
-            "name": "bdd-natural-language-stop",
+            "name": "bdd-natural-language-candidate-capture",
             "payload": {"message_id": "parity-bdd", "last_user_message": "사용자가 환자 목록 버튼을 클릭하면 환자 목록 화면으로 이동해야 합니다.", "recent_tool_calls": []},
-            "expectOutput": True,
-            "expectHelperSuffix": "check-bdd-trigger.sh",
-            "expectContains": "BDD scenario 후보",
+            "expectOutput": False,
         },
         {
             "name": "option-gate-discipline-stop",

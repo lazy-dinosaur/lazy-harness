@@ -35,34 +35,34 @@ Therefore the previous suppression strategy was a false-green test: self-test su
 
 The key production mismatch is reproducible by invoking `check-bdd-trigger.sh` with a jcode-like payload that has `message_id`, `last_user_message`, and `recent_tool_calls`, but no `assistant_response`.
 
-## Required protection (implemented)
+## Required protection (implemented, amended 2026-05-21)
 
 - `assistant_response` 의존 제거.
-- BDD helper computes a deterministic fingerprint from BDD trigger inputs (`files + last_user_message`).
-- Same `(helper, fingerprint)` may fire at most once per `message_id` turn.
-- Runtime state lives at `.lazy-harness/state/open-gates.json` and is defined by `.lazy-harness/ssot/gate-fingerprint-state.md`.
-- New `message_id` clears prior fingerprints, so a fresh turn can re-fire if the candidate still exists.
+- BDD helper computes stable candidate identity from detector output, not assistant text.
+- Same pending BDD scenario is captured once in `.lazy-harness/knowledge/candidates.jsonl` and stays silent across turns.
+- Runtime `open-gates.json` remains valid for true STOP reminders, but BDD scenario discovery no longer opens a STOP gate.
+- New `message_id` must **not** re-fire the same BDD prompt; this was the dogfood failure mode.
 
 ## Layer completeness gate
 
-- SDD: `.lazy-harness/spec/platform/option-gate-discipline.md` updated with production payload and turn-level fingerprint contract.
-- BDD: user-visible behavior — same BDD gate appears at most once per turn for a stable fingerprint.
-- SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md` defines `.lazy-harness/state/open-gates.json`.
+- SDD: `.lazy-harness/spec/platform/option-gate-discipline.md` updated with production payload and BDD candidate-capture contract.
+- BDD: user-visible behavior — no repeated BDD gate appears; raw scenario candidates accumulate silently.
+- SSOT: `.lazy-harness/knowledge/candidates.jsonl` is the pending candidate store; `.lazy-harness/ssot/gate-fingerprint-state.md` still defines true STOP reminder state.
 - DDD: 변경 없음.
-- TDD: this record plus `check_bdd_trigger_loop_suppression` protect same-turn duplicate suppression and new-turn re-fire.
+- TDD: this record plus `check_bdd_trigger_loop_suppression` protect silent candidate capture and cross-turn dedupe.
 - ADR: no new ADR; existing option-gate discipline covers the waiting-state trade-off.
 
 ## Implementation map
 
 - Status: `verified`
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — computes BDD fingerprint and calls fingerprint gate.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — captures deduped BDD candidates and emits no hook output.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — stores and checks open gate fingerprints by `message_id`.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — state SSOT.
   - `.lazy-harness/spec/platform/option-gate-discipline.md` — SDD contract.
   - `.lazy-harness/scripts/self-test.py` — production-schema regression test.
 - Tests / protection:
-  - `check_bdd_trigger_loop_suppression` validates first fire, same-turn suppression, and new-turn re-fire.
+  - `check_bdd_trigger_loop_suppression` validates no hook output, one candidate append, same-turn silence, and new-turn silence.
 - References:
   - 관측: 사용자 screenshot 2026-05-17 23:02 (KST)
   - 기존 fix: `bdd-trigger-option-gate-loop.md`

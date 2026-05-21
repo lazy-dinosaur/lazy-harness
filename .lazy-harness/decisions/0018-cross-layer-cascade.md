@@ -113,6 +113,10 @@ TDD detector 는 **5c 안에 없음**. 이유:
 
 → 5c-3 의 명세 갱신: PRIMARY = 자연어, SECONDARY = 코드 heuristic.
 
+### 2026-05-21 amendment — raw BDD 후보는 ask 가 아니라 candidate capture
+
+BDD trigger 가 발견하는 raw scenario / cross-ref gap 은 제품 코드 변경 승인이나 canonical record mutation 이 아니다. 따라서 response.completed hook 에서 반복 STOP / A-B-C-D option gate 로 사용자 흐름을 막지 않는다. Hook 은 BDD 후보를 `.lazy-harness/knowledge/candidates.jsonl` 에 dedupe 저장하고 조용히 종료한다. `behavior/`, `domain/`, `spec/` 로 승격하는 작업은 별도 사용자 확인을 받은 뒤 수행한다.
+
 ## Why now
 
 1. 사용자 통찰이 framework 의 **Principle 1.4 (Domain First) 의 본질** 을 더 강하게 표현 — DDD 가 apex 라는 건 다른 layer 도 DDD 참조해야 한다는 의미. cross-reference 가 그 메커니즘.

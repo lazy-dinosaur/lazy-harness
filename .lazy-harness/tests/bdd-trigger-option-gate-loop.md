@@ -20,27 +20,29 @@ D. 직접 입력
 
 ## Required protection
 
-- The BDD trigger may emit the first gate for a new natural-language scenario candidate.
-- Once a BDD option gate has fired for a stable BDD trigger input, the helper must stay silent for the same `(helper, fingerprint)` during the same `message_id` turn.
-- Suppression is based on turn-level fingerprint state, not assistant response content. Production jcode `response.completed` payload does not include `assistant_response`, so text-based suppression is invalid.
-- The helper must not turn background task IDs such as `BackgroundTask...` into repeated scenario prompts while a gate is already open.
+- The BDD trigger must not emit STOP / A-B-C-D option prompts for raw scenario discovery.
+- Raw BDD scenario discoveries are automatically captured as deduped candidates in `.lazy-harness/knowledge/candidates.jsonl`.
+- Canonical registration into `behavior/`, `domain/`, or `spec/` still requires explicit user confirmation later.
+- The same pending BDD candidate must remain silent across turns, not only within the same `message_id`.
+- Production jcode `response.completed` payload does not include `assistant_response`, so text-based suppression is invalid.
+- The helper must not turn background task IDs such as `BackgroundTask...` into repeated scenario prompts while a candidate is pending.
 - The BDD `last_user_message` path must not require host projects to install `ts-morph`; BDD can run from natural language and should not silently fail because non-BDD trigger dependencies are absent.
 
 ## Layer completeness gate
 
-- SDD: option-gate discipline contract updated with BDD turn-level fingerprint suppression.
-- BDD: user-visible behavior is that the agent asks once per turn for the same BDD fingerprint, then waits for user choice instead of repeating the same A/B/C/D block.
-- SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md` defines `.lazy-harness/state/open-gates.json`.
+- SDD: option-gate discipline contract updated with BDD candidate-capture exception.
+- BDD: user-visible behavior is no repeated BDD prompt; scenario candidates are accumulated silently for later promotion.
+- SSOT: candidate intake uses `.lazy-harness/knowledge/candidates.jsonl`; project-rule STOP reminders still use `.lazy-harness/state/open-gates.json`.
 - DDD: no domain terminology change.
-- TDD: `check_bdd_trigger_loop_suppression` protects same-turn duplicate suppression and new-turn re-fire; `check_bdd_trigger_avoids_runtime_tsmorph` protects installed hosts without `ts-morph`.
+- TDD: `check_bdd_trigger_loop_suppression` protects silent candidate capture and cross-turn dedupe; `check_bdd_trigger_avoids_runtime_tsmorph` protects installed hosts without `ts-morph`.
 - ADR: existing option-gate discipline decision covers waiting-state behavior; no new trade-off.
 
 ## Implementation map
 
 - Status: `verified`
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — computes BDD fingerprints and suppresses same-turn duplicates.
-  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — manages `.lazy-harness/state/open-gates.json` check/record behavior.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — captures deduped BDD scenario candidates and emits no hook output.
+  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — still manages `.lazy-harness/state/open-gates.json` for true STOP reminders such as project-rule placement.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — SSOT for open gate runtime state.
   - `.lazy-harness/triggers/code-change.ts` — lazy-loads `ts-morph` only for non-BDD layers so BDD natural-language detection works in installed hosts.
   - `.lazy-harness/scripts/self-test.py` — adds `run_bdd_trigger_helper` and `check_bdd_trigger_loop_suppression`.
@@ -54,10 +56,10 @@ D. 직접 입력
   - `check_bdd_trigger_avoids_runtime_tsmorph`
 - Flow:
   1. User message describes a user-visible flow.
-  2. BDD helper emits the first structured gate.
-  3. BDD helper records `(bdd, fingerprint)` for the current `message_id`.
-  4. Subsequent invocations with the same `message_id` and fingerprint exit silently.
-  5. A new `message_id` clears prior fingerprints and allows a fresh gate if still applicable.
+  2. BDD helper runs the BDD detector in JSON mode.
+  3. BDD helper appends a stable `cand_bdd_*` row to `.lazy-harness/knowledge/candidates.jsonl` if it is not already pending.
+  4. Subsequent invocations with the same candidate, including new turns, exit silently.
+  5. Later canonical promotion happens only after explicit user confirmation.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - focused: `python3 - <<'PY' ... check_bdd_trigger_loop_suppression() ... PY`

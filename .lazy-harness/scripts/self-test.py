@@ -973,18 +973,20 @@ def check_option_gate_discipline_helper() -> None:
 
 
 def check_bdd_trigger_loop_suppression() -> None:
-    """BDD helper must ask once per turn (same message_id) via fingerprint state.
+    """BDD helper captures pending candidates silently and never repeats asks.
 
-    Note: jcode `response.completed` payload does NOT include `assistant_response`,
-    so the older suppression strategy that string-matched assistant text was a
-    no-op in production. The new contract uses
-    `.lazy-harness/state/open-gates.json` keyed by (helper, fingerprint,
-    message_id) so a given (files+last_user_message) signature fires at most
-    once per turn. See `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`.
+    BDD scenario detection is record/candidate intake, not implementation approval.
+    The helper must not inject A/B/C/D prompts for the same pending scenario across
+    turns. Instead it appends one deduped row to
+    `.lazy-harness/knowledge/candidates.jsonl` for later user-confirmed promotion.
     """
+    candidates_file = ROOT / ".lazy-harness" / "knowledge" / "candidates.jsonl"
     state_file = ROOT / ".lazy-harness" / "state" / "open-gates.json"
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
+    candidates_file.parent.mkdir(parents=True, exist_ok=True)
+    candidates_backup = candidates_file.read_text(encoding="utf-8") if candidates_file.exists() else None
+    state_backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
+    if candidates_file.exists():
+        candidates_file.unlink()
     if state_file.exists():
         state_file.unlink()
     try:
@@ -994,27 +996,42 @@ def check_bdd_trigger_loop_suppression() -> None:
             "recent_tool_calls": [],
         }
         first = run_bdd_trigger_helper(first_payload)
-        if "BDD scenario 후보" not in first or "BDD scenario 등록" not in first:
-            fail("BDD trigger helper should surface first natural-language scenario gate:\n" + first)
+        if first.strip():
+            fail("BDD trigger helper should silently capture candidate, not inject gate:\n" + first)
 
-        # Same message_id (= same turn) + same fingerprint inputs → must be suppressed.
+        if not candidates_file.exists():
+            fail("BDD trigger helper should append candidates.jsonl row")
+        rows = [json.loads(line) for line in candidates_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+        bdd_rows = [row for row in rows if row.get("source") == "lifecycle-bdd-trigger" and row.get("candidateType") == "bdd-scenario"]
+        if len(bdd_rows) != 1:
+            fail("BDD trigger helper should append exactly one BDD candidate row, got " + str(len(bdd_rows)))
+        if bdd_rows[0].get("promotionPolicy", "").find("explicit user confirmation") < 0:
+            fail("BDD candidate row should preserve user-confirmed promotion policy")
+
         repeated_same_turn = run_bdd_trigger_helper(first_payload)
         if repeated_same_turn.strip():
-            fail("BDD trigger helper should suppress duplicate fire in same turn (same message_id):\n" + repeated_same_turn)
+            fail("BDD trigger helper should stay silent for duplicate same-turn candidate:\n" + repeated_same_turn)
 
-        # New message_id (= new turn) → fingerprint cleared, must fire again.
         new_turn_payload = dict(first_payload)
         new_turn_payload["message_id"] = "test-msg-turn-B"
         repeated_new_turn = run_bdd_trigger_helper(new_turn_payload)
-        if "BDD scenario 후보" not in repeated_new_turn:
-            fail("BDD trigger helper should fire again on a new turn (different message_id):\n" + repeated_new_turn)
+        if repeated_new_turn.strip():
+            fail("BDD trigger helper should stay silent for same pending candidate in a new turn:\n" + repeated_new_turn)
+
+        rows_after = [json.loads(line) for line in candidates_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+        bdd_after = [row for row in rows_after if row.get("source") == "lifecycle-bdd-trigger" and row.get("candidateType") == "bdd-scenario"]
+        if len(bdd_after) != 1:
+            fail("BDD trigger helper should dedupe pending candidate across turns, got " + str(len(bdd_after)))
     finally:
-        # Restore prior state so tests do not pollute host state file.
-        if backup is not None:
-            state_file.write_text(backup, encoding="utf-8")
+        if candidates_backup is not None:
+            candidates_file.write_text(candidates_backup, encoding="utf-8")
+        elif candidates_file.exists():
+            candidates_file.unlink()
+        if state_backup is not None:
+            state_file.write_text(state_backup, encoding="utf-8")
         elif state_file.exists():
             state_file.unlink()
-    print("✓ BDD trigger loop suppression ok")
+    print("✓ BDD trigger silent candidate capture ok")
 
 
 def check_bdd_trigger_avoids_runtime_tsmorph() -> None:
@@ -1819,15 +1836,24 @@ def check_lifecycle_hook_integration() -> None:
             "message_id": "shadow-bdd-parity",
             "recent_tool_calls": [],
         }
+        bdd_candidates = ROOT / ".lazy-harness" / "knowledge" / "candidates.jsonl"
+        bdd_candidates_backup = bdd_candidates.read_text(encoding="utf-8") if bdd_candidates.exists() else None
+        bdd_candidates.unlink(missing_ok=True)
         bdd_hook_body = hook_inject_body(run_response_completed_hook(bdd_payload, bdd_queue))
-        if "BDD scenario 후보" not in bdd_hook_body:
-            fail("response.completed did not surface BDD gate for parity fixture:\n" + bdd_hook_body)
-        bdd_state.unlink(missing_ok=True)
+        if bdd_hook_body.strip():
+            fail("response.completed should silently capture BDD candidate, not surface gate:\n" + bdd_hook_body)
+        if not bdd_candidates.exists() or "lifecycle-bdd-trigger" not in bdd_candidates.read_text(encoding="utf-8"):
+            fail("response.completed BDD helper should append candidate row")
+        bdd_candidates.unlink(missing_ok=True)
         bdd_shadow = run_lifecycle_check_shadow(bdd_payload, bdd_shadow_queue)
-        if bdd_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh":
-            fail("lifecycle-check shadow should match BDD first output helper: " + json.dumps(bdd_shadow, ensure_ascii=False)[:800])
-        if "BDD scenario 후보" not in bdd_shadow.get("firstOutput", ""):
-            fail("lifecycle-check shadow did not surface BDD gate output")
+        if bdd_shadow.get("outputEmitted") is not False or bdd_shadow.get("firstOutput"):
+            fail("lifecycle-check shadow should silently capture BDD candidate: " + json.dumps(bdd_shadow, ensure_ascii=False)[:800])
+        if not bdd_candidates.exists() or "lifecycle-bdd-trigger" not in bdd_candidates.read_text(encoding="utf-8"):
+            fail("lifecycle-check shadow BDD helper should append candidate row")
+        if bdd_candidates_backup is not None:
+            bdd_candidates.write_text(bdd_candidates_backup, encoding="utf-8")
+        else:
+            bdd_candidates.unlink(missing_ok=True)
 
         option_payload = {
             "assistant_response": (
