@@ -2163,6 +2163,87 @@ def check_project_profile_inspect() -> None:
     print("✓ project-profile inspect/plan/apply ok")
 
 
+def check_record_audit_cli() -> None:
+    """Record audit must summarize host-owned records, markers, JSONL, Project Profile, and graph hygiene."""
+    with tempfile.TemporaryDirectory() as tmp:
+        base = pathlib.Path(tmp)
+        host = base / "host"
+        source = base / "source"
+        for path in [
+            host / ".lazy-harness" / "domain",
+            host / ".lazy-harness" / "project",
+            host / ".lazy-harness" / "knowledge",
+            host / ".lazy-harness" / "logs",
+            source / ".lazy-harness" / "domain",
+            source / ".lazy-harness" / "project",
+            source / ".lazy-harness" / "knowledge",
+            source / ".lazy-harness" / "logs",
+        ]:
+            path.mkdir(parents=True)
+        (source / ".lazy-harness" / "domain" / "base.md").write_text("base\n", encoding="utf-8")
+        (host / ".lazy-harness" / "domain" / "base.md").write_text("base changed\n", encoding="utf-8")
+        (host / ".lazy-harness" / "domain" / "host.md").write_text("host only TODO\n", encoding="utf-8")
+        (host / ".lazy-harness" / "project" / "profile.xml").write_text(
+            '<projectProfile><purpose status="needs-interview"/><owner status="confirmed">x</owner></projectProfile>\n',
+            encoding="utf-8",
+        )
+        (host / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
+            '{"id":"a","path":".lazy-harness/domain/host.md"}\n'
+            '{"id":"b","path":".lazy-harness/domain/missing.md"}\n'
+            '{"id":"c","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n',
+            encoding="utf-8",
+        )
+        (host / ".lazy-harness" / "logs" / "actions.jsonl").write_text('{"ok":true}\nnot-json\n', encoding="utf-8")
+        completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "record-audit.ts"),
+                "--root",
+                str(host),
+                "--source",
+                str(source),
+                "--format=json",
+                "--recent=3",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("record-audit failed:\n" + completed.stdout + completed.stderr)
+        result = json.loads(completed.stdout)
+        if result.get("mode") != "record-audit.inspect":
+            fail("record-audit mode changed")
+        totals = result.get("totals", {})
+        if totals.get("hostUnique") != 3 or totals.get("hostChanged") != 1 or totals.get("hostOwnedOrChanged") != 4:
+            fail("record-audit should compare host-owned/changed records: " + json.dumps(totals, ensure_ascii=False))
+        profile = result.get("projectProfile", {})
+        if profile.get("artifactsComplete") is not False or profile.get("answersComplete") is not False or profile.get("needsInterviewFields") != 1 or profile.get("confirmedFields") != 1:
+            fail("record-audit should split Project Profile artifact and answer completeness")
+        graph = result.get("graph", {})
+        if graph.get("rows") != 3 or graph.get("missingPaths") != 2 or graph.get("commaJoinedPaths") != 1:
+            fail("record-audit should report graph hygiene issues")
+        if sum(item.get("invalid", 0) for item in result.get("jsonl", [])) != 1:
+            fail("record-audit should count invalid JSONL lines")
+        marker_map = {item.get("marker"): item.get("files") for item in result.get("markers", [])}
+        if marker_map.get("TODO") != 1 or marker_map.get("needs-interview") != 1:
+            fail("record-audit should count open markers")
+        cli_completed = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "record-audit", "--root", str(host), "--source", str(source), "--format=json", "--recent=1"],
+            cwd=host,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if cli_completed.returncode != 0:
+            fail("lazy record-audit dispatcher failed:\n" + cli_completed.stdout + cli_completed.stderr)
+        cli_result = json.loads(cli_completed.stdout)
+        if cli_result.get("mode") != "record-audit.inspect" or len(cli_result.get("recentFiles", [])) > 1:
+            fail("lazy record-audit dispatcher should pass through args")
+    print("✓ record-audit cli ok")
+
+
 def check_real_feature_walkthrough() -> None:
     queue = LAZY / "questions" / f"__tmp_5d6_walkthrough_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_5d6_walkthrough_{os.getpid()}.jsonl"
@@ -2753,6 +2834,7 @@ def main() -> None:
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
+        (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),

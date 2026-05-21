@@ -14,6 +14,7 @@ The canonical executable entrypoint for installed hosts is the per-host dispatch
 ```bash
 .lazy-harness/bin/lazy test
 .lazy-harness/bin/lazy doctor --profile smoke
+.lazy-harness/bin/lazy record-audit --format md
 .lazy-harness/bin/lazy version
 ```
 
@@ -70,10 +71,11 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `check_lazy_cli_entrypoint_helper` (`.lazy-harness/scripts/self-test.py`) — verifies stale CLI block/canonical pass.
   - `check_pre_push_uses_canonical_lazy_cli` (`.lazy-harness/scripts/self-test.py`) — verifies pre-push does not call stale package scripts.
   - `.lazy-harness/bin/lazy version` — root diagnostic command.
+  - `.lazy-harness/bin/lazy record-audit` — read-only host record dashboard dispatcher to `.lazy-harness/scripts/record-audit.ts`.
 - Flow:
-  1. Agent needs to reproduce lazy-harness validation.
+  1. Agent needs to reproduce lazy-harness validation or inspect accumulated host records.
   2. Agent runs `.lazy-harness/bin/lazy version` if root is uncertain.
-  3. Agent runs `.lazy-harness/bin/lazy test` or `doctor`.
+  3. Agent runs `.lazy-harness/bin/lazy test`, `doctor`, or `record-audit` depending on whether it needs validation, health diagnosis, or record-quality summary.
   4. Hook blocks stale package-script diagnosis before it becomes final guidance.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

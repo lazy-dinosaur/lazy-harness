@@ -68,6 +68,8 @@ Commands:
                                 Summarize route telemetry for UX/FP review
   route-audit [--commits=12] [--format=json|md]
                                 Reclassify recent commits with route evidence
+  record-audit [--format=json|md] [--source=DIR]
+                                Summarize accumulated host records and quality signals
   version                       Print framework version + host path
   help                          Show this help
 
@@ -157,6 +159,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/task-router.ts" --audit "$@"
+    ;;
+  record-audit)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy record-audit: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/record-audit.ts" "$@"
     ;;
   version)
     echo "lazy-harness CLI"
