@@ -14,6 +14,8 @@ Observed symptom: the assistant repeatedly answered the same Rule placement bloc
 
 Additional observed symptom on 2026-05-19: a different session answered the gate with repeated non-applicable/no-record judgement text (`Rule: 없음`, `Scope: non-applicable`, `Primary record: none`, `Confirmation: user-confirmed`, `기록하지 않음`). The helper treated Korean negative text containing `기록` as a new record action and kept re-triggering/being amplified visibly.
 
+Additional observed symptom on 2026-05-21: the helper's own `STOP. Project rule placement gate` reminder was surfaced back into a later turn as `last_user_message`. Because the message includes rule/action/placement cues, the helper interpreted its own reminder as a fresh user request and re-injected the same gate across turns. This fix is intentionally narrow: only recognizable helper-generated STOP reminder text is ignored; real user project-rule changes still gate.
+
 ## Root cause
 
 - Jcode production payload shape is a constraint: `response.completed` does not reliably include assistant response text.
@@ -27,6 +29,8 @@ Primary ownership: lazy-harness hook behavior. Jcode payload shape is an input c
 `check-project-rule-placement.sh` now computes a deterministic fingerprint from stable project-rule-placement trigger inputs and records a `project-rule-placement:<fingerprint>` key in `.lazy-harness/state/open-gates.json`.
 
 2026-05-19 addendum: the helper also recognizes completed no-op/non-applicable judgements and negative no-record dispositions as terminal non-actions. `기록하지 않음` and equivalent English/Korean no-record cues no longer count as an action cue when no write/Jcode/memory tool was touched.
+
+2026-05-21 addendum: the helper exits silently when the input is its own STOP reminder echoed back by the harness UI. This prevents cross-turn self-triggering without weakening normal project-rule placement detection.
 
 Expected behavior:
 
@@ -42,6 +46,7 @@ Expected behavior:
 - DDD: no domain terminology change.
 - TDD: `check_project_rule_placement_helper` protects first fire, same-turn suppression, and new-turn re-fire without `assistant_response`.
 - TDD: `check_project_rule_placement_helper` also protects non-applicable/no-record judgement and Korean `기록하지 않음` false-positive cases.
+- TDD: `check_project_rule_placement_helper` also protects echoed self-reminder text (`STOP. Project rule placement gate`) so helper output does not become new input.
 - ADR: no new ADR; existing option-gate discipline and project-rule router decisions cover the trade-off.
 
 ## Implementation map

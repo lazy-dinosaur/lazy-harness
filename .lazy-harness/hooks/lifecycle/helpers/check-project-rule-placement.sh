@@ -51,6 +51,22 @@ lower = blob.lower()
 if not blob.strip():
     sys.exit(0)
 
+# Jcode can surface blocking hook output back into the next turn as
+# last_user_message. Only this structural field is allowed to trigger the echo
+# guard; do not scan the whole payload/blob, because assistant discussion of a
+# STOP text should not weaken normal project-rule detection.
+last_user_message = str(payload.get("last_user_message") or "")
+last_lower = last_user_message.lower()
+if (
+    (
+        last_lower.startswith("stop. project rule placement gate")
+        or last_lower.startswith("stop. rule placement duplication")
+    )
+    and ("해야 할 일:" in last_user_message or "중복 key:" in last_user_message)
+    and ("rule placement" in last_lower)
+):
+    sys.exit(0)
+
 
 def call_blob(call):
     parts = []

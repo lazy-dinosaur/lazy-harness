@@ -78,6 +78,17 @@ F. 직접 입력
 - Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record; Jcode memory must not be used as durable policy storage.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
 
+## Harness fix quality rule
+
+User-confirmed correction on 2026-05-21: do not patch lazy-harness gates with broad string filters or temporary workaround-style suppressions. When a lifecycle/hook loop appears, identify the structural payload/source boundary first, then fix the narrow structural cause and protect it with a regression test.
+
+Required standard:
+
+- Prefer payload structure, source field, message role, tool-call shape, fingerprint state, or other explicit contract signals over broad text matching.
+- If text matching is unavoidable, constrain it to the exact structural field that carries the helper output, not the entire payload/blob.
+- Do not weaken normal rule detection to hide noisy gates.
+- Record the root cause and regression case in the appropriate TDD/SDD/SSOT record.
+
 ## Implementation map
 
 - Status: `verified`

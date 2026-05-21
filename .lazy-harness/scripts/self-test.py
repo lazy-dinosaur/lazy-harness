@@ -697,6 +697,30 @@ def _check_project_rule_placement_helper_cases() -> None:
     repeated_loop = run_project_rule_placement_helper(loop_payload)
     if repeated_loop.strip():
         fail("project rule placement helper should suppress duplicate same-turn derived gate:\n" + repeated_loop)
+    self_reminder_echo_payload = {
+        "last_user_message": (
+            "STOP. Project rule placement gate: 프로젝트별 rule/correction 을 어디에 둘지 판정 없이 진행하면 안 됩니다.\n"
+            "해야 할 일:\n"
+            "  A. .lazy-harness/ssot/... shared project rule 로 기록\n"
+            "필수 판단:\n"
+            "  ## Rule placement\n"
+        ),
+        "message_id": "project-rule-self-reminder-echo",
+        "recent_tool_calls": [],
+    }
+    self_reminder_echo = run_project_rule_placement_helper(self_reminder_echo_payload)
+    if self_reminder_echo.strip():
+        fail("project rule placement helper should ignore its own STOP reminder echoed as user input:\n" + self_reminder_echo)
+    assistant_discussion_payload = {
+        "assistant_response": (
+            "STOP. Project rule placement gate 문구를 분석했지만, 실제로는 .jcode에 프로젝트 규칙을 기록하려고 합니다."
+        ),
+        "message_id": "project-rule-assistant-discussion-not-echo",
+        "recent_tool_calls": [{"name": "Edit", "args_preview": ".jcode/harness/20-project-rules.md"}],
+    }
+    assistant_discussion = run_project_rule_placement_helper(assistant_discussion_payload)
+    if "Project rule placement gate" not in assistant_discussion:
+        fail("project rule placement helper should not suppress assistant discussion of STOP text outside last_user_message:\n" + assistant_discussion)
     new_turn_payload = dict(loop_payload)
     new_turn_payload["message_id"] = "project-rule-test-loop-new-turn"
     new_turn = run_project_rule_placement_helper(new_turn_payload)
