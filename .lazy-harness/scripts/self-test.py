@@ -1490,8 +1490,8 @@ def check_response_completed_auto_route_telemetry() -> None:
         components = {entry.get("component") for entry in timing_entries}
         if "route-telemetry" not in components or "hook-total" not in components:
             fail("hook timings should include route-telemetry and hook-total components: " + json.dumps(sorted(components), ensure_ascii=False))
-        if not any(str(component).endswith("check-layer-impact.sh") for component in components):
-            fail("hook timings should include lifecycle helper components")
+        if not any(str(component).endswith("check-bdd-trigger.sh") for component in components):
+            fail("hook timings should include lifecycle helper components that are not write-only fast-pathed")
         if any("durationMs" not in entry or "outputEmitted" not in entry or "exitCode" not in entry for entry in timing_entries):
             fail("hook timing entries missing required fields")
         summary_completed = subprocess.run(
@@ -1507,6 +1507,55 @@ def check_response_completed_auto_route_telemetry() -> None:
         summary = json.loads(summary_completed.stdout)
         if summary.get("mode") != "hook-timing-summary" or summary.get("rows", 0) < len(timing_entries):
             fail("hook timing summary should report timing rows: " + summary_completed.stdout[:500])
+
+        write_only_helpers = {
+            ".lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh",
+            ".lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh",
+            ".lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh",
+            ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh",
+            ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh",
+            ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
+        }
+
+        def run_hook_with_timing(payload_obj: dict, log_name: str) -> set[str]:
+            log_path = temp / ".lazy-harness" / "logs" / log_name
+            log_path.unlink(missing_ok=True)
+            completed = subprocess.run(
+                [str(hook)],
+                cwd=temp,
+                input=json.dumps(payload_obj, ensure_ascii=False),
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(log_path)},
+            )
+            if completed.returncode != 0:
+                fail("response.completed hook fast-path fixture failed:\n" + completed.stdout + completed.stderr)
+            entries = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            return {str(entry.get("component")) for entry in entries}
+
+        read_only_components = run_hook_with_timing(
+            {"message_id": "fastpath-readonly", "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}]},
+            "hook-timings-readonly.jsonl",
+        )
+        if write_only_helpers & read_only_components:
+            fail("read-only fast-path must skip only write-only helpers: " + json.dumps(sorted(write_only_helpers & read_only_components), ensure_ascii=False))
+        if ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh" not in read_only_components:
+            fail("read-only fast-path must keep non-write-only helpers on the full path")
+
+        unknown_components = run_hook_with_timing(
+            {"message_id": "fastpath-unknown", "recent_tool_calls": [{"name": "bash", "args_preview": "echo maybe writes"}]},
+            "hook-timings-unknown.jsonl",
+        )
+        if not write_only_helpers.issubset(unknown_components):
+            fail("unknown/non-read-only tools must fall back to all write-only helpers")
+
+        missing_field_components = run_hook_with_timing(
+            {"message_id": "fastpath-missing-field"},
+            "hook-timings-missing-field.jsonl",
+        )
+        if not write_only_helpers.issubset(missing_field_components):
+            fail("payloads without recent_tool_calls must fall back to all write-only helpers")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response.completed auto route telemetry ok")

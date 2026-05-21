@@ -201,6 +201,31 @@ Dogfood conclusion:
 - Phase 0 measurement works in source, Medivance, and Medivance PWA without changing hook behavior.
 - Next step should be to collect real interactive timing samples before implementing Phase 1 fast-path.
 
+## 2026-05-21 Phase 1 conservative fast-path
+
+Timing samples showed that no-op/read-only hook runs still spend time invoking helpers that immediately parse the payload and discover there were no writes. Phase 1 implements only the safest fast-path:
+
+- If `recent_tool_calls` is present and every call is a known read-only tool, skip helpers whose logic is exclusively write-triggered.
+- If `recent_tool_calls` is missing, malformed, contains `bash`, `batch`, `apply_patch`, `edit`, `write`, or any unknown tool, run the full helper set.
+- BDD and all natural-language/record discipline helpers remain enabled even on read-only payloads.
+
+Skipped only on known read-only payloads:
+
+- `check-layer-impact.sh`
+- `check-ddd-trigger.sh`
+- `check-ssot-trigger.sh`
+- `check-layer-completeness.sh`
+- `check-tdd-cross-verify.sh`
+- `check-affected-tests.sh`
+
+Safety validation added:
+
+- Read-only fixture proves those write-only helpers are absent from timing components.
+- Unknown `bash` fixture proves full fallback includes all write-only helpers.
+- Missing `recent_tool_calls` fixture proves full fallback includes all write-only helpers.
+
+This is not the single orchestrator phase; it is a constrained fast-path inside the existing helper loop.
+
 ## Implementation map
 
 Potential files to inspect next:

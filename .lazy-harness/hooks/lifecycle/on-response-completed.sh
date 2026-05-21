@@ -51,6 +51,55 @@ log_timing() {
 
 HOOK_START_NS=$(now_ns)
 
+# Phase 1 conservative fast-path.
+# Only skip helpers that are provably write-only, and only when the payload has
+# a valid recent_tool_calls list whose tools are all known read-only helpers.
+# Unknown payload/tool shape falls back to the full helper set.
+FASTPATH_SKIP_HELPERS=$(printf '%s' "$PAYLOAD" | python3 -c '
+import json, sys
+
+READ_ONLY = {
+    "read", "Read",
+    "grep", "Grep",
+    "agentgrep", "glob", "Glob", "ls", "LS",
+    "webfetch", "websearch",
+    "mcp__filesystem__read_text_file", "mcp__filesystem__read_file", "mcp__filesystem__read_multiple_files",
+    "mcp__filesystem__list_directory", "mcp__filesystem__list_directory_with_sizes", "mcp__filesystem__directory_tree",
+    "mcp__filesystem__search_files", "mcp__filesystem__get_file_info",
+}
+WRITE_ONLY_HELPERS = [
+    ".lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
+]
+
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+if not isinstance(payload, dict) or "recent_tool_calls" not in payload:
+    raise SystemExit(0)
+calls = payload.get("recent_tool_calls")
+if not isinstance(calls, list):
+    raise SystemExit(0)
+for call in calls:
+    if not isinstance(call, dict):
+        raise SystemExit(0)
+    name = str(call.get("name") or "")
+    if name not in READ_ONLY:
+        raise SystemExit(0)
+print("\n".join(WRITE_ONLY_HELPERS))
+' 2>/dev/null || true)
+
+should_skip_helper() {
+  CANDIDATE="$1"
+  [ -z "$FASTPATH_SKIP_HELPERS" ] && return 1
+  printf '%s\n' "$FASTPATH_SKIP_HELPERS" | grep -Fx -- "$CANDIDATE" >/dev/null 2>&1
+}
+
 # ADR 0037 telemetry: collect one append-only route sample per response turn
 # when Jcode provides last_user_message. This is silent and best-effort; it does
 # not replace any gate or validation helper below.
@@ -135,6 +184,9 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-handoff-stale.sh
  do
   [ -x "$helper" ] || continue
+  if should_skip_helper "$helper"; then
+    continue
+  fi
   HELPER_START_NS=$(now_ns)
   OUT=$("$helper" "$PAYLOAD" 2>/dev/null)
   HELPER_EXIT=$?
