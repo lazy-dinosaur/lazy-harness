@@ -226,6 +226,24 @@ Safety validation added:
 
 This is not the single orchestrator phase; it is a constrained fast-path inside the existing helper loop.
 
+Host dogfood after commit `8438cc5`:
+
+- Synced `/home/lazydino/dev/medivance`; host smoke doctor passed.
+  - Known read-only payload timing components: 12 rows.
+  - Unknown `bash` payload timing components: 18 rows.
+  - Read-only payload skipped all 6 write-only helpers.
+  - Unknown payload included all 6 write-only helpers.
+- Synced `/home/lazydino/dev/medivance-pwa`; host smoke doctor passed.
+  - Known read-only payload timing components: 12 rows.
+  - Unknown `bash` payload timing components: 18 rows.
+  - Read-only payload skipped all 6 write-only helpers.
+  - Unknown payload included all 6 write-only helpers.
+
+Dogfood conclusion:
+
+- Conservative read-only fast-path reduces no-op/read-only helper invocations without weakening unknown/write payload coverage.
+- Next optimization should be based on fresh `lazy hook-timings` samples after this fast-path has run during normal interactive usage.
+
 ## Implementation map
 
 Potential files to inspect next:
