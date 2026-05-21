@@ -181,6 +181,26 @@ Safety notes:
 
 Next slice remains Phase 1, but only after timing data is reviewed.
 
+## 2026-05-21 Phase 0 dogfood result
+
+After commit `6715146`, synced both confirmed hosts:
+
+- `/home/lazydino/dev/medivance`
+- `/home/lazydino/dev/medivance-pwa`
+
+Validation:
+
+- Both hosts synced successfully to `6715146b2fcdd7c56b96c7682491cc0f88dbb056`.
+- Both hosts passed `python3 .lazy-harness/scripts/doctor.py --profile smoke --scope host`.
+- A synthetic `response.completed` payload with `LAZY_HOOK_TIMING_LOG=/tmp/...` produced 18 timing rows on each host.
+- `lazy hook-timings --log /tmp/... --format=json` summarized the timing rows successfully on each host.
+- The slowest component in the single synthetic run was `hook-total`, as expected for aggregate timing.
+
+Dogfood conclusion:
+
+- Phase 0 measurement works in source, Medivance, and Medivance PWA without changing hook behavior.
+- Next step should be to collect real interactive timing samples before implementing Phase 1 fast-path.
+
 ## Implementation map
 
 Potential files to inspect next:
