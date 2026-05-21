@@ -244,6 +244,24 @@ Dogfood conclusion:
 - Conservative read-only fast-path reduces no-op/read-only helper invocations without weakening unknown/write payload coverage.
 - Next optimization should be based on fresh `lazy hook-timings` samples after this fast-path has run during normal interactive usage.
 
+## 2026-05-21 Phase 2 shadow orchestrator
+
+Implemented the first Phase 2 slice without replacing the production hook:
+
+- Added `.lazy-harness/scripts/lifecycle-check.py`.
+- Added `.lazy-harness/bin/lazy lifecycle-check`.
+- The shadow orchestrator parses payload once, applies the same Phase 1 fast-path selection, runs existing helpers in production order, stops at first helper output, and emits JSON with selected/skipped helpers plus `firstOutput`/`injectJson`.
+- Production `on-response-completed.sh` is unchanged in this slice.
+
+Parity coverage added:
+
+- TDD cross-verify STOP output parity: shadow first output helper and STOP body match the production helper expectation.
+- Aftershock re-analysis STOP output parity: shadow first output helper and STOP body match the production helper expectation.
+- Existing Phase 1 fixtures still protect read-only skip and unknown full fallback.
+
+Phase 3 replacement remains forbidden until more shadow fixtures cover natural-language BDD, option-gate discipline, record-before-session-history, and no-output cases under host dogfood.
+
+
 ## Implementation map
 
 Potential files to inspect next:

@@ -351,6 +351,35 @@ def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: p
         validations.unlink(missing_ok=True)
 
 
+def run_lifecycle_check_shadow(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> dict:
+    validations = LAZY / "logs" / f"__tmp_lifecycle_shadow_validations_{os.getpid()}.jsonl"
+    validations.unlink(missing_ok=True)
+    env = {
+        **os.environ,
+        "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT)),
+        "LAZY_HARNESS_VALIDATIONS_FILE": str(validations.relative_to(ROOT)),
+    }
+    if decisions is not None:
+        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
+    completed = subprocess.run(
+        [".lazy-harness/scripts/lifecycle-check.py", "--format=json"],
+        cwd=ROOT,
+        env=env,
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    try:
+        if completed.returncode != 0:
+            sys.stdout.write(completed.stdout)
+            sys.stderr.write(completed.stderr)
+            fail(f"lifecycle-check shadow exit changed: {completed.returncode}")
+        return json.loads(completed.stdout)
+    finally:
+        validations.unlink(missing_ok=True)
+
+
 def run_layer_completeness_helper(payload: dict) -> str:
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh", json.dumps(payload)],
@@ -1406,7 +1435,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1721,9 +1750,12 @@ def check_aftershock_reanalysis() -> None:
 
 def check_lifecycle_hook_integration() -> None:
     tdd_queue = LAZY / "questions" / f"__tmp_hook_tdd_{os.getpid()}.xml"
+    tdd_shadow_queue = LAZY / "questions" / f"__tmp_shadow_tdd_{os.getpid()}.xml"
     aftershock_queue = LAZY / "questions" / f"__tmp_hook_aftershock_{os.getpid()}.xml"
+    aftershock_shadow_queue = LAZY / "questions" / f"__tmp_shadow_aftershock_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
-    for path in [tdd_queue, aftershock_queue, decisions]:
+    shadow_decisions = LAZY / "logs" / f"__tmp_shadow_decisions_{os.getpid()}.jsonl"
+    for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, decisions, shadow_decisions]:
         path.unlink(missing_ok=True)
     try:
         tdd_payload = {
@@ -1738,7 +1770,16 @@ def check_lifecycle_hook_integration() -> None:
         if not any(question.attrib.get("criterionId") == "5d-3" for question in tdd_root.findall("question")):
             fail("response.completed TDD helper did not persist question")
 
+        tdd_shadow = run_lifecycle_check_shadow(tdd_payload, tdd_shadow_queue)
+        if tdd_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh":
+            fail("lifecycle-check shadow should match TDD first output helper: " + json.dumps(tdd_shadow, ensure_ascii=False)[:800])
+        if "5d-3 TDD Cross-Verify Gate" not in tdd_shadow.get("firstOutput", "") or "Q-22c6c7cf5a7620f1" not in tdd_shadow.get("firstOutput", ""):
+            fail("lifecycle-check shadow did not surface TDD gate output")
+        if json.loads(tdd_shadow.get("injectJson") or "{}").get("inject", {}).get("body") != tdd_shadow.get("firstOutput"):
+            fail("lifecycle-check shadow injectJson should match firstOutput body")
+
         decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+        shadow_decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
         aftershock_payload = {
             "recent_tool_calls": [
                 {"name": "Edit", "args_preview": ".lazy-harness/logs/decisions.jsonl"},
@@ -1750,8 +1791,14 @@ def check_lifecycle_hook_integration() -> None:
         aftershock_root = ET.parse(aftershock_queue).getroot()
         if not any(question.attrib.get("criterionId") == "5d-4" for question in aftershock_root.findall("question")):
             fail("response.completed aftershock helper did not persist question")
+
+        aftershock_shadow = run_lifecycle_check_shadow(aftershock_payload, aftershock_shadow_queue, decisions=shadow_decisions)
+        if aftershock_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-aftershock-reanalysis.sh":
+            fail("lifecycle-check shadow should match aftershock first output helper: " + json.dumps(aftershock_shadow, ensure_ascii=False)[:800])
+        if "5d-4 Aftershock Re-analysis" not in aftershock_shadow.get("firstOutput", "") or "Q-e69259ad4ca94b24" not in aftershock_shadow.get("firstOutput", ""):
+            fail("lifecycle-check shadow did not surface aftershock gate output")
     finally:
-        for path in [tdd_queue, aftershock_queue, decisions]:
+        for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, decisions, shadow_decisions]:
             path.unlink(missing_ok=True)
     print("✓ 5d-5 lifecycle hook integration ok")
 

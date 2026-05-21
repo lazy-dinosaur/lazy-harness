@@ -13,6 +13,8 @@ Phase 0 performance optimization is measurement-only.
 
 Phase 1 introduces one conservative fast-path: when `recent_tool_calls` is present, is a list, and every tool name is in the known read-only allowlist, the hook may skip helpers whose logic is exclusively triggered by file writes. Any unknown payload shape or unknown/non-read-only tool falls back to the full helper set.
 
+Phase 2 adds a shadow lifecycle orchestrator. It runs outside the production hook, mirrors helper order and fast-path selection, and produces JSON for parity tests. It must not replace `on-response-completed.sh` until shadow parity covers STOP/no-STOP fixtures.
+
 ## Hook timing log
 
 Default path:
@@ -79,18 +81,39 @@ Not skipped:
 - BDD trigger, because it can inspect natural-language user flow even without writes.
 - analysis discovery, project rule placement, option-gate discipline, record-before-session-history, lazy CLI entrypoint, aftershock reanalysis, fix-regression, ADR sync, and handoff stale helpers.
 
+## Phase 2 shadow orchestrator
+
+CLI:
+
+```bash
+.lazy-harness/bin/lazy lifecycle-check --format=json < payload.json
+python3 .lazy-harness/scripts/lifecycle-check.py --format=md --payload '{"recent_tool_calls":[]}'
+```
+
+Contract:
+
+- Read-only with respect to production hook wiring. It does not change `on-response-completed.sh` behavior.
+- Mirrors the production helper order and Phase 1 fast-path selection.
+- Stops at the first helper output, matching production hook semantics.
+- Emits `firstOutput`, `firstOutputHelper`, `injectJson`, selected/skipped helpers, helper timing, and fast-path reason.
+- May execute existing helpers and therefore uses the same queue/validation environment variables as legacy hook tests.
+- Replacement is forbidden until self-test parity covers representative STOP/no-STOP cases.
+
 ## Implementation map
 
 - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
   - Emits timing rows around route telemetry, each lifecycle helper, and total hook runtime.
   - Applies Phase 1 read-only fast-path only for known read-only payloads, with full-check fallback for unknowns.
+- `.lazy-harness/scripts/lifecycle-check.py`
+  - Phase 2 shadow orchestrator. Parses payload once, mirrors helper order/fast-path selection, runs existing helpers, and reports first-output parity data.
 - `.lazy-harness/scripts/hook-timing-summary.py`
   - Read-only timing summary CLI.
 - `.lazy-harness/bin/lazy`
-  - Exposes `lazy hook-timings`.
+  - Exposes `lazy hook-timings` and `lazy lifecycle-check`.
 - `.lazy-harness/scripts/self-test.py`
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
+  - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify and aftershock STOP outputs.
 
 ## Discovery capture
 
@@ -98,5 +121,5 @@ Not skipped:
 - SDD: this contract defines Phase 0 measurement-only behavior.
 - BDD: user-visible behavior is unchanged except an explicit `lazy hook-timings` command.
 - TDD: existing response.completed telemetry regression test extended to protect timing output.
-- ADR: no replacement decision yet; future orchestrator replacement requires shadow parity.
+- ADR: no replacement decision yet; Phase 2 shadow orchestrator is explicitly not a production replacement.
 - SSOT: timing log path and env toggles are defined here.

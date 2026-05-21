@@ -74,6 +74,8 @@ Commands:
                                 Lint knowledge graph IDs and path hygiene
   hook-timings [--format=json|md] [--limit=N]
                                 Summarize response.completed hook timing measurements
+  lifecycle-check [--format=json|md]
+                                Run shadow response.completed lifecycle helper orchestrator
   version                       Print framework version + host path
   help                          Show this help
 
@@ -180,6 +182,9 @@ case "$cmd" in
     ;;
   hook-timings)
     exec python3 "$SCRIPTS/hook-timing-summary.py" "$@"
+    ;;
+  lifecycle-check)
+    exec python3 "$SCRIPTS/lifecycle-check.py" "$@"
     ;;
   version)
     echo "lazy-harness CLI"
