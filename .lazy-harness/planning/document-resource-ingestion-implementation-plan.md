@@ -72,7 +72,7 @@ Validation:
 
 ## Slice 2 — Document Resource Ingestion plan/apply dry-run
 
-Status: implemented in `.lazy-harness/scripts/document-resource-ingestion.ts` on 2026-05-20. `plan` proposes ledger/candidate writes without applying; `apply` currently requires `--dry-run` and prints the same write preview.
+Status: implemented in `.lazy-harness/scripts/document-resource-ingestion.ts` on 2026-05-20. `plan` proposes ledger/candidate writes without applying; `apply --dry-run` previews the same writes; `apply --confirm` writes only `.lazy-harness/project/document-intake.xml` and deduped `.lazy-harness/knowledge/candidates.jsonl` entries.
 
 After inspect works in Medivance, add:
 

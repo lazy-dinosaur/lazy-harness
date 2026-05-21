@@ -2,11 +2,12 @@
 /**
  * Document Resource Ingestion (SDD: spec/platform/document-resource-ingestion.md)
  *
- * Current slices are safe-by-default: inspect and plan are read-only; apply is
- * implemented as dry-run only until explicit record-promotion UX exists.
+ * Current slices are safe-by-default: inspect and plan are read-only; apply
+ * writes only the document-intake ledger and candidates after --confirm. It
+ * never promotes external facts into canonical DDD/SDD/BDD/TDD/ADR/SSOT records.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, relative } from 'node:path'
 
 const STATUS_VALUES = ['authoritative', 'candidate', 'historical', 'duplicate', 'conflicting', 'rejected'] as const
@@ -21,6 +22,7 @@ interface Args {
   includes: string[]
   maxFiles: number
   dryRun: boolean
+  confirm: boolean
 }
 
 interface PathReference {
@@ -94,7 +96,7 @@ interface CandidateEntry {
 
 interface PlanResult {
   ok: true
-  mode: 'document-resource-ingestion.plan' | 'document-resource-ingestion.apply-dry-run'
+  mode: 'document-resource-ingestion.plan' | 'document-resource-ingestion.apply-dry-run' | 'document-resource-ingestion.apply'
   schemaVersion: '1.0'
   root: string
   generatedAt: string
@@ -108,6 +110,11 @@ interface PlanResult {
     recommended: string
   }
   warnings: string[]
+  appliedWrites?: Array<{
+    path: string
+    action: 'written' | 'appended' | 'skipped'
+    summary: string
+  }>
 }
 
 const DEFAULT_INCLUDES = [
@@ -144,6 +151,7 @@ function parseArgs(argv: string[]): Args {
     includes: [...DEFAULT_INCLUDES],
     maxFiles: 200,
     dryRun: false,
+    confirm: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -179,6 +187,8 @@ function parseArgs(argv: string[]): Args {
       args.maxFiles = Number.parseInt(arg.slice('--max-files='.length), 10)
     } else if (arg === '--dry-run') {
       args.dryRun = true
+    } else if (arg === '--confirm' || arg === '--yes') {
+      args.confirm = true
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -191,7 +201,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Document Resource Ingestion\n\nUsage:\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan [--format md|json] [--root <path>] [--max-files N]\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run [--format md|json] [--root <path>] [--max-files N]\n\nInspect mode is read-only. Plan mode proposes document-intake/candidate writes without applying. Apply currently requires --dry-run and prints the same proposed writes.`)
+  console.log(`Document Resource Ingestion\n\nUsage:\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan [--format md|json] [--root <path>] [--max-files N]\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run [--format md|json] [--root <path>] [--max-files N]\n  bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --confirm [--format md|json] [--root <path>] [--max-files N]\n\nInspect mode is read-only. Plan mode proposes document-intake/candidate writes without applying. Apply requires --dry-run for preview or --confirm for ledger/candidate writes. Apply never promotes external facts into canonical DDD/SDD/BDD/TDD/ADR/SSOT records.`)
 }
 
 function normalizeRel(path: string): string {
@@ -493,8 +503,8 @@ function buildIntakeLedgerXml(inspectResult: InspectResult, generatedAt: string)
 }
 
 function buildPlanResult(args: Args): PlanResult {
-  if (args.mode === 'apply' && !args.dryRun) {
-    throw new Error('apply mode is not implemented yet; use --dry-run to preview proposed writes')
+  if (args.mode === 'apply' && !args.dryRun && !args.confirm) {
+    throw new Error('apply mode requires --dry-run for preview or --confirm to write document-intake/candidate artifacts')
   }
   const inspectResult = inspect(args)
   const generatedAt = new Date().toISOString()
@@ -521,11 +531,11 @@ function buildPlanResult(args: Args): PlanResult {
   }
   return {
     ok: true,
-    mode: args.mode === 'apply' ? 'document-resource-ingestion.apply-dry-run' : 'document-resource-ingestion.plan',
+    mode: args.mode === 'apply' ? (args.dryRun ? 'document-resource-ingestion.apply-dry-run' : 'document-resource-ingestion.apply') : 'document-resource-ingestion.plan',
     schemaVersion: '1.0',
     root: args.root,
     generatedAt,
-    dryRun: args.mode === 'apply' ? true : args.dryRun,
+    dryRun: args.mode === 'apply' ? args.dryRun : args.dryRun,
     inspect: inspectResult,
     proposedWrites,
     candidateEntries,
@@ -542,23 +552,85 @@ function buildPlanResult(args: Args): PlanResult {
     warnings: [
       ...inspectResult.warnings,
       'No DDD/SDD/BDD/TDD/ADR/SSOT promotion is included in this plan.',
-      'User confirmation is required before any write is applied.',
+      args.mode === 'apply' && args.confirm ? 'Confirmed apply writes only document-intake/candidate artifacts, not canonical records.' : 'User confirmation is required before any write is applied.',
     ],
   }
 }
 
+function ensureParent(path: string): void {
+  mkdirSync(path.slice(0, path.lastIndexOf('/')), { recursive: true })
+}
+
+function candidateKey(entry: CandidateEntry): string {
+  return `${entry.type}|${entry.sourcePath}|${entry.provenance.fingerprint}`
+}
+
+function existingCandidateKeys(root: string, path: string): Set<string> {
+  const abs = join(root, path)
+  const keys = new Set<string>()
+  if (!existsSync(abs)) return keys
+  for (const line of readFileSync(abs, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try {
+      const entry = JSON.parse(line) as Partial<CandidateEntry>
+      if (entry.type === 'document-resource-ingestion-candidate' && entry.sourcePath && entry.provenance?.fingerprint) {
+        keys.add(`${entry.type}|${entry.sourcePath}|${entry.provenance.fingerprint}`)
+      }
+    } catch {
+      /* ignore unrelated or malformed historical lines */
+    }
+  }
+  return keys
+}
+
+function applyConfirmed(result: PlanResult): PlanResult {
+  const appliedWrites: NonNullable<PlanResult['appliedWrites']> = []
+  const ledger = result.proposedWrites.find((write) => write.kind === 'document-intake-ledger')
+  if (ledger) {
+    const abs = join(result.root, ledger.path)
+    ensureParent(abs)
+    writeFileSync(abs, ledger.content, 'utf8')
+    appliedWrites.push({ path: ledger.path, action: 'written', summary: ledger.summary })
+  }
+
+  const candidatePath = '.lazy-harness/knowledge/candidates.jsonl'
+  const existing = existingCandidateKeys(result.root, candidatePath)
+  const newEntries = result.candidateEntries.filter((entry) => !existing.has(candidateKey(entry)))
+  if (newEntries.length) {
+    const abs = join(result.root, candidatePath)
+    ensureParent(abs)
+    appendFileSync(abs, newEntries.map((entry) => JSON.stringify(entry)).join('\n') + '\n', 'utf8')
+    appliedWrites.push({ path: candidatePath, action: 'appended', summary: `${newEntries.length} new candidate/quarantine entries appended` })
+  } else {
+    appliedWrites.push({ path: candidatePath, action: 'skipped', summary: 'No new candidate/quarantine entries after dedupe' })
+  }
+  return { ...result, appliedWrites }
+}
+
 function renderPlanMd(result: PlanResult): string {
   const lines: string[] = []
-  lines.push(`# ${result.mode === 'document-resource-ingestion.apply-dry-run' ? 'Document Resource Ingestion apply dry-run' : 'Document Resource Ingestion plan'}`)
+  const title = result.mode === 'document-resource-ingestion.apply-dry-run'
+    ? 'Document Resource Ingestion apply dry-run'
+    : result.mode === 'document-resource-ingestion.apply'
+      ? 'Document Resource Ingestion apply'
+      : 'Document Resource Ingestion plan'
+  lines.push(`# ${title}`)
   lines.push('')
   lines.push(`- Root: \`${result.root}\``)
-  lines.push(`- Dry run: ${result.dryRun ? 'yes' : 'plan-only'}`)
+  lines.push(`- Dry run: ${result.dryRun ? 'yes' : 'no'}`)
   lines.push(`- Documents: ${result.inspect.documents.length}`)
   lines.push(`- Candidate entries: ${result.candidateEntries.length}`)
   lines.push('')
   lines.push('## Proposed writes')
   for (const write of result.proposedWrites) {
     lines.push(`- \`${write.path}\` (${write.action}, ${write.kind}): ${write.summary}`)
+  }
+  if (result.appliedWrites?.length) {
+    lines.push('')
+    lines.push('## Applied writes')
+    for (const write of result.appliedWrites) {
+      lines.push(`- ${write.action}: \`${write.path}\` — ${write.summary}`)
+    }
   }
   if (result.warnings.length) {
     lines.push('')
@@ -586,7 +658,9 @@ function main(): void {
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderMd(result))
     } else {
-      const result = buildPlanResult(args)
+      const result = args.mode === 'apply' && args.confirm && !args.dryRun
+        ? applyConfirmed(buildPlanResult(args))
+        : buildPlanResult(args)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderPlanMd(result))
     }

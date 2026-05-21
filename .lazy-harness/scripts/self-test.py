@@ -1187,6 +1187,7 @@ def check_jcode_doc_ingest_skill_wrapper() -> None:
         "document-resource-ingestion.ts --mode inspect",
         "document-resource-ingestion.ts --mode plan",
         "document-resource-ingestion.ts --mode apply --dry-run",
+        "document-resource-ingestion.ts --mode apply --confirm",
         ".lazy-harness/spec/platform/document-resource-ingestion.md",
         "separate capability from /lazy-project-profile",
         "Never auto-promote external facts",
@@ -1797,9 +1798,58 @@ def check_document_resource_ingestion_inspect() -> None:
             capture_output=True,
             check=False,
         )
-        if blocked_completed.returncode == 0 or "use --dry-run" not in blocked_completed.stderr:
+        if blocked_completed.returncode == 0 or "requires --dry-run" not in blocked_completed.stderr:
             fail("document-resource-ingestion apply without --dry-run must be blocked")
-    print("✓ document-resource-ingestion inspect/plan ok")
+        apply_completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "apply",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if apply_completed.returncode != 0:
+            fail("document-resource-ingestion apply --confirm failed:\n" + apply_completed.stdout + apply_completed.stderr)
+        applied = json.loads(apply_completed.stdout)
+        if applied.get("mode") != "document-resource-ingestion.apply" or applied.get("dryRun") is not False:
+            fail("document-resource-ingestion apply --confirm should report real apply mode")
+        ledger_path = root / ".lazy-harness" / "project" / "document-intake.xml"
+        candidates_path = root / ".lazy-harness" / "knowledge" / "candidates.jsonl"
+        if not ledger_path.exists() or "<documentIntake" not in ledger_path.read_text(encoding="utf-8"):
+            fail("document-resource-ingestion apply --confirm should write document-intake.xml")
+        candidate_lines = [line for line in candidates_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(candidate_lines) != 4:
+            fail("document-resource-ingestion apply --confirm should append four candidate entries, got " + str(len(candidate_lines)))
+        second_apply = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "document-resource-ingestion.ts"),
+                "--mode",
+                "apply",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if second_apply.returncode != 0:
+            fail("document-resource-ingestion second apply --confirm failed:\n" + second_apply.stdout + second_apply.stderr)
+        candidate_lines_after = [line for line in candidates_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(candidate_lines_after) != 4:
+            fail("document-resource-ingestion apply --confirm should dedupe candidate entries")
+    print("✓ document-resource-ingestion inspect/plan/apply ok")
 
 
 def check_project_profile_inspect() -> None:

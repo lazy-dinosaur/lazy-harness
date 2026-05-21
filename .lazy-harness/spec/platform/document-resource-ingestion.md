@@ -29,7 +29,7 @@ Root-bound host documents only, unless the user explicitly points elsewhere:
 ## Output artifacts
 
 - `.lazy-harness/project/document-intake.xml` or equivalent ledger
-- `.lazy-harness/knowledge/candidates.jsonl` for uncertain facts
+- `.lazy-harness/knowledge/candidates.jsonl` for uncertain facts, appended with dedupe by source path and fingerprint
 - DDD/SDD/BDD/TDD/ADR/SSOT records for confirmed durable facts
 - source provenance links from generated records back to original document path/section
 - duplicate clusters and conflict groups with selected resolution or defer reason
@@ -64,14 +64,15 @@ scan external docs
 - `.lazy-harness/scripts/knowledge-intake.ts`
   - Existing Stage 1 detector for knowledge candidates from text; currently read-only and never writes records.
 - `.lazy-harness/scripts/document-resource-ingestion.ts`
-  - Entry point for document scanning, scoring, clustering, reviewable reporting, and write-preview planning. Current slice does not write records.
+  - Entry point for document scanning, scoring, clustering, reviewable reporting, write-preview planning, and confirmed document-intake/candidate writes.
   - Inspect CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect [--format md|json] [--root <path>] [--include <glob>] [--max-files N]`.
   - Plan CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan [--format md|json] [--root <path>] [--max-files N]`.
   - Apply preview CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run [--format md|json] [--root <path>] [--max-files N]`.
+  - Confirmed apply CLI: `bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --confirm [--format md|json] [--root <path>] [--max-files N]` writes only `.lazy-harness/project/document-intake.xml` and deduped candidate entries.
 - `/lazy-doc-ingest`
   - Framework-owned Jcode wrapper for running the ingestion flow separately from `/lazy-project-profile`.
 - `.lazy-harness/scripts/self-test.py`
-  - `check_document_resource_ingestion_inspect` protects fresh/stale/duplicate/polluted classification, JSON parseability, `.lazy-harness` exclusion, plan proposed writes, candidate confirmation requirements, and blocking apply without `--dry-run`.
+  - `check_document_resource_ingestion_inspect` protects fresh/stale/duplicate/polluted classification, JSON parseability, `.lazy-harness` exclusion, plan proposed writes, candidate confirmation requirements, blocking apply without `--dry-run`/`--confirm`, confirmed ledger writes, and candidate dedupe.
 - `.lazy-harness/spec/platform/project-profile.md`
   - Consumes ingestion outputs when available but does not own document ingestion.
 
