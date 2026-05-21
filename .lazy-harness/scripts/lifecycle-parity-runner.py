@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
+AFTERSHOCK_DECISIONS_FALLBACK = '{"id":"D-2026-05-12-aftershock","source":"interview-loop","questionId":"Q-fixture","selectedOption":"A","summary":"Register patient intake term","effects":[{"kind":"ddd-register-term","term":"ReferralIntake","reason":"fixture cascade"},{"kind":"defer","reason":"fixture no follow-up"}],"aftershockDepth":0,"createdAt":"2026-05-12T00:00:00.000Z"}\n'
 
 
 def fixture_payloads(root: Path) -> list[dict[str, Any]]:
@@ -65,6 +66,7 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectHelperSuffix": "check-aftershock-reanalysis.sh",
             "expectContains": "5d-4 Aftershock Re-analysis",
             "decisionsFixture": str(aftershock_decisions),
+            "decisionsFallback": AFTERSHOCK_DECISIONS_FALLBACK,
         },
     ]
 
@@ -107,7 +109,11 @@ def prepare_env(host: Path, fixture: dict[str, Any], queue_name: str) -> dict[st
             copied_source = host / ".lazy-harness" / Path(*rel_parts)
         else:
             copied_source = source
-        decisions.write_text(copied_source.read_text(encoding="utf-8"), encoding="utf-8")
+        if copied_source.exists():
+            decisions_text = copied_source.read_text(encoding="utf-8")
+        else:
+            decisions_text = str(fixture.get("decisionsFallback") or "")
+        decisions.write_text(decisions_text, encoding="utf-8")
         env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(host))
     return env
 

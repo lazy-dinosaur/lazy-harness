@@ -105,6 +105,7 @@ Batch parity runner:
 - `lazy lifecycle-parity` runs production `on-response-completed.sh` and shadow `lifecycle-check` in fresh temp host copies for each fixture.
 - It compares output presence, first STOP/reminder body, expected helper, and expected marker text.
 - `--fail-on-mismatch` exits `2` on any mismatch and is intended for self-test/CI.
+- Fixtures must be self-contained enough to run in installed hosts; source-only fixture files need embedded fallbacks.
 
 ## Implementation map
 
@@ -115,6 +116,7 @@ Batch parity runner:
   - Phase 2 shadow orchestrator. Parses payload once, mirrors helper order/fast-path selection, runs existing helpers, and reports first-output parity data.
 - `.lazy-harness/scripts/lifecycle-parity-runner.py`
   - Batch parity runner that compares production hook output with lifecycle-check shadow output across representative fixtures in fresh temp hosts.
+  - Embeds a fallback aftershock decision fixture so installed hosts can run parity without framework-only `triggers/fixtures` files.
 - `.lazy-harness/scripts/hook-timing-summary.py`
   - Read-only timing summary CLI.
 - `.lazy-harness/bin/lazy`

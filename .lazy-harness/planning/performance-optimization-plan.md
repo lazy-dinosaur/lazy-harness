@@ -327,6 +327,7 @@ Initial fixture suite:
 Validation:
 
 - `lazy lifecycle-parity --format=json --fail-on-mismatch` passed 6/6 fixtures locally.
+- Host dogfood found that installed hosts do not include source-only `.lazy-harness/triggers/fixtures/aftershock/decisions.jsonl`, so the runner now embeds a fallback aftershock decision fixture.
 
 Replacement status:
 
