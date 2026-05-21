@@ -46,3 +46,26 @@ The user approved turning these dogfood improvement candidates into framework im
 - Add explicit graph repair or graph lint command.
 - Add log summary/rollup or compaction view.
 - Consider a quality score once enough audits are available.
+
+## 2026-05-21 Medivance dogfood result
+
+After source commit `8585136`, synced framework to `/home/lazydino/dev/medivance` with `lazy-sync --force`.
+
+Validation:
+
+- `python3 .lazy-harness/scripts/doctor.py --profile smoke --scope host` passed in Medivance.
+- `.lazy-harness/bin/lazy record-audit --format=json --source ~/dev/lazy-harness --recent=8` passed in Medivance.
+
+Observed audit summary:
+
+- Total `.lazy-harness` files: 145.
+- Host-owned/changed records: 116 (`unique=99`, `changed=17`, `same_as_source=21`).
+- Project Profile: `artifactsComplete=true`, `answersComplete=false`, `needsInterviewFields=26`.
+- Graph: `rows=138`, `invalidRows=0`, `missingPaths=22`, `commaJoinedPaths=1`.
+- JSONL parseability: all inspected knowledge/log JSONL files had `invalid=0`.
+- Log volume: `actions=719`, `validations=955`, `route-decisions=100`, `route-telemetry-debug=144`, `skipped=5`.
+
+Dogfood conclusion:
+
+- The new CLI replaces the previous manual shell audit with a single reproducible dashboard.
+- It also confirms the next two improvement slices: Project Profile answer fill UX and graph hygiene/lint.
