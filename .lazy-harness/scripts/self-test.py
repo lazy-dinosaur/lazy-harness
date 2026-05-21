@@ -783,6 +783,29 @@ def _check_project_rule_placement_helper_cases() -> None:
     if korean_noop.strip():
         fail("project rule placement helper false-positive on Korean no-record disposition:\n" + korean_noop)
 
+    duplicate_product_rule_payload = {
+        "assistant_response": (
+            "Product rule placement\n"
+            "• Rule: 치료기록지 배정/재배정 알림은 { actionKind: 'treatmentDocument' } metadata를 보존해야 하며 클릭 시 TreatmentDocumentModal이 바로 열려야 한다.\n"
+            "• Scope: host-project\n"
+            "• Primary record: .lazy-harness/ssot/patient-treatment-surfaces.md\n"
+            "• Why not AGENTS.md: 제품 동작/도메인 규칙이지 agent 운영 규칙이 아니다.\n"
+            "• Why not .jcode: 개인 로컬 규칙이 아니라 팀/프로젝트 공유 product behavior다.\n"
+            "• Confirmation: user-observed regression, user-confirmed\n\n"
+            "Related product rule placement\n"
+            "• Rule: 치료기록지 배정/재배정 알림은 { actionKind: 'treatmentDocument' } metadata를 보존해야 하며 클릭 시 TreatmentDocumentModal이 바로 열려야 한다.\n"
+            "• Scope: host-project\n"
+            "• Primary record: .lazy-harness/ssot/patient-treatment-surfaces.md\n"
+            "• Why not AGENTS.md: 제품 동작/도메인 규칙이지 agent 운영 규칙이 아니다.\n"
+            "• Why not .jcode: 개인 로컬 규칙이 아니라 팀/프로젝트 공유 product behavior다.\n"
+            "• Confirmation: user-observed regression, user-confirmed\n"
+        ),
+        "recent_tool_calls": [],
+    }
+    duplicate_product_rule = run_project_rule_placement_helper(duplicate_product_rule_payload)
+    if "Rule placement duplication" not in duplicate_product_rule:
+        fail("project rule placement helper should flag duplicate product rule placement blocks:\n" + duplicate_product_rule)
+
     args_payload = {
         "assistant_response": "PR 규격 SSOT를 recognized edit로 갱신했습니다.",
         "recent_tool_calls": [{

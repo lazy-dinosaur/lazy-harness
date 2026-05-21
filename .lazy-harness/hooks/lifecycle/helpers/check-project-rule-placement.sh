@@ -92,8 +92,47 @@ def has_rule_placement_judgement(text: str) -> bool:
     ]
     return all(re.search(pattern, normalized, re.IGNORECASE) for pattern in required_patterns)
 
+
+def duplicate_rule_placement_keys(text: str) -> list[str]:
+    """Return duplicate (rule, primary-record) keys across placement-like blocks.
+
+    This catches assistant amplification where the same product rule is emitted as
+    both "Product rule placement" and "Related product rule placement" in one
+    response. A complete placement judgement is useful once; repeated copies are
+    noise and can look like an infinite loop to the user.
+    """
+    normalized = text.replace("`", "")
+    # Split loosely on placement headings while preserving bullet bodies.
+    chunks = re.split(r"(?im)^\s*(?:#+\s*)?(?:related\s+)?(?:product\s+)?rule\s+placement\s*$", normalized)
+    keys = []
+    for chunk in chunks:
+        rule_match = re.search(r"(?im)^\s*(?:[-*•]\s*)?rule\s*:\s*(.+?)\s*$", chunk)
+        record_match = re.search(r"(?im)^\s*(?:[-*•]\s*)?primary\s+record\s*:\s*(.+?)\s*$", chunk)
+        if not rule_match or not record_match:
+            continue
+        rule = re.sub(r"\s+", " ", rule_match.group(1).strip().lower())
+        record = re.sub(r"\s+", " ", record_match.group(1).strip().lower())
+        if rule and record:
+            keys.append(f"{rule} -> {record}")
+    seen = set()
+    duplicates = []
+    for key in keys:
+        if key in seen and key not in duplicates:
+            duplicates.append(key)
+        seen.add(key)
+    return duplicates
+
 # Complete Rule placement judgement satisfies the gate. Accept bullets, missing
 # Markdown heading markers, and `.jcode` with or without backticks.
+duplicate_keys = duplicate_rule_placement_keys(blob)
+if duplicate_keys:
+    print("STOP. Rule placement duplication: 같은 Rule placement 판단을 한 응답에서 반복 출력했습니다.\n")
+    print("해야 할 일: 같은 rule/primary record 조합은 한 번만 남기고, 관련 판단은 중복 블록이 아니라 한 줄 cross-reference 로 압축하세요.")
+    print("중복 key:")
+    for key in duplicate_keys[:5]:
+        print(f"  - {key}")
+    sys.exit(0)
+
 if has_rule_placement_judgement(blob):
     sys.exit(0)
 
