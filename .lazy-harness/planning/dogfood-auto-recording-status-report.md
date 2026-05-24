@@ -166,3 +166,61 @@ Do not use parallel/multi-tool wrappers for mutating operations.
 Use single sequential calls for write/edit/apply_patch/git commit/git push/lazy-sync/todo updates.
 Parallelize only read-only inspection when safe.
 ```
+
+## 2026-05-24 Phase 2 dogfood data check
+
+Status: observed during follow-up check
+Confirmation: user asked whether Phase 2 dogfooding data had accumulated further.
+
+Current conclusion:
+
+```text
+Phase 2 is still in dogfooding/data-collection mode.
+The data has grown a little, but not enough to justify Phase 3 production hook replacement.
+```
+
+Observed evidence from `/home/lazydino/dev/lazy-harness`:
+
+- `.lazy-harness/logs/hook-timings.jsonl`: 1994 rows.
+- `.lazy-harness/logs/route-telemetry-debug.jsonl`: 840 rows.
+- `.lazy-harness/knowledge/candidates.jsonl`: 11 rows.
+- 2026-05-24 source rows were mostly from the current check session, not broad Medivance app dogfooding.
+- `lazy lifecycle-parity --format=json --fail-on-mismatch`: passed 12, failed 0.
+- Recent source `lazy hook-timings --limit=200` summary:
+  - `hook-total` count=14, avg≈577ms, p90≈951ms, max≈1065ms.
+  - `check-bdd-trigger.sh` count=14, avg≈107ms, emitted=0.
+
+Observed evidence from `/home/lazydino/dev/medivance`:
+
+- `.lazy-harness/logs/hook-timings.jsonl`: 2724 rows.
+- `.lazy-harness/logs/route-decisions.jsonl`: 164 rows.
+- `.lazy-harness/logs/route-telemetry-debug.jsonl`: 267 rows.
+- `.lazy-harness/logs/actions.jsonl`: 807 rows.
+- `.lazy-harness/logs/validations.jsonl`: 1006 rows.
+- `.lazy-harness/knowledge/candidates.jsonl`: 14 rows.
+- `.lazy-harness/knowledge/graph.jsonl`: 179 rows.
+- Last meaningful Medivance timing/route growth was around 2026-05-22, so real app dogfooding has not grown much since then.
+
+Observed evidence from `/home/lazydino/dev/medivance-pwa`:
+
+- `.lazy-harness/logs/route-decisions.jsonl`: 10 rows.
+- `.lazy-harness/logs/route-telemetry-debug.jsonl`: 11 rows.
+- `.lazy-harness/logs/hook-timings.jsonl`: missing.
+- `.lazy-harness/knowledge/candidates.jsonl`: 11 rows.
+- `.lazy-harness/knowledge/graph.jsonl`: 168 rows.
+- PWA dogfooding evidence is still thin compared with Medivance.
+
+Operational lesson from this check:
+
+- The agent incorrectly used `session_search` before re-reading `.lazy-harness` records while answering a recorded/planned-work status question.
+- The lifecycle `record-before-session-history` gate correctly emitted STOP.
+- Corrective rule for future status checks: search/read `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,knowledge}/` first, then use `session_search` only as fallback evidence if records are insufficient.
+- User correction: status-check findings, dogfood evidence snapshots, and lifecycle STOP lessons should be recorded proactively by the agent, without waiting for the user to ask "이 상황 기록해둔거 맞지?".
+- Operational expectation: whenever the agent performs a non-trivial Phase 2 dogfood/status check, it should converge the result into the active planning/report record or `.lazy-harness/knowledge/candidates.jsonl` before final response.
+
+Next recommended behavior:
+
+1. Continue Phase 2 dogfooding rather than Phase 3 replacement.
+2. Use Medivance for several more real interactive turns so timing, route, validation, and candidate evidence grows after 2026-05-22.
+3. Re-run `lazy hook-timings`, `lazy lifecycle-parity --fail-on-mismatch`, and host record/graph audits after that real usage.
+4. Only after broader real payload evidence accumulates, create a Phase 3 readiness checklist.
