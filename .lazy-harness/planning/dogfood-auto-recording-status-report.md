@@ -224,3 +224,32 @@ Next recommended behavior:
 2. Use Medivance for several more real interactive turns so timing, route, validation, and candidate evidence grows after 2026-05-22.
 3. Re-run `lazy hook-timings`, `lazy lifecycle-parity --fail-on-mismatch`, and host record/graph audits after that real usage.
 4. Only after broader real payload evidence accumulates, create a Phase 3 readiness checklist.
+
+## 2026-05-24 source commit and host sync closeout
+
+Status: completed
+
+Source repository:
+
+- Commit: `e055e45 Record Phase 2 dogfood capture gap`.
+- Pushed to `origin/main`.
+- Source validation before push:
+  - `.lazy-harness/scripts/self-test.py`: passed.
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke`: passed.
+
+Installed hosts synced from `/home/lazydino/dev/lazy-harness`:
+
+- `/home/lazydino/dev/medivance`
+  - `lazy-sync --force`: completed, host behind `9bf4a0b548c4` → source `e055e4544cf2`.
+  - Framework sync summary: 2 updated, 124 unchanged, 0 missing.
+  - Host validation: `python3 .lazy-harness/scripts/self-test.py` passed, `python3 .lazy-harness/scripts/doctor.py --profile smoke` passed.
+  - Git status after sync: no new tracked harness diff reported; branch remains `dev-ian...origin/dev-ian [ahead 15]`.
+- `/home/lazydino/dev/medivance-pwa`
+  - `lazy-sync --force`: completed, host behind `9bf4a0b548c4` → source `e055e4544cf2`.
+  - Framework sync summary: 1 updated, 125 unchanged, 0 missing.
+  - Host validation: `python3 .lazy-harness/scripts/self-test.py` passed, `python3 .lazy-harness/scripts/doctor.py --profile smoke` passed.
+  - Git status after sync: existing untracked `supabase/migrations/20260518100000_grant_service_role_public_schema.sql` remains unrelated to harness sync.
+
+Note:
+
+- The manual marker check initially looked for the wrong marker filename and printed unrelated `*source*` records. The authoritative sync evidence is the `lazy-sync` output showing the source revision transition and successful Category A sync.
