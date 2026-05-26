@@ -74,6 +74,7 @@ Commands:
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
                                 Lint knowledge graph IDs and path hygiene
+  gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
   hook-timings [--format=json|md] [--limit=N]
                                 Summarize response.completed hook timing measurements
   lifecycle-check [--format=json|md]
@@ -190,6 +191,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/graph-hygiene.ts" "$@"
+    ;;
+  gate-state)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy gate-state: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/gate-state.ts" "$@"
     ;;
   hook-timings)
     exec python3 "$SCRIPTS/hook-timing-summary.py" "$@"

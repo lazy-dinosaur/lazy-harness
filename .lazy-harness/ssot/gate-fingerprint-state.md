@@ -46,9 +46,11 @@ This file is runtime state, not institutional memory. It is safe to regenerate a
 
 ## Implementation map
 
-- Status: `verified`
+- Status: `verified-runtime-helper`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns read/write/check/record behavior for `open-gates.json`.
+  - `.lazy-harness/scripts/gate-state.ts` — CLI runtime helper for inspecting and clearing stale `open-gates.json` entries during readiness cleanup.
+  - `.lazy-harness/bin/lazy` — dispatches `lazy gate-state list|clear-stale`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — uses `gate-fingerprint.sh` with BDD fingerprints.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — writes compatible `project-rule-placement:<fingerprint>` entries directly because its Python implementation runs inside one helper process.
   - `.lazy-harness/scripts/self-test.py` — validates same-turn suppression and new-turn re-fire in `check_bdd_trigger_loop_suppression` and `check_project_rule_placement_helper`.
@@ -61,6 +63,7 @@ This file is runtime state, not institutional memory. It is safe to regenerate a
 - Protection:
   - `.lazy-harness/scripts/self-test.py` `check_bdd_trigger_loop_suppression`
   - `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper`
+  - `.lazy-harness/scripts/self-test.py` `check_gate_state_cli_and_record_audit_source_guard`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`

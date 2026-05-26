@@ -179,6 +179,11 @@ function lazyDir(path: string): string {
   return path.endsWith('.lazy-harness') ? path : join(path, '.lazy-harness')
 }
 
+function sourceIsHost(root: string, source: string | undefined): boolean {
+  if (!source) return false
+  return resolve(lazyDir(source)) === resolve(join(root, '.lazy-harness'))
+}
+
 function walkFiles(dir: string): string[] {
   if (!existsSync(dir)) return []
   const out: string[] = []
@@ -379,6 +384,7 @@ function buildAudit(args: Args): AuditResult {
   const graph = graphSummary(args.root, args.source)
   const warnings: string[] = []
   if (!args.source) warnings.push('No framework source was found; host-owned/changed counts are unavailable.')
+  if (sourceIsHost(args.root, args.source)) warnings.push('The --source argument points at this host .lazy-harness tree. Use the canonical framework source checkout for installed-host readiness checks, e.g. --source /home/lazydino/dev/lazy-harness.')
   if (!projectProfile.answersComplete) warnings.push(`Project Profile incomplete: ${projectProfile.artifactsMissing} missing artifact(s), ${projectProfile.needsInterviewFields} field(s) still need interview answers.`)
   if (graph.invalidRows > 0 || graph.missingPaths > 0 || graph.commaJoinedPaths > 0) warnings.push('Implementation graph hygiene issues detected.')
   const invalidJsonl = jsonl.reduce((sum, item) => sum + item.invalid, 0)

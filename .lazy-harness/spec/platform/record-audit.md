@@ -27,7 +27,7 @@ bun .lazy-harness/scripts/record-audit.ts --format=json --root <host> --source <
 Options:
 
 - `--root` / `--host`: host root to inspect. Defaults to `LAZY_HOST_ROOT` or current working directory.
-- `--source`: canonical lazy-harness source checkout or its `.lazy-harness` directory. When present, framework-synced records can be separated from host-owned or host-changed records.
+- `--source`: canonical lazy-harness source checkout or its `.lazy-harness` directory. When present, framework-synced records can be separated from host-owned or host-changed records. If it resolves to the inspected host's own `.lazy-harness`, `warnings` must explain that installed-host readiness checks need the canonical framework source instead.
 - `--format md|json`: output format.
 - `--recent N`: number of recent record files to show.
 
@@ -61,10 +61,12 @@ The JSON output must include:
   - Splits Project Profile artifact completeness from answer completeness.
   - Reports graph hygiene and JSONL parseability without mutating files.
   - Separates `graph.sourceOnlyPaths` from actionable `graph.missingPaths` when `--source` is available.
+  - Warns when `--source` points at the inspected host itself, because that misclassifies framework-source-only paths during installed-host readiness checks.
 - `.lazy-harness/bin/lazy`
   - Adds `lazy record-audit` dispatcher entry.
 - `.lazy-harness/scripts/self-test.py`
   - `check_record_audit_cli` protects host/source comparison, Project Profile answer split, graph hygiene reporting, JSONL invalid-line reporting, marker counting, and dispatcher pass-through.
+  - `check_gate_state_cli_and_record_audit_source_guard` protects the self-source warning used by lifecycle Phase 3 readiness checks.
 - `.lazy-harness/knowledge/graph.jsonl`
   - Stores confirmed implementation/test edges for this CLI.
 

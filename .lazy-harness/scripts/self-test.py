@@ -1685,7 +1685,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1703,6 +1703,78 @@ def check_lazy_route_cli_help() -> None:
     if audit.returncode != 0 or json.loads(audit.stdout).get("mode") != "route-audit":
         fail("lazy route-audit should emit route-audit JSON:\n" + audit.stdout + audit.stderr)
     print("✓ lazy route CLI help ok")
+
+
+def check_gate_state_cli_and_record_audit_source_guard() -> None:
+    """Phase 3 readiness helpers protect runtime gate cleanup and source-arg mistakes."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-gate-state-"))
+    try:
+        state_dir = temp / ".lazy-harness" / "state"
+        state_dir.mkdir(parents=True)
+        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True)
+        (state_dir / "open-gates.json").write_text(
+            json.dumps({
+                "last_message_id": "fixture-message",
+                "open_fingerprints": {
+                    "bdd:old": {"first_seen_message_id": "old", "first_seen_ts": "2020-01-01T00:00:00Z"},
+                    "project-rule-placement:new": {"first_seen_message_id": "new", "first_seen_ts": "2999-01-01T00:00:00Z"},
+                },
+            }),
+            encoding="utf-8",
+        )
+        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        listed = subprocess.run([str(LAZY / "bin" / "lazy"), "gate-state", "list", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if listed.returncode != 0:
+            fail("gate-state list failed:\n" + listed.stdout + listed.stderr)
+        listed_json = json.loads(listed.stdout)
+        if listed_json.get("count") != 2:
+            fail("gate-state list should show two fixture gates: " + listed.stdout)
+
+        dry = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "gate-state", "clear-stale", "--older-than-hours", "1", "--prefix", "bdd:", "--dry-run", "--format=json"],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if dry.returncode != 0 or "bdd:old" not in json.loads(dry.stdout).get("removed", []):
+            fail("gate-state dry-run should report old bdd gate removal:\n" + dry.stdout + dry.stderr)
+        still_two = json.loads((state_dir / "open-gates.json").read_text(encoding="utf-8"))
+        if len(still_two.get("open_fingerprints", {})) != 2:
+            fail("gate-state dry-run must not mutate state")
+
+        cleared = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "gate-state", "clear-stale", "--older-than-hours", "1", "--prefix", "bdd:", "--format=json"],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if cleared.returncode != 0:
+            fail("gate-state clear-stale failed:\n" + cleared.stdout + cleared.stderr)
+        state = json.loads((state_dir / "open-gates.json").read_text(encoding="utf-8"))
+        keys = set(state.get("open_fingerprints", {}).keys())
+        if keys != {"project-rule-placement:new"}:
+            fail("gate-state clear-stale should remove only stale matching prefix: " + json.dumps(sorted(keys), ensure_ascii=False))
+
+        audit = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "record-audit", "--format=json", "--source", str(temp)],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if audit.returncode != 0:
+            fail("record-audit self-source fixture failed:\n" + audit.stdout + audit.stderr)
+        warnings = json.loads(audit.stdout).get("warnings", [])
+        if not any("--source argument points at this host" in warning for warning in warnings):
+            fail("record-audit should warn when --source points at same host: " + audit.stdout)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ gate-state CLI and record-audit source guard ok")
 
 
 def check_capability_registry_cli_phase1() -> None:
@@ -3583,6 +3655,7 @@ def main() -> None:
         (check_task_router_read_only_contract, "BOTH"),
         (check_task_router_fixtures, "BOTH"),
         (check_lazy_route_cli_help, "BOTH"),
+        (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
         (check_response_completed_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),

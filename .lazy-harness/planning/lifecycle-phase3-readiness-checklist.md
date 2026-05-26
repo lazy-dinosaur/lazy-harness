@@ -44,7 +44,7 @@ Positive evidence:
 - [ ] Production hook replacement has an explicit ADR or checklist approval entry.
 - [ ] `lazy lifecycle-parity --fail-on-mismatch` passes in source, Medivance, and Medivance PWA after latest source sync.
 - [ ] Lifecycle parity suite includes real payload categories beyond synthetic fixtures.
-- [ ] All current open gate state is closed, expired, or classified as synthetic/stale runtime state.
+- [x] All current open gate state is closed, expired, or classified as synthetic/stale runtime state.
 - [x] `record-audit` graph missing paths are classified as source-only/host-owned/stale or resolved when run with canonical source.
 - [ ] Medivance and Medivance PWA have enough recent real-use rows after latest sync.
 - [ ] Replacement plan includes a legacy comparison/debug fallback flag.
@@ -64,24 +64,18 @@ Positive evidence:
 
 ## Current blockers
 
-### B1 — open runtime gates remain
+### B1 — open runtime gates cleaned
 
-Current runtime state:
+Cleanup result:
 
-- source: `project-rule-placement:06be2de14403abdb`
-- Medivance: `project-rule-placement:1126e416349d8ec4`
-- Medivance PWA: `bdd:d0c41fdf3381c81d`
+- Added `lazy gate-state list|clear-stale` runtime helper.
+- Cleared stale open gates older than 1 hour across source, Medivance, and Medivance PWA.
+- Verification after cleanup reports count=0 in all three roots.
 
-Classification:
+Current classification:
 
-- `.lazy-harness/state/open-gates.json` is runtime state, not canonical memory.
-- These are likely stale/synthetic from previous lifecycle tests or dogfood turns, but they should not be ignored when deciding production replacement.
-
-Required cleanup:
-
-1. Add or use a safe expiry/cleanup helper for stale runtime gate state, or document manual reset criteria.
-2. Re-run lifecycle parity after cleanup.
-3. Confirm no new real gate opens during the readiness run.
+- `.lazy-harness/state/open-gates.json` remains runtime state, not canonical memory.
+- Future readiness runs should use `lazy gate-state list --format=json` before replacement decisions.
 
 ### B2 — record-audit graph paths require canonical source argument
 
@@ -121,14 +115,13 @@ This file is the first explicit checklist. It needs one complete check-run after
 
 ## Recommended next implementation slices
 
-1. **Gate state cleanup helper**
-   - Add `lazy gate-state list|clear-stale` or a narrow helper for runtime `open-gates.json` cleanup.
-   - Must not delete canonical records.
-   - Must be tested with synthetic state.
+1. **Gate state cleanup helper** — implemented
+   - `lazy gate-state list|clear-stale` inspects and clears stale runtime `open-gates.json`.
+   - Synthetic self-test protects dry-run, prefix filtering, mutation, and non-canonical behavior.
 
-2. **Record-audit source-argument guard**
-   - Make `record-audit` warn when `--source` points at the same host instead of the canonical framework source.
-   - Optional: add a fixture for installed-host source-only operational paths.
+2. **Record-audit source-argument guard** — implemented
+   - `record-audit` warns when `--source` points at the same host instead of the canonical framework source.
+   - Synthetic self-test protects the warning.
 
 3. **Real payload parity fixture intake**
    - Add a documented way to snapshot safe metadata from real lifecycle payload categories into fixtures.
@@ -153,3 +146,55 @@ This file is the first explicit checklist. It needs one complete check-run after
 - ADR: replacement decision remains deferred.
 - SSOT: no new source-of-truth change yet; runtime gate state remains governed by `.lazy-harness/ssot/gate-fingerprint-state.md`.
 - Planning: this file is the active Phase 3 go/no-go checklist.
+
+## 2026-05-26 readiness cleanup implementation result
+
+Status: implemented-and-dogfooded
+Confirmation: validation evidence
+
+Implemented readiness cleanup slice A:
+
+- `lazy gate-state list|clear-stale`
+  - Lists runtime `.lazy-harness/state/open-gates.json` state.
+  - Clears stale fingerprints by age and optional prefix.
+  - Supports `--dry-run` and JSON/Markdown output.
+  - Mutates runtime state only, never canonical records.
+- `record-audit` self-source warning
+  - Emits a warning when `--source` resolves to the inspected host's own `.lazy-harness` tree.
+  - Prevents installed-host readiness checks from misclassifying source-only operational records as missing host paths.
+
+Dogfood validation:
+
+- Source:
+  - `.lazy-harness/scripts/self-test.py` passed.
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke` passed.
+- Medivance:
+  - Synced 5 updated framework files.
+  - `.lazy-harness/bin/lazy test` passed in host scope.
+  - `lazy gate-state list --format=json` reports `count: 0`.
+  - `record-audit --source .` warning appears as expected.
+- Medivance PWA:
+  - Synced 5 updated framework files.
+  - `.lazy-harness/bin/lazy test` passed in host scope.
+  - `lazy gate-state list --format=json` reports `count: 0`.
+  - `record-audit --source .` warning appears as expected.
+
+Current readiness delta:
+
+- B1 open runtime gates: cleaned and helper protected.
+- B2 record-audit source mistake: guarded and documented.
+- Production `response.completed` replacement: still deferred.
+
+Next remaining slice:
+
+- Real payload parity fixture intake with safe metadata only.
+- Then a full readiness run can decide whether to draft the opt-in replacement patch.
+
+## Rule placement
+
+- Rule: Lifecycle Phase 3 readiness cleanup slice A is implemented/dogfooded; production replacement remains deferred pending real payload fixture intake and final readiness run.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- Why not AGENTS.md: this is implementation status and roadmap evidence, not universal agent grammar.
+- Why not `.jcode`: this is shared lifecycle framework behavior, not local/private Jcode wiring.
+- Confirmation: validation evidence

@@ -459,3 +459,44 @@ Recommended next slice:
 - ADR: replacement decision remains deferred.
 - SSOT: no source-of-truth change yet.
 - Planning: this section is the current Phase 3 readiness snapshot.
+
+
+## 2026-05-26 Phase 3 readiness cleanup slice
+
+Status: cleanup-slice-implemented
+Confirmation: validation evidence
+
+Implemented readiness helpers:
+
+- `lazy gate-state list|clear-stale`
+  - Inspect runtime `.lazy-harness/state/open-gates.json`.
+  - Clear stale fingerprints by age and optional prefix.
+  - Supports dry-run and JSON/Markdown output.
+  - Does not touch canonical records.
+- `record-audit` self-source warning
+  - Warns when `--source` resolves to the inspected host's own `.lazy-harness` tree.
+  - This prevents the readiness mistake where framework-source-only graph paths appeared as actionable missing paths.
+
+Runtime cleanup performed:
+
+- Cleared stale gates older than 1 hour across source, Medivance, and Medivance PWA.
+- Post-cleanup `lazy gate-state list --format=json` reports `count: 0` for all three roots.
+
+Dogfood note:
+
+- A parallel dry-run + mutating cleanup batch showed evidence can reorder when read/dry-run and write target the same state files. This was captured in `.lazy-harness/planning/harness-throughput-and-transparency-backlog.md`.
+
+Remaining before production replacement:
+
+- Run a full readiness check after syncing helpers into hosts.
+- Add or document real payload parity fixture intake.
+- Keep production `response.completed` replacement deferred until explicit opt-in checklist approval.
+
+## Rule placement
+
+- Rule: Lifecycle Phase 3 readiness now has gate-state cleanup and record-audit source guard helpers, but production response.completed replacement remains deferred.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/performance-optimization-plan.md`
+- Why not AGENTS.md: this is lifecycle roadmap status and validation evidence, not a permanent agent instruction.
+- Why not `.jcode`: this is shared lazy-harness lifecycle implementation, not local/private Jcode wiring.
+- Confirmation: validation evidence

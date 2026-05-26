@@ -100,3 +100,27 @@ Candidate implementation:
 - ADR: candidate decision on runtime vs durable progress state and parallel record write safety model.
 - SSOT: possible future state/storage records for progress and record-write DAG.
 - Planning: this file is the active backlog capture.
+
+## 2026-05-26 dogfood note — dry-run and mutating cleanup must not run in parallel
+
+Status: observed during lifecycle Phase 3 readiness cleanup
+Confirmation: validation evidence
+
+Observation:
+
+- Running `gate-state clear-stale --dry-run` and mutating `gate-state clear-stale` for the same roots in one parallel batch can reorder the dry-run/read and write operations.
+- This confirms the existing parallel-write principle: read-only checks and writes against the same runtime/canonical file must be serialized if their output is used as evidence.
+
+Implication:
+
+- Future `lazy record-plan` / write DAG work should classify dry-run/read-after-write dependencies explicitly.
+- For readiness cleanup, run dry-run first, inspect output, then run mutation, then run verification as separate serial phases.
+
+## Rule placement
+
+- Rule: Dry-run/read evidence and mutating cleanup for the same lazy-harness state files must be serialized; they are not parallel-safe even if one command is nominally read-only.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/harness-throughput-and-transparency-backlog.md`
+- Why not AGENTS.md: this is a planning/dogfood finding for future parallel write orchestration, not a universal current rule yet.
+- Why not `.jcode`: this is shared lazy-harness execution planning behavior, not local/private Jcode-only workflow.
+- Confirmation: validation evidence
