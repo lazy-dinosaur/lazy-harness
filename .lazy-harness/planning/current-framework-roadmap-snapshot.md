@@ -231,3 +231,43 @@ Not urgent unless session interruption or throughput becomes the bottleneck. If 
 - Lifecycle Phase 3: readiness tooling implemented, production replacement deferred.
 - Model quality: finding captured, guard overuse constraint recorded, no immediate implementation.
 - Throughput/transparency: backlog captured, not active.
+
+## 2026-05-26 installed host sync marker correction
+
+Status: corrected-and-validated
+Confirmation: validation evidence
+
+Correction:
+
+- The authoritative lazy-sync marker is `.lazy-harness/state/synced-from-commit`, not `.lazy-harness/state/source-revision`.
+- A previous check looked for `source-revision` and incorrectly reported the marker as missing.
+- The actual marker existed but was still at `f92d4c7...`, behind the latest source `8c1a96a...`.
+
+Action taken:
+
+- Re-ran `lazy-sync --force` for:
+  - `/home/lazydino/dev/medivance`
+  - `/home/lazydino/dev/medivance-pwa`
+- Both markers now report:
+  - `syncedFromCommit: 8c1a96a89c8c5ed3c5a13dad87b419b58fbbd651`
+  - `sourceRoot: /home/lazydino/dev/lazy-harness`
+
+Validation after correction:
+
+- Medivance:
+  - `lazy test` passed.
+  - `lazy capability audit --format=json`: ok, count=3.
+  - `lazy lifecycle-parity --format=json --fail-on-mismatch`: 13 pass, 0 fail.
+- Medivance PWA:
+  - `lazy test` passed.
+  - `lazy capability audit --format=json`: ok, count=2.
+  - `lazy lifecycle-parity --format=json --fail-on-mismatch`: 13 pass, 0 fail.
+
+## Rule placement
+
+- Rule: Installed-host sync freshness should be checked via `.lazy-harness/state/synced-from-commit`; `source-revision` is not the canonical marker.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Why not AGENTS.md: this is a correction to a point-in-time sync check, not a permanent agent instruction.
+- Why not `.jcode`: this concerns shared lazy-harness sync state, not local/private Jcode wiring.
+- Confirmation: validation evidence
