@@ -1830,8 +1830,10 @@ def check_lifecycle_fixture_intake_cli() -> None:
             if forbidden in text:
                 fail("lifecycle-fixture append leaked raw content: " + forbidden)
         listed = subprocess.run([str(LAZY / "bin" / "lazy"), "lifecycle-fixture", "list", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
-        if listed.returncode != 0 or json.loads(listed.stdout).get("count") != 1:
-            fail("lifecycle-fixture list should show one candidate:\n" + listed.stdout + listed.stderr)
+        listed_json = json.loads(listed.stdout) if listed.stdout.strip() else {}
+        listed_names = [candidate.get("name") for candidate in listed_json.get("candidates", [])]
+        if listed.returncode != 0 or "fixture-intake-smoke" not in listed_names:
+            fail("lifecycle-fixture list should include appended fixture even when host already has candidates:\n" + listed.stdout + listed.stderr)
         parity = subprocess.run([str(LAZY / "bin" / "lazy"), "lifecycle-parity", "--format=json", "--fail-on-mismatch"], cwd=temp, env=env, text=True, capture_output=True, check=False)
         if parity.returncode != 0:
             fail("lifecycle parity with intake candidate failed:\n" + parity.stdout + parity.stderr)

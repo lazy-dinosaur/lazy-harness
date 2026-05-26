@@ -244,3 +244,28 @@ Remaining before replacement:
 - Why not AGENTS.md: this is lifecycle readiness tooling behavior and validation status, not general agent grammar.
 - Why not `.jcode`: this is shared lifecycle framework implementation, not local/private Jcode wiring.
 - Confirmation: focused validation evidence
+
+## 2026-05-26 host update follow-up — lifecycle fixture self-test tolerates existing candidates
+
+Status: implemented-and-dogfooded
+Confirmation: host validation failure and focused fix
+
+Finding:
+
+- After syncing latest framework to Medivance and Medivance PWA, host `lazy test` found that `check_lifecycle_fixture_intake_cli` assumed the temp host candidate list would contain exactly one fixture.
+- Installed dogfood hosts can already contain lifecycle fixture candidates, and the self-test temp copy may preserve those candidates.
+- The correct assertion is that the newly appended fixture is present, not that the total candidate count is exactly one.
+
+Fix:
+
+- Updated `check_lifecycle_fixture_intake_cli` to assert that `fixture-intake-smoke` exists in the list output.
+- Focused PWA `check_project_rule_placement_helper` rerun passed, so the earlier project-rule-placement failure was treated as validation-order/transient rather than a code regression.
+
+## Rule placement
+
+- Rule: Lifecycle fixture intake self-tests must tolerate existing dogfood candidate fixtures in installed hosts and assert presence of the appended fixture rather than exact count.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- Why not AGENTS.md: this is test robustness/dogfood implementation evidence, not general agent behavior.
+- Why not `.jcode`: this is shared lazy-harness self-test behavior, not local/private Jcode wiring.
+- Confirmation: validation evidence
