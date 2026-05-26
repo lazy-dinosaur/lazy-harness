@@ -379,3 +379,83 @@ Potential files to inspect next:
 - TDD candidate: hook timing fixtures and regression tests.
 - SSOT candidate: generated index storage location and invalidation rules.
 - ADR candidate: single orchestrator vs independent helper scripts trade-off.
+
+## 2026-05-26 Phase 3 readiness check from accumulated dogfood
+
+Status: not-ready-for-production-replacement
+Confirmation: validation and dogfood evidence review
+
+Question:
+
+```text
+Has enough lifecycle/response.completed dogfooding accumulated to proceed with Phase 3 production hook replacement, or should Phase 2 be reinforced further?
+```
+
+Current positive evidence:
+
+- `lazy lifecycle-parity --format=json --fail-on-mismatch` passes on all checked roots:
+  - source `/home/lazydino/dev/lazy-harness`: passed 12, failed 0.
+  - `/home/lazydino/dev/medivance`: passed 12, failed 0.
+  - `/home/lazydino/dev/medivance-pwa`: passed 12, failed 0.
+- Hook timing evidence has materially accumulated:
+  - source hook timing rows: 5326.
+  - Medivance hook timing rows: 10022.
+  - Medivance PWA hook timing rows: 1682.
+- Recent timing looks stable enough for continued analysis:
+  - source recent hook-total avg≈677ms, p90≈947ms, max≈1492ms.
+  - Medivance recent hook-total avg≈687ms, p90≈850ms, max≈974ms.
+  - Medivance PWA recent hook-total avg≈666ms, p90≈769ms, max≈838ms.
+- Graph hygiene command reports `ok: true` for source, Medivance, and Medivance PWA.
+
+Remaining blockers / strengthening needs:
+
+- Open gates still exist:
+  - source: `project-rule-placement:06be2de14403abdb`.
+  - Medivance: `project-rule-placement:1126e416349d8ec4`.
+  - Medivance PWA: `bdd:d0c41fdf3381c81d`.
+- Corrected record-audit with canonical source reports host graph missingPaths=0 and sourceOnlyPaths only:
+  - Medivance: sourceOnlyPaths=33.
+  - Medivance PWA: sourceOnlyPaths=34.
+  The earlier missingPaths result was a check-command error caused by passing the host itself as `--source`.
+- Medivance Project Profile remains incomplete:
+  - artifacts complete, but 26 interview fields need answers.
+- Medivance PWA Project Profile remains thin:
+  - only 1 artifact present, 4 missing.
+- PWA dogfood evidence is improved but still thinner than Medivance:
+  - actions rows: 0.
+  - validations rows: 18.
+  - route decisions: 33.
+- Phase 3 readiness checklist does not yet exist as an explicit go/no-go artifact.
+
+Decision:
+
+```text
+Do not replace the production response.completed hook yet.
+Phase 3 should start with a readiness checklist and blocker cleanup, not production hook replacement.
+```
+
+Recommended next slice:
+
+1. Create Phase 3 readiness checklist record.
+2. Close or explicitly classify current open gates.
+3. Document/enforce correct `record-audit --source /home/lazydino/dev/lazy-harness` usage for installed-host readiness checks.
+4. Add additional lifecycle-parity fixtures from real dogfood payload categories if available.
+5. Re-run parity/timing/record/graph audit after cleanup.
+6. Only then consider opt-in production hook replacement with legacy comparison/debug flag.
+
+## Rule placement
+
+- Rule: Accumulated lifecycle dogfooding is positive but not sufficient for production response.completed replacement; Phase 3 must begin with readiness checklist and blocker cleanup.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/performance-optimization-plan.md`
+- Why not AGENTS.md: this is a roadmap/readiness status for lifecycle optimization, not a universal agent rule.
+- Why not `.jcode`: this concerns shared lazy-harness lifecycle implementation, not local/private Jcode wiring.
+- Confirmation: validation evidence
+
+## Discovery capture
+
+- SDD: possible readiness checklist / installed-host graph path classification contract.
+- TDD: possible fixtures for real payload categories and host graph path allowlisting.
+- ADR: replacement decision remains deferred.
+- SSOT: no source-of-truth change yet.
+- Planning: this section is the current Phase 3 readiness snapshot.

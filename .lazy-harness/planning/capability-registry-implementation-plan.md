@@ -441,3 +441,123 @@ The previous harness strengthening Phase 3 that must not be forgotten is lifecyc
 - Why not AGENTS.md: this is implementation/dogfood status and roadmap reminder, not universal agent grammar.
 - Why not `.jcode`: this is shared framework architecture and dogfood status, not local/private Jcode-only preference.
 - Confirmation: validation evidence plus user reminder
+
+## 2026-05-26 requirement — automatic capability candidate accumulation
+
+Status: user-confirmed requirement
+Confirmation: user-confirmed
+
+Requirement:
+
+```text
+Capability knowledge should accumulate automatically as the user builds/uses a project. The system should log candidate capabilities and evidence during normal work. Later, when the user asks the agent to check the project, the agent should judge the accumulated evidence and promote/adjust capabilities as appropriate.
+```
+
+Corrected interpretation:
+
+- The long-term goal is automatic capability confirmation/promotion, not a permanently manual candidate-only system.
+- The framework should automatically accumulate evidence, infer likely capabilities, and eventually write/update canonical `.lazy-harness/ssot/capabilities.json` when confidence and safety criteria are met.
+- Dogfooding is the calibration loop: the agent inspects the accumulated evidence, checks false positives/false negatives, tunes thresholds/rules, and records what should become automatic.
+- Until the auto-confirmation policy is proven, candidates/evidence logs are the safe staging layer, but they are a stepping stone toward automatic canonical updates.
+
+Proposed follow-up design:
+
+1. Add a capability candidate log, e.g. `.lazy-harness/knowledge/capability-candidates.jsonl`.
+2. Capture candidate evidence from:
+   - repeated validation commands
+   - repeated project scripts used by agents
+   - skills invoked in project-specific contexts
+   - PR/release/test workflow records already read by agents
+   - hook/action telemetry with safe metadata only
+3. Add `lazy capability candidates --format=md|json` to summarize candidate entries.
+4. Add `lazy capability promote <candidate-id>` or extend `lazy capability add --from-candidate <id>`.
+5. Add agent workflow: when the user asks “프로젝트 상태/하네스 확인해줘”, run capability audit/candidate summary and decide what to promote.
+
+Safety / noise policy:
+
+- Automatic accumulation is evidence-only, not enforcement.
+- Candidate entries must avoid raw sensitive payloads.
+- Promotion to `default`, `warn`, or `block` still requires source record and confirmation/strong evidence.
+- `block` remains explicit hard-policy only.
+
+## Rule placement
+
+- Rule: Capability Registry should automatically accumulate capability candidates/evidence during normal project use, while canonical capabilities remain curated and promoted after agent review/user confirmation.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- Why not AGENTS.md: this is a new implementation requirement for future Capability Registry phases, not current universal agent behavior yet.
+- Why not `.jcode`: this is shared lazy-harness framework behavior, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- SDD: candidate capability candidate accumulation and promotion contract.
+- TDD: candidate tests for evidence-only accumulation, no auto-enforcement, and promotion workflow.
+- SSOT: possible candidate log storage SSOT.
+- ADR: possible decision on automatic candidate accumulation vs direct canonical writes.
+- Planning: captured here as next Capability Registry direction.
+
+
+## 2026-05-26 correction — automatic confirmation is the target
+
+Status: user-corrected requirement
+Confirmation: user-confirmed correction
+
+Correction:
+
+```text
+Capability accumulation should not stop at candidate logging. The target is automatic confirmation/promotion into canonical capabilities, with dogfooding used to verify and tune that automatic behavior.
+```
+
+Implication for implementation:
+
+1. Start with evidence/candidate logging for observability.
+2. Add confidence scoring and source-record checks.
+3. Allow low-risk capabilities to auto-promote once criteria are met.
+4. Keep higher-risk `default`/`warn`/`block` promotions behind stronger evidence or confirmation until dogfood proves safety.
+5. When the user asks for a project check, the agent should review auto-promotions, missed candidates, and false positives, then tune the policy.
+
+## Rule placement
+
+- Rule: Capability Registry's target state is automatic capability confirmation/promotion, with dogfooding used to calibrate and tune the auto-confirmation policy.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- Why not AGENTS.md: this is a corrected implementation requirement and roadmap item, not current universal behavior yet.
+- Why not `.jcode`: this is shared lazy-harness framework behavior, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed correction
+
+## 2026-05-26 dogfood window — user will use normally before evaluation
+
+Status: active-dogfood-window
+Confirmation: user-confirmed
+
+Plan:
+
+- User will use Medivance / Medivance PWA normally for roughly 1-2 days.
+- The agent should later evaluate Capability Registry dogfooding rather than asking the user to manually register capabilities.
+- Evaluation should inspect actual usage evidence, capability registry state, logs, graph/candidate records, and false positive / false negative patterns.
+
+Future evaluation checklist:
+
+1. Sync lazy-harness source to dogfood hosts if source advanced.
+2. Run host `lazy capability audit --format=json`.
+3. Run representative `lazy capability resolve` queries:
+   - `creating_pull_request`
+   - `validating_changes`
+   - `validating_app_changes`
+   - `preparing_release`
+   - `release_dispatch`
+4. Compare registered capabilities against recent real commands/skills/workflows.
+5. Identify missing capabilities that should have auto-promoted.
+6. Identify incorrect/noisy capabilities that should not auto-promote.
+7. Tune the automatic evidence/candidate/auto-confirmation plan accordingly.
+8. Keep lifecycle/response.completed Phase 3 production replacement as a separate blocked roadmap item.
+
+## Rule placement
+
+- Rule: Capability Registry dogfooding enters a 1-2 day real-use window; after that, the agent should evaluate evidence and tune automatic confirmation/promotion behavior.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- Why not AGENTS.md: this is a time-bound dogfood/evaluation plan, not a permanent agent instruction.
+- Why not `.jcode`: this is shared lazy-harness framework dogfood planning, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed
