@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lazy-harness.local/schemas/capabilities.schema.json",
+  "title": "Lazy Harness Capability Registry",
+  "type": "object",
+  "required": ["version", "capabilities"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "level", "sourceRecord", "appliesWhen", "description", "owner"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{1,127}$" },
+          "kind": {
+            "type": "string",
+            "enum": ["script", "skill", "prompt", "hook", "command", "tool-adapter", "validation", "checklist", "audit"]
+          },
+          "level": {
+            "type": "string",
+            "enum": ["discover", "recommend", "default", "warn", "block"]
+          },
+          "sourceRecord": { "type": "string", "minLength": 1 },
+          "appliesWhen": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "actions": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "entrypoint": { "type": "string" },
+          "description": { "type": "string", "minLength": 1 },
+          "owner": {
+            "type": "string",
+            "enum": ["framework-global", "host-project", "team-policy", "jcode-local"]
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fallback": { "type": "string" },
+          "skillName": { "type": "string" },
+          "templatePath": { "type": "string" },
+          "tool": { "type": "string" },
+          "adapter": { "type": "string" },
+          "checklistPath": { "type": "string" },
+          "auditCommand": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

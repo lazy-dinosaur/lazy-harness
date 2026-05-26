@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-26T02:23:20Z",
+  "generatedAt": "2026-05-26T02:45:40Z",
   "records": [
     {
       "id": "kg_rule_lifecycle_ssot",
@@ -110,6 +110,106 @@
       "target": "Rule action-boundary fixture host-root isolation",
       "source": "run_rule_action_boundary_helper passes LAZY_HOST_ROOT explicitly to avoid parent host records contaminating temp-root fixtures",
       "updatedAt": "2026-05-26T02:23:20Z"
+    },
+    {
+      "id": "kg_capability_registry_ssot",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/capability-registry.md",
+      "relation": "defines",
+      "target": "Capability Registry kind/level policy",
+      "source": "Capability kind and enforcement level are independent; Phase 1 is non-blocking list/resolve/audit",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_registry_seed",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/capabilities.json",
+      "relation": "stores",
+      "target": "Canonical capability registry",
+      "source": "Seed capability capability-registry-phase1 registers lazy capability list/resolve/audit as discover-level command",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_resolution_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/capability-resolution.md",
+      "relation": "specifies",
+      "target": "Capability resolution contract",
+      "source": "Resolver matches intent/action and sorts by block/warn/default/recommend/discover without escalation",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_registry_adr0040",
+      "kind": "record",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0040-capability-registry-kind-level-separation.md",
+      "relation": "decides",
+      "target": "Capability Registry kind/level separation",
+      "source": "Accepted decision to avoid turning every project customization into a hard rule",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_registry_tdd",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/capability-registry.md",
+      "relation": "protects",
+      "target": "Capability Registry Phase 1 non-blocking CLI",
+      "source": "Regression record for list/resolve/audit and no new block behavior",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_cli_impl",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/capability.ts",
+      "relation": "implements",
+      "target": "Capability Registry Phase 1 CLI",
+      "source": "Implements lazy capability list, resolve, and audit",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_cli_dispatch",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "dispatches",
+      "target": "Capability Registry Phase 1 CLI",
+      "source": "Adds lazy capability command dispatch to scripts/capability.ts",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_registry_schema",
+      "kind": "schema",
+      "layer": "SSOT",
+      "path": ".lazy-harness/schemas/capabilities.schema.json",
+      "relation": "validates_shape",
+      "target": "Capability Registry JSON shape",
+      "source": "JSON Schema for capabilities.json registry entries",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Capability Registry Phase 1 CLI",
+      "source": "check_capability_registry_cli_phase1 validates audit/list/resolve and missing source record failure",
+      "updatedAt": "2026-05-26T02:45:40Z"
+    },
+    {
+      "id": "kg_capability_manifest_sync",
+      "kind": "implementation",
+      "layer": "SSOT",
+      "path": ".lazy-harness/manifests/init-categories.json",
+      "relation": "syncs",
+      "target": "Capability Registry framework operational files",
+      "source": "Syncs capability resolution SDD, capability registry SSOT, and ADR 0040 operational record without syncing host-owned capabilities.json",
+      "updatedAt": "2026-05-26T02:45:40Z"
     }
   ]
 }

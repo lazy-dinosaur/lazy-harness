@@ -1,0 +1,18 @@
+{
+  "$schema": "../schemas/capabilities.schema.json",
+  "version": 1,
+  "capabilities": [
+    {
+      "id": "capability-registry-phase1",
+      "kind": "command",
+      "level": "discover",
+      "sourceRecord": ".lazy-harness/ssot/capability-registry.md",
+      "appliesWhen": ["finding_project_capabilities", "inspecting_project_rules"],
+      "actions": ["lazy capability list", "lazy capability resolve", "lazy capability audit"],
+      "entrypoint": ".lazy-harness/bin/lazy capability",
+      "description": "List, resolve, and audit registered project/framework capabilities without adding enforcement.",
+      "owner": "framework-global",
+      "tags": ["capability", "registry", "phase1"]
+    }
+  ]
+}

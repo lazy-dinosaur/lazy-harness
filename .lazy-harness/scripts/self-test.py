@@ -1685,7 +1685,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "capability list|resolve|audit", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1703,6 +1703,112 @@ def check_lazy_route_cli_help() -> None:
     if audit.returncode != 0 or json.loads(audit.stdout).get("mode") != "route-audit":
         fail("lazy route-audit should emit route-audit JSON:\n" + audit.stdout + audit.stderr)
     print("✓ lazy route CLI help ok")
+
+
+def check_capability_registry_cli_phase1() -> None:
+    """Capability Registry Phase 1 stays non-blocking and supports list/resolve/audit."""
+    script = LAZY / "scripts" / "capability.ts"
+    if not script.exists():
+        fail("capability CLI script missing")
+    source = script.read_text(encoding="utf-8")
+    forbidden = ["check-capability-boundary", "action-boundary", "deny", "block unless"]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("capability Phase 1 CLI must remain list/resolve/audit only; forbidden phrase(s): " + json.dumps(leaked, ensure_ascii=False))
+
+    completed = subprocess.run([".lazy-harness/bin/lazy", "capability", "audit", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if completed.returncode != 0:
+        fail("lazy capability audit failed:\n" + completed.stdout + completed.stderr)
+    audit = json.loads(completed.stdout)
+    if audit.get("ok") is not True:
+        fail("capability audit should pass for current host registry, including empty host-owned registries: " + json.dumps(audit, ensure_ascii=False))
+
+    listed = subprocess.run([".lazy-harness/bin/lazy", "capability", "list", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if listed.returncode != 0:
+        fail("lazy capability list failed:\n" + listed.stdout + listed.stderr)
+    json.loads(listed.stdout)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-capability-audit-"))
+    try:
+        (temp / ".lazy-harness" / "ssot").mkdir(parents=True)
+        (temp / ".lazy-harness" / "ssot" / "capability-registry.md").write_text("# Capability Registry\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
+            json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "capability-registry-phase1",
+                    "kind": "command",
+                    "level": "discover",
+                    "sourceRecord": ".lazy-harness/ssot/capability-registry.md",
+                    "appliesWhen": ["finding_project_capabilities"],
+                    "actions": ["lazy capability list"],
+                    "description": "fixture capability",
+                    "owner": "framework-global",
+                }],
+            }),
+            encoding="utf-8",
+        )
+        fixture_env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        fixture_list = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "list", "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fixture_list.returncode != 0:
+            fail("fixture lazy capability list failed:\n" + fixture_list.stdout + fixture_list.stderr)
+        fixture_ids = [cap.get("id") for cap in json.loads(fixture_list.stdout).get("capabilities", [])]
+        if "capability-registry-phase1" not in fixture_ids:
+            fail("fixture capability list missing seed capability: " + fixture_list.stdout)
+        resolved = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "resolve", "--intent", "finding_project_capabilities", "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if resolved.returncode != 0:
+            fail("fixture lazy capability resolve failed:\n" + resolved.stdout + resolved.stderr)
+        resolve_json = json.loads(resolved.stdout)
+        matches = [cap.get("id") for cap in resolve_json.get("matches", [])]
+        if matches[:1] != ["capability-registry-phase1"]:
+            fail("fixture capability resolve did not return seed capability first: " + json.dumps(resolve_json, ensure_ascii=False))
+
+        (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
+            json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "broken",
+                    "kind": "script",
+                    "level": "recommend",
+                    "sourceRecord": ".lazy-harness/ssot/missing.md",
+                    "appliesWhen": ["x"],
+                    "description": "missing source record",
+                    "owner": "host-project",
+                }],
+            }),
+            encoding="utf-8",
+        )
+        bad = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "audit", "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if bad.returncode == 0:
+            fail("capability audit should fail missing sourceRecord")
+        bad_json = json.loads(bad.stdout)
+        if not any("missing sourceRecord" in issue.get("message", "") for issue in bad_json.get("issues", [])):
+            fail("capability audit missing-source error not reported: " + json.dumps(bad_json, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    print("✓ capability registry Phase 1 CLI ok")
 
 
 def check_response_completed_auto_route_telemetry() -> None:
@@ -3424,6 +3530,7 @@ def main() -> None:
         (check_task_router_read_only_contract, "BOTH"),
         (check_task_router_fixtures, "BOTH"),
         (check_lazy_route_cli_help, "BOTH"),
+        (check_capability_registry_cli_phase1, "BOTH"),
         (check_response_completed_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),

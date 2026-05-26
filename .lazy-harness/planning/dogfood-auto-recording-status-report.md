@@ -538,3 +538,53 @@ Remaining limitation:
 - ADR: `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md` created.
 - SSOT: `.lazy-harness/ssot/rule-lifecycle.md` created.
 - Planning: this section records dogfood implementation findings and remaining limitation.
+
+## 2026-05-26 capability registry direction — capability is not only script
+
+Status: user-confirmed design direction
+Confirmation: user-confirmed
+
+Clarification:
+
+```text
+A capability is not limited to a script. It can be a script, skill, prompt/template, hook, checklist, external command, MCP/tool adapter, validation command, or audit-only reminder.
+```
+
+Design implication:
+
+- The registry should not be named or shaped as a script registry.
+- Capability entries need a `kind` field, for example:
+  - `script`
+  - `skill`
+  - `prompt`
+  - `hook`
+  - `command`
+  - `tool-adapter`
+  - `validation`
+  - `checklist`
+  - `audit`
+- Enforcement level remains separate from kind:
+  - `discover`
+  - `recommend`
+  - `default`
+  - `warn`
+  - `block`
+- Most capabilities should improve retrieval/default behavior rather than block execution.
+- `block` should be reserved for explicit high-risk or user/team-confirmed hard policies.
+
+## Rule placement
+
+- Rule: Capability Registry should model scripts, skills, prompts/templates, hooks, commands, tool adapters, validations, checklists, and audits, with enforcement level separate from capability kind.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is an emerging framework design direction pending SDD/ADR formalization.
+- Why not `.jcode`: this is shared lazy-harness framework architecture, not local/private Jcode-only preference.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- SDD: candidate Capability Registry / capability resolution contract.
+- SSOT: candidate `.lazy-harness/ssot/capability-registry.md` and `.lazy-harness/ssot/capabilities.json`.
+- ADR: candidate decision separating capability kind from enforcement level.
+- TDD: candidate fixture that registers script/skill/prompt capabilities without making them block-level rules.
+- Planning: captured here pending implementation option gate.

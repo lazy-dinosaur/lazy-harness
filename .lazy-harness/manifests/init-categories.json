@@ -137,6 +137,12 @@
           "targetPath": "framework/operational-adrs/0037-workflow-compression-not-safety-reduction.md"
         },
         {
+          "path": "decisions/0040-capability-registry-kind-level-separation.md",
+          "kind": "file",
+          "description": "Operational framework ADR: Capability Registry separates capability kind from enforcement level. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0040-capability-registry-kind-level-separation.md"
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -207,6 +213,11 @@
           "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."
         },
         {
+          "path": "spec/platform/capability-resolution.md",
+          "kind": "file",
+          "description": "SDD contract for capability registry Phase 1: list/resolve/audit without new blocking behavior."
+        },
+        {
           "path": "spec/platform/workflow-compression-router.md",
           "kind": "file",
           "description": "SDD contract for ADR 0037 lazy route workflow compression: output schema, finite axes, default action table, and safety invariants."
@@ -225,6 +236,11 @@
           "path": "ssot/rule-sources.md",
           "kind": "file",
           "description": "SSOT for project-specific rule placement priority and canonical storage locations. Synced as a host-editable framework seed/reference."
+        },
+        {
+          "path": "ssot/capability-registry.md",
+          "kind": "file",
+          "description": "SSOT for Capability Registry kind/level separation and non-blocking Phase 1 behavior. Host-specific capabilities.json remains host-owned."
         },
         {
           "path": "knowledge/",
