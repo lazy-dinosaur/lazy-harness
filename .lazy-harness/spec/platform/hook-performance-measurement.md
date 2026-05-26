@@ -137,3 +137,22 @@ Batch parity runner:
 - TDD: existing response.completed telemetry regression test extended to protect timing output.
 - ADR: no replacement decision yet; Phase 2 shadow orchestrator is explicitly not a production replacement.
 - SSOT: timing log path and env toggles are defined here.
+
+## Lifecycle real payload fixture intake
+
+`lazy lifecycle-fixture inspect|append|list` supports Phase 3 readiness by converting real `response.completed` payloads into sanitized parity fixture candidates.
+
+Contract:
+
+- Store no raw user message text.
+- Store no raw assistant response text.
+- Store hashes, lengths, boolean content signals, tool names, and sanitized argument previews only.
+- Appended candidates live at `.lazy-harness/fixtures/lifecycle/real-payload-candidates.jsonl`.
+- `lifecycle-parity-runner.py` may load these candidates to increase parity coverage.
+
+Implementation map:
+
+- `.lazy-harness/scripts/lifecycle-fixture-intake.py` — intake/list/append CLI.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py` — loads sanitized candidate fixtures.
+- `.lazy-harness/bin/lazy` — dispatches `lazy lifecycle-fixture`.
+- `.lazy-harness/scripts/self-test.py` — `check_lifecycle_fixture_intake_cli` protects privacy and parity inclusion.

@@ -1685,7 +1685,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "lifecycle-fixture inspect|append|list", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1775,6 +1775,72 @@ def check_gate_state_cli_and_record_audit_source_guard() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ gate-state CLI and record-audit source guard ok")
+
+
+def check_lifecycle_fixture_intake_cli() -> None:
+    """Real payload intake must store safe metadata only and feed parity fixtures."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-lifecycle-intake-"))
+    try:
+        shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "logs", "state", "node_modules"))
+        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        raw_payload = {
+            "message_id": "raw-message-id",
+            "last_user_message": "비밀 사용자 문장 patient ABC 123",
+            "assistant_response": "민감한 답변입니다. .lazy-harness/bin/lazy test 를 실행하겠습니다.",
+            "recent_tool_calls": [
+                {"name": "read", "args_preview": ".lazy-harness/planning/performance-optimization-plan.md"},
+                {"name": "bash", "args_preview": "echo secret-token-123 && git status"},
+            ],
+        }
+        raw = json.dumps(raw_payload, ensure_ascii=False)
+        inspected = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "lifecycle-fixture", "inspect", "--payload", raw, "--format=json", "--name", "fixture-intake-smoke"],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if inspected.returncode != 0:
+            fail("lifecycle-fixture inspect failed:\n" + inspected.stdout + inspected.stderr)
+        inspected_text = inspected.stdout
+        for forbidden in ["비밀 사용자", "patient ABC", "민감한 답변", "secret-token-123"]:
+            if forbidden in inspected_text:
+                fail("lifecycle-fixture inspect leaked raw content: " + forbidden + "\n" + inspected_text)
+        candidate = json.loads(inspected_text)["candidate"]
+        if candidate.get("category") != "mutating-or-shell" or candidate.get("lastUserMessage", {}).get("present") is not True:
+            fail("lifecycle-fixture inspect missing safe metadata: " + inspected_text)
+        previews = [call.get("args_preview", "") for call in candidate.get("sanitizedPayload", {}).get("recent_tool_calls", [])]
+        if not any(str(preview).startswith("paths:") for preview in previews) or not any(preview == "command:git" for preview in previews):
+            fail("lifecycle-fixture inspect did not sanitize previews as expected: " + json.dumps(previews, ensure_ascii=False))
+
+        appended = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "lifecycle-fixture", "append", "--payload", raw, "--format=json", "--name", "fixture-intake-smoke", "--source", "self-test"],
+            cwd=temp,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if appended.returncode != 0:
+            fail("lifecycle-fixture append failed:\n" + appended.stdout + appended.stderr)
+        candidate_file = temp / ".lazy-harness" / "fixtures" / "lifecycle" / "real-payload-candidates.jsonl"
+        text = candidate_file.read_text(encoding="utf-8")
+        for forbidden in ["비밀 사용자", "patient ABC", "민감한 답변", "secret-token-123"]:
+            if forbidden in text:
+                fail("lifecycle-fixture append leaked raw content: " + forbidden)
+        listed = subprocess.run([str(LAZY / "bin" / "lazy"), "lifecycle-fixture", "list", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if listed.returncode != 0 or json.loads(listed.stdout).get("count") != 1:
+            fail("lifecycle-fixture list should show one candidate:\n" + listed.stdout + listed.stderr)
+        parity = subprocess.run([str(LAZY / "bin" / "lazy"), "lifecycle-parity", "--format=json", "--fail-on-mismatch"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if parity.returncode != 0:
+            fail("lifecycle parity with intake candidate failed:\n" + parity.stdout + parity.stderr)
+        parity_json = json.loads(parity.stdout)
+        if parity_json.get("passed", 0) < 13:
+            fail("lifecycle parity should include the appended candidate fixture: " + parity.stdout)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ lifecycle fixture intake CLI ok")
 
 
 def check_capability_registry_cli_phase1() -> None:
@@ -3656,6 +3722,7 @@ def main() -> None:
         (check_task_router_fixtures, "BOTH"),
         (check_lazy_route_cli_help, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
+        (check_lifecycle_fixture_intake_cli, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
         (check_response_completed_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),

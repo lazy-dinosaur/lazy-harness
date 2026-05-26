@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-26T03:50:05Z",
+  "generatedAt": "2026-05-26T04:04:20Z",
   "records": [
     {
       "id": "kg_rule_lifecycle_ssot",
@@ -290,6 +290,36 @@
       "target": "Lifecycle Phase 3 readiness cleanup",
       "source": "Open gates cleared; gate-state and record-audit source guard implemented; production replacement remains deferred",
       "updatedAt": "2026-05-26T03:50:05Z"
+    },
+    {
+      "id": "kg_lifecycle_fixture_intake_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-fixture-intake.py",
+      "relation": "implements",
+      "target": "Lifecycle real payload fixture intake",
+      "source": "Sanitizes response.completed payload shape into candidate fixtures without raw user/assistant content",
+      "updatedAt": "2026-05-26T04:04:20Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_candidate_loader",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
+      "relation": "loads",
+      "target": "Sanitized lifecycle fixture candidates",
+      "source": "Loads .lazy-harness/fixtures/lifecycle/real-payload-candidates.jsonl into parity fixture set",
+      "updatedAt": "2026-05-26T04:04:20Z"
+    },
+    {
+      "id": "kg_lifecycle_fixture_intake_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Lifecycle fixture intake privacy and parity inclusion",
+      "source": "check_lifecycle_fixture_intake_cli verifies raw content is not persisted and candidate increases parity coverage",
+      "updatedAt": "2026-05-26T04:04:20Z"
     }
   ]
 }

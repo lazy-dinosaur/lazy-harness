@@ -43,7 +43,7 @@ Positive evidence:
 
 - [ ] Production hook replacement has an explicit ADR or checklist approval entry.
 - [ ] `lazy lifecycle-parity --fail-on-mismatch` passes in source, Medivance, and Medivance PWA after latest source sync.
-- [ ] Lifecycle parity suite includes real payload categories beyond synthetic fixtures.
+- [x] Lifecycle parity suite includes real payload categories beyond synthetic fixtures via sanitized candidate intake.
 - [x] All current open gate state is closed, expired, or classified as synthetic/stale runtime state.
 - [x] `record-audit` graph missing paths are classified as source-only/host-owned/stale or resolved when run with canonical source.
 - [ ] Medivance and Medivance PWA have enough recent real-use rows after latest sync.
@@ -198,3 +198,49 @@ Next remaining slice:
 - Why not AGENTS.md: this is implementation status and roadmap evidence, not universal agent grammar.
 - Why not `.jcode`: this is shared lifecycle framework behavior, not local/private Jcode wiring.
 - Confirmation: validation evidence
+
+## 2026-05-26 real payload fixture intake slice
+
+Status: implemented-and-dogfooded
+Confirmation: focused validation evidence
+
+Implemented:
+
+- `lazy lifecycle-fixture inspect|append|list`
+  - Reads a response.completed payload from `--payload` or stdin.
+  - Produces a sanitized lifecycle fixture candidate.
+  - Omits raw user and assistant text.
+  - Stores only hashes, lengths, boolean signals, tool names, and sanitized argument previews.
+  - Writes candidates to `.lazy-harness/fixtures/lifecycle/real-payload-candidates.jsonl` when using `append`.
+- `lifecycle-parity-runner.py` now loads appended sanitized candidates as additional parity fixtures.
+
+Safety policy:
+
+- Raw `last_user_message` and `assistant_response` are never persisted by the intake helper.
+- Synthetic assistant text may be generated only from boolean signals such as lazy CLI or Rule placement presence.
+- Candidate fixtures are for parity coverage and readiness evidence, not canonical project memory.
+
+Validation:
+
+- Focused self-test `check_lifecycle_fixture_intake_cli` passed.
+- Source full self-test and doctor passed.
+- The self-test verifies no leakage of sample raw user/assistant/secret content into inspect output or appended candidate JSONL.
+- The self-test verifies appended candidates increase lifecycle parity fixture count.
+- Medivance sync + host lazy test passed.
+- Medivance lifecycle fixture append/list produced count=1 with leak=false; lifecycle parity passed 13/13.
+- Medivance PWA sync + host lazy test passed.
+- Medivance PWA lifecycle fixture append/list produced count=1 with leak=false; lifecycle parity passed 13/13.
+
+Remaining before replacement:
+
+- Run final readiness checklist after this commit/sync.
+- Draft Phase 3 opt-in replacement plan with legacy debug fallback if checklist passes.
+
+## Rule placement
+
+- Rule: Real response.completed payloads may be converted into sanitized lifecycle fixture candidates, but raw user/assistant content must not be stored.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- Why not AGENTS.md: this is lifecycle readiness tooling behavior and validation status, not general agent grammar.
+- Why not `.jcode`: this is shared lifecycle framework implementation, not local/private Jcode wiring.
+- Confirmation: focused validation evidence

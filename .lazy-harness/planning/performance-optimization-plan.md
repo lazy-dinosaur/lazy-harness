@@ -500,3 +500,41 @@ Remaining before production replacement:
 - Why not AGENTS.md: this is lifecycle roadmap status and validation evidence, not a permanent agent instruction.
 - Why not `.jcode`: this is shared lazy-harness lifecycle implementation, not local/private Jcode wiring.
 - Confirmation: validation evidence
+
+
+## 2026-05-26 Phase 3 real payload fixture intake
+
+Status: implemented-and-dogfooded
+Confirmation: validation evidence
+
+Implemented:
+
+- `lazy lifecycle-fixture inspect|append|list`
+- Sanitized real payload candidate storage at `.lazy-harness/fixtures/lifecycle/real-payload-candidates.jsonl`
+- `lifecycle-parity-runner.py` now loads sanitized candidates as parity fixtures.
+
+Privacy/safety:
+
+- Raw user/assistant content is not stored.
+- Stored data is limited to hashes, lengths, boolean signals, tool names, and sanitized argument previews.
+
+Validation:
+
+- Source self-test and doctor passed.
+- Medivance and Medivance PWA were synced and host tests passed.
+- Both hosts appended one dogfood candidate with leak=false.
+- Both hosts lifecycle parity passed 13/13 after candidate inclusion.
+
+Current readiness delta:
+
+- Real payload parity fixture intake is now implemented.
+- Phase 3 production hook replacement is still deferred until a final readiness run and opt-in replacement patch plan.
+
+## Rule placement
+
+- Rule: Lifecycle Phase 3 now has safe real payload fixture intake and dogfood parity evidence, but production replacement still requires a final readiness run and explicit opt-in plan.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/performance-optimization-plan.md`
+- Why not AGENTS.md: this is lifecycle roadmap status, not permanent agent grammar.
+- Why not `.jcode`: this is shared lazy-harness lifecycle implementation, not local/private Jcode wiring.
+- Confirmation: validation evidence

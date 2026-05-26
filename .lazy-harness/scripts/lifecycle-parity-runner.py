@@ -22,7 +22,7 @@ AFTERSHOCK_DECISIONS_FALLBACK = '{"id":"D-2026-05-12-aftershock","source":"inter
 
 def fixture_payloads(root: Path) -> list[dict[str, Any]]:
     aftershock_decisions = root / ".lazy-harness" / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl"
-    return [
+    fixtures = [
         {
             "name": "read-only-no-output",
             "payload": {"message_id": "parity-read-only", "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}]},
@@ -119,6 +119,37 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectOutput": False,
         },
     ]
+    fixtures.extend(real_payload_candidate_fixtures(root))
+    return fixtures
+
+
+def real_payload_candidate_fixtures(root: Path) -> list[dict[str, Any]]:
+    path = root / ".lazy-harness" / "fixtures" / "lifecycle" / "real-payload-candidates.jsonl"
+    if not path.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(row, dict):
+            continue
+        payload = row.get("sanitizedPayload")
+        if not isinstance(payload, dict):
+            continue
+        # Candidate intake stores sanitized tool names/previews and optional
+        # synthetic assistant_response only. Raw user/assistant content is not used.
+        fixture: dict[str, Any] = {
+            "name": str(row.get("name") or row.get("id") or "real-payload-candidate"),
+            "payload": payload,
+            "expectOutput": bool(row.get("expectOutput")) if isinstance(row.get("expectOutput"), bool) else False,
+            "sourceCandidate": row.get("id"),
+        }
+        out.append(fixture)
+    return out
 
 
 def copy_host(root: Path) -> Path:

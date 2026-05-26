@@ -81,6 +81,8 @@ Commands:
                                 Run shadow response.completed lifecycle helper orchestrator
   lifecycle-parity [--format=json|md] [--fail-on-mismatch]
                                 Compare legacy response hook with lifecycle-check shadow fixtures
+  lifecycle-fixture inspect|append|list
+                                Capture safe real payload fixture candidates
   version                       Print framework version + host path
   help                          Show this help
 
@@ -207,6 +209,9 @@ case "$cmd" in
     ;;
   lifecycle-parity)
     exec python3 "$SCRIPTS/lifecycle-parity-runner.py" "$@"
+    ;;
+  lifecycle-fixture)
+    exec python3 "$SCRIPTS/lifecycle-fixture-intake.py" "$@"
     ;;
   version)
     echo "lazy-harness CLI"
