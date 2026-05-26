@@ -8,13 +8,25 @@ Related TDD: `.lazy-harness/tests/capability-registry.md`
 
 ## Contract
 
-Capability resolution answers:
+Capability resolution and registration answer:
 
 ```text
 Given an intent/action, which registered capabilities are relevant, and how strongly should the agent consider them?
 ```
 
 The resolver must not convert a soft capability into a hard block. Enforcement level remains explicit.
+
+## Registration
+
+`lazy capability add` creates or updates `.lazy-harness/ssot/capabilities.json` deterministically.
+
+Phase 2 requirements:
+
+- Required fields must be supplied.
+- `sourceRecord` must exist unless `--allow-missing-source-record` is passed.
+- Repeating the same add command must be idempotent and return `unchanged`.
+- Registry output must be sorted by id for stable diffs.
+- A knowledge graph capability row must be upserted for non-dry-run writes.
 
 ## Inputs
 
@@ -61,14 +73,15 @@ Phase 1 audit is report-only and does not install hooks.
 
 ## Implementation map
 
-- Status: `phase-1-implemented`
+- Status: `phase-2-implemented`
 - Primary files:
-  - `.lazy-harness/scripts/capability.ts` — resolver/audit/list implementation.
+  - `.lazy-harness/scripts/capability.ts` — add/list/resolve/audit implementation.
   - `.lazy-harness/ssot/capabilities.json` — registry input.
   - `.lazy-harness/scripts/self-test.py` — fixture coverage.
 - Key symbols:
+  - `upsertCapability`
   - `resolveCapabilities`
   - `auditRegistry`
   - `printMarkdown`
 - Tests / protection:
-  - `check_capability_registry_cli_phase1` in `.lazy-harness/scripts/self-test.py`.
+  - `check_capability_registry_cli_phase1` in `.lazy-harness/scripts/self-test.py`, covering add/list/resolve/audit.

@@ -389,3 +389,55 @@ Dogfood fix made during validation:
 - Why not AGENTS.md: this is implementation status and validation evidence, not a universal agent rule.
 - Why not `.jcode`: this is shared framework capability infrastructure, not local/private Jcode-only workflow.
 - Confirmation: validation evidence
+
+## 2026-05-26 Phase 2 implementation and Medivance dogfood
+
+Status: implemented-and-dogfooded
+Confirmation: validation evidence
+
+Implemented Phase 2:
+
+- `lazy capability add`
+- deterministic id-sorted upsert into `.lazy-harness/ssot/capabilities.json`
+- required source record validation by default
+- `--allow-missing-source-record` for drafts
+- `--dry-run`
+- idempotent repeated adds returning `unchanged`
+- graph row upsert for non-dry-run capability registration
+- fixtures for `script`, `skill`, `prompt`, and `validation` capability kinds
+
+Source validation passed:
+
+- `.lazy-harness/scripts/self-test.py`
+- `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+
+Medivance dogfood:
+
+- Synced framework source to `/home/lazydino/dev/medivance` sequentially before host validation.
+- Registered three real host capabilities:
+  - `medivance-pr-body-template` (`prompt`, `default`, applies to `creating_pull_request`, `writing_pr_body`)
+  - `medivance-release-workflow-skill` (`skill`, `recommend`, applies to `preparing_release`, `release_dispatch`)
+  - `medivance-lazy-test-validation` (`validation`, `default`, applies to `validating_changes`, `before_commit`)
+- `lazy capability audit --format=json` returned `ok: true`, `count: 3`.
+- `lazy capability resolve --intent creating_pull_request --format=json` returns `medivance-pr-body-template`.
+- `lazy capability resolve --intent validating_changes --format=json` returns `medivance-lazy-test-validation`.
+- Registry and graph capability ids had no duplicates.
+- Medivance `.lazy-harness/bin/lazy test` passed in host scope.
+
+Important parallel track reminder:
+
+The previous harness strengthening Phase 3 that must not be forgotten is lifecycle/response.completed production hook replacement, not Capability Registry Phase 3:
+
+- Current lifecycle status: Phase 2 shadow orchestrator/parity runner exists.
+- Production `response.completed` hook still uses the legacy helper loop.
+- Phase 3 production hook replacement remains blocked until readiness work, more real payload evidence, graph/open-gate cleanup, and explicit opt-in checklist.
+- Canonical records: `.lazy-harness/planning/dogfood-auto-recording-status-report.md` and `.lazy-harness/planning/performance-optimization-plan.md`.
+
+## Rule placement
+
+- Rule: Capability Registry Phase 2 is implemented and dogfooded; the separate lifecycle production-hook replacement Phase 3 remains blocked and must be tracked as an independent roadmap item.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- Why not AGENTS.md: this is implementation/dogfood status and roadmap reminder, not universal agent grammar.
+- Why not `.jcode`: this is shared framework architecture and dogfood status, not local/private Jcode-only preference.
+- Confirmation: validation evidence plus user reminder

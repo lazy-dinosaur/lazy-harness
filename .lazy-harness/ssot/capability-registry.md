@@ -68,33 +68,36 @@ Each capability entry requires:
 
 `sourceRecord` must point at a canonical `.lazy-harness` record unless the capability is still a draft.
 
-## Phase 1 behavior
+## Phase 1/2 behavior
 
-Phase 1 is intentionally non-blocking:
+Phase 1/2 remains intentionally non-blocking:
 
+- `lazy capability add`
 - `lazy capability list`
 - `lazy capability resolve --intent <intent>`
 - `lazy capability audit`
 
-No hook is added by Phase 1. Warn/block boundary enforcement is a later phase.
+No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
 
 ## Implementation map
 
-- Status: `phase-1-implemented`
+- Status: `phase-2-implemented`
 - Primary files:
   - `.lazy-harness/ssot/capability-registry.md` — this policy.
   - `.lazy-harness/ssot/capabilities.json` — canonical registry.
   - `.lazy-harness/spec/platform/capability-resolution.md` — resolver contract.
   - `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md` — ADR.
   - `.lazy-harness/tests/capability-registry.md` — regression record.
-  - `.lazy-harness/scripts/capability.ts` — CLI implementation.
+  - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/audit.
   - `.lazy-harness/bin/lazy` — dispatches `lazy capability`.
   - `.lazy-harness/scripts/self-test.py` — fixtures.
 - Key symbols:
   - `loadRegistry` (`capability.ts`) — reads canonical registry.
+  - `saveRegistry` (`capability.ts`) — writes deterministic id-sorted registry updates.
+  - `upsertCapability` (`capability.ts`) — creates or updates capability entries idempotently.
   - `auditRegistry` (`capability.ts`) — validates schema/source records.
   - `resolveCapabilities` (`capability.ts`) — finds intent/action matches and sorts by level.
-  - `check_capability_registry_cli_phase1` (`self-test.py`) — protects Phase 1 CLI behavior.
+  - `check_capability_registry_cli_phase1` (`self-test.py`) — protects Phase 1/2 CLI behavior.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`

@@ -17,7 +17,7 @@ Create a Capability Registry with two independent dimensions:
 - `kind`: what the capability is.
 - `level`: how strongly lazy-harness should steer/enforce it.
 
-Phase 1 implements only discover/list/resolve/audit. No new blocking behavior is introduced by this ADR.
+Phase 1/2 implements only add/discover/list/resolve/audit. No new blocking behavior is introduced by this ADR.
 
 ## Consequences
 
@@ -35,7 +35,7 @@ Risks:
 
 ## Implementation map
 
-- Status: `phase-1-implemented`
+- Status: `phase-2-implemented`
 - Primary files:
   - `.lazy-harness/ssot/capability-registry.md`
   - `.lazy-harness/ssot/capabilities.json`

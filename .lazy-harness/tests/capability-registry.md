@@ -12,13 +12,21 @@ Project-specific customization can be useful without being a hard rule. Registry
 
 ## Required protection
 
-Phase 1 must provide:
+Phase 1/2 must provide:
 
+- `lazy capability add`
 - `lazy capability list`
 - `lazy capability resolve --intent <intent>`
 - `lazy capability audit`
 
-Phase 1 must not add blocking behavior.
+Phase 1/2 must not add blocking behavior.
+
+Phase 2 add must:
+
+- upsert deterministic id-sorted registry entries
+- reject missing source records by default
+- be idempotent on repeated identical input
+- append/upsert knowledge graph capability rows
 
 ## Layer completeness gate
 
@@ -30,7 +38,7 @@ Phase 1 must not add blocking behavior.
 
 ## Implementation map
 
-- Status: `phase-1-implemented`
+- Status: `phase-2-implemented`
 - Primary files:
   - `.lazy-harness/scripts/capability.ts`
   - `.lazy-harness/bin/lazy`

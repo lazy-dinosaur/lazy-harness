@@ -59,8 +59,8 @@ Commands:
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   skill create <name> [options] Create project-local custom Jcode skill
-  capability list|resolve|audit
-                                List, resolve, or audit registered capabilities
+  capability add|list|resolve|audit
+                                Add, list, resolve, or audit registered capabilities
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration

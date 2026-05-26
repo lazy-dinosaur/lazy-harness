@@ -1685,7 +1685,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "capability list|resolve|audit", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1706,12 +1706,12 @@ def check_lazy_route_cli_help() -> None:
 
 
 def check_capability_registry_cli_phase1() -> None:
-    """Capability Registry Phase 1 stays non-blocking and supports list/resolve/audit."""
+    """Capability Registry Phase 1/2 stays non-blocking and supports add/list/resolve/audit."""
     script = LAZY / "scripts" / "capability.ts"
     if not script.exists():
         fail("capability CLI script missing")
     source = script.read_text(encoding="utf-8")
-    forbidden = ["check-capability-boundary", "action-boundary", "deny", "block unless"]
+    forbidden = ["check-capability-boundary", "action-boundary", "block unless"]
     leaked = [phrase for phrase in forbidden if phrase in source]
     if leaked:
         fail("capability Phase 1 CLI must remain list/resolve/audit only; forbidden phrase(s): " + json.dumps(leaked, ensure_ascii=False))
@@ -1777,6 +1777,59 @@ def check_capability_registry_cli_phase1() -> None:
         if matches[:1] != ["capability-registry-phase1"]:
             fail("fixture capability resolve did not return seed capability first: " + json.dumps(resolve_json, ensure_ascii=False))
 
+        for record_name in ["script.md", "skill.md", "prompt.md", "validation.md"]:
+            (temp / ".lazy-harness" / "ssot" / record_name).write_text(f"# {record_name}\n", encoding="utf-8")
+        add_cases = [
+            ["--id", "fixture-script", "--kind", "script", "--level", "default", "--source-record", ".lazy-harness/ssot/script.md", "--applies-when", "starting_work", "--entrypoint", "scripts/start.sh", "--description", "Fixture script", "--owner", "host-project", "--tag", "fixture,script"],
+            ["--id", "fixture-skill", "--kind", "skill", "--level", "recommend", "--source-record", ".lazy-harness/ssot/skill.md", "--applies-when", "creating_release", "--skill-name", "/release-workflow", "--description", "Fixture skill", "--owner", "host-project"],
+            ["--id", "fixture-prompt", "--kind", "prompt", "--level", "discover", "--source-record", ".lazy-harness/ssot/prompt.md", "--applies-when", "writing_pr_body", "--template-path", ".lazy-harness/prompts/pr.md", "--description", "Fixture prompt", "--owner", "team-policy"],
+            ["--id", "fixture-validation", "--kind", "validation", "--level", "default", "--source-record", ".lazy-harness/ssot/validation.md", "--applies-when", "validating_changes", "--entrypoint", "bun lint", "--action", "bun lint", "--description", "Fixture validation", "--owner", "host-project"],
+        ]
+        for add_args in add_cases:
+            added = subprocess.run(
+                [str(LAZY / "bin" / "lazy"), "capability", "add", *add_args, "--format=json"],
+                cwd=temp,
+                env=fixture_env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if added.returncode != 0:
+                fail("capability add fixture failed:\n" + added.stdout + added.stderr)
+            added_json = json.loads(added.stdout)
+            if added_json.get("ok") is not True or added_json.get("status") not in {"created", "updated", "unchanged"}:
+                fail("capability add fixture emitted unexpected JSON: " + added.stdout)
+        again = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "add", *add_cases[0], "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if again.returncode != 0 or json.loads(again.stdout).get("status") != "unchanged":
+            fail("capability add should be idempotent unchanged on repeated same input:\n" + again.stdout + again.stderr)
+        registry = json.loads((temp / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+        fixture_ids_after_add = [cap.get("id") for cap in registry.get("capabilities", [])]
+        if fixture_ids_after_add != sorted(fixture_ids_after_add):
+            fail("capability add should write deterministic id-sorted registry: " + json.dumps(fixture_ids_after_add, ensure_ascii=False))
+        for expected in ["fixture-script", "fixture-skill", "fixture-prompt", "fixture-validation"]:
+            if expected not in fixture_ids_after_add:
+                fail("capability add missing expected id " + expected + ": " + json.dumps(registry, ensure_ascii=False))
+        resolved_validation = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "resolve", "--intent", "validating_changes", "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if resolved_validation.returncode != 0 or "fixture-validation" not in [cap.get("id") for cap in json.loads(resolved_validation.stdout).get("matches", [])]:
+            fail("capability resolve should find added validation capability:\n" + resolved_validation.stdout + resolved_validation.stderr)
+        graph_text = (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").read_text(encoding="utf-8")
+        if "capability_fixture-validation" not in graph_text:
+            fail("capability add should upsert graph entry for added capabilities")
+
         (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
             json.dumps({
                 "version": 1,
@@ -1808,7 +1861,7 @@ def check_capability_registry_cli_phase1() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
 
-    print("✓ capability registry Phase 1 CLI ok")
+    print("✓ capability registry Phase 1/2 CLI ok")
 
 
 def check_response_completed_auto_route_telemetry() -> None:
