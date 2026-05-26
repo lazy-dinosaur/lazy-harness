@@ -57,6 +57,7 @@
             "*.sh",
             "lifecycle/*.sh",
             "lifecycle/helpers/*.sh",
+            "lifecycle/helpers/*.py",
             "README.md"
           ],
           "description": "Git hooks (post-commit, pre-push, pre-commit-*) + N2.5 lifecycle hooks (on-tool-execute-before, on-response-completed, on-client-disconnect) + helpers."

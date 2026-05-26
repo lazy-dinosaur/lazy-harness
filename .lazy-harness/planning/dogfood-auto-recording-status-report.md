@@ -253,3 +253,288 @@ Installed hosts synced from `/home/lazydino/dev/lazy-harness`:
 Note:
 
 - The manual marker check initially looked for the wrong marker filename and printed unrelated `*source*` records. The authoritative sync evidence is the `lazy-sync` output showing the source revision transition and successful Category A sync.
+
+## 2026-05-26 Medivance additional dogfood check
+
+Status: observed during follow-up check
+Confirmation: user reported additional Medivance modification/dogfooding and asked for verification.
+
+Current conclusion:
+
+```text
+Medivance dogfooding evidence has grown materially since the 2026-05-24 snapshot.
+The host harness currently validates, and recent timing data looks stable enough for continued Phase 2 analysis.
+Do not move to Phase 3 production hook replacement yet: open gate state and graph hygiene issues need cleanup/triage first.
+```
+
+Observed deltas versus the 2026-05-24 snapshot:
+
+- `/home/lazydino/dev/medivance`
+  - `.lazy-harness/logs/hook-timings.jsonl`: 2724 → 9860 rows.
+  - `.lazy-harness/logs/route-decisions.jsonl`: 164 → 314 rows.
+  - `.lazy-harness/logs/route-telemetry-debug.jsonl`: 267 → 534 rows.
+  - `.lazy-harness/logs/actions.jsonl`: 807 → 908 rows.
+  - `.lazy-harness/logs/validations.jsonl`: 1006 → 1031 rows.
+  - `.lazy-harness/knowledge/graph.jsonl`: 179 → 261 rows.
+  - `.lazy-harness/knowledge/candidates.jsonl`: current file has 1 row; previous snapshot had 14 rows, so candidate retention/reset needs separate explanation before treating candidate count as monotonic.
+- `/home/lazydino/dev/medivance-pwa`
+  - `.lazy-harness/logs/hook-timings.jsonl`: previously missing → 1502 rows.
+  - `.lazy-harness/logs/route-decisions.jsonl`: 10 → 29 rows.
+  - `.lazy-harness/logs/route-telemetry-debug.jsonl`: 11 → 79 rows.
+  - `.lazy-harness/logs/validations.jsonl`: now 18 rows.
+  - `.lazy-harness/knowledge/candidates.jsonl`: 11 → 20 rows.
+  - `.lazy-harness/knowledge/graph.jsonl`: 168 → 252 rows.
+
+Recent Medivance timing summary from the last 500 hook timing rows:
+
+- `hook-total`: count=29, avg≈675.8ms, p50=664ms, p90=850ms, p99=974ms, max=974ms, nonZero=0, emitted=2.
+- `check-bdd-trigger.sh`: count=28, avg≈142.0ms, p90=191ms, max=247ms, emitted=0.
+- `route-telemetry`: count=28, avg≈64.5ms, p90=103ms, max=118ms, emitted=0.
+- `check-project-rule-placement.sh`: count=29, avg≈36.1ms, p90=46ms, max=74ms, emitted=2.
+
+Current Medivance validation and drift:
+
+- `/home/lazydino/dev/medivance` branch is `release/staging/v1.5.6-beta.1`; git status was clean.
+- Recent commits include `73f14e469 Build: v1.5.6-beta.1` and recent feature/fix PR commits.
+- Host validation passed:
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke --scope host`
+  - `python3 .lazy-harness/scripts/self-test.py --scope host`
+- `lazy-sync --dry-run --force` from source to Medivance reports no Jcode wiring drift; only 3 framework record/knowledge files would update, with source marked dirty because the lazy-harness source repo has uncommitted `.lazy-harness` changes.
+- Current Medivance open gate state contains one `project-rule-placement` fingerprint first seen at `2026-05-26T01:32:49Z`.
+
+Record and graph audit notes:
+
+- `lazy record-audit --source /home/lazydino/dev/medivance`:
+  - Total record/log files: 192.
+  - JSONL rows valid across audited files.
+  - Project Profile artifacts complete, but answers are incomplete: 26 fields still need interview answers.
+  - Graph rows: 261, invalidRows=0, missingPaths=27 in record-audit view.
+  - Skipped workflow entries exist: 7.
+- `lazy graph-hygiene --source /home/lazydino/dev/medivance`:
+  - OK: no.
+  - Rows: 261.
+  - Issues: 80.
+  - Missing IDs: 43.
+  - Missing paths: 37.
+  - Sample missing-id rows are host graph rows around chat reminder design/implementation edges. They are valid JSON but lack string `id` fields, so graph hygiene should be cleaned before relying on graph queries for Phase 3 readiness.
+
+Next recommended behavior:
+
+1. Continue Phase 2 dogfooding, but this is now meaningful data rather than thin/no-growth evidence.
+2. Triage Medivance graph hygiene: add stable ids to id-less graph rows and classify missing framework-source-only paths vs true host missing paths.
+3. Close or explain the current `project-rule-placement` open gate in Medivance state.
+4. Investigate why Medivance `knowledge/candidates.jsonl` is currently 1 row despite the previous snapshot being 14 rows.
+5. After graph/gate cleanup, rerun source lifecycle parity and host record/graph audits, then decide whether to draft a Phase 3 readiness checklist.
+
+## Rule placement
+
+- Rule: 2026-05-26 Medivance dogfooding has materially increased telemetry/timing/route/graph evidence, but Phase 3 replacement remains gated by graph hygiene and open-gate cleanup.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is a point-in-time dogfood status snapshot and next-work recommendation, not a universal agent rule.
+- Why not `.jcode`: this concerns shared lazy-harness framework dogfood state across installed hosts, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed prompt plus validation evidence
+
+## Discovery capture
+
+- DDD: no new domain definition in the source repo; Medivance graph rows include chat reminder/patient-related host domain edges to triage in the Medivance host if needed.
+- SDD: no new framework contract introduced; record-audit/graph-hygiene outputs identify graph hygiene contract issues.
+- BDD: Medivance and PWA logs/candidates show more behavior-flow evidence, but unpromoted candidates still need confirmation before canonical BDD records.
+- TDD: host doctor/self-test passed; no new regression test added in source from this status check.
+- ADR: no new architectural decision.
+- SSOT: no source-of-truth change.
+- Planning: updated here with current evidence and next recommended dogfood cleanup.
+
+## 2026-05-26 dogfood finding — recorded rule recall did not guarantee PR compliance
+
+Status: user-confirmed dogfood problem
+Confirmation: user reported that PR #41 was written with `Summary / Validation / Context` even though Medivance records already required `Why / What / Task` PR body structure.
+
+Observed issue:
+
+```text
+The lazy-harness record system successfully stored the PR body rule, but the active agent workflow did not reliably recall and apply that rule at the PR creation/editing moment.
+```
+
+Evidence:
+
+- Medivance has canonical PR records:
+  - `/home/lazydino/dev/medivance/.lazy-harness/ssot/pr-description-format.md`
+  - `/home/lazydino/dev/medivance/.lazy-harness/ssot/pr-workflow.md`
+  - `/home/lazydino/dev/medivance/.lazy-harness/ssot/pr-worktree-first-workflow.md`
+- The PR body rule is user-confirmed and team-policy scoped in Medivance: PR descriptions must start with `Why`, `What`, `Task`, then optional/additional sections such as `Validation`.
+- The failure mode is not missing storage; it is retrieval/enforcement at the external action boundary (`gh pr create`, `gh pr edit`, or GitHub PR creation tooling).
+
+Current classification:
+
+- Storage layer: working for this rule.
+- Prompt/wiring layer: insufficient as the only enforcement mechanism. The model can forget or fail to search the host records before a PR operation.
+- Existing response lifecycle hooks: useful after a response, but too late to prevent a malformed PR body if the external PR mutation already happened.
+- Existing project-rule placement hook: catches where to store rules, not whether a stored rule is applied to a concrete PR body.
+- Current gap: no action-specific PR-body guard that reads the relevant host SSOT before PR create/edit.
+
+Likely solution direction:
+
+A layered guard is needed rather than only stronger prompt text:
+
+1. Keep prompt/wiring reminder for general recall.
+2. Add a lightweight action-specific guard for PR mutation surfaces, preferably before or at command execution time.
+3. Add a response/completion audit as fallback for cases where the mutation happens outside the expected command path.
+
+Open design choice:
+
+- Whether the first implementation should be a `tool.execute.before` guard around `gh pr create` / `gh pr edit`, a generated PR helper command/template that agents must use, a response.completed audit, or a hybrid.
+
+## Rule placement
+
+- Rule: Stored host/team rules are not enough; high-risk external action boundaries such as PR create/edit need an action-specific recall/enforcement layer so canonical records are applied before mutation.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is a dogfood finding and design backlog, not yet an accepted universal framework rule.
+- Why not `.jcode`: the gap concerns shared lazy-harness retrieval/enforcement behavior across hosts and actions, not local/private Jcode-only preference.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- DDD: none.
+- SDD: candidate, define a PR-body/action-boundary guard contract if selected.
+- BDD: candidate, agent behavior should feel like PR creation automatically uses host PR policy records.
+- TDD: candidate, add regression fixture where a PR command body lacks `Why / What / Task` while a host SSOT defines the format.
+- ADR: candidate, decide prompt-only vs hook-only vs generated helper vs hybrid enforcement trade-off.
+- SSOT: no new canonical rule yet; Medivance PR format SSOT already exists downstream.
+- Planning: updated here pending option-gate selection.
+
+## 2026-05-26 framework insight — rules need trigger/binding metadata, not storage only
+
+Status: user-confirmed framework direction discussion
+Confirmation: user clarified that the important question is how rules are added and strengthened in the framework, not only whether one PR hook should be added.
+
+Insight:
+
+```text
+Lazy-harness should treat a recorded rule as incomplete unless it also has enough trigger/binding metadata for agents and hooks to know when to retrieve, apply, and optionally enforce it.
+```
+
+Current gap:
+
+- Existing records define where rules belong and how to place them.
+- Existing hooks catch some meta-rule failures after responses.
+- But newly added host/team rules do not necessarily become executable policies at the relevant action boundary.
+- Therefore a rule can be stored correctly but still be missed during PR creation, release dispatch, DB mutation, or other high-risk workflows.
+
+Candidate framework shape:
+
+1. Capture: record the rule in the right layer/SSOT.
+2. Classify: assign scope and layer using Rule placement.
+3. Bind: attach trigger/action metadata such as `applies_when`, `actions`, `check_before`, `check_after`, `severity`, and `source_record`.
+4. Compile/index: generate or update a machine-readable rule index/cache for fast lookup by intent/action.
+5. Enforce: route high-risk action boundaries through lightweight generic guards that read the compiled index.
+6. Audit: response.completed and record-audit verify rules with enforcement intent have bindings/tests.
+
+Implication:
+
+Prompt/wiring remains necessary but should not be the only mechanism. Framework completeness needs a "rule lifecycle" contract: a durable rule is not fully installed until it has placement, trigger metadata, and either an enforcement path or an explicit `advisory-only` status.
+
+## Rule placement
+
+- Rule: Framework rule capture should include trigger/binding metadata so stored rules can be retrieved and enforced at relevant action boundaries; otherwise the rule remains advisory/incomplete.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is a proposed framework architecture direction that still needs an ADR/SDD decision before becoming universal grammar.
+- Why not `.jcode`: this concerns shared lazy-harness rule lifecycle design, not private Jcode-only wiring.
+- Confirmation: user-confirmed direction discussion
+
+## Discovery capture
+
+- SDD: candidate rule lifecycle / executable-rule binding contract.
+- TDD: candidate tests for "stored rule without binding is reported" and "PR body rule binds to PR mutation action".
+- ADR: candidate decision on generic rule-index/action-boundary architecture vs ad hoc hooks.
+- SSOT: possible future `.lazy-harness/ssot/rule-lifecycle.md` or `.lazy-harness/ssot/rule-bindings.md`.
+- Planning: captured here pending option-gate/decision.
+
+## 2026-05-26 selected direction — Rule Lifecycle plus PR guard exemplar
+
+Status: selected direction
+Confirmation: user-confirmed
+
+User selected option E from the framework strengthening options:
+
+```text
+E. Define the general Rule Lifecycle / Rule Binding framework direction, and implement PR body compliance as the first concrete exemplar.
+```
+
+Decision shape for next implementation planning:
+
+1. Create an SDD/ADR-level contract for rule lifecycle / rule binding.
+2. Define what makes a stored rule "installed": placement, trigger/action binding metadata, severity, source record, enforcement/audit path, and tests or explicit advisory-only status.
+3. Add a machine-readable binding/index path so agents/hooks can find rules by action or intent, not only by keyword memory.
+4. Use Medivance PR body format as the first exemplar:
+   - source record: `/home/lazydino/dev/medivance/.lazy-harness/ssot/pr-description-format.md`
+   - action boundary: `gh pr create`, `gh pr edit`, and equivalent GitHub PR mutation tools
+   - expected behavior: read/apply PR format before mutation and block/warn when required sections are missing.
+5. Add audit behavior so future rules stored without binding are visible as incomplete/advisory rather than silently forgotten.
+
+## Rule placement
+
+- Rule: Adopt option E as the next framework direction: general Rule Lifecycle / Rule Binding design plus PR body guard as the first executable-rule exemplar.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is an implementation direction pending SDD/ADR formalization, not final universal agent grammar.
+- Why not `.jcode`: this is shared framework architecture and dogfood backlog, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- SDD: create rule lifecycle / rule binding contract.
+- TDD: add fixtures for stored rule with binding, stored rule without binding, and PR body rule enforcement.
+- ADR: decide generic binding/index architecture and action-boundary enforcement strategy.
+- SSOT: likely add rule lifecycle/binding SSOT or generated index storage SSOT.
+- Planning: this record is the active selected direction until SDD/ADR artifacts are created.
+
+## 2026-05-26 implementation follow-up — Rule Lifecycle PR guard dogfooded
+
+Status: implemented and dogfooded
+Confirmation: source and Medivance validation passed.
+
+Implemented option E:
+
+- Added Rule Lifecycle / Binding framework records.
+- Added the first executable-rule exemplar: PR body format guard for `gh pr create` / `gh pr edit`.
+- Added generated Jcode bash hook wiring to call the framework action-boundary helper before allowing bash commands.
+- Added markerless generated bash hook repair so installed hosts receive the new guard even when old generated `.jcode/hooks/check-bash.sh` files predate generated markers.
+- Added manifest coverage for Python lifecycle helpers so hosts receive `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py`.
+
+Dogfood bugs found and fixed during Medivance sync:
+
+1. `init-categories.json` did not sync `hooks/lifecycle/helpers/*.py`, so the new helper was absent on the host.
+2. Medivance's markerless generated `.jcode/hooks/check-bash.sh` was preserved as user-owned because legacy generated cues did not match the current generated default.
+3. The rule-boundary self-test leaked parent `LAZY_HOST_ROOT`, so temp fixture roots accidentally read Medivance host PR records. The runner now passes `LAZY_HOST_ROOT` explicitly for fixture isolation.
+
+Validation:
+
+- Source: `.lazy-harness/scripts/self-test.py && python3 .lazy-harness/scripts/doctor.py --profile smoke` passed.
+- Medivance: `lazy-sync --force` repaired stale generated `.jcode/hooks/check-bash.sh`, synced the Python helper, and `.lazy-harness/bin/lazy test` passed.
+- Medivance active hook behavior with proper Jcode-like JSON payload:
+  - malformed `gh pr create --body '## Summary...'` => deny with missing `## Why`, `## What`, `## Task`.
+  - valid `gh pr create --body` containing `## Why`, `## What`, `## Task` => allow.
+
+Remaining limitation:
+
+- The first implementation covers bash/GH CLI PR mutation boundaries. GitHub MCP PR mutation surfaces still need a later adapter if used for PR creation/editing.
+
+## Rule placement
+
+- Rule: Rule Lifecycle option E is now implemented as a framework contract plus PR body guard exemplar; host sync must include Python lifecycle helpers and repair markerless generated bash hooks so executable-rule guards actually reach dogfood hosts.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: implementation status and dogfood findings belong in planning until the pattern is promoted to universal agent grammar.
+- Why not `.jcode`: the active hook is generated wiring, but the durable rule and implementation belong to shared lazy-harness framework records.
+- Confirmation: validation evidence
+
+## Discovery capture
+
+- SDD: `.lazy-harness/spec/platform/rule-binding-action-boundary.md` created.
+- TDD: `.lazy-harness/tests/rule-binding-pr-body-guard.md` created and self-test fixtures added.
+- ADR: `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md` created.
+- SSOT: `.lazy-harness/ssot/rule-lifecycle.md` created.
+- Planning: this section records dogfood implementation findings and remaining limitation.
