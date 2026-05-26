@@ -139,3 +139,37 @@ Design implication:
 - Why not AGENTS.md: this is an implementation design constraint still being tuned through dogfooding, not final universal grammar.
 - Why not `.jcode`: this is shared framework design policy, not local/private Jcode-only workflow.
 - Confirmation: user-confirmed
+
+## 2026-05-26 framework principle — provide policy machinery, not one global policy
+
+Status: user-confirmed design principle
+Confirmation: user-confirmed
+
+Principle:
+
+```text
+Guards, warnings, defaults, and notifications are project-specific policy choices. Lazy-harness as a framework should provide the machinery to express, route, and enforce those choices, not hardcode one global policy for every project.
+```
+
+Implications:
+
+- A policy like regression preflight, worktree preflight, detach policy, or PR mutation guard should be represented as a capability/rule binding with level and scope.
+- The framework should support `discover`, `recommend`, `default`, `warn`, and `block` consistently.
+- The project/host should decide which level applies based on risk, dogfood evidence, and user/team confirmation.
+- Framework code should focus on reusable mechanisms:
+  - capability registry
+  - action-boundary adapters
+  - candidate/evidence accumulation
+  - audit/reporting
+  - sync/wiring
+  - test fixtures
+- Framework defaults may be conservative examples, but host policy must remain configurable.
+
+## Rule placement
+
+- Rule: Lazy-harness should provide configurable policy machinery for project-specific guards/warnings/defaults rather than hardcoding universal enforcement decisions.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/model-quality-dogfood-findings.md`
+- Why not AGENTS.md: this is a framework architecture principle still being shaped through dogfooding, not final universal instruction text.
+- Why not `.jcode`: this is shared lazy-harness framework design, not local/private Jcode-only workflow.
+- Confirmation: user-confirmed
