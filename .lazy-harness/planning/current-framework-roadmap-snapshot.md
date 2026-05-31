@@ -271,3 +271,49 @@ Validation after correction:
 - Why not AGENTS.md: this is a correction to a point-in-time sync check, not a permanent agent instruction.
 - Why not `.jcode`: this concerns shared lazy-harness sync state, not local/private Jcode wiring.
 - Confirmation: validation evidence
+
+## 2026-05-31 parallel-track clarification
+
+Status: user-confirmed
+
+Clarification:
+
+```text
+Track A — Capability Registry dogfood/evaluation and Track B — Lifecycle / response.completed Phase 3 were intentionally active in parallel.
+They have different purposes and should not be collapsed into one plan.
+```
+
+Purpose split:
+
+- Track A, Capability Registry: evaluate whether lazy-harness can discover/resolve/promote project-specific capabilities from real workflow evidence without over-hardcoding universal rules.
+- Track B, Lifecycle / response.completed Phase 3: evaluate whether the response.completed lifecycle helper path is ready for an opt-in replacement plan with legacy comparison/debug fallback and rollback instructions.
+
+Current state after 2026-05-31 checks:
+
+- Track B Medivance-primary readiness run passed enough to draft the opt-in replacement plan/patch, but direct production hook replacement still requires explicit approval/review.
+- Track A remains the other active evaluation track and should be run next or alongside the Phase 3 plan draft, using Medivance as primary evidence and PWA as secondary/contextual evidence until PWA development resumes.
+
+Recommended next coordination:
+
+1. Run Capability Registry evaluation on Medivance-primary evidence.
+2. In parallel or immediately after, draft the Phase 3 opt-in replacement plan/patch.
+3. Keep the outputs separate: capability promotion findings should not automatically imply lifecycle hook replacement approval, and lifecycle readiness should not automatically imply capability auto-promotion.
+
+## Rule placement
+
+- Rule: Capability Registry dogfood/evaluation and Lifecycle Phase 3 readiness are two separate active tracks that may progress in parallel but have different approval criteria.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Why not AGENTS.md: this is current roadmap coordination, not permanent harness grammar.
+- Why not `.jcode`: this concerns shared lazy-harness framework roadmap state, not private Jcode-only workflow.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- DDD: none.
+- SDD: no contract change.
+- BDD: no new user behavior scenario.
+- TDD: no regression change.
+- ADR: no architecture decision yet; future direct replacement still needs explicit approval/review.
+- SSOT: no source-of-truth change.
+- Planning: parallel-track relationship clarified here.
