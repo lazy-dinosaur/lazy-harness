@@ -455,3 +455,43 @@ This is still not production-default replacement approval. Default remains legac
 Next source-side note:
 
 This record commit advances source HEAD beyond `1bab3ef`; downstream markers should be refreshed once more after committing this record.
+
+## 2026-05-31 compare-mode dogfood enabled in both hosts
+
+Status: local-dogfood-enabled
+Confirmation: user corrected that Medivance PWA should also be updated for compare-mode dogfood, not left on legacy-only.
+
+Dogfood configuration:
+
+- `/home/lazydino/dev/medivance/.jcode/config.toml`
+  - response.completed hook command changed locally to `.jcode/hooks/response-completed-compare.sh`.
+  - wrapper exports `LAZY_RESPONSE_COMPLETED_ENGINE=compare` by default.
+  - wrapper writes compare metadata to `.lazy-harness/logs/lifecycle-compare.jsonl` by default.
+- `/home/lazydino/dev/medivance-pwa/.jcode/config.toml`
+  - same compare wrapper configuration applied.
+
+Smoke validation:
+
+- Medivance wrapper smoke: pass.
+  - last compare row: `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`.
+  - `git status --short`: clean.
+- Medivance PWA wrapper smoke: pass.
+  - last compare row: `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`.
+  - `git status --short`: clean.
+
+Interpretation:
+
+```text
+Both Medivance and Medivance PWA now dogfood response.completed compare mode through local/private Jcode hook wiring.
+User-visible output remains legacy truth because compare mode runs the orchestrator only for sandboxed comparison.
+```
+
+Operational notes:
+
+- This is local/private `.jcode` wiring, not a production default replacement.
+- Rollback for either host: change the response.completed command back to `.lazy-harness/hooks/lifecycle/on-response-completed.sh` or set `LAZY_RESPONSE_COMPLETED_ENGINE=legacy` in the wrapper.
+- Compare evidence should be reviewed via `.lazy-harness/logs/lifecycle-compare.jsonl`.
+
+Next source-side note:
+
+This record commit advances source HEAD; downstream `.lazy-harness/state/synced-from-commit` markers should be refreshed afterward. The local `.jcode` compare wrappers should remain in place after sync and must be rechecked.
