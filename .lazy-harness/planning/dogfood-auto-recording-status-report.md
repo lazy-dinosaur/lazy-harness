@@ -588,3 +588,79 @@ Design implication:
 - ADR: candidate decision separating capability kind from enforcement level.
 - TDD: candidate fixture that registers script/skill/prompt capabilities without making them block-level rules.
 - Planning: captured here pending implementation option gate.
+
+## 2026-05-31 dogfood accumulation check
+
+Status: observed during follow-up check
+Confirmation: user asked whether dogfood content has accumulated enough.
+
+Current conclusion:
+
+```text
+Dogfood evidence has accumulated substantially in the installed hosts, especially Medivance.
+It is enough to say the record/log/graph pipeline is no longer thin.
+It is still not enough to declare Phase 3 production hook replacement ready without cleanup: Project Profile answers and skipped/open workflow state remain visible, and PWA profile coverage is still incomplete.
+```
+
+Observed source repo evidence from `/home/lazydino/dev/lazy-harness`:
+
+- Canonical record inventory: domain=7, spec=32, behavior=5, tests=16, decisions=41, ssot=11, planning=21, plans=14, knowledge=5.
+- `lazy record-audit --format=json --source ~/dev/lazy-harness` passed.
+- Source graph hygiene in record-audit view: rows=200, invalidRows=0, missingPaths=0, sourceOnlyPaths=0, commaJoinedPaths=0.
+- Source JSONL health: all audited JSONL files had invalid=0.
+- Source log evidence includes hook-timings=7778 rows, route-decisions=38 rows, route-telemetry-debug=1193 rows, actions=234 rows, validations=908 rows.
+- `lazy hook-timings --limit=1000` showed recent `hook-total` count=68, avg≈633ms, p50=608ms, p90=755ms, p99=1182ms, max=1335ms, nonZero=0.
+- `lazy lifecycle-parity --format=json --fail-on-mismatch` passed: fixtures=12, passed=12, failed=0.
+
+Observed installed host evidence:
+
+- `/home/lazydino/dev/medivance`
+  - Current sync marker: `syncedFromCommit=efede93f2586d02bb839857203612b591b73eba7` from source `/home/lazydino/dev/lazy-harness`.
+  - Logs: hook-timings=17176 rows, route-decisions=452 rows, route-telemetry-debug=834 rows, actions=976 rows, validations=1076 rows.
+  - Knowledge: graph=254 rows, candidates=14 rows.
+  - `record-audit`: ok=true, files=214, hostOwnedOrChanged=183, hostUnique=162, hostChanged=21, hostSameAsSource=22.
+  - Layer-owned/changed highlights: domain=10, spec=33, behavior=35, tests=27, decisions=11, ssot=37, planning=17.
+  - Graph in audit view: invalidRows=0, missingPaths=0, sourceOnlyPaths=35, commaJoinedPaths=0.
+  - Project Profile artifacts complete, but answersComplete=false with 26 `needsInterview` fields.
+  - Warnings: Project Profile incomplete; skipped workflow entries exist: 7.
+- `/home/lazydino/dev/medivance-pwa`
+  - Current sync marker: `syncedFromCommit=efede93f2586d02bb839857203612b591b73eba7` from source `/home/lazydino/dev/lazy-harness`.
+  - Logs: hook-timings=3649 rows, route-decisions=68 rows, route-telemetry-debug=161 rows, actions=0 rows, validations=24 rows.
+  - Knowledge: graph=283 rows, candidates=18 rows.
+  - `record-audit`: ok=true, files=98, hostOwnedOrChanged=67, hostUnique=48, hostChanged=19, hostSameAsSource=22.
+  - Layer-owned/changed highlights: spec=13, behavior=22, tests=15, ssot=8.
+  - Graph in audit view: invalidRows=0, missingPaths=0, sourceOnlyPaths=35, commaJoinedPaths=0.
+  - Project Profile artifacts incomplete: artifactsPresent=1, artifactsMissing=4, answersComplete=false.
+  - Warnings: Project Profile incomplete; skipped workflow entries exist: 1.
+
+Delta versus the 2026-05-26 snapshot:
+
+- Medivance hook timings grew 9860 → 17176 rows; route decisions 314 → 452 rows; route telemetry debug 534 → 834 rows; actions 908 → 976 rows; validations 1031 → 1076 rows.
+- Medivance host-owned/changed records grew from the earlier 120/183-class audit history to 183 current owned-or-changed files.
+- Medivance PWA hook timings grew 1502 → 3649 rows; route decisions 29 → 68 rows; route telemetry debug 79 → 161 rows; graph 252 → 283 rows.
+
+Next recommended behavior:
+
+1. Treat dogfood accumulation as meaningful enough for evaluation, not as thin/no-growth data.
+2. Do not jump straight to Phase 3 production hook replacement. First close/triage skipped workflow entries and Project Profile gaps, especially Medivance's 26 unanswered fields and PWA's missing profile artifacts.
+3. Use `record-audit`, `hook-timings`, `lifecycle-parity`, and targeted host validations as the standard checkup set.
+4. If the next goal is production-hook replacement, draft a Phase 3 readiness checklist from this snapshot rather than implementing replacement immediately.
+
+## Rule placement
+
+- Rule: 2026-05-31 dogfood evidence is now materially accumulated across source, Medivance, and Medivance PWA, but readiness decisions remain gated by profile completeness, skipped workflow state, and explicit Phase 3 checklist review.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is a point-in-time dogfood status snapshot, not universal agent grammar.
+- Why not `.jcode`: this concerns shared lazy-harness framework dogfood state and installed hosts, not private local Jcode-only workflow.
+- Confirmation: validation evidence from 2026-05-31 status check.
+
+## Discovery capture
+
+- DDD: no new domain definitions in source.
+- SDD: no new framework contract introduced; current record-audit and hook-timings commands remain sufficient for this check.
+- BDD: host behavior evidence has grown, especially Medivance behavior records and route telemetry; no new confirmed BDD scenario promoted in source.
+- TDD: lifecycle parity passed 12/12; no new regression added from this status check.
+- ADR: no new architecture decision.
+- SSOT: no source-of-truth policy change.
+- Planning: updated here with current dogfood accumulation evidence and readiness caveat.
