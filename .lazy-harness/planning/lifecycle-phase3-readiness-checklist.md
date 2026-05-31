@@ -269,3 +269,92 @@ Fix:
 - Why not AGENTS.md: this is test robustness/dogfood implementation evidence, not general agent behavior.
 - Why not `.jcode`: this is shared lazy-harness self-test behavior, not local/private Jcode wiring.
 - Confirmation: validation evidence
+
+## 2026-05-31 Medivance-primary readiness run
+
+Status: medivance-primary-readiness-passed-for-plan-drafting
+Confirmation: user selected option A and confirmed PWA should be secondary/contextual because PWA development is not currently active.
+
+Scope correction for this run:
+
+```text
+Use `/home/lazydino/dev/medivance` as the primary installed-host dogfood signal.
+Do not block this readiness run on Medivance PWA signal thickness until active PWA development resumes.
+```
+
+Execution result:
+
+- Synced `/home/lazydino/dev/medivance` from `/home/lazydino/dev/lazy-harness`.
+  - Previous marker: `efede93f2586...`
+  - New marker: `eb86fb8ed754...`
+  - Sync updated 2 framework knowledge files plus marker.
+- Cleared one stale runtime open gate in Medivance:
+  - `project-rule-placement:facd67afecc6c37b`
+  - age≈3.6h
+  - remaining open gates: 0
+- Source validation:
+  - `.lazy-harness/scripts/self-test.py`: pass
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke`: pass
+  - `lazy lifecycle-parity --format=json --fail-on-mismatch`: pass, 12/12
+- Medivance validation:
+  - `.lazy-harness/bin/lazy test`: pass
+  - `lazy record-audit --format=json --source /home/lazydino/dev/lazy-harness`: pass
+  - `lazy lifecycle-parity --format=json --fail-on-mismatch`: pass, 13/13
+  - `lazy capability audit --format=json`: pass, count=3, issues=[]
+  - `lazy gate-state list --format=json`: pass, count=0
+  - `lazy hook-timings --format=json --limit=1000`: pass, rows=1000, invalidRows=0
+    - `hook-total`: count=58, avg≈858.9ms, p50≈692ms, p90≈994ms, p99≈3995ms, max≈4491ms, nonZeroExit=0
+
+Record-audit warning triage:
+
+- Project Profile warning:
+  - Current warning: 0 missing artifacts, 26 fields still `needs-interview`.
+  - Classification: deferred nice-to-have, not a lifecycle Phase 3 hard blocker.
+  - Reason: artifacts are present; unanswered fields are project interview enrichment, not a runtime/lifecycle parity or response.completed replacement dependency.
+- Skipped workflow warning:
+  - Current warning: 7 skipped workflow entries exist.
+  - Classification: historical/intentional audit trail, not an active blocker.
+  - Evidence: entries are older Medivance workflow notes: existing-record discovery skip, duplicate option-gate skip, non-authored commit registry skip, user-choice pause, existing project-rule placement record, and two user-manual-verified affected-test skips.
+  - Current runtime gate state is clean: open gate count=0.
+
+Go/no-go conclusion:
+
+```text
+Medivance-primary readiness is sufficient to proceed to the next Phase 3 step: draft an opt-in response.completed replacement plan/patch with legacy comparison debug fallback and rollback instructions.
+Do not directly replace `.lazy-harness/hooks/lifecycle/on-response-completed.sh` yet without the explicit replacement approval/patch review step.
+```
+
+Updated checklist interpretation:
+
+- Production hook replacement explicit approval: still pending.
+- Source lifecycle parity: passed.
+- Medivance lifecycle parity after latest sync: passed.
+- PWA lifecycle parity/signal: secondary for now by user-confirmed scope correction.
+- Open gate state: passed, count=0 after stale runtime cleanup.
+- Graph/record audit: passed; missingPaths=0, invalidRows=0, commaJoinedPaths=0.
+- Recent real-use rows: passed for Medivance-primary evaluation.
+- Replacement plan with debug fallback: next required work.
+- Rollback instructions: next required work.
+- Full source validation: passed.
+- Medivance host validation: passed.
+- Project Profile fields: explicitly deferred.
+- PWA Project Profile artifacts: explicitly secondary/deferred until PWA resumes active development.
+
+## Rule placement
+
+- Rule: As of 2026-05-31, Medivance-primary lifecycle Phase 3 readiness is sufficient for drafting the opt-in replacement plan/patch, but not for directly replacing the production response.completed hook without an explicit approval/review step.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- Why not AGENTS.md: this is a point-in-time readiness decision for a specific lifecycle implementation track, not permanent agent behavior.
+- Why not `.jcode`: this concerns shared lazy-harness framework lifecycle rollout, not local/private Jcode-only workflow.
+- Confirmation: user selected option A and validation evidence passed.
+
+## Discovery capture
+
+- DDD: no new domain definitions.
+- SDD: next work should draft the opt-in response.completed replacement plan/patch with fallback and rollback; no production contract change applied yet.
+- BDD: PWA dogfood signal remains secondary until active PWA development resumes.
+- TDD: validation evidence captured; no new regression fixture added in this run.
+- ADR: explicit production replacement approval remains pending and should be captured before direct replacement.
+- SSOT: sync marker source remains `.lazy-harness/state/synced-from-commit`; Medivance marker now points to `eb86fb8ed754...`.
+- Planning: this section is the current readiness checkpoint and next-step gate.
