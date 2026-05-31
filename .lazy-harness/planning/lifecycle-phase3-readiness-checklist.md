@@ -419,3 +419,39 @@ Checklist delta:
 - ADR: production default replacement approval remains pending.
 - SSOT: no source-of-truth default change; legacy remains the default engine.
 - Planning: this section records the opt-in patch and rollback path.
+
+## 2026-05-31 downstream sync after Phase 3 opt-in patch
+
+Status: synced-and-validated
+
+Source commit synced:
+
+- `1bab3ef5c7cdb73ab4f52267ea1f7334408e381d` (`Add opt-in response lifecycle engine`)
+
+Downstream validation:
+
+- `/home/lazydino/dev/medivance`
+  - `lazy-sync --force`: updated 5 framework files and marker.
+  - marker reached `1bab3ef5c7cd...`.
+  - `lazy test`: pass, host scope ran=40 skipped=16.
+  - `LAZY_RESPONSE_COMPLETED_ENGINE=compare` smoke: pass.
+  - compare row: `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`.
+  - `git status --short`: clean.
+- `/home/lazydino/dev/medivance-pwa`
+  - `lazy-sync --force`: updated 5 framework files and marker.
+  - marker reached `1bab3ef5c7cd...`.
+  - `lazy test`: pass, host scope ran=40 skipped=16.
+  - `LAZY_RESPONSE_COMPLETED_ENGINE=compare` smoke: pass.
+  - compare row: `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`.
+  - `git status --short`: clean.
+
+Interpretation:
+
+```text
+The Phase 3 opt-in patch is now synced into both dogfood hosts and works in compare mode for a read-only no-output payload.
+This is still not production-default replacement approval. Default remains legacy.
+```
+
+Next source-side note:
+
+This record commit advances source HEAD beyond `1bab3ef`; downstream markers should be refreshed once more after committing this record.
