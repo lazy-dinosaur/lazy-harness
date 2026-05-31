@@ -664,3 +664,41 @@ Next recommended behavior:
 - ADR: no new architecture decision.
 - SSOT: no source-of-truth policy change.
 - Planning: updated here with current dogfood accumulation evidence and readiness caveat.
+
+## 2026-05-31 dogfood scope correction — Medivance primary, PWA secondary
+
+Status: user-confirmed scope correction
+Confirmation: user clarified that PWA development has not been progressing much, so near-term dogfood evaluation should use Medivance as the primary evidence source.
+
+Current rule for near-term dogfood checks:
+
+```text
+For immediate framework dogfood evaluation and readiness checks, prioritize `/home/lazydino/dev/medivance` evidence.
+Treat `/home/lazydino/dev/medivance-pwa` as secondary/contextual evidence until active PWA development resumes.
+```
+
+Rationale:
+
+- The 2026-05-31 check showed PWA has accumulated some telemetry and records, but much less active workflow evidence than Medivance.
+- User confirmed this is expected because PWA development is not currently active.
+- Therefore thin PWA evidence should not block Medivance-centered dogfood assessment or Phase 2 evaluation.
+- PWA should still be checked for sync/validation drift when framework changes are propagated, but not used as the primary readiness signal.
+
+## Rule placement
+
+- Rule: Near-term lazy-harness dogfood evaluation should use Medivance as primary evidence and PWA only as secondary/contextual evidence until PWA development resumes.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- Why not AGENTS.md: this is current dogfood evaluation scope, not universal framework grammar.
+- Why not `.jcode`: this concerns shared framework dogfood assessment across installed hosts, not private Jcode-only workflow.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- DDD: none.
+- SDD: no contract change.
+- BDD: no new user behavior scenario, but PWA normal-use evidence is explicitly secondary for now.
+- TDD: no regression change.
+- ADR: no architecture decision.
+- SSOT: no permanent ownership/source-of-truth change.
+- Planning: updated here with current dogfood evaluation scope.
