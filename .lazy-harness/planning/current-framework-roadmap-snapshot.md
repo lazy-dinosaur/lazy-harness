@@ -386,3 +386,57 @@ Framework backlog:
 - ADR: no decision yet.
 - SSOT: no source-of-truth change.
 - Planning: this is a backlog item for record discipline reliability.
+
+## 2026-05-31 correction capture gate implemented
+
+Status: implemented
+
+Correction capture:
+
+User clarified that recurring agent mistakes should not merely be manually recorded after the fact. The framework itself must help prevent repetition.
+
+Implemented behavior:
+
+- Added `check-user-correction-capture.sh` to the response.completed lifecycle helper chain.
+- The helper detects this pattern:
+  1. user message contains concrete correction / repeated mistake cues (`아니`, `잘못`, `자꾸 실수`, `기록하는 게 아니`, `하네스 수정`, `잊지마`, etc.)
+  2. assistant response acknowledges the correction (`맞습니다`, `죄송`, `제가 잘못`, `정정`, `누락`, etc.)
+  3. the turn did not touch a durable `.lazy-harness` record/correction ledger.
+- If all three are true, the hook emits STOP and tells the agent to add/update a record, append a correction candidate, or implement the harness fix with primary record/implementation map.
+
+Why this matters:
+
+```text
+Manual host-record patching after the user complains is not enough.
+The harness now blocks correction acknowledgement without durable convergence, so repeated mistakes are more likely to become searchable records or source-level fixes.
+```
+
+Implementation map:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-user-correction-capture.sh`
+  - New helper that scans `last_user_message`, `assistant_response`, and recent write tools.
+  - Allows same-turn capture to `.lazy-harness/{ssot,spec,behavior,tests,decisions,planning,plans}/...`, `.lazy-harness/knowledge/corrections.jsonl`, or `.lazy-harness/logs/corrections.jsonl`.
+- `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
+  - Runs the helper after `check-analysis-discovery-capture.sh` and before project-rule/option gates.
+- `.lazy-harness/scripts/lifecycle-check.py`
+  - Includes the helper in shadow/orchestrator parity order.
+- `.lazy-harness/spec/platform/hook-performance-measurement.md`
+  - Documents the correction-capture contract and allowed resolutions.
+- `.lazy-harness/scripts/self-test.py`
+  - Fixture proves acknowledgement without durable capture STOPs, and acknowledgement with `.lazy-harness` record write passes.
+
+Layer completeness:
+
+- SDD: yes, hook contract updated.
+- TDD: yes, self-test fixture added.
+- BDD: no user-facing app behavior change.
+- SSOT: no schema/config/env ownership change.
+- ADR: no new ADR; this implements existing ADR 0032 correction convergence behavior as an active lifecycle gate.
+- Planning: this section records the implementation and rationale.
+
+Rule placement:
+
+- Rule: User correction acknowledgement must converge into a durable record/correction ledger or harness source fix with primary record, not just a chat apology.
+- Scope: framework-behavior
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Confirmation: user-corrected on 2026-05-31.

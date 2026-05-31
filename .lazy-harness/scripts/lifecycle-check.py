@@ -27,6 +27,7 @@ HELPERS = [
     ".lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh",
+    ".lazy-harness/hooks/lifecycle/helpers/check-user-correction-capture.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh",

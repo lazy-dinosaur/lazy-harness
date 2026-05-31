@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-31T06:54:31Z",
+  "generatedAt": "2026-05-31T12:25:35Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2358,6 +2358,61 @@
       "target": "Accumulated lifecycle compare dogfood evidence review",
       "source": "Next-session protocol for summarizing Medivance and Medivance PWA lifecycle-compare logs, preserving user-owned compare wiring, and gating compare-to-orchestrator escalation on explicit approval",
       "updatedAt": "2026-05-31T06:54:00Z"
+    },
+    {
+      "id": "kg_user_correction_capture_helper_impl",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-user-correction-capture.sh",
+      "relation": "implements",
+      "target": "User correction acknowledgement durable-capture gate",
+      "source": "Stops response.completed when user correction cues plus assistant acknowledgement appear without same-turn .lazy-harness record/correction capture",
+      "symbols": [
+        "user_correction_patterns",
+        "assistant_ack_patterns",
+        "CAPTURE_RE"
+      ],
+      "updatedAt": "2026-05-31T12:25:00Z"
+    },
+    {
+      "id": "kg_user_correction_capture_hook_chain",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "runs",
+      "target": "check-user-correction-capture.sh",
+      "source": "Legacy response.completed chain runs correction capture after analysis discovery capture",
+      "updatedAt": "2026-05-31T12:25:00Z"
+    },
+    {
+      "id": "kg_user_correction_capture_orchestrator_chain",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-check.py",
+      "relation": "mirrors",
+      "target": "check-user-correction-capture.sh",
+      "source": "Shadow/orchestrator helper order includes correction capture gate for parity",
+      "updatedAt": "2026-05-31T12:25:00Z"
+    },
+    {
+      "id": "kg_user_correction_capture_spec",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+      "relation": "specifies",
+      "target": "User correction capture gate contract",
+      "source": "Documents trigger conditions, allowed resolutions, and no fast-path skip rule",
+      "updatedAt": "2026-05-31T12:25:00Z"
+    },
+    {
+      "id": "kg_user_correction_capture_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "User correction capture gate",
+      "source": "Fixture asserts acknowledgement without durable capture emits STOP; same acknowledgement with .lazy-harness record write does not",
+      "updatedAt": "2026-05-31T12:25:00Z"
     }
   ]
 }

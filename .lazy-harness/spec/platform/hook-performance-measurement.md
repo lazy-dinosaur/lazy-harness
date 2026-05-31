@@ -65,6 +65,7 @@ The summary command is read-only and reports per-component count, total, average
 - `orchestrator` mode must fall back to the legacy loop if `lifecycle-check.py` exits non-zero or emits invalid JSON.
 - `compare` mode must keep legacy output as user-visible truth and run the orchestrator in a sandbox copy to avoid real-host duplicate side effects.
 - Compare logs must store hashes/lengths and helper names, not raw user messages, payloads, or hook bodies.
+- User correction acknowledgement must converge into a durable record/correction ledger. The hook must stop turns where the user corrects a recurring mistake, the assistant acknowledges it, and no `.lazy-harness` record/correction capture is touched.
 
 ## Phase 1 read-only fast-path
 
@@ -88,6 +89,24 @@ Not skipped:
 
 - BDD trigger, because it can inspect natural-language user flow even without writes.
 - analysis discovery, project rule placement, option-gate discipline, record-before-session-history, lazy CLI entrypoint, aftershock reanalysis, fix-regression, ADR sync, and handoff stale helpers.
+
+## User correction capture gate
+
+`check-user-correction-capture.sh` protects the recurring dogfood failure mode where an agent says “맞습니다/죄송/제가 잘못” after a user correction but only fixes the current chat context.
+
+The helper triggers when:
+
+- `last_user_message` contains concrete correction/repeated-mistake cues such as `아니`, `잘못`, `자꾸 실수`, `기록하는 게 아니`, `하네스 수정`, or `잊지마`.
+- `assistant_response` acknowledges the correction with cues such as `맞습니다`, `죄송`, `제가 잘못`, `정정`, or `누락`.
+- The same turn did not touch a durable `.lazy-harness/{ssot,spec,behavior,tests,decisions,planning}` record or `.lazy-harness/{knowledge,logs}/corrections.jsonl`.
+
+Allowed resolutions:
+
+- Add/update the appropriate layer record with a `Correction capture` or equivalent section.
+- Append a candidate correction row to `.lazy-harness/knowledge/corrections.jsonl` or `.lazy-harness/logs/corrections.jsonl` when the final layer is not yet clear.
+- For framework bugs, implement the source fix and update the primary record / implementation map in the same turn.
+
+This gate is intentionally not skipped by read-only fast-path because corrections can happen without file writes.
 
 ## Phase 2 shadow orchestrator
 
@@ -179,6 +198,7 @@ rm -f .lazy-harness/logs/lifecycle-compare.jsonl
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
   - The same test protects Phase 3 opt-in modes: orchestrator timing, sandboxed compare logging, and no raw body storage.
+  - The same test protects user-correction capture: acknowledgement without durable capture emits STOP, while a `.lazy-harness` record write satisfies the gate.
   - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
   - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the 12-fixture suite.
 

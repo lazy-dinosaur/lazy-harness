@@ -2222,6 +2222,48 @@ def check_response_completed_auto_route_telemetry() -> None:
             fail("compare engine should log sanitized sandbox comparison rows: " + compare_log.read_text(encoding="utf-8"))
         if "legacyBody" in compare_rows[-1] or "orchestratorBody" in compare_rows[-1]:
             fail("compare log must store hashes/lengths, not raw hook bodies")
+
+        correction_payload = {
+            "message_id": "correction-capture-missing",
+            "last_user_message": "너가 기록하는거 아닌거 알지? 하네스를 수정하는거야. 자꾸 실수하는건 기능으로 넣어야겠다.",
+            "assistant_response": "맞습니다. 제가 또 방향을 잘못 잡았습니다. 죄송합니다.",
+            "recent_tool_calls": [],
+        }
+        correction_completed = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(correction_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(temp / ".lazy-harness" / "logs" / "hook-timings-correction.jsonl")},
+        )
+        if correction_completed.returncode != 0:
+            fail("user correction capture fixture hook failed:\n" + correction_completed.stdout + correction_completed.stderr)
+        if "User correction capture gate" not in correction_completed.stdout:
+            fail("user correction acknowledgement without durable capture must STOP:\n" + correction_completed.stdout + correction_completed.stderr)
+
+        correction_captured_payload = {
+            **correction_payload,
+            "message_id": "correction-capture-recorded",
+            "recent_tool_calls": [{
+                "name": "write",
+                "args_preview": ".lazy-harness/planning/current-framework-roadmap-snapshot.md Correction capture primary record",
+            }],
+        }
+        captured_completed = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(correction_captured_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(temp / ".lazy-harness" / "logs" / "hook-timings-correction-captured.jsonl")},
+        )
+        if captured_completed.returncode != 0:
+            fail("captured user correction fixture hook failed:\n" + captured_completed.stdout + captured_completed.stderr)
+        if "User correction capture gate" in captured_completed.stdout:
+            fail("user correction with durable capture should not trigger correction gate:\n" + captured_completed.stdout + captured_completed.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response.completed auto route telemetry ok")
