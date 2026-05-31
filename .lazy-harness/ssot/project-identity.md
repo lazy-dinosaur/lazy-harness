@@ -73,3 +73,40 @@ Project-specific rules should normally be records, not hardcoded into the shared
 - Machine index:
   - graph ids: `kg_ssot_project_identity_lazy_harness_source`, `kg_ssot_project_identity_context_interpretation`
   - generated index key: `pending until implementation-index generator exists`
+
+## 2026-05-31 correction — do not manually patch downstream dogfood host registries
+
+Status: accepted
+Confirmation: user-corrected
+
+User correction:
+
+```text
+When evaluating Medivance dogfood evidence for Capability Registry gaps, the target work is to modify the lazy-harness framework source, not to commit manual registry edits inside the Medivance downstream host.
+```
+
+Operational rule:
+
+- `/home/lazydino/dev/medivance` is dogfood evidence and an installed downstream copy.
+- Do not commit direct Medivance `.lazy-harness/ssot/capabilities.json` edits as the solution to framework Capability Registry gaps unless the user explicitly asks for a downstream host patch.
+- Capability gaps discovered from Medivance should be converted into source-repo framework improvements in `/home/lazydino/dev/lazy-harness`, such as better candidate detection, auto-confirmation/promotion policy, resolver coverage, CLI ergonomics, tests, or syncable framework records.
+- Medivance may be used after source changes for sync-and-validate dogfooding only.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/ssot/project-identity.md` — downstream/source ownership boundary.
+  - `.lazy-harness/planning/capability-registry-implementation-plan.md` — Capability Registry evaluation and follow-up source work.
+  - `/home/lazydino/dev/medivance/.lazy-harness/ssot/capabilities.json` — downstream host registry, evidence target only unless explicitly requested.
+- Flow:
+  1. Agent evaluates Medivance dogfood evidence.
+  2. If gaps are found, agent implements or plans source lazy-harness changes in this repo.
+  3. Agent syncs source to Medivance only for validation/dogfooding, not as the primary commit target.
+- Tests / protection:
+  - `.lazy-harness/scripts/self-test.py`
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+  - Medivance sync/dogfood validation only after source changes.
+- Cross-layer links:
+  - Planning: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+  - ADR: `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md`

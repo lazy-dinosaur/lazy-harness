@@ -1,6 +1,1920 @@
 {
-  "generatedAt": "2026-05-26T04:04:20Z",
+  "generatedAt": "2026-05-31T05:37:37Z",
   "records": [
+    {
+      "id": "kg_adr0032_decides_user_correction_convergence",
+      "createdAt": "2026-05-14T02:27:57.684093Z",
+      "updatedAt": "2026-05-14T02:27:57.684093Z",
+      "layer": "adr",
+      "kind": "decision",
+      "subject": ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md",
+      "predicate": "decides",
+      "object": "Explicit user corrections about host role, source-of-truth, or ownership converge into host-local SSOT/layer records with implementation maps.",
+      "status": "confirmed",
+      "confidence": "user-confirmed",
+      "evidence": [
+        {
+          "type": "user-confirmation",
+          "quote": "모르는게 있거나 하면 레코드 뒤져보고 없으면 등록하고 해야하는데 ... 행동양식이 아직 부족한거지??"
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/AGENTS.md"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/spec/platform/implementation-map-standard.md"
+        }
+      ],
+      "provenance": {
+        "source": "conversation",
+        "confirmedBy": "user",
+        "confirmedAt": "2026-05-14T02:27:57.684093Z"
+      }
+    },
+    {
+      "id": "kg_agents_implements_adr0032",
+      "createdAt": "2026-05-14T02:27:57.684093Z",
+      "updatedAt": "2026-05-14T02:27:57.684093Z",
+      "layer": "adr",
+      "kind": "implementation",
+      "subject": ".lazy-harness/AGENTS.md",
+      "predicate": "implements",
+      "object": "ADR 0032 user-correction convergence behavior in §2.5.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "doc",
+          "path": ".lazy-harness/AGENTS.md",
+          "quote": "사용자 정정 수렴 규칙 (ADR 0032)"
+        }
+      ],
+      "links": [
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-05-14T02:27:57.684093Z"
+      }
+    },
+    {
+      "id": "kg_implmap_standard_implements_ownership_boundaries",
+      "createdAt": "2026-05-14T02:27:57.684093Z",
+      "updatedAt": "2026-05-14T02:27:57.684093Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/spec/platform/implementation-map-standard.md",
+      "predicate": "implements",
+      "object": "Implementation map template includes ownership boundaries for upstream/downstream/source-of-truth facts.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "doc",
+          "path": ".lazy-harness/spec/platform/implementation-map-standard.md",
+          "quote": "Ownership boundaries"
+        }
+      ],
+      "links": [
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-05-14T02:27:57.684093Z"
+      }
+    },
+    {
+      "id": "kg_ssot_project_identity_lazy_harness_source",
+      "createdAt": "2026-05-14T23:36:56.224611Z",
+      "updatedAt": "2026-05-14T23:36:56.224611Z",
+      "layer": "ssot",
+      "kind": "source-of-truth",
+      "subject": ".lazy-harness/ssot/project-identity.md",
+      "predicate": "source_of_truth_for",
+      "object": "This checkout is the standalone lazy-harness framework source-of-truth repo for framework creation, tuning, validation, and host integration assets.",
+      "status": "confirmed",
+      "confidence": "user-confirmed",
+      "evidence": [
+        {
+          "type": "user-confirmation",
+          "quote": "우리 프로젝트의 목표가 lazy-harness 라는 프레임워크 제작"
+        }
+      ],
+      "links": [
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0024-ai-first-framework-redesign.md"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".jcode/harness/20-project-rules.md"
+        }
+      ],
+      "provenance": {
+        "source": "conversation",
+        "confirmedBy": "user",
+        "confirmedAt": "2026-05-14T23:36:56.224611Z"
+      }
+    },
+    {
+      "id": "kg_ssot_project_identity_context_interpretation",
+      "createdAt": "2026-05-14T23:36:56.224611Z",
+      "updatedAt": "2026-05-14T23:36:56.224611Z",
+      "layer": "ssot",
+      "kind": "behavior-boundary",
+      "subject": ".lazy-harness/ssot/project-identity.md",
+      "predicate": "constrains_interpretation_of",
+      "object": "Ambiguous screenshots/transcripts shown during harness tuning should be interpreted first as evidence about lazy-harness/Jcode-agent behavior, not as unrelated product UI bugs.",
+      "status": "confirmed",
+      "confidence": "user-confirmed",
+      "evidence": [
+        {
+          "type": "user-correction",
+          "quote": "우리가 하는건 하네스 튜닝이잔아 맞지?"
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/AGENTS.md"
+        },
+        {
+          "rel": "source_of_truth_for",
+          "target": ".lazy-harness/ssot/project-identity.md"
+        }
+      ],
+      "provenance": {
+        "source": "conversation",
+        "confirmedBy": "user",
+        "confirmedAt": "2026-05-14T23:36:56.224611Z"
+      }
+    },
+    {
+      "id": "kg_adr0034_decides_analysis_discovery_capture_gate",
+      "createdAt": "2026-05-14T23:58:44.791864Z",
+      "updatedAt": "2026-05-14T23:58:44.791864Z",
+      "layer": "adr",
+      "kind": "decision",
+      "subject": ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
+      "predicate": "decides",
+      "object": "Non-trivial analysis/planning that discovers layer facts or creates a multi-step plan must capture records, candidates, planning artifacts, or an explicit Discovery capture judgement.",
+      "status": "proposed",
+      "confidence": "user-confirmed-problem",
+      "evidence": [
+        {
+          "type": "user-correction",
+          "quote": "자기가 잘 목차도 나누고 코드분석도 했는데 ... ddd sdd tdd bdd ssot 이런게 많이 발견됬을탠데 전혀 기록을 못하고 있어서 ... 계획도 짜놓고 작성을 안해놓으니까 이게 문제"
+        }
+      ],
+      "links": [
+        {
+          "rel": "planned_by",
+          "target": ".lazy-harness/planning/analysis-discovery-capture-backlog.md"
+        },
+        {
+          "rel": "extends",
+          "target": ".lazy-harness/decisions/0033-layer-completeness-gate.md"
+        }
+      ],
+      "provenance": {
+        "source": "conversation",
+        "confirmedBy": "user",
+        "confirmedAt": "2026-05-14T23:58:44.791864Z"
+      }
+    },
+    {
+      "id": "kg_plan_analysis_discovery_capture_backlog",
+      "createdAt": "2026-05-14T23:58:44.791864Z",
+      "updatedAt": "2026-05-14T23:58:44.791864Z",
+      "layer": "planning",
+      "kind": "plan",
+      "subject": ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
+      "predicate": "plans_implementation_of",
+      "object": "ADR 0034 analysis discovery and plan capture gate across AGENTS grammar, SDD standard, candidate queue, lifecycle helper, self-tests, and sync manifests.",
+      "status": "proposed",
+      "confidence": "record-evidence",
+      "evidence": [
+        {
+          "type": "doc",
+          "path": ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
+          "quote": "Backlog"
+        }
+      ],
+      "links": [
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-05-14T23:58:44.791864Z"
+      }
+    },
+    {
+      "id": "kg_sdd_analysis_discovery_capture_gate",
+      "type": "implemented_by",
+      "source": ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
+      "target": ".lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh",
+      "layers": [
+        "SDD"
+      ],
+      "description": "Analysis discovery capture SDD is implemented by response-completed lifecycle helper.",
+      "createdAt": "2026-05-15T00:08:01.467483+00:00"
+    },
+    {
+      "id": "kg_helper_analysis_discovery_capture_self_test",
+      "type": "protected_by",
+      "source": ".lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh",
+      "target": ".lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper",
+      "layers": [
+        "SDD",
+        "TDD"
+      ],
+      "description": "ADR 0034 helper block/pass behavior is protected by self-test fixtures.",
+      "createdAt": "2026-05-15T00:08:01.467483+00:00"
+    },
+    {
+      "id": "kg_manifest_sync_analysis_discovery_capture_gate",
+      "type": "configured_by",
+      "source": ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
+      "target": ".lazy-harness/manifests/init-categories.json",
+      "layers": [
+        "SDD",
+        "SSOT"
+      ],
+      "description": "Analysis discovery capture ADR and SDD are synced to hosts through init categories manifest.",
+      "createdAt": "2026-05-15T00:08:01.467483+00:00"
+    },
+    {
+      "id": "kg_ssot_rule_sources_project_rule_router",
+      "createdAt": "2026-05-15T02:14:27.860041Z",
+      "updatedAt": "2026-05-15T02:14:27.860041Z",
+      "layer": "ssot",
+      "kind": "source-of-truth",
+      "subject": ".lazy-harness/ssot/rule-sources.md",
+      "predicate": "source_of_truth_for",
+      "object": "Project-specific rule placement priority and canonical storage locations across .lazy-harness records, planning, AGENTS grammar, and .jcode local-only notes.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "doc",
+          "path": ".lazy-harness/ssot/rule-sources.md",
+          "quote": "Rule placement matrix"
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/project-rule-router.md"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0024-ai-first-framework-redesign.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-05-15T02:14:27.860041Z"
+      }
+    },
+    {
+      "id": "kg_sdd_project_rule_router",
+      "createdAt": "2026-05-15T02:14:27.860041Z",
+      "updatedAt": "2026-05-15T02:14:27.860041Z",
+      "layer": "sdd",
+      "kind": "contract",
+      "subject": ".lazy-harness/spec/platform/project-rule-router.md",
+      "predicate": "specifies",
+      "object": "Lifecycle and judgement contract for routing project-specific rules to AGENTS, SSOT/ADR/layer records, planning, or .jcode-local workflow.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "doc",
+          "path": ".lazy-harness/spec/platform/project-rule-router.md",
+          "quote": "Completion contract"
+        }
+      ],
+      "links": [
+        {
+          "rel": "source_of_truth_for",
+          "target": ".lazy-harness/ssot/rule-sources.md"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-05-15T02:14:27.860041Z"
+      }
+    },
+    {
+      "id": "kg_jcode_project_rules_pointer_only_migration",
+      "createdAt": "2026-05-15T05:01:43.556924+00:00",
+      "updatedAt": "2026-05-15T05:01:43.556931+00:00",
+      "layer": "ssot",
+      "kind": "policy",
+      "subject": ".jcode/harness/20-project-rules.md",
+      "predicate": "pointer_only_to",
+      "object": ".lazy-harness canonical records for host/team/custom rules",
+      "status": "confirmed",
+      "confidence": "user-confirmed",
+      "evidence": [
+        {
+          "type": "user-confirmation",
+          "quote": ".jcode 의 경우는 기본 룰인거고 여기서 확장되서 커스텀되는 모든건 .lazy-harness 내부로 가야지"
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/ssot/rule-sources.md"
+        },
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/project-rule-router.md"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/jcode-wiring.ts"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/scripts/self-test.py"
+        }
+      ],
+      "provenance": {
+        "source": "conversation",
+        "confirmedBy": "user",
+        "confirmedAt": "2026-05-15T05:01:43.556933+00:00"
+      }
+    },
+    {
+      "id": "kg_sdd_jcode_skill_creation_contract",
+      "type": "specifies",
+      "source": ".lazy-harness/spec/platform/jcode-skill-creation.md",
+      "target": "lazy skill create",
+      "layers": [
+        "SDD"
+      ],
+      "description": "Contract for creating project-local custom Jcode skills with optional scripts and skills.jsonl metadata.",
+      "createdAt": "2026-05-15T05:31:04.870010+00:00",
+      "status": "verified"
+    },
+    {
+      "id": "kg_cli_skill_create_implemented_by_script",
+      "type": "implemented_by",
+      "source": ".lazy-harness/bin/lazy",
+      "target": ".lazy-harness/scripts/skill-create.ts",
+      "layers": [
+        "SDD"
+      ],
+      "description": "lazy skill create dispatches to skill-create.ts.",
+      "createdAt": "2026-05-15T05:31:04.870010+00:00",
+      "status": "verified"
+    },
+    {
+      "id": "kg_skill_create_protected_by_self_test",
+      "type": "protected_by",
+      "source": ".lazy-harness/scripts/skill-create.ts",
+      "target": ".lazy-harness/scripts/self-test.py#check_skill_create_cli",
+      "layers": [
+        "SDD",
+        "TDD"
+      ],
+      "description": "Custom skill generation is protected by self-test fixture.",
+      "createdAt": "2026-05-15T05:31:04.870010+00:00",
+      "status": "verified"
+    },
+    {
+      "id": "kg_sdd_option_gate_discipline",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/option-gate-discipline.md",
+      "relation": "defines_contract",
+      "target": "option-gate-discipline",
+      "source": "self-test verified option gate loop/self-selection fix",
+      "updatedAt": "2026-05-15T06:24:05.568363+00:00"
+    },
+    {
+      "id": "kg_hook_option_gate_discipline_helper",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh",
+      "relation": "implements",
+      "target": "option-gate-discipline",
+      "source": "lifecycle response.completed helper",
+      "updatedAt": "2026-05-15T06:24:05.568363+00:00"
+    },
+    {
+      "id": "kg_test_option_gate_discipline_helper",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "option-gate-discipline",
+      "source": "check_option_gate_discipline_helper",
+      "updatedAt": "2026-05-15T06:24:05.568363+00:00"
+    },
+    {
+      "id": "kg_sdd_record_before_session_history",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/record-before-session-history.md",
+      "relation": "defines_contract",
+      "target": "record-before-session-history",
+      "source": "dogfooding screenshot showed session_search before records for recorded plan lookup",
+      "updatedAt": "2026-05-15T09:47:41.984074+00:00"
+    },
+    {
+      "id": "kg_hook_record_before_session_history_helper",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh",
+      "relation": "implements",
+      "target": "record-before-session-history",
+      "source": "response.completed lifecycle helper",
+      "updatedAt": "2026-05-15T09:47:41.984074+00:00"
+    },
+    {
+      "id": "kg_test_record_before_session_history_helper",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "record-before-session-history",
+      "source": "check_record_before_session_history_helper",
+      "updatedAt": "2026-05-15T09:47:41.984074+00:00"
+    },
+    {
+      "id": "kg_sdd_host_root_resolution",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/host-root-resolution.md",
+      "relation": "defines_contract",
+      "target": "host-root-resolution",
+      "source": "worktree symlink validation root bug",
+      "updatedAt": "2026-05-16T00:22:51.336661+00:00"
+    },
+    {
+      "id": "kg_cli_lazy_exports_lazy_host_root",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "implements",
+      "target": "LAZY_HOST_ROOT",
+      "source": "caller git root resolution",
+      "updatedAt": "2026-05-16T00:22:51.336661+00:00"
+    },
+    {
+      "id": "kg_doctor_selftest_use_lazy_host_root",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": [
+        ".lazy-harness/scripts/doctor.py",
+        ".lazy-harness/scripts/self-test.py"
+      ],
+      "relation": "implements",
+      "target": "host-root-env-precedence",
+      "source": "Python validators prefer LAZY_HOST_ROOT",
+      "updatedAt": "2026-05-21T11:54:00Z"
+    },
+    {
+      "id": "kg_test_lazy_host_root_resolution",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "host-root-resolution",
+      "source": "check_lazy_host_root_resolution",
+      "updatedAt": "2026-05-16T00:22:51.336661+00:00"
+    },
+    {
+      "id": "kg_sdd_lazy_cli_entrypoint",
+      "subject": ".lazy-harness/spec/platform/lazy-cli-entrypoint.md",
+      "relation": "defines_contract",
+      "object": "canonical .lazy-harness/bin/lazy CLI entrypoint",
+      "layer": "sdd",
+      "confidence": "verified",
+      "updatedAt": "2026-05-16T00:59:31Z"
+    },
+    {
+      "id": "kg_hook_lazy_cli_entrypoint_helper",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh",
+      "relation": "implements",
+      "object": "kg_sdd_lazy_cli_entrypoint",
+      "layer": "sdd",
+      "confidence": "verified",
+      "updatedAt": "2026-05-16T00:59:31Z"
+    },
+    {
+      "id": "kg_test_lazy_cli_entrypoint_helper",
+      "subject": "check_lazy_cli_entrypoint_helper",
+      "relation": "protects",
+      "object": "kg_sdd_lazy_cli_entrypoint",
+      "layer": "tdd",
+      "file": ".lazy-harness/scripts/self-test.py",
+      "confidence": "verified",
+      "updatedAt": "2026-05-16T00:59:31Z"
+    },
+    {
+      "id": "kg_sdd_package_health_generate_remediation",
+      "subject": ".lazy-harness/spec/platform/package-health-generate-remediation.md",
+      "relation": "defines_contract",
+      "object": "D07 package health generate remediation and retry",
+      "layer": "sdd",
+      "confidence": "verified",
+      "updatedAt": "2026-05-16T00:59:31Z"
+    },
+    {
+      "id": "kg_doctor_package_health_generate_remediation",
+      "subject": "check_package_health",
+      "relation": "implements",
+      "object": "kg_sdd_package_health_generate_remediation",
+      "layer": "sdd",
+      "file": ".lazy-harness/scripts/doctor.py",
+      "confidence": "verified",
+      "updatedAt": "2026-05-16T00:59:31Z"
+    },
+    {
+      "id": "kg_tdd_git_hook_env_isolation",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/git-env-isolation.md",
+      "relation": "defines_regression",
+      "target": "pre-push git hook env isolation",
+      "source": "push hook inherited GIT_DIR/GIT_WORK_TREE into self-test temp fixture",
+      "updatedAt": "2026-05-16T01:33:07.777939Z"
+    },
+    {
+      "id": "kg_prepush_clears_git_env",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/pre-push.sh",
+      "relation": "implements",
+      "target": "git-hook-env-isolation",
+      "source": "LAZY_HOST_ROOT plus env -u GIT_DIR -u GIT_WORK_TREE",
+      "updatedAt": "2026-05-16T01:33:07.777939Z"
+    },
+    {
+      "id": "kg_cli_prefers_lazy_host_root",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "implements",
+      "target": "host-root-env-precedence",
+      "source": "valid LAZY_HOST_ROOT takes precedence over git discovery",
+      "updatedAt": "2026-05-16T01:33:07.777939Z"
+    },
+    {
+      "id": "kg_test_git_env_isolation",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "git-hook-env-isolation",
+      "source": "check_pre_push_uses_canonical_lazy_cli and check_lazy_host_root_resolution",
+      "updatedAt": "2026-05-16T01:33:07.777939Z"
+    },
+    {
+      "id": "kg_adr_standalone_source_repo",
+      "kind": "decision",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0027-standalone-source-of-truth-repository.md",
+      "relation": "defines_policy",
+      "target": "standalone lazy-harness source repo tracks .lazy-harness on main",
+      "source": "ADR 0027 pre-push policy update",
+      "updatedAt": "2026-05-16T01:36:53.169643Z"
+    },
+    {
+      "id": "kg_prepush_framework_repo_exception",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/hooks/pre-push.sh",
+      "relation": "implements",
+      "target": "standalone-source-repo-leak-guard-exception",
+      "source": "IS_FRAMEWORK_REPO marker check",
+      "updatedAt": "2026-05-16T01:36:53.169643Z"
+    },
+    {
+      "id": "kg_layer_impact_validations_file_override",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/layer-impact-gate.ts",
+      "relation": "implements",
+      "target": "temporary validation log override",
+      "source": "LAZY_HARNESS_VALIDATIONS_FILE",
+      "updatedAt": "2026-05-16T01:40:21.980666Z"
+    },
+    {
+      "id": "kg_selftest_temp_validation_log",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "self-test leaves tracked validations log clean",
+      "source": "run_response_completed_hook temp validation file",
+      "updatedAt": "2026-05-16T01:40:21.980666Z"
+    },
+    {
+      "id": "kg_tdd_project_rule_memory_routing",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/project-rule-memory-routing.md",
+      "relation": "defines_regression",
+      "target": "project rules must not be stored in Jcode memory",
+      "source": "user correction after worktree cwd rule was saved as memory",
+      "updatedAt": "2026-05-17T00:11:51.665439Z"
+    },
+    {
+      "id": "kg_hook_project_rule_memory_gate",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "implements",
+      "target": "project-rule-memory-routing-gate",
+      "source": "MEMORY_TOOLS and MEMORY_RULE_CUES",
+      "updatedAt": "2026-05-17T00:11:51.665439Z"
+    },
+    {
+      "id": "kg_test_project_rule_memory_gate",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "project-rule-memory-routing-gate",
+      "source": "check_project_rule_placement_helper memory_blocked_payload",
+      "updatedAt": "2026-05-17T00:11:51.665439Z"
+    },
+    {
+      "id": "kg_adr0026_selftest_scope_propagation",
+      "kind": "decision-addendum",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0026-doctor-self-test-scope-separation.md",
+      "relation": "requires",
+      "target": "self-test scope override propagates to nested doctor subprocesses",
+      "source": "legacy installed copy retained framework markers",
+      "updatedAt": "2026-05-17T00:22:15.689322Z"
+    },
+    {
+      "id": "kg_selftest_doctor_scope_args",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "implements",
+      "target": "doctor scope override propagation",
+      "source": "ACTIVE_SCOPE and doctor_scope_args",
+      "updatedAt": "2026-05-17T00:22:15.689322Z"
+    },
+    {
+      "id": "kg_tdd_bdd_trigger_option_gate_loop",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/bdd-trigger-option-gate-loop.md",
+      "relation": "defines_regression",
+      "target": "BDD trigger must not repeat already-open option gate",
+      "source": "screenshot showed repeated BackgroundTask BDD option block",
+      "updatedAt": "2026-05-17T08:23:22.150372Z"
+    },
+    {
+      "id": "kg_hook_bdd_trigger_loop_suppression",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh",
+      "relation": "implements",
+      "target": "bdd-trigger-option-gate-loop-suppression",
+      "source": "assistant_response gate suppression",
+      "updatedAt": "2026-05-17T08:23:22.150372Z"
+    },
+    {
+      "id": "kg_test_bdd_trigger_loop_suppression",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "bdd-trigger-option-gate-loop-suppression",
+      "source": "check_bdd_trigger_loop_suppression",
+      "updatedAt": "2026-05-17T08:23:22.150372Z"
+    },
+    {
+      "id": "kg_trigger_code_change_lazy_tsmorph_for_bdd",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/triggers/code-change.ts",
+      "relation": "implements",
+      "target": "BDD trigger natural-language path avoids host ts-morph dependency",
+      "source": "loadTsMorph guarded by opts.layer !== 'bdd'",
+      "updatedAt": "2026-05-17T08:30:37.298068Z"
+    },
+    {
+      "id": "kg_test_bdd_trigger_tsmorph_isolation",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "BDD trigger dependency isolation in installed hosts",
+      "source": "check_bdd_trigger_avoids_runtime_tsmorph",
+      "updatedAt": "2026-05-17T08:30:37.298068Z"
+    },
+    {
+      "id": "kg_tdd_bdd_trigger_option_gate_loop_bypass",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md",
+      "relation": "defines_regression",
+      "target": "BDD trigger same-turn suppression bypass caused by missing assistant_response in production payload",
+      "source": "medivance payload dumps confirmed response.completed lacks assistant_response",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_sdd_option_gate_turn_fingerprint",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/option-gate-discipline.md",
+      "relation": "defines_contract",
+      "target": "turn-level option gate fingerprint suppression",
+      "source": "A+C fix for BDD trigger suppression bypass",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_ssot_gate_fingerprint_state",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/gate-fingerprint-state.md",
+      "relation": "defines_source_of_truth",
+      "target": ".lazy-harness/state/open-gates.json runtime schema",
+      "source": "message_id-scoped open_fingerprints map",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_hook_gate_fingerprint_helper",
+      "kind": "implementation",
+      "layer": "SSOT",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh",
+      "relation": "implements",
+      "target": "turn-level option gate fingerprint suppression",
+      "source": "check/record commands clear fingerprints when message_id changes",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_hook_bdd_trigger_fingerprint_suppression",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh",
+      "relation": "implements",
+      "target": "bdd-trigger-option-gate-loop-suppression",
+      "source": "computes sha1(files+last_user_message) fingerprint and uses gate-fingerprint.sh",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_test_bdd_trigger_fingerprint_suppression",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "turn-level BDD trigger fingerprint suppression",
+      "source": "check_bdd_trigger_loop_suppression validates first fire, same-turn suppress, new-turn re-fire with production-like payload",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_tdd_todo_auto_poke_rate_limit_loop",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/todo-reminder-loop-and-stream-utf8-invalid.md",
+      "relation": "defines_external_regression",
+      "target": "jcode auto-poke repeats incomplete todo prompts during reload/rate-limit failures",
+      "source": "screenshots showed Auto-poking loop plus 429 and stream reload symptoms",
+      "updatedAt": "2026-05-18T00:31:09Z"
+    },
+    {
+      "id": "kg_external_agent_harness_reference_doc",
+      "kind": "record",
+      "subject": "planning:external-agent-harness-reference",
+      "predicate": "implemented_by",
+      "object": ".lazy-harness/planning/external-agent-harness-reference.md",
+      "createdAt": "2026-05-18T04:45:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_external_agent_harness_reference_decided_by_adr0024",
+      "kind": "record",
+      "subject": "planning:external-agent-harness-reference",
+      "predicate": "decided_by",
+      "object": ".lazy-harness/decisions/0024-ai-first-framework-redesign.md",
+      "createdAt": "2026-05-18T04:45:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_external_agent_harness_reference_candidate_source",
+      "kind": "record",
+      "subject": "planning:external-agent-harness-reference",
+      "predicate": "derived_from",
+      "object": ".lazy-harness/knowledge/candidates.jsonl#external-agent-harness-landscape",
+      "createdAt": "2026-05-18T04:45:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_practical_agent_harness_operating_patterns_doc",
+      "kind": "record",
+      "subject": "planning:practical-agent-harness-operating-patterns",
+      "predicate": "implemented_by",
+      "object": ".lazy-harness/planning/practical-agent-harness-operating-patterns.md",
+      "createdAt": "2026-05-18T04:47:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_practical_agent_harness_patterns_related_external_reference",
+      "kind": "record",
+      "subject": "planning:practical-agent-harness-operating-patterns",
+      "predicate": "related_to",
+      "object": ".lazy-harness/planning/external-agent-harness-reference.md",
+      "createdAt": "2026-05-18T04:47:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_practical_agent_harness_patterns_omo_source",
+      "kind": "record",
+      "subject": "planning:practical-agent-harness-operating-patterns",
+      "predicate": "derived_from",
+      "object": ".lazy-harness/knowledge/upstream-references/oh-my-openagent-analysis.md",
+      "createdAt": "2026-05-18T04:47:00Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_external_agent_harness_reference_second_pass",
+      "kind": "record",
+      "subject": "planning:external-agent-harness-reference",
+      "predicate": "expanded_by",
+      "object": "second-pass-product-control-plane-adapter-runtime-eval-harnesses",
+      "createdAt": "2026-05-18T04:59:30Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_external_agent_harness_reference_eval_runtime_axis",
+      "kind": "record",
+      "subject": "planning:external-agent-harness-reference",
+      "predicate": "identifies_axis",
+      "object": "product-agent|fleet-control-plane|universal-adapter|sandbox-runtime|eval-harness",
+      "createdAt": "2026-05-18T04:59:30Z",
+      "source": "manual-record-convergence"
+    },
+    {
+      "id": "kg_tdd_project_rule_placement_gate_loop",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/project-rule-placement-gate-loop.md",
+      "relation": "defines_regression",
+      "target": "Project rule placement STOP reminder must not repeat for same message_id and fingerprint",
+      "source": "user observed repeated Rule placement blocks for Medivance named dev instance workflow",
+      "updatedAt": "2026-05-18T07:34:50Z"
+    },
+    {
+      "id": "kg_hook_project_rule_placement_fingerprint_suppression",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "implements",
+      "target": "project-rule-placement-gate-loop-suppression",
+      "source": "gate_already_open_this_turn records project-rule-placement fingerprints in open-gates.json",
+      "updatedAt": "2026-05-18T07:34:50Z"
+    },
+    {
+      "id": "kg_test_project_rule_placement_fingerprint_suppression",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "project-rule-placement-gate-loop-suppression",
+      "source": "check_project_rule_placement_helper validates first fire, same-turn suppression, and new-turn re-fire without assistant_response",
+      "updatedAt": "2026-05-18T07:34:50Z"
+    },
+    {
+      "id": "kg_sdd_project_rule_router_fingerprint_contract",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/project-rule-router.md",
+      "relation": "defines_contract",
+      "target": "Project rule placement helper uses turn-level fingerprint suppression",
+      "source": "project rule placement gate loop fix",
+      "updatedAt": "2026-05-18T07:34:50Z"
+    },
+    {
+      "id": "kg_adr0016_dev_advisory_commit_blocking",
+      "kind": "decision",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0016-lifecycle-hook-strategy.md",
+      "relation": "defines_policy",
+      "target": "development-time edit/write hooks are advisory; commit-time git hooks are blocking",
+      "source": "user confirmed A direction to reduce development latency",
+      "updatedAt": "2026-05-19T00:43:13.486171+00:00"
+    },
+    {
+      "id": "kg_jcode_wiring_nonblocking_edit_write",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/scripts/jcode-wiring.ts",
+      "relation": "implements",
+      "target": "development-time edit/write hooks are advisory",
+      "source": "generated .jcode/config.toml no longer registers edit/write/multiedit on-tool-execute-before hooks",
+      "updatedAt": "2026-05-19T00:43:13.486171+00:00"
+    },
+    {
+      "id": "kg_precommit_lazy_test_gate",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/hooks/pre-commit-guard.sh",
+      "relation": "implements",
+      "target": "commit-time lazy test blocking gate",
+      "source": "pre-commit guard runs .lazy-harness/bin/lazy test or self-test fallback after leak checks",
+      "updatedAt": "2026-05-19T00:43:13.486171+00:00"
+    },
+    {
+      "id": "kg_test_commit_time_hook_policy",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "development-time nonblocking and pre-commit lazy test gate policy",
+      "source": "check_jcode_dev_hooks_are_nonblocking and check_pre_commit_runs_lazy_test",
+      "updatedAt": "2026-05-19T00:43:13.486171+00:00"
+    },
+    {
+      "id": "kg_doctor_standalone_source_marker_detection",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/scripts/doctor.py",
+      "relation": "implements",
+      "target": "standalone source repo detection via framework markers",
+      "source": "doctor D05 must not depend on synced-from-commit absence because self-target lazy-init can create that marker",
+      "updatedAt": "2026-05-19T00:46:35.364129+00:00"
+    },
+    {
+      "id": "kg_lazy_init_skips_self_target_version_marker",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/scripts/lazy-init.ts",
+      "relation": "implements",
+      "target": "self-target source repo lazy-init does not create host sync marker",
+      "source": "postInitVersionMarker returns early when sourceRoot equals targetRoot",
+      "updatedAt": "2026-05-19T00:46:35.364129+00:00"
+    },
+    {
+      "id": "kg_test_standalone_source_marker_detection",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "standalone source repo marker detection and self-target lazy-init marker skip",
+      "source": "check_standalone_source_detection_uses_markers",
+      "updatedAt": "2026-05-19T00:46:35.364129+00:00"
+    },
+    {
+      "id": "kg_lazy_init_skips_self_target_category_b",
+      "kind": "implementation",
+      "layer": "ADR",
+      "path": ".lazy-harness/scripts/lazy-init.ts",
+      "relation": "implements",
+      "target": "self-target source repo lazy-init does not seed host institutional memory",
+      "source": "main computes selfTargetSource and skips Category B seed creation when sourceRoot equals targetRoot",
+      "updatedAt": "2026-05-19T00:48:08.627562+00:00"
+    },
+    {
+      "id": "kg_adr0037_workflow_compression",
+      "kind": "decision",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md",
+      "relation": "defines_policy",
+      "target": "workflow compression is read-only advisory and not safety reduction",
+      "source": "user-confirmed Opus/Oracle cross-validation",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_sdd_workflow_compression_router",
+      "kind": "spec",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/workflow-compression-router.md",
+      "relation": "defines_contract",
+      "target": "lazy route output schema and routing axes",
+      "source": "ADR 0037",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_task_router_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/task-router.ts",
+      "relation": "implements",
+      "target": "read-only workflow compression route CLI",
+      "source": "lazy route --message ... --format=json|md",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_lazy_route_dispatch",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "dispatches",
+      "target": "task-router.ts route subcommand",
+      "source": "route command added to per-host lazy dispatcher",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_task_router_fixtures",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/fixtures/task-router/cases.json",
+      "relation": "protects",
+      "target": "workflow compression router safety invariants",
+      "source": "trivial/local/behavior/contract/ownership/ambiguous/risk/candidate cases",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_task_router_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "task-router read-only contract, fixtures, and lazy route help",
+      "source": "check_task_router_read_only_contract, check_task_router_fixtures, check_lazy_route_cli_help",
+      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
+    },
+    {
+      "id": "kg_manifest_task_router_host_sync",
+      "kind": "implementation",
+      "layer": "SSOT",
+      "path": ".lazy-harness/manifests/init-categories.json",
+      "relation": "syncs",
+      "target": "task-router fixtures, ADR 0037, and workflow-compression-router SDD to hosts",
+      "source": "host self-test requires task-router fixtures in Category A sync",
+      "updatedAt": "2026-05-19T04:52:18.413174+00:00"
+    },
+    {
+      "id": "kg_route_telemetry_log_mode",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/task-router.ts",
+      "relation": "implements",
+      "target": "lazy route --log append-only non-canonical telemetry",
+      "source": "stores route axes and messageHash in logs/route-decisions.jsonl without raw message",
+      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
+    },
+    {
+      "id": "kg_route_summary_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "dispatches",
+      "target": "lazy route-summary telemetry review",
+      "source": "task-router --summary summarizes route-decisions and optional route-feedback logs",
+      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
+    },
+    {
+      "id": "kg_test_route_telemetry_contract",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "route default read-only, --log append-only, route-summary counts telemetry",
+      "source": "check_task_router_read_only_contract",
+      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
+    },
+    {
+      "id": "kg_hook_project_rule_placement_noop_judgement",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "fixes",
+      "target": "project rule placement gate does not loop on non-applicable/no-record judgement",
+      "source": "screenshot showed repeated 기록하지 않음 / Scope non-applicable response amplification",
+      "updatedAt": "2026-05-19T06:15:07.705526+00:00"
+    },
+    {
+      "id": "kg_test_project_rule_placement_noop_judgement",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "non-applicable/no-record project rule placement judgement and Korean 기록하지 않음 false positive",
+      "source": "project-rule-placement-gate-loop regression addendum 2026-05-19",
+      "updatedAt": "2026-05-19T06:15:07.705526+00:00"
+    },
+    {
+      "id": "kg_response_completed_auto_route_telemetry",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "automatic route telemetry from last_user_message on response.completed",
+      "source": "ADR 0037 telemetry amendment; deduped by messageIdHash",
+      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
+    },
+    {
+      "id": "kg_task_router_message_id_dedupe",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/task-router.ts",
+      "relation": "implements",
+      "target": "route telemetry message_id hash deduplication",
+      "source": "--message-id stores messageIdHash and avoids duplicate append",
+      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
+    },
+    {
+      "id": "kg_test_response_completed_auto_route_telemetry",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "response.completed auto route telemetry, dedupe, and no raw message storage",
+      "source": "check_response_completed_auto_route_telemetry",
+      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
+    },
+    {
+      "id": "kg_tdd_response_completed_route_telemetry_large_payload",
+      "kind": "record",
+      "layer": "TDD",
+      "path": ".lazy-harness/tests/response-completed-route-telemetry-large-payload.md",
+      "relation": "defines_regression",
+      "target": "response.completed automatic route telemetry must append for live-sized payloads",
+      "source": "normal Jcode use showed hook reminders but no route-decisions append; env payload parsing failed silently",
+      "updatedAt": "2026-05-20T02:16:00Z"
+    },
+    {
+      "id": "kg_response_completed_route_telemetry_stdin_payload",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "automatic route telemetry stdin payload extraction and no-raw diagnostics",
+      "source": "parses response.completed payload from stdin, supports user-message aliases, writes route-telemetry-debug metadata only when extraction fails",
+      "updatedAt": "2026-05-20T02:16:00Z"
+    },
+    {
+      "id": "kg_test_response_completed_route_telemetry_large_payload",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "response.completed route telemetry large payload append and message_id dedupe",
+      "source": "check_response_completed_auto_route_telemetry includes large recent_tool_calls payload",
+      "updatedAt": "2026-05-20T02:16:00Z"
+    },
+    {
+      "id": "kg_sdd_project_profile_architecture_contract",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/project-profile.md",
+      "relation": "defines_contract",
+      "target": "Project Profile as host architecture/structure/goal/pattern profile",
+      "source": "user correction on 2026-05-20 clarified Project Profile is not workflow strictness preset but architecture profile that decides/creates project records",
+      "updatedAt": "2026-05-20T02:57:20Z"
+    },
+    {
+      "id": "kg_plan_project_init_interview_outputs_project_profile",
+      "kind": "plan",
+      "layer": "Planning",
+      "path": ".lazy-harness/plans/project-init-interview-spec.md",
+      "relation": "plans_output",
+      "target": "Project Profile inspection/interview/apply flow",
+      "source": "project init interview spec defines profile sections: purpose, stack, tests, filesystem, feature navigation, design system, backend architecture, agent policy",
+      "updatedAt": "2026-05-20T02:57:20Z"
+    },
+    {
+      "id": "kg_skill_lazy_project_profile_wrapper",
+      "kind": "skill",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/jcode-wiring.ts",
+      "relation": "installs",
+      "target": ".jcode/skills/lazy-project-profile/SKILL.md",
+      "source": "framework-owned Project Profile skill wrapper generated for host interview-first architecture profile flow",
+      "updatedAt": "2026-05-20T06:46:00Z"
+    },
+    {
+      "id": "kg_manifest_lazy_project_profile_beta",
+      "kind": "manifest",
+      "layer": "SSOT",
+      "path": ".lazy-harness/manifests/skills.xml",
+      "relation": "declares_skill",
+      "target": "lazy-project-profile beta framework-owned wrapper",
+      "source": "skills manifest promotes lazy-project-profile from planned to beta wrapper skill",
+      "updatedAt": "2026-05-20T06:46:00Z"
+    },
+    {
+      "id": "kg_project_profile_document_intake_contract",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/project-profile.md",
+      "relation": "defines_contract",
+      "target": "Project Profile existing non-harness document intake and assimilation ledger",
+      "source": "user asked whether framework should read docs outside .lazy-harness and internalize them into records; contract now requires document-intake stage with provenance and option gates for conflicts",
+      "updatedAt": "2026-05-20T06:51:00Z"
+    },
+    {
+      "id": "kg_sdd_document_resource_ingestion_contract",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/document-resource-ingestion.md",
+      "relation": "defines_contract",
+      "target": "separate document resource ingestion and record reproduction capability",
+      "source": "user correction on 2026-05-20 separated Project Profile creation from external document reading/resource reproduction",
+      "updatedAt": "2026-05-20T08:27:00Z"
+    },
+    {
+      "id": "kg_project_profile_consumes_document_ingestion",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/project-profile.md",
+      "relation": "consumes_optional_output",
+      "target": "Document Resource Ingestion outputs",
+      "source": "Project Profile may use ingestion outputs but must not own full document ingestion/reproduction pipeline",
+      "updatedAt": "2026-05-20T08:27:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_inspect_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/document-resource-ingestion.ts",
+      "relation": "implements",
+      "target": "Document Resource Ingestion inspect mode",
+      "source": "read-only CLI scans root-bound non-harness docs, scores freshness/authority/duplication/contamination, reports duplicate groups and status suggestions",
+      "updatedAt": "2026-05-20T11:10:00Z"
+    },
+    {
+      "id": "kg_lazy_doc_ingest_skill_wrapper",
+      "kind": "skill",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/jcode-wiring.ts",
+      "relation": "installs",
+      "target": ".jcode/skills/lazy-doc-ingest/SKILL.md",
+      "source": "framework-owned wrapper runs document-resource-ingestion inspect first and requires option gate before ledger/record writes",
+      "updatedAt": "2026-05-20T11:10:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "document-resource-ingestion inspect classification and .lazy-harness exclusion",
+      "source": "check_document_resource_ingestion_inspect covers authoritative, duplicate, historical, rejected, JSON output, and excluded harness docs",
+      "updatedAt": "2026-05-20T11:10:00Z"
+    },
+    {
+      "id": "kg_ssot_medivance_dogfood_runtime_policy",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md",
+      "relation": "defines_boundary",
+      "target": "Medivance runtime dogfood must use named --test instance and inspect environment",
+      "source": "user correction on 2026-05-20: existing instance must be stopped and test DB instance used before runtime/UI judgment",
+      "updatedAt": "2026-05-20T11:14:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_plan_dry_run",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/document-resource-ingestion.ts",
+      "relation": "implements",
+      "target": "Document Resource Ingestion plan/apply dry-run write preview",
+      "source": "plan proposes document-intake.xml and candidates.jsonl writes without applying; apply requires --dry-run and blocks real writes",
+      "updatedAt": "2026-05-20T22:40:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_plan_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "document-resource-ingestion plan/apply dry-run safety",
+      "source": "check_document_resource_ingestion_inspect verifies proposed writes, candidate confirmation requirements, dry-run mode, and apply-without-dry-run block",
+      "updatedAt": "2026-05-20T22:40:00Z"
+    },
+    {
+      "id": "kg_project_profile_inspect_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/project-profile.ts",
+      "relation": "implements",
+      "target": "Project Profile inspect mode",
+      "source": "read-only CLI reports missing Project Profile artifacts and Document Resource Ingestion handoff state before interview/apply flow",
+      "updatedAt": "2026-05-20T22:48:00Z"
+    },
+    {
+      "id": "kg_project_profile_inspect_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "project-profile inspect artifact counting and ingestion handoff",
+      "source": "check_project_profile_inspect verifies required artifact counts, document-intake/candidates detection, and option gate output",
+      "updatedAt": "2026-05-20T22:48:00Z"
+    },
+    {
+      "id": "kg_medivance_dogfood_sync_then_execute_policy",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md",
+      "relation": "defines_boundary",
+      "target": "Medivance framework sync must complete before host validation command executes",
+      "source": "Project Profile inspect dogfood revealed parallel sync+execute can race and run stale/missing host framework files",
+      "updatedAt": "2026-05-20T22:50:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_confirmed_apply",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/document-resource-ingestion.ts",
+      "relation": "implements",
+      "target": "Document Resource Ingestion confirmed apply for ledger and candidate artifacts",
+      "source": "apply --confirm writes .lazy-harness/project/document-intake.xml and deduped document-resource-ingestion-candidate entries only; canonical DDD/SDD/BDD/TDD/ADR/SSOT promotion remains excluded",
+      "updatedAt": "2026-05-21T00:02:00Z"
+    },
+    {
+      "id": "kg_document_resource_ingestion_confirmed_apply_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Document Resource Ingestion confirmed apply and candidate dedupe",
+      "source": "check_document_resource_ingestion_inspect verifies apply --confirm writes ledger, appends four candidates, and second apply dedupes entries",
+      "updatedAt": "2026-05-21T00:02:00Z"
+    },
+    {
+      "id": "kg_project_profile_skeleton_apply_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/project-profile.ts",
+      "relation": "implements",
+      "target": "Project Profile plan/apply needs-interview skeleton creation",
+      "source": "plan previews missing project profile skeleton records; apply --confirm writes only status=needs-interview skeletons and does not decide architecture defaults",
+      "updatedAt": "2026-05-21T00:11:00Z"
+    },
+    {
+      "id": "kg_project_profile_skeleton_apply_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Project Profile skeleton plan/apply safety",
+      "source": "check_project_profile_inspect verifies plan proposed writes, apply confirmation gate, needs-interview status, and post-apply inspect counts",
+      "updatedAt": "2026-05-21T00:11:00Z"
+    },
+    {
+      "id": "kg_project_profile_interview_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/project-profile.ts",
+      "relation": "implements",
+      "target": "Project Profile interview open-question generation",
+      "source": "--mode interview emits deterministic A/B/C/D questions for status=needs-interview fields; --confirm writes only .lazy-harness/project/profile-interview.xml without filling decisions",
+      "updatedAt": "2026-05-21T00:18:00Z"
+    },
+    {
+      "id": "kg_project_profile_interview_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Project Profile interview question generation and transcript write safety",
+      "source": "check_project_profile_inspect verifies 22 skeleton questions, expected targets, A/B/C/D wording, and XML parse of profile-interview.xml",
+      "updatedAt": "2026-05-21T00:18:00Z"
+    },
+    {
+      "id": "kg_lazy_project_profile_interview_skill_wrapper",
+      "kind": "skill",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/jcode-wiring.ts",
+      "relation": "documents_flow",
+      "target": "lazy-project-profile interview dry-run and confirmed transcript flow",
+      "source": "skill wrapper now instructs inspect, plan, skeleton apply, interview dry-run, and interview --confirm queue persistence before any confirmed fill step",
+      "updatedAt": "2026-05-21T00:18:00Z"
+    },
+    {
+      "id": "kg_project_profile_fill_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/project-profile.ts",
+      "relation": "implements",
+      "target": "Project Profile explicit answer fill mode",
+      "source": "--mode fill requires --answers plus --dry-run or --confirm, updates only matching status=needs-interview self-closing fields, and reports unmatched answers without writing them",
+      "updatedAt": "2026-05-21T00:24:00Z"
+    },
+    {
+      "id": "kg_project_profile_fill_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Project Profile fill dry-run/confirm safety",
+      "source": "check_project_profile_inspect verifies fill blocks without --dry-run/--confirm, previews matching answers, applies confirmed profile/stack/navigation fields, preserves unmatched answers, and keeps XML parseable",
+      "updatedAt": "2026-05-21T00:24:00Z"
+    },
+    {
+      "id": "kg_report_route_telemetry_medivance_appointment_20260521",
+      "kind": "retrospective_metric_report",
+      "layer": "TDD",
+      "path": ".lazy-harness/retrospective/metrics/2026-05-21-route-telemetry-medivance-appointment-report.md",
+      "relation": "analyzes",
+      "target": "route telemetry false-positive/false-negative candidates against medivance appointment worktree commits and dirty diff",
+      "source": "user requested first report and improvement plan after telemetry reached 60 medivance samples",
+      "updatedAt": "2026-05-21T01:51:52.012394+00:00"
+    },
+    {
+      "id": "kg_task_router_evidence_rich_telemetry",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/task-router.ts",
+      "relation": "implements",
+      "target": "route telemetry evidence fields and routeVersion 1.1",
+      "source": "2026-05-21 route telemetry medivance appointment report Phase A",
+      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
+    },
+    {
+      "id": "kg_response_completed_diff_aware_route_context",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "dirty/staged changed file context for automatic route telemetry",
+      "source": "2026-05-21 route telemetry medivance appointment report Phase B",
+      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
+    },
+    {
+      "id": "kg_lazy_route_audit_commit_reclassification",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/task-router.ts",
+      "relation": "implements",
+      "target": "lazy route-audit recent commit reclassification with evidence flags",
+      "source": "2026-05-21 route telemetry medivance appointment report Phase C",
+      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
+    },
+    {
+      "id": "kg_test_route_evidence_diff_aware",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "destructive TRPC/UI changed-file evidence escalates route to high risk option gate",
+      "source": "check_lazy_route_cli_help risky route fixture",
+      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
+    },
+    {
+      "id": "kg_hook_project_rule_placement_duplicate_block_detection",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "fixes",
+      "target": "duplicate Product/Related product rule placement blocks are flagged instead of amplified",
+      "source": "user screenshot 2026-05-21 showed repeated placement blocks and repeated assistant answer",
+      "updatedAt": "2026-05-21T02:34:13.831669+00:00"
+    },
+    {
+      "id": "kg_test_project_rule_placement_duplicate_block_detection",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "duplicate product rule placement block regression",
+      "source": "check_project_rule_placement_helper duplicate_product_rule_payload",
+      "updatedAt": "2026-05-21T02:34:13.831669+00:00"
+    },
+    {
+      "id": "kg_hook_project_rule_placement_self_reminder_echo_guard",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "fixes",
+      "target": "project rule placement helper does not re-trigger on its own STOP reminder echoed as last_user_message",
+      "source": "user reported cross-turn project rule placement gate loop 2026-05-21",
+      "updatedAt": "2026-05-21T02:37:58.638215+00:00"
+    },
+    {
+      "id": "kg_test_project_rule_placement_self_reminder_echo_guard",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "self-reminder echo cross-turn project rule placement loop",
+      "source": "check_project_rule_placement_helper self_reminder_echo_payload",
+      "updatedAt": "2026-05-21T02:37:58.638215+00:00"
+    },
+    {
+      "id": "kg_ssot_harness_fix_quality_rule",
+      "kind": "ssot",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/rule-sources.md",
+      "relation": "defines_policy",
+      "target": "lazy-harness gate fixes must be structural, not broad string workaround suppressions",
+      "source": "user correction 2026-05-21",
+      "updatedAt": "2026-05-21T02:40:03.691695+00:00"
+    },
+    {
+      "id": "kg_hook_project_rule_placement_structural_self_echo_guard",
+      "kind": "implementation",
+      "layer": "TDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
+      "relation": "fixes",
+      "target": "project rule placement self STOP echo only when carried by last_user_message structure",
+      "source": "user correction required structural payload-based guard, not broad blob filtering",
+      "updatedAt": "2026-05-21T02:40:03.691695+00:00"
+    },
+    {
+      "id": "kg_test_project_rule_placement_structural_self_echo_guard",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "self-reminder echo guard does not suppress assistant discussion outside last_user_message",
+      "source": "check_project_rule_placement_helper assistant_discussion_payload",
+      "updatedAt": "2026-05-21T02:40:03.691695+00:00"
+    },
+    {
+      "id": "kg_record_audit_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/record-audit.ts",
+      "relation": "implements",
+      "target": "Record Audit CLI",
+      "source": "Read-only dashboard for host-owned/changed records, layer distribution, JSONL health, markers, Project Profile answer completeness, graph hygiene, and recent files",
+      "updatedAt": "2026-05-21T10:06:00Z"
+    },
+    {
+      "id": "kg_record_audit_lazy_dispatcher",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "exposes_command",
+      "target": "lazy record-audit",
+      "source": "Dispatcher routes lazy record-audit to .lazy-harness/scripts/record-audit.ts",
+      "updatedAt": "2026-05-21T10:06:00Z"
+    },
+    {
+      "id": "kg_record_audit_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Record Audit CLI contract",
+      "source": "check_record_audit_cli covers host/source comparison, Project Profile artifactsComplete vs answersComplete, graph hygiene, invalid JSONL, marker counts, and lazy dispatcher pass-through",
+      "updatedAt": "2026-05-21T10:06:00Z"
+    },
+    {
+      "id": "kg_record_audit_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/record-audit.md",
+      "relation": "specifies",
+      "target": "Record Audit CLI contract",
+      "source": "Accepted SDD promoted from Medivance dogfood improvement candidates",
+      "updatedAt": "2026-05-21T10:06:00Z"
+    },
+    {
+      "id": "kg_project_profile_completeness_split_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/project-profile.ts",
+      "relation": "implements",
+      "target": "Project Profile artifact vs answer completeness split",
+      "source": "inspect summary now reports artifactsComplete, answersComplete, needsInterviewFields, confirmedFields, and keeps complete as answer-complete alias",
+      "updatedAt": "2026-05-21T10:12:00Z"
+    },
+    {
+      "id": "kg_project_profile_completeness_split_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Project Profile completeness split",
+      "source": "check_project_profile_inspect verifies complete=false when artifacts exist but needs-interview fields remain",
+      "updatedAt": "2026-05-21T10:12:00Z"
+    },
+    {
+      "id": "kg_graph_hygiene_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/graph-hygiene.ts",
+      "relation": "implements",
+      "target": "Graph Hygiene CLI",
+      "source": "Read-only lint for graph JSONL invalid rows, missing/duplicate IDs, comma-joined path strings, and missing host-relative paths",
+      "updatedAt": "2026-05-21T11:54:00Z"
+    },
+    {
+      "id": "kg_graph_hygiene_lazy_dispatcher",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "exposes_command",
+      "target": "lazy graph-hygiene",
+      "source": "Dispatcher routes lazy graph-hygiene to .lazy-harness/scripts/graph-hygiene.ts",
+      "updatedAt": "2026-05-21T11:54:00Z"
+    },
+    {
+      "id": "kg_graph_hygiene_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Graph Hygiene CLI contract",
+      "source": "check_graph_hygiene_cli covers invalid JSON, duplicate/missing IDs, comma-joined paths, missing paths, read-only behavior, fail-on-issues, and dispatcher pass-through",
+      "updatedAt": "2026-05-21T11:54:00Z"
+    },
+    {
+      "id": "kg_graph_hygiene_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/graph-hygiene.md",
+      "relation": "specifies",
+      "target": "Graph Hygiene CLI contract",
+      "source": "Accepted SDD promoted from Medivance record-audit graph hygiene finding",
+      "updatedAt": "2026-05-21T11:54:00Z"
+    },
+    {
+      "id": "kg_graph_hygiene_source_only_paths",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/graph-hygiene.ts",
+      "relation": "implements",
+      "target": "Graph hygiene source-only path classification",
+      "source": "--source/default framework source lets graph-hygiene count paths present in framework source but absent in host as sourceOnlyPaths instead of actionable missingPaths",
+      "updatedAt": "2026-05-21T12:05:00Z"
+    },
+    {
+      "id": "kg_record_audit_source_only_paths",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/record-audit.ts",
+      "relation": "implements",
+      "target": "Record audit source-only graph path summary",
+      "source": "record-audit separates graph.sourceOnlyPaths from graph.missingPaths when a framework source is available",
+      "updatedAt": "2026-05-21T12:05:00Z"
+    },
+    {
+      "id": "kg_graph_source_only_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Source-only graph path classification",
+      "source": "record-audit and graph-hygiene fixtures include a source-only path and assert sourceOnlyPaths=1 while missingPaths remains actionable",
+      "updatedAt": "2026-05-21T12:05:00Z"
+    },
+    {
+      "id": "kg_performance_optimization_plan",
+      "kind": "planning",
+      "layer": "Planning",
+      "path": ".lazy-harness/planning/performance-optimization-plan.md",
+      "relation": "plans",
+      "target": "Response hook and CLI performance optimization",
+      "source": "User requested next plan for slow CLI/hook behavior; record captures P0 fast-path, P1 orchestrator, P2 indexes, P3 Bun cold-start mitigation, P4 fingerprint cache",
+      "updatedAt": "2026-05-21T12:05:00Z"
+    },
+    {
+      "id": "kg_hook_performance_measurement",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "Response.completed hook timing measurement",
+      "source": "Phase 0 measure-only instrumentation logs route telemetry, lifecycle helper, and hook-total timings without changing helper order or gate decisions",
+      "updatedAt": "2026-05-21T12:22:00Z"
+    },
+    {
+      "id": "kg_hook_timing_summary_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/hook-timing-summary.py",
+      "relation": "implements",
+      "target": "Hook timing summary CLI",
+      "source": "Read-only summary of hook-timings JSONL with count,total,avg,p50,p90,p99,max,emitted,non-zero exit per component",
+      "updatedAt": "2026-05-21T12:22:00Z"
+    },
+    {
+      "id": "kg_hook_timing_lazy_dispatcher",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "exposes_command",
+      "target": "lazy hook-timings",
+      "source": "Dispatcher exposes hook timing summary command",
+      "updatedAt": "2026-05-21T12:22:00Z"
+    },
+    {
+      "id": "kg_hook_performance_measurement_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Hook timing measurement contract",
+      "source": "check_response_completed_auto_route_telemetry now verifies timing rows, required fields, route/helper/total components, and lazy hook-timings summary without changing telemetry behavior",
+      "updatedAt": "2026-05-21T12:22:00Z"
+    },
+    {
+      "id": "kg_hook_performance_measurement_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+      "relation": "specifies",
+      "target": "Hook Performance Measurement contract",
+      "source": "Accepted SDD for Phase 0 measure-only performance work",
+      "updatedAt": "2026-05-21T12:22:00Z"
+    },
+    {
+      "id": "kg_hook_phase1_read_only_fast_path",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "Phase 1 conservative read-only fast-path",
+      "source": "Known read-only recent_tool_calls skip only write-triggered helpers; unknown/missing/non-read-only payloads fall back to full helper set",
+      "updatedAt": "2026-05-21T12:38:00Z"
+    },
+    {
+      "id": "kg_hook_phase1_fast_path_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Phase 1 fast-path safety",
+      "source": "response.completed telemetry test verifies read-only payload skips write-only helpers while bash/unknown and missing recent_tool_calls run the full helper set",
+      "updatedAt": "2026-05-21T12:38:00Z"
+    },
+    {
+      "id": "kg_lifecycle_check_shadow_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-check.py",
+      "relation": "implements",
+      "target": "Phase 2 lifecycle shadow orchestrator",
+      "source": "Parses response payload once, mirrors helper order and Phase 1 fast-path selection, runs existing helpers, and emits first-output parity data without replacing production hook",
+      "updatedAt": "2026-05-21T12:48:00Z"
+    },
+    {
+      "id": "kg_lifecycle_check_lazy_dispatcher",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "exposes_command",
+      "target": "lazy lifecycle-check",
+      "source": "Dispatcher exposes shadow response.completed lifecycle orchestrator",
+      "updatedAt": "2026-05-21T12:48:00Z"
+    },
+    {
+      "id": "kg_lifecycle_check_shadow_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Lifecycle shadow STOP parity",
+      "source": "check_lifecycle_hook_integration verifies lifecycle-check TDD cross-verify and aftershock first output helper/body parity alongside production hook behavior",
+      "updatedAt": "2026-05-21T12:48:00Z"
+    },
+    {
+      "id": "kg_lifecycle_shadow_parity_expansion",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "extends_parity",
+      "target": "Lifecycle shadow orchestrator parity coverage",
+      "source": "check_lifecycle_hook_integration now covers BDD natural-language STOP, option-gate discipline STOP, record-before-session-history STOP, read-only no-output, plus existing TDD and aftershock parity",
+      "updatedAt": "2026-05-21T12:55:00Z"
+    },
+    {
+      "id": "kg_hook_performance_sdd_parity_expansion",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+      "relation": "documents",
+      "target": "Expanded lifecycle shadow parity coverage",
+      "source": "SDD implementation map documents TDD/aftershock/BDD/option-gate/record-before/no-output parity coverage while Phase 3 replacement remains blocked",
+      "updatedAt": "2026-05-21T12:55:00Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_runner_cli",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
+      "relation": "implements",
+      "target": "Lifecycle shadow-vs-legacy batch parity runner",
+      "source": "Creates fresh temp hosts per fixture, compares production response.completed hook output with lifecycle-check shadow output, and supports --fail-on-mismatch",
+      "updatedAt": "2026-05-21T13:06:00Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_lazy_dispatcher",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "exposes_command",
+      "target": "lazy lifecycle-parity",
+      "source": "Dispatcher exposes batch shadow-vs-legacy parity runner",
+      "updatedAt": "2026-05-21T13:06:00Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_runner_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Lifecycle parity runner fixture suite",
+      "source": "check_lifecycle_parity_runner verifies lifecycle-parity passes 6 fixtures with --fail-on-mismatch",
+      "updatedAt": "2026-05-21T13:06:00Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_runner_10_fixture_expansion",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
+      "relation": "extends_parity",
+      "target": "Lifecycle shadow-vs-legacy batch parity fixture suite",
+      "source": "Expanded lifecycle-parity from 6 to 10 fixtures: analysis-discovery-capture, project-rule-placement, lazy-cli-entrypoint, and unknown full-fallback no-output added to existing read-only/BDD/option/record-before/TDD/aftershock coverage",
+      "updatedAt": "2026-05-21T13:17:00Z"
+    },
+    {
+      "id": "kg_lifecycle_parity_side_effect_expansion",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
+      "relation": "extends_parity",
+      "target": "Lifecycle shadow-vs-legacy validation side-effect parity",
+      "source": "Expanded lifecycle-parity to 12 fixtures with real/sample record-audit read-only payload and layer-impact validation side-effect comparison after volatile id/timestamp normalization",
+      "updatedAt": "2026-05-21T13:26:00Z"
+    },
+    {
+      "id": "kg_dogfood_auto_recording_status_report",
+      "kind": "planning",
+      "layer": "Planning",
+      "path": ".lazy-harness/planning/dogfood-auto-recording-status-report.md",
+      "relation": "reports",
+      "target": "Dogfood auto-recording current operating status",
+      "source": "User confirmed normal Medivance usage should accumulate telemetry and agent-mediated records; report clarifies automatic vs agent-mediated recording and production hook replacement block",
+      "updatedAt": "2026-05-21T13:35:00Z"
+    },
+    {
+      "id": "kg_requirements_first_gate_adr",
+      "kind": "record",
+      "layer": "ADR",
+      "path": ".lazy-harness/decisions/0038-requirements-first-change-gate.md",
+      "relation": "defines_decision",
+      "source": "User confirmed agents must collect evolving requirements before plan/execution; Opus reviewer and Oracle agreed docs/ADR first before hook enforcement",
+      "target": "Requirements-first change gate and stale approval semantics",
+      "updatedAt": "2026-05-21T15:50:00Z"
+    },
+    {
+      "id": "kg_requirements_first_gate_agents",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/AGENTS.md",
+      "relation": "operationalizes",
+      "source": "AGENTS §2.3-a separates requirement gathering, plan proposal, execution approval, and implementation; stale approvals block mutating work",
+      "target": "Requirements-first change gate and stale approval semantics",
+      "updatedAt": "2026-05-21T15:50:00Z"
+    },
+    {
+      "id": "kg_bdd_trigger_silent_candidate_capture",
+      "kind": "hook",
+      "layer": "BDD",
+      "path": ".lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh",
+      "relation": "captures_candidate_silently",
+      "source": "User clarified BDD scenario/cross-ref discovery is not product code implementation approval; helper now appends deduped candidates.jsonl rows and emits no hook output",
+      "target": "BDD scenario candidate intake without repeated STOP option gate prompts",
+      "updatedAt": "2026-05-21T16:28:00Z"
+    },
+    {
+      "id": "kg_bdd_trigger_candidate_capture_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "source": "check_bdd_trigger_loop_suppression now expects no hook output, one lifecycle-bdd-trigger candidate row, same-turn silence, and new-turn silence",
+      "target": "BDD trigger silent candidate capture and cross-turn dedupe",
+      "updatedAt": "2026-05-21T16:28:00Z"
+    },
+    {
+      "id": "kg_bdd_trigger_candidate_capture_contract",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/option-gate-discipline.md",
+      "relation": "defines_contract",
+      "source": "Option-gate discipline amended so BDD helper silently captures candidates and canonical promotion remains user-confirmed",
+      "target": "BDD raw discoveries are candidate intake, not execution option gates",
+      "updatedAt": "2026-05-21T16:28:00Z"
+    },
     {
       "id": "kg_rule_lifecycle_ssot",
       "kind": "record",
@@ -320,6 +2234,61 @@
       "target": "Lifecycle fixture intake privacy and parity inclusion",
       "source": "check_lifecycle_fixture_intake_cli verifies raw content is not persisted and candidate increases parity coverage",
       "updatedAt": "2026-05-26T04:04:20Z"
+    },
+    {
+      "id": "kg_capability_candidates_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/capability-resolution.md",
+      "relation": "specifies",
+      "target": "Read-only capability candidate detection",
+      "source": "lazy capability candidates inspects host-local package/release evidence and must not mutate capabilities.json or escalate levels automatically",
+      "updatedAt": "2026-05-31T05:36:00Z"
+    },
+    {
+      "id": "kg_capability_candidates_impl",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/capability.ts",
+      "relation": "implements",
+      "target": "Capability candidate detection and repeated flag accumulation",
+      "source": "capabilityCandidates emits missing app-validation and release action coverage suggestions; parseOptions accumulates repeated multi-value flags",
+      "symbols": [
+        "capabilityCandidates",
+        "printCandidates",
+        "setOption"
+      ],
+      "updatedAt": "2026-05-31T05:36:00Z"
+    },
+    {
+      "id": "kg_capability_candidates_dispatch",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/bin/lazy",
+      "relation": "dispatches",
+      "target": "lazy capability candidates CLI",
+      "source": "lazy capability forwards candidates subcommand to scripts/capability.ts",
+      "updatedAt": "2026-05-31T05:36:00Z"
+    },
+    {
+      "id": "kg_capability_candidates_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Capability candidates and repeated multi-value flags",
+      "source": "check_capability_registry_cli_phase1 verifies read-only candidates detect package-script app validation and release action gaps, and repeated flags preserve all values",
+      "updatedAt": "2026-05-31T05:36:00Z"
+    },
+    {
+      "id": "kg_ssot_downstream_dogfood_no_manual_registry_patch",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/project-identity.md",
+      "relation": "defines_boundary",
+      "target": "Downstream dogfood host registries are evidence, not source patch targets",
+      "source": "User corrected that Medivance capability gaps should drive lazy-harness source changes, not manual commits in downstream Medivance registry",
+      "updatedAt": "2026-05-31T05:31:51Z"
     }
   ]
 }

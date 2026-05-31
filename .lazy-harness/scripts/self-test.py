@@ -1685,7 +1685,7 @@ def check_lazy_route_cli_help() -> None:
     if completed.returncode != 0:
         fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
     help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "lifecycle-fixture inspect|append|list", "Read-only workflow compression route"]
+    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|candidates|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "lifecycle-fixture inspect|append|list", "Read-only workflow compression route"]
     missing = [phrase for phrase in required if phrase not in help_text]
     if missing:
         fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
@@ -1956,6 +1956,35 @@ def check_capability_registry_cli_phase1() -> None:
         for expected in ["fixture-script", "fixture-skill", "fixture-prompt", "fixture-validation"]:
             if expected not in fixture_ids_after_add:
                 fail("capability add missing expected id " + expected + ": " + json.dumps(registry, ensure_ascii=False))
+        repeated = subprocess.run(
+            [
+                str(LAZY / "bin" / "lazy"), "capability", "add",
+                "--id", "fixture-repeated",
+                "--kind", "validation",
+                "--level", "recommend",
+                "--source-record", ".lazy-harness/ssot/validation.md",
+                "--applies-when", "validating_changes",
+                "--applies-when", "before_commit",
+                "--entrypoint", "bun lint && bun test",
+                "--action", "bun lint",
+                "--action", "bun test",
+                "--description", "Fixture repeated flags",
+                "--owner", "host-project",
+                "--tag", "fixture",
+                "--tag", "repeat",
+                "--format=json",
+            ],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if repeated.returncode != 0:
+            fail("capability add should accept repeated multi-value flags:\n" + repeated.stdout + repeated.stderr)
+        repeated_cap = json.loads(repeated.stdout).get("capability", {})
+        if repeated_cap.get("appliesWhen") != ["validating_changes", "before_commit"] or repeated_cap.get("actions") != ["bun lint", "bun test"] or repeated_cap.get("tags") != ["fixture", "repeat"]:
+            fail("capability add repeated flags should preserve all values: " + repeated.stdout)
         resolved_validation = subprocess.run(
             [str(LAZY / "bin" / "lazy"), "capability", "resolve", "--intent", "validating_changes", "--format=json"],
             cwd=temp,
@@ -1969,6 +1998,38 @@ def check_capability_registry_cli_phase1() -> None:
         graph_text = (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").read_text(encoding="utf-8")
         if "capability_fixture-validation" not in graph_text:
             fail("capability add should upsert graph entry for added capabilities")
+
+        (temp / "package.json").write_text(
+            json.dumps({
+                "name": "fixture-app",
+                "packageManager": "bun@1.2.0",
+                "scripts": {
+                    "lint": "eslint .",
+                    "typecheck": "tsc --noEmit",
+                    "test:run": "vitest run",
+                },
+            }),
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "tests").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "tests" / "test-strategy.xml").write_text("<test-strategy />\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "ssot" / "release-branch-policy.md").write_text("# Release branch policy\n", encoding="utf-8")
+        candidates = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "candidates", "--format=json"],
+            cwd=temp,
+            env=fixture_env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if candidates.returncode != 0:
+            fail("capability candidates should be read-only and successful:\n" + candidates.stdout + candidates.stderr)
+        candidate_json = json.loads(candidates.stdout)
+        candidate_ids = {entry.get("id") for entry in candidate_json.get("candidates", [])}
+        if "fixture-app-baseline-app-validation" not in candidate_ids:
+            fail("capability candidates should detect missing package-script app validation: " + candidates.stdout)
+        if "fixture-skill-action-coverage" not in candidate_ids:
+            fail("capability candidates should detect release action coverage gaps: " + candidates.stdout)
 
         (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
             json.dumps({

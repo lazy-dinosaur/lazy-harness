@@ -75,9 +75,12 @@ Phase 1/2 remains intentionally non-blocking:
 - `lazy capability add`
 - `lazy capability list`
 - `lazy capability resolve --intent <intent>`
+- `lazy capability candidates`
 - `lazy capability audit`
 
 No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
+
+`lazy capability candidates` is read-only. It may suggest host-specific capabilities from local evidence, but it must not write the canonical registry or escalate levels automatically.
 
 ## Implementation map
 
@@ -88,7 +91,7 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
   - `.lazy-harness/spec/platform/capability-resolution.md` — resolver contract.
   - `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md` — ADR.
   - `.lazy-harness/tests/capability-registry.md` — regression record.
-  - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/audit.
+  - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/candidates/audit.
   - `.lazy-harness/bin/lazy` — dispatches `lazy capability`.
   - `.lazy-harness/scripts/self-test.py` — fixtures.
 - Key symbols:
@@ -97,6 +100,7 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
   - `upsertCapability` (`capability.ts`) — creates or updates capability entries idempotently.
   - `auditRegistry` (`capability.ts`) — validates schema/source records.
   - `resolveCapabilities` (`capability.ts`) — finds intent/action matches and sorts by level.
+  - `capabilityCandidates` (`capability.ts`) — emits read-only candidate suggestions from host evidence.
   - `check_capability_registry_cli_phase1` (`self-test.py`) — protects Phase 1/2 CLI behavior.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

@@ -17,6 +17,7 @@ Phase 1/2 must provide:
 - `lazy capability add`
 - `lazy capability list`
 - `lazy capability resolve --intent <intent>`
+- `lazy capability candidates`
 - `lazy capability audit`
 
 Phase 1/2 must not add blocking behavior.
@@ -27,6 +28,14 @@ Phase 2 add must:
 - reject missing source records by default
 - be idempotent on repeated identical input
 - append/upsert knowledge graph capability rows
+- preserve repeated multi-value flags for `--applies-when`, `--action`, and `--tag`
+
+Candidate detection must:
+
+- stay read-only
+- detect missing app-validation candidates from package validation scripts
+- detect partial release workflow capabilities that lack concrete action labels
+- avoid automatic `warn`/`block` promotion
 
 ## Layer completeness gate
 
@@ -45,5 +54,6 @@ Phase 2 add must:
   - `.lazy-harness/scripts/self-test.py`
 - Key symbols:
   - `check_capability_registry_cli_phase1`
+  - `capabilityCandidates`
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
 const KINDS = new Set(['script', 'skill', 'prompt', 'hook', 'command', 'tool-adapter', 'validation', 'checklist', 'audit'])
 const LEVELS = new Set(['discover', 'recommend', 'default', 'warn', 'block'])
@@ -34,6 +34,15 @@ type AuditIssue = {
   message: string
 }
 
+type CapabilityCandidate = {
+  id: string
+  status: 'missing' | 'partial'
+  confidence: 'low' | 'medium' | 'high'
+  reason: string
+  evidence: string[]
+  suggestedCapability: Capability
+}
+
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error
   out(`Usage: lazy capability <command> [options]
@@ -44,9 +53,11 @@ Commands:
   list [--format=json|md] [--kind=K] [--level=L]
   resolve --intent <intent> [--action <action>] [--format=json|md]
   resolve --action <action> [--format=json|md]
+  candidates [--format=json|md]
   audit [--format=json|md]
 
 Phase 2 remains non-blocking: add/list/resolve/audit only.
+Candidates are read-only evidence summaries for source-side dogfood tuning.
 
 Add options:
   --action <action[,action]>      Action labels used by resolve
@@ -68,6 +79,15 @@ function value(argv: string[], index: number, flag: string): string {
   return v
 }
 
+function setOption(opts: Record<string, string | boolean>, key: string, value: string | boolean): void {
+  const existing = opts[key]
+  if (typeof value === 'string' && typeof existing === 'string') {
+    opts[key] = `${existing},${value}`
+    return
+  }
+  opts[key] = value
+}
+
 function parseOptions(argv: string[]): Record<string, string | boolean> {
   const opts: Record<string, string | boolean> = {}
   for (let i = 0; i < argv.length; i++) {
@@ -75,11 +95,11 @@ function parseOptions(argv: string[]): Record<string, string | boolean> {
     if (a === '-h' || a === '--help') usage(0)
     if (a.startsWith('--') && a.includes('=')) {
       const [k, ...rest] = a.slice(2).split('=')
-      opts[k] = rest.join('=')
+      setOption(opts, k, rest.join('='))
     } else if (a.startsWith('--')) {
       const k = a.slice(2)
-      if (['format', 'id', 'kind', 'level', 'intent', 'action', 'target', 'source-record', 'applies-when', 'entrypoint', 'description', 'owner', 'tag', 'fallback', 'skill-name', 'template-path', 'tool', 'adapter', 'checklist-path', 'audit-command'].includes(k)) opts[k] = value(argv, i++, a)
-      else opts[k] = true
+      if (['format', 'id', 'kind', 'level', 'intent', 'action', 'target', 'source-record', 'applies-when', 'entrypoint', 'description', 'owner', 'tag', 'fallback', 'skill-name', 'template-path', 'tool', 'adapter', 'checklist-path', 'audit-command'].includes(k)) setOption(opts, k, value(argv, i++, a))
+      else setOption(opts, k, true)
     } else {
       console.error(`Unknown argument: ${a}`)
       usage(2)
@@ -130,6 +150,112 @@ function splitList(value: string | boolean | undefined): string[] {
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
+}
+
+function readJson(path: string): any | undefined {
+  if (!existsSync(path)) return undefined
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'))
+  } catch {
+    return undefined
+  }
+}
+
+function packageManager(root: string, pkg: any): string {
+  const declared = typeof pkg?.packageManager === 'string' ? pkg.packageManager : ''
+  if (declared.startsWith('bun@') || existsSync(join(root, 'bun.lock')) || existsSync(join(root, 'bun.lockb'))) return 'bun run'
+  if (declared.startsWith('pnpm@') || existsSync(join(root, 'pnpm-lock.yaml'))) return 'pnpm'
+  if (declared.startsWith('yarn@') || existsSync(join(root, 'yarn.lock'))) return 'yarn'
+  return 'npm run'
+}
+
+function safeId(value: string): string {
+  const cleaned = value.toLowerCase().replace(/^@/, '').replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  const id = cleaned || 'host'
+  return /^[a-z]/.test(id) ? id.slice(0, 80) : `host-${id}`.slice(0, 80)
+}
+
+function hostSlug(root: string, pkg: any): string {
+  if (typeof pkg?.name === 'string' && pkg.name.trim()) return safeId(pkg.name)
+  return safeId(basename(root))
+}
+
+function sourceRecordFor(root: string, preferred: string, fallback = 'package.json'): string {
+  if (existsSync(join(root, preferred))) return preferred
+  return fallback
+}
+
+function collectPackageScriptActions(root: string, pkg: any, names: string[]): string[] {
+  const scripts = pkg?.scripts && typeof pkg.scripts === 'object' ? pkg.scripts : {}
+  const pm = packageManager(root, pkg)
+  return names.filter((name) => typeof scripts[name] === 'string').map((name) => `${pm} ${name}`)
+}
+
+function hasAnyAction(cap: Capability, actions: string[]): boolean {
+  const existing = Array.isArray(cap.actions) ? cap.actions : []
+  return actions.some((action) => existing.some((candidate) => actionMatches(String(candidate), action)))
+}
+
+function capabilityCandidates(root: string, registry: Registry): CapabilityCandidate[] {
+  const pkg = readJson(join(root, 'package.json')) || {}
+  const slug = hostSlug(root, pkg)
+  const candidates: CapabilityCandidate[] = []
+
+  const appValidationActions = collectPackageScriptActions(root, pkg, ['lint', 'typecheck', 'test:run', 'test:unit']).slice(0, 4)
+  const appValidationMatches = resolveCapabilities(registry.capabilities, 'validating_app_changes')
+  const hasAppValidationCoverage = appValidationMatches.some((cap) => hasAnyAction(cap, appValidationActions))
+  if (appValidationActions.length >= 2 && !hasAppValidationCoverage) {
+    candidates.push({
+      id: `${slug}-baseline-app-validation`,
+      status: appValidationMatches.length === 0 ? 'missing' : 'partial',
+      confidence: 'high',
+      reason: 'Package scripts expose baseline app validation commands but no capability covers validating_app_changes with those actions.',
+      evidence: [
+        'package.json scripts: ' + appValidationActions.join(', '),
+        `validating_app_changes matches: ${appValidationMatches.map((cap) => cap.id).join(', ') || 'none'}`,
+      ],
+      suggestedCapability: {
+        id: `${slug}-baseline-app-validation`,
+        kind: 'validation',
+        level: 'recommend',
+        sourceRecord: sourceRecordFor(root, '.lazy-harness/tests/test-strategy.xml'),
+        appliesWhen: ['validating_app_changes', 'before_commit'],
+        actions: appValidationActions,
+        entrypoint: appValidationActions.join(' && '),
+        description: `Use ${slug} baseline app validation commands for app changes.`,
+        owner: 'host-project',
+        tags: ['validation', 'package-scripts', slug],
+      },
+    })
+  }
+
+  const releaseActions = ['bun release', 'bun release test', 'bun release staging', 'bun release main']
+  const releaseMatches = registry.capabilities.filter((cap) => {
+    const applies = Array.isArray(cap.appliesWhen) ? cap.appliesWhen : []
+    return applies.includes('preparing_release') || applies.includes('release_dispatch') || cap.skillName === '/release-workflow'
+  })
+  const releasePolicyExists = existsSync(join(root, '.lazy-harness/ssot/release-branch-policy.md'))
+  for (const cap of releaseMatches) {
+    if (releasePolicyExists && !hasAnyAction(cap, releaseActions)) {
+      candidates.push({
+        id: `${cap.id}-action-coverage`,
+        status: 'partial',
+        confidence: 'medium',
+        reason: 'Release capability resolves by intent, but concrete release command labels are absent so action-based resolve misses it.',
+        evidence: [
+          `matched release capability: ${cap.id}`,
+          'source record exists: .lazy-harness/ssot/release-branch-policy.md',
+          'missing action labels: ' + releaseActions.join(', '),
+        ],
+        suggestedCapability: {
+          ...cap,
+          actions: releaseActions,
+        },
+      })
+    }
+  }
+
+  return candidates.sort((a, b) => a.id.localeCompare(b.id))
 }
 
 function requireString(opts: Record<string, string | boolean>, key: string): string {
@@ -344,6 +470,26 @@ function printAudit(issues: AuditIssue[], registry: Registry, format: Format): v
   }
 }
 
+function printCandidates(candidates: CapabilityCandidate[], format: Format): void {
+  if (format === 'json') return printJson({ candidates })
+  console.log('# Capability candidates')
+  if (candidates.length === 0) {
+    console.log('\nNo capability candidates detected.')
+    return
+  }
+  for (const candidate of candidates) {
+    console.log(`\n## ${candidate.id}`)
+    console.log(`- status: ${candidate.status}`)
+    console.log(`- confidence: ${candidate.confidence}`)
+    console.log(`- reason: ${candidate.reason}`)
+    console.log(`- suggested: ${candidate.suggestedCapability.kind}/${candidate.suggestedCapability.level}`)
+    console.log(`- appliesWhen: ${candidate.suggestedCapability.appliesWhen.join(', ')}`)
+    if (candidate.suggestedCapability.actions?.length) console.log(`- actions: ${candidate.suggestedCapability.actions.join(', ')}`)
+    console.log('- evidence:')
+    for (const item of candidate.evidence) console.log(`  - ${item}`)
+  }
+}
+
 function addCapability(root: string, registry: Registry, opts: Record<string, string | boolean>, format: Format): void {
   const dryRun = opts['dry-run'] === true
   const allowMissingSourceRecord = opts['allow-missing-source-record'] === true
@@ -373,7 +519,7 @@ function addCapability(root: string, registry: Registry, opts: Record<string, st
 function main(): void {
   const [cmd, ...rest] = process.argv.slice(2)
   if (!cmd || cmd === '-h' || cmd === '--help') usage(cmd ? 0 : 2)
-  if (!['add', 'list', 'resolve', 'audit'].includes(cmd)) {
+  if (!['add', 'list', 'resolve', 'candidates', 'audit'].includes(cmd)) {
     console.error(`Unknown capability command: ${cmd}`)
     usage(2)
   }
@@ -407,6 +553,10 @@ function main(): void {
       process.exit(2)
     }
     printResolve(resolveCapabilities(registry.capabilities, intent, action), intent, action, fmt(opts))
+    return
+  }
+  if (cmd === 'candidates') {
+    printCandidates(capabilityCandidates(root, registry), fmt(opts))
     return
   }
   if (cmd === 'audit') {

@@ -27,6 +27,18 @@ Phase 2 requirements:
 - Repeating the same add command must be idempotent and return `unchanged`.
 - Registry output must be sorted by id for stable diffs.
 - A knowledge graph capability row must be upserted for non-dry-run writes.
+- Multi-value options may be passed comma-separated or as repeated flags; repeated `--applies-when`, `--action`, and `--tag` values must accumulate.
+
+## Candidate detection
+
+`lazy capability candidates` is read-only. It inspects host-local evidence and returns candidate capability entries that are not yet registered or are partially registered.
+
+Candidate detection must not mutate `.lazy-harness/ssot/capabilities.json` and must not promote candidates to `warn` or `block` automatically.
+
+Current evidence detectors:
+
+- package-script validation: if `package.json` exposes baseline validation scripts such as `lint`, `typecheck`, `test:run`, or `test:unit`, but no registered capability covers `validating_app_changes` with those actions, emit a `validation/recommend` candidate.
+- release action coverage: if a release workflow capability resolves by intent but lacks concrete release action labels and `.lazy-harness/ssot/release-branch-policy.md` exists, emit a partial candidate with the suggested action coverage.
 
 ## Inputs
 
@@ -75,13 +87,14 @@ Phase 1 audit is report-only and does not install hooks.
 
 - Status: `phase-2-implemented`
 - Primary files:
-  - `.lazy-harness/scripts/capability.ts` — add/list/resolve/audit implementation.
+  - `.lazy-harness/scripts/capability.ts` — add/list/resolve/candidates/audit implementation.
   - `.lazy-harness/ssot/capabilities.json` — registry input.
   - `.lazy-harness/scripts/self-test.py` — fixture coverage.
 - Key symbols:
   - `upsertCapability`
   - `resolveCapabilities`
   - `auditRegistry`
-  - `printMarkdown`
+  - `capabilityCandidates`
+  - `printCandidates`
 - Tests / protection:
-  - `check_capability_registry_cli_phase1` in `.lazy-harness/scripts/self-test.py`, covering add/list/resolve/audit.
+  - `check_capability_registry_cli_phase1` in `.lazy-harness/scripts/self-test.py`, covering add/list/resolve/candidates/audit and repeated multi-value flags.

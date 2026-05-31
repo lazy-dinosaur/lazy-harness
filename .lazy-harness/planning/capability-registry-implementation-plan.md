@@ -671,13 +671,13 @@ Go/no-go conclusion:
 
 ```text
 Capability Registry Track A is functioning correctly for existing Medivance entries.
-The next safe implementation step is to apply the two Medivance registry updates above, validate audit/list/resolve, and then consider whether repeated flag support belongs in a future framework ergonomics slice.
-Do not promote either gap directly to warn/block.
+The next safe implementation step is source-side harness improvement: detect these gaps as read-only capability candidates from dogfood evidence, not manual downstream host registry edits.
+Do not promote either gap directly to warn/block, and do not commit direct Medivance registry changes unless explicitly requested.
 ```
 
 ## Rule placement
 
-- Rule: Capability Registry evaluation should keep existing soft levels, add missing Medivance baseline app validation as recommend-level, add concrete release action labels to the release workflow skill, and avoid warn/block promotion from this evidence alone.
+- Rule: Capability Registry evaluation should keep existing soft levels and convert Medivance-discovered gaps into lazy-harness source improvements such as read-only candidate detection; avoid manual downstream host registry edits and avoid warn/block promotion from this evidence alone.
 - Scope: transient-plan
 - Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
 - Why not AGENTS.md: this is a point-in-time Capability Registry dogfood evaluation and next registry-update recommendation, not permanent agent grammar.
@@ -687,9 +687,42 @@ Do not promote either gap directly to warn/block.
 ## Discovery capture
 
 - DDD: no new domain term.
-- SDD: no resolver contract change yet; optional future ergonomics slice may support repeated `lazy capability add` flags.
+- SDD: source-side candidate detection and repeated `lazy capability add` flag ergonomics are the correct follow-up contract changes.
 - BDD: no user-facing app behavior change.
-- TDD: no regression added yet; if repeated flag support is implemented later, add a self-test case.
+- TDD: add source self-test cases for read-only candidate detection and repeated multi-value flags.
 - ADR: no new architecture decision; levels remain soft (`recommend/default`) unless separately confirmed.
-- SSOT: recommended host registry updates target `/home/lazydino/dev/medivance/.lazy-harness/ssot/capabilities.json`.
+- SSOT: `/home/lazydino/dev/medivance/.lazy-harness/ssot/capabilities.json` remains downstream evidence only; source work belongs in `/home/lazydino/dev/lazy-harness`.
 - Planning: this section is the current Track A evaluation checkpoint.
+
+## 2026-05-31 correction — source-side implementation, not downstream registry patch
+
+Status: user-corrected-and-implemented
+Confirmation: user-corrected
+
+Correction:
+
+```text
+Medivance capability gaps should drive lazy-harness framework changes in the source repo. They should not be solved by manually committing registry edits in the Medivance downstream host.
+```
+
+Source changes made:
+
+- Added read-only `lazy capability candidates --format=json|md`.
+- Candidate detection now finds:
+  - missing app-validation capabilities from package scripts such as lint/typecheck/test.
+  - release capabilities that resolve by intent but are missing concrete release action labels.
+- Added repeated multi-value flag support for `lazy capability add`, so repeated `--applies-when`, `--action`, and `--tag` accumulate instead of silently keeping only the last value.
+- Added self-test coverage for both candidate detection and repeated flag preservation.
+
+Medivance verification target:
+
+```bash
+bun .lazy-harness/scripts/capability.ts candidates --target /home/lazydino/dev/medivance --format=json
+```
+
+Expected current Medivance candidates from source script:
+
+- `medivance-baseline-app-validation`
+- `medivance-release-workflow-skill-action-coverage`
+
+These are read-only suggestions. They are not downstream commits.
