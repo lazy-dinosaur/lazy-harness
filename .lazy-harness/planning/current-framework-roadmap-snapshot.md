@@ -341,3 +341,48 @@ Track status:
 - Scope: transient-plan
 - Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
 - Confirmation: user requested thorough records for next-session continuity.
+
+## 2026-05-31 record omission finding — Medivance UI analysis
+
+Status: observed-gap
+
+User correction:
+
+```text
+A parallel Medivance session analyzed TreatmentPatientAddModal contact/session input typography but did not immediately capture the discovered facts in records.
+```
+
+Observed gap:
+
+- `TreatmentPatientAddModal` 연락처/회차 typography details were present in chat/tool output but missing from exact searchable records until manually patched afterward.
+- The missing facts were important because wrapper/container `text-[12px]` can be mistaken for actual input typography, while the real 연락처/회차 input values are `14px`.
+
+Corrective action already applied in Medivance host worktrees:
+
+- `/home/lazydino/dev/medivance/.lazy-harness/behavior/appointment-sheet-modal-redesign.md`
+- `/home/lazydino/dev/medivance/.lazy-harness/spec/frontend/patient-treatment-surface-contract.md`
+- `/home/lazydino/dev/medivance.fix-reservation-sheet/.lazy-harness/behavior/appointment-sheet-modal-redesign.md`
+- `/home/lazydino/dev/medivance.fix-reservation-sheet/.lazy-harness/spec/frontend/patient-treatment-surface-contract.md`
+- `/home/lazydino/dev/medivance.feat-calendar-renewal/.lazy-harness/behavior/appointment-sheet-modal-redesign.md`
+- `/home/lazydino/dev/medivance.feat-calendar-renewal/.lazy-harness/spec/frontend/patient-treatment-surface-contract.md`
+
+Framework backlog:
+
+- Add a practical audit/check that detects when assistant output says "확인/발견" with concrete file/line/component facts but no subsequent record file change or candidate entry.
+- Treat this as a record-discipline reliability gap, not a product bug.
+- Do not rely on compare-mode lifecycle success as evidence that record discipline is complete; compare mode only checks helper parity, not semantic completeness of records.
+
+## Rule placement
+
+- Rule: Concrete discovered UI/component facts must be captured in host records immediately, especially when they correct a misleading wrapper-vs-actual-element interpretation.
+- Scope: transient-plan/backlog
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Confirmation: user-corrected omission on 2026-05-31.
+
+## Discovery capture
+
+- BDD/SDD: Medivance host records were patched directly with the concrete TreatmentPatientAddModal typography facts.
+- TDD: future framework protection could flag discovery-without-record patterns.
+- ADR: no decision yet.
+- SSOT: no source-of-truth change.
+- Planning: this is a backlog item for record discipline reliability.
