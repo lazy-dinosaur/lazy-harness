@@ -495,3 +495,51 @@ Operational notes:
 Next source-side note:
 
 This record commit advances source HEAD; downstream `.lazy-harness/state/synced-from-commit` markers should be refreshed afterward. The local `.jcode` compare wrappers should remain in place after sync and must be rechecked.
+
+## 2026-05-31 compare-mode dogfood config preservation fix
+
+Status: fixed-and-validated
+Confirmation: user corrected that Medivance PWA must also be updated for compare dogfood.
+
+Issue found:
+
+- A normal `lazy-sync --force` refreshed generated `.jcode/config.toml` and reverted the response.completed command back to `.lazy-harness/hooks/lifecycle/on-response-completed.sh`.
+- The compare wrapper file remained, but it was no longer wired into Jcode.
+
+Fix applied in both downstream hosts:
+
+- `/home/lazydino/dev/medivance/.jcode/config.toml`
+- `/home/lazydino/dev/medivance-pwa/.jcode/config.toml`
+
+Both configs now point response.completed to:
+
+```toml
+command = ".jcode/hooks/response-completed-compare.sh"
+```
+
+Both configs were converted to local user-owned overrides by removing the lazy-harness generated marker, so future `lazy-sync` preserves the compare dogfood wiring instead of overwriting it.
+
+Validation after another `lazy-sync --force`:
+
+- Medivance:
+  - sync log: `keep user-owned .jcode/config.toml`
+  - marker: `92df1e5f3989...`
+  - wrapper smoke: pass
+  - compare rows: 3 total, last row `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`
+  - `git status --short`: clean
+- Medivance PWA:
+  - sync log: `keep user-owned .jcode/config.toml`
+  - marker: `92df1e5f3989...`
+  - wrapper smoke: pass
+  - compare rows: 2 total, last row `bodyHashMatch=true`, `helperMatch=true`, `orchestratorSandbox=true`, `orchestratorExitCode=0`
+  - `git status --short`: clean
+
+Interpretation:
+
+```text
+Both dogfood hosts are now actively wired for compare mode through local/private Jcode config, and that wiring survives lazy-sync.
+```
+
+Operational note:
+
+Because `.jcode/config.toml` is now intentionally user-owned in both dogfood hosts, future framework template changes to generated Jcode config will not automatically overwrite those local compare-mode overrides. Re-enable generated config by restoring the generated marker and command if needed.
