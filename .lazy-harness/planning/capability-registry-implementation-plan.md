@@ -726,3 +726,41 @@ Expected current Medivance candidates from source script:
 - `medivance-release-workflow-skill-action-coverage`
 
 These are read-only suggestions. They are not downstream commits.
+
+## 2026-05-31 downstream sync after source-side candidate detection
+
+Status: synced-and-validated
+Confirmation: user asked whether both downstream dogfood hosts were updated after harness source changes.
+
+Source commit synced:
+
+- Initial implementation commit: `878a92c8099d59fcb468f673c5e44cfa406bf540` (`Add read-only capability candidate detection`)
+
+Downstream sync results:
+
+- `/home/lazydino/dev/medivance`
+  - `lazy-sync --force`: updated 7 framework files and marker.
+  - marker reached `878a92c8099d59fcb468f673c5e44cfa406bf540`.
+  - `lazy test`: pass, host scope ran=40 skipped=16.
+  - `lazy capability candidates --format=json`: pass, candidates:
+    - `medivance-baseline-app-validation`
+    - `medivance-release-workflow-skill-action-coverage`
+  - `git status --short`: clean.
+- `/home/lazydino/dev/medivance-pwa`
+  - `lazy-sync --force`: updated 7 framework files and marker.
+  - marker reached `878a92c8099d59fcb468f673c5e44cfa406bf540`.
+  - `lazy test`: pass, host scope ran=40 skipped=16.
+  - `lazy capability candidates --format=json`: pass, candidates:
+    - `medivance-pwa-baseline-app-validation`
+  - `git status --short`: clean.
+
+Interpretation:
+
+```text
+Both downstream dogfood hosts were updated to the source-side candidate detection implementation and validated.
+Medivance remains the primary dogfood signal; PWA remains secondary/contextual but is no longer stale relative to the synced framework implementation.
+```
+
+Next source-side note:
+
+This record commit itself advances the source HEAD beyond `878a92c`; after committing it, downstream markers should be refreshed once more so host markers equal the final source HEAD.
