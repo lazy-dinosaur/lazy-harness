@@ -366,3 +366,103 @@ payload='{"message_id":"rollback-smoke","recent_tool_calls":[{"name":"read","arg
 - ADR: production default replacement still requires explicit future approval.
 - SSOT: dogfood hosts intentionally have user-owned `.jcode/config.toml` compare overrides.
 - Planning: this file is the canonical next-session handoff for compare dogfood evidence review.
+
+## 2026-05-31 accumulated compare evidence check
+
+Status: evidence-accumulating-with-mismatch
+
+Observed at: 2026-05-31T11:41Z
+
+Summary:
+
+- `/home/lazydino/dev/medivance`
+  - compare rows: 79
+  - invalid rows: 0
+  - orchestrator failures: 0
+  - raw body/payload suspects: 0
+  - mismatches: 3
+  - first row: `2026-05-31T06:44:08.392305Z`
+  - last row: `2026-05-31T11:36:38.555689Z`
+- `/home/lazydino/dev/medivance-pwa`
+  - compare rows: 3
+  - invalid rows: 0
+  - orchestrator failures: 0
+  - raw body/payload suspects: 0
+  - mismatches: 0
+  - first row: `2026-05-31T06:44:08.384071Z`
+  - last row: `2026-05-31T06:50:18.209206Z`
+
+Mismatch detail:
+
+All 3 Medivance mismatches have the same shape:
+
+```text
+legacyHelper      = .lazy-harness/hooks/lifecycle/helpers/check-fix-regression.sh
+orchestratorHelper = null
+legacyOutputEmitted = true
+orchestratorOutputEmitted = false
+orchestratorExitCode = 0
+orchestratorSandbox = true
+```
+
+Probable cause:
+
+`check-fix-regression.sh` is git-history dependent. It checks the real host's last commit subject and SHA:
+
+```bash
+git log -1 --pretty=%s
+git rev-parse HEAD
+```
+
+But compare mode currently runs the orchestrator in a sandbox that copies only `.lazy-harness` and initializes a fresh git repository. Therefore the sandbox has different/no host commit history, so the orchestrator can miss `check-fix-regression.sh` output that legacy sees in the real host.
+
+Interpretation:
+
+```text
+Compare mode is accumulating useful evidence. It is not clean enough to promote to orchestrator mode.
+The mismatch is likely a compare-sandbox fidelity issue around git-dependent helpers, not an orchestrator crash.
+```
+
+Timing notes from latest 1000 rows:
+
+- Medivance:
+  - `hook-total`: count=52, avg≈1477ms, p50≈1342ms, p90≈2315ms, max≈2556ms
+  - `lifecycle-orchestrator`: count=56, avg≈712ms, p50≈635ms, p90≈1132ms, max≈1615ms
+  - nonZeroExit=0 for both
+- Medivance PWA:
+  - `hook-total`: count=57, avg≈872ms, p50≈830ms, p90≈1108ms, max≈2462ms
+  - `lifecycle-orchestrator`: count=3, avg≈578ms, p50≈538ms, max≈693ms
+  - nonZeroExit=0 for both
+
+Next recommended work:
+
+1. Build `lazy lifecycle-compare-summary --format=md|json` so this check is not ad hoc.
+2. Fix compare-sandbox fidelity for git-dependent helpers, or explicitly classify git-dependent helper mismatch as an expected compare limitation until a safer sandbox strategy exists.
+3. Do not move to `LAZY_RESPONSE_COMPLETED_ENGINE=orchestrator` yet.
+
+Capability side note:
+
+`lazy capability candidates --format=json` still works in both hosts:
+
+- Medivance candidates:
+  - `medivance-baseline-app-validation`
+  - `medivance-release-workflow-skill-action-coverage`
+- Medivance PWA candidates:
+  - `medivance-pwa-baseline-app-validation`
+
+These remain read-only suggestions and must not be auto-applied.
+
+## Rule placement
+
+- Rule: The 2026-05-31 compare evidence shows useful accumulation but 3 Medivance mismatches caused by `check-fix-regression.sh` sandbox git-history fidelity. Do not escalate to orchestrator mode before addressing or explicitly classifying this mismatch.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
+- Confirmation: tool-observed dogfood evidence.
+
+## Discovery capture
+
+- SDD: compare sandbox fidelity for git-dependent helpers needs a contract update or implementation fix.
+- TDD: future fix should add a fixture where legacy `check-fix-regression.sh` emits because of real git history and compare/orchestrator handles it consistently.
+- ADR: no production default replacement decision; explicit approval still required.
+- SSOT: no source-of-truth change.
+- Planning: this section records current evidence and next action.
