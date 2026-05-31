@@ -1,0 +1,368 @@
+# Lifecycle Compare Dogfood Handoff
+
+Status: active-dogfood-handoff
+Date: 2026-05-31
+Layer: Planning
+Related:
+- `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- `.lazy-harness/spec/platform/hook-performance-measurement.md`
+
+## Purpose
+
+This handoff exists so a future agent can continue without relying on chat history. If the user says something like:
+
+```text
+쌓인 자료 확인해줘
+compare 로그 봐줘
+도그푸드 쌓였는지 봐줘
+```
+
+then the agent should read this file first and proceed with the workflow below.
+
+## Current track split
+
+Two tracks were intentionally active in parallel and must not be collapsed:
+
+1. **Track A — Capability Registry**
+   - Purpose: discover project-specific capability candidates from real workflow evidence.
+   - Current state: source-side read-only `lazy capability candidates` is implemented.
+   - Important boundary: do not manually patch downstream Medivance registries as the solution. Medivance/PWA are evidence hosts. Source work belongs in `/home/lazydino/dev/lazy-harness`.
+2. **Track B — Lifecycle / response.completed Phase 3**
+   - Purpose: safely replace/optimize the response.completed safety-gate hot path.
+   - Current state: opt-in engine switch exists, default remains legacy.
+   - Current dogfood mode: both Medivance and Medivance PWA are locally wired to `compare` mode.
+
+## Source and host state at handoff creation
+
+Before this handoff record commit:
+
+- Source repo: `/home/lazydino/dev/lazy-harness`
+- Source HEAD: `49de79e32a42c426eaf279b5b5db28da005c086f`
+- Recent source commits:
+  - `49de79e Record persistent compare dogfood wiring`
+  - `92df1e5 Record compare dogfood in both hosts`
+  - `9bafdc2 Record lifecycle opt-in downstream sync`
+  - `1bab3ef Add opt-in response lifecycle engine`
+  - `7c4bc00 Record downstream capability sync`
+  - `878a92c Add read-only capability candidate detection`
+
+After committing this handoff record, source HEAD will advance. The committer must sync both downstream markers once more after the commit.
+
+## Dogfood host configuration
+
+Both hosts are expected to be latest relative to the source HEAD and locally wired for compare mode:
+
+### `/home/lazydino/dev/medivance`
+
+Expected local/private Jcode config:
+
+```toml
+[[hooks.commands]]
+event = "response.completed"
+tool = "*"
+command = ".jcode/hooks/response-completed-compare.sh"
+blocking = false
+timeout_ms = 5000
+```
+
+Expected wrapper:
+
+```bash
+#!/usr/bin/env bash
+# Local dogfood wrapper: run lazy-harness response.completed in compare mode.
+set -euo pipefail
+export LAZY_RESPONSE_COMPLETED_ENGINE="${LAZY_RESPONSE_COMPLETED_ENGINE:-compare}"
+export LAZY_RESPONSE_COMPLETED_COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-.lazy-harness/logs/lifecycle-compare.jsonl}"
+exec .lazy-harness/hooks/lifecycle/on-response-completed.sh
+```
+
+Expected log path:
+
+```text
+/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl
+```
+
+At handoff creation this host had 4 compare rows, all matching.
+
+### `/home/lazydino/dev/medivance-pwa`
+
+Same expected local/private Jcode config and wrapper as Medivance.
+
+Expected log path:
+
+```text
+/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl
+```
+
+At handoff creation this host had 3 compare rows, all matching.
+
+## Why `.jcode/config.toml` is user-owned in both hosts
+
+A normal `lazy-sync --force` refreshes generated `.jcode/config.toml` and would revert the response.completed hook command to:
+
+```toml
+command = ".lazy-harness/hooks/lifecycle/on-response-completed.sh"
+```
+
+That would silently disable compare-mode dogfood. Therefore both dogfood hosts intentionally have local user-owned `.jcode/config.toml` overrides with the generated marker removed. `lazy-sync` should report:
+
+```text
+✓ keep user-owned <host>/.jcode/config.toml
+```
+
+Do not “repair” this back to generated config unless the goal is to stop compare dogfood.
+
+## Compare log meaning
+
+Each row in `.lazy-harness/logs/lifecycle-compare.jsonl` should be sanitized metadata only. It should not contain raw user message bodies.
+
+Fields to inspect:
+
+- `bodyHashMatch`
+- `helperMatch`
+- `legacyOutputEmitted`
+- `orchestratorOutputEmitted`
+- `legacyHelper`
+- `orchestratorHelper`
+- `orchestratorExitCode`
+- `orchestratorSandbox`
+- `legacyBodyBytes`
+- `orchestratorBodyBytes`
+
+A healthy row usually has:
+
+```json
+{
+  "bodyHashMatch": true,
+  "helperMatch": true,
+  "orchestratorExitCode": 0,
+  "orchestratorSandbox": true
+}
+```
+
+Rows where both legacy and orchestrator emit no output have `legacyBodyHash=null` and `orchestratorBodyHash=null`; `bodyHashMatch=true` is still expected.
+
+## Next-session workflow: when user asks to inspect accumulated data
+
+### 1. Read records first
+
+Read at minimum:
+
+```bash
+sed -n '1,260p' .lazy-harness/planning/lifecycle-compare-dogfood-handoff.md
+sed -n '455,620p' .lazy-harness/planning/lifecycle-phase3-readiness-checklist.md
+sed -n '697,790p' .lazy-harness/planning/capability-registry-implementation-plan.md
+```
+
+### 2. Confirm source and host markers
+
+```bash
+cd /home/lazydino/dev/lazy-harness
+git rev-parse HEAD
+
+for host in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+  echo "## $host"
+  cd "$host"
+  python3 - <<'PY'
+import json
+print(json.load(open('.lazy-harness/state/synced-from-commit'))['syncedFromCommit'])
+PY
+  git status --short
+  grep -n 'response.completed\|response-completed-compare' .jcode/config.toml
+  test -x .jcode/hooks/response-completed-compare.sh && echo wrapper-ok
+ done
+```
+
+If marker is behind source, run `lazy-sync --force` from source to host, then recheck that `.jcode/config.toml` remains user-owned compare wiring.
+
+### 3. Summarize compare logs
+
+Until a source CLI exists, use this ad hoc summary:
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+hosts = [
+    ('medivance', Path('/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl')),
+    ('medivance-pwa', Path('/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl')),
+]
+for name, path in hosts:
+    rows=[]
+    invalid=0
+    if path.exists():
+        for line in path.read_text(errors='replace').splitlines():
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                invalid += 1
+    mismatches=[]
+    failures=[]
+    for i,row in enumerate(rows, 1):
+        bad = []
+        if row.get('bodyHashMatch') is not True:
+            bad.append('bodyHashMatch')
+        if row.get('helperMatch') is not True:
+            bad.append('helperMatch')
+        if row.get('legacyOutputEmitted') != row.get('orchestratorOutputEmitted'):
+            bad.append('outputEmitted')
+        if row.get('orchestratorExitCode') not in (0, None):
+            bad.append('orchestratorExitCode')
+        if row.get('orchestratorSandbox') is not True:
+            bad.append('orchestratorSandbox')
+        if bad:
+            mismatches.append((i, bad, row))
+        if row.get('orchestratorExitCode') not in (0, None):
+            failures.append((i, row))
+    print(f'## {name}')
+    print(f'path={path}')
+    print(f'rows={len(rows)} invalid={invalid} mismatches={len(mismatches)} failures={len(failures)}')
+    if rows:
+        print('first=', rows[0].get('timestamp'))
+        print('last =', rows[-1].get('timestamp'))
+    for i,bad,row in mismatches[:10]:
+        print('MISMATCH', i, bad, json.dumps(row, ensure_ascii=False)[:1200])
+PY
+```
+
+### 4. Inspect timing too
+
+Compare-mode adds sandbox orchestrator work, so also inspect timing:
+
+```bash
+for host in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+  echo "## $host"
+  cd "$host"
+  .lazy-harness/bin/lazy hook-timings --format=md --limit=1000 | sed -n '1,120p'
+ done
+```
+
+Important components:
+
+- `lifecycle-orchestrator`
+- `hook-total`
+- individual legacy helpers
+
+### 5. Optional capability candidate check
+
+Capability is a separate track. Do not let lifecycle readiness imply capability promotion.
+
+```bash
+for host in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+  echo "## $host"
+  cd "$host"
+  .lazy-harness/bin/lazy capability candidates --format=json
+ done
+```
+
+Expected current candidates:
+
+- Medivance:
+  - `medivance-baseline-app-validation`
+  - `medivance-release-workflow-skill-action-coverage`
+- Medivance PWA:
+  - `medivance-pwa-baseline-app-validation`
+
+These are read-only suggestions. Do not auto-apply.
+
+## Decision criteria for next Track B step
+
+Do not automatically move to `orchestrator` mode. Report evidence first and ask/receive explicit approval.
+
+Recommended readiness signal for considering `compare → orchestrator` opt-in dogfood:
+
+- Medivance primary evidence has enough real rows to be meaningful.
+- `invalid=0` in compare logs.
+- `bodyHashMatch=false` count is 0.
+- `helperMatch=false` count is 0.
+- `legacyOutputEmitted != orchestratorOutputEmitted` count is 0.
+- `orchestratorExitCode != 0` count is 0.
+- No raw sensitive content appears in compare logs.
+- `hook-total` and `lifecycle-orchestrator` timings are acceptable or at least understood.
+
+PWA should also be checked, but Medivance remains the primary dogfood signal unless the user says PWA has resumed active development.
+
+If all checks pass, the next option gate should be:
+
+A. Continue compare dogfood for more rows
+B. Enable `orchestrator` opt-in in Medivance only
+C. Enable `orchestrator` opt-in in both Medivance and PWA
+D. Build `lazy lifecycle-compare-summary` CLI first
+E. User-defined
+
+Recommended next implementation before mode escalation:
+
+```text
+Build `lazy lifecycle-compare-summary --format=md|json` so future reviews are not ad hoc Python snippets.
+```
+
+## Rollback
+
+For either host, rollback compare dogfood by changing `.jcode/config.toml` response.completed command back to:
+
+```toml
+command = ".lazy-harness/hooks/lifecycle/on-response-completed.sh"
+```
+
+or edit `.jcode/hooks/response-completed-compare.sh` to export:
+
+```bash
+export LAZY_RESPONSE_COMPLETED_ENGINE=legacy
+```
+
+Then smoke:
+
+```bash
+payload='{"message_id":"rollback-smoke","recent_tool_calls":[{"name":"read","args_preview":"README.md"}]}'
+.jcode/hooks/response-completed-compare.sh <<< "$payload"
+```
+
+## Implementation map
+
+- Primary implementation:
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
+    - `LAZY_RESPONSE_COMPLETED_ENGINE=legacy|orchestrator|compare`
+    - default legacy
+    - orchestrator fallback to legacy on failure
+    - compare mode logs sanitized metadata
+  - `.lazy-harness/scripts/lifecycle-check.py`
+    - `--sandbox` mode for compare dogfood
+  - `.lazy-harness/scripts/self-test.py`
+    - protects opt-in modes and compare log privacy
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md`
+    - engine contract and rollback
+- Dogfood wiring:
+  - `/home/lazydino/dev/medivance/.jcode/config.toml`
+  - `/home/lazydino/dev/medivance/.jcode/hooks/response-completed-compare.sh`
+  - `/home/lazydino/dev/medivance-pwa/.jcode/config.toml`
+  - `/home/lazydino/dev/medivance-pwa/.jcode/hooks/response-completed-compare.sh`
+- Evidence logs:
+  - `/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl`
+  - `/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl`
+- Protection:
+  - `.lazy-harness/bin/lazy test`
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+  - `.lazy-harness/bin/lazy lifecycle-parity --format=json --fail-on-mismatch`
+
+## Rule placement
+
+- Rule: Next compare dogfood inspection must read this handoff, summarize both host compare logs, keep Medivance primary and PWA secondary unless user updates activity scope, and must not escalate to orchestrator/default replacement without explicit approval.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
+- Why not AGENTS.md: this is a point-in-time dogfood handoff and review protocol, not universal agent grammar.
+- Why not `.jcode`: this concerns shared lazy-harness framework rollout state and two dogfood hosts, not private source-repo-only workflow.
+- Confirmation: user requested a thorough record so the next accumulated-data review can proceed automatically.
+
+## Discovery capture
+
+- DDD: no new domain term.
+- SDD: lifecycle compare summary CLI remains a recommended next implementation.
+- BDD: no user-facing app behavior change; user-visible lifecycle output remains legacy truth.
+- TDD: no new regression added in this handoff record; existing self-test protects compare mode.
+- ADR: production default replacement still requires explicit future approval.
+- SSOT: dogfood hosts intentionally have user-owned `.jcode/config.toml` compare overrides.
+- Planning: this file is the canonical next-session handoff for compare dogfood evidence review.

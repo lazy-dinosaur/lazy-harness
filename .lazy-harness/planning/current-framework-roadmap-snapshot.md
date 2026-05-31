@@ -317,3 +317,27 @@ Recommended next coordination:
 - ADR: no architecture decision yet; future direct replacement still needs explicit approval/review.
 - SSOT: no source-of-truth change.
 - Planning: parallel-track relationship clarified here.
+
+## 2026-05-31 compare dogfood handoff pointer
+
+Status: handoff-recorded
+
+Current next-session entrypoint:
+
+```text
+.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md
+```
+
+If the user asks to inspect accumulated dogfood/compare evidence, read that file first. It contains the current source/host state, compare log paths, ad hoc summary command, decision criteria, rollback instructions, and the explicit rule that production default replacement still needs approval.
+
+Track status:
+
+- Track A Capability Registry: source-side read-only candidates implemented; do not auto-apply.
+- Track B Lifecycle Phase 3: compare-mode dogfood active in both Medivance and Medivance PWA through local/private user-owned Jcode wiring.
+
+## Rule placement
+
+- Rule: The lifecycle compare dogfood handoff is the canonical next-session entrypoint for accumulated compare evidence review.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Confirmation: user requested thorough records for next-session continuity.

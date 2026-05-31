@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-31T06:19:04Z",
+  "generatedAt": "2026-05-31T06:54:31Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2348,6 +2348,16 @@
       "target": "Phase 3 opt-in engine patch and rollback",
       "source": "Records user approval, implementation summary, rollback commands, and states production default remains legacy pending explicit approval",
       "updatedAt": "2026-05-31T06:14:00Z"
+    },
+    {
+      "id": "kg_lifecycle_compare_dogfood_handoff",
+      "kind": "planning",
+      "layer": "Planning",
+      "path": ".lazy-harness/planning/lifecycle-compare-dogfood-handoff.md",
+      "relation": "handoff_for",
+      "target": "Accumulated lifecycle compare dogfood evidence review",
+      "source": "Next-session protocol for summarizing Medivance and Medivance PWA lifecycle-compare logs, preserving user-owned compare wiring, and gating compare-to-orchestrator escalation on explicit approval",
+      "updatedAt": "2026-05-31T06:54:00Z"
     }
   ]
 }
