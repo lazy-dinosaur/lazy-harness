@@ -561,3 +561,135 @@ Future evaluation checklist:
 - Why not AGENTS.md: this is a time-bound dogfood/evaluation plan, not a permanent agent instruction.
 - Why not `.jcode`: this is shared lazy-harness framework dogfood planning, not local/private Jcode-only workflow.
 - Confirmation: user-confirmed
+
+## 2026-05-31 Medivance-primary capability evaluation
+
+Status: evaluated-next-registry-updates-identified
+Confirmation: user asked to proceed with the parallel Track A Capability Registry evaluation after Track B Medivance-primary readiness.
+
+Scope:
+
+```text
+Use `/home/lazydino/dev/medivance` as primary evidence.
+Use `/home/lazydino/dev/medivance-pwa` only as secondary/contextual evidence because PWA development is not currently active.
+```
+
+Commands run in Medivance:
+
+- `lazy capability audit --format=json`
+- `lazy capability list --format=json`
+- `lazy capability resolve --intent creating_pull_request --format=json`
+- `lazy capability resolve --intent validating_changes --format=json`
+- `lazy capability resolve --intent validating_app_changes --format=json`
+- `lazy capability resolve --intent preparing_release --format=json`
+- `lazy capability resolve --intent release_dispatch --format=json`
+- Concrete action resolves:
+  - `gh pr create`
+  - `gh pr edit`
+  - `.lazy-harness/bin/lazy test`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run test:run`
+  - `bun release main`
+  - `bun release test`
+
+Observed Medivance registry state:
+
+- `lazy capability audit`: `ok=true`, `count=3`, `issues=[]`.
+- Registered capabilities:
+  - `medivance-lazy-test-validation` — `validation/default`, applies to `validating_changes`, `before_commit`.
+  - `medivance-pr-body-template` — `prompt/default`, applies to `creating_pull_request`, `writing_pr_body`; actions `gh pr create`, `gh pr edit`.
+  - `medivance-release-workflow-skill` — `skill/recommend`, applies to `preparing_release`, `release_dispatch`.
+- Representative intent results:
+  - `creating_pull_request`: matched `medivance-pr-body-template`.
+  - `validating_changes`: matched `medivance-lazy-test-validation`.
+  - `validating_app_changes`: no matches.
+  - `preparing_release`: matched `medivance-release-workflow-skill`.
+  - `release_dispatch`: matched `medivance-release-workflow-skill`.
+- Concrete action results:
+  - `gh pr create`: matched `medivance-pr-body-template`.
+  - `gh pr edit`: matched `medivance-pr-body-template`.
+  - `.lazy-harness/bin/lazy test`: matched `medivance-lazy-test-validation`.
+  - `bun run lint`: no matches.
+  - `bun run typecheck`: no matches.
+  - `bun run test:run`: no matches.
+  - `bun release main`: no matches.
+  - `bun release test`: no matches.
+
+Secondary PWA context:
+
+- PWA audit passed: `ok=true`, `count=2`, `issues=[]`.
+- PWA has `medivance-pwa-baseline-validation` for `validating_app_changes`, covering lint/typecheck/unit test commands.
+- This confirms that a baseline app-validation capability shape is already useful in a dogfood host, but PWA thinness should not block Medivance decisions.
+
+Evaluation:
+
+- False positives: none found. Existing matches resolve to the expected PR, validation, and release capabilities.
+- Missing auto-promotion / registry gap 1:
+  - Medivance has canonical app validation commands in `.lazy-harness/tests/test-strategy.xml` and `package.json`: `bun run lint`, `bun run typecheck`, `bun run test:run`.
+  - `validating_app_changes` currently resolves to no capability.
+  - Concrete lint/typecheck/test actions also resolve to no capability.
+  - Recommended registry addition: `medivance-baseline-app-validation` as `validation/recommend`, not `block`, applying to `validating_app_changes,before_commit` with actions `bun run lint,bun run typecheck,bun run test:run`.
+- Missing action coverage / registry gap 2:
+  - `medivance-release-workflow-skill` resolves by intent but not by concrete `bun release ...` actions.
+  - Recommended registry update: add actions `bun release,bun release test,bun release staging,bun release main` while keeping level `recommend`.
+- CLI ergonomics observation:
+  - `lazy capability add` help documents comma-separated multi-values. Repeating `--applies-when`, `--action`, or `--tag` currently keeps the last value only via the generic option parser.
+  - This is not a correctness bug when callers follow the documented comma-separated syntax, but supporting repeated flags would reduce agent mistakes in future hardening.
+
+Dry-run candidates verified:
+
+```bash
+lazy capability add \
+  --id medivance-baseline-app-validation \
+  --kind validation \
+  --level recommend \
+  --applies-when validating_app_changes,before_commit \
+  --action 'bun run lint,bun run typecheck,bun run test:run' \
+  --entrypoint 'bun run lint && bun run typecheck && bun run test:run' \
+  --source-record .lazy-harness/tests/test-strategy.xml \
+  --description 'Use Medivance baseline lint, typecheck, and Vitest validation for app changes.' \
+  --owner host-project \
+  --tag validation,vitest,medivance
+```
+
+```bash
+lazy capability add \
+  --id medivance-release-workflow-skill \
+  --kind skill \
+  --level recommend \
+  --applies-when preparing_release,release_dispatch \
+  --action 'bun release,bun release test,bun release staging,bun release main' \
+  --source-record .lazy-harness/ssot/release-branch-policy.md \
+  --description 'Use the project release workflow skill for Medivance release/build/publish/hotfix work.' \
+  --owner host-project \
+  --tag release,skill \
+  --skill-name /release-workflow
+```
+
+Go/no-go conclusion:
+
+```text
+Capability Registry Track A is functioning correctly for existing Medivance entries.
+The next safe implementation step is to apply the two Medivance registry updates above, validate audit/list/resolve, and then consider whether repeated flag support belongs in a future framework ergonomics slice.
+Do not promote either gap directly to warn/block.
+```
+
+## Rule placement
+
+- Rule: Capability Registry evaluation should keep existing soft levels, add missing Medivance baseline app validation as recommend-level, add concrete release action labels to the release workflow skill, and avoid warn/block promotion from this evidence alone.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/capability-registry-implementation-plan.md`
+- Why not AGENTS.md: this is a point-in-time Capability Registry dogfood evaluation and next registry-update recommendation, not permanent agent grammar.
+- Why not `.jcode`: this concerns shared lazy-harness framework dogfood and host capability registry state, not local/private Jcode-only workflow.
+- Confirmation: validation evidence plus user-approved Track A evaluation.
+
+## Discovery capture
+
+- DDD: no new domain term.
+- SDD: no resolver contract change yet; optional future ergonomics slice may support repeated `lazy capability add` flags.
+- BDD: no user-facing app behavior change.
+- TDD: no regression added yet; if repeated flag support is implemented later, add a self-test case.
+- ADR: no new architecture decision; levels remain soft (`recommend/default`) unless separately confirmed.
+- SSOT: recommended host registry updates target `/home/lazydino/dev/medivance/.lazy-harness/ssot/capabilities.json`.
+- Planning: this section is the current Track A evaluation checkpoint.
