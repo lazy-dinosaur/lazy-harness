@@ -10,9 +10,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -161,6 +163,18 @@ def inspect(raw_payload: str, root: Path) -> dict[str, Any]:
     }
 
 
+def sandbox_root(root: Path) -> Path:
+    """Create a temporary host copy for side-effect-safe compare/debug runs."""
+    tmp = Path(tempfile.mkdtemp(prefix="lazy_lifecycle_check_sandbox_"))
+    shutil.copytree(
+        root / ".lazy-harness",
+        tmp / ".lazy-harness",
+        ignore=shutil.ignore_patterns(".cache", "state", "logs", "node_modules", "__pycache__"),
+    )
+    subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
+    return tmp
+
+
 def render_md(result: dict[str, Any]) -> str:
     lines = ["# Lifecycle check shadow", ""]
     lines.append(f"- Root: `{result['root']}`")
@@ -184,14 +198,24 @@ def main() -> int:
     parser.add_argument("--root", default=str(ROOT), help="host root")
     parser.add_argument("--payload", help="payload JSON string; defaults to stdin")
     parser.add_argument("--format", choices=["json", "md", "markdown"], default="json")
+    parser.add_argument("--sandbox", action="store_true", help="run against a temporary .lazy-harness copy for side-effect-safe compare/debug mode")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     raw_payload = args.payload if args.payload is not None else sys.stdin.read()
-    result = inspect(raw_payload, root)
-    if args.format == "json":
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print(render_md(result))
+    cleanup_root: Path | None = None
+    try:
+        if args.sandbox:
+            cleanup_root = sandbox_root(root)
+            root = cleanup_root
+        result = inspect(raw_payload, root)
+        result["sandbox"] = bool(args.sandbox)
+        if args.format == "json":
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print(render_md(result))
+    finally:
+        if cleanup_root is not None:
+            shutil.rmtree(cleanup_root, ignore_errors=True)
     return 0
 
 

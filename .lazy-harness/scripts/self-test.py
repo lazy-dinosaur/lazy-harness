@@ -2156,9 +2156,12 @@ def check_response_completed_auto_route_telemetry() -> None:
             ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
         }
 
-        def run_hook_with_timing(payload_obj: dict, log_name: str) -> set[str]:
+        def run_hook_with_timing(payload_obj: dict, log_name: str, extra_env: dict[str, str] | None = None) -> set[str]:
             log_path = temp / ".lazy-harness" / "logs" / log_name
             log_path.unlink(missing_ok=True)
+            env = {**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(log_path)}
+            if extra_env:
+                env.update(extra_env)
             completed = subprocess.run(
                 [str(hook)],
                 cwd=temp,
@@ -2166,7 +2169,7 @@ def check_response_completed_auto_route_telemetry() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(log_path)},
+                env=env,
             )
             if completed.returncode != 0:
                 fail("response.completed hook fast-path fixture failed:\n" + completed.stdout + completed.stderr)
@@ -2195,6 +2198,30 @@ def check_response_completed_auto_route_telemetry() -> None:
         )
         if not write_only_helpers.issubset(missing_field_components):
             fail("payloads without recent_tool_calls must fall back to all write-only helpers")
+
+        orchestrator_components = run_hook_with_timing(
+            {"message_id": "engine-orchestrator", "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}]},
+            "hook-timings-orchestrator.jsonl",
+            {"LAZY_RESPONSE_COMPLETED_ENGINE": "orchestrator"},
+        )
+        if "lifecycle-orchestrator" not in orchestrator_components or "hook-total" not in orchestrator_components:
+            fail("orchestrator opt-in engine should emit lifecycle-orchestrator and hook-total timing rows")
+
+        compare_log = temp / ".lazy-harness" / "logs" / "lifecycle-compare-test.jsonl"
+        compare_components = run_hook_with_timing(
+            {"message_id": "engine-compare", "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}]},
+            "hook-timings-compare.jsonl",
+            {"LAZY_RESPONSE_COMPLETED_ENGINE": "compare", "LAZY_RESPONSE_COMPLETED_COMPARE_LOG": str(compare_log)},
+        )
+        if "lifecycle-orchestrator" not in compare_components:
+            fail("compare engine should run sandboxed orchestrator for debug comparison")
+        if not compare_log.exists():
+            fail("compare engine should write lifecycle comparison log")
+        compare_rows = [json.loads(line) for line in compare_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if not compare_rows or compare_rows[-1].get("event") != "response.completed.compare" or compare_rows[-1].get("orchestratorSandbox") is not True:
+            fail("compare engine should log sanitized sandbox comparison rows: " + compare_log.read_text(encoding="utf-8"))
+        if "legacyBody" in compare_rows[-1] or "orchestratorBody" in compare_rows[-1]:
+            fail("compare log must store hashes/lengths, not raw hook bodies")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response.completed auto route telemetry ok")

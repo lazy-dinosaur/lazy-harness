@@ -15,6 +15,8 @@ Phase 1 introduces one conservative fast-path: when `recent_tool_calls` is prese
 
 Phase 2 adds a shadow lifecycle orchestrator. It runs outside the production hook, mirrors helper order and fast-path selection, and produces JSON for parity tests. It must not replace `on-response-completed.sh` until shadow parity covers STOP/no-STOP fixtures.
 
+Phase 3 adds an opt-in lifecycle engine switch. Default behavior remains `legacy`; `orchestrator` and `compare` are explicit opt-in modes only.
+
 ## Hook timing log
 
 Default path:
@@ -27,6 +29,8 @@ Environment controls:
 
 - `LAZY_HOOK_TIMING=0`: disables timing logging.
 - `LAZY_HOOK_TIMING_LOG=/path/to/file.jsonl`: overrides the timing log path.
+- `LAZY_RESPONSE_COMPLETED_ENGINE=legacy|orchestrator|compare`: selects the response.completed engine. Missing/unknown values fall back to `legacy`.
+- `LAZY_RESPONSE_COMPLETED_COMPARE_LOG=/path/to/file.jsonl`: overrides compare-mode JSONL output. Default: `.lazy-harness/logs/lifecycle-compare.jsonl`.
 
 Each JSONL row contains:
 
@@ -57,6 +61,10 @@ The summary command is read-only and reports per-component count, total, average
 - Fast-path skip decisions must be based only on parsed payload facts, not natural-language guesses.
 - Unknown payload shape, missing `recent_tool_calls`, or unknown tool names must run the full helper set.
 - Phase 1 may skip only write-only helpers that already no-op unless write/edit tools are present.
+- Phase 3 default must remain `legacy` until an explicit production replacement approval is recorded.
+- `orchestrator` mode must fall back to the legacy loop if `lifecycle-check.py` exits non-zero or emits invalid JSON.
+- `compare` mode must keep legacy output as user-visible truth and run the orchestrator in a sandbox copy to avoid real-host duplicate side effects.
+- Compare logs must store hashes/lengths and helper names, not raw user messages, payloads, or hook bodies.
 
 ## Phase 1 read-only fast-path
 
@@ -108,13 +116,57 @@ Batch parity runner:
 - `--fail-on-mismatch` exits `2` on any mismatch and is intended for self-test/CI.
 - Fixtures must be self-contained enough to run in installed hosts; source-only fixture files need embedded fallbacks.
 
+## Phase 3 opt-in engine switch
+
+Default behavior:
+
+```bash
+LAZY_RESPONSE_COMPLETED_ENGINE=legacy .lazy-harness/hooks/lifecycle/on-response-completed.sh
+```
+
+`legacy` preserves the existing shell helper loop and is the default when the environment variable is unset or unknown.
+
+Opt-in orchestrator primary mode:
+
+```bash
+LAZY_RESPONSE_COMPLETED_ENGINE=orchestrator .lazy-harness/hooks/lifecycle/on-response-completed.sh
+```
+
+`orchestrator` runs `lifecycle-check.py` as the primary helper engine after route telemetry. If it succeeds, its `injectJson`/no-output decision becomes the hook result. If it fails or cannot be parsed, the hook falls back to the legacy helper loop.
+
+Opt-in compare/debug mode:
+
+```bash
+LAZY_RESPONSE_COMPLETED_ENGINE=compare \
+LAZY_RESPONSE_COMPLETED_COMPARE_LOG=.lazy-harness/logs/lifecycle-compare.jsonl \
+.lazy-harness/hooks/lifecycle/on-response-completed.sh
+```
+
+`compare` runs the orchestrator in a sandbox `.lazy-harness` copy, then runs the legacy helper loop in the real host. Legacy output remains user-visible truth. The compare log stores only metadata such as output booleans, helper names, body lengths, and body hashes.
+
+Rollback:
+
+```bash
+unset LAZY_RESPONSE_COMPLETED_ENGINE
+# or
+export LAZY_RESPONSE_COMPLETED_ENGINE=legacy
+```
+
+Remove compare logs if desired:
+
+```bash
+rm -f .lazy-harness/logs/lifecycle-compare.jsonl
+```
+
 ## Implementation map
 
 - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
   - Emits timing rows around route telemetry, each lifecycle helper, and total hook runtime.
   - Applies Phase 1 read-only fast-path only for known read-only payloads, with full-check fallback for unknowns.
+  - Supports Phase 3 opt-in `legacy|orchestrator|compare` engine selection; default is legacy.
 - `.lazy-harness/scripts/lifecycle-check.py`
   - Phase 2 shadow orchestrator. Parses payload once, mirrors helper order/fast-path selection, runs existing helpers, and reports first-output parity data.
+  - Supports `--sandbox` for side-effect-safe compare/debug runs.
 - `.lazy-harness/scripts/lifecycle-parity-runner.py`
   - Batch parity runner that compares production hook output with lifecycle-check shadow output across representative fixtures in fresh temp hosts.
   - Embeds a fallback aftershock decision fixture so installed hosts can run parity without framework-only `triggers/fixtures` files.
@@ -126,6 +178,7 @@ Batch parity runner:
 - `.lazy-harness/scripts/self-test.py`
   - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
+  - The same test protects Phase 3 opt-in modes: orchestrator timing, sandboxed compare logging, and no raw body storage.
   - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
   - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the 12-fixture suite.
 

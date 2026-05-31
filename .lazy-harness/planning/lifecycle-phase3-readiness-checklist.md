@@ -358,3 +358,64 @@ Updated checklist interpretation:
 - ADR: explicit production replacement approval remains pending and should be captured before direct replacement.
 - SSOT: sync marker source remains `.lazy-harness/state/synced-from-commit`; Medivance marker now points to `eb86fb8ed754...`.
 - Planning: this section is the current readiness checkpoint and next-step gate.
+
+## 2026-05-31 Phase 3 opt-in engine patch
+
+Status: implemented-opt-in-not-production-default
+Confirmation: user approved proceeding with the plan after clarifying the reason for Track B.
+
+Purpose:
+
+```text
+Track B optimizes the response.completed safety-gate hot path. It does not add application features.
+The goal is to keep the same STOP/no-STOP safety semantics while making the helper execution path easier to compare, debug, and later optimize.
+```
+
+Implementation summary:
+
+- Added `LAZY_RESPONSE_COMPLETED_ENGINE=legacy|orchestrator|compare` to `.lazy-harness/hooks/lifecycle/on-response-completed.sh`.
+- Default remains `legacy`; unknown values also fall back to `legacy`.
+- `orchestrator` mode runs `.lazy-harness/scripts/lifecycle-check.py` as the primary helper engine after route telemetry.
+- `orchestrator` mode falls back to the legacy shell-helper loop if `lifecycle-check.py` exits non-zero or emits invalid JSON.
+- `compare` mode runs the orchestrator in a sandbox `.lazy-harness` copy, then runs legacy in the real host.
+- `compare` mode keeps legacy output as user-visible truth and logs sanitized comparison metadata to `.lazy-harness/logs/lifecycle-compare.jsonl` or `LAZY_RESPONSE_COMPLETED_COMPARE_LOG`.
+- Added `lifecycle-check.py --sandbox` to support side-effect-safe comparison.
+- Added self-test coverage for orchestrator timing rows, sandboxed compare rows, and no raw hook body storage.
+
+Rollback:
+
+```bash
+unset LAZY_RESPONSE_COMPLETED_ENGINE
+# or
+export LAZY_RESPONSE_COMPLETED_ENGINE=legacy
+```
+
+Optional cleanup:
+
+```bash
+rm -f .lazy-harness/logs/lifecycle-compare.jsonl
+```
+
+Checklist delta:
+
+- Replacement plan includes legacy comparison/debug fallback: satisfied for opt-in patch.
+- Rollback instructions: satisfied for opt-in patch.
+- Production default replacement approval: still pending.
+- Production default remains legacy: verified by implementation.
+
+## Rule placement
+
+- Rule: Phase 3 may provide opt-in orchestrator/compare modes, but production default must remain legacy until a later explicit replacement approval.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/lifecycle-phase3-readiness-checklist.md`
+- Why not AGENTS.md: this is a rollout checkpoint for a lifecycle implementation track, not permanent agent grammar.
+- Why not `.jcode`: this concerns shared lazy-harness lifecycle code, not private Jcode-only workflow.
+- Confirmation: user-approved plan execution and implementation evidence.
+
+## Discovery capture
+
+- SDD: `.lazy-harness/spec/platform/hook-performance-measurement.md` updated with Phase 3 engine switch contract.
+- TDD: `.lazy-harness/scripts/self-test.py` updated with opt-in engine coverage.
+- ADR: production default replacement approval remains pending.
+- SSOT: no source-of-truth default change; legacy remains the default engine.
+- Planning: this section records the opt-in patch and rollback path.

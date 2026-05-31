@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-31T05:37:37Z",
+  "generatedAt": "2026-05-31T06:19:04Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2289,6 +2289,65 @@
       "target": "Downstream dogfood host registries are evidence, not source patch targets",
       "source": "User corrected that Medivance capability gaps should drive lazy-harness source changes, not manual commits in downstream Medivance registry",
       "updatedAt": "2026-05-31T05:31:51Z"
+    },
+    {
+      "id": "kg_lifecycle_phase3_opt_in_engine_sdd",
+      "kind": "record",
+      "layer": "SDD",
+      "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+      "relation": "specifies",
+      "target": "Phase 3 response.completed opt-in engine switch",
+      "source": "Defines LAZY_RESPONSE_COMPLETED_ENGINE=legacy|orchestrator|compare, compare log metadata, sandbox compare, fallback, and rollback contract",
+      "updatedAt": "2026-05-31T06:14:00Z"
+    },
+    {
+      "id": "kg_response_completed_phase3_opt_in_engine_impl",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
+      "relation": "implements",
+      "target": "Phase 3 opt-in lifecycle engine selection",
+      "source": "Default legacy; orchestrator mode uses lifecycle-check primary with legacy fallback; compare mode runs sandbox orchestrator and legacy output truth with sanitized compare log",
+      "symbols": [
+        "emit_inject",
+        "orchestrator_inject_json",
+        "write_compare_log",
+        "run_orchestrator_check"
+      ],
+      "updatedAt": "2026-05-31T06:14:00Z"
+    },
+    {
+      "id": "kg_lifecycle_check_sandbox_mode_impl",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/lifecycle-check.py",
+      "relation": "implements",
+      "target": "Side-effect-safe lifecycle-check sandbox mode",
+      "source": "--sandbox copies .lazy-harness into a temporary host and runs shadow helper checks there for compare/debug mode",
+      "symbols": [
+        "sandbox_root"
+      ],
+      "updatedAt": "2026-05-31T06:14:00Z"
+    },
+    {
+      "id": "kg_lifecycle_phase3_opt_in_engine_self_test",
+      "kind": "test",
+      "layer": "TDD",
+      "path": ".lazy-harness/scripts/self-test.py",
+      "relation": "protects",
+      "target": "Phase 3 opt-in lifecycle engines",
+      "source": "check_response_completed_auto_route_telemetry verifies orchestrator timing rows, sandboxed compare log rows, and no raw hook body storage",
+      "updatedAt": "2026-05-31T06:14:00Z"
+    },
+    {
+      "id": "kg_lifecycle_phase3_opt_in_readiness_record",
+      "kind": "planning",
+      "layer": "Planning",
+      "path": ".lazy-harness/planning/lifecycle-phase3-readiness-checklist.md",
+      "relation": "records",
+      "target": "Phase 3 opt-in engine patch and rollback",
+      "source": "Records user approval, implementation summary, rollback commands, and states production default remains legacy pending explicit approval",
+      "updatedAt": "2026-05-31T06:14:00Z"
     }
   ]
 }

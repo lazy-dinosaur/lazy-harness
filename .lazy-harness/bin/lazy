@@ -77,7 +77,7 @@ Commands:
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
   hook-timings [--format=json|md] [--limit=N]
                                 Summarize response.completed hook timing measurements
-  lifecycle-check [--format=json|md]
+  lifecycle-check [--format=json|md] [--sandbox]
                                 Run shadow response.completed lifecycle helper orchestrator
   lifecycle-parity [--format=json|md] [--fail-on-mismatch]
                                 Compare legacy response hook with lifecycle-check shadow fixtures
