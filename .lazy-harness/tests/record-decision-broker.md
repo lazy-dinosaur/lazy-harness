@@ -18,6 +18,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - changing false-positive handling for record-needed/no-record-needed lifecycle decisions
 - Must:
   - cover `candidate-needed`, `no-record-needed`, and `option-gate-needed` packet shapes
+  - run the explicit `record-decision-broker.ts` generator for core dispositions before runtime integration
   - prove clean/read-only/explanation turns can be represented as `no-record-needed`
   - prevent automatic record writes from packet inference alone
   - require concrete evidence before `candidate-needed` or stricter audit output
@@ -54,14 +55,16 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 
 ## Current protection
 
+The generator fixture is now active.
+
 - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
   - validates SDD presence and key language,
   - validates schema title, required top-level fields, dispositions, evidence kinds, triggers, and actions,
   - validates sample `candidate-needed`, `no-record-needed`, and `option-gate-needed` packet shapes.
+  - runs `.lazy-harness/scripts/record-decision-broker.ts` for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated` cases.
 
 ## Future protection
 
-- Add generator fixture when `.lazy-harness/scripts/record-decision-broker.ts` exists.
 - Add response.completed integration fixture only after clean-turn false-positive behavior is proven.
 - Add Medivance/PWA dogfood fixture once enough packet evidence is collected.
 
@@ -70,10 +73,11 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 - Primary files:
   - `.lazy-harness/spec/platform/record-decision-broker.md` — contract being tested.
   - `.lazy-harness/schemas/record-decision-packet.schema.json` — schema under test.
+  - `.lazy-harness/scripts/record-decision-broker.ts` — explicit generator under test.
+  - `.lazy-harness/bin/lazy` — exposes the generator as `lazy record-decision`.
   - `.lazy-harness/scripts/self-test.py` — current contract fixture.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` — Phase 8 status.
 - Future files:
-  - `.lazy-harness/scripts/record-decision-broker.ts` — future generator.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — future packet consumer only after fixtures.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`

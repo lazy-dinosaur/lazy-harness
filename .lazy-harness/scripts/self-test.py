@@ -4613,8 +4613,9 @@ def check_record_decision_broker_phase8() -> None:
     sdd_path = LAZY / "spec" / "platform" / "record-decision-broker.md"
     tdd_path = LAZY / "tests" / "record-decision-broker.md"
     schema_path = LAZY / "schemas" / "record-decision-packet.schema.json"
+    generator_path = LAZY / "scripts" / "record-decision-broker.ts"
     manifest_path = LAZY / "manifests" / "init-categories.json"
-    for path in [sdd_path, tdd_path, schema_path]:
+    for path in [sdd_path, tdd_path, schema_path, generator_path]:
         if not path.exists():
             fail("Record Decision Broker Phase 8 artifact missing: " + str(path))
 
@@ -4631,6 +4632,7 @@ def check_record_decision_broker_phase8() -> None:
         "Future `response.completed` integration",
         "Context Delivery is pre-turn required-read",
         "Do not write automatically from this packet alone",
+        "`.lazy-harness/scripts/record-decision-broker.ts`",
         "Implementation map",
     ]:
         if phrase not in sdd_text:
@@ -4643,6 +4645,7 @@ def check_record_decision_broker_phase8() -> None:
         "Ambiguous layer placement",
         "Same-turn record update",
         "Deferred by user",
+        "generator fixture",
         "check_record_decision_broker_phase8",
     ]:
         if phrase not in tdd_text:
@@ -4745,6 +4748,72 @@ def check_record_decision_broker_phase8() -> None:
         for recommendation in decision.get("recommendedRecords", []):
             if recommendation.get("action") not in actions:
                 fail("sample recordDecision invalid action")
+
+    def run_generator(*args: str) -> dict:
+        completed = subprocess.run(
+            ["bun", str(generator_path), *args],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("record-decision-broker generator failed:\n" + completed.stdout + completed.stderr)
+        try:
+            return json.loads(completed.stdout)
+        except Exception as exc:
+            fail("record-decision-broker generator output was not JSON: " + str(exc) + "\n" + completed.stdout)
+
+    generated_cases = [
+        (
+            run_generator("--message", "상태 요약", "--read-only"),
+            "no-record-needed",
+            "explanation-only",
+            "none",
+        ),
+        (
+            run_generator("--message", "예약시트는 reservation sheet", "--user-confirmation", "예약시트 alias confirmed"),
+            "candidate-needed",
+            "new-alias-found",
+            "candidate",
+        ),
+        (
+            run_generator("--message", "layer unclear", "--changed-file", "src/app.ts", "--ambiguous"),
+            "option-gate-needed",
+            "ambiguous-placement",
+            "ask-option-gate",
+        ),
+        (
+            run_generator("--message", "record updated", "--changed-record", ".lazy-harness/spec/platform/record-decision-broker.md"),
+            "record-updated",
+            "contract-change",
+            "update",
+        ),
+    ]
+    for packet, expected_disposition, expected_trigger, expected_action in generated_cases:
+        decision = packet.get("recordDecision", {})
+        if decision.get("disposition") != expected_disposition:
+            fail(f"generator disposition mismatch: expected {expected_disposition}, got {decision.get('disposition')}\n{json.dumps(packet, ensure_ascii=False, indent=2)}")
+        if decision.get("trigger") != expected_trigger:
+            fail(f"generator trigger mismatch: expected {expected_trigger}, got {decision.get('trigger')}")
+        if not decision.get("evidence") or not decision.get("recommendedRecords") or not decision.get("instructions"):
+            fail("generator packet missing evidence/recommendations/instructions")
+        actions_seen = {item.get("action") for item in decision.get("recommendedRecords", []) if isinstance(item, dict)}
+        if expected_action not in actions_seen:
+            fail(f"generator recommended action mismatch: expected {expected_action}, got {sorted(actions_seen)}")
+        notes = packet.get("notes", [])
+        if "mutationAllowed=false" not in notes or "runtimeHookIntegration=false" not in notes:
+            fail("generator packet must state mutation/hook safety notes")
+
+    md_completed = subprocess.run(
+        ["bun", str(generator_path), "--message", "상태 요약", "--read-only", "--format", "md"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if md_completed.returncode != 0 or "# Record Decision Packet" not in md_completed.stdout or "Disposition: no-record-needed" not in md_completed.stdout:
+        fail("record-decision-broker markdown output missing expected content:\n" + md_completed.stdout + md_completed.stderr)
     print("✓ record decision broker Phase 8 ok")
 
 

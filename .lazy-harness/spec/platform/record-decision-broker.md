@@ -23,6 +23,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - reducing false positives from broad “record needed” lifecycle gates
 - Must:
   - output a structured Record Decision Packet before any automated record-write escalation
+  - keep the explicit generator local and deterministic until response lifecycle integration has separate fixtures
   - support explicit `no-record-needed` for explanation/evaluation/inspection-only turns
   - require concrete turn evidence before `candidate-needed`, `record-updated`, or `option-gate-needed`
   - prefer updating existing canonical records before creating new records
@@ -67,7 +68,15 @@ turn evidence
 → record update / candidate capture / no-record-needed / option gate
 ```
 
-Phase 8 is a contract phase. It does not add broad blocking and does not blindly write records. In short: no automatic blind record writes.
+Phase 8 was the contract phase. The first generator phase adds an explicit local CLI that emits packet-shaped output from supplied evidence flags. It still does not add broad blocking and does not blindly write records. In short: no automatic blind record writes.
+
+Generator command:
+
+```bash
+.lazy-harness/bin/lazy record-decision --message "상태 요약" --read-only --format=md
+```
+
+The generator is explicit/offline only: it does not run from `response.completed`, does not mutate records, and does not write journals.
 
 ## Packet shape
 
@@ -211,20 +220,21 @@ Context Delivery is pre-turn required-read. Record Decision Broker is post-turn 
 
 ## Implementation map
 
-- Status: `contract-specified`
+- Status: `generator-implemented`
 - Primary files:
   - `.lazy-harness/spec/platform/record-decision-broker.md` - this SDD and post-turn packet contract.
   - `.lazy-harness/schemas/record-decision-packet.schema.json` - JSON Schema for packet-shaped outputs.
+  - `.lazy-harness/scripts/record-decision-broker.ts` - deterministic explicit CLI generator from safe evidence flags to Record Decision Packet.
+  - `.lazy-harness/bin/lazy` - exposes `lazy record-decision` against the current host root.
   - `.lazy-harness/tests/record-decision-broker.md` - false-positive and disposition fixture plan.
   - `.lazy-harness/scripts/self-test.py` - schema/document fixture validation.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - Phase 8 roadmap status.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.
 - Future implementation files:
-  - `.lazy-harness/scripts/record-decision-broker.ts` - future packet generator, if needed.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - future consumer only after false-positive fixtures.
 - Flow:
   1. Turn completes.
-  2. Future broker normalizes user confirmations, corrections, changed files, changed records, Context Delivery evidence, and validation evidence.
+  2. Explicit generator normalizes supplied user confirmations, corrections, changed files, changed records, Context Delivery evidence, and validation evidence.
   3. Broker emits Record Decision Packet.
   4. If `record-updated`, audit can stay silent.
   5. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write.
@@ -232,6 +242,7 @@ Context Delivery is pre-turn required-read. Record Decision Broker is post-turn 
   7. If `no-record-needed`, response lifecycle stays silent.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
+    - validates schema/contract and generator output for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated`.
 
 ## Validation plan
 
@@ -241,6 +252,7 @@ Minimum Phase 8 validation:
 - JSON schema loads as valid JSON.
 - Schema includes all dispositions and evidence kinds.
 - Sample `candidate-needed`, `no-record-needed`, and `option-gate-needed` packets satisfy required field expectations.
+- Generator fixture emits expected `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated` dispositions.
 - TDD record covers false-positive clean-turn behavior.
 - Manifest syncs this SDD to downstream hosts.
 

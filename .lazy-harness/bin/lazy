@@ -72,6 +72,8 @@ Commands:
                                 Build deterministic generated Context Delivery index cache
   context-delivery --message "..." [--format=json|md] [--handoff-prompt] [--journal]
                                 Produce Context Delivery Packet, optional search handoff prompt, or packet evidence journal
+  record-decision [--message "..."] [--format=json|md]
+                                Produce post-turn Record Decision Packet from explicit evidence flags
   route-summary [--format=json|md]
                                 Summarize route telemetry for UX/FP review
   route-audit [--commits=12] [--format=json|md]
@@ -192,6 +194,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/context-delivery.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  record-decision)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy record-decision: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/record-decision-broker.ts" --root "$HOST_ROOT" "$@"
     ;;
   route-summary)
     if ! command -v bun >/dev/null 2>&1; then

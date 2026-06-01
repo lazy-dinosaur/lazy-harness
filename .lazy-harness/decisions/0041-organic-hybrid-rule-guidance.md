@@ -176,6 +176,11 @@ Implemented on 2026-06-01:
 - Added `.lazy-harness/schemas/record-decision-packet.schema.json` with explicit `record-updated`, `candidate-needed`, `no-record-needed`, `option-gate-needed`, and `deferred` dispositions.
 - Phase 8 intentionally changes schema/tests/records only; runtime `response.completed` behavior remains unchanged until false-positive-safe generator/audit fixtures exist.
 
+Generator follow-up implemented after user selected Option A:
+
+- Added `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` as explicit/offline packet generator.
+- The generator emits packet-shaped decisions from supplied evidence flags and does not mutate records, write journals, or run from `response.completed`.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

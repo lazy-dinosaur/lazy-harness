@@ -68,6 +68,7 @@ Preferred metadata lives in:
 - response-rule-audit fixtures when a miss pattern has strong evidence,
 - packet evidence journal fixtures when Context Delivery required-read usage needs advisory dogfood observation,
 - Record Decision Packet fixtures before broader post-turn record guidance,
+- explicit Record Decision generator fixtures before any `response.completed` integration,
 - Phase 6 hard-stop promotion records only for rare high-risk boundaries.
 
 ## PR body rule after Phase 5
@@ -106,6 +107,7 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md` — Phase 6 guidance ladder and hard-stop promotion criteria.
   - `.lazy-harness/spec/platform/response-rule-audit.md` — active response audit SDD.
   - `.lazy-harness/spec/platform/record-decision-broker.md` — Phase 8 post-turn record decision contract.
+  - `.lazy-harness/scripts/record-decision-broker.ts` — explicit post-turn Record Decision Packet generator.
   - `.lazy-harness/scripts/context-delivery.ts` — explicit `--journal` packet evidence collection for Phase 7 dogfood.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.
   - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — no-op compatibility shim.

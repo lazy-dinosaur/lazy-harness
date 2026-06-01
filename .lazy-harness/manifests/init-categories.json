@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, and context-delivery packet generator. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
+          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, and record-decision packet generator. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
         },
         {
           "path": "hooks/",

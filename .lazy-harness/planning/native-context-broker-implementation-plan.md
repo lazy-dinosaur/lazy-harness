@@ -361,6 +361,8 @@ Acceptance criteria:
 
 Status: contract completed in this Phase 8 change with `.lazy-harness/spec/platform/record-decision-broker.md` and `.lazy-harness/schemas/record-decision-packet.schema.json`. Runtime `response.completed` behavior is intentionally unchanged until false-positive-safe generator/audit fixtures exist.
 
+Generator status: completed after user selected Option A. `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` now generate explicit Record Decision Packets for no-record-needed, candidate-needed, option-gate-needed, record-updated, and deferred-style evidence without response.completed integration.
+
 Add a structured post-turn broker after the pre-turn context delivery flow is stable.
 
 Purpose:
