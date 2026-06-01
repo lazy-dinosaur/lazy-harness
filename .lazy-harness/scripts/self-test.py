@@ -1413,7 +1413,7 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
 
 
 def check_jcode_wiring_message_received_hook() -> None:
-    """Generated and user-owned Jcode configs must wire message.received context hook."""
+    """Generated and user-owned Jcode configs must wire context and read-debt hooks."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         'event = \\"message.received\\"',
@@ -1421,6 +1421,10 @@ def check_jcode_wiring_message_received_hook() -> None:
         'blocking = true',
         'timeout_ms = 800',
         'ensureMessageReceivedHook',
+        'read-debt action permit hook',
+        'command = \\".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\\"',
+        'timeout_ms = 1200',
+        'ensureReadDebtPermitHook',
     ]
     missing = [phrase for phrase in required if phrase not in source]
     if missing:
@@ -1450,7 +1454,10 @@ def check_jcode_wiring_message_received_hook() -> None:
         updated = config.read_text(encoding="utf-8")
         if "custom_local_flag = true" not in updated:
             fail("message.received hook patch overwrote user-owned config content:\n" + updated)
-        for phrase in ['event = "message.received"', 'on-message-received.sh', 'blocking = true', 'timeout_ms = 800']:
+        for phrase in [
+            'event = "message.received"', 'on-message-received.sh', 'blocking = true', 'timeout_ms = 800',
+            'read-debt action permit hook', 'event = "tool.execute.before"', 'tool = "*"', 'on-tool-execute-before.sh', 'timeout_ms = 1200',
+        ]:
             if phrase not in updated:
                 fail("message.received hook patch missing phrase " + phrase + ":\n" + updated)
     finally:
@@ -4415,9 +4422,11 @@ def check_context_delivery_optional_handoff_phase6() -> None:
     if not delivery_script.exists():
         fail("Context Delivery packet generator missing: " + str(delivery_script))
     hook_text = hook_path.read_text(encoding="utf-8")
-    for forbidden in ["context-delivery.ts", "jcode run"]:
+    for forbidden in ["--handoff-prompt", "jcode run"]:
         if forbidden in hook_text:
             fail("message.received hook must not run Phase 6 handoff/heavy model path: " + forbidden)
+    if "context-delivery.ts" not in hook_text or "--journal" not in hook_text:
+        fail("message.received hook should run bounded Context Delivery producer/journal path before action")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
     try:
@@ -4493,6 +4502,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
     """Phase 7 should journal sanitized packet evidence and audit it as advisory-only."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
     helper_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
+    permit_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-packet-journal-"))
     try:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
@@ -4560,6 +4570,9 @@ def check_context_delivery_packet_journal_phase7() -> None:
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
         shutil.copy2(helper_src, helper)
         helper.chmod(0o755)
+        permit = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
+        shutil.copy2(permit_src, permit)
+        permit.chmod(0o755)
 
         def run_helper(payload: dict) -> str:
             result = subprocess.run(
@@ -4573,6 +4586,62 @@ def check_context_delivery_packet_journal_phase7() -> None:
             if result.returncode != 0:
                 fail("response audit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
             return result.stdout
+
+        def run_permit(payload: dict) -> str:
+            result = subprocess.run(
+                [str(permit), json.dumps(payload, ensure_ascii=False)],
+                cwd=temp,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if result.returncode != 0:
+                fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
+            return result.stdout
+
+        pre_action_block = run_permit({
+            "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if "read-debt gate" not in pre_action_block or "ReservationTable.tsx" not in pre_action_block:
+            fail("read-debt permit should block action before requiredRead evidence:\n" + pre_action_block)
+
+        read_allowed = run_permit({
+            "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
+            "tool": {"name": "read", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if read_allowed.strip():
+            fail("read-debt permit should allow read tools before debt is satisfied:\n" + read_allowed)
+
+        satisfied_action = run_permit({
+            "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [
+                {"name": "read", "args_preview": ".lazy-harness/behavior/reservation-management.md"},
+                {"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+                {"name": "read", "args_preview": "tests/reservations/reservation-table.test.tsx"},
+            ],
+        })
+        if satisfied_action.strip():
+            fail("read-debt permit should allow action after all requiredRead evidence exists:\n" + satisfied_action)
+
+        batch_with_action = run_permit({
+            "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
+            "tool": {"name": "batch", "args": {"tool_calls": [
+                {"tool": "read", "parameters": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+                {"tool": "edit", "parameters": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            ]}},
+            "recent_tool_calls": [],
+        })
+        if "read-debt gate" not in batch_with_action:
+            fail("read-debt permit should block mixed read+action batch before prior evidence:\n" + batch_with_action)
 
         no_mutation = run_helper({
             "message_id": "phase7-packet-message",
@@ -4591,7 +4660,9 @@ def check_context_delivery_packet_journal_phase7() -> None:
         satisfied = run_helper({
             "message_id": "phase7-packet-message",
             "recent_tool_calls": [
+                {"name": "read", "args_preview": ".lazy-harness/behavior/reservation-management.md"},
                 {"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+                {"name": "read", "args_preview": "tests/reservations/reservation-table.test.tsx"},
                 {"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"},
             ],
         })
@@ -5035,6 +5106,32 @@ def check_message_received_hook_context_injection() -> None:
         (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
         shutil.copy2(LAZY / "scripts" / "relevant-record-query.ts", temp / ".lazy-harness" / "scripts" / "relevant-record-query.ts")
+        shutil.copy2(LAZY / "scripts" / "context-delivery.ts", temp / ".lazy-harness" / "scripts" / "context-delivery.ts")
+        shutil.copy2(LAZY / "scripts" / "context-index.ts", temp / ".lazy-harness" / "scripts" / "context-index.ts")
+        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Implementation hints:\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            encoding="utf-8",
+        )
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
         hook.chmod(0o755)
@@ -5092,10 +5189,16 @@ def check_message_received_hook_context_injection() -> None:
         if not surface_output:
             fail("ambiguous project-surface request should emit self-resolution inject JSON")
         surface_body = json.loads(surface_output).get("inject", {}).get("body", "")
-        if "Context Delivery self-resolution" not in surface_body or "self-resolve-before-change" not in surface_body:
-            fail("ambiguous project-surface request missing self-resolve-before-change protocol:\n" + surface_output)
-        if "Use main-agent self-search first" not in surface_body:
-            fail("self-resolution protocol should not require subagent latency by default:\n" + surface_output)
+        if "Context Delivery read-debt" not in surface_body or "self-resolve-before-change" not in surface_body:
+            fail("ambiguous project-surface request missing Context Delivery read-debt protocol:\n" + surface_output)
+        if "ReservationTable.tsx" not in surface_body:
+            fail("Context Delivery read-debt should render concrete requiredRead paths:\n" + surface_output)
+        packet_journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        if not packet_journal.exists():
+            fail("message.received context delivery should journal read-debt packet")
+        packet_text = packet_journal.read_text(encoding="utf-8")
+        if "예약시트 고쳐줘" in packet_text:
+            fail("message.received context packet journal must not store raw user message")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ message.received hook context injection ok")

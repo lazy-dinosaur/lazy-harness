@@ -20,6 +20,8 @@ Regression fixtures cover:
 6. If same-turn durable record capture is visible, audit stays silent.
 7. `lazy context-delivery --journal` writes sanitized packet evidence without raw user messages or raw record bullets.
 8. Packet-aware response audit stays silent without mutation, stays silent when required-read evidence exists, and emits `ADVISORY` rather than `STOP` when a correlated packet has required reads and mutation lacks read/search evidence.
+9. Pre-action read-debt permit blocks action tools when a correlated packet has concrete requiredRead paths and no prior read/search evidence.
+10. The permit stays silent for read/search tools, for action after all required paths were evidenced, and for clean/no-packet turns.
 
 ## Implementation map
 
@@ -27,7 +29,9 @@ Regression fixtures cover:
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — source of sanitized surfaced digest journal rows.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — response.completed audit helper.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — pre-action packet-scoped permit helper.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — legacy chain wiring.
+  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper for read-debt permit and legacy search gate.
   - `.lazy-harness/scripts/lifecycle-check.py` — shadow/orchestrator chain wiring.
   - `.lazy-harness/scripts/self-test.py` — `check_response_rule_audit_from_surfaced_digest` and `check_context_delivery_packet_journal_phase7` fixtures.
 - Flow:
@@ -38,10 +42,12 @@ Regression fixtures cover:
   5. Test checks STOP output for missing PR headings, then silence for a compliant body.
   6. Test writes a manual harness-enforcement journal row and checks record-completion miss vs captured cases.
   7. Test runs `context-delivery.ts --journal` in a host fixture and checks sanitized packet evidence.
-  8. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read advisory, satisfied-read silence, and uncorrelated silence cases.
+  8. Test runs `check-read-debt-permit.py` against packet evidence for action-block, read-allow, satisfied-action silence, and mixed batch block cases.
+  9. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read advisory, satisfied-read silence, and uncorrelated silence cases.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
   - `.lazy-harness/bin/lazy test`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/response-rule-audit.md`

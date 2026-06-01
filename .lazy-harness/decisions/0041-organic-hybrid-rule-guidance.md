@@ -310,6 +310,20 @@ Initial candidates:
 - explicit user correction ignored without record capture,
 - repeated failure class promoted after dogfood evidence.
 
+### 9. Read-debt permit is the first promoted packet-scoped boundary
+
+2026-06-01 dogfood evidence showed ambient digest/self-resolution and post-turn audit were insufficient: agents could still skip records/MCP context and begin work from wrong Figma/runtime assumptions. The user confirmed the desired boundary: force search/read first, then work.
+
+Decision:
+
+- Promote Context Delivery `requiredRead` debt to a narrow pre-action permit.
+- The deterministic producer must create concrete required-read paths from canonical records/index/graph/project-profile/source hints.
+- Read/search tools remain allowed.
+- Action/mutation tools are blocked only when a correlated packet has concrete required reads and those paths have not yet appeared in recent read/search evidence.
+- The core packet/permit semantics must remain transport-agnostic and ACP-compatible; Jcode lifecycle hooks are the current transport.
+
+This is not a return to broad edit/write hard-gating and not a concrete-tool project-policy adapter.
+
 ## Options considered
 
 ### A. Tool-specific guard sprawl
@@ -471,6 +485,7 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` — follow-on retrieval plan for self-resolving context delivery.
   - `.lazy-harness/spec/platform/context-delivery-contract.md` — Native Context Broker packet contract for raw hits, normalized evidence, required reads, rendering, privacy, and fail-open behavior.
   - `.lazy-harness/schemas/context-delivery-packet.schema.json` — schema for packet-shaped self-resolution or searcher handoff output.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — promoted packet-scoped pre-action permit helper.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
   - `.lazy-harness/spec/platform/soft-action-journal.md`

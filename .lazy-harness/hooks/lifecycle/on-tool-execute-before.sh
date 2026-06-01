@@ -32,8 +32,9 @@ cd "$ROOT_CANDIDATE" || exit 0
 PAYLOAD="${1:-}"
 [ -z "$PAYLOAD" ] && PAYLOAD=$(cat 2>/dev/null || echo '{}')
 
-# Chain through helpers — Layer 2 (Force Gate) checks
+# Chain through helpers — read-debt permit first, then legacy Layer 2 checks.
 for helper in \
+  .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py \
   .lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh
  do
   [ -x "$helper" ] || continue

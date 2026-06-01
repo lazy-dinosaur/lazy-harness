@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-31T12:25:35Z",
+  "generatedAt": "2026-06-01T22:52:30Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2413,6 +2413,180 @@
       "target": "User correction capture gate",
       "source": "Fixture asserts acknowledgement without durable capture emits STOP; same acknowledgement with .lazy-harness record write does not",
       "updatedAt": "2026-05-31T12:25:00Z"
+    },
+    {
+      "id": "kg_context_delivery_read_debt_permit_helper",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "predicate": "implements",
+      "object": ".lazy-harness/spec/platform/context-delivery-contract.md#pre-action-read-debt-permit",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+          "quote": "Consumes sanitized Context Delivery packet journal rows and emits a packet-scoped pre-action deny message until all concrete requiredRead paths have read/search evidence."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_message_received_producer",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
+      "predicate": "runs",
+      "object": ".lazy-harness/scripts/context-delivery.ts",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
+          "quote": "Runs bounded context-delivery --journal from message.received, renders Context Delivery read-debt when concrete packet evidence exists, and falls back to self-resolution when unavailable."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_pre_tool_wrapper",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh",
+      "predicate": "runs",
+      "object": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh",
+          "quote": "Runs read-debt permit helper before the legacy search-performed check so packet-scoped requiredRead debt is enforced before action tools."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_jcode_wiring_read_debt_hook",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/scripts/jcode-wiring.ts",
+      "predicate": "wires",
+      "object": ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/jcode-wiring.ts",
+          "quote": "Generated/user-owned Jcode configs receive a narrow tool.execute.before tool='*' read-debt permit hook while preserving destructive bash safety and avoiding broad edit/write gates."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_response_audit_all_required_paths",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+      "predicate": "audits",
+      "object": ".lazy-harness/state/context-delivery-packets.jsonl",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+          "quote": "Post-response advisory now requires evidence for every concrete requiredRead path, matching pre-action read-debt semantics."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_read_debt_self_test",
+      "createdAt": "2026-06-01T22:52:30Z",
+      "updatedAt": "2026-06-01T22:52:30Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/scripts/self-test.py",
+      "predicate": "protects",
+      "object": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "check_context_delivery_packet_journal_phase7 validates action block, read allow, satisfied action silence, mixed batch block, and response audit all-path evidence behavior."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T22:52:30Z"
+      }
     }
   ]
 }

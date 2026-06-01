@@ -19,6 +19,7 @@ Confirmation: user-confirmed
   - keep canonical records mandatory for confirmed rules, decisions, corrections, contracts, behaviors, and regressions
   - surface relevant records before response through compact query/digest context
   - audit missed rules and missing records after response with `response.completed`
+  - when deterministic Context Delivery produces concrete requiredRead debt, force read/search evidence before action tools run
   - avoid solving stored-rule recall by adding per-tool project-policy adapters
 - Record completion:
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
@@ -87,10 +88,12 @@ Hooks remain important, but policy should move to the response lifecycle:
 ```text
 pre-response relevant record query
 +
+packet-scoped read/search-before-action permit when concrete requiredRead debt exists
++
 response.completed audit/backstop
 ```
 
-Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport/safety/logging surfaces. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
+Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport/safety/logging surfaces, and as packet-scoped action permits when a deterministic framework producer has already created concrete `requiredRead` debt. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
 
 Migration target:
 
@@ -109,6 +112,21 @@ Phase 5 migrated the first tool-attached project-policy exemplar out of the bash
 - ADR 0039 and rule-binding action-boundary SDD are superseded for project-policy enforcement.
 
 This keeps the mandatory memory loop strong while avoiding concrete tool adapter sprawl.
+
+## 2026-06-01 read-debt permit result
+
+User-confirmed after dogfood screenshots:
+
+```text
+검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지
+```
+
+Accepted policy:
+
+- The deterministic Context Delivery producer, not the LLM alone, should do first-pass required context discovery from records/index/graph/project-profile/source hints.
+- When it produces concrete correlated `requiredRead` paths with sufficient confidence, read/search tools remain allowed but action/mutation tools are blocked until those paths have evidence in recent tool calls.
+- This is a packet-scoped permit gate, not a revival of broad edit/write hard-gating and not a concrete-tool project-policy adapter.
+- The current transport is Jcode lifecycle hooks; the core semantics are protocol-agnostic and ACP-compatible.
 
 ## 2026-06-01 Phase 6 guidance ladder result
 

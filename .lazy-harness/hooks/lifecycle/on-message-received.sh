@@ -51,6 +51,7 @@ if not message:
 script = root / '.lazy-harness' / 'scripts' / 'relevant-record-query.ts'
 if not script.exists():
     raise SystemExit(0)
+context_script = root / '.lazy-harness' / 'scripts' / 'context-delivery.ts'
 
 limit = os.environ.get('LAZY_MESSAGE_RECEIVED_QUERY_LIMIT', '5')
 budget = os.environ.get('LAZY_MESSAGE_RECEIVED_TOKEN_BUDGET', '600')
@@ -99,7 +100,7 @@ finally:
                 'event': 'message.received',
                 'component': 'relevant-record-query',
                 'durationMs': duration_ms,
-                'outputEmitted': False,
+                'outputEmitted': bool(('completed' in locals()) and getattr(completed, 'stdout', '').strip()),
             }, ensure_ascii=False) + '\n')
     except Exception:
         pass
@@ -116,6 +117,46 @@ digest = result.get('digest') if isinstance(result, dict) else {}
 entries = digest.get('entries') if isinstance(digest, dict) else []
 if not isinstance(entries, list):
     entries = []
+
+def run_context_delivery():
+    if not context_script.exists():
+        return None
+    context_timeout_s = float(os.environ.get('LAZY_MESSAGE_RECEIVED_CONTEXT_DELIVERY_TIMEOUT_SECONDS', '0.45'))
+    context_cmd = [
+        'bun', str(context_script),
+        '--root', str(root),
+        '--message', message,
+        '--format', 'json',
+        '--limit', os.environ.get('LAZY_MESSAGE_RECEIVED_CONTEXT_LIMIT', '6'),
+        '--journal',
+    ]
+    message_id = payload.get('message_id') or payload.get('messageId')
+    session_id = payload.get('session_id') or payload.get('sessionId')
+    turn_count = payload.get('turn_count') or payload.get('turnCount')
+    if message_id:
+        context_cmd.extend(['--message-id', str(message_id)])
+    if session_id:
+        context_cmd.extend(['--session-id', str(session_id)])
+    if turn_count:
+        context_cmd.extend(['--turn-count', str(turn_count)])
+    try:
+        context_completed = subprocess.run(
+            context_cmd,
+            cwd=str(root),
+            text=True,
+            capture_output=True,
+            timeout=context_timeout_s,
+            check=False,
+        )
+    except Exception:
+        return None
+    if context_completed.returncode != 0:
+        return None
+    try:
+        packet = json.loads(context_completed.stdout or '{}')
+    except Exception:
+        return None
+    return packet if isinstance(packet, dict) else None
 
 def compact_bullets(entry):
     bullets = entry.get('bullets') if isinstance(entry, dict) else []
@@ -144,6 +185,43 @@ def render_markdown(entries, truncated):
         lines.append('- ... truncated by token budget')
     return '\n'.join(lines).strip() + '\n'
 
+def render_context_packet(packet):
+    if not isinstance(packet, dict):
+        return ''
+    required = packet.get('requiredRead') if isinstance(packet.get('requiredRead'), list) else []
+    optional = packet.get('optionalRead') if isinstance(packet.get('optionalRead'), list) else []
+    instruction_level = str(packet.get('instructionLevel') or '').strip()
+    confidence = packet.get('confidence')
+    should_render = bool(required) or instruction_level in {'self-resolve-before-answer', 'self-resolve-before-change'}
+    if not should_render:
+        return ''
+    lines = ['Context Delivery read-debt']
+    if instruction_level:
+        lines.append(f'- Instruction: {instruction_level}')
+    try:
+        lines.append(f'- Confidence: {float(confidence):.2f}')
+    except Exception:
+        pass
+    if required:
+        lines.append('- Required read/search before action:')
+        for item in required[:6]:
+            if not isinstance(item, dict):
+                continue
+            path_value = str(item.get('path') or '').strip()
+            if not path_value:
+                continue
+            kind = str(item.get('kind') or 'record')
+            reason = ' '.join(str(item.get('reason') or '').split())
+            lines.append(f'  - `{path_value}` ({kind})')
+            if reason:
+                lines.append(f'    - {reason}')
+    elif optional:
+        lines.append('- No concrete requiredRead found; stay read-only and use fallback searches or option gate before action.')
+    instruction = ' '.join(str(packet.get('instruction') or '').split())
+    if instruction:
+        lines.append(f'- Instruction detail: {instruction}')
+    return '\n'.join(lines).strip() + '\n'
+
 def is_change_intent(text):
     return bool(re.search(r'(고쳐|수정|변경|만들|구현|추가|삭제|디버그|fix|change|update|modify|build|implement|add|delete|debug|refactor)', text, re.I))
 
@@ -163,9 +241,11 @@ def render_self_resolve_protocol(text):
         '- Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.',
     ]).strip() + '\n'
 
-self_resolve_body = render_self_resolve_protocol(message)
+context_packet = run_context_delivery()
+context_body = render_context_packet(context_packet)
+self_resolve_body = '' if context_body else render_self_resolve_protocol(message)
 digest_body = render_markdown(entries, bool(digest.get('truncated'))) if entries else ''
-body = '\n'.join(part.strip() for part in [digest_body, self_resolve_body] if part.strip()).strip() + '\n'
+body = '\n'.join(part.strip() for part in [digest_body, context_body, self_resolve_body] if part.strip()).strip() + '\n'
 if not body.strip() or 'No matching rule digest found' in body:
     raise SystemExit(0)
 

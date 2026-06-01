@@ -209,7 +209,16 @@ def has_mutation_tool_call() -> bool:
 def has_required_read_evidence(required_paths: list[str]) -> bool:
     if not required_paths:
         return True
-    normalized = [path.strip().lstrip("./") for path in required_paths if path.strip()]
+    normalized = []
+    for path in required_paths:
+        value = path.strip()
+        if value.startswith("./"):
+            value = value[2:]
+        if value:
+            normalized.append(value)
+    if not normalized:
+        return True
+    seen = {path: False for path in normalized}
     for call in recent_calls():
         name = str(call.get("name") or "")
         if name in WRITE_TOOLS:
@@ -219,8 +228,8 @@ def has_required_read_evidence(required_paths: list[str]) -> bool:
         blob = call_blob(call).replace("\\", "/")
         for path in normalized:
             if path and (path in blob or f"./{path}" in blob):
-                return True
-    return False
+                seen[path] = True
+    return all(seen.values())
 
 
 def has_pr_description_rule(entries: list[dict[str, Any]]) -> bool:

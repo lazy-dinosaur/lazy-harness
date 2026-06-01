@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+"""Pre-action read-debt permit check for Context Delivery packets.
+
+This helper is intentionally protocol-agnostic: it reads sanitized
+Context Delivery packet evidence and current tool-call evidence, then emits a
+plain deny reason only when an action tool is about to run before concrete
+requiredRead items have been inspected.
+
+It does not decide which records matter. That is the deterministic producer's
+job (`context-delivery.ts`). This helper only enforces the produced read-debt.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+PAYLOAD_RAW = sys.argv[1] if len(sys.argv) > 1 else sys.stdin.read()
+try:
+    PAYLOAD = json.loads(PAYLOAD_RAW or "{}")
+except Exception:
+    PAYLOAD = {}
+if not isinstance(PAYLOAD, dict):
+    raise SystemExit(0)
+
+ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
+PACKET_JOURNAL = ROOT / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200")
+MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")
+
+READ_TOOLS = {
+    "read", "Read",
+    "grep", "Grep", "agentgrep", "glob", "Glob", "ls", "LS", "lsp",
+    "mcp__filesystem__read_text_file", "mcp__filesystem__read_file",
+    "mcp__filesystem__read_multiple_files", "mcp__filesystem__list_directory",
+    "mcp__filesystem__list_directory_with_sizes", "mcp__filesystem__directory_tree",
+    "mcp__filesystem__search_files", "mcp__filesystem__get_file_info",
+    "mcp__github__get_file_contents", "mcp__github__pull_request_read",
+    "mcp__github__issue_read", "mcp__github__search_code",
+    "mcp__github__search_issues", "mcp__github__search_pull_requests",
+    "mcp__figma__get_metadata", "mcp__figma__get_design_context",
+    "mcp__figma__get_screenshot", "mcp__figma__get_variable_defs",
+    "mcp__figma__get_libraries", "mcp__figma__search_design_system",
+    "mcp__playwright__browser_snapshot", "mcp__playwright__browser_take_screenshot",
+    "webfetch", "websearch",
+}
+
+WRITE_TOOLS = {
+    "write", "Write", "edit", "Edit", "multiedit", "MultiEdit",
+    "patch", "apply_patch", "mcp__filesystem__write_file", "mcp__filesystem__edit_file",
+    "mcp__filesystem__create_directory", "mcp__filesystem__move_file",
+}
+
+ACTION_TOOLS = {
+    *WRITE_TOOLS,
+    "bash", "Bash",
+    "mcp__figma__use_figma", "mcp__figma__generate_figma_design",
+    "mcp__figma__create_new_file", "mcp__figma__generate_diagram",
+    "mcp__figma__upload_assets", "mcp__figma__add_code_connect_map",
+    "mcp__figma__send_code_connect_mappings",
+    "mcp__playwright__browser_click", "mcp__playwright__browser_type",
+    "mcp__playwright__browser_fill_form", "mcp__playwright__browser_press_key",
+    "mcp__playwright__browser_select_option", "mcp__playwright__browser_drag",
+    "mcp__playwright__browser_drop", "mcp__playwright__browser_file_upload",
+    "mcp__playwright__browser_navigate", "mcp__playwright__browser_navigate_back",
+    "mcp__playwright__browser_run_code_unsafe", "mcp__playwright__browser_close",
+    "mcp__github__create_pull_request", "mcp__github__update_pull_request",
+    "mcp__github__merge_pull_request", "mcp__github__push_files",
+    "mcp__github__create_or_update_file", "mcp__github__delete_file",
+    "mcp__github__issue_write", "mcp__github__add_issue_comment",
+    "mcp__github__pull_request_review_write", "mcp__gmail__send",
+    "gmail", "schedule", "open",
+}
+
+READ_ONLY_SHELL_RE = re.compile(
+    r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
+    r"(?:pwd|ls|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def stable_hash(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
+def call_blob(call: dict[str, Any]) -> str:
+    parts: list[str] = []
+
+    def add(value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            parts.append(value)
+        elif isinstance(value, (dict, list)):
+            try:
+                parts.append(json.dumps(value, ensure_ascii=False))
+            except Exception:
+                pass
+            if isinstance(value, dict):
+                for child in value.values():
+                    add(child)
+            else:
+                for child in value:
+                    add(child)
+        else:
+            parts.append(str(value))
+
+    for key in ("name", "args_preview", "args", "input", "arguments", "command", "body", "path", "file_path"):
+        add(call.get(key))
+    return "\n".join(parts)
+
+
+def current_tool() -> tuple[str, dict[str, Any]]:
+    tool = PAYLOAD.get("tool") if isinstance(PAYLOAD.get("tool"), dict) else {}
+    name = str(tool.get("name") or PAYLOAD.get("tool_name") or PAYLOAD.get("toolName") or PAYLOAD.get("name") or "")
+    args = tool.get("args") if isinstance(tool.get("args"), dict) else {}
+    if not args and isinstance(PAYLOAD.get("args"), dict):
+        args = PAYLOAD.get("args")
+    return name, args or {}
+
+
+def nested_tool_calls(args: dict[str, Any]) -> list[dict[str, Any]]:
+    calls = args.get("tool_calls") or args.get("toolCalls") or []
+    return [c for c in calls if isinstance(c, dict)] if isinstance(calls, list) else []
+
+
+def bash_is_read_only(args: dict[str, Any]) -> bool:
+    command = str(args.get("command") or args.get("cmd") or "")
+    if not command.strip():
+        return False
+    forbidden = re.search(r"\b(rm|mv|cp|mkdir|touch|tee|python3?\s+-|node\s+-|bun\s+(?:run|x|test)|npm|pnpm|yarn|gh\s+(?:pr\s+(?:create|edit|merge)|issue\s+create))\b", command, re.IGNORECASE)
+    if forbidden:
+        return False
+    return bool(READ_ONLY_SHELL_RE.search(command))
+
+
+def is_action_tool(name: str, args: dict[str, Any]) -> bool:
+    if not name:
+        return False
+    if name in READ_TOOLS:
+        return False
+    if name in {"batch", "multi_tool_use.parallel"}:
+        nested = nested_tool_calls(args)
+        if not nested:
+            return False
+        return any(is_action_tool(str(c.get("tool") or c.get("recipient_name") or c.get("name") or ""), c.get("parameters") if isinstance(c.get("parameters"), dict) else {}) for c in nested)
+    if name in {"bash", "Bash"}:
+        return not bash_is_read_only(args)
+    if name in ACTION_TOOLS:
+        return True
+    if name.startswith("mcp__"):
+        return name not in READ_TOOLS
+    return False
+
+
+def recent_calls() -> list[dict[str, Any]]:
+    calls = PAYLOAD.get("recent_tool_calls") or PAYLOAD.get("recentToolCalls") or []
+    return [c for c in calls if isinstance(c, dict)] if isinstance(calls, list) else []
+
+
+def load_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(row, dict):
+                rows.append(row)
+    except Exception:
+        return []
+    return rows[-200:]
+
+
+def matching_packet() -> dict[str, Any] | None:
+    msg_hash = stable_hash(PAYLOAD.get("message_id") or PAYLOAD.get("messageId"))
+    session_hash = stable_hash(PAYLOAD.get("session_id") or PAYLOAD.get("sessionId"))
+    if not msg_hash and not session_hash:
+        return None
+    now = time.time()
+    for row in reversed(load_rows(PACKET_JOURNAL)):
+        try:
+            ts = float(row.get("epochSeconds") or 0)
+        except Exception:
+            ts = 0
+        if ts > 0 and now - ts > TTL_SECONDS:
+            continue
+        if msg_hash and row.get("messageIdHash") == msg_hash:
+            return row
+        if session_hash and row.get("sessionIdHash") == session_hash:
+            return row
+    return None
+
+
+def required_items(row: dict[str, Any]) -> list[dict[str, Any]]:
+    items = row.get("requiredRead") or []
+    if not isinstance(items, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "").strip()
+        if path.startswith("./"):
+            path = path[2:]
+        if path:
+            copied = dict(item)
+            copied["path"] = path
+            out.append(copied)
+    return out
+
+
+def evidence_blob() -> str:
+    return "\n".join(call_blob(call) for call in recent_calls()).replace("\\", "/")
+
+
+def missing_required_paths(items: list[dict[str, Any]]) -> list[str]:
+    blob = evidence_blob()
+    missing: list[str] = []
+    for item in items:
+        path = str(item.get("path") or "").strip()
+        if path.startswith("./"):
+            path = path[2:]
+        if not path:
+            continue
+        if path not in blob and f"./{path}" not in blob:
+            missing.append(path)
+    return missing
+
+
+def main() -> int:
+    name, args = current_tool()
+    if not is_action_tool(name, args):
+        return 0
+    row = matching_packet()
+    if not row:
+        return 0
+    try:
+        confidence = float(row.get("confidence") or 0)
+    except Exception:
+        confidence = 0
+    if confidence < MIN_CONFIDENCE:
+        return 0
+    items = required_items(row)
+    if not items:
+        return 0
+    missing = missing_required_paths(items)
+    if not missing:
+        return 0
+
+    print("[lazy-harness read-debt gate] requiredRead must be inspected before action.")
+    print("")
+    print("Context Delivery produced concrete requiredRead entries for this turn, but current tool evidence does not show they were read/searched yet.")
+    print("")
+    print("Do this first:")
+    for path in missing[:6]:
+        print(f"  - read/search `{path}`")
+    print("")
+    print("Allowed now: read, grep/agentgrep, ls/glob, and read-only shell searches. After evidence exists, rerun the action tool.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -22,7 +22,7 @@ Related TDD: `.lazy-harness/tests/rule-binding-pr-body-guard.md`
 - Must:
   - keep durable record capture mandatory for confirmed rules/corrections/contracts/decisions/regressions
   - treat non-record action guidance as surfaced/audited through response lifecycle by default
-  - keep concrete tool hooks limited to generic transport, telemetry, and destructive safety
+  - keep concrete tool hooks limited to generic transport, telemetry, destructive safety, and packet-scoped read-debt permits
   - require explicit Phase 6 promotion criteria before adding a new hard stop
 - Must not:
   - leave enduring rules as unqueryable chat memory
@@ -51,7 +51,7 @@ Before Phase 5, this SSOT used rule-binding hard stops as the main answer to act
 | `digest-ready` | Rule has a compact `## Rule digest` and can be surfaced by relevant-record query. |
 | `surfaced` | Rule is expected to appear before relevant turns through `message.received` digest injection. |
 | `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or journal silent Record Decision Packet shadow observations after fixtures. |
-| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. |
+| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. Context Delivery read-debt permit is the active framework-global example. |
 | `advisory-only` | Rule is intentionally not enforced/audited beyond guidance; this must be explicit. |
 | `retired` | Rule is obsolete and should not be applied. |
 
@@ -94,7 +94,7 @@ A concrete tool/action hard stop may be added only after Phase 6 criteria are re
 - record explains why ambient/surfaced/audited guidance was insufficient,
 - scope is narrow and rollback is clear.
 
-Generic destructive shell safety is already allowed and is not considered project/team policy.
+Generic destructive shell safety is already allowed and is not considered project/team policy. Context Delivery read-debt permit is allowed only because the canonical Context Delivery SDD contains an active `## Hard-stop promotion` section and fixtures; it is packet-scoped and does not authorize broad edit/write blocking.
 
 Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md` and is validated by `.lazy-harness/scripts/hard-stop-promotion-audit.py`. A promoted hard stop must include a canonical `## Hard-stop promotion` section with the required fields from that SDD before implementation.
 
@@ -112,7 +112,8 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/context-broker-dogfood.md` — explicit dogfood collection contract before lifecycle integration.
   - `.lazy-harness/scripts/record-decision-broker.ts` — explicit post-turn Record Decision Packet generator.
   - `.lazy-harness/scripts/context-broker-dogfood.ts` — explicit Native Context Broker dogfood collector.
-  - `.lazy-harness/scripts/context-delivery.ts` — explicit `--journal` packet evidence collection for Phase 7 dogfood.
+  - `.lazy-harness/scripts/context-delivery.ts` — deterministic packet producer and sanitized packet evidence collection for read-debt/audit.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — packet-scoped pre-action read-debt permit helper.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.
   - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — no-op compatibility shim.
   - `.lazy-harness/scripts/jcode-wiring.ts` — generated bash safety-only hook.
