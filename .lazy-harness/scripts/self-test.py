@@ -1411,6 +1411,52 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
     print("✓ jcode rejected Layer 2 block cleanup ok")
 
 
+def check_jcode_wiring_message_received_hook() -> None:
+    """Generated and user-owned Jcode configs must wire message.received context hook."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    required = [
+        'event = \\"message.received\\"',
+        'command = \\".lazy-harness/hooks/lifecycle/on-message-received.sh\\"',
+        'blocking = true',
+        'timeout_ms = 800',
+        'ensureMessageReceivedHook',
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring missing message.received hook contract: " + json.dumps(missing, ensure_ascii=False))
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-message-received-"))
+    try:
+        (temp / ".lazy-harness").mkdir(parents=True)
+        shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
+        (temp / ".jcode").mkdir(parents=True)
+        config = temp / ".jcode" / "config.toml"
+        config.write_text(
+            "# user-owned config\n"
+            "[prompt]\n"
+            "custom_local_flag = true\n\n"
+            "[hooks]\n"
+            "enabled = true\n",
+            encoding="utf-8",
+        )
+        code = (
+            "import { installJcodeWiring } from './.lazy-harness/scripts/jcode-wiring.ts';"
+            f"installJcodeWiring({{ targetRoot: {json.dumps(str(temp))}, quiet: true }});"
+        )
+        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("jcode message.received wiring import/run failed:\n" + completed.stdout + completed.stderr)
+        updated = config.read_text(encoding="utf-8")
+        if "custom_local_flag = true" not in updated:
+            fail("message.received hook patch overwrote user-owned config content:\n" + updated)
+        for phrase in ['event = "message.received"', 'on-message-received.sh', 'blocking = true', 'timeout_ms = 800']:
+            if phrase not in updated:
+                fail("message.received hook patch missing phrase " + phrase + ":\n" + updated)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ jcode message.received hook wiring ok")
+
+
 def check_manifest_syncs_python_lifecycle_helpers() -> None:
     """Hosts need Python lifecycle helpers copied by lazy-sync/lazy-init."""
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
@@ -3744,6 +3790,119 @@ console.log(JSON.stringify({{ canonical, legacy, planning }}));
     print("✓ SearchProvider canonical record dirs ok")
 
 
+def write_digest_fixture(root: pathlib.Path) -> pathlib.Path:
+    record = root / ".lazy-harness" / "ssot" / "pr-description-format.md"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(
+        "# PR Description Format\n\n"
+        "Status: accepted\n"
+        "\n"
+        "## Rule digest\n\n"
+        "- Status: active\n"
+        "- Layer: SSOT\n"
+        "- Scope: host-project\n"
+        "- Applies when:\n"
+        "  - user asks to draft or update a PR description\n"
+        "  - pull request body or release note summary is being prepared\n"
+        "- Must:\n"
+        "  - include Why, What, and Task sections in PR descriptions\n"
+        "  - use this artifact rule regardless of which tool creates the PR\n"
+        "- Must not:\n"
+        "  - encode PR policy as a gh or bash specific rule\n"
+        "- Record completion:\n"
+        "  - confirmed PR description changes update this SSOT\n",
+        encoding="utf-8",
+    )
+    return record
+
+
+def check_relevant_record_query_cli() -> None:
+    """Relevant-record query should emit compact digest entries without tool keys."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-relevant-query-"))
+    try:
+        write_digest_fixture(temp)
+        script = LAZY / "scripts" / "relevant-record-query.ts"
+        completed = subprocess.run(
+            [
+                "bun",
+                str(script),
+                "--root",
+                str(temp),
+                "--message",
+                "PR description 작성해줘",
+                "--format",
+                "json",
+                "--require-digest",
+                "--token-budget",
+                "300",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("relevant-record-query CLI failed:\n" + completed.stdout + completed.stderr)
+        result = json.loads(completed.stdout)
+        entries = result.get("digest", {}).get("entries", [])
+        if not entries:
+            fail("relevant-record-query did not return digest entries:\n" + completed.stdout)
+        first = entries[0]
+        if first.get("recordPath") != ".lazy-harness/ssot/pr-description-format.md":
+            fail("relevant-record-query returned wrong record:\n" + completed.stdout)
+        body = json.dumps(first, ensure_ascii=False)
+        if "Why, What, and Task" not in body or "gh or bash" not in body:
+            fail("relevant-record-query missed digest bullets:\n" + completed.stdout)
+        if result.get("digest", {}).get("estimatedTokens", 9999) > 300:
+            fail("relevant-record-query exceeded token budget:\n" + completed.stdout)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ relevant-record-query CLI digest ok")
+
+
+def check_message_received_hook_context_injection() -> None:
+    """message.received hook should emit same-turn system reminder inject JSON from digests."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
+    try:
+        write_digest_fixture(temp)
+        (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(LAZY / "scripts" / "relevant-record-query.ts", temp / ".lazy-harness" / "scripts" / "relevant-record-query.ts")
+        hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
+        hook.chmod(0o755)
+        payload = {
+            "event": "message.received",
+            "session_id": "s-test",
+            "message_id": "m-test",
+            "working_dir": str(temp),
+            "last_user_message": "PR description 작성해줘",
+            "recent_tool_calls": [],
+            "turn_count": 1,
+        }
+        completed = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if completed.returncode != 0:
+            fail("message.received hook should fail-open with exit 0:\n" + completed.stdout + completed.stderr)
+        output = completed.stdout.strip()
+        if not output:
+            fail("message.received hook did not emit inject JSON")
+        data = json.loads(output)
+        body = data.get("inject", {}).get("body", "")
+        if data.get("inject", {}).get("format") != "system_reminder" or "Why, What, and Task" not in body:
+            fail("message.received hook output missing digest body:\n" + output)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ message.received hook context injection ok")
+
+
 def check_tool_execute_before_hook() -> None:
     """N2.5 — Layer 2 force-gate hook (ADR 0024).
 
@@ -3931,6 +4090,7 @@ def main() -> None:
         (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
         (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
+        (check_jcode_wiring_message_received_hook, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_rule_action_boundary_pr_body_guard, "BOTH"),
@@ -3964,6 +4124,8 @@ def main() -> None:
         (check_layer_impact_gate, "FRAMEWORK_ONLY"),
         (check_reference_resolver, "FRAMEWORK_ONLY"),
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
+        (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
+        (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
     ]

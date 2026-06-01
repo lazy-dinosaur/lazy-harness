@@ -7,6 +7,26 @@ Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
 Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - creating or updating a record that should be surfaced by relevant-record query
+  - designing compact rule digest output for pre-response context
+  - auditing records that contain must/required/source-of-truth language
+- Must:
+  - include compact `## Rule digest` metadata on reusable guidance records
+  - keep digest bullets short and query-friendly
+  - include status, layer, scope, appliesWhen, must/must-not, record completion, and related records when relevant
+  - avoid full-document dumps in automatic context
+- Record completion:
+  - changes to digest structure update this SDD and relevant query schema
+- Related records:
+  - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/record-write-update-policy.md`
+
 ## Purpose
 
 Lazy-harness records must be searchable and injectable as compact working context before an agent answers or plans.

@@ -8,6 +8,27 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
 Related spec: `.lazy-harness/spec/platform/record-digest-format.md`
 Related spec: `.lazy-harness/spec/platform/project-rule-router.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - user confirms a rule, decision, source-of-truth correction, behavior, contract, or regression
+  - 사용자가 새 규칙/결정/정정/기록을 어디에 어떻게 저장할지 말한다
+  - deciding whether to update an existing record or create a new one
+  - response.completed reports missing record completion
+- Must:
+  - search existing canonical records before writing
+  - update the primary existing record when the subject matches
+  - create a new record only for a distinct subject/layer/context
+  - maintain Rule digest, Implementation map, graph links, and layer completeness when applicable
+- Record completion:
+  - changes to record mutation behavior update this SDD
+- Related records:
+  - `.lazy-harness/spec/platform/record-digest-format.md`
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+
 ## Purpose
 
 Lazy-harness must write durable records when the user confirms rules, decisions, source-of-truth facts, behavior, contracts, or regressions.

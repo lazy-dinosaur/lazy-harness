@@ -7,6 +7,28 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related backlog: `.lazy-harness/planning/project-rule-discovery-router-backlog.md`
 Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - user confirms or corrects a project rule, workflow rule, ownership, or source-of-truth fact
+  - 사용자가 프로젝트 규칙, 룰, 기록 위치, AGENTS, `.jcode`, memory, SSOT를 언급한다
+  - deciding where to record AGENTS, `.jcode`, memory, SSOT, ADR, layer facts, or planning knowledge
+  - response.completed reports project rule placement or canonical record completion problems
+- Must:
+  - route durable project/team rules into canonical `.lazy-harness` records, not `.jcode` or memory alone
+  - include a complete Rule placement judgement when recording or reporting placement
+  - stop with an option gate when placement is ambiguous
+- Must not:
+  - treat `needs-option-gate` as approval to keep working
+- Record completion:
+  - confirmed rule placement changes update this SDD or the target SSOT/ADR/layer record
+- Related records:
+  - `.lazy-harness/ssot/rule-sources.md`
+  - `.lazy-harness/spec/platform/record-write-update-policy.md`
+
 ## Purpose
 
 Route newly discovered project-specific rules to the right durable source of truth.

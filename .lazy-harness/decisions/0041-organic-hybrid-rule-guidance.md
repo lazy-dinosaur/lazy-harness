@@ -4,6 +4,28 @@
 - Date: 2026-06-01
 - Trigger: Dogfooding showed that stored rules can be missed at action time, but a hard-gate/tool-attached restoration made the workflow too slow and brittle.
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user asks how lazy-harness should remember and apply stored rules
+  - 사용자가 저장한 규칙, 기억, 인지, 따르기, 응답 전후 쿼리를 이야기한다
+  - planning rule guidance, pre-response context, response audit, or tool-specific policy migration
+  - deciding whether to add blocking hooks, tool guards, record query, or organic guidance
+- Must:
+  - use C+ v2 organic hybrid: pre-response record query plus response.completed audit
+  - keep mandatory record completion separate from organic action guidance
+  - avoid broad slow edit/write blocking as the primary solution
+  - avoid project policy authored as bash, gh, dev-cli, or MCP-specific rules
+- Record completion:
+  - architecture changes to rule recall update this ADR or a successor ADR
+- Related records:
+  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - `.lazy-harness/ssot/harness-enforcement-policy.md`
+  - `.lazy-harness/spec/platform/pre-response-rule-context.md`
+
 ## Context
 
 Lazy-harness has two truths that must both remain true:
@@ -82,7 +104,7 @@ Hooks are still important, but the important hooks are response lifecycle hooks,
 Target shape:
 
 ```text
-response.before / pre-response context step
+message.received / pre-response context step
 → relevant-record query
 → compact rule digest
 → model response
@@ -90,7 +112,7 @@ response.before / pre-response context step
 → record completion feedback
 ```
 
-If the current harness lacks a true `response.before` event, the first implementation may emulate it through the earliest available prompt/message routing surface, but the architecture target remains pre-response rule context plus post-response audit.
+Jcode commit `3eb71ddb Add pre-turn message received hooks` provides the required same-turn pre-response surface. Lazy-harness wires this through `on-message-received.sh` with bounded `blocking = true`, `timeout_ms = 800`, and fail-open behavior.
 
 Tool hooks should be limited to transport/safety/logging, not project policy:
 
@@ -387,6 +409,9 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/spec/platform/relevant-record-query.md` — Phase 2 SDD for natural-intent record lookup and compact digest output.
   - `.lazy-harness/schemas/relevant-record-index.schema.json` — Phase 2 schema for generated relevant-record cache.
   - `.lazy-harness/scripts/search-provider.ts` — fallback SearchProvider path model aligned to current canonical record dirs.
+  - `.lazy-harness/spec/platform/pre-response-rule-context.md` — Phase 3 SDD for Jcode `message.received` pre-turn context injection.
+  - `.lazy-harness/scripts/relevant-record-query.ts` — Phase 3 read-only query prototype and `lazy context` backend.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — Phase 3 Jcode hook that emits same-turn `system_reminder` injections.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md`

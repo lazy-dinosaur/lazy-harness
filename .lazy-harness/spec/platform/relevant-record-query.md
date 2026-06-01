@@ -8,6 +8,27 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
 Related spec: `.lazy-harness/spec/platform/record-digest-format.md`
 Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - implementing or using relevant-record query, lazy context, or pre-response rule lookup
+  - 응답 전에 필요한 규칙을 쿼리하거나 주입하는 방식을 이야기한다
+  - user asks how records should be found before an answer or plan
+  - ranking records by natural intent, layer, status, token budget, or digest metadata
+- Must:
+  - query canonical records by natural intent/context, not by concrete tool names
+  - prefer `## Rule digest` sections and compact bullets over full record dumps
+  - respect status filtering and token budget
+  - stay root-bound to the current host `.lazy-harness`
+- Record completion:
+  - changes to query input/output, index, ranking, or token budget update this SDD
+- Related records:
+  - `.lazy-harness/spec/platform/record-digest-format.md`
+  - `.lazy-harness/schemas/relevant-record-index.schema.json`
+
 ## Purpose
 
 Relevant Record Query is the framework-level mechanism that finds compact `.lazy-harness` record guidance for the current user message or planning context without binding policy to a concrete tool.

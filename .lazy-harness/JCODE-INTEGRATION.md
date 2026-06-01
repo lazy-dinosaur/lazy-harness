@@ -95,11 +95,31 @@ timeout_ms = 5000
 
 (기존 host 가 이미 박았으면 skip)
 
+### 4.5 message.received pre-turn context hook 등록
+
+Jcode commit `3eb71ddb Add pre-turn message received hooks` 이후에는 같은 assistant turn 에 compact rule digest 를 주입할 수 있다.
+
+```toml
+[[hooks.commands]]
+event = "message.received"
+command = ".lazy-harness/hooks/lifecycle/on-message-received.sh"
+blocking = true
+timeout_ms = 800
+```
+
+의미:
+
+- user message 가 저장된 직후, provider prompt 구성 전에 실행된다.
+- `blocking = true` 는 hard policy block 이 아니라 bounded same-turn context injection 을 뜻한다.
+- timeout/failure 는 fail-open 이며 정상 흐름을 막지 않는다.
+- hook 은 `relevant-record-query.ts --require-digest` 로 compact `## Rule digest` 를 조회하고, 결과가 있을 때만 `system_reminder` inject JSON 을 출력한다.
+- `blocking = false` 로는 현재 turn prompt 에 들어간다는 보장이 없으므로 pre-response context 용으로 쓰지 않는다.
+
 ## 옵션 B — global `~/.jcode/`
 
 본인 모든 lazy-harness host 에 동일 적용. wiring 은 같지만 path 를 절대로 박거나 `$PWD` 사용:
 
-전역 설정에서도 edit/write/multiedit record force-gate 는 등록하지 않는다. 위험 bash safety hook 만 global 로 둘 수 있고, framework consistency 는 host-local git pre-commit/pre-push delegate 에 맡긴다.
+전역 설정에서도 edit/write/multiedit record force-gate 는 등록하지 않는다. 위험 bash safety hook 과 `message.received` pre-turn context hook 은 둘 수 있지만, command 는 host-local path 를 resolve 해야 한다. Framework consistency 는 host-local git pre-commit/pre-push delegate 에 맡긴다.
 
 ## 검증 (wiring 적용 후)
 
@@ -128,7 +148,9 @@ echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edi
 
 2. **개발 중 비차단 확인**: `.jcode/config.toml` 에 edit/write/multiedit `on-tool-execute-before.sh` blocking hook 이 없어야 한다.
 
-3. **commit-time gate 확인**: `.git/hooks/pre-commit` 또는 husky pre-commit delegate 가 `.lazy-harness/hooks/pre-commit-guard.sh` 를 호출하고, 이 hook 이 `.lazy-harness/bin/lazy test` 실패 시 commit 을 차단해야 한다.
+3. **message.received context 확인**: `.jcode/config.toml` 에 `message.received` / `on-message-received.sh` / `blocking = true` / `timeout_ms = 800` 이 있어야 한다.
+
+4. **commit-time gate 확인**: `.git/hooks/pre-commit` 또는 husky pre-commit delegate 가 `.lazy-harness/hooks/pre-commit-guard.sh` 를 호출하고, 이 hook 이 `.lazy-harness/bin/lazy test` 실패 시 commit 을 차단해야 한다.
 
 ## 비활성화 (긴급 / debug)
 
@@ -151,4 +173,5 @@ touch .lazy-harness/.hooks-disabled
 - `.lazy-harness/AGENTS.md` — framework grammar (본 wiring 의 inject 대상)
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md` — 3-Layer Defense 설계 근거
 - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — Layer 2 hook 본체
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — pre-turn relevant-record context hook
 - `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — 검색 흔적 검사 정책

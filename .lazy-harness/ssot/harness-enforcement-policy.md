@@ -5,6 +5,28 @@ Date: 2026-05-31
 Layer: SSOT
 Confirmation: user-confirmed
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - user discusses whether lazy-harness rules are mandatory or advisory
+  - 사용자가 하네스 규칙, 기억, 인지, 기록 누락, 저장한 것을 안 따르는 문제를 이야기한다
+  - user asks why stored rules are not being followed
+  - deciding record completion, response lifecycle guidance, or tool-specific policy migration
+- Must:
+  - keep canonical records mandatory for confirmed rules, decisions, corrections, contracts, behaviors, and regressions
+  - surface relevant records before response through compact query/digest context
+  - audit missed rules and missing records after response with `response.completed`
+  - avoid solving stored-rule recall by adding per-tool project-policy adapters
+- Record completion:
+  - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
+- Related records:
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - `.lazy-harness/spec/platform/record-write-update-policy.md`
+
 ## Rule
 
 Lazy-harness enforcement layers must not be weakened into optional memory or best-effort behavior.

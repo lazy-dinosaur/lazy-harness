@@ -188,7 +188,8 @@ Budget:
 - Phase 0 — Baseline and inventory: completed as planning/inventory in this record.
 - Phase 1 — Record digest/write standard: SDD contracts written on 2026-06-01.
 - Phase 2 — Relevant record index/query contract: SDD/schema/SearchProvider path fix written on 2026-06-01.
-- Phase 3 — Pre-response surfacing prototype: next implementation/design slice.
+- Phase 3 — Pre-response surfacing prototype: implemented on 2026-06-01 using Jcode `message.received`.
+- Phase 4 — response.completed audit against surfaced digest: next implementation/design slice.
 
 ### Phase 0 — Baseline and inventory
 
@@ -301,7 +302,15 @@ Tasks:
 Outputs:
 
 - `.lazy-harness/spec/platform/pre-response-rule-context.md`
-- implementation prototype only after design approval.
+- `.lazy-harness/scripts/relevant-record-query.ts`
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh`
+- `.lazy-harness/bin/lazy context --message ...`
+
+Status:
+
+- implemented on 2026-06-01 after Jcode added `message.received` in commit `3eb71ddb`.
+- generated Jcode wiring includes bounded `message.received` hook with `blocking = true`, `timeout_ms = 800`.
+- automatic injection uses `--require-digest` so noisy fallback records do not enter the prompt by default.
 
 Validation:
 
@@ -398,11 +407,11 @@ Likely migrations later:
 
 ## Open questions
 
-1. What exact lifecycle surface can provide pre-response context in Jcode today?
-2. Should the relevant-record index be a generated JSON file, graph-derived query, or SearchProvider result cache?
-3. Should digest metadata live in Markdown sections, lightweight frontmatter, XML blocks, or generated sidecar index?
-4. How strict should mandatory record completion be before a native pre-response query exists?
-5. Should legacy PR body guard remain temporarily until PR digest/audit fixtures prove coverage?
+1. Resolved: Jcode `message.received` provides same-turn pre-response context injection.
+2. Resolved for Phase 2: relevant-record index has a generated JSON schema; prototype currently parses records directly.
+3. Resolved for Phase 1: digest metadata starts as Markdown `## Rule digest` sections.
+4. Resolved for Phase 3: native pre-response query exists; mandatory record completion remains handled by response audit/backstop.
+5. Still open: legacy PR body guard migration/removal waits until response audit fixtures prove equivalent coverage.
 
 ## Recommended next immediate slice
 
@@ -410,7 +419,7 @@ Do **not** implement the full loop yet.
 
 Next slice should be read-only and measurable:
 
-1. Implement prototype `relevant-record-query` CLI in measurement/shadow mode.
+1. Extend `response.completed` audit to know which digest entries were surfaced.
 2. Add fixtures across stored-rule classes, not only PR:
    - project identity / source-of-truth correction,
    - API/component contract work,
@@ -419,9 +428,9 @@ Next slice should be read-only and measurable:
    - runtime/test instance reasoning,
    - release/deploy/build workflow,
    - PR/body drafting as one example only.
-3. Add a prototype CLI that produces a digest under 600 tokens.
-4. Measure latency and token size.
-5. Only then decide pre-response integration.
+3. Track a lightweight turn journal for surfaced digests.
+4. Keep successful turns silent.
+5. Measure latency and token size during dogfood.
 
 ## Rule placement
 
