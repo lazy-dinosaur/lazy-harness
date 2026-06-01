@@ -160,6 +160,14 @@ Implemented on 2026-06-01:
 - concrete hard stops remain rare and require user confirmation, miss/risk evidence, existing softer coverage analysis, fixture path, narrowness, and rollback.
 - no new project-policy hard stop was added by Phase 6; it added promotion criteria and fixtures first.
 
+## Phase 7 implementation note
+
+Implemented on 2026-06-01:
+
+- Context Delivery can append sanitized packet evidence with `lazy context-delivery --journal`.
+- `response.completed` may consume correlated packet evidence as advisory-only required-read feedback.
+- Phase 7 intentionally does not add new STOP/hard-stop behavior; it creates dogfood evidence needed before any later escalation or Record Decision Broker integration.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

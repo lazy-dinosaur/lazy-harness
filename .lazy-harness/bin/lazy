@@ -70,8 +70,8 @@ Commands:
                                 Query compact relevant-record digest for pre-response context
   context-index [--write] [--format=json|md]
                                 Build deterministic generated Context Delivery index cache
-  context-delivery --message "..." [--format=json|md] [--handoff-prompt]
-                                Produce Context Delivery Packet or optional search handoff prompt
+  context-delivery --message "..." [--format=json|md] [--handoff-prompt] [--journal]
+                                Produce Context Delivery Packet, optional search handoff prompt, or packet evidence journal
   route-summary [--format=json|md]
                                 Summarize route telemetry for UX/FP review
   route-audit [--commits=12] [--format=json|md]

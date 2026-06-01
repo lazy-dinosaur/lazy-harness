@@ -6,7 +6,8 @@
  * context from a generated context index when available, or source-scan fallback
  * via context-index.ts when the cache is missing/stale.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { buildContextIndex, type ContextIndex, type RecordEntry } from './context-index.ts'
 
@@ -22,6 +23,11 @@ interface Args {
   limit: number
   indexPath: string
   handoffPrompt: boolean
+  journal: boolean
+  journalPath: string
+  messageId: string
+  sessionId: string
+  turnCount: string
 }
 
 interface QueryItem {
@@ -82,12 +88,18 @@ Options:
   --limit N               Max read items per bucket (default 8)
   --index PATH            Optional generated context-index path
   --handoff-prompt        Render optional searcher subagent handoff prompt
+  --journal               Append sanitized packet evidence journal for response audit
+  --journal-path PATH     Override packet evidence journal path
+  --message-id ID         Optional message id to hash into journal
+  --session-id ID         Optional session id to hash into journal
+  --turn-count N          Optional turn count metadata for journal
   --help                  Show this help
 
 Examples:
   bun .lazy-harness/scripts/context-delivery.ts --message "예약시트 고쳐줘" --format md
   .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --format=json
   .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --handoff-prompt
+  .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --journal --message-id=m1
   `)
   process.exit(2)
 }
@@ -117,6 +129,11 @@ function parseArgs(argv: string[]): Args {
     limit: 8,
     indexPath: '',
     handoffPrompt: false,
+    journal: false,
+    journalPath: '',
+    messageId: process.env.LAZY_MESSAGE_ID || process.env.JCODE_MESSAGE_ID || '',
+    sessionId: process.env.LAZY_SESSION_ID || process.env.JCODE_SESSION_ID || '',
+    turnCount: process.env.LAZY_TURN_COUNT || '',
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -136,12 +153,22 @@ function parseArgs(argv: string[]): Args {
     parsed = valueFor(argv, i, '--index')
     if (parsed.value !== null) { args.indexPath = parsed.value; i += parsed.consumed; continue }
     if (arg === '--handoff-prompt') { args.handoffPrompt = true; continue }
+    if (arg === '--journal') { args.journal = true; continue }
+    parsed = valueFor(argv, i, '--journal-path')
+    if (parsed.value !== null) { args.journalPath = parsed.value; i += parsed.consumed; continue }
+    parsed = valueFor(argv, i, '--message-id')
+    if (parsed.value !== null) { args.messageId = parsed.value; i += parsed.consumed; continue }
+    parsed = valueFor(argv, i, '--session-id')
+    if (parsed.value !== null) { args.sessionId = parsed.value; i += parsed.consumed; continue }
+    parsed = valueFor(argv, i, '--turn-count')
+    if (parsed.value !== null) { args.turnCount = parsed.value; i += parsed.consumed; continue }
     if (arg === '--help' || arg === '-h') usage()
     else usage()
   }
   if (!args.message.trim()) usage()
   args.root = path.resolve(args.root)
   args.indexPath = args.indexPath ? path.resolve(args.indexPath) : path.join(args.root, '.lazy-harness', 'generated', 'context-index.json')
+  args.journalPath = args.journalPath ? path.resolve(args.journalPath) : path.join(args.root, '.lazy-harness', 'state', 'context-delivery-packets.jsonl')
   return args
 }
 
@@ -151,6 +178,12 @@ function clamp(value: number): number {
 
 function unique(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((v) => (v || '').trim()).filter(Boolean)))
+}
+
+function stableHash(value: string): string | null {
+  const text = String(value || '').trim()
+  if (!text) return null
+  return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16)
 }
 
 function lower(value: string): string {
@@ -564,9 +597,54 @@ function renderHandoffPrompt(packet: ContextDeliveryPacket, args: Args): string 
   return lines.join('\n')
 }
 
+function sanitizeReadItem(item: ReadItem): Record<string, unknown> {
+  return {
+    path: item.path,
+    kind: item.kind,
+    confidence: item.confidence,
+    ...(item.layer ? { layer: item.layer } : {}),
+    ...(item.symbols?.length ? { symbols: item.symbols.slice(0, 8) } : {}),
+    matchedQueryCount: item.matchedQueries.length,
+  }
+}
+
+function appendPacketJournal(packet: ContextDeliveryPacket, args: Args): void {
+  const row = {
+    schemaVersion: '1.0',
+    event: 'context-delivery.packet',
+    timestamp: new Date().toISOString(),
+    epochSeconds: Math.floor(Date.now() / 1000),
+    messageIdHash: stableHash(args.messageId),
+    sessionIdHash: stableHash(args.sessionId),
+    turnCount: args.turnCount ? Number(args.turnCount) || args.turnCount : undefined,
+    packetHash: stableHash(JSON.stringify(packet)),
+    instructionLevel: packet.instructionLevel,
+    confidence: packet.confidence,
+    requiredReadCount: packet.requiredRead.length,
+    optionalReadCount: packet.optionalRead.length,
+    candidateMeaningCount: packet.candidateMeanings.length,
+    fallbackSearchCount: packet.fallbackSearches.length,
+    requiredRead: packet.requiredRead.slice(0, args.limit).map(sanitizeReadItem),
+    optionalRead: packet.optionalRead.slice(0, Math.min(args.limit, 5)).map(sanitizeReadItem),
+    notes: unique(packet.notes || []).filter((note) => !/contextIndexFingerprint=/.test(note)).slice(0, 8),
+  }
+  mkdirSync(path.dirname(args.journalPath), { recursive: true })
+  let existing: string[] = []
+  if (existsSync(args.journalPath)) {
+    try {
+      existing = readFileSync(args.journalPath, 'utf8').split(/\r?\n/).filter((line) => line.trim()).slice(-199)
+    } catch {
+      existing = []
+    }
+  }
+  existing.push(JSON.stringify(row, null, 0))
+  writeFileSync(args.journalPath, `${existing.join('\n')}\n`, 'utf8')
+}
+
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
   const packet = buildPacket(args)
+  if (args.journal) appendPacketJournal(packet, args)
   if (args.handoffPrompt) process.stdout.write(renderHandoffPrompt(packet, args))
   else if (args.format === 'md') process.stdout.write(renderMarkdown(packet))
   else process.stdout.write(`${JSON.stringify(packet, null, 2)}\n`)

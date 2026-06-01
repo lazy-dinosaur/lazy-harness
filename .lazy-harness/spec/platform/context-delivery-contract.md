@@ -28,6 +28,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - fail open and stay bounded when used from `message.received`
   - allow lightweight self-resolution instructions when a full packet is unavailable but a request is implementation-likely
   - make optional search handoff prompts return the same packet-shaped contract and forbid mutations/raw chunks
+  - when packet evidence is journaled, persist only sanitized required/optional read metadata and hashed identifiers
   - ask an option gate when candidate meanings conflict and confidence is not high enough to proceed
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
@@ -345,6 +346,7 @@ Privacy requirements:
 - Prefer short hashes for session/message identifiers if a future journal links packets to turns.
 - Record paths, titles, digest bullets, schema names, and source file paths are allowed.
 - Protocol-only self-resolution injections should not write raw user messages or synthetic candidate meanings to the surfaced digest journal.
+- Packet evidence journals may store required/optional read paths, kind/layer/confidence, symbol names, matched-query counts, packet hash, and message/session hashes, but not raw request text or raw record bullets.
 
 Fail-open requirements:
 
@@ -394,11 +396,11 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
 - `relevant-record-query.md` defines the current digest query contract.
 - `pre-response-rule-context.md` defines the bounded lifecycle injection surface.
 - This SDD defines the richer packet that future broker phases produce after query expansion and fusion.
-- `response-rule-audit.md` may later consume packet evidence, but only after false-positive-safe fixtures exist.
+- `response-rule-audit.md` consumes explicit packet evidence journal rows as advisory-only required-read audit after false-positive-safe fixtures exist.
 
 ## Implementation map
 
-- Status: `partially-implemented through Phase 6`
+- Status: `partially-implemented through Phase 7`
 - Primary files:
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - this SDD and packet contract.
   - `.lazy-harness/schemas/context-delivery-packet.schema.json` - JSON Schema for packet-shaped outputs.
@@ -406,27 +408,29 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - phase plan that schedules implementation after this contract.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
-  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion; Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed.
-  - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` passthrough.
+  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion; Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
+  - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows for advisory-only required-read audit.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.
 - Future implementation files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future full-packet renderer once packet generation is safe for pre-turn use.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - future packet-aware audit, after fixtures.
 - Flow:
   1. Request enters `message.received`.
   2. Existing digest query may return `digest-only`.
   3. Surface-like implementation requests may receive lightweight self-resolution instructions without heavy hook latency.
   4. Future broker may emit a full Context Delivery Packet.
   5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
-  6. Main LLM reads required items from the returned packet before acting.
-  7. Response audit may later verify required-read usage only with strong evidence.
+  6. Main LLM or dogfood tooling may call `lazy context-delivery --journal` to record sanitized packet evidence.
+  7. Main LLM reads required items from the returned packet before acting.
+  8. Response audit may advise when correlated packet evidence and mutation suggest required-read evidence was skipped.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `예약시트` example cues.
   - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `예약시트 고쳐줘` without mandatory subagent latency.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6` validates the handoff prompt, delegate-search seed packet, no-mutation instructions, schema-return contract, and absence of hook-time `jcode run`/handoff execution.
+  - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7` validates sanitized packet journaling and advisory-only response audit behavior.
 
 ## Validation plan
 
@@ -448,7 +452,8 @@ Future implementation validation:
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.
 - Fixture: searcher handoff prompt returns packet-shaped seed/return contract without executing mutations or adding hook-time `jcode run`/subagent latency.
-- Fixture: response audit stays silent when required-read was respected or no packet was surfaced.
+- Fixture: packet evidence journal stores sanitized rows without raw request text or raw record bullets.
+- Fixture: response audit stays silent when required-read was respected, no mutation happened, or no packet was correlated; missing read evidence after mutation is advisory-only.
 
 ## Rule placement
 

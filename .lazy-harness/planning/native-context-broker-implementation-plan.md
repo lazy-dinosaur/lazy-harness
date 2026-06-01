@@ -339,6 +339,10 @@ Acceptance criteria:
 
 ### Phase 7 — Response audit integration
 
+Status: completed in this Phase 7 change as advisory-only packet evidence integration: `lazy context-delivery --journal` appends sanitized packet evidence, and `response.completed` consumes correlated rows to emit `ADVISORY` only when mutation evidence exists without required-read read/search evidence. It deliberately does not add STOP behavior; the journal is a dogfood collection layer for later broker/escalation design.
+
+Pause gate: after Phase 7 commit, source validation, and Medivance/Medivance PWA sync validation are complete, stop before Phase 8 until the user explicitly resumes. User confirmed this pause on 2026-06-01.
+
 Extend response audit only after Context Delivery Contract is stable.
 
 Audit should detect:

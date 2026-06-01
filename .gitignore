@@ -10,6 +10,7 @@ __pycache__/
 
 # Response lifecycle runtime state
 .lazy-harness/state/surfaced-rule-digests.jsonl
+.lazy-harness/state/context-delivery-packets.jsonl
 
 # Editor / OS noise
 .DS_Store

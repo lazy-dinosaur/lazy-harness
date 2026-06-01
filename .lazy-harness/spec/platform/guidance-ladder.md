@@ -53,6 +53,8 @@ The framework should help agents use durable records while working in host proje
 | L4 | `warn-escalated` | Repeated or high-risk misses produce stronger response audit guidance. | case-by-case |
 | L5 | `hard-stop-promoted` | A narrow blocking boundary exists and is justified by promotion evidence. | rare |
 
+Phase 7 Context Delivery required-read audit is an L3 advisory-only path. It may print `ADVISORY` when a correlated packet journal row, mutation evidence, and missing read/search evidence align. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
+
 ## Hard-stop promotion criteria
 
 A concrete hard stop may be introduced only when every criterion is documented:
@@ -113,6 +115,7 @@ python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format jso
 - Primary files:
   - `.lazy-harness/spec/platform/guidance-ladder.md` — this SDD contract.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion section scanner/checker.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — L3 digest/packet advisory audit helper.
   - `.lazy-harness/scripts/self-test.py` — Phase 6 fixtures and source scan.
   - `.lazy-harness/tests/guidance-ladder-hard-stop-promotion.md` — TDD record.
   - `.lazy-harness/ssot/rule-lifecycle.md` — SSOT lifecycle and promotion policy.
@@ -120,6 +123,7 @@ python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format jso
 - Key symbols:
   - `extract_sections` (`hard-stop-promotion-audit.py`) — finds `## Hard-stop promotion` sections outside code fences.
   - `validate_section` (`hard-stop-promotion-audit.py`) — checks required fields and fixture path existence.
+  - `packet_required_paths` (`check-response-rule-audit.py`) — Phase 7 advisory-only required-read evidence extraction.
   - `check_guidance_ladder_hard_stop_promotion` (`self-test.py`) — protects valid/invalid fixture behavior and source scan.
 - Flow:
   1. A rule stays on L0-L3 by default.
@@ -130,6 +134,7 @@ python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format jso
   6. Only then should implementation add a narrow hard stop.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_guidance_ladder_hard_stop_promotion`
+  - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`
   - `python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --strict`
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`

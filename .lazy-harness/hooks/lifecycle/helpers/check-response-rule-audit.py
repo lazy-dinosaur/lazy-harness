@@ -29,7 +29,8 @@ if not isinstance(PAYLOAD, dict):
     raise SystemExit(0)
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
-JOURNAL = ROOT / ".lazy-harness" / "state" / "surfaced-rule-digests.jsonl"
+DIGEST_JOURNAL = ROOT / ".lazy-harness" / "state" / "surfaced-rule-digests.jsonl"
+PACKET_JOURNAL = ROOT / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_RESPONSE_RULE_AUDIT_TTL_SECONDS", "7200") or "7200")
 
 WRITE_TOOLS = {
@@ -41,6 +42,11 @@ PR_TOOLS = {
     "mcp__github__update_pull_request",
     "create_pull_request",
     "update_pull_request",
+}
+READ_EVIDENCE_TOOLS = {
+    "Read", "read", "mcp__filesystem__read_text_file", "mcp__filesystem__read_file",
+    "mcp__filesystem__read_multiple_files", "agentgrep", "grep", "bash",
+    "glob", "ls", "lsp", "mcp__github__get_file_contents",
 }
 CAPTURE_RE = re.compile(
     r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph|graph-drafts|corrections)\.jsonl|logs/corrections\.jsonl)"
@@ -122,12 +128,12 @@ def changed_framework_source_without_record() -> bool:
     return False
 
 
-def load_journal_rows() -> list[dict[str, Any]]:
-    if not JOURNAL.exists():
+def load_journal_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
         return []
     rows: list[dict[str, Any]] = []
     try:
-        for line in JOURNAL.read_text(encoding="utf-8", errors="ignore").splitlines():
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
             if not line.strip():
                 continue
             try:
@@ -141,8 +147,8 @@ def load_journal_rows() -> list[dict[str, Any]]:
     return rows[-200:]
 
 
-def matching_journal() -> dict[str, Any] | None:
-    rows = load_journal_rows()
+def matching_journal(path: Path) -> dict[str, Any] | None:
+    rows = load_journal_rows(path)
     if not rows:
         return None
     now = time.time()
@@ -181,6 +187,40 @@ def entry_paths(entries: list[dict[str, Any]]) -> list[str]:
         if path:
             paths.append(path)
     return paths
+
+
+def packet_required_paths(row: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    for item in row.get("requiredRead") or []:
+        if isinstance(item, dict):
+            path = str(item.get("path") or "").strip()
+            if path:
+                paths.append(path)
+    return paths
+
+
+def has_mutation_tool_call() -> bool:
+    for call in recent_calls():
+        if str(call.get("name") or "") in WRITE_TOOLS:
+            return True
+    return False
+
+
+def has_required_read_evidence(required_paths: list[str]) -> bool:
+    if not required_paths:
+        return True
+    normalized = [path.strip().lstrip("./") for path in required_paths if path.strip()]
+    for call in recent_calls():
+        name = str(call.get("name") or "")
+        if name in WRITE_TOOLS:
+            continue
+        if name not in READ_EVIDENCE_TOOLS:
+            continue
+        blob = call_blob(call).replace("\\", "/")
+        for path in normalized:
+            if path and (path in blob or f"./{path}" in blob):
+                return True
+    return False
 
 
 def has_pr_description_rule(entries: list[dict[str, Any]]) -> bool:
@@ -227,39 +267,54 @@ def mandatory_record_completion_missing(entries: list[dict[str, Any]], blob: str
 
 
 def main() -> int:
-    row = matching_journal()
-    if not row:
-        return 0
-    entries = [e for e in row.get("entries") or [] if isinstance(e, dict)]
-    if not entries:
-        return 0
-
     strings: list[str] = []
     walk_strings(PAYLOAD, strings)
     blob = "\n".join(strings)
 
-    if has_pr_description_rule(entries) and pr_artifact_missing_headings():
-        print("STOP. Response rule audit: surfaced PR description guidance appears to be ignored.\n")
-        print("문제: 이번 turn 전에 PR description 관련 record가 surfaced 되었지만, 생성/수정된 PR artifact에서 Why / What / Task 구조를 확인하지 못했습니다.")
-        print("\n해야 할 일:")
-        print("  A. PR body를 Why / What / Task 구조로 수정하고 다시 실행 (Recommended)")
-        print("  B. 이 PR이 예외라면 관련 SSOT/ADR에 예외 사유를 기록")
-        print("\nSurfaced records:")
-        for path in entry_paths(entries)[:5]:
-            print(f"  - {path}")
-        return 0
+    row = matching_journal(DIGEST_JOURNAL)
+    entries = [e for e in (row or {}).get("entries") or [] if isinstance(e, dict)]
+    if entries:
+        if has_pr_description_rule(entries) and pr_artifact_missing_headings():
+            print("STOP. Response rule audit: surfaced PR description guidance appears to be ignored.\n")
+            print("문제: 이번 turn 전에 PR description 관련 record가 surfaced 되었지만, 생성/수정된 PR artifact에서 Why / What / Task 구조를 확인하지 못했습니다.")
+            print("\n해야 할 일:")
+            print("  A. PR body를 Why / What / Task 구조로 수정하고 다시 실행 (Recommended)")
+            print("  B. 이 PR이 예외라면 관련 SSOT/ADR에 예외 사유를 기록")
+            print("\nSurfaced records:")
+            for path in entry_paths(entries)[:5]:
+                print(f"  - {path}")
+            return 0
 
-    if mandatory_record_completion_missing(entries, blob):
-        print("STOP. Response rule audit: surfaced record-completion guidance may be missing.\n")
-        print("문제: 이번 turn 전에 record-completion 의무가 있는 lazy-harness record가 surfaced 되었고, 현재 응답/도구 증거는 새 규칙/정정/계약/하네스 변경을 암시하지만 durable `.lazy-harness` capture가 보이지 않습니다.")
-        print("\n해야 할 일:")
-        print("  A. 같은 turn에서 적절한 .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/ record 또는 knowledge graph를 갱신 (Recommended)")
-        print("  B. 이미 기록했다면 recent tool evidence가 누락된 것이므로 해당 record path를 명시")
-        print("  C. 기록 대상이 아니면 Rule placement/Discovery capture에서 non-applicable 판단을 명시")
-        print("\nSurfaced records:")
-        for path in entry_paths(entries)[:5]:
-            print(f"  - {path}")
-        return 0
+        if mandatory_record_completion_missing(entries, blob):
+            print("STOP. Response rule audit: surfaced record-completion guidance may be missing.\n")
+            print("문제: 이번 turn 전에 record-completion 의무가 있는 lazy-harness record가 surfaced 되었고, 현재 응답/도구 증거는 새 규칙/정정/계약/하네스 변경을 암시하지만 durable `.lazy-harness` capture가 보이지 않습니다.")
+            print("\n해야 할 일:")
+            print("  A. 같은 turn에서 적절한 .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/ record 또는 knowledge graph를 갱신 (Recommended)")
+            print("  B. 이미 기록했다면 recent tool evidence가 누락된 것이므로 해당 record path를 명시")
+            print("  C. 기록 대상이 아니면 Rule placement/Discovery capture에서 non-applicable 판단을 명시")
+            print("\nSurfaced records:")
+            for path in entry_paths(entries)[:5]:
+                print(f"  - {path}")
+            return 0
+
+    packet_row = matching_journal(PACKET_JOURNAL)
+    if packet_row:
+        required_paths = packet_required_paths(packet_row)
+        try:
+            confidence = float(packet_row.get("confidence") or 0)
+        except Exception:
+            confidence = 0
+        if required_paths and confidence >= 0.6 and has_mutation_tool_call() and not has_required_read_evidence(required_paths):
+            print("ADVISORY. Context Delivery audit: required-read evidence may be missing.\n")
+            print("문제: 이번 turn에 Context Delivery Packet requiredRead가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.")
+            print("\n해야 할 일:")
+            print("  A. 아래 requiredRead 경로를 읽고 변경 근거를 확인 (Recommended)")
+            print("  B. 이미 읽었지만 payload evidence가 누락됐다면 응답에 읽은 경로를 명시")
+            print("  C. packet이 부정확했다면 Context Delivery index/query 기록을 보강")
+            print("\nRequired reads:")
+            for path in required_paths[:5]:
+                print(f"  - {path}")
+            return 0
 
     return 0
 

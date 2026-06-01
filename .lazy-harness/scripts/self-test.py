@@ -4489,6 +4489,125 @@ def check_context_delivery_optional_handoff_phase6() -> None:
     print("✓ context-delivery optional handoff Phase 6 ok")
 
 
+def check_context_delivery_packet_journal_phase7() -> None:
+    """Phase 7 should journal sanitized packet evidence and audit it as advisory-only."""
+    delivery_script = LAZY / "scripts" / "context-delivery.ts"
+    helper_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-packet-journal-"))
+    try:
+        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        component = temp / "src" / "features" / "reservations" / "ReservationTable.tsx"
+        component.write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Implementation hints:\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            encoding="utf-8",
+        )
+        journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        completed = subprocess.run(
+            [
+                "bun", str(delivery_script),
+                "--root", str(temp),
+                "--message", "예약시트 고쳐줘",
+                "--journal",
+                "--message-id", "phase7-packet-message",
+                "--session-id", "phase7-session",
+                "--turn-count", "7",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("context-delivery --journal failed:\n" + completed.stdout + completed.stderr)
+        if not journal.exists():
+            fail("context-delivery --journal should create packet evidence journal")
+        journal_text = journal.read_text(encoding="utf-8")
+        if "예약시트 고쳐줘" in journal_text or "reservation management UI" in journal_text:
+            fail("packet journal must not store raw user message or raw record bullets")
+        rows = [json.loads(line) for line in journal_text.splitlines() if line.strip()]
+        row = rows[-1]
+        for field in ["messageIdHash", "sessionIdHash", "packetHash", "instructionLevel", "confidence", "requiredRead", "requiredReadCount"]:
+            if field not in row:
+                fail("packet journal row missing sanitized field: " + field)
+        if row.get("messageIdHash") == "phase7-packet-message" or row.get("sessionIdHash") == "phase7-session":
+            fail("packet journal should hash identifiers")
+        required_paths = [item.get("path") for item in row.get("requiredRead", []) if isinstance(item, dict)]
+        if not required_paths:
+            fail("packet journal should include sanitized requiredRead paths")
+        if not any(path == "src/features/reservations/ReservationTable.tsx" for path in required_paths):
+            fail("packet journal fixture should include ReservationTable requiredRead path: " + repr(required_paths))
+
+        helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
+        shutil.copy2(helper_src, helper)
+        helper.chmod(0o755)
+
+        def run_helper(payload: dict) -> str:
+            result = subprocess.run(
+                [str(helper), json.dumps(payload, ensure_ascii=False)],
+                cwd=temp,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if result.returncode != 0:
+                fail("response audit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
+            return result.stdout
+
+        no_mutation = run_helper({
+            "message_id": "phase7-packet-message",
+            "recent_tool_calls": [{"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if no_mutation.strip():
+            fail("packet audit should stay silent without mutation:\n" + no_mutation)
+
+        advisory = run_helper({
+            "message_id": "phase7-packet-message",
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if "ADVISORY. Context Delivery audit" not in advisory or "STOP" in advisory:
+            fail("packet audit should emit advisory-only when mutation lacks read evidence:\n" + advisory)
+
+        satisfied = run_helper({
+            "message_id": "phase7-packet-message",
+            "recent_tool_calls": [
+                {"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+                {"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+            ],
+        })
+        if satisfied.strip():
+            fail("packet audit should stay silent when requiredRead evidence exists:\n" + satisfied)
+
+        uncorrelated = run_helper({
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if uncorrelated.strip():
+            fail("packet audit should not match packet rows without message/session ids:\n" + uncorrelated)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ context-delivery packet journal Phase 7 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit digest context and lightweight self-resolution protocol."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4907,6 +5026,7 @@ def main() -> None:
         (check_context_index_generator_phase3, "BOTH"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
+        (check_context_delivery_packet_journal_phase7, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
