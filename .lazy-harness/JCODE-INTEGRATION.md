@@ -79,8 +79,36 @@ blocking = true
 timeout_ms = 3000
 ```
 
-→ jcode 가 위험 bash 명령은 차단한다.
-→ edit/write/multiedit 일관성은 개발 중에는 advisory, commit 전에는 `.lazy-harness/hooks/pre-commit-guard.sh` 가 blocking 으로 검증한다.
+→ jcode 가 위험 bash 명령과 action-boundary rule violation 을 차단한다.
+
+### 3.5 edit/write/multiedit Layer 2 force-gate 등록
+
+```toml
+[[hooks.commands]]
+event = "tool.execute.before"
+tool = "edit"
+command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
+
+[[hooks.commands]]
+event = "tool.execute.before"
+tool = "write"
+command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
+
+[[hooks.commands]]
+event = "tool.execute.before"
+tool = "multiedit"
+command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+blocking = true
+timeout_ms = 3000
+```
+
+→ edit/write/multiedit 실행 직전 record-first force-gate 를 수행한다.
+→ hook 자체는 scoped/fast path 를 유지하고, broad consistency 는 commit 전 `.lazy-harness/hooks/pre-commit-guard.sh` 가 blocking 으로 재검증한다.
+→ 기존 user-owned `.jcode/config.toml` 도 덮어쓰지 않고 `BEGIN lazy-harness mandatory Layer 2 force-gates` block 을 append/repair 해서 mandatory wiring 이 빠지지 않게 한다.
 
 ### 4. response.completed hook 등록 (이미 있을 가능성)
 
@@ -99,7 +127,7 @@ timeout_ms = 5000
 
 본인 모든 lazy-harness host 에 동일 적용. wiring 은 같지만 path 를 절대로 박거나 `$PWD` 사용:
 
-전역 설정에서도 edit/write/multiedit record force-gate 는 등록하지 않는다. 위험 bash safety hook 만 global 로 둘 수 있고, framework consistency 는 host-local git pre-commit/pre-push delegate 에 맡긴다.
+전역 설정에서도 edit/write/multiedit record force-gate 를 등록할 수 있지만, command 는 host-local `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` 를 현재 cwd 기준으로 resolve 해야 한다. 위험 bash safety hook 과 Layer 2 force-gate 모두 host-local record 를 기준으로 동작해야 하며, `.jcode` 나 Jcode memory 를 canonical policy store 로 쓰지 않는다.
 
 ## 검증 (wiring 적용 후)
 
@@ -109,7 +137,7 @@ timeout_ms = 5000
 # Case 1: 검색 흔적 없음 → deny
 echo '{"event":"tool.execute.before","session_id":"verify-1","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}}}' \
   | bash .lazy-harness/hooks/lifecycle/on-tool-execute-before.sh
-# 기대: exit 1 + AGENTS.md §1 인용 메시지. 이 스크립트는 직접 검증용이며 기본 Jcode edit/write hook 으로는 등록하지 않는다.
+# 기대: exit 1 + AGENTS.md §1 인용 메시지. generated Jcode wiring 은 이 스크립트를 edit/write/multiedit blocking hook 으로 등록한다.
 
 # Case 2: 검색 흔적 있음 → cache 기록 + 통과
 echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edit","args":{"file_path":"src/main/foo.ts","old_string":"a","new_string":"b"}},"recent_tool_calls":[{"name":"grep","args_preview":".lazy-harness/decisions/0024"}]}' \
@@ -126,7 +154,7 @@ echo '{"event":"tool.execute.before","session_id":"verify-2","tool":{"name":"edi
 
 1. **AGENTS.md inject 확인**: 새 jcode session 시작 → AI 에게 "AGENTS.md §1 의 6 layer 폴더 나열해라" 질문. 6 개 (domain/spec/behavior/tests/decisions/ssot) 정확히 나오면 OK.
 
-2. **개발 중 비차단 확인**: `.jcode/config.toml` 에 edit/write/multiedit `on-tool-execute-before.sh` blocking hook 이 없어야 한다.
+2. **개발 중 force-gate 확인**: `.jcode/config.toml` 에 edit/write/multiedit `on-tool-execute-before.sh` blocking hook 이 있어야 한다. hook 은 scoped/fast path 로 동작해야 하며, broad consistency 는 pre-commit/pre-push 가 다시 검증한다.
 
 3. **commit-time gate 확인**: `.git/hooks/pre-commit` 또는 husky pre-commit delegate 가 `.lazy-harness/hooks/pre-commit-guard.sh` 를 호출하고, 이 hook 이 `.lazy-harness/bin/lazy test` 실패 시 commit 을 차단해야 한다.
 

@@ -35,11 +35,20 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 
 사용자 확인: "좋아 이방향으로 가자". 개발 중 `edit/write/multiedit` 직전 blocking force-gate 는 제거하고, framework consistency 는 git pre-commit/pre-push 시점에 blocking 으로 검증한다. 이유는 매 코드 수정마다 gate 가 개입하면 개발 시간이 과도하게 늘어나기 때문이다.
 
+2026-05-31 supersession: 사용자 확인으로 이 5/19 정책의 `edit/write/multiedit` hook 제거 부분은 폐기한다. post-5/19 기능은 유지하되, Layer 2 record-first 강제력만 현재 HEAD 위에 다시 얹는다.
+
 정책:
-- Jcode `tool.execute.before` 는 destructive bash safety 만 blocking 으로 유지한다.
-- `on-tool-execute-before.sh` 는 직접 검증/수동 audit 용으로 남기되 기본 generated `.jcode/config.toml` 에 edit/write/multiedit hook 으로 등록하지 않는다.
+- Jcode `tool.execute.before` 는 destructive bash safety 와 action-boundary rule violation 을 blocking 으로 유지한다.
+- `on-tool-execute-before.sh` 는 기본 generated `.jcode/config.toml` 에 edit/write/multiedit blocking hook 으로 등록한다.
+- hook 자체는 scoped/fast-path 로 유지한다. 모든 기계적 편집을 무겁게 검사하지 않고, 코드 mutation 전 record-first 누락을 막는다.
 - `.lazy-harness/hooks/pre-commit-guard.sh` 는 host private leak guard 후 `.lazy-harness/bin/lazy test` 를 실행해 commit 을 차단한다.
 - pre-push 는 기존처럼 `.lazy-harness/bin/lazy test` 를 blocking 으로 유지한다.
+
+관련 SSOT/SDD/TDD:
+- `.lazy-harness/ssot/harness-enforcement-policy.md`
+- `.lazy-harness/ssot/rule-lifecycle.md`
+- `.lazy-harness/spec/platform/rule-binding-action-boundary.md`
+- `.lazy-harness/tests/rule-binding-runtime-record-first.md`
 
 ### 1. `response.completed` — 매 응답 검증 게이트 (PRIMARY)
 
