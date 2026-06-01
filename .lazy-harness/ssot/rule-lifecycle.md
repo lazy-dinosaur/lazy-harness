@@ -50,7 +50,7 @@ Before Phase 5, this SSOT used rule-binding hard stops as the main answer to act
 | `captured` | Rule exists in a canonical record but has no digest/query/audit coverage yet. |
 | `digest-ready` | Rule has a compact `## Rule digest` and can be surfaced by relevant-record query. |
 | `surfaced` | Rule is expected to appear before relevant turns through `message.received` digest injection. |
-| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or future Record Decision Packet guidance after fixtures. |
+| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or journal silent Record Decision Packet shadow observations after fixtures. |
 | `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. |
 | `advisory-only` | Rule is intentionally not enforced/audited beyond guidance; this must be explicit. |
 | `retired` | Rule is obsolete and should not be applied. |
@@ -68,8 +68,8 @@ Preferred metadata lives in:
 - response-rule-audit fixtures when a miss pattern has strong evidence,
 - packet evidence journal fixtures when Context Delivery required-read usage needs advisory dogfood observation,
 - Record Decision Packet fixtures before broader post-turn record guidance,
-- explicit Record Decision generator fixtures before any `response.completed` integration,
-- explicit Context Broker dogfood collector rows before any `response.completed` shadow/advisory integration,
+- explicit Record Decision generator and shadow fixtures before broader `response.completed` advisory integration,
+- explicit Context Broker dogfood collector rows before any stronger `response.completed` advisory/escalation integration,
 - Phase 6 hard-stop promotion records only for rare high-risk boundaries.
 
 ## PR body rule after Phase 5

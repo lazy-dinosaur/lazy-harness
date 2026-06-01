@@ -186,6 +186,12 @@ Dogfood collector follow-up implemented after user selected Option B:
 - Added `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` as explicit/offline dogfood collector.
 - The collector gathers sanitized Context Delivery and Record Decision observations from hosts before any response.completed shadow/advisory integration.
 
+Response shadow follow-up implemented after generator and dogfood collector evidence:
+
+- Added `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` to run the deterministic Record Decision generator from `response.completed` lifecycle evidence.
+- The helper journals sanitized `.lazy-harness/state/record-decision-packets.jsonl` observations and stays silent by default.
+- Optional advisory output requires `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1`; this is not hard-stop promotion and does not change default runtime output.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

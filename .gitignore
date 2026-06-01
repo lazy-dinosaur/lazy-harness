@@ -12,6 +12,7 @@ __pycache__/
 .lazy-harness/state/surfaced-rule-digests.jsonl
 .lazy-harness/state/context-delivery-packets.jsonl
 .lazy-harness/state/context-broker-dogfood.jsonl
+.lazy-harness/state/record-decision-packets.jsonl
 
 # Editor / OS noise
 .DS_Store

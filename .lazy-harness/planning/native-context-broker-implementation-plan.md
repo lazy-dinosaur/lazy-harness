@@ -359,11 +359,13 @@ Acceptance criteria:
 
 ### Phase 8 — Post-turn Record Decision Broker
 
-Status: contract completed in this Phase 8 change with `.lazy-harness/spec/platform/record-decision-broker.md` and `.lazy-harness/schemas/record-decision-packet.schema.json`. Runtime `response.completed` behavior is intentionally unchanged until false-positive-safe generator/audit fixtures exist.
+Status: response shadow implemented. The contract/schema/generator/dogfood collector are complete, and `response.completed` now has a silent-by-default Record Decision shadow helper that journals sanitized packet observations without changing default runtime output.
 
 Generator status: completed after user selected Option A. `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` now generate explicit Record Decision Packets for no-record-needed, candidate-needed, option-gate-needed, record-updated, and deferred-style evidence without response.completed integration.
 
 Dogfood collector status: completed after user selected Option B. `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` collect sanitized Context Delivery + Record Decision observations from synced hosts before response.completed shadow/advisory integration.
+
+Response shadow status: completed after the generator and dogfood collector. `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` runs the deterministic generator from lifecycle evidence, writes sanitized `.lazy-harness/state/record-decision-packets.jsonl` rows, and stays silent unless `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1` is explicitly enabled.
 
 Add a structured post-turn broker after the pre-turn context delivery flow is stable.
 
@@ -404,7 +406,7 @@ Acceptance criteria:
 
 - no automatic blind record writes.
 - explicit `no-record-needed` path for explanation/evaluation turns.
-- concrete evidence required before STOP output.
+- concrete evidence required before advisory or stronger output.
 - fixtures cover false-positive cases before enabling stricter audit.
 - can consume Context Delivery Packet evidence such as `requiredRead`, resolved aliases, and files read/changed.
 

@@ -4629,7 +4629,8 @@ def check_record_decision_broker_phase8() -> None:
         "option-gate-needed",
         "deferred",
         "no automatic blind record writes",
-        "Future `response.completed` integration",
+        "Response shadow bridge",
+        "check-record-decision-shadow.py",
         "Context Delivery is pre-turn required-read",
         "Do not write automatically from this packet alone",
         "`.lazy-harness/scripts/record-decision-broker.ts`",
@@ -4645,7 +4646,8 @@ def check_record_decision_broker_phase8() -> None:
         "Ambiguous layer placement",
         "Same-turn record update",
         "Deferred by user",
-        "generator fixture",
+        "generator and response shadow fixtures",
+        "check_record_decision_shadow_response_completed",
         "check_record_decision_broker_phase8",
     ]:
         if phrase not in tdd_text:
@@ -4802,7 +4804,7 @@ def check_record_decision_broker_phase8() -> None:
         if expected_action not in actions_seen:
             fail(f"generator recommended action mismatch: expected {expected_action}, got {sorted(actions_seen)}")
         notes = packet.get("notes", [])
-        if "mutationAllowed=false" not in notes or "runtimeHookIntegration=false" not in notes:
+        if "mutationAllowed=false" not in notes or "runtimeMutationIntegration=false" not in notes or "runtimeDefaultOutput=false" not in notes:
             fail("generator packet must state mutation/hook safety notes")
 
     md_completed = subprocess.run(
@@ -4921,6 +4923,94 @@ def check_context_broker_dogfood_collector() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ context broker dogfood collector ok")
+
+
+def check_record_decision_shadow_response_completed() -> None:
+    """response.completed Record Decision shadow bridge should journal safely and stay silent by default."""
+    helper_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-record-decision-shadow.py"
+    generator_src = LAZY / "scripts" / "record-decision-broker.ts"
+    if not helper_src.exists() or not generator_src.exists():
+        fail("Record Decision shadow helper/generator missing")
+    hook_text = (LAZY / "hooks" / "lifecycle" / "on-response-completed.sh").read_text(encoding="utf-8")
+    orchestrator_text = (LAZY / "scripts" / "lifecycle-check.py").read_text(encoding="utf-8")
+    if "check-record-decision-shadow.py" not in hook_text:
+        fail("response.completed hook must include Record Decision shadow helper")
+    if "check-record-decision-shadow.py" not in orchestrator_text:
+        fail("lifecycle-check orchestrator must include Record Decision shadow helper")
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-record-decision-shadow-"))
+    try:
+        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
+        helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-record-decision-shadow.py"
+        generator = temp / ".lazy-harness" / "scripts" / "record-decision-broker.ts"
+        shutil.copy2(helper_src, helper)
+        shutil.copy2(generator_src, generator)
+        helper.chmod(0o755)
+
+        def run_helper(payload: dict, advisory: bool = False) -> str:
+            env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+            if advisory:
+                env["LAZY_RECORD_DECISION_SHADOW_ADVISORY"] = "1"
+            result = subprocess.run(
+                [str(helper), json.dumps(payload, ensure_ascii=False)],
+                cwd=temp,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            if result.returncode != 0:
+                fail("Record Decision shadow helper must exit 0:\n" + result.stdout + result.stderr)
+            return result.stdout
+
+        def last_row() -> dict:
+            journal = temp / ".lazy-harness" / "state" / "record-decision-packets.jsonl"
+            if not journal.exists():
+                fail("Record Decision shadow helper should write journal")
+            rows = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines() if line.strip()]
+            if not rows:
+                fail("Record Decision shadow journal should contain rows")
+            return rows[-1]
+
+        clean = run_helper({"message_id": "clean", "recent_tool_calls": [{"name": "read", "args_preview": "README.md"}]})
+        if clean.strip():
+            fail("Record Decision shadow should stay silent for read-only clean turn:\n" + clean)
+        row = last_row()
+        if row.get("disposition") != "no-record-needed" or row.get("trigger") != "explanation-only":
+            fail("read-only shadow row should be no-record-needed: " + json.dumps(row, ensure_ascii=False))
+        if "README.md" not in json.dumps(row, ensure_ascii=False):
+            fail("read-only row should preserve path/tool evidence where safe")
+
+        candidate = run_helper({"message_id": "candidate", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]})
+        if candidate.strip():
+            fail("Record Decision shadow should stay silent by default even for candidate-needed:\n" + candidate)
+        row = last_row()
+        if row.get("disposition") != "candidate-needed" or row.get("trigger") not in {"behavior-change", "source-change"}:
+            fail("source edit shadow row should be candidate-needed: " + json.dumps(row, ensure_ascii=False))
+
+        advisory = run_helper({"message_id": "candidate-advisory", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]}, advisory=True)
+        if "ADVISORY. Record Decision shadow" not in advisory or "STOP" in advisory:
+            fail("Record Decision shadow advisory should be ADVISORY-only:\n" + advisory)
+
+        option = run_helper({"message_id": "ambiguous", "last_user_message": "그거 고쳐줘", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]}, advisory=True)
+        if "option gate" not in option and "option-gate" not in option:
+            fail("Record Decision shadow should advise option gate for ambiguous mutation:\n" + option)
+        row = last_row()
+        serialized = json.dumps(row, ensure_ascii=False)
+        if row.get("disposition") != "option-gate-needed" or "그거 고쳐줘" in serialized:
+            fail("ambiguous shadow row should be option-gate-needed without raw user message: " + serialized)
+
+        record_updated = run_helper({"message_id": "record", "recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/spec/platform/record-decision-broker.md"}]}, advisory=True)
+        if record_updated.strip():
+            fail("Record Decision shadow should stay silent when record-updated evidence exists:\n" + record_updated)
+        row = last_row()
+        if row.get("disposition") != "record-updated":
+            fail("record edit shadow row should be record-updated: " + json.dumps(row, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ record decision shadow response.completed ok")
 
 
 def check_message_received_hook_context_injection() -> None:
@@ -5344,6 +5434,7 @@ def main() -> None:
         (check_context_delivery_packet_journal_phase7, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
         (check_context_broker_dogfood_collector, "BOTH"),
+        (check_record_decision_shadow_response_completed, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

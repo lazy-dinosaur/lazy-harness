@@ -349,7 +349,8 @@ function buildPacket(args: Args): RecordDecisionPacket {
     notes: [
       'generator=record-decision-broker.ts',
       'mutationAllowed=false',
-      'runtimeHookIntegration=false',
+      'runtimeMutationIntegration=false',
+      'runtimeDefaultOutput=false',
     ],
   }
 }
