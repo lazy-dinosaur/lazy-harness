@@ -76,6 +76,18 @@ Fields:
 | `tokenBudget` | no | default 600, normal ceiling 1000 |
 | `includeStatuses` | no | default active/advisory/needs-review |
 
+### CLI argument contract
+
+The CLI surface must accept both common flag spellings for value flags:
+
+```bash
+bun .lazy-harness/scripts/relevant-record-query.ts --message "PR body" --format json
+bun .lazy-harness/scripts/relevant-record-query.ts --message="PR body" --format=json
+.lazy-harness/bin/lazy context --message="PR body" --format=json
+```
+
+Reason: `.lazy-harness/bin/lazy` documents subcommands with `--format=json|md` examples, while shell users and generated hook code may use either separated or equals-form flags. Boolean flags such as `--require-digest` remain standalone.
+
 ## Output contract
 
 A query response should support both JSON and Markdown.

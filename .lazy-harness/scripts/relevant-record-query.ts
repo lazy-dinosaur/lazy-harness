@@ -101,27 +101,42 @@ function parseArgs(argv: string[]): CliOptions {
       if (!v) usage()
       return v
     }
+    const valueFor = (flag: string): string | null => {
+      if (a === flag) return next()
+      const prefix = `${flag}=`
+      if (a.startsWith(prefix)) {
+        const v = a.slice(prefix.length)
+        if (!v) usage()
+        return v
+      }
+      return null
+    }
+    let value: string | null = null
     if (a === '--help' || a === '-h') usage()
-    else if (a === '--root') opts.root = next()
-    else if (a === '--message') opts.message = next()
-    else if (a === '--recent-context') opts.recentContext.push(next())
-    else if (a === '--touched-file') opts.touchedFiles.push(next())
+    else if ((value = valueFor('--root')) !== null) opts.root = value
+    else if ((value = valueFor('--message')) !== null) opts.message = value
+    else if ((value = valueFor('--recent-context')) !== null) opts.recentContext.push(value)
+    else if ((value = valueFor('--touched-file')) !== null) opts.touchedFiles.push(value)
     else if (a === '--layer') {
       const layer = next() as Layer
       if (!(layer in LAYER_DIRS)) usage()
       opts.preferredLayers.push(layer)
-    } else if (a === '--status') {
-      const status = next() as DigestStatus
+    } else if ((value = valueFor('--layer')) !== null) {
+      const layer = value as Layer
+      if (!(layer in LAYER_DIRS)) usage()
+      opts.preferredLayers.push(layer)
+    } else if ((value = valueFor('--status')) !== null) {
+      const status = value as DigestStatus
       if (!['active', 'advisory', 'deprecated', 'reverted', 'needs-review'].includes(status)) usage()
       if (!customStatuses) {
         opts.includeStatuses = []
         customStatuses = true
       }
       opts.includeStatuses.push(status)
-    } else if (a === '--limit') opts.limit = Math.max(1, Number(next()) || 5)
-    else if (a === '--token-budget') opts.tokenBudget = Math.max(80, Number(next()) || 600)
-    else if (a === '--format') {
-      const fmt = next()
+    } else if ((value = valueFor('--limit')) !== null) opts.limit = Math.max(1, Number(value) || 5)
+    else if ((value = valueFor('--token-budget')) !== null) opts.tokenBudget = Math.max(80, Number(value) || 600)
+    else if ((value = valueFor('--format')) !== null) {
+      const fmt = value
       if (fmt !== 'md' && fmt !== 'json') usage()
       opts.format = fmt
     } else if (a === '--require-digest') opts.requireDigest = true

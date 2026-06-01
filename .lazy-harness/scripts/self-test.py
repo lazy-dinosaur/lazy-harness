@@ -3855,6 +3855,31 @@ def check_relevant_record_query_cli() -> None:
             fail("relevant-record-query missed digest bullets:\n" + completed.stdout)
         if result.get("digest", {}).get("estimatedTokens", 9999) > 300:
             fail("relevant-record-query exceeded token budget:\n" + completed.stdout)
+
+        equals_completed = subprocess.run(
+            [
+                "bun",
+                str(script),
+                f"--root={temp}",
+                "--message=PR description 작성해줘",
+                "--format=json",
+                "--require-digest",
+                "--token-budget=300",
+                "--layer=SSOT",
+                "--status=active",
+                "--limit=1",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if equals_completed.returncode != 0:
+            fail("relevant-record-query --flag=value syntax failed:\n" + equals_completed.stdout + equals_completed.stderr)
+        equals_result = json.loads(equals_completed.stdout)
+        equals_entries = equals_result.get("digest", {}).get("entries", [])
+        if len(equals_entries) != 1 or equals_entries[0].get("recordPath") != ".lazy-harness/ssot/pr-description-format.md":
+            fail("relevant-record-query --flag=value syntax returned wrong entries:\n" + equals_completed.stdout)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ relevant-record-query CLI digest ok")
