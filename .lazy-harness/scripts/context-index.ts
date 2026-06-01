@@ -33,7 +33,7 @@ interface Args {
   format: Format
 }
 
-interface ImplementationHints {
+export interface ImplementationHints {
   routeHints: string[]
   componentHints: string[]
   fileHints: string[]
@@ -58,7 +58,7 @@ interface DigestInfo {
   sourceRange?: { startLine: number; endLine: number }
 }
 
-interface GraphHint {
+export interface GraphHint {
   id: string
   relation?: string
   source?: string
@@ -66,7 +66,7 @@ interface GraphHint {
   path?: string
 }
 
-interface RecordEntry {
+export interface RecordEntry {
   recordPath: string
   title: string
   layer: Layer
@@ -91,17 +91,17 @@ interface RecordEntry {
   updatedAt?: string
 }
 
-interface AliasEntry {
+export interface AliasEntry {
   value: string
   lang?: string
 }
 
-interface FeatureRecordRef {
+export interface FeatureRecordRef {
   path: string
   layer?: Layer
 }
 
-interface FeatureEntry {
+export interface FeatureEntry {
   id: string
   status: string
   label: string
@@ -123,7 +123,7 @@ interface GraphRow {
   [key: string]: unknown
 }
 
-interface ContextIndex {
+export interface ContextIndex {
   schemaVersion: '1.0'
   generatedAt: string
   fingerprint: string
@@ -610,7 +610,7 @@ function canonicalInputs(root: string): string[] {
   ].filter((p) => existsSync(path.join(root, p))))
 }
 
-function buildContextIndex(root: string): ContextIndex {
+export function buildContextIndex(root: string): ContextIndex {
   const records = buildRecordEntries(root)
   const profile = parseFeatureNavigation(root)
   mergeProjectProfile(records, profile)
@@ -678,4 +678,4 @@ function main(): void {
   else process.stdout.write(json)
 }
 
-main()
+if (import.meta.main) main()

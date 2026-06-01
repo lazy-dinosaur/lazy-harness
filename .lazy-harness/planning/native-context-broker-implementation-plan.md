@@ -275,6 +275,8 @@ Acceptance criteria:
 
 ### Phase 4 — Dual-mode retrieval
 
+Status: implemented in this Phase 4 change with `.lazy-harness/scripts/context-delivery.ts` and `.lazy-harness/bin/lazy context-delivery`; protected by `.lazy-harness/scripts/self-test.py#check_context_delivery_dual_mode_phase4`.
+
 Implement retrieval as two tracks:
 
 1. Query track:

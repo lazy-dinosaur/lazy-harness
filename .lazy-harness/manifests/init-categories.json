@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework 코드: reference-resolver, search-provider, self-test, doctor, layer-impact-gate, interview-loop, affected-test-runner, tdd-cross-verify, contract-diff, aftershock-reanalysis, host-pilot. doctor/self-test 는 ADR 0026 scope auto-detection 으로 host 에서는 BOTH check 만, framework dev 에서는 BOTH + FRAMEWORK_ONLY 둘 다 실행 context-index generator is included for Native Context Broker derived cache builds."
+          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, and context-delivery packet generator. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
         },
         {
           "path": "hooks/",

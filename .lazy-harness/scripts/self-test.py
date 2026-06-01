@@ -4260,6 +4260,119 @@ def check_context_index_generator_phase3() -> None:
     print("✓ context-index generator Phase 3 ok")
 
 
+def check_context_delivery_dual_mode_phase4() -> None:
+    """Phase 4 should produce packet-shaped dual-mode required-read context."""
+    delivery_script = LAZY / "scripts" / "context-delivery.ts"
+    index_script = LAZY / "scripts" / "context-index.ts"
+    packet_schema = LAZY / "schemas" / "context-delivery-packet.schema.json"
+    if not delivery_script.exists():
+        fail("Context Delivery packet generator missing: " + str(delivery_script))
+    schema = json.loads(packet_schema.read_text(encoding="utf-8"))
+    levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
+    if "self-resolve-before-change" not in levels:
+        fail("Context Delivery packet schema missing self-resolve-before-change")
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-"))
+    try:
+        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Surface terms:\n"
+            "  - 예약표\n"
+            "- Implementation hints:\n"
+            "  - Routes: `/reservations`\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n"
+            "- Related records:\n"
+            "  - `.lazy-harness/spec/reservation-management.md`\n",
+            encoding="utf-8",
+        )
+        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+        shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
+        (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
+            json.dumps({
+                "id": "kg_reservation_behavior_impl",
+                "source": ".lazy-harness/behavior/reservation-management.md",
+                "relation": "implemented_by",
+                "target": "src/features/reservations/ReservationTable.tsx",
+            }, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        def run_delivery(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                ["bun", str(delivery_script), "--root", str(temp), *args],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        first = run_delivery("--message", "예약시트 고쳐줘", "--format", "json")
+        if first.returncode != 0:
+            fail("context-delivery source-scan fallback failed:\n" + first.stdout + first.stderr)
+        packet = json.loads(first.stdout)
+        if packet.get("instructionLevel") != "self-resolve-before-change":
+            fail("context-delivery should require self-resolve-before-change for 예약시트 change request")
+        queries_text = json.dumps(packet.get("queries", []), ensure_ascii=False)
+        for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+            if expected not in queries_text:
+                fail("context-delivery missing expanded query term: " + expected)
+        required = packet.get("requiredRead", [])
+        required_pairs = {(item.get("kind"), item.get("path")) for item in required}
+        for expected in [
+            ("record", ".lazy-harness/behavior/reservation-management.md"),
+            ("project-profile", ".lazy-harness/project/feature-navigation.xml"),
+            ("source-file", "src/features/reservations/ReservationTable.tsx"),
+            ("test", "tests/reservations/reservation-table.test.tsx"),
+        ]:
+            if expected not in required_pairs:
+                fail("context-delivery requiredRead missing " + repr(expected) + ":\n" + json.dumps(required, ensure_ascii=False, indent=2))
+        if not all(item.get("whyMatched") and item.get("matchedQueries") for item in required):
+            fail("context-delivery requiredRead items must include whyMatched and matchedQueries")
+        if not any("contextIndexSource=source-scan" == note for note in packet.get("notes", [])):
+            fail("context-delivery should note source-scan fallback when generated index is absent")
+
+        index_write = subprocess.run(
+            ["bun", str(index_script), "--root", str(temp), "--write", "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if index_write.returncode != 0:
+            fail("context-index write for context-delivery fixture failed:\n" + index_write.stdout + index_write.stderr)
+        second = run_delivery("--message=예약시트 고쳐줘", "--format=json")
+        packet_from_index = json.loads(second.stdout)
+        if not any("contextIndexSource=generated-index" == note for note in packet_from_index.get("notes", [])):
+            fail("context-delivery should consume generated context index when present")
+        markdown = run_delivery("--message", "예약시트 고쳐줘", "--format", "md")
+        if markdown.returncode != 0 or "Context Delivery Packet" not in markdown.stdout or "Required read before answer/change" not in markdown.stdout:
+            fail("context-delivery markdown rendering missing required sections:\n" + markdown.stdout + markdown.stderr)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ context-delivery dual-mode Phase 4 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit same-turn system reminder inject JSON from digests."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4645,6 +4758,7 @@ def main() -> None:
         (check_context_delivery_contract_sdd, "BOTH"),
         (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
+        (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

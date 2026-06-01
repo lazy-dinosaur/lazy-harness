@@ -70,6 +70,8 @@ Commands:
                                 Query compact relevant-record digest for pre-response context
   context-index [--write] [--format=json|md]
                                 Build deterministic generated Context Delivery index cache
+  context-delivery --message "..." [--format=json|md]
+                                Produce Context Delivery Packet via dual-mode retrieval
   route-summary [--format=json|md]
                                 Summarize route telemetry for UX/FP review
   route-audit [--commits=12] [--format=json|md]
@@ -183,6 +185,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/context-index.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  context-delivery)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy context-delivery: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/context-delivery.ts" --root "$HOST_ROOT" "$@"
     ;;
   route-summary)
     if ! command -v bun >/dev/null 2>&1; then
