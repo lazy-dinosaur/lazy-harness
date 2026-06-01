@@ -181,6 +181,11 @@ Generator follow-up implemented after user selected Option A:
 - Added `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` as explicit/offline packet generator.
 - The generator emits packet-shaped decisions from supplied evidence flags and does not mutate records, write journals, or run from `response.completed`.
 
+Dogfood collector follow-up implemented after user selected Option B:
+
+- Added `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` as explicit/offline dogfood collector.
+- The collector gathers sanitized Context Delivery and Record Decision observations from hosts before any response.completed shadow/advisory integration.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

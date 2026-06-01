@@ -4817,6 +4817,112 @@ def check_record_decision_broker_phase8() -> None:
     print("✓ record decision broker Phase 8 ok")
 
 
+def check_context_broker_dogfood_collector() -> None:
+    """Context Broker dogfood collector should gather sanitized rows from host lazy CLIs."""
+    collector_script = LAZY / "scripts" / "context-broker-dogfood.ts"
+    lazy_bin = LAZY / "bin" / "lazy"
+    required_scripts = [
+        LAZY / "scripts" / "context-delivery.ts",
+        LAZY / "scripts" / "context-index.ts",
+        LAZY / "scripts" / "record-decision-broker.ts",
+    ]
+    for path in [collector_script, lazy_bin, *required_scripts]:
+        if not path.exists():
+            fail("Context Broker dogfood artifact missing: " + str(path))
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-dogfood-"))
+    try:
+        collector_root = temp / "collector"
+        host = temp / "host"
+        (collector_root / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
+        (host / ".lazy-harness" / "bin").mkdir(parents=True, exist_ok=True)
+        (host / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
+        (host / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (host / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
+        (host / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
+        (host / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(lazy_bin, host / ".lazy-harness" / "bin" / "lazy")
+        (host / ".lazy-harness" / "bin" / "lazy").chmod(0o755)
+        for script in required_scripts:
+            shutil.copy2(script, host / ".lazy-harness" / "scripts" / script.name)
+        (host / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
+        (host / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (host / ".lazy-harness" / "state" / "synced-from-commit").write_text(json.dumps({"syncedFromCommit": "dogfood-fixture"}), encoding="utf-8")
+        (host / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Implementation hints:\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            encoding="utf-8",
+        )
+        out_path = collector_root / ".lazy-harness" / "state" / "context-broker-dogfood.jsonl"
+        completed = subprocess.run(
+            [
+                "bun", str(collector_script),
+                "--root", str(collector_root),
+                "--host", str(host),
+                "--case", "reservation::예약시트 고쳐줘",
+                "--out", str(out_path),
+                "--format", "json",
+                "--no-append",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("context-broker-dogfood collector failed:\n" + completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        if payload.get("schemaVersion") != "1.0" or not payload.get("rows"):
+            fail("context-broker-dogfood output missing rows")
+        row = payload["rows"][0]
+        if row.get("event") != "context-broker.dogfood":
+            fail("context-broker-dogfood row event mismatch")
+        if row.get("caseLabel") != "reservation" or row.get("messageHash") == "예약시트 고쳐줘":
+            fail("context-broker-dogfood should store label plus hash, not raw message")
+        raw_output = json.dumps(payload, ensure_ascii=False)
+        if "예약시트 고쳐줘" in raw_output:
+            fail("context-broker-dogfood collector output must not store raw message")
+        if not row.get("contextDelivery", {}).get("ok"):
+            fail("context-broker-dogfood context delivery should pass: " + json.dumps(row, ensure_ascii=False))
+        if row.get("recordDecision", {}).get("disposition") != "no-record-needed":
+            fail("context-broker-dogfood collection turn should be no-record-needed")
+        if row.get("packetJournal", {}).get("rawMessagePresent"):
+            fail("context-broker-dogfood packet journal should not contain raw message")
+        if row.get("errors"):
+            fail("context-broker-dogfood row should have no errors: " + json.dumps(row.get("errors"), ensure_ascii=False))
+        if not out_path.exists():
+            fail("context-broker-dogfood should write JSONL output")
+        written_text = out_path.read_text(encoding="utf-8")
+        if "예약시트 고쳐줘" in written_text:
+            fail("context-broker-dogfood JSONL should not store raw message")
+        md = subprocess.run(
+            ["bun", str(collector_script), "--root", str(collector_root), "--host", str(host), "--case", "reservation::예약시트 고쳐줘", "--dry-run", "--format", "md"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if md.returncode != 0 or "# Context Broker Dogfood" not in md.stdout or "reservation" not in md.stdout:
+            fail("context-broker-dogfood markdown dry-run missing expected content:\n" + md.stdout + md.stderr)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ context broker dogfood collector ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit digest context and lightweight self-resolution protocol."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -5237,6 +5343,7 @@ def main() -> None:
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
+        (check_context_broker_dogfood_collector, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

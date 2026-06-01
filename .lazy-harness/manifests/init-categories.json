@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, and record-decision packet generator. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
+          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, record-decision packet generator, and context-broker dogfood collector. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
         },
         {
           "path": "hooks/",
@@ -247,6 +247,16 @@
           "path": "spec/platform/context-delivery-contract.md",
           "kind": "file",
           "description": "SDD contract for Native Context Broker packet output: raw hits, normalized evidence, required-read Context Delivery Packet, rendering, privacy, and fail-open rules."
+        },
+        {
+          "path": "spec/platform/context-broker-dogfood.md",
+          "kind": "file",
+          "description": "SDD contract for explicit sanitized Context Broker dogfood collection before response.completed integration."
+        },
+        {
+          "path": "tests/context-broker-dogfood.md",
+          "kind": "file",
+          "description": "TDD fixtures for Context Broker dogfood collector privacy, no-record-needed, and dry-run behavior."
         },
         {
           "path": "spec/platform/response-rule-audit.md",

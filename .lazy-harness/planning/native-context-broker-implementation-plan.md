@@ -363,6 +363,8 @@ Status: contract completed in this Phase 8 change with `.lazy-harness/spec/platf
 
 Generator status: completed after user selected Option A. `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` now generate explicit Record Decision Packets for no-record-needed, candidate-needed, option-gate-needed, record-updated, and deferred-style evidence without response.completed integration.
 
+Dogfood collector status: completed after user selected Option B. `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` collect sanitized Context Delivery + Record Decision observations from synced hosts before response.completed shadow/advisory integration.
+
 Add a structured post-turn broker after the pre-turn context delivery flow is stable.
 
 Purpose:
