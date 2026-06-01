@@ -79,6 +79,47 @@
           "items": { "type": "string", "minLength": 1 },
           "default": []
         },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "surfaceTerms": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "implementationHints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "routeHints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            },
+            "componentHints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            },
+            "fileHints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            },
+            "symbolHints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            },
+            "testHints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            }
+          }
+        },
         "tokensEstimate": { "type": "integer", "minimum": 0 },
         "updatedAt": { "type": "string" },
         "sourceRange": {

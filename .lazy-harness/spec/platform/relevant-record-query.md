@@ -5,6 +5,7 @@ Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+Related spec: `.lazy-harness/spec/platform/context-delivery-contract.md`
 Related spec: `.lazy-harness/spec/platform/record-digest-format.md`
 Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
 
@@ -18,6 +19,7 @@ Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
   - 응답 전에 필요한 규칙을 쿼리하거나 주입하는 방식을 이야기한다
   - user asks how records should be found before an answer or plan
   - ranking records by natural intent, layer, status, token budget, or digest metadata
+  - indexing aliases, surface terms, Project Profile feature navigation, or implementation hints
 - Must:
   - query canonical records by natural intent/context, not by concrete tool names
   - prefer `## Rule digest` sections and compact bullets over full record dumps
@@ -27,6 +29,7 @@ Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
   - changes to query input/output, index, ranking, or token budget update this SDD
 - Related records:
   - `.lazy-harness/spec/platform/record-digest-format.md`
+  - `.lazy-harness/spec/platform/context-delivery-contract.md`
   - `.lazy-harness/schemas/relevant-record-index.schema.json`
 
 ## Purpose
@@ -154,6 +157,8 @@ Recommended ranking signals:
 | Signal | Purpose |
 |---|---|
 | digest `Applies when` matches | primary intent signal |
+| digest aliases/surface terms | bridge user-facing or multilingual terms to records |
+| Project Profile feature navigation | map host surfaces to records/routes/components/tests |
 | digest title/path matches | strong direct cue |
 | layer preferred by task | layer relevance |
 | recent context/touched files | continuity signal |
@@ -173,6 +178,16 @@ Relevant Record Query should have a generated cache separate from implementation
 - rebuild trigger: record files or graph change
 
 The cache should store parsed digest metadata and lightweight fallback text, not full record bodies.
+
+Phase 2 metadata fields:
+
+- `aliases[]`: compact confirmed aliases from record digests.
+- `surfaceTerms[]`: user-facing terms or multilingual labels.
+- `implementationHints.routeHints[]`: stable route strings.
+- `implementationHints.componentHints[]`: stable component/symbol names.
+- `implementationHints.fileHints[]`: root-bound source path hints.
+- `implementationHints.testHints[]`: root-bound test path hints.
+- Project Profile `feature-navigation.xml` can seed the same fields during future context-index generation.
 
 ## SearchProvider relationship
 
@@ -231,6 +246,21 @@ Expected retrieval classes:
 - implementation-map related records,
 - record write/update policy for contract changes.
 
+### Ambiguous multilingual surface
+
+Input:
+
+```json
+{ "message": "예약시트 고쳐줘" }
+```
+
+Expected retrieval classes:
+
+- digest aliases/surface terms for `예약시트`, `예약표`, `reservation sheet`, or code aliases,
+- Project Profile `feature-navigation.xml` entries that map the surface to BDD/SDD records,
+- route/component/file/test hints such as `ReservationTable` or reservation feature paths,
+- Context Delivery Packet `self-resolve-before-change` when exact meaning is not yet confirmed.
+
 ### Bug/regression work
 
 Input:
@@ -268,21 +298,25 @@ A future implementation must test:
 3. digest status filtering excludes reverted/deprecated by default,
 4. token budget truncates output under the requested ceiling,
 5. queries for source-of-truth, contract, behavior, regression, release, runtime, and PR examples retrieve without tool-specific keys,
-6. fallback entries do not invent bullets beyond record evidence.
+6. `예약시트`-style surface terms can be represented via aliases/profile metadata without keyword-only dependence,
+7. fallback entries do not invent bullets beyond record evidence.
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `accepted; Phase 2 retrieval metadata schema extended`
 - Primary files:
   - `.lazy-harness/spec/platform/relevant-record-query.md` — this SDD contract.
   - `.lazy-harness/schemas/relevant-record-index.schema.json` — generated cache schema.
+  - `.lazy-harness/spec/platform/context-delivery-contract.md` — Context Delivery Packet consumer contract.
+  - `.lazy-harness/spec/platform/project-profile.md` — feature navigation retrieval source contract.
   - `.lazy-harness/scripts/search-provider.ts` — direct fallback candidate search path model.
   - `.lazy-harness/spec/platform/record-digest-format.md` — digest source contract.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — record maintenance companion.
   - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — phase plan.
-- Future files:
+- Supporting files:
   - `.lazy-harness/scripts/relevant-record-query.ts`
   - `.lazy-harness/generated/relevant-record-index.json`
+  - `.lazy-harness/fixtures/context-delivery/feature-navigation-reservation-surface.xml`
 - Flow:
   1. Build/load relevant-record index from canonical records.
   2. Query by message/context/layer budget.
@@ -310,7 +344,7 @@ A future implementation must test:
 - DDD: none.
 - SDD: updated, this contract defines relevant-record query behavior.
 - BDD: candidate, future behavior should surface compact rules before agent responses.
-- TDD: future fixtures needed for query output, token budget, and no-tool-key retrieval.
+- TDD: self-test protects Phase 2 metadata contract; future parser/query output/token budget fixtures remain needed.
 - ADR: ADR 0041 selected organic hybrid guidance.
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
 - Planning: record-query context loop transition plan Phase 2.

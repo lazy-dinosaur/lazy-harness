@@ -5,6 +5,7 @@ Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+Related spec: `.lazy-harness/spec/platform/context-delivery-contract.md`
 Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Rule digest
@@ -16,15 +17,18 @@ Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
   - creating or updating a record that should be surfaced by relevant-record query
   - designing compact rule digest output for pre-response context
   - auditing records that contain must/required/source-of-truth language
+  - adding aliases, surface terms, route/component/file hints, or multilingual retrieval cues
 - Must:
   - include compact `## Rule digest` metadata on reusable guidance records
   - keep digest bullets short and query-friendly
   - include status, layer, scope, appliesWhen, must/must-not, record completion, and related records when relevant
+  - keep aliases/surface terms optional, confirmed, compact, and separate from long prose
   - avoid full-document dumps in automatic context
 - Record completion:
-  - changes to digest structure update this SDD and relevant query schema
+  - changes to digest structure update this SDD, relevant query schema, and Context Delivery Contract when packet behavior changes
 - Related records:
   - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/context-delivery-contract.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Purpose
@@ -187,6 +191,50 @@ Examples:
 
 Use paths, not prose-only references. These paths help query expand context without loading full documents.
 
+## Optional retrieval metadata
+
+Records may include optional compact retrieval metadata when a future Context Broker needs to bridge user-facing language to records, files, routes, components, or tests.
+
+This metadata is optional. Do not make every record verbose. Add it when at least one of these is true:
+
+- users refer to the feature with aliases that differ from record or code names,
+- a Korean or multilingual surface term must map to English records/code,
+- implementation hints are stable enough to guide required-read selection,
+- Project Profile feature navigation names this record as part of a feature map.
+
+Recommended Markdown shape inside or near `## Rule digest`:
+
+```md
+- Aliases:
+  - 예약시트
+  - reservation sheet
+- Surface terms:
+  - 예약표
+  - booking table
+- Implementation hints:
+  - Routes: `/reservations`, `/appointments`
+  - Components: `ReservationTable`, `ReservationManagementPage`
+  - Files: `src/features/reservations/**`
+  - Tests: `tests/reservations/**`
+```
+
+Rules:
+
+1. Use confirmed aliases where possible; uncertain aliases belong in planning candidates, not canonical digest metadata.
+2. Keep aliases short. Do not paste chat transcripts or long examples.
+3. Use root-bound file/test hints only.
+4. Prefer artifact classes (`Routes`, `Components`, `Files`, `Tests`) over tool names.
+5. The metadata helps produce Context Delivery Packet `queries`, `candidateMeanings`, `requiredRead`, and `optionalRead`; it is not itself a command to edit.
+
+Schema mapping:
+
+- `Aliases` → `aliases[]`
+- `Surface terms` → `surfaceTerms[]`
+- `Implementation hints.Routes` → `implementationHints.routeHints[]`
+- `Implementation hints.Components` → `implementationHints.componentHints[]`
+- `Implementation hints.Files` → `implementationHints.fileHints[]`
+- `Implementation hints.Tests` → `implementationHints.testHints[]`
+
 ## Digest output format
 
 Relevant-record query should render digest entries like this:
@@ -233,6 +281,7 @@ Do not add digests to purely historical records unless they explain why a reject
 A relevant-record query implementation MUST:
 
 - parse `## Rule digest` sections when present,
+- parse optional retrieval metadata when present,
 - respect `Status`, especially `deprecated` and `reverted`,
 - use `Applies when` for natural intent matching,
 - emit compact bullets only,
@@ -248,13 +297,15 @@ A response audit implementation SHOULD:
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `accepted; Phase 2 retrieval metadata specified`
 - Primary files:
   - `.lazy-harness/spec/platform/record-digest-format.md` — this SDD contract.
+  - `.lazy-harness/spec/platform/context-delivery-contract.md` — packet contract consuming aliases/surface terms as query and required-read evidence.
+  - `.lazy-harness/schemas/relevant-record-index.schema.json` — generated cache schema including optional aliases/surface terms and implementation hints.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — companion policy for updating records without duplicates/stale drift.
   - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — phase plan.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — architecture decision.
-- Future files:
+- Supporting files:
   - `.lazy-harness/spec/platform/relevant-record-query.md`
   - `.lazy-harness/scripts/relevant-record-query.ts`
   - `.lazy-harness/generated/relevant-record-index.json`
@@ -286,7 +337,7 @@ A response audit implementation SHOULD:
 - DDD: none.
 - SDD: updated, this contract defines record digest format.
 - BDD: candidate, future behavior should show agents receiving compact relevant rules before response.
-- TDD: future fixtures needed for digest parsing/query output/token budget.
+- TDD: self-test now protects Phase 2 retrieval metadata contract; future parser/query fixtures still needed.
 - ADR: ADR 0041 selected organic hybrid guidance.
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
 - Planning: record-query context loop transition plan Phase 1.

@@ -4063,6 +4063,84 @@ def check_context_delivery_contract_sdd() -> None:
     print("✓ context delivery contract SDD ok")
 
 
+def check_context_delivery_metadata_phase2() -> None:
+    """Phase 2 metadata should bridge aliases/profile navigation into retrieval evidence."""
+    digest_path = LAZY / "spec" / "platform" / "record-digest-format.md"
+    query_path = LAZY / "spec" / "platform" / "relevant-record-query.md"
+    profile_path = LAZY / "spec" / "platform" / "project-profile.md"
+    schema_path = LAZY / "schemas" / "relevant-record-index.schema.json"
+    fixture_path = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+    for path in [digest_path, query_path, profile_path, schema_path, fixture_path]:
+        if not path.exists():
+            fail("Context Delivery Phase 2 expected artifact missing: " + str(path))
+
+    digest_text = digest_path.read_text(encoding="utf-8")
+    for phrase in [
+        "## Optional retrieval metadata",
+        "Aliases",
+        "Surface terms",
+        "Implementation hints",
+        "예약시트",
+        "ReservationTable",
+        "aliases[]",
+        "implementationHints.routeHints[]",
+    ]:
+        if phrase not in digest_text:
+            fail("record-digest-format missing Phase 2 retrieval metadata phrase: " + phrase)
+
+    query_text = query_path.read_text(encoding="utf-8")
+    for phrase in [
+        "digest aliases/surface terms",
+        "Project Profile feature navigation",
+        "feature-navigation.xml",
+        "예약시트",
+        "self-resolve-before-change",
+    ]:
+        if phrase not in query_text:
+            fail("relevant-record-query missing Phase 2 retrieval phrase: " + phrase)
+
+    profile_text = profile_path.read_text(encoding="utf-8")
+    for phrase in [
+        "## Rule digest",
+        "## Feature navigation as retrieval source",
+        "feature-navigation.xml",
+        "예약시트",
+        "reservation sheet",
+        "ReservationTable",
+        "requiredRead",
+    ]:
+        if phrase not in profile_text:
+            fail("project-profile missing Context Delivery feature navigation phrase: " + phrase)
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    record_props = schema.get("definitions", {}).get("recordEntry", {}).get("properties", {})
+    for prop in ["aliases", "surfaceTerms", "implementationHints"]:
+        if prop not in record_props:
+            fail("relevant-record-index schema missing Phase 2 property: " + prop)
+    hint_props = record_props.get("implementationHints", {}).get("properties", {})
+    for prop in ["routeHints", "componentHints", "fileHints", "symbolHints", "testHints"]:
+        if prop not in hint_props:
+            fail("relevant-record-index implementationHints missing property: " + prop)
+
+    root = ET.parse(fixture_path).getroot()
+    feature = root.find("feature")
+    if feature is None or feature.attrib.get("id") != "reservations":
+        fail("context delivery feature-navigation fixture missing reservations feature")
+    aliases = [node.text for node in feature.findall("./aliases/alias")]
+    for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+        if expected not in aliases:
+            fail("context delivery feature-navigation fixture missing alias: " + expected)
+    paths = [node.text for node in feature.findall(".//path")]
+    if "src/features/reservations/ReservationTable.tsx" not in paths:
+        fail("context delivery feature-navigation fixture missing source path")
+    if "tests/reservations/reservation-table.test.tsx" not in paths:
+        fail("context delivery feature-navigation fixture missing test path")
+    records = [node.text for node in feature.findall("./records/record")]
+    if ".lazy-harness/behavior/reservation-management.md" not in records:
+        fail("context delivery feature-navigation fixture missing BDD record path")
+    print("✓ context delivery metadata Phase 2 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit same-turn system reminder inject JSON from digests."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4446,6 +4524,7 @@ def main() -> None:
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
         (check_context_delivery_contract_sdd, "BOTH"),
+        (check_context_delivery_metadata_phase2, "BOTH"),
         (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

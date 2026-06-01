@@ -4,7 +4,27 @@ Status: accepted
 Date: 2026-05-20
 Layer: SDD
 Related: `.lazy-harness/plans/project-init-interview-spec.md`, `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.lazy-harness/ssot/project-identity.md`
+Related: `.lazy-harness/spec/platform/context-delivery-contract.md`
 Related skill: `/lazy-project-profile`
+
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - implementing or using Project Profile, feature navigation, or host project architecture maps
+  - Context Broker needs feature aliases, routes, components, source roots, tests, or project-surface mappings
+  - user-facing terms differ from source code names or English record names
+- Must:
+  - treat Project Profile as durable host architecture context, not chat memory
+  - use `feature-navigation.xml` as a first-class retrieval source for context delivery
+  - keep surface aliases compact, confirmed, and linked to records/code/tests when known
+- Record completion:
+  - changes to Project Profile retrieval fields or feature-navigation semantics update this SDD and Context Delivery Contract if packet behavior changes
+- Related records:
+  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/record-digest-format.md`
 
 ## Contract
 
@@ -64,6 +84,52 @@ request
 
 If the Project Profile is missing or incomplete for the requested area, the framework should create/update the profile or ask a structured option gate before implementation.
 
+## Feature navigation as retrieval source
+
+`feature-navigation.xml` is a first-class retrieval source for Context Delivery. It should help the broker map user-facing surfaces to records, code, routes, tests, and validation commands.
+
+Minimum feature-navigation fields for retrieval-friendly hosts:
+
+```xml
+<feature id="reservations" status="confirmed">
+  <label>Reservation management</label>
+  <aliases>
+    <alias lang="ko">예약시트</alias>
+    <alias lang="ko">예약표</alias>
+    <alias lang="en">reservation sheet</alias>
+  </aliases>
+  <routes>
+    <route>/reservations</route>
+  </routes>
+  <components>
+    <component>ReservationTable</component>
+  </components>
+  <records>
+    <record layer="BDD">.lazy-harness/behavior/reservation-management.md</record>
+    <record layer="SDD">.lazy-harness/spec/reservation-management.md</record>
+  </records>
+  <sourceFiles>
+    <path>src/features/reservations/ReservationTable.tsx</path>
+  </sourceFiles>
+  <tests>
+    <path>tests/reservations/reservation-table.test.tsx</path>
+  </tests>
+</feature>
+```
+
+Context Delivery mapping:
+
+- `aliases/alias` become packet `queries[]` and `candidateMeanings[]` evidence.
+- `records/record` become high-priority `requiredRead` candidates.
+- `routes`, `components`, and `sourceFiles` become implementation hints for file/symbol search.
+- `tests/path` becomes optional or required read depending on whether the request is a bug/regression/change.
+
+Rules:
+
+1. Do not invent feature-navigation aliases from a single ambiguous user phrase; ask or store as candidate until confirmed.
+2. Keep host-specific feature maps in the host `.lazy-harness/project/` records, not in shared `.jcode` wiring.
+3. Feature navigation is evidence for Context Delivery, not canonical domain truth by itself. Link to DDD/SDD/BDD/TDD/ADR/SSOT records when stable.
+
 ## Non-goals
 
 - Not the same as `fast / normal / strict / audit-only` execution presets.
@@ -93,6 +159,11 @@ If the Project Profile is missing or incomplete for the requested area, the fram
   - `fill --confirm` updates only `status="needs-interview"` self-closing fields that match explicit answer targets from the answers file. Unmatched answers are reported and not written.
 - Future host records: `.lazy-harness/project/*.xml`
   - Host-local durable profile outputs consumed before feature implementation.
+  - `.lazy-harness/project/feature-navigation.xml` is the first-class Project Profile retrieval source for Context Delivery.
+- `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - Defines how Project Profile feature-navigation evidence becomes Context Delivery Packet queries, requiredRead, optionalRead, and fallbackSearches.
+- `.lazy-harness/fixtures/context-delivery/feature-navigation-reservation-surface.xml`
+  - Framework fixture for a host-project surface mapping, including Korean/English aliases and code/test hints.
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
   - Defines Project Profile as the `config.json`/host profile part of the grammar+vocabulary model.
 
@@ -101,7 +172,7 @@ If the Project Profile is missing or incomplete for the requested area, the fram
 - DDD: candidate, Project Profile may seed bounded-context/domain vocabulary records per host.
 - SDD: updated, this contract defines Project Profile semantics.
 - BDD: candidate, UI/product flows can be generated as profile outputs.
-- TDD: candidate, test strategy is a required profile output.
+- TDD: self-test protects feature-navigation retrieval fixture; test strategy remains a required profile output.
 - ADR: none, existing ADR 0024 already establishes the grammar/vocabulary model.
 - SSOT: none, project identity remains unchanged.
 - Planning: updated by linking to the existing project init interview plan.

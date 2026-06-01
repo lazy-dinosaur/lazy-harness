@@ -201,7 +201,7 @@ This output pipeline is the stable contract. Search backends can change later wi
 
 ### Phase 1 — Context Delivery Contract SDD
 
-Status: specified in `.lazy-harness/spec/platform/context-delivery-contract.md`.
+Status: completed in `cec13a2 Add context delivery contract`; synced and validated in `/home/lazydino/dev/medivance` and `/home/lazydino/dev/medivance-pwa`.
 
 Create `.lazy-harness/spec/platform/context-delivery-contract.md`.
 
@@ -226,6 +226,8 @@ Acceptance criteria:
 - Output schema is testable with fixtures.
 
 ### Phase 2 — Record Digest / Project Profile retrieval metadata
+
+Status: completed in this Phase 2 change; contracts updated in `.lazy-harness/spec/platform/record-digest-format.md`, `.lazy-harness/spec/platform/relevant-record-query.md`, `.lazy-harness/spec/platform/project-profile.md`, and `.lazy-harness/schemas/relevant-record-index.schema.json`; protected by `.lazy-harness/scripts/self-test.py#check_context_delivery_metadata_phase2`.
 
 Extend record guidance so records can feed the broker.
 

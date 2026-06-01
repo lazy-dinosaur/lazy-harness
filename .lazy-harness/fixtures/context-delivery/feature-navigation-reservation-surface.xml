@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigationFixture id="context-delivery-reservation-surface" status="confirmed">
+  <purpose>Fixture showing a host-project surface mapping for Context Delivery metadata.</purpose>
+  <feature id="reservations" status="confirmed">
+    <label>Reservation management</label>
+    <aliases>
+      <alias lang="ko">예약시트</alias>
+      <alias lang="ko">예약표</alias>
+      <alias lang="en">reservation sheet</alias>
+      <alias lang="symbol">ReservationTable</alias>
+    </aliases>
+    <routes>
+      <route>/reservations</route>
+    </routes>
+    <components>
+      <component>ReservationTable</component>
+      <component>ReservationManagementPage</component>
+    </components>
+    <records>
+      <record layer="BDD">.lazy-harness/behavior/reservation-management.md</record>
+      <record layer="SDD">.lazy-harness/spec/reservation-management.md</record>
+    </records>
+    <sourceFiles>
+      <path>src/features/reservations/ReservationTable.tsx</path>
+    </sourceFiles>
+    <tests>
+      <path>tests/reservations/reservation-table.test.tsx</path>
+    </tests>
+  </feature>
+</featureNavigationFixture>
