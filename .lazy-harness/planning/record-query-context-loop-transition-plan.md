@@ -391,9 +391,15 @@ Promotion criteria:
 
 Outputs:
 
-- guidance ladder spec update,
-- hard-stop fixtures,
-- user-confirmed ADR/SSOT update.
+- guidance ladder spec update — implemented in `.lazy-harness/spec/platform/guidance-ladder.md`,
+- hard-stop fixtures — implemented in `.lazy-harness/scripts/self-test.py#check_guidance_ladder_hard_stop_promotion`,
+- user-confirmed ADR/SSOT update — ADR 0041, rule lifecycle SSOT, and harness enforcement SSOT updated.
+
+Status:
+
+- implemented on 2026-06-01.
+- no concrete new hard stop was added.
+- Phase 6 added the promotion ladder and audit command that future hard-stop records must satisfy.
 
 ## File impact map
 

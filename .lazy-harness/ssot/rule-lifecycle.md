@@ -91,6 +91,8 @@ A concrete tool/action hard stop may be added only after Phase 6 criteria are re
 
 Generic destructive shell safety is already allowed and is not considered project/team policy.
 
+Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md` and is validated by `.lazy-harness/scripts/hard-stop-promotion-audit.py`. A promoted hard stop must include a canonical `## Hard-stop promotion` section with the required fields from that SDD before implementation.
+
 ## Implementation map
 
 - Status: `phase5-organic-lifecycle`
@@ -99,7 +101,9 @@ Generic destructive shell safety is already allowed and is not considered projec
   - `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md` — historical/superseded binding ADR.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — active architecture.
   - `.lazy-harness/spec/platform/rule-binding-action-boundary.md` — superseded compatibility SDD.
+  - `.lazy-harness/spec/platform/guidance-ladder.md` — Phase 6 guidance ladder and hard-stop promotion criteria.
   - `.lazy-harness/spec/platform/response-rule-audit.md` — active response audit SDD.
+  - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.
   - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — no-op compatibility shim.
   - `.lazy-harness/scripts/jcode-wiring.ts` — generated bash safety-only hook.
   - `.lazy-harness/scripts/self-test.py` — Phase 5 regression coverage.
@@ -107,6 +111,7 @@ Generic destructive shell safety is already allowed and is not considered projec
   - `checkBashHook` (`jcode-wiring.ts`) — destructive shell safety only.
   - `check_rule_action_boundary_legacy_no_project_policy` (`self-test.py`) — protects no project-policy block in legacy helper.
   - `check_response_rule_audit_from_surfaced_digest` (`self-test.py`) — protects PR miss replacement audit.
+  - `check_guidance_ladder_hard_stop_promotion` (`self-test.py`) — protects Phase 6 promotion criteria.
 - Flow:
   1. Confirmed rule/correction/contract is recorded in canonical layer.
   2. Reusable guidance gets a `## Rule digest`.

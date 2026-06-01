@@ -1572,6 +1572,81 @@ def check_jcode_wiring_bash_safety_only_hook() -> None:
     print("✓ jcode wiring bash safety-only hook ok")
 
 
+def run_hard_stop_promotion_audit(root: pathlib.Path, strict: bool = True) -> subprocess.CompletedProcess:
+    command = [
+        "python3",
+        str(LAZY / "scripts" / "hard-stop-promotion-audit.py"),
+        "--root",
+        str(root),
+        "--format",
+        "json",
+    ]
+    if strict:
+        command.append("--strict")
+    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+
+
+def check_guidance_ladder_hard_stop_promotion() -> None:
+    """Phase 6: hard stops require explicit promotion evidence before implementation."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-hard-stop-promotion-"))
+    try:
+        spec_dir = temp / ".lazy-harness" / "spec" / "platform"
+        fixture_dir = temp / ".lazy-harness" / "tests" / "fixtures" / "hard-stop"
+        spec_dir.mkdir(parents=True)
+        fixture_dir.mkdir(parents=True)
+
+        invalid = spec_dir / "invalid-hard-stop.md"
+        invalid.write_text(
+            "# Invalid hard stop\n\n"
+            "## Hard-stop promotion\n\n"
+            "- Status: active\n"
+            "- Boundary: block a broad project policy action\n"
+            "- Scope: framework-global\n"
+            "- User confirmation: user-confirmed fixture\n",
+            encoding="utf-8",
+        )
+        invalid_run = run_hard_stop_promotion_audit(temp, strict=True)
+        if invalid_run.returncode == 0:
+            fail("invalid hard-stop promotion should fail strict audit:\n" + invalid_run.stdout)
+        invalid_result = json.loads(invalid_run.stdout)
+        problems = "\n".join(invalid_result.get("violations", [{}])[0].get("problems", []))
+        for expected in ["missing Evidence", "missing Fixture", "missing Rollback"]:
+            if expected not in problems:
+                fail("invalid hard-stop promotion audit missed expected problem " + expected + ":\n" + invalid_run.stdout)
+
+        invalid.unlink()
+        fixture = fixture_dir / "irreversible-action.json"
+        fixture.write_text('{"block":"irreversible","allow":"safe"}\n', encoding="utf-8")
+        valid = spec_dir / "valid-hard-stop.md"
+        valid.write_text(
+            "# Valid hard stop\n\n"
+            "## Hard-stop promotion\n\n"
+            "- Status: active\n"
+            "- Boundary: block fixture irreversible action before execution\n"
+            "- Scope: framework-global\n"
+            "- User confirmation: user-confirmed 2026-06-01 fixture boundary\n"
+            "- Evidence: irreversible action risk; softer audit would run after the damage\n"
+            "- Existing softer coverage: response audit exists but cannot prevent pre-execution data loss\n"
+            "- Fixture: .lazy-harness/tests/fixtures/hard-stop/irreversible-action.json\n"
+            "- Narrowness: exact fixture boundary only, no bash/gh/project-policy adapter sprawl\n"
+            "- Rollback: set Status to retired and remove the blocking branch\n",
+            encoding="utf-8",
+        )
+        valid_run = run_hard_stop_promotion_audit(temp, strict=True)
+        if valid_run.returncode != 0:
+            fail("valid hard-stop promotion should pass strict audit:\n" + valid_run.stdout + valid_run.stderr)
+        valid_result = json.loads(valid_run.stdout)
+        if valid_result.get("summary", {}).get("promotions") != 1 or valid_result.get("violations"):
+            fail("valid hard-stop promotion audit returned wrong summary:\n" + valid_run.stdout)
+
+        source_run = run_hard_stop_promotion_audit(ROOT, strict=True)
+        if source_run.returncode != 0:
+            fail("source hard-stop promotion audit should pass:\n" + source_run.stdout + source_run.stderr)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ guidance ladder hard-stop promotion ok")
+
+
 def check_jcode_project_profile_skill_wrapper() -> None:
     """Generated Jcode wiring must install the framework-owned Project Profile skill."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
@@ -4240,6 +4315,7 @@ def main() -> None:
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_rule_action_boundary_legacy_no_project_policy, "BOTH"),
         (check_jcode_wiring_bash_safety_only_hook, "BOTH"),
+        (check_guidance_ladder_hard_stop_promotion, "BOTH"),
         (check_jcode_project_profile_skill_wrapper, "BOTH"),
         (check_jcode_doc_ingest_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),

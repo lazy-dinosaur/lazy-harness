@@ -151,6 +151,15 @@ Implemented on 2026-06-01:
 - the historical PR body hard block moved to `message.received` digest surfacing plus `response.completed` response-rule audit.
 - ADR 0039 and `.lazy-harness/spec/platform/rule-binding-action-boundary.md` are now superseded for project-policy enforcement.
 
+## Phase 6 implementation note
+
+Implemented on 2026-06-01:
+
+- `.lazy-harness/spec/platform/guidance-ladder.md` defines the L0-L5 guidance ladder.
+- `.lazy-harness/scripts/hard-stop-promotion-audit.py` validates canonical `## Hard-stop promotion` sections.
+- concrete hard stops remain rare and require user confirmation, miss/risk evidence, existing softer coverage analysis, fixture path, narrowness, and rollback.
+- no new project-policy hard stop was added by Phase 6; it added promotion criteria and fixtures first.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

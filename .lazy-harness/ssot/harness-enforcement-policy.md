@@ -110,6 +110,18 @@ Phase 5 migrated the first tool-attached project-policy exemplar out of the bash
 
 This keeps the mandatory memory loop strong while avoiding concrete tool adapter sprawl.
 
+## 2026-06-01 Phase 6 guidance ladder result
+
+Phase 6 added the promotion criteria before adding any new hard stop:
+
+- default rule guidance remains record digest surfacing plus response audit,
+- hard stops are L5 guidance only,
+- a hard stop requires a canonical `## Hard-stop promotion` section,
+- the promotion section must document user confirmation, miss/risk evidence, softer coverage analysis, fixture, narrowness, and rollback,
+- `.lazy-harness/scripts/hard-stop-promotion-audit.py` validates promotions in strict mode.
+
+This preserves the existing plan: continue the active memory loop first, then fix weaknesses only when evidence justifies a narrow promotion.
+
 ## Current dogfood finding
 
 The observed failure mode is not PR-specific and not caused by missing records alone. The framework stores project rules, source-of-truth facts, contracts, behaviors, tests, decisions, and workflow rules, but agents can later fail to consult and apply any of those stored records before acting.
