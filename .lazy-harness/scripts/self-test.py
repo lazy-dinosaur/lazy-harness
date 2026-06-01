@@ -3698,6 +3698,52 @@ def check_reference_resolver() -> None:
     print(f"✓ N2 reference-resolver ok ({len(fixtures)} fixtures)")
 
 
+def check_search_provider_canonical_record_dirs() -> None:
+    """SearchProvider fallback must scan current canonical record paths."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-search-provider-"))
+    try:
+        (temp / ".lazy-harness" / "domain").mkdir(parents=True)
+        (temp / ".lazy-harness" / "ddd").mkdir(parents=True)
+        (temp / ".lazy-harness" / "planning").mkdir(parents=True)
+        (temp / ".lazy-harness" / "domain" / "policy.md").write_text(
+            "# Canonical Domain\n\nUnicornPolicy lives in the canonical domain path.\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ddd" / "legacy.md").write_text(
+            "# Legacy DDD\n\nLegacyOnlyToken should not be discovered through the ddd layer.\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "planning" / "plan.md").write_text(
+            "# Planning\n\nRoadmapToken should be discoverable through the planning layer.\n",
+            encoding="utf-8",
+        )
+        provider = (LAZY / "scripts" / "search-provider.ts").as_posix()
+        code = f"""
+import {{ DirectAISearch }} from {json.dumps(provider)};
+const search = new DirectAISearch();
+const canonical = await search.search({{ terms: ['UnicornPolicy'], layers: ['ddd'] }});
+const legacy = await search.search({{ terms: ['LegacyOnlyToken'], layers: ['ddd'] }});
+const planning = await search.search({{ terms: ['RoadmapToken'], layers: ['planning'] }});
+console.log(JSON.stringify({{ canonical, legacy, planning }}));
+"""
+        completed = subprocess.run(["bun", "-e", code], cwd=temp, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("SearchProvider canonical dir check failed to run:\n" + completed.stdout + completed.stderr)
+        try:
+            got = json.loads(completed.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"SearchProvider canonical dir output invalid JSON: {exc}\n{completed.stdout}")
+        if not got.get("canonical") or ".lazy-harness/domain/policy.md" not in got["canonical"][0].get("recordPath", ""):
+            fail("SearchProvider did not find canonical domain path: " + json.dumps(got, ensure_ascii=False))
+        if got.get("legacy"):
+            fail("SearchProvider should not scan legacy .lazy-harness/ddd path: " + json.dumps(got, ensure_ascii=False))
+        if not got.get("planning") or ".lazy-harness/planning/plan.md" not in got["planning"][0].get("recordPath", ""):
+            fail("SearchProvider did not find planning path: " + json.dumps(got, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ SearchProvider canonical record dirs ok")
+
+
 def check_tool_execute_before_hook() -> None:
     """N2.5 — Layer 2 force-gate hook (ADR 0024).
 
@@ -3917,6 +3963,7 @@ def main() -> None:
         (check_triggers, "FRAMEWORK_ONLY"),
         (check_layer_impact_gate, "FRAMEWORK_ONLY"),
         (check_reference_resolver, "FRAMEWORK_ONLY"),
+        (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
     ]

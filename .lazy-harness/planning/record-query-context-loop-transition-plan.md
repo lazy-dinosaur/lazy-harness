@@ -187,7 +187,8 @@ Budget:
 
 - Phase 0 — Baseline and inventory: completed as planning/inventory in this record.
 - Phase 1 — Record digest/write standard: SDD contracts written on 2026-06-01.
-- Phase 2 — Relevant record index/query contract: next implementation/design slice.
+- Phase 2 — Relevant record index/query contract: SDD/schema/SearchProvider path fix written on 2026-06-01.
+- Phase 3 — Pre-response surfacing prototype: next implementation/design slice.
 
 ### Phase 0 — Baseline and inventory
 
@@ -269,6 +270,12 @@ Outputs:
 - `.lazy-harness/spec/platform/relevant-record-query.md`
 - `.lazy-harness/schemas/relevant-record-index.schema.json`
 - future script: `.lazy-harness/scripts/relevant-record-query.ts`
+
+Status:
+
+- completed on 2026-06-01 as SDD + generated index schema.
+- `SearchProvider` direct fallback path model updated to current canonical layer directories, including Planning.
+- query CLI implementation remains future work.
 
 Validation:
 
@@ -403,7 +410,7 @@ Do **not** implement the full loop yet.
 
 Next slice should be read-only and measurable:
 
-1. Write SDD for `relevant-record-query` and generated index/cache schema.
+1. Implement prototype `relevant-record-query` CLI in measurement/shadow mode.
 2. Add fixtures across stored-rule classes, not only PR:
    - project identity / source-of-truth correction,
    - API/component contract work,

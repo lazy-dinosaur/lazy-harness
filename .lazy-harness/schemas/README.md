@@ -1,6 +1,11 @@
 # schemas
 
-Result schema (Principle #9 Unified Result Schema) + container XML schemas.
+Result schema (Principle #9 Unified Result Schema) + container XML schemas + generated index schemas.
+
+Important generated index schemas:
+
+- `implementation-index.schema.json` — derived implementation map cache.
+- `relevant-record-index.schema.json` — derived compact rule-digest query cache for pre-response context.
 
 ## Trigger to fill
 

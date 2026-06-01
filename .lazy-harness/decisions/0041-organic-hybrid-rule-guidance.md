@@ -384,9 +384,11 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — comprehensive transition plan for record digest/query/audit migration.
   - `.lazy-harness/spec/platform/record-digest-format.md` — Phase 1 SDD for compact rule digest sections.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — Phase 1 SDD for update-vs-create and digest maintenance behavior.
+  - `.lazy-harness/spec/platform/relevant-record-query.md` — Phase 2 SDD for natural-intent record lookup and compact digest output.
+  - `.lazy-harness/schemas/relevant-record-index.schema.json` — Phase 2 schema for generated relevant-record cache.
+  - `.lazy-harness/scripts/search-provider.ts` — fallback SearchProvider path model aligned to current canonical record dirs.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/soft-action-journal.md`
   - `.lazy-harness/tests/organic-rule-context-surfacing.md`

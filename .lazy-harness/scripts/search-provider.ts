@@ -37,7 +37,7 @@ import * as path from 'path'
 // 타입 정의
 // ─────────────────────────────────────────────────────────────────────────
 
-export type Layer = 'ddd' | 'sdd' | 'bdd' | 'tdd' | 'adr' | 'ssot'
+export type Layer = 'ddd' | 'sdd' | 'bdd' | 'tdd' | 'adr' | 'ssot' | 'planning'
 
 export interface SearchQuery {
   /** 검색 키워드 / 토큰 (AI 가 정한 의미 단위) */
@@ -77,12 +77,13 @@ export interface SearchProvider {
 // ─────────────────────────────────────────────────────────────────────────
 
 const RECORD_DIRS: Record<Layer, string> = {
-  ddd: '.lazy-harness/ddd',
-  sdd: '.lazy-harness/sdd',
-  bdd: '.lazy-harness/bdd',
-  tdd: '.lazy-harness/tdd',
+  ddd: '.lazy-harness/domain',
+  sdd: '.lazy-harness/spec',
+  bdd: '.lazy-harness/behavior',
+  tdd: '.lazy-harness/tests',
   adr: '.lazy-harness/decisions',
-  ssot: '.lazy-harness/ssot'
+  ssot: '.lazy-harness/ssot',
+  planning: '.lazy-harness/planning'
 }
 
 function walkRecordFiles(dir: string): string[] {
