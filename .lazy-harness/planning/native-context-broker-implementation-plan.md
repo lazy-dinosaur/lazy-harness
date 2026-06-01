@@ -6,6 +6,7 @@ Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 Related SDD: `.lazy-harness/spec/platform/relevant-record-query.md`
 Related SDD: `.lazy-harness/spec/platform/record-digest-format.md`
+Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
 Related SDD: `.lazy-harness/spec/platform/project-profile.md`
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related candidates:
@@ -199,6 +200,8 @@ This output pipeline is the stable contract. Search backends can change later wi
 ## Proposed implementation phases
 
 ### Phase 1 — Context Delivery Contract SDD
+
+Status: specified in `.lazy-harness/spec/platform/context-delivery-contract.md`.
 
 Create `.lazy-harness/spec/platform/context-delivery-contract.md`.
 

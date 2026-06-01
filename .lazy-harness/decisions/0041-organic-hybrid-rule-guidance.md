@@ -430,9 +430,11 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/spec/platform/pre-response-rule-context.md` — Phase 3 SDD for Jcode `message.received` pre-turn context injection.
   - `.lazy-harness/scripts/relevant-record-query.ts` — Phase 3 read-only query prototype and `lazy context` backend.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — Phase 3 Jcode hook that emits same-turn `system_reminder` injections.
+  - `.lazy-harness/planning/native-context-broker-implementation-plan.md` — follow-on retrieval plan for self-resolving context delivery.
+  - `.lazy-harness/spec/platform/context-delivery-contract.md` — Native Context Broker packet contract for raw hits, normalized evidence, required reads, rendering, privacy, and fail-open behavior.
+  - `.lazy-harness/schemas/context-delivery-packet.schema.json` — schema for packet-shaped self-resolution or searcher handoff output.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
-  - `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/soft-action-journal.md`
   - `.lazy-harness/tests/organic-rule-context-surfacing.md`
 - Cross-layer links:

@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/context-delivery-packet.schema.json",
+  "title": "ContextDeliveryPacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "instructionLevel",
+    "candidateMeanings",
+    "queries",
+    "requiredRead",
+    "optionalRead",
+    "confidence",
+    "fallbackSearches",
+    "instruction"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["1.0"] },
+    "generatedAt": { "type": "string", "minLength": 1 },
+    "instructionLevel": { "$ref": "#/definitions/instructionLevel" },
+    "resolvedPhrase": { "type": "string" },
+    "candidateMeanings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/candidateMeaning" },
+      "default": []
+    },
+    "queries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/query" },
+      "default": []
+    },
+    "requiredRead": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/readItem" },
+      "default": []
+    },
+    "optionalRead": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/readItem" },
+      "default": []
+    },
+    "confidence": { "$ref": "#/definitions/confidence" },
+    "fallbackSearches": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "instruction": { "type": "string", "minLength": 1 },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    }
+  },
+  "definitions": {
+    "instructionLevel": {
+      "type": "string",
+      "enum": [
+        "digest-only",
+        "self-resolve-before-answer",
+        "self-resolve-before-change",
+        "delegate-search"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["DDD", "SDD", "BDD", "TDD", "ADR", "SSOT", "Planning"]
+    },
+    "candidateMeaning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "confidence", "why"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "why": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 1 }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query", "source", "purpose"],
+      "properties": {
+        "query": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "string",
+          "enum": [
+            "user-phrase",
+            "llm-expansion",
+            "deterministic-expansion",
+            "record-link",
+            "profile-link",
+            "fallback"
+          ]
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["records", "project-profile", "graph", "source", "tests", "symbols"]
+          },
+          "default": []
+        }
+      }
+    },
+    "readKind": {
+      "type": "string",
+      "enum": [
+        "record",
+        "project-profile",
+        "graph-edge",
+        "source-file",
+        "symbol",
+        "test",
+        "plan",
+        "schema",
+        "generated-index"
+      ]
+    },
+    "readItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "reason", "confidence", "whyMatched", "matchedQueries"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/definitions/readKind" },
+        "reason": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "whyMatched": { "type": "string", "minLength": 1 },
+        "matchedQueries": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "layer": { "$ref": "#/definitions/layer" },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    }
+  }
+}

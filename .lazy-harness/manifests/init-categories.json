@@ -69,7 +69,7 @@
             "*.schema.json",
             "README.md"
           ],
-          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema."
+          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema + context-delivery packet schema."
         },
         {
           "path": "triggers/",
@@ -236,6 +236,11 @@
           "path": "spec/platform/pre-response-rule-context.md",
           "kind": "file",
           "description": "SDD contract for message.received pre-response relevant-record context injection and sanitized surfaced digest journal."
+        },
+        {
+          "path": "spec/platform/context-delivery-contract.md",
+          "kind": "file",
+          "description": "SDD contract for Native Context Broker packet output: raw hits, normalized evidence, required-read Context Delivery Packet, rendering, privacy, and fail-open rules."
         },
         {
           "path": "spec/platform/response-rule-audit.md",

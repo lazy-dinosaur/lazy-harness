@@ -3964,6 +3964,105 @@ def check_relevant_record_query_cli() -> None:
     print("✓ relevant-record-query CLI digest ok")
 
 
+def check_context_delivery_contract_sdd() -> None:
+    """Native Context Broker Phase 1 must have a stable packet contract."""
+    sdd_path = LAZY / "spec" / "platform" / "context-delivery-contract.md"
+    schema_path = LAZY / "schemas" / "context-delivery-packet.schema.json"
+    if not sdd_path.exists():
+        fail("Context Delivery Contract SDD missing: " + str(sdd_path))
+    if not schema_path.exists():
+        fail("Context Delivery Packet schema missing: " + str(schema_path))
+
+    text = sdd_path.read_text(encoding="utf-8")
+    required_phrases = [
+        "## Rule digest",
+        "raw hit",
+        "Normalized evidence",
+        "Context Delivery Packet",
+        "digest-only",
+        "self-resolve-before-answer",
+        "self-resolve-before-change",
+        "delegate-search",
+        "requiredRead",
+        "optionalRead",
+        "candidateMeanings",
+        "fallbackSearches",
+        "system_reminder",
+        "예약시트",
+        "ReservationTable",
+        "privacy",
+        "fail-open",
+        "Searcher subagent handoff",
+        "Implementation map",
+    ]
+    missing = [phrase for phrase in required_phrases if phrase not in text]
+    if missing:
+        fail("Context Delivery Contract SDD missing required content: " + json.dumps(missing, ensure_ascii=False))
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    if schema.get("title") != "ContextDeliveryPacket":
+        fail("Context Delivery Packet schema title mismatch")
+    required = set(schema.get("required", []))
+    expected_required = {
+        "schemaVersion",
+        "generatedAt",
+        "instructionLevel",
+        "candidateMeanings",
+        "queries",
+        "requiredRead",
+        "optionalRead",
+        "confidence",
+        "fallbackSearches",
+        "instruction",
+    }
+    if not expected_required.issubset(required):
+        fail("Context Delivery Packet schema missing required fields: " + json.dumps(sorted(expected_required - required)))
+    levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
+    expected_levels = {"digest-only", "self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
+    if levels != expected_levels:
+        fail("Context Delivery Packet instruction levels mismatch: " + json.dumps(sorted(levels)))
+    read_kinds = set(schema.get("definitions", {}).get("readKind", {}).get("enum", []))
+    for expected in ["record", "project-profile", "graph-edge", "source-file", "symbol", "test", "plan", "schema", "generated-index"]:
+        if expected not in read_kinds:
+            fail("Context Delivery Packet schema missing read kind: " + expected)
+
+    sample_packet = {
+        "schemaVersion": "1.0",
+        "generatedAt": "2026-06-01T00:00:00.000Z",
+        "instructionLevel": "self-resolve-before-change",
+        "resolvedPhrase": "예약시트",
+        "candidateMeanings": [
+            {"label": "ReservationTable / reservation sheet", "confidence": 0.76, "why": "multilingual surface candidate"}
+        ],
+        "queries": [
+            {"query": "예약시트 예약표 예약관리", "source": "llm-expansion", "purpose": "Korean aliases"},
+            {"query": "reservation sheet booking table ReservationTable", "source": "llm-expansion", "purpose": "English and code aliases"},
+        ],
+        "requiredRead": [
+            {
+                "path": ".lazy-harness/behavior/reservation-management.md",
+                "kind": "record",
+                "reason": "Confirm UI behavior before editing.",
+                "confidence": 0.82,
+                "whyMatched": "Matched Korean and English reservation aliases.",
+                "matchedQueries": ["예약시트", "reservation sheet"],
+            }
+        ],
+        "optionalRead": [],
+        "confidence": 0.76,
+        "fallbackSearches": ["rg -n \"예약|reservation|booking|appointment|schedule\" .lazy-harness src tests"],
+        "instruction": "Read requiredRead before answering or editing.",
+    }
+    for field in expected_required:
+        if field not in sample_packet:
+            fail("sample Context Delivery Packet missing field: " + field)
+    if sample_packet["instructionLevel"] not in expected_levels:
+        fail("sample Context Delivery Packet uses invalid instructionLevel")
+    if not 0 <= sample_packet["confidence"] <= 1:
+        fail("sample Context Delivery Packet confidence must be 0..1")
+    print("✓ context delivery contract SDD ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit same-turn system reminder inject JSON from digests."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4346,6 +4445,7 @@ def main() -> None:
         (check_reference_resolver, "FRAMEWORK_ONLY"),
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
+        (check_context_delivery_contract_sdd, "BOTH"),
         (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
