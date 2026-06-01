@@ -4138,6 +4138,15 @@ def check_context_delivery_metadata_phase2() -> None:
     records = [node.text for node in feature.findall("./records/record")]
     if ".lazy-harness/behavior/reservation-management.md" not in records:
         fail("context delivery feature-navigation fixture missing BDD record path")
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a_items = manifest.get("categories", {}).get("A", {}).get("items", [])
+    category_a_paths = {item.get("path") for item in category_a_items}
+    if "spec/platform/project-profile.md" not in category_a_paths:
+        fail("Context Delivery Phase 2 requires project-profile SDD to sync to hosts")
+    fixture_item = next((item for item in category_a_items if item.get("path") == "fixtures/"), {})
+    if "context-delivery/*.xml" not in fixture_item.get("glob", []):
+        fail("Context Delivery Phase 2 fixture glob missing from manifest")
     print("✓ context delivery metadata Phase 2 ok")
 
 
