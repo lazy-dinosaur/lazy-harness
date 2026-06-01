@@ -1370,9 +1370,9 @@ def check_jcode_wiring_repairs_markerless_bash_hook_default() -> None:
     print("✓ jcode markerless bash hook repair ok")
 
 
-def check_jcode_wiring_patches_user_owned_config_mandatory_hooks() -> None:
-    """User-owned .jcode/config.toml must be preserved but mandatory Layer 2 hooks added."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-config-mandatory-"))
+def check_jcode_wiring_removes_rejected_layer2_block() -> None:
+    """Rejected hard-gate experiment block must be removed from user-owned configs."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-rejected-layer2-"))
     try:
         (temp / ".lazy-harness").mkdir(parents=True)
         shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
@@ -1381,15 +1381,17 @@ def check_jcode_wiring_patches_user_owned_config_mandatory_hooks() -> None:
         config.write_text(
             "# user-owned config\n"
             "[prompt]\n"
-            "ignore_project_agents = false\n"
             "custom_local_flag = true\n\n"
-            "[hooks]\n"
-            "enabled = true\n\n"
+            "# BEGIN lazy-harness mandatory Layer 2 force-gates\n"
             "[[hooks.commands]]\n"
-            "event = \"response.completed\"\n"
-            "tool = \"*\"\n"
-            "command = \".jcode/hooks/response-completed-compare.sh\"\n"
-            "blocking = false\n",
+            "event = \"tool.execute.before\"\n"
+            "tool = \"edit\"\n"
+            "command = \".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\"\n"
+            "blocking = true\n"
+            "timeout_ms = 3000\n"
+            "# END lazy-harness mandatory Layer 2 force-gates\n\n"
+            "[hooks]\n"
+            "enabled = true\n",
             encoding="utf-8",
         )
         code = (
@@ -1398,28 +1400,15 @@ def check_jcode_wiring_patches_user_owned_config_mandatory_hooks() -> None:
         )
         completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
         if completed.returncode != 0:
-            fail("jcode mandatory hook patch import/run failed:\n" + completed.stdout + completed.stderr)
-
+            fail("jcode rejected Layer 2 cleanup import/run failed:\n" + completed.stdout + completed.stderr)
         updated = config.read_text(encoding="utf-8")
-        if "custom_local_flag = true" not in updated or "response-completed-compare.sh" not in updated:
-            fail("mandatory hook patch overwrote user-owned config content:\n" + updated)
-        if "BEGIN lazy-harness mandatory Layer 2 force-gates" not in updated:
-            fail("mandatory Layer 2 block was not appended to user-owned config:\n" + updated)
-        for tool_name in ("edit", "write", "multiedit"):
-            if f'tool = "{tool_name}"' not in updated:
-                fail(f"mandatory hook patch missing {tool_name} hook:\n" + updated)
-        if updated.count("BEGIN lazy-harness mandatory Layer 2 force-gates") != 1:
-            fail("mandatory hook patch should be idempotent before rerun:\n" + updated)
-
-        completed2 = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed2.returncode != 0:
-            fail("jcode mandatory hook patch second run failed:\n" + completed2.stdout + completed2.stderr)
-        updated2 = config.read_text(encoding="utf-8")
-        if updated2.count("BEGIN lazy-harness mandatory Layer 2 force-gates") != 1:
-            fail("mandatory hook patch is not idempotent:\n" + updated2)
+        if "custom_local_flag = true" not in updated:
+            fail("rejected Layer 2 cleanup overwrote user-owned config content:\n" + updated)
+        if "mandatory Layer 2 force-gates" in updated or 'tool = "edit"' in updated:
+            fail("rejected Layer 2 cleanup left hard-gate block behind:\n" + updated)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode user-owned config mandatory hooks patch ok")
+    print("✓ jcode rejected Layer 2 block cleanup ok")
 
 
 def check_manifest_syncs_python_lifecycle_helpers() -> None:
@@ -1435,29 +1424,26 @@ def check_manifest_syncs_python_lifecycle_helpers() -> None:
     print("✓ manifest Python lifecycle helper sync ok")
 
 
-def check_jcode_dev_hooks_are_blocking() -> None:
-    """Generated Jcode wiring must restore Layer 2 blocking edit/write/multiedit gates."""
+def check_jcode_dev_hooks_are_nonblocking() -> None:
+    """Generated Jcode wiring must keep edit/write/multiedit fast and non-blocking."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    forbidden = [
+        'tool = "edit"',
+        'tool = "write"',
+        'tool = "multiedit"',
+    ]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("jcode wiring must not register blocking edit/write hooks: " + json.dumps(leaked, ensure_ascii=False))
     required = [
-        'tool = \\"edit\\"',
-        'tool = \\"write\\"',
-        'tool = \\"multiedit\\"',
-        'command = \\".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\\"',
-        "Layer 2 force-gate restored",
-        "development-time record-first checks must run",
+        "development fast",
+        "pre-commit/pre-push",
+        "commit-time gates",
     ]
     missing = [phrase for phrase in required if phrase not in source]
     if missing:
-        fail("jcode wiring missing restored blocking edit/write hooks: " + json.dumps(missing, ensure_ascii=False))
-    for tool_name in ("edit", "write", "multiedit"):
-        marker = f'tool = \\"{tool_name}\\"'
-        index = source.find(marker)
-        if index < 0:
-            fail(f"jcode wiring missing {tool_name} hook marker")
-        snippet = source[index:index + 260]
-        if 'blocking = true' not in snippet:
-            fail(f"jcode wiring {tool_name} hook must be blocking:\n" + snippet)
-    print("✓ jcode development hooks blocking policy restored ok")
+        fail("jcode wiring missing commit-time gate explanation: " + json.dumps(missing, ensure_ascii=False))
+    print("✓ jcode development hooks non-blocking policy ok")
 
 
 def run_rule_action_boundary_helper(payload: dict, root: pathlib.Path | None = None) -> str:
@@ -1519,45 +1505,6 @@ def check_rule_action_boundary_pr_body_guard() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ rule action boundary PR body guard ok")
-
-
-def check_rule_action_boundary_runtime_record_guard() -> None:
-    """Runtime/dev-instance commands must read relevant records before execution."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-runtime-boundary-"))
-    try:
-        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True)
-        (temp / ".lazy-harness" / "ssot").mkdir(parents=True)
-        shutil.copy2(
-            LAZY / "hooks" / "lifecycle" / "helpers" / "check-rule-action-boundary.py",
-            temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-rule-action-boundary.py",
-        )
-
-        payload = {"tool": {"name": "bash", "args": {"command": "bun scripts/dev-cli.ts --test --instance feature-x"}}}
-        without_record = run_rule_action_boundary_helper(payload, temp)
-        if without_record.strip():
-            fail("runtime guard should stay silent without a relevant runtime/dogfood record:\n" + without_record)
-
-        record_rel = ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md"
-        (temp / record_rel).write_text(
-            "# Dogfood Runtime Policy\n\nUse named test instances for runtime dogfood.\n",
-            encoding="utf-8",
-        )
-        blocked = run_rule_action_boundary_helper(payload, temp)
-        if "Runtime action-boundary" not in blocked or record_rel not in blocked:
-            fail("runtime guard did not require record-first lookup before dev-cli command:\n" + blocked)
-
-        allowed = run_rule_action_boundary_helper(
-            {
-                "tool": {"name": "bash", "args": {"command": "bun scripts/dev-cli.ts --test --instance feature-x"}},
-                "recent_tool_calls": [{"name": "read", "args_preview": record_rel}],
-            },
-            temp,
-        )
-        if allowed.strip():
-            fail("runtime guard should allow command after relevant record lookup:\n" + allowed)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ rule action boundary runtime record-first guard ok")
 
 
 def check_jcode_wiring_rule_action_boundary_hook() -> None:
@@ -3937,11 +3884,10 @@ def main() -> None:
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
-        (check_jcode_wiring_patches_user_owned_config_mandatory_hooks, "BOTH"),
+        (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
-        (check_jcode_dev_hooks_are_blocking, "BOTH"),
+        (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_rule_action_boundary_pr_body_guard, "BOTH"),
-        (check_rule_action_boundary_runtime_record_guard, "BOTH"),
         (check_jcode_wiring_rule_action_boundary_hook, "BOTH"),
         (check_jcode_project_profile_skill_wrapper, "BOTH"),
         (check_jcode_doc_ingest_skill_wrapper, "BOTH"),

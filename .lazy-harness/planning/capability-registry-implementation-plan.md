@@ -258,15 +258,22 @@ Validation:
 
 - Self-test fixture verifies no hard block for `discover/recommend/default`.
 
-### Phase 4 — Boundary helper for warn/block only
+### Phase 4 — Organic hybrid capability guidance candidate
 
-Goal: extend Rule Lifecycle enforcement for explicit high-risk capabilities.
+Goal: explore whether capabilities can support C+ v2 organic hybrid guidance without becoming one-off tool adapters.
 
-Work:
+User-confirmed on 2026-06-01:
 
-1. Add `check-capability-boundary.py` or fold capability support into existing `check-rule-action-boundary.py`.
-2. Only `warn` and `block` levels produce hook output.
-3. Existing PR body guard can be represented as a `block` capability or remain as rule-binding exemplar with cross-reference.
+- Do not solve PR/runtime/release/DB policy recall by attaching custom logic to `bash`, `gh`, `dev-cli`, GitHub MCP, or similar individual tool surfaces.
+- Do not make broad edit/write/multiedit blocking the primary solution if it slows normal flow.
+- Compare organic/free alternatives before implementation.
+
+Candidate work, not yet approved for implementation:
+
+1. Use capabilities as one possible input to ambient rule context ranking.
+2. Map capability levels to a graduated guidance ladder: ambient, nudge, warn, ask, hard stop.
+3. Keep tool hooks as generic carriers only if needed; do not encode policy in tool-specific branches.
+4. Migrate any existing PR/runtime exemplar into the chosen framework-level model only after the ADR/design comparison selects an architecture.
 
 Validation:
 

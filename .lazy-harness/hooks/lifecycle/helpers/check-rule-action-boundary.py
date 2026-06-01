@@ -18,28 +18,6 @@ from typing import Any
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
 LAZY = ROOT / ".lazy-harness"
 
-RUNTIME_COMMAND_RE = re.compile(
-    r"""
-    (?:^|[;&|]\s*)
-    (?:
-      bun\s+(?:run\s+)?dev(?:[:\w.-]*)?\b
-      | bun\s+[^;&|]*\bscripts/dev-cli\.ts\b
-      | bun\s+[^;&|]*\bdev-cli\.ts\b
-      | npm\s+run\s+dev(?:[:\w.-]*)?\b
-      | pnpm\s+(?:run\s+)?dev(?:[:\w.-]*)?\b
-      | yarn\s+(?:run\s+)?dev(?:[:\w.-]*)?\b
-      | next\s+dev\b
-      | vite\b
-    )
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
-
-RUNTIME_RECORD_RE = re.compile(
-    r"(?:runtime|dogfood|dev[-_]?server|dev[-_]?instance|test[-_]?instance|instance)",
-    re.IGNORECASE,
-)
-
 
 def parse_payload(raw: str) -> dict[str, Any]:
     try:
@@ -81,61 +59,12 @@ def extract_bash_command(payload: dict[str, Any]) -> str:
         if isinstance(cur, str):
             candidates.append(cur)
 
-    # Fall back to all strings but only return a string that resembles a supported
-    # action-boundary command. This avoids treating arbitrary prose as shell.
+    # Fall back to all strings but only return a string that resembles gh PR CLI.
     candidates.extend(walk_strings(payload))
     for candidate in candidates:
-        if not isinstance(candidate, str):
-            continue
-        if re.search(r"\bgh\s+pr\s+(create|edit)\b", candidate) or RUNTIME_COMMAND_RE.search(candidate):
+        if isinstance(candidate, str) and re.search(r"\bgh\s+pr\s+(create|edit)\b", candidate):
             return candidate
     return ""
-
-
-def recent_tool_calls(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    calls = payload.get("recent_tool_calls") or payload.get("recentToolCalls") or []
-    return [call for call in calls if isinstance(call, dict)] if isinstance(calls, list) else []
-
-
-def args_blob(call: dict[str, Any]) -> str:
-    value = call.get("args_preview") or call.get("argsPreview") or call.get("args") or call.get("input") or ""
-    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-
-
-def runtime_policy_dirs() -> tuple[str, ...]:
-    # TDD regression records can mention runtime failures, but they are not host
-    # runtime policy sources. Avoid letting framework tests make every host dev
-    # command block by default.
-    return ("domain", "spec", "behavior", "decisions", "ssot")
-
-
-def runtime_policy_records() -> list[Path]:
-    records: list[Path] = []
-    for layer in runtime_policy_dirs():
-        directory = LAZY / layer
-        if not directory.exists():
-            continue
-        for path in directory.rglob("*"):
-            if path.is_file() and path.suffix.lower() in {".md", ".xml", ".json", ".jsonl"}:
-                rel = path.relative_to(LAZY).as_posix()
-                if RUNTIME_RECORD_RE.search(rel):
-                    records.append(path)
-    return sorted(records)
-
-
-def has_runtime_record_lookup(payload: dict[str, Any], records: list[Path]) -> bool:
-    rel_records = [f".lazy-harness/{path.relative_to(LAZY).as_posix()}" for path in records]
-    runtime_tokens = ("runtime", "dogfood", "dev-cli", "dev server", "dev-server", "instance", "test database", "test db")
-    for call in recent_tool_calls(payload):
-        name = str(call.get("name") or "").lower()
-        blob = args_blob(call)
-        blob_lower = blob.lower()
-        if any(rel in blob for rel in rel_records):
-            return True
-        if name in {"read", "grep", "agentgrep", "glob", "bash"} or name.endswith(".agentgrep"):
-            if ".lazy-harness" in blob_lower and any(token in blob_lower for token in runtime_tokens):
-                return True
-    return False
 
 
 def load_json(path: Path) -> Any:
@@ -263,31 +192,7 @@ def check_pr_body_binding(binding: dict[str, Any], command: str) -> str:
     return ""
 
 
-def check_runtime_record_binding(command: str, payload: dict[str, Any]) -> str:
-    if not RUNTIME_COMMAND_RE.search(command):
-        return ""
-
-    records = runtime_policy_records()
-    if not records:
-        return ""
-    if has_runtime_record_lookup(payload, records):
-        return ""
-
-    listed = "\n".join(f"  - `.lazy-harness/{path.relative_to(LAZY).as_posix()}`" for path in records[:8])
-    more = "" if len(records) <= 8 else f"\n  - ... and {len(records) - 8} more"
-    return (
-        "STOP. Runtime action-boundary requires record-first lookup before starting or inspecting a dev/test instance.\n\n"
-        f"Command: `{command}`\n\n"
-        "Relevant runtime/dogfood records exist in this host:\n"
-        f"{listed}{more}\n\n"
-        "Before running this command, read or search the relevant canonical record, for example:\n\n"
-        "  grep -rli 'runtime\\|dogfood\\|instance\\|dev-cli\\|test database' "
-        ".lazy-harness/{domain,spec,behavior,decisions,ssot}/\n\n"
-        "Then rerun the command with that record lookup present in recent tool-call history."
-    )
-
-
-def check_bindings(command: str, payload: dict[str, Any], bindings: list[dict[str, Any]]) -> str:
+def check_bindings(command: str, bindings: list[dict[str, Any]]) -> str:
     for binding in bindings:
         if binding.get("status") in {"retired", "advisory-only"}:
             continue
@@ -298,9 +203,6 @@ def check_bindings(command: str, payload: dict[str, Any], bindings: list[dict[st
             output = check_pr_body_binding(binding, command)
             if output:
                 return output
-    runtime_output = check_runtime_record_binding(command, payload)
-    if runtime_output:
-        return runtime_output
     return ""
 
 
@@ -312,7 +214,7 @@ def main() -> int:
     command = extract_bash_command(payload)
     if not command:
         return 0
-    output = check_bindings(command, payload, load_bindings())
+    output = check_bindings(command, load_bindings())
     if output:
         print(output)
     return 0
