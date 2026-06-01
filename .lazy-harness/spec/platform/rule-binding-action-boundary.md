@@ -1,69 +1,139 @@
 # Rule Binding Action Boundary
 
-Status: accepted
+Status: superseded-by-organic-response-lifecycle
 Layer: SDD
 Related SSOT: `.lazy-harness/ssot/rule-lifecycle.md`
 Related ADR: `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md`
+Superseded by: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+Replacement SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
 Related TDD: `.lazy-harness/tests/rule-binding-pr-body-guard.md`
+
+## Rule digest
+
+- Status: deprecated
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - evaluating old tool-attached rule binding/action-boundary helpers
+  - seeing `check-rule-action-boundary.py` in old generated or user-owned Jcode bash hooks
+  - migrating project policy away from `bash`, `gh`, `dev-cli`, or MCP-specific adapters
+- Must:
+  - treat tool-attached project-policy enforcement as legacy compatibility only
+  - keep `.jcode/hooks/check-bash.sh` focused on destructive shell safety
+  - move PR/runtime/release/DB guidance into pre-response relevant-record digest plus `response.completed` audit
+  - keep `check-rule-action-boundary.py` as a no-op compatibility shim so older hooks do not break
+- Must not:
+  - add new project/team policy branches keyed to concrete tools such as bash, gh, dev-cli, or GitHub MCP
+  - block malformed PR descriptions in `tool.execute.before`; response-rule audit owns that backstop now
+- Record completion:
+  - changes to legacy action-boundary compatibility update this SDD, ADR 0039, rule lifecycle SSOT, and Phase 5 tests
+- Related records:
+  - `.lazy-harness/spec/platform/response-rule-audit.md`
+  - `.lazy-harness/ssot/harness-enforcement-policy.md`
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 
 ## Purpose
 
-Agents can store host/team rules correctly and still fail to apply them later. This SDD defines the action-boundary enforcement surface that turns stored rules into executable policies.
+This record used to define before-action rule binding enforcement for stored project rules. Phase 5 of the organic memory loop supersedes that direction.
 
-## Contract
+The original dogfood failure was real: a stored PR body rule was missed during PR creation. The first implementation solved that with a `gh pr create/edit` tool-attached hard block in `check-rule-action-boundary.py` and generated `.jcode/hooks/check-bash.sh`.
 
-Action-boundary helpers must:
+The user later rejected that architectural direction because it was too tool-attached and slow to scale. ADR 0041 replaced it with:
 
-1. Run before irreversible or external mutations when a supported tool surface is available.
-2. Read canonical `.lazy-harness` records or rule bindings from the current host root.
-3. Avoid hardcoding project-specific content in `.jcode` or Jcode memory.
-4. Emit a clear denial/reminder before the mutation happens when severity is `block`.
-5. Allow hosts to override defaults through canonical binding metadata.
-6. Keep development edit/write/multiedit hooks fast and non-blocking; action-boundary guards target external mutations such as PR creation, not every file edit.
+```text
+message.received relevant-record digest
++ response.completed response-rule-audit
++ narrow hard stops only after evidence
+```
 
-## First exemplar: PR body format
+## Current contract
 
-If `.lazy-harness/ssot/pr-description-format.md` exists in the host, `gh pr create` and `gh pr edit` commands must provide a PR body that contains the required headings:
+### `check-rule-action-boundary.py`
 
-- `## Why`
-- `## What`
-- `## Task`
+Current status: **legacy compatibility shim**.
 
-The helper accepts bodies supplied through:
+- It parses payloads for compatibility.
+- It emits no output by default.
+- It does not enforce PR body format, runtime policy, release policy, DB policy, or other project/team guidance.
+- Existing host/user-owned bash hooks may still call it safely after sync.
 
-- `--body <text>`
-- `--body=<text>`
-- `-b <text>`
-- `--body-file <path>`
-- `--body-file=<path>`
+### Generated `.jcode/hooks/check-bash.sh`
 
-When the command mutates a PR and the body is missing or lacks required sections, the helper emits STOP text explaining the source record and required sections.
+Current status: **destructive shell safety only**.
+
+The generated bash hook should block only generic destructive shell patterns, for example:
+
+- `rm -rf /`
+- `sudo rm -rf /`
+- raw disk overwrite such as `dd ... of=/dev/sd*`
+- filesystem creation on block devices such as `mkfs /dev/...`
+
+It must not call project-policy helpers or know PR body formats.
+
+### PR body guidance replacement
+
+PR body structure is now handled by response lifecycle:
+
+1. Host PR records include compact `## Rule digest` metadata.
+2. `message.received` surfaces relevant PR description records before the assistant responds.
+3. `response.completed` audit detects strong evidence that a surfaced PR rule was ignored.
+4. Clean/compliant turns remain silent.
 
 ## Non-goals
 
-- This first exemplar does not intercept every GitHub MCP PR mutation surface.
-- This does not replace prompt/record-first instructions.
-- This does not make `.jcode` a policy store; generated `.jcode` only wires the generic helper.
+- Do not remove destructive shell safety.
+- Do not remove mandatory record-completion gates.
+- Do not remove response audit/backstop.
+- Do not promote Phase 6 hard stops in this Phase 5 migration.
 
 ## Implementation map
 
-- Status: `implemented-first-exemplar`
+- Status: `phase5-superseded`
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — action-boundary helper.
-  - `.jcode/hooks/check-bash.sh` — active local bash hook wrapper.
-  - `.lazy-harness/scripts/jcode-wiring.ts` — generated bash hook template.
-  - `.lazy-harness/ssot/rule-lifecycle.md` — lifecycle and binding SSOT.
-  - `.lazy-harness/scripts/self-test.py` — regression fixtures.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — legacy no-op compatibility shim.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated bash hook no longer calls the action-boundary helper.
+  - `.lazy-harness/ssot/rule-lifecycle.md` — lifecycle SSOT now points to organic response lifecycle for action guidance.
+  - `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md` — historical ADR amended/superseded by ADR 0041.
+  - `.lazy-harness/spec/platform/response-rule-audit.md` — replacement audit surface.
+  - `.lazy-harness/tests/rule-binding-pr-body-guard.md` — TDD record updated to protect no-op legacy behavior and replacement audit coverage.
+  - `.lazy-harness/scripts/self-test.py` — Phase 5 regression fixtures.
 - Key symbols:
-  - `extract_bash_command` — pulls command text from Jcode payload shapes.
-  - `default_pr_body_binding` — host-sensitive default binding activated by `pr-description-format.md`.
-  - `extract_body` — reads body text from CLI args/body files.
-  - `main` — emits STOP text on violations and exits 0 for hook compatibility.
+  - `main` (`check-rule-action-boundary.py`) — parses payload and returns 0 with no output.
+  - `checkBashHook` (`jcode-wiring.ts`) — generated destructive shell safety hook.
+  - `check_rule_action_boundary_legacy_no_project_policy` (`self-test.py`) — verifies malformed PR bodies are no longer blocked by the legacy helper.
+  - `check_jcode_wiring_bash_safety_only_hook` (`self-test.py`) — verifies generated bash hook contains destructive safety only and no project-policy adapter.
+  - `check_response_rule_audit_from_surfaced_digest` (`self-test.py`) — verifies the replacement PR miss audit path.
 - Flow:
-  1. Jcode fires `tool.execute.before` for `bash`.
-  2. `.jcode/hooks/check-bash.sh` captures payload and invokes `check-rule-action-boundary.py`.
-  3. The helper loads host bindings/defaults, matches `gh pr create/edit`, and validates body headings.
-  4. If output is non-empty, the bash hook returns a deny JSON to Jcode.
-- Tests / protection:
-  - `check_rule_action_boundary_pr_body_guard` in `.lazy-harness/scripts/self-test.py`.
-  - `check_jcode_wiring_rule_action_boundary_hook` in `.lazy-harness/scripts/self-test.py`.
+  1. A host/user-owned old bash hook may call `check-rule-action-boundary.py`.
+  2. The helper emits nothing, so the old hook continues to the destructive safety checks.
+  3. New generated bash hooks do not call the helper at all.
+  4. PR/runtime/project guidance arrives through relevant-record digest before response.
+  5. Misses are caught after response by `check-response-rule-audit.py` when strong evidence exists.
+- Protection:
+  - `.lazy-harness/scripts/self-test.py#check_rule_action_boundary_legacy_no_project_policy`
+  - `.lazy-harness/scripts/self-test.py#check_jcode_wiring_bash_safety_only_hook`
+  - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+  - SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
+  - SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
+- Machine index:
+  - graph ids: `kg_phase5_rule_action_boundary_superseded`, `kg_phase5_bash_safety_only_wiring`, `kg_phase5_legacy_boundary_noop`
+
+## Rule placement
+
+- Rule: action-boundary project-policy branches are superseded; keep only compatibility shims and generic destructive shell safety.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/rule-binding-action-boundary.md`
+- Why not AGENTS.md: this is a platform migration contract, not core agent grammar.
+- Why not `.jcode`: the behavior is shared lazy-harness framework behavior and must sync to all hosts.
+- Confirmation: user approved Phase 5 migration on 2026-06-01.
+
+## Discovery capture
+
+- DDD: no domain vocabulary change.
+- SDD: this record updated from active enforcement to superseded compatibility.
+- BDD: agent-visible action guidance moves to pre-response context and post-response audit.
+- TDD: Phase 5 tests updated to protect no-op legacy helper and safety-only bash hook.
+- ADR: ADR 0039 amended/superseded by ADR 0041.
+- SSOT: rule lifecycle SSOT updated.

@@ -99,6 +99,17 @@ Migration target:
 - Move PR/runtime/release/DB guidance into relevant-record query + compact digest + response audit.
 - Remove tool-attached policy checks once response-lifecycle coverage is proven by fixtures.
 
+## 2026-06-01 Phase 5 migration result
+
+Phase 5 migrated the first tool-attached project-policy exemplar out of the bash/GH action boundary:
+
+- `check-rule-action-boundary.py` is retained only as a no-op legacy compatibility shim.
+- generated `.jcode/hooks/check-bash.sh` is destructive shell safety only.
+- PR body structure is covered by pre-response relevant-record digest plus `response.completed` response-rule audit.
+- ADR 0039 and rule-binding action-boundary SDD are superseded for project-policy enforcement.
+
+This keeps the mandatory memory loop strong while avoiding concrete tool adapter sprawl.
+
 ## Current dogfood finding
 
 The observed failure mode is not PR-specific and not caused by missing records alone. The framework stores project rules, source-of-truth facts, contracts, behaviors, tests, decisions, and workflow rules, but agents can later fail to consult and apply any of those stored records before acting.

@@ -142,6 +142,15 @@ current user message + recent context
 
 Tool-specific guides are deprecated as the policy layer. A tool can still emit lifecycle events or safety metadata, but PR/runtime/release/DB rules should not be authored as `gh` rules, `bash` rules, `dev-cli` rules, or GitHub MCP rules.
 
+## Phase 5 implementation note
+
+Implemented on 2026-06-01:
+
+- `check-rule-action-boundary.py` was reduced to a no-op legacy compatibility shim.
+- generated `.jcode/hooks/check-bash.sh` keeps only generic destructive shell safety.
+- the historical PR body hard block moved to `message.received` digest surfacing plus `response.completed` response-rule audit.
+- ADR 0039 and `.lazy-harness/spec/platform/rule-binding-action-boundary.md` are now superseded for project-policy enforcement.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

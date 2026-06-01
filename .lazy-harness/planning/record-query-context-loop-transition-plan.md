@@ -363,6 +363,14 @@ Tasks:
 4. Update ADR 0039/rule-lifecycle SDD/SSOT to point to organic guidance model.
 5. Keep only minimal destructive shell safety in `.jcode/hooks/check-bash.sh`.
 
+Status:
+
+- implemented on 2026-06-01.
+- `check-rule-action-boundary.py` is now a no-op legacy compatibility shim.
+- generated `.jcode/hooks/check-bash.sh` is destructive shell safety only and does not call the action-boundary helper.
+- PR body structure coverage moved to `message.received` digest surfacing plus `response.completed` response-rule audit.
+- ADR 0039, rule lifecycle SSOT, action-boundary SDD, and PR body guard TDD record were updated to point to ADR 0041/Phase 5.
+
 Validation:
 
 - no `gh`/bash-specific PR policy required for normal compliance.
@@ -418,7 +426,7 @@ Likely migrations later:
 2. Resolved for Phase 2: relevant-record index has a generated JSON schema; prototype currently parses records directly.
 3. Resolved for Phase 1: digest metadata starts as Markdown `## Rule digest` sections.
 4. Resolved for Phase 3: native pre-response query exists; mandatory record completion remains handled by response audit/backstop.
-5. Still open: legacy PR body guard migration/removal waits until response audit fixtures prove equivalent coverage.
+5. Resolved in Phase 5: legacy PR body guard migration/removal completed after response audit fixtures proved replacement coverage.
 
 ## Recommended next immediate slice
 

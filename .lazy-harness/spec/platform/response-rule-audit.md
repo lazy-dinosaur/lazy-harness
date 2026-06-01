@@ -51,6 +51,8 @@ message.received
 
 It checks whether the agent ignored a surfaced rule or missed a mandatory record-completion obligation after relevant rules were already injected before the response.
 
+In Phase 5 it also becomes the replacement surface for the historical PR body tool-attached hard block. PR body structure is no longer enforced in `tool.execute.before` by `check-rule-action-boundary.py`; it is surfaced before response and audited after response.
+
 ## Journal state contract
 
 Path:
