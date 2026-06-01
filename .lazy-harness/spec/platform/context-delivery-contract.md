@@ -382,6 +382,7 @@ Rules:
 - The permit gate does not create project/tool policy. It enforces packet-scoped `search-debt` and `read-debt` produced by this SDD.
 - Search-debt is satisfied when recent tool evidence shows root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff evidence).
 - Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
+- Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from the next `tool.execute.before` payload, causing false-positive action blocks.
 - Mixed read+action batches do not satisfy the debt in the same tool call; reads must happen before the action batch.
 - If the packet lacks concrete required paths, confidence is below threshold, no safe message/session correlation exists, or the producer times out, the gate fails open.
 - This current transport uses lifecycle hooks, but the same packet/permit semantics are ACP-compatible and may be carried by a protocol layer later.
@@ -393,7 +394,7 @@ Rules:
 - Scope: framework-global
 - User confirmation: 2026-06-01 user approved forcing search/read first, then work; user also confirmed ACP-compatible core with current hooks as transport.
 - Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??`, `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`, and `검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제`.
-- Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, and response.completed advisory existed but were too late or too weak to prevent action drift.
+- Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, `.jcode/hooks/tool-events.jsonl` evidence fallback, and response.completed advisory existed but were too late or too weak to prevent action drift.
 - Fixture: `.lazy-harness/scripts/self-test.py`
 - Narrowness: the gate activates only for correlated Context Delivery packets with either concrete requiredRead paths or explicit self-resolve fallback searches; search/read tools, explicit searcher handoff, and clean/no-packet turns remain allowed; it is not a broad edit/write or tool-specific project-policy adapter.
 - Rollback: remove the generated `tool = "*"` read-debt hook block from Jcode wiring or disable `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; existing response.completed advisory remains as fallback.
@@ -455,7 +456,8 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion; Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
   - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows for advisory-only required-read audit.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - consumes correlated packet rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence before action.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence for advisory-only search/read-debt audit.
   - `.lazy-harness/spec/platform/record-decision-broker.md` - Phase 8 mirror contract for post-turn record actions.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.

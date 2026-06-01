@@ -4509,6 +4509,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
     try:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
+        (temp / ".jcode" / "hooks").mkdir(parents=True, exist_ok=True)
         (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
         (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
         component = temp / "src" / "features" / "reservations" / "ReservationTable.tsx"
@@ -4602,6 +4603,19 @@ def check_context_delivery_packet_journal_phase7() -> None:
                 fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
             return result.stdout
 
+        tool_events = temp / ".jcode" / "hooks" / "tool-events.jsonl"
+
+        def append_tool_event(message_id: str, session_id: str, name: str, args: dict) -> None:
+            event = {
+                "event": "tool.execute.after",
+                "session_id": session_id,
+                "message_id": message_id,
+                "tool": {"name": name, "args": args},
+            }
+            ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            with tool_events.open("a", encoding="utf-8") as fh:
+                fh.write(ts + " " + json.dumps(event, ensure_ascii=False) + "\n")
+
         pre_action_block = run_permit({
             "message_id": "phase7-packet-message",
             "session_id": "phase7-session",
@@ -4647,6 +4661,26 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         def short_hash(value: str) -> str:
             return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+        logged_read_message_id = "phase7-logged-read-message"
+        logged_read_session_id = "phase7-logged-read-session"
+        logged_read_row = dict(row)
+        logged_read_row["messageIdHash"] = short_hash(logged_read_message_id)
+        logged_read_row["sessionIdHash"] = short_hash(logged_read_session_id)
+        logged_read_row["packetHash"] = "logged-read-evidence-fixture"
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(logged_read_row, ensure_ascii=False) + "\n")
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": ".lazy-harness/behavior/reservation-management.md"})
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "src/features/reservations/ReservationTable.tsx"})
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "tests/reservations/reservation-table.test.tsx"})
+        logged_read_satisfied = run_permit({
+            "message_id": logged_read_message_id,
+            "session_id": logged_read_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if logged_read_satisfied.strip():
+            fail("read-debt permit should accept tool-events journal read evidence when recent_tool_calls is empty:\n" + logged_read_satisfied)
 
         search_message_id = "phase7-search-message"
         search_session_id = "phase7-search-session"
@@ -4709,6 +4743,24 @@ def check_context_delivery_packet_journal_phase7() -> None:
         if search_satisfied_action.strip():
             fail("search-debt permit should allow action after search evidence exists:\n" + search_satisfied_action)
 
+        logged_search_message_id = "phase7-logged-search-message"
+        logged_search_session_id = "phase7-logged-search-session"
+        logged_search_row = dict(search_row)
+        logged_search_row["messageIdHash"] = short_hash(logged_search_message_id)
+        logged_search_row["sessionIdHash"] = short_hash(logged_search_session_id)
+        logged_search_row["packetHash"] = "logged-search-evidence-fixture"
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(logged_search_row, ensure_ascii=False) + "\n")
+        append_tool_event(logged_search_message_id, logged_search_session_id, "agentgrep", {"query": "예약시트 reservation sheet", "path": "."})
+        logged_search_satisfied = run_permit({
+            "message_id": logged_search_message_id,
+            "session_id": logged_search_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if logged_search_satisfied.strip():
+            fail("search-debt permit should accept tool-events journal search evidence when recent_tool_calls is empty:\n" + logged_search_satisfied)
+
         search_advisory = run_helper({
             "message_id": search_message_id,
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
@@ -4725,6 +4777,22 @@ def check_context_delivery_packet_journal_phase7() -> None:
         })
         if search_audit_satisfied.strip():
             fail("response audit should stay silent when search-debt has search evidence:\n" + search_audit_satisfied)
+
+        logged_read_audit_satisfied = run_helper({
+            "message_id": logged_read_message_id,
+            "session_id": logged_read_session_id,
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if logged_read_audit_satisfied.strip():
+            fail("response audit should accept tool-events journal read evidence:\n" + logged_read_audit_satisfied)
+
+        logged_search_audit_satisfied = run_helper({
+            "message_id": logged_search_message_id,
+            "session_id": logged_search_session_id,
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if logged_search_audit_satisfied.strip():
+            fail("response audit should accept tool-events journal search evidence:\n" + logged_search_audit_satisfied)
 
         no_mutation = run_helper({
             "message_id": "phase7-packet-message",

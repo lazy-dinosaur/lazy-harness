@@ -420,3 +420,54 @@ Discovery capture:
 - ADR: updated ADR 0041 architecture decision.
 - SSOT: updated harness enforcement and rule lifecycle policy.
 - Planning: this record updated with user correction and implementation result.
+
+## Tool-events fallback fix — 2026-06-01
+
+Status: implemented after dogfood false-positive report.
+
+Reported issue:
+
+```text
+requiredRead SDD 6개를 다 읽었는데도(개별 Read로 6번) jcode가 그 Read 기록을 hook에 recent_tool_calls evidence로 전달하지 않아서, Edit/Bash(typecheck/lint/commit)가 전부 차단됐어.
+```
+
+Correction:
+
+- `recent_tool_calls` is not a sufficient evidence source for pre-action search/read-debt permit checks.
+- `.jcode/hooks/tool-events.jsonl` already records `tool.execute.after` rows with message/session ids and tool args.
+- Pre-action permit and response audit should accept same-message/session tool-events rows as fallback evidence for search/read debt.
+- The fallback is scoped to packet search/read evidence, not broad record-completion capture, to avoid making response-completion record capture too quiet.
+
+Implemented files:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - reads `.jcode/hooks/tool-events.jsonl`, correlates by message/session id, and uses rows after the packet epoch as evidence.
+  - permits action when all requiredRead paths or search-debt evidence are present in the journal even if `recent_tool_calls` is empty.
+- `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
+  - adds the same fallback only for packet read/search evidence.
+  - keeps record-completion and PR-description audits on lifecycle payload evidence.
+- `.lazy-harness/scripts/self-test.py`
+  - adds isolated fixtures for empty `recent_tool_calls` plus tool-events Read/Search evidence.
+- `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - documents `.jcode/hooks/tool-events.jsonl` as fallback evidence.
+- `.lazy-harness/spec/platform/response-rule-audit.md`
+  - documents fallback scope for response audit packet evidence.
+- `.lazy-harness/tests/response-rule-audit.md`
+  - records the false-positive regression case.
+
+Validation performed:
+
+- `python3 -m py_compile .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py .lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py .lazy-harness/scripts/self-test.py`
+- Direct fixture: pre-action helper accepts `.jcode/hooks/tool-events.jsonl` Read evidence with empty `recent_tool_calls`.
+- Direct fixture: response audit accepts `.jcode/hooks/tool-events.jsonl` Read evidence with empty recent Read calls.
+- `python3 .lazy-harness/scripts/self-test.py` passed.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: updated Context Delivery and Response Rule Audit evidence contracts.
+- BDD: none.
+- TDD: updated response-rule-audit regression coverage.
+- ADR: none, existing ADR 0041 still applies.
+- SSOT: none, existing harness enforcement policy still applies.
+- Planning: this record updated with dogfood false-positive result.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T23:19:45Z",
+  "generatedAt": "2026-06-01T23:47:30Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2702,6 +2702,93 @@
       "provenance": {
         "source": "manual-implementation-map",
         "confirmedAt": "2026-06-01T23:19:45Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_tool_events_fallback_permit",
+      "createdAt": "2026-06-01T23:47:30Z",
+      "updatedAt": "2026-06-01T23:47:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "predicate": "uses_evidence_from",
+      "object": ".jcode/hooks/tool-events.jsonl",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+          "quote": "Pre-action search/read-debt permit accepts same-message/session tool.execute.after Read/Search rows as fallback evidence when recent_tool_calls is empty."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:47:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_tool_events_fallback_audit",
+      "createdAt": "2026-06-01T23:47:30Z",
+      "updatedAt": "2026-06-01T23:47:30Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+      "predicate": "uses_evidence_from",
+      "object": ".jcode/hooks/tool-events.jsonl",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+          "quote": "Response audit accepts same-message/session tool-events rows only for packet search/read evidence; record-completion capture remains payload-scoped."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:47:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_tool_events_fallback_self_test",
+      "createdAt": "2026-06-01T23:47:30Z",
+      "updatedAt": "2026-06-01T23:47:30Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/scripts/self-test.py",
+      "predicate": "protects",
+      "object": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "Phase 7 fixture covers empty recent_tool_calls plus tool-events Read/Search evidence for pre-action permit and response audit false-positive prevention."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:47:30Z"
       }
     }
   ]

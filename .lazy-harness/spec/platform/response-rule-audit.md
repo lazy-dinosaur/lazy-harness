@@ -190,6 +190,7 @@ Phase 7 adds one advisory-only case:
    - The row has `requiredRead` paths and sufficient confidence.
    - The turn uses a mutation tool.
    - Recent read/search evidence does not reference every concrete required-read path.
+   - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
    - Output starts with `ADVISORY`, never `STOP`.
 
 Phase 7 also adds a search-debt advisory-only case:
@@ -200,9 +201,10 @@ Phase 7 also adds a search-debt advisory-only case:
    - The row has `instructionLevel` in self-resolve/delegate-search mode and fallback search evidence.
    - The turn uses a mutation tool.
    - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff).
+   - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
    - Output starts with `ADVISORY`, never `STOP`.
 
-The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; this response audit remains the after-completion backstop and dogfood signal.
+The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; both helpers use `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. This response audit remains the after-completion backstop and dogfood signal.
 
 Everything else stays silent.
 
@@ -243,7 +245,7 @@ exit = 0
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized surfaced digest journal after successful digest injection.
   - `.lazy-harness/scripts/context-delivery.ts` — writes sanitized packet evidence journal for explicit `--journal` use.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads the journal and emits conservative response audit feedback.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events evidence and emits conservative response audit feedback.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
   - `.lazy-harness/scripts/lifecycle-check.py` — runs the same audit helper in shadow/orchestrator lifecycle checks.
   - `.lazy-harness/scripts/self-test.py` — protects journal privacy, ignored surfaced PR rule detection, missing record-completion detection, and silent clean turns.
