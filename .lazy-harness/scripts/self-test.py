@@ -3928,6 +3928,122 @@ def check_message_received_hook_context_injection() -> None:
     print("✓ message.received hook context injection ok")
 
 
+def check_response_rule_audit_from_surfaced_digest() -> None:
+    """Phase 4: response.completed should audit surfaced digest misses and stay silent on clean turns."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-response-rule-audit-"))
+    try:
+        write_digest_fixture(temp)
+        (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(LAZY / "scripts" / "relevant-record-query.ts", temp / ".lazy-harness" / "scripts" / "relevant-record-query.ts")
+        hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
+        hook.chmod(0o755)
+        helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py", helper)
+        helper.chmod(0o755)
+
+        message_payload = {
+            "event": "message.received",
+            "session_id": "phase4-session",
+            "message_id": "phase4-pr-message",
+            "working_dir": str(temp),
+            "last_user_message": "PR description 작성해줘",
+        }
+        injected = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(message_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if injected.returncode != 0 or not injected.stdout.strip():
+            fail("message.received hook should emit digest before response-rule audit:\n" + injected.stdout + injected.stderr)
+        inject_body = json.loads(injected.stdout).get("inject", {}).get("body", "")
+        if "Why, What, and Task" not in inject_body:
+            fail("message.received hook did not surface PR digest needed by audit:\n" + injected.stdout)
+
+        journal = temp / ".lazy-harness" / "state" / "surfaced-rule-digests.jsonl"
+        if not journal.exists():
+            fail("message.received hook should write surfaced digest journal")
+        journal_text = journal.read_text(encoding="utf-8")
+        if "PR description 작성해줘" in journal_text:
+            fail("surfaced digest journal must not store raw user message")
+        journal_rows = [json.loads(line) for line in journal_text.splitlines() if line.strip()]
+        if not journal_rows or journal_rows[-1].get("messageIdHash") is None:
+            fail("surfaced digest journal should include safe message id hash")
+
+        def run_helper(payload: dict) -> str:
+            completed = subprocess.run(
+                [str(helper), json.dumps(payload, ensure_ascii=False)],
+                cwd=temp,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if completed.returncode != 0:
+                fail("response rule audit helper exit changed:\n" + completed.stdout + completed.stderr)
+            return completed.stdout
+
+        ignored_pr = run_helper({
+            "message_id": "phase4-pr-message",
+            "recent_tool_calls": [
+                {"name": "mcp__github__create_pull_request", "arguments": {"title": "Fixture", "body": "No structured body"}},
+            ],
+        })
+        if "Response rule audit" not in ignored_pr or "Why / What / Task" not in ignored_pr:
+            fail("response rule audit should catch surfaced PR rule miss:\n" + ignored_pr)
+
+        clean_pr = run_helper({
+            "message_id": "phase4-pr-message",
+            "recent_tool_calls": [
+                {"name": "mcp__github__create_pull_request", "arguments": {"title": "Fixture", "body": "Why:\n- because\n\nWhat:\n- changed\n\nTask:\n- done"}},
+            ],
+        })
+        if clean_pr.strip():
+            fail("response rule audit should stay silent when surfaced PR rule is satisfied:\n" + clean_pr)
+
+        # Manual journal row for a record-completion obligation not tied to PR.
+        missing_capture_id = "phase4-record-missing"
+        import hashlib
+        journal.write_text(journal.read_text(encoding="utf-8") + json.dumps({
+            "schemaVersion": "1.0",
+            "event": "message.received.digest",
+            "epochSeconds": 9999999999,
+            "messageIdHash": hashlib.sha256(missing_capture_id.encode()).hexdigest()[:16],
+            "entries": [{
+                "recordPath": ".lazy-harness/ssot/harness-enforcement-policy.md",
+                "title": "Harness Enforcement Policy",
+                "layer": "SSOT",
+                "status": "active",
+                "recordCompletion": "user-confirmed enforcement policy changes update this SSOT",
+                "bullets": ["audit missed rules and missing records after response with response.completed"],
+            }],
+        }, ensure_ascii=False) + "\n", encoding="utf-8")
+
+        missing_capture = run_helper({
+            "message_id": missing_capture_id,
+            "assistant_response": "Confirmed source-of-truth correction and SDD contract change.",
+            "recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/hooks/lifecycle/on-message-received.sh"}],
+        })
+        if "record-completion guidance" not in missing_capture:
+            fail("response rule audit should catch surfaced record-completion miss:\n" + missing_capture)
+
+        captured = run_helper({
+            "message_id": missing_capture_id,
+            "assistant_response": "Confirmed source-of-truth correction and SDD contract change.",
+            "recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/ssot/harness-enforcement-policy.md"}],
+        })
+        if captured.strip():
+            fail("response rule audit should stay silent when durable record capture is present:\n" + captured)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ response rule audit from surfaced digest ok")
+
+
 def check_tool_execute_before_hook() -> None:
     """N2.5 — Layer 2 force-gate hook (ADR 0024).
 
@@ -4151,6 +4267,7 @@ def main() -> None:
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
         (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
+        (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
     ]

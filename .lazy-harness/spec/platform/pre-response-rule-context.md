@@ -135,10 +135,13 @@ Semantics:
 
 1. resolve host root,
 2. parse payload,
-3. call `relevant-record-query.ts --message ... --format=md --token-budget=600`,
-4. emit `inject` JSON when relevant records exist,
-5. stay silent when no relevant records are found,
-6. log latency without raw message bodies.
+3. call `relevant-record-query.ts --message ... --format=json --token-budget=600`,
+4. render compact Markdown and emit `inject` JSON when relevant records exist,
+5. append sanitized surfaced digest metadata to `.lazy-harness/state/surfaced-rule-digests.jsonl`,
+6. stay silent when no relevant records are found,
+7. log latency without raw message bodies.
+
+The surfaced digest journal is runtime state only. It stores safe hashes and record-authored fields (record path, title, layer, status, record-completion text, compact bullets) so `response.completed` can audit the same turn without storing raw user or assistant message bodies.
 
 ## Token and latency budget
 
@@ -162,6 +165,8 @@ If query/index performance is not ready, run in measurement/shadow mode before e
 - checks mandatory record completion,
 - updates guidance/journal state,
 - emits no output on clean turns.
+
+Phase 4 contract details live in `.lazy-harness/spec/platform/response-rule-audit.md`.
 
 Together:
 

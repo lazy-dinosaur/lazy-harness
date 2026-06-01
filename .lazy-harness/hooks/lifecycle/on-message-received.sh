@@ -59,7 +59,7 @@ cmd = [
     'bun', str(script),
     '--root', str(root),
     '--message', message,
-    '--format', 'md',
+    '--format', 'json',
     '--token-budget', budget,
     '--limit', limit,
     '--require-digest',
@@ -106,11 +106,93 @@ finally:
 if completed.returncode != 0:
     raise SystemExit(0)
 
-body = (completed.stdout or '').strip()
-if not body:
+try:
+    result = json.loads(completed.stdout or '{}')
+except Exception:
     raise SystemExit(0)
-if 'No matching rule digest found' in body:
+
+digest = result.get('digest') if isinstance(result, dict) else {}
+entries = digest.get('entries') if isinstance(digest, dict) else []
+if not isinstance(entries, list) or not entries:
     raise SystemExit(0)
+
+def compact_bullets(entry):
+    bullets = entry.get('bullets') if isinstance(entry, dict) else []
+    if not isinstance(bullets, list):
+        return []
+    return [' '.join(str(b).split()) for b in bullets if str(b).strip()][:3]
+
+def render_markdown(entries, truncated):
+    lines = ['Relevant lazy-harness rules']
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        record_path = str(entry.get('recordPath') or '').strip()
+        title = str(entry.get('title') or '').strip()
+        status = str(entry.get('status') or 'active')
+        if not record_path:
+            continue
+        suffix = '' if status == 'active' else f' [{status}]'
+        lines.append(f'- `{record_path}` — {title}{suffix}')
+        for bullet in compact_bullets(entry):
+            lines.append(f'  - {bullet}')
+        record_completion = str(entry.get('recordCompletion') or '').strip()
+        if record_completion:
+            lines.append(f'  - Record completion: {record_completion}')
+    if truncated:
+        lines.append('- ... truncated by token budget')
+    return '\n'.join(lines).strip() + '\n'
+
+body = render_markdown(entries, bool(digest.get('truncated')))
+if not body.strip() or 'No matching rule digest found' in body:
+    raise SystemExit(0)
+
+def stable_hash(value):
+    import hashlib
+    text = str(value or '').strip()
+    if not text:
+        return None
+    return hashlib.sha256(text.encode('utf-8', errors='replace')).hexdigest()[:16]
+
+def sanitized_entries(entries):
+    out = []
+    for entry in entries[:10]:
+        if not isinstance(entry, dict):
+            continue
+        out.append({
+            'recordPath': str(entry.get('recordPath') or ''),
+            'title': str(entry.get('title') or ''),
+            'layer': str(entry.get('layer') or ''),
+            'status': str(entry.get('status') or ''),
+            'scope': str(entry.get('scope') or ''),
+            'recordCompletion': str(entry.get('recordCompletion') or ''),
+            'bullets': compact_bullets(entry),
+        })
+    return [entry for entry in out if entry.get('recordPath')]
+
+try:
+    state_path = root / '.lazy-harness' / 'state' / 'surfaced-rule-digests.jsonl'
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        'schemaVersion': '1.0',
+        'event': 'message.received.digest',
+        'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'epochSeconds': int(time.time()),
+        'messageIdHash': stable_hash(payload.get('message_id') or payload.get('messageId')),
+        'sessionIdHash': stable_hash(payload.get('session_id') or payload.get('sessionId')),
+        'turnCount': payload.get('turn_count') or payload.get('turnCount'),
+        'estimatedTokens': digest.get('estimatedTokens'),
+        'truncated': bool(digest.get('truncated')),
+        'injected': True,
+        'entries': sanitized_entries(entries),
+    }
+    existing = []
+    if state_path.exists():
+        existing = [line for line in state_path.read_text(encoding='utf-8', errors='ignore').splitlines() if line.strip()][-199:]
+    existing.append(json.dumps(row, ensure_ascii=False, sort_keys=True))
+    state_path.write_text('\n'.join(existing) + '\n', encoding='utf-8')
+except Exception:
+    pass
 
 print(json.dumps({
     'action': 'allow',

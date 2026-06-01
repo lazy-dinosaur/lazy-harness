@@ -189,7 +189,7 @@ Budget:
 - Phase 1 — Record digest/write standard: SDD contracts written on 2026-06-01.
 - Phase 2 — Relevant record index/query contract: SDD/schema/SearchProvider path fix written on 2026-06-01.
 - Phase 3 — Pre-response surfacing prototype: implemented on 2026-06-01 using Jcode `message.received`.
-- Phase 4 — response.completed audit against surfaced digest: next implementation/design slice.
+- Phase 4 — response.completed audit against surfaced digest: implemented on 2026-06-01.
 
 ### Phase 0 — Baseline and inventory
 
@@ -337,6 +337,13 @@ Outputs:
 
 - `.lazy-harness/spec/platform/response-rule-audit.md`
 - journal state design under `.lazy-harness/state/` or logs, non-canonical.
+
+Status:
+
+- implemented on 2026-06-01.
+- `message.received` writes sanitized surfaced digest rows to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
+- `response.completed` runs `check-response-rule-audit.py` in both legacy hook and `lifecycle-check.py` shadow/orchestrator chains.
+- First conservative audit cases: surfaced PR description rule ignored, and surfaced record-completion obligation missing.
 
 Validation:
 
