@@ -259,6 +259,11 @@
           "description": "SDD contract for Phase 8 post-turn Record Decision Packet: record-updated, candidate-needed, no-record-needed, option-gate-needed, and deferred dispositions."
         },
         {
+          "path": "tests/record-decision-broker.md",
+          "kind": "file",
+          "description": "TDD contract fixtures for Phase 8 Record Decision Broker false-positive and disposition coverage; required by BOTH-scope self-test."
+        },
+        {
           "path": "spec/platform/record-write-update-policy.md",
           "kind": "file",
           "description": "SDD contract for updating existing canonical records before creating new records."

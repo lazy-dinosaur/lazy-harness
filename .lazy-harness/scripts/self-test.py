@@ -4651,6 +4651,8 @@ def check_record_decision_broker_phase8() -> None:
     manifest = manifest_path.read_text(encoding="utf-8")
     if "spec/platform/record-decision-broker.md" not in manifest:
         fail("init-categories manifest must sync Record Decision Broker SDD")
+    if "tests/record-decision-broker.md" not in manifest:
+        fail("init-categories manifest must sync Record Decision Broker TDD fixture")
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     if schema.get("title") != "RecordDecisionPacket":
