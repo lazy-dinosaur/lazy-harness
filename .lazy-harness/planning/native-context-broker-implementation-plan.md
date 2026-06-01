@@ -111,6 +111,91 @@ message.received injects search protocol
 
 This keeps the system simple now while making later subagent delegation cheap: the handoff prompt is just the same protocol plus the user request and host root.
 
+## Search result output pipeline
+
+Search output must not be raw grep chunks or vague `Relevant: X` labels. The broker should normalize results in three stages:
+
+### Stage 1 — Raw hit
+
+Raw hits are direct outputs from search tools and are not injected as-is.
+
+```json
+{
+  "source": "record-query | project-profile | graph | file-search | symbol-search",
+  "path": ".lazy-harness/behavior/reservation-management.md",
+  "matchedText": "예약관리페이지",
+  "query": "예약관리"
+}
+```
+
+### Stage 2 — Normalized evidence
+
+Normalize raw hits into comparable evidence rows.
+
+```json
+{
+  "id": "record:.lazy-harness/behavior/reservation-management.md",
+  "kind": "record | project-profile | graph-edge | source-file | symbol | test",
+  "path": ".lazy-harness/behavior/reservation-management.md",
+  "matchedBy": ["query-expansion", "record-digest"],
+  "matchedQueries": ["예약시트", "예약관리", "reservation sheet"],
+  "reason": "예약시트가 예약관리 UI surface일 가능성이 있음",
+  "confidence": 0.82,
+  "layer": "BDD",
+  "readPriority": "required | optional | candidate"
+}
+```
+
+### Stage 3 — Context Delivery Packet
+
+Only the fused packet should be rendered into `system_reminder` or returned by a searcher subagent.
+
+```json
+{
+  "instructionLevel": "self-resolve-before-change",
+  "resolvedPhrase": "예약시트",
+  "candidateMeanings": ["예약관리페이지", "reservation sheet", "booking table"],
+  "confidence": 0.76,
+  "requiredRead": [
+    {
+      "path": ".lazy-harness/project/feature-navigation.xml",
+      "kind": "project-profile",
+      "reason": "예약시트가 어떤 project surface alias인지 확인",
+      "confidence": 0.88
+    },
+    {
+      "path": ".lazy-harness/behavior/reservation-management.md",
+      "kind": "record",
+      "reason": "예약 관리 UI behavior 후보",
+      "confidence": 0.82
+    }
+  ],
+  "optionalRead": [],
+  "fallbackSearches": ["rg -n \"예약|reservation|booking|appointment|schedule\" ."],
+  "instruction": "Read requiredRead before answering or editing. If candidates conflict, ask an option gate."
+}
+```
+
+Scoring should begin deterministic and explainable:
+
+```text
+exact alias match             +40
+project profile surface match +35
+rule digest Applies when      +30
+graph/implementation edge     +25
+file/symbol/route match       +25
+multi-query duplicate         +10
+deprecated/stale penalty      -30
+```
+
+Thresholds for the first implementation:
+
+- `score >= 70` → `requiredRead`
+- `40 <= score < 70` → `optionalRead`
+- `score < 40` → keep as raw/candidate evidence only
+
+This output pipeline is the stable contract. Search backends can change later without changing what the main LLM receives.
+
 ## Proposed implementation phases
 
 ### Phase 1 — Context Delivery Contract SDD
@@ -255,6 +340,51 @@ Acceptance criteria:
 - clean explanatory turns stay silent.
 - fixtures cover record-needed and no-record-needed cases.
 
+### Phase 8 — Post-turn Record Decision Broker
+
+Add a structured post-turn broker after the pre-turn context delivery flow is stable.
+
+Purpose:
+
+```text
+turn evidence
+→ normalized record signals
+→ record decision packet
+→ record update / candidate capture / no-record-needed / option gate
+```
+
+The output should mirror pre-turn Context Delivery, but for record writes:
+
+```json
+{
+  "recordDecision": {
+    "disposition": "record-updated | candidate-needed | no-record-needed | option-gate-needed",
+    "trigger": "new alias found / UI behavior changed / architecture decision made",
+    "evidence": ["edited components/reservations/ReservationTable.tsx"],
+    "recommendedRecords": [
+      {
+        "path": ".lazy-harness/behavior/reservation-management.md",
+        "action": "update",
+        "reason": "UI flow or alias changed"
+      },
+      {
+        "path": ".lazy-harness/knowledge/graph.jsonl",
+        "action": "append",
+        "reason": "alias/surface/component relation should be indexed"
+      }
+    ]
+  }
+}
+```
+
+Acceptance criteria:
+
+- no automatic blind record writes.
+- explicit `no-record-needed` path for explanation/evaluation turns.
+- concrete evidence required before STOP output.
+- fixtures cover false-positive cases before enabling stricter audit.
+- can consume Context Delivery Packet evidence such as `requiredRead`, resolved aliases, and files read/changed.
+
 ## Search system recommendation
 
 Start with native lazy-harness retrieval, not external RAG:
@@ -303,10 +433,14 @@ For implemented areas, include `Implementation map` with source files, symbols, 
 
 ## Validation plan
 
+- Self-test for the three-stage output pipeline: raw hit → normalized evidence → Context Delivery Packet.
 - Unit fixtures for query expansion/fusion output.
 - Self-test for `예약시트` style ambiguous term.
 - Self-test for digest-only simple request.
 - Self-test for missing index fallback.
+- Self-test for self-search protocol rendering.
+- Self-test for searcher subagent handoff output shape, without requiring subagent execution.
+- Self-test for post-turn Record Decision Packet false positives and no-record-needed cases.
 - Medivance/PWA dogfood sync and smoke.
 - Response audit false-positive regression tests before enabling stricter audit.
 
