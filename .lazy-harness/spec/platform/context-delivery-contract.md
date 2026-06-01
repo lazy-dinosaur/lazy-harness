@@ -25,6 +25,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - normalize raw hits before rendering; never inject raw grep chunks as the final broker output
   - keep canonical truth in `.lazy-harness` records and source files; generated packets are non-canonical context
   - fail open and stay bounded when used from `message.received`
+  - allow lightweight self-resolution instructions when a full packet is unavailable but a request is implementation-likely
   - ask an option gate when candidate meanings conflict and confidence is not high enough to proceed
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
@@ -282,6 +283,31 @@ Rendering rules:
 - Keep normal output under 600 tokens and hard ceiling under 1,000 tokens for pre-response use.
 - If output would exceed budget, keep highest-confidence required reads and move the rest to `fallbackSearches` or `optionalRead`.
 
+## Lightweight self-resolution protocol
+
+Phase 5 adds a bounded protocol-only rendering for `message.received` when the hook can identify a surface-like or implementation-likely request but should not run heavy model/subagent work inside the 800ms pre-turn budget.
+
+This protocol is not a full `ContextDeliveryPacket`; it is an instruction to the main LLM to produce or approximate one by self-searching with root-bound tools before answering or changing code.
+
+Allowed rendering:
+
+```md
+Context Delivery self-resolution
+- Instruction: self-resolve-before-change
+- Before answering or editing, generate 2-5 candidate meanings and multilingual/code query expansions.
+- Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.
+- Read high-confidence records/files before acting; if candidate meanings conflict, ask an option gate.
+- Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.
+```
+
+Rules:
+
+- Simple digest matches stay `digest-only` and must not receive this extra protocol.
+- Surface-like implementation/change requests may receive `self-resolve-before-change` even when no high-confidence required-read record is available yet.
+- Explanation/question requests may receive `self-resolve-before-answer` only when the message is surface-like enough to need host context.
+- The hook must not call a subagent, `jcode run`, hosted RAG, or other heavy model path synchronously for this protocol.
+- Protocol-only injections are not enough evidence for response audit to claim a concrete surfaced record was ignored; audit must wait for packet/journal evidence.
+
 ## `예약시트` example
 
 Input:
@@ -316,6 +342,7 @@ Privacy requirements:
 - Short query strings and candidate labels may be stored only when they are derived from record-authored aliases or compact user-surface terms needed for debugging.
 - Prefer short hashes for session/message identifiers if a future journal links packets to turns.
 - Record paths, titles, digest bullets, schema names, and source file paths are allowed.
+- Protocol-only self-resolution injections should not write raw user messages or synthetic candidate meanings to the surfaced digest journal.
 
 Fail-open requirements:
 
@@ -360,7 +387,7 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
 
 ## Implementation map
 
-- Status: `contract-specified`
+- Status: `partially-implemented`
 - Primary files:
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - this SDD and packet contract.
   - `.lazy-harness/schemas/context-delivery-packet.schema.json` - JSON Schema for packet-shaped outputs.
@@ -369,19 +396,23 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
   - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.
 - Future implementation files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future renderer once the packet generator exists.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future full-packet renderer once packet generation is safe for pre-turn use.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - future packet-aware audit, after fixtures.
 - Flow:
   1. Request enters `message.received`.
-  2. Existing digest query may return `digest-only`; future broker may emit a full Context Delivery Packet.
-  3. Main LLM reads required items or delegates search using the same schema.
-  4. Response audit may later verify required-read usage only with strong evidence.
+  2. Existing digest query may return `digest-only`.
+  3. Surface-like implementation requests may receive lightweight self-resolution instructions without heavy hook latency.
+  4. Future broker may emit a full Context Delivery Packet.
+  5. Main LLM reads required items or delegates search using the same schema.
+  6. Response audit may later verify required-read usage only with strong evidence.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `예약시트` example cues.
+  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `예약시트 고쳐줘` without mandatory subagent latency.
 
 ## Validation plan
 
@@ -398,6 +429,7 @@ Future implementation validation:
 
 - Fixture: direct digest request returns `digest-only`.
 - Fixture: `예약시트 고쳐줘` returns `self-resolve-before-change` and multilingual queries.
+- Fixture: `message.received` keeps simple digest requests digest-only but injects lightweight `self-resolve-before-change` protocol for ambiguous project-surface changes.
 - Fixture: packet fuses record/profile/code/test hits into required-read items.
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.

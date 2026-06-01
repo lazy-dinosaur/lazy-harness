@@ -4408,7 +4408,7 @@ def check_context_delivery_dual_mode_phase4() -> None:
 
 
 def check_message_received_hook_context_injection() -> None:
-    """message.received hook should emit same-turn system reminder inject JSON from digests."""
+    """message.received hook should emit digest context and lightweight self-resolution protocol."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
         write_digest_fixture(temp)
@@ -4445,6 +4445,37 @@ def check_message_received_hook_context_injection() -> None:
         body = data.get("inject", {}).get("body", "")
         if data.get("inject", {}).get("format") != "system_reminder" or "Why, What, and Task" not in body:
             fail("message.received hook output missing digest body:\n" + output)
+        if "Context Delivery self-resolution" in body:
+            fail("simple digest request should stay digest-only and not inject self-resolution protocol:\n" + output)
+
+        surface_payload = {
+            "event": "message.received",
+            "session_id": "s-test",
+            "message_id": "m-surface",
+            "working_dir": str(temp),
+            "last_user_message": "예약시트 고쳐줘",
+            "recent_tool_calls": [],
+            "turn_count": 2,
+        }
+        surface_completed = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(surface_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if surface_completed.returncode != 0:
+            fail("message.received surface hook should fail-open with exit 0:\n" + surface_completed.stdout + surface_completed.stderr)
+        surface_output = surface_completed.stdout.strip()
+        if not surface_output:
+            fail("ambiguous project-surface request should emit self-resolution inject JSON")
+        surface_body = json.loads(surface_output).get("inject", {}).get("body", "")
+        if "Context Delivery self-resolution" not in surface_body or "self-resolve-before-change" not in surface_body:
+            fail("ambiguous project-surface request missing self-resolve-before-change protocol:\n" + surface_output)
+        if "Use main-agent self-search first" not in surface_body:
+            fail("self-resolution protocol should not require subagent latency by default:\n" + surface_output)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ message.received hook context injection ok")
@@ -4793,7 +4824,7 @@ def main() -> None:
         (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
-        (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
+        (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),

@@ -31,6 +31,7 @@ command -v bun >/dev/null 2>&1 || exit 0
 python3 - "$ROOT_CANDIDATE" "$PAYLOAD" <<'PY'
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -113,8 +114,8 @@ except Exception:
 
 digest = result.get('digest') if isinstance(result, dict) else {}
 entries = digest.get('entries') if isinstance(digest, dict) else []
-if not isinstance(entries, list) or not entries:
-    raise SystemExit(0)
+if not isinstance(entries, list):
+    entries = []
 
 def compact_bullets(entry):
     bullets = entry.get('bullets') if isinstance(entry, dict) else []
@@ -143,7 +144,28 @@ def render_markdown(entries, truncated):
         lines.append('- ... truncated by token budget')
     return '\n'.join(lines).strip() + '\n'
 
-body = render_markdown(entries, bool(digest.get('truncated')))
+def is_change_intent(text):
+    return bool(re.search(r'(고쳐|수정|변경|만들|구현|추가|삭제|디버그|fix|change|update|modify|build|implement|add|delete|debug|refactor)', text, re.I))
+
+def is_surface_like(text):
+    return bool(re.search(r'(예약|시트|페이지|화면|표|그리드|목록|상세|관리|sheet|table|grid|page|screen|surface|component|flow|ui|route)', text, re.I))
+
+def render_self_resolve_protocol(text):
+    if not is_surface_like(text):
+        return ''
+    level = 'self-resolve-before-change' if is_change_intent(text) else 'self-resolve-before-answer'
+    return '\n'.join([
+        'Context Delivery self-resolution',
+        f'- Instruction: {level}',
+        '- Before answering or editing, generate 2-5 candidate meanings and multilingual/code query expansions.',
+        '- Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.',
+        '- Read high-confidence records/files before acting; if candidate meanings conflict, ask an option gate.',
+        '- Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.',
+    ]).strip() + '\n'
+
+self_resolve_body = render_self_resolve_protocol(message)
+digest_body = render_markdown(entries, bool(digest.get('truncated'))) if entries else ''
+body = '\n'.join(part.strip() for part in [digest_body, self_resolve_body] if part.strip()).strip() + '\n'
 if not body.strip() or 'No matching rule digest found' in body:
     raise SystemExit(0)
 
@@ -171,26 +193,27 @@ def sanitized_entries(entries):
     return [entry for entry in out if entry.get('recordPath')]
 
 try:
-    state_path = root / '.lazy-harness' / 'state' / 'surfaced-rule-digests.jsonl'
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    row = {
-        'schemaVersion': '1.0',
-        'event': 'message.received.digest',
-        'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        'epochSeconds': int(time.time()),
-        'messageIdHash': stable_hash(payload.get('message_id') or payload.get('messageId')),
-        'sessionIdHash': stable_hash(payload.get('session_id') or payload.get('sessionId')),
-        'turnCount': payload.get('turn_count') or payload.get('turnCount'),
-        'estimatedTokens': digest.get('estimatedTokens'),
-        'truncated': bool(digest.get('truncated')),
-        'injected': True,
-        'entries': sanitized_entries(entries),
-    }
-    existing = []
-    if state_path.exists():
-        existing = [line for line in state_path.read_text(encoding='utf-8', errors='ignore').splitlines() if line.strip()][-199:]
-    existing.append(json.dumps(row, ensure_ascii=False, sort_keys=True))
-    state_path.write_text('\n'.join(existing) + '\n', encoding='utf-8')
+    if entries:
+        state_path = root / '.lazy-harness' / 'state' / 'surfaced-rule-digests.jsonl'
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            'schemaVersion': '1.0',
+            'event': 'message.received.digest',
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'epochSeconds': int(time.time()),
+            'messageIdHash': stable_hash(payload.get('message_id') or payload.get('messageId')),
+            'sessionIdHash': stable_hash(payload.get('session_id') or payload.get('sessionId')),
+            'turnCount': payload.get('turn_count') or payload.get('turnCount'),
+            'estimatedTokens': digest.get('estimatedTokens'),
+            'truncated': bool(digest.get('truncated')),
+            'injected': True,
+            'entries': sanitized_entries(entries),
+        }
+        existing = []
+        if state_path.exists():
+            existing = [line for line in state_path.read_text(encoding='utf-8', errors='ignore').splitlines() if line.strip()][-199:]
+        existing.append(json.dumps(row, ensure_ascii=False, sort_keys=True))
+        state_path.write_text('\n'.join(existing) + '\n', encoding='utf-8')
 except Exception:
     pass
 

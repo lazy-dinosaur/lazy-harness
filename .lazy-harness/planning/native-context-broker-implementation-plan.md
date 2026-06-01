@@ -296,6 +296,8 @@ Acceptance criteria:
 
 ### Phase 5 — Self-resolving agent instruction
 
+Status: completed in this Phase 5 change with `.lazy-harness/hooks/lifecycle/on-message-received.sh` injecting a lightweight main-agent self-resolution protocol for surface-like implementation requests, without running subagents or heavy model calls inside `message.received`; protected by `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`.
+
 Do not require subagents by default.
 
 `message.received` should be able to inject:
