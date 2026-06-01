@@ -397,6 +397,7 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
 - `pre-response-rule-context.md` defines the bounded lifecycle injection surface.
 - This SDD defines the richer packet that future broker phases produce after query expansion and fusion.
 - `response-rule-audit.md` consumes explicit packet evidence journal rows as advisory-only required-read audit after false-positive-safe fixtures exist.
+- `record-decision-broker.md` mirrors this pre-turn packet with a post-turn Record Decision Packet for record-write decisions.
 
 ## Implementation map
 
@@ -412,6 +413,7 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows for advisory-only required-read audit.
+  - `.lazy-harness/spec/platform/record-decision-broker.md` - Phase 8 mirror contract for post-turn record actions.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.

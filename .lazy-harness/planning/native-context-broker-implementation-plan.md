@@ -359,6 +359,8 @@ Acceptance criteria:
 
 ### Phase 8 — Post-turn Record Decision Broker
 
+Status: contract completed in this Phase 8 change with `.lazy-harness/spec/platform/record-decision-broker.md` and `.lazy-harness/schemas/record-decision-packet.schema.json`. Runtime `response.completed` behavior is intentionally unchanged until false-positive-safe generator/audit fixtures exist.
+
 Add a structured post-turn broker after the pre-turn context delivery flow is stable.
 
 Purpose:

@@ -4608,6 +4608,144 @@ def check_context_delivery_packet_journal_phase7() -> None:
     print("✓ context-delivery packet journal Phase 7 ok")
 
 
+def check_record_decision_broker_phase8() -> None:
+    """Phase 8 should define a safe post-turn Record Decision Packet contract before runtime escalation."""
+    sdd_path = LAZY / "spec" / "platform" / "record-decision-broker.md"
+    tdd_path = LAZY / "tests" / "record-decision-broker.md"
+    schema_path = LAZY / "schemas" / "record-decision-packet.schema.json"
+    manifest_path = LAZY / "manifests" / "init-categories.json"
+    for path in [sdd_path, tdd_path, schema_path]:
+        if not path.exists():
+            fail("Record Decision Broker Phase 8 artifact missing: " + str(path))
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "## Rule digest",
+        "Record Decision Packet",
+        "record-updated",
+        "candidate-needed",
+        "no-record-needed",
+        "option-gate-needed",
+        "deferred",
+        "no automatic blind record writes",
+        "Future `response.completed` integration",
+        "Context Delivery is pre-turn required-read",
+        "Do not write automatically from this packet alone",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Record Decision Broker SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "Clean explanation turn",
+        "Confirmed new alias",
+        "Ambiguous layer placement",
+        "Same-turn record update",
+        "Deferred by user",
+        "check_record_decision_broker_phase8",
+    ]:
+        if phrase not in tdd_text:
+            fail("Record Decision Broker TDD missing phrase: " + phrase)
+
+    manifest = manifest_path.read_text(encoding="utf-8")
+    if "spec/platform/record-decision-broker.md" not in manifest:
+        fail("init-categories manifest must sync Record Decision Broker SDD")
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    if schema.get("title") != "RecordDecisionPacket":
+        fail("Record Decision Packet schema title mismatch")
+    required = set(schema.get("required", []))
+    expected_top = {"schemaVersion", "generatedAt", "recordDecision"}
+    if not expected_top.issubset(required):
+        fail("Record Decision Packet schema missing top-level fields: " + json.dumps(sorted(expected_top - required)))
+    definitions = schema.get("definitions", {})
+    dispositions = set(definitions.get("disposition", {}).get("enum", []))
+    expected_dispositions = {"record-updated", "candidate-needed", "no-record-needed", "option-gate-needed", "deferred"}
+    if dispositions != expected_dispositions:
+        fail("Record Decision Packet dispositions mismatch: " + json.dumps(sorted(dispositions)))
+    evidence_kinds = set(definitions.get("evidenceKind", {}).get("enum", []))
+    for expected in ["user-confirmation", "user-correction", "changed-file", "changed-record", "context-delivery-required-read", "response-audit-advisory", "validation", "no-op"]:
+        if expected not in evidence_kinds:
+            fail("Record Decision Packet missing evidence kind: " + expected)
+    actions = set(definitions.get("recordAction", {}).get("enum", []))
+    for expected in ["update", "create", "append", "candidate", "none", "ask-option-gate"]:
+        if expected not in actions:
+            fail("Record Decision Packet missing record action: " + expected)
+    triggers = set(definitions.get("trigger", {}).get("enum", []))
+    for expected in ["new-alias-found", "validation-only", "explanation-only", "ambiguous-placement", "user-deferred"]:
+        if expected not in triggers:
+            fail("Record Decision Packet missing trigger: " + expected)
+
+    decision_required = set(definitions.get("recordDecision", {}).get("required", []))
+    expected_decision_fields = {"disposition", "confidence", "trigger", "summary", "evidence", "recommendedRecords", "instructions"}
+    if not expected_decision_fields.issubset(decision_required):
+        fail("recordDecision schema missing fields: " + json.dumps(sorted(expected_decision_fields - decision_required)))
+
+    samples = [
+        {
+            "schemaVersion": "1.0",
+            "generatedAt": "2026-06-01T00:00:00.000Z",
+            "recordDecision": {
+                "disposition": "candidate-needed",
+                "confidence": 0.74,
+                "trigger": "new-alias-found",
+                "summary": "User confirmed a new surface alias.",
+                "evidence": [{"kind": "user-confirmation", "summary": "Alias confirmed.", "confidence": 0.9}],
+                "recommendedRecords": [{"path": ".lazy-harness/behavior/reservation-management.md", "layer": "BDD", "action": "update", "reason": "Alias should be captured.", "confidence": 0.8}],
+                "instructions": ["Do not write automatically from this packet alone."],
+            },
+        },
+        {
+            "schemaVersion": "1.0",
+            "generatedAt": "2026-06-01T00:00:00.000Z",
+            "recordDecision": {
+                "disposition": "no-record-needed",
+                "confidence": 0.86,
+                "trigger": "explanation-only",
+                "summary": "Read-only explanation produced no durable fact.",
+                "evidence": [{"kind": "no-op", "summary": "No files or records changed.", "confidence": 0.9}],
+                "recommendedRecords": [{"action": "none", "reason": "No durable record action needed.", "confidence": 0.86}],
+                "instructions": ["Keep response.completed silent."],
+            },
+        },
+        {
+            "schemaVersion": "1.0",
+            "generatedAt": "2026-06-01T00:00:00.000Z",
+            "recordDecision": {
+                "disposition": "option-gate-needed",
+                "confidence": 0.61,
+                "trigger": "ambiguous-placement",
+                "summary": "Evidence suggests a record may be needed but layer is ambiguous.",
+                "evidence": [{"kind": "tool-call", "summary": "Changed mapped files but layer is unclear.", "confidence": 0.62}],
+                "recommendedRecords": [{"action": "ask-option-gate", "reason": "Choose DDD/SDD/BDD/TDD/ADR/SSOT before mutating records.", "confidence": 0.7}],
+                "instructions": ["Ask 3-5 options before writing records."],
+            },
+        },
+    ]
+    for sample in samples:
+        decision = sample.get("recordDecision", {})
+        for field in expected_top:
+            if field not in sample:
+                fail("sample Record Decision Packet missing top-level field: " + field)
+        for field in expected_decision_fields:
+            if field not in decision:
+                fail("sample recordDecision missing field: " + field)
+        if decision.get("disposition") not in expected_dispositions:
+            fail("sample recordDecision invalid disposition")
+        if decision.get("trigger") not in triggers:
+            fail("sample recordDecision invalid trigger")
+        if not 0 <= float(decision.get("confidence", -1)) <= 1:
+            fail("sample recordDecision confidence must be 0..1")
+        for evidence in decision.get("evidence", []):
+            if evidence.get("kind") not in evidence_kinds:
+                fail("sample recordDecision invalid evidence kind")
+        for recommendation in decision.get("recommendedRecords", []):
+            if recommendation.get("action") not in actions:
+                fail("sample recordDecision invalid action")
+    print("✓ record decision broker Phase 8 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit digest context and lightweight self-resolution protocol."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -5027,6 +5165,7 @@ def main() -> None:
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),
+        (check_record_decision_broker_phase8, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

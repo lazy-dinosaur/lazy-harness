@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/record-decision-packet.schema.json",
+  "title": "RecordDecisionPacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "recordDecision"],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["1.0"] },
+    "generatedAt": { "type": "string", "minLength": 1 },
+    "recordDecision": { "$ref": "#/definitions/recordDecision" },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    }
+  },
+  "definitions": {
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "layer": {
+      "type": "string",
+      "enum": ["DDD", "SDD", "BDD", "TDD", "ADR", "SSOT", "Planning", "Knowledge"]
+    },
+    "disposition": {
+      "type": "string",
+      "enum": ["record-updated", "candidate-needed", "no-record-needed", "option-gate-needed", "deferred"]
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "new-alias-found",
+        "user-correction",
+        "source-change",
+        "test-change",
+        "contract-change",
+        "behavior-change",
+        "architecture-decision",
+        "response-audit-advisory",
+        "validation-only",
+        "explanation-only",
+        "ambiguous-placement",
+        "user-deferred"
+      ]
+    },
+    "evidenceKind": {
+      "type": "string",
+      "enum": [
+        "user-confirmation",
+        "user-correction",
+        "changed-file",
+        "changed-record",
+        "changed-test",
+        "context-delivery-required-read",
+        "response-audit-advisory",
+        "tool-call",
+        "validation",
+        "no-op"
+      ]
+    },
+    "recordAction": {
+      "type": "string",
+      "enum": ["update", "create", "append", "candidate", "none", "ask-option-gate"]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "summary", "confidence"],
+      "properties": {
+        "kind": { "$ref": "#/definitions/evidenceKind" },
+        "summary": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "toolName": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/definitions/confidence" }
+      }
+    },
+    "recommendedRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason", "confidence"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "layer": { "$ref": "#/definitions/layer" },
+        "action": { "$ref": "#/definitions/recordAction" },
+        "reason": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/definitions/confidence" }
+      }
+    },
+    "recordDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "confidence", "trigger", "summary", "evidence", "recommendedRecords", "instructions"],
+      "properties": {
+        "disposition": { "$ref": "#/definitions/disposition" },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "trigger": { "$ref": "#/definitions/trigger" },
+        "summary": { "type": "string", "minLength": 1 },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/evidence" },
+          "default": []
+        },
+        "recommendedRecords": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/recommendedRecord" },
+          "default": []
+        },
+        "instructions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    }
+  }
+}

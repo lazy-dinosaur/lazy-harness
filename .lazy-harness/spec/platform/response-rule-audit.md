@@ -37,6 +37,7 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
 - Related records:
   - `.lazy-harness/spec/platform/pre-response-rule-context.md`
   - `.lazy-harness/ssot/harness-enforcement-policy.md`
+  - `.lazy-harness/spec/platform/record-decision-broker.md`
   - `.lazy-harness/tests/response-rule-audit.md`
 
 ## Purpose
@@ -263,6 +264,7 @@ exit = 0
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
   - SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
   - Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - TDD: `.lazy-harness/tests/response-rule-audit.md`
 - Machine index:
   - graph ids: `kg_sdd_response_rule_audit_spec`, `kg_response_rule_audit_helper_impl`, `kg_response_rule_audit_journal_impl`, `kg_response_rule_audit_self_test`

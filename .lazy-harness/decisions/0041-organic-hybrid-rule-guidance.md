@@ -168,6 +168,14 @@ Implemented on 2026-06-01:
 - `response.completed` may consume correlated packet evidence as advisory-only required-read feedback.
 - Phase 7 intentionally does not add new STOP/hard-stop behavior; it creates dogfood evidence needed before any later escalation or Record Decision Broker integration.
 
+## Phase 8 implementation note
+
+Implemented on 2026-06-01:
+
+- Added the Post-turn Record Decision Broker contract as `.lazy-harness/spec/platform/record-decision-broker.md`.
+- Added `.lazy-harness/schemas/record-decision-packet.schema.json` with explicit `record-updated`, `candidate-needed`, `no-record-needed`, `option-gate-needed`, and `deferred` dispositions.
+- Phase 8 intentionally changes schema/tests/records only; runtime `response.completed` behavior remains unchanged until false-positive-safe generator/audit fixtures exist.
+
 ### 2. Rule context is queried before the response
 
 The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.

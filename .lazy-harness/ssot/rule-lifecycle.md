@@ -50,7 +50,7 @@ Before Phase 5, this SSOT used rule-binding hard stops as the main answer to act
 | `captured` | Rule exists in a canonical record but has no digest/query/audit coverage yet. |
 | `digest-ready` | Rule has a compact `## Rule digest` and can be surfaced by relevant-record query. |
 | `surfaced` | Rule is expected to appear before relevant turns through `message.received` digest injection. |
-| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, or emit advisory-only Context Delivery required-read evidence checks. |
+| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or future Record Decision Packet guidance after fixtures. |
 | `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. |
 | `advisory-only` | Rule is intentionally not enforced/audited beyond guidance; this must be explicit. |
 | `retired` | Rule is obsolete and should not be applied. |
@@ -67,6 +67,7 @@ Preferred metadata lives in:
 - related implementation map / graph facts,
 - response-rule-audit fixtures when a miss pattern has strong evidence,
 - packet evidence journal fixtures when Context Delivery required-read usage needs advisory dogfood observation,
+- Record Decision Packet fixtures before broader post-turn record guidance,
 - Phase 6 hard-stop promotion records only for rare high-risk boundaries.
 
 ## PR body rule after Phase 5
@@ -104,6 +105,7 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/rule-binding-action-boundary.md` — superseded compatibility SDD.
   - `.lazy-harness/spec/platform/guidance-ladder.md` — Phase 6 guidance ladder and hard-stop promotion criteria.
   - `.lazy-harness/spec/platform/response-rule-audit.md` — active response audit SDD.
+  - `.lazy-harness/spec/platform/record-decision-broker.md` — Phase 8 post-turn record decision contract.
   - `.lazy-harness/scripts/context-delivery.ts` — explicit `--journal` packet evidence collection for Phase 7 dogfood.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.
   - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — no-op compatibility shim.
@@ -114,6 +116,7 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `check_rule_action_boundary_legacy_no_project_policy` (`self-test.py`) — protects no project-policy block in legacy helper.
   - `check_response_rule_audit_from_surfaced_digest` (`self-test.py`) — protects PR miss replacement audit.
   - `check_context_delivery_packet_journal_phase7` (`self-test.py`) — protects advisory-only packet required-read evidence audit.
+  - `check_record_decision_broker_phase8` (`self-test.py`) — protects post-turn record decision packet contract before runtime escalation.
   - `check_guidance_ladder_hard_stop_promotion` (`self-test.py`) — protects Phase 6 promotion criteria.
 - Flow:
   1. Confirmed rule/correction/contract is recorded in canonical layer.

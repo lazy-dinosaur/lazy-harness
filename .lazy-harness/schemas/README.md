@@ -7,6 +7,8 @@ Important generated index schemas:
 - `implementation-index.schema.json` — derived implementation map cache.
 - `relevant-record-index.schema.json` — derived compact rule-digest query cache for pre-response context.
 - `context-index.schema.json` — derived Context Delivery cache for record/profile/graph retrieval metadata.
+- `context-delivery-packet.schema.json` — pre-turn required-read Context Delivery Packet.
+- `record-decision-packet.schema.json` — post-turn record-action Record Decision Packet.
 
 ## Trigger to fill
 
