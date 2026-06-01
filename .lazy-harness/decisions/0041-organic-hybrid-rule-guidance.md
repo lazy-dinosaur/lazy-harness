@@ -186,6 +186,12 @@ Dogfood collector follow-up implemented after user selected Option B:
 - Added `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` as explicit/offline dogfood collector.
 - The collector gathers sanitized Context Delivery and Record Decision observations from hosts before any response.completed shadow/advisory integration.
 
+Dogfood handoff clarification:
+
+- Normal development can accumulate automatic Record Decision shadow rows via `response.completed`.
+- Aggregate Medivance/PWA Context Broker dogfood still requires the agent to run `lazy context-dogfood` explicitly when the user asks to check dogfood.
+- The user should not need to prepare inputs manually; the runbook lives in `.lazy-harness/spec/platform/context-broker-dogfood.md`.
+
 Response shadow follow-up implemented after generator and dogfood collector evidence:
 
 - Added `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` to run the deterministic Record Decision generator from `response.completed` lifecycle evidence.

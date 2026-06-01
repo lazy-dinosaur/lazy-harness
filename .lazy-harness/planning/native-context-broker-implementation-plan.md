@@ -367,6 +367,8 @@ Dogfood collector status: completed after user selected Option B. `.lazy-harness
 
 Response shadow status: completed after the generator and dogfood collector. `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` runs the deterministic generator from lifecycle evidence, writes sanitized `.lazy-harness/state/record-decision-packets.jsonl` rows, and stays silent unless `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1` is explicitly enabled.
 
+Next dogfood evidence loop status: active handoff recorded in `.lazy-harness/spec/platform/context-broker-dogfood.md`. When the user says “dogfood 확인해줘”, the agent should sync `/home/lazydino/dev/medivance` and `/home/lazydino/dev/medivance-pwa` to source `HEAD`, run `lazy context-dogfood --host ... --format=md`, verify host `lazy test`/doctor/hard-stop audit, then summarize sanitized row counts, required-read paths, dispositions, errors, and false-positive observations. Normal development may automatically append Record Decision shadow rows, but aggregate host dogfood still requires explicit collector execution by the agent.
+
 Add a structured post-turn broker after the pre-turn context delivery flow is stable.
 
 Purpose:

@@ -21,6 +21,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - verify collector uses host-local `context-delivery` and `record-decision` CLIs
   - verify collection-only decisions are `no-record-needed`
   - verify markdown dry-run output works without writing collector JSONL
+  - verify the collector remains explicit aggregate dogfood rather than automatic response.completed journaling
   - keep runtime hook integration out of this collector test
 - Record completion:
   - changes to collector behavior, row shape, default cases, or privacy fields update this TDD and `.lazy-harness/spec/platform/context-broker-dogfood.md`
@@ -47,6 +48,10 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
    - Given `--dry-run --format=md`.
    - Expected: markdown summary renders and collector output JSONL is not required.
 
+6. **Automatic vs explicit evidence streams**
+   - Given normal development may append response.completed Record Decision shadow rows.
+   - Expected: aggregate host dogfood still requires `lazy context-dogfood`; the collector output path is separate from `.lazy-harness/state/record-decision-packets.jsonl`.
+
 ## Current protection
 
 - `.lazy-harness/scripts/self-test.py#check_context_broker_dogfood_collector`
@@ -54,6 +59,8 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - runs the collector against that host,
   - validates JSON/JSONL privacy and `no-record-needed`,
   - validates markdown dry-run output.
+  - validates explicit aggregate collection stays separate from runtime shadow journal semantics through the SDD contract.
+  - validates the Operator handoff phrase and “user does not hand-collect evidence” contract remain in the SDD.
 
 ## Implementation map
 
@@ -77,6 +84,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 - TDD: this record and self-test protect the collector.
 - ADR: ADR 0041 records the dogfood-before-hook-integration decision.
 - SSOT: `.lazy-harness/ssot/rule-lifecycle.md` references explicit dogfood collection before response lifecycle escalation.
+- Planning: `.lazy-harness/planning/native-context-broker-implementation-plan.md` records the next dogfood evidence loop handoff.
 
 ## Rule placement
 

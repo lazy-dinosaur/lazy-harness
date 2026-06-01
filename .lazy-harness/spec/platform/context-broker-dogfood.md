@@ -20,6 +20,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - deciding whether response.completed shadow/advisory integration has enough false-positive evidence
 - Must:
   - run only as an explicit CLI, not from `message.received` or `response.completed`
+  - distinguish automatic shadow journals from explicit aggregate dogfood collection
   - collect sanitized context-delivery and record-decision summaries from host roots
   - store case labels and message hashes, not raw user messages
   - keep output under `.lazy-harness/state/` as non-canonical runtime evidence
@@ -56,6 +57,45 @@ Default cases when none are supplied:
 
 - `reservation-surface::예약시트 고쳐줘`
 - `status-readonly::상태 요약`
+
+## Operator handoff — when the user says “dogfood 확인해줘”
+
+Run the explicit aggregate collector from the lazy-harness source root. The user should not have to prepare inputs manually.
+
+```bash
+SOURCE_ROOT="$PWD"
+SOURCE_SHA="$(git rev-parse HEAD)"
+
+for HOST in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+  bun .lazy-harness/scripts/lazy-sync.ts --from "$SOURCE_ROOT" --target "$HOST" --force
+done
+
+.lazy-harness/bin/lazy context-dogfood \
+  --host /home/lazydino/dev/medivance \
+  --host /home/lazydino/dev/medivance-pwa \
+  --format=md
+```
+
+Then verify:
+
+```bash
+for HOST in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+  (cd "$HOST" && .lazy-harness/bin/lazy test)
+  (cd "$HOST" && python3 .lazy-harness/scripts/doctor.py --profile smoke)
+  (cd "$HOST" && python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format=json)
+done
+```
+
+Success criteria:
+
+- both host markers match the source `HEAD` after sync,
+- collector writes sanitized rows to `.lazy-harness/state/context-broker-dogfood.jsonl`,
+- each row has `messageHash` and no raw case message,
+- reservation-surface case produces useful Context Delivery required-read evidence,
+- status-readonly case stays `recordDecision.disposition=no-record-needed`,
+- host `lazy test`, doctor smoke, and hard-stop audit pass.
+
+Do not promote response.completed behavior from this alone. Summarize row counts, required-read paths, dispositions, errors, and false-positive observations first; only then design audit/advisory changes.
 
 ## Row shape
 
@@ -129,7 +169,14 @@ Forbidden:
 
 ## Relationship to future response.completed integration
 
-This collector is the step before response.completed shadow/advisory wiring.
+This collector is the explicit aggregate step before stronger response.completed shadow/advisory wiring.
+
+There are two evidence streams:
+
+1. Automatic shadow journal: normal development can append sanitized Record Decision observations via `response.completed` to `.lazy-harness/state/record-decision-packets.jsonl`.
+2. Explicit aggregate dogfood: `lazy context-dogfood` must be run by the agent/operator to compare real hosts and collect Context Delivery + Record Decision summaries in `.lazy-harness/state/context-broker-dogfood.jsonl`.
+
+The user does not need to hand-collect evidence, but the agent must still run the explicit collector when asked to check dogfood.
 
 It should answer:
 
@@ -137,7 +184,7 @@ It should answer:
 Do Context Delivery and Record Decision Packets produce stable, sanitized, low-noise evidence on real hosts?
 ```
 
-If enough rows show clean/no-record-needed behavior and useful candidate-needed cases, future response.completed shadow integration can consume or generate similar packets. Until then, this collector remains explicit and non-blocking.
+If enough rows show clean/no-record-needed behavior and useful candidate-needed cases, future response.completed advisory or stricter audit integration can consume or generate similar packets. Until then, this collector remains explicit and non-blocking.
 
 ## Implementation map
 
@@ -154,8 +201,10 @@ If enough rows show clean/no-record-needed behavior and useful candidate-needed 
   2. Collector invokes host-local lazy CLIs.
   3. Collector writes sanitized JSONL rows to its own state path.
   4. Later analysis can summarize false-positive/coverage behavior before hook integration.
+  5. Next-session handoff starts from the Operator handoff command above when the user says “dogfood 확인해줘”.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_broker_dogfood_collector`
+    - validates sanitized collector output and the Operator handoff / automatic-vs-explicit evidence stream contract.
 
 ## Validation plan
 
@@ -163,7 +212,7 @@ If enough rows show clean/no-record-needed behavior and useful candidate-needed 
 - Collector JSON/JSONL must not contain raw `예약시트 고쳐줘` message.
 - Record decision for collection-only dogfood should be `no-record-needed`.
 - Markdown dry-run should render a summary without writing collector JSONL.
-- Medivance and Medivance PWA should pass collector smoke after sync.
+- Medivance and Medivance PWA should pass collector smoke after sync and marker check.
 
 ## Rule placement
 
@@ -177,9 +226,9 @@ If enough rows show clean/no-record-needed behavior and useful candidate-needed 
 ## Discovery capture
 
 - DDD: none.
-- SDD: updated, this record defines the dogfood collector contract.
+- SDD: updated, this record defines the dogfood collector contract and next-run handoff.
 - BDD: none; visible behavior is CLI/report output only.
 - TDD: `.lazy-harness/tests/context-broker-dogfood.md` protects fixture behavior.
 - ADR: ADR 0041 receives a dogfood collector follow-up note.
 - SSOT: rule lifecycle references explicit dogfood evidence before hook integration.
-- Planning: native context broker plan marks dogfood collector implemented.
+- Planning: native context broker plan marks dogfood collector implemented and next dogfood evidence loop active.

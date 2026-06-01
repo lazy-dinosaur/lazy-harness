@@ -4823,6 +4823,20 @@ def check_context_broker_dogfood_collector() -> None:
     """Context Broker dogfood collector should gather sanitized rows from host lazy CLIs."""
     collector_script = LAZY / "scripts" / "context-broker-dogfood.ts"
     lazy_bin = LAZY / "bin" / "lazy"
+    sdd = LAZY / "spec" / "platform" / "context-broker-dogfood.md"
+    if not sdd.exists():
+        fail("Context Broker dogfood SDD missing")
+    sdd_text = sdd.read_text(encoding="utf-8")
+    for required in [
+        "Operator handoff",
+        "dogfood 확인해줘",
+        "Automatic shadow journal",
+        "Explicit aggregate dogfood",
+        "The user does not need to hand-collect evidence",
+        "Do not promote response.completed behavior from this alone",
+    ]:
+        if required not in sdd_text:
+            fail("Context Broker dogfood SDD missing handoff/stream contract: " + required)
     required_scripts = [
         LAZY / "scripts" / "context-delivery.ts",
         LAZY / "scripts" / "context-index.ts",

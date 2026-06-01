@@ -70,6 +70,7 @@ Preferred metadata lives in:
 - Record Decision Packet fixtures before broader post-turn record guidance,
 - explicit Record Decision generator and shadow fixtures before broader `response.completed` advisory integration,
 - explicit Context Broker dogfood collector rows before any stronger `response.completed` advisory/escalation integration,
+- automatic `response.completed` shadow rows are ambient evidence; aggregate Medivance/PWA dogfood still requires explicit `lazy context-dogfood` execution,
 - Phase 6 hard-stop promotion records only for rare high-risk boundaries.
 
 ## PR body rule after Phase 5
