@@ -183,6 +183,12 @@ Budget:
 
 ## Proposed phases
 
+### Phase progress
+
+- Phase 0 — Baseline and inventory: completed as planning/inventory in this record.
+- Phase 1 — Record digest/write standard: SDD contracts written on 2026-06-01.
+- Phase 2 — Relevant record index/query contract: next implementation/design slice.
+
 ### Phase 0 — Baseline and inventory
 
 Goal: measure and inventory before implementation.
@@ -231,6 +237,11 @@ Outputs:
 
 - `.lazy-harness/spec/platform/record-digest-format.md`
 - `.lazy-harness/spec/platform/record-write-update-policy.md`
+
+Status:
+
+- completed on 2026-06-01 as SDD contracts.
+- implementation/audit fixtures still belong to later phases.
 
 Validation:
 
@@ -392,7 +403,7 @@ Do **not** implement the full loop yet.
 
 Next slice should be read-only and measurable:
 
-1. Write SDD for `relevant-record-query` and `record-digest-format`.
+1. Write SDD for `relevant-record-query` and generated index/cache schema.
 2. Add fixtures across stored-rule classes, not only PR:
    - project identity / source-of-truth correction,
    - API/component contract work,

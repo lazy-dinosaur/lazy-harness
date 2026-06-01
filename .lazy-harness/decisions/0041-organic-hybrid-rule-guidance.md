@@ -382,6 +382,8 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/planning/harness-enforcement-restoration-plan.md` — reverted hard-gate experiment memory.
   - `.lazy-harness/planning/performance-optimization-plan.md` — performance plan that must preserve this direction.
   - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — comprehensive transition plan for record digest/query/audit migration.
+  - `.lazy-harness/spec/platform/record-digest-format.md` — Phase 1 SDD for compact rule digest sections.
+  - `.lazy-harness/spec/platform/record-write-update-policy.md` — Phase 1 SDD for update-vs-create and digest maintenance behavior.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
   - `.lazy-harness/spec/platform/relevant-record-query.md`
