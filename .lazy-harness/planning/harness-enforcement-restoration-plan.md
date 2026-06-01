@@ -20,8 +20,18 @@ Validation completed:
 - Source `.lazy-harness/scripts/self-test.py`: pass, ran 58, skipped 0.
 - Source `python3 .lazy-harness/scripts/doctor.py --profile smoke`: pass.
 - Source `git diff --check`: pass.
-- Downstream Medivance sync: pass, user-owned `.jcode/config.toml` patched with `BEGIN lazy-harness mandatory Layer 2 force-gates`.
+- Source commit created: `Restore lazy-harness enforcement gates`.
+- Downstream Medivance sync: pass, `syncedFromCommit` updated to the source commit and user-owned `.jcode/config.toml` contains `BEGIN lazy-harness mandatory Layer 2 force-gates`.
 - Downstream Medivance `.lazy-harness/bin/lazy test`: pass, ran 42, skipped 16.
+- Downstream Medivance PWA sync: pass, `syncedFromCommit` updated to the source commit and user-owned `.jcode/config.toml` contains `BEGIN lazy-harness mandatory Layer 2 force-gates`.
+- Downstream Medivance PWA `.lazy-harness/bin/lazy test`: pass, ran 42, skipped 16.
+
+Closeout state:
+
+- Source `/home/lazydino/dev/lazy-harness`: clean after commit.
+- `/home/lazydino/dev/medivance`: clean tracked status after sync.
+- `/home/lazydino/dev/medivance-pwa`: clean tracked status after sync.
+- Remaining follow-up: performance optimization can resume only on top of this restored correctness baseline.
 
 ## User-confirmed direction
 

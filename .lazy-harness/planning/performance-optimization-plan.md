@@ -1,6 +1,6 @@
 # Performance Optimization Plan
 
-Status: planned
+Status: planned-after-correctness-restoration
 Date: 2026-05-21
 Source: user-requested next plan after graph source-only path work
 
@@ -9,6 +9,15 @@ Source: user-requested next plan after graph source-only path work
 The user noted that lazy-harness CLI/hook execution feels too slow. A parallel agent analysis identified the likely hot path as response lifecycle hooks rather than record registry size alone.
 
 This is a planning record only. Do not start this implementation until the current graph source-only path slice is committed, pushed, and synced to hosts.
+
+2026-06-01 update: the 2026-05-31/2026-06-01 enforcement restoration changed the baseline. Performance optimization remains valid, but it must now build on top of restored Layer 2 edit/write/multiedit blocking gates and runtime/dev-instance action-boundary enforcement. Speed work must not remove or weaken these restored mandatory gates.
+
+Current dependency before resuming performance work:
+
+- Source enforcement restoration is committed.
+- Medivance and Medivance PWA are synced to that source commit.
+- Both dogfood hosts contain the `BEGIN lazy-harness mandatory Layer 2 force-gates` block in user-owned `.jcode/config.toml`.
+- Source, Medivance, and Medivance PWA validation have passed on the restored enforcement baseline.
 
 ## Candidate bottlenecks
 
@@ -59,6 +68,13 @@ This is a planning record only. Do not start this implementation until the curre
 ## Safety invariant
 
 Performance work is allowed only if it preserves or improves harness protection. Faster but less protective is a regression.
+
+After the enforcement restoration, the non-negotiable baseline includes:
+
+- `edit`, `write`, and `multiedit` Jcode hooks registered as blocking Layer 2 force-gates.
+- user-owned `.jcode/config.toml` patch/repair for the mandatory Layer 2 block.
+- bash action-boundary runtime/dev-instance record-first guard.
+- regression tests for the above in `.lazy-harness/scripts/self-test.py`.
 
 Non-negotiables:
 
