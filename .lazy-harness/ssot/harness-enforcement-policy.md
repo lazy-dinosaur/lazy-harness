@@ -17,9 +17,69 @@ The harness is mandatory infrastructure for agents that operate inside a lazy-ha
 - Advisory routing, telemetry, workflow compression, and non-blocking lifecycle hooks may improve throughput, but must not reduce the effective enforcement of canonical layer obligations.
 - If a policy is prevention-grade, repeated, or high-cost when missed, it must be surfaced or enforced before the miss becomes expensive; the final mechanism must preserve agent flow and avoid tool-specific adapter sprawl.
 
+## Active memory loop policy
+
+User-confirmed on 2026-06-01:
+
+The issue is bigger than any one PR/runtime rule. Lazy-harness must become an active memory loop:
+
+```text
+write complete records
+→ index/query records by intent/context
+→ inject compact relevant guidance before response
+→ audit after response
+→ update records again
+```
+
+The framework should not rely on agents manually remembering every stored rule, and it should not solve recall by attaching project policy to each tool.
+
+## Mandatory records vs organic rule guidance
+
+User-confirmed on 2026-06-01:
+
+Lazy-harness should distinguish two classes of obligations:
+
+1. **Record-as-output obligations are mandatory.**
+   - Confirmed project rules, source-of-truth corrections, decisions, scenarios, contracts, and regression cases must still converge into the correct `.lazy-harness` layer.
+   - It is acceptable for these record-completion obligations to be strong/forced because they protect the framework memory itself.
+2. **Non-record action guidance should not become tool-specific policy.**
+   - Do not encode rules as `when bash then ...`, `when gh then ...`, `when dev-cli then ...`, or `when GitHub MCP then ...`.
+   - Instead, relevant records/rules should be surfaced automatically through a pre-response query and checked through response-completed audit/backstop.
+
+Target loop:
+
+```text
+mandatory record completion for canonical memory
++
+pre-response relevant record query for action guidance
++
+response.completed audit for missed rules/records
+```
+
+This preserves strong memory guarantees while avoiding broad slow blocking and tool-specific adapter sprawl.
+
+## Hook policy
+
+Hooks remain important, but policy should move to the response lifecycle:
+
+```text
+pre-response relevant record query
++
+response.completed audit/backstop
+```
+
+Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport/safety/logging surfaces. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
+
+Migration target:
+
+- Inventory existing tool-attached project policy checks.
+- Keep minimal destructive safety.
+- Move PR/runtime/release/DB guidance into relevant-record query + compact digest + response audit.
+- Remove tool-attached policy checks once response-lifecycle coverage is proven by fixtures.
+
 ## Current dogfood finding
 
-The observed failure mode is not that the rule records are missing. It is that the execution surface can fail to make agents consult and apply them before acting.
+The observed failure mode is not PR-specific and not caused by missing records alone. The framework stores project rules, source-of-truth facts, contracts, behaviors, tests, decisions, and workflow rules, but agents can later fail to consult and apply any of those stored records before acting.
 
 Symptoms observed on 2026-05-31:
 

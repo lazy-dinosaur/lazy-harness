@@ -45,6 +45,42 @@ ambient relevant rule context
 + very narrow hard stops only for irreversible or repeatedly failed boundaries
 ```
 
+## Refined first-pass scope
+
+User clarification on 2026-06-01:
+
+- Ignore subagent/swarm handoff for the first pass.
+- Focus on the core harness loop:
+  1. lazy-harness-authored documents must be complete and placed in the right layer.
+  2. relevant rules must be recognized before the response or plan.
+  3. the agent should receive compact rule information rather than tool-specific instructions.
+  4. response completion should audit whether important rules were ignored or records were not written.
+  5. confirmed facts/rules/decisions should be recorded back into DDD/SDD/BDD/TDD/ADR/SSOT/planning as appropriate.
+
+Core distinction:
+
+- Mandatory record completion can remain strong/forced because it protects `.lazy-harness` memory itself.
+- Non-record action guidance should be handled by pre-response relevant record query and response-completed audit, not by tool-specific rules.
+
+
+This is the first implementation shape to design. Subagent handoff can reuse the same digest/journal later, but it is not part of the first pass.
+
+## Hook strategy for first pass
+
+Hooks are still central, but the policy surface should be response lifecycle, not tool-specific enforcement.
+
+First-pass target:
+
+1. pre-response relevant-record query or closest available message/prompt lifecycle equivalent,
+2. compact digest injection before the answer/plan,
+3. response.completed audit/backstop after the answer,
+4. record completion feedback when confirmed information was not written,
+5. inventory and migration plan for existing tool-attached project-policy checks.
+
+Tool hooks should remain only for minimal safety/logging/transport while policy moves into the record query + response audit loop.
+
+Comprehensive transition plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`.
+
 ## Candidate structure
 
 ### 1. Ambient rule context
