@@ -236,6 +236,8 @@ Read items contain:
 
 `requiredRead` means the agent must deliberately read or inspect the item before answering/changing, unless it can explain why the packet is stale or unsafe. `optionalRead` is useful context but not a prerequisite.
 
+Framework-global records that merely contain a product-surface phrase as an example must not become `requiredRead` for a host product-surface request. They may remain candidate/optional evidence only when the request is not about lazy-harness, Context Delivery, retrieval, or framework behavior. If no host-local/project-specific record or code hint is found, emit fallback searches and ask/resolve before changing code.
+
 ### `fallbackSearches[]`
 
 Fallback searches are explicit root-bound next steps when confidence is low, required items are missing, or candidates conflict.
@@ -302,6 +304,7 @@ Expected packet posture:
 - `requiredRead`: project profile or BDD/SDD/SSOT records if found
 - `fallbackSearches`: root-bound search across `.lazy-harness`, source, and tests
 - If no canonical record/code candidate is found, ask the user which surface they mean and capture the confirmed alias later.
+- Framework SDD/ADR examples containing `예약시트` are not themselves sufficient required-read evidence for a host product-surface change.
 
 ## Privacy and fail-open requirements
 
@@ -396,6 +399,7 @@ Future implementation validation:
 - Fixture: direct digest request returns `digest-only`.
 - Fixture: `예약시트 고쳐줘` returns `self-resolve-before-change` and multilingual queries.
 - Fixture: packet fuses record/profile/code/test hits into required-read items.
+- Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.
 - Fixture: searcher handoff returns packet shape without executing mutations.
 - Fixture: response audit stays silent when required-read was respected or no packet was surfaced.

@@ -4368,6 +4368,40 @@ def check_context_delivery_dual_mode_phase4() -> None:
         markdown = run_delivery("--message", "예약시트 고쳐줘", "--format", "md")
         if markdown.returncode != 0 or "Context Delivery Packet" not in markdown.stdout or "Required read before answer/change" not in markdown.stdout:
             fail("context-delivery markdown rendering missing required sections:\n" + markdown.stdout + markdown.stderr)
+
+        framework_only = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-framework-only-"))
+        try:
+            (framework_only / ".lazy-harness" / "spec" / "platform").mkdir(parents=True, exist_ok=True)
+            (framework_only / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
+            (framework_only / ".lazy-harness" / "spec" / "platform" / "context-delivery-contract.md").write_text(
+                "# SDD - Context Delivery Contract\n\n"
+                "## Rule digest\n\n"
+                "- Status: active\n"
+                "- Layer: SDD\n"
+                "- Scope: framework-global\n"
+                "- Applies when:\n"
+                "  - implementing Context Delivery Packet retrieval\n"
+                "- Must:\n"
+                "  - use `예약시트` only as an example ambiguous surface term\n\n"
+                "## `예약시트` example\n\n예약시트 고쳐줘\n",
+                encoding="utf-8",
+            )
+            no_host = subprocess.run(
+                ["bun", str(delivery_script), "--root", str(framework_only), "--message", "예약시트 고쳐줘", "--format=json"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if no_host.returncode != 0:
+                fail("context-delivery framework-only negative fixture failed:\n" + no_host.stdout + no_host.stderr)
+            no_host_packet = json.loads(no_host.stdout)
+            if any(item.get("path") == ".lazy-harness/spec/platform/context-delivery-contract.md" for item in no_host_packet.get("requiredRead", [])):
+                fail("framework-global example record must not become requiredRead for host product-surface request")
+            if not no_host_packet.get("fallbackSearches"):
+                fail("framework-only product-surface request should retain fallback searches")
+        finally:
+            shutil.rmtree(framework_only, ignore_errors=True)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ context-delivery dual-mode Phase 4 ok")

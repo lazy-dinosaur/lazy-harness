@@ -170,6 +170,10 @@ function isAmbiguousSurface(text: string): boolean {
   return hasHangul(text) || /(sheet|table|page|screen|surface|component|flow|ui|예약|관리|목록|상세)/i.test(text)
 }
 
+function isFrameworkContextIntent(text: string): boolean {
+  return /(lazy-harness|context delivery|context broker|native context|record query|rule digest|project profile|guidance ladder|framework|broker|retrieval|packet|generated index)/i.test(text)
+}
+
 function expandQueries(message: string): QueryItem[] {
   const tokens = tokenize(message)
   const out: QueryItem[] = [
@@ -227,7 +231,7 @@ function loadIndex(args: Args): { index: ContextIndex; source: 'generated-index'
   return { index: buildContextIndex(args.root), source: 'source-scan' }
 }
 
-function scoreRecord(record: RecordEntry, terms: string[]): ScoredRecord | null {
+function scoreRecord(record: RecordEntry, terms: string[], message: string): ScoredRecord | null {
   let score = 0
   const matchedQueries = new Set<string>()
   const why = new Set<string>()
@@ -282,6 +286,10 @@ function scoreRecord(record: RecordEntry, terms: string[]): ScoredRecord | null 
   }
   if (matchedQueries.size > 1) score += Math.min(30, (matchedQueries.size - 1) * 10)
   if (record.status === 'deprecated' || record.status === 'reverted') score -= 30
+  if (record.scope === 'framework-global' && isAmbiguousSurface(message) && !isFrameworkContextIntent(message)) {
+    score = Math.min(score, 35)
+    why.add('framework-global example match kept below required-read threshold for product-surface request')
+  }
   if (score <= 0) return null
   return { record, score, matchedQueries: Array.from(matchedQueries).slice(0, 10), why: Array.from(why), matchedFields: fields }
 }
@@ -401,7 +409,7 @@ function buildPacket(args: Args): ContextDeliveryPacket {
   const queries = expandQueries(args.message)
   const terms = queryTerms(queries)
   const scored = index.records
-    .map((record) => scoreRecord(record, terms))
+    .map((record) => scoreRecord(record, terms, args.message))
     .filter((item): item is ScoredRecord => Boolean(item))
     .sort((a, b) => b.score - a.score || a.record.recordPath.localeCompare(b.record.recordPath))
 
