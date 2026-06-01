@@ -241,3 +241,89 @@ Protection to add before/with implementation:
 - TDD fixture for surfaced digest followed by mutation/execution without record/read evidence.
 - TDD fixture proving clean/no-record-needed turns remain silent.
 - Dogfood matrix row shape for model/provider compliance without raw prompt storage.
+
+## Implementation result — 2026-06-01
+
+Status: implemented and committed in source repo.
+
+Source commit:
+
+- `2225239cbeab4b7227d9073a22f44fa665a959b8` — `Feat: enforce context read-debt before actions`
+
+Implemented architecture:
+
+```text
+user message
+→ message.received lifecycle hook
+→ bounded deterministic Context Delivery producer
+→ sanitized packet journal with concrete requiredRead paths
+→ read/search tools remain allowed
+→ action/mutation tools require evidence for every requiredRead path
+→ response.completed audits missed evidence after the turn
+```
+
+Key implementation files:
+
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — runs bounded `context-delivery.ts --journal` and renders read-debt context when concrete packet evidence exists.
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — packet-scoped pre-action permit gate.
+- `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — runs read-debt permit before legacy search-performed helper.
+- `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — post-response advisory now checks evidence for every concrete requiredRead path.
+- `.lazy-harness/scripts/jcode-wiring.ts` — patches generated/user-owned `.jcode/config.toml` with a narrow `tool.execute.before`, `tool = "*"` read-debt hook.
+- `.lazy-harness/scripts/self-test.py` — protects read-debt action-block, read-allow, satisfied-action silence, mixed batch block, message.received packet journal, and response audit all-path evidence cases.
+
+Canonical records updated:
+
+- `.lazy-harness/spec/platform/context-delivery-contract.md`
+- `.lazy-harness/spec/platform/pre-response-rule-context.md`
+- `.lazy-harness/spec/platform/response-rule-audit.md`
+- `.lazy-harness/spec/platform/guidance-ladder.md`
+- `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+- `.lazy-harness/ssot/harness-enforcement-policy.md`
+- `.lazy-harness/ssot/rule-lifecycle.md`
+- `.lazy-harness/tests/response-rule-audit.md`
+- `.lazy-harness/knowledge/graph.jsonl`
+- `.lazy-harness/generated/implementation-index.json`
+
+Validation in source repo:
+
+- `python3 -m py_compile .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py .lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py .lazy-harness/scripts/self-test.py` passed.
+- `python3 .lazy-harness/scripts/doctor.py --profile full --scope framework` passed.
+- `python3 .lazy-harness/scripts/self-test.py` passed.
+- `.lazy-harness/bin/lazy graph-hygiene --format=md --fail-on-issues` passed.
+- `python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format=md --strict` passed.
+- Git pre-commit ran `.lazy-harness/bin/lazy test` and passed before commit.
+
+## Host sync validation — 2026-06-01
+
+After implementation, Category A framework files were synced from source commit `2225239cbeab4b7227d9073a22f44fa665a959b8` into both dogfood hosts:
+
+- `/home/lazydino/dev/medivance`
+- `/home/lazydino/dev/medivance-pwa`
+
+Sync command class:
+
+```bash
+bun /home/lazydino/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from /home/lazydino/dev/lazy-harness \
+  --target <host> \
+  --force
+```
+
+Observed sync result for each host:
+
+- `updated: 12`
+- `unchanged: 151`
+- `missing: 0`
+- `.lazy-harness/state/synced-from-commit` marker updated to `2225239cbeab4b7227d9073a22f44fa665a959b8`.
+- `.jcode/config.toml` received `# BEGIN lazy-harness read-debt action permit hook` and `command = ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"`.
+
+Host validation passed on both hosts:
+
+- `.lazy-harness/bin/lazy test`
+- `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+- `python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format=json`
+
+Known non-blocking note:
+
+- `/home/lazydino/dev/medivance-pwa` doctor reported `D07 package health warn`; smoke/host validation still passed.
+- Source repo still has pre-existing runtime log dirtiness in `.lazy-harness/logs/validations.jsonl`; it was intentionally excluded from the read-debt commit.
