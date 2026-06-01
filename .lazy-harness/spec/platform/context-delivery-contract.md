@@ -19,6 +19,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - implementing Native Context Broker, Context Delivery Packet, or required-read search output
   - user asks how ambiguous project-surface terms become actionable record/code context
   - designing self-resolving search, optional searcher subagent handoff, or pre-response context rendering
+  - generating a searcher handoff prompt for optional delegation after main-agent self-resolution is insufficient
   - Korean or multilingual terms such as `예약시트` must bridge to English records, routes, symbols, or tests
 - Must:
   - deliver required-read context with path, kind, reason, confidence, and matched query evidence
@@ -26,6 +27,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - keep canonical truth in `.lazy-harness` records and source files; generated packets are non-canonical context
   - fail open and stay bounded when used from `message.received`
   - allow lightweight self-resolution instructions when a full packet is unavailable but a request is implementation-likely
+  - make optional search handoff prompts return the same packet-shaped contract and forbid mutations/raw chunks
   - ask an option gate when candidate meanings conflict and confidence is not high enough to proceed
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
@@ -355,6 +357,14 @@ Fail-open requirements:
 
 A searcher subagent receives the same contract, not a separate prose-only prompt.
 
+Phase 6 implementation exposes a prompt renderer:
+
+```bash
+.lazy-harness/bin/lazy context-delivery --message "예약시트 고쳐줘" --handoff-prompt
+```
+
+This command renders a handoff prompt only. It does not spawn a subagent, call `jcode run`, mutate files, or run inside `message.received`. The main LLM may explicitly pass the prompt to a searcher subagent when self-resolution is too broad, high-risk, or benefits from parallel search.
+
 Handoff prompt must include:
 
 - current user request,
@@ -363,6 +373,7 @@ Handoff prompt must include:
 - candidate queries if already known,
 - instruction to return a `ContextDeliveryPacket` shape,
 - instruction not to mutate files.
+- instruction not to return raw grep chunks or prose-only summaries.
 
 Subagent result must include:
 
@@ -387,7 +398,7 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
 
 ## Implementation map
 
-- Status: `partially-implemented`
+- Status: `partially-implemented through Phase 6`
 - Primary files:
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - this SDD and packet contract.
   - `.lazy-harness/schemas/context-delivery-packet.schema.json` - JSON Schema for packet-shaped outputs.
@@ -395,7 +406,8 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - phase plan that schedules implementation after this contract.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
-  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion.
+  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion; Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed.
+  - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
@@ -408,11 +420,13 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   2. Existing digest query may return `digest-only`.
   3. Surface-like implementation requests may receive lightweight self-resolution instructions without heavy hook latency.
   4. Future broker may emit a full Context Delivery Packet.
-  5. Main LLM reads required items or delegates search using the same schema.
-  6. Response audit may later verify required-read usage only with strong evidence.
+  5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
+  6. Main LLM reads required items from the returned packet before acting.
+  7. Response audit may later verify required-read usage only with strong evidence.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `예약시트` example cues.
   - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `예약시트 고쳐줘` without mandatory subagent latency.
+  - `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6` validates the handoff prompt, delegate-search seed packet, no-mutation instructions, schema-return contract, and absence of hook-time `jcode run`/handoff execution.
 
 ## Validation plan
 
@@ -433,7 +447,7 @@ Future implementation validation:
 - Fixture: packet fuses record/profile/code/test hits into required-read items.
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.
-- Fixture: searcher handoff returns packet shape without executing mutations.
+- Fixture: searcher handoff prompt returns packet-shaped seed/return contract without executing mutations or adding hook-time `jcode run`/subagent latency.
 - Fixture: response audit stays silent when required-read was respected or no packet was surfaced.
 
 ## Rule placement

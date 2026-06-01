@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import runpy
 import subprocess
 import sys
@@ -4407,6 +4408,87 @@ def check_context_delivery_dual_mode_phase4() -> None:
     print("✓ context-delivery dual-mode Phase 4 ok")
 
 
+def check_context_delivery_optional_handoff_phase6() -> None:
+    """Phase 6 should render optional searcher handoff prompts without hook-time subagent/jcode-run work."""
+    delivery_script = LAZY / "scripts" / "context-delivery.ts"
+    hook_path = LAZY / "hooks" / "lifecycle" / "on-message-received.sh"
+    if not delivery_script.exists():
+        fail("Context Delivery packet generator missing: " + str(delivery_script))
+    hook_text = hook_path.read_text(encoding="utf-8")
+    for forbidden in ["context-delivery.ts", "jcode run"]:
+        if forbidden in hook_text:
+            fail("message.received hook must not run Phase 6 handoff/heavy model path: " + forbidden)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
+    try:
+        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Implementation hints:\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            ["bun", str(delivery_script), "--root", str(temp), "--message", "예약시트 고쳐줘", "--handoff-prompt"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("context-delivery --handoff-prompt failed:\n" + completed.stdout + completed.stderr)
+        out = completed.stdout
+        for phrase in [
+            "Context Delivery search handoff",
+            "Current user request",
+            "Host root",
+            str(temp),
+            "Root-bound constraints",
+            "Do not mutate files",
+            "Do not call `jcode run` from `message.received`",
+            "Return one JSON object matching `.lazy-harness/schemas/context-delivery-packet.schema.json`",
+            "Do not return raw grep chunks or prose-only summaries",
+            "delegate-search",
+            "requiredRead",
+            "fallbackSearches",
+            "예약시트",
+            "ReservationTable",
+        ]:
+            if phrase not in out:
+                fail("handoff prompt missing phrase: " + phrase + "\n" + out)
+        match = re.search(r"```json\n(.*?)\n```", out, re.S)
+        if not match:
+            fail("handoff prompt missing seed packet JSON fence:\n" + out)
+        seed = json.loads(match.group(1))
+        if seed.get("instructionLevel") != "delegate-search":
+            fail("handoff seed packet should use delegate-search")
+        for field in ["schemaVersion", "candidateMeanings", "queries", "requiredRead", "optionalRead", "confidence", "fallbackSearches", "instruction"]:
+            if field not in seed:
+                fail("handoff seed packet missing field: " + field)
+        if not any("mutationAllowed=false" == note for note in seed.get("notes", [])):
+            fail("handoff seed packet should mark mutationAllowed=false")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ context-delivery optional handoff Phase 6 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit digest context and lightweight self-resolution protocol."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4824,6 +4906,7 @@ def main() -> None:
         (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
+        (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

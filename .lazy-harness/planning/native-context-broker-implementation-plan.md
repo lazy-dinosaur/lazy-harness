@@ -319,6 +319,8 @@ Acceptance criteria:
 
 ### Phase 6 — Optional search handoff
 
+Status: completed in this Phase 6 change with `.lazy-harness/bin/lazy context-delivery --handoff-prompt`, which renders a packet-shaped searcher handoff prompt without spawning subagents, calling `jcode run`, or mutating files inside `message.received`; protected by `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6`.
+
 Add optional handoff mode for cases where self-resolution is insufficient.
 
 Possible modes:

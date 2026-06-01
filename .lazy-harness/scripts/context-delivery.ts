@@ -21,6 +21,7 @@ interface Args {
   format: Format
   limit: number
   indexPath: string
+  handoffPrompt: boolean
 }
 
 interface QueryItem {
@@ -80,12 +81,14 @@ Options:
   --format json|md        Output format (default json)
   --limit N               Max read items per bucket (default 8)
   --index PATH            Optional generated context-index path
+  --handoff-prompt        Render optional searcher subagent handoff prompt
   --help                  Show this help
 
 Examples:
   bun .lazy-harness/scripts/context-delivery.ts --message "예약시트 고쳐줘" --format md
   .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --format=json
-`)
+  .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --handoff-prompt
+  `)
   process.exit(2)
 }
 
@@ -113,6 +116,7 @@ function parseArgs(argv: string[]): Args {
     format: 'json',
     limit: 8,
     indexPath: '',
+    handoffPrompt: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -131,6 +135,7 @@ function parseArgs(argv: string[]): Args {
     if (parsed.value !== null) { args.limit = Math.max(1, Number(parsed.value) || 8); i += parsed.consumed; continue }
     parsed = valueFor(argv, i, '--index')
     if (parsed.value !== null) { args.indexPath = parsed.value; i += parsed.consumed; continue }
+    if (arg === '--handoff-prompt') { args.handoffPrompt = true; continue }
     if (arg === '--help' || arg === '-h') usage()
     else usage()
   }
@@ -496,10 +501,74 @@ function renderMarkdown(packet: ContextDeliveryPacket): string {
   return `${lines.join('\n')}\n`
 }
 
+function safeFence(value: string): string {
+  return value.replace(/```/g, "'''").trim()
+}
+
+function handoffSeedPacket(packet: ContextDeliveryPacket): ContextDeliveryPacket {
+  return {
+    ...packet,
+    instructionLevel: 'delegate-search',
+    instruction: 'Search root-bound records, Project Profile, graph, source files, symbols, and tests; return a ContextDeliveryPacket JSON object matching the schema. Do not mutate files.',
+    notes: unique([...(packet.notes || []), 'handoffMode=searcher-subagent', 'mutationAllowed=false']),
+  }
+}
+
+function renderHandoffPrompt(packet: ContextDeliveryPacket, args: Args): string {
+  const seed = handoffSeedPacket(packet)
+  const lines = [
+    'Context Delivery search handoff',
+    '',
+    'Task: resolve required-read context for the current request and return a packet-shaped result.',
+    '',
+    'Current user request:',
+    '```text',
+    safeFence(args.message),
+    '```',
+    '',
+    'Host root:',
+    `\`${args.root}\``,
+    '',
+    'Root-bound constraints:',
+    '- Search only inside the host root.',
+    '- Use `.lazy-harness`, Project Profile, graph, source, symbols, and tests as evidence sources.',
+    '- Do not mutate files, run migrations, send network requests, or execute destructive commands.',
+    '- Do not call `jcode run` from `message.received`; this handoff is for explicit optional delegation only.',
+    '- Do not return raw grep chunks or prose-only summaries.',
+    '',
+    'Candidate queries:',
+  ]
+  for (const query of packet.queries.slice(0, 8)) {
+    const targets = query.targets?.length ? ` [${query.targets.join(', ')}]` : ''
+    lines.push(`- ${query.query} (${query.source}: ${query.purpose})${targets}`)
+  }
+  if (packet.fallbackSearches.length) {
+    lines.push('', 'Fallback searches:')
+    for (const search of packet.fallbackSearches.slice(0, 5)) lines.push(`- \`${search}\``)
+  }
+  lines.push(
+    '',
+    'Return contract:',
+    '- Return one JSON object matching `.lazy-harness/schemas/context-delivery-packet.schema.json`.',
+    '- Set `instructionLevel` to `delegate-search` when delegation was needed, otherwise keep the stricter self-resolve level.',
+    '- Include `candidateMeanings`, `queries`, `requiredRead`, `optionalRead`, `confidence`, `fallbackSearches`, and concise `instruction`.',
+    '- Every `requiredRead` item must include path, kind, reason, confidence, whyMatched, and matchedQueries.',
+    '- If candidate meanings conflict or confidence is low, say so in `instruction` and preserve fallback searches.',
+    '',
+    'Seed packet:',
+    '```json',
+    JSON.stringify(seed, null, 2),
+    '```',
+    '',
+  )
+  return lines.join('\n')
+}
+
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
   const packet = buildPacket(args)
-  if (args.format === 'md') process.stdout.write(renderMarkdown(packet))
+  if (args.handoffPrompt) process.stdout.write(renderHandoffPrompt(packet, args))
+  else if (args.format === 'md') process.stdout.write(renderMarkdown(packet))
   else process.stdout.write(`${JSON.stringify(packet, null, 2)}\n`)
 }
 
