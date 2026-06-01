@@ -22,6 +22,9 @@ Regression fixtures cover:
 8. Packet-aware response audit stays silent without mutation, stays silent when required-read evidence exists, and emits `ADVISORY` rather than `STOP` when a correlated packet has required reads and mutation lacks read/search evidence.
 9. Pre-action read-debt permit blocks action tools when a correlated packet has concrete requiredRead paths and no prior read/search evidence.
 10. The permit stays silent for read/search tools, for action after all required paths were evidenced, and for clean/no-packet turns.
+11. Pre-action search-debt permit blocks action tools when a correlated self-resolve packet has fallback searches but no prior root-bound search evidence.
+12. Search-debt permit stays silent for search tools, explicit searcher handoff, and action after search evidence exists.
+13. Response audit emits advisory when a search-debt packet is followed by mutation without search evidence, and stays silent when search evidence exists.
 
 ## Implementation map
 
@@ -42,8 +45,9 @@ Regression fixtures cover:
   5. Test checks STOP output for missing PR headings, then silence for a compliant body.
   6. Test writes a manual harness-enforcement journal row and checks record-completion miss vs captured cases.
   7. Test runs `context-delivery.ts --journal` in a host fixture and checks sanitized packet evidence.
-  8. Test runs `check-read-debt-permit.py` against packet evidence for action-block, read-allow, satisfied-action silence, and mixed batch block cases.
-  9. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read advisory, satisfied-read silence, and uncorrelated silence cases.
+  8. Test runs `check-read-debt-permit.py` against packet evidence for read-debt action-block, read-allow, satisfied-action silence, and mixed batch block cases.
+  9. Test runs `check-read-debt-permit.py` against packet evidence for search-debt action-block, search-tool allow, searcher handoff allow, and satisfied-action silence cases.
+  10. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read/search advisory, satisfied-read/search silence, and uncorrelated silence cases.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`

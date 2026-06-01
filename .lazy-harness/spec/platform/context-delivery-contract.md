@@ -30,6 +30,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - make optional search handoff prompts return the same packet-shaped contract and forbid mutations/raw chunks
   - when packet evidence is journaled, persist only sanitized required/optional read metadata and hashed identifiers
   - ask an option gate when candidate meanings conflict and confidence is not high enough to proceed
+  - treat low-confidence self-resolve packets with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before action
   - when concrete `requiredRead` debt exists for a turn, keep action tools behind a narrow read/search permit until required paths are evidenced
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
@@ -241,6 +242,8 @@ Read items contain:
 
 `requiredRead` means the agent must deliberately read or inspect the item before answering/changing, unless it can explain why the packet is stale or unsafe. When a correlated packet has concrete required reads and sufficient confidence, the current hook transport may treat those items as read-debt: read/search tools remain allowed, but action/mutation tools are blocked until evidence references every required path. `optionalRead` is useful context but not a prerequisite.
 
+When the packet is low-confidence/self-resolve and has fallback searches but no concrete `requiredRead`, the current hook transport treats it as **search-debt**: action/mutation tools are blocked until the LLM or an explicit searcher handoff leaves root-bound search evidence. The harness does not claim to understand multilingual semantic intent by itself; it measures whether the LLM/searcher searched before acting.
+
 Framework-global records that merely contain a product-surface phrase as an example must not become `requiredRead` for a host product-surface request. They may remain candidate/optional evidence only when the request is not about lazy-harness, Context Delivery, retrieval, or framework behavior. If no host-local/project-specific record or code hint is found, emit fallback searches and ask/resolve before changing code.
 
 ### `fallbackSearches[]`
@@ -358,24 +361,27 @@ Fail-open requirements:
 
 ## Pre-action read-debt permit
 
-The Context Delivery Packet is transport-agnostic. In the current Jcode transport, `message.received` may run the deterministic local producer, render a compact `Context Delivery read-debt` reminder, and append the sanitized packet journal row.
+The Context Delivery Packet is transport-agnostic. In the current Jcode transport, `message.received` may run the bounded local producer, render a compact `Context Delivery search-debt` or `Context Delivery read-debt` reminder, and append the sanitized packet journal row.
 
 The pre-action permit gate uses that same packet journal as non-canonical read-debt state:
 
 ```text
 message.received
-→ deterministic Context Delivery producer
+→ bounded Context Delivery producer
 → sanitized `context-delivery.packet` row
-→ read/search tools allowed
-→ action tools blocked until requiredRead evidence exists
+→ if concrete requiredRead exists: read-debt
+→ if requiredRead is unknown but fallback searches exist: search-debt
+→ search/read tools and explicit searcher handoff allowed
+→ action tools blocked until search/read evidence exists
 ```
 
 Rules:
 
-- The producer must do the first-pass discovery from records/index/graph/project-profile/source hints when available.
-- The LLM can perform second-pass inspection, but it must not be the only actor deciding the mandatory read set.
-- The permit gate does not create project/tool policy. It only enforces packet-scoped `requiredRead` debt produced by this SDD.
-- The gate is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
+- The producer may do first-pass discovery from records/index/graph/project-profile/source hints when available, but it is not the semantic authority for multilingual/user-surface intent.
+- The LLM or a searcher subagent performs semantic expansion and root-bound search for ambiguous terms such as Korean `예약시트`.
+- The permit gate does not create project/tool policy. It enforces packet-scoped `search-debt` and `read-debt` produced by this SDD.
+- Search-debt is satisfied when recent tool evidence shows root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff evidence).
+- Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
 - Mixed read+action batches do not satisfy the debt in the same tool call; reads must happen before the action batch.
 - If the packet lacks concrete required paths, confidence is below threshold, no safe message/session correlation exists, or the producer times out, the gate fails open.
 - This current transport uses lifecycle hooks, but the same packet/permit semantics are ACP-compatible and may be carried by a protocol layer later.
@@ -383,13 +389,13 @@ Rules:
 ## Hard-stop promotion
 
 - Status: active
-- Boundary: Context Delivery requiredRead debt blocks action tools before read/search evidence exists for the correlated turn.
+- Boundary: Context Delivery search/read debt blocks action tools before search/read evidence exists for the correlated turn.
 - Scope: framework-global
 - User confirmation: 2026-06-01 user approved forcing search/read first, then work; user also confirmed ACP-compatible core with current hooks as transport.
-- Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??` and `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`.
+- Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??`, `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`, and `검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제`.
 - Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, and response.completed advisory existed but were too late or too weak to prevent action drift.
 - Fixture: `.lazy-harness/scripts/self-test.py`
-- Narrowness: the gate activates only for correlated Context Delivery packets with concrete requiredRead paths and sufficient confidence; read/search tools and clean/no-packet turns remain allowed; it is not a broad edit/write or tool-specific project-policy adapter.
+- Narrowness: the gate activates only for correlated Context Delivery packets with either concrete requiredRead paths or explicit self-resolve fallback searches; search/read tools, explicit searcher handoff, and clean/no-packet turns remain allowed; it is not a broad edit/write or tool-specific project-policy adapter.
 - Rollback: remove the generated `tool = "*"` read-debt hook block from Jcode wiring or disable `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; existing response.completed advisory remains as fallback.
 
 ## Searcher subagent handoff

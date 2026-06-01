@@ -128,6 +128,15 @@ Accepted policy:
 - This is a packet-scoped permit gate, not a revival of broad edit/write hard-gating and not a concrete-tool project-policy adapter.
 - The current transport is Jcode lifecycle hooks; the core semantics are protocol-agnostic and ACP-compatible.
 
+User-corrected after implementation:
+
+- A non-LLM hook must not be treated as the semantic authority for multilingual/user-surface intent such as Korean `예약시트` mapping to English records or code.
+- The LLM or a searcher agent must perform semantic expansion and root-bound search.
+- The harness should measure whether search happened and force search before action when no concrete high-confidence `requiredRead` exists yet.
+- Therefore the active prevention model is two-stage:
+  1. **search-debt** for ambiguous/low-confidence host-context turns: no search evidence before action means block and require root-bound search first.
+  2. **read-debt** after concrete records/files are known: no read evidence for required paths before action means block and require reads first.
+
 ## 2026-06-01 Phase 6 guidance ladder result
 
 Phase 6 added the promotion criteria before adding any new hard stop:

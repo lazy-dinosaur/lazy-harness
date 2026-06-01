@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T22:52:30Z",
+  "generatedAt": "2026-06-01T23:19:45Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2586,6 +2586,122 @@
       "provenance": {
         "source": "manual-implementation-map",
         "confirmedAt": "2026-06-01T22:52:30Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_search_debt_permit_helper",
+      "createdAt": "2026-06-01T23:19:45Z",
+      "updatedAt": "2026-06-01T23:19:45Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "predicate": "implements",
+      "object": ".lazy-harness/spec/platform/context-delivery-contract.md#pre-action-read-debt-permit",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+          "quote": "Treats self-resolve/delegate-search packets with fallbackSearchCount and no requiredRead as search-debt; blocks action until recent root-bound search evidence or explicit searcher handoff exists."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:19:45Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_search_debt_response_audit",
+      "createdAt": "2026-06-01T23:19:45Z",
+      "updatedAt": "2026-06-01T23:19:45Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+      "predicate": "audits",
+      "object": ".lazy-harness/state/context-delivery-packets.jsonl",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+          "quote": "Adds advisory-only search-debt audit when a correlated self-resolve packet is followed by mutation without root-bound search evidence."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:19:45Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_search_debt_renderer",
+      "createdAt": "2026-06-01T23:19:45Z",
+      "updatedAt": "2026-06-01T23:19:45Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
+      "predicate": "renders",
+      "object": ".lazy-harness/spec/platform/pre-response-rule-context.md",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
+          "quote": "Renders Context Delivery search-debt when no concrete requiredRead is available, instructing LLM/searcher semantic expansion and root-bound search before action."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:19:45Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_search_debt_self_test",
+      "createdAt": "2026-06-01T23:19:45Z",
+      "updatedAt": "2026-06-01T23:19:45Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/scripts/self-test.py",
+      "predicate": "protects",
+      "object": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "Extends context delivery packet journal Phase 7 fixture with search-debt action block, search tool allow, searcher handoff allow, satisfied action silence, and response audit advisory/silence cases."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-01T23:19:45Z"
       }
     }
   ]

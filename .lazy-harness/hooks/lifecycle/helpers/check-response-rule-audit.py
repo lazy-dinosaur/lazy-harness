@@ -48,6 +48,13 @@ READ_EVIDENCE_TOOLS = {
     "mcp__filesystem__read_multiple_files", "agentgrep", "grep", "bash",
     "glob", "ls", "lsp", "mcp__github__get_file_contents",
 }
+SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
+SEARCH_EVIDENCE_TOOLS = {
+    "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
+    "mcp__filesystem__search_files", "mcp__github__search_code",
+    "mcp__github__search_issues", "mcp__github__search_pull_requests",
+    "websearch", "mcp__exa__web_search_exa", "mcp__websearch__web_search_exa",
+}
 CAPTURE_RE = re.compile(
     r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph|graph-drafts|corrections)\.jsonl|logs/corrections\.jsonl)"
 )
@@ -199,6 +206,17 @@ def packet_required_paths(row: dict[str, Any]) -> list[str]:
     return paths
 
 
+def packet_has_search_debt(row: dict[str, Any]) -> bool:
+    if packet_required_paths(row):
+        return False
+    level = str(row.get("instructionLevel") or "")
+    try:
+        fallback_count = int(row.get("fallbackSearchCount") or 0)
+    except Exception:
+        fallback_count = 0
+    return level in SEARCH_DEBT_LEVELS and (fallback_count > 0 or level == "delegate-search")
+
+
 def has_mutation_tool_call() -> bool:
     for call in recent_calls():
         if str(call.get("name") or "") in WRITE_TOOLS:
@@ -230,6 +248,31 @@ def has_required_read_evidence(required_paths: list[str]) -> bool:
             if path and (path in blob or f"./{path}" in blob):
                 seen[path] = True
     return all(seen.values())
+
+
+def shell_has_search_evidence(command: str) -> bool:
+    return bool(re.search(
+        r"\b(rg|grep|find|git\s+grep|git\s+ls-files|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        command,
+        re.IGNORECASE,
+    ))
+
+
+def call_has_search_evidence(call: dict[str, Any]) -> bool:
+    name = str(call.get("name") or call.get("tool") or "")
+    blob = call_blob(call)
+    lower = blob.lower()
+    if name in SEARCH_EVIDENCE_TOOLS:
+        return True
+    if name in {"bash", "Bash"} and shell_has_search_evidence(blob):
+        return True
+    if name in {"subagent", "swarm"} and any(marker in lower for marker in ("searcher", "root-bound search", "requiredread", "contextdeliverypacket", "search-debt")):
+        return True
+    return "contextdeliverypacket" in lower or "requiredread" in lower
+
+
+def has_search_evidence() -> bool:
+    return any(call_has_search_evidence(call) for call in recent_calls())
 
 
 def has_pr_description_rule(entries: list[dict[str, Any]]) -> bool:
@@ -323,6 +366,14 @@ def main() -> int:
             print("\nRequired reads:")
             for path in required_paths[:5]:
                 print(f"  - {path}")
+            return 0
+        if packet_has_search_debt(packet_row) and has_mutation_tool_call() and not has_search_evidence():
+            print("ADVISORY. Context Delivery audit: search evidence may be missing.\n")
+            print("문제: 이번 turn에 Context Delivery Packet이 concrete requiredRead 없이 self-resolve/search-debt 상태였고 파일 변경 도구가 사용되었지만, 변경 전 root-bound search evidence를 찾지 못했습니다.")
+            print("\n해야 할 일:")
+            print("  A. agentgrep/grep/rg 등으로 .lazy-harness/source/test 검색을 먼저 수행 (Recommended)")
+            print("  B. 검색을 이미 했지만 payload evidence가 누락됐다면 검색 쿼리/경로를 명시")
+            print("  C. 검색 결과가 모호하면 option gate 또는 searcher subagent handoff로 수렴")
             return 0
 
     return 0

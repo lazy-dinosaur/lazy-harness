@@ -195,7 +195,7 @@ def render_context_packet(packet):
     should_render = bool(required) or instruction_level in {'self-resolve-before-answer', 'self-resolve-before-change'}
     if not should_render:
         return ''
-    lines = ['Context Delivery read-debt']
+    lines = ['Context Delivery read-debt' if required else 'Context Delivery search-debt']
     if instruction_level:
         lines.append(f'- Instruction: {instruction_level}')
     try:
@@ -215,8 +215,9 @@ def render_context_packet(packet):
             lines.append(f'  - `{path_value}` ({kind})')
             if reason:
                 lines.append(f'    - {reason}')
-    elif optional:
-        lines.append('- No concrete requiredRead found; stay read-only and use fallback searches or option gate before action.')
+    else:
+        lines.append('- No concrete requiredRead found; perform root-bound semantic search before action.')
+        lines.append('- LLM/searcher must expand user terms into likely record/code/test aliases, then search `.lazy-harness`, source, and tests.')
     instruction = ' '.join(str(packet.get('instruction') or '').split())
     if instruction:
         lines.append(f'- Instruction detail: {instruction}')

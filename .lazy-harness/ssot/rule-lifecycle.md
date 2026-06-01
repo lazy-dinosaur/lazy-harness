@@ -51,7 +51,7 @@ Before Phase 5, this SSOT used rule-binding hard stops as the main answer to act
 | `digest-ready` | Rule has a compact `## Rule digest` and can be surfaced by relevant-record query. |
 | `surfaced` | Rule is expected to appear before relevant turns through `message.received` digest injection. |
 | `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or journal silent Record Decision Packet shadow observations after fixtures. |
-| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. Context Delivery read-debt permit is the active framework-global example. |
+| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. Context Delivery search/read-debt permit is the active framework-global example. |
 | `advisory-only` | Rule is intentionally not enforced/audited beyond guidance; this must be explicit. |
 | `retired` | Rule is obsolete and should not be applied. |
 
@@ -94,7 +94,7 @@ A concrete tool/action hard stop may be added only after Phase 6 criteria are re
 - record explains why ambient/surfaced/audited guidance was insufficient,
 - scope is narrow and rollback is clear.
 
-Generic destructive shell safety is already allowed and is not considered project/team policy. Context Delivery read-debt permit is allowed only because the canonical Context Delivery SDD contains an active `## Hard-stop promotion` section and fixtures; it is packet-scoped and does not authorize broad edit/write blocking.
+Generic destructive shell safety is already allowed and is not considered project/team policy. Context Delivery search/read-debt permit is allowed only because the canonical Context Delivery SDD contains an active `## Hard-stop promotion` section and fixtures; it is packet-scoped and does not authorize broad edit/write blocking.
 
 Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md` and is validated by `.lazy-harness/scripts/hard-stop-promotion-audit.py`. A promoted hard stop must include a canonical `## Hard-stop promotion` section with the required fields from that SDD before implementation.
 

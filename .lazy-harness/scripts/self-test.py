@@ -9,6 +9,7 @@ Checks the framework-owned operational invariants defined by ADR 0022:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -17,6 +18,7 @@ import runpy
 import subprocess
 import sys
 import tempfile
+import time
 import shutil
 import xml.etree.ElementTree as ET
 
@@ -4642,6 +4644,87 @@ def check_context_delivery_packet_journal_phase7() -> None:
         })
         if "read-debt gate" not in batch_with_action:
             fail("read-debt permit should block mixed read+action batch before prior evidence:\n" + batch_with_action)
+
+        def short_hash(value: str) -> str:
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+        search_message_id = "phase7-search-message"
+        search_session_id = "phase7-search-session"
+        search_row = {
+            "schemaVersion": "1.0",
+            "event": "context-delivery.packet",
+            "timestamp": "2026-06-01T00:00:00Z",
+            "epochSeconds": int(time.time()),
+            "messageIdHash": short_hash(search_message_id),
+            "sessionIdHash": short_hash(search_session_id),
+            "packetHash": "search-debt-fixture",
+            "instructionLevel": "self-resolve-before-change",
+            "confidence": 0,
+            "requiredReadCount": 0,
+            "optionalReadCount": 0,
+            "candidateMeaningCount": 0,
+            "fallbackSearchCount": 2,
+            "requiredRead": [],
+            "optionalRead": [],
+            "notes": ["searchDebtFixture=true"],
+        }
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(search_row, ensure_ascii=False) + "\n")
+
+        search_action_block = run_permit({
+            "message_id": search_message_id,
+            "session_id": search_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if "search-debt gate" not in search_action_block or "root-bound search" not in search_action_block:
+            fail("search-debt permit should block action before search evidence:\n" + search_action_block)
+
+        search_tool_allowed = run_permit({
+            "message_id": search_message_id,
+            "session_id": search_session_id,
+            "tool": {"name": "agentgrep", "args": {"query": "예약시트 reservation sheet"}},
+            "recent_tool_calls": [],
+        })
+        if search_tool_allowed.strip():
+            fail("search-debt permit should allow search tools before debt is satisfied:\n" + search_tool_allowed)
+
+        searcher_handoff_allowed = run_permit({
+            "message_id": search_message_id,
+            "session_id": search_session_id,
+            "tool": {"name": "subagent", "args": {"subagent_type": "searcher", "prompt": "Perform root-bound search only. Do not mutate. Return ContextDeliveryPacket requiredRead."}},
+            "recent_tool_calls": [],
+        })
+        if searcher_handoff_allowed.strip():
+            fail("search-debt permit should allow explicit searcher handoff:\n" + searcher_handoff_allowed)
+
+        search_satisfied_action = run_permit({
+            "message_id": search_message_id,
+            "session_id": search_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [
+                {"name": "agentgrep", "args_preview": "예약시트 reservation sheet .lazy-harness src tests"},
+            ],
+        })
+        if search_satisfied_action.strip():
+            fail("search-debt permit should allow action after search evidence exists:\n" + search_satisfied_action)
+
+        search_advisory = run_helper({
+            "message_id": search_message_id,
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if "search evidence may be missing" not in search_advisory:
+            fail("response audit should advise when search-debt action lacks search evidence:\n" + search_advisory)
+
+        search_audit_satisfied = run_helper({
+            "message_id": search_message_id,
+            "recent_tool_calls": [
+                {"name": "agentgrep", "args_preview": "예약시트 reservation sheet .lazy-harness src tests"},
+                {"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+            ],
+        })
+        if search_audit_satisfied.strip():
+            fail("response audit should stay silent when search-debt has search evidence:\n" + search_audit_satisfied)
 
         no_mutation = run_helper({
             "message_id": "phase7-packet-message",

@@ -23,7 +23,7 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
   - fail open on timeout or hook failure
   - keep response policy in lifecycle context, not tool-specific project-policy branches
   - inject lightweight Context Delivery self-resolution instructions for ambiguous/surface-like implementation requests without running a subagent in the hook
-  - when available within timeout, run the deterministic Context Delivery producer and inject/journal concrete read-debt before the first action
+  - when available within timeout, run bounded Context Delivery and inject/journal search-debt or read-debt before the first action
 - Record completion:
   - changes to pre-turn hook payload/output contract or self-resolution protocol update this SDD
 - Related records:
@@ -182,8 +182,9 @@ Together:
 message.received
 → relevant-record query
 → bounded Context Delivery producer when useful
-→ compact digest injection and/or concrete read-debt/self-resolution protocol into current turn
-→ read/search evidence before action when requiredRead debt exists
+→ compact digest injection and/or concrete search/read-debt protocol into current turn
+→ semantic search evidence before action when search-debt exists
+→ read evidence before action when requiredRead debt exists
 → assistant response/actions
 → response.completed audit/backstop
 ```
@@ -191,7 +192,7 @@ message.received
 ## Implementation map
 
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, runs the bounded digest query, runs bounded Context Delivery packet generation when available, renders digest/read-debt context, and adds self-resolution protocol only when no concrete packet is available.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, runs the bounded digest query, runs bounded Context Delivery packet generation when available, renders digest/search-debt/read-debt context, and adds self-resolution protocol only when no concrete packet is available.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - pre-action permit gate that consumes sanitized packet journal rows and blocks action tools until requiredRead evidence exists.
   - `.lazy-harness/scripts/relevant-record-query.ts` - read-only digest query backend for the hook.
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - defines the self-resolution instruction level and packet-compatible search protocol.

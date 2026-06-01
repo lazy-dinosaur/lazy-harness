@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Pre-action read-debt permit check for Context Delivery packets.
+"""Pre-action search/read-debt permit check for Context Delivery packets.
 
 This helper is intentionally protocol-agnostic: it reads sanitized
 Context Delivery packet evidence and current tool-call evidence, then emits a
-plain deny reason only when an action tool is about to run before concrete
-requiredRead items have been inspected.
+plain deny reason only when an action tool is about to run before required
+search/read evidence exists.
 
-It does not decide which records matter. That is the deterministic producer's
-job (`context-delivery.ts`). This helper only enforces the produced read-debt.
+It does not semantically resolve user intent. LLM/searcher workers do that via
+root-bound searches. This helper measures whether the search/read evidence
+exists before action.
 """
 from __future__ import annotations
 
@@ -32,6 +33,14 @@ ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
 PACKET_JOURNAL = ROOT / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200")
 MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")
+
+SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
+SEARCH_EVIDENCE_TOOLS = {
+    "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
+    "mcp__filesystem__search_files", "mcp__github__search_code",
+    "mcp__github__search_issues", "mcp__github__search_pull_requests",
+    "websearch", "mcp__exa__web_search_exa", "mcp__websearch__web_search_exa",
+}
 
 READ_TOOLS = {
     "read", "Read",
@@ -154,11 +163,24 @@ def is_action_tool(name: str, args: dict[str, Any]) -> bool:
         return any(is_action_tool(str(c.get("tool") or c.get("recipient_name") or c.get("name") or ""), c.get("parameters") if isinstance(c.get("parameters"), dict) else {}) for c in nested)
     if name in {"bash", "Bash"}:
         return not bash_is_read_only(args)
+    if name in {"subagent", "swarm"} and is_search_handoff_args(args):
+        return False
     if name in ACTION_TOOLS:
+        return True
+    if name in {"subagent", "swarm"}:
         return True
     if name.startswith("mcp__"):
         return name not in READ_TOOLS
     return False
+
+
+def is_search_handoff_args(args: dict[str, Any]) -> bool:
+    blob = json.dumps(args, ensure_ascii=False).lower()
+    return any(marker in blob for marker in (
+        "searcher", "librarian", "explore", "atlas",
+        "root-bound search", "requiredread", "contextdeliverypacket",
+        "do not mutate", "read-only", "search-debt",
+    ))
 
 
 def recent_calls() -> list[dict[str, Any]]:
@@ -227,6 +249,32 @@ def evidence_blob() -> str:
     return "\n".join(call_blob(call) for call in recent_calls()).replace("\\", "/")
 
 
+def shell_has_search_evidence(command: str) -> bool:
+    return bool(re.search(
+        r"\b(rg|grep|find|git\s+grep|git\s+ls-files|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        command,
+        re.IGNORECASE,
+    ))
+
+
+def call_has_search_evidence(call: dict[str, Any]) -> bool:
+    name = str(call.get("name") or call.get("tool") or "")
+    blob = call_blob(call)
+    if name in SEARCH_EVIDENCE_TOOLS:
+        return True
+    if name in {"bash", "Bash"} and shell_has_search_evidence(blob):
+        return True
+    if name in {"subagent", "swarm"} and is_search_handoff_args(call):
+        return True
+    if "contextdeliverypacket" in blob.lower() or "requiredread" in blob.lower():
+        return True
+    return False
+
+
+def has_search_evidence() -> bool:
+    return any(call_has_search_evidence(call) for call in recent_calls())
+
+
 def missing_required_paths(items: list[dict[str, Any]]) -> list[str]:
     blob = evidence_blob()
     missing: list[str] = []
@@ -241,6 +289,19 @@ def missing_required_paths(items: list[dict[str, Any]]) -> list[str]:
     return missing
 
 
+def is_search_debt(row: dict[str, Any], items: list[dict[str, Any]]) -> bool:
+    if items:
+        return False
+    level = str(row.get("instructionLevel") or "")
+    try:
+        fallback_count = int(row.get("fallbackSearchCount") or 0)
+    except Exception:
+        fallback_count = 0
+    if level not in SEARCH_DEBT_LEVELS:
+        return False
+    return fallback_count > 0 or level == "delegate-search"
+
+
 def main() -> int:
     name, args = current_tool()
     if not is_action_tool(name, args):
@@ -248,13 +309,27 @@ def main() -> int:
     row = matching_packet()
     if not row:
         return 0
+    items = required_items(row)
+    if is_search_debt(row, items):
+        if has_search_evidence():
+            return 0
+        print("[lazy-harness search-debt gate] root-bound search must happen before action.")
+        print("")
+        print("Context Delivery could not identify concrete requiredRead paths with high confidence, so this turn requires LLM/searcher semantic search evidence before action.")
+        print("")
+        print("Do this first:")
+        print("  - run root-bound searches with agentgrep/grep/rg/find over `.lazy-harness`, source, and tests")
+        print("  - expand multilingual/user terms into likely English/code aliases yourself or via a searcher subagent")
+        print("  - once concrete records/files are found, read them before rerunning the action")
+        print("")
+        print("Allowed now: search/read tools and explicit searcher handoff. Action/mutation tools stay blocked until search evidence exists.")
+        return 0
     try:
         confidence = float(row.get("confidence") or 0)
     except Exception:
         confidence = 0
     if confidence < MIN_CONFIDENCE:
         return 0
-    items = required_items(row)
     if not items:
         return 0
     missing = missing_required_paths(items)

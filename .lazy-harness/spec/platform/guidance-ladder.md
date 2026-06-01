@@ -55,7 +55,7 @@ The framework should help agents use durable records while working in host proje
 
 Phase 7 Context Delivery required-read audit is an L3 advisory-only path. It may print `ADVISORY` when a correlated packet journal row, mutation evidence, and missing read/search evidence align. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
 
-2026-06-01 update: Context Delivery read-debt has one active L5 boundary in `.lazy-harness/spec/platform/context-delivery-contract.md`. It is not broad edit/write blocking. It blocks only action tools for a correlated packet with concrete `requiredRead` paths and sufficient confidence, while read/search tools remain allowed.
+2026-06-01 update: Context Delivery search/read-debt has one active L5 boundary in `.lazy-harness/spec/platform/context-delivery-contract.md`. It is not broad edit/write blocking. It blocks only action tools for a correlated packet with concrete `requiredRead` paths or explicit self-resolve fallback searches, while search/read tools and explicit searcher handoff remain allowed.
 
 ## Hard-stop promotion criteria
 

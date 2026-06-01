@@ -25,7 +25,7 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
   - read sanitized Context Delivery packet evidence journal only when it can be correlated by safe message/session hashes
   - keep clean turns silent
   - emit concise audit feedback only when evidence strongly shows a surfaced rule or record-completion obligation was missed
-  - keep post-response Context Delivery required-read audit advisory-only; pre-action permit enforcement is owned by the Context Delivery contract
+  - keep post-response Context Delivery search/read audit advisory-only; pre-action permit enforcement is owned by the Context Delivery contract
   - avoid storing raw user/assistant message bodies in journal state
   - keep journal state non-canonical under `.lazy-harness/state/`
 - Must not:
@@ -190,6 +190,16 @@ Phase 7 adds one advisory-only case:
    - The row has `requiredRead` paths and sufficient confidence.
    - The turn uses a mutation tool.
    - Recent read/search evidence does not reference every concrete required-read path.
+   - Output starts with `ADVISORY`, never `STOP`.
+
+Phase 7 also adds a search-debt advisory-only case:
+
+4. **Context Delivery search evidence may be missing**
+   - A correlated packet evidence row exists.
+   - The row has no concrete `requiredRead` paths.
+   - The row has `instructionLevel` in self-resolve/delegate-search mode and fallback search evidence.
+   - The turn uses a mutation tool.
+   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff).
    - Output starts with `ADVISORY`, never `STOP`.
 
 The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; this response audit remains the after-completion backstop and dogfood signal.

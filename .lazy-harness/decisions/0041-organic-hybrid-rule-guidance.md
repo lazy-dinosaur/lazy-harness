@@ -310,16 +310,17 @@ Initial candidates:
 - explicit user correction ignored without record capture,
 - repeated failure class promoted after dogfood evidence.
 
-### 9. Read-debt permit is the first promoted packet-scoped boundary
+### 9. Search/read-debt permit is the first promoted packet-scoped boundary
 
 2026-06-01 dogfood evidence showed ambient digest/self-resolution and post-turn audit were insufficient: agents could still skip records/MCP context and begin work from wrong Figma/runtime assumptions. The user confirmed the desired boundary: force search/read first, then work.
 
 Decision:
 
-- Promote Context Delivery `requiredRead` debt to a narrow pre-action permit.
-- The deterministic producer must create concrete required-read paths from canonical records/index/graph/project-profile/source hints.
-- Read/search tools remain allowed.
-- Action/mutation tools are blocked only when a correlated packet has concrete required reads and those paths have not yet appeared in recent read/search evidence.
+- Promote Context Delivery search/read debt to a narrow pre-action permit.
+- A non-LLM hook is not treated as the semantic authority for multilingual/user-surface intent. The LLM or an explicit searcher handoff performs semantic expansion and root-bound search.
+- If concrete required-read paths are known, action/mutation tools are blocked until those paths appear in recent read/search evidence.
+- If concrete paths are not known but the packet has self-resolve fallback searches, action/mutation tools are blocked until root-bound search evidence appears.
+- Search/read tools and explicit searcher handoff remain allowed.
 - The core packet/permit semantics must remain transport-agnostic and ACP-compatible; Jcode lifecycle hooks are the current transport.
 
 This is not a return to broad edit/write hard-gating and not a concrete-tool project-policy adapter.

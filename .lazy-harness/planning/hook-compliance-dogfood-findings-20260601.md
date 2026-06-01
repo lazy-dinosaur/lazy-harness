@@ -327,3 +327,96 @@ Known non-blocking note:
 
 - `/home/lazydino/dev/medivance-pwa` doctor reported `D07 package health warn`; smoke/host validation still passed.
 - Source repo still has pre-existing runtime log dirtiness in `.lazy-harness/logs/validations.jsonl`; it was intentionally excluded from the read-debt commit.
+
+## User correction — search-debt before read-debt
+
+User-corrected after implementation:
+
+```text
+llm이 하게 해야한다니까?
+검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제하는식으로가야지 안그래??
+```
+
+Correction:
+
+- The framework must not pretend a non-LLM deterministic hook can reliably understand multilingual semantic intent such as Korean `예약시트` mapping to English records/code.
+- The LLM or a searcher agent must perform semantic expansion and root-bound searches.
+- The harness should measure whether that search happened, not claim it can always know the semantic target first.
+- If an implementation-likely or host-context-dependent turn has no high-confidence requiredRead packet yet, the hook should create **search-debt**, not only fail open.
+- Before action/mutation tools run, the permit gate should accept either:
+  1. satisfied concrete `requiredRead` evidence when known, or
+  2. prior search evidence when the packet is in self-resolve/fallback mode.
+- Search evidence means visible tool evidence such as `agentgrep`, `grep`, `rg`, `read` after search, Context Delivery/searcher packet output, or bounded root-local file/code searches.
+- Once LLM search finds concrete records/files, read-debt can then require those paths to be read before action.
+
+Corrected target architecture:
+
+```text
+user message
+→ lightweight hook classifies turn as maybe host-context-dependent
+→ if concrete paths are known: requiredRead/read-debt
+→ if concrete paths are unknown: search-debt with fallbackSearches/self-resolve instruction
+→ LLM performs semantic expansion + root-bound searches
+→ harness measures search evidence
+→ no search evidence before action => block and force search first
+→ concrete paths found => read evidence before action
+→ action/mutation proceeds
+```
+
+This is stronger and more accurate than the initial deterministic-producer framing. The hook may still use indexes/aliases/project profiles when available, but the prevention boundary for ambiguous terms must be search evidence, not deterministic semantic certainty.
+
+Subagent implication, user-confirmed:
+
+- Search-debt should become a portable search ticket/packet.
+- The main LLM may satisfy it directly with root-bound search tools.
+- If broad/risky/parallel search is useful, the same ticket can be handed to a searcher subagent.
+- The subagent must return packet-shaped evidence: candidate meanings, queries run, requiredRead, optionalRead, confidence, and fallback searches.
+- The harness can then measure the returned search evidence the same way it measures main-agent search evidence.
+- This makes subagent delegation an extension of the same search-debt contract, not a separate ad-hoc prompt path.
+
+## Search-debt implementation result — 2026-06-01
+
+Status: implemented in source repo after user correction.
+
+Corrected implementation:
+
+```text
+correlated Context Delivery packet
+→ if requiredRead exists with confidence: read-debt
+→ else if self-resolve/delegate-search with fallbackSearchCount: search-debt
+→ search/read tools and explicit searcher handoff allowed
+→ action/mutation tools blocked until required search/read evidence exists
+```
+
+Key changes:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - enforces both search-debt and read-debt,
+  - treats `agentgrep`, `grep`, `rg`/`find` shell searches, Context Delivery/searcher packet evidence, and explicit searcher handoff as search evidence,
+  - blocks non-search subagent/swarm action before search evidence.
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh`
+  - renders `Context Delivery search-debt` when no concrete requiredRead exists,
+  - tells LLM/searcher to expand multilingual/user terms and perform root-bound semantic search.
+- `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
+  - adds advisory-only audit for search-debt followed by mutation without search evidence.
+- `.lazy-harness/scripts/self-test.py`
+  - protects search-debt action block, search-tool allow, explicit searcher handoff allow, search-satisfied action, and response audit advisory/silence cases.
+
+Validation performed:
+
+- `python3 -m py_compile .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py .lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py .lazy-harness/scripts/self-test.py`
+- Direct search-debt permit fixture: action blocked without search evidence and allowed after `agentgrep` evidence.
+- `python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format=md --strict`
+- `python3 .lazy-harness/scripts/self-test.py`
+- `python3 .lazy-harness/scripts/doctor.py --profile full --scope framework`
+- `.lazy-harness/bin/lazy graph-hygiene --format=md --fail-on-issues`
+
+Discovery capture:
+
+- DDD: none.
+- SDD: updated Context Delivery, pre-response context, and response audit contracts.
+- BDD: none.
+- TDD: updated response-rule-audit/context-delivery tests.
+- ADR: updated ADR 0041 architecture decision.
+- SSOT: updated harness enforcement and rule lifecycle policy.
+- Planning: this record updated with user correction and implementation result.
