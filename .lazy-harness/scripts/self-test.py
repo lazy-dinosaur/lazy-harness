@@ -4150,6 +4150,116 @@ def check_context_delivery_metadata_phase2() -> None:
     print("✓ context delivery metadata Phase 2 ok")
 
 
+def check_context_index_generator_phase3() -> None:
+    """Phase 3 context-index generator should produce deterministic derived cache output."""
+    schema_path = LAZY / "schemas" / "context-index.schema.json"
+    script_path = LAZY / "scripts" / "context-index.ts"
+    if not schema_path.exists():
+        fail("Context index schema missing: " + str(schema_path))
+    if not script_path.exists():
+        fail("Context index generator missing: " + str(script_path))
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    if schema.get("title") != "ContextIndex":
+        fail("Context index schema title mismatch")
+    record_props = schema.get("definitions", {}).get("recordEntry", {}).get("properties", {})
+    for prop in ["recordPath", "digest", "aliases", "surfaceTerms", "implementationHints", "graphIds", "projectProfileFeatureIds"]:
+        if prop not in record_props:
+            fail("Context index schema missing record property: " + prop)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-index-"))
+    try:
+        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
+            "# Reservation Management\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about reservation management UI\n"
+            "- Must:\n"
+            "  - confirm reservation table behavior before editing\n"
+            "- Aliases:\n"
+            "  - 예약시트\n"
+            "  - reservation sheet\n"
+            "- Surface terms:\n"
+            "  - 예약표\n"
+            "- Implementation hints:\n"
+            "  - Routes: `/reservations`\n"
+            "  - Components: `ReservationTable`\n"
+            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
+            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n"
+            "- Related records:\n"
+            "  - `.lazy-harness/spec/reservation-management.md`\n\n"
+            "## Implementation map\n\n"
+            "- Component: `ReservationManagementPage`\n"
+            "- Source: `src/features/reservations/ReservationManagementPage.tsx`\n",
+            encoding="utf-8",
+        )
+        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+        shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
+        (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
+            json.dumps({
+                "id": "kg_reservation_behavior_impl",
+                "source": ".lazy-harness/behavior/reservation-management.md",
+                "relation": "implemented_by",
+                "target": "src/features/reservations/ReservationTable.tsx",
+            }, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        def run_index(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                ["bun", str(script_path), "--root", str(temp), *args],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        first = run_index("--format", "json")
+        second = run_index("--format=json")
+        if first.returncode != 0:
+            fail("context-index generator failed:\n" + first.stdout + first.stderr)
+        if first.stdout != second.stdout:
+            fail("context-index generator output is not deterministic")
+        index = json.loads(first.stdout)
+        if index.get("schemaVersion") != "1.0" or index.get("source", {}).get("method") != "context-index-v1":
+            fail("context-index output missing schema/method")
+        records = index.get("records", [])
+        if len(records) != 1:
+            fail("context-index fixture should produce exactly one record")
+        record = records[0]
+        for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+            if expected not in record.get("aliases", []) and expected not in record.get("surfaceTerms", []):
+                fail("context-index record missing retrieval term: " + expected)
+        hints = record.get("implementationHints", {})
+        if "ReservationTable" not in hints.get("componentHints", []):
+            fail("context-index missing component hint")
+        if "src/features/reservations/ReservationTable.tsx" not in hints.get("fileHints", []):
+            fail("context-index missing file hint")
+        if "tests/reservations/reservation-table.test.tsx" not in hints.get("testHints", []):
+            fail("context-index missing test hint")
+        if "kg_reservation_behavior_impl" not in record.get("graphIds", []):
+            fail("context-index missing graph edge id")
+        if "reservations" not in record.get("projectProfileFeatureIds", []):
+            fail("context-index missing project profile feature id")
+        if index.get("projectProfile", {}).get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
+            fail("context-index missing feature navigation path")
+
+        written = run_index("--write", "--output", str(temp / ".lazy-harness" / "generated" / "context-index.json"), "--format=md")
+        if written.returncode != 0 or "Context index" not in written.stdout:
+            fail("context-index --write markdown output failed:\n" + written.stdout + written.stderr)
+        if not (temp / ".lazy-harness" / "generated" / "context-index.json").exists():
+            fail("context-index --write did not create generated cache")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ context-index generator Phase 3 ok")
+
+
 def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit same-turn system reminder inject JSON from digests."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
@@ -4534,6 +4644,7 @@ def main() -> None:
         (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
         (check_context_delivery_contract_sdd, "BOTH"),
         (check_context_delivery_metadata_phase2, "BOTH"),
+        (check_context_index_generator_phase3, "BOTH"),
         (check_message_received_hook_context_injection, "FRAMEWORK_ONLY"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

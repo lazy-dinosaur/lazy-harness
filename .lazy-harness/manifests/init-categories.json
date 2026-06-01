@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework 코드: reference-resolver, search-provider, self-test, doctor, layer-impact-gate, interview-loop, affected-test-runner, tdd-cross-verify, contract-diff, aftershock-reanalysis, host-pilot. doctor/self-test 는 ADR 0026 scope auto-detection 으로 host 에서는 BOTH check 만, framework dev 에서는 BOTH + FRAMEWORK_ONLY 둘 다 실행."
+          "description": "Framework 코드: reference-resolver, search-provider, self-test, doctor, layer-impact-gate, interview-loop, affected-test-runner, tdd-cross-verify, contract-diff, aftershock-reanalysis, host-pilot. doctor/self-test 는 ADR 0026 scope auto-detection 으로 host 에서는 BOTH check 만, framework dev 에서는 BOTH + FRAMEWORK_ONLY 둘 다 실행 context-index generator is included for Native Context Broker derived cache builds."
         },
         {
           "path": "hooks/",
@@ -69,7 +69,7 @@
             "*.schema.json",
             "README.md"
           ],
-          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema + context-delivery packet schema."
+          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema + context-delivery packet schema + context-index schema."
         },
         {
           "path": "triggers/",

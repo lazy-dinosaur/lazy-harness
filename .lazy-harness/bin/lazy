@@ -68,6 +68,8 @@ Commands:
                                 Read-only workflow compression route (ADR 0037)
   context --message "..." [--format=json|md]
                                 Query compact relevant-record digest for pre-response context
+  context-index [--write] [--format=json|md]
+                                Build deterministic generated Context Delivery index cache
   route-summary [--format=json|md]
                                 Summarize route telemetry for UX/FP review
   route-audit [--commits=12] [--format=json|md]
@@ -174,6 +176,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/relevant-record-query.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  context-index)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy context-index: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/context-index.ts" --root "$HOST_ROOT" "$@"
     ;;
   route-summary)
     if ! command -v bun >/dev/null 2>&1; then

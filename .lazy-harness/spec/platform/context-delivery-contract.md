@@ -361,12 +361,14 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
 - Primary files:
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - this SDD and packet contract.
   - `.lazy-harness/schemas/context-delivery-packet.schema.json` - JSON Schema for packet-shaped outputs.
+  - `.lazy-harness/schemas/context-index.schema.json` - JSON Schema for generated Context Delivery index cache.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - phase plan that schedules implementation after this contract.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
+  - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
+  - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.
 - Future implementation files:
-  - `.lazy-harness/scripts/context-index.ts` - generated context index builder.
   - `.lazy-harness/scripts/context-delivery.ts` - future packet generator/fuser.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future renderer once the packet generator exists.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - future packet-aware audit, after fixtures.

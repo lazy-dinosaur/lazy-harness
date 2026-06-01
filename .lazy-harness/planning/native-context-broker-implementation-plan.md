@@ -247,6 +247,8 @@ Acceptance criteria:
 
 ### Phase 3 — Generated context index
 
+Status: implemented in this Phase 3 change with `.lazy-harness/scripts/context-index.ts`, `.lazy-harness/schemas/context-index.schema.json`, and `.lazy-harness/bin/lazy context-index`; protected by `.lazy-harness/scripts/self-test.py#check_context_index_generator_phase3`.
+
 Add a rebuildable generated index:
 
 ```text

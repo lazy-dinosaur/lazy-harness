@@ -9,12 +9,14 @@ Derived artifacts for AI/tool retrieval. Read-only outputs.
 | `reference-index.json` | Derived reference resolver index/cache. | No |
 | `implementation-index.json` | Derived implementation map index for AI/LSP/AST/outline retrieval. | No |
 | `relevant-record-index.json` | Derived digest/query cache for pre-response relevant-record context. | No |
+| `context-index.json` | Derived Context Delivery cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
 
 ## Trigger to fill
 
 - XML/source records updated → regenerate derived reference artifacts.
 - LSP/AST/outline/source scan available → regenerate `implementation-index.json`.
 - `## Rule digest` sections, record files, or graph records updated → regenerate `relevant-record-index.json`.
+- Rule digests, Project Profile `feature-navigation.xml`, implementation maps, or graph records updated → regenerate `context-index.json`.
 
 ## Implementation index policy
 
@@ -37,6 +39,25 @@ Canonical relevant guidance lives in:
 2. Confirmed Markdown records and graph edges used as fallback evidence.
 
 If the generated relevant-record index disagrees with Markdown records, inspect and update the canonical record or regenerate the index.
+
+## Context index policy
+
+`context-index.json` is a deterministic cache for Native Context Broker retrieval, not source of truth.
+
+Canonical context-delivery knowledge lives in:
+
+1. Markdown `## Rule digest` sections and `Implementation map` sections.
+2. `.lazy-harness/project/feature-navigation.xml` in each host.
+3. Confirmed graph rows in `.lazy-harness/knowledge/graph.jsonl`.
+4. Source files and tests referenced by canonical records.
+
+Regenerate with:
+
+```bash
+.lazy-harness/bin/lazy context-index --write --format=md
+```
+
+The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. The source repository ignores `.lazy-harness/generated/context-index.json` by default to keep commits focused on canonical records and generator code.
 
 ## Status
 

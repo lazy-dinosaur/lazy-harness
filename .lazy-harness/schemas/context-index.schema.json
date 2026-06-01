@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/context-index.schema.json",
+  "title": "ContextIndex",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "fingerprint", "source", "records", "projectProfile", "graph"],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["1.0"] },
+    "generatedAt": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["root", "method", "tool"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "enum": ["context-index-v1"] },
+        "tool": { "type": "string", "minLength": 1 },
+        "canonicalInputs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/recordEntry" }
+    },
+    "projectProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["featureNavigationPath", "features"],
+      "properties": {
+        "featureNavigationPath": { "type": ["string", "null"] },
+        "features": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/featureEntry" }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graphPath", "rows", "invalidRows"],
+      "properties": {
+        "graphPath": { "type": ["string", "null"] },
+        "rows": { "type": "integer", "minimum": 0 },
+        "invalidRows": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "definitions": {
+    "layer": {
+      "type": "string",
+      "enum": ["DDD", "SDD", "BDD", "TDD", "ADR", "SSOT", "Planning"]
+    },
+    "digestStatus": {
+      "type": "string",
+      "enum": ["active", "advisory", "deprecated", "reverted", "needs-review"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["framework-global", "host-project", "team-policy", "layer-fact", "transient-plan", "jcode-local", "ambiguous"]
+    },
+    "digestSource": {
+      "type": "string",
+      "enum": ["rule-digest", "fallback"]
+    },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "implementationHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routeHints", "componentHints", "fileHints", "symbolHints", "testHints"],
+      "properties": {
+        "routeHints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "componentHints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "fileHints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "symbolHints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "testHints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] }
+      }
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appliesWhen", "must", "mustNot", "bullets", "relatedRecords"],
+      "properties": {
+        "appliesWhen": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "must": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "mustNot": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "bullets": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "recordCompletion": { "type": "string" },
+        "relatedRecords": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "sourceRange": { "$ref": "#/definitions/sourceRange" }
+      }
+    },
+    "graphHint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "relation": { "type": "string" },
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "path": { "type": "string" }
+      }
+    },
+    "recordEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordPath",
+        "title",
+        "layer",
+        "status",
+        "scope",
+        "digestSource",
+        "digest",
+        "aliases",
+        "surfaceTerms",
+        "implementationHints",
+        "graphIds",
+        "graphHints",
+        "projectProfileFeatureIds"
+      ],
+      "properties": {
+        "recordPath": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "layer": { "$ref": "#/definitions/layer" },
+        "status": { "$ref": "#/definitions/digestStatus" },
+        "scope": { "$ref": "#/definitions/scope" },
+        "digestSource": { "$ref": "#/definitions/digestSource" },
+        "digest": { "$ref": "#/definitions/digest" },
+        "aliases": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "surfaceTerms": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "implementationHints": { "$ref": "#/definitions/implementationHints" },
+        "graphIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "graphHints": { "type": "array", "items": { "$ref": "#/definitions/graphHint" }, "default": [] },
+        "projectProfileFeatureIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "aliasEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "lang": { "type": "string" }
+      }
+    },
+    "recordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "layer": { "$ref": "#/definitions/layer" }
+      }
+    },
+    "featureEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "label", "aliases", "routes", "components", "records", "sourceFiles", "tests"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "aliases": { "type": "array", "items": { "$ref": "#/definitions/aliasEntry" }, "default": [] },
+        "routes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "components": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "records": { "type": "array", "items": { "$ref": "#/definitions/recordRef" }, "default": [] },
+        "sourceFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+        "tests": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] }
+      }
+    }
+  }
+}
