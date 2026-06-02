@@ -4662,6 +4662,50 @@ def check_context_delivery_packet_journal_phase7() -> None:
         def short_hash(value: str) -> str:
             return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
 
+        wrong_message_packet = dict(row)
+        wrong_message_packet["messageIdHash"] = short_hash("phase7-other-packet-message")
+        wrong_message_packet["sessionIdHash"] = short_hash("phase7-same-packet-session")
+        wrong_message_packet["packetHash"] = "same-session-wrong-message-packet-fixture"
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(wrong_message_packet, ensure_ascii=False) + "\n")
+        wrong_message_permit = run_permit({
+            "message_id": "phase7-current-packet-message",
+            "session_id": "phase7-same-packet-session",
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if wrong_message_permit.strip():
+            fail("read-debt permit must not match same-session packet from a different message:\n" + wrong_message_permit)
+        wrong_message_audit = run_helper({
+            "message_id": "phase7-current-packet-message",
+            "session_id": "phase7-same-packet-session",
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if wrong_message_audit.strip():
+            fail("response audit must not match same-session packet from a different message:\n" + wrong_message_audit)
+
+        wrong_session_packet = dict(row)
+        wrong_session_packet["messageIdHash"] = short_hash("phase7-same-packet-message")
+        wrong_session_packet["sessionIdHash"] = short_hash("phase7-other-packet-session")
+        wrong_session_packet["packetHash"] = "same-message-wrong-session-packet-fixture"
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(wrong_session_packet, ensure_ascii=False) + "\n")
+        wrong_session_permit = run_permit({
+            "message_id": "phase7-same-packet-message",
+            "session_id": "phase7-current-packet-session",
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if wrong_session_permit.strip():
+            fail("read-debt permit must not match same-message packet from a different session:\n" + wrong_session_permit)
+        wrong_session_audit = run_helper({
+            "message_id": "phase7-same-packet-message",
+            "session_id": "phase7-current-packet-session",
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if wrong_session_audit.strip():
+            fail("response audit must not match same-message packet from a different session:\n" + wrong_session_audit)
+
         logged_read_message_id = "phase7-logged-read-message"
         logged_read_session_id = "phase7-logged-read-session"
         logged_read_row = dict(row)

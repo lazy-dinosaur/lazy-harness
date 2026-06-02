@@ -28,6 +28,8 @@ Regression fixtures cover:
 14. Read/search evidence can come from `.jcode/hooks/tool-events.jsonl` when lifecycle `recent_tool_calls` omits prior Read/Search calls; this prevents false-positive action blocks after the agent already satisfied requiredRead/search-debt.
 15. Tool-events fallback must not accept same-session events from a different message when current `message_id` is present.
 16. Tool-events fallback must not accept evidence older than the correlated Context Delivery packet epoch.
+17. Packet journal matching must not accept a same-session packet from a different message when current `message_id` is present.
+18. Packet journal matching must not accept a same-message packet from a different session when current `session_id` is present.
 
 ## Implementation map
 
@@ -52,7 +54,8 @@ Regression fixtures cover:
   9. Test runs `check-read-debt-permit.py` against packet evidence for search-debt action-block, search-tool allow, searcher handoff allow, and satisfied-action silence cases.
   10. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with empty lifecycle `recent_tool_calls` plus same-message/session `.jcode/hooks/tool-events.jsonl` Read/Search events to prevent the false-positive reported on 2026-06-01.
   11. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message events and pre-packet events to prevent over-accepting stale evidence.
-  12. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read/search advisory, satisfied-read/search silence, and uncorrelated silence cases.
+  12. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message packets and same-message/different-session packets to prevent parallel session/turn packet contamination.
+  13. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read/search advisory, satisfied-read/search silence, and uncorrelated silence cases.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`

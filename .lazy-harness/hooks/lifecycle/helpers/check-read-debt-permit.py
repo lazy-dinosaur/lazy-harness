@@ -315,9 +315,15 @@ def matching_packet() -> dict[str, Any] | None:
             ts = 0
         if ts > 0 and now - ts > TTL_SECONDS:
             continue
-        if msg_hash and row.get("messageIdHash") == msg_hash:
+        row_msg = row.get("messageIdHash")
+        row_session = row.get("sessionIdHash")
+        if msg_hash:
+            if row_msg != msg_hash:
+                continue
+            if session_hash and row_session != session_hash:
+                continue
             return row
-        if session_hash and row.get("sessionIdHash") == session_hash:
+        if session_hash and row_session == session_hash:
             return row
     return None
 

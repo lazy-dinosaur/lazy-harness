@@ -504,3 +504,57 @@ Discovery capture:
 - ADR: none, ADR 0041 still applies.
 - SSOT: none, existing harness enforcement policy still applies.
 - Planning: this record updated with side-effect analysis and implementation result.
+
+## Packet journal cross-contamination fix — 2026-06-02
+
+Status: implemented after user reported that parallel sessions can cause the read-debt helper to pick another session/turn's packet.
+
+Reported issue:
+
+```text
+근본 원인은 “read-debt helper가 세션 무관하게 남의 packet을 집는 것”.
+여러 세션이 병렬로돌탠데 말야
+```
+
+Root cause:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py#matching_packet` matched `messageIdHash OR sessionIdHash`.
+- `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py#matching_journal` matched message first, then fell back to session even when a message id existed.
+- In parallel sessions or multi-turn sessions, this can pick a fresh but unrelated Context Delivery packet.
+
+Fix:
+
+- Packet selection is now strict:
+  - if `message_id` is available, packet rows must match `messageIdHash` and, when available, `sessionIdHash`;
+  - session-only fallback is allowed only when message id is absent.
+- The same strict rule applies to pre-action permit and response.completed packet audit.
+
+Protection added:
+
+- `.lazy-harness/scripts/self-test.py` verifies same-session/different-message packets do not match.
+- `.lazy-harness/scripts/self-test.py` verifies same-message/different-session packets do not match.
+- The fixtures cover both pre-action permit and response audit.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: updated Context Delivery and Response Rule Audit packet correlation contracts.
+- BDD: none.
+- TDD: updated response-rule-audit regression coverage.
+- ADR: none, ADR 0041 still applies.
+- SSOT: none, existing harness enforcement policy still applies.
+- Planning: this record updated with cross-contamination root cause and fix.
+
+## Visible filler output note — 2026-06-02
+
+User reported another session repeatedly printing `course` between ordinary assistant messages. Current host-local search found no lazy-harness or `.jcode` hook/code source that emits `course` as a lifecycle/logging marker; occurrences were in tool-event logs or model/tokenizer data, not hook scripts. Treat this as a model/provider visible-output quality issue rather than a Context Delivery hook output. If it repeats by model/provider, collect model/session examples in dogfood telemetry before introducing a harness-level mitigation.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: candidate only if model/provider output telemetry schema is later added.
+- BDD: none.
+- TDD: none.
+- ADR: none.
+- SSOT: none.
+- Planning: this note records the investigation result.

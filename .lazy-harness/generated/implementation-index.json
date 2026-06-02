@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T23:56:20Z",
+  "generatedAt": "2026-06-02T00:16:20Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2876,6 +2876,93 @@
       "provenance": {
         "source": "manual-implementation-map",
         "confirmedAt": "2026-06-01T23:56:20Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_strict_packet_matching_permit",
+      "createdAt": "2026-06-02T00:16:20Z",
+      "updatedAt": "2026-06-02T00:16:20Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+      "predicate": "guards_against",
+      "object": "cross-session-packet-contamination",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+          "quote": "matching_packet now requires messageIdHash match and, when available, sessionIdHash match; session-only matching is used only without message id."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-02T00:16:20Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_strict_packet_matching_audit",
+      "createdAt": "2026-06-02T00:16:20Z",
+      "updatedAt": "2026-06-02T00:16:20Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+      "predicate": "guards_against",
+      "object": "cross-session-packet-contamination",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
+          "quote": "matching_journal now requires messageIdHash match and, when available, sessionIdHash match before response audit consumes packet evidence."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-02T00:16:20Z"
+      }
+    },
+    {
+      "id": "kg_context_delivery_strict_packet_matching_self_test",
+      "createdAt": "2026-06-02T00:16:20Z",
+      "updatedAt": "2026-06-02T00:16:20Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/scripts/self-test.py",
+      "predicate": "protects",
+      "object": "cross-session-packet-contamination",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "Phase 7 fixtures verify same-session/different-message and same-message/different-session packet rows do not satisfy pre-action permit or response audit."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-02T00:16:20Z"
       }
     }
   ]

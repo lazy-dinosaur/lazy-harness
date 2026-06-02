@@ -275,14 +275,19 @@ def matching_journal(path: Path) -> dict[str, Any] | None:
             ts = 0
         return ts <= 0 or now - ts <= TTL_SECONDS
 
-    if msg_hash:
-        for row in reversed(rows):
-            if fresh(row) and row.get("messageIdHash") == msg_hash:
-                return row
-    if session_hash:
-        for row in reversed(rows):
-            if fresh(row) and row.get("sessionIdHash") == session_hash:
-                return row
+    for row in reversed(rows):
+        if not fresh(row):
+            continue
+        row_msg = row.get("messageIdHash")
+        row_session = row.get("sessionIdHash")
+        if msg_hash:
+            if row_msg != msg_hash:
+                continue
+            if session_hash and row_session != session_hash:
+                continue
+            return row
+        if session_hash and row_session == session_hash:
+            return row
     return None
 
 
