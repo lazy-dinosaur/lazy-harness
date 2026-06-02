@@ -148,11 +148,15 @@ def extract_logged_payload(line: str) -> tuple[float, dict[str, Any] | None]:
     return parse_event_epoch(prefix), payload
 
 
-def logged_tool_event_calls() -> list[dict[str, Any]]:
+def logged_tool_event_calls(packet_row: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     if not TOOL_EVENTS_JOURNAL.exists():
         return []
     current_message_id = str(PAYLOAD.get("message_id") or PAYLOAD.get("messageId") or "")
     current_session_id = str(PAYLOAD.get("session_id") or PAYLOAD.get("sessionId") or "")
+    try:
+        packet_epoch = float((packet_row or {}).get("epochSeconds") or 0)
+    except Exception:
+        packet_epoch = 0
     now = time.time()
     rows: list[dict[str, Any]] = []
     try:
@@ -165,11 +169,19 @@ def logged_tool_event_calls() -> list[dict[str, Any]]:
             continue
         if event_epoch and now - event_epoch > TTL_SECONDS:
             continue
+        if packet_epoch and event_epoch and event_epoch < packet_epoch - 5:
+            continue
         event_message_id = str(event.get("message_id") or event.get("messageId") or "")
         event_session_id = str(event.get("session_id") or event.get("sessionId") or "")
         same_message = bool(current_message_id and event_message_id == current_message_id)
         same_session = bool(current_session_id and event_session_id == current_session_id)
-        if not same_message and not same_session:
+        if current_message_id:
+            if not same_message:
+                continue
+        elif current_session_id:
+            if not same_session:
+                continue
+        else:
             continue
         tool = event.get("tool") if isinstance(event.get("tool"), dict) else {}
         name = str(tool.get("name") or event.get("tool_name") or event.get("name") or "")
@@ -187,9 +199,9 @@ def recent_calls() -> list[dict[str, Any]]:
     return payload_recent_calls()
 
 
-def evidence_calls() -> list[dict[str, Any]]:
+def evidence_calls(packet_row: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     calls = payload_recent_calls()
-    logged = logged_tool_event_calls()
+    logged = logged_tool_event_calls(packet_row)
     if not logged:
         return calls
     seen: set[str] = set()
@@ -304,14 +316,14 @@ def packet_has_search_debt(row: dict[str, Any]) -> bool:
     return level in SEARCH_DEBT_LEVELS and (fallback_count > 0 or level == "delegate-search")
 
 
-def has_mutation_tool_call() -> bool:
-    for call in evidence_calls():
+def has_mutation_tool_call(packet_row: dict[str, Any] | None = None) -> bool:
+    for call in evidence_calls(packet_row):
         if str(call.get("name") or "") in WRITE_TOOLS:
             return True
     return False
 
 
-def has_required_read_evidence(required_paths: list[str]) -> bool:
+def has_required_read_evidence(required_paths: list[str], packet_row: dict[str, Any] | None = None) -> bool:
     if not required_paths:
         return True
     normalized = []
@@ -324,7 +336,7 @@ def has_required_read_evidence(required_paths: list[str]) -> bool:
     if not normalized:
         return True
     seen = {path: False for path in normalized}
-    for call in evidence_calls():
+    for call in evidence_calls(packet_row):
         name = str(call.get("name") or "")
         if name in WRITE_TOOLS:
             continue
@@ -358,8 +370,8 @@ def call_has_search_evidence(call: dict[str, Any]) -> bool:
     return "contextdeliverypacket" in lower or "requiredread" in lower
 
 
-def has_search_evidence() -> bool:
-    return any(call_has_search_evidence(call) for call in evidence_calls())
+def has_search_evidence(packet_row: dict[str, Any] | None = None) -> bool:
+    return any(call_has_search_evidence(call) for call in evidence_calls(packet_row))
 
 
 def has_pr_description_rule(entries: list[dict[str, Any]]) -> bool:
@@ -443,7 +455,7 @@ def main() -> int:
             confidence = float(packet_row.get("confidence") or 0)
         except Exception:
             confidence = 0
-        if required_paths and confidence >= 0.6 and has_mutation_tool_call() and not has_required_read_evidence(required_paths):
+        if required_paths and confidence >= 0.6 and has_mutation_tool_call(packet_row) and not has_required_read_evidence(required_paths, packet_row):
             print("ADVISORY. Context Delivery audit: required-read evidence may be missing.\n")
             print("문제: 이번 turn에 Context Delivery Packet requiredRead가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.")
             print("\n해야 할 일:")
@@ -454,7 +466,7 @@ def main() -> int:
             for path in required_paths[:5]:
                 print(f"  - {path}")
             return 0
-        if packet_has_search_debt(packet_row) and has_mutation_tool_call() and not has_search_evidence():
+        if packet_has_search_debt(packet_row) and has_mutation_tool_call(packet_row) and not has_search_evidence(packet_row):
             print("ADVISORY. Context Delivery audit: search evidence may be missing.\n")
             print("문제: 이번 turn에 Context Delivery Packet이 concrete requiredRead 없이 self-resolve/search-debt 상태였고 파일 변경 도구가 사용되었지만, 변경 전 root-bound search evidence를 찾지 못했습니다.")
             print("\n해야 할 일:")

@@ -471,3 +471,36 @@ Discovery capture:
 - ADR: none, existing ADR 0041 still applies.
 - SSOT: none, existing harness enforcement policy still applies.
 - Planning: this record updated with dogfood false-positive result.
+
+## Tool-events fallback hardening — 2026-06-01
+
+Status: implemented after user asked whether the fallback could cause side effects.
+
+Potential side effects considered:
+
+- A stale Read/Search from an older message in the same session could incorrectly satisfy a new packet.
+- A Read/Search that happened before the current Context Delivery packet could incorrectly satisfy the new packet.
+- Broad fallback could make record-completion audit too quiet.
+
+Hardening implemented:
+
+- If the current lifecycle payload has `message_id`, `.jcode/hooks/tool-events.jsonl` fallback accepts only rows with the same `message_id`.
+- Same-session fallback is used only when no message id is available.
+- Tool-events older than the correlated packet epoch are ignored.
+- Response audit uses tool-events fallback only for packet search/read evidence; record-completion capture remains lifecycle-payload scoped.
+
+Protection added:
+
+- `.lazy-harness/scripts/self-test.py` verifies same-session/different-message tool-events do not satisfy read-debt.
+- `.lazy-harness/scripts/self-test.py` verifies pre-packet tool-events do not satisfy read-debt.
+- `.lazy-harness/scripts/self-test.py` verifies response audit does not accept stale/cross-message tool-events for packet evidence.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: updated Context Delivery and Response Rule Audit evidence contracts.
+- BDD: none.
+- TDD: updated response-rule-audit regression coverage.
+- ADR: none, ADR 0041 still applies.
+- SSOT: none, existing harness enforcement policy still applies.
+- Planning: this record updated with side-effect analysis and implementation result.

@@ -204,7 +204,7 @@ Phase 7 also adds a search-debt advisory-only case:
    - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
    - Output starts with `ADVISORY`, never `STOP`.
 
-The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; both helpers use `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. This response audit remains the after-completion backstop and dogfood signal.
+The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; both helpers use `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. The fallback is strict: same `message_id` is required when available, same-session fallback applies only when message id is absent, and tool-events older than the correlated packet epoch are ignored. This response audit remains the after-completion backstop and dogfood signal.
 
 Everything else stays silent.
 

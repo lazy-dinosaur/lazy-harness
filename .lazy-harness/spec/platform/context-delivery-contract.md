@@ -383,6 +383,7 @@ Rules:
 - Search-debt is satisfied when recent tool evidence shows root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff evidence).
 - Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
 - Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from the next `tool.execute.before` payload, causing false-positive action blocks.
+- To avoid false positives in the opposite direction, the journal fallback is strict: if the current payload has a `message_id`, only the same `message_id` is accepted; same-session fallback is used only when message id is unavailable. Tool-events older than the correlated packet epoch are ignored.
 - Mixed read+action batches do not satisfy the debt in the same tool call; reads must happen before the action batch.
 - If the packet lacks concrete required paths, confidence is below threshold, no safe message/session correlation exists, or the producer times out, the gate fails open.
 - This current transport uses lifecycle hooks, but the same packet/permit semantics are ACP-compatible and may be carried by a protocol layer later.

@@ -4682,6 +4682,54 @@ def check_context_delivery_packet_journal_phase7() -> None:
         if logged_read_satisfied.strip():
             fail("read-debt permit should accept tool-events journal read evidence when recent_tool_calls is empty:\n" + logged_read_satisfied)
 
+        strict_message_id = "phase7-strict-message"
+        strict_session_id = "phase7-strict-session"
+        strict_row = dict(row)
+        strict_row["messageIdHash"] = short_hash(strict_message_id)
+        strict_row["sessionIdHash"] = short_hash(strict_session_id)
+        strict_row["packetHash"] = "strict-message-correlation-fixture"
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(strict_row, ensure_ascii=False) + "\n")
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": ".lazy-harness/behavior/reservation-management.md"})
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "src/features/reservations/ReservationTable.tsx"})
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "tests/reservations/reservation-table.test.tsx"})
+        strict_message_block = run_permit({
+            "message_id": strict_message_id,
+            "session_id": strict_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if "read-debt gate" not in strict_message_block:
+            fail("read-debt permit must not accept same-session tool-events from a different message:\n" + strict_message_block)
+
+        epoch_message_id = "phase7-epoch-message"
+        epoch_session_id = "phase7-epoch-session"
+        old_ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 60))
+        for p in [".lazy-harness/behavior/reservation-management.md", "src/features/reservations/ReservationTable.tsx", "tests/reservations/reservation-table.test.tsx"]:
+            event = {
+                "event": "tool.execute.after",
+                "session_id": epoch_session_id,
+                "message_id": epoch_message_id,
+                "tool": {"name": "read", "args": {"file_path": p}},
+            }
+            with tool_events.open("a", encoding="utf-8") as fh:
+                fh.write(old_ts + " " + json.dumps(event, ensure_ascii=False) + "\n")
+        epoch_row = dict(row)
+        epoch_row["messageIdHash"] = short_hash(epoch_message_id)
+        epoch_row["sessionIdHash"] = short_hash(epoch_session_id)
+        epoch_row["packetHash"] = "packet-epoch-filter-fixture"
+        epoch_row["epochSeconds"] = int(time.time())
+        with journal.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(epoch_row, ensure_ascii=False) + "\n")
+        epoch_block = run_permit({
+            "message_id": epoch_message_id,
+            "session_id": epoch_session_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "recent_tool_calls": [],
+        })
+        if "read-debt gate" not in epoch_block:
+            fail("read-debt permit must not accept tool-events older than the packet epoch:\n" + epoch_block)
+
         search_message_id = "phase7-search-message"
         search_session_id = "phase7-search-session"
         search_row = {
@@ -4785,6 +4833,22 @@ def check_context_delivery_packet_journal_phase7() -> None:
         })
         if logged_read_audit_satisfied.strip():
             fail("response audit should accept tool-events journal read evidence:\n" + logged_read_audit_satisfied)
+
+        strict_message_audit = run_helper({
+            "message_id": strict_message_id,
+            "session_id": strict_session_id,
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if "ADVISORY. Context Delivery audit" not in strict_message_audit:
+            fail("response audit must not accept same-session tool-events from a different message:\n" + strict_message_audit)
+
+        epoch_audit = run_helper({
+            "message_id": epoch_message_id,
+            "session_id": epoch_session_id,
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+        })
+        if "ADVISORY. Context Delivery audit" not in epoch_audit:
+            fail("response audit must not accept tool-events older than packet epoch:\n" + epoch_audit)
 
         logged_search_audit_satisfied = run_helper({
             "message_id": logged_search_message_id,

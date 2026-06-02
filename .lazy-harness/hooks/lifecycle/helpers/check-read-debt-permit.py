@@ -247,7 +247,13 @@ def logged_tool_event_calls(packet_row: dict[str, Any] | None) -> list[dict[str,
         event_session_id = str(event.get("session_id") or event.get("sessionId") or "")
         same_message = bool(current_message_id and event_message_id == current_message_id)
         same_session = bool(current_session_id and event_session_id == current_session_id)
-        if not same_message and not same_session:
+        if current_message_id:
+            if not same_message:
+                continue
+        elif current_session_id:
+            if not same_session:
+                continue
+        else:
             continue
         tool = event.get("tool") if isinstance(event.get("tool"), dict) else {}
         name = str(tool.get("name") or event.get("tool_name") or event.get("name") or "")
