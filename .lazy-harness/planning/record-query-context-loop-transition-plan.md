@@ -145,8 +145,8 @@ This makes `.lazy-harness` not just institutional memory, but an active memory l
 ### Loop
 
 ```text
-1. Pre-response relevant-record query
-2. Compact rule digest injection/surfacing
+1. Pre-response direct-search prompt for host-dependent turns
+2. LLM/searcher root-bound record/source/test search evidence
 3. Normal agent answer or plan
 4. response.completed audit/backstop
 5. Record completion/update if confirmed info exists
@@ -158,7 +158,7 @@ This makes `.lazy-harness` not just institutional memory, but an active memory l
 | Class | Mechanism | Strength |
 |---|---|---|
 | confirmed rule/decision/correction/scenario/contract/regression | canonical record write/update | mandatory |
-| relevant rule for current answer/action | pre-response query + digest | organic guidance |
+| relevant rule for current answer/action | pre-response direct-search prompt; explicit query/digest helper only when useful | organic guidance |
 | ignored surfaced rule or missing record | response.completed audit | feedback/backstop |
 | destructive or repeatedly failed boundary | narrow promoted hard stop | exceptional |
 
@@ -167,7 +167,10 @@ This makes `.lazy-harness` not just institutional memory, but an active memory l
 A digest must be small enough for normal turns:
 
 ```md
-Relevant lazy-harness rules
+Explicit digest helper output example, not the default message.received transport:
+
+Explicit relevant-record helper output
+- Helper only: do not treat this digest as semantic authority; perform direct root-bound search/read when host detail or ambiguity remains.
 - `.lazy-harness/ssot/pr-description-format.md` — PR description format
   - Use Why / What / Task sections.
   - Applies when drafting PR body, regardless of tool.
@@ -428,10 +431,10 @@ Likely migrations later:
 
 ## Open questions
 
-1. Resolved: Jcode `message.received` provides same-turn pre-response context injection.
+1. Revised: Jcode `message.received` provides same-turn direct-search prompt injection; explicit digest helpers are no longer the default transport.
 2. Resolved for Phase 2: relevant-record index has a generated JSON schema; prototype currently parses records directly.
 3. Resolved for Phase 1: digest metadata starts as Markdown `## Rule digest` sections.
-4. Resolved for Phase 3: native pre-response query exists; mandatory record completion remains handled by response audit/backstop.
+4. Revised for Phase 3: native pre-response direct-search prompting exists; explicit query/digest helpers remain manual/dogfood support, and mandatory record completion remains handled by response audit/backstop.
 5. Resolved in Phase 5: legacy PR body guard migration/removal completed after response audit fixtures proved replacement coverage.
 
 ## Recommended next immediate slice
@@ -465,7 +468,7 @@ Next slice should be read-only and measurable:
 ## Discovery capture
 
 - DDD: none.
-- SDD: candidates for record digest, relevant-record query, pre-response context, response audit, guidance ladder.
+- SDD: candidates for record digest, explicit relevant-record query helper, direct-search pre-response context, response audit, guidance ladder.
 - BDD: desired agent behavior is organic rule recognition before response and silent success when no issue exists.
 - TDD: future fixtures required for PR/runtime/correction digest retrieval and audit behavior.
 - ADR: ADR 0041 is active design direction.

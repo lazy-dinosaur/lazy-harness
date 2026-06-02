@@ -24,7 +24,7 @@ This is not an external RAG-first plan. The first implementation should use cano
 
 ## Problem statement
 
-Current `message.received` relevant-record injection is useful but too shallow for short project-surface terms.
+Current `message.received` direct-search prompting is intentionally shallow and should not become hidden semantic resolution for short project-surface terms.
 
 Example:
 
@@ -296,7 +296,7 @@ Acceptance criteria:
 
 ### Phase 5 — Self-resolving agent instruction
 
-Status: completed in this Phase 5 change with `.lazy-harness/hooks/lifecycle/on-message-received.sh` injecting a lightweight main-agent self-resolution protocol for surface-like implementation requests, without running subagents or heavy model calls inside `message.received`; protected by `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`.
+Status: revised on 2026-06-02 with `.lazy-harness/hooks/lifecycle/on-message-received.sh` injecting a direct framework-structured search prompt and journaling sanitized search-debt for likely host-dependent turns, without running `relevant-record-query`, `context-delivery`, subagents, or heavy model calls inside `message.received`; protected by `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`.
 
 Do not require subagents by default.
 
@@ -339,7 +339,7 @@ Acceptance criteria:
 
 ### Phase 7 — Response audit integration
 
-Status: completed in this Phase 7 change as advisory-only packet evidence integration: `lazy context-delivery --journal` appends sanitized packet evidence, and `response.completed` consumes correlated rows to emit `ADVISORY` only when mutation evidence exists without required-read read/search evidence. It deliberately does not add STOP behavior; the journal is a dogfood collection layer for later broker/escalation design.
+Status: revised on 2026-06-02 as direct-search/read-debt integration: default `message.received` appends sanitized direct-search debt rows, `lazy context-delivery --journal` remains explicit/manual/dogfood packet evidence, `tool.execute.before` guards action until direct search/read evidence exists, and `response.completed` consumes correlated rows to emit advisory/backstop output when evidence is still missing.
 
 Pause gate: after Phase 7 commit, source validation, and Medivance/Medivance PWA sync validation are complete, stop before Phase 8 until the user explicitly resumes. User confirmed this pause on 2026-06-01.
 

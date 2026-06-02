@@ -15,13 +15,13 @@ Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
-  - implementing or using relevant-record query, lazy context, or pre-response rule lookup
-  - 응답 전에 필요한 규칙을 쿼리하거나 주입하는 방식을 이야기한다
+  - implementing or using relevant-record query, lazy context, or explicit helper lookup
+  - 응답 전에 필요한 규칙을 직접 검색하도록 돕는 helper를 이야기한다
   - user asks how records should be found before an answer or plan
   - ranking records by natural intent, layer, status, token budget, or digest metadata
   - indexing aliases, surface terms, Project Profile feature navigation, or implementation hints
 - Must:
-  - query canonical records by natural intent/context, not by concrete tool names
+  - query canonical records by natural intent/context as an explicit/manual helper, not as default `message.received` semantic authority
   - prefer `## Rule digest` sections and compact bullets over full record dumps
   - respect status filtering and token budget
   - stay root-bound to the current host `.lazy-harness`
@@ -34,7 +34,7 @@ Related schema: `.lazy-harness/schemas/relevant-record-index.schema.json`
 
 ## Purpose
 
-Relevant Record Query is the framework-level mechanism that finds compact `.lazy-harness` record guidance for the current user message or planning context without binding policy to a concrete tool.
+Relevant Record Query is an explicit framework helper that finds compact `.lazy-harness` record guidance for the current user message or planning context without binding policy to a concrete tool. It is not the default `message.received` transport.
 
 It answers:
 
@@ -50,6 +50,8 @@ which lazy-harness records should be in the agent's working context before answe
 - Not a replacement for deliberate record reads when a record is selected.
 - Not a tool-specific policy engine.
 - Not a generated implementation/symbol index.
+- Not a premature CLI/search backend that claims to search better than the LLM/searcher. Direct LLM/searcher root-bound grep/read/bash exploration is the baseline; a CLI/index/backend must earn trust through dogfood evidence and must never hide or replace that deliberate search loop.
+- Not the default `message.received` semantic authority. The default pre-turn hook must prompt the LLM/searcher to do direct root-bound search; this CLI is explicit/manual/dogfood support unless a later dogfood-proven design says otherwise.
 
 ## Input contract
 
@@ -131,7 +133,8 @@ Minimal JSON shape:
 Markdown rendering:
 
 ```md
-Relevant lazy-harness rules
+Explicit relevant-record helper output
+- Helper only: do not treat this digest as semantic authority; perform direct root-bound search/read when host detail or ambiguity remains.
 - `.lazy-harness/ssot/project-identity.md` — Project Identity
   - Consult this SSOT before deciding ownership or upstream boundaries.
   - Confirmed corrections update this record or a more specific SSOT.
@@ -139,7 +142,7 @@ Relevant lazy-harness rules
 
 ## Matching model
 
-The final implementation may use SearchProvider, generated index, grep fallback, or an external derived query backend, but it must preserve these framework constraints:
+The final implementation may use SearchProvider, generated index, grep fallback, or an external derived query backend, but direct LLM/searcher root-bound grep/read/bash exploration remains the correctness baseline. A CLI/index/backend is allowed only as a compact candidate/digest helper and must preserve these framework constraints:
 
 1. Root-bound: query only the current host `.lazy-harness` records.
 2. Record-first: canonical Markdown records and graph are source of truth.
@@ -206,6 +209,10 @@ Phase 2 updates its direct fallback path model to the current canonical director
 | Planning | `.lazy-harness/planning/` |
 
 Relevant Record Query may use SearchProvider for candidate narrowing, but it must add digest parsing, status filtering, token budgeting, and output rendering.
+
+It must not make the agent trust the query output as semantic authority. If the query/digest is low-confidence, missing host detail, or conflicts with user context, the LLM/searcher must fall back to direct root-bound search/read work before answering, planning, option-gating, or editing.
+
+The current `message.received` transport does not automatically call Relevant Record Query. It emits a direct framework-structured search prompt and records search-debt, so the LLM/searcher performs the actual root-bound grep/read/bash loop.
 
 ## Fallback behavior
 
@@ -300,6 +307,7 @@ A future implementation must test:
 5. queries for source-of-truth, contract, behavior, regression, release, runtime, and PR examples retrieve without tool-specific keys,
 6. `기능패널`-style surface terms can be represented via aliases/profile metadata without keyword-only dependence,
 7. fallback entries do not invent bullets beyond record evidence.
+8. CLI/index output remains a helper: it does not suppress required LLM/searcher root-bound search/read when confidence is low or ambiguity remains.
 
 ## Implementation map
 
@@ -321,7 +329,7 @@ A future implementation must test:
   1. Build/load relevant-record index from canonical records.
   2. Query by message/context/layer budget.
   3. Rank and render compact digest entries.
-  4. Provide digest to pre-response context surface.
+  4. Provide digest to explicit/manual helper callers; default `message.received` still prompts direct search.
 - Tests / protection:
   - Phase 2 self-test should protect SearchProvider canonical paths.
   - Future query CLI fixtures protect ranking/token output.
@@ -332,7 +340,7 @@ A future implementation must test:
 
 ## Rule placement
 
-- Rule: relevant record lookup must query canonical records by natural intent/context, render compact digest output, use a generated relevant-record index/cache, and avoid tool-specific project policy keys.
+- Rule: relevant record lookup must query canonical records by natural intent/context, render compact digest output for explicit/manual helper callers, use a generated relevant-record index/cache when dogfood-proven, avoid tool-specific project policy keys, and never replace LLM/searcher direct root-bound search as the default pre-turn behavior.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/relevant-record-query.md`
 - Why not AGENTS.md: this is a platform contract for query/index behavior, not short operational grammar.

@@ -94,7 +94,7 @@ A concrete tool/action hard stop may be added only after Phase 6 criteria are re
 - record explains why ambient/surfaced/audited guidance was insufficient,
 - scope is narrow and rollback is clear.
 
-Generic destructive shell safety is already allowed and is not considered project/team policy. Context Delivery search/read-debt is tracked through pre-turn packet journals and response audit by default; a concrete tool hard stop would require a separate user-confirmed promotion.
+Generic destructive shell safety is already allowed and is not considered project/team policy. Direct-search/read-debt is tracked through pre-turn journal rows and response audit by default; a concrete tool hard stop would require a separate user-confirmed promotion.
 
 Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md` and is validated by `.lazy-harness/scripts/hard-stop-promotion-audit.py`. A promoted hard stop must include a canonical `## Hard-stop promotion` section with the required fields from that SDD before implementation.
 
@@ -112,7 +112,8 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/context-broker-dogfood.md` — explicit dogfood collection contract before lifecycle integration.
   - `.lazy-harness/scripts/record-decision-broker.ts` — explicit post-turn Record Decision Packet generator.
   - `.lazy-harness/scripts/context-broker-dogfood.ts` — explicit Native Context Broker dogfood collector.
-  - `.lazy-harness/scripts/context-delivery.ts` — deterministic packet producer and sanitized packet evidence collection for read-debt/audit.
+  - `.lazy-harness/scripts/context-delivery.ts` — explicit/manual/dogfood deterministic packet producer and sanitized packet evidence collection for read-debt/audit.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — default direct-search prompt and sanitized search-debt journal producer.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — packet-scoped post-response search/read debt audit helper.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.
   - `.lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py` — no-op compatibility shim.

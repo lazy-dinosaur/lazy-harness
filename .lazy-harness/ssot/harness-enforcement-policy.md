@@ -17,7 +17,7 @@ Confirmation: user-confirmed
   - deciding record completion, response lifecycle guidance, or tool-specific policy migration
 - Must:
   - keep canonical records mandatory for confirmed rules, decisions, corrections, contracts, behaviors, and regressions
-  - surface relevant records before response through compact query/digest context
+  - surface a direct framework-structured search prompt before response when host context is likely needed; keep deterministic query/digest CLIs explicit/manual helpers
   - audit missed rules and missing records after response with `response.completed`
   - record unresolved search/read evidence as debt in the pre-turn journal and surface/audit it; do not attach project/context policy to concrete tool surfaces
   - avoid solving stored-rule recall by adding per-tool project-policy adapters
@@ -48,8 +48,9 @@ The issue is bigger than any one PR/runtime rule. Lazy-harness must become an ac
 
 ```text
 write complete records
-→ index/query records by intent/context
-→ inject compact relevant guidance before response
+→ maintain indexes/digests as helper metadata
+→ inject direct framework-structured search prompts before response
+→ LLM/searcher searches records/source/tests directly
 → audit after response
 → update records again
 ```
@@ -67,14 +68,14 @@ Lazy-harness should distinguish two classes of obligations:
    - It is acceptable for these record-completion obligations to be strong/forced because they protect the framework memory itself.
 2. **Non-record action guidance should not become tool-specific policy.**
    - Do not encode rules as `when bash then ...`, `when gh then ...`, `when dev-cli then ...`, or `when GitHub MCP then ...`.
-   - Instead, relevant records/rules should be surfaced automatically through a pre-response query and checked through response-completed audit/backstop.
+   - Instead, host-dependent turns should receive a pre-response direct-search prompt and be checked through response-completed audit/backstop; deterministic record-query/digest CLIs remain explicit/manual helpers.
 
 Target loop:
 
 ```text
 mandatory record completion for canonical memory
 +
-pre-response relevant record query for action guidance
+pre-response direct-search prompt for action guidance
 +
 response.completed audit for missed rules/records
 ```
@@ -86,14 +87,14 @@ This preserves strong memory guarantees while avoiding broad slow blocking and t
 Hooks remain important, but policy should move to the response lifecycle:
 
 ```text
-pre-response relevant record query
+pre-response direct-search prompt
 +
 search/read debt journal from message.received when required context is unresolved
 +
 response.completed audit/backstop
 ```
 
-Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport, destructive safety, logging, and packet-scoped evidence guards. Search/read debt is produced at message.received and the generic guard may deny action only when the LLM/searcher has not left required search/read evidence. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
+Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport, destructive safety, logging, and search/read evidence guards. Search/read debt is produced at message.received as a direct framework-structured search prompt, and the generic guard may deny action only when the LLM/searcher has not left required direct search/read evidence. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
 
 Migration target:
 
@@ -123,11 +124,11 @@ User-confirmed after dogfood screenshots:
 
 Accepted policy:
 
-- The deterministic Context Delivery producer may surface literal/record-authored hints, but it must not implement semantic search or host-specific alias mapping.
+- The deterministic Context Delivery/Relevant Record Query producers may be used explicitly for manual/dogfood evidence, but they must not be the default semantic authority in `message.received`.
 - The LLM or searcher agent performs semantic expansion and root-bound search first.
-- When a correlated packet has concrete `requiredRead` paths or fallback searches, missing evidence becomes search/read debt and the generic evidence guard denies action until search/read evidence exists.
+- When a correlated direct-search row or packet has concrete `requiredRead` paths or fallback searches, missing evidence becomes search/read debt and the generic evidence guard denies action until direct search/read evidence exists.
 - This is packet-scoped, not a concrete-tool project-policy adapter.
-- The current transport is `message.received` plus a generic `tool.execute.before` evidence guard plus `response.completed` audit/backstop; the core semantics are protocol-agnostic and ACP-compatible.
+- The current transport is `message.received` direct-search prompt plus a generic `tool.execute.before` evidence guard plus `response.completed` audit/backstop; the core semantics are protocol-agnostic and ACP-compatible.
 
 User-corrected after implementation:
 

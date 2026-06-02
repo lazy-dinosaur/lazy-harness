@@ -356,7 +356,7 @@ def has_required_read_evidence(required_paths: list[str], packet_row: dict[str, 
 
 def shell_has_search_evidence(command: str) -> bool:
     return bool(re.search(
-        r"\b(rg|grep|find|git\s+grep|git\s+ls-files|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        r"\b(rg|grep|find|git\s+grep|git\s+ls-files)\b",
         command,
         re.IGNORECASE,
     ))
@@ -370,9 +370,9 @@ def call_has_search_evidence(call: dict[str, Any]) -> bool:
         return True
     if name in {"bash", "Bash"} and shell_has_search_evidence(blob):
         return True
-    if name in {"subagent", "swarm"} and any(marker in lower for marker in ("searcher", "root-bound search", "requiredread", "contextdeliverypacket", "search-debt")):
+    if name in {"subagent", "swarm"} and any(marker in lower for marker in ("searcher", "root-bound search", "do not mutate", "read-only", "search-debt")):
         return True
-    return "contextdeliverypacket" in lower or "requiredread" in lower
+    return False
 
 
 def has_search_evidence(packet_row: dict[str, Any] | None = None) -> bool:
@@ -461,8 +461,8 @@ def main() -> int:
         except Exception:
             confidence = 0
         if required_paths and confidence >= 0.6 and has_mutation_tool_call(packet_row) and not has_required_read_evidence(required_paths, packet_row):
-            print("ADVISORY. Context Delivery audit: required-read evidence may be missing.\n")
-            print("문제: 이번 turn에 Context Delivery Packet requiredRead가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.")
+            print("ADVISORY. Search/read debt audit: required-read evidence may be missing.\n")
+            print("문제: 이번 turn에 requiredRead debt가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.")
             print("\n해야 할 일:")
             print("  A. 아래 requiredRead 경로를 읽고 변경 근거를 확인 (Recommended)")
             print("  B. 이미 읽었지만 payload evidence가 누락됐다면 응답에 읽은 경로를 명시")
@@ -472,8 +472,8 @@ def main() -> int:
                 print(f"  - {path}")
             return 0
         if packet_has_search_debt(packet_row) and not has_search_evidence(packet_row):
-            print("ADVISORY. Context Delivery audit: search evidence may be missing.\n")
-            print("문제: 이번 turn에 Context Delivery Packet이 concrete requiredRead 없이 self-resolve/search-debt 상태였지만, root-bound search evidence를 찾지 못했습니다.")
+            print("ADVISORY. Search/read debt audit: search evidence may be missing.\n")
+            print("문제: 이번 turn에 direct-search debt가 기록되었지만, root-bound search evidence를 찾지 못했습니다.")
             print("\n해야 할 일:")
             print("  A. agentgrep/grep/rg 등으로 .lazy-harness/source/test 검색을 먼저 수행 (Recommended)")
             print("  B. 검색을 이미 했지만 payload evidence가 누락됐다면 검색 쿼리/경로를 명시")

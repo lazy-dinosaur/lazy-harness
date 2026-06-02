@@ -13,9 +13,9 @@
   - user asks how lazy-harness should remember and apply stored rules
   - 사용자가 저장한 규칙, 기억, 인지, 따르기, 응답 전후 쿼리를 이야기한다
   - planning rule guidance, pre-response context, response audit, or tool-specific policy migration
-  - deciding whether to add blocking hooks, tool guards, record query, or organic guidance
+  - deciding whether to add blocking hooks, tool guards, direct-search prompts, record query helpers, or organic guidance
 - Must:
-  - use C+ v2 organic hybrid: pre-response record query plus response.completed audit
+  - use C+ v2 organic hybrid: pre-response direct-search prompt plus response.completed audit; deterministic record-query CLIs are explicit/manual helpers, not default semantic authority
   - keep mandatory record completion separate from organic action guidance
   - avoid broad slow edit/write blocking as the primary solution
   - avoid project policy authored as bash, gh, dev-cli, or MCP-specific rules
@@ -72,8 +72,9 @@ to:
 
 ```text
 record creation/update
-→ record indexing/digest
-→ relevant context returned before response/plan
+→ record indexing/digest metadata
+→ framework-structured direct-search prompt before response/plan
+→ LLM/searcher root-bound search/read evidence
 → response audit verifies use/capture
 → records evolve again
 ```
@@ -81,8 +82,8 @@ record creation/update
 The framework should improve stored-rule recall through a layered, organic guidance model:
 
 ```text
-pre-response relevant rule query
-→ compact ambient rule context
+pre-response direct-search prompt
+→ LLM/searcher record/source/test search evidence
 → normal agent response
 → response.completed audit/backstop
 → graduated guidance / journal update
@@ -92,7 +93,7 @@ pre-response relevant rule query
 This architecture keeps one important hard line:
 
 - **Mandatory record completion remains mandatory.** Confirmed rules, source-of-truth corrections, decisions, behavior scenarios, contracts, and regression cases must still be written to the appropriate DDD/SDD/BDD/TDD/ADR/SSOT/planning record.
-- **Action guidance should be organic.** For non-record action guidance, prefer pre-response relevant-record query plus response-completed audit instead of tool-specific guides or broad blocking.
+- **Action guidance should be organic.** For non-record action guidance, prefer pre-response direct-search prompting plus response-completed audit instead of tool-specific guides, hidden semantic backends, or broad blocking.
 
 
 ## Design principles
@@ -105,8 +106,9 @@ Target shape:
 
 ```text
 message.received / pre-response context step
-→ relevant-record query
-→ compact rule digest
+→ direct framework-structured search prompt + search-debt journal
+→ LLM/searcher root-bound grep/read/bash evidence
+→ optional explicit digest/context helper output only when useful
 → model response
 → response.completed audit/backstop
 → record completion feedback
@@ -134,11 +136,13 @@ Preferred direction:
 
 ```text
 current user message + recent context
-→ framework-level record query
-→ compact relevant rule context before response
+→ direct framework-structured search prompt before response
+→ LLM/searcher root-bound search/read evidence
 → response.completed audit after response
 → user-visible nudge/warn/ask or rare hard stop only when justified
 ```
+
+2026-06-02 user correction: do not rush a CLI/search backend that is worse than the LLM directly digging with root-bound grep/read/bash. Record query/context tooling is a helper for explicit/manual/dogfood candidates and evidence, not the default semantic authority. The default `message.received` path passes a framework-structured direct-search prompt and search-debt journal to the LLM/searcher. When confidence is low or host intent is ambiguous, the LLM/searcher must perform the direct root-bound search loop before answering, planning, option-gating, or editing.
 
 Tool-specific guides are deprecated as the policy layer. A tool can still emit lifecycle events or safety metadata, but PR/runtime/release/DB rules should not be authored as `gh` rules, `bash` rules, `dev-cli` rules, or GitHub MCP rules.
 
@@ -148,7 +152,7 @@ Implemented on 2026-06-01:
 
 - `check-rule-action-boundary.py` was reduced to a no-op legacy compatibility shim.
 - generated `.jcode/hooks/check-bash.sh` keeps only generic destructive shell safety.
-- the historical PR body hard block moved to `message.received` digest surfacing plus `response.completed` response-rule audit.
+- the historical PR body hard block moved out of tool-specific enforcement; default `message.received` now uses direct-search prompting, while response/digest audit remains available for explicit surfaced digest rows and strong misses.
 - ADR 0039 and `.lazy-harness/spec/platform/rule-binding-action-boundary.md` are now superseded for project-policy enforcement.
 
 ## Phase 6 implementation note
@@ -164,7 +168,7 @@ Implemented on 2026-06-01:
 
 Implemented on 2026-06-01:
 
-- Context Delivery can append sanitized packet evidence with `lazy context-delivery --journal`.
+- Context Delivery can append sanitized packet evidence with explicit `lazy context-delivery --journal`; the default pre-turn hook does not run it automatically.
 - `response.completed` may consume correlated packet evidence as advisory-only required-read feedback.
 - Phase 7 intentionally does not add new STOP/hard-stop behavior; it creates dogfood evidence needed before any later escalation or Record Decision Broker integration.
 
@@ -198,19 +202,19 @@ Response shadow follow-up implemented after generator and dogfood collector evid
 - The helper journals sanitized `.lazy-harness/state/record-decision-packets.jsonl` observations and stays silent by default.
 - Optional advisory output requires `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1`; this is not hard-stop promotion and does not change default runtime output.
 
-### 2. Rule context is queried before the response
+### 2. Direct search is prompted before the response
 
-The preferred organic mechanism is a small relevant-record query before the agent commits to an answer or plan.
+The preferred organic mechanism is a small direct-search prompt before the agent commits to an answer or plan. Relevant-record query remains an explicit helper, but the LLM/searcher owns semantic expansion and root-bound search.
 
-The query is not a broad blocking scan. It should:
+The prompt is not a broad blocking scan. It should:
 
 - use the current user message and recent lightweight context,
-- search only root-bound `.lazy-harness` records,
-- return a compact ranked set of relevant rules/records,
-- be cacheable/index-backed where possible,
+- explain the framework search structure: DDD/SDD/BDD/TDD/ADR/SSOT/Planning records, `## Rule digest`, Related records, Implementation map, graph links, source/tests,
+- require direct root-bound grep/rg/agentgrep/read evidence before answer/plan/action,
+- avoid treating a deterministic CLI/index/backend as semantic authority,
 - be safe to skip only when the request is clearly context-free.
 
-This means a PR request naturally receives PR description records, a runtime/test-instance request naturally receives dogfood/runtime records, and a correction naturally receives rule-placement/SSOT capture obligations without binding that logic to a specific tool.
+This means a PR request, runtime/test-instance request, or source-of-truth correction naturally triggers the LLM/searcher to inspect the right record layers and source/test evidence without binding policy to a specific concrete tool or trusting a hidden search backend.
 
 ### 3. Response completion is the audit/backstop
 
@@ -218,7 +222,7 @@ This means a PR request naturally receives PR description records, a runtime/tes
 
 This is different from broad pre-tool blocking:
 
-- pre-response query helps the model remember before answering,
+- pre-response direct-search prompt makes the model gather evidence before answering,
 - post-response audit catches misses and updates guidance/journal state,
 - only promoted high-risk cases become hard stops.
 
@@ -228,15 +232,15 @@ This architecture is expected to be faster than the reverted hard-gate experimen
 
 Performance requirement:
 
-- A normal turn should pay at most one small relevant-record query plus the existing response audit.
-- The query must be measured and kept compact.
-- Naive full-record grep on every turn is not acceptable as the final implementation.
-- If indexes/caches are not ready, implementation should start in measurement/shadow mode before becoming user-visible.
+- A normal host-dependent turn should pay at most one small direct-search prompt plus the actual LLM/searcher searches needed by the task and the existing response audit.
+- The prompt must be compact and framework-structured.
+- Naive hidden full-record grep or deterministic CLI semantic resolution on every turn is not acceptable as the default implementation.
+- If indexes/caches are not dogfood-proven, they remain explicit/manual helpers rather than automatic pre-turn authority.
 
 Token budget requirement:
 
 - Do not inject full records by default.
-- Return at most a compact digest: record path, rule title, and 1–3 relevant bullets.
+- Return at most a compact direct-search protocol with the layer map and evidence expectations; explicit digest helpers may still return paths/bullets when invoked manually.
 - Default target: 200–600 tokens per context injection.
 - Hard ceiling for normal turns: 1,000 tokens.
 - If more context is needed, surface paths and ask/read deliberately rather than dumping documents.
@@ -244,9 +248,9 @@ Token budget requirement:
 
 Effectiveness hypothesis:
 
-- This should be more effective than prompt-only AGENTS recall because the relevant rule is placed in the local working context immediately before the answer.
+- This should be more effective than prompt-only AGENTS recall because the current turn receives a concrete framework search protocol immediately before the answer/action.
 - This should be less disruptive than broad blocking because it does not interrupt every edit/write/tool call.
-- This should be less brittle than tool-specific guards because the query is driven by records and conversational/action context, not a concrete tool name.
+- This should be less brittle than tool-specific guards because the search is performed by the LLM/searcher against records and code, not by a concrete tool name or hidden CLI semantic guess.
 
 This hypothesis must be tested with dogfood fixtures and token/latency measurements before broad rollout.
 
@@ -434,7 +438,7 @@ Subagent handoff is a later beneficiary of the same digest/journal model, not th
 - Given user message + recent tool/context metadata, resolve ranked relevant records.
 - Output a compact context summary, not a block.
 - Use root-bound `.lazy-harness` records only.
-- Prefer an index/cache-backed query path; full grep is acceptable only as a measurement/prototype baseline.
+- Treat direct LLM/searcher root-bound grep/read/bash exploration as the correctness baseline. Prefer an index/cache-backed query path only after dogfood evidence shows it helps rather than hides relevant records; full grep/direct search remains the fallback and validation path.
 - Treat the result as pre-response context, not tool-specific guidance.
 
 ### Phase 2 — Guidance ladder metadata

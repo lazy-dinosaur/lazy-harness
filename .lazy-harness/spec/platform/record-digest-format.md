@@ -15,7 +15,7 @@ Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
 - Scope: framework-global
 - Applies when:
   - creating or updating a record that should be surfaced by relevant-record query
-  - designing compact rule digest output for pre-response context
+  - designing compact rule digest output for explicit helpers; default pre-response flow prompts direct search
   - auditing records that contain must/required/source-of-truth language
   - adding aliases, surface terms, route/component/file hints, or multilingual retrieval cues
 - Must:
@@ -237,15 +237,16 @@ Schema mapping:
 
 ## Digest output format
 
-Relevant-record query should render digest entries like this:
+Explicit relevant-record helper output should render digest entries like this:
 
 ```md
-Relevant lazy-harness rules
+Explicit relevant-record helper output
+- Helper only: do not treat this digest as semantic authority; perform direct root-bound search/read when host detail or ambiguity remains.
 - `.lazy-harness/spec/platform/project-rule-router.md` — Project Rule Router
   - Route confirmed project/team rules to canonical `.lazy-harness` records, not `.jcode` or memory.
   - If placement is ambiguous, stop with an option gate.
 - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — Organic Hybrid Rule Guidance
-  - Use pre-response record query and response audit, not tool-specific project-policy branches.
+  - Use pre-response direct-search prompting and response audit, not hidden semantic backends or tool-specific project-policy branches.
 ```
 
 Output limits:

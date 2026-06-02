@@ -8,7 +8,7 @@ user-owned `.jcode/hooks/check-bash.sh` wrappers may still call this file after 
 lazy-harness sync; keeping the shim avoids broken hook references while ensuring
 PR/runtime/release guidance is handled by:
 
-    message.received relevant-record digest
+    message.received direct-search prompt/debt journal
     + response.completed response-rule-audit backstop
 
 Destructive shell safety remains in `.jcode/hooks/check-bash.sh` itself.

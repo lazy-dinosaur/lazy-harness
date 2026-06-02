@@ -67,7 +67,7 @@ Commands:
   route --message "..." [--format=json|md]
                                 Read-only workflow compression route (ADR 0037)
   context --message "..." [--format=json|md]
-                                Query compact relevant-record digest for pre-response context
+                                Explicit helper: query compact relevant-record digest; not default message.received authority
   context-index [--write] [--format=json|md]
                                 Build deterministic generated Context Delivery index cache
   context-delivery --message "..." [--format=json|md] [--handoff-prompt] [--journal]

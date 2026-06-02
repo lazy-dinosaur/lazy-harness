@@ -86,7 +86,7 @@ The equals-form fixture asserts:
 - SDD: updated `.lazy-harness/spec/platform/relevant-record-query.md` because CLI input contract changed.
 - BDD: no user-facing app behavior change; this affects harness CLI behavior before responses.
 - TDD: this record plus self-test regression coverage.
-- ADR: no new design decision; still within ADR 0041 organic pre-response record query direction.
+- ADR: no new design decision; still within ADR 0041 organic direction where this CLI is explicit/manual helper support, while default `message.received` uses direct-search prompting.
 - SSOT: no source-of-truth/config ownership change.
 
 ## Discovery capture

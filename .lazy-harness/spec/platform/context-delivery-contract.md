@@ -25,17 +25,19 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - deliver required-read context with path, kind, reason, confidence, and matched query evidence
   - normalize raw hits before rendering; never inject raw grep chunks as the final broker output
   - keep canonical truth in `.lazy-harness` records and source files; generated packets are non-canonical context
-  - fail open and stay bounded when used from `message.received`
+  - fail open and stay bounded when explicitly used from lifecycle code; the default `message.received` hook must not run it automatically
   - allow lightweight self-resolution instructions when a full packet is unavailable but a request is implementation-likely
   - make optional search handoff prompts return the same packet-shaped contract and forbid mutations/raw chunks
   - when packet evidence is journaled, persist only sanitized required/optional read metadata and hashed identifiers
   - ask an option gate only after root-bound search/read evidence when candidate meanings still conflict and confidence is not high enough to proceed
-  - treat low-confidence self-resolve packets with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before response/action
+  - treat low-confidence self-resolve packets or direct-search prompt rows with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before response/action
   - when concrete `requiredRead` or fallback search debt exists for a turn, journal the unresolved obligation, enforce generic pre-action search/read evidence before tools, and let response audit/backstop surface any unsatisfied debt at turn completion
+  - keep the default `message.received` transport as direct-search prompt + sanitized search-debt journal, not an automatic Context Delivery/relevant-record semantic backend
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
   - store raw user messages, full transcripts, or raw assistant responses in context-delivery runtime state
   - use Context Delivery Packet output as canonical record truth
+  - treat deterministic Context Delivery/Relevant Record Query output as proof that the LLM/searcher performed direct search
 - Record completion:
   - changes to packet fields, instruction levels, required-read semantics, rendering, privacy, or fail-open rules update this SDD and the packet schema
 - Related records:
@@ -227,6 +229,8 @@ Each query contains:
 
 The broker should preserve user/token queries and record-authored metadata when user language differs from record/code language, but framework runtime code must not hardcode host/product aliases or generate semantic aliases by itself. Host-specific aliases must come from host records, Project Profile feature navigation, graph edges, implementation hints, source/test paths, or LLM/searcher root-bound search evidence.
 
+Do not prematurely replace the LLM/searcher search loop with a CLI or backend. Context Delivery may produce compact packets, fallback commands, and candidate paths, but the main semantic work is still direct root-bound search/read by the LLM/searcher unless dogfood evidence proves a helper is reliably better.
+
 ### `requiredRead[]` and `optionalRead[]`
 
 Read items contain:
@@ -256,6 +260,7 @@ Rules:
 - They should be copy-pasteable commands or tool-search descriptions.
 - They should include multilingual/code aliases when relevant.
 - They are instructions for the main LLM or searcher, not commands executed inside `message.received`.
+- They remain visible so the LLM/searcher can inspect and adapt the search, instead of blindly trusting a hidden CLI/search backend.
 
 ## Rendering into `system_reminder`
 
@@ -299,7 +304,7 @@ This protocol is not a full `ContextDeliveryPacket`; it is an instruction to the
 Allowed rendering:
 
 ```md
-Context Delivery self-resolution
+Direct-search self-resolution
 - Instruction: self-resolve-before-change
 - Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher generates 2-5 candidate meanings and multilingual/code query expansions, then performs root-bound search/read work.
 - Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.
@@ -362,14 +367,14 @@ Fail-open requirements:
 
 ## Search/read debt journal and audit
 
-The Context Delivery Packet is transport-agnostic. In the current Jcode transport, `message.received` may run the bounded local producer, render a compact `Context Delivery search-debt` or `Context Delivery read-debt` reminder, and append the sanitized packet journal row.
+The Context Delivery Packet is transport-agnostic, but the current Jcode default transport does not run the bounded local producer automatically. `message.received` emits a direct framework-structured search prompt and appends a sanitized direct-search debt row. `lazy context-delivery --journal` remains available for explicit/manual/dogfood packet evidence collection.
 
 The response lifecycle uses that same packet journal as non-canonical search/read-debt state:
 
 ```text
 message.received
-→ bounded Context Delivery producer
-→ sanitized `context-delivery.packet` row
+→ direct-search prompt producer
+→ sanitized direct-search debt row
 → if concrete requiredRead exists: read-debt
 → if requiredRead is unknown but fallback searches exist: search-debt
 → search/read tools and explicit searcher handoff allowed
@@ -378,10 +383,10 @@ message.received
 
 Rules:
 
-- The producer may surface literal/record-authored hints from existing indexes when available, but it must not implement semantic search or host-specific alias mapping.
+- The default producer emits the direct-search protocol only; explicit Context Delivery helpers may surface literal/record-authored hints from existing indexes when invoked manually, but they must not implement semantic search or host-specific alias mapping.
 - The LLM or a searcher subagent performs semantic expansion and root-bound search for ambiguous terms such as Korean `기능패널`.
-- The debt journal does not create project/tool policy. It records packet-scoped `search-debt` and `read-debt`; the generic guard only checks whether the LLM/searcher left search/read evidence before response/action.
-- Search-debt is satisfied when recent tool evidence shows root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff evidence).
+- The debt journal does not create project/tool policy. It records direct-search or packet-scoped `search-debt` and `read-debt`; the generic guard only checks whether the LLM/searcher left search/read evidence before response/action.
+- Search-debt is satisfied when recent tool evidence shows direct root-bound search (`agentgrep`, `grep`/`rg`/`find`) or explicit read-only searcher handoff evidence. Deterministic `context-delivery`/`relevant-record-query` CLI output does not satisfy direct-search debt by itself.
 - Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
 - Packet selection itself must be strictly correlated: if `message_id` is available, the packet row must match the message hash and, when available, the session hash. Session-only matching is allowed only when message id is absent.
 - Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from later lifecycle payloads, which would otherwise create false-positive debt advisories.
@@ -393,14 +398,14 @@ Rules:
 ## Generic search/read evidence guard coverage
 
 - Status: active; supersedes earlier audit-only wording
-- Boundary: Context Delivery search/read debt is journaled at turn start and the generic evidence guard denies action when search/read evidence is missing for the correlated turn.
+- Boundary: direct-search/read debt is journaled at turn start and the generic evidence guard denies action when search/read evidence is missing for the correlated turn.
 - Scope: framework-global
 - User confirmation: 2026-06-02 user corrected that the framework must not implement semantic search or attach tool-specific adapters; LLM/searcher performs root-bound search first, and the harness guards missing search/read evidence generically.
 - Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??`, `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`, and `검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제`.
 - Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, `.jcode/hooks/tool-events.jsonl` evidence fallback, and response.completed advisory existed but were too late or too weak to prevent action drift.
 - Fixture: `.lazy-harness/scripts/self-test.py`
-- Narrowness: the guard activates only for correlated Context Delivery packets with either concrete requiredRead paths or explicit self-resolve fallback searches; search/read tools and explicit searcher handoff remain allowed; clean/no-packet turns remain silent; it is not a broad edit/write or tool-specific project-policy adapter.
-- Rollback: disable the generated generic search/read evidence guard block or Context Delivery journaling; response.completed advisory remains as fallback.
+- Narrowness: the guard activates only for correlated direct-search/read-debt rows or explicit Context Delivery packet rows with either concrete requiredRead paths or explicit fallback searches; search/read tools and explicit searcher handoff remain allowed; clean/no-debt turns remain silent; it is not a broad edit/write or tool-specific project-policy adapter.
+- Rollback: disable the generated generic search/read evidence guard block or direct-search debt journaling; response.completed advisory remains as fallback.
 
 ## Searcher subagent handoff
 
@@ -456,7 +461,7 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - phase plan that schedules implementation after this contract.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
-  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using original/token queries plus record-authored metadata; it does not implement semantic search or host-specific alias mapping. Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
+  - `.lazy-harness/scripts/context-delivery.ts` - explicit/manual/dogfood dual-mode retrieval packet generator using original/token queries plus record-authored metadata; it does not implement semantic search or host-specific alias mapping and is not run automatically from `message.received`. Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
   - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence guard that checks packet-scoped search/read debt against root-bound LLM/searcher evidence; it does not perform search and is not a concrete-tool adapter.
@@ -473,7 +478,7 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   3. Surface-like implementation requests may receive lightweight self-resolution instructions without heavy hook latency.
   4. Future broker may emit a full Context Delivery Packet.
   5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
-  6. Main LLM or dogfood tooling may call `lazy context-delivery --journal` to record sanitized packet evidence.
+  6. Default `message.received` journals direct-search debt; main LLM or dogfood tooling may explicitly call `lazy context-delivery --journal` to record sanitized packet evidence when useful.
   7. Main LLM/searcher performs root-bound semantic expansion/search/read work before answering, planning, option-gating, or acting.
   8. Generic pre-action evidence guard denies action when correlated packet search/read debt lacks evidence.
   9. Response audit may advise when correlated packet evidence and mutation suggest required search/read evidence was skipped.

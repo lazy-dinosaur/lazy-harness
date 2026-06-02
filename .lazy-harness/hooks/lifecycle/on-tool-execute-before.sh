@@ -4,7 +4,7 @@
 # Triggered: tool.execute.before for all tool calls.
 # Purpose: generic packet-scoped search/read evidence guard. It does not perform
 #          semantic search and does not encode concrete-tool project policy.
-#          If Context Delivery produced search/read debt and the LLM/searcher has
+#          If message.received produced search/read debt and the LLM/searcher has
 #          not left root-bound search/read evidence yet, emit deny guidance.
 #
 # Stdin / argv: JSON payload

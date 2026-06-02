@@ -1415,7 +1415,7 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
 
 
 def check_jcode_wiring_message_received_hook() -> None:
-    """Generated and user-owned Jcode configs must wire pre-turn context plus generic search/read evidence guard."""
+    """Generated and user-owned Jcode configs must wire direct-search prompt plus generic search/read evidence guard."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         'event = \\"message.received\\"',
@@ -1468,7 +1468,28 @@ def check_jcode_wiring_message_received_hook() -> None:
             'event = "tool.execute.before"', 'tool = "*"', 'on-tool-execute-before.sh', 'timeout_ms = 1200',
         ]:
             if phrase not in updated:
-                fail("jcode context/search-read guard patch missing phrase " + phrase + ":\n" + updated)
+                fail("jcode direct-search/read guard patch missing phrase " + phrase + ":\n" + updated)
+
+        legacy_message = temp / ".jcode" / "config.toml"
+        legacy_message.write_text(updated.replace(
+            "# BEGIN lazy-harness message.received direct-search hook\n"
+            "# Bounded pre-turn direct-search prompt and search-debt journal. This is not a\n"
+            "# semantic search backend and not a broad edit gate; timeout/failure is fail-open.\n",
+            "# BEGIN lazy-harness message.received context hook\n"
+            "# Bounded pre-turn relevant-record context injection. This is not a broad edit\n"
+            "# gate; timeout/failure is handled fail-open by Jcode and the hook.\n",
+        ).replace(
+            "# END lazy-harness message.received direct-search hook",
+            "# END lazy-harness message.received context hook",
+        ), encoding="utf-8")
+        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("jcode legacy message.received refresh import/run failed:\n" + completed.stdout + completed.stderr)
+        refreshed_message = legacy_message.read_text(encoding="utf-8")
+        if "message.received context hook" in refreshed_message or "relevant-record context injection" in refreshed_message:
+            fail("jcode wiring failed to refresh stale message.received context hook marker:\n" + refreshed_message)
+        if refreshed_message.count("on-message-received.sh") != 1 or "message.received direct-search hook" not in refreshed_message:
+            fail("jcode legacy message.received refresh duplicated or lost hook:\n" + refreshed_message)
 
         legacy = temp / ".jcode" / "config.toml"
         legacy.write_text(
@@ -1484,11 +1505,11 @@ def check_jcode_wiring_message_received_hook() -> None:
         stale = cleaned.replace(
             "# Generic pre-action search/read evidence guard. It does not perform semantic\n"
             "# search and it is not a concrete-tool policy adapter. It only checks\n"
-            "# whether Context Delivery produced packet-scoped search/read debt and whether\n"
-            "# the LLM/searcher already left root-bound search/read evidence before response/action.\n",
-            "# Narrow pre-action permit gate. It is silent unless Context Delivery produced\n"
-            "# concrete requiredRead debt for this turn and the next action would run before\n"
-            "# read/search evidence exists. This is not a broad edit/write hard stop.\n",
+            "# whether message.received produced direct-search/read-debt and whether\n"
+            "# the LLM/searcher already left root-bound search/read evidence before action.\n",
+            "# Narrow pre-action permit gate. It is silent unless a deterministic producer\n"
+            "# created concrete requiredRead debt for this turn and the next action would run\n"
+            "# before read/search evidence exists. This is not a broad edit/write hard stop.\n",
         )
         legacy.write_text(stale, encoding="utf-8")
         completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -1499,7 +1520,7 @@ def check_jcode_wiring_message_received_hook() -> None:
             fail("jcode wiring failed to refresh stale managed search/read guard block:\n" + refreshed)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode message.received hook wiring/search-read guard ok")
+    print("✓ jcode message.received hook wiring/direct-search guard ok")
 
 
 def check_framework_runtime_no_host_product_hardcoding() -> None:
@@ -4568,11 +4589,11 @@ def check_context_delivery_optional_handoff_phase6() -> None:
     if not delivery_script.exists():
         fail("Context Delivery packet generator missing: " + str(delivery_script))
     hook_text = hook_path.read_text(encoding="utf-8")
-    for forbidden in ["--handoff-prompt", "jcode run"]:
+    for forbidden in ["--handoff-prompt", "--journal", "jcode run", "subprocess.run", "context-delivery.ts", "relevant-record-query.ts"]:
         if forbidden in hook_text:
-            fail("message.received hook must not run Phase 6 handoff/heavy model path: " + forbidden)
-    if "context-delivery.ts" not in hook_text or "--journal" not in hook_text:
-        fail("message.received hook should run bounded Context Delivery producer/journal path before response/action")
+            fail("message.received hook must not run Context Delivery/query/handoff paths: " + forbidden)
+    if "STOP. Direct lazy-harness search-debt before response" not in hook_text or "Framework structure to search first" not in hook_text:
+        fail("message.received hook should inject a direct framework-structured search prompt")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
     try:
@@ -5054,7 +5075,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "session_id": strict_session_id,
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
-        if "ADVISORY. Context Delivery audit" not in strict_message_audit:
+        if "ADVISORY. Search/read debt audit" not in strict_message_audit:
             fail("response audit must not accept same-session tool-events from a different message:\n" + strict_message_audit)
 
         epoch_audit = run_helper({
@@ -5062,7 +5083,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "session_id": epoch_session_id,
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
-        if "ADVISORY. Context Delivery audit" not in epoch_audit:
+        if "ADVISORY. Search/read debt audit" not in epoch_audit:
             fail("response audit must not accept tool-events older than packet epoch:\n" + epoch_audit)
 
         logged_search_audit_satisfied = run_helper({
@@ -5084,7 +5105,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "message_id": "phase7-packet-message",
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
-        if "ADVISORY. Context Delivery audit" not in advisory or "STOP" in advisory:
+        if "ADVISORY. Search/read debt audit" not in advisory or "STOP" in advisory:
             fail("packet audit should emit advisory-only when mutation lacks read evidence:\n" + advisory)
 
         satisfied = run_helper({
@@ -5529,50 +5550,43 @@ def check_record_decision_shadow_response_completed() -> None:
 
 
 def check_message_received_hook_context_injection() -> None:
-    """message.received hook should emit digest context and lightweight self-resolution protocol."""
+    """message.received hook should emit a direct-search prompt and journal search-debt."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
-        write_digest_fixture(temp)
-        (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(LAZY / "scripts" / "relevant-record-query.ts", temp / ".lazy-harness" / "scripts" / "relevant-record-query.ts")
-        shutil.copy2(LAZY / "scripts" / "context-delivery.ts", temp / ".lazy-harness" / "scripts" / "context-delivery.ts")
-        shutil.copy2(LAZY / "scripts" / "context-index.ts", temp / ".lazy-harness" / "scripts" / "context-index.ts")
-        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
-            "# Feature Surface\n\n"
-            "## Rule digest\n\n"
-            "- Status: active\n"
-            "- Layer: BDD\n"
-            "- Scope: host-project\n"
-            "- Applies when:\n"
-            "  - user asks about feature surface UI\n"
-            "- Must:\n"
-            "  - confirm feature panel behavior before editing\n"
-            "- Aliases:\n"
-            "  - 기능패널\n"
-            "  - feature panel\n"
-            "- Implementation hints:\n"
-            "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
-            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
-            encoding="utf-8",
-        )
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
         hook.chmod(0o755)
+
+        smalltalk_payload = {
+            "event": "message.received",
+            "session_id": "s-test",
+            "message_id": "m-smalltalk",
+            "working_dir": str(temp),
+            "last_user_message": "안녕",
+            "recent_tool_calls": [],
+            "turn_count": 1,
+        }
+        smalltalk = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(smalltalk_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if smalltalk.returncode != 0 or smalltalk.stdout.strip():
+            fail("message.received hook should stay fail-open/silent for smalltalk:\n" + smalltalk.stdout + smalltalk.stderr)
+
         payload = {
             "event": "message.received",
             "session_id": "s-test",
-            "message_id": "m-test",
+            "message_id": "m-surface",
             "working_dir": str(temp),
-            "last_user_message": "PR description 작성해줘",
+            "last_user_message": "기능패널 고쳐줘",
             "recent_tool_calls": [],
-            "turn_count": 1,
+            "turn_count": 2,
         }
         completed = subprocess.run(
             [str(hook)],
@@ -5587,57 +5601,79 @@ def check_message_received_hook_context_injection() -> None:
             fail("message.received hook should fail-open with exit 0:\n" + completed.stdout + completed.stderr)
         output = completed.stdout.strip()
         if not output:
-            fail("message.received hook did not emit inject JSON")
+            fail("host-dependent request should emit direct-search inject JSON")
         data = json.loads(output)
         body = data.get("inject", {}).get("body", "")
-        if data.get("inject", {}).get("format") != "system_reminder" or "Why, What, and Task" not in body:
-            fail("message.received hook output missing digest body:\n" + output)
-        if "Context Delivery self-resolution" in body:
-            fail("simple digest request should stay digest-only and not inject self-resolution protocol:\n" + output)
+        for phrase in [
+            "STOP. Direct lazy-harness search-debt before response",
+            "self-resolve-before-change",
+            "Do not use a CLI/index/search backend as semantic authority",
+            "DDD=`.lazy-harness/domain/`",
+            "SDD=`.lazy-harness/spec/`",
+            "BDD=`.lazy-harness/behavior/`",
+            "TDD=`.lazy-harness/tests/`",
+            "ADR=`.lazy-harness/decisions/`",
+            "SSOT=`.lazy-harness/ssot/`",
+            "Search protocol: (1) extract 2-5 candidate meanings",
+            "Related records / Implementation map / graph links",
+            "grep -rli <token> .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/",
+            "ask a 3-5 option gate",
+        ]:
+            if phrase not in body:
+                fail("direct-search prompt missing framework search phrase: " + phrase + "\n" + output)
+        for forbidden in ["Relevant lazy-harness rules", "Context Delivery read-debt", "FeaturePanel.tsx"]:
+            if forbidden in body:
+                fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
 
-        surface_payload = {
-            "event": "message.received",
-            "session_id": "s-test",
-            "message_id": "m-surface",
-            "working_dir": str(temp),
-            "last_user_message": "기능패널 고쳐줘",
-            "recent_tool_calls": [],
-            "turn_count": 2,
-        }
-        surface_completed = subprocess.run(
-            [str(hook)],
-            cwd=temp,
-            input=json.dumps(surface_payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
-        )
-        if surface_completed.returncode != 0:
-            fail("message.received surface hook should fail-open with exit 0:\n" + surface_completed.stdout + surface_completed.stderr)
-        surface_output = surface_completed.stdout.strip()
-        if not surface_output:
-            fail("ambiguous project-surface request should emit self-resolution inject JSON")
-        surface_body = json.loads(surface_output).get("inject", {}).get("body", "")
-        if "STOP. Context Delivery read-debt before response" not in surface_body or "self-resolve-before-change" not in surface_body:
-            fail("ambiguous project-surface request missing Context Delivery read-debt protocol:\n" + surface_output)
-        if "FeaturePanel.tsx" not in surface_body:
-            fail("Context Delivery read-debt should render concrete requiredRead paths:\n" + surface_output)
-        if "Required read/search before answering, analyzing, planning, option-gating, or action" not in surface_body:
-            fail("message.received must require read/search before answering/option-gating/action:\n" + surface_output)
         packet_journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
         if not packet_journal.exists():
-            fail("message.received context delivery should journal read-debt packet")
+            fail("message.received direct-search prompt should journal search-debt")
         packet_text = packet_journal.read_text(encoding="utf-8")
         if "기능패널 고쳐줘" in packet_text:
-            fail("message.received context packet journal must not store raw user message")
+            fail("message.received search-debt journal must not store raw user message")
+        rows = [json.loads(line) for line in packet_text.splitlines() if line.strip()]
+        row = rows[-1]
+        if row.get("event") != "message.received.direct-search-debt" or row.get("fallbackSearchCount") != 1:
+            fail("direct-search journal row should be search-debt, not deterministic packet:\n" + json.dumps(row, ensure_ascii=False, indent=2))
+        if "noSemanticBackend=true" not in row.get("notes", []):
+            fail("direct-search journal should record that no semantic backend was used")
+
+        permit = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
+
+        def run_permit(recent_tool_calls: list[dict]) -> str:
+            result = subprocess.run(
+                [str(permit), json.dumps({
+                    "message_id": "m-surface",
+                    "session_id": "s-test",
+                    "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
+                    "recent_tool_calls": recent_tool_calls,
+                }, ensure_ascii=False)],
+                cwd=temp,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if result.returncode != 0:
+                fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
+            return result.stdout
+
+        no_search = run_permit([])
+        if "search-debt gate" not in no_search or "deterministic CLI/index output is not enough" not in no_search:
+            fail("direct-search debt should block action before real search evidence:\n" + no_search)
+        cli_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/context-delivery.ts --message 기능패널"}])
+        if "search-debt gate" not in cli_only:
+            fail("context-delivery/relevant-record CLI execution must not satisfy direct-search debt:\n" + cli_only)
+        searched = run_permit([{"name": "bash", "args_preview": "rg -n '기능패널|feature panel' .lazy-harness src tests"}])
+        if searched.strip():
+            fail("direct rg/grep search evidence should satisfy direct-search debt:\n" + searched)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ message.received hook context injection ok")
+    print("✓ message.received hook direct-search debt injection ok")
 
 
 def check_response_rule_audit_from_surfaced_digest() -> None:
-    """Phase 4: response.completed should audit surfaced digest misses and stay silent on clean turns."""
+    """Phase 4: response.completed should audit surfaced digest rows and stay silent on clean turns."""
     tdd_path = LAZY / "tests" / "response-rule-audit.md"
     manifest_path = LAZY / "manifests" / "init-categories.json"
     if not tdd_path.exists():
@@ -5648,48 +5684,32 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-response-rule-audit-"))
     try:
-        write_digest_fixture(temp)
-        (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(LAZY / "scripts" / "relevant-record-query.ts", temp / ".lazy-harness" / "scripts" / "relevant-record-query.ts")
-        hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
-        shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
-        hook.chmod(0o755)
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py", helper)
         helper.chmod(0o755)
 
-        message_payload = {
-            "event": "message.received",
-            "session_id": "phase4-session",
-            "message_id": "phase4-pr-message",
-            "working_dir": str(temp),
-            "last_user_message": "PR description 작성해줘",
-        }
-        injected = subprocess.run(
-            [str(hook)],
-            cwd=temp,
-            input=json.dumps(message_payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
-        )
-        if injected.returncode != 0 or not injected.stdout.strip():
-            fail("message.received hook should emit digest before response-rule audit:\n" + injected.stdout + injected.stderr)
-        inject_body = json.loads(injected.stdout).get("inject", {}).get("body", "")
-        if "Why, What, and Task" not in inject_body:
-            fail("message.received hook did not surface PR digest needed by audit:\n" + injected.stdout)
-
+        import hashlib
         journal = temp / ".lazy-harness" / "state" / "surfaced-rule-digests.jsonl"
-        if not journal.exists():
-            fail("message.received hook should write surfaced digest journal")
+        pr_message_id = "phase4-pr-message"
+        journal.write_text(json.dumps({
+            "schemaVersion": "1.0",
+            "event": "message.received.digest",
+            "epochSeconds": int(time.time()),
+            "messageIdHash": hashlib.sha256(pr_message_id.encode()).hexdigest()[:16],
+            "entries": [{
+                "recordPath": ".lazy-harness/ssot/pr-description-format.md",
+                "title": "Pull Request Description Format",
+                "layer": "SSOT",
+                "status": "active",
+                "recordCompletion": "",
+                "bullets": ["PR bodies must include Why, What, and Task."],
+            }],
+        }, ensure_ascii=False) + "\n", encoding="utf-8")
         journal_text = journal.read_text(encoding="utf-8")
         if "PR description 작성해줘" in journal_text:
             fail("surfaced digest journal must not store raw user message")
-        journal_rows = [json.loads(line) for line in journal_text.splitlines() if line.strip()]
-        if not journal_rows or journal_rows[-1].get("messageIdHash") is None:
-            fail("surfaced digest journal should include safe message id hash")
 
         def run_helper(payload: dict) -> str:
             completed = subprocess.run(
@@ -5705,7 +5725,7 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
             return completed.stdout
 
         ignored_pr = run_helper({
-            "message_id": "phase4-pr-message",
+            "message_id": pr_message_id,
             "recent_tool_calls": [
                 {"name": "mcp__github__create_pull_request", "arguments": {"title": "Fixture", "body": "No structured body"}},
             ],
@@ -5714,7 +5734,7 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
             fail("response rule audit should catch surfaced PR rule miss:\n" + ignored_pr)
 
         clean_pr = run_helper({
-            "message_id": "phase4-pr-message",
+            "message_id": pr_message_id,
             "recent_tool_calls": [
                 {"name": "mcp__github__create_pull_request", "arguments": {"title": "Fixture", "body": "Why:\n- because\n\nWhat:\n- changed\n\nTask:\n- done"}},
             ],
@@ -5724,11 +5744,10 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
 
         # Manual journal row for a record-completion obligation not tied to PR.
         missing_capture_id = "phase4-record-missing"
-        import hashlib
         journal.write_text(journal.read_text(encoding="utf-8") + json.dumps({
             "schemaVersion": "1.0",
             "event": "message.received.digest",
-            "epochSeconds": 9999999999,
+            "epochSeconds": int(time.time()),
             "messageIdHash": hashlib.sha256(missing_capture_id.encode()).hexdigest()[:16],
             "entries": [{
                 "recordPath": ".lazy-harness/ssot/harness-enforcement-policy.md",

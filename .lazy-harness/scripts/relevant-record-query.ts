@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * relevant-record-query.ts — compact pre-response lazy-harness rule context.
+ * relevant-record-query.ts — explicit compact relevant-record helper.
  *
  * Prototype scope (ADR 0041 Phase 3): build a compact digest from canonical
  * .lazy-harness records without attaching policy to concrete tools.
@@ -405,7 +405,7 @@ function query(opts: CliOptions): { entries: QueryEntry[]; estimatedTokens: numb
     .sort((a, b) => b.score - a.score || a.recordPath.localeCompare(b.recordPath))
 
   const selected: QueryEntry[] = []
-  let estimated = estimateTokens('Relevant lazy-harness rules')
+  let estimated = estimateTokens('Explicit relevant-record helper output')
   let truncated = false
   for (const entry of entries) {
     if (selected.length >= opts.limit) { truncated = entries.length > selected.length; break }
@@ -427,8 +427,8 @@ function compactBullets(entry: IndexedDigest): string[] {
 }
 
 function renderMarkdown(result: ReturnType<typeof query>): string {
-  if (result.entries.length === 0) return 'Relevant lazy-harness rules\n- No matching rule digest found. Consider deliberate record search if the task is host-specific.\n'
-  const lines = ['Relevant lazy-harness rules']
+  if (result.entries.length === 0) return 'Explicit relevant-record helper output\n- Helper only: this is not automatic semantic authority. No matching rule digest found; perform direct root-bound record/source/test search if the task is host-specific.\n'
+  const lines = ['Explicit relevant-record helper output', '- Helper only: do not treat this digest as semantic authority; perform direct root-bound search/read when host detail or ambiguity remains.']
   for (const entry of result.entries) {
     const statusSuffix = entry.status === 'active' ? '' : ` [${entry.status}]`
     lines.push(`- \`${entry.recordPath}\` — ${entry.title}${statusSuffix}`)

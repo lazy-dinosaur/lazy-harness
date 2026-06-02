@@ -15,17 +15,17 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
-  - implementing or debugging `response.completed` audits for records surfaced before a turn
-  - checking whether pre-response relevant-record context was ignored
+  - implementing or debugging `response.completed` audits for records or search/read-debt surfaced before a turn
+  - checking whether pre-response direct-search or explicit surfaced digest context was ignored
   - designing journal state for surfaced digest ids
   - designing packet evidence journals for Context Delivery required-read audit
   - moving tool-attached project policy into response lifecycle audit
 - Must:
-  - read sanitized surfaced digest journal state written by `message.received`
-  - read sanitized Context Delivery packet evidence journal only when it can be correlated by safe message/session hashes
+  - read sanitized surfaced digest journal state only from explicit digest/dogfood paths, not as the default `message.received` transport
+  - read sanitized direct-search and Context Delivery packet evidence journal only when it can be correlated by safe message/session hashes
   - keep clean turns silent
   - emit concise audit feedback only when evidence strongly shows a surfaced rule or record-completion obligation was missed
-  - keep response.completed Context Delivery search/read audit advisory-only as a backstop; pre-action prevention is owned by the generic search/read evidence guard, not tool-specific adapters
+  - keep response.completed search/read audit advisory-only as a backstop; pre-action prevention is owned by the generic search/read evidence guard, not tool-specific adapters
   - avoid storing raw user/assistant message bodies in journal state
   - keep journal state non-canonical under `.lazy-harness/state/`
 - Must not:
@@ -46,16 +46,15 @@ Response Rule Audit is Phase 4 of the active lazy-harness memory loop:
 
 ```text
 message.received
-→ relevant-record query
-→ compact digest injection
-→ sanitized surfaced digest journal
+→ direct-search prompt and sanitized search-debt journal by default
+→ optional explicit digest/helper rows when manually surfaced
 → assistant response/actions
 → response.completed audit/backstop
 ```
 
-It checks whether the agent ignored a surfaced rule or missed a mandatory record-completion obligation after relevant rules were already injected before the response.
+It checks whether the agent ignored a surfaced rule/search-debt row or missed a mandatory record-completion obligation after pre-response context was already injected before the response.
 
-In Phase 5 it also becomes the replacement surface for the historical PR body tool-attached hard block. PR body structure is no longer enforced in `tool.execute.before` by `check-rule-action-boundary.py`; it is surfaced before response and audited after response.
+In Phase 5 it also becomes the replacement surface for the historical PR body tool-attached hard block. PR body structure is no longer enforced in `tool.execute.before` by `check-rule-action-boundary.py`; it is discovered through direct record search or explicit digest helpers and audited after response.
 
 ## Journal state contract
 
@@ -128,7 +127,7 @@ Status:
 - non-canonical runtime state,
 - safe to prune,
 - not a source of truth,
-- produced by bounded `message.received` Context Delivery producer or explicit `lazy context-delivery --journal`, never by heavy model/subagent work.
+- produced by bounded `message.received` direct-search prompt rows or explicit `lazy context-delivery --journal`, never by heavy model/subagent work.
 
 Row shape:
 
@@ -185,7 +184,7 @@ It emits output only for strong evidence cases:
 
 Phase 7 adds one advisory-only case:
 
-3. **Context Delivery required-read evidence may be missing**
+3. **Required-read evidence may be missing**
    - A correlated packet evidence row exists.
    - The row has `requiredRead` paths and sufficient confidence.
    - The turn uses a mutation tool.
@@ -195,11 +194,11 @@ Phase 7 adds one advisory-only case:
 
 Phase 7 also adds a search-debt advisory-only case:
 
-4. **Context Delivery search evidence may be missing**
+4. **Direct search evidence may be missing**
    - A correlated packet evidence row exists.
    - The row has no concrete `requiredRead` paths.
    - The row has `instructionLevel` in self-resolve/delegate-search mode and fallback search evidence.
-   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff).
+   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`) or an explicit read-only searcher handoff. Running a deterministic CLI such as `context-delivery` or `relevant-record-query` is not sufficient search evidence by itself.
    - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
    - Output is advisory at `response.completed` for every unsatisfied search-debt turn, regardless of whether the turn mutated, answered, planned, or option-gated.
    - Output starts with `ADVISORY`, never `STOP`.
@@ -227,9 +226,9 @@ STOP. Response rule audit: surfaced PR description guidance appears to be ignore
 Packet advisory example:
 
 ```text
-ADVISORY. Context Delivery audit: required-read evidence may be missing.
+ADVISORY. Search/read debt audit: required-read evidence may be missing.
 
-문제: 이번 turn에 Context Delivery Packet requiredRead가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.
+문제: 이번 turn에 requiredRead debt가 기록되었고 파일 변경 도구가 사용되었지만, 변경 전 requiredRead 경로를 읽은 증거를 찾지 못했습니다.
 ```
 
 Clean turn contract:
@@ -243,7 +242,7 @@ exit = 0
 
 - Status: `verified`
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized surfaced digest journal after successful digest injection.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized direct-search debt rows for host-dependent turns.
   - `.lazy-harness/scripts/context-delivery.ts` — writes sanitized packet evidence journal for explicit `--journal` use.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events evidence and emits conservative response audit feedback.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
@@ -263,11 +262,11 @@ exit = 0
   - `check_response_rule_audit_from_surfaced_digest` (`self-test.py`) — Phase 4 regression fixture.
 - Flow:
   1. `message.received` receives current user message.
-  2. Relevant Record Query returns JSON digest entries with `--require-digest`.
-  3. Hook renders the injection body and appends sanitized entry metadata to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
+  2. The default hook injects direct framework-structured search-debt when host context is likely required.
+  3. Explicit digest/dogfood paths may append sanitized entry metadata to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
   4. `response.completed` runs normal helpers and the new response rule audit helper.
   5. Audit helper matches journal row for the message/session and emits only on strong miss evidence.
-  6. Explicit `lazy context-delivery --journal` may append packet evidence for dogfood collection.
+  6. Default `message.received` direct-search rows and explicit `lazy context-delivery --journal` may append packet evidence for audit/dogfood collection.
   7. Packet audit emits advisory-only output when correlated required-read evidence appears ignored before mutation, or whenever correlated search-debt lacks root-bound search evidence by turn completion.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`

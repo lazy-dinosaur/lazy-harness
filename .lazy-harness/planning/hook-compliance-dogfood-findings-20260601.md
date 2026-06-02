@@ -183,7 +183,7 @@ This keeps the hard part, correct context selection and action gating, independe
 
 ## Constraints from canonical records
 
-- ADR 0041 says the target architecture is organic hybrid: pre-response record query plus response.completed audit, not broad tool-specific blocking.
+- ADR 0041 currently says the target architecture is organic hybrid: pre-response direct-search prompt plus response.completed audit, not broad tool-specific blocking. Historical note: earlier 2026-06-01 wording used “pre-response record query”; that default transport was superseded on 2026-06-02 because deterministic query/Context Delivery helpers must not replace LLM/searcher direct root-bound search.
 - `guidance-ladder.md` says hard stops require explicit promotion evidence, fixtures, narrowness, and rollback. The current finding is not yet an L5 hard-stop promotion.
 - `record-decision-broker.md` says response lifecycle integration should remain shadow/silent by default until dogfood evidence justifies stronger guidance.
 - `context-broker-dogfood.md` says aggregate dogfood collection is explicit CLI behavior and must not run automatically from lifecycle hooks.
@@ -395,8 +395,8 @@ Key changes:
   - treats `agentgrep`, `grep`, `rg`/`find` shell searches, Context Delivery/searcher packet evidence, and explicit searcher handoff as search evidence,
   - blocks non-search subagent/swarm action before search evidence.
 - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
-  - renders `Context Delivery search-debt` when no concrete requiredRead exists,
-  - tells LLM/searcher to expand multilingual/user terms and perform root-bound semantic search.
+  - current default renders `Direct lazy-harness search-debt` and journals sanitized direct-search debt,
+  - tells LLM/searcher to expand multilingual/user terms and perform direct root-bound search; deterministic Context Delivery/search query helpers are explicit/manual only.
 - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
   - adds advisory-only audit for search-debt followed by mutation without search evidence.
 - `.lazy-harness/scripts/self-test.py`

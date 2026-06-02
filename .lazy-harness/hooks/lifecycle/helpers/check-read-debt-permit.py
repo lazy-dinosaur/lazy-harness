@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Pre-action search/read-debt permit check for Context Delivery packets.
+"""Pre-action search/read-debt permit check for direct-search/read-debt rows.
 
 This helper is intentionally protocol-agnostic: it reads sanitized
-Context Delivery packet evidence and current tool-call evidence, then emits a
+search/read debt journal evidence and current tool-call evidence, then emits a
 plain deny reason only when an action tool is about to run before required
 search/read evidence exists.
 
@@ -70,7 +70,7 @@ ACTION_NAME_RE = re.compile(
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
-    r"(?:pwd|ls|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        r"(?:pwd|ls|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -334,7 +334,7 @@ def evidence_blob(packet_row: dict[str, Any] | None = None) -> str:
 
 def shell_has_search_evidence(command: str) -> bool:
     return bool(re.search(
-        r"\b(rg|grep|find|git\s+grep|git\s+ls-files|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        r"\b(rg|grep|find|git\s+grep|git\s+ls-files)\b",
         command,
         re.IGNORECASE,
     ))
@@ -350,8 +350,6 @@ def call_has_search_evidence(call: dict[str, Any]) -> bool:
     if name in {"subagent", "swarm"} and is_search_handoff_args(call):
         return True
     if any(marker in blob for marker in ("agentgrep", "mcp__filesystem__search_files", "git grep", " rg ", " grep ", " find ")):
-        return True
-    if "contextdeliverypacket" in blob.lower() or "requiredread" in blob.lower():
         return True
     return False
 
@@ -400,7 +398,7 @@ def main() -> int:
             return 0
         print("[lazy-harness search-debt gate] root-bound search must happen before action.")
         print("")
-        print("Context Delivery could not identify concrete requiredRead paths with high confidence, so this turn requires LLM/searcher semantic search evidence before action.")
+        print("This turn requires direct LLM/searcher root-bound search evidence before action; deterministic CLI/index output is not enough.")
         print("")
         print("Do this first:")
         print("  - run root-bound searches with agentgrep/grep/rg/find over `.lazy-harness`, source, and tests")
@@ -423,7 +421,7 @@ def main() -> int:
 
     print("[lazy-harness read-debt gate] requiredRead must be inspected before action.")
     print("")
-    print("Context Delivery produced concrete requiredRead entries for this turn, but current tool evidence does not show they were read/searched yet.")
+    print("A search/read-debt row produced concrete requiredRead entries for this turn, but current tool evidence does not show they were read/searched yet.")
     print("")
     print("Do this first:")
     for path in missing[:6]:
