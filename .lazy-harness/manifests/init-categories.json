@@ -264,6 +264,11 @@
           "description": "SDD contract for response.completed audit against surfaced digests and missed record-completion guidance."
         },
         {
+          "path": "tests/response-rule-audit.md",
+          "kind": "file",
+          "description": "TDD contract fixtures for response.completed audit, Context Delivery search/read-debt evidence, and packet correlation false-positive coverage."
+        },
+        {
           "path": "spec/platform/record-decision-broker.md",
           "kind": "file",
           "description": "SDD contract for Phase 8 post-turn Record Decision Packet: record-updated, candidate-needed, no-record-needed, option-gate-needed, and deferred dispositions."

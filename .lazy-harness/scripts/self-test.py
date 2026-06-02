@@ -5465,6 +5465,14 @@ def check_message_received_hook_context_injection() -> None:
 
 def check_response_rule_audit_from_surfaced_digest() -> None:
     """Phase 4: response.completed should audit surfaced digest misses and stay silent on clean turns."""
+    tdd_path = LAZY / "tests" / "response-rule-audit.md"
+    manifest_path = LAZY / "manifests" / "init-categories.json"
+    if not tdd_path.exists():
+        fail("Response Rule Audit TDD record missing: " + str(tdd_path))
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    if "tests/response-rule-audit.md" not in manifest_text:
+        fail("init-categories manifest must sync Response Rule Audit TDD fixture")
+
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-response-rule-audit-"))
     try:
         write_digest_fixture(temp)
