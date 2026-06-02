@@ -91,28 +91,28 @@ If the Project Profile is missing or incomplete for the requested area, the fram
 Minimum feature-navigation fields for retrieval-friendly hosts:
 
 ```xml
-<feature id="reservations" status="confirmed">
+<feature id="example-feature" status="confirmed">
   <label>Reservation management</label>
   <aliases>
-    <alias lang="ko">예약시트</alias>
-    <alias lang="ko">예약표</alias>
-    <alias lang="en">reservation sheet</alias>
+    <alias lang="ko">기능패널</alias>
+    <alias lang="ko">기능화면</alias>
+    <alias lang="en">feature panel</alias>
   </aliases>
   <routes>
-    <route>/reservations</route>
+    <route>/example-feature</route>
   </routes>
   <components>
-    <component>ReservationTable</component>
+    <component>FeaturePanel</component>
   </components>
   <records>
-    <record layer="BDD">.lazy-harness/behavior/reservation-management.md</record>
-    <record layer="SDD">.lazy-harness/spec/reservation-management.md</record>
+    <record layer="BDD">.lazy-harness/behavior/feature-surface.md</record>
+    <record layer="SDD">.lazy-harness/spec/feature-surface.md</record>
   </records>
   <sourceFiles>
-    <path>src/features/reservations/ReservationTable.tsx</path>
+    <path>src/features/example-feature/FeaturePanel.tsx</path>
   </sourceFiles>
   <tests>
-    <path>tests/reservations/reservation-table.test.tsx</path>
+    <path>tests/example-feature/feature-panel.test.tsx</path>
   </tests>
 </feature>
 ```
@@ -162,7 +162,7 @@ Rules:
   - `.lazy-harness/project/feature-navigation.xml` is the first-class Project Profile retrieval source for Context Delivery.
 - `.lazy-harness/spec/platform/context-delivery-contract.md`
   - Defines how Project Profile feature-navigation evidence becomes Context Delivery Packet queries, requiredRead, optionalRead, and fallbackSearches.
-- `.lazy-harness/fixtures/context-delivery/feature-navigation-reservation-surface.xml`
+- `.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml`
   - Framework fixture for a host-project surface mapping, including Korean/English aliases and code/test hints.
 - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
   - Defines Project Profile as the `config.json`/host profile part of the grammar+vocabulary model.

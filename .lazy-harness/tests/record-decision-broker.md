@@ -35,7 +35,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
    - Expected lifecycle behavior: silent.
 
 2. **Confirmed new alias**
-   - Given: user confirms a new alias/surface term such as `예약시트`.
+   - Given: user confirms a new alias/surface term such as `기능패널`.
    - Expected packet: `disposition=candidate-needed`, evidence includes `user-confirmation`, recommended BDD or candidate graph record.
    - Expected lifecycle behavior: candidate/option guidance, not blind canonical write.
 
@@ -73,7 +73,7 @@ The generator and response shadow fixtures are now active.
 
 ## Future protection
 
-- Add Medivance/PWA dogfood fixture once enough packet evidence is collected.
+- Add HostApp/PWA dogfood fixture once enough packet evidence is collected.
 - Add stricter response.completed advisory/escalation fixtures only after shadow rows prove low false-positive risk.
 
 ## Implementation map

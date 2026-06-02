@@ -9,7 +9,7 @@ Related: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`, `.lazy-ha
 
 `graph-hygiene` is a read-only lint command for `.lazy-harness/knowledge/graph.jsonl`.
 
-It exists because Medivance dogfooding showed that the graph grows usefully, but path hygiene issues can make future agents follow stale or non-host paths.
+It exists because downstream host dogfooding showed that the graph grows usefully, but path hygiene issues can make future agents follow stale or non-host paths.
 
 The command reports issues and may optionally exit non-zero with `--fail-on-issues`, but it must not repair, delete, rewrite, or supersede graph rows.
 
@@ -69,4 +69,4 @@ The command detects:
 - TDD: protected by self-test fixture.
 - ADR: none; follows ADR 0028 graph invariants and ADR 0030 implementation map storage.
 - SSOT: reinforces `.lazy-harness/ssot/implementation-map-storage.md` path ownership.
-- Planning: promoted from Medivance dogfood record-audit graph hygiene candidate.
+- Planning: promoted from downstream dogfood record-audit graph hygiene candidate.

@@ -19,7 +19,7 @@ Confirmation: user-confirmed
   - keep canonical records mandatory for confirmed rules, decisions, corrections, contracts, behaviors, and regressions
   - surface relevant records before response through compact query/digest context
   - audit missed rules and missing records after response with `response.completed`
-  - when deterministic Context Delivery produces concrete requiredRead debt, force read/search evidence before action tools run
+  - record unresolved search/read evidence as debt in the pre-turn journal and surface/audit it; do not attach project/context policy to concrete tool surfaces
   - avoid solving stored-rule recall by adding per-tool project-policy adapters
 - Record completion:
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
@@ -88,12 +88,12 @@ Hooks remain important, but policy should move to the response lifecycle:
 ```text
 pre-response relevant record query
 +
-packet-scoped read/search-before-action permit when concrete requiredRead debt exists
+search/read debt journal from message.received when required context is unresolved
 +
 response.completed audit/backstop
 ```
 
-Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport/safety/logging surfaces, and as packet-scoped action permits when a deterministic framework producer has already created concrete `requiredRead` debt. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
+Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport, destructive safety, logging, and packet-scoped evidence guards. Search/read debt is produced at message.received and the generic guard may deny action only when the LLM/searcher has not left required search/read evidence. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
 
 Migration target:
 
@@ -113,7 +113,7 @@ Phase 5 migrated the first tool-attached project-policy exemplar out of the bash
 
 This keeps the mandatory memory loop strong while avoiding concrete tool adapter sprawl.
 
-## 2026-06-01 read-debt permit result
+## 2026-06-02 search/read debt journal result
 
 User-confirmed after dogfood screenshots:
 
@@ -123,19 +123,20 @@ User-confirmed after dogfood screenshots:
 
 Accepted policy:
 
-- The deterministic Context Delivery producer, not the LLM alone, should do first-pass required context discovery from records/index/graph/project-profile/source hints.
-- When it produces concrete correlated `requiredRead` paths with sufficient confidence, read/search tools remain allowed but action/mutation tools are blocked until those paths have evidence in recent tool calls.
-- This is a packet-scoped permit gate, not a revival of broad edit/write hard-gating and not a concrete-tool project-policy adapter.
-- The current transport is Jcode lifecycle hooks; the core semantics are protocol-agnostic and ACP-compatible.
+- The deterministic Context Delivery producer may surface literal/record-authored hints, but it must not implement semantic search or host-specific alias mapping.
+- The LLM or searcher agent performs semantic expansion and root-bound search first.
+- When a correlated packet has concrete `requiredRead` paths or fallback searches, missing evidence becomes search/read debt and the generic evidence guard denies action until search/read evidence exists.
+- This is packet-scoped, not a concrete-tool project-policy adapter.
+- The current transport is `message.received` plus a generic `tool.execute.before` evidence guard plus `response.completed` audit/backstop; the core semantics are protocol-agnostic and ACP-compatible.
 
 User-corrected after implementation:
 
-- A non-LLM hook must not be treated as the semantic authority for multilingual/user-surface intent such as Korean `예약시트` mapping to English records or code.
+- A non-LLM hook must not be treated as the semantic authority for multilingual/user-surface intent such as Korean `기능패널` mapping to English records or code.
 - The LLM or a searcher agent must perform semantic expansion and root-bound search.
-- The harness should measure whether search happened and force search before action when no concrete high-confidence `requiredRead` exists yet.
+- The harness should measure whether search/read happened and guard action when the agent tries to act without that grounding.
 - Therefore the active prevention model is two-stage:
-  1. **search-debt** for ambiguous/low-confidence host-context turns: no search evidence before action means block and require root-bound search first.
-  2. **read-debt** after concrete records/files are known: no read evidence for required paths before action means block and require reads first.
+  1. **search-debt** for ambiguous/low-confidence host-context turns: no search evidence before action triggers the generic evidence guard.
+  2. **read-debt** after concrete records/files are known: no read evidence for required paths before action triggers the generic evidence guard.
 
 ## 2026-06-01 Phase 6 guidance ladder result
 
@@ -155,7 +156,7 @@ The observed failure mode is not PR-specific and not caused by missing records a
 
 Symptoms observed on 2026-05-31:
 
-- Agent read generic AGENTS-style command hints and shell/env files, but skipped the canonical Medivance dogfood runtime SSOT before reasoning about test instances.
+- Agent read generic AGENTS-style command hints and shell/env files, but skipped the canonical HostApp dogfood runtime SSOT before reasoning about test instances.
 - `response.completed` exists, but current generated Jcode wiring uses `blocking = false`, weakening the original completion-audit contract.
 - `tool.execute.before` currently blocks dangerous bash, but does not generally ensure host-dependent rule recall.
 - Record accumulation into DDD/SDD/BDD/TDD/ADR/SSOT appears lower when gates become advisory, because misses are reported after the response rather than surfaced naturally at the right moment.
@@ -190,7 +191,7 @@ Future fixes should restore mandatory behavior without turning the framework int
   - `.lazy-harness/scripts/jcode-wiring.ts` — generated `.jcode/config.toml` and harness file installation logic.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — completion backstop hook.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — project-rule placement gate.
-  - `.lazy-harness/ssot/medivance-dogfood-runtime-policy.md` — concrete runtime/test-instance policy skipped by the observed agent.
+  - `.lazy-harness/ssot/host-project-a-dogfood-runtime-policy.md` — concrete runtime/test-instance policy skipped by the observed agent.
   - `.lazy-harness/planning/organic-hybrid-rule-guidance-plan.md` — current plan for C+ v2 organic hybrid exploration.
 - Flow:
   1. User observes agents skipping mandatory lazy-harness rules.

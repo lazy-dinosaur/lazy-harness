@@ -5,7 +5,7 @@
 #
 # Quick install (cron):
 #   crontab -e
-#   0 18 * * 5 cd /home/lazydino/dev/medivance && .lazy-harness/hooks/weekly-snapshot.sh
+#   0 18 * * 5 cd /path/to/host-project && .lazy-harness/hooks/weekly-snapshot.sh
 
 set -e
 

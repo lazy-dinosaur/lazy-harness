@@ -227,7 +227,7 @@ The audit should remain silent for normal turns with no record-completion trigge
 
 ### Source-of-truth correction
 
-User: “아니 medivance-pwa도 dogfood host야.”
+User: “아니 host-project-b도 dogfood host야.”
 
 Expected:
 

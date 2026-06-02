@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # on-tool-execute-before.sh — lifecycle hook for jcode tool.execute.before event
 #
-# Triggered: Edit / Write / MultiEdit 도구가 실행되기 직전 (모든 호출)
-# Purpose: ADR 0024 의 Layer 2 (Force Gate). AGENTS.md §1 따라 능동 검색을
-#          했는지 session-cache 확인. 안 했으면 deny + 검색 명령 출력.
+# Triggered: tool.execute.before for all tool calls.
+# Purpose: generic packet-scoped search/read evidence guard. It does not perform
+#          semantic search and does not encode concrete-tool project policy.
+#          If Context Delivery produced search/read debt and the LLM/searcher has
+#          not left root-bound search/read evidence yet, emit deny guidance.
 #
 # Stdin / argv: JSON payload
 #   {
@@ -15,7 +17,7 @@
 # Deny: stdout 에 deny 메시지, exit 1
 # Allow: stdout 비움, exit 0
 #
-# 본 hook 은 silent skip 을 막는 framework safety net. 정상 흐름에선 invisible.
+# This hook is a framework safety net. Normal record-first/search-first flows stay silent.
 
 set +e
 

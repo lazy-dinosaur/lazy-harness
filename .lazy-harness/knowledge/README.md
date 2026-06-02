@@ -17,6 +17,7 @@ This directory is the machine-readable backbone for reusable lazy-harness knowle
 - Candidate/draft capture may be automatic.
 - Canonical graph promotion requires explicit confirmation or a future validated safe rule.
 - Conflicts create conflict/supersession records, never silent overwrites.
+- During `lazy-sync`, JSONL files in `knowledge/` are seed-merged: framework seed rows may be appended if missing, but host-local rows must not be overwritten or pruned.
 - Human-facing layer docs remain under `domain/`, `spec/`, `behavior/`, `tests/`, `decisions/`, and `ssot/`.
 - Implementation maps use ADR 0030's three-layer model:
   1. Markdown `Implementation map` section in layer docs.

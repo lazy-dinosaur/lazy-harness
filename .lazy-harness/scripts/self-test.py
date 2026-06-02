@@ -716,7 +716,7 @@ def _check_project_rule_placement_helper_cases() -> None:
             "args": {
                 "action": "remember",
                 "category": "preference",
-                "content": "Medivance worktree workflow: after creating a worktree with bun wt new, immediately switch Jcode cwd to the new worktree.",
+                "content": "HostApp worktree workflow: after creating a worktree with bun wt new, immediately switch Jcode cwd to the new worktree.",
                 "scope": "project",
             },
         }],
@@ -813,10 +813,10 @@ def _check_project_rule_placement_helper_cases() -> None:
     real_world_judgement_payload = {
         "assistant_response": (
             "Rule placement\n"
-            "• Rule: Medivance PR descriptions must use Why, What, Task, Validation, then User-note-type / User-note when applicable.\n"
+            "• Rule: HostApp PR descriptions must use Why, What, Task, Validation, then User-note-type / User-note when applicable.\n"
             "• Scope: team-policy\n"
             "• Primary record: .lazy-harness/ssot/pr-description-format.md\n"
-            "• Why not AGENTS.md: This is a Medivance team PR workflow policy, not framework-global guidance.\n"
+            "• Why not AGENTS.md: This is a HostApp team PR workflow policy, not framework-global guidance.\n"
             "• Why not .jcode: .jcode is local/private Jcode memory only; canonical shared team policy belongs in .lazy-harness/ssot.\n"
             "• Confirmation: user-confirmed\n"
         ),
@@ -893,9 +893,9 @@ def _check_project_rule_placement_helper_cases() -> None:
 
     status_report_payload = {
         "assistant_response": (
-            "framework gate는 두 프로젝트에 적용됨. Medivance release dispatch 정책은 "
+            "framework gate는 두 프로젝트에 적용됨. HostApp release dispatch 정책은 "
             ".lazy-harness/ssot/release-branch-policy.md record에 이미 있음. "
-            "medivance-pwa는 release script가 없어 적용 대상이 아님."
+            "host-app-b는 release script가 없어 적용 대상이 아님."
         ),
         "recent_tool_calls": [],
     }
@@ -1059,10 +1059,10 @@ def check_bdd_trigger_avoids_runtime_tsmorph() -> None:
 def check_record_before_session_history_helper() -> None:
     """Recorded plans/rules must search .lazy-harness before session history."""
     blocked_payload = {
-        "assistant_response": "기록해둔 예약시트 계획을 찾아보겠습니다.",
+        "assistant_response": "기록해둔 기능패널 계획을 찾아보겠습니다.",
         "recent_tool_calls": [{
             "name": "session_search",
-            "query": "reservation sheet plan",
+            "query": "feature panel plan",
         }],
     }
     blocked = run_record_before_session_history_helper(blocked_payload)
@@ -1070,15 +1070,15 @@ def check_record_before_session_history_helper() -> None:
         fail("record-before-session-history helper should block session_search-first lookup:\n" + blocked)
 
     record_first_payload = {
-        "assistant_response": "기록해둔 예약시트 계획을 찾아보겠습니다.",
+        "assistant_response": "기록해둔 기능패널 계획을 찾아보겠습니다.",
         "recent_tool_calls": [
             {
                 "name": "agentgrep",
-                "args_preview": "Search .lazy-harness/planning for reservation sheet notes",
+                "args_preview": "Search .lazy-harness/planning for feature panel notes",
             },
             {
                 "name": "session_search",
-                "query": "reservation sheet plan",
+                "query": "feature panel plan",
             },
         ],
     }
@@ -1251,7 +1251,7 @@ def check_jcode_wiring_repairs_stale_defaults() -> None:
         (temp / ".jcode" / "AGENTS.md").write_text(
             "# Private Jcode Harness\n\n"
             "This directory is Lazydino's private project-local harness for Jcode.\n"
-            "medivance.experimental-lazy-harness /harness-doctor Phase 5 ADR 0007 C1~C16\n",
+            "experimental-lazy-harness /harness-doctor Phase 5 ADR 0007 C1~C16\n",
             encoding="utf-8",
         )
         (temp / ".jcode" / "config.toml").write_text(
@@ -1415,7 +1415,7 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
 
 
 def check_jcode_wiring_message_received_hook() -> None:
-    """Generated and user-owned Jcode configs must wire context and read-debt hooks."""
+    """Generated and user-owned Jcode configs must wire pre-turn context plus generic search/read evidence guard."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         'event = \\"message.received\\"',
@@ -1423,14 +1423,21 @@ def check_jcode_wiring_message_received_hook() -> None:
         'blocking = true',
         'timeout_ms = 800',
         'ensureMessageReceivedHook',
-        'read-debt action permit hook',
-        'command = \\".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\\"',
-        'timeout_ms = 1200',
         'ensureReadDebtPermitHook',
+        'Generic pre-action search/read evidence guard',
+        'It does not perform semantic',
     ]
     missing = [phrase for phrase in required if phrase not in source]
     if missing:
         fail("jcode wiring missing message.received hook contract: " + json.dumps(missing, ensure_ascii=False))
+    forbidden = [
+        'cleanupReadDebt' + 'PermitHook',
+        'tool-specific policy adapter',
+        'Aliases and implementation ' + 'hints from',
+    ]
+    leaked = [phrase for phrase in forbidden if phrase in source]
+    if leaked:
+        fail("jcode wiring must not install tool-specific adapters or framework search implementation: " + json.dumps(leaked, ensure_ascii=False))
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-message-received-"))
     try:
@@ -1458,13 +1465,98 @@ def check_jcode_wiring_message_received_hook() -> None:
             fail("message.received hook patch overwrote user-owned config content:\n" + updated)
         for phrase in [
             'event = "message.received"', 'on-message-received.sh', 'blocking = true', 'timeout_ms = 800',
-            'read-debt action permit hook', 'event = "tool.execute.before"', 'tool = "*"', 'on-tool-execute-before.sh', 'timeout_ms = 1200',
+            'event = "tool.execute.before"', 'tool = "*"', 'on-tool-execute-before.sh', 'timeout_ms = 1200',
         ]:
             if phrase not in updated:
-                fail("message.received hook patch missing phrase " + phrase + ":\n" + updated)
+                fail("jcode context/search-read guard patch missing phrase " + phrase + ":\n" + updated)
+
+        legacy = temp / ".jcode" / "config.toml"
+        legacy.write_text(
+            updated,
+            encoding="utf-8",
+        )
+        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("jcode read-debt idempotence import/run failed:\n" + completed.stdout + completed.stderr)
+        cleaned = legacy.read_text(encoding="utf-8")
+        if cleaned.count("on-tool-execute-before.sh") != 1:
+            fail("jcode wiring duplicated generic search/read evidence guard:\n" + cleaned)
+        stale = cleaned.replace(
+            "# Generic pre-action search/read evidence guard. It does not perform semantic\n"
+            "# search and it is not a concrete-tool policy adapter. It only checks\n"
+            "# whether Context Delivery produced packet-scoped search/read debt and whether\n"
+            "# the LLM/searcher already left root-bound search/read evidence before response/action.\n",
+            "# Narrow pre-action permit gate. It is silent unless Context Delivery produced\n"
+            "# concrete requiredRead debt for this turn and the next action would run before\n"
+            "# read/search evidence exists. This is not a broad edit/write hard stop.\n",
+        )
+        legacy.write_text(stale, encoding="utf-8")
+        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("jcode read-debt refresh import/run failed:\n" + completed.stdout + completed.stderr)
+        refreshed = legacy.read_text(encoding="utf-8")
+        if "Narrow pre-action permit gate" in refreshed or "Generic pre-action search/read evidence guard" not in refreshed:
+            fail("jcode wiring failed to refresh stale managed search/read guard block:\n" + refreshed)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode message.received hook wiring ok")
+    print("✓ jcode message.received hook wiring/search-read guard ok")
+
+
+def check_framework_runtime_no_host_product_hardcoding() -> None:
+    """Framework runtime/generator/fixture surfaces must stay host-agnostic."""
+    roots = [
+        LAZY / "scripts",
+        LAZY / "hooks",
+        LAZY / "bin",
+        LAZY / "manifests",
+        LAZY / "schemas",
+        LAZY / "fixtures",
+    ]
+    suffixes = {".md", ".ts", ".tsx", ".js", ".py", ".sh", ".json", ".jsonl", ".xml", ".toml", ".yaml", ".yml", ".txt"}
+    forbidden = [
+        "medi" + "vance",
+        "MEDI" + "VANCE",
+        "메디" + "밴스",
+        "예" + "약" + "시트",
+        "예" + "약" + "표",
+        "예" + "약" + "관리",
+        "reserv" + "ation " + "sheet",
+        "Reservation" + "Table",
+        "Reservation" + "ManagementPage",
+        "Reservation" + "Sheet",
+        "book" + "ing " + "sheet",
+        "book" + "ing " + "table",
+        "Calendar master " + "header design",
+        "vacationList" + "Airplane",
+        "/home/lazydino/dev/" + "medi" + "vance",
+        "src/" + "renderer" + "/src",
+        "src/" + "main" + "/trpc",
+    ]
+    allowed_files = {str(LAZY / "scripts" / "self-test.py")}
+    leaks: list[str] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in suffixes:
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            rel = str(path)
+            if rel in allowed_files:
+                # This test intentionally constructs forbidden tokens from pieces.
+                # Whole-token leaks in self-test still fail, but split literals do not.
+                pass
+            for token in forbidden:
+                if token in text:
+                    leaks.append(f"{rel}: {token!r}")
+    if leaks:
+        fail("framework runtime/generator/fixtures leaked host/product-specific hardcoding:\n" + "\n".join(leaks[:80]))
+    print("✓ framework runtime host/product hardcoding guard ok")
 
 
 def check_manifest_syncs_python_lifecycle_helpers() -> None:
@@ -1478,6 +1570,44 @@ def check_manifest_syncs_python_lifecycle_helpers() -> None:
     if not hooks_item or "lifecycle/helpers/*.py" not in hooks_item.get("glob", []):
         fail("init-categories manifest must sync Python lifecycle helpers for host guard support")
     print("✓ manifest Python lifecycle helper sync ok")
+
+
+def check_lazy_sync_prunes_stale_managed_files() -> None:
+    """lazy-sync must remove stale files from managed Category A directories."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-sync-prune-"))
+    try:
+        state = temp / ".lazy-harness" / "state"
+        stale = temp / ".lazy-harness" / "fixtures" / "context-delivery" / "obsolete-managed-fixture.xml"
+        graph = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        state.mkdir(parents=True)
+        stale.parent.mkdir(parents=True)
+        graph.parent.mkdir(parents=True)
+        stale.write_text("<legacy-fixture />\n", encoding="utf-8")
+        host_graph_row = {"id": "host_local_graph_fact", "source": "host-local fact must survive lazy-sync"}
+        graph.write_text(json.dumps(host_graph_row, ensure_ascii=False) + "\n", encoding="utf-8")
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        (state / "synced-from-commit").write_text(
+            json.dumps({"syncedFromCommit": head, "sourceRoot": str(ROOT)}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            ["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(ROOT), "--target", str(temp), "--force", "--quiet"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("lazy-sync prune fixture failed:\n" + completed.stdout + completed.stderr)
+        current = temp / ".lazy-harness" / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
+        if stale.exists() or not current.exists():
+            fail("lazy-sync must prune stale managed fixture and copy current fixture")
+        graph_text = graph.read_text(encoding="utf-8")
+        if "host_local_graph_fact" not in graph_text or "kg_" not in graph_text:
+            fail("lazy-sync must merge source knowledge seeds while preserving host-local graph rows")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ lazy-sync stale managed file prune ok")
 
 
 def check_jcode_dev_hooks_are_nonblocking() -> None:
@@ -1871,10 +2001,10 @@ def check_lazy_route_cli_help() -> None:
     result = _run_task_router("typo in README")
     if result.get("route", {}).get("implementationMap", {}).get("tier") != "none":
         fail("lazy route trivial fixture should not require implementation map: " + json.dumps(result, ensure_ascii=False))
-    risky = _run_task_router("Feat: 치료 기록 삭제 버튼 추가", ["src/main/trpc/routers/appointment.ts", "src/renderer/src/screens/Appointment/modal/TreatmentPatientDetailModal/index.tsx"])
+    risky = _run_task_router("Feat: example record delete button", ["src/server/routes/example.ts", "src/ui/screens/Example/modal/ExampleDetailModal/index.tsx"])
     route = risky["route"]
-    if route["risk"] != "high" or route["gate"]["mode"] != "option-gate" or "destructive-word" not in route["evidence"]["riskEvidence"] or "trpc-router" not in route["evidence"]["pathEvidence"]:
-        fail("lazy route should flag destructive TRPC/UI commit evidence: " + json.dumps(risky, ensure_ascii=False))
+    if route["risk"] != "high" or route["gate"]["mode"] != "option-gate" or "destructive-word" not in route["evidence"]["riskEvidence"] or "api-route" not in route["evidence"]["pathEvidence"]:
+        fail("lazy route should flag destructive API/UI commit evidence: " + json.dumps(risky, ensure_ascii=False))
     audit = subprocess.run([".lazy-harness/bin/lazy", "route-audit", "--commits=1", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if audit.returncode != 0 or json.loads(audit.stdout).get("mode") != "route-audit":
         fail("lazy route-audit should emit route-audit JSON:\n" + audit.stdout + audit.stderr)
@@ -3998,8 +4128,8 @@ def check_context_delivery_contract_sdd() -> None:
         "candidateMeanings",
         "fallbackSearches",
         "system_reminder",
-        "예약시트",
-        "ReservationTable",
+        "기능패널",
+        "FeaturePanel",
         "privacy",
         "fail-open",
         "Searcher subagent handoff",
@@ -4040,28 +4170,28 @@ def check_context_delivery_contract_sdd() -> None:
         "schemaVersion": "1.0",
         "generatedAt": "2026-06-01T00:00:00.000Z",
         "instructionLevel": "self-resolve-before-change",
-        "resolvedPhrase": "예약시트",
+        "resolvedPhrase": "기능패널",
         "candidateMeanings": [
-            {"label": "ReservationTable / reservation sheet", "confidence": 0.76, "why": "multilingual surface candidate"}
+            {"label": "FeaturePanel / feature panel", "confidence": 0.76, "why": "multilingual surface candidate"}
         ],
         "queries": [
-            {"query": "예약시트 예약표 예약관리", "source": "llm-expansion", "purpose": "Korean aliases"},
-            {"query": "reservation sheet booking table ReservationTable", "source": "llm-expansion", "purpose": "English and code aliases"},
+            {"query": "기능패널 기능화면 기능관리", "source": "llm-expansion", "purpose": "Korean aliases"},
+            {"query": "feature panel feature panel FeaturePanel", "source": "llm-expansion", "purpose": "English and code aliases"},
         ],
         "requiredRead": [
             {
-                "path": ".lazy-harness/behavior/reservation-management.md",
+                "path": ".lazy-harness/behavior/feature-surface.md",
                 "kind": "record",
                 "reason": "Confirm UI behavior before editing.",
                 "confidence": 0.82,
-                "whyMatched": "Matched Korean and English reservation aliases.",
-                "matchedQueries": ["예약시트", "reservation sheet"],
+                "whyMatched": "Matched Korean and English feature-surface aliases.",
+                "matchedQueries": ["기능패널", "feature panel"],
             }
         ],
         "optionalRead": [],
         "confidence": 0.76,
-        "fallbackSearches": ["rg -n \"예약|reservation|booking|appointment|schedule\" .lazy-harness src tests"],
-        "instruction": "Read requiredRead before answering or editing.",
+        "fallbackSearches": ["rg -n \"기능패널|feature panel|FeaturePanel\" .lazy-harness src tests"],
+        "instruction": "STOP before response: read requiredRead before answering, analyzing, planning, option-gating, or editing.",
     }
     for field in expected_required:
         if field not in sample_packet:
@@ -4079,7 +4209,7 @@ def check_context_delivery_metadata_phase2() -> None:
     query_path = LAZY / "spec" / "platform" / "relevant-record-query.md"
     profile_path = LAZY / "spec" / "platform" / "project-profile.md"
     schema_path = LAZY / "schemas" / "relevant-record-index.schema.json"
-    fixture_path = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+    fixture_path = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
     for path in [digest_path, query_path, profile_path, schema_path, fixture_path]:
         if not path.exists():
             fail("Context Delivery Phase 2 expected artifact missing: " + str(path))
@@ -4090,8 +4220,8 @@ def check_context_delivery_metadata_phase2() -> None:
         "Aliases",
         "Surface terms",
         "Implementation hints",
-        "예약시트",
-        "ReservationTable",
+        "기능패널",
+        "FeaturePanel",
         "aliases[]",
         "implementationHints.routeHints[]",
     ]:
@@ -4103,7 +4233,7 @@ def check_context_delivery_metadata_phase2() -> None:
         "digest aliases/surface terms",
         "Project Profile feature navigation",
         "feature-navigation.xml",
-        "예약시트",
+        "기능패널",
         "self-resolve-before-change",
     ]:
         if phrase not in query_text:
@@ -4114,9 +4244,9 @@ def check_context_delivery_metadata_phase2() -> None:
         "## Rule digest",
         "## Feature navigation as retrieval source",
         "feature-navigation.xml",
-        "예약시트",
-        "reservation sheet",
-        "ReservationTable",
+        "기능패널",
+        "feature panel",
+        "FeaturePanel",
         "requiredRead",
     ]:
         if phrase not in profile_text:
@@ -4134,19 +4264,19 @@ def check_context_delivery_metadata_phase2() -> None:
 
     root = ET.parse(fixture_path).getroot()
     feature = root.find("feature")
-    if feature is None or feature.attrib.get("id") != "reservations":
-        fail("context delivery feature-navigation fixture missing reservations feature")
+    if feature is None or feature.attrib.get("id") != "example-feature":
+        fail("context delivery feature-navigation fixture missing example-feature feature")
     aliases = [node.text for node in feature.findall("./aliases/alias")]
-    for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+    for expected in ["기능패널", "기능화면", "feature panel", "FeaturePanel"]:
         if expected not in aliases:
             fail("context delivery feature-navigation fixture missing alias: " + expected)
     paths = [node.text for node in feature.findall(".//path")]
-    if "src/features/reservations/ReservationTable.tsx" not in paths:
+    if "src/features/example-feature/FeaturePanel.tsx" not in paths:
         fail("context delivery feature-navigation fixture missing source path")
-    if "tests/reservations/reservation-table.test.tsx" not in paths:
+    if "tests/example-feature/feature-panel.test.tsx" not in paths:
         fail("context delivery feature-navigation fixture missing test path")
     records = [node.text for node in feature.findall("./records/record")]
-    if ".lazy-harness/behavior/reservation-management.md" not in records:
+    if ".lazy-harness/behavior/feature-surface.md" not in records:
         fail("context delivery feature-navigation fixture missing BDD record path")
 
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
@@ -4182,41 +4312,41 @@ def check_context_index_generator_phase3() -> None:
         (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Surface terms:\n"
-            "  - 예약표\n"
+            "  - 기능화면\n"
             "- Implementation hints:\n"
-            "  - Routes: `/reservations`\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n"
+            "  - Routes: `/example-feature`\n"
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n"
             "- Related records:\n"
-            "  - `.lazy-harness/spec/reservation-management.md`\n\n"
+            "  - `.lazy-harness/spec/feature-surface.md`\n\n"
             "## Implementation map\n\n"
-            "- Component: `ReservationManagementPage`\n"
-            "- Source: `src/features/reservations/ReservationManagementPage.tsx`\n",
+            "- Component: `FeatureSurfacePage`\n"
+            "- Source: `src/features/example-feature/FeatureSurfacePage.tsx`\n",
             encoding="utf-8",
         )
-        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
         shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
         (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
             json.dumps({
-                "id": "kg_reservation_behavior_impl",
-                "source": ".lazy-harness/behavior/reservation-management.md",
+                "id": "kg_feature_surface_behavior_impl",
+                "source": ".lazy-harness/behavior/feature-surface.md",
                 "relation": "implemented_by",
-                "target": "src/features/reservations/ReservationTable.tsx",
+                "target": "src/features/example-feature/FeaturePanel.tsx",
             }, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
@@ -4243,19 +4373,19 @@ def check_context_index_generator_phase3() -> None:
         if len(records) != 1:
             fail("context-index fixture should produce exactly one record")
         record = records[0]
-        for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+        for expected in ["기능패널", "기능화면", "feature panel", "FeaturePanel"]:
             if expected not in record.get("aliases", []) and expected not in record.get("surfaceTerms", []):
                 fail("context-index record missing retrieval term: " + expected)
         hints = record.get("implementationHints", {})
-        if "ReservationTable" not in hints.get("componentHints", []):
+        if "FeaturePanel" not in hints.get("componentHints", []):
             fail("context-index missing component hint")
-        if "src/features/reservations/ReservationTable.tsx" not in hints.get("fileHints", []):
+        if "src/features/example-feature/FeaturePanel.tsx" not in hints.get("fileHints", []):
             fail("context-index missing file hint")
-        if "tests/reservations/reservation-table.test.tsx" not in hints.get("testHints", []):
+        if "tests/example-feature/feature-panel.test.tsx" not in hints.get("testHints", []):
             fail("context-index missing test hint")
-        if "kg_reservation_behavior_impl" not in record.get("graphIds", []):
+        if "kg_feature_surface_behavior_impl" not in record.get("graphIds", []):
             fail("context-index missing graph edge id")
-        if "reservations" not in record.get("projectProfileFeatureIds", []):
+        if "example-feature" not in record.get("projectProfileFeatureIds", []):
             fail("context-index missing project profile feature id")
         if index.get("projectProfile", {}).get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
             fail("context-index missing feature navigation path")
@@ -4277,6 +4407,15 @@ def check_context_delivery_dual_mode_phase4() -> None:
     packet_schema = LAZY / "schemas" / "context-delivery-packet.schema.json"
     if not delivery_script.exists():
         fail("Context Delivery packet generator missing: " + str(delivery_script))
+    delivery_source = delivery_script.read_text(encoding="utf-8")
+    forbidden_framework_aliases = [
+        "surface aliases', targets",
+        "Code-style ",
+        "Deterministic multilingual expansion mapped",
+    ]
+    leaked_aliases = [alias for alias in forbidden_framework_aliases if alias in delivery_source]
+    if leaked_aliases:
+        fail("context-delivery must not hardcode host-specific aliases; use records/project profile instead: " + json.dumps(leaked_aliases, ensure_ascii=False))
     schema = json.loads(packet_schema.read_text(encoding="utf-8"))
     levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
     if "self-resolve-before-change" not in levels:
@@ -4288,42 +4427,42 @@ def check_context_delivery_dual_mode_phase4() -> None:
         (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Surface terms:\n"
-            "  - 예약표\n"
+            "  - 기능화면\n"
             "- Implementation hints:\n"
-            "  - Routes: `/reservations`\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n"
+            "  - Routes: `/example-feature`\n"
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n"
             "- Related records:\n"
-            "  - `.lazy-harness/spec/reservation-management.md`\n",
+            "  - `.lazy-harness/spec/feature-surface.md`\n",
             encoding="utf-8",
         )
-        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-reservation-surface.xml"
+        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
         shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
         (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
             json.dumps({
-                "id": "kg_reservation_behavior_impl",
-                "source": ".lazy-harness/behavior/reservation-management.md",
+                "id": "kg_feature_surface_behavior_impl",
+                "source": ".lazy-harness/behavior/feature-surface.md",
                 "relation": "implemented_by",
-                "target": "src/features/reservations/ReservationTable.tsx",
+                "target": "src/features/example-feature/FeaturePanel.tsx",
             }, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
@@ -4337,23 +4476,26 @@ def check_context_delivery_dual_mode_phase4() -> None:
                 check=False,
             )
 
-        first = run_delivery("--message", "예약시트 고쳐줘", "--format", "json")
+        first = run_delivery("--message", "기능패널 고쳐줘", "--format", "json")
         if first.returncode != 0:
             fail("context-delivery source-scan fallback failed:\n" + first.stdout + first.stderr)
         packet = json.loads(first.stdout)
         if packet.get("instructionLevel") != "self-resolve-before-change":
-            fail("context-delivery should require self-resolve-before-change for 예약시트 change request")
+            fail("context-delivery should require self-resolve-before-change for 기능패널 change request")
         queries_text = json.dumps(packet.get("queries", []), ensure_ascii=False)
-        for expected in ["예약시트", "예약표", "reservation sheet", "ReservationTable"]:
+        for expected in ["기능패널"]:
             if expected not in queries_text:
-                fail("context-delivery missing expanded query term: " + expected)
+                fail("context-delivery missing original/token query term: " + expected)
+        for forbidden_query in ["기능화면", "FeaturePanel"]:
+            if forbidden_query in queries_text:
+                fail("context-delivery producer must not implement semantic alias expansion: " + forbidden_query)
         required = packet.get("requiredRead", [])
         required_pairs = {(item.get("kind"), item.get("path")) for item in required}
         for expected in [
-            ("record", ".lazy-harness/behavior/reservation-management.md"),
+            ("record", ".lazy-harness/behavior/feature-surface.md"),
             ("project-profile", ".lazy-harness/project/feature-navigation.xml"),
-            ("source-file", "src/features/reservations/ReservationTable.tsx"),
-            ("test", "tests/reservations/reservation-table.test.tsx"),
+            ("source-file", "src/features/example-feature/FeaturePanel.tsx"),
+            ("test", "tests/example-feature/feature-panel.test.tsx"),
         ]:
             if expected not in required_pairs:
                 fail("context-delivery requiredRead missing " + repr(expected) + ":\n" + json.dumps(required, ensure_ascii=False, indent=2))
@@ -4371,13 +4513,15 @@ def check_context_delivery_dual_mode_phase4() -> None:
         )
         if index_write.returncode != 0:
             fail("context-index write for context-delivery fixture failed:\n" + index_write.stdout + index_write.stderr)
-        second = run_delivery("--message=예약시트 고쳐줘", "--format=json")
+        second = run_delivery("--message=기능패널 고쳐줘", "--format=json")
         packet_from_index = json.loads(second.stdout)
         if not any("contextIndexSource=generated-index" == note for note in packet_from_index.get("notes", [])):
             fail("context-delivery should consume generated context index when present")
-        markdown = run_delivery("--message", "예약시트 고쳐줘", "--format", "md")
-        if markdown.returncode != 0 or "Context Delivery Packet" not in markdown.stdout or "Required read before answer/change" not in markdown.stdout:
+        markdown = run_delivery("--message", "기능패널 고쳐줘", "--format", "md")
+        if markdown.returncode != 0 or "Context Delivery Packet" not in markdown.stdout or "Required read before answer/analyze/plan/option-gate/change" not in markdown.stdout:
             fail("context-delivery markdown rendering missing required sections:\n" + markdown.stdout + markdown.stderr)
+        if "STOP before response" not in markdown.stdout or "Ask an option gate only after" not in markdown.stdout:
+            fail("context-delivery markdown must enforce pre-answer search/read before option gate:\n" + markdown.stdout + markdown.stderr)
 
         framework_only = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-framework-only-"))
         try:
@@ -4392,12 +4536,12 @@ def check_context_delivery_dual_mode_phase4() -> None:
                 "- Applies when:\n"
                 "  - implementing Context Delivery Packet retrieval\n"
                 "- Must:\n"
-                "  - use `예약시트` only as an example ambiguous surface term\n\n"
-                "## `예약시트` example\n\n예약시트 고쳐줘\n",
+                "  - use `기능패널` only as an example ambiguous surface term\n\n"
+                "## `기능패널` example\n\n기능패널 고쳐줘\n",
                 encoding="utf-8",
             )
             no_host = subprocess.run(
-                ["bun", str(delivery_script), "--root", str(framework_only), "--message", "예약시트 고쳐줘", "--format=json"],
+                ["bun", str(delivery_script), "--root", str(framework_only), "--message", "기능패널 고쳐줘", "--format=json"],
                 cwd=ROOT,
                 text=True,
                 capture_output=True,
@@ -4428,36 +4572,36 @@ def check_context_delivery_optional_handoff_phase6() -> None:
         if forbidden in hook_text:
             fail("message.received hook must not run Phase 6 handoff/heavy model path: " + forbidden)
     if "context-delivery.ts" not in hook_text or "--journal" not in hook_text:
-        fail("message.received hook should run bounded Context Delivery producer/journal path before action")
+        fail("message.received hook should run bounded Context Delivery producer/journal path before response/action")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
     try:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Implementation hints:\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
             encoding="utf-8",
         )
         completed = subprocess.run(
-            ["bun", str(delivery_script), "--root", str(temp), "--message", "예약시트 고쳐줘", "--handoff-prompt"],
+            ["bun", str(delivery_script), "--root", str(temp), "--message", "기능패널 고쳐줘", "--handoff-prompt"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -4479,8 +4623,8 @@ def check_context_delivery_optional_handoff_phase6() -> None:
             "delegate-search",
             "requiredRead",
             "fallbackSearches",
-            "예약시트",
-            "ReservationTable",
+            "기능패널",
+            "FeaturePanel",
         ]:
             if phrase not in out:
                 fail("handoff prompt missing phrase: " + phrase + "\n" + out)
@@ -4510,28 +4654,28 @@ def check_context_delivery_packet_journal_phase7() -> None:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         (temp / ".jcode" / "hooks").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
-        component = temp / "src" / "features" / "reservations" / "ReservationTable.tsx"
-        component.write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
+        component = temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx"
+        component.write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Implementation hints:\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
             encoding="utf-8",
         )
         journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
@@ -4539,7 +4683,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
             [
                 "bun", str(delivery_script),
                 "--root", str(temp),
-                "--message", "예약시트 고쳐줘",
+                "--message", "기능패널 고쳐줘",
                 "--journal",
                 "--message-id", "phase7-packet-message",
                 "--session-id", "phase7-session",
@@ -4555,7 +4699,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         if not journal.exists():
             fail("context-delivery --journal should create packet evidence journal")
         journal_text = journal.read_text(encoding="utf-8")
-        if "예약시트 고쳐줘" in journal_text or "reservation management UI" in journal_text:
+        if "기능패널 고쳐줘" in journal_text or "feature surface UI" in journal_text:
             fail("packet journal must not store raw user message or raw record bullets")
         rows = [json.loads(line) for line in journal_text.splitlines() if line.strip()]
         row = rows[-1]
@@ -4567,8 +4711,8 @@ def check_context_delivery_packet_journal_phase7() -> None:
         required_paths = [item.get("path") for item in row.get("requiredRead", []) if isinstance(item, dict)]
         if not required_paths:
             fail("packet journal should include sanitized requiredRead paths")
-        if not any(path == "src/features/reservations/ReservationTable.tsx" for path in required_paths):
-            fail("packet journal fixture should include ReservationTable requiredRead path: " + repr(required_paths))
+        if not any(path == "src/features/example-feature/FeaturePanel.tsx" for path in required_paths):
+            fail("packet journal fixture should include FeaturePanel requiredRead path: " + repr(required_paths))
 
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
         shutil.copy2(helper_src, helper)
@@ -4619,16 +4763,16 @@ def check_context_delivery_packet_journal_phase7() -> None:
         pre_action_block = run_permit({
             "message_id": "phase7-packet-message",
             "session_id": "phase7-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
-        if "read-debt gate" not in pre_action_block or "ReservationTable.tsx" not in pre_action_block:
+        if "read-debt gate" not in pre_action_block or "FeaturePanel.tsx" not in pre_action_block:
             fail("read-debt permit should block action before requiredRead evidence:\n" + pre_action_block)
 
         read_allowed = run_permit({
             "message_id": "phase7-packet-message",
             "session_id": "phase7-session",
-            "tool": {"name": "read", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "read", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if read_allowed.strip():
@@ -4637,11 +4781,11 @@ def check_context_delivery_packet_journal_phase7() -> None:
         satisfied_action = run_permit({
             "message_id": "phase7-packet-message",
             "session_id": "phase7-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [
-                {"name": "read", "args_preview": ".lazy-harness/behavior/reservation-management.md"},
-                {"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"},
-                {"name": "read", "args_preview": "tests/reservations/reservation-table.test.tsx"},
+                {"name": "read", "args_preview": ".lazy-harness/behavior/feature-surface.md"},
+                {"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
+                {"name": "read", "args_preview": "tests/example-feature/feature-panel.test.tsx"},
             ],
         })
         if satisfied_action.strip():
@@ -4651,8 +4795,8 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "message_id": "phase7-packet-message",
             "session_id": "phase7-session",
             "tool": {"name": "batch", "args": {"tool_calls": [
-                {"tool": "read", "parameters": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
-                {"tool": "edit", "parameters": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+                {"tool": "read", "parameters": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
+                {"tool": "edit", "parameters": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             ]}},
             "recent_tool_calls": [],
         })
@@ -4671,7 +4815,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_message_permit = run_permit({
             "message_id": "phase7-current-packet-message",
             "session_id": "phase7-same-packet-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if wrong_message_permit.strip():
@@ -4679,7 +4823,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_message_audit = run_helper({
             "message_id": "phase7-current-packet-message",
             "session_id": "phase7-same-packet-session",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if wrong_message_audit.strip():
             fail("response audit must not match same-session packet from a different message:\n" + wrong_message_audit)
@@ -4693,7 +4837,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_session_permit = run_permit({
             "message_id": "phase7-same-packet-message",
             "session_id": "phase7-current-packet-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if wrong_session_permit.strip():
@@ -4701,7 +4845,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_session_audit = run_helper({
             "message_id": "phase7-same-packet-message",
             "session_id": "phase7-current-packet-session",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if wrong_session_audit.strip():
             fail("response audit must not match same-message packet from a different session:\n" + wrong_session_audit)
@@ -4714,13 +4858,13 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_read_row["packetHash"] = "logged-read-evidence-fixture"
         with journal.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(logged_read_row, ensure_ascii=False) + "\n")
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": ".lazy-harness/behavior/reservation-management.md"})
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "src/features/reservations/ReservationTable.tsx"})
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "tests/reservations/reservation-table.test.tsx"})
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
+        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
         logged_read_satisfied = run_permit({
             "message_id": logged_read_message_id,
             "session_id": logged_read_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if logged_read_satisfied.strip():
@@ -4734,13 +4878,13 @@ def check_context_delivery_packet_journal_phase7() -> None:
         strict_row["packetHash"] = "strict-message-correlation-fixture"
         with journal.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(strict_row, ensure_ascii=False) + "\n")
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": ".lazy-harness/behavior/reservation-management.md"})
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "src/features/reservations/ReservationTable.tsx"})
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "tests/reservations/reservation-table.test.tsx"})
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
+        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
         strict_message_block = run_permit({
             "message_id": strict_message_id,
             "session_id": strict_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if "read-debt gate" not in strict_message_block:
@@ -4749,7 +4893,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         epoch_message_id = "phase7-epoch-message"
         epoch_session_id = "phase7-epoch-session"
         old_ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 60))
-        for p in [".lazy-harness/behavior/reservation-management.md", "src/features/reservations/ReservationTable.tsx", "tests/reservations/reservation-table.test.tsx"]:
+        for p in [".lazy-harness/behavior/feature-surface.md", "src/features/example-feature/FeaturePanel.tsx", "tests/example-feature/feature-panel.test.tsx"]:
             event = {
                 "event": "tool.execute.after",
                 "session_id": epoch_session_id,
@@ -4768,7 +4912,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         epoch_block = run_permit({
             "message_id": epoch_message_id,
             "session_id": epoch_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if "read-debt gate" not in epoch_block:
@@ -4800,7 +4944,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         search_action_block = run_permit({
             "message_id": search_message_id,
             "session_id": search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if "search-debt gate" not in search_action_block or "root-bound search" not in search_action_block:
@@ -4809,7 +4953,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         search_tool_allowed = run_permit({
             "message_id": search_message_id,
             "session_id": search_session_id,
-            "tool": {"name": "agentgrep", "args": {"query": "예약시트 reservation sheet"}},
+            "tool": {"name": "agentgrep", "args": {"query": "기능패널 feature panel"}},
             "recent_tool_calls": [],
         })
         if search_tool_allowed.strip():
@@ -4827,9 +4971,9 @@ def check_context_delivery_packet_journal_phase7() -> None:
         search_satisfied_action = run_permit({
             "message_id": search_message_id,
             "session_id": search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [
-                {"name": "agentgrep", "args_preview": "예약시트 reservation sheet .lazy-harness src tests"},
+                {"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"},
             ],
         })
         if search_satisfied_action.strip():
@@ -4843,11 +4987,11 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_search_row["packetHash"] = "logged-search-evidence-fixture"
         with journal.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(logged_search_row, ensure_ascii=False) + "\n")
-        append_tool_event(logged_search_message_id, logged_search_session_id, "agentgrep", {"query": "예약시트 reservation sheet", "path": "."})
+        append_tool_event(logged_search_message_id, logged_search_session_id, "agentgrep", {"query": "기능패널 feature panel", "path": "."})
         logged_search_satisfied = run_permit({
             "message_id": logged_search_message_id,
             "session_id": logged_search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/reservations/ReservationTable.tsx"}},
+            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
             "recent_tool_calls": [],
         })
         if logged_search_satisfied.strip():
@@ -4855,16 +4999,43 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_advisory = run_helper({
             "message_id": search_message_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "search evidence may be missing" not in search_advisory:
             fail("response audit should advise when search-debt action lacks search evidence:\n" + search_advisory)
 
+        search_turn_end_advisory = run_helper({
+            "message_id": search_message_id,
+            "recent_tool_calls": [],
+        })
+        if "search evidence may be missing" not in search_turn_end_advisory:
+            fail("response audit should advise for any search-debt turn without root-bound search evidence:\n" + search_turn_end_advisory)
+
+        search_response_advisory = run_helper({
+            "message_id": search_message_id,
+            "assistant_response": (
+                "분석 결과, 구현 액션 플랜을 제안합니다.\n"
+                "질문 게이트: 어느 방향으로 진행할까요?\n"
+                "1. (Recommended) 기능패널과 pending state를 모두 연동"
+            ),
+            "recent_tool_calls": [],
+        })
+        if "search evidence may be missing" not in search_response_advisory:
+            fail("response audit should advise when search-debt response lacks search evidence:\n" + search_response_advisory)
+
+        search_response_satisfied = run_helper({
+            "message_id": search_message_id,
+            "assistant_response": "분석 결과, 질문 게이트를 제안합니다.",
+            "recent_tool_calls": [{"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"}],
+        })
+        if search_response_satisfied.strip():
+            fail("response audit should stay silent when search-debt has search evidence:\n" + search_response_satisfied)
+
         search_audit_satisfied = run_helper({
             "message_id": search_message_id,
             "recent_tool_calls": [
-                {"name": "agentgrep", "args_preview": "예약시트 reservation sheet .lazy-harness src tests"},
-                {"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+                {"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"},
+                {"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
             ],
         })
         if search_audit_satisfied.strip():
@@ -4873,7 +5044,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_read_audit_satisfied = run_helper({
             "message_id": logged_read_message_id,
             "session_id": logged_read_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if logged_read_audit_satisfied.strip():
             fail("response audit should accept tool-events journal read evidence:\n" + logged_read_audit_satisfied)
@@ -4881,7 +5052,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         strict_message_audit = run_helper({
             "message_id": strict_message_id,
             "session_id": strict_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "ADVISORY. Context Delivery audit" not in strict_message_audit:
             fail("response audit must not accept same-session tool-events from a different message:\n" + strict_message_audit)
@@ -4889,7 +5060,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         epoch_audit = run_helper({
             "message_id": epoch_message_id,
             "session_id": epoch_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "ADVISORY. Context Delivery audit" not in epoch_audit:
             fail("response audit must not accept tool-events older than packet epoch:\n" + epoch_audit)
@@ -4897,21 +5068,21 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_search_audit_satisfied = run_helper({
             "message_id": logged_search_message_id,
             "session_id": logged_search_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if logged_search_audit_satisfied.strip():
             fail("response audit should accept tool-events journal search evidence:\n" + logged_search_audit_satisfied)
 
         no_mutation = run_helper({
             "message_id": "phase7-packet-message",
-            "recent_tool_calls": [{"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if no_mutation.strip():
             fail("packet audit should stay silent without mutation:\n" + no_mutation)
 
         advisory = run_helper({
             "message_id": "phase7-packet-message",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "ADVISORY. Context Delivery audit" not in advisory or "STOP" in advisory:
             fail("packet audit should emit advisory-only when mutation lacks read evidence:\n" + advisory)
@@ -4919,17 +5090,17 @@ def check_context_delivery_packet_journal_phase7() -> None:
         satisfied = run_helper({
             "message_id": "phase7-packet-message",
             "recent_tool_calls": [
-                {"name": "read", "args_preview": ".lazy-harness/behavior/reservation-management.md"},
-                {"name": "read", "args_preview": "src/features/reservations/ReservationTable.tsx"},
-                {"name": "read", "args_preview": "tests/reservations/reservation-table.test.tsx"},
-                {"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"},
+                {"name": "read", "args_preview": ".lazy-harness/behavior/feature-surface.md"},
+                {"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
+                {"name": "read", "args_preview": "tests/example-feature/feature-panel.test.tsx"},
+                {"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
             ],
         })
         if satisfied.strip():
             fail("packet audit should stay silent when requiredRead evidence exists:\n" + satisfied)
 
         uncorrelated = run_helper({
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}],
+            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if uncorrelated.strip():
             fail("packet audit should not match packet rows without message/session ids:\n" + uncorrelated)
@@ -5029,7 +5200,7 @@ def check_record_decision_broker_phase8() -> None:
                 "trigger": "new-alias-found",
                 "summary": "User confirmed a new surface alias.",
                 "evidence": [{"kind": "user-confirmation", "summary": "Alias confirmed.", "confidence": 0.9}],
-                "recommendedRecords": [{"path": ".lazy-harness/behavior/reservation-management.md", "layer": "BDD", "action": "update", "reason": "Alias should be captured.", "confidence": 0.8}],
+                "recommendedRecords": [{"path": ".lazy-harness/behavior/feature-surface.md", "layer": "BDD", "action": "update", "reason": "Alias should be captured.", "confidence": 0.8}],
                 "instructions": ["Do not write automatically from this packet alone."],
             },
         },
@@ -5104,7 +5275,7 @@ def check_record_decision_broker_phase8() -> None:
             "none",
         ),
         (
-            run_generator("--message", "예약시트는 reservation sheet", "--user-confirmation", "예약시트 alias confirmed"),
+            run_generator("--message", "기능패널은 feature panel", "--user-confirmation", "기능패널 alias confirmed"),
             "candidate-needed",
             "new-alias-found",
             "candidate",
@@ -5185,32 +5356,32 @@ def check_context_broker_dogfood_collector() -> None:
         (host / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
         (host / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (host / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
-        (host / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
-        (host / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
+        (host / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (host / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
         shutil.copy2(lazy_bin, host / ".lazy-harness" / "bin" / "lazy")
         (host / ".lazy-harness" / "bin" / "lazy").chmod(0o755)
         for script in required_scripts:
             shutil.copy2(script, host / ".lazy-harness" / "scripts" / script.name)
-        (host / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
-        (host / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
+        (host / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (host / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
         (host / ".lazy-harness" / "state" / "synced-from-commit").write_text(json.dumps({"syncedFromCommit": "dogfood-fixture"}), encoding="utf-8")
-        (host / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (host / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Implementation hints:\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
             encoding="utf-8",
         )
         out_path = collector_root / ".lazy-harness" / "state" / "context-broker-dogfood.jsonl"
@@ -5219,7 +5390,7 @@ def check_context_broker_dogfood_collector() -> None:
                 "bun", str(collector_script),
                 "--root", str(collector_root),
                 "--host", str(host),
-                "--case", "reservation::예약시트 고쳐줘",
+                "--case", "feature-surface::기능패널 고쳐줘",
                 "--out", str(out_path),
                 "--format", "json",
                 "--no-append",
@@ -5237,10 +5408,10 @@ def check_context_broker_dogfood_collector() -> None:
         row = payload["rows"][0]
         if row.get("event") != "context-broker.dogfood":
             fail("context-broker-dogfood row event mismatch")
-        if row.get("caseLabel") != "reservation" or row.get("messageHash") == "예약시트 고쳐줘":
+        if row.get("caseLabel") != "feature-surface" or row.get("messageHash") == "기능패널 고쳐줘":
             fail("context-broker-dogfood should store label plus hash, not raw message")
         raw_output = json.dumps(payload, ensure_ascii=False)
-        if "예약시트 고쳐줘" in raw_output:
+        if "기능패널 고쳐줘" in raw_output:
             fail("context-broker-dogfood collector output must not store raw message")
         if not row.get("contextDelivery", {}).get("ok"):
             fail("context-broker-dogfood context delivery should pass: " + json.dumps(row, ensure_ascii=False))
@@ -5253,16 +5424,16 @@ def check_context_broker_dogfood_collector() -> None:
         if not out_path.exists():
             fail("context-broker-dogfood should write JSONL output")
         written_text = out_path.read_text(encoding="utf-8")
-        if "예약시트 고쳐줘" in written_text:
+        if "기능패널 고쳐줘" in written_text:
             fail("context-broker-dogfood JSONL should not store raw message")
         md = subprocess.run(
-            ["bun", str(collector_script), "--root", str(collector_root), "--host", str(host), "--case", "reservation::예약시트 고쳐줘", "--dry-run", "--format", "md"],
+            ["bun", str(collector_script), "--root", str(collector_root), "--host", str(host), "--case", "feature-surface::기능패널 고쳐줘", "--dry-run", "--format", "md"],
             cwd=ROOT,
             text=True,
             capture_output=True,
             check=False,
         )
-        if md.returncode != 0 or "# Context Broker Dogfood" not in md.stdout or "reservation" not in md.stdout:
+        if md.returncode != 0 or "# Context Broker Dogfood" not in md.stdout or "feature-surface" not in md.stdout:
             fail("context-broker-dogfood markdown dry-run missing expected content:\n" + md.stdout + md.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
@@ -5327,18 +5498,18 @@ def check_record_decision_shadow_response_completed() -> None:
         if "README.md" not in json.dumps(row, ensure_ascii=False):
             fail("read-only row should preserve path/tool evidence where safe")
 
-        candidate = run_helper({"message_id": "candidate", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]})
+        candidate = run_helper({"message_id": "candidate", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}]})
         if candidate.strip():
             fail("Record Decision shadow should stay silent by default even for candidate-needed:\n" + candidate)
         row = last_row()
         if row.get("disposition") != "candidate-needed" or row.get("trigger") not in {"behavior-change", "source-change"}:
             fail("source edit shadow row should be candidate-needed: " + json.dumps(row, ensure_ascii=False))
 
-        advisory = run_helper({"message_id": "candidate-advisory", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]}, advisory=True)
+        advisory = run_helper({"message_id": "candidate-advisory", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}]}, advisory=True)
         if "ADVISORY. Record Decision shadow" not in advisory or "STOP" in advisory:
             fail("Record Decision shadow advisory should be ADVISORY-only:\n" + advisory)
 
-        option = run_helper({"message_id": "ambiguous", "last_user_message": "그거 고쳐줘", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservations/ReservationTable.tsx"}]}, advisory=True)
+        option = run_helper({"message_id": "ambiguous", "last_user_message": "그거 고쳐줘", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}]}, advisory=True)
         if "option gate" not in option and "option-gate" not in option:
             fail("Record Decision shadow should advise option gate for ambiguous mutation:\n" + option)
         row = last_row()
@@ -5368,27 +5539,27 @@ def check_message_received_hook_context_injection() -> None:
         shutil.copy2(LAZY / "scripts" / "context-delivery.ts", temp / ".lazy-harness" / "scripts" / "context-delivery.ts")
         shutil.copy2(LAZY / "scripts" / "context-index.ts", temp / ".lazy-harness" / "scripts" / "context-index.ts")
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "reservations").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "reservations" / "ReservationTable.tsx").write_text("export function ReservationTable() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "reservations" / "reservation-table.test.tsx").write_text("test('reservation table', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "reservation-management.md").write_text(
-            "# Reservation Management\n\n"
+        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
             "- Applies when:\n"
-            "  - user asks about reservation management UI\n"
+            "  - user asks about feature surface UI\n"
             "- Must:\n"
-            "  - confirm reservation table behavior before editing\n"
+            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
-            "  - 예약시트\n"
-            "  - reservation sheet\n"
+            "  - 기능패널\n"
+            "  - feature panel\n"
             "- Implementation hints:\n"
-            "  - Components: `ReservationTable`\n"
-            "  - Files: `src/features/reservations/ReservationTable.tsx`\n"
-            "  - Tests: `tests/reservations/reservation-table.test.tsx`\n",
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
             encoding="utf-8",
         )
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
@@ -5429,7 +5600,7 @@ def check_message_received_hook_context_injection() -> None:
             "session_id": "s-test",
             "message_id": "m-surface",
             "working_dir": str(temp),
-            "last_user_message": "예약시트 고쳐줘",
+            "last_user_message": "기능패널 고쳐줘",
             "recent_tool_calls": [],
             "turn_count": 2,
         }
@@ -5448,15 +5619,17 @@ def check_message_received_hook_context_injection() -> None:
         if not surface_output:
             fail("ambiguous project-surface request should emit self-resolution inject JSON")
         surface_body = json.loads(surface_output).get("inject", {}).get("body", "")
-        if "Context Delivery read-debt" not in surface_body or "self-resolve-before-change" not in surface_body:
+        if "STOP. Context Delivery read-debt before response" not in surface_body or "self-resolve-before-change" not in surface_body:
             fail("ambiguous project-surface request missing Context Delivery read-debt protocol:\n" + surface_output)
-        if "ReservationTable.tsx" not in surface_body:
+        if "FeaturePanel.tsx" not in surface_body:
             fail("Context Delivery read-debt should render concrete requiredRead paths:\n" + surface_output)
+        if "Required read/search before answering, analyzing, planning, option-gating, or action" not in surface_body:
+            fail("message.received must require read/search before answering/option-gating/action:\n" + surface_output)
         packet_journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
         if not packet_journal.exists():
             fail("message.received context delivery should journal read-debt packet")
         packet_text = packet_journal.read_text(encoding="utf-8")
-        if "예약시트 고쳐줘" in packet_text:
+        if "기능패널 고쳐줘" in packet_text:
             fail("message.received context packet journal must not store raw user message")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
@@ -5674,6 +5847,55 @@ def check_tool_execute_before_hook() -> None:
     print(f"✓ N2.5 tool-execute-before hook ok ({len(cases)} scenarios)")
 
 
+def check_read_debt_permit_generic_external_action() -> None:
+    """Search-debt guard must block unknown external MCP action until root-bound search evidence exists."""
+    helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
+    if not helper.exists():
+        fail("read-debt helper missing: " + str(helper))
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-"))
+    try:
+        state = temp / ".lazy-harness" / "state"
+        state.mkdir(parents=True)
+        message_id = "generic-message-1"
+        row = {
+            "event": "context-delivery.packet",
+            "epochSeconds": time.time(),
+            "messageIdHash": hashlib.sha256(message_id.encode()).hexdigest()[:16],
+            "instructionLevel": "self-resolve-before-change",
+            "confidence": 0.0,
+            "requiredRead": [],
+            "fallbackSearchCount": 2,
+        }
+        (state / "context-delivery-packets.jsonl").write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+        base_payload = {
+            "message_id": message_id,
+            "tool": {"name": "mcp__external__get_context", "args": {"id": "fixture"}},
+        }
+        no_search = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": []}, ensure_ascii=False)],
+            cwd=ROOT,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "search-debt gate" not in no_search.stdout or "root-bound search" not in no_search.stdout:
+            fail("generic external action should be guarded until root-bound search evidence exists:\n" + no_search.stdout + no_search.stderr)
+        with_search = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "agentgrep", "query": "feature"}]}, ensure_ascii=False)],
+            cwd=ROOT,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if with_search.stdout.strip():
+            fail("root-bound search evidence should satisfy generic search-debt guard:\n" + with_search.stdout + with_search.stderr)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ read-debt generic external action guard ok")
+
+
 def check_agents_md_invariants() -> None:
     """N2.5 — .lazy-harness/AGENTS.md invariants (ADR 0024).
 
@@ -5775,7 +5997,9 @@ def main() -> None:
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
         (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
         (check_jcode_wiring_message_received_hook, "BOTH"),
+        (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
+        (check_lazy_sync_prunes_stale_managed_files, "BOTH"),
         (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_rule_action_boundary_legacy_no_project_policy, "BOTH"),
         (check_jcode_wiring_bash_safety_only_hook, "BOTH"),
@@ -5816,6 +6040,7 @@ def main() -> None:
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),
+        (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
         (check_context_broker_dogfood_collector, "BOTH"),
         (check_record_decision_shadow_response_completed, "BOTH"),

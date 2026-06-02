@@ -53,9 +53,9 @@ The framework should help agents use durable records while working in host proje
 | L4 | `warn-escalated` | Repeated or high-risk misses produce stronger response audit guidance. | case-by-case |
 | L5 | `hard-stop-promoted` | A narrow blocking boundary exists and is justified by promotion evidence. | rare |
 
-Phase 7 Context Delivery required-read audit is an L3 advisory-only path. It may print `ADVISORY` when a correlated packet journal row, mutation evidence, and missing read/search evidence align. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
+Phase 7 Context Delivery required-read/search-debt audit is an L3 advisory path. It may print `ADVISORY` when a correlated packet journal row has missing required-read evidence before mutation, or when a search-debt packet reaches response.completed without root-bound search evidence. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
 
-2026-06-01 update: Context Delivery search/read-debt has one active L5 boundary in `.lazy-harness/spec/platform/context-delivery-contract.md`. It is not broad edit/write blocking. It blocks only action tools for a correlated packet with concrete `requiredRead` paths or explicit self-resolve fallback searches, while search/read tools and explicit searcher handoff remain allowed.
+2026-06-02 update: Context Delivery search/read-debt is journaled at message.received and audited at response.completed by default. It is not a generated concrete-tool hard stop; any future blocking promotion requires the normal L5 evidence and explicit user confirmation.
 
 ## Hard-stop promotion criteria
 

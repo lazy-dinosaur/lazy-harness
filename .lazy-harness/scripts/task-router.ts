@@ -174,11 +174,11 @@ function textSignal(text: string, regex: RegExp): boolean {
 }
 
 function fileKind(file: string): string {
-  if (/prisma\/schema\//.test(file)) return 'prisma-schema'
-  if (/src\/main\/trpc\/routers\//.test(file)) return 'trpc-router'
+  if (/(?:^|\/)(?:schema|schemas|model|models|migrations?)(?:\/|\.)/i.test(file)) return 'schema-model'
+  if (/(?:^|\/)(?:api|apis|routes|routers|rpc|endpoints)(?:\/|\.)/i.test(file)) return 'api-route'
   if (/auth|permission|PermissionsTab|AuthProvider/i.test(file)) return 'auth-permission'
-  if (/src\/renderer\/src\/screens\//.test(file)) return 'renderer-screen'
-  if (/src\/renderer\/src\/components\//.test(file)) return 'renderer-component'
+  if (/(?:^|\/)(?:screens|pages|views)(?:\/|\.)/i.test(file)) return 'ui-screen'
+  if (/(?:^|\/)(?:components|widgets)(?:\/|\.)/i.test(file)) return 'ui-component'
   if (/tests?\//.test(file) || /\.test\./.test(file) || /\.spec\./.test(file)) return 'test'
   if (/docs?\//.test(file) || /\.(md|mdx|txt)$/.test(file)) return 'docs'
   if (/schema|config|env|hooks?\//i.test(file)) return 'contract-config'
@@ -323,7 +323,7 @@ function classify(args: Args): RouteOutput {
       if (risk === 'low') risk = 'medium'
       addLayer(layers, 'tdd')
     }
-    if (kind === 'prisma-schema' || kind === 'trpc-router' || kind === 'contract-config' || file.includes('/api/') || file.includes('/ipc') || file.includes('/schema') || file.includes('/config') || file.includes('/hooks/')) {
+    if (kind === 'schema-model' || kind === 'api-route' || kind === 'contract-config' || file.includes('/api/') || file.includes('/ipc') || file.includes('/schema') || file.includes('/config') || file.includes('/hooks/')) {
       scope = strongerScope(scope, 'contract')
       risk = maxRisk(risk, 'medium')
       addLayer(layers, 'sdd', 'ssot', 'tdd')
@@ -338,7 +338,7 @@ function classify(args: Args): RouteOutput {
       add(evidence.scopeEvidence, 'auth-permission-path')
       add(evidence.riskEvidence, 'auth-permission-path')
     }
-    if (kind === 'renderer-screen' || kind === 'renderer-component') {
+    if (kind === 'ui-screen' || kind === 'ui-component') {
       scope = strongerScope(scope, 'behavior')
       risk = maxRisk(risk, 'medium')
       addLayer(layers, 'bdd', 'sdd', 'tdd')
@@ -672,10 +672,10 @@ function auditRecentCommits(count: number): any {
     const flags: string[] = []
     if (route.risk === 'high') flags.push('risk-review-required')
     if (route.evidence.riskEvidence.includes('destructive-word')) flags.push('destructive-evidence')
-    if (route.evidence.pathEvidence.some((p) => ['prisma-schema', 'trpc-router', 'auth-permission'].includes(p))) flags.push('contract-risk-path')
-    if (route.risk === 'low' && (route.evidence.riskEvidence.length || route.evidence.pathEvidence.some((p) => ['prisma-schema', 'trpc-router', 'auth-permission'].includes(p)))) flags.push('possible-risk-undercall')
+    if (route.evidence.pathEvidence.some((p) => ['schema-model', 'api-route', 'auth-permission'].includes(p))) flags.push('contract-risk-path')
+    if (route.risk === 'low' && (route.evidence.riskEvidence.length || route.evidence.pathEvidence.some((p) => ['schema-model', 'api-route', 'auth-permission'].includes(p)))) flags.push('possible-risk-undercall')
     if (route.gate.mode === 'none' && route.evidence.riskEvidence.includes('destructive-word')) flags.push('destructive-without-gate')
-    if (route.scope === 'code-local' && route.evidence.pathEvidence.some((p) => ['trpc-router', 'prisma-schema', 'auth-permission', 'renderer-screen'].includes(p))) flags.push('path-scope-undercall')
+    if (route.scope === 'code-local' && route.evidence.pathEvidence.some((p) => ['api-route', 'schema-model', 'auth-permission', 'ui-screen'].includes(p))) flags.push('path-scope-undercall')
     if (route.recordCapture.mode === 'candidate' && (route.scope === 'contract' || route.scope === 'behavior' || route.risk === 'high')) flags.push('candidate-for-contract-behavior-risk')
     return { sha: sha.slice(0, 8), subjectHash: stableHash(subject), subjectLength: subject.length, fileCount: files.length, route, flags }
   })

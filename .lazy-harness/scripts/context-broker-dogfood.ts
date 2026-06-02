@@ -81,8 +81,8 @@ Options:
   --help                  Show help
 
 Examples:
-  .lazy-harness/bin/lazy context-dogfood --host /home/lazydino/dev/medivance --case reservation::예약시트\ 고쳐줘
-  .lazy-harness/bin/lazy context-dogfood --host /home/lazydino/dev/medivance --host /home/lazydino/dev/medivance-pwa --format=md
+  .lazy-harness/bin/lazy context-dogfood --host /path/to/host-project-a --case surface::feature\ surface\ 고쳐줘
+  .lazy-harness/bin/lazy context-dogfood --host /path/to/host-project-a --host /path/to/host-project-b --format=md
 `)
   process.exit(2)
 }
@@ -151,7 +151,7 @@ function parseArgs(argv: string[]): Args {
   }
   if (!args.hosts.length) args.hosts.push(args.root)
   if (!args.cases.length) {
-    args.cases.push({ label: 'reservation-surface', message: '예약시트 고쳐줘' })
+    args.cases.push({ label: 'feature-surface', message: 'feature surface 고쳐줘' })
     args.cases.push({ label: 'status-readonly', message: '상태 요약' })
   }
   return args

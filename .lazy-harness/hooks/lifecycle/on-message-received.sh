@@ -195,7 +195,7 @@ def render_context_packet(packet):
     should_render = bool(required) or instruction_level in {'self-resolve-before-answer', 'self-resolve-before-change'}
     if not should_render:
         return ''
-    lines = ['Context Delivery read-debt' if required else 'Context Delivery search-debt']
+    lines = ['STOP. Context Delivery read-debt before response' if required else 'STOP. Context Delivery search-debt before response']
     if instruction_level:
         lines.append(f'- Instruction: {instruction_level}')
     try:
@@ -203,7 +203,7 @@ def render_context_packet(packet):
     except Exception:
         pass
     if required:
-        lines.append('- Required read/search before action:')
+        lines.append('- Required read/search before answering, analyzing, planning, option-gating, or action:')
         for item in required[:6]:
             if not isinstance(item, dict):
                 continue
@@ -216,8 +216,9 @@ def render_context_packet(packet):
             if reason:
                 lines.append(f'    - {reason}')
     else:
-        lines.append('- No concrete requiredRead found; perform root-bound semantic search before action.')
+        lines.append('- No concrete requiredRead found; perform root-bound semantic search before answering, analyzing, planning, option-gating, or action.')
         lines.append('- LLM/searcher must expand user terms into likely record/code/test aliases, then search `.lazy-harness`, source, and tests.')
+        lines.append('- Do not answer, analyze, propose options, or plan until that search evidence exists; ask an option gate only after search if ambiguity remains.')
     instruction = ' '.join(str(packet.get('instruction') or '').split())
     if instruction:
         lines.append(f'- Instruction detail: {instruction}')
@@ -234,11 +235,12 @@ def render_self_resolve_protocol(text):
         return ''
     level = 'self-resolve-before-change' if is_change_intent(text) else 'self-resolve-before-answer'
     return '\n'.join([
-        'Context Delivery self-resolution',
+        'STOP. Context Delivery self-resolution before response',
         f'- Instruction: {level}',
-        '- Before answering or editing, generate 2-5 candidate meanings and multilingual/code query expansions.',
+        '- Before answering, analyzing, planning, option-gating, or editing, generate 2-5 candidate meanings and multilingual/code query expansions.',
         '- Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.',
-        '- Read high-confidence records/files before acting; if candidate meanings conflict, ask an option gate.',
+        '- Read high-confidence records/files before answering or acting; if candidate meanings still conflict after search/read evidence, ask an option gate.',
+        '- Do not answer, analyze, propose options, or plan before root-bound search evidence exists.',
         '- Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.',
     ]).strip() + '\n'
 

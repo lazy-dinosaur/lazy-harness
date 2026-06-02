@@ -123,6 +123,32 @@ function copyFile(src: string, dest: string): void {
   }
 }
 
+function mergeJsonlSeed(src: string, dest: string): 'updated' | 'unchanged' {
+  if (!existsSync(dest)) {
+    copyFile(src, dest)
+    return 'updated'
+  }
+  const srcLines = readFileSync(src, 'utf8').split(/\n/).filter((line) => line.trim().length > 0)
+  const destText = readFileSync(dest, 'utf8')
+  const destLines = destText.split(/\n/).filter((line) => line.trim().length > 0)
+  const seen = new Set(destLines)
+  const missing = srcLines.filter((line) => !seen.has(line))
+  if (missing.length === 0) return 'unchanged'
+  if (DRY) {
+    log(`  [dry] would merge ${missing.length} seed JSONL rows into: ${dest}`)
+    return 'updated'
+  }
+  ensureDir(dirname(dest))
+  const prefix = destText.endsWith('\n') || destText.length === 0 ? '' : '\n'
+  writeFileSync(dest, `${destText}${prefix}${missing.join('\n')}\n`)
+  log(`  merged ${missing.length} seed JSONL rows into: ${dest}`)
+  return 'updated'
+}
+
+function isKnowledgeSeedItem(item: ManifestItem): boolean {
+  return item.path === 'knowledge/' || item.path === 'knowledge'
+}
+
 
 function removeRelocatedStaleCopy(src: string, staleDest: string, dest: string): boolean {
   if (staleDest === dest || !existsSync(staleDest)) return false
@@ -348,17 +374,39 @@ function syncCategoryA(
       missing++
       continue
     }
+    const managedFiles = new Set<string>()
     const files = walkFiles(srcDir)
     for (const f of files) {
       if (!shouldInclude(f, item.glob, item.exclude)) continue
+      managedFiles.add(f)
       const src = join(srcDir, f)
       const dest = join(targetLazy, item.targetPath ?? item.path, f)
+      if (isKnowledgeSeedItem(item) && f.endsWith('.jsonl')) {
+        const result = mergeJsonlSeed(src, dest)
+        if (result === 'updated') updated++
+        else unchanged++
+        continue
+      }
       if (existsSync(dest) && readFileSync(src).compare(readFileSync(dest)) === 0) {
         unchanged++
       } else {
         copyFile(src, dest)
         updated++
       }
+    }
+    if (isKnowledgeSeedItem(item)) continue
+    const destDir = join(targetLazy, item.targetPath ?? item.path)
+    for (const f of walkFiles(destDir)) {
+      if (!shouldInclude(f, item.glob, item.exclude)) continue
+      if (managedFiles.has(f)) continue
+      const stale = join(destDir, f)
+      if (DRY) {
+        log(`  [dry] would remove stale managed file: ${stale}`)
+      } else {
+        unlinkSync(stale)
+        log(`  removed stale managed file: ${stale}`)
+      }
+      updated++
     }
   }
 
@@ -435,7 +483,7 @@ function main(): void {
   log(`  host:   ${drift.hostSha.slice(0, 12) || '(none)'}`)
   log(`  source: ${drift.sourceSha.slice(0, 12) || '(none)'}`)
 
-  if (drift.status === 'equal') {
+  if (drift.status === 'equal' && !args.force) {
     installJcodeWiring({ targetRoot, dryRun: DRY, quiet: QUIET })
     log('\n✓ Already in sync. Jcode wiring checked.')
     process.exit(0)

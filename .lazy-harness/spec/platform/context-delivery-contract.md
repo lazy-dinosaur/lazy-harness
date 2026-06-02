@@ -20,7 +20,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - user asks how ambiguous project-surface terms become actionable record/code context
   - designing self-resolving search, optional searcher subagent handoff, or pre-response context rendering
   - generating a searcher handoff prompt for optional delegation after main-agent self-resolution is insufficient
-  - Korean or multilingual terms such as `예약시트` must bridge to English records, routes, symbols, or tests
+  - Korean or multilingual terms such as `기능패널` must bridge to English records, routes, symbols, or tests
 - Must:
   - deliver required-read context with path, kind, reason, confidence, and matched query evidence
   - normalize raw hits before rendering; never inject raw grep chunks as the final broker output
@@ -29,9 +29,9 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - allow lightweight self-resolution instructions when a full packet is unavailable but a request is implementation-likely
   - make optional search handoff prompts return the same packet-shaped contract and forbid mutations/raw chunks
   - when packet evidence is journaled, persist only sanitized required/optional read metadata and hashed identifiers
-  - ask an option gate when candidate meanings conflict and confidence is not high enough to proceed
-  - treat low-confidence self-resolve packets with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before action
-  - when concrete `requiredRead` debt exists for a turn, keep action tools behind a narrow read/search permit until required paths are evidenced
+  - ask an option gate only after root-bound search/read evidence when candidate meanings still conflict and confidence is not high enough to proceed
+  - treat low-confidence self-resolve packets with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before response/action
+  - when concrete `requiredRead` or fallback search debt exists for a turn, journal the unresolved obligation, enforce generic pre-action search/read evidence before tools, and let response audit/backstop surface any unsatisfied debt at turn completion
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
   - store raw user messages, full transcripts, or raw assistant responses in context-delivery runtime state
@@ -91,9 +91,9 @@ A raw hit is a direct result from a search backend. Raw hits are evidence only a
 ```json
 {
   "source": "record-query",
-  "path": ".lazy-harness/behavior/reservation-management.md",
-  "matchedText": "예약관리페이지",
-  "query": "예약시트"
+  "path": ".lazy-harness/behavior/feature-surface.md",
+  "matchedText": "기능관리페이지",
+  "query": "기능패널"
 }
 ```
 
@@ -113,12 +113,12 @@ Normalized evidence rows make heterogeneous hits comparable.
 
 ```json
 {
-  "id": "record:.lazy-harness/behavior/reservation-management.md",
+  "id": "record:.lazy-harness/behavior/feature-surface.md",
   "kind": "record",
-  "path": ".lazy-harness/behavior/reservation-management.md",
+  "path": ".lazy-harness/behavior/feature-surface.md",
   "matchedBy": ["query-expansion", "record-digest"],
-  "matchedQueries": ["예약시트", "예약표", "reservation sheet"],
-  "whyMatched": "Korean surface term may map to reservation management behavior.",
+  "matchedQueries": ["기능패널", "기능화면", "feature panel"],
+  "whyMatched": "Korean surface term may map to feature surface behavior.",
   "confidence": 0.82,
   "layer": "BDD",
   "readPriority": "required"
@@ -130,7 +130,7 @@ Requirements:
 - `path` must be root-bound and relative to the current host when possible.
 - `confidence` is a number from 0 to 1.
 - `whyMatched` explains the evidence in actionable language.
-- `matchedQueries` records query expansion evidence without storing long raw messages.
+- `matchedQueries` records packet query/evidence terms without storing long raw messages.
 - Rows can point to records, source files, tests, graph edges, or project-profile artifacts.
 
 ### Stage 3 - Context Delivery Packet
@@ -144,42 +144,42 @@ Top-level shape:
   "schemaVersion": "1.0",
   "generatedAt": "2026-06-01T00:00:00.000Z",
   "instructionLevel": "self-resolve-before-change",
-  "resolvedPhrase": "예약시트",
+  "resolvedPhrase": "기능패널",
   "candidateMeanings": [
     {
-      "label": "reservation sheet / reservation management table",
+      "label": "feature panel / FeaturePanel",
       "confidence": 0.76,
-      "why": "Korean phrase can refer to a reservation UI surface, but exact component is not yet confirmed."
+      "why": "Korean phrase can refer to a feature-surface UI surface, but exact component is not yet confirmed."
     }
   ],
   "queries": [
     {
-      "query": "예약시트 예약표 예약관리",
+      "query": "기능패널 기능화면 기능관리",
       "source": "llm-expansion",
       "purpose": "Korean user-facing aliases"
     },
     {
-      "query": "reservation sheet booking table appointment schedule ReservationTable",
+      "query": "feature panel feature panel feature schedule FeaturePanel",
       "source": "llm-expansion",
       "purpose": "English/code aliases"
     }
   ],
   "requiredRead": [
     {
-      "path": ".lazy-harness/behavior/reservation-management.md",
+      "path": ".lazy-harness/behavior/feature-surface.md",
       "kind": "record",
-      "reason": "Confirm the intended reservation UI behavior before editing.",
+      "reason": "Confirm the intended feature-surface UI behavior before editing.",
       "confidence": 0.82,
-      "whyMatched": "Matched Korean reservation surface aliases and behavior record digest.",
-      "matchedQueries": ["예약시트", "reservation sheet"]
+      "whyMatched": "Matched Korean feature-surface aliases and behavior record digest.",
+      "matchedQueries": ["기능패널", "feature panel"]
     }
   ],
   "optionalRead": [],
   "confidence": 0.76,
   "fallbackSearches": [
-    "rg -n \"예약|reservation|booking|appointment|schedule\" .lazy-harness src tests"
+    "rg -n \"기능패널|feature panel|FeaturePanel\" .lazy-harness src tests"
   ],
-  "instruction": "Read requiredRead before answering or editing. If candidate meanings conflict, ask an option gate."
+  "instruction": "STOP before response: read requiredRead before answering, analyzing, planning, option-gating, or editing. Ask an option gate only after required reads/search if ambiguity remains."
 }
 ```
 
@@ -190,8 +190,8 @@ Top-level shape:
 | Level | Meaning | Expected behavior |
 |---|---|---|
 | `digest-only` | Normal relevant-record digest is enough. | Use compact digest guidance; no special search loop required. |
-| `self-resolve-before-answer` | The request likely depends on host context before explaining. | Generate/refine queries, search root-bound records/files, read required items, then answer. |
-| `self-resolve-before-change` | The request may lead to code/record changes. | Resolve candidate meanings and read required items before editing or planning changes. |
+| `self-resolve-before-answer` | The request likely depends on host context before explaining. | Generate/refine queries, search root-bound records/files, read required items, then answer/analyze/option-gate. |
+| `self-resolve-before-change` | The request may lead to code/record changes. | Resolve candidate meanings and read required items before planning, option-gating, editing, or changing records. |
 | `delegate-search` | Search is broad or high-risk enough to delegate. | Send the same contract to a searcher subagent and require a packet-shaped result. |
 
 Selection guidance:
@@ -212,7 +212,7 @@ Each candidate meaning contains:
 - `why`: why this meaning is plausible.
 - optional `language`: natural language or code style source, such as `ko`, `en`, or `symbol`.
 
-If more than one candidate has close confidence and the next action would change code/records, the agent must ask an option gate instead of silently choosing.
+If more than one candidate has close confidence, the agent must first perform root-bound search/read. Only after that evidence may it ask an option gate instead of silently choosing.
 
 ### `queries[]`
 
@@ -225,7 +225,7 @@ Each query contains:
 - `purpose`: why this query exists.
 - optional `targets`: `records`, `project-profile`, `graph`, `source`, `tests`, `symbols`.
 
-The broker should include multilingual and code-style expansions when user language differs from record/code language.
+The broker should preserve user/token queries and record-authored metadata when user language differs from record/code language, but framework runtime code must not hardcode host/product aliases or generate semantic aliases by itself. Host-specific aliases must come from host records, Project Profile feature navigation, graph edges, implementation hints, source/test paths, or LLM/searcher root-bound search evidence.
 
 ### `requiredRead[]` and `optionalRead[]`
 
@@ -240,9 +240,9 @@ Read items contain:
 - optional `layer`: DDD, SDD, BDD, TDD, ADR, SSOT, Planning.
 - optional `symbols`: symbols/components/routes/tests worth inspecting.
 
-`requiredRead` means the agent must deliberately read or inspect the item before answering/changing, unless it can explain why the packet is stale or unsafe. When a correlated packet has concrete required reads and sufficient confidence, the current hook transport may treat those items as read-debt: read/search tools remain allowed, but action/mutation tools are blocked until evidence references every required path. `optionalRead` is useful context but not a prerequisite.
+`requiredRead` means the agent must deliberately read or inspect the item before answering/changing, unless it can explain why the packet is stale or unsafe. When a correlated packet has concrete required reads and sufficient confidence, those items are read-debt until evidence references the required paths. The default framework behavior journals and audits this debt instead of blocking concrete tools. `optionalRead` is useful context but not a prerequisite.
 
-When the packet is low-confidence/self-resolve and has fallback searches but no concrete `requiredRead`, the current hook transport treats it as **search-debt**: action/mutation tools are blocked until the LLM or an explicit searcher handoff leaves root-bound search evidence. The harness does not claim to understand multilingual semantic intent by itself; it measures whether the LLM/searcher searched before acting.
+When the packet is low-confidence/self-resolve and has fallback searches but no concrete `requiredRead`, the packet records **search-debt** until the LLM or an explicit searcher handoff leaves root-bound search evidence. The harness does not claim to understand multilingual semantic intent by itself; it measures whether the LLM/searcher searched and audits misses after the response.
 
 Framework-global records that merely contain a product-surface phrase as an example must not become `requiredRead` for a host product-surface request. They may remain candidate/optional evidence only when the request is not about lazy-harness, Context Delivery, retrieval, or framework behavior. If no host-local/project-specific record or code hint is found, emit fallback searches and ask/resolve before changing code.
 
@@ -266,21 +266,21 @@ Example Markdown rendering:
 ```md
 Context Delivery Packet
 Instruction: self-resolve-before-change
-Resolved phrase: 예약시트
+Resolved phrase: 기능패널
 Confidence: 0.76
 
 Candidate meanings
-- reservation sheet / reservation management table (0.76): Korean phrase can refer to a reservation UI surface.
+- feature panel / FeaturePanel (0.76): Korean phrase can refer to a feature-surface UI surface.
 
-Required read before answer/change
-- `.lazy-harness/behavior/reservation-management.md` - record - 0.82
-  - Reason: Confirm the intended reservation UI behavior before editing.
-  - Matched: 예약시트, reservation sheet
+Required read before answer/analyze/plan/option-gate/change
+- `.lazy-harness/behavior/feature-surface.md` - record - 0.82
+  - Reason: Confirm the intended feature-surface UI behavior before editing.
+  - Matched: 기능패널, feature panel
 
 Fallback searches
-- `rg -n "예약|reservation|booking|appointment|schedule" .lazy-harness src tests`
+- `rg -n "기능패널|feature panel|FeaturePanel" .lazy-harness src tests`
 
-Instruction: Read required items first. If candidates conflict, ask an option gate.
+Instruction: STOP before response: read required items first. If candidates still conflict after search/read evidence, ask an option gate.
 ```
 
 Rendering rules:
@@ -301,9 +301,10 @@ Allowed rendering:
 ```md
 Context Delivery self-resolution
 - Instruction: self-resolve-before-change
-- Before answering or editing, generate 2-5 candidate meanings and multilingual/code query expansions.
+- Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher generates 2-5 candidate meanings and multilingual/code query expansions, then performs root-bound search/read work.
 - Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.
-- Read high-confidence records/files before acting; if candidate meanings conflict, ask an option gate.
+- Read high-confidence records/files before answering or acting; if candidate meanings still conflict after search/read evidence, ask an option gate.
+- Do not answer, analyze, propose options, or plan before root-bound search evidence exists.
 - Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.
 ```
 
@@ -315,29 +316,29 @@ Rules:
 - The hook must not call a subagent, `jcode run`, hosted RAG, or other heavy model path synchronously for this protocol.
 - Protocol-only injections are not enough evidence for response audit to claim a concrete surfaced record was ignored; audit must wait for packet/journal evidence.
 
-## `예약시트` example
+## `기능패널` example
 
 Input:
 
 ```text
-예약시트 고쳐줘
+기능패널 고쳐줘
 ```
 
-The broker must not rely only on literal Korean keyword matches. It should expand candidates across Korean, English, and code-style names:
+The broker must not pretend to understand host semantic aliases by itself. It may preserve the original/token query and provide fallback-search/searcher-handoff instructions; the LLM or searcher must expand candidates across Korean, English, and code-style names before answering, planning, option-gating, or acting:
 
-- Korean aliases: `예약시트`, `예약 시트`, `예약표`, `예약관리`, `예약관리페이지`
-- English aliases: `reservation sheet`, `booking sheet`, `appointment schedule`, `reservation table`, `schedule grid`
-- Code aliases: `ReservationSheet`, `ReservationTable`, `ReservationManagementPage`, `AppointmentPage`
+- Korean aliases: `기능패널`, `기능 패널`, `기능화면`, `기능관리`, `기능관리페이지`
+- English aliases: `feature panel`, `feature panel`, `feature schedule`, `feature panel`, `schedule grid`
+- Code aliases: `FeatureSurface`, `FeaturePanel`, `FeatureSurfacePage`, `AppointmentPage`
 
 Expected packet posture:
 
 - `instructionLevel`: `self-resolve-before-change`
-- `candidateMeanings`: at least one reservation UI/table/schedule candidate
-- `queries`: include Korean, English, and code-style expansions
+- `candidateMeanings`: literal/token candidates only unless record-authored aliases were directly matched
+- `queries`: include the original/token request, not framework-authored semantic alias expansions
 - `requiredRead`: project profile or BDD/SDD/SSOT records if found
-- `fallbackSearches`: root-bound search across `.lazy-harness`, source, and tests
+- `fallbackSearches`: root-bound search across `.lazy-harness`, source, and tests; LLM/searcher performs semantic expansion before running those searches
 - If no canonical record/code candidate is found, ask the user which surface they mean and capture the confirmed alias later.
-- Framework SDD/ADR examples containing `예약시트` are not themselves sufficient required-read evidence for a host product-surface change.
+- Framework SDD/ADR examples containing `기능패널` are not themselves sufficient required-read evidence for a host product-surface change.
 
 ## Privacy and fail-open requirements
 
@@ -359,11 +360,11 @@ Fail-open requirements:
 - Failures may inject a small self-resolution instruction only if it is safe and within budget; otherwise emit nothing.
 - Heavy query expansion, `jcode run`, or subagent work must not run synchronously inside `message.received` without a separate timeout/recursion guard design.
 
-## Pre-action read-debt permit
+## Search/read debt journal and audit
 
 The Context Delivery Packet is transport-agnostic. In the current Jcode transport, `message.received` may run the bounded local producer, render a compact `Context Delivery search-debt` or `Context Delivery read-debt` reminder, and append the sanitized packet journal row.
 
-The pre-action permit gate uses that same packet journal as non-canonical read-debt state:
+The response lifecycle uses that same packet journal as non-canonical search/read-debt state:
 
 ```text
 message.received
@@ -372,34 +373,34 @@ message.received
 → if concrete requiredRead exists: read-debt
 → if requiredRead is unknown but fallback searches exist: search-debt
 → search/read tools and explicit searcher handoff allowed
-→ action tools blocked until search/read evidence exists
+→ generic action guard denies action until search/read evidence exists
 ```
 
 Rules:
 
-- The producer may do first-pass discovery from records/index/graph/project-profile/source hints when available, but it is not the semantic authority for multilingual/user-surface intent.
-- The LLM or a searcher subagent performs semantic expansion and root-bound search for ambiguous terms such as Korean `예약시트`.
-- The permit gate does not create project/tool policy. It enforces packet-scoped `search-debt` and `read-debt` produced by this SDD.
+- The producer may surface literal/record-authored hints from existing indexes when available, but it must not implement semantic search or host-specific alias mapping.
+- The LLM or a searcher subagent performs semantic expansion and root-bound search for ambiguous terms such as Korean `기능패널`.
+- The debt journal does not create project/tool policy. It records packet-scoped `search-debt` and `read-debt`; the generic guard only checks whether the LLM/searcher left search/read evidence before response/action.
 - Search-debt is satisfied when recent tool evidence shows root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff evidence).
 - Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
 - Packet selection itself must be strictly correlated: if `message_id` is available, the packet row must match the message hash and, when available, the session hash. Session-only matching is allowed only when message id is absent.
-- Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from the next `tool.execute.before` payload, causing false-positive action blocks.
+- Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from later lifecycle payloads, which would otherwise create false-positive debt advisories.
 - To avoid false positives in the opposite direction, the journal fallback is strict: if the current payload has a `message_id`, only the same `message_id` is accepted; same-session fallback is used only when message id is unavailable. Tool-events older than the correlated packet epoch are ignored.
-- Mixed read+action batches do not satisfy the debt in the same tool call; reads must happen before the action batch.
-- If the packet lacks concrete required paths, confidence is below threshold, no safe message/session correlation exists, or the producer times out, the gate fails open.
-- This current transport uses lifecycle hooks, but the same packet/permit semantics are ACP-compatible and may be carried by a protocol layer later.
+- Mixed read+action batches do not satisfy the debt in the same tool call; reads must happen before the response/action evidence that claims the debt is satisfied.
+- If the packet lacks concrete required paths or fallback searches, confidence is below threshold, no safe message/session correlation exists, or the producer times out, the guard fails open.
+- This current transport uses lifecycle hooks, but the same packet/debt semantics are ACP-compatible and may be carried by a protocol layer later.
 
-## Hard-stop promotion
+## Generic search/read evidence guard coverage
 
-- Status: active
-- Boundary: Context Delivery search/read debt blocks action tools before search/read evidence exists for the correlated turn.
+- Status: active; supersedes earlier audit-only wording
+- Boundary: Context Delivery search/read debt is journaled at turn start and the generic evidence guard denies action when search/read evidence is missing for the correlated turn.
 - Scope: framework-global
-- User confirmation: 2026-06-01 user approved forcing search/read first, then work; user also confirmed ACP-compatible core with current hooks as transport.
+- User confirmation: 2026-06-02 user corrected that the framework must not implement semantic search or attach tool-specific adapters; LLM/searcher performs root-bound search first, and the harness guards missing search/read evidence generically.
 - Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??`, `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`, and `검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제`.
 - Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, `.jcode/hooks/tool-events.jsonl` evidence fallback, and response.completed advisory existed but were too late or too weak to prevent action drift.
 - Fixture: `.lazy-harness/scripts/self-test.py`
-- Narrowness: the gate activates only for correlated Context Delivery packets with either concrete requiredRead paths or explicit self-resolve fallback searches; search/read tools, explicit searcher handoff, and clean/no-packet turns remain allowed; it is not a broad edit/write or tool-specific project-policy adapter.
-- Rollback: remove the generated `tool = "*"` read-debt hook block from Jcode wiring or disable `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; existing response.completed advisory remains as fallback.
+- Narrowness: the guard activates only for correlated Context Delivery packets with either concrete requiredRead paths or explicit self-resolve fallback searches; search/read tools and explicit searcher handoff remain allowed; clean/no-packet turns remain silent; it is not a broad edit/write or tool-specific project-policy adapter.
+- Rollback: disable the generated generic search/read evidence guard block or Context Delivery journaling; response.completed advisory remains as fallback.
 
 ## Searcher subagent handoff
 
@@ -408,7 +409,7 @@ A searcher subagent receives the same contract, not a separate prose-only prompt
 Phase 6 implementation exposes a prompt renderer:
 
 ```bash
-.lazy-harness/bin/lazy context-delivery --message "예약시트 고쳐줘" --handoff-prompt
+.lazy-harness/bin/lazy context-delivery --message "기능패널 고쳐줘" --handoff-prompt
 ```
 
 This command renders a handoff prompt only. It does not spawn a subagent, call `jcode run`, mutate files, or run inside `message.received`. The main LLM may explicitly pass the prompt to a searcher subagent when self-resolution is too broad, high-risk, or benefits from parallel search.
@@ -434,14 +435,14 @@ Subagent result must include:
 - `fallbackSearches`,
 - concise `instruction`.
 
-The main LLM remains responsible for reading `requiredRead` items before acting.
+The main LLM remains responsible for reading `requiredRead` items before answering, planning, option-gating, or acting.
 
 ## Relationship to existing SDDs
 
 - `record-digest-format.md` defines compact record-authored retrieval metadata.
 - `relevant-record-query.md` defines the current digest query contract.
 - `pre-response-rule-context.md` defines the bounded lifecycle injection surface.
-- This SDD defines the richer packet that future broker phases produce after query expansion and fusion.
+- This SDD defines the richer packet that future broker phases produce after literal/token query collection and evidence fusion; semantic expansion remains LLM/searcher work.
 - `response-rule-audit.md` consumes explicit packet evidence journal rows as advisory-only required-read audit after false-positive-safe fixtures exist.
 - `record-decision-broker.md` mirrors this pre-turn packet with a post-turn Record Decision Packet for record-write decisions.
 
@@ -455,11 +456,11 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - phase plan that schedules implementation after this contract.
   - `.lazy-harness/manifests/init-categories.json` - sync manifest entry for this SDD; schema directory syncs packet schema.
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
-  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using query expansion and file/source hint fusion; Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
+  - `.lazy-harness/scripts/context-delivery.ts` - dual-mode retrieval packet generator using original/token queries plus record-authored metadata; it does not implement semantic search or host-specific alias mapping. Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
   - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - consumes correlated packet rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence before action.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence for advisory-only search/read-debt audit.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence guard that checks packet-scoped search/read debt against root-bound LLM/searcher evidence; it does not perform search and is not a concrete-tool adapter.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence for advisory response backstop.
   - `.lazy-harness/spec/platform/record-decision-broker.md` - Phase 8 mirror contract for post-turn record actions.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
   - `.lazy-harness/scripts/self-test.py` - contract/schema/document fixture validation.
@@ -473,13 +474,15 @@ The main LLM remains responsible for reading `requiredRead` items before acting.
   4. Future broker may emit a full Context Delivery Packet.
   5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
   6. Main LLM or dogfood tooling may call `lazy context-delivery --journal` to record sanitized packet evidence.
-  7. Main LLM reads required items from the returned packet before acting.
-  8. Response audit may advise when correlated packet evidence and mutation suggest required-read evidence was skipped.
+  7. Main LLM/searcher performs root-bound semantic expansion/search/read work before answering, planning, option-gating, or acting.
+  8. Generic pre-action evidence guard denies action when correlated packet search/read debt lacks evidence.
+  9. Response audit may advise when correlated packet evidence and mutation suggest required search/read evidence was skipped.
 - Protection:
-  - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `예약시트` example cues.
-  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `예약시트 고쳐줘` without mandatory subagent latency.
+  - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `기능패널` example cues.
+  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `기능패널 고쳐줘` without mandatory subagent latency.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6` validates the handoff prompt, delegate-search seed packet, no-mutation instructions, schema-return contract, and absence of hook-time `jcode run`/handoff execution.
-  - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7` validates sanitized packet journaling and advisory-only response audit behavior.
+  - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7` validates sanitized packet journaling and response audit behavior.
+  - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action` validates that unknown external MCP-like actions cannot bypass search-debt before root-bound search evidence exists.
 
 ## Validation plan
 
@@ -489,20 +492,20 @@ Minimum Phase 1 validation:
 - Schema includes the four `instructionLevel` values.
 - SDD includes `## Rule digest`.
 - SDD includes raw hit, normalized evidence, and Context Delivery Packet stages.
-- SDD includes `예약시트` example with Korean, English, and code-style expansion cues.
+- SDD includes `기능패널` example while explicitly assigning semantic expansion to the LLM/searcher, not deterministic framework code.
 - SDD includes privacy, fail-open, rendering, and subagent handoff rules.
 
 Future implementation validation:
 
 - Fixture: direct digest request returns `digest-only`.
-- Fixture: `예약시트 고쳐줘` returns `self-resolve-before-change` and multilingual queries.
+- Fixture: `기능패널 고쳐줘` returns `self-resolve-before-change` with original/token queries and fallback-search/searcher instructions, not framework-authored multilingual aliases.
 - Fixture: `message.received` keeps simple digest requests digest-only but injects lightweight `self-resolve-before-change` protocol for ambiguous project-surface changes.
-- Fixture: packet fuses record/profile/code/test hits into required-read items.
+- Fixture: packet uses literal/token queries plus record-authored metadata; semantic expansion is performed by LLM/searcher root-bound searches.
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.
 - Fixture: searcher handoff prompt returns packet-shaped seed/return contract without executing mutations or adding hook-time `jcode run`/subagent latency.
 - Fixture: packet evidence journal stores sanitized rows without raw request text or raw record bullets.
-- Fixture: response audit stays silent when required-read was respected, no mutation happened, or no packet was correlated; missing read evidence after mutation is advisory-only.
+- Fixture: message.received injects STOP-before-response search/read instructions; generic evidence guard blocks missing search/read evidence before tool action; response audit stays silent when evidence was respected, no mutation happened, or no packet was correlated.
 
 ## Rule placement
 
@@ -515,7 +518,7 @@ Future implementation validation:
 
 ## Discovery capture
 
-- DDD: no domain entity added; `예약시트` is an example surface alias, not a canonical product-domain record in this framework repo.
+- DDD: no domain entity added; `기능패널` is an example surface alias, not a canonical product-domain record in this framework repo.
 - SDD: this record defines the Context Delivery Packet contract.
 - BDD: future agent behavior should read required context before answering/changing ambiguous surfaces.
 - TDD: self-test covers SDD/schema/example completeness; later packet generator fixtures required.

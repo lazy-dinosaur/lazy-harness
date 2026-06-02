@@ -25,7 +25,7 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
   - read sanitized Context Delivery packet evidence journal only when it can be correlated by safe message/session hashes
   - keep clean turns silent
   - emit concise audit feedback only when evidence strongly shows a surfaced rule or record-completion obligation was missed
-  - keep post-response Context Delivery search/read audit advisory-only; pre-action permit enforcement is owned by the Context Delivery contract
+  - keep response.completed Context Delivery search/read audit advisory-only as a backstop; pre-action prevention is owned by the generic search/read evidence guard, not tool-specific adapters
   - avoid storing raw user/assistant message bodies in journal state
   - keep journal state non-canonical under `.lazy-harness/state/`
 - Must not:
@@ -150,7 +150,7 @@ Row shape:
   "fallbackSearchCount": 2,
   "requiredRead": [
     {
-      "path": "src/features/reservations/ReservationTable.tsx",
+      "path": "src/features/example-feature/FeaturePanel.tsx",
       "kind": "source",
       "confidence": 0.82,
       "matchedQueryCount": 3
@@ -199,12 +199,12 @@ Phase 7 also adds a search-debt advisory-only case:
    - A correlated packet evidence row exists.
    - The row has no concrete `requiredRead` paths.
    - The row has `instructionLevel` in self-resolve/delegate-search mode and fallback search evidence.
-   - The turn uses a mutation tool.
    - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`, Context Delivery/searcher packet output, or explicit searcher handoff).
    - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
+   - Output is advisory at `response.completed` for every unsatisfied search-debt turn, regardless of whether the turn mutated, answered, planned, or option-gated.
    - Output starts with `ADVISORY`, never `STOP`.
 
-The matching pre-action permit lives in `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`; both helpers use strict packet correlation before reading packet evidence. If `message_id` is available, journal rows must match the message hash and, when available, the session hash; session-only matching applies only when message id is absent. Both helpers use `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. The fallback is also strict: same `message_id` is required when available, same-session fallback applies only when message id is absent, and tool-events older than the correlated packet epoch are ignored. This response audit remains the after-completion backstop and dogfood signal.
+The matching packet journal is produced before the turn and consumed by `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`; helpers use strict packet correlation before reading packet evidence. If `message_id` is available, journal rows must match the message hash and, when available, the session hash; session-only matching applies only when message id is absent. The audit helper uses `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. The fallback is also strict: same `message_id` is required when available, same-session fallback applies only when message id is absent, and tool-events older than the correlated packet epoch are ignored. This response audit remains the after-completion backstop and dogfood signal.
 
 Everything else stays silent.
 
@@ -268,7 +268,7 @@ exit = 0
   4. `response.completed` runs normal helpers and the new response rule audit helper.
   5. Audit helper matches journal row for the message/session and emits only on strong miss evidence.
   6. Explicit `lazy context-delivery --journal` may append packet evidence for dogfood collection.
-  7. Packet audit emits advisory-only output when correlated required-read evidence appears ignored before mutation.
+  7. Packet audit emits advisory-only output when correlated required-read evidence appears ignored before mutation, or whenever correlated search-debt lacks root-bound search evidence by turn completion.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`

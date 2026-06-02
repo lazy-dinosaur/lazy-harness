@@ -96,10 +96,10 @@ Options:
   --help                  Show this help
 
 Examples:
-  bun .lazy-harness/scripts/context-delivery.ts --message "예약시트 고쳐줘" --format md
-  .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --format=json
-  .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --handoff-prompt
-  .lazy-harness/bin/lazy context-delivery --message="예약시트 고쳐줘" --journal --message-id=m1
+  bun .lazy-harness/scripts/context-delivery.ts --message "feature surface 고쳐줘" --format md
+  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --format=json
+  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --handoff-prompt
+  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --journal --message-id=m1
   `)
   process.exit(2)
 }
@@ -205,7 +205,7 @@ function isChangeIntent(text: string): boolean {
 }
 
 function isAmbiguousSurface(text: string): boolean {
-  return hasHangul(text) || /(sheet|table|page|screen|surface|component|flow|ui|예약|관리|목록|상세)/i.test(text)
+  return hasHangul(text) || /(sheet|table|page|screen|surface|component|flow|ui)/i.test(text)
 }
 
 function isFrameworkContextIntent(text: string): boolean {
@@ -217,13 +217,6 @@ function expandQueries(message: string): QueryItem[] {
   const out: QueryItem[] = [
     { query: message.trim(), source: 'user-phrase', purpose: 'Original user request', targets: ['records', 'project-profile', 'source', 'tests'] },
   ]
-  if (/예약|reservation|booking|appointment|schedule/i.test(message)) {
-    out.push(
-      { query: '예약시트 예약 시트 예약표 예약관리 예약관리페이지', source: 'deterministic-expansion', purpose: 'Korean reservation surface aliases', targets: ['records', 'project-profile'] },
-      { query: 'reservation sheet booking sheet appointment schedule reservation table schedule grid booking table', source: 'deterministic-expansion', purpose: 'English reservation surface aliases', targets: ['records', 'project-profile', 'source'] },
-      { query: 'ReservationSheet ReservationTable ReservationManagementPage AppointmentPage', source: 'deterministic-expansion', purpose: 'Code-style reservation component aliases', targets: ['source', 'symbols', 'tests'] },
-    )
-  }
   const tokenQuery = tokens.filter((token) => !/^(고쳐|수정|변경|fix|change|update|please)$/i.test(token)).join(' ')
   if (tokenQuery && tokenQuery !== message.trim()) {
     out.push({ query: tokenQuery, source: 'deterministic-expansion', purpose: 'Tokenized request terms', targets: ['records', 'source', 'tests'] })
@@ -406,16 +399,8 @@ function fileReadItems(scored: ScoredRecord, changeIntent: boolean): ReadItem[] 
   return out
 }
 
-function candidateMeanings(scored: ScoredRecord[], reservationLike: boolean): CandidateMeaning[] {
+function candidateMeanings(scored: ScoredRecord[]): CandidateMeaning[] {
   const out: CandidateMeaning[] = []
-  if (reservationLike) {
-    out.push({
-      label: 'reservation sheet / reservation management table',
-      confidence: scored[0] ? readConfidence(scored[0].score) : 0.6,
-      why: 'Deterministic multilingual expansion mapped the Korean reservation surface to reservation UI/table aliases.',
-      language: 'ko/en/symbol',
-    })
-  }
   for (const item of scored.slice(0, 3)) {
     const aliases = item.record.aliases.slice(0, 3).join(' / ')
     out.push({
@@ -489,15 +474,15 @@ function buildPacket(args: Args): ContextDeliveryPacket {
     generatedAt: new Date().toISOString(),
     instructionLevel,
     ...(resolvedPhrase ? { resolvedPhrase } : {}),
-    candidateMeanings: candidateMeanings(scored, /예약|reservation|booking|appointment|schedule/i.test(args.message)).slice(0, 5),
+    candidateMeanings: candidateMeanings(scored).slice(0, 5),
     queries,
     requiredRead,
     optionalRead,
     confidence,
     fallbackSearches: fallbackSearches(args.message, queries),
     instruction: requiredRead.length
-      ? 'Read requiredRead before answering or editing. If candidate meanings conflict, ask an option gate.'
-      : 'No high-confidence requiredRead was found. Use fallbackSearches or ask an option gate before changing code.',
+      ? 'STOP before response: read requiredRead before answering, analyzing, planning, option-gating, or editing. Ask an option gate only after required reads/search if ambiguity remains.'
+      : 'STOP before response: no high-confidence requiredRead was found. Run fallbackSearches/root-bound search before answering, analyzing, planning, option-gating, or editing; ask an option gate only after search evidence if ambiguity remains.',
     notes: [`contextIndexSource=${source}`, `contextIndexFingerprint=${index.fingerprint}`],
   }
 }
@@ -514,7 +499,7 @@ function renderMarkdown(packet: ContextDeliveryPacket): string {
     for (const item of packet.candidateMeanings) lines.push(`- ${item.label} (${item.confidence.toFixed(2)}): ${item.why}`)
   }
   if (packet.requiredRead.length) {
-    lines.push('', 'Required read before answer/change')
+    lines.push('', 'Required read before answer/analyze/plan/option-gate/change')
     for (const item of packet.requiredRead) {
       lines.push(`- \`${item.path}\` - ${item.kind} - ${item.confidence.toFixed(2)}`)
       lines.push(`  - Reason: ${item.reason}`)

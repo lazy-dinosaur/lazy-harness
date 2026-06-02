@@ -16,7 +16,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 - Scope: framework-global
 - Applies when:
   - collecting dogfood evidence for Native Context Broker before runtime hook integration
-  - checking Medivance or Medivance PWA context-delivery and record-decision behavior after sync
+  - checking HostApp or HostApp PWA context-delivery and record-decision behavior after sync
   - deciding whether response.completed shadow/advisory integration has enough false-positive evidence
 - Must:
   - run only as an explicit CLI, not from `message.received` or `response.completed`
@@ -26,8 +26,9 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - keep output under `.lazy-harness/state/` as non-canonical runtime evidence
   - preserve clean/no-record-needed decision evidence for dogfood turns that only collect data
   - report host marker and per-case errors without mutating canonical records
+  - leave confirmed/grounded canonical record promotion to the agent workflow after analysis
 - Must not:
-  - write canonical DDD/SDD/BDD/TDD/ADR/SSOT records automatically
+  - blindly/directly write canonical DDD/SDD/BDD/TDD/ADR/SSOT records from raw collector rows
   - store raw prompts, full transcripts, raw record bullets, or raw grep chunks
   - replace response.completed audit or imply STOP-level enforcement
 - Record completion:
@@ -41,9 +42,9 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 
 ```bash
 .lazy-harness/bin/lazy context-dogfood \
-  --host /home/lazydino/dev/medivance \
-  --host /home/lazydino/dev/medivance-pwa \
-  --case reservation::"예약시트 고쳐줘" \
+  --host /path/to/host-project-a \
+  --host /path/to/host-project-b \
+  --case surface::"기능패널 고쳐줘" \
   --format=md
 ```
 
@@ -55,7 +56,7 @@ Default output path:
 
 Default cases when none are supplied:
 
-- `reservation-surface::예약시트 고쳐줘`
+- `feature-surface::기능패널 고쳐줘`
 - `status-readonly::상태 요약`
 
 ## Operator handoff — when the user says “dogfood 확인해줘”
@@ -66,20 +67,20 @@ Run the explicit aggregate collector from the lazy-harness source root. The user
 SOURCE_ROOT="$PWD"
 SOURCE_SHA="$(git rev-parse HEAD)"
 
-for HOST in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+for HOST in /path/to/host-project-a /path/to/host-project-b; do
   bun .lazy-harness/scripts/lazy-sync.ts --from "$SOURCE_ROOT" --target "$HOST" --force
 done
 
 .lazy-harness/bin/lazy context-dogfood \
-  --host /home/lazydino/dev/medivance \
-  --host /home/lazydino/dev/medivance-pwa \
+  --host /path/to/host-project-a \
+  --host /path/to/host-project-b \
   --format=md
 ```
 
 Then verify:
 
 ```bash
-for HOST in /home/lazydino/dev/medivance /home/lazydino/dev/medivance-pwa; do
+for HOST in /path/to/host-project-a /path/to/host-project-b; do
   (cd "$HOST" && .lazy-harness/bin/lazy test)
   (cd "$HOST" && python3 .lazy-harness/scripts/doctor.py --profile smoke)
   (cd "$HOST" && python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format=json)
@@ -91,7 +92,7 @@ Success criteria:
 - both host markers match the source `HEAD` after sync,
 - collector writes sanitized rows to `.lazy-harness/state/context-broker-dogfood.jsonl`,
 - each row has `messageHash` and no raw case message,
-- reservation-surface case produces useful Context Delivery required-read evidence,
+- feature-surface case produces useful Context Delivery required-read evidence,
 - status-readonly case stays `recordDecision.disposition=no-record-needed`,
 - host `lazy test`, doctor smoke, and hard-stop audit pass.
 
@@ -106,7 +107,7 @@ Each row is sanitized runtime evidence:
   "schemaVersion": "1.0",
   "event": "context-broker.dogfood",
   "timestamp": "2026-06-01T00:00:00.000Z",
-  "host": "/home/lazydino/dev/medivance",
+  "host": "/path/to/host-project-a",
   "hostMarker": "cb23317a96d6...",
   "caseLabel": "reservation",
   "messageHash": "16-char-hash",
@@ -119,7 +120,7 @@ Each row is sanitized runtime evidence:
     "candidateMeaningCount": 1,
     "fallbackSearchCount": 3,
     "topRequiredRead": [
-      { "path": ".lazy-harness/behavior/reservation-management.md", "kind": "record", "confidence": 0.82 }
+      { "path": ".lazy-harness/behavior/feature-surface.md", "kind": "record", "confidence": 0.82 }
     ]
   },
   "packetJournal": {
@@ -142,7 +143,7 @@ Each row is sanitized runtime evidence:
 
 1. For each host/case, run host-local `lazy context-delivery --journal --format=json`.
 2. Read the latest host packet journal row only to verify sanitized journal behavior.
-3. Run host-local `lazy record-decision --validation-only` because the collector itself should not create durable record obligations.
+3. Run host-local `lazy record-decision --validation-only` because the collector itself should not blindly create durable record obligations; the agent workflow must promote confirmed/grounded dogfood findings into canonical records after analysis.
 4. Append one sanitized row per host/case to the collector output unless `--dry-run` is set.
 5. Keep failures per-row in `errors`; do not fail the whole collector for one bad case unless the script itself cannot run.
 
@@ -176,7 +177,7 @@ There are two evidence streams:
 1. Automatic shadow journal: normal development can append sanitized Record Decision observations via `response.completed` to `.lazy-harness/state/record-decision-packets.jsonl`.
 2. Explicit aggregate dogfood: `lazy context-dogfood` must be run by the agent/operator to compare real hosts and collect Context Delivery + Record Decision summaries in `.lazy-harness/state/context-broker-dogfood.jsonl`.
 
-The user does not need to hand-collect evidence, but the agent must still run the explicit collector when asked to check dogfood.
+The user does not need to hand-collect evidence, but the agent must still run the explicit collector when asked to check dogfood. If the analysis finds confirmed or strongly grounded framework knowledge, the agent workflow must automatically create/update the appropriate canonical records.
 
 It should answer:
 
@@ -209,10 +210,10 @@ If enough rows show clean/no-record-needed behavior and useful candidate-needed 
 ## Validation plan
 
 - Fixture host with reservation behavior record should produce a context-delivery success row.
-- Collector JSON/JSONL must not contain raw `예약시트 고쳐줘` message.
+- Collector JSON/JSONL must not contain raw `기능패널 고쳐줘` message.
 - Record decision for collection-only dogfood should be `no-record-needed`.
 - Markdown dry-run should render a summary without writing collector JSONL.
-- Medivance and Medivance PWA should pass collector smoke after sync and marker check.
+- HostApp and HostApp PWA should pass collector smoke after sync and marker check.
 
 ## Rule placement
 

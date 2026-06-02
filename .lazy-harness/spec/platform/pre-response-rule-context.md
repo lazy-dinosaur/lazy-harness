@@ -149,7 +149,7 @@ Semantics:
 
 The surfaced digest journal is runtime state only. It stores safe hashes and record-authored fields (record path, title, layer, status, record-completion text, compact bullets) so `response.completed` can audit the same turn without storing raw user or assistant message bodies.
 
-Protocol-only self-resolution injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Concrete Context Delivery packet rows are written to `.lazy-harness/state/context-delivery-packets.jsonl` with sanitized required/optional read metadata and safe message/session hashes; those rows may be used by the pre-action read-debt permit gate.
+Protocol-only self-resolution injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Concrete Context Delivery packet rows are written to `.lazy-harness/state/context-delivery-packets.jsonl` with sanitized required/optional read metadata and safe message/session hashes; those rows are consumed by response audit/backstop as search/read debt evidence.
 
 ## Token and latency budget
 
@@ -193,7 +193,7 @@ message.received
 
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, runs the bounded digest query, runs bounded Context Delivery packet generation when available, renders digest/search-debt/read-debt context, and adds self-resolution protocol only when no concrete packet is available.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - pre-action permit gate that consumes sanitized packet journal rows and blocks action tools until requiredRead evidence exists.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - post-response audit helper that consumes sanitized packet journal rows and reports missed requiredRead/search evidence.
   - `.lazy-harness/scripts/relevant-record-query.ts` - read-only digest query backend for the hook.
   - `.lazy-harness/spec/platform/context-delivery-contract.md` - defines the self-resolution instruction level and packet-compatible search protocol.
   - `.lazy-harness/scripts/self-test.py` - protects digest-only and self-resolution hook fixtures.
@@ -203,7 +203,7 @@ message.received
   3. Hook renders digest entries when present.
   4. Hook journals concrete packet rows when bounded Context Delivery succeeds.
   5. Hook appends self-resolution protocol only for surface-like answer/change requests without a concrete packet.
-  6. Main LLM performs root-bound search/reads before acting; pre-action permit blocks action when packet-scoped requiredRead debt is unsatisfied.
+  6. Main LLM performs root-bound search/reads before acting; unsatisfied packet-scoped requiredRead/search debt is journaled and audited after response.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`
 

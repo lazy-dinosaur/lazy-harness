@@ -6,7 +6,7 @@
 
 ## Purpose
 
-`lazy-sync` copies framework files (`scripts/`, `hooks/`, `schemas/`, `triggers/`, `manifests/`) from a canonical source repo (`/home/lazydino/dev/lazy-harness`) to host copies (e.g. `/home/lazydino/dev/medivance/.lazy-harness/`). Its drift detector must answer one question: "is the host out of date relative to the source?"
+`lazy-sync` copies framework files (`scripts/`, `hooks/`, `schemas/`, `triggers/`, `manifests/`) from a canonical source repo (`/home/lazydino/dev/lazy-harness`) to host copies (e.g. `/path/to/host-project-a/.lazy-harness/`). Its drift detector must answer one question: "is the host out of date relative to the source?"
 
 ## Contract
 
@@ -30,6 +30,14 @@ Rationale: the previous implementation only compared committed SHAs, so a workfl
 
 `--force` overrides any non-`equal` drift status, including the new `ahead-dirty` variant. With `--force`, lazy-sync always proceeds to the file-copy phase. Without `--force`, only `behind` runs sync automatically; everything else exits with code 2.
 
+### Managed directory prune and local wiring refresh (added 2026-06-02)
+
+For Category A manifest directory entries, `lazy-sync` must remove stale destination files that still match the managed `glob`/`exclude` rules but no longer exist in the source directory. This prevents renamed or deleted framework fixtures from remaining in downstream hosts as false context.
+
+Exception: `knowledge/` JSONL files are host-local append-only stores. They are seed-merged, not overwritten or pruned: missing source seed rows are appended to the host file, while host-local graph/candidate rows are preserved.
+
+After file sync, `installJcodeWiring` must refresh lazy-harness managed blocks in `.jcode/config.toml` when their marker comments are present. User-owned config content remains preserved, but managed hook blocks should receive updated framework wording/commands instead of staying stale forever.
+
 ## Implementation map
 
 - **Function**: `detectDrift` — `.lazy-harness/scripts/lazy-sync.ts` line ~205
@@ -37,11 +45,14 @@ Rationale: the previous implementation only compared committed SHAs, so a workfl
 - **Caller**: `main` — same file line ~411. Reads `drift.status`, branches on `equal` (fast-path) vs everything else.
 - **Force gate**: `main` line ~421. `(ahead|divergent) && !args.force → error exit 2`.
 - **Marker storage**: `state/synced-from-commit` JSON file in the host. Written after each successful sync.
+- **Managed directory prune**: `syncCategoryA` walks the destination directory for each Category A directory item and removes files that match that item's managed globs but are absent from the source, except `knowledge/` JSONL stores.
+- **Knowledge seed merge**: `mergeJsonlSeed` appends missing source seed JSONL rows into host `knowledge/*.jsonl` without removing or overwriting host-local rows.
+- **Jcode managed block refresh**: `installJcodeWiring` refreshes marked lazy-harness blocks, including the generic search/read evidence guard block, while leaving unmarked user-owned config sections intact.
 
 ### Related records
 
 - ADR 0035 — queue-close mandate (companion lifecycle rule for option-gate hygiene).
-- tests/tdd-cross-verify-forcegate-loop.md — TDD regression that proved the drift gap (`Already in sync` false-positive let stale `tdd-cross-verify.ts` keep looping on medivance).
+- tests/tdd-cross-verify-forcegate-loop.md — TDD regression that proved the drift gap (`Already in sync` false-positive let stale `tdd-cross-verify.ts` keep looping on host-project-a).
 - ssot/rule-sources.md — keeps the rule body inside `.lazy-harness/`, not host-local notes.
 
 ## Verification
@@ -50,11 +61,17 @@ Rationale: the previous implementation only compared committed SHAs, so a workfl
 # Sanity: edit a script in source, do NOT commit, run lazy-sync.
 cd /home/lazydino/dev/lazy-harness
 echo '// touch' >> .lazy-harness/scripts/lazy-sync.ts
-bun .lazy-harness/scripts/lazy-sync.ts --target ~/dev/medivance
+bun .lazy-harness/scripts/lazy-sync.ts --target /path/to/host-project-a
 # Expected: status=ahead, message=Source working-tree ... dirty, exit 2.
 
-bun .lazy-harness/scripts/lazy-sync.ts --target ~/dev/medivance --force
+bun .lazy-harness/scripts/lazy-sync.ts --target /path/to/host-project-a --force
 # Expected: proceeds, [Summary] updated >= 1.
+
+# Rename/delete a managed fixture in source, then sync.
+# Expected: old managed fixture is removed from the host, current fixture exists.
+
+# Host has extra knowledge/graph.jsonl rows, then sync.
+# Expected: host rows remain, missing source seed rows are appended.
 ```
 
 ## Non-goals

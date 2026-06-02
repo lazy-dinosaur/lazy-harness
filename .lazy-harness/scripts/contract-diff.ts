@@ -35,7 +35,7 @@ export interface ContractDiffOptions {
  *
  * Implementation deferred to 5b-2a:
  * - Requires ts-morph (~30 MB)
- * - Requires evidence that contract drift is a real problem in medivance
+ * - Requires evidence that contract drift is a real problem in a host project
  * - See `.lazy-harness/decisions/0008-ast-contract-diff-deferred.md`
  */
 export async function diffContracts(

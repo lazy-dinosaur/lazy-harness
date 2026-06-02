@@ -33,7 +33,7 @@ allowed_names = {
     "mcp__filesystem__write_file",
     "mcp__filesystem__edit_file",
 }
-pattern = re.compile(r"(?:src/main|src/renderer/src|\.lazy-harness/triggers/fixtures)/[^\s\"'`,)}]+\.(?:ts|tsx)")
+pattern = re.compile(r"(?:src|app|packages|\.lazy-harness/triggers/fixtures)/[^\s\"'`,)}]+\.(?:ts|tsx)")
 
 for call in payload.get("recent_tool_calls", []):
     name = str(call.get("name", ""))

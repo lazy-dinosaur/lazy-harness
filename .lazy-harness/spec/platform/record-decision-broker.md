@@ -106,19 +106,19 @@ Record Decision Packet top-level shape:
     "evidence": [
       {
         "kind": "user-confirmation",
-        "summary": "User confirmed 예약시트 means reservation sheet.",
+        "summary": "User confirmed 기능패널 means feature panel.",
         "confidence": 0.9
       },
       {
         "kind": "changed-file",
-        "path": "src/features/reservations/ReservationTable.tsx",
+        "path": "src/features/example-feature/FeaturePanel.tsx",
         "summary": "Reservation table behavior was modified.",
         "confidence": 0.8
       }
     ],
     "recommendedRecords": [
       {
-        "path": ".lazy-harness/behavior/reservation-management.md",
+        "path": ".lazy-harness/behavior/feature-surface.md",
         "layer": "BDD",
         "action": "update",
         "reason": "UI flow or alias changed.",

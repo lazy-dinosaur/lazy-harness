@@ -206,16 +206,16 @@ Recommended Markdown shape inside or near `## Rule digest`:
 
 ```md
 - Aliases:
-  - 예약시트
-  - reservation sheet
+  - 기능패널
+  - feature panel
 - Surface terms:
-  - 예약표
-  - booking table
+  - 기능화면
+  - feature panel
 - Implementation hints:
-  - Routes: `/reservations`, `/appointments`
-  - Components: `ReservationTable`, `ReservationManagementPage`
-  - Files: `src/features/reservations/**`
-  - Tests: `tests/reservations/**`
+  - Routes: `/example-feature`, `/example-flow`
+  - Components: `FeaturePanel`, `FeatureSurfacePage`
+  - Files: `src/features/example-feature/**`
+  - Tests: `tests/example-feature/**`
 ```
 
 Rules:

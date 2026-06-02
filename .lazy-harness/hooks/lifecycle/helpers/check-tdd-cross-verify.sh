@@ -21,7 +21,7 @@ try:
 except Exception:
     raise SystemExit(0)
 allowed = {'Write','Edit','MultiEdit','write','edit','multiedit','mcp__filesystem__write_file','mcp__filesystem__edit_file'}
-pattern = re.compile(r'(?:src/renderer/src|\.lazy-harness/triggers/fixtures|\.lazy-harness/triggers/walkthrough-fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts|jsx|js)')
+pattern = re.compile(r'(?:src|app|packages|\.lazy-harness/triggers/fixtures|\.lazy-harness/triggers/walkthrough-fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts|jsx|js)')
 paths = []
 for call in payload.get('recent_tool_calls', []):
     if str(call.get('name', '')) not in allowed:

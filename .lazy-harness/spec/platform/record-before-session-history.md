@@ -32,7 +32,7 @@ This applies when the request or response mentions any of:
 ## Anti-pattern caught from dogfooding
 
 ```text
-User: 우리 예약시트 어떤거 수정하려고 계획했었지?
+User: 우리 기능패널 어떤거 수정하려고 계획했었지?
 Agent: session_search first
 User: 아니 기록해둔거 있었잖아
 Agent: then searches .lazy-harness records

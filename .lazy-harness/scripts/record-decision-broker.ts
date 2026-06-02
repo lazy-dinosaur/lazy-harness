@@ -118,7 +118,7 @@ Options:
 
 Examples:
   .lazy-harness/bin/lazy record-decision --message="상태 요약" --read-only --format=md
-  .lazy-harness/bin/lazy record-decision --message="예약시트는 reservation sheet" --user-confirmation="예약시트 alias confirmed"
+  .lazy-harness/bin/lazy record-decision --message="feature surface means FeaturePanel" --user-confirmation="feature surface alias confirmed"
   .lazy-harness/bin/lazy record-decision --message="layer unclear" --changed-file=src/app.ts --ambiguous
 `)
   process.exit(2)

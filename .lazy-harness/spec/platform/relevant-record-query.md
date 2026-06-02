@@ -223,7 +223,7 @@ When no `## Rule digest` exists:
 Input:
 
 ```json
-{ "message": "아니 medivance-pwa도 dogfood host야" }
+{ "message": "아니 host-project-b도 dogfood host야" }
 ```
 
 Expected retrieval classes:
@@ -251,14 +251,14 @@ Expected retrieval classes:
 Input:
 
 ```json
-{ "message": "예약시트 고쳐줘" }
+{ "message": "기능패널 고쳐줘" }
 ```
 
 Expected retrieval classes:
 
-- digest aliases/surface terms for `예약시트`, `예약표`, `reservation sheet`, or code aliases,
+- digest aliases/surface terms for `기능패널`, `기능화면`, `feature panel`, or code aliases,
 - Project Profile `feature-navigation.xml` entries that map the surface to BDD/SDD records,
-- route/component/file/test hints such as `ReservationTable` or reservation feature paths,
+- route/component/file/test hints such as `FeaturePanel` or feature-surface paths,
 - Context Delivery Packet `self-resolve-before-change` when exact meaning is not yet confirmed.
 
 ### Bug/regression work
@@ -298,7 +298,7 @@ A future implementation must test:
 3. digest status filtering excludes reverted/deprecated by default,
 4. token budget truncates output under the requested ceiling,
 5. queries for source-of-truth, contract, behavior, regression, release, runtime, and PR examples retrieve without tool-specific keys,
-6. `예약시트`-style surface terms can be represented via aliases/profile metadata without keyword-only dependence,
+6. `기능패널`-style surface terms can be represented via aliases/profile metadata without keyword-only dependence,
 7. fallback entries do not invent bullets beyond record evidence.
 
 ## Implementation map
@@ -316,7 +316,7 @@ A future implementation must test:
 - Supporting files:
   - `.lazy-harness/scripts/relevant-record-query.ts`
   - `.lazy-harness/generated/relevant-record-index.json`
-  - `.lazy-harness/fixtures/context-delivery/feature-navigation-reservation-surface.xml`
+  - `.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml`
 - Flow:
   1. Build/load relevant-record index from canonical records.
   2. Query by message/context/layer budget.

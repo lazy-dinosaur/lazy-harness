@@ -22,6 +22,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - verify collection-only decisions are `no-record-needed`
   - verify markdown dry-run output works without writing collector JSONL
   - verify the collector remains explicit aggregate dogfood rather than automatic response.completed journaling
+  - verify the collector does not blindly write canonical records, while records require agent-workflow promotion after confirmed/grounded analysis
   - keep runtime hook integration out of this collector test
 - Record completion:
   - changes to collector behavior, row shape, default cases, or privacy fields update this TDD and `.lazy-harness/spec/platform/context-broker-dogfood.md`
@@ -29,8 +30,8 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 ## Regression cases
 
 1. **Sanitized JSON output**
-   - Given a fixture host and case `reservation::예약시트 고쳐줘`.
-   - Expected: JSON output contains `caseLabel=reservation`, a message hash, and no raw `예약시트 고쳐줘` string.
+   - Given a fixture host and case `surface::기능패널 고쳐줘`.
+   - Expected: JSON output contains `caseLabel=feature-surface`, a message hash, and no raw `기능패널 고쳐줘` string.
 
 2. **Host-local context delivery**
    - Given fixture host records and source files.
@@ -38,7 +39,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 
 3. **Collection-only record decision**
    - Given a dogfood collection turn.
-   - Expected: record decision disposition is `no-record-needed`, because the collector itself is validation/data collection, not durable record creation.
+   - Expected: record decision disposition is `no-record-needed`, because the collector itself is validation/data collection, not blind durable record creation; later agent analysis can still promote confirmed/grounded findings into canonical records.
 
 4. **Packet journal privacy check**
    - Given `context-delivery --journal` was called.

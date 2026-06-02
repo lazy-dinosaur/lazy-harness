@@ -471,9 +471,9 @@ def main() -> int:
             for path in required_paths[:5]:
                 print(f"  - {path}")
             return 0
-        if packet_has_search_debt(packet_row) and has_mutation_tool_call(packet_row) and not has_search_evidence(packet_row):
+        if packet_has_search_debt(packet_row) and not has_search_evidence(packet_row):
             print("ADVISORY. Context Delivery audit: search evidence may be missing.\n")
-            print("문제: 이번 turn에 Context Delivery Packet이 concrete requiredRead 없이 self-resolve/search-debt 상태였고 파일 변경 도구가 사용되었지만, 변경 전 root-bound search evidence를 찾지 못했습니다.")
+            print("문제: 이번 turn에 Context Delivery Packet이 concrete requiredRead 없이 self-resolve/search-debt 상태였지만, root-bound search evidence를 찾지 못했습니다.")
             print("\n해야 할 일:")
             print("  A. agentgrep/grep/rg 등으로 .lazy-harness/source/test 검색을 먼저 수행 (Recommended)")
             print("  B. 검색을 이미 했지만 payload evidence가 누락됐다면 검색 쿼리/경로를 명시")

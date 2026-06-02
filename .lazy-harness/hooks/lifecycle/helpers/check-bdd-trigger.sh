@@ -38,7 +38,7 @@ message_id = str(payload.get('message_id') or '')
 paths = []
 allowed = {'Write', 'Edit', 'MultiEdit', 'write', 'edit', 'multiedit',
            'mcp__filesystem__write_file', 'mcp__filesystem__edit_file'}
-pattern = re.compile(r'(?:src/renderer/src|\.lazy-harness/triggers/fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts)')
+pattern = re.compile(r'(?:src|app|packages|\.lazy-harness/triggers/fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts)')
 for call in payload.get('recent_tool_calls', []) or []:
     if str(call.get('name', '')) not in allowed:
         continue

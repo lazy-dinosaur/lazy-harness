@@ -254,7 +254,7 @@ The initial router is deterministic and conservative:
 - API/IPC/schema/env/config/hook/CLI/component prop → contract.
 - UI/user flow/screen/button/click/behavior/scenario → behavior.
 - source-of-truth/ownership/upstream/downstream/rule placement/project identity → ownership.
-- Changed files under `prisma/schema/**`, `src/main/trpc/routers/**`, auth/permission paths, renderer screens/components, and tests produce path evidence independent of message text.
+- Changed files under schema/model directories, API/RPC router paths, auth/permission paths, UI screens/components, and tests produce path evidence independent of message text.
 - Combined route should use max-risk/max-scope semantics: changed-file evidence may escalate a seemingly trivial or vague message.
 - `messageLength >= 500` is marked `truncatedLikely` because lifecycle payload extraction can cap long messages.
 - bug/regression/fix → fix intent, tdd affected.

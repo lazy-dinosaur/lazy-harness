@@ -39,26 +39,16 @@ MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or
 SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
 SEARCH_EVIDENCE_TOOLS = {
     "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
-    "mcp__filesystem__search_files", "mcp__github__search_code",
-    "mcp__github__search_issues", "mcp__github__search_pull_requests",
-    "websearch", "mcp__exa__web_search_exa", "mcp__websearch__web_search_exa",
+    "mcp__filesystem__search_files",
 }
 
-READ_TOOLS = {
+ROOT_BOUND_EVIDENCE_TOOLS = {
     "read", "Read",
     "grep", "Grep", "agentgrep", "glob", "Glob", "ls", "LS", "lsp",
     "mcp__filesystem__read_text_file", "mcp__filesystem__read_file",
     "mcp__filesystem__read_multiple_files", "mcp__filesystem__list_directory",
     "mcp__filesystem__list_directory_with_sizes", "mcp__filesystem__directory_tree",
     "mcp__filesystem__search_files", "mcp__filesystem__get_file_info",
-    "mcp__github__get_file_contents", "mcp__github__pull_request_read",
-    "mcp__github__issue_read", "mcp__github__search_code",
-    "mcp__github__search_issues", "mcp__github__search_pull_requests",
-    "mcp__figma__get_metadata", "mcp__figma__get_design_context",
-    "mcp__figma__get_screenshot", "mcp__figma__get_variable_defs",
-    "mcp__figma__get_libraries", "mcp__figma__search_design_system",
-    "mcp__playwright__browser_snapshot", "mcp__playwright__browser_take_screenshot",
-    "webfetch", "websearch",
 }
 
 WRITE_TOOLS = {
@@ -70,23 +60,13 @@ WRITE_TOOLS = {
 ACTION_TOOLS = {
     *WRITE_TOOLS,
     "bash", "Bash",
-    "mcp__figma__use_figma", "mcp__figma__generate_figma_design",
-    "mcp__figma__create_new_file", "mcp__figma__generate_diagram",
-    "mcp__figma__upload_assets", "mcp__figma__add_code_connect_map",
-    "mcp__figma__send_code_connect_mappings",
-    "mcp__playwright__browser_click", "mcp__playwright__browser_type",
-    "mcp__playwright__browser_fill_form", "mcp__playwright__browser_press_key",
-    "mcp__playwright__browser_select_option", "mcp__playwright__browser_drag",
-    "mcp__playwright__browser_drop", "mcp__playwright__browser_file_upload",
-    "mcp__playwright__browser_navigate", "mcp__playwright__browser_navigate_back",
-    "mcp__playwright__browser_run_code_unsafe", "mcp__playwright__browser_close",
-    "mcp__github__create_pull_request", "mcp__github__update_pull_request",
-    "mcp__github__merge_pull_request", "mcp__github__push_files",
-    "mcp__github__create_or_update_file", "mcp__github__delete_file",
-    "mcp__github__issue_write", "mcp__github__add_issue_comment",
-    "mcp__github__pull_request_review_write", "mcp__gmail__send",
     "gmail", "schedule", "open",
 }
+
+ACTION_NAME_RE = re.compile(
+    r"(?:^|[_:.\-])(write|edit|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])",
+    re.IGNORECASE,
+)
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
@@ -156,7 +136,7 @@ def bash_is_read_only(args: dict[str, Any]) -> bool:
 def is_action_tool(name: str, args: dict[str, Any]) -> bool:
     if not name:
         return False
-    if name in READ_TOOLS:
+    if name in ROOT_BOUND_EVIDENCE_TOOLS:
         return False
     if name in {"batch", "multi_tool_use.parallel"}:
         nested = nested_tool_calls(args)
@@ -171,8 +151,10 @@ def is_action_tool(name: str, args: dict[str, Any]) -> bool:
         return True
     if name in {"subagent", "swarm"}:
         return True
+    if ACTION_NAME_RE.search(name):
+        return True
     if name.startswith("mcp__"):
-        return name not in READ_TOOLS
+        return True
     return False
 
 
