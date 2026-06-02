@@ -30,6 +30,7 @@ Regression fixtures cover:
 16. Tool-events fallback must not accept evidence older than the correlated Context Delivery packet epoch.
 17. Packet journal matching must not accept a same-session packet from a different message when current `message_id` is present.
 18. Packet journal matching must not accept a same-message packet from a different session when current `session_id` is present.
+19. Category A sync manifest must include `.lazy-harness/tests/response-rule-audit.md` so host self-tests carry the response audit TDD fixture, not only the SDD contract.
 
 ## Implementation map
 
@@ -42,6 +43,7 @@ Regression fixtures cover:
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper for read-debt permit and legacy search gate.
   - `.lazy-harness/scripts/lifecycle-check.py` — shadow/orchestrator chain wiring.
   - `.lazy-harness/scripts/self-test.py` — `check_response_rule_audit_from_surfaced_digest` and `check_context_delivery_packet_journal_phase7` fixtures.
+  - `.lazy-harness/manifests/init-categories.json` — Category A sync manifest entry for this TDD record, preventing host copies from carrying the SDD without its regression fixture.
 - Flow:
   1. Test fixture writes a host-local PR description digest record.
   2. Test runs `on-message-received.sh` with a stable `message_id`.
@@ -56,10 +58,12 @@ Regression fixtures cover:
   11. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message events and pre-packet events to prevent over-accepting stale evidence.
   12. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message packets and same-message/different-session packets to prevent parallel session/turn packet contamination.
   13. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read/search advisory, satisfied-read/search silence, and uncorrelated silence cases.
+  14. `check_response_rule_audit_from_surfaced_digest` asserts both this TDD record exists in source and `init-categories.json` syncs `tests/response-rule-audit.md` to hosts.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - `.lazy-harness/manifests/init-categories.json#tests/response-rule-audit.md`
   - `.lazy-harness/bin/lazy test`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
@@ -75,7 +79,7 @@ Regression fixtures cover:
 - BDD: user-visible behavior changes only when a surfaced rule is missed; otherwise no output.
 - TDD: this record and self-test fixtures protect the regression surface.
 - ADR: implements existing ADR 0041; no new trade-off decision.
-- SSOT: implements existing harness enforcement policy; no ownership/config source change.
+- SSOT: `.lazy-harness/manifests/init-categories.json` is updated as the Category A sync source for this TDD fixture; no ownership/env/schema source change.
 
 ## Discovery capture
 
