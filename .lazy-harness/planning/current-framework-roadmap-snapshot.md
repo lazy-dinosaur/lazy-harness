@@ -440,3 +440,66 @@ Rule placement:
 - Scope: framework-behavior
 - Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
 - Confirmation: user-corrected on 2026-05-31.
+
+## 2026-06-03 downstream runtime-state sync closeout
+
+Status: completed-and-validated
+Confirmation: validation evidence from downstream sync task `997504bq51`
+
+Source repository:
+
+- Source root: `/home/lazydino/dev/lazy-harness`
+- Source commit synced: `de031ef54e33ec63ca21a8a16a2a9caef30db109` (`HARNESS isolate runtime state roots`)
+- Source validation before downstream sync:
+  - `.lazy-harness/bin/lazy test`: passed
+  - pre-commit gate for `de031ef`: passed
+
+Action taken:
+
+- Ran `lazy-sync --force --from /home/lazydino/dev/lazy-harness` for:
+  - `/home/lazydino/dev/medivance`
+  - `/home/lazydino/dev/medivance-pwa`
+- Both hosts were behind `3f5a8279a8f3...` and synced to `de031ef54e33...`.
+- Sync summary for each host:
+  - `updated: 33`
+  - `unchanged: 134`
+  - `missing: 0`
+  - `knowledge/graph.jsonl` seed merge: `16` rows considered, `13` appended, `3` conflicts recorded, `0` plain
+
+Validation after sync:
+
+- Medivance (`/home/lazydino/dev/medivance`):
+  - Marker `.lazy-harness/state/synced-from-commit`: `de031ef54e33ec63ca21a8a16a2a9caef30db109`
+  - `.lazy-harness/bin/lazy test`: passed (`scope=host`, `ran=59`, `skipped=18`)
+  - `.lazy-harness/bin/lazy capability audit --format=json`: `ok=true`, `count=3`
+  - `.lazy-harness/bin/lazy lifecycle-parity --format=json --fail-on-mismatch`: `ok=true`, `fixtures=13`, `passed=13`, `failed=0`
+  - Git status after sync: `## dev...origin/dev`
+- Medivance PWA (`/home/lazydino/dev/medivance-pwa`):
+  - Marker `.lazy-harness/state/synced-from-commit`: `de031ef54e33ec63ca21a8a16a2a9caef30db109`
+  - `.lazy-harness/bin/lazy test`: passed (`scope=host`, `ran=59`, `skipped=18`)
+  - `.lazy-harness/bin/lazy capability audit --format=json`: `ok=true`, `count=2`
+  - `.lazy-harness/bin/lazy lifecycle-parity --format=json --fail-on-mismatch`: `ok=true`, `fixtures=13`, `passed=13`, `failed=0`
+  - Git status after sync: `## main...origin/main`
+
+Operational note:
+
+- This section is a source-side closeout record. If committed after the sync, downstream hosts must be synced once more to the new closeout commit before claiming markers match source `HEAD`.
+
+Rule placement:
+
+- Rule: Downstream host sync closeouts should record the source commit, target hosts, marker evidence, validation commands, and post-sync git status.
+- Scope: transient-plan/sync-evidence
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Why not AGENTS.md: this is point-in-time sync evidence, not a permanent operating instruction.
+- Why not `.jcode`: this concerns shared lazy-harness source/host sync state, not local/private Jcode wiring.
+- Confirmation: user explicitly requested both `dev/medivance` and `medivance-pwa` be synced and verified.
+
+Discovery capture:
+
+- DDD: no domain/business terminology change.
+- SDD: no new sync contract; existing `lazy-sync` marker/drift contract applied.
+- BDD: no user-facing app behavior change.
+- TDD: no regression test change; downstream `lazy test` and lifecycle parity validated the synced runtime-state isolation changes.
+- ADR: no new architecture decision.
+- SSOT: sync marker source remains `.lazy-harness/state/synced-from-commit`.
+- Planning: this closeout records the completed downstream sync/validation evidence.
