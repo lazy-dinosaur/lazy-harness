@@ -35,6 +35,12 @@ cd "$ROOT_CANDIDATE" || exit 0
 PAYLOAD="${1:-}"
 [ -z "$PAYLOAD" ] && PAYLOAD=$(cat 2>/dev/null || echo '{}')
 
+if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
+  # shellcheck disable=SC1091
+  . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
+  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
+fi
+
 # Chain through helpers — read-debt permit first, then legacy Layer 2 checks.
 for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py \

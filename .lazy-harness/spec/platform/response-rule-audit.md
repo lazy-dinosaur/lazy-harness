@@ -61,7 +61,7 @@ In Phase 5 it also becomes the replacement surface for the historical PR body to
 Path:
 
 ```text
-.lazy-harness/state/surfaced-rule-digests.jsonl
+$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl
 ```
 
 Status:
@@ -119,7 +119,7 @@ Retention:
 Path:
 
 ```text
-.lazy-harness/state/context-delivery-packets.jsonl
+$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl
 ```
 
 Status:
@@ -248,8 +248,8 @@ exit = 0
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
   - `.lazy-harness/scripts/lifecycle-check.py` — runs the same audit helper in shadow/orchestrator lifecycle checks.
   - `.lazy-harness/scripts/self-test.py` — protects journal privacy, ignored surfaced PR rule detection, missing record-completion detection, and silent clean turns.
-  - `.gitignore` — excludes `.lazy-harness/state/surfaced-rule-digests.jsonl` runtime state in the source checkout.
-  - `.gitignore` — excludes `.lazy-harness/state/context-delivery-packets.jsonl` runtime state in the source checkout.
+  - `.gitignore` — excludes `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl` runtime state in the source checkout.
+  - `.gitignore` — excludes `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` runtime state in the source checkout.
 - Key symbols:
   - `sanitized_entries` (`on-message-received.sh`) — strips query output down to record-authored fields.
   - `surfaced-rule-digests.jsonl` (`on-message-received.sh`) — non-canonical journal state.
@@ -263,7 +263,7 @@ exit = 0
 - Flow:
   1. `message.received` receives current user message.
   2. The default hook injects static framework-structured harness inventory/search-debt without deciding whether host context is likely required from raw user text.
-  3. Explicit digest/dogfood paths may append sanitized entry metadata to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
+  3. Explicit digest/dogfood paths may append sanitized entry metadata to `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl`.
   4. `response.completed` runs normal helpers and the new response rule audit helper.
   5. Audit helper matches journal row for the message/session and emits only on strong miss evidence.
   6. Default `message.received` direct-search rows and explicit `lazy context-delivery --journal` may append packet evidence for audit/dogfood collection.

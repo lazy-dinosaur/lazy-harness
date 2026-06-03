@@ -74,14 +74,14 @@ Expected wrapper:
 # Local dogfood wrapper: run lazy-harness response.completed in compare mode.
 set -euo pipefail
 export LAZY_RESPONSE_COMPLETED_ENGINE="${LAZY_RESPONSE_COMPLETED_ENGINE:-compare}"
-export LAZY_RESPONSE_COMPLETED_COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-.lazy-harness/logs/lifecycle-compare.jsonl}"
+export LAZY_RESPONSE_COMPLETED_COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl}"
 exec .lazy-harness/hooks/lifecycle/on-response-completed.sh
 ```
 
 Expected log path:
 
 ```text
-/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl
+/home/lazydino/dev/medivance/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 ```
 
 At handoff creation this host had 4 compare rows, all matching.
@@ -93,7 +93,7 @@ Same expected local/private Jcode config and wrapper as Medivance.
 Expected log path:
 
 ```text
-/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl
+/home/lazydino/dev/medivance-pwa/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 ```
 
 At handoff creation this host had 3 compare rows, all matching.
@@ -116,7 +116,7 @@ Do not “repair” this back to generated config unless the goal is to stop com
 
 ## Compare log meaning
 
-Each row in `.lazy-harness/logs/lifecycle-compare.jsonl` should be sanitized metadata only. It should not contain raw user message bodies.
+Each row in `$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl` should be sanitized metadata only. It should not contain raw user message bodies.
 
 Fields to inspect:
 
@@ -186,8 +186,8 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 hosts = [
-    ('medivance', Path('/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl')),
-    ('medivance-pwa', Path('/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl')),
+    ('medivance', Path('/home/lazydino/dev/medivance/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl')),
+    ('medivance-pwa', Path('/home/lazydino/dev/medivance-pwa/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl')),
 ]
 for name, path in hosts:
     rows=[]
@@ -341,8 +341,8 @@ payload='{"message_id":"rollback-smoke","recent_tool_calls":[{"name":"read","arg
   - `/home/lazydino/dev/medivance-pwa/.jcode/config.toml`
   - `/home/lazydino/dev/medivance-pwa/.jcode/hooks/response-completed-compare.sh`
 - Evidence logs:
-  - `/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl`
-  - `/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl`
+  - `/home/lazydino/dev/medivance/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl`
+  - `/home/lazydino/dev/medivance-pwa/$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl`
 - Protection:
   - `.lazy-harness/bin/lazy test`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`

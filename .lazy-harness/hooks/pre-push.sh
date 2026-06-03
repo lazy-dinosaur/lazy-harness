@@ -12,6 +12,35 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 LAZY="$REPO_ROOT/.lazy-harness"
 [ ! -d "$LAZY" ] && exit 0
 
+LOCK_DIR=""
+release_worktree_lock() {
+    [ -n "$LOCK_DIR" ] && rm -rf "$LOCK_DIR" 2>/dev/null || true
+}
+
+acquire_worktree_lock() {
+    GIT_DIR_ABS=$(git rev-parse --absolute-git-dir 2>/dev/null || echo "")
+    [ -z "$GIT_DIR_ABS" ] && return 0
+    LOCK_DIR="$GIT_DIR_ABS/lazy-harness/locks/git-action.lockdir"
+    mkdir -p "$(dirname "$LOCK_DIR")"
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        printf '{"pid":%s,"action":"pre-push","startedAt":"%s"}\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_DIR/owner.json" 2>/dev/null || true
+        trap release_worktree_lock EXIT INT TERM
+        return 0
+    fi
+    OWNER=$(cat "$LOCK_DIR/owner.json" 2>/dev/null || true)
+    OWNER_PID=$(printf '%s' "$OWNER" | python3 -c 'import json,sys; print((json.loads(sys.stdin.read() or "{}").get("pid") or ""))' 2>/dev/null || true)
+    if [ -n "$OWNER_PID" ] && ! kill -0 "$OWNER_PID" 2>/dev/null; then
+        rm -rf "$LOCK_DIR" 2>/dev/null || true
+        acquire_worktree_lock
+        return $?
+    fi
+    echo ""
+    echo "🚨 pre-push blocked: same worktree already has a lazy-harness git action running"
+    echo "→ 다른 세션의 commit/push/lazy-test gate가 끝난 뒤 다시 push 하세요."
+    [ -n "$OWNER" ] && echo "→ lock owner: $OWNER"
+    return 1
+}
+
 [ -f "$LAZY/.hooks-disabled" ] && {
     echo "⚠️  lazy-harness hooks disabled (.hooks-disabled present) — skip pre-push"
     exit 0
@@ -76,6 +105,8 @@ if [ "$HAS_CLI" = "0" ] && [ "$HAS_SELFTEST" = "0" ]; then
     echo "ℹ️  pre-push: .lazy-harness/bin/lazy test not wired on this host yet — skipping gate"
     exit 0
 fi
+
+acquire_worktree_lock || exit 1
 
 if [ "$HAS_CLI" = "1" ]; then
     TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test 2>&1 || true)

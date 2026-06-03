@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { runtimeStatePath } from './runtime-paths.ts'
 
 type Format = 'json' | 'md'
 
@@ -24,7 +25,7 @@ Commands:
   list [--format=json|md]
   clear-stale --older-than-hours <hours> [--prefix <prefix>] [--dry-run] [--format=json|md]
 
-Runtime state only: edits .lazy-harness/state/open-gates.json, never canonical records.
+Runtime state only: edits $LAZY_RUNTIME_ROOT/state/open-gates.json, never canonical records.
 `)
   process.exit(exitCode)
 }
@@ -64,7 +65,7 @@ function hostRoot(opts: Record<string, string | boolean>): string {
 }
 
 function statePath(root: string): string {
-  return join(root, '.lazy-harness', 'state', 'open-gates.json')
+  return runtimeStatePath('open-gates.json', root)
 }
 
 function format(opts: Record<string, string | boolean>): Format {

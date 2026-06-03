@@ -759,7 +759,7 @@
       "layer": "SSOT",
       "path": ".lazy-harness/ssot/gate-fingerprint-state.md",
       "relation": "defines_source_of_truth",
-      "target": ".lazy-harness/state/open-gates.json runtime schema",
+      "target": "$LAZY_RUNTIME_ROOT/state/open-gates.json runtime schema",
       "source": "message_id-scoped open_fingerprints map",
       "updatedAt": "2026-05-18T00:31:09Z"
     },
@@ -2538,7 +2538,7 @@
       "kind": "implementation",
       "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
       "predicate": "audits",
-      "object": ".lazy-harness/state/context-delivery-packets.jsonl",
+      "object": "$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl",
       "status": "confirmed",
       "confidence": "code-evidence",
       "evidence": [
@@ -2625,7 +2625,7 @@
       "kind": "implementation",
       "subject": ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
       "predicate": "audits",
-      "object": ".lazy-harness/state/context-delivery-packets.jsonl",
+      "object": "$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl",
       "status": "confirmed",
       "confidence": "code-evidence",
       "evidence": [

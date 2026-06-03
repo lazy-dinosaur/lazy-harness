@@ -9,12 +9,24 @@ import argparse
 import json
 import os
 import statistics
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd())
-DEFAULT_LOG = ROOT / ".lazy-harness" / "logs" / "hook-timings.jsonl"
+sys.path.insert(0, str(ROOT / ".lazy-harness" / "hooks" / "lifecycle" / "helpers"))
+try:
+    from runtime_paths import runtime_log_path
+except Exception:  # pragma: no cover - summary falls back for transitional hosts
+    runtime_log_path = None  # type: ignore[assignment]
+
+if os.environ.get("LAZY_HOOK_TIMING_LOG"):
+    DEFAULT_LOG = Path(os.environ["LAZY_HOOK_TIMING_LOG"])
+elif runtime_log_path is not None:
+    DEFAULT_LOG = runtime_log_path(ROOT, "hook-timings.jsonl")
+else:
+    DEFAULT_LOG = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "logs" / "hook-timings.jsonl"
 
 
 def percentile(values: list[float], pct: float) -> float:

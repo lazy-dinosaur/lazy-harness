@@ -9,17 +9,17 @@ Related: `.lazy-harness/spec/platform/workflow-compression-router.md`, `.lazy-ha
 
 Automatic route telemetry is supposed to accumulate during normal Jcode use so the user can keep working without remembering manual `lazy route --log` probes.
 
-Observed failure: `response.completed` hooks were firing and could inject other lifecycle reminders, but `.lazy-harness/logs/route-decisions.jsonl` was not growing after normal responses. Manual `lazy route --log` still appended successfully.
+Observed failure: `response.completed` hooks were firing and could inject other lifecycle reminders, but `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl` was not growing after normal responses. Manual `lazy route --log` still appended successfully.
 
 Root cause: `on-response-completed.sh` copied the full lifecycle payload into `PAYLOAD_JSON` and parsed it from the environment inside Python. Real payloads can contain large `recent_tool_calls` previews. That env path plus inline Python shell quoting made the telemetry extraction fail silently before `last_user_message` reached `task-router.ts`.
 
 ## Expected behavior
 
-- Given a `response.completed` payload with `last_user_message` and `message_id`, the hook appends one route sample to `.lazy-harness/logs/route-decisions.jsonl`.
+- Given a `response.completed` payload with `last_user_message` and `message_id`, the hook appends one route sample to `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl`.
 - Replaying the same `message_id` does not append duplicates.
 - Live-sized payloads with large `recent_tool_calls` still append successfully.
 - Telemetry never stores raw user message text.
-- If the payload has no supported user-message field, diagnostics may go to `.lazy-harness/logs/route-telemetry-debug.jsonl` with keys/counts/hashes only.
+- If the payload has no supported user-message field, diagnostics may go to `$LAZY_SHARED_ROOT/logs/route-telemetry-debug.jsonl` with keys/counts/hashes only.
 
 ## Layer completeness impact
 
@@ -36,7 +36,7 @@ Root cause: `on-response-completed.sh` copied the full lifecycle payload into `P
   - Parses the response payload from stdin for route telemetry extraction.
   - Supports `last_user_message`, `lastUserMessage`, `last_user_input`, `lastUserInput`, `user_message`, and `userMessage` aliases.
   - Calls `task-router.ts --log --message-id` silently when a message is available.
-  - Writes no-raw diagnostic metadata to `.lazy-harness/logs/route-telemetry-debug.jsonl` only when no route message can be extracted.
+  - Writes no-raw diagnostic metadata to `$LAZY_SHARED_ROOT/logs/route-telemetry-debug.jsonl` only when no route message can be extracted.
 - `.lazy-harness/scripts/task-router.ts`
   - Owns route classification, telemetry append, and `messageIdHash` dedupe.
 - `.lazy-harness/scripts/self-test.py`

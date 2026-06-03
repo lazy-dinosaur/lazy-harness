@@ -174,7 +174,7 @@ This collector is the explicit aggregate step before stronger response.completed
 
 There are two evidence streams:
 
-1. Automatic shadow journal: normal development can append sanitized Record Decision observations via `response.completed` to `.lazy-harness/state/record-decision-packets.jsonl`.
+1. Automatic shadow journal: normal development can append sanitized Record Decision observations via `response.completed` to `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl`.
 2. Explicit aggregate dogfood: `lazy context-dogfood` must be run by the agent/operator to compare real hosts and collect Context Delivery + Record Decision summaries in `.lazy-harness/state/context-broker-dogfood.jsonl`.
 
 The user does not need to hand-collect evidence, but the agent must still run the explicit collector when asked to check dogfood. If the analysis finds confirmed or strongly grounded framework knowledge, the agent workflow must automatically create/update the appropriate canonical records.

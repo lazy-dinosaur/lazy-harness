@@ -67,7 +67,7 @@ Plainly asking a gate once is allowed for true decision/execution gates. Helpers
   - `.lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh` — response-completed guard.
   - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — silently captures deduped BDD scenario candidates instead of injecting repeated option gates.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — suppresses already-open project-rule placement STOP reminders using turn-level fingerprints.
-  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns `.lazy-harness/state/open-gates.json` check/record behavior.
+  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — owns `$LAZY_RUNTIME_ROOT/state/open-gates.json` check/record behavior.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime state SSOT for `open-gates.json`.
   - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated project rule placement reminders.
   - `.lazy-harness/triggers/code-change.ts` — lazy-loads non-BDD parser dependencies so BDD natural-language gates work in installed hosts without `ts-morph`.

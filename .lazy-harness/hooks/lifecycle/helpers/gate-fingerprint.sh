@@ -7,7 +7,7 @@
 #                                                              suppress), exit 1 if new
 #   gate_fingerprint_record <helper_name> <fingerprint>      → mark open
 #
-# The state file `.lazy-harness/state/open-gates.json` is keyed by helper name +
+# The state file `$LAZY_RUNTIME_ROOT/state/open-gates.json` is keyed by helper name +
 # fingerprint and tied to `JCODE_MESSAGE_ID` (or argv-passed message id). When
 # the message id rolls over, all fingerprints from the previous turn are
 # cleared.
@@ -25,7 +25,13 @@
 
 set -euo pipefail
 
-STATE_FILE=".lazy-harness/state/open-gates.json"
+if [ -z "${LAZY_RUNTIME_ROOT:-}" ] && [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
+  # shellcheck disable=SC1091
+  . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
+  lazy_export_runtime_env "${LAZY_HOST_ROOT:-$(pwd)}" "{}"
+fi
+
+STATE_FILE="${LAZY_OPEN_GATES_FILE:-${LAZY_RUNTIME_ROOT:-.lazy-harness/.runtime}/state/open-gates.json}"
 
 _gate_get_message_id() {
   # Prefer message id passed as 3rd argv, fall back to env, fall back to "unknown".

@@ -22,15 +22,22 @@
 
 set +e  # Never fail
 
-[ -f .lazy-harness/.hooks-disabled ] && exit 0
-
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+REPO_ROOT="${LAZY_HOST_ROOT:-}"
+[ -z "$REPO_ROOT" ] && REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -z "$REPO_ROOT" ] || [ ! -d "$REPO_ROOT/.lazy-harness" ] && exit 0
 cd "$REPO_ROOT"
+
+[ -f .lazy-harness/.hooks-disabled ] && exit 0
 
 PAYLOAD=$(cat || echo '{}')
 TIMESTAMP=$(date -Iseconds)
 TODAY=$(date +%Y-%m-%d)
+
+if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
+  # shellcheck disable=SC1091
+  . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
+  lazy_export_runtime_env "$REPO_ROOT" "$PAYLOAD"
+fi
 
 # Parse payload (silent fail)
 SESSION_ID=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.stdin).get('session_id',''))" 2>/dev/null || echo "")
@@ -38,7 +45,8 @@ TURN_COUNT=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.
 SESSION_AGE=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.stdin).get('session_age_seconds',0))" 2>/dev/null || echo "0")
 
 # === 1. last-session.json 기록 (다음 세션 진입 시 SessionStart hook 이 읽음) ===
-mkdir -p .lazy-harness/state
+STATE_DIR="${LAZY_RUNTIME_ROOT:-.lazy-harness/.runtime}/state"
+mkdir -p "$STATE_DIR"
 python3 -c "
 import json
 data = {
@@ -48,7 +56,7 @@ data = {
     'session_age_seconds': $SESSION_AGE,
     'reason': $(echo "$PAYLOAD" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin).get(\"reason\",\"\")))' 2>/dev/null || echo '""')
 }
-with open('.lazy-harness/state/last-session.json', 'w') as f:
+with open('$STATE_DIR/last-session.json', 'w') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
 " 2>/dev/null
 
@@ -70,7 +78,7 @@ EOF
 fi
 
 # === 3. actions.jsonl 에 disconnect 이벤트 기록 ===
-LOG=".lazy-harness/logs/actions.jsonl"
+LOG="${LAZY_RUNTIME_ROOT:-.lazy-harness/.runtime}/logs/actions.jsonl"
 mkdir -p "$(dirname "$LOG")"
 python3 -c "
 import json

@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, relative } from 'node:path'
+import { appendJsonlStable } from './runtime-paths.ts'
 
 const STATUS_VALUES = ['authoritative', 'candidate', 'historical', 'duplicate', 'conflicting', 'rejected'] as const
 type Status = typeof STATUS_VALUES[number]
@@ -599,8 +600,10 @@ function applyConfirmed(result: PlanResult): PlanResult {
   if (newEntries.length) {
     const abs = join(result.root, candidatePath)
     ensureParent(abs)
-    appendFileSync(abs, newEntries.map((entry) => JSON.stringify(entry)).join('\n') + '\n', 'utf8')
-    appliedWrites.push({ path: candidatePath, action: 'appended', summary: `${newEntries.length} new candidate/quarantine entries appended` })
+    const statuses = newEntries.map((entry) => appendJsonlStable(abs, entry as unknown as Record<string, unknown>, 'id', result.root))
+    const appended = statuses.filter((status) => status === 'appended').length
+    const conflicts = statuses.filter((status) => status === 'conflict-recorded').length
+    appliedWrites.push({ path: candidatePath, action: conflicts ? 'conflict-recorded' : 'appended', summary: `${appended} appended, ${conflicts} conflicts recorded, ${statuses.length - appended - conflicts} deduped-identical` })
   } else {
     appliedWrites.push({ path: candidatePath, action: 'skipped', summary: 'No new candidate/quarantine entries after dedupe' })
   }

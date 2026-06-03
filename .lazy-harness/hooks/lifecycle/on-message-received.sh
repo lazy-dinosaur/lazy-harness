@@ -32,6 +32,12 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 [ -f .lazy-harness/.hooks-disabled ] && exit 0
 
+if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
+  # shellcheck disable=SC1091
+  . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
+  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
+fi
+
 python3 - "$ROOT_CANDIDATE" "$PAYLOAD" <<'PY'
 import hashlib
 import json
@@ -100,7 +106,8 @@ row = {
     ],
 }
 try:
-    journal = root / '.lazy-harness' / 'state' / 'context-delivery-packets.jsonl'
+    runtime_root = Path(os.environ.get('LAZY_RUNTIME_ROOT') or (root / '.lazy-harness' / '.runtime'))
+    journal = runtime_root / 'state' / 'context-delivery-packets.jsonl'
     journal.parent.mkdir(parents=True, exist_ok=True)
     existing = []
     if journal.exists():

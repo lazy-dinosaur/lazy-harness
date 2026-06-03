@@ -92,8 +92,15 @@ RESULT_JSON="$RESULT" MESSAGE_ID_HASH="$MESSAGE_ID_HASH" INPUT_FINGERPRINT="$FIN
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path('.lazy-harness/hooks/lifecycle/helpers').resolve()))
+try:
+    from runtime_paths import append_jsonl_stable
+except Exception:
+    append_jsonl_stable = None
 
 try:
     result = json.loads(os.environ.get('RESULT_JSON', '{}'))
@@ -162,10 +169,14 @@ for candidate in candidates:
     existing_ids.add(cid)
 
 if rows:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('a', encoding='utf-8') as fh:
+    if append_jsonl_stable is not None:
         for row in rows:
-            fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
+            append_jsonl_stable(Path.cwd(), path, row)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open('a', encoding='utf-8') as fh:
+            for row in rows:
+                fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
 PY
 
 exit 0

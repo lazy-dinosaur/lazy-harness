@@ -74,7 +74,7 @@ Cleanup result:
 
 Current classification:
 
-- `.lazy-harness/state/open-gates.json` remains runtime state, not canonical memory.
+- `$LAZY_RUNTIME_ROOT/state/open-gates.json` remains runtime state, not canonical memory.
 - Future readiness runs should use `lazy gate-state list --format=json` before replacement decisions.
 
 ### B2 — record-audit graph paths require canonical source argument
@@ -155,7 +155,7 @@ Confirmation: validation evidence
 Implemented readiness cleanup slice A:
 
 - `lazy gate-state list|clear-stale`
-  - Lists runtime `.lazy-harness/state/open-gates.json` state.
+  - Lists runtime `$LAZY_RUNTIME_ROOT/state/open-gates.json` state.
   - Clears stale fingerprints by age and optional prefix.
   - Supports `--dry-run` and JSON/Markdown output.
   - Mutates runtime state only, never canonical records.
@@ -378,7 +378,7 @@ Implementation summary:
 - `orchestrator` mode runs `.lazy-harness/scripts/lifecycle-check.py` as the primary helper engine after route telemetry.
 - `orchestrator` mode falls back to the legacy shell-helper loop if `lifecycle-check.py` exits non-zero or emits invalid JSON.
 - `compare` mode runs the orchestrator in a sandbox `.lazy-harness` copy, then runs legacy in the real host.
-- `compare` mode keeps legacy output as user-visible truth and logs sanitized comparison metadata to `.lazy-harness/logs/lifecycle-compare.jsonl` or `LAZY_RESPONSE_COMPLETED_COMPARE_LOG`.
+- `compare` mode keeps legacy output as user-visible truth and logs sanitized comparison metadata to `$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl` or `LAZY_RESPONSE_COMPLETED_COMPARE_LOG`.
 - Added `lifecycle-check.py --sandbox` to support side-effect-safe comparison.
 - Added self-test coverage for orchestrator timing rows, sandboxed compare rows, and no raw hook body storage.
 
@@ -393,7 +393,7 @@ export LAZY_RESPONSE_COMPLETED_ENGINE=legacy
 Optional cleanup:
 
 ```bash
-rm -f .lazy-harness/logs/lifecycle-compare.jsonl
+rm -f $LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 ```
 
 Checklist delta:
@@ -466,7 +466,7 @@ Dogfood configuration:
 - `/home/lazydino/dev/medivance/.jcode/config.toml`
   - response.completed hook command changed locally to `.jcode/hooks/response-completed-compare.sh`.
   - wrapper exports `LAZY_RESPONSE_COMPLETED_ENGINE=compare` by default.
-  - wrapper writes compare metadata to `.lazy-harness/logs/lifecycle-compare.jsonl` by default.
+  - wrapper writes compare metadata to `$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl` by default.
 - `/home/lazydino/dev/medivance-pwa/.jcode/config.toml`
   - same compare wrapper configuration applied.
 
@@ -490,7 +490,7 @@ Operational notes:
 
 - This is local/private `.jcode` wiring, not a production default replacement.
 - Rollback for either host: change the response.completed command back to `.lazy-harness/hooks/lifecycle/on-response-completed.sh` or set `LAZY_RESPONSE_COMPLETED_ENGINE=legacy` in the wrapper.
-- Compare evidence should be reviewed via `.lazy-harness/logs/lifecycle-compare.jsonl`.
+- Compare evidence should be reviewed via `$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl`.
 
 Next source-side note:
 

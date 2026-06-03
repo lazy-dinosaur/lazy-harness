@@ -22,7 +22,7 @@ Phase 3 adds an opt-in lifecycle engine switch. Default behavior remains `legacy
 Default path:
 
 ```text
-.lazy-harness/logs/hook-timings.jsonl
+$LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl
 ```
 
 Environment controls:
@@ -30,7 +30,7 @@ Environment controls:
 - `LAZY_HOOK_TIMING=0`: disables timing logging.
 - `LAZY_HOOK_TIMING_LOG=/path/to/file.jsonl`: overrides the timing log path.
 - `LAZY_RESPONSE_COMPLETED_ENGINE=legacy|orchestrator|compare`: selects the response.completed engine. Missing/unknown values fall back to `legacy`.
-- `LAZY_RESPONSE_COMPLETED_COMPARE_LOG=/path/to/file.jsonl`: overrides compare-mode JSONL output. Default: `.lazy-harness/logs/lifecycle-compare.jsonl`.
+- `LAZY_RESPONSE_COMPLETED_COMPARE_LOG=/path/to/file.jsonl`: overrides compare-mode JSONL output. Default: `$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl`.
 
 Each JSONL row contains:
 
@@ -46,7 +46,7 @@ Each JSONL row contains:
 ```bash
 .lazy-harness/bin/lazy hook-timings --format=md
 .lazy-harness/bin/lazy hook-timings --format=json --limit=500
-python3 .lazy-harness/scripts/hook-timing-summary.py --log .lazy-harness/logs/hook-timings.jsonl
+python3 .lazy-harness/scripts/hook-timing-summary.py --log $LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl
 ```
 
 The summary command is read-only and reports per-component count, total, average, p50, p90, p99, max, emitted count, and non-zero exit count.
@@ -157,7 +157,7 @@ Opt-in compare/debug mode:
 
 ```bash
 LAZY_RESPONSE_COMPLETED_ENGINE=compare \
-LAZY_RESPONSE_COMPLETED_COMPARE_LOG=.lazy-harness/logs/lifecycle-compare.jsonl \
+LAZY_RESPONSE_COMPLETED_COMPARE_LOG=$LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl \
 .lazy-harness/hooks/lifecycle/on-response-completed.sh
 ```
 
@@ -174,7 +174,7 @@ export LAZY_RESPONSE_COMPLETED_ENGINE=legacy
 Remove compare logs if desired:
 
 ```bash
-rm -f .lazy-harness/logs/lifecycle-compare.jsonl
+rm -f $LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 ```
 
 ## Implementation map

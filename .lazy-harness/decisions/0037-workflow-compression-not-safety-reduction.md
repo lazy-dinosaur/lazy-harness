@@ -46,7 +46,7 @@ The router and any future workflow profile must preserve these invariants:
 
 Default `lazy route` remains read-only. For real dogfooding work, agents may call `lazy route --log`, and the Jcode `response.completed` lifecycle hook automatically records one append-only route telemetry sample per `message_id` when `last_user_message` is present. This makes telemetry collection usable without relying on agents to remember manual logging.
 
-Telemetry is not canonical truth and does not close gates. It records only route axes plus stable message/message-id hashes, not the raw user message. It is append-only under `.lazy-harness/logs/route-decisions.jsonl`, ignored by git, and summarized by `lazy route-summary`.
+Telemetry is not canonical truth and does not close gates. It records only route axes plus stable message/message-id hashes, not the raw user message. It is append-only under `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl`, ignored by git, and summarized by `lazy route-summary`.
 
 This amendment preserves the read-only invariant by distinguishing:
 

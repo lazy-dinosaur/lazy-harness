@@ -145,14 +145,14 @@ Semantics:
 3. avoid all user-text semantic classification in shell/CLI code; the hook must not branch on words such as `fix`, `test`, `고쳐`, or `확인`,
 4. emit the same `STOP. Harness-first lazy-harness search-debt before response` static transport for any non-empty user message,
 5. include compact actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning folders with counts/samples, generated-index presence, graph/profile pointers, source/tests dirs, `## Rule digest`, Related records, Implementation map, graph links, and option-gate-after-search,
-6. append sanitized direct-search debt rows to `.lazy-harness/state/context-delivery-packets.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
+6. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
 7. stay silent only when no user message exists or the hook cannot resolve a host root,
 8. avoid running `relevant-record-query.ts`, `context-delivery.ts`, subagents, `jcode run`, or any semantic search backend inside `message.received`,
 9. log latency without raw message bodies when logging is needed.
 
 The surfaced digest journal is runtime state only and is now written by explicit digest surfacing/dogfood paths, not by the default `message.received` harness-first search hook. It stores safe hashes and record-authored fields (record path, title, layer, status, record-completion text, compact bullets) so `response.completed` can audit the same turn without storing raw user or assistant message bodies.
 
-Protocol-only harness-first inventory/search injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Direct-search debt rows and explicit Context Delivery packet rows share `.lazy-harness/state/context-delivery-packets.jsonl` as non-canonical runtime state with sanitized metadata and safe message/session hashes; those rows are consumed by the generic evidence guard and response audit/backstop as search/read debt evidence.
+Protocol-only harness-first inventory/search injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Direct-search debt rows and explicit Context Delivery packet rows share `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` as non-canonical runtime state with sanitized metadata and safe message/session hashes; those rows are consumed by the generic evidence guard and response audit/backstop as search/read debt evidence.
 
 ## Token and latency budget
 

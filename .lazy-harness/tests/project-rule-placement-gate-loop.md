@@ -26,7 +26,7 @@ Primary ownership: lazy-harness hook behavior. Jcode payload shape is an input c
 
 ## Fix
 
-`check-project-rule-placement.sh` now computes a deterministic fingerprint from stable project-rule-placement trigger inputs and records a `project-rule-placement:<fingerprint>` key in `.lazy-harness/state/open-gates.json`.
+`check-project-rule-placement.sh` now computes a deterministic fingerprint from stable project-rule-placement trigger inputs and records a `project-rule-placement:<fingerprint>` key in `$LAZY_RUNTIME_ROOT/state/open-gates.json`.
 
 2026-05-19 addendum: the helper also recognizes completed no-op/non-applicable judgements and negative no-record dispositions as terminal non-actions. `기록하지 않음` and equivalent English/Korean no-record cues no longer count as an action cue when no write/Jcode/memory tool was touched.
 
@@ -65,7 +65,7 @@ Expected behavior:
 - Flow:
   1. Project rule placement cues are detected and no complete placement/canonical record update satisfies the gate.
   2. Helper computes fingerprint from `last_user_message`, relevant tool-call blobs, and derived cue booleans.
-  3. Helper checks `.lazy-harness/state/open-gates.json` under `project-rule-placement:<fingerprint>` for the current `message_id`.
+  3. Helper checks `$LAZY_RUNTIME_ROOT/state/open-gates.json` under `project-rule-placement:<fingerprint>` for the current `message_id`.
   4. First fire records state and emits STOP; same-turn duplicate exits silently.
 - Tests / protection:
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`

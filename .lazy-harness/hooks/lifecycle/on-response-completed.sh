@@ -15,8 +15,18 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 PAYLOAD=$(cat || echo '{}')
 
+if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
+  # shellcheck disable=SC1091
+  . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
+  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
+fi
+
 TIMING_ENABLED="${LAZY_HOOK_TIMING:-1}"
-TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-.lazy-harness/logs/hook-timings.jsonl}"
+if command -v lazy_log_file >/dev/null 2>&1; then
+  TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-$(lazy_log_file hook-timings.jsonl "$ROOT_CANDIDATE" "$PAYLOAD")}"
+else
+  TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-.lazy-harness/.runtime/logs/hook-timings.jsonl}"
+fi
 
 now_ns() {
   date +%s%N 2>/dev/null || printf '0'
@@ -82,7 +92,11 @@ PY
 write_compare_log() {
   [ -z "$ORCHESTRATOR_RESULT_FILE" ] && return 0
   [ ! -f "$ORCHESTRATOR_RESULT_FILE" ] && return 0
-  COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-.lazy-harness/logs/lifecycle-compare.jsonl}"
+  if command -v lazy_log_file >/dev/null 2>&1; then
+    COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-$(lazy_log_file lifecycle-compare.jsonl "$ROOT_CANDIDATE" "$PAYLOAD")}"
+  else
+    COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-.lazy-harness/.runtime/logs/lifecycle-compare.jsonl}"
+  fi
   mkdir -p "$(dirname "$COMPARE_LOG")" 2>/dev/null || true
   ORCHESTRATOR_RESULT_FILE="$ORCHESTRATOR_RESULT_FILE" \
   ORCHESTRATOR_EXIT="$ORCHESTRATOR_EXIT" \
@@ -267,7 +281,8 @@ entry = {
     "messageAliasesPresent": [k for k in aliases if isinstance(payload.get(k), str) and payload.get(k).strip()] if isinstance(payload, dict) else [],
 }
 root = os.environ.get("LAZY_HOST_ROOT") or os.getcwd()
-path = os.path.join(root, ".lazy-harness", "logs", "route-telemetry-debug.jsonl")
+shared_root = os.environ.get("LAZY_SHARED_ROOT") or os.path.join(root, ".lazy-harness", ".shared")
+path = os.path.join(shared_root, "logs", "route-telemetry-debug.jsonl")
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "a", encoding="utf-8") as fh:
     fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")

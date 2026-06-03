@@ -86,7 +86,7 @@ Response shadow bridge:
 response.completed
 → check-record-decision-shadow.py
 → record-decision-broker.ts
-→ .lazy-harness/state/record-decision-packets.jsonl
+→ $LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl
 ```
 
 The shadow bridge is silent by default. It writes sanitized non-canonical packet observations and emits `ADVISORY` only when `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1`. It never emits blocking output.
@@ -222,14 +222,14 @@ Record Decision Broker may consume Context Delivery evidence:
 - `requiredRead` paths that were read before changes,
 - packet confidence,
 - candidate meanings and resolved aliases,
-- packet evidence journal rows from `.lazy-harness/state/context-delivery-packets.jsonl`.
+- packet evidence journal rows from `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl`.
 
 Context Delivery is pre-turn required-read. Record Decision Broker is post-turn record-write decision.
 
 ## Privacy and retention
 
 - Packet is non-canonical unless written into a canonical record by an explicit path.
-- Journaled packet rows must be under `.lazy-harness/state/` and ignored by git.
+- Journaled packet rows must be under `$LAZY_RUNTIME_ROOT/state/` and ignored by git.
 - Packet evidence must not store raw full prompts, raw assistant responses, API keys, secrets, or full transcripts.
 - Safe fields: record paths, source paths, layer labels, tool names, short hashes, compact summaries, confidence, disposition, action names.
 

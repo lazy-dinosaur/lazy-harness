@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { buildContextIndex, type ContextIndex, type RecordEntry } from './context-index.ts'
+import { runtimeStatePath } from './runtime-paths.ts'
 
 type InstructionLevel = 'digest-only' | 'harness-first-static' | 'self-resolve-before-answer' | 'self-resolve-before-change' | 'delegate-search'
 type QuerySource = 'user-phrase' | 'llm-expansion' | 'deterministic-expansion' | 'record-link' | 'profile-link' | 'fallback'
@@ -168,7 +169,7 @@ function parseArgs(argv: string[]): Args {
   if (!args.message.trim()) usage()
   args.root = path.resolve(args.root)
   args.indexPath = args.indexPath ? path.resolve(args.indexPath) : path.join(args.root, '.lazy-harness', 'generated', 'context-index.json')
-  args.journalPath = args.journalPath ? path.resolve(args.journalPath) : path.join(args.root, '.lazy-harness', 'state', 'context-delivery-packets.jsonl')
+  args.journalPath = args.journalPath ? path.resolve(args.journalPath) : runtimeStatePath('context-delivery-packets.jsonl', args.root, args.sessionId)
   return args
 }
 

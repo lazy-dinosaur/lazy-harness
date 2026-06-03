@@ -3,7 +3,7 @@
 Date: 2026-05-21
 Status: report + improvement plan
 Scope: `/home/lazydino/dev/medivance.pr-dev-appointment-reservation-sheet`
-Source route data: `.lazy-harness/logs/route-decisions.jsonl` in the worktree
+Source route data: `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl` in the worktree set
 Compared against: recent commits and current dirty diff in the same worktree
 
 ## Executive summary

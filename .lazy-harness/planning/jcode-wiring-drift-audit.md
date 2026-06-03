@@ -115,7 +115,7 @@ Current conclusion:
 ```text
 The stale Jcode wiring audit is no longer an unimplemented host drift finding.
 The repair code exists, is synced into both dogfood hosts, and validates in source plus both hosts.
-Remaining work is source hygiene: commit the uncommitted implementation/record changes if accepted, and clear or explain the source `.lazy-harness/state/open-gates.json` project-rule-placement fingerprint.
+Remaining work is source hygiene: commit the uncommitted implementation/record changes if accepted, and clear or explain the source `$LAZY_RUNTIME_ROOT/state/open-gates.json` project-rule-placement fingerprint.
 ```
 
 ## Rule placement

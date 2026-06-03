@@ -371,7 +371,7 @@ Potential files to inspect next:
 - `.lazy-harness/scripts/task-router.ts`
 - `.lazy-harness/scripts/*placement*`
 - `.lazy-harness/scripts/*regression*`
-- `.lazy-harness/logs/route-telemetry-debug.jsonl`
+- `$LAZY_SHARED_ROOT/logs/route-telemetry-debug.jsonl`
 
 ## Discovery capture
 
@@ -469,7 +469,7 @@ Confirmation: validation evidence
 Implemented readiness helpers:
 
 - `lazy gate-state list|clear-stale`
-  - Inspect runtime `.lazy-harness/state/open-gates.json`.
+  - Inspect runtime `$LAZY_RUNTIME_ROOT/state/open-gates.json`.
   - Clear stale fingerprints by age and optional prefix.
   - Supports dry-run and JSON/Markdown output.
   - Does not touch canonical records.

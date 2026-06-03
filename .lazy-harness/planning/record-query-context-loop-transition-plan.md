@@ -344,7 +344,7 @@ Outputs:
 Status:
 
 - implemented on 2026-06-01.
-- `message.received` writes sanitized surfaced digest rows to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
+- `message.received` writes sanitized surfaced digest rows to `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl`.
 - `response.completed` runs `check-response-rule-audit.py` in both legacy hook and `lifecycle-check.py` shadow/orchestrator chains.
 - First conservative audit cases: surfaced PR description rule ignored, and surfaced record-completion obligation missing.
 

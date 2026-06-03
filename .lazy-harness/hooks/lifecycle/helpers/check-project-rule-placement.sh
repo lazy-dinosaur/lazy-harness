@@ -18,6 +18,12 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path('.lazy-harness/hooks/lifecycle/helpers').resolve()))
+try:
+    from runtime_paths import runtime_state_path
+except Exception:
+    runtime_state_path = None
+
 try:
     payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
 except Exception:
@@ -233,8 +239,8 @@ def gate_already_open_this_turn() -> bool:
 
     Production jcode response.completed payloads may omit assistant_response, so a
     STOP reminder can be re-derived from the same stable inputs. The BDD helper
-    already protects this class with `.lazy-harness/state/open-gates.json`; use
-    the same state contract here to prevent visible Rule placement loops.
+    already protects this class with `$LAZY_RUNTIME_ROOT/state/open-gates.json`; use
+    the same runtime state contract here to prevent visible Rule placement loops.
     """
     message_id = str(payload.get("message_id") or "unknown")
     recent = []
@@ -255,7 +261,10 @@ def gate_already_open_this_turn() -> bool:
     }, ensure_ascii=False, sort_keys=True)
     fingerprint = hashlib.sha1(fp_input.encode("utf-8")).hexdigest()[:16]
     key = f"project-rule-placement:{fingerprint}"
-    state_path = Path(".lazy-harness/state/open-gates.json")
+    if runtime_state_path is not None:
+        state_path = runtime_state_path(Path.cwd(), "open-gates.json", payload)
+    else:
+        state_path = Path(os.environ.get("LAZY_RUNTIME_ROOT") or ".lazy-harness/.runtime") / "state" / "open-gates.json"
     state = {"last_message_id": "", "open_fingerprints": {}}
     if state_path.exists():
         try:

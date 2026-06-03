@@ -19,6 +19,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+try:
+    from runtime_paths import runtime_state_path
+except Exception:  # pragma: no cover - lifecycle helper must fail open
+    runtime_state_path = None  # type: ignore[assignment]
+
 PAYLOAD_RAW = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
     PAYLOAD = json.loads(PAYLOAD_RAW or "{}")
@@ -29,7 +34,10 @@ if not isinstance(PAYLOAD, dict):
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
 GENERATOR = ROOT / ".lazy-harness" / "scripts" / "record-decision-broker.ts"
-JOURNAL = ROOT / ".lazy-harness" / "state" / "record-decision-packets.jsonl"
+if runtime_state_path is not None:
+    JOURNAL = runtime_state_path(ROOT, "record-decision-packets.jsonl", PAYLOAD)
+else:
+    JOURNAL = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "state" / "record-decision-packets.jsonl"
 ADVISORY_ENABLED = os.environ.get("LAZY_RECORD_DECISION_SHADOW_ADVISORY", "0") == "1"
 
 WRITE_TOOLS = {

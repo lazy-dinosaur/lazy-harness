@@ -32,7 +32,7 @@ D. 직접 입력
 
 - SDD: option-gate discipline contract updated with BDD candidate-capture exception.
 - BDD: user-visible behavior is no repeated BDD prompt; scenario candidates are accumulated silently for later promotion.
-- SSOT: candidate intake uses `.lazy-harness/knowledge/candidates.jsonl`; project-rule STOP reminders still use `.lazy-harness/state/open-gates.json`.
+- SSOT: candidate intake uses `.lazy-harness/knowledge/candidates.jsonl`; project-rule STOP reminders still use `$LAZY_RUNTIME_ROOT/state/open-gates.json`.
 - DDD: no domain terminology change.
 - TDD: `check_bdd_trigger_loop_suppression` protects silent candidate capture and cross-turn dedupe; `check_bdd_trigger_avoids_runtime_tsmorph` protects installed hosts without `ts-morph`.
 - ADR: existing option-gate discipline decision covers waiting-state behavior; no new trade-off.
@@ -42,7 +42,7 @@ D. 직접 입력
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — captures deduped BDD scenario candidates and emits no hook output.
-  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — still manages `.lazy-harness/state/open-gates.json` for true STOP reminders such as project-rule placement.
+  - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` — still manages `$LAZY_RUNTIME_ROOT/state/open-gates.json` for true STOP reminders such as project-rule placement.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — SSOT for open gate runtime state.
   - `.lazy-harness/triggers/code-change.ts` — lazy-loads `ts-morph` only for non-BDD layers so BDD natural-language detection works in installed hosts.
   - `.lazy-harness/scripts/self-test.py` — adds `run_bdd_trigger_helper` and `check_bdd_trigger_loop_suppression`.

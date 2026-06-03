@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { runtimeStatePath } from './runtime-paths.ts'
 
 type Format = 'json' | 'md'
 
@@ -187,8 +188,8 @@ function readMarker(host: string): string | null {
   }
 }
 
-function latestPacketJournal(host: string): Record<string, unknown> | null {
-  const journal = path.join(host, '.lazy-harness', 'state', 'context-delivery-packets.jsonl')
+function latestPacketJournal(host: string, sessionId = ''): Record<string, unknown> | null {
+  const journal = runtimeStatePath('context-delivery-packets.jsonl', host, sessionId)
   if (!existsSync(journal)) return null
   try {
     const lines = readFileSync(journal, 'utf8').split(/\r?\n/).filter((line) => line.trim())
@@ -260,7 +261,7 @@ function collectCase(host: string, spec: CaseSpec): DogfoodRow {
     }
   }
 
-  const journalRow = latestPacketJournal(host)
+  const journalRow = latestPacketJournal(host, sessionId)
   row.packetJournal.checked = true
   if (journalRow) {
     row.packetJournal.hasMessageHash = Boolean((journalRow as any).messageIdHash)

@@ -8,8 +8,9 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { sharedPath } from './runtime-paths.ts'
 
 type Intent = 'feature' | 'fix' | 'refactor' | 'investigation' | 'docs' | 'release' | 'unknown'
 type Scope = 'trivial' | 'code-local' | 'behavior' | 'contract' | 'ownership' | 'unknown'
@@ -494,6 +495,10 @@ function hostRoot(): string {
 }
 
 function telemetryPath(name: string): string {
+  return sharedPath(join('logs', name), hostRoot())
+}
+
+function legacyTelemetryPath(name: string): string {
   return join(hostRoot(), '.lazy-harness', 'logs', name)
 }
 
@@ -502,9 +507,8 @@ function stableHash(value: string): string {
 }
 
 function appendTelemetry(result: RouteOutput, messageId = ''): void {
-  const logsDir = join(hostRoot(), '.lazy-harness', 'logs')
-  mkdirSync(logsDir, { recursive: true })
   const path = telemetryPath('route-decisions.jsonl')
+  mkdirSync(dirname(path), { recursive: true })
   const messageIdHash = messageId ? stableHash(messageId) : ''
   if (messageIdHash && existsSync(path)) {
     const alreadyLogged = readFileSync(path, 'utf8')
@@ -571,8 +575,8 @@ function countBy(entries: any[], key: string): Record<string, number> {
 }
 
 function summarizeTelemetry(): any {
-  const decisions = loadJsonl(telemetryPath('route-decisions.jsonl'))
-  const feedback = loadJsonl(telemetryPath('route-feedback.jsonl'))
+  const decisions = [...loadJsonl(legacyTelemetryPath('route-decisions.jsonl')), ...loadJsonl(telemetryPath('route-decisions.jsonl'))]
+  const feedback = [...loadJsonl(legacyTelemetryPath('route-feedback.jsonl')), ...loadJsonl(telemetryPath('route-feedback.jsonl'))]
   const total = decisions.length
   const optionGate = decisions.filter((entry) => entry.gateMode === 'option-gate').length
   const highRisk = decisions.filter((entry) => entry.risk === 'high').length

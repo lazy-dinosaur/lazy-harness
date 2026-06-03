@@ -36,6 +36,22 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def env_without_lazy_runtime(**overrides: str) -> dict[str, str]:
+    env = {**os.environ, **overrides}
+    env.pop("LAZY_RUNTIME_ROOT", None)
+    env.pop("LAZY_SHARED_ROOT", None)
+    return env
+
+
+def runtime_open_gates_file(root: pathlib.Path) -> pathlib.Path:
+    try:
+        git_dir = subprocess.check_output(["git", "-C", str(root), "rev-parse", "--absolute-git-dir"], text=True, stderr=subprocess.DEVNULL).strip()
+        base = pathlib.Path(git_dir)
+    except Exception:  # noqa: BLE001
+        base = root / ".lazy-harness" / ".gitless"
+    return base / "lazy-harness" / "runtime" / "default" / "state" / "open-gates.json"
+
+
 def check_doctor_smoke() -> None:
     command = ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "smoke", *doctor_scope_args()]
     completed = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
@@ -675,7 +691,7 @@ def check_analysis_discovery_capture_helper() -> None:
 
 def check_project_rule_placement_helper() -> None:
     """Project-specific rules must route to .lazy-harness or explicit jcode-local judgement."""
-    state_file = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    state_file = runtime_open_gates_file(ROOT)
     state_file.parent.mkdir(parents=True, exist_ok=True)
     backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
     if state_file.exists():
@@ -984,7 +1000,7 @@ def check_bdd_trigger_loop_suppression() -> None:
     `.lazy-harness/knowledge/candidates.jsonl` for later user-confirmed promotion.
     """
     candidates_file = ROOT / ".lazy-harness" / "knowledge" / "candidates.jsonl"
-    state_file = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    state_file = runtime_open_gates_file(ROOT)
     candidates_file.parent.mkdir(parents=True, exist_ok=True)
     candidates_backup = candidates_file.read_text(encoding="utf-8") if candidates_file.exists() else None
     state_backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
@@ -1121,6 +1137,8 @@ def check_pre_push_uses_canonical_lazy_cli() -> None:
         'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test',
         'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py"',
         'LAZY_HOST_ROOT="$REPO_ROOT"',
+        "git-action.lockdir",
+        "same worktree already has a lazy-harness git action running",
         "IS_FRAMEWORK_REPO",
         "framework/framework-contract.md",
         "planning/phase-5-plan.xml",
@@ -1878,6 +1896,8 @@ def check_pre_commit_runs_lazy_test() -> None:
         '"$LAZY/bin/lazy" test',
         '"$LAZY/scripts/self-test.py"',
         "pre-commit blocked: .lazy-harness/bin/lazy test 실패",
+        "git-action.lockdir",
+        "same worktree already has a lazy-harness git action running",
         "IS_FRAMEWORK_REPO",
     ]
     missing = [phrase for phrase in required if phrase not in source]
@@ -1933,12 +1953,15 @@ def check_task_router_read_only_contract() -> None:
         (temp / ".lazy-harness" / "logs").mkdir(parents=True, exist_ok=True)
         env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
         _run_task_router("typo in README", env=env)
-        telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
+        telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
+        legacy_telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
         if telemetry.exists():
             fail("task-router default mode must not create route telemetry")
         _run_task_router("typo in README", extra_args=["--log"], env=env)
         if not telemetry.exists():
             fail("task-router --log should append route telemetry")
+        if legacy_telemetry.exists():
+            fail("task-router --log should not write new route telemetry to runtime/canonical .lazy-harness logs")
         entry = json.loads(telemetry.read_text(encoding="utf-8").strip())
         if "message" in entry or "messagePreview" in entry:
             fail("route telemetry must not store raw message: " + json.dumps(entry, ensure_ascii=False))
@@ -2039,7 +2062,8 @@ def check_gate_state_cli_and_record_audit_source_guard() -> None:
     """Phase 3 readiness helpers protect runtime gate cleanup and source-arg mistakes."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-gate-state-"))
     try:
-        state_dir = temp / ".lazy-harness" / "state"
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        state_dir = runtime_open_gates_file(temp).parent
         state_dir.mkdir(parents=True)
         (temp / ".lazy-harness" / "knowledge").mkdir(parents=True)
         (state_dir / "open-gates.json").write_text(
@@ -2401,7 +2425,7 @@ def check_response_completed_auto_route_telemetry() -> None:
     try:
         shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state"))
         subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
-        telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
+        telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
         if telemetry.exists():
             telemetry.unlink()
         timings = temp / ".lazy-harness" / "logs" / "hook-timings.jsonl"
@@ -2426,7 +2450,7 @@ def check_response_completed_auto_route_telemetry() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(timings)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(timings)),
             )
             if completed.returncode != 0:
                 fail("response.completed hook should stay best-effort for auto route telemetry:\n" + completed.stdout + completed.stderr)
@@ -2437,7 +2461,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             text=True,
             capture_output=True,
             check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(timings)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(timings)),
         )
         if large_completed.returncode != 0:
             fail("response.completed hook should tolerate live-sized payloads for auto route telemetry:\n" + large_completed.stdout + large_completed.stderr)
@@ -2466,7 +2490,7 @@ def check_response_completed_auto_route_telemetry() -> None:
         summary_completed = subprocess.run(
             [str(temp / ".lazy-harness" / "bin" / "lazy"), "hook-timings", "--format=json", "--limit=100"],
             cwd=temp,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(timings)),
             text=True,
             capture_output=True,
             check=False,
@@ -2489,7 +2513,7 @@ def check_response_completed_auto_route_telemetry() -> None:
         def run_hook_with_timing(payload_obj: dict, log_name: str, extra_env: dict[str, str] | None = None) -> set[str]:
             log_path = temp / ".lazy-harness" / "logs" / log_name
             log_path.unlink(missing_ok=True)
-            env = {**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(log_path)}
+            env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(log_path))
             if extra_env:
                 env.update(extra_env)
             completed = subprocess.run(
@@ -2677,6 +2701,112 @@ def check_lazy_host_root_resolution() -> None:
     print("✓ LAZY_HOST_ROOT worktree root resolution ok")
 
 
+def check_parallel_runtime_state_isolation() -> None:
+    """Symlinked worktrees must isolate runtime journals by caller worktree/session."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_parallel_runtime_"))
+    try:
+        primary = temp / "primary"
+        secondary = temp / "secondary"
+        primary.mkdir()
+        secondary.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=primary, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=secondary, check=True)
+        (primary / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
+        (secondary / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
+
+        payload_a = json.dumps({"event": "message.received", "session_id": "session-a", "message_id": "m-a", "last_user_message": "A 작업", "working_dir": str(secondary)})
+        payload_b = json.dumps({"event": "message.received", "session_id": "session-b", "message_id": "m-b", "last_user_message": "B 작업", "working_dir": str(secondary)})
+        for payload in [payload_a, payload_b]:
+            completed = subprocess.run(
+                [str(secondary / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh")],
+                cwd=secondary,
+                input=payload,
+                text=True,
+                capture_output=True,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(secondary)),
+                check=False,
+            )
+            if completed.returncode != 0:
+                fail("message.received runtime isolation fixture failed:\n" + completed.stdout + completed.stderr)
+
+        runtime_a = subprocess.check_output(
+            ["python3", str(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"), "runtime-root", payload_a],
+            cwd=secondary,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(secondary)),
+            text=True,
+        ).strip()
+        runtime_b = subprocess.check_output(
+            ["python3", str(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"), "runtime-root", payload_b],
+            cwd=secondary,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(secondary)),
+            text=True,
+        ).strip()
+        if runtime_a == runtime_b:
+            fail("different session ids should map to different runtime roots")
+        if not runtime_a.startswith(str((secondary / ".git" / "lazy-harness" / "runtime").resolve())):
+            fail(f"runtime root should live under caller worktree git-dir, got {runtime_a}")
+        for runtime in [pathlib.Path(runtime_a), pathlib.Path(runtime_b)]:
+            journal = runtime / "state" / "context-delivery-packets.jsonl"
+            if not journal.exists():
+                fail(f"runtime journal missing: {journal}")
+        symlink_target_journal = primary / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        if symlink_target_journal.exists() and str(symlink_target_journal.resolve()).startswith(str(LAZY.resolve())):
+            # The source repo may have historical rows, but this fixture must not create
+            # a fresh primary/symlink-target journal in the temp worktrees.
+            pass
+
+        payload_tool_a = json.dumps({"event": "tool.execute.before", "session_id": "session-a", "tool": {"name": "bash", "args": {"command": "echo mutate"}}})
+        denied = subprocess.run(
+            [str(secondary / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh")],
+            cwd=secondary,
+            input=payload_tool_a,
+            text=True,
+            capture_output=True,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(secondary)),
+            check=False,
+        )
+        if denied.returncode == 0 or "search-debt" not in denied.stdout:
+            fail("tool.execute.before should read the matching runtime debt journal and deny action:\n" + denied.stdout + denied.stderr)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ parallel runtime state isolation ok")
+
+
+def check_shared_jsonl_conflict_visible() -> None:
+    """Stable JSONL helper must dedupe identical rows and record conflicts."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_jsonl_conflict_"))
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
+        runtime_paths = str((LAZY / "scripts" / "runtime-paths.ts").resolve())
+        script = f"""
+import {{ appendJsonlStable }} from {json.dumps(runtime_paths)}
+const path = './.lazy-harness/knowledge/test-conflict.jsonl'
+console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
+console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
+console.log(appendJsonlStable(path, {{ id: 'row-1', value: 2 }}, 'id', process.cwd()))
+"""
+        completed = subprocess.run(["bun", "-e", script], cwd=temp, env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)), text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("appendJsonlStable fixture failed:\n" + completed.stdout + completed.stderr)
+        statuses = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+        if statuses != ["appended", "deduped-identical", "conflict-recorded"]:
+            fail("appendJsonlStable statuses changed: " + json.dumps(statuses, ensure_ascii=False))
+        target = temp / ".lazy-harness" / "knowledge" / "test-conflict.jsonl"
+        conflicts = pathlib.Path(str(target) + ".conflicts.jsonl")
+        if not target.exists() or not conflicts.exists():
+            fail("appendJsonlStable should create target and conflict journals")
+        rows = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines() if line.strip()]
+        conflict_rows = [json.loads(line) for line in conflicts.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(rows) != 1 or rows[0].get("value") != 1:
+            fail("appendJsonlStable should not overwrite existing row: " + json.dumps(rows, ensure_ascii=False))
+        if len(conflict_rows) != 1 or conflict_rows[0].get("status") != "conflict-recorded":
+            fail("appendJsonlStable conflict row missing: " + json.dumps(conflict_rows, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ shared JSONL conflict visibility ok")
+
+
 def check_affected_test_runner() -> None:
     queue = LAZY / "questions" / f"__tmp_affected_tests_{os.getpid()}.xml"
     queue.unlink(missing_ok=True)
@@ -2767,7 +2897,7 @@ def check_lifecycle_hook_integration() -> None:
     generic_queue = LAZY / "questions" / f"__tmp_hook_generic_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
     shadow_decisions = LAZY / "logs" / f"__tmp_shadow_decisions_{os.getpid()}.jsonl"
-    bdd_state = ROOT / ".lazy-harness" / "state" / "open-gates.json"
+    bdd_state = runtime_open_gates_file(ROOT)
     bdd_state_backup = bdd_state.read_text(encoding="utf-8") if bdd_state.exists() else None
     for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
         path.unlink(missing_ok=True)
@@ -4681,6 +4811,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
     permit_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-packet-journal-"))
     try:
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         (temp / ".jcode" / "hooks").mkdir(parents=True, exist_ok=True)
@@ -4708,7 +4839,17 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
             encoding="utf-8",
         )
-        journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        def journal_for_session(session_id: str) -> pathlib.Path:
+            key = "default" if not session_id else "session-" + hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:20]
+            return temp / ".git" / "lazy-harness" / "runtime" / key / "state" / "context-delivery-packets.jsonl"
+
+        def append_packet_for(session_id: str, packet_row: dict) -> None:
+            target = journal_for_session(session_id)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(packet_row, ensure_ascii=False) + "\n")
+
+        journal = journal_for_session("phase7-session")
         completed = subprocess.run(
             [
                 "bun", str(delivery_script),
@@ -4750,6 +4891,9 @@ def check_context_delivery_packet_journal_phase7() -> None:
         permit = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
         shutil.copy2(permit_src, permit)
         permit.chmod(0o755)
+        runtime_helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py", runtime_helper)
+        runtime_helper.chmod(0o755)
 
         def run_helper(payload: dict) -> str:
             result = subprocess.run(
@@ -4840,8 +4984,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_message_packet["messageIdHash"] = short_hash("phase7-other-packet-message")
         wrong_message_packet["sessionIdHash"] = short_hash("phase7-same-packet-session")
         wrong_message_packet["packetHash"] = "same-session-wrong-message-packet-fixture"
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(wrong_message_packet, ensure_ascii=False) + "\n")
+        append_packet_for("phase7-same-packet-session", wrong_message_packet)
         wrong_message_permit = run_permit({
             "message_id": "phase7-current-packet-message",
             "session_id": "phase7-same-packet-session",
@@ -4862,8 +5005,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         wrong_session_packet["messageIdHash"] = short_hash("phase7-same-packet-message")
         wrong_session_packet["sessionIdHash"] = short_hash("phase7-other-packet-session")
         wrong_session_packet["packetHash"] = "same-message-wrong-session-packet-fixture"
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(wrong_session_packet, ensure_ascii=False) + "\n")
+        append_packet_for("phase7-current-packet-session", wrong_session_packet)
         wrong_session_permit = run_permit({
             "message_id": "phase7-same-packet-message",
             "session_id": "phase7-current-packet-session",
@@ -4886,8 +5028,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_read_row["messageIdHash"] = short_hash(logged_read_message_id)
         logged_read_row["sessionIdHash"] = short_hash(logged_read_session_id)
         logged_read_row["packetHash"] = "logged-read-evidence-fixture"
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(logged_read_row, ensure_ascii=False) + "\n")
+        append_packet_for(logged_read_session_id, logged_read_row)
         append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
         append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
         append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
@@ -4906,8 +5047,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         strict_row["messageIdHash"] = short_hash(strict_message_id)
         strict_row["sessionIdHash"] = short_hash(strict_session_id)
         strict_row["packetHash"] = "strict-message-correlation-fixture"
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(strict_row, ensure_ascii=False) + "\n")
+        append_packet_for(strict_session_id, strict_row)
         append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
         append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
         append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
@@ -4937,8 +5077,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         epoch_row["sessionIdHash"] = short_hash(epoch_session_id)
         epoch_row["packetHash"] = "packet-epoch-filter-fixture"
         epoch_row["epochSeconds"] = int(time.time())
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(epoch_row, ensure_ascii=False) + "\n")
+        append_packet_for(epoch_session_id, epoch_row)
         epoch_block = run_permit({
             "message_id": epoch_message_id,
             "session_id": epoch_session_id,
@@ -4968,8 +5107,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
             "optionalRead": [],
             "notes": ["searchDebtFixture=true"],
         }
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(search_row, ensure_ascii=False) + "\n")
+        append_packet_for(search_session_id, search_row)
 
         search_action_block = run_permit({
             "message_id": search_message_id,
@@ -5015,8 +5153,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
         logged_search_row["messageIdHash"] = short_hash(logged_search_message_id)
         logged_search_row["sessionIdHash"] = short_hash(logged_search_session_id)
         logged_search_row["packetHash"] = "logged-search-evidence-fixture"
-        with journal.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(logged_search_row, ensure_ascii=False) + "\n")
+        append_packet_for(logged_search_session_id, logged_search_row)
         append_tool_event(logged_search_message_id, logged_search_session_id, "agentgrep", {"query": "기능패널 feature panel", "path": "."})
         logged_search_satisfied = run_permit({
             "message_id": logged_search_message_id,
@@ -5029,6 +5166,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_advisory = run_helper({
             "message_id": search_message_id,
+            "session_id": search_session_id,
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "search evidence may be missing" not in search_advisory:
@@ -5036,6 +5174,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_turn_end_advisory = run_helper({
             "message_id": search_message_id,
+            "session_id": search_session_id,
             "recent_tool_calls": [],
         })
         if "search evidence may be missing" not in search_turn_end_advisory:
@@ -5043,6 +5182,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_response_advisory = run_helper({
             "message_id": search_message_id,
+            "session_id": search_session_id,
             "assistant_response": (
                 "분석 결과, 구현 액션 플랜을 제안합니다.\n"
                 "질문 게이트: 어느 방향으로 진행할까요?\n"
@@ -5055,6 +5195,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_response_satisfied = run_helper({
             "message_id": search_message_id,
+            "session_id": search_session_id,
             "assistant_response": "분석 결과, 질문 게이트를 제안합니다.",
             "recent_tool_calls": [{"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"}],
         })
@@ -5063,6 +5204,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         search_audit_satisfied = run_helper({
             "message_id": search_message_id,
+            "session_id": search_session_id,
             "recent_tool_calls": [
                 {"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"},
                 {"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
@@ -5105,6 +5247,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         no_mutation = run_helper({
             "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
             "recent_tool_calls": [{"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if no_mutation.strip():
@@ -5112,6 +5255,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         advisory = run_helper({
             "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
             "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
         })
         if "ADVISORY. Search/read debt audit" not in advisory or "STOP" in advisory:
@@ -5119,6 +5263,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
 
         satisfied = run_helper({
             "message_id": "phase7-packet-message",
+            "session_id": "phase7-session",
             "recent_tool_calls": [
                 {"name": "read", "args_preview": ".lazy-harness/behavior/feature-surface.md"},
                 {"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
@@ -5369,6 +5514,7 @@ def check_context_broker_dogfood_collector() -> None:
         if required not in sdd_text:
             fail("Context Broker dogfood SDD missing handoff/stream contract: " + required)
     required_scripts = [
+        LAZY / "scripts" / "runtime-paths.ts",
         LAZY / "scripts" / "context-delivery.ts",
         LAZY / "scripts" / "context-index.ts",
         LAZY / "scripts" / "record-decision-broker.ts",
@@ -5485,17 +5631,19 @@ def check_record_decision_shadow_response_completed() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-record-decision-shadow-"))
     try:
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-record-decision-shadow.py"
+        runtime_helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"
         generator = temp / ".lazy-harness" / "scripts" / "record-decision-broker.ts"
         shutil.copy2(helper_src, helper)
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py", runtime_helper)
         shutil.copy2(generator_src, generator)
         helper.chmod(0o755)
 
         def run_helper(payload: dict, advisory: bool = False) -> str:
-            env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+            env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
             if advisory:
                 env["LAZY_RECORD_DECISION_SHADOW_ADVISORY"] = "1"
             result = subprocess.run(
@@ -5511,7 +5659,7 @@ def check_record_decision_shadow_response_completed() -> None:
             return result.stdout
 
         def last_row() -> dict:
-            journal = temp / ".lazy-harness" / "state" / "record-decision-packets.jsonl"
+            journal = runtime_open_gates_file(temp).parent / "record-decision-packets.jsonl"
             if not journal.exists():
                 fail("Record Decision shadow helper should write journal")
             rows = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -5567,10 +5715,13 @@ def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit a static inventory/search packet and journal search-debt."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
-        (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
         hook.chmod(0o755)
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime-paths.sh", temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime-paths.sh")
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py", temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py")
 
         static_payloads = [
             {
@@ -5677,7 +5828,8 @@ def check_message_received_hook_context_injection() -> None:
             if forbidden in body:
                 fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
 
-        packet_journal = temp / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        session_key = "session-" + hashlib.sha256("s-test".encode("utf-8")).hexdigest()[:20]
+        packet_journal = temp / ".git" / "lazy-harness" / "runtime" / session_key / "state" / "context-delivery-packets.jsonl"
         if not packet_journal.exists():
             fail("message.received direct-search prompt should journal search-debt")
         packet_text = packet_journal.read_text(encoding="utf-8")
@@ -5766,14 +5918,18 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-response-rule-audit-"))
     try:
-        (temp / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py", helper)
         helper.chmod(0o755)
+        runtime_helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"
+        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py", runtime_helper)
+        runtime_helper.chmod(0o755)
 
         import hashlib
-        journal = temp / ".lazy-harness" / "state" / "surfaced-rule-digests.jsonl"
+        journal = temp / ".git" / "lazy-harness" / "runtime" / "default" / "state" / "surfaced-rule-digests.jsonl"
+        journal.parent.mkdir(parents=True, exist_ok=True)
         pr_message_id = "phase4-pr-message"
         journal.write_text(json.dumps({
             "schemaVersion": "1.0",
@@ -5955,7 +6111,8 @@ def check_read_debt_permit_generic_external_action() -> None:
         fail("read-debt helper missing: " + str(helper))
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-"))
     try:
-        state = temp / ".lazy-harness" / "state"
+        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        state = temp / ".git" / "lazy-harness" / "runtime" / "default" / "state"
         state.mkdir(parents=True)
         message_id = "generic-message-1"
         row = {
@@ -6117,6 +6274,8 @@ def main() -> None:
         (check_response_completed_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
+        (check_parallel_runtime_state_isolation, "BOTH"),
+        (check_shared_jsonl_conflict_visible, "BOTH"),
         (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),

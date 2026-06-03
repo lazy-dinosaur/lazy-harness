@@ -51,12 +51,12 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 
 6. **Automatic vs explicit evidence streams**
    - Given normal development may append response.completed Record Decision shadow rows.
-   - Expected: aggregate host dogfood still requires `lazy context-dogfood`; the collector output path is separate from `.lazy-harness/state/record-decision-packets.jsonl`.
+   - Expected: aggregate host dogfood still requires `lazy context-dogfood`; the collector output path is separate from `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl`.
 
 ## Current protection
 
 - `.lazy-harness/scripts/self-test.py#check_context_broker_dogfood_collector`
-  - creates a fixture host with `.lazy-harness/bin/lazy`, `context-delivery.ts`, `context-index.ts`, and `record-decision-broker.ts`,
+  - creates a fixture host with `.lazy-harness/bin/lazy`, `runtime-paths.ts`, `context-delivery.ts`, `context-index.ts`, and `record-decision-broker.ts`,
   - runs the collector against that host,
   - validates JSON/JSONL privacy and `no-record-needed`,
   - validates markdown dry-run output.
@@ -71,6 +71,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - `.lazy-harness/bin/lazy` — `context-dogfood` dispatcher.
   - `.lazy-harness/scripts/self-test.py` — fixture implementation.
 - Related files:
+  - `.lazy-harness/scripts/runtime-paths.ts`
   - `.lazy-harness/scripts/context-delivery.ts`
   - `.lazy-harness/scripts/record-decision-broker.ts`
   - `.gitignore`

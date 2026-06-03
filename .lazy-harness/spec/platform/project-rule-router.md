@@ -95,7 +95,7 @@ It emits STOP text when:
 
 The helper must avoid false positives on casual mentions of AGENTS.md or `.jcode` without rule-placement language.
 
-The helper must also avoid same-turn repeated STOP reminders. Production Jcode `response.completed` payloads may not include `assistant_response`, so the helper can repeatedly derive the same project-rule placement gate from stable fields such as `last_user_message` and `recent_tool_calls`. When it emits a derived gate, it records a deterministic `project-rule-placement:<fingerprint>` entry in `.lazy-harness/state/open-gates.json`; the same `(message_id, fingerprint)` exits silently, while a new `message_id` may re-fire.
+The helper must also avoid same-turn repeated STOP reminders. Production Jcode `response.completed` payloads may not include `assistant_response`, so the helper can repeatedly derive the same project-rule placement gate from stable fields such as `last_user_message` and `recent_tool_calls`. When it emits a derived gate, it records a deterministic `project-rule-placement:<fingerprint>` entry in `$LAZY_RUNTIME_ROOT/state/open-gates.json`; the same `(message_id, fingerprint)` exits silently, while a new `message_id` may re-fire.
 
 Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into `.jcode`.
 

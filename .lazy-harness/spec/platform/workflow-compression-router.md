@@ -53,7 +53,7 @@ For real dogfooding work, route telemetry is collected automatically by the Jcod
 Telemetry path:
 
 ```text
-.lazy-harness/logs/route-decisions.jsonl
+$LAZY_SHARED_ROOT/logs/route-decisions.jsonl
 ```
 
 Telemetry entry requirements:
@@ -89,7 +89,7 @@ Route audit flags include:
 
 Automatic lifecycle telemetry is best-effort and silent. It must not emit hook output or change gate behavior. Duplicate lifecycle calls with the same `message_id` are deduplicated by `messageIdHash`. The response hook passes dirty/staged changed file paths to the router when available so risk visible only in diffs can influence telemetry.
 
-The response hook must parse the lifecycle payload from stdin, not by copying the full payload into an environment variable. Real `response.completed` payloads can include large `recent_tool_calls` previews, so env-based parsing can silently fail before telemetry is appended. The hook accepts `last_user_message` plus camelCase/input aliases for forward compatibility. If no usable message field exists, it may append non-canonical diagnostics to `.lazy-harness/logs/route-telemetry-debug.jsonl`, but that file must store payload keys, byte counts, hashes, and alias presence only, never raw user message content.
+The response hook must parse the lifecycle payload from stdin, not by copying the full payload into an environment variable. Real `response.completed` payloads can include large `recent_tool_calls` previews, so env-based parsing can silently fail before telemetry is appended. The hook accepts `last_user_message` plus camelCase/input aliases for forward compatibility. If no usable message field exists, it may append non-canonical diagnostics to `$LAZY_SHARED_ROOT/logs/route-telemetry-debug.jsonl`, but that file must store payload keys, byte counts, hashes, and alias presence only, never raw user message content.
 
 Operational timing: telemetry is primarily useful **after sustained normal use**, not from one-off immediate inspection. Immediate checks may verify plumbing only: hook registration, append behavior, JSONL validity, and dedupe. Decisions such as AGENTS compression, profile presets, or router heuristic changes should wait for accumulated dogfooding samples and `route-summary` trends.
 

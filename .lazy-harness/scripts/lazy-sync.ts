@@ -30,6 +30,7 @@ import {
 import { join, dirname, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
 import { installJcodeWiring } from './jcode-wiring'
+import { appendJsonlStable } from './runtime-paths.ts'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -123,7 +124,7 @@ function copyFile(src: string, dest: string): void {
   }
 }
 
-function mergeJsonlSeed(src: string, dest: string): 'updated' | 'unchanged' {
+function mergeJsonlSeed(src: string, dest: string, targetRoot: string): 'updated' | 'unchanged' {
   if (!existsSync(dest)) {
     copyFile(src, dest)
     return 'updated'
@@ -139,9 +140,23 @@ function mergeJsonlSeed(src: string, dest: string): 'updated' | 'unchanged' {
     return 'updated'
   }
   ensureDir(dirname(dest))
-  const prefix = destText.endsWith('\n') || destText.length === 0 ? '' : '\n'
-  writeFileSync(dest, `${destText}${prefix}${missing.join('\n')}\n`)
-  log(`  merged ${missing.length} seed JSONL rows into: ${dest}`)
+  let appended = 0
+  let conflicts = 0
+  let plain = 0
+  for (const line of missing) {
+    try {
+      const row = JSON.parse(line)
+      const status = appendJsonlStable(dest, row, 'id', targetRoot)
+      if (status === 'appended') appended += 1
+      else if (status === 'conflict-recorded') conflicts += 1
+    } catch {
+      const current = readFileSync(dest, 'utf8')
+      const prefix = current.endsWith('\n') || current.length === 0 ? '' : '\n'
+      writeFileSync(dest, `${current}${prefix}${line}\n`)
+      plain += 1
+    }
+  }
+  log(`  merged ${missing.length} seed JSONL rows into: ${dest} (${appended} appended, ${conflicts} conflicts, ${plain} plain)`)
   return 'updated'
 }
 
@@ -382,7 +397,7 @@ function syncCategoryA(
       const src = join(srcDir, f)
       const dest = join(targetLazy, item.targetPath ?? item.path, f)
       if (isKnowledgeSeedItem(item) && f.endsWith('.jsonl')) {
-        const result = mergeJsonlSeed(src, dest)
+        const result = mergeJsonlSeed(src, dest, targetRoot)
         if (result === 'updated') updated++
         else unchanged++
         continue

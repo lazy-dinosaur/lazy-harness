@@ -7,7 +7,7 @@ JSONL logs: actions, decisions, questions, validations, route telemetry. Append-
 `response.completed` automatically appends one non-canonical workflow-compression telemetry entry per Jcode message when `last_user_message` is present. `lazy route --log` can also append explicit route probes. Both write to:
 
 ```text
-.lazy-harness/logs/route-decisions.jsonl
+$LAZY_SHARED_ROOT/logs/route-decisions.jsonl
 ```
 
 `lazy route-summary --format=md` summarizes route counts, gate ratios, confidence ratios, and recommendations for deciding whether AGENTS compression, profiles, or heuristic adjustments are needed.
@@ -19,7 +19,7 @@ Telemetry stores stable message/message-id hashes and route axes, not raw user m
 `response.completed` also appends measurement-only timing rows to:
 
 ```text
-.lazy-harness/logs/hook-timings.jsonl
+$LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl
 ```
 
 Timing rows contain component names, durations, exit codes, and emitted flags only. They do not store raw user messages or payload bodies. Use:

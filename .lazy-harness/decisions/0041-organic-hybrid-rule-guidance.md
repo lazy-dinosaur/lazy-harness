@@ -199,7 +199,7 @@ Dogfood handoff clarification:
 Response shadow follow-up implemented after generator and dogfood collector evidence:
 
 - Added `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` to run the deterministic Record Decision generator from `response.completed` lifecycle evidence.
-- The helper journals sanitized `.lazy-harness/state/record-decision-packets.jsonl` observations and stays silent by default.
+- The helper journals sanitized `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl` observations and stays silent by default.
 - Optional advisory output requires `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1`; this is not hard-stop promotion and does not change default runtime output.
 
 ### 2. Direct search is prompted before the response

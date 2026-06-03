@@ -22,6 +22,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from runtime_paths import runtime_state_path
+except Exception:  # pragma: no cover - lifecycle helper must fail open
+    runtime_state_path = None  # type: ignore[assignment]
+
 PAYLOAD_RAW = sys.argv[1] if len(sys.argv) > 1 else sys.stdin.read()
 try:
     PAYLOAD = json.loads(PAYLOAD_RAW or "{}")
@@ -31,7 +36,10 @@ if not isinstance(PAYLOAD, dict):
     raise SystemExit(0)
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
-PACKET_JOURNAL = ROOT / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+if runtime_state_path is not None:
+    PACKET_JOURNAL = runtime_state_path(ROOT, "context-delivery-packets.jsonl", PAYLOAD)
+else:
+    PACKET_JOURNAL = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "state" / "context-delivery-packets.jsonl"
 TOOL_EVENTS_JOURNAL = ROOT / ".jcode" / "hooks" / "tool-events.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200")
 MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")

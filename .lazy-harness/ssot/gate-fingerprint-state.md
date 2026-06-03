@@ -13,7 +13,7 @@ Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 Lifecycle option-gate helpers that need same-turn duplicate suppression use:
 
 ```text
-.lazy-harness/state/open-gates.json
+$LAZY_RUNTIME_ROOT/state/open-gates.json
 ```
 
 This file is runtime state, not institutional memory. It is safe to regenerate and should not be treated as a canonical record. Canonical behavior is defined by this SSOT and the SDD contract.
