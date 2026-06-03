@@ -32,7 +32,9 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - ask an option gate only after root-bound search/read evidence when candidate meanings still conflict and confidence is not high enough to proceed
   - treat low-confidence self-resolve packets or direct-search prompt rows with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before response/action
   - when concrete `requiredRead` or fallback search debt exists for a turn, journal the unresolved obligation, enforce generic pre-action search/read evidence before tools, and let response audit/backstop surface any unsatisfied debt at turn completion
-  - keep the default `message.received` transport as direct-search prompt + sanitized search-debt journal, not an automatic Context Delivery/relevant-record semantic backend
+  - keep the default `message.received` transport as harness-first inventory/search prompt + sanitized search-debt journal, not an automatic Context Delivery/relevant-record semantic backend
+  - require the default prompt to follow lazy-harness instructions first: inspect actual stored layer/file inventory, generated-index presence, graph/profile pointers, and canonical records/source before free-form alias/query expansion
+  - treat tool names in prompts and fixtures as examples only; the guard checks for root-bound harness-following evidence, not a project/tool allowlist
 - Must not:
   - make external vector DB, hosted RAG, or subagents mandatory for every turn
   - store raw user messages, full transcripts, or raw assistant responses in context-delivery runtime state
@@ -383,10 +385,10 @@ message.received
 
 Rules:
 
-- The default producer emits the direct-search protocol only; explicit Context Delivery helpers may surface literal/record-authored hints from existing indexes when invoked manually, but they must not implement semantic search or host-specific alias mapping.
-- The LLM or a searcher subagent performs semantic expansion and root-bound search for ambiguous terms such as Korean `기능패널`.
+- The default producer emits a harness-first inventory/search protocol only; explicit Context Delivery helpers may surface literal/record-authored hints from existing indexes when invoked manually, but they must not implement semantic search or host-specific alias mapping.
+- The LLM or a searcher subagent follows lazy-harness instructions first, inspects actual stored records/files, and only then performs semantic expansion and root-bound search for ambiguous terms such as Korean `기능패널`.
 - The debt journal does not create project/tool policy. It records direct-search or packet-scoped `search-debt` and `read-debt`; the generic guard only checks whether the LLM/searcher left search/read evidence before response/action.
-- Search-debt is satisfied when recent tool evidence shows direct root-bound search (`agentgrep`, `grep`/`rg`/`find`) or explicit read-only searcher handoff evidence. Deterministic `context-delivery`/`relevant-record-query` CLI output does not satisfy direct-search debt by itself.
+- Search-debt is satisfied when recent tool evidence shows root-bound harness-following inventory/search/read evidence, or explicit read-only searcher handoff evidence. Tool names such as `agentgrep`, `grep`/`rg`/`find`, `tree`, `git ls-files`, or future query tools are examples, not a closed allowlist. Deterministic `context-delivery`/`relevant-record-query` CLI output does not satisfy direct-search debt by itself.
 - Read-debt is satisfied when recent tool evidence references every concrete required path in the correlated packet row.
 - Packet selection itself must be strictly correlated: if `message_id` is available, the packet row must match the message hash and, when available, the session hash. Session-only matching is allowed only when message id is absent.
 - Evidence sources include the current lifecycle payload's `recent_tool_calls` and the local `.jcode/hooks/tool-events.jsonl` after-tool journal for the same message/session. The journal fallback exists because some Jcode/provider paths may omit previous `Read` calls from later lifecycle payloads, which would otherwise create false-positive debt advisories.
@@ -400,7 +402,7 @@ Rules:
 - Status: active; supersedes earlier audit-only wording
 - Boundary: direct-search/read debt is journaled at turn start and the generic evidence guard denies action when search/read evidence is missing for the correlated turn.
 - Scope: framework-global
-- User confirmation: 2026-06-02 user corrected that the framework must not implement semantic search or attach tool-specific adapters; LLM/searcher performs root-bound search first, and the harness guards missing search/read evidence generically.
+- User confirmation: 2026-06-02 user corrected that the framework must not implement semantic search or attach tool-specific adapters; LLM/searcher performs root-bound search first, and the harness guards missing search/read evidence generically. 2026-06-03 user clarified that the important contract is following lazy-harness instructions and actual stored record/file inventory first, without restricting agents to a fixed tool allowlist.
 - Evidence: repeated dogfood screenshots showed agents acting from wrong Figma node/runtime assumptions and skipping records/MCP context even after reminders; chat corrections included `기록을 지금 하나도 안보네??`, `검색을 먼저 하게 강제하고 그다음에 작업하는거로 하는거지`, and `검색을 했나 안했나를 측정하게하고 검색을 안했으면 먼저 하도록 강제`.
 - Existing softer coverage: relevant-record digest injection, lightweight self-resolution, Context Delivery packet journal, `.jcode/hooks/tool-events.jsonl` evidence fallback, and response.completed advisory existed but were too late or too weak to prevent action drift.
 - Fixture: `.lazy-harness/scripts/self-test.py`
@@ -463,8 +465,8 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   - `.lazy-harness/scripts/context-index.ts` - deterministic generated context-index builder.
   - `.lazy-harness/scripts/context-delivery.ts` - explicit/manual/dogfood dual-mode retrieval packet generator using original/token queries plus record-authored metadata; it does not implement semantic search or host-specific alias mapping and is not run automatically from `message.received`. Phase 6 `--handoff-prompt` renders optional searcher handoff prompt with packet seed; Phase 7 `--journal` writes sanitized packet evidence rows.
   - `.lazy-harness/bin/lazy` - exposes `lazy context-delivery` including `--handoff-prompt` and `--journal` passthrough.
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for relevant-record digests plus Phase 5 lightweight self-resolution protocol.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence guard that checks packet-scoped search/read debt against root-bound LLM/searcher evidence; it does not perform search and is not a concrete-tool adapter.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - bounded pre-turn renderer for harness-first inventory/search prompt plus sanitized search-debt journal; it injects compact real layer/file inventory and generated-index/graph/profile pointers without performing semantic search.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence guard that checks packet-scoped search/read debt against root-bound LLM/searcher evidence; it does not perform search and is not a concrete-tool adapter or allowlist.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - consumes correlated packet evidence rows plus `recent_tool_calls` / `.jcode/hooks/tool-events.jsonl` evidence for advisory response backstop.
   - `.lazy-harness/spec/platform/record-decision-broker.md` - Phase 8 mirror contract for post-turn record actions.
   - `.lazy-harness/generated/README.md` - generated artifact policy for `context-index.json` as non-canonical cache.
@@ -474,8 +476,8 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future full-packet renderer once packet generation is safe for pre-turn use.
 - Flow:
   1. Request enters `message.received`.
-  2. Existing digest query may return `digest-only`.
-  3. Surface-like implementation requests may receive lightweight self-resolution instructions without heavy hook latency.
+  2. Host-dependent requests receive a compact actual `.lazy-harness` inventory/search protocol and sanitized search-debt journal row.
+  3. Surface-like implementation requests must start from actual record filenames/layers/index pointers before free-form alias expansion, without heavy hook latency.
   4. Future broker may emit a full Context Delivery Packet.
   5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
   6. Default `message.received` journals direct-search debt; main LLM or dogfood tooling may explicitly call `lazy context-delivery --journal` to record sanitized packet evidence when useful.
@@ -484,7 +486,7 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   9. Response audit may advise when correlated packet evidence and mutation suggest required search/read evidence was skipped.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `기능패널` example cues.
-  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates digest-only output for simple record matches and `self-resolve-before-change` protocol for `기능패널 고쳐줘` without mandatory subagent latency.
+  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates harness-first inventory/search prompt output, examples-not-allowlist wording, deterministic-helper non-authority, tree/directory inventory evidence, generic future query evidence, and `self-resolve-before-change` protocol for `기능패널 고쳐줘` without mandatory subagent latency.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6` validates the handoff prompt, delegate-search seed packet, no-mutation instructions, schema-return contract, and absence of hook-time `jcode run`/handoff execution.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7` validates sanitized packet journaling and response audit behavior.
   - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action` validates that unknown external MCP-like actions cannot bypass search-debt before root-bound search evidence exists.
@@ -504,13 +506,13 @@ Future implementation validation:
 
 - Fixture: direct digest request returns `digest-only`.
 - Fixture: `기능패널 고쳐줘` returns `self-resolve-before-change` with original/token queries and fallback-search/searcher instructions, not framework-authored multilingual aliases.
-- Fixture: `message.received` keeps simple digest requests digest-only but injects lightweight `self-resolve-before-change` protocol for ambiguous project-surface changes.
+- Fixture: `message.received` injects harness-first inventory/search prompt for host-dependent turns, includes compact actual layer/file inventory and generated-index pointers, and keeps tool names as examples rather than a required allowlist.
 - Fixture: packet uses literal/token queries plus record-authored metadata; semantic expansion is performed by LLM/searcher root-bound searches.
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.
 - Fixture: searcher handoff prompt returns packet-shaped seed/return contract without executing mutations or adding hook-time `jcode run`/subagent latency.
 - Fixture: packet evidence journal stores sanitized rows without raw request text or raw record bullets.
-- Fixture: message.received injects STOP-before-response search/read instructions; generic evidence guard blocks missing search/read evidence before tool action; response audit stays silent when evidence was respected, no mutation happened, or no packet was correlated.
+- Fixture: message.received injects STOP-before-response harness-first inventory/search instructions; generic evidence guard blocks missing harness-following evidence before tool action; response audit stays silent when evidence was respected, no mutation happened, or no packet was correlated.
 
 ## Rule placement
 

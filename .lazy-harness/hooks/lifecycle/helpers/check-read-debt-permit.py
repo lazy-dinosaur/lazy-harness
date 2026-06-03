@@ -37,9 +37,16 @@ TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200"
 MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")
 
 SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
-SEARCH_EVIDENCE_TOOLS = {
+DIRECT_SEARCH_EVIDENCE_TOOLS = {
     "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
     "mcp__filesystem__search_files",
+}
+
+INVENTORY_EVIDENCE_TOOLS = {
+    "read", "Read", "ls", "LS",
+    "mcp__filesystem__read_text_file", "mcp__filesystem__read_file", "mcp__filesystem__read_multiple_files",
+    "mcp__filesystem__list_directory", "mcp__filesystem__list_directory_with_sizes",
+    "mcp__filesystem__directory_tree", "mcp__filesystem__get_file_info",
 }
 
 ROOT_BOUND_EVIDENCE_TOOLS = {
@@ -70,8 +77,23 @@ ACTION_NAME_RE = re.compile(
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
-        r"(?:pwd|ls|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
     re.IGNORECASE | re.DOTALL,
+)
+
+ROOT_BOUND_EVIDENCE_RE = re.compile(
+    r"(?:\.lazy-harness|\bsrc/|\btests?/|\bdocs/|\bAGENTS\.md\b|\bpackage\.json\b)",
+    re.IGNORECASE,
+)
+
+GENERIC_READ_SEARCH_NAME_RE = re.compile(
+    r"(?:read|search|grep|find|tree|list|glob|ls|directory|file|symbol|outline|query|agentgrep)",
+    re.IGNORECASE,
+)
+
+DETERMINISTIC_PACKET_RE = re.compile(
+    r"\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts",
+    re.IGNORECASE,
 )
 
 
@@ -333,8 +355,10 @@ def evidence_blob(packet_row: dict[str, Any] | None = None) -> str:
 
 
 def shell_has_search_evidence(command: str) -> bool:
+    if DETERMINISTIC_PACKET_RE.search(command):
+        return False
     return bool(re.search(
-        r"\b(rg|grep|find|git\s+grep|git\s+ls-files)\b",
+        r"\b(rg|grep|find|tree|ls|git\s+grep|git\s+ls-files)\b",
         command,
         re.IGNORECASE,
     ))
@@ -343,13 +367,28 @@ def shell_has_search_evidence(command: str) -> bool:
 def call_has_search_evidence(call: dict[str, Any]) -> bool:
     name = str(call.get("name") or call.get("tool") or "")
     blob = call_blob(call)
-    if name in SEARCH_EVIDENCE_TOOLS:
+    if DETERMINISTIC_PACKET_RE.search(blob):
+        return False
+    if name in DIRECT_SEARCH_EVIDENCE_TOOLS:
+        return True
+    if name in INVENTORY_EVIDENCE_TOOLS and ROOT_BOUND_EVIDENCE_RE.search(blob):
         return True
     if name in {"bash", "Bash"} and shell_has_search_evidence(blob):
         return True
     if name in {"subagent", "swarm"} and is_search_handoff_args(call):
         return True
-    if any(marker in blob for marker in ("agentgrep", "mcp__filesystem__search_files", "git grep", " rg ", " grep ", " find ")):
+    # Generic fallback: this is an evidence detector, not a project/tool policy.
+    # If a future read-only/search/query tool leaves a root-bound path plus a
+    # read/search/list-style signal, count it without hardcoding that tool name.
+    if ROOT_BOUND_EVIDENCE_RE.search(blob) and (GENERIC_READ_SEARCH_NAME_RE.search(name) or GENERIC_READ_SEARCH_NAME_RE.search(blob)):
+        return True
+    if any(marker in blob for marker in (
+        "agentgrep", "mcp__filesystem__search_files", "git grep", "git ls-files", " rg ", " grep ", " find ",
+    )):
+        return True
+    if ROOT_BOUND_EVIDENCE_RE.search(blob) and any(marker in blob for marker in (
+        "mcp__filesystem__directory_tree", "mcp__filesystem__list_directory", " tree ", " ls ", " read ",
+    )):
         return True
     return False
 
@@ -398,14 +437,16 @@ def main() -> int:
             return 0
         print("[lazy-harness search-debt gate] root-bound search must happen before action.")
         print("")
-        print("This turn requires direct LLM/searcher root-bound search evidence before action; deterministic CLI/index output is not enough.")
+        print("This turn requires direct LLM/searcher root-bound inventory/search evidence before action; deterministic CLI/index output is not enough.")
+        print("The guard checks for evidence that the harness was followed; it is not a project/tool allowlist.")
         print("")
         print("Do this first:")
-        print("  - run root-bound searches with agentgrep/grep/rg/find over `.lazy-harness`, source, and tests")
-        print("  - expand multilingual/user terms into likely English/code aliases yourself or via a searcher subagent")
-        print("  - once concrete records/files are found, read them before rerunning the action")
+        print("  - inspect actual stored structure first: `.lazy-harness` layer files, generated index presence, graph/profile pointers")
+        print("  - use any root-bound read-only/search/query affordance; examples include ls/find/tree/git ls-files/agentgrep/grep/rg over `.lazy-harness`, source, and tests")
+        print("  - only after inventory/content grounding, expand multilingual/user terms into likely English/code aliases yourself or via a searcher subagent")
+        print("  - once concrete records/files are found, read canonical records/files before rerunning the action")
         print("")
-        print("Allowed now: search/read tools and explicit searcher handoff. Action/mutation tools stay blocked until search evidence exists.")
+        print("Allowed now: read-only inventory/search/read and explicit searcher handoff. Action/mutation tools stay blocked until evidence exists.")
         return 0
     try:
         confidence = float(row.get("confidence") or 0)

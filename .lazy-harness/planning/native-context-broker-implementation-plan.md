@@ -412,6 +412,76 @@ Acceptance criteria:
 - fixtures cover false-positive cases before enabling stricter audit.
 - can consume Context Delivery Packet evidence such as `requiredRead`, resolved aliases, and files read/changed.
 
+
+## 2026-06-02 external code-graph / repo-map scan
+
+User suggested checking Graphify and other LLM-oriented query repos before deciding how the `message.received` hook should guide agents. External references reinforce the same direction as the existing lazy-harness graph-memory records:
+
+| Reference | Observed mechanism | Lazy-harness implication |
+|---|---|---|
+| Graphify | Builds `graphify-out/graph.html`, `GRAPH_REPORT.md`, and queryable `graph.json`; installs assistant guidance that prefers scoped `graphify query/path/explain` or MCP graph tools over reading the full graph/report. | Do not inject the full graph. Inject a compact graph/status/tool affordance and make the agent query relevant subgraphs on demand. |
+| Aider repo map | Uses tree-sitter symbols and definitions, then ranks repository map slices under a token budget instead of dumping the whole repo. | A `lazy repo-map`/context inventory should be budgeted and symbol/file aware, not raw file-tree spam. |
+| Repomix | Packs repo context with file separators, token counts, gitignore-aware filtering, security checks, and tree-sitter compression. | Add token/file inventory and secret-safe exclusions if generating any prompt-facing packet. |
+| code-graph-mcp / Codesteward / codebase-memory-mcp | Expose structural code graphs through MCP/query tools: project map, search, AST search, references, call graph, impact/blast-radius, graph status/rebuild. The LLM remains the intelligence layer. | Lazy-harness should expose typed read-only query affordances and status/rebuild hints, not a hidden semantic authority. |
+| memex / Mnemo / agentmemory-style systems | Persistent memory with citations, confidence/staleness, graph traversal, BM25/vector/graph fusion, and session-start recall budgets. | Future memory can add staleness/confidence/provenance, but canonical records still win and generated memory remains derived. |
+
+### Design implications for the current hook problem
+
+The recommended next step is a **Turn-start Harness Context Packet**, not synchronous external RAG or subagent execution:
+
+```text
+message.received
+→ compact harness inventory / affordance packet
+→ search-debt journal
+→ agent uses any root-bound read/search/query affordance
+→ agent reads canonical records/source evidence
+→ action/response proceeds
+```
+
+Packet contents should be small and factual:
+
+- layer directory map and current search scope;
+- generated index presence/staleness summary: `implementation-index.json`, `reference-index.json`, optional `context-index.json`;
+- canonical graph/profile pointers: `.lazy-harness/knowledge/graph.jsonl`, `.lazy-harness/project/feature-navigation.xml`, `Rule digest` records;
+- read-only/search/query affordance examples, not a tool allowlist: `ls`, `find`, `tree`/directory tree, `rg`, `grep`, `git ls-files`, `read`, `agentgrep`, `lazy context-index`, future `lazy graph query`, future `lazy repo-map`;
+- warning that generated indexes/query outputs are derived context and never semantic authority;
+- instruction to read canonical records/files after query hits.
+
+### Inventory-first correction
+
+User clarified the immediate failure mode: the agent was guessing possible string queries without first using actual stored file names, file lists, generated-index presence, or saved record contents. The turn-start packet must therefore be **inventory-first**:
+
+1. show compact real `.lazy-harness` layer/file inventory and generated index availability;
+2. point to canonical graph/profile files and known record/profile artifacts;
+3. require reading actual matching stored records/files before free-form token/query expansion;
+4. use guessed aliases only as a second pass after inventory/content grounding.
+
+This preserves the default-unknown rule while avoiding blind token guessing.
+
+### Implementation bias
+
+Prefer this staged path:
+
+1. **Prompt/inventory-only fix first**: update `on-message-received.sh`, generated Jcode wiring text, and permit guidance so agents start from actual harness inventory and understand tool names as examples, not a fixed allowlist.
+2. **Evidence guard widening**: treat read-only `tree`/directory-tree/listing/context-inventory style calls and future root-bound read/search/query tools as acceptable exploration evidence when they are root-bound and harness-following, while still requiring canonical reads before concrete changes when `requiredRead` exists.
+3. **Local query tool later**: add explicit `lazy context inventory` / `lazy graph query` / `lazy repo-map --budget` only after self-tests define output size, citations, stale handling, and source fallback.
+4. **External adapter later**: Graphify/codebase-memory-style adapters can be optional SearchProvider backends, not mandatory runtime dependencies.
+
+### Validation additions
+
+- Self-test `message.received` output includes harness inventory, generated-index pointers, and broad root-bound affordances.
+- Self-test no full graph/index dump appears in the hook body.
+- Self-test `tree`/`mcp__filesystem__directory_tree`/read-only file inventory/future root-bound query evidence can satisfy generic exploration evidence, but concrete `requiredRead` still requires reading listed paths.
+- Dogfood metric: compare first-action latency/tool-count and wrong-context rate before/after inventory packet on short ambiguous requests.
+
+### Discovery capture
+
+- SDD: candidate update to `.lazy-harness/spec/platform/context-delivery-contract.md` for a compact inventory/affordance packet or Context Delivery prelude.
+- TDD: candidate fixtures in `.lazy-harness/scripts/self-test.py` for hook body, no-full-dump, and widened exploration evidence.
+- ADR: no new ADR yet; this is consistent with ADR 0041 as long as query tools remain helpers and not semantic authority.
+- SSOT: generated indexes remain derived per `.lazy-harness/generated/README.md` and implementation-map storage policy.
+- Planning: this section captures the external-scan conclusion before implementation.
+
 ## Search system recommendation
 
 Start with native lazy-harness retrieval, not external RAG:

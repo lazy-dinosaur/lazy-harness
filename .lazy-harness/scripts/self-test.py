@@ -1473,8 +1473,9 @@ def check_jcode_wiring_message_received_hook() -> None:
         legacy_message = temp / ".jcode" / "config.toml"
         legacy_message.write_text(updated.replace(
             "# BEGIN lazy-harness message.received direct-search hook\n"
-            "# Bounded pre-turn direct-search prompt and search-debt journal. This is not a\n"
-            "# semantic search backend and not a broad edit gate; timeout/failure is fail-open.\n",
+            "# Bounded pre-turn harness-first inventory/search prompt and search-debt journal.\n"
+            "# This is not a semantic search backend, not a tool allowlist, and not a broad\n"
+            "# edit gate; timeout/failure is fail-open.\n",
             "# BEGIN lazy-harness message.received context hook\n"
             "# Bounded pre-turn relevant-record context injection. This is not a broad edit\n"
             "# gate; timeout/failure is handled fail-open by Jcode and the hook.\n",
@@ -1504,9 +1505,10 @@ def check_jcode_wiring_message_received_hook() -> None:
             fail("jcode wiring duplicated generic search/read evidence guard:\n" + cleaned)
         stale = cleaned.replace(
             "# Generic pre-action search/read evidence guard. It does not perform semantic\n"
-            "# search and it is not a concrete-tool policy adapter. It only checks\n"
+            "# search and it is not a concrete-tool policy adapter or allowlist. It only checks\n"
             "# whether message.received produced direct-search/read-debt and whether\n"
-            "# the LLM/searcher already left root-bound search/read evidence before action.\n",
+            "# the LLM/searcher already left root-bound harness-following search/read evidence\n"
+            "# before action.\n",
             "# Narrow pre-action permit gate. It is silent unless a deterministic producer\n"
             "# created concrete requiredRead debt for this turn and the next action would run\n"
             "# before read/search evidence exists. This is not a broad edit/write hard stop.\n",
@@ -4592,8 +4594,14 @@ def check_context_delivery_optional_handoff_phase6() -> None:
     for forbidden in ["--handoff-prompt", "--journal", "jcode run", "subprocess.run", "context-delivery.ts", "relevant-record-query.ts"]:
         if forbidden in hook_text:
             fail("message.received hook must not run Context Delivery/query/handoff paths: " + forbidden)
-    if "STOP. Direct lazy-harness search-debt before response" not in hook_text or "Framework structure to search first" not in hook_text:
-        fail("message.received hook should inject a direct framework-structured search prompt")
+    for phrase in [
+        "STOP. Harness-first lazy-harness search-debt before response",
+        "Harness inventory (actual files first, compact)",
+        "Root-bound exploration affordances (examples, not a tool policy)",
+        "follow the harness and directly inspect stored records/files",
+    ]:
+        if phrase not in hook_text:
+            fail("message.received hook should inject a harness-first inventory search prompt: " + phrase)
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
     try:
@@ -5550,7 +5558,7 @@ def check_record_decision_shadow_response_completed() -> None:
 
 
 def check_message_received_hook_context_injection() -> None:
-    """message.received hook should emit a direct-search prompt and journal search-debt."""
+    """message.received hook should emit an inventory-first direct-search prompt and journal search-debt."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
         (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
@@ -5605,23 +5613,40 @@ def check_message_received_hook_context_injection() -> None:
         data = json.loads(output)
         body = data.get("inject", {}).get("body", "")
         for phrase in [
-            "STOP. Direct lazy-harness search-debt before response",
+            "STOP. Harness-first lazy-harness search-debt before response",
             "self-resolve-before-change",
             "Do not use a CLI/index/search backend as semantic authority",
+            "follow the harness and directly inspect stored records/files",
+            "Harness inventory (actual files first, compact)",
+            "Actual record layers",
             "DDD=`.lazy-harness/domain/`",
             "SDD=`.lazy-harness/spec/`",
             "BDD=`.lazy-harness/behavior/`",
             "TDD=`.lazy-harness/tests/`",
             "ADR=`.lazy-harness/decisions/`",
             "SSOT=`.lazy-harness/ssot/`",
-            "Search protocol: (1) extract 2-5 candidate meanings",
-            "Related records / Implementation map / graph links",
-            "grep -rli <token> .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/",
+            "Generated indexes (derived, not canonical)",
+            "Canonical/derived pointers",
+            "Root-bound exploration affordances (examples, not a tool policy)",
+            "use any read-only/search/query tool that follows the harness",
+            "Search protocol: (1) inspect the actual inventory above",
+            "choose candidate records from real filenames/layers/index pointers",
+            "Related records, Implementation map, and graph links",
+            "only after inventory/content grounding expand multilingual/code aliases",
+            "Evidence examples (examples, not a required tool list)",
+            "find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f",
+            "tree .lazy-harness | head -200",
             "ask a 3-5 option gate",
         ]:
             if phrase not in body:
                 fail("direct-search prompt missing framework search phrase: " + phrase + "\n" + output)
-        for forbidden in ["Relevant lazy-harness rules", "Context Delivery read-debt", "FeaturePanel.tsx"]:
+        for forbidden in [
+            "Relevant lazy-harness rules",
+            "Context Delivery read-debt",
+            "FeaturePanel.tsx",
+            "Search protocol: (1) extract 2-5 candidate meanings",
+            "grep -rli <token>",
+        ]:
             if forbidden in body:
                 fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
 
@@ -5659,17 +5684,37 @@ def check_message_received_hook_context_injection() -> None:
             return result.stdout
 
         no_search = run_permit([])
-        if "search-debt gate" not in no_search or "deterministic CLI/index output is not enough" not in no_search:
+        if (
+            "search-debt gate" not in no_search
+            or "inventory/search evidence" not in no_search
+            or "actual stored structure" not in no_search
+            or "not a project/tool allowlist" not in no_search
+        ):
             fail("direct-search debt should block action before real search evidence:\n" + no_search)
         cli_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/context-delivery.ts --message 기능패널"}])
         if "search-debt gate" not in cli_only:
             fail("context-delivery/relevant-record CLI execution must not satisfy direct-search debt:\n" + cli_only)
+        listed = run_permit([{"name": "bash", "args_preview": "tree .lazy-harness | head -200"}])
+        if listed.strip():
+            fail("root-bound tree inventory evidence should satisfy direct-search debt:\n" + listed)
+        directory_tree = run_permit([{"name": "mcp__filesystem__directory_tree", "arguments": {"path": ".lazy-harness"}}])
+        if directory_tree.strip():
+            fail("filesystem directory_tree inventory evidence should satisfy direct-search debt:\n" + directory_tree)
+        future_query = run_permit([{"name": "future_code_query_tool", "arguments": {"query": "list actual .lazy-harness records", "path": ".lazy-harness/spec"}}])
+        if future_query.strip():
+            fail("generic root-bound read/search/query evidence should satisfy direct-search debt without a hardcoded tool allowlist:\n" + future_query)
+        unrelated_read = run_permit([{"name": "read", "arguments": {"file_path": "/tmp/unrelated.txt"}}])
+        if "search-debt gate" not in unrelated_read:
+            fail("read tool name alone must not satisfy search-debt without root-bound harness/source evidence:\n" + unrelated_read)
+        unrooted_future_query = run_permit([{"name": "future_code_query_tool", "arguments": {"query": "list something unrelated", "path": "/tmp"}}])
+        if "search-debt gate" not in unrooted_future_query:
+            fail("future query tool name alone must not satisfy search-debt without root-bound harness/source evidence:\n" + unrooted_future_query)
         searched = run_permit([{"name": "bash", "args_preview": "rg -n '기능패널|feature panel' .lazy-harness src tests"}])
         if searched.strip():
             fail("direct rg/grep search evidence should satisfy direct-search debt:\n" + searched)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ message.received hook direct-search debt injection ok")
+    print("✓ message.received hook inventory-first search-debt injection ok")
 
 
 def check_response_rule_audit_from_surfaced_digest() -> None:
