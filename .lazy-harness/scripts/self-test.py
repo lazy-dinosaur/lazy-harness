@@ -1415,7 +1415,7 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
 
 
 def check_jcode_wiring_message_received_hook() -> None:
-    """Generated and user-owned Jcode configs must wire direct-search prompt plus generic search/read evidence guard."""
+    """Generated and user-owned Jcode configs must wire static harness prompt plus generic search/read evidence guard."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         'event = \\"message.received\\"',
@@ -1424,6 +1424,7 @@ def check_jcode_wiring_message_received_hook() -> None:
         'timeout_ms = 800',
         'ensureMessageReceivedHook',
         'ensureReadDebtPermitHook',
+        'not a user-text classifier',
         'Generic pre-action search/read evidence guard',
         'It does not perform semantic',
     ]
@@ -1472,15 +1473,15 @@ def check_jcode_wiring_message_received_hook() -> None:
 
         legacy_message = temp / ".jcode" / "config.toml"
         legacy_message.write_text(updated.replace(
-            "# BEGIN lazy-harness message.received direct-search hook\n"
-            "# Bounded pre-turn harness-first inventory/search prompt and search-debt journal.\n"
-            "# This is not a semantic search backend, not a tool allowlist, and not a broad\n"
-            "# edit gate; timeout/failure is fail-open.\n",
+            "# BEGIN lazy-harness message.received static-harness hook\n"
+            "# Bounded pre-turn static harness inventory/search prompt and search-debt journal.\n"
+            "# This is not a semantic search backend, not a user-text classifier, not a tool\n"
+            "# allowlist, and not a broad edit gate; timeout/failure is fail-open.\n",
             "# BEGIN lazy-harness message.received context hook\n"
             "# Bounded pre-turn relevant-record context injection. This is not a broad edit\n"
             "# gate; timeout/failure is handled fail-open by Jcode and the hook.\n",
         ).replace(
-            "# END lazy-harness message.received direct-search hook",
+            "# END lazy-harness message.received static-harness hook",
             "# END lazy-harness message.received context hook",
         ), encoding="utf-8")
         completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -1489,7 +1490,7 @@ def check_jcode_wiring_message_received_hook() -> None:
         refreshed_message = legacy_message.read_text(encoding="utf-8")
         if "message.received context hook" in refreshed_message or "relevant-record context injection" in refreshed_message:
             fail("jcode wiring failed to refresh stale message.received context hook marker:\n" + refreshed_message)
-        if refreshed_message.count("on-message-received.sh") != 1 or "message.received direct-search hook" not in refreshed_message:
+        if refreshed_message.count("on-message-received.sh") != 1 or "message.received static-harness hook" not in refreshed_message:
             fail("jcode legacy message.received refresh duplicated or lost hook:\n" + refreshed_message)
 
         legacy = temp / ".jcode" / "config.toml"
@@ -1522,7 +1523,7 @@ def check_jcode_wiring_message_received_hook() -> None:
             fail("jcode wiring failed to refresh stale managed search/read guard block:\n" + refreshed)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode message.received hook wiring/direct-search guard ok")
+    print("✓ jcode message.received hook wiring/static harness guard ok")
 
 
 def check_framework_runtime_no_host_product_hardcoding() -> None:
@@ -4181,7 +4182,7 @@ def check_context_delivery_contract_sdd() -> None:
     if not expected_required.issubset(required):
         fail("Context Delivery Packet schema missing required fields: " + json.dumps(sorted(expected_required - required)))
     levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
-    expected_levels = {"digest-only", "self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
+    expected_levels = {"digest-only", "harness-first-static", "self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
     if levels != expected_levels:
         fail("Context Delivery Packet instruction levels mismatch: " + json.dumps(sorted(levels)))
     read_kinds = set(schema.get("definitions", {}).get("readKind", {}).get("enum", []))
@@ -5539,12 +5540,17 @@ def check_record_decision_shadow_response_completed() -> None:
             fail("Record Decision shadow advisory should be ADVISORY-only:\n" + advisory)
 
         option = run_helper({"message_id": "ambiguous", "last_user_message": "그거 고쳐줘", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}]}, advisory=True)
-        if "option gate" not in option and "option-gate" not in option:
-            fail("Record Decision shadow should advise option gate for ambiguous mutation:\n" + option)
+        if "option gate" in option or "option-gate" in option:
+            fail("Record Decision shadow must not infer option-gate from raw user text:\n" + option)
         row = last_row()
         serialized = json.dumps(row, ensure_ascii=False)
-        if row.get("disposition") != "option-gate-needed" or "그거 고쳐줘" in serialized:
-            fail("ambiguous shadow row should be option-gate-needed without raw user message: " + serialized)
+        if row.get("disposition") != "candidate-needed" or "그거 고쳐줘" in serialized:
+            fail("ambiguous raw user text should not affect shadow disposition or be stored: " + serialized)
+
+        helper_text = helper.read_text(encoding="utf-8")
+        for forbidden_code in ["AMBIGUOUS_RE", "payload_text(", "--ambiguous"]:
+            if forbidden_code in helper_text:
+                fail("Record Decision shadow helper must not classify raw user text: " + forbidden_code)
 
         record_updated = run_helper({"message_id": "record", "recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/spec/platform/record-decision-broker.md"}]}, advisory=True)
         if record_updated.strip():
@@ -5558,7 +5564,7 @@ def check_record_decision_shadow_response_completed() -> None:
 
 
 def check_message_received_hook_context_injection() -> None:
-    """message.received hook should emit an inventory-first direct-search prompt and journal search-debt."""
+    """message.received hook should emit a static inventory/search packet and journal search-debt."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
         (temp / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True, exist_ok=True)
@@ -5566,55 +5572,74 @@ def check_message_received_hook_context_injection() -> None:
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
         hook.chmod(0o755)
 
-        smalltalk_payload = {
-            "event": "message.received",
-            "session_id": "s-test",
-            "message_id": "m-smalltalk",
-            "working_dir": str(temp),
-            "last_user_message": "안녕",
-            "recent_tool_calls": [],
-            "turn_count": 1,
-        }
-        smalltalk = subprocess.run(
-            [str(hook)],
-            cwd=temp,
-            input=json.dumps(smalltalk_payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
-        )
-        if smalltalk.returncode != 0 or smalltalk.stdout.strip():
-            fail("message.received hook should stay fail-open/silent for smalltalk:\n" + smalltalk.stdout + smalltalk.stderr)
+        static_payloads = [
+            {
+                "event": "message.received",
+                "session_id": "s-test",
+                "message_id": "m-smalltalk",
+                "working_dir": str(temp),
+                "last_user_message": "안녕",
+                "recent_tool_calls": [],
+                "turn_count": 1,
+            },
+            {
+                "event": "message.received",
+                "session_id": "s-test",
+                "message_id": "m-surface",
+                "working_dir": str(temp),
+                "last_user_message": "기능패널 고쳐줘",
+                "recent_tool_calls": [],
+                "turn_count": 2,
+            },
+        ]
+        rendered: list[tuple[dict, str, str]] = []
+        for payload in static_payloads:
+            completed = subprocess.run(
+                [str(hook)],
+                cwd=temp,
+                input=json.dumps(payload, ensure_ascii=False),
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if completed.returncode != 0:
+                fail("message.received hook should fail-open with exit 0:\n" + completed.stdout + completed.stderr)
+            output = completed.stdout.strip()
+            if not output:
+                fail("message.received hook should emit static harness inventory/search inject JSON for any user message")
+            data = json.loads(output)
+            rendered.append((payload, output, data.get("inject", {}).get("body", "")))
 
-        payload = {
+        smalltalk_payload, smalltalk_output, smalltalk_body = rendered[0]
+        payload, output, body = rendered[1]
+        if smalltalk_body != body:
+            fail("message.received hook body must be static and not vary by user text:\n--- smalltalk ---\n" + smalltalk_output + "\n--- surface ---\n" + output)
+
+        empty_payload = {
             "event": "message.received",
             "session_id": "s-test",
-            "message_id": "m-surface",
+            "message_id": "m-empty",
             "working_dir": str(temp),
-            "last_user_message": "기능패널 고쳐줘",
+            "last_user_message": "",
             "recent_tool_calls": [],
-            "turn_count": 2,
+            "turn_count": 3,
         }
-        completed = subprocess.run(
+        empty = subprocess.run(
             [str(hook)],
             cwd=temp,
-            input=json.dumps(payload, ensure_ascii=False),
+            input=json.dumps(empty_payload, ensure_ascii=False),
             text=True,
             capture_output=True,
             check=False,
             env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
         )
-        if completed.returncode != 0:
-            fail("message.received hook should fail-open with exit 0:\n" + completed.stdout + completed.stderr)
-        output = completed.stdout.strip()
-        if not output:
-            fail("host-dependent request should emit direct-search inject JSON")
-        data = json.loads(output)
-        body = data.get("inject", {}).get("body", "")
+        if empty.returncode != 0 or empty.stdout.strip():
+            fail("message.received hook should stay silent only when no user message exists:\n" + empty.stdout + empty.stderr)
         for phrase in [
             "STOP. Harness-first lazy-harness search-debt before response",
-            "self-resolve-before-change",
+            "harness-first-static",
+            "Static transport: this shell hook does not classify or interpret the user message",
             "Do not use a CLI/index/search backend as semantic authority",
             "follow the harness and directly inspect stored records/files",
             "Harness inventory (actual files first, compact)",
@@ -5646,6 +5671,8 @@ def check_message_received_hook_context_injection() -> None:
             "FeaturePanel.tsx",
             "Search protocol: (1) extract 2-5 candidate meanings",
             "grep -rli <token>",
+            "self-resolve-before-change",
+            "self-resolve-before-answer",
         ]:
             if forbidden in body:
                 fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
@@ -5654,14 +5681,24 @@ def check_message_received_hook_context_injection() -> None:
         if not packet_journal.exists():
             fail("message.received direct-search prompt should journal search-debt")
         packet_text = packet_journal.read_text(encoding="utf-8")
-        if "기능패널 고쳐줘" in packet_text:
+        if "기능패널 고쳐줘" in packet_text or "안녕" in packet_text:
             fail("message.received search-debt journal must not store raw user message")
         rows = [json.loads(line) for line in packet_text.splitlines() if line.strip()]
         row = rows[-1]
         if row.get("event") != "message.received.direct-search-debt" or row.get("fallbackSearchCount") != 1:
             fail("direct-search journal row should be search-debt, not deterministic packet:\n" + json.dumps(row, ensure_ascii=False, indent=2))
+        if row.get("instructionLevel") != "harness-first-static":
+            fail("direct-search journal row should use static instruction level, not message-derived levels:\n" + json.dumps(row, ensure_ascii=False, indent=2))
         if "noSemanticBackend=true" not in row.get("notes", []):
             fail("direct-search journal should record that no semantic backend was used")
+        for note in ["staticTransport=true", "noUserTextSemanticBranching=true"]:
+            if note not in row.get("notes", []):
+                fail("direct-search journal should record static/no-branching hook semantics: " + note)
+
+        hook_text = hook.read_text(encoding="utf-8")
+        for forbidden_code in ["CHANGE_RE", "HOST_DETAIL_RE", "AMBIGUOUS_RE", "PURE_SMALLTALK_RE", "search_needed(", "self-resolve-before-change' if", "re.compile"]:
+            if forbidden_code in hook_text:
+                fail("message.received shell hook must not contain user-text semantic classifier code: " + forbidden_code)
 
         permit = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
 

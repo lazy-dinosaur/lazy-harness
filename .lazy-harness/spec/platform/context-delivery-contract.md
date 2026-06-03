@@ -33,6 +33,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - treat low-confidence self-resolve packets or direct-search prompt rows with fallback searches as `search-debt` that must be satisfied by LLM/searcher root-bound search evidence before response/action
   - when concrete `requiredRead` or fallback search debt exists for a turn, journal the unresolved obligation, enforce generic pre-action search/read evidence before tools, and let response audit/backstop surface any unsatisfied debt at turn completion
   - keep the default `message.received` transport as harness-first inventory/search prompt + sanitized search-debt journal, not an automatic Context Delivery/relevant-record semantic backend
+  - keep the default `message.received` transport static: shell/CLI hooks must not branch on raw user text to choose meaning-specific context or change-vs-answer instruction levels
   - require the default prompt to follow lazy-harness instructions first: inspect actual stored layer/file inventory, generated-index presence, graph/profile pointers, and canonical records/source before free-form alias/query expansion
   - treat tool names in prompts and fixtures as examples only; the guard checks for root-bound harness-following evidence, not a project/tool allowlist
 - Must not:
@@ -194,6 +195,7 @@ Top-level shape:
 | Level | Meaning | Expected behavior |
 |---|---|---|
 | `digest-only` | Normal relevant-record digest is enough. | Use compact digest guidance; no special search loop required. |
+| `harness-first-static` | Static `message.received` transport/search-debt row. | Do not infer user intent in shell/CLI; inject generic harness inventory/search instructions and let the LLM/searcher understand/search. |
 | `self-resolve-before-answer` | The request likely depends on host context before explaining. | Generate/refine queries, search root-bound records/files, read required items, then answer/analyze/option-gate. |
 | `self-resolve-before-change` | The request may lead to code/record changes. | Resolve candidate meanings and read required items before planning, option-gating, editing, or changing records. |
 | `delegate-search` | Search is broad or high-risk enough to delegate. | Send the same contract to a searcher subagent and require a packet-shaped result. |
@@ -201,6 +203,7 @@ Top-level shape:
 Selection guidance:
 
 - Use `digest-only` when relevant records are direct and enough for the next response.
+- Use `harness-first-static` only for default `message.received` transport/search-debt rows that intentionally avoid user-text semantic classification.
 - Use `self-resolve-before-answer` for ambiguous questions that require host-specific grounding.
 - Use `self-resolve-before-change` when the user asks to fix/change/build/debug an ambiguous project surface.
 - Use `delegate-search` only when self-resolution would be too broad, parallel search would reduce risk, or a coordinator explicitly delegates.
@@ -297,29 +300,29 @@ Rendering rules:
 - Keep normal output under 600 tokens and hard ceiling under 1,000 tokens for pre-response use.
 - If output would exceed budget, keep highest-confidence required reads and move the rest to `fallbackSearches` or `optionalRead`.
 
-## Lightweight self-resolution protocol
+## Static message.received transport
 
-Phase 5 adds a bounded protocol-only rendering for `message.received` when the hook can identify a surface-like or implementation-likely request but should not run heavy model/subagent work inside the 800ms pre-turn budget.
+The default `message.received` hook is a bounded static transport. It does not identify surface-like, implementation-likely, question-like, smalltalk-like, or change-like requests from raw user text. CLI/shell code cannot understand user intent; understanding belongs to the LLM/searcher or an explicitly delegated read-only searcher handoff.
 
-This protocol is not a full `ContextDeliveryPacket`; it is an instruction to the main LLM to produce or approximate one by self-searching with root-bound tools before answering or changing code.
+This protocol is not a full `ContextDeliveryPacket`; it is a static instruction to the main LLM to inspect actual harness inventory/records and produce or approximate a packet by self-searching with root-bound tools before answering or changing code.
 
 Allowed rendering:
 
 ```md
-Direct-search self-resolution
-- Instruction: self-resolve-before-change
-- Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher generates 2-5 candidate meanings and multilingual/code query expansions, then performs root-bound search/read work.
-- Run root-bound searches in `.lazy-harness`, source, and tests with available read/grep/bash tools.
-- Read high-confidence records/files before answering or acting; if candidate meanings still conflict after search/read evidence, ask an option gate.
-- Do not answer, analyze, propose options, or plan before root-bound search evidence exists.
+Harness-first static transport
+- Instruction: harness-first-static
+- This shell hook does not classify or interpret the user message. Do not branch on raw text such as `fix`, `test`, `고쳐`, or `확인`.
+- Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher inspects actual `.lazy-harness` inventory, generated index presence, graph/profile pointers, and canonical records/source.
+- Use any root-bound read-only/search/query affordance; tool names in examples are not a policy allowlist.
+- Only after inventory/content grounding should the LLM/searcher expand multilingual/code aliases or broader query terms.
 - Use main-agent self-search first; delegate search only when broad, risky, or parallel search would reduce risk.
 ```
 
 Rules:
 
-- Simple digest matches stay `digest-only` and must not receive this extra protocol.
-- Surface-like implementation/change requests may receive `self-resolve-before-change` even when no high-confidence required-read record is available yet.
-- Explanation/question requests may receive `self-resolve-before-answer` only when the message is surface-like enough to need host context.
+- The default `message.received` hook emits the same static protocol for any non-empty user message after resolving host root.
+- Simple digest, `self-resolve-before-answer`, and `self-resolve-before-change` remain packet-generator/subagent output levels, not shell-hook text-classifier outputs.
+- Shell/CLI hooks must not choose `self-resolve-before-answer` vs `self-resolve-before-change` from raw user text.
 - The hook must not call a subagent, `jcode run`, hosted RAG, or other heavy model path synchronously for this protocol.
 - Protocol-only injections are not enough evidence for response audit to claim a concrete surfaced record was ignored; audit must wait for packet/journal evidence.
 
@@ -476,8 +479,8 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - future full-packet renderer once packet generation is safe for pre-turn use.
 - Flow:
   1. Request enters `message.received`.
-  2. Host-dependent requests receive a compact actual `.lazy-harness` inventory/search protocol and sanitized search-debt journal row.
-  3. Surface-like implementation requests must start from actual record filenames/layers/index pointers before free-form alias expansion, without heavy hook latency.
+  2. Any non-empty user message receives the same compact actual `.lazy-harness` inventory/search protocol and sanitized search-debt journal row from `message.received`.
+  3. The main LLM/searcher must start from actual record filenames/layers/index pointers before free-form alias expansion, without hook-time semantic classification.
   4. Future broker may emit a full Context Delivery Packet.
   5. Main LLM may call `lazy context-delivery --handoff-prompt` and delegate the rendered prompt when self-resolution is insufficient.
   6. Default `message.received` journals direct-search debt; main LLM or dogfood tooling may explicitly call `lazy context-delivery --journal` to record sanitized packet evidence when useful.
@@ -486,7 +489,7 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
   9. Response audit may advise when correlated packet evidence and mutation suggest required search/read evidence was skipped.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_contract_sdd` validates the SDD, schema enum, required fields, and `기능패널` example cues.
-  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates harness-first inventory/search prompt output, examples-not-allowlist wording, deterministic-helper non-authority, tree/directory inventory evidence, generic future query evidence, and `self-resolve-before-change` protocol for `기능패널 고쳐줘` without mandatory subagent latency.
+  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` validates static harness-first inventory/search prompt output, examples-not-allowlist wording, deterministic-helper non-authority, tree/directory inventory evidence, generic future query evidence, identical prompt body for different user text, and absence of user-text semantic classifier code.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_optional_handoff_phase6` validates the handoff prompt, delegate-search seed packet, no-mutation instructions, schema-return contract, and absence of hook-time `jcode run`/handoff execution.
   - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7` validates sanitized packet journaling and response audit behavior.
   - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action` validates that unknown external MCP-like actions cannot bypass search-debt before root-bound search evidence exists.
@@ -496,7 +499,7 @@ The main LLM remains responsible for reading `requiredRead` items before answeri
 Minimum Phase 1 validation:
 
 - JSON schema loads as valid JSON.
-- Schema includes the four `instructionLevel` values.
+- Schema includes the five `instructionLevel` values.
 - SDD includes `## Rule digest`.
 - SDD includes raw hit, normalized evidence, and Context Delivery Packet stages.
 - SDD includes `기능패널` example while explicitly assigning semantic expansion to the LLM/searcher, not deterministic framework code.
@@ -505,8 +508,8 @@ Minimum Phase 1 validation:
 Future implementation validation:
 
 - Fixture: direct digest request returns `digest-only`.
-- Fixture: `기능패널 고쳐줘` returns `self-resolve-before-change` with original/token queries and fallback-search/searcher instructions, not framework-authored multilingual aliases.
-- Fixture: `message.received` injects harness-first inventory/search prompt for host-dependent turns, includes compact actual layer/file inventory and generated-index pointers, and keeps tool names as examples rather than a required allowlist.
+- Fixture: packet generator may return `self-resolve-before-change` with original/token queries and fallback-search/searcher instructions, not framework-authored multilingual aliases.
+- Fixture: `message.received` injects the same static harness-first inventory/search prompt for different non-empty user messages, includes compact actual layer/file inventory and generated-index pointers, and keeps tool names as examples rather than a required allowlist.
 - Fixture: packet uses literal/token queries plus record-authored metadata; semantic expansion is performed by LLM/searcher root-bound searches.
 - Fixture: framework-global example-only matches do not become required-read host product-surface evidence.
 - Fixture: missing index falls back to root-bound source scan.

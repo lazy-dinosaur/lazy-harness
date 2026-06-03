@@ -59,6 +59,7 @@
       "type": "string",
       "enum": [
         "digest-only",
+        "harness-first-static",
         "self-resolve-before-answer",
         "self-resolve-before-change",
         "delegate-search"

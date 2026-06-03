@@ -36,7 +36,7 @@ TOOL_EVENTS_JOURNAL = ROOT / ".jcode" / "hooks" / "tool-events.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200")
 MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")
 
-SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
+SEARCH_DEBT_LEVELS = {"harness-first-static", "self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
 DIRECT_SEARCH_EVIDENCE_TOOLS = {
     "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
     "mcp__filesystem__search_files",

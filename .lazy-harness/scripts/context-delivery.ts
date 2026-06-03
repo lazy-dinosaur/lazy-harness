@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { buildContextIndex, type ContextIndex, type RecordEntry } from './context-index.ts'
 
-type InstructionLevel = 'digest-only' | 'self-resolve-before-answer' | 'self-resolve-before-change' | 'delegate-search'
+type InstructionLevel = 'digest-only' | 'harness-first-static' | 'self-resolve-before-answer' | 'self-resolve-before-change' | 'delegate-search'
 type QuerySource = 'user-phrase' | 'llm-expansion' | 'deterministic-expansion' | 'record-link' | 'profile-link' | 'fallback'
 type ReadKind = 'record' | 'project-profile' | 'graph-edge' | 'source-file' | 'symbol' | 'test' | 'plan' | 'schema' | 'generated-index'
 type Format = 'json' | 'md'

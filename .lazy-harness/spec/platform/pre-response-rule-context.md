@@ -142,11 +142,11 @@ Semantics:
 
 1. resolve host root,
 2. parse payload,
-3. cheaply classify whether the turn likely depends on host details, code, records, rules, tests, config, or ambiguous references,
-4. emit `STOP. Harness-first lazy-harness search-debt before response` only for host-dependent turns,
+3. avoid all user-text semantic classification in shell/CLI code; the hook must not branch on words such as `fix`, `test`, `고쳐`, or `확인`,
+4. emit the same `STOP. Harness-first lazy-harness search-debt before response` static transport for any non-empty user message,
 5. include compact actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning folders with counts/samples, generated-index presence, graph/profile pointers, source/tests dirs, `## Rule digest`, Related records, Implementation map, graph links, and option-gate-after-search,
-6. append sanitized direct-search debt rows to `.lazy-harness/state/context-delivery-packets.jsonl` with hashed identifiers and no raw user message,
-7. stay silent for smalltalk/clearly context-free turns,
+6. append sanitized direct-search debt rows to `.lazy-harness/state/context-delivery-packets.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
+7. stay silent only when no user message exists or the hook cannot resolve a host root,
 8. avoid running `relevant-record-query.ts`, `context-delivery.ts`, subagents, `jcode run`, or any semantic search backend inside `message.received`,
 9. log latency without raw message bodies when logging is needed.
 
@@ -183,8 +183,7 @@ Together:
 
 ```text
 message.received
-→ cheap host-context classifier
-→ harness-first inventory/search prompt into current turn when needed
+→ static harness inventory/search prompt into current turn
 → actual stored record/file inventory and canonical record/source reads before action when search-debt exists
 → read evidence before action when requiredRead debt exists
 → assistant response/actions
@@ -194,7 +193,7 @@ message.received
 ## Implementation map
 
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, injects harness-first inventory/search prompt for likely host-dependent turns, includes compact actual layer/file inventory and index/graph/profile pointers, and journals sanitized direct-search debt without running semantic query backends.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, injects the same static harness-first inventory/search prompt for every non-empty user message, includes compact actual layer/file inventory and index/graph/profile pointers, and journals sanitized direct-search debt without running semantic query backends or user-text semantic classifiers.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence detector that blocks action until the turn shows root-bound harness-following inventory/search/read evidence; it is not a tool allowlist.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - post-response audit helper that consumes sanitized packet journal rows and reports missed requiredRead/search evidence.
   - `.lazy-harness/scripts/relevant-record-query.ts` - read-only digest query CLI for explicit/manual/dogfood use, not automatic `message.received` semantic authority.
@@ -202,9 +201,9 @@ message.received
   - `.lazy-harness/scripts/self-test.py` - protects harness-first prompt, examples-not-allowlist wording, search-debt journal, and evidence guard fixtures.
 - Flow:
   1. Hook receives `last_user_message` and host root from Jcode.
-  2. Hook decides only whether root-bound harness-first search is required; it does not resolve semantics.
-  3. Hook injects actual `.lazy-harness` inventory, generated-index/graph/profile pointers, and example-only search affordances.
-  4. Hook journals direct-search debt with safe hashes.
+  2. Hook checks only structural prerequisites: host root exists and user message is non-empty.
+  3. Hook injects actual `.lazy-harness` inventory, generated-index/graph/profile pointers, and example-only search affordances without inspecting message meaning.
+  4. Hook journals direct-search debt with safe hashes and static instruction level `harness-first-static`.
   5. Main LLM/searcher follows lazy-harness, reads actual records/source, and may use any root-bound read-only/search/query affordance before answering or acting.
   6. Unsatisfied direct-search/read debt is guarded before action and audited after response.
 - Protection:
@@ -212,7 +211,7 @@ message.received
 
 ## Rule placement
 
-- Rule: lazy-harness uses Jcode `message.received` as the bounded pre-turn hook that injects harness-first inventory/search prompts for host-dependent turns; `response.completed` alone is too late.
+- Rule: lazy-harness uses Jcode `message.received` as the bounded pre-turn hook that injects static harness-first inventory/search prompts before LLM understanding/search; `response.completed` alone is too late.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - Why not AGENTS.md: this is a platform/Jcode lifecycle contract, not final operational grammar.

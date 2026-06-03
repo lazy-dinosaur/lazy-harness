@@ -31,6 +31,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - keep packet output advisory/non-canonical until a user or explicit write path confirms a record update
   - avoid raw transcript storage; store paths, tool names, reasons, hashes, and compact evidence summaries only
   - keep clean turns silent in `response.completed`; advisory output must remain opt-in and fixture-protected
+  - keep response.completed shadow integration evidence-only; do not infer ambiguous intent or option-gate needs from raw user text in shell/CLI hooks
 - Must not:
   - blindly write records from model inference alone
   - convert every edit into a record obligation
@@ -239,7 +240,7 @@ Context Delivery is pre-turn required-read. Record Decision Broker is post-turn 
   - `.lazy-harness/spec/platform/record-decision-broker.md` - this SDD and post-turn packet contract.
   - `.lazy-harness/schemas/record-decision-packet.schema.json` - JSON Schema for packet-shaped outputs.
   - `.lazy-harness/scripts/record-decision-broker.ts` - deterministic explicit CLI generator from safe evidence flags to Record Decision Packet.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` - response.completed shadow helper that invokes the generator, journals sanitized packet rows, and stays silent unless advisory mode is explicitly enabled.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` - response.completed shadow helper that invokes the generator from safe lifecycle tool/path evidence, journals sanitized packet rows, stays silent unless advisory mode is explicitly enabled, and does not classify raw user text.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` - legacy response.completed helper chain including the shadow helper.
   - `.lazy-harness/scripts/lifecycle-check.py` - orchestrator/compare helper list including the shadow helper.
   - `.lazy-harness/bin/lazy` - exposes `lazy record-decision` against the current host root.
@@ -257,12 +258,12 @@ Context Delivery is pre-turn required-read. Record Decision Broker is post-turn 
   5. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write.
   6. If `option-gate-needed`, agent asks options before mutating records.
   7. If `no-record-needed`, response lifecycle stays silent.
-  8. In response shadow mode, the helper writes a sanitized runtime row and emits no stdout unless advisory mode is explicitly enabled.
+  8. In response shadow mode, the helper writes a sanitized runtime row and emits no stdout unless advisory mode is explicitly enabled; it does not derive `option-gate-needed` from raw user text.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
     - validates schema/contract and generator output for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated`.
   - `.lazy-harness/scripts/self-test.py#check_record_decision_shadow_response_completed`
-    - validates clean silent turns, candidate silent-by-default rows, advisory-only output under env flag, option-gate advisory, record-updated silence, and no raw ambiguous user text in the shadow journal.
+    - validates clean silent turns, candidate silent-by-default rows, advisory-only output under env flag, record-updated silence, no raw ambiguous user text in the shadow journal, and no raw-text-driven option-gate inference.
 
 ## Validation plan
 

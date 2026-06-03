@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# on-message-received.sh — pre-turn lazy-harness direct-search prompt for Jcode message.received.
+# on-message-received.sh — pre-turn lazy-harness static inventory/search prompt for Jcode message.received.
 #
 # This hook deliberately does not run relevant-record-query/context-delivery or any
-# semantic search backend. It only detects likely host-dependent turns, injects a
-# direct root-bound search protocol for the LLM/searcher, and journals sanitized
-# search-debt so the generic evidence guard/audit can verify that search happened
-# before action.
+# semantic search backend. It also deliberately does not interpret user text with
+# meaning-specific regex/classifier branches. It is a static transport: inject a
+# compact harness inventory/search protocol for the LLM/searcher and journal
+# sanitized search-debt so the generic evidence guard/audit can verify that
+# harness-following search happened before action.
 
 set +e
 
@@ -35,7 +36,6 @@ python3 - "$ROOT_CANDIDATE" "$PAYLOAD" <<'PY'
 import hashlib
 import json
 import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -50,40 +50,9 @@ except Exception:
 if not isinstance(payload, dict):
     raise SystemExit(0)
 
-message = str(payload.get('last_user_message') or '').strip()
-if not message:
+has_message = bool(str(payload.get('last_user_message') or payload.get('message') or '').strip())
+if not has_message:
     raise SystemExit(0)
-
-CHANGE_RE = re.compile(r'(고쳐|수정|변경|만들|구현|추가|삭제|디버그|확인|검증|fix|change|update|modify|build|implement|add|delete|debug|refactor|review|verify|release|deploy|publish|test)', re.I)
-HOST_DETAIL_RE = re.compile(r'(코드|파일|함수|컴포넌트|화면|페이지|시트|표|그리드|목록|상세|관리|버그|테스트|기록|규칙|룰|결정|계약|스키마|hook|debt|context|search|jcode|lazy-harness|record|agent|framework|spec|ssot|adr|tdd|bdd|ddd|api|db|schema|env|config|workflow|release|deploy|build|test)', re.I)
-AMBIGUOUS_RE = re.compile(r'(그거|이거|저거|그쪽|여기|저기|메세지|메시지|방금|아까|이렇게|그렇게|이 부분|저 부분)')
-PATH_RE = re.compile(r'(`[^`]+`|\.lazy-harness/|\.jcode/|src/|tests?/|[A-Za-z0-9_.-]+\.(?:ts|tsx|js|jsx|py|sh|md|json|toml|yml|yaml|xml))')
-PURE_SMALLTALK_RE = re.compile(r'^\s*(안녕|고마워|감사|ㅇㅋ|ok|okay|thanks|thank you|수고|좋아)\s*[.!?。]*\s*$', re.I)
-
-
-def has_hangul(text: str) -> bool:
-    return bool(re.search(r'[가-힣]', text))
-
-
-def search_needed(text: str) -> bool:
-    if PURE_SMALLTALK_RE.match(text):
-        return False
-    if PATH_RE.search(text):
-        return True
-    if CHANGE_RE.search(text):
-        return True
-    if HOST_DETAIL_RE.search(text):
-        return True
-    if AMBIGUOUS_RE.search(text):
-        return True
-    # Korean work requests are often host-detail dependent; avoid doing semantic
-    # mapping in the hook and force the LLM to search/read directly instead.
-    return has_hangul(text) and len(text) <= 120
-
-
-if not search_needed(message):
-    raise SystemExit(0)
-
 
 def stable_hash(value: Any) -> str | None:
     text = str(value or '').strip()
@@ -92,7 +61,7 @@ def stable_hash(value: Any) -> str | None:
     return hashlib.sha256(text.encode('utf-8', errors='replace')).hexdigest()[:16]
 
 
-level = 'self-resolve-before-change' if CHANGE_RE.search(message) else 'self-resolve-before-answer'
+level = 'harness-first-static'
 message_id = payload.get('message_id') or payload.get('messageId')
 session_id = payload.get('session_id') or payload.get('sessionId')
 turn_count = payload.get('turn_count') or payload.get('turnCount')
@@ -122,7 +91,13 @@ row = {
     'fallbackSearchCount': 1,
     'requiredRead': [],
     'optionalRead': [],
-    'notes': ['directSearchPrompt=true', 'noSemanticBackend=true', 'llmSearchBaseline=true'],
+    'notes': [
+        'directSearchPrompt=true',
+        'staticTransport=true',
+        'noSemanticBackend=true',
+        'noUserTextSemanticBranching=true',
+        'llmSearchBaseline=true',
+    ],
 }
 try:
     journal = root / '.lazy-harness' / 'state' / 'context-delivery-packets.jsonl'
@@ -209,6 +184,7 @@ def harness_inventory_lines() -> list[str]:
 body = '\n'.join([
     'STOP. Harness-first lazy-harness search-debt before response',
     f'- Instruction: {level}',
+    '- Static transport: this shell hook does not classify or interpret the user message; understanding belongs to the LLM/searcher or an explicit read-only searcher handoff.',
     '- Do not use a CLI/index/search backend as semantic authority for this turn.',
     '- Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher must follow the harness and directly inspect stored records/files.',
     f'- Search scope: `{search_hint}`',

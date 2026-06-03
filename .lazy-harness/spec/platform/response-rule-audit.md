@@ -242,7 +242,7 @@ exit = 0
 
 - Status: `verified`
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized direct-search debt rows for host-dependent turns.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized static harness-first search-debt rows for non-empty user-message turns without user-text semantic classification.
   - `.lazy-harness/scripts/context-delivery.ts` — writes sanitized packet evidence journal for explicit `--journal` use.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events evidence and emits conservative response audit feedback.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
@@ -262,7 +262,7 @@ exit = 0
   - `check_response_rule_audit_from_surfaced_digest` (`self-test.py`) — Phase 4 regression fixture.
 - Flow:
   1. `message.received` receives current user message.
-  2. The default hook injects direct framework-structured search-debt when host context is likely required.
+  2. The default hook injects static framework-structured harness inventory/search-debt without deciding whether host context is likely required from raw user text.
   3. Explicit digest/dogfood paths may append sanitized entry metadata to `.lazy-harness/state/surfaced-rule-digests.jsonl`.
   4. `response.completed` runs normal helpers and the new response rule audit helper.
   5. Audit helper matches journal row for the message/session and emits only on strong miss evidence.

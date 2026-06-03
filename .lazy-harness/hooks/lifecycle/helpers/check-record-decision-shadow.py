@@ -46,7 +46,6 @@ READ_TOOLS = {
 }
 RECORD_RE = re.compile(r"\.lazy-harness/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans|knowledge)/[^\s\"'`,)}]+")
 SOURCE_PATH_RE = re.compile(r"(?:(?:src|packages|app|components|lib|server|tests|test|__tests__)/[^\s\"'`,)}]+|[^\s\"'`,)}]+\.(?:ts|tsx|js|jsx|py|rs|go|java|kt|swift|md|json|xml|yml|yaml))")
-AMBIGUOUS_RE = re.compile(r"\b(it|that|thing|this)\b|(?:그거|이거|저거|메세지|메시지|그쪽|저쪽)", re.IGNORECASE)
 VALIDATION_RE = re.compile(r"\b(?:lazy test|self-test|doctor|pytest|vitest|npm test|bun test|cargo test|validation|검증|테스트)\b", re.IGNORECASE)
 
 
@@ -97,15 +96,6 @@ def call_blob(call: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-def payload_text() -> str:
-    values: list[str] = []
-    for key in ("last_user_message", "lastUserMessage", "last_user_input", "lastUserInput", "user_message", "userMessage"):
-        value = PAYLOAD.get(key)
-        if isinstance(value, str):
-            values.append(value)
-    return "\n".join(values)
-
-
 def normalize_path(candidate: str) -> str:
     text = candidate.strip().strip('"\'`,;')
     if not text:
@@ -147,7 +137,6 @@ def build_generator_args() -> list[str]:
     names = [str(c.get("name") or "") for c in calls]
     write_calls = [c for c in calls if str(c.get("name") or "") in WRITE_TOOLS]
     read_only = bool(calls) and not write_calls and all(name in READ_TOOLS for name in names)
-    message = payload_text()
     args = ["--message", "response.completed shadow"]
 
     all_changed_files: list[str] = []
@@ -188,8 +177,6 @@ def build_generator_args() -> list[str]:
         args.append("--read-only")
     if not calls:
         args.append("--no-record-needed")
-    if message and AMBIGUOUS_RE.search(message) and write_calls and not all_changed_records:
-        args.append("--ambiguous")
     if not write_calls and (validation_seen or not all_changed_files):
         args.append("--validation-only" if validation_seen else "--read-only")
     return args
