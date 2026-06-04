@@ -6053,6 +6053,37 @@ def check_tool_execute_before_hook() -> None:
                 {"name": "Grep", "args_preview": "pattern foo path .lazy-harness/domain/"}
             ],
         }, 0, ""),
+        ("brace-grep-record-then-edit-allow", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_brace",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": "grep -rli 'foo' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/ | head"}
+            ],
+        }, 0, ""),
+        ("batched-record-read-then-edit-allow", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_batch_read",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "batch", "args": {"tool_calls": [
+                    {"tool": "read", "parameters": {"file_path": ".lazy-harness/spec/platform/context-delivery-contract.md"}},
+                    {"tool": "read", "parameters": {"file_path": ".lazy-harness/ssot/harness-enforcement-policy.md"}},
+                ]}}
+            ],
+        }, 0, ""),
+        ("apply-patch-src-no-search-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_apply_patch",
+            "tool": {"name": "apply_patch", "args": {"patch_text": "*** Begin Patch\n*** Update File: src/main/services/foo.ts\n@@\n-old\n+new\n*** End Patch"}},
+            "recent_tool_calls": [],
+        }, 1, "lazy-harness gate"),
+        ("namespaced-apply-patch-src-no-search-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_functions_apply_patch",
+            "tool": {"name": "functions.apply_patch", "args": {"patch_text": "*** Begin Patch\n*** Update File: src/main/services/foo.ts\n@@\n-old\n+new\n*** End Patch"}},
+            "recent_tool_calls": [],
+        }, 1, "lazy-harness gate"),
         ("record-edit-exempt", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case3",

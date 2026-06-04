@@ -535,3 +535,24 @@ Future implementation validation:
 - ADR: ADR 0041 remains the architecture decision for organic hybrid rule guidance.
 - SSOT: canonical truth remains records/source; packet and generated indexes are non-canonical context.
 - Planning: Native Context Broker implementation plan Phase 1 is now specified by this SDD.
+
+## 2026-06-04 pre-action legacy helper false-deny fix
+
+Status: accepted
+Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
+
+Dogfood showed that valid harness-first search/read evidence could still be denied by the legacy `check-search-performed.sh` compatibility helper after the modern packet-scoped `check-read-debt-permit.py` had allowed the action. The compatibility helper is not semantic authority and must not act as a stale concrete-tool allowlist.
+
+Contract clarification:
+
+- The packet-scoped generic evidence guard remains the primary search/read-debt mechanism.
+- The legacy source-edit compatibility helper may still protect source-code edits in older/no-packet flows, but it must accept valid root-bound `.lazy-harness` search/read evidence in the shapes Jcode agents actually produce.
+- Accepted evidence includes direct grep/agentgrep/glob/read/list over `.lazy-harness` record scope, bash grep/rg/find/tree/ls/reference-resolver over that scope, brace syntax such as `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/`, and nested read/search calls inside prior batch tool rows.
+- Source-code `patch` / `apply_patch` / namespaced patch calls must not bypass a no-search source-edit guard when their patch text targets `src/` or `.lazy-harness/triggers/fixtures/` code files.
+- Record edits remain exempt so record capture is not blocked.
+
+Implementation map update:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — compatibility helper fixed for safe JSON argv parsing, nested evidence flattening, expanded record scopes, brace syntax, and patch target extraction.
+- `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — protects brace grep allow, batched record read allow, apply_patch no-search deny, and namespaced apply_patch no-search deny.
+- `.lazy-harness/tests/pre-action-search-evidence-guard.md` — TDD/regression record.

@@ -79,7 +79,7 @@ ACTION_TOOLS = {
 }
 
 ACTION_NAME_RE = re.compile(
-    r"(?:^|[_:.\-])(write|edit|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])",
+    r"(?:^|[_:.\-])(write|edit|patch|apply_patch|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])",
     re.IGNORECASE,
 )
 

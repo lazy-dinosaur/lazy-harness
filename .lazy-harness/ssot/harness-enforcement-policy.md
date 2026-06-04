@@ -227,3 +227,28 @@ Future fixes should restore mandatory behavior without turning the framework int
 - ADR: required before implementing C+ v2 organic hybrid.
 - SSOT: updated, this record.
 - Planning: `.lazy-harness/planning/organic-hybrid-rule-guidance-plan.md`.
+
+## 2026-06-04 pre-action search evidence false-deny fix
+
+Status: accepted
+Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
+
+User-confirmed dogfood finding:
+
+```text
+검색했는데도 legacy edit guard가 막는 상황은 버그다.
+```
+
+Accepted policy clarification:
+
+- The active prevention model remains packet-scoped generic search/read-debt plus response audit/backstop.
+- Legacy source-edit compatibility checks must not contradict that model by denying after valid harness-first record search/read evidence.
+- Compatibility checks must recognize the evidence shapes the harness itself recommends, including brace-style `.lazy-harness/{domain,...}` searches and nested batch reads.
+- Patch-style and namespaced patch-style source mutation must not bypass the same no-search source-edit guard that applies to Edit/Write/MultiEdit.
+- This fix does not promote a new broad project-specific hard gate; it removes stale false-deny/false-bypass behavior from an existing compatibility helper.
+
+Implementation map update:
+
+- `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — corrected compatibility helper.
+- `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — regression fixture covering brace grep, batched reads, apply_patch, and namespaced apply_patch.
+- `.lazy-harness/tests/pre-action-search-evidence-guard.md` — canonical TDD record.

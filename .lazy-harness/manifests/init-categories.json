@@ -269,6 +269,11 @@
           "description": "TDD contract fixtures for response.completed audit, Context Delivery search/read-debt evidence, and packet correlation false-positive coverage."
         },
         {
+          "path": "tests/pre-action-search-evidence-guard.md",
+          "kind": "file",
+          "description": "TDD contract for pre-action source-edit search evidence guard: valid record search/read evidence must unblock edits, nested batch evidence counts, brace syntax counts, and apply_patch source edits cannot bypass no-search guard."
+        },
+        {
           "path": "spec/platform/record-decision-broker.md",
           "kind": "file",
           "description": "SDD contract for Phase 8 post-turn Record Decision Packet: record-updated, candidate-needed, no-record-needed, option-gate-needed, and deferred dispositions."
