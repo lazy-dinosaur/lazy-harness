@@ -466,3 +466,91 @@ These remain read-only suggestions and must not be auto-applied.
 - ADR: no production default replacement decision; explicit approval still required.
 - SSOT: no source-of-truth change.
 - Planning: this section records current evidence and next action.
+
+## 2026-06-04 post-Phase3A compare evidence check
+
+Status: partial-evidence-clean-medivance-only
+
+Observed at: 2026-06-04T22:13Z
+Source HEAD: `9fd119200f7e` (`Docs: register self-test git env regression`)
+Post-Phase3A cutoff used: `2026-06-04T10:06:00Z`
+
+Records read before evaluation:
+
+- `.lazy-harness/planning/lifecycle-compare-mismatch-triage-20260604.md`
+- `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+- `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
+- `.lazy-harness/spec/platform/hook-performance-measurement.md`
+- `.lazy-harness/scripts/lifecycle-compare-summary.py`
+
+Host marker / wiring check:
+
+- `/home/lazydino/dev/medivance`: marker `9fd119200f7e`, harness/Jcode status clean, response.completed wired to `.jcode/hooks/response-completed-compare.sh`.
+- `/home/lazydino/dev/medivance-pwa`: marker `9fd119200f7e`, harness/Jcode status clean, response.completed wired to `.jcode/hooks/response-completed-compare.sh`.
+- `/home/lazydino/dev/medivance-homepage`: marker `9fd119200f7e`, harness/Jcode status clean, response.completed still wired to `.lazy-harness/hooks/lifecycle/on-response-completed.sh` and has no installed compare log.
+
+Compare log paths checked:
+
+- Medivance installed log: `/home/lazydino/dev/medivance/.lazy-harness/logs/lifecycle-compare.jsonl`
+- PWA installed log: `/home/lazydino/dev/medivance-pwa/.lazy-harness/logs/lifecycle-compare.jsonl`
+- Homepage installed log: missing
+- Filtered temporary summaries created under `/tmp/lazy-phase3a-compare-eval/`.
+
+Summary of rows with `timestamp >= 2026-06-04T10:06:00Z`:
+
+| Host | Post rows | First post row | Last post row | Invalid | Mismatches | Failures | Sensitive-like keys | Class counts |
+|---|---:|---|---|---:|---:|---:|---:|---|
+| Medivance | 22 | `2026-06-04T10:59:21.721314Z` | `2026-06-04T22:09:18.317934Z` | 0 | 0 | 0 | 0 | `match=20`, `match-after-normalization:trailing-newline=2` |
+| Medivance PWA | 0 | n/a | n/a | 0 | 0 | 0 | 0 | none |
+| Medivance homepage | 0 | n/a | n/a | 0 | 0 | 0 | 0 | none |
+
+Medivance post-Phase3A helper pairs:
+
+- `<none> -> <none>`: 20 rows
+- `.lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh -> .lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh`: 2 rows
+
+Interpretation:
+
+```text
+Phase 3A compare fidelity looks clean for Medivance normal-use rows collected after the patch: zero mismatch, zero failure, no raw/privacy key findings.
+This is not enough to approve production orchestrator replacement because PWA has no post-Phase3A compare rows and homepage is not wired for long-running compare mode.
+Legacy remains production default.
+```
+
+Timing note:
+
+- Timing logs are split across session runtime roots and use `ts`, not `timestamp`.
+- Medivance post-Phase3A timing rows found in timing logs were sparse (`5` rows total, `hook-total` sample count `1`, `lifecycle-orchestrator` sample count `1`), so they are not strong performance evidence.
+- PWA timing also had only smoke-level post rows.
+- Homepage timing has more post rows but homepage is not compare-wired, so it should not be treated as compare readiness evidence.
+
+Tooling gaps discovered during evaluation:
+
+- `lazy lifecycle-compare-summary` supports `--limit` but not `--since`, so post-patch analysis required a temporary filtered JSONL.
+- `lazy hook-timings` defaults to the `default` runtime log and does not aggregate session-scoped timing logs; timing readiness required manual session-log aggregation.
+
+Recommended next work:
+
+1. Keep collecting normal-use compare rows on Medivance and PWA.
+2. Decide whether homepage should join long-running compare dogfood before treating it as readiness evidence.
+3. Add a low-risk `--since` option to `lazy lifecycle-compare-summary` or document the filtering workflow if repeated.
+4. Add session aggregation support to `lazy hook-timings` before using timing as a readiness criterion.
+5. Do not move to `LAZY_RESPONSE_COMPLETED_ENGINE=orchestrator` yet.
+
+Rule placement:
+
+- Rule: post-Phase3A Medivance compare rows are currently clean, but readiness remains partial because PWA/homepage lack post-patch long-running compare evidence.
+- Scope: transient-plan / lifecycle dogfood evidence.
+- Primary record: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`.
+- Why not AGENTS.md: this is point-in-time dogfood evidence, not permanent operating grammar.
+- Why not `.jcode`: this is shared framework evidence, not local/private Jcode wiring.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: potential future CLI contract improvements for `lifecycle-compare-summary --since` and session-aggregating `hook-timings`.
+- BDD: no app/user flow change.
+- TDD: no new regression yet; current evidence supports Phase 3A fidelity on Medivance only.
+- ADR: no production replacement decision; explicit approval still required.
+- SSOT: source/downstream boundary unchanged; homepage compare wiring remains a separate local-wiring decision.
+- Planning: this section records the partial readiness evidence and next work.
