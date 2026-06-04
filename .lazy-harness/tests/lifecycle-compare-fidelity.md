@@ -93,3 +93,29 @@ The root causes were framework-general compare/sandbox fidelity gaps, not Mediva
 - ADR: none.
 - SSOT: existing framework-vs-Medivance boundary remains applicable.
 - Planning: Phase 3A source implementation is complete; host sync/re-dogfood is pending.
+
+## 2026-06-04 compare/timing evaluation tooling protection
+
+Status: accepted
+
+Phase 3A post-patch evidence evaluation required repeatable timestamp filtering and session-aware timing aggregation. The regression protection now includes:
+
+- `lazy lifecycle-compare-summary --since <ISO>` reports only compare rows at or after the given row `timestamp` and includes `sourceRows` / `filteredRows` counts.
+- `lazy hook-timings --all-sessions --since <ISO>` aggregates timing rows across session runtime logs and filters old rows by `ts` / `timestamp`.
+- The summary tools remain read-only and do not expose raw payload, user messages, or hook bodies.
+
+Layer completeness:
+
+- DDD: no domain/business rule changed.
+- SDD: impacted. `.lazy-harness/spec/platform/hook-performance-measurement.md` now defines timestamp filtering and session timing aggregation contracts.
+- BDD: no app/user-facing flow changed. Agent-visible effect is easier/reproducible dogfood evidence review.
+- SSOT: no config/schema ownership change.
+- ADR: no production replacement decision.
+
+Implementation map update:
+
+- `.lazy-harness/scripts/lifecycle-compare-summary.py` — `--since` compare row filter.
+- `.lazy-harness/scripts/hook-timing-summary.py` — `--since` and `--all-sessions` timing aggregation.
+- `.lazy-harness/scripts/self-test.py` — `check_response_completed_auto_route_telemetry` fixture verifies both new CLI paths.
+- `.lazy-harness/bin/lazy` — help surface for new flags.
+- Protected by: `python3 .lazy-harness/scripts/self-test.py --scope framework`.

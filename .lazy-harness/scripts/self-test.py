@@ -2524,6 +2524,34 @@ def check_response_completed_auto_route_telemetry() -> None:
         if summary.get("mode") != "hook-timing-summary" or summary.get("rows", 0) < len(timing_entries):
             fail("hook timing summary should report timing rows: " + summary_completed.stdout[:500])
 
+        manual_session_log = temp / ".git" / "lazy-harness" / "runtime" / "session-manual" / "logs" / "hook-timings.jsonl"
+        manual_session_log.parent.mkdir(parents=True, exist_ok=True)
+        manual_session_log.write_text(
+            json.dumps({"ts": "2000-01-01T00:00:00Z", "component": "manual-old", "durationMs": 1, "exitCode": 0, "outputEmitted": False})
+            + "\n"
+            + json.dumps({"ts": "2099-01-01T00:00:00Z", "component": "manual-new", "durationMs": 7, "exitCode": 0, "outputEmitted": False})
+            + "\n",
+            encoding="utf-8",
+        )
+        all_sessions_completed = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "hook-timings", "--format=json", "--all-sessions", "--since", "2099-01-01T00:00:00Z"],
+            cwd=temp,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if all_sessions_completed.returncode != 0:
+            fail("lazy hook-timings --all-sessions --since failed:\n" + all_sessions_completed.stdout + all_sessions_completed.stderr)
+        all_sessions_summary = json.loads(all_sessions_completed.stdout)
+        all_session_components = {item.get("component"): item for item in all_sessions_summary.get("components", [])}
+        if all_sessions_summary.get("mode") != "hook-timing-summary" or all_sessions_summary.get("allSessions") is not True:
+            fail("hook timing all-sessions summary should report aggregation mode: " + all_sessions_completed.stdout[:500])
+        if all_sessions_summary.get("rows") != 1 or "manual-new" not in all_session_components or "manual-old" in all_session_components:
+            fail("hook timing --since should aggregate session logs and filter old rows: " + all_sessions_completed.stdout[:800])
+        if all_sessions_summary.get("logCount", 0) < 2:
+            fail("hook timing --all-sessions should report multiple log sources: " + all_sessions_completed.stdout[:800])
+
         write_only_helpers = {
             ".lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh",
             ".lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh",
@@ -2613,6 +2641,19 @@ def check_response_completed_auto_route_telemetry() -> None:
         compare_summary = json.loads(summary_completed.stdout)
         if compare_summary.get("mode") != "lifecycle-compare-summary" or compare_summary.get("rows", 0) < 1:
             fail("lifecycle compare summary should report compare rows: " + summary_completed.stdout[:500])
+        since_completed = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "lifecycle-compare-summary", "--format=json", "--log", str(compare_log), "--since", "2999-01-01T00:00:00Z"],
+            cwd=temp,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if since_completed.returncode != 0:
+            fail("lazy lifecycle-compare-summary --since failed:\n" + since_completed.stdout + since_completed.stderr)
+        since_summary = json.loads(since_completed.stdout)
+        if since_summary.get("rows") != 0 or since_summary.get("sourceRows", 0) < 1 or since_summary.get("filteredRows", 0) < 1:
+            fail("lifecycle compare --since should filter older rows while reporting source/filtered counts: " + since_completed.stdout[:800])
 
         def run_compare_payload(payload_obj: dict, log_name: str, extra_env: dict[str, str] | None = None) -> dict:
             log_path = temp / ".lazy-harness" / "logs" / log_name

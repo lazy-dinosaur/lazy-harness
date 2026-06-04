@@ -11,6 +11,7 @@ import json
 import os
 import sys
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,21 @@ elif runtime_log_path is not None:
     DEFAULT_LOG = runtime_log_path(ROOT, "lifecycle-compare.jsonl")
 else:
     DEFAULT_LOG = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "logs" / "lifecycle-compare.jsonl"
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def read_rows(path: Path, limit: int | None = None) -> tuple[list[dict[str, Any]], int]:
@@ -50,6 +66,20 @@ def read_rows(path: Path, limit: int | None = None) -> tuple[list[dict[str, Any]
         else:
             invalid += 1
     return rows, invalid
+
+
+def filter_since(rows: list[dict[str, Any]], since: datetime | None) -> tuple[list[dict[str, Any]], int]:
+    if since is None:
+        return rows, 0
+    filtered: list[dict[str, Any]] = []
+    skipped = 0
+    for row in rows:
+        ts = parse_timestamp(row.get("timestamp"))
+        if ts is not None and ts >= since:
+            filtered.append(row)
+        else:
+            skipped += 1
+    return filtered, skipped
 
 
 def mismatch_fields(row: dict[str, Any]) -> list[str]:
@@ -106,7 +136,7 @@ def classify(row: dict[str, Any]) -> str:
     return "body-mismatch:unclassified"
 
 
-def summarize(rows: list[dict[str, Any]], invalid: int, path: Path) -> dict[str, Any]:
+def summarize(rows: list[dict[str, Any]], invalid: int, path: Path, *, since: str | None = None, filtered_rows: int = 0, source_rows: int | None = None) -> dict[str, Any]:
     mismatches = [row for row in rows if mismatch_fields(row)]
     field_counts: Counter[str] = Counter()
     class_counts: Counter[str] = Counter()
@@ -146,6 +176,9 @@ def summarize(rows: list[dict[str, Any]], invalid: int, path: Path) -> dict[str,
         "schemaVersion": "1.0",
         "log": str(path),
         "rows": len(rows),
+        "sourceRows": source_rows if source_rows is not None else len(rows),
+        "filteredRows": filtered_rows,
+        "since": since,
         "invalidRows": invalid,
         "mismatches": len(mismatches),
         "failures": failures,
@@ -168,6 +201,10 @@ def render_md(summary: dict[str, Any]) -> str:
     lines = ["# Lifecycle compare summary", ""]
     lines.append(f"- Log: `{summary['log']}`")
     lines.append(f"- Rows: {summary['rows']}")
+    if summary.get("since"):
+        lines.append(f"- Since: `{summary['since']}`")
+        lines.append(f"- Source rows before filter: {summary.get('sourceRows')}")
+        lines.append(f"- Filtered out rows: {summary.get('filteredRows')}")
     lines.append(f"- Invalid rows: {summary['invalidRows']}")
     lines.append(f"- Mismatches: {summary['mismatches']}")
     lines.append(f"- Failures: {summary['failures']}")
@@ -206,11 +243,17 @@ def main() -> int:
     parser.add_argument("--log", default=str(DEFAULT_LOG), help="lifecycle compare JSONL path")
     parser.add_argument("--format", choices=["json", "md", "markdown"], default="md")
     parser.add_argument("--limit", type=int, default=0, help="only summarize the last N log lines")
+    parser.add_argument("--since", default="", help="only summarize rows whose timestamp is at or after this ISO-8601 instant")
     parser.add_argument("--fail-on-mismatch", action="store_true", help="exit 2 when invalid rows, mismatches, failures, or raw-key privacy issues exist")
     args = parser.parse_args()
     path = Path(args.log)
+    since_dt = parse_timestamp(args.since) if args.since else None
+    if args.since and since_dt is None:
+        parser.error("--since must be an ISO-8601 timestamp, e.g. 2026-06-04T10:06:00Z")
     rows, invalid = read_rows(path, args.limit if args.limit > 0 else None)
-    summary = summarize(rows, invalid, path)
+    source_rows = len(rows)
+    rows, filtered_rows = filter_since(rows, since_dt)
+    summary = summarize(rows, invalid, path, since=args.since or None, filtered_rows=filtered_rows, source_rows=source_rows)
     if args.format == "json":
         print(json.dumps(summary, ensure_ascii=False, indent=2))
     else:

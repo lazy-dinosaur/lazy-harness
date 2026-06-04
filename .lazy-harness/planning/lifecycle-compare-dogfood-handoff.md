@@ -554,3 +554,45 @@ Discovery capture:
 - ADR: no production replacement decision; explicit approval still required.
 - SSOT: source/downstream boundary unchanged; homepage compare wiring remains a separate local-wiring decision.
 - Planning: this section records the partial readiness evidence and next work.
+
+## 2026-06-04 tooling gap implementation
+
+Status: source-implemented
+Trigger: user selected the tooling-gap follow-up after the post-Phase3A compare evidence check.
+
+Implemented the low-risk evaluation tooling slice:
+
+- `lazy lifecycle-compare-summary --since <ISO-8601>` so post-patch compare rows can be summarized without temporary filtered JSONL files.
+- `lazy hook-timings --since <ISO-8601>` for timestamp-filtered timing summaries.
+- `lazy hook-timings --all-sessions` to aggregate default/legacy/session runtime timing logs instead of reading only the `default` runtime log.
+- CLI help updates and self-test fixtures for both paths.
+
+Validation in source:
+
+```bash
+python3 -m py_compile .lazy-harness/scripts/lifecycle-compare-summary.py .lazy-harness/scripts/hook-timing-summary.py .lazy-harness/scripts/self-test.py
+bash -n .lazy-harness/bin/lazy
+python3 .lazy-harness/scripts/self-test.py --scope framework
+```
+
+Result:
+
+```text
+lazy-harness self-test ok (scope=framework, ran=77, skipped=0)
+```
+
+Next dogfood step:
+
+- Commit and sync to Medivance, Medivance PWA, and Medivance homepage.
+- Use `lifecycle-compare-summary --since 2026-06-04T10:06:00Z` and `hook-timings --all-sessions --since 2026-06-04T10:06:00Z` for the next readiness evaluation.
+- Production orchestrator replacement remains deferred.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: hook performance/compare summary contract updated.
+- BDD: none.
+- TDD: lifecycle compare fidelity record updated with CLI protection.
+- ADR: no production replacement decision.
+- SSOT: no ownership/config source-of-truth change.
+- Planning: this section closes the immediate tooling-gap implementation step; long-running compare evidence remains pending.

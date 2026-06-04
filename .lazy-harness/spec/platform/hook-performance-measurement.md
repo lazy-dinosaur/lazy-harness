@@ -258,3 +258,37 @@ Implementation map update:
 - `.lazy-harness/bin/lazy` — dispatches `lifecycle-compare-summary`.
 - `.lazy-harness/scripts/self-test.py` — protects Phase 3A behavior.
 - `.lazy-harness/tests/lifecycle-compare-fidelity.md` — TDD/regression record.
+
+## 2026-06-04 timing and compare summary evaluation tooling
+
+Status: accepted
+Related Planning: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
+Related TDD: `.lazy-harness/tests/lifecycle-compare-fidelity.md`
+
+The post-Phase3A compare evaluation found two low-risk tooling gaps: post-patch compare rows required manual JSONL filtering because `lifecycle-compare-summary` had no timestamp filter, and hook timing readiness required manual aggregation because `hook-timings` only read one default runtime log.
+
+Contract additions:
+
+- `lazy lifecycle-compare-summary --since <ISO-8601>` filters valid compare rows by `timestamp >= since` before summarizing. The JSON/Markdown output reports `since`, `sourceRows`, and `filteredRows` so post-patch evidence can be reproduced without temporary filtered JSONL files.
+- `lazy hook-timings --since <ISO-8601>` filters timing rows by `ts` or `timestamp` before summarizing. Output reports `since`, `sourceRows`, `filteredRows`, `firstTimestamp`, and `lastTimestamp`.
+- `lazy hook-timings --all-sessions` aggregates the selected/default timing log, legacy `.lazy-harness/logs/hook-timings.jsonl`, all worktree runtime session logs under `.git/lazy-harness/runtime/*/logs/hook-timings.jsonl`, and explicit `$LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl` when present.
+- Aggregation remains read-only and measurement-only. It must not change hook behavior or make timing data a gate-skipping authority.
+- Invalid `--since` values fail argument parsing with a clear example.
+
+Implementation map update:
+
+- `.lazy-harness/scripts/lifecycle-compare-summary.py` — implements ISO timestamp parsing and `--since` filtering for compare logs.
+- `.lazy-harness/scripts/hook-timing-summary.py` — implements ISO timestamp parsing, `--since`, and `--all-sessions` runtime log aggregation.
+- `.lazy-harness/bin/lazy` — documents the new CLI flags in help output.
+- `.lazy-harness/scripts/self-test.py` — protects `lifecycle-compare-summary --since` and `hook-timings --all-sessions --since` fixtures.
+- `.lazy-harness/logs/README.md` — documents the new timing summary options.
+
+Validation:
+
+```bash
+python3 -m py_compile .lazy-harness/scripts/lifecycle-compare-summary.py .lazy-harness/scripts/hook-timing-summary.py .lazy-harness/scripts/self-test.py
+bash -n .lazy-harness/bin/lazy
+python3 .lazy-harness/scripts/self-test.py --scope framework
+```
+
+Result on 2026-06-04: framework self-test passed (`ran=77`, `skipped=0`).

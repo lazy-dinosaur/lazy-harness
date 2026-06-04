@@ -85,11 +85,11 @@ Commands:
   graph-hygiene [--format=json|md] [--fail-on-issues]
                                 Lint knowledge graph IDs and path hygiene
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
-  hook-timings [--format=json|md] [--limit=N]
+  hook-timings [--format=json|md] [--limit=N] [--since=ISO] [--all-sessions]
                                 Summarize response.completed hook timing measurements
   lifecycle-check [--format=json|md] [--sandbox]
                                 Run shadow response.completed lifecycle helper orchestrator
-  lifecycle-compare-summary [--format=json|md] [--log=PATH]
+  lifecycle-compare-summary [--format=json|md] [--log=PATH] [--since=ISO]
                                 Summarize response.completed compare-mode JSONL rows
   lifecycle-parity [--format=json|md] [--fail-on-mismatch]
                                 Compare legacy response hook with lifecycle-check shadow fixtures

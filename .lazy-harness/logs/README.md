@@ -39,3 +39,14 @@ Auto by hooks.
 - Empty is valid (Principle #10 Empty-Container Tolerance)
 - Will be filled when triggers fire (Principle #6 Trigger-Based Growth)
 - Auto-audited on update (Principle #1.2 Drafting and Auditing)
+
+## 2026-06-04 timing summary filters
+
+`lazy hook-timings` supports reproducible dogfood review options:
+
+```bash
+.lazy-harness/bin/lazy hook-timings --format=md --since 2026-06-04T10:06:00Z
+.lazy-harness/bin/lazy hook-timings --format=md --all-sessions --since 2026-06-04T10:06:00Z
+```
+
+`--since` filters rows by `ts` / `timestamp`. `--all-sessions` aggregates session-scoped runtime logs under `.git/lazy-harness/runtime/*/logs/hook-timings.jsonl` plus the selected/default log. Timing remains measurement-only and must not be used to skip gates.
