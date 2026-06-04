@@ -36,16 +36,41 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+INHERITED_ENV_KEYS_TO_CLEAR = (
+    "LAZY_RUNTIME_ROOT",
+    "LAZY_SHARED_ROOT",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_QUARANTINE_PATH",
+)
+
+
 def env_without_lazy_runtime(**overrides: str) -> dict[str, str]:
-    env = {**os.environ, **overrides}
-    env.pop("LAZY_RUNTIME_ROOT", None)
-    env.pop("LAZY_SHARED_ROOT", None)
+    """Return a child-process env isolated from outer lazy/git hook context.
+
+    Git hooks can export GIT_* variables that override cwd/-C in nested temp
+    repositories. Strip inherited lazy runtime and git hook state first, then
+    apply explicit fixture overrides so intentional sandbox roots still work.
+    """
+    env = dict(os.environ)
+    for key in INHERITED_ENV_KEYS_TO_CLEAR:
+        env.pop(key, None)
+    env.update(overrides)
     return env
+
+
+for _inherited_key in INHERITED_ENV_KEYS_TO_CLEAR:
+    os.environ.pop(_inherited_key, None)
 
 
 def runtime_open_gates_file(root: pathlib.Path) -> pathlib.Path:
     try:
-        git_dir = subprocess.check_output(["git", "-C", str(root), "rev-parse", "--absolute-git-dir"], text=True, stderr=subprocess.DEVNULL).strip()
+        git_dir = subprocess.check_output(["git", "-C", str(root), "rev-parse", "--absolute-git-dir"], env=env_without_lazy_runtime(), text=True, stderr=subprocess.DEVNULL).strip()
         base = pathlib.Path(git_dir)
     except Exception:  # noqa: BLE001
         base = root / ".lazy-harness" / ".gitless"
@@ -66,7 +91,7 @@ def check_doctor_c17_negative() -> None:
     forbidden_call = 'fe' + 'tch' + '("' + 'https' + '://api.' + 'figma' + '.com/v1/files/example")\n'
     fixture.write_text(forbidden_call, encoding="utf-8")
     try:
-        env = {**os.environ, "LAZY_HARNESS_DOCTOR_INCLUDE_NEGATIVE": "1"}
+        env = env_without_lazy_runtime(LAZY_HARNESS_DOCTOR_INCLUDE_NEGATIVE="1")
         completed = subprocess.run(
             ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", *doctor_scope_args()],
             cwd=ROOT,
@@ -344,11 +369,10 @@ def run_knowledge_intake_fixture() -> dict:
 def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
     validations = LAZY / "logs" / f"__tmp_hook_validations_{os.getpid()}.jsonl"
     validations.unlink(missing_ok=True)
-    env = {
-        **os.environ,
-        "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT)),
-        "LAZY_HARNESS_VALIDATIONS_FILE": str(validations.relative_to(ROOT)),
-    }
+    env = env_without_lazy_runtime(
+        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(ROOT)),
+        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(ROOT)),
+    )
     if decisions is not None:
         env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
     completed = subprocess.run(
@@ -373,11 +397,10 @@ def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: p
 def run_lifecycle_check_shadow(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> dict:
     validations = LAZY / "logs" / f"__tmp_lifecycle_shadow_validations_{os.getpid()}.jsonl"
     validations.unlink(missing_ok=True)
-    env = {
-        **os.environ,
-        "LAZY_HARNESS_QUESTION_QUEUE": str(queue.relative_to(ROOT)),
-        "LAZY_HARNESS_VALIDATIONS_FILE": str(validations.relative_to(ROOT)),
-    }
+    env = env_without_lazy_runtime(
+        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(ROOT)),
+        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(ROOT)),
+    )
     if decisions is not None:
         env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
     completed = subprocess.run(
@@ -1627,7 +1650,7 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         stale.write_text("<legacy-fixture />\n", encoding="utf-8")
         host_graph_row = {"id": "host_local_graph_fact", "source": "host-local fact must survive lazy-sync"}
         graph.write_text(json.dumps(host_graph_row, ensure_ascii=False) + "\n", encoding="utf-8")
-        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, env=env_without_lazy_runtime(), text=True).strip()
         (state / "synced-from-commit").write_text(
             json.dumps({"syncedFromCommit": head, "sourceRoot": str(ROOT)}, ensure_ascii=False),
             encoding="utf-8",
@@ -1678,7 +1701,7 @@ def run_rule_action_boundary_helper(payload: dict, root: pathlib.Path | None = N
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py", json.dumps(payload)],
         cwd=root or ROOT,
-        env={**os.environ, "LAZY_HOST_ROOT": str(root or ROOT)},
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(root or ROOT)),
         text=True,
         capture_output=True,
         check=False,
@@ -1948,10 +1971,10 @@ def check_task_router_read_only_contract() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="route_read_only_"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "logs").mkdir(parents=True, exist_ok=True)
-        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
         _run_task_router("typo in README", env=env)
         telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
         legacy_telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
@@ -2062,7 +2085,7 @@ def check_gate_state_cli_and_record_audit_source_guard() -> None:
     """Phase 3 readiness helpers protect runtime gate cleanup and source-arg mistakes."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-gate-state-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         state_dir = runtime_open_gates_file(temp).parent
         state_dir.mkdir(parents=True)
         (temp / ".lazy-harness" / "knowledge").mkdir(parents=True)
@@ -2076,7 +2099,7 @@ def check_gate_state_cli_and_record_audit_source_guard() -> None:
             }),
             encoding="utf-8",
         )
-        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
         listed = subprocess.run([str(LAZY / "bin" / "lazy"), "gate-state", "list", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
         if listed.returncode != 0:
             fail("gate-state list failed:\n" + listed.stdout + listed.stderr)
@@ -2136,7 +2159,7 @@ def check_lifecycle_fixture_intake_cli() -> None:
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-lifecycle-intake-"))
     try:
         shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "logs", "state", "node_modules"))
-        env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
         raw_payload = {
             "message_id": "raw-message-id",
             "last_user_message": "비밀 사용자 문장 patient ABC 123",
@@ -2242,7 +2265,7 @@ def check_capability_registry_cli_phase1() -> None:
             }),
             encoding="utf-8",
         )
-        fixture_env = {**os.environ, "LAZY_HOST_ROOT": str(temp)}
+        fixture_env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
         fixture_list = subprocess.run(
             [str(LAZY / "bin" / "lazy"), "capability", "list", "--format=json"],
             cwd=temp,
@@ -2424,7 +2447,7 @@ def check_response_completed_auto_route_telemetry() -> None:
     temp = pathlib.Path(tempfile.mkdtemp(prefix="route_auto_"))
     try:
         shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state"))
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
         if telemetry.exists():
             telemetry.unlink()
@@ -2639,11 +2662,11 @@ def check_response_completed_auto_route_telemetry() -> None:
         if second_gate.get("legacyOutputEmitted") is not False or second_gate.get("orchestratorOutputEmitted") is not False or second_gate.get("bodyHashMatch") is not True:
             fail("sandbox should mirror open-gates state so duplicate suppression matches legacy: " + json.dumps(second_gate, ensure_ascii=False))
 
-        subprocess.run(["git", "config", "user.email", "lazy-harness@example.invalid"], cwd=temp, check=True)
-        subprocess.run(["git", "config", "user.name", "Lazy Harness Test"], cwd=temp, check=True)
+        subprocess.run(["git", "config", "user.email", "lazy-harness@example.invalid"], cwd=temp, env=env_without_lazy_runtime(), check=True)
+        subprocess.run(["git", "config", "user.name", "Lazy Harness Test"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / "fix-compare-fixture.txt").write_text("fix fixture\n", encoding="utf-8")
-        subprocess.run(["git", "add", "fix-compare-fixture.txt"], cwd=temp, check=True)
-        subprocess.run(["git", "commit", "-q", "-m", "Fix: lifecycle compare sandbox fixture"], cwd=temp, check=True)
+        subprocess.run(["git", "add", "fix-compare-fixture.txt"], cwd=temp, env=env_without_lazy_runtime(), check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "Fix: lifecycle compare sandbox fixture"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         fix_row = run_compare_payload({
             "message_id": "compare-fix-regression-git-context",
             "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/tests/pre-action-search-evidence-guard.md"}],
@@ -2663,7 +2686,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             [str(temp / ".lazy-harness" / "bin" / "lazy"), "lifecycle-check", "--sandbox", "--format=json"],
             cwd=temp,
             input=json.dumps({"message_id": "sandbox-state-mirror", "session_id": "sandbox-session", "recent_tool_calls": []}, ensure_ascii=False),
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_RUNTIME_ROOT": str(mirror_runtime)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_RUNTIME_ROOT=str(mirror_runtime)),
             text=True,
             capture_output=True,
             check=False,
@@ -2689,7 +2712,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             text=True,
             capture_output=True,
             check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(temp / ".lazy-harness" / "logs" / "hook-timings-correction.jsonl")},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(temp / ".lazy-harness" / "logs" / "hook-timings-correction.jsonl")),
         )
         if correction_completed.returncode != 0:
             fail("user correction capture fixture hook failed:\n" + correction_completed.stdout + correction_completed.stderr)
@@ -2711,7 +2734,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             text=True,
             capture_output=True,
             check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_HOOK_TIMING_LOG": str(temp / ".lazy-harness" / "logs" / "hook-timings-correction-captured.jsonl")},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(temp / ".lazy-harness" / "logs" / "hook-timings-correction-captured.jsonl")),
         )
         if captured_completed.returncode != 0:
             fail("captured user correction fixture hook failed:\n" + captured_completed.stdout + captured_completed.stderr)
@@ -2750,7 +2773,7 @@ def check_lazy_host_root_resolution() -> None:
     """lazy CLI and Python validators must use the caller worktree as host root."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_host_root_"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
 
         poisoned_git_env = {
@@ -2795,6 +2818,36 @@ def check_lazy_host_root_resolution() -> None:
         ).stdout.strip()
         if root_out != str(temp.resolve()):
             fail(f"self-test.py should prefer LAZY_HOST_ROOT; got {root_out}, expected {temp.resolve()}")
+
+        snippet = (
+            "import json, os, runpy; "
+            f"ns=runpy.run_path({json.dumps(str(LAZY / 'scripts' / 'self-test.py'))}); "
+            "clean=ns['env_without_lazy_runtime'](LAZY_RUNTIME_ROOT='explicit-runtime'); "
+            "print(json.dumps({"
+            "'processGitDir': os.environ.get('GIT_DIR'), "
+            "'processGitWorkTree': os.environ.get('GIT_WORK_TREE'), "
+            "'cleanGitDir': clean.get('GIT_DIR'), "
+            "'cleanGitWorkTree': clean.get('GIT_WORK_TREE'), "
+            "'explicitRuntime': clean.get('LAZY_RUNTIME_ROOT')"
+            "}))"
+        )
+        env_report = subprocess.run(
+            ["python3", "-c", snippet],
+            cwd=temp,
+            env=poisoned_git_env,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        env_json = json.loads(env_report)
+        if env_json != {
+            "processGitDir": None,
+            "processGitWorkTree": None,
+            "cleanGitDir": None,
+            "cleanGitWorkTree": None,
+            "explicitRuntime": "explicit-runtime",
+        }:
+            fail("self-test env helper should clear inherited git hook env and preserve explicit overrides: " + env_report)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ LAZY_HOST_ROOT worktree root resolution ok")
@@ -2808,8 +2861,8 @@ def check_parallel_runtime_state_isolation() -> None:
         secondary = temp / "secondary"
         primary.mkdir()
         secondary.mkdir()
-        subprocess.run(["git", "init", "-q"], cwd=primary, check=True)
-        subprocess.run(["git", "init", "-q"], cwd=secondary, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=primary, env=env_without_lazy_runtime(), check=True)
+        subprocess.run(["git", "init", "-q"], cwd=secondary, env=env_without_lazy_runtime(), check=True)
         (primary / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
         (secondary / ".lazy-harness").symlink_to(LAZY, target_is_directory=True)
 
@@ -2875,7 +2928,7 @@ def check_shared_jsonl_conflict_visible() -> None:
     """Stable JSONL helper must dedupe identical rows and record conflicts."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_jsonl_conflict_"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
         runtime_paths = str((LAZY / "scripts" / "runtime-paths.ts").resolve())
         script = f"""
@@ -4910,7 +4963,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
     permit_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-packet-journal-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         (temp / ".jcode" / "hooks").mkdir(parents=True, exist_ok=True)
@@ -5001,7 +5054,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             )
             if result.returncode != 0:
                 fail("response audit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
@@ -5014,7 +5067,7 @@ def check_context_delivery_packet_journal_phase7() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             )
             if result.returncode != 0:
                 fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
@@ -5730,7 +5783,7 @@ def check_record_decision_shadow_response_completed() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-record-decision-shadow-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-record-decision-shadow.py"
@@ -5814,7 +5867,7 @@ def check_message_received_hook_context_injection() -> None:
     """message.received hook should emit a static inventory/search packet and journal search-debt."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-message-received-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "on-message-received.sh", hook)
@@ -5851,7 +5904,7 @@ def check_message_received_hook_context_injection() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             )
             if completed.returncode != 0:
                 fail("message.received hook should fail-open with exit 0:\n" + completed.stdout + completed.stderr)
@@ -5882,7 +5935,7 @@ def check_message_received_hook_context_injection() -> None:
             text=True,
             capture_output=True,
             check=False,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
         )
         if empty.returncode != 0 or empty.stdout.strip():
             fail("message.received hook should stay silent only when no user message exists:\n" + empty.stdout + empty.stderr)
@@ -5965,7 +6018,7 @@ def check_message_received_hook_context_injection() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             )
             if result.returncode != 0:
                 fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
@@ -6017,7 +6070,7 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-response-rule-audit-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
         helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
         shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py", helper)
@@ -6055,7 +6108,7 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
                 text=True,
                 capture_output=True,
                 check=False,
-                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             )
             if completed.returncode != 0:
                 fail("response rule audit helper exit changed:\n" + completed.stdout + completed.stderr)
@@ -6208,7 +6261,7 @@ def check_tool_execute_before_hook() -> None:
         completed = subprocess.run(
             [str(hook), json.dumps(payload)],
             cwd=ROOT,
-            env={**os.environ, "LAZY_HOST_ROOT": str(ROOT)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
             check=False,
             capture_output=True,
             text=True,
@@ -6241,7 +6294,7 @@ def check_read_debt_permit_generic_external_action() -> None:
         fail("read-debt helper missing: " + str(helper))
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-"))
     try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         state = temp / ".git" / "lazy-harness" / "runtime" / "default" / "state"
         state.mkdir(parents=True)
         message_id = "generic-message-1"
@@ -6262,7 +6315,7 @@ def check_read_debt_permit_generic_external_action() -> None:
         no_search = subprocess.run(
             ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": []}, ensure_ascii=False)],
             cwd=ROOT,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             text=True,
             capture_output=True,
             check=False,
@@ -6272,7 +6325,7 @@ def check_read_debt_permit_generic_external_action() -> None:
         with_search = subprocess.run(
             ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "agentgrep", "query": "feature"}]}, ensure_ascii=False)],
             cwd=ROOT,
-            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
             text=True,
             capture_output=True,
             check=False,
