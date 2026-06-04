@@ -709,3 +709,203 @@ Rationale:
 - ADR: no architecture decision.
 - SSOT: no permanent ownership/source-of-truth change.
 - Planning: updated here with current dogfood evaluation scope.
+
+## 2026-06-04 dogfood evidence check
+
+Status: observed during follow-up check
+Confirmation: user asked to check how much dogfood evidence has accumulated.
+
+Current conclusion:
+
+```text
+Dogfood volume has grown materially, especially in Medivance.
+The evidence is now enough to evaluate specific next slices, but not enough to promote response.completed compare/orchestrator to production default.
+Primary blocker: lifecycle compare mismatch count remains non-zero in both compare dogfood hosts.
+```
+
+### Source snapshot
+
+- `/home/lazydino/dev/lazy-harness`
+  - branch: `main`
+  - HEAD: `aa9aac3`
+  - git status: clean at collection time
+  - framework doctor smoke: passed
+  - lifecycle parity: `12/12` passed
+  - gate-state open fingerprints: `0`
+  - capability audit: ok, `1` source-global capability
+  - record-audit: `196` files, graph rows `348`, JSONL invalid rows `0`
+  - graph-hygiene: OK with `1` warning for missing path `.lazy-harness/planning/native-context-broker-implementation-plan.md#inventory-first-correction`
+  - source hook timing recent 1000 rows:
+    - `hook-total` count `60`, avg `709.2ms`, p90 `856ms`, p99 `1254ms`, max `1341ms`, emitted `33`
+
+### Installed host markers and validation
+
+- `/home/lazydino/dev/medivance`
+  - branch/head: `dev` / `2b1486193`
+  - git status: clean
+  - synced-from-commit: `f7c31ecaa6e74539808a9844ac7228ea30b1f59e`
+  - response.completed wiring: `.jcode/hooks/response-completed-compare.sh`
+  - doctor smoke: passed
+  - lifecycle parity: `13/13` passed
+  - gate-state open fingerprints: `0`
+- `/home/lazydino/dev/medivance-pwa`
+  - branch/head: `main` / `f981cc6`
+  - git status: clean
+  - synced-from-commit: `f7c31ecaa6e74539808a9844ac7228ea30b1f59e`
+  - response.completed wiring: `.jcode/hooks/response-completed-compare.sh`
+  - doctor smoke: passed
+  - lifecycle parity: `13/13` passed
+  - gate-state open fingerprints: `0`
+- `/home/lazydino/dev/medivance-homepage`
+  - branch/head: `develop` / `a5fb68e`
+  - git status: dirty with project docs/source changes unrelated to this source check
+  - synced-from-commit: `f7c31ecaa6e74539808a9844ac7228ea30b1f59e`
+  - response.completed wiring: default `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
+  - doctor smoke: passed
+
+Note: installed host markers are behind current source HEAD `aa9aac3`. Before any source-to-host readiness decision, either sync hosts from source or explicitly evaluate them as public-main installed hosts.
+
+### Evidence volume
+
+Observed row counts:
+
+| Host | hook timings | lifecycle compare | route decisions | route telemetry | actions | validations | candidates | graph |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| source | 38139 | n/a | 81 | 2879 | 234 | 909 | 39 | 348 |
+| Medivance | 29109 | 658 | 628 | 1274 | 1150 | 1166 | 53 | 426 |
+| Medivance PWA | 3958 | 19 | 70 | 176 | 0 | 26 | 38 | 379 |
+| Medivance homepage | n/a | n/a | n/a | n/a | 0 | 3 | 37 | 374 |
+
+Deltas versus 2026-05-26 snapshot where comparable:
+
+- Medivance:
+  - hook timings: `9860 → 29109`
+  - route decisions: `314 → 628`
+  - route telemetry: `534 → 1274`
+  - actions: `908 → 1150`
+  - validations: `1031 → 1166`
+  - graph rows: `261 → 426`
+  - candidates: previously reset/ambiguous at `1`; now `53`
+- Medivance PWA:
+  - hook timings: `1502 → 3958`
+  - route decisions: `29 → 70`
+  - route telemetry: `79 → 176`
+  - validations: `18 → 26`
+  - candidates: `20 → 38`
+  - graph rows: `252 → 379`
+- Medivance homepage:
+  - new official-install dogfood host since the prior snapshot
+  - smoke validation passes
+  - full host validation remains affected by the known D07 generic-host `typecheck:node` policy gap
+
+### Lifecycle compare status
+
+- Medivance compare log:
+  - rows: `658`
+  - invalid rows: `0`
+  - failures: `0`
+  - sensitive-like raw keys: none detected by crude key scan
+  - mismatches: `157/658`
+  - recent trend: `12/50` mismatched in the last 50 rows
+  - mismatch fields:
+    - `bodyHashMatch`: `157`
+    - `helperMatch`: `128`
+    - `outputEmitted`: `128`
+  - common combo: `bodyHashMatch+helperMatch+outputEmitted` = `128`
+- Medivance PWA compare log:
+  - rows: `19`
+  - invalid rows: `0`
+  - failures: `0`
+  - sensitive-like raw keys: none detected by crude key scan
+  - mismatches: `2/19`
+  - recent trend: `2/19` because the total sample is still thin
+  - mismatch fields:
+    - `bodyHashMatch`: `2`
+    - `helperMatch`: `1`
+    - `outputEmitted`: `1`
+
+Interpretation:
+
+```text
+Compare dogfood is producing meaningful evidence.
+Medivance has enough row volume to analyze mismatch causes.
+Medivance PWA remains a secondary/thin signal.
+Neither host satisfies the Phase 3 readiness criterion requiring zero body/helper/output mismatches.
+```
+
+### Capability Registry status
+
+- Source:
+  - audit ok, `1` framework capability
+  - no candidates detected
+- Medivance:
+  - audit ok, `3` capabilities
+  - candidates:
+    - `medivance-baseline-app-validation` missing, high confidence
+    - `medivance-release-workflow-skill-action-coverage` partial, medium confidence
+- Medivance PWA:
+  - audit ok, `2` capabilities
+  - candidate:
+    - `medivance-pwa-baseline-app-validation` partial, high confidence
+- Medivance homepage:
+  - audit ok, `4` capabilities
+  - candidate:
+    - `homepage-medivance-baseline-app-validation` missing, high confidence
+
+Interpretation:
+
+```text
+Capability Registry dogfood is working: it detects real missing/partial host capabilities.
+Next step should be candidate review/promotion decisions, not more registry infrastructure first.
+```
+
+### Record / graph / profile status
+
+- Source:
+  - Project Profile artifacts incomplete, expected for framework source context but still blocks source profile-driven navigation dogfood.
+  - graph-hygiene OK with one warning.
+- Medivance:
+  - record-audit: `274` files, host-owned/changed `228`
+  - Project Profile artifacts complete but answers incomplete: `26` needs-interview fields, `0` confirmed fields
+  - graph rows `426`; graph-hygiene not OK: `28` issues, `2` missing paths, `50` source-only paths
+- Medivance PWA:
+  - record-audit: `116` files, host-owned/changed `70`
+  - Project Profile artifacts incomplete
+  - graph rows `379`; graph-hygiene not OK: `20` issues, `2` missing paths, `48` source-only paths
+- Medivance homepage:
+  - record-audit: `78` files, host-owned/changed `37`
+  - Project Profile artifacts incomplete
+  - graph rows `374`; graph-hygiene OK with one warning, `48` source-only paths
+
+Interpretation:
+
+```text
+Dogfood has generated substantial host memory, especially in Medivance.
+However, Project Profile completion and graph hygiene remain blockers for profile/context-broker-driven navigation.
+```
+
+### Recommended next decisions
+
+1. Do not enable production/orchestrator response.completed yet.
+2. Analyze Medivance lifecycle compare mismatches first, because `157/658` is too high for replacement readiness.
+3. Review and promote/decline high-confidence capability candidates in Medivance, PWA, and homepage.
+4. Run Project Profile completion dogfood next, preferably on `medivance-homepage` as the new official-install host.
+5. Fix graph hygiene/source-only path classification before relying on graph for native Context Broker routing.
+6. After mismatch triage and profile/capability review, choose the next implementation slice through an option gate.
+
+## Rule placement
+
+- Rule: This is a point-in-time dogfood evidence snapshot and readiness assessment, not permanent operating grammar.
+- Scope: transient-planning / dogfood-status.
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`.
+- Why not AGENTS.md: contains mutable metrics and current host-specific evidence.
+- Why not `.jcode`: this is shared framework dogfood status, not local/private Jcode-only wiring.
+
+## Discovery capture
+
+- SDD: lifecycle compare mismatch semantics and D07 generic-host policy need follow-up contract decisions.
+- BDD: Project Profile onboarding behavior remains a dogfood gap.
+- TDD: lifecycle compare summary/mismatch triage and generic host validation require regression fixtures before promotion.
+- ADR: no immediate decision; production hook replacement explicitly remains deferred.
+- SSOT: host validation capability candidates may require SSOT/capability updates after user-approved promotion.
+- Planning: updated with this dogfood status snapshot and recommended next decisions.
