@@ -332,3 +332,41 @@ Recommended: A, because mismatch root causes are already fully classified and pa
 - ADR: no new ADR yet; if state mirror copies `.jcode` tool-event data, consider ADR or explicit option gate due privacy/performance trade-off.
 - SSOT: project identity boundary already updated to prevent Medivance-only generalization.
 - Planning: updated here with triage result and implementation option gate.
+
+## 2026-06-04 Phase 3A source implementation
+
+Status: source-implemented
+Source state: pending commit at time of writing
+
+Implemented the Recommended Phase 3A slice:
+
+- added `lazy lifecycle-compare-summary --format=md|json`,
+- normalized compare body hashes to legacy trailing-newline semantics,
+- added sandbox-local runtime/shared roots,
+- provided read-only git facts to sandbox helpers,
+- mirrored bounded state tails for open-gates and response-rule journals,
+- mirrored only message/session-correlated `.jcode/hooks/tool-events.jsonl` rows,
+- added self-test fixtures for newline normalization, open-gates duplicate suppression, fix-regression git context, and bounded state/journal mirroring.
+
+Validation:
+
+```bash
+python3 -m py_compile .lazy-harness/scripts/lifecycle-check.py .lazy-harness/scripts/lifecycle-compare-summary.py .lazy-harness/scripts/self-test.py
+bash -n .lazy-harness/hooks/lifecycle/on-response-completed.sh .lazy-harness/hooks/lifecycle/helpers/check-fix-regression.sh
+.lazy-harness/bin/lazy doctor --profile smoke --scope framework
+.lazy-harness/bin/lazy lifecycle-parity --format=md --fail-on-mismatch
+python3 .lazy-harness/scripts/self-test.py --scope framework
+```
+
+Result:
+
+```text
+Framework self-test green: ran=77, skipped=0.
+```
+
+Next dogfood step:
+
+- Commit source patch.
+- Sync `/home/lazydino/dev/medivance` and `/home/lazydino/dev/medivance-pwa` first, preserving compare-mode `.jcode` wiring.
+- Run fresh compare-mode smoke rows and `lazy lifecycle-compare-summary` on new rows.
+- Do not enable production orchestrator yet.

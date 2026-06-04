@@ -991,3 +991,29 @@ The pre-action search evidence guard fix is now installed and validated across a
 - BDD: agent workflow fix cross-checked in Medivance, PWA, and homepage.
 - SSOT: no new ownership change.
 - Planning: this sync snapshot records host rollout and validation.
+
+## 2026-06-04 Phase 3A compare fidelity source patch
+
+Status: source-implemented-pending-host-redogfood
+Trigger: user selected option A after lifecycle compare mismatch triage.
+
+Implemented in source:
+
+- `lazy lifecycle-compare-summary` CLI,
+- compare hash newline normalization,
+- isolated sandbox runtime/shared roots,
+- read-only git facts for sandbox helpers,
+- bounded state/journal mirror,
+- message/session-filtered `.jcode/hooks/tool-events.jsonl` mirror.
+
+Validation in source:
+
+- framework doctor smoke: passed,
+- lifecycle parity: passed,
+- framework self-test: passed (`ran=77`, `skipped=0`).
+
+Dogfood status:
+
+```text
+Host sync and fresh compare-row collection are still pending. Existing Medivance/PWA compare logs still contain old pre-Phase-3A mismatch rows, so use `--limit` or fresh log paths when evaluating the patch effect.
+```

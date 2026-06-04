@@ -89,6 +89,8 @@ Commands:
                                 Summarize response.completed hook timing measurements
   lifecycle-check [--format=json|md] [--sandbox]
                                 Run shadow response.completed lifecycle helper orchestrator
+  lifecycle-compare-summary [--format=json|md] [--log=PATH]
+                                Summarize response.completed compare-mode JSONL rows
   lifecycle-parity [--format=json|md] [--fail-on-mismatch]
                                 Compare legacy response hook with lifecycle-check shadow fixtures
   lifecycle-fixture inspect|append|list
@@ -251,6 +253,9 @@ case "$cmd" in
     ;;
   lifecycle-check)
     exec python3 "$SCRIPTS/lifecycle-check.py" "$@"
+    ;;
+  lifecycle-compare-summary)
+    exec python3 "$SCRIPTS/lifecycle-compare-summary.py" "$@"
     ;;
   lifecycle-parity)
     exec python3 "$SCRIPTS/lifecycle-parity-runner.py" "$@"

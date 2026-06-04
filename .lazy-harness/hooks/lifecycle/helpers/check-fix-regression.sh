@@ -8,12 +8,20 @@ set -e
 PAYLOAD="$1"  # 사용 안 함 (git 기반 검증)
 
 # 마지막 commit 이 Fix: 타입인가
-LAST_COMMIT=$(git log -1 --pretty=%s 2>/dev/null)
+# lifecycle-check --sandbox 는 real host git history 를 복사하지 않는다.
+# compare fidelity 를 위해 read-only git facts 를 env 로 전달하면 우선 사용한다.
+LAST_COMMIT="${LAZY_LIFECYCLE_GIT_LAST_SUBJECT:-}"
+if [ -z "$LAST_COMMIT" ]; then
+  LAST_COMMIT=$(git log -1 --pretty=%s 2>/dev/null)
+fi
 if ! echo "$LAST_COMMIT" | grep -qE "^Fix: "; then
   exit 0
 fi
 
-LAST_SHA=$(git rev-parse HEAD 2>/dev/null)
+LAST_SHA="${LAZY_LIFECYCLE_GIT_HEAD:-}"
+if [ -z "$LAST_SHA" ]; then
+  LAST_SHA=$(git rev-parse HEAD 2>/dev/null)
+fi
 
 # regression/registry.jsonl 또는 candidates.jsonl 에 이 SHA 가 있나
 REG_FILES=".lazy-harness/regression/registry.jsonl .lazy-harness/regression/candidates.jsonl"

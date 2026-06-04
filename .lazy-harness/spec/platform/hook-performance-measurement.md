@@ -229,3 +229,32 @@ Implementation map:
 - `.lazy-harness/scripts/lifecycle-parity-runner.py` — loads sanitized candidate fixtures.
 - `.lazy-harness/bin/lazy` — dispatches `lazy lifecycle-fixture`.
 - `.lazy-harness/scripts/self-test.py` — `check_lifecycle_fixture_intake_cli` protects privacy and parity inclusion.
+
+## 2026-06-04 Phase 3A compare fidelity patch
+
+Status: accepted
+Related TDD: `.lazy-harness/tests/lifecycle-compare-fidelity.md`
+Related Planning: `.lazy-harness/planning/lifecycle-compare-mismatch-triage-20260604.md`
+
+Dogfood showed compare-mode mismatches caused by instrumentation/sandbox fidelity rather than Medivance-specific framework behavior. Phase 3A improves compare fidelity while keeping production default `legacy`.
+
+Contract additions:
+
+- `lazy lifecycle-compare-summary --format=md|json [--log=PATH] [--limit=N] [--fail-on-mismatch]` is a read-only summary CLI for `response.completed.compare` JSONL rows.
+- Compare body hashing uses legacy-equivalent trailing-newline normalization because legacy bash command substitution strips trailing newlines. Raw byte lengths remain recorded as diagnostics.
+- Compare logs must not store raw hook bodies, raw payloads, or raw user/assistant messages. They may store helper names, byte lengths, hashes, booleans, classes, and bounded metadata.
+- `lifecycle-check.py --sandbox` must run helpers with sandbox-local `LAZY_RUNTIME_ROOT` and `LAZY_SHARED_ROOT` so debug compare runs do not write duplicate state to the real host runtime.
+- Sandbox mode may provide read-only git facts through env variables (`LAZY_LIFECYCLE_GIT_LAST_SUBJECT`, `LAZY_LIFECYCLE_GIT_HEAD`) so git-dependent helpers can match real-host behavior without copying the real `.git` directory.
+- Sandbox mode may mirror bounded runtime state tails for helper fidelity: `open-gates.json`, `surfaced-rule-digests.jsonl`, and `context-delivery-packets.jsonl`.
+- Sandbox mode may mirror `.jcode/hooks/tool-events.jsonl` only after filtering to current message/session id. Wholesale raw tool-event history copying is forbidden.
+- Production replacement remains forbidden until compare summary readiness is zero mismatch, no privacy issues, no orchestrator failures, and user approval is recorded.
+
+Implementation map update:
+
+- `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — normalized compare hash writer and compare metadata producer.
+- `.lazy-harness/scripts/lifecycle-check.py` — isolated sandbox runtime/shared roots and bounded context mirror.
+- `.lazy-harness/hooks/lifecycle/helpers/check-fix-regression.sh` — consumes read-only sandbox git facts.
+- `.lazy-harness/scripts/lifecycle-compare-summary.py` — read-only summary CLI.
+- `.lazy-harness/bin/lazy` — dispatches `lifecycle-compare-summary`.
+- `.lazy-harness/scripts/self-test.py` — protects Phase 3A behavior.
+- `.lazy-harness/tests/lifecycle-compare-fidelity.md` — TDD/regression record.

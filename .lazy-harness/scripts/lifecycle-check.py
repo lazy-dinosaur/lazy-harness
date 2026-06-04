@@ -19,6 +19,12 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
+HELPER_DIR = Path(__file__).resolve().parents[1] / "hooks" / "lifecycle" / "helpers"
+sys.path.insert(0, str(HELPER_DIR))
+try:
+    from runtime_paths import runtime_state_path
+except Exception:  # pragma: no cover - transitional hosts can still run shadow mode
+    runtime_state_path = None  # type: ignore[assignment]
 
 HELPERS = [
     ".lazy-harness/hooks/lifecycle/helpers/check-layer-impact.sh",
@@ -92,14 +98,15 @@ def inject_json(body: str) -> str:
     return json.dumps({"inject": {"body": body, "format": "system_reminder"}}, ensure_ascii=False)
 
 
-def run_one_helper(helper_path: Path, helper: str, raw_payload: str, root: Path) -> dict[str, Any]:
+def run_one_helper(helper_path: Path, helper: str, raw_payload: str, root: Path, helper_env: dict[str, str] | None = None) -> dict[str, Any]:
     start = time.perf_counter()
+    env = {**os.environ, **(helper_env or {}), "LAZY_HOST_ROOT": str(root)}
     completed = subprocess.run(
         [str(helper_path), raw_payload],
         cwd=root,
         text=True,
         capture_output=True,
-        env={**os.environ, "LAZY_HOST_ROOT": str(root)},
+        env=env,
         check=False,
     )
     elapsed_ms = round((time.perf_counter() - start) * 1000, 3)
@@ -114,7 +121,7 @@ def run_one_helper(helper_path: Path, helper: str, raw_payload: str, root: Path)
     }
 
 
-def inspect(raw_payload: str, root: Path) -> dict[str, Any]:
+def inspect(raw_payload: str, root: Path, helper_env: dict[str, str] | None = None, sandbox_context: dict[str, Any] | None = None) -> dict[str, Any]:
     payload, parsed_ok, parse_error = parse_payload(raw_payload)
     skip, fastpath_reason = fastpath_skips(payload, parsed_ok)
     helper_results: list[dict[str, Any]] = []
@@ -135,7 +142,7 @@ def inspect(raw_payload: str, root: Path) -> dict[str, Any]:
             helper_results.append({"helper": helper, "status": "fast-path-skipped", "skipped": True})
             continue
         selected.append(helper)
-        result = run_one_helper(helper_path, helper, raw_payload, root)
+        result = run_one_helper(helper_path, helper, raw_payload, root, helper_env)
         helper_results.append(result)
         if result.get("outputEmitted"):
             first_output = str(result.get("stdout") or "")
@@ -163,10 +170,106 @@ def inspect(raw_payload: str, root: Path) -> dict[str, Any]:
             "Shadow orchestrator only; response.completed hook still owns production behavior.",
             "Parity tests must pass before any Phase 3 replacement.",
         ],
+        "sandboxContext": sandbox_context or {},
     }
 
 
-def sandbox_root(root: Path) -> Path:
+def git_output(root: Path, *args: str) -> str:
+    try:
+        return subprocess.check_output(["git", "-C", str(root), *args], text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+
+def bounded_copy_text(src: Path, dst: Path, max_lines: int = 400) -> int:
+    if not src.exists() or not src.is_file():
+        return 0
+    try:
+        lines = [line for line in src.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+    except Exception:
+        return 0
+    if max_lines > 0:
+        lines = lines[-max_lines:]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    return len(lines)
+
+
+def source_runtime_state_candidates(root: Path, payload: dict[str, Any], name: str) -> list[Path]:
+    candidates: list[Path] = []
+    explicit_runtime = os.environ.get("LAZY_RUNTIME_ROOT")
+    if explicit_runtime:
+        candidates.append(Path(explicit_runtime) / "state" / name)
+    if runtime_state_path is not None:
+        try:
+            candidates.append(runtime_state_path(root, name, payload))
+        except Exception:
+            pass
+    candidates.append(root / ".lazy-harness" / "state" / name)
+    seen: set[str] = set()
+    out: list[Path] = []
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(candidate)
+    return out
+
+
+def mirror_first_existing_state(root: Path, payload: dict[str, Any], sandbox_runtime: Path, name: str, max_lines: int = 400) -> tuple[bool, int]:
+    target = sandbox_runtime / "state" / name
+    for source in source_runtime_state_candidates(root, payload, name):
+        copied = bounded_copy_text(source, target, max_lines=max_lines)
+        if copied:
+            return True, copied
+    return False, 0
+
+
+def mirror_tool_events(root: Path, payload: dict[str, Any], target: Path, max_lines: int = 400) -> int:
+    """Mirror only current message/session tool events into sandbox.
+
+    `.jcode/hooks/tool-events.jsonl` can contain raw tool payloads. Compare-mode
+    sandbox needs it only for stateful helpers that correlate by message/session
+    id, so copy a bounded filtered subset instead of a wholesale log tail.
+    """
+    source = root / ".jcode" / "hooks" / "tool-events.jsonl"
+    if not source.exists() or not source.is_file():
+        return 0
+    message_id = str(payload.get("message_id") or payload.get("messageId") or "")
+    session_id = str(payload.get("session_id") or payload.get("sessionId") or "")
+    if not message_id and not session_id:
+        return 0
+    matched: list[str] = []
+    try:
+        lines = source.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except Exception:
+        return 0
+    for line in lines[-max_lines:]:
+        _, sep, rest = line.partition(" ")
+        if not sep:
+            continue
+        try:
+            event = json.loads(rest)
+        except Exception:
+            continue
+        if not isinstance(event, dict):
+            continue
+        event_message_id = str(event.get("message_id") or event.get("messageId") or "")
+        event_session_id = str(event.get("session_id") or event.get("sessionId") or "")
+        if message_id and event_message_id != message_id:
+            continue
+        if session_id and event_session_id != session_id:
+            continue
+        matched.append(line)
+    if not matched:
+        return 0
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("\n".join(matched[-max_lines:]) + "\n", encoding="utf-8")
+    return len(matched[-max_lines:])
+
+
+def sandbox_root(root: Path, raw_payload: str) -> tuple[Path, dict[str, str], dict[str, Any]]:
     """Create a temporary host copy for side-effect-safe compare/debug runs."""
     tmp = Path(tempfile.mkdtemp(prefix="lazy_lifecycle_check_sandbox_"))
     shutil.copytree(
@@ -175,7 +278,41 @@ def sandbox_root(root: Path) -> Path:
         ignore=shutil.ignore_patterns(".cache", "state", "logs", "node_modules", "__pycache__"),
     )
     subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
-    return tmp
+    payload, _, _ = parse_payload(raw_payload)
+    sandbox_runtime = tmp / ".lazy-harness" / ".sandbox-runtime"
+    sandbox_shared = tmp / ".lazy-harness" / ".sandbox-shared"
+    helper_env: dict[str, str] = {
+        "LAZY_RUNTIME_ROOT": str(sandbox_runtime),
+        "LAZY_SHARED_ROOT": str(sandbox_shared),
+        "LAZY_LIFECYCLE_SANDBOX_CONTEXT": "1",
+    }
+    last_subject = git_output(root, "log", "-1", "--pretty=%s")
+    head = git_output(root, "rev-parse", "HEAD")
+    if last_subject:
+        helper_env["LAZY_LIFECYCLE_GIT_LAST_SUBJECT"] = last_subject
+    if head:
+        helper_env["LAZY_LIFECYCLE_GIT_HEAD"] = head
+
+    mirrored: dict[str, Any] = {}
+    for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl"):
+        ok, rows = mirror_first_existing_state(root, payload, sandbox_runtime, name, max_lines=400)
+        mirrored[name] = {"copied": ok, "rows": rows}
+
+    tool_events_rows = mirror_tool_events(root, payload, tmp / ".jcode" / "hooks" / "tool-events.jsonl", max_lines=400)
+    mirrored[".jcode/hooks/tool-events.jsonl"] = {"copied": tool_events_rows > 0, "rows": tool_events_rows}
+
+    context = {
+        "runtimeRoot": str(sandbox_runtime),
+        "sharedRoot": str(sandbox_shared),
+        "gitSubjectProvided": bool(last_subject),
+        "gitHeadProvided": bool(head),
+        "mirroredState": mirrored,
+        "notes": [
+            "Sandbox helpers run with isolated LAZY_RUNTIME_ROOT/LAZY_SHARED_ROOT.",
+            "Only bounded state/journal tails are mirrored into the temporary sandbox.",
+        ],
+    }
+    return tmp, helper_env, context
 
 
 def render_md(result: dict[str, Any]) -> str:
@@ -206,11 +343,13 @@ def main() -> int:
     root = Path(args.root).resolve()
     raw_payload = args.payload if args.payload is not None else sys.stdin.read()
     cleanup_root: Path | None = None
+    helper_env: dict[str, str] | None = None
+    sandbox_context: dict[str, Any] | None = None
     try:
         if args.sandbox:
-            cleanup_root = sandbox_root(root)
+            cleanup_root, helper_env, sandbox_context = sandbox_root(root, raw_payload)
             root = cleanup_root
-        result = inspect(raw_payload, root)
+        result = inspect(raw_payload, root, helper_env=helper_env, sandbox_context=sandbox_context)
         result["sandbox"] = bool(args.sandbox)
         if args.format == "json":
             print(json.dumps(result, ensure_ascii=False, indent=2))

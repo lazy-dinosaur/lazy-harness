@@ -269,6 +269,11 @@
           "description": "TDD contract fixtures for response.completed audit, Context Delivery search/read-debt evidence, and packet correlation false-positive coverage."
         },
         {
+          "path": "tests/lifecycle-compare-fidelity.md",
+          "kind": "file",
+          "description": "TDD contract for Phase 3A response.completed compare fidelity: summary CLI, newline normalization, sandbox git/state fidelity, and privacy-preserving tool-event mirror."
+        },
+        {
           "path": "tests/pre-action-search-evidence-guard.md",
           "kind": "file",
           "description": "TDD contract for pre-action source-edit search evidence guard: valid record search/read evidence must unblock edits, nested batch evidence counts, brace syntax counts, and apply_patch source edits cannot bypass no-search guard."
@@ -331,6 +336,11 @@
           "path": "generated/README.md",
           "kind": "file",
           "description": "Policy for generated artifacts, including non-canonical implementation-index.json cache. Does not sync host generated cache contents."
+        },
+        {
+          "path": "scripts/lifecycle-compare-summary.py",
+          "kind": "file",
+          "description": "Read-only summary CLI for response.completed compare-mode JSONL rows: mismatch counts/classes, helper pairs, privacy key scan, and fail-on-mismatch readiness gate."
         }
       ]
     },

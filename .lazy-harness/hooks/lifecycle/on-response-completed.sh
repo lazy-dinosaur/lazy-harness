@@ -113,6 +113,13 @@ from datetime import datetime, timezone
 def digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
 
+def compare_body(text: str) -> str:
+    # Bash command substitution (`OUT=$(helper)`) strips trailing newline
+    # characters from helper stdout. lifecycle-check.py captures subprocess
+    # stdout as-is. Compare mode should judge bodies using the same semantics as
+    # the legacy hook while still recording raw byte lengths for diagnostics.
+    return str(text or "").rstrip("\n")
+
 path = os.environ.get("ORCHESTRATOR_RESULT_FILE") or ""
 try:
     with open(path, "r", encoding="utf-8") as fh:
@@ -122,6 +129,8 @@ except Exception as exc:
 
 legacy_body = os.environ.get("LEGACY_BODY") or ""
 orchestrator_body = str(orchestrator.get("firstOutput") or "")
+legacy_compare_body = compare_body(legacy_body)
+orchestrator_compare_body = compare_body(orchestrator_body)
 entry = {
     "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     "event": "response.completed.compare",
@@ -132,9 +141,12 @@ entry = {
     "orchestratorHelper": orchestrator.get("firstOutputHelper"),
     "legacyBodyBytes": len(legacy_body.encode("utf-8", errors="replace")),
     "orchestratorBodyBytes": len(orchestrator_body.encode("utf-8", errors="replace")),
-    "legacyBodyHash": digest(legacy_body) if legacy_body else None,
-    "orchestratorBodyHash": digest(orchestrator_body) if orchestrator_body else None,
-    "bodyHashMatch": digest(legacy_body) == digest(orchestrator_body),
+    "legacyCompareBytes": len(legacy_compare_body.encode("utf-8", errors="replace")),
+    "orchestratorCompareBytes": len(orchestrator_compare_body.encode("utf-8", errors="replace")),
+    "legacyBodyHash": digest(legacy_compare_body) if legacy_compare_body else None,
+    "orchestratorBodyHash": digest(orchestrator_compare_body) if orchestrator_compare_body else None,
+    "bodyHashMatch": digest(legacy_compare_body) == digest(orchestrator_compare_body),
+    "bodyHashNormalization": "strip-trailing-newlines",
     "helperMatch": (os.environ.get("LEGACY_HELPER") or None) == orchestrator.get("firstOutputHelper"),
     "orchestratorExitCode": int(os.environ.get("ORCHESTRATOR_EXIT") or "0"),
     "orchestratorSandbox": bool(orchestrator.get("sandbox")),

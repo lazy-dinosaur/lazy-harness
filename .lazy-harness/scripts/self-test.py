@@ -2577,6 +2577,105 @@ def check_response_completed_auto_route_telemetry() -> None:
         if "legacyBody" in compare_rows[-1] or "orchestratorBody" in compare_rows[-1]:
             fail("compare log must store hashes/lengths, not raw hook bodies")
 
+        summary_completed = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "lifecycle-compare-summary", "--format=json", "--log", str(compare_log)],
+            cwd=temp,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if summary_completed.returncode != 0:
+            fail("lazy lifecycle-compare-summary failed:\n" + summary_completed.stdout + summary_completed.stderr)
+        compare_summary = json.loads(summary_completed.stdout)
+        if compare_summary.get("mode") != "lifecycle-compare-summary" or compare_summary.get("rows", 0) < 1:
+            fail("lifecycle compare summary should report compare rows: " + summary_completed.stdout[:500])
+
+        def run_compare_payload(payload_obj: dict, log_name: str, extra_env: dict[str, str] | None = None) -> dict:
+            log_path = temp / ".lazy-harness" / "logs" / log_name
+            env = env_without_lazy_runtime(
+                LAZY_HOST_ROOT=str(temp),
+                LAZY_HOOK_TIMING_LOG=str(temp / ".lazy-harness" / "logs" / f"{log_name}.timings.jsonl"),
+                LAZY_RESPONSE_COMPLETED_ENGINE="compare",
+                LAZY_RESPONSE_COMPLETED_COMPARE_LOG=str(log_path),
+            )
+            if extra_env:
+                env.update(extra_env)
+            completed = subprocess.run(
+                [str(hook)],
+                cwd=temp,
+                input=json.dumps(payload_obj, ensure_ascii=False),
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            if completed.returncode != 0:
+                fail("compare fixture hook failed:\n" + completed.stdout + completed.stderr)
+            rows = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            if not rows:
+                fail("compare fixture should append a compare row")
+            return rows[-1]
+
+        newline_row = run_compare_payload({
+            "message_id": "compare-newline-normalization",
+            "assistant_response": "Analysis plan:\n1. DDD domain finding\n2. SDD contract finding\n3. BDD user flow finding\nBacklog: capture this later.",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}],
+        }, "lifecycle-compare-newline.jsonl")
+        if newline_row.get("bodyHashMatch") is not True or newline_row.get("helperMatch") is not True:
+            fail("compare log should normalize trailing-newline body differences to legacy semantics: " + json.dumps(newline_row, ensure_ascii=False))
+        if newline_row.get("bodyHashNormalization") != "strip-trailing-newlines":
+            fail("compare log should record body hash normalization policy: " + json.dumps(newline_row, ensure_ascii=False))
+
+        project_rule_payload = {
+            "message_id": "compare-open-gate-suppression",
+            "assistant_response": "프로젝트 규칙을 .jcode/harness/20-project-rules.md에 추가하겠습니다.",
+            "recent_tool_calls": [{"name": "Write", "args_preview": ".jcode/harness/20-project-rules.md"}],
+        }
+        first_gate = run_compare_payload(project_rule_payload, "lifecycle-compare-open-gates.jsonl")
+        if first_gate.get("bodyHashMatch") is not True or first_gate.get("helperMatch") is not True:
+            fail("first project-rule compare row should match before open-gate suppression: " + json.dumps(first_gate, ensure_ascii=False))
+        second_gate = run_compare_payload(project_rule_payload, "lifecycle-compare-open-gates.jsonl")
+        if second_gate.get("legacyOutputEmitted") is not False or second_gate.get("orchestratorOutputEmitted") is not False or second_gate.get("bodyHashMatch") is not True:
+            fail("sandbox should mirror open-gates state so duplicate suppression matches legacy: " + json.dumps(second_gate, ensure_ascii=False))
+
+        subprocess.run(["git", "config", "user.email", "lazy-harness@example.invalid"], cwd=temp, check=True)
+        subprocess.run(["git", "config", "user.name", "Lazy Harness Test"], cwd=temp, check=True)
+        (temp / "fix-compare-fixture.txt").write_text("fix fixture\n", encoding="utf-8")
+        subprocess.run(["git", "add", "fix-compare-fixture.txt"], cwd=temp, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "Fix: lifecycle compare sandbox fixture"], cwd=temp, check=True)
+        fix_row = run_compare_payload({
+            "message_id": "compare-fix-regression-git-context",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/tests/pre-action-search-evidence-guard.md"}],
+        }, "lifecycle-compare-fix-regression.jsonl")
+        if fix_row.get("bodyHashMatch") is not True or fix_row.get("helperMatch") is not True or not str(fix_row.get("legacyHelper") or "").endswith("check-fix-regression.sh"):
+            fail("sandbox should receive read-only git facts so fix-regression compare matches legacy: " + json.dumps(fix_row, ensure_ascii=False))
+
+        mirror_runtime = temp / ".lazy-harness" / "original-runtime-for-sandbox"
+        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl"):
+            target = mirror_runtime / "state" / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps({"fixture": name}, ensure_ascii=False) + "\n", encoding="utf-8")
+        tool_events = temp / ".jcode" / "hooks" / "tool-events.jsonl"
+        tool_events.parent.mkdir(parents=True, exist_ok=True)
+        tool_events.write_text('1700000000 {"event":"tool.execute.after","message_id":"sandbox-state-mirror","session_id":"sandbox-session","tool":{"name":"read","args":{"file_path":"README.md"}}}\n', encoding="utf-8")
+        sandbox_check = subprocess.run(
+            [str(temp / ".lazy-harness" / "bin" / "lazy"), "lifecycle-check", "--sandbox", "--format=json"],
+            cwd=temp,
+            input=json.dumps({"message_id": "sandbox-state-mirror", "session_id": "sandbox-session", "recent_tool_calls": []}, ensure_ascii=False),
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp), "LAZY_RUNTIME_ROOT": str(mirror_runtime)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if sandbox_check.returncode != 0:
+            fail("lifecycle-check sandbox state mirror fixture failed:\n" + sandbox_check.stdout + sandbox_check.stderr)
+        sandbox_json = json.loads(sandbox_check.stdout)
+        mirrored = ((sandbox_json.get("sandboxContext") or {}).get("mirroredState") or {})
+        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl", ".jcode/hooks/tool-events.jsonl"):
+            if not (mirrored.get(name) or {}).get("copied"):
+                fail("lifecycle-check sandbox should mirror bounded state/journal fixture for " + name + ": " + json.dumps(mirrored, ensure_ascii=False))
+
         correction_payload = {
             "message_id": "correction-capture-missing",
             "last_user_message": "너가 기록하는거 아닌거 알지? 하네스를 수정하는거야. 자꾸 실수하는건 기능으로 넣어야겠다.",
