@@ -110,3 +110,66 @@ Operational rule:
 - Cross-layer links:
   - Planning: `.lazy-harness/planning/capability-registry-implementation-plan.md`
   - ADR: `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md`
+
+## 2026-06-04 correction — framework scope is not Medivance-only
+
+Status: accepted
+Confirmation: user-corrected
+
+User correction:
+
+```text
+lazy-harness is a framework, not a Medivance-only tool. Even when Medivance is the primary dogfood evidence source, framework decisions must not be optimized only for Medivance.
+```
+
+Operational rule:
+
+- `/home/lazydino/dev/medivance` can be the **primary dogfood evidence host** when it has the most normal-use telemetry.
+- `/home/lazydino/dev/medivance-pwa`, `/home/lazydino/dev/medivance-homepage`, and future installed hosts remain required cross-checks for portability and generic-host behavior.
+- A finding from Medivance may justify a framework change only after it is classified as one of:
+  1. framework-general behavior,
+  2. host-specific policy that belongs in the downstream host record,
+  3. dogfood-only evidence requiring more cross-host validation,
+  4. no framework action.
+- Do not convert Medivance-specific runtime, app, release, database, package-script, or workflow assumptions into shared lazy-harness defaults without explicit generalization evidence or user approval.
+- For lifecycle compare triage, analyze Medivance as the high-volume primary signal, but include PWA compare rows and homepage/public-install smoke/D07 findings in the readiness judgement.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/ssot/project-identity.md` — framework-vs-downstream ownership boundary and this correction.
+  - `.lazy-harness/planning/dogfood-auto-recording-status-report.md` — mutable dogfood metrics and host evidence snapshots.
+  - `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md` — lifecycle compare inspection workflow that requires both Medivance and PWA checks while keeping Medivance primary.
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md` — standalone framework source-of-truth extraction decision.
+- Flow:
+  1. Use Medivance telemetry to discover framework gaps because it has the most volume.
+  2. Classify the gap before implementing: framework-general vs host-specific vs needs more cross-host evidence vs no action.
+  3. Confirm or test portability against secondary installed hosts before promoting the change into shared framework defaults.
+- Tests / protection:
+  - `.lazy-harness/bin/lazy test --scope framework`
+  - `.lazy-harness/bin/lazy lifecycle-parity --format=md --fail-on-mismatch`
+  - downstream host smoke checks after sync/public install.
+- Cross-layer links:
+  - Planning: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
+  - Planning: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
+  - ADR: `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+
+## Rule placement
+
+- Rule: Medivance is a high-volume dogfood evidence host, not the product target or framework source of truth; framework changes must be generalized or explicitly scoped before becoming shared lazy-harness defaults.
+- Scope: framework-global source-of-truth / downstream ownership boundary.
+- Primary record: `.lazy-harness/ssot/project-identity.md`.
+- Why not AGENTS.md: this is a source/dogfood ownership boundary, not universal grammar text for every installed host.
+- Why not `.jcode`: this is shared framework source policy, not private local Jcode-only workflow.
+- Confirmation: user-confirmed.
+
+## Discovery capture
+
+- DDD: none.
+- SDD: lifecycle compare and package-health changes discovered from Medivance must be classified before becoming shared contracts.
+- BDD: downstream host behavior evidence remains required for portability.
+- TDD: future Medivance-derived framework changes need cross-host regression/protection when generalized.
+- ADR: no new ADR yet; use option gate if a Medivance-only finding is proposed as framework-global default.
+- SSOT: updated here with the framework-vs-Medivance dogfood boundary.
+- Planning: dogfood triage should continue to use Medivance primary plus secondary host cross-checks.

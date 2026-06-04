@@ -909,3 +909,27 @@ However, Project Profile completion and graph hygiene remain blockers for profil
 - ADR: no immediate decision; production hook replacement explicitly remains deferred.
 - SSOT: host validation capability candidates may require SSOT/capability updates after user-approved promotion.
 - Planning: updated with this dogfood status snapshot and recommended next decisions.
+
+## 2026-06-04 scope correction — Medivance evidence must not become Medivance-only framework design
+
+Status: user-confirmed correction
+Confirmation: user emphasized that lazy-harness is a framework, not a Medivance-only project.
+
+Correction:
+
+```text
+Medivance is the primary dogfood evidence source only because it currently has the highest normal-use volume.
+It is not the framework target, not the source of truth, and not sufficient by itself to justify Medivance-specific defaults in the shared framework.
+```
+
+Implication for the lifecycle compare mismatch triage:
+
+- Analyze Medivance first because it has `658` compare rows and therefore enough signal.
+- Also include PWA's `19` compare rows and homepage/public-install findings in the final judgement.
+- A mismatch cause should be classified as framework-general vs Medivance-specific before any source implementation.
+- If a fix would encode Medivance app/runtime assumptions, stop for an option gate instead of implementing it as shared lazy-harness behavior.
+
+Rule placement:
+
+- Canonical boundary: `.lazy-harness/ssot/project-identity.md#2026-06-04-correction-framework-scope-is-not-medivance-only`.
+- This planning note only affects current dogfood triage workflow.
