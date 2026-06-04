@@ -933,3 +933,61 @@ Rule placement:
 
 - Canonical boundary: `.lazy-harness/ssot/project-identity.md#2026-06-04-correction-framework-scope-is-not-medivance-only`.
 - This planning note only affects current dogfood triage workflow.
+
+## 2026-06-04 guard fix synced to dogfood hosts
+
+Status: observed / validated
+Source commit: `d991d4f758ac` (`Fix pre-action search evidence guard`)
+Trigger: user requested updating `/home/lazydino/dev/medivance`, `/home/lazydino/dev/medivance-pwa`, and `/home/lazydino/dev/medivance-homepage` after the pre-action search evidence guard fix.
+
+### Sync applied
+
+Local source sync command pattern:
+
+```bash
+bun /home/lazydino/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from /home/lazydino/dev/lazy-harness \
+  --target <host> \
+  --force
+```
+
+Targets updated:
+
+| Host | Marker after sync | Guard fix present | Direct guard regressions | Doctor smoke | Host self-test |
+|---|---|---|---|---|---|
+| `/home/lazydino/dev/medivance` | `d991d4f` | yes | passed | passed | `scope=host`, exit `0`, ran `59`, skipped `18` |
+| `/home/lazydino/dev/medivance-pwa` | `d991d4f` | yes | passed | passed | `scope=host`, exit `0`, ran `59`, skipped `18` |
+| `/home/lazydino/dev/medivance-homepage` | `d991d4f` | yes | passed | passed | `scope=host`, exit `0`, ran `59`, skipped `18` |
+
+Direct guard regression checks run in each host:
+
+- brace grep evidence allows source `Edit`,
+- nested `batch` record reads allow source `Edit`,
+- `functions.apply_patch` targeting source with no search evidence denies.
+
+Important validation nuance:
+
+- Running `python3 .lazy-harness/scripts/self-test.py --scope framework` inside installed hosts is the wrong scope and can fail on framework-source-only artifacts such as `.lazy-harness/handoff/00-current-state.md`.
+- Correct installed-host validation is `--scope host`; all three hosts passed that.
+
+### Result
+
+```text
+The pre-action search evidence guard fix is now installed and validated across all three current dogfood hosts.
+```
+
+### Rule placement
+
+- Rule: point-in-time sync/validation observation for dogfood hosts.
+- Scope: transient planning / dogfood status.
+- Primary record: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`.
+- Why not AGENTS.md: mutable operational evidence, not general operating grammar.
+- Why not `.jcode`: shared framework dogfood status, not private Jcode-only wiring.
+
+### Discovery capture
+
+- TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md` validated in all three installed hosts with `--scope host`.
+- SDD: no contract change beyond the already accepted guard fix.
+- BDD: agent workflow fix cross-checked in Medivance, PWA, and homepage.
+- SSOT: no new ownership change.
+- Planning: this sync snapshot records host rollout and validation.
