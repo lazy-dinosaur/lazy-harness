@@ -13,7 +13,7 @@ Cross-host scope:
 
 - Primary signal: `/home/lazydino/dev/medivance`
 - Secondary compare signal: `/home/lazydino/dev/medivance-pwa`
-- Public/generic install signal: `/home/lazydino/dev/medivance-homepage` smoke/D07 observations, no compare wiring
+- Public/generic install signal: `/home/lazydino/dev/medivance-homepage` smoke/D07 observations; no prior normal-use compare wiring at triage time
 - Source of truth: `/home/lazydino/dev/lazy-harness`
 
 Boundary applied from `.lazy-harness/ssot/project-identity.md`:
@@ -370,3 +370,33 @@ Next dogfood step:
 - Sync `/home/lazydino/dev/medivance` and `/home/lazydino/dev/medivance-pwa` first, preserving compare-mode `.jcode` wiring.
 - Run fresh compare-mode smoke rows and `lazy lifecycle-compare-summary` on new rows.
 - Do not enable production orchestrator yet.
+
+## 2026-06-04 Phase 3A downstream smoke result
+
+Status: host-redogfood-smoke-passed
+Source commit: `d5eba94c5600`
+
+Completed the first downstream dogfood loop after the source patch:
+
+- synced `/home/lazydino/dev/medivance`, `/home/lazydino/dev/medivance-pwa`, and `/home/lazydino/dev/medivance-homepage` to source commit `d5eba94c5600`,
+- ran host self-test in all three hosts successfully,
+- generated fresh isolated compare smoke logs in `/tmp/medivance-phase3a-compare.jsonl`, `/tmp/medivance-pwa-phase3a-compare.jsonl`, and `/tmp/medivance-homepage-phase3a-compare-rerun.jsonl`,
+- summarized those logs with `lazy lifecycle-compare-summary --format=json --fail-on-mismatch`,
+- all fresh smoke summaries reported `mismatches=0`, `failures=0`, and class `match-after-normalization:trailing-newline`,
+- the interrupted homepage log `/tmp/medivance-homepage-phase3a-compare.jsonl` was also summarized and passed with `mismatches=0`.
+
+Next readiness work:
+
+- Continue collecting normal-use compare rows on synced hosts.
+- Summarize only post-Phase-3A rows, because existing installed logs include old mismatch rows.
+- Keep `LAZY_RESPONSE_COMPLETED_ENGINE=legacy` as production default until explicit replacement approval.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: no new contract.
+- BDD: none.
+- TDD: fresh three-host smoke validates Phase 3A compare-fidelity regression behavior.
+- ADR: none.
+- SSOT: source/dogfood boundary unchanged.
+- Planning: immediate three-host redogfood smoke is closed; long-running compare readiness remains pending.

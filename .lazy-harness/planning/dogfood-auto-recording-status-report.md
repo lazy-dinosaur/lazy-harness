@@ -1017,3 +1017,47 @@ Dogfood status:
 ```text
 Host sync and fresh compare-row collection are still pending. Existing Medivance/PWA compare logs still contain old pre-Phase-3A mismatch rows, so use `--limit` or fresh log paths when evaluating the patch effect.
 ```
+
+## 2026-06-04 Phase 3A downstream sync + fresh compare smoke
+
+Status: host-redogfood-smoke-passed
+Source commit: `d5eba94c5600` (`Fix: response lifecycle compare fidelity gaps`)
+
+Synced downstream hosts with:
+
+```bash
+bun .lazy-harness/scripts/lazy-sync.ts --from /home/lazydino/dev/lazy-harness --target /home/lazydino/dev/medivance --force
+bun .lazy-harness/scripts/lazy-sync.ts --from /home/lazydino/dev/lazy-harness --target /home/lazydino/dev/medivance-pwa --force
+bun .lazy-harness/scripts/lazy-sync.ts --from /home/lazydino/dev/lazy-harness --target /home/lazydino/dev/medivance-homepage --force
+```
+
+Sync result:
+
+- `/home/lazydino/dev/medivance`: marker updated to `d5eba94c5600`; Category A updated `10`, unchanged `161`, missing `0`; `.jcode/config.toml` kept user-owned.
+- `/home/lazydino/dev/medivance-pwa`: marker updated to `d5eba94c5600`; Category A updated `10`, unchanged `161`, missing `0`; `.jcode/config.toml` kept user-owned.
+- `/home/lazydino/dev/medivance-homepage`: marker updated to `d5eba94c5600`; Category A updated `10`, unchanged `161`, missing `0`; `.jcode/config.toml` regenerated/patched by lazy-sync and host harness status stayed clean after sync.
+
+Validation:
+
+- Medivance host self-test: passed (`scope=host`, `ran=59`, `skipped=18`).
+- Medivance PWA host self-test: passed (`scope=host`, `ran=59`, `skipped=18`).
+- Medivance homepage host self-test: passed (`scope=host`, `ran=59`, `skipped=18`).
+- Medivance fresh compare smoke: passed with `rows=1`, `mismatches=0`, `failures=0`, class `match-after-normalization:trailing-newline`.
+- Medivance PWA fresh compare smoke: passed with `rows=1`, `mismatches=0`, `failures=0`, class `match-after-normalization:trailing-newline`.
+- Medivance homepage fresh compare smoke: passed twice, including interrupted log `/tmp/medivance-homepage-phase3a-compare.jsonl` and rerun log `/tmp/medivance-homepage-phase3a-compare-rerun.jsonl`; both reported `rows=1`, `mismatches=0`, `failures=0`, class `match-after-normalization:trailing-newline`.
+
+Caveat:
+
+- Existing host compare logs still contain pre-Phase-3A rows. Use fresh log paths or `lazy lifecycle-compare-summary --limit <N>` when evaluating post-patch readiness.
+- This smoke proves the normalized newline class and sandbox helper pairing on all three required dogfood hosts. It does not yet prove long-running zero-mismatch readiness across normal use.
+- Production orchestrator replacement remains forbidden without explicit approval.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: no new contract beyond `.lazy-harness/spec/platform/hook-performance-measurement.md` Phase 3A patch.
+- BDD: none.
+- TDD: downstream smoke validates `.lazy-harness/tests/lifecycle-compare-fidelity.md` in installed hosts.
+- ADR: none.
+- SSOT: source/downstream ownership boundary unchanged.
+- Planning: this section closes the immediate three-host redogfood smoke step and leaves long-running compare readiness pending.
