@@ -596,3 +596,44 @@ Discovery capture:
 - ADR: no production replacement decision.
 - SSOT: no ownership/config source-of-truth change.
 - Planning: this section closes the immediate tooling-gap implementation step; long-running compare evidence remains pending.
+
+## 2026-06-04 tooling gap downstream validation
+
+Status: synced-and-validated
+Source commit: `e794958d8842` (`Feat: add compare and timing summary filters`)
+
+Synced to:
+
+- `/home/lazydino/dev/medivance`
+- `/home/lazydino/dev/medivance-pwa`
+- `/home/lazydino/dev/medivance-homepage`
+
+Host validation:
+
+| Host | Marker | Host self-test | Compare `--since 2026-06-04T10:06:00Z` | Timing `--all-sessions --since 2026-06-04T10:06:00Z` |
+|---|---|---|---|---|
+| Medivance | `e794958d8842` | pass (`ran=59`, `skipped=18`) | `rows=22`, `sourceRows=712`, `filteredRows=690`, `mismatches=0`, `failures=0` | `rows=5`, `sourceRows=29224`, `filteredRows=29219`, `logCount=5` |
+| Medivance PWA | `e794958d8842` | pass (`ran=59`, `skipped=18`) | `rows=0`, `sourceRows=19`, `filteredRows=19`, `mismatches=0`, `failures=0` | `rows=5`, `sourceRows=4029`, `filteredRows=4024`, `logCount=5` |
+| Medivance homepage | `e794958d8842` | pass (`ran=59`, `skipped=18`) | `rows=0`, `sourceRows=0`, `filteredRows=0`, `mismatches=0`, `failures=0` | `rows=412`, `sourceRows=1224`, `filteredRows=812`, `logCount=6` |
+
+Interpretation:
+
+```text
+The new tooling removes the manual filtering/aggregation step from compare readiness checks. Medivance remains the only host with post-Phase3A compare rows. PWA still needs normal-use compare rows, and homepage still is not compare-wired.
+```
+
+Next:
+
+- Use these built-in filters for future readiness checks.
+- Keep collecting PWA compare rows before considering production replacement.
+- Decide separately whether homepage should opt into long-running compare mode.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: no further contract beyond the just-implemented CLI flags.
+- BDD: no app flow change.
+- TDD: host self-tests validated installed fixtures.
+- ADR: no production replacement decision.
+- SSOT: source/downstream boundary unchanged.
+- Planning: downstream validation for the tooling-gap slice is complete.
