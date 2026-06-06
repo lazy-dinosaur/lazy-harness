@@ -1748,9 +1748,18 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
     try:
         state = temp / ".lazy-harness" / "state"
         stale = temp / ".lazy-harness" / "fixtures" / "context-delivery" / "obsolete-managed-fixture.xml"
+        removed_managed = [
+            temp / ".lazy-harness" / "spec" / "platform" / "operational-state-packet.md",
+            temp / ".lazy-harness" / "tests" / "operational-state-packet.md",
+            temp / ".lazy-harness" / "scripts" / "task-router.ts",
+            temp / ".lazy-harness" / "fixtures" / "task-router" / "cases.json",
+        ]
         graph = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
         state.mkdir(parents=True)
         stale.parent.mkdir(parents=True)
+        for removed in removed_managed:
+            removed.parent.mkdir(parents=True, exist_ok=True)
+            removed.write_text("legacy managed file\n", encoding="utf-8")
         graph.parent.mkdir(parents=True)
         stale.write_text("<legacy-fixture />\n", encoding="utf-8")
         host_graph_row = {"id": "host_local_graph_fact", "source": "host-local fact must survive lazy-sync"}
@@ -1772,6 +1781,9 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         current = temp / ".lazy-harness" / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
         if stale.exists() or not current.exists():
             fail("lazy-sync must prune stale managed fixture and copy current fixture")
+        still_present = [str(p.relative_to(temp)) for p in removed_managed if p.exists()]
+        if still_present:
+            fail("lazy-sync must prune known removed managed files: " + json.dumps(still_present, ensure_ascii=False))
         graph_text = graph.read_text(encoding="utf-8")
         if "host_local_graph_fact" not in graph_text or "kg_" not in graph_text:
             fail("lazy-sync must merge source knowledge seeds while preserving host-local graph rows")

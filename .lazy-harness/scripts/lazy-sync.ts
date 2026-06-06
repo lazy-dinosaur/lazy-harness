@@ -329,6 +329,15 @@ interface ManifestItem {
   exclude?: string[]
 }
 
+const KNOWN_REMOVED_MANAGED_FILES = [
+  '.lazy-harness/scripts/operational-state.ts',
+  '.lazy-harness/scripts/task-router.ts',
+  '.lazy-harness/schemas/operational-state-packet.schema.json',
+  '.lazy-harness/spec/platform/operational-state-packet.md',
+  '.lazy-harness/tests/operational-state-packet.md',
+  '.lazy-harness/fixtures/task-router/cases.json'
+]
+
 interface InitManifest {
   categories: {
     A: { items: ManifestItem[] }
@@ -429,6 +438,23 @@ function syncCategoryA(
   return { updated, unchanged, missing }
 }
 
+function removeKnownRemovedManagedFiles(sourceRoot: string, targetRoot: string): number {
+  let removed = 0
+  for (const rel of KNOWN_REMOVED_MANAGED_FILES) {
+    const sourcePath = join(sourceRoot, rel)
+    const targetPath = join(targetRoot, rel)
+    if (existsSync(sourcePath) || !existsSync(targetPath)) continue
+    if (DRY) log(`  [dry] would remove known removed managed file: ${targetPath}`)
+    else {
+      unlinkSync(targetPath)
+      log(`  removed known removed managed file: ${targetPath}`)
+    }
+    removed++
+  }
+  if (removed > 0) log(`  → ${removed} known removed managed files pruned`)
+  return removed
+}
+
 // ─────────────────────────────────────────────────────────────
 // Version marker update
 // ─────────────────────────────────────────────────────────────
@@ -511,6 +537,7 @@ function main(): void {
   // Sync
   const manifest = loadManifest(sourceRoot)
   const result = syncCategoryA(sourceRoot, targetRoot, manifest.categories.A.items)
+  result.updated += removeKnownRemovedManagedFiles(sourceRoot, targetRoot)
 
   // Update marker
   log('\n[Marker]')
