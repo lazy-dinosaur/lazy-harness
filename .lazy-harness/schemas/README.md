@@ -9,7 +9,6 @@ Important generated index schemas:
 - `context-index.schema.json` — derived Context Delivery cache for record/profile/graph retrieval metadata.
 - `context-delivery-packet.schema.json` — pre-turn required-read Context Delivery Packet.
 - `context-tier-manifest.schema.json` — optional advisory context tier manifest shape for always/phase/task/optional pointer hints.
-- `operational-state-packet.schema.json` — explicit/manual Operational State Packet prototype for advisory context pointers.
 - `record-decision-packet.schema.json` — post-turn record-action Record Decision Packet.
 
 ## Trigger to fill

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This capsule records Phase 7 dogfood for `feature/prompt-runtime-compression-plan` after implementing prompt/runtime compression, prompt-budget measurement, source feature navigation, advisory context tiers, evidence capsules, and manual operational-state packets.
+This capsule records Phase 7 dogfood for `feature/prompt-runtime-compression-plan` after implementing prompt/runtime compression, prompt-budget measurement, source feature navigation, advisory context tiers, evidence capsules, and later removal of manual operational-state packets after LLM-first review.
 
 In scope:
 
@@ -17,7 +17,8 @@ Out of scope:
 
 - changing host application code
 - shortening host-local skill files
-- promoting operational-state/context-delivery into default hooks
+- promoting context-delivery into default hooks
+- reintroducing operational-state/user-text CLI classifiers without a new LLM-first ADR/SDD
 - adding broad hard gates
 
 ## Environment
@@ -59,7 +60,6 @@ Host validation per host:
 .lazy-harness/bin/lazy doctor --profile=smoke
 .lazy-harness/bin/lazy prompt-budget --format=json
 .lazy-harness/bin/lazy context-index --format=json
-.lazy-harness/bin/lazy operational-state --message 'validate evidence raw-private-host-validation-message' --index .lazy-harness/generated/__missing_operational_state_context_index.json --format=json
 ```
 
 ## Results
@@ -91,21 +91,17 @@ Host validation per host:
  .lazy-harness/regression/registry.jsonl            |   1 +
  .lazy-harness/schemas/README.md                    |   2 +
  .../schemas/context-tier-manifest.schema.json      |  85 ++
- .../schemas/operational-state-packet.schema.json   |  70 ++
- .lazy-harness/scripts/operational-state.ts         | 314 ++++++++
- .lazy-harness/scripts/prompt-budget.py             | 329 ++++++++
+   .lazy-harness/scripts/prompt-budget.py             | 329 ++++++++
  .lazy-harness/scripts/self-test.py                 | 726 ++++++++++++++++-
  .../spec/platform/context-delivery-contract.md     |  16 +
  .../spec/platform/context-tier-manifest.md         | 150 ++++
  .../spec/platform/evidence-capsule-standard.md     | 146 ++++
- .../spec/platform/operational-state-packet.md      | 148 ++++
- .../spec/platform/pre-response-rule-context.md     |  23 +-
+  .../spec/platform/pre-response-rule-context.md     |  23 +-
  .lazy-harness/spec/platform/prompt-budget.md       | 166 ++++
  .lazy-harness/ssot/capabilities.json               |  43 +-
  .lazy-harness/ssot/project-navigation.md           | 127 +++
  .lazy-harness/templates/evidence-capsule.md        |  35 +
  .lazy-harness/tests/evidence-capsule-standard.md   |  71 ++
- .lazy-harness/tests/operational-state-packet.md    |  64 ++
  .lazy-harness/tests/pre-response-rule-context.md   |  97 +++
  .lazy-harness/tests/prompt-budget.md               | 118 +++
  30 files changed, 4166 insertions(+), 64 deletions(-)
@@ -127,21 +123,17 @@ A	.lazy-harness/project/feature-navigation.xml
 M	.lazy-harness/regression/registry.jsonl
 M	.lazy-harness/schemas/README.md
 A	.lazy-harness/schemas/context-tier-manifest.schema.json
-A	.lazy-harness/schemas/operational-state-packet.schema.json
-A	.lazy-harness/scripts/operational-state.ts
 A	.lazy-harness/scripts/prompt-budget.py
 M	.lazy-harness/scripts/self-test.py
 M	.lazy-harness/spec/platform/context-delivery-contract.md
 A	.lazy-harness/spec/platform/context-tier-manifest.md
 A	.lazy-harness/spec/platform/evidence-capsule-standard.md
-A	.lazy-harness/spec/platform/operational-state-packet.md
 M	.lazy-harness/spec/platform/pre-response-rule-context.md
 A	.lazy-harness/spec/platform/prompt-budget.md
 M	.lazy-harness/ssot/capabilities.json
 A	.lazy-harness/ssot/project-navigation.md
 A	.lazy-harness/templates/evidence-capsule.md
 A	.lazy-harness/tests/evidence-capsule-standard.md
-A	.lazy-harness/tests/operational-state-packet.md
 A	.lazy-harness/tests/pre-response-rule-context.md
 A	.lazy-harness/tests/prompt-budget.md
 ```
@@ -430,9 +422,9 @@ Highlights:
 
 Highlights:
 
-- `medivance`: `lazy test`, doctor smoke, prompt-budget, context-index, operational-state all passed.
-- `medivance-pwa`: `lazy test`, doctor smoke, prompt-budget, context-index, operational-state all passed.
-- `medivance-homepage`: `lazy test`, doctor smoke, prompt-budget, context-index, operational-state all passed.
+- `medivance`: `lazy test`, doctor smoke, prompt-budget, and context-index passed in the original dogfood run; operational-state was later removed after LLM-first review.
+- `medivance-pwa`: `lazy test`, doctor smoke, prompt-budget, and context-index passed in the original dogfood run; operational-state was later removed after LLM-first review.
+- `medivance-homepage`: `lazy test`, doctor smoke, prompt-budget, and context-index passed in the original dogfood run; operational-state was later removed after LLM-first review.
 - `medivance-homepage` retains the 570-line `.jcode/skills/medivance-figma-fidelity/SKILL.md` unchanged; prompt-budget reports it as `enforcement=advisory`, `rawStatus=fail`, `status=warn`.
 
 ### Dogfood findings fixed during Phase 7
@@ -464,21 +456,20 @@ Highlights:
 
 ## Interpretation
 
-Phase 7 supports keeping the compact static `message.received` prompt and the new explicit/manual helper tooling.
+Phase 7 supports keeping the compact static `message.received` prompt, prompt-budget measurement, and deterministic navigation surfaces. The operational-state helper was subsequently removed because user-message CLI classification conflicts with the LLM-first direction.
 
 Decision gate outcome:
 
 - Keep compact prompt: yes. Token reduction is above 30% and host validations passed.
 - Revert Phase 2 compact prompt: no evidence requiring revert.
-- Keep operational-state: yes, but explicit/manual only and advisory.
+- Keep operational-state: no. Removed/deferred after LLM-first review; do not classify request semantics in CLI regex helpers.
 - Promote new broad hard stop: no.
 - Treat skills as hard prompt-budget failures: no. Skills are on-demand instruction assets and should remain advisory in prompt-budget.
 
 Known caveats:
 
-- Prompt-budget remains `warn` because duplicated `.lazy-harness/AGENTS.md` / `.jcode/harness/05-lazy-harness.md` grammar is still present.
+- Prompt-budget stale note superseded: after pointer-only `.jcode/harness/05-lazy-harness.md`, duplicate grammar count is 0 and prompt-budget passes in source validation.
 - Context feature count is `0` on downstream hosts unless they add host-owned `.lazy-harness/project/feature-navigation.xml`.
-- Operational-state capabilities are empty on downstream hosts unless the host-owned capability registry opts in to relevant capabilities.
 
 ## Reproduce
 
@@ -497,9 +488,8 @@ Known caveats:
 - `.lazy-harness/spec/lazy-sync-drift-detection.md`
 - `.lazy-harness/spec/platform/context-tier-manifest.md`
 - `.lazy-harness/spec/platform/evidence-capsule-standard.md`
-- `.lazy-harness/spec/platform/operational-state-packet.md`
 - `.lazy-harness/knowledge/candidates.jsonl`
 
 ## Retention / privacy
 
-This capsule stores summarized command results, file paths, commit IDs, and aggregate validation metrics. It does not store raw user messages, secrets, credentials, personal data, raw assistant responses, unrelated product data, or excessive raw logs. The operational-state validation message was a synthetic privacy sentinel and was verified not to leak into packet output.
+This capsule stores summarized command results, file paths, commit IDs, and aggregate validation metrics. It does not store raw user messages, secrets, credentials, personal data, raw assistant responses, unrelated product data, or excessive raw logs.

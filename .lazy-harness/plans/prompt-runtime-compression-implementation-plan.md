@@ -555,76 +555,34 @@ Revert Phase 5 commit. Evidence directory/template is additive and non-runtime.
 
 ## 10. Phase 6 — Operational State Packet Prototype
 
-Status: completed
+Status: removed / deferred
 
-### Goal
+### Outcome
 
-Prototype a compact runtime view that summarizes applicable context without becoming canonical truth or default semantic authority.
+The operational-state packet prototype was removed from this branch after user review.
 
-### New/changed files
+Reason:
 
-- New SDD: `.lazy-harness/spec/platform/operational-state-packet.md`
-- New schema: `.lazy-harness/schemas/operational-state-packet.schema.json`
-- New script: `.lazy-harness/scripts/operational-state.ts`
-- CLI dispatch: `.lazy-harness/bin/lazy operational-state`
-- Self-test fixture.
-- New TDD: `.lazy-harness/tests/operational-state-packet.md`
-- Updated:
-  - `.lazy-harness/manifests/init-categories.json` syncs the SDD/TDD/schema/script through existing framework asset categories.
-  - `.lazy-harness/project/feature-navigation.xml` maps operational-state under `context-delivery-indexing`.
-  - `.lazy-harness/scripts/self-test.py` adds `check_operational_state_packet_phase6`.
-  - `.lazy-harness/knowledge/graph.jsonl` links the SDD, script, and self-test protection.
+- It classified raw request text into `taskKind` and `risk` by CLI regex.
+- Even as explicit/manual advisory tooling, that direction conflicted with the desired LLM-first architecture.
+- The retained architecture is: deterministic maps/indexes/graph pointers provide navigation, while the LLM/searcher performs root-bound search/read and owns semantic judgment.
 
-### Packet should include
+Removed assets:
 
-```json
-{
-  "schemaVersion": "1.0",
-  "generatedAt": "...",
-  "source": {
-    "canonicalInputs": ["..."],
-    "generatedInputs": ["..."]
-  },
-  "taskKind": "unknown|implementation|planning|validation|recording",
-  "requiredReads": [],
-  "recommendedReads": [],
-  "capabilities": [],
-  "evidence": [],
-  "risk": "low|medium|high|unknown",
-  "notes": []
-}
-```
+- the operational-state prototype script,
+- the associated SDD/TDD/schema records,
+- the `lazy operational-state` dispatch and self-test fixture,
+- related graph, manifest, and feature-navigation links.
 
-### Constraints
+### What remains instead
 
-- Explicit/manual command only in this phase.
-- No default `message.received` use.
-- No raw user transcript storage.
-- No hard block output.
-- If generated indexes are missing, it reports fallback-needed rather than failing.
-
-### Acceptance criteria
-
-- [x] `lazy operational-state --message "..." --format=json` emits schema-shaped packet in focused validation.
-- [x] Packet references records by path and reason.
-- [x] `self-test.py` covers missing context-index fallback.
-- [x] No `message.received` default behavior changes; self-test scans lifecycle hooks for forbidden operational-state wiring.
-- [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
-
-Validation evidence:
-
-- `git diff --check` passed.
-- `python3 -m py_compile .lazy-harness/scripts/self-test.py .lazy-harness/scripts/prompt-budget.py` passed.
-- Focused `check_operational_state_packet_phase6` passed.
-- `.lazy-harness/bin/lazy operational-state --message 'validate evidence raw-private-operational-state-message' --index .lazy-harness/generated/__missing_operational_state_context_index.json --format=json` emitted advisory JSON with `taskKind=validation`, `risk=medium`, `fallbackNeeded=true`, and `lazy-evidence-capsule`, without raw message leakage.
-- `python3 .lazy-harness/scripts/self-test.py` passed with `ran=82, skipped=0`.
-- `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
-- `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
-- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/operational-state-packet.md` to `context-delivery-indexing`.
+- `prompt-budget` remains because it is read-only measurement, not semantic authority.
+- `context-index`, `feature-navigation.xml`, `graph.jsonl`, and Implementation maps remain as deterministic navigation surfaces.
+- Header/key/alias + linked-node retrieval remains a candidate path to formalize separately.
 
 ### Rollback
 
-Revert Phase 6 commit. CLI addition is isolated.
+No runtime rollback is required because operational-state was not wired into default hooks. Re-adding it would require a new ADR/SDD that forbids CLI user-text semantic classification and keeps LLM semantic judgment as the authority.
 
 ## 11. Phase 7 — Dogfood and Decision Gate
 
@@ -682,8 +640,8 @@ Only after at least one dogfood pass:
   - keep compact prompt.
 - If behavior gets worse:
   - revert Phase 2 only, keep measurement tooling if useful.
-- If operational-state helper is useful:
-  - keep explicit/manual capability at `recommend`, not default.
+- If a helper starts classifying user intent by CLI regex:
+  - remove or defer it; deterministic navigation can stay, semantic judgment stays with the LLM/searcher.
 - If hard gate seems needed:
   - require L5 promotion record and user confirmation.
 
@@ -694,21 +652,21 @@ Evidence capsule: `.lazy-harness/evidence/2026-06-06-phase7-prompt-runtime-compr
 
 Final source/host outcome:
 
-- Source self-test passed with `ran=82, skipped=0`.
+- Source self-test passed before removal with `ran=82, skipped=0`; after operational-state removal this drops by one check.
 - Source doctor smoke passed.
 - Source `message.received` estimate is `259` tokens versus Phase 1 baseline `799`, a 67.6% reduction.
 - Previous branch comparison used `main` at merge-base `132c0ce34dc1`; `git diff --name-status main` reported 30 framework files changed and no `.jcode/skills` / `.lazy-harness/skills` diffs.
 - `medivance`, `medivance-pwa`, and `medivance-homepage` synced to `332e2e8fbc98`.
 - Manifest-managed file verification passed for all three hosts with `182` byte-equal files each, expected knowledge JSONL merge/conflict handling, and no skill file diffs.
-- All three hosts passed `lazy test`, `doctor --profile=smoke`, `prompt-budget`, `context-index`, and `operational-state`.
+- All three hosts passed `lazy test`, `doctor --profile=smoke`, `prompt-budget`, and `context-index` in dogfood; operational-state was later removed/deferred after LLM-first review.
 - `medivance-homepage` keeps the 570-line `medivance-figma-fidelity` skill unchanged; prompt-budget reports it as advisory `warn` with `rawStatus=fail`, not a hard validation failure.
 
 Decision gate result:
 
 - Keep compact prompt.
 - Keep prompt-budget measurement with skill prompts advisory-only.
-- Keep source feature navigation and optional context-tier/evidence/operational-state helpers.
-- Keep operational-state explicit/manual only.
+- Keep source feature navigation and optional context-tier/evidence helpers as deterministic navigation/checklist surfaces.
+- Remove/defer operational-state style helpers that classify user text outside the LLM.
 - Do not promote any new broad hard stop.
 - Do not shorten host-owned skills automatically.
 
@@ -725,8 +683,8 @@ Use small commits:
 5. `Spec: add feature navigation map`
 6. `Spec: add context tier manifest`
 7. `Docs: add evidence capsule standard`
-8. `Feat: add operational state packet prototype`
-9. `Docs: record dogfood validation results`
+8. `Docs: record dogfood validation results`
+9. `Cleanup: remove operational-state user-text classifier prototype`
 
 ### Rollback matrix
 
@@ -738,14 +696,14 @@ Use small commits:
 | 3 feature navigation | `git revert <phase3>` | context-index falls back to no project profile |
 | 4 tier manifest | `git revert <phase4>` | optional hints removed |
 | 5 evidence/checklist | `git revert <phase5>` | docs/templates/capability removed |
-| 6 operational state | `git revert <phase6>` | explicit CLI removed; no default hook dependency |
+| 6 operational state | removed/deferred | no runtime dependency; do not re-add without LLM-first ADR/SDD |
 | 7 dogfood records | `git revert <phase7-docs>` | removes validation report only |
 
 ### Never do without explicit user approval
 
 - Replace production `response.completed` hook.
 - Promote any new broad hard stop.
-- Make operational-state/context-delivery the default semantic authority in `message.received`.
+- Make any context helper the default semantic authority in `message.received`.
 - Sync experimental branch changes into dogfood hosts without dry-run and user-visible summary.
 
 ## 13. Detailed task backlog
@@ -848,16 +806,13 @@ Expected outcome:
   - `.lazy-harness/spec/platform/context-tier-manifest.md`
   - `.lazy-harness/spec/platform/evidence-capsule-standard.md`
   - `.lazy-harness/tests/evidence-capsule-standard.md`
-  - `.lazy-harness/spec/platform/operational-state-packet.md`
 - Source files likely to change:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
   - `.lazy-harness/scripts/self-test.py`
   - `.lazy-harness/scripts/prompt-budget.py`
   - `.lazy-harness/scripts/context-index.ts`
-  - `.lazy-harness/scripts/operational-state.ts`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/schemas/context-tier-manifest.schema.json`
-  - `.lazy-harness/schemas/operational-state-packet.schema.json`
 - Existing protection tests:
   - `check_jcode_wiring_message_received_hook`
   - `check_context_index_generator`
@@ -868,12 +823,11 @@ Expected outcome:
   - compact hook token threshold,
   - feature navigation source-map completeness,
   - evidence capsule template headings,
-  - tier manifest pointer validation,
-  - operational state packet schema/fallback.
+  - tier manifest pointer validation.
 
 ## 16. Rule placement
 
-- Rule: lazy-harness should reduce prompt-heavy operation by adding measurement, compact static prompts, project navigation, context tier hints, evidence capsules, and optional operational-state packets while preserving project-defined policy machinery and rare hard-stop discipline.
+- Rule: lazy-harness should reduce prompt-heavy operation by adding measurement, compact static prompts, project navigation, context tier hints, and evidence capsules while preserving project-defined policy machinery, rare hard-stop discipline, and LLM-owned semantic judgment.
 - Scope: framework-global implementation plan.
 - Primary record: `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
 - Why not AGENTS.md: this is not yet final operating grammar; it is a branch implementation plan.
@@ -882,9 +836,9 @@ Expected outcome:
 ## 17. Discovery capture
 
 - DDD: no new domain/business invariant.
-- SDD: prompt budget, context tier manifest, evidence capsule standard, operational state packet, and compact pre-response prompt need SDD records as implemented.
+- SDD: prompt budget, context tier manifest, evidence capsule standard, and compact pre-response prompt need SDD records as implemented.
 - BDD: agent behavior should become less noisy while retaining search/option-gate behavior; add dogfood scenarios if behavior changes.
-- TDD: prompt budget, compact hook, feature navigation, tier manifest, evidence capsule, operational state packet all need self-test fixtures.
+- TDD: prompt budget, compact hook, feature navigation, tier manifest, and evidence capsule all need self-test fixtures.
 - ADR: no new ADR needed yet if implementing ADR 0041 direction; create ADR only if switching default `message.received` away from static direct-search transport or introducing new enforcement semantics.
 - SSOT: capability registry levels remain unchanged; optional checklist/evidence capabilities may be added at `recommend`.
 - Planning: this document is the active branch plan.
