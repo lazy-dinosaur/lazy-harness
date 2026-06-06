@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigation id="lazy-harness-source" status="confirmed">
+  <purpose>High-altitude source-repo project map for lazy-harness framework development and Context Delivery retrieval.</purpose>
+  <scope>Framework source checkout only. Downstream hosts should maintain their own .lazy-harness/project/feature-navigation.xml.</scope>
+
+  <feature id="prompt-runtime-lifecycle" status="confirmed">
+    <label>Prompt runtime lifecycle</label>
+    <aliases>
+      <alias lang="en">message.received</alias>
+      <alias lang="en">response.completed</alias>
+      <alias lang="en">pre-response prompt</alias>
+      <alias lang="en">prompt budget</alias>
+      <alias lang="en">search debt</alias>
+      <alias lang="en">read debt</alias>
+      <alias lang="symbol">on-message-received</alias>
+      <alias lang="symbol">PromptBudget</alias>
+    </aliases>
+    <routes>
+      <route>lazy prompt-budget</route>
+    </routes>
+    <components>
+      <component>message.received hook</component>
+      <component>prompt-budget CLI</component>
+      <component>generic search/read evidence guard</component>
+    </components>
+    <records>
+      <record layer="SDD">.lazy-harness/spec/platform/pre-response-rule-context.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/prompt-budget.md</record>
+      <record layer="TDD">.lazy-harness/tests/pre-response-rule-context.md</record>
+      <record layer="TDD">.lazy-harness/tests/prompt-budget.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/hooks/lifecycle/on-message-received.sh</path>
+      <path>.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py</path>
+      <path>.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py</path>
+      <path>.lazy-harness/scripts/prompt-budget.py</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/pre-response-rule-context.md</path>
+      <path>.lazy-harness/tests/prompt-budget.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>High: lifecycle prompts and guards affect every Jcode turn; preserve static/no-semantic-classifier guarantees unless a later record promotes a narrower behavior.</risk>
+  </feature>
+
+  <feature id="capability-registry" status="confirmed">
+    <label>Capability registry</label>
+    <aliases>
+      <alias lang="en">capability registry</alias>
+      <alias lang="en">capability resolution</alias>
+      <alias lang="en">kind level separation</alias>
+      <alias lang="symbol">capability.ts</alias>
+      <alias lang="symbol">capabilities.json</alias>
+    </aliases>
+    <routes>
+      <route>lazy capability</route>
+    </routes>
+    <components>
+      <component>capability resolver</component>
+      <component>capability audit</component>
+      <component>capability candidates</component>
+    </components>
+    <records>
+      <record layer="SSOT">.lazy-harness/ssot/capability-registry.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/capability-resolution.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md</record>
+      <record layer="TDD">.lazy-harness/tests/capability-registry.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/capability.ts</path>
+      <path>.lazy-harness/ssot/capabilities.json</path>
+      <path>.lazy-harness/schemas/capabilities.schema.json</path>
+      <path>.lazy-harness/bin/lazy</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/capability-registry.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: resolver output guides agents but new entries default to discover/recommend unless records justify stronger levels.</risk>
+  </feature>
+
+  <feature id="context-delivery-indexing" status="confirmed">
+    <label>Context delivery and indexing</label>
+    <aliases>
+      <alias lang="en">context delivery</alias>
+      <alias lang="en">context index</alias>
+      <alias lang="en">relevant record query</alias>
+      <alias lang="en">project profile feature navigation</alias>
+      <alias lang="symbol">ContextDeliveryPacket</alias>
+      <alias lang="symbol">context-index.ts</alias>
+      <alias lang="symbol">feature-navigation.xml</alias>
+    </aliases>
+    <routes>
+      <route>lazy context</route>
+      <route>lazy context-index</route>
+      <route>lazy context-delivery</route>
+      <route>lazy context-dogfood</route>
+    </routes>
+    <components>
+      <component>Context Delivery Packet</component>
+      <component>Context Index</component>
+      <component>Relevant Record Query</component>
+      <component>Project Profile feature navigation</component>
+    </components>
+    <records>
+      <record layer="SDD">.lazy-harness/spec/platform/context-delivery-contract.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/context-broker-dogfood.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/project-profile.md</record>
+      <record layer="TDD">.lazy-harness/tests/context-broker-dogfood.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/context-index.ts</path>
+      <path>.lazy-harness/scripts/context-delivery.ts</path>
+      <path>.lazy-harness/scripts/context-broker-dogfood.ts</path>
+      <path>.lazy-harness/scripts/relevant-record-query.ts</path>
+      <path>.lazy-harness/schemas/context-index.schema.json</path>
+      <path>.lazy-harness/schemas/context-delivery-packet.schema.json</path>
+      <path>.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/context-broker-dogfood.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>High: context helpers are non-canonical and must not replace direct record/source reads or become shell-time semantic authority.</risk>
+  </feature>
+
+  <feature id="record-decision-broker" status="confirmed">
+    <label>Record decision broker</label>
+    <aliases>
+      <alias lang="en">record decision</alias>
+      <alias lang="en">post-turn record action</alias>
+      <alias lang="en">candidate needed</alias>
+      <alias lang="en">option gate needed</alias>
+      <alias lang="symbol">RecordDecisionPacket</alias>
+      <alias lang="symbol">record-decision-broker.ts</alias>
+    </aliases>
+    <routes>
+      <route>lazy record-decision</route>
+      <route>lazy lifecycle-check</route>
+    </routes>
+    <components>
+      <component>Record Decision Packet</component>
+      <component>response.completed shadow helper</component>
+      <component>record decision CLI</component>
+    </components>
+    <records>
+      <record layer="SDD">.lazy-harness/spec/platform/record-decision-broker.md</record>
+      <record layer="TDD">.lazy-harness/tests/record-decision-broker.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/record-decision-broker.ts</path>
+      <path>.lazy-harness/schemas/record-decision-packet.schema.json</path>
+      <path>.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py</path>
+      <path>.lazy-harness/hooks/lifecycle/on-response-completed.sh</path>
+      <path>.lazy-harness/scripts/lifecycle-check.py</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/record-decision-broker.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: shadow/advisory by default; avoid canonical record writes without explicit evidence and user-confirmed placement.</risk>
+  </feature>
+
+  <feature id="implementation-map-graph-hygiene" status="confirmed">
+    <label>Implementation map and graph hygiene</label>
+    <aliases>
+      <alias lang="en">implementation map</alias>
+      <alias lang="en">knowledge graph</alias>
+      <alias lang="en">graph hygiene</alias>
+      <alias lang="en">implementation index</alias>
+      <alias lang="symbol">graph.jsonl</alias>
+      <alias lang="symbol">implementation-map-audit.ts</alias>
+    </aliases>
+    <routes>
+      <route>lazy impl-map</route>
+      <route>lazy graph-hygiene</route>
+    </routes>
+    <components>
+      <component>Markdown Implementation map</component>
+      <component>knowledge graph JSONL</component>
+      <component>generated implementation index</component>
+    </components>
+    <records>
+      <record layer="SDD">.lazy-harness/spec/platform/implementation-map-standard.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/implementation-map-migration.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/progressive-knowledge-graph.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/graph-hygiene.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/implementation-map-storage.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/knowledge-graph-storage.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/implementation-map-audit.ts</path>
+      <path>.lazy-harness/scripts/graph-hygiene.ts</path>
+      <path>.lazy-harness/scripts/knowledge-intake.ts</path>
+      <path>.lazy-harness/knowledge/graph.jsonl</path>
+      <path>.lazy-harness/schemas/knowledge-graph-record.schema.json</path>
+      <path>.lazy-harness/schemas/implementation-index.schema.json</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: graph rows are canonical machine facts, while generated indexes are rebuildable caches and must remain non-canonical.</risk>
+  </feature>
+
+  <feature id="lifecycle-compare-parity" status="confirmed">
+    <label>Lifecycle compare and parity</label>
+    <aliases>
+      <alias lang="en">lifecycle check</alias>
+      <alias lang="en">lifecycle parity</alias>
+      <alias lang="en">response hook compare</alias>
+      <alias lang="en">fixture intake</alias>
+      <alias lang="symbol">lifecycle-check.py</alias>
+      <alias lang="symbol">lifecycle-parity-runner.py</alias>
+    </aliases>
+    <routes>
+      <route>lazy lifecycle-check</route>
+      <route>lazy lifecycle-parity</route>
+      <route>lazy lifecycle-fixture</route>
+      <route>lazy lifecycle-compare-summary</route>
+    </routes>
+    <components>
+      <component>response.completed orchestrator</component>
+      <component>legacy parity runner</component>
+      <component>lifecycle fixture intake</component>
+    </components>
+    <records>
+      <record layer="ADR">.lazy-harness/decisions/0016-lifecycle-hook-strategy.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0039-rule-lifecycle-bindings.md</record>
+      <record layer="TDD">.lazy-harness/tests/lifecycle-compare-fidelity.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/lifecycle-check.py</path>
+      <path>.lazy-harness/scripts/lifecycle-parity-runner.py</path>
+      <path>.lazy-harness/scripts/lifecycle-compare-summary.py</path>
+      <path>.lazy-harness/scripts/lifecycle-fixture-intake.py</path>
+      <path>.lazy-harness/hooks/lifecycle/on-response-completed.sh</path>
+      <path>.lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh</path>
+      <path>.lazy-harness/hooks/lifecycle/helpers/runtime_paths.py</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/lifecycle-compare-fidelity.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: compare/parity tooling should stay shadow/read-only unless a record promotes a narrower hard-stop behavior.</risk>
+  </feature>
+
+  <feature id="sync-install-update" status="confirmed">
+    <label>Sync, install, and update</label>
+    <aliases>
+      <alias lang="en">lazy init</alias>
+      <alias lang="en">lazy sync</alias>
+      <alias lang="en">lazy update</alias>
+      <alias lang="en">jcode wiring</alias>
+      <alias lang="en">host pilot</alias>
+      <alias lang="symbol">lazy-init.ts</alias>
+      <alias lang="symbol">lazy-sync.ts</alias>
+      <alias lang="symbol">jcode-wiring.ts</alias>
+    </aliases>
+    <routes>
+      <route>lazy init</route>
+      <route>lazy sync</route>
+      <route>lazy update</route>
+      <route>lazy version</route>
+    </routes>
+    <components>
+      <component>install script</component>
+      <component>lazy-init CLI</component>
+      <component>lazy-sync CLI</component>
+      <component>Jcode wiring generator</component>
+    </components>
+    <records>
+      <record layer="SDD">.lazy-harness/spec/lazy-sync-drift-detection.md</record>
+      <record layer="TDD">.lazy-harness/tests/lazy-sync-dirty-false-positive.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/project-identity.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md</record>
+    </records>
+    <sourceFiles>
+      <path>install.sh</path>
+      <path>.lazy-harness/scripts/lazy-init.ts</path>
+      <path>.lazy-harness/scripts/lazy-sync.ts</path>
+      <path>.lazy-harness/scripts/lazy-update.ts</path>
+      <path>.lazy-harness/scripts/jcode-wiring.ts</path>
+      <path>.lazy-harness/scripts/host-pilot.ts</path>
+      <path>.lazy-harness/bin/lazy</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/lazy-sync-dirty-false-positive.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>High: source/downstream ownership boundaries must be respected; do not patch downstream hosts as source-of-truth fixes without explicit confirmation.</risk>
+  </feature>
+
+  <feature id="test-doctor" status="confirmed">
+    <label>Test and doctor</label>
+    <aliases>
+      <alias lang="en">lazy test</alias>
+      <alias lang="en">lazy doctor</alias>
+      <alias lang="en">self-test</alias>
+      <alias lang="en">doctor smoke</alias>
+      <alias lang="symbol">self-test.py</alias>
+      <alias lang="symbol">doctor.py</alias>
+    </aliases>
+    <routes>
+      <route>lazy test</route>
+      <route>lazy doctor</route>
+    </routes>
+    <components>
+      <component>self-test runner</component>
+      <component>doctor health check</component>
+      <component>pre-commit guard</component>
+      <component>pre-push guard</component>
+    </components>
+    <records>
+      <record layer="ADR">.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md</record>
+      <record layer="ADR">.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md</record>
+      <record layer="TDD">.lazy-harness/tests/README.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/self-test.py</path>
+      <path>.lazy-harness/scripts/doctor.py</path>
+      <path>.lazy-harness/hooks/pre-commit-guard.sh</path>
+      <path>.lazy-harness/hooks/pre-push.sh</path>
+      <path>.lazy-harness/bin/lazy</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/scripts/self-test.py</path>
+      <path>.lazy-harness/tests/README.md</path>
+    </tests>
+    <risk>High: validation claims must run focused tests before completion; doctor/test scope separation must stay framework-vs-host aware.</risk>
+  </feature>
+</featureNavigation>

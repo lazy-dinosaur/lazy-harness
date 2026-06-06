@@ -4822,6 +4822,157 @@ def check_context_index_generator_phase3() -> None:
     print("✓ context-index generator Phase 3 ok")
 
 
+def check_source_feature_navigation_phase3() -> None:
+    """Source repo Phase 3 should expose a compact canonical project feature map."""
+    feature_path = LAZY / "project" / "feature-navigation.xml"
+    if not feature_path.exists():
+        fail("source feature navigation missing: .lazy-harness/project/feature-navigation.xml")
+
+    expected = {
+        "prompt-runtime-lifecycle": {
+            "aliases": {"message.received", "prompt budget", "search debt"},
+            "paths": {
+                ".lazy-harness/spec/platform/pre-response-rule-context.md",
+                ".lazy-harness/spec/platform/prompt-budget.md",
+                ".lazy-harness/hooks/lifecycle/on-message-received.sh",
+                ".lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py",
+                ".lazy-harness/scripts/prompt-budget.py",
+                ".lazy-harness/scripts/self-test.py",
+            },
+        },
+        "capability-registry": {
+            "aliases": {"capability registry", "capability resolution", "capabilities.json"},
+            "paths": {
+                ".lazy-harness/ssot/capability-registry.md",
+                ".lazy-harness/spec/platform/capability-resolution.md",
+                ".lazy-harness/scripts/capability.ts",
+                ".lazy-harness/ssot/capabilities.json",
+            },
+        },
+        "context-delivery-indexing": {
+            "aliases": {"context delivery", "context index", "feature-navigation.xml"},
+            "paths": {
+                ".lazy-harness/spec/platform/context-delivery-contract.md",
+                ".lazy-harness/spec/platform/project-profile.md",
+                ".lazy-harness/scripts/context-index.ts",
+                ".lazy-harness/scripts/context-delivery.ts",
+                ".lazy-harness/schemas/context-index.schema.json",
+            },
+        },
+        "record-decision-broker": {
+            "aliases": {"record decision", "RecordDecisionPacket", "record-decision-broker.ts"},
+            "paths": {
+                ".lazy-harness/spec/platform/record-decision-broker.md",
+                ".lazy-harness/tests/record-decision-broker.md",
+                ".lazy-harness/scripts/record-decision-broker.ts",
+                ".lazy-harness/schemas/record-decision-packet.schema.json",
+            },
+        },
+        "implementation-map-graph-hygiene": {
+            "aliases": {"implementation map", "knowledge graph", "graph.jsonl"},
+            "paths": {
+                ".lazy-harness/spec/platform/implementation-map-standard.md",
+                ".lazy-harness/ssot/implementation-map-storage.md",
+                ".lazy-harness/scripts/implementation-map-audit.ts",
+                ".lazy-harness/scripts/graph-hygiene.ts",
+                ".lazy-harness/knowledge/graph.jsonl",
+            },
+        },
+        "lifecycle-compare-parity": {
+            "aliases": {"lifecycle check", "lifecycle parity", "lifecycle-check.py"},
+            "paths": {
+                ".lazy-harness/decisions/0016-lifecycle-hook-strategy.md",
+                ".lazy-harness/tests/lifecycle-compare-fidelity.md",
+                ".lazy-harness/scripts/lifecycle-check.py",
+                ".lazy-harness/scripts/lifecycle-parity-runner.py",
+            },
+        },
+        "sync-install-update": {
+            "aliases": {"lazy init", "lazy sync", "jcode wiring"},
+            "paths": {
+                "install.sh",
+                ".lazy-harness/spec/lazy-sync-drift-detection.md",
+                ".lazy-harness/tests/lazy-sync-dirty-false-positive.md",
+                ".lazy-harness/scripts/lazy-init.ts",
+                ".lazy-harness/scripts/lazy-sync.ts",
+                ".lazy-harness/scripts/jcode-wiring.ts",
+            },
+        },
+        "test-doctor": {
+            "aliases": {"lazy test", "lazy doctor", "self-test.py"},
+            "paths": {
+                ".lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md",
+                ".lazy-harness/decisions/0026-doctor-self-test-scope-separation.md",
+                ".lazy-harness/scripts/self-test.py",
+                ".lazy-harness/scripts/doctor.py",
+                ".lazy-harness/bin/lazy",
+            },
+        },
+    }
+
+    root = ET.parse(feature_path).getroot()
+    features = {feature.attrib.get("id"): feature for feature in root.findall("feature")}
+    missing_features = [feature_id for feature_id in expected if feature_id not in features]
+    if missing_features:
+        fail("source feature navigation missing critical features: " + json.dumps(missing_features, ensure_ascii=False))
+
+    for feature_id, requirements in expected.items():
+        feature = features[feature_id]
+        if feature.attrib.get("status") != "confirmed":
+            fail(f"source feature {feature_id} should be status=confirmed")
+        if not (feature.findtext("label") or "").strip():
+            fail(f"source feature {feature_id} missing label")
+        if not (feature.findtext("risk") or "").strip():
+            fail(f"source feature {feature_id} missing risk note")
+        aliases = {node.text.strip() for node in feature.findall("./aliases/alias") if node.text and node.text.strip()}
+        missing_aliases = sorted(requirements["aliases"] - aliases)
+        if missing_aliases:
+            fail(f"source feature {feature_id} missing aliases: {missing_aliases}")
+        paths = {
+            node.text.strip()
+            for node in feature.findall(".//path")
+            if node.text and node.text.strip()
+        } | {
+            node.text.strip()
+            for node in feature.findall("./records/record")
+            if node.text and node.text.strip()
+        }
+        missing_paths = sorted(requirements["paths"] - paths)
+        if missing_paths:
+            fail(f"source feature {feature_id} missing paths: {missing_paths}")
+        nonexistent = sorted(path for path in paths if not (ROOT / path).exists())
+        if nonexistent:
+            fail(f"source feature {feature_id} references missing paths: {nonexistent}")
+
+    context_index = subprocess.run(
+        ["bun", str(LAZY / "scripts" / "context-index.ts"), "--root", str(ROOT), "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if context_index.returncode != 0:
+        fail("source context-index generation failed:\n" + context_index.stdout + context_index.stderr)
+    payload = json.loads(context_index.stdout)
+    profile = payload.get("projectProfile", {})
+    if profile.get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
+        fail("source context-index missing source feature-navigation path")
+    indexed_ids = {feature.get("id") for feature in profile.get("features", [])}
+    missing_indexed = sorted(set(expected) - indexed_ids)
+    if missing_indexed:
+        fail("source context-index missing projectProfile feature ids: " + json.dumps(missing_indexed, ensure_ascii=False))
+
+    records = {record.get("recordPath"): record for record in payload.get("records", [])}
+    prompt_record = records.get(".lazy-harness/spec/platform/pre-response-rule-context.md")
+    if not prompt_record or "prompt-runtime-lifecycle" not in prompt_record.get("projectProfileFeatureIds", []):
+        fail("source context-index did not attach prompt-runtime-lifecycle to pre-response SDD")
+    prompt_hints = prompt_record.get("implementationHints", {})
+    if ".lazy-harness/hooks/lifecycle/on-message-received.sh" not in prompt_hints.get("fileHints", []):
+        fail("source context-index did not merge prompt runtime source file hint")
+
+    print(f"✓ source feature navigation Phase 3 ok ({len(expected)} features)")
+
+
 def check_context_delivery_dual_mode_phase4() -> None:
     """Phase 4 should produce packet-shaped dual-mode required-read context."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
@@ -6606,6 +6757,7 @@ def main() -> None:
         (check_context_delivery_contract_sdd, "BOTH"),
         (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
+        (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),

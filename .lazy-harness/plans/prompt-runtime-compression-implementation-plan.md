@@ -322,6 +322,8 @@ Revert the Phase 2 commit to return to current static prompt. Since the journal 
 
 ## 7. Phase 3 — Feature Navigation / Project Map
 
+Status: completed
+
 ### Goal
 
 Fill the missing project-navigation input so context compression can rely on a compact map instead of large inventory dumps.
@@ -331,11 +333,12 @@ Fill the missing project-navigation input so context compression can rely on a c
 - New canonical host/source file:
   - `.lazy-harness/project/feature-navigation.xml`
 - New SDD or SSOT:
-  - `.lazy-harness/spec/platform/feature-navigation.md` or `.lazy-harness/ssot/project-navigation.md`
+  - `.lazy-harness/ssot/project-navigation.md`
 - Update:
-  - `.lazy-harness/scripts/context-index.ts` only if current parser lacks fields needed by the source map.
-  - `.lazy-harness/schemas/context-index.schema.json` only if adding fields.
-  - `.lazy-harness/scripts/self-test.py` existing context-index test fixture.
+  - `.lazy-harness/scripts/context-index.ts` unchanged; existing parser already supports the needed fields.
+  - `.lazy-harness/schemas/context-index.schema.json` unchanged; no new output fields were added.
+  - `.lazy-harness/scripts/self-test.py` adds a framework-only source feature-navigation completeness check.
+  - `.lazy-harness/knowledge/graph.jsonl` links the SSOT, source map, context-index parser, and self-test protection.
 
 ### Minimal source feature-navigation content
 
@@ -350,6 +353,17 @@ The source repo map should stay high altitude:
 - sync/install/update,
 - test/doctor.
 
+Implemented source feature ids:
+
+- `prompt-runtime-lifecycle`
+- `capability-registry`
+- `context-delivery-indexing`
+- `record-decision-broker`
+- `implementation-map-graph-hygiene`
+- `lifecycle-compare-parity`
+- `sync-install-update`
+- `test-doctor`
+
 Each feature entry should include:
 
 - `id`, `label`, `status`,
@@ -361,11 +375,21 @@ Each feature entry should include:
 
 ### Acceptance criteria
 
-- `.lazy-harness/project/feature-navigation.xml` exists.
-- `lazy context-index --format=json` includes projectProfile features.
-- Existing `check_context_index_generator` still passes.
-- New self-test verifies source repo feature navigation contains at least the critical framework features above.
-- Generated `.lazy-harness/generated/context-index.json` remains optional/ignored unless explicitly written.
+- [x] `.lazy-harness/project/feature-navigation.xml` exists.
+- [x] `lazy context-index --format=json` includes projectProfile features.
+- [x] Existing `check_context_index_generator_phase3` still passes in focused validation.
+- [x] New `check_source_feature_navigation_phase3` verifies source repo feature navigation contains at least the critical framework features above.
+- [x] Generated `.lazy-harness/generated/context-index.json` remains optional/ignored unless explicitly written.
+- [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
+
+Validation evidence:
+
+- `git diff --check` passed.
+- `python3 -m py_compile .lazy-harness/scripts/self-test.py .lazy-harness/scripts/prompt-budget.py` passed.
+- `python3 .lazy-harness/scripts/self-test.py` passed with `ran=79, skipped=0`.
+- `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
+- `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
+- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids.
 
 ### Rollback
 
