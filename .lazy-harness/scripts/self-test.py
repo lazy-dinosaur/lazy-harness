@@ -1567,6 +1567,81 @@ def check_jcode_wiring_message_received_hook() -> None:
     print("✓ jcode message.received hook wiring/static harness guard ok")
 
 
+def check_prompt_budget_measurement() -> None:
+    """Phase 1 prompt/runtime compression should measure prompt budget without runtime behavior changes."""
+    spec_path = LAZY / "spec" / "platform" / "prompt-budget.md"
+    tdd_path = LAZY / "tests" / "prompt-budget.md"
+    script_path = LAZY / "scripts" / "prompt-budget.py"
+    for path in [spec_path, tdd_path, script_path]:
+        if not path.exists():
+            fail("prompt budget artifact missing: " + str(path))
+
+    script_text = script_path.read_text(encoding="utf-8")
+    for phrase in ["SYNTHETIC_MESSAGE", "LAZY_RUNTIME_ROOT", "fixtureMessageLeaked", "transitionHardMaxTokens"]:
+        if phrase not in script_text:
+            fail("prompt-budget.py missing privacy/budget phrase: " + phrase)
+
+    completed = subprocess.run(
+        ["python3", str(script_path), "--root", str(ROOT), "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(),
+    )
+    if completed.returncode != 0:
+        fail("prompt-budget json command failed:\n" + completed.stdout + completed.stderr)
+    if "__lazy_prompt_budget_fixture_message__" in completed.stdout:
+        fail("prompt-budget output leaked synthetic fixture message")
+    try:
+        report = json.loads(completed.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail("prompt-budget json output did not parse: " + str(exc) + "\n" + completed.stdout)
+
+    for key in ["schemaVersion", "status", "budgets", "surfaces", "duplicates", "renderedMessageReceived", "notes"]:
+        if key not in report:
+            fail("prompt-budget json missing key: " + key)
+    if report.get("schemaVersion") != "1.0":
+        fail("prompt-budget schemaVersion mismatch: " + json.dumps(report, ensure_ascii=False)[:500])
+    if report.get("status") == "fail":
+        fail("prompt-budget should not fail during Phase 1 transition:\n" + completed.stdout)
+
+    rendered = report.get("renderedMessageReceived") or {}
+    for key in ["lineCount", "tokenEstimate", "status", "journalRows", "bodyHash", "transitionHardMaxTokens"]:
+        if key not in rendered:
+            fail("prompt-budget renderedMessageReceived missing key: " + key)
+    if int(rendered.get("lineCount") or 0) <= 0 or int(rendered.get("tokenEstimate") or 0) <= 0:
+        fail("prompt-budget rendered message should include positive line/token estimates: " + json.dumps(rendered, ensure_ascii=False))
+    if int(rendered.get("journalRows") or 0) < 1:
+        fail("prompt-budget should render hook in isolated runtime and observe journal row: " + json.dumps(rendered, ensure_ascii=False))
+    if rendered.get("fixtureMessageLeaked"):
+        fail("prompt-budget rendered output reports fixture message leak")
+    if int(rendered.get("tokenEstimate") or 0) > int(rendered.get("transitionHardMaxTokens") or 0):
+        fail("prompt-budget rendered prompt exceeded transition hard max: " + json.dumps(rendered, ensure_ascii=False))
+
+    surface_paths = {surface.get("path") for surface in report.get("surfaces", [])}
+    if ".lazy-harness/AGENTS.md" not in surface_paths:
+        fail("prompt-budget surfaces missing .lazy-harness/AGENTS.md: " + json.dumps(report.get("surfaces", []), ensure_ascii=False))
+
+    md = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "prompt-budget", "--format=md"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if md.returncode != 0:
+        fail("lazy prompt-budget markdown command failed:\n" + md.stdout + md.stderr)
+    for phrase in ["# Prompt budget", "Rendered message.received", "Estimated tokens", "Prompt surfaces", "Duplicate grammar hints"]:
+        if phrase not in md.stdout:
+            fail("lazy prompt-budget markdown output missing phrase: " + phrase + "\n" + md.stdout)
+    if "__lazy_prompt_budget_fixture_message__" in md.stdout:
+        fail("lazy prompt-budget markdown leaked synthetic fixture message")
+
+    print("✓ prompt budget measurement ok")
+
+
 def check_framework_runtime_no_host_product_hardcoding() -> None:
     """Framework runtime/generator/fixture surfaces must stay host-agnostic."""
     roots = [
@@ -6479,6 +6554,7 @@ def main() -> None:
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
         (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
         (check_jcode_wiring_message_received_hook, "BOTH"),
+        (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
         (check_lazy_sync_prunes_stale_managed_files, "BOTH"),

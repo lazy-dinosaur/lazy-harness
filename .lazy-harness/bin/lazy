@@ -54,6 +54,8 @@ Commands:
   test [--scope=auto|framework|host]
                                 Run framework self-test (default: auto)
   doctor [--profile=smoke|full] Run framework health check (default: smoke)
+  prompt-budget [--format=json|md]
+                                Measure prompt surface line/token budgets
   init [--target=DIR] [--dry-run]
                                 Bootstrap .lazy-harness/ in a new host
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
@@ -121,6 +123,9 @@ case "$cmd" in
       esac
     done
     exec python3 "$SCRIPTS/doctor.py" --profile "$profile" "${args[@]}"
+    ;;
+  prompt-budget)
+    exec python3 "$SCRIPTS/prompt-budget.py" --root "$HOST_ROOT" "$@"
     ;;
   init)
     if ! command -v bun >/dev/null 2>&1; then
