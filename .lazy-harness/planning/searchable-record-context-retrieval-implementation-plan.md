@@ -10,6 +10,9 @@ Related PRD:
 Related task backlog:
 - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 
+Related HTML report:
+- `.lazy-harness/planning/searchable-record-context-retrieval-report.html`
+
 Related SSOT:
 - `.lazy-harness/ssot/cli-tool-boundary.md`
 - `.lazy-harness/ssot/implementation-map-storage.md`
