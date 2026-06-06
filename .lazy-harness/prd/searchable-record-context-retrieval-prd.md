@@ -1,7 +1,7 @@
 # PRD — Searchable Record Memory for LLM-Owned Retrieval
 
 Date: 2026-06-06
-Status: proposed
+Status: active — cleanup and cross-host sync complete; future record-index phases proposed
 Owner: lazy-harness
 Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 Related task backlog: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
@@ -35,6 +35,24 @@ Code must not decide user intent, importance, required reads, risk, gate, or nex
 ```
 
 Therefore this PRD removes the candidate-query helper direction. The immediate work is cleanup plus record storage quality.
+
+## 2.1 Current implementation status
+
+Completed on 2026-06-06:
+
+- Obsolete query-helper artifacts deleted from the source framework.
+- Runtime journal renamed to `search-read-debt.jsonl`.
+- PRD/tasks/plan/report rewritten around LLM-owned retrieval.
+- Deleted helper absence protected by self-test.
+- Graph/generated stale rows cleaned.
+- Cleanup synced to 13 initialized downstream hosts; see `.lazy-harness/evidence/2026-06-06-searchable-record-memory-host-sync.md`.
+
+Not started yet:
+
+- `## Index header` SDD/TDD.
+- Any deterministic cache/parser implementation.
+- Record-audit metadata warnings.
+- Implementation-map backlog migration.
 
 ## 3. Target users
 

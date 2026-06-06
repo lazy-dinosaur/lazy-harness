@@ -230,7 +230,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-701 — Sync cleanup to hosts
 
-- Status: todo
+- Status: done
 - Type: dogfood
 - Requirements:
   - sync framework source to selected hosts
@@ -239,6 +239,8 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Acceptance:
   - no stale helper commands/files in synced hosts
   - static search/read-debt reminder still works
+- Evidence: `.lazy-harness/evidence/2026-06-06-searchable-record-memory-host-sync.md`
+- Result: 13 initialized downstream hosts synced to marker `34c1ef2`; stale files/help/hook checks all zero.
 
 ## Discovery capture
 

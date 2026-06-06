@@ -3,129 +3,128 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Searchable Record Memory Corrected Plan</title>
+  <title>Searchable Record Memory — Corrected Plan and Host Sync Report</title>
   <style>
-    :root { color-scheme: dark; --bg:#0f172a; --panel:#111827; --line:rgba(148,163,184,.28); --text:#e5e7eb; --muted:#a7b0c4; --blue:#60a5fa; --green:#34d399; --red:#fb7185; --yellow:#fbbf24; }
+    :root { color-scheme: dark; --bg:#0f172a; --panel:#111827; --line:rgba(148,163,184,.28); --text:#e5e7eb; --muted:#a7b0c4; --blue:#60a5fa; --green:#34d399; --red:#fb7185; --yellow:#fbbf24; --purple:#a78bfa; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at 15% 0%, rgba(96,165,250,.22), transparent 30rem), var(--bg); color:var(--text); line-height:1.6; }
-    .shell { max-width:1120px; margin:0 auto; padding:42px 22px 80px; }
-    .hero, section { border:1px solid var(--line); border-radius:24px; background:rgba(17,24,39,.82); box-shadow:0 20px 70px rgba(0,0,0,.25); }
-    .hero { padding:32px; }
-    section { padding:26px; margin-top:22px; }
-    h1,h2,h3 { margin:0; line-height:1.18; }
-    h1 { font-size:clamp(34px,5vw,56px); letter-spacing:-.04em; }
-    h2 { font-size:clamp(24px,3vw,34px); margin-bottom:14px; }
-    h3 { font-size:19px; margin-bottom:8px; }
-    p { margin:0 0 12px; color:var(--muted); }
-    strong { color:#f8fafc; }
-    code { background:#0b1120; color:#dbeafe; padding:2px 6px; border-radius:7px; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at 16% 0%, rgba(96,165,250,.22), transparent 30rem), radial-gradient(circle at 90% 8%, rgba(52,211,153,.14), transparent 26rem), var(--bg); color:var(--text); line-height:1.6; }
+    .shell { max-width:1180px; margin:0 auto; padding:42px 22px 80px; }
+    .hero, section { border:1px solid var(--line); border-radius:24px; background:rgba(17,24,39,.84); box-shadow:0 20px 70px rgba(0,0,0,.24); }
+    .hero { padding:34px; } section { padding:26px; margin-top:22px; }
+    h1,h2,h3 { margin:0; line-height:1.18; } h1 { font-size:clamp(34px,5vw,58px); letter-spacing:-.04em; } h2 { font-size:clamp(24px,3vw,34px); margin-bottom:14px; } h3 { font-size:19px; margin-bottom:8px; }
+    p { margin:0 0 12px; color:var(--muted); } strong { color:#f8fafc; } code { background:#0b1120; color:#dbeafe; padding:2px 6px; border-radius:7px; }
     .eyebrow { display:inline-flex; padding:6px 12px; border:1px solid rgba(96,165,250,.35); border-radius:999px; color:#bfdbfe; background:rgba(96,165,250,.12); font-size:13px; font-weight:800; margin-bottom:14px; }
-    .lead { margin-top:18px; font-size:18px; color:#cbd5e1; max-width:900px; }
-    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
-    .grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .lead { margin-top:18px; font-size:18px; color:#cbd5e1; max-width:940px; }
+    nav { position:sticky; top:0; z-index:2; margin:18px 0; padding:10px; border:1px solid var(--line); border-radius:16px; background:rgba(15,23,42,.88); backdrop-filter: blur(10px); } nav a { color:#bfdbfe; text-decoration:none; font-weight:800; font-size:13px; margin-right:10px; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; } .grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; } .grid4 { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
     .card { border:1px solid var(--line); border-radius:18px; padding:18px; background:rgba(15,23,42,.7); }
-    .badge { display:inline-flex; border-radius:999px; padding:4px 9px; font-size:12px; font-weight:900; }
-    .bad { color:#fecdd3; background:rgba(251,113,133,.14); border:1px solid rgba(251,113,133,.3); }
-    .ok { color:#bbf7d0; background:rgba(52,211,153,.14); border:1px solid rgba(52,211,153,.3); }
-    .warn { color:#fde68a; background:rgba(251,191,36,.14); border:1px solid rgba(251,191,36,.3); }
-    table { width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(15,23,42,.7); }
-    th,td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
-    th { text-align:left; color:#dbeafe; background:rgba(96,165,250,.12); }
-    tr:last-child td { border-bottom:0; }
-    ul,ol { color:var(--muted); margin:8px 0 0 20px; padding:0; }
-    li { margin:6px 0; }
-    pre { overflow:auto; padding:16px; border:1px solid var(--line); border-radius:16px; background:#0b1120; color:#dbeafe; }
-    nav { position:sticky; top:0; z-index:2; margin:18px 0; padding:10px; border:1px solid var(--line); border-radius:16px; background:rgba(15,23,42,.86); backdrop-filter: blur(10px); }
-    nav a { color:#bfdbfe; text-decoration:none; font-weight:800; font-size:13px; margin-right:10px; }
-    a { color:#93c5fd; }
-    @media (max-width:850px){ .grid,.grid2{grid-template-columns:1fr;} }
+    .metric .value { font-size:32px; color:#f8fafc; font-weight:900; letter-spacing:-.04em; } .metric .label { color:#94a3b8; font-size:12px; text-transform:uppercase; letter-spacing:.08em; font-weight:900; }
+    .badge { display:inline-flex; border-radius:999px; padding:4px 9px; font-size:12px; font-weight:900; } .bad { color:#fecdd3; background:rgba(251,113,133,.14); border:1px solid rgba(251,113,133,.3); } .ok { color:#bbf7d0; background:rgba(52,211,153,.14); border:1px solid rgba(52,211,153,.3); } .warn { color:#fde68a; background:rgba(251,191,36,.14); border:1px solid rgba(251,191,36,.3); } .todo { color:#ddd6fe; background:rgba(167,139,250,.14); border:1px solid rgba(167,139,250,.3); }
+    table { width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(15,23,42,.7); font-size:14px; } th,td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; } th { text-align:left; color:#dbeafe; background:rgba(96,165,250,.12); } tr:last-child td { border-bottom:0; }
+    ul,ol { color:var(--muted); margin:8px 0 0 20px; padding:0; } li { margin:6px 0; } pre { overflow:auto; padding:16px; border:1px solid var(--line); border-radius:16px; background:#0b1120; color:#dbeafe; } a { color:#93c5fd; }
+    .flow { display:grid; gap:10px; } .flow .step { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(15,23,42,.72); }
+    @media (max-width:900px){ .grid,.grid2,.grid4{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="hero">
-      <div class="eyebrow">corrected cleanup-first plan</div>
-      <h1>Searchable Record Memory는 코드가 판단하는 시스템이 아니다</h1>
-      <p class="lead">이 보고서는 이전 계획의 오염 지점을 제거하고, 새 PRD/tasks/plan이 어디를 어떻게 바꾸는지 설명합니다. 핵심은 <strong>LLM/searcher가 실제 record/source/test를 읽고 판단</strong>하고, 코드는 정적 debt/검증/cache만 담당한다는 점입니다.</p>
+      <div class="eyebrow">corrected report · host sync complete</div>
+      <h1>Searchable Record Memory 개선 계획 보고서</h1>
+      <p class="lead">이 보고서는 현재 완료된 정리 작업과 앞으로 구현할 계획을 구분해서 설명합니다. 핵심 원칙은 <strong>코드는 판단하지 않고, LLM/searcher가 실제 record/source/test를 읽고 판단한다</strong>입니다.</p>
     </header>
 
     <nav>
-      <a href="#why">왜 바꾸나</a>
-      <a href="#delete">삭제 대상</a>
-      <a href="#new-flow">새 흐름</a>
-      <a href="#plan">세부 계획</a>
-      <a href="#validation">검증</a>
-      <a href="#links">문서</a>
+      <a href="#status">현재 상태</a><a href="#why">왜 바꿨나</a><a href="#changed">무엇을 바꿨나</a><a href="#hosts">host sync</a><a href="#next">다음 계획</a><a href="#prd">PRD/tasks</a><a href="#validation">검증</a>
     </nav>
 
-    <section id="why">
-      <h2>1. 왜 이전 계획이 문제였나</h2>
-      <div class="grid">
-        <div class="card"><span class="badge bad">문제</span><h3>raw user text query</h3><p>도구가 사용자 문장을 받아 후보를 반환하면, 결국 코드가 의미/중요도 판단처럼 보일 수 있습니다.</p></div>
-        <div class="card"><span class="badge bad">문제</span><h3>helper architecture residue</h3><p>삭제한 router/operational-state 흐름과 같은 종류의 오염이 남아 있었습니다.</p></div>
-        <div class="card"><span class="badge bad">문제</span><h3>stale PRD/tasks</h3><p>PRD와 task가 helper를 다시 살리는 방향으로 쓰여 있었습니다.</p></div>
+    <section id="status">
+      <h2>1. 현재 상태</h2>
+      <div class="grid4">
+        <div class="card metric"><div class="label">cleanup tasks</div><div class="value">8/8</div><p>SCR-001~003, 101~103, 201~202 완료</p></div>
+        <div class="card metric"><div class="label">hosts synced</div><div class="value">13</div><p>모든 initialized host smoke OK</p></div>
+        <div class="card metric"><div class="label">stale helpers</div><div class="value">0</div><p>host stale files/help/hook checks 0</p></div>
+        <div class="card metric"><div class="label">next phase</div><div class="value">B</div><p>Index Header SDD/TDD, 구현 아님</p></div>
       </div>
     </section>
 
-    <section id="delete">
-      <h2>2. 삭제/개명 대상</h2>
+    <section id="why">
+      <h2>2. 왜 이전 계획을 버렸나</h2>
+      <div class="grid">
+        <div class="card"><span class="badge bad">오염</span><h3>raw user text query</h3><p>사용자 문장을 helper CLI에 넣어 후보를 받는 구조는 코드가 의미를 판단하는 것처럼 미끄러질 수 있습니다.</p></div>
+        <div class="card"><span class="badge bad">오염</span><h3>candidate helper 중심 PRD</h3><p>기존 PRD/plan/tasks가 <code>context-delivery</code>, <code>relevant-record-query</code>를 다시 살리는 방향이었습니다.</p></div>
+        <div class="card"><span class="badge ok">정정</span><h3>LLM-owned retrieval</h3><p>검색 후보/중요도/게이트/다음 행동은 LLM/searcher가 실제 record/source/test read 후 판단합니다.</p></div>
+      </div>
+    </section>
+
+    <section id="changed">
+      <h2>3. 어디를 어떻게 바꿨나</h2>
       <table>
-        <thead><tr><th>분류</th><th>대상</th><th>결과</th></tr></thead>
+        <thead><tr><th>영역</th><th>수정 내용</th><th>개선 효과</th></tr></thead>
         <tbody>
-          <tr><td>helper source</td><td><code>context-delivery.ts</code>, <code>relevant-record-query.ts</code>, <code>context-broker-dogfood.ts</code></td><td><span class="badge ok">삭제</span></td></tr>
-          <tr><td>schema/spec/test</td><td>관련 packet/index schema, SDD, TDD</td><td><span class="badge ok">삭제</span></td></tr>
-          <tr><td>runtime journal</td><td><code>context-delivery-packets.jsonl</code></td><td><span class="badge ok">search-read-debt.jsonl로 개명</span></td></tr>
-          <tr><td>CLI</td><td><code>lazy context</code>, helper dispatch commands, dogfood command</td><td><span class="badge ok">삭제</span></td></tr>
-          <tr><td>planning</td><td>오래된 native query-helper 계획</td><td><span class="badge ok">삭제/대체</span></td></tr>
+          <tr><td>Helper architecture</td><td><code>context-delivery</code>, <code>relevant-record-query</code>, <code>context-broker-dogfood</code> source/schema/spec/test/fixtures 삭제</td><td>raw user text를 code-owned semantic query로 처리할 길 제거</td></tr>
+          <tr><td>Runtime journal</td><td><code>context-delivery-packets.jsonl</code> → <code>search-read-debt.jsonl</code></td><td>runtime row가 후보/packet이 아니라 static evidence debt라는 의미로 정정</td></tr>
+          <tr><td>message.received hook</td><td>obsolete index inventory 제거, static harness-first reminder 유지</td><td>사용자 turn마다 helper/index semantic authority를 암시하지 않음</td></tr>
+          <tr><td>Self-test</td><td>삭제된 helper 파일/명령/라이프사이클 참조 부재 검증 추가</td><td>오염 구조가 다시 살아나는 회귀 방지</td></tr>
+          <tr><td>PRD/tasks/plan</td><td>LLM-owned retrieval 중심으로 전면 재작성</td><td>미래 agent가 잘못된 helper 구현으로 돌아가지 않음</td></tr>
+          <tr><td>Graph/generated cache</td><td>삭제된 helper path를 가리키는 stale row 제거</td><td>다음 검색이 삭제된 파일을 따라가지 않음</td></tr>
         </tbody>
       </table>
     </section>
 
-    <section id="new-flow">
-      <h2>3. 새 동작 흐름</h2>
-      <pre>message.received
-→ static harness-first search/read debt
-→ LLM/searcher does root-bound grep/read/source/test inspection
-→ LLM/searcher decides relevance, ambiguity gate, and next action
-→ confirmed knowledge is written back to records
-→ deterministic caches may be regenerated from records only</pre>
+    <section id="hosts">
+      <h2>4. 다른 프로젝트 업데이트 결과</h2>
+      <p>sync 대상은 `/home/lazydino/dev/*` 중 `.lazy-harness/state/synced-from-commit` marker가 있는 initialized host입니다. marker 없는 `lazy-harness.path-only-backup`은 제외했습니다.</p>
+      <table>
+        <thead><tr><th>Host</th><th>Status</th><th>Marker</th><th>Stale files</th><th>Help bad</th><th>Hook bad</th></tr></thead>
+        <tbody>
+          <tr><td>medivance</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance-homepage</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance-pwa</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance-pwa.fix-chat-error</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.feat-calendar-renewal</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-chat-patient-share-read-policy</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-emr-patient-sync</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-gemini-webapi-3-5-flash</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-manual-therapy-treatment-document</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-reservation-block-all-cell-border</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-reservation-sheet</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-reservation-sheet-treatment-record</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>medivance.fix-reservation-sheet-updates</td><td><span class="badge ok">ok</span></td><td>34c1ef2</td><td>0</td><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="next">
+      <h2>5. 앞으로 어디를 어떻게 수정해서 개선할 것인가</h2>
       <div class="grid2">
-        <div class="card"><span class="badge ok">코드가 해도 됨</span><ul><li>정적 reminder 주입</li><li>sanitized debt row 기록</li><li>evidence가 있었는지 확인</li><li>검증/측정/위생/캐시 생성</li></ul></div>
-        <div class="card"><span class="badge bad">코드가 하면 안 됨</span><ul><li>사용자 의도 판단</li><li>필수 read 선택</li><li>confidence/risk/gate/nextAction 산출</li><li>query helper를 lifecycle에서 실행</li></ul></div>
+        <div class="card"><span class="badge todo">SCR-301</span><h3>Record Index Header SDD</h3><p><code>## Index header</code>를 record-authored metadata 표준으로 정의합니다. alias/search key/source/test/graph id를 어디에 쓸지 정하되, raw-message query 권한은 주지 않습니다.</p><p><strong>개선:</strong> LLM/searcher가 record를 더 빨리 찾을 수 있는 저장 구조를 만듭니다.</p></div>
+        <div class="card"><span class="badge todo">SCR-302</span><h3>Record Index Header TDD</h3><p>complete/missing/legacy fallback/no semantic query fixtures를 문서화합니다. 아직 parser 구현은 하지 않습니다.</p><p><strong>개선:</strong> 나중에 구현할 때 테스트 기준이 먼저 고정됩니다.</p></div>
+        <div class="card"><span class="badge warn">SCR-401</span><h3>Cache naming/scope decision</h3><p><code>context-index</code> 이름을 유지할지 <code>record-index</code>로 바꿀지 승인받습니다. output은 cache/listing only입니다.</p><p><strong>개선:</strong> 도구 이름이 다시 obsolete context architecture를 암시하지 않게 합니다.</p></div>
+        <div class="card"><span class="badge todo">SCR-501</span><h3>Record audit advisory warnings</h3><p><code>missing-index-header</code>, <code>missing-alias-or-search-key</code>, <code>missing-source-test-hints</code>, <code>missing-graph-link</code>를 advisory로 추가합니다.</p><p><strong>개선:</strong> record가 검색 불가능한 상태로 쌓이는 것을 줄입니다.</p></div>
       </div>
     </section>
 
-    <section id="plan">
-      <h2>4. 새 세부 계획</h2>
-      <ol>
-        <li><strong>Decontamination:</strong> obsolete helper artifacts 삭제, runtime journal 개명, stale refs 제거.</li>
-        <li><strong>Static debt contract:</strong> <code>search-read-debt-contract.md</code>로 현재 남는 runtime path를 명확화.</li>
-        <li><strong>PRD/tasks/plan rewrite:</strong> LLM-owned retrieval 기준으로 전면 재작성.</li>
-        <li><strong>Deleted artifact protection:</strong> self-test에 파일/명령 부재 검증 추가.</li>
-        <li><strong>Record Index Header SDD/TDD:</strong> 구현 없이 record-authored metadata 표준만 먼저 작성.</li>
-        <li><strong>Cache/parser decision gate:</strong> <code>context-index</code> 이름 유지 여부부터 사용자 승인 후 구현.</li>
-        <li><strong>Record audit:</strong> 이후 advisory warning으로 검색 가능성 개선.</li>
-      </ol>
+    <section id="prd">
+      <h2>6. PRD와 세부 tasks 정리 상태</h2>
+      <table>
+        <thead><tr><th>문서</th><th>상태</th><th>핵심 내용</th></tr></thead>
+        <tbody>
+          <tr><td><a href="../prd/searchable-record-context-retrieval-prd.md">PRD</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/sync 완료 상태와 future phases를 분리함</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, Index Header/record-audit는 todo/blocked로 남김</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-implementation-plan.md">Plan</a></td><td><span class="badge ok">정리됨</span></td><td>current status, completed phases, next work를 분리함</td></tr>
+          <tr><td><a href="../evidence/2026-06-06-searchable-record-memory-host-sync.md">Evidence capsule</a></td><td><span class="badge ok">신규</span></td><td>13개 host sync/smoke 결과 기록</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section id="validation">
-      <h2>5. 검증 기준</h2>
-      <pre>git ls-files | grep -E 'context-delivery|relevant-record-query|context-broker-dogfood|relevant-record-index|context-delivery-packet' && exit 1 || true
-python3 .lazy-harness/scripts/self-test.py
-.lazy-harness/bin/lazy prompt-budget --format=md
-bun .lazy-harness/scripts/graph-hygiene.ts --format=json</pre>
-      <p>검증의 핵심은 “삭제된 helper가 다시 등장하지 않았는지”와 “static search/read debt guard가 계속 작동하는지”입니다.</p>
-    </section>
-
-    <section id="links">
-      <h2>6. 관련 문서</h2>
-      <ul>
-        <li><a href="../prd/searchable-record-context-retrieval-prd.md">Corrected PRD</a></li>
-        <li><a href="searchable-record-context-retrieval-tasks.md">Corrected Task Backlog</a></li>
-        <li><a href="searchable-record-context-retrieval-implementation-plan.md">Corrected Implementation Plan</a></li>
-        <li><a href="../spec/platform/search-read-debt-contract.md">Search/Read Debt Contract</a></li>
-        <li><a href="../ssot/cli-tool-boundary.md">CLI Tool Boundary</a></li>
-      </ul>
+      <h2>7. 검증</h2>
+      <pre>python3 .lazy-harness/scripts/self-test.py        # green
+.lazy-harness/bin/lazy prompt-budget --format=md # green
+bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
+host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. 그건 다음 Phase B/C에서 별도 SDD/TDD/승인 후 진행합니다.</p>
     </section>
   </main>
 </body>

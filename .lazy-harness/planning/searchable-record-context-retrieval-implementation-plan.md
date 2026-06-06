@@ -28,6 +28,30 @@ user message
 → deterministic caches may be regenerated from records only
 ```
 
+## Current status — 2026-06-06
+
+Completed:
+
+- Phase A decontamination in source.
+- Deleted helper absence protection.
+- Static search/read-debt contract replacement.
+- PRD/tasks/HTML report rewrite around LLM-owned retrieval.
+- Graph/generated stale row cleanup.
+- Phase E host sync validation across 13 initialized downstream hosts.
+
+Evidence:
+
+- `.lazy-harness/evidence/2026-06-06-searchable-record-memory-host-sync.md`
+- Source validations: self-test, prompt-budget, graph-hygiene.
+- Host smoke: sync exit 0, stale helper files 0, deleted helper help entries 0, stale hook output 0 for all 13 hosts.
+
+Next not-started work:
+
+1. Phase B: Record Index Header SDD/TDD only.
+2. Phase C: cache/parser naming and scope decision gate.
+3. Phase D: record-audit advisory warnings.
+4. Phase F: implementation-map backlog migration.
+
 ## Non-negotiable boundary
 
 Allowed deterministic code:
