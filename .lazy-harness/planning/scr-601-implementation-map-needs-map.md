@@ -1,6 +1,6 @@
 # SCR-601 Implementation-map needs-map backlog
 
-Status: captured
+Status: captured; SCR-602 Batch 1 completed
 Layer: Planning
 Generated: 2026-06-06
 Command: `.lazy-harness/bin/lazy impl-map --format=json`
@@ -14,9 +14,10 @@ No implementation-map edits are made by SCR-601. This record captures the exact 
 
 ## Audit summary
 
-- `needs-map`: 31
-- `ok`: 80
-- `needs-review`: 0
+- Initial `needs-map`: 31
+- Initial `ok`: 80
+- Initial `needs-review`: 0
+- After SCR-602 Batch 1: `needs-map=29`, `ok=82`
 
 ### Needs-map by layer
 
@@ -69,10 +70,11 @@ No implementation-map edits are made by SCR-601. This record captures the exact 
 
 These batches are planning only. Each record still requires source/test/graph read evidence before adding or verifying an `Implementation map`.
 
-### Batch 1 — TDD regression records
+### Batch 1 — TDD regression records — completed in SCR-602
 
 - Rationale: smallest surface, direct source/test hints, good first validation pass
 - Count: 2
+- Result: implementation maps added and graph rows recorded; `lazy impl-map` now reports both records as `ok`.
 - Records:
   - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md`
   - `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md`
@@ -148,7 +150,7 @@ These batches are planning only. Each record still requires source/test/graph re
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`
+  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`
 
 ## Discovery capture
 

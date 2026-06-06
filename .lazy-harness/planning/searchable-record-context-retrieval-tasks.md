@@ -297,12 +297,17 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-602 — Migrate verified implementation maps
 
-- Status: todo
+- Status: in-progress
 - Type: record migration
 - Input:
   - `.lazy-harness/planning/scr-601-implementation-map-needs-map.md`
+- Progress:
+  - Batch 1 completed for the two TDD regression records.
+  - dynamic `lazy impl-map --format=json` summary moved from `ok=80, needs-map=31` to `ok=82, needs-map=29`.
+  - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md` map is `needs-review` because the dirty-source regression remains manual-only.
+  - `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md` map is `verified` by `check_response_completed_no_auto_route_telemetry`.
 - Constraint:
-  - start with proposed Batch 1 unless user selects a different batch
+  - continue with proposed Batch 2 unless user selects a different batch
   - inspect source/test/graph evidence per record before writing maps
 - Acceptance:
   - only verified source/test/graph links are recorded

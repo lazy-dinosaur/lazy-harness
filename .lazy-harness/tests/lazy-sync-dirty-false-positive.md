@@ -60,3 +60,31 @@ If step 2 reports `equal: Already in sync`, the regression has returned.
 ## Non-coverage
 
 This regression is not yet wired into `self-test.py`. Doing so would require a sandboxed source/host pair so the test does not mutate the live repos. Left as future work; for now the manual recipe above is the contract.
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md` — regression record and manual reproduction contract.
+  - `.lazy-harness/scripts/lazy-sync.ts` — drift detection implementation and sync entrypoint.
+  - `.lazy-harness/spec/lazy-sync-drift-detection.md` — SDD contract for dirty source tree detection and force semantics.
+- Key symbols:
+  - `isSourceWorkingTreeDirty` (`.lazy-harness/scripts/lazy-sync.ts`) — runs `git status --porcelain -- .lazy-harness` in the source repo and returns true for uncommitted framework changes.
+  - `detectDrift` (`.lazy-harness/scripts/lazy-sync.ts`) — checks matching source/host SHAs and returns `ahead` with the dirty-source message when the source worktree is dirty.
+  - `main` (`.lazy-harness/scripts/lazy-sync.ts`) — logs drift status, exits on `ahead` without `--force`, and proceeds to sync when forced.
+- Flow:
+  1. User edits a source `.lazy-harness` file without committing.
+  2. `detectDrift` sees matching SHAs but calls `isSourceWorkingTreeDirty` before the `equal` fast-path.
+  3. Dirty source returns `ahead`, preventing silent “Already in sync” unless `--force` is supplied.
+  4. With `--force`, `main` proceeds through the copy/prune/marker update flow.
+- Tests / protection:
+  - Manual regression recipe in this record remains the direct dirty-source protection.
+  - `.lazy-harness/spec/lazy-sync-drift-detection.md#verification` mirrors the manual expected commands and outcomes.
+  - `.lazy-harness/scripts/self-test.py#check_lazy_sync_prunes_stale_managed_files` protects adjacent lazy-sync managed prune/seed-merge behavior, not this dirty-source regression.
+  - No sandboxed automated dirty-source fixture exists yet; keep this map `needs-review` until one is added.
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/lazy-sync-drift-detection.md`
+  - TDD: `.lazy-harness/tests/lazy-sync-dirty-false-positive.md`
+- Machine index:
+  - graph ids: `kg_lazy_sync_dirty_false_positive_source`, `kg_lazy_sync_dirty_false_positive_tdd`
+  - generated index key: `pending`
