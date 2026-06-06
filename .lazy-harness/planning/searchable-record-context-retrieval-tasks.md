@@ -26,7 +26,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-001 — Delete obsolete query-helper artifacts
 
-- Status: in-progress
+- Status: done
 - Type: source/schema/spec/test cleanup
 - Delete tracked files:
   - `.lazy-harness/scripts/context-delivery.ts`
@@ -47,7 +47,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-002 — Rename runtime search/read debt journal
 
-- Status: in-progress
+- Status: done
 - Type: runtime contract
 - Update:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
@@ -68,7 +68,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-003 — Remove active stale references
 
-- Status: in-progress
+- Status: done
 - Type: record cleanup
 - Update/remove:
   - graph rows pointing to deleted helpers
@@ -84,7 +84,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-101 — Rewrite PRD around LLM-owned retrieval
 
-- Status: in-progress
+- Status: done
 - Type: PRD
 - Acceptance:
   - no helper CLI takes raw user text to return semantic candidates
@@ -93,7 +93,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-102 — Rewrite implementation plan
 
-- Status: in-progress
+- Status: done
 - Type: planning
 - Acceptance:
   - current state lists deleted artifacts and remaining allowed primitives
@@ -102,7 +102,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-103 — Rewrite HTML report
 
-- Status: in-progress
+- Status: done
 - Type: report
 - Acceptance:
   - report explains why previous plan was wrong
@@ -113,7 +113,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-201 — Add self-test absence check
 
-- Status: todo
+- Status: done
 - Type: TDD/source
 - Update:
   - `.lazy-harness/scripts/self-test.py`
@@ -126,7 +126,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-202 — Update graph/generated indexes
 
-- Status: todo
+- Status: done
 - Type: hygiene
 - Requirements:
   - remove graph edges to deleted files
