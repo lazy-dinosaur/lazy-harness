@@ -628,6 +628,8 @@ Revert Phase 6 commit. CLI addition is isolated.
 
 ## 11. Phase 7 — Dogfood and Decision Gate
 
+Status: completed
+
 ### Goal
 
 Test whether compact prompt + project map + evidence/checklist actually improves behavior without losing safety.
@@ -685,6 +687,31 @@ Only after at least one dogfood pass:
 - If hard gate seems needed:
   - require L5 promotion record and user confirmation.
 
+
+### Phase 7 final evidence
+
+Evidence capsule: `.lazy-harness/evidence/2026-06-06-phase7-prompt-runtime-compression-dogfood.md`
+
+Final source/host outcome:
+
+- Source self-test passed with `ran=82, skipped=0`.
+- Source doctor smoke passed.
+- Source `message.received` estimate is `259` tokens versus Phase 1 baseline `799`, a 67.6% reduction.
+- Previous branch comparison used `main` at merge-base `132c0ce34dc1`; `git diff --name-status main` reported 30 framework files changed and no `.jcode/skills` / `.lazy-harness/skills` diffs.
+- `medivance`, `medivance-pwa`, and `medivance-homepage` synced to `332e2e8fbc98`.
+- Manifest-managed file verification passed for all three hosts with `182` byte-equal files each, expected knowledge JSONL merge/conflict handling, and no skill file diffs.
+- All three hosts passed `lazy test`, `doctor --profile=smoke`, `prompt-budget`, `context-index`, and `operational-state`.
+- `medivance-homepage` keeps the 570-line `medivance-figma-fidelity` skill unchanged; prompt-budget reports it as advisory `warn` with `rawStatus=fail`, not a hard validation failure.
+
+Decision gate result:
+
+- Keep compact prompt.
+- Keep prompt-budget measurement with skill prompts advisory-only.
+- Keep source feature navigation and optional context-tier/evidence/operational-state helpers.
+- Keep operational-state explicit/manual only.
+- Do not promote any new broad hard stop.
+- Do not shorten host-owned skills automatically.
+
 ## 12. Commit and rollback strategy
 
 ### Commit slicing
@@ -727,49 +754,49 @@ Use small commits:
 
 - [x] Create branch.
 - [x] Write this plan.
-- [ ] Run baseline `self-test.py` on branch.
-- [ ] Add prompt budget SDD/TDD.
-- [ ] Implement `prompt-budget.py`.
-- [ ] Add `lazy prompt-budget` dispatch.
-- [ ] Add self-test fixtures.
+- [x] Run baseline `self-test.py` on branch.
+- [x] Add prompt budget SDD/TDD.
+- [x] Implement `prompt-budget.py`.
+- [x] Add `lazy prompt-budget` dispatch.
+- [x] Add self-test fixtures.
 
 ### P1 — Safe prompt compression
 
-- [ ] Update pre-response SDD to permit compact static prompt.
-- [ ] Update self-test expected phrases and token budget check.
-- [ ] Refactor hook prompt rendering.
-- [ ] Verify same output for different messages.
-- [ ] Verify no semantic backend or user-text classifier.
-- [ ] Measure token reduction.
+- [x] Update pre-response SDD to permit compact static prompt.
+- [x] Update self-test expected phrases and token budget check.
+- [x] Refactor hook prompt rendering.
+- [x] Verify same output for different messages.
+- [x] Verify no semantic backend or user-text classifier.
+- [x] Measure token reduction.
 
 ### P1 — Feature navigation
 
-- [ ] Draft `.lazy-harness/project/feature-navigation.xml` for source repo.
-- [ ] Add/adjust spec for feature navigation.
-- [ ] Verify `context-index.ts` consumes it.
-- [ ] Add self-test for critical feature entries.
+- [x] Draft `.lazy-harness/project/feature-navigation.xml` for source repo.
+- [x] Add/adjust spec for feature navigation.
+- [x] Verify `context-index.ts` consumes it.
+- [x] Add self-test for critical feature entries.
 
 ### P2 — Tier manifest and evidence standard
 
-- [ ] Draft context tier manifest spec and schema.
-- [ ] Add optional manifest pointer audit.
-- [ ] Draft evidence capsule standard and template.
-- [ ] Add recommended work-unit closure checklist capability.
+- [x] Draft context tier manifest spec and schema.
+- [x] Add optional manifest pointer audit.
+- [x] Draft evidence capsule standard and template.
+- [x] Add recommended work-unit closure checklist capability.
 
 ### P3 — Operational-state prototype
 
-- [ ] Draft packet spec/schema.
-- [ ] Implement explicit CLI.
-- [ ] Add fallback behavior for missing indexes.
-- [ ] Keep command advisory and non-default.
+- [x] Draft packet spec/schema.
+- [x] Implement explicit CLI.
+- [x] Add fallback behavior for missing indexes.
+- [x] Keep command advisory and non-default.
 
 ### P4 — Dogfood
 
-- [ ] Run source self-test/doctor/prompt-budget.
-- [ ] Dry-run sync to dogfood hosts.
-- [ ] Run host lazy test/doctor/prompt-budget.
-- [ ] Capture evidence capsule for final comparison.
-- [ ] Decide keep/revert/escalate.
+- [x] Run source self-test/doctor/prompt-budget.
+- [x] Dry-run sync to dogfood hosts.
+- [x] Run host lazy test/doctor/prompt-budget.
+- [x] Capture evidence capsule for final comparison.
+- [x] Decide keep/revert/escalate.
 
 ## 14. Validation strategy
 
