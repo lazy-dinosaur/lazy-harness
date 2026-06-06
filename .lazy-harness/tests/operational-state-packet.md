@@ -36,6 +36,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 3. Missing `.lazy-harness/generated/context-index.json` yields `fallback-needed` note and exit 0.
 4. Lifecycle hooks do not call `operational-state`.
 5. Packet uses record paths and reasons for read entries.
+6. `lazy-evidence-capsule` appears only when the current host registry defines that host-owned capability; framework-source scope requires it, downstream host scope may omit it.
 
 ## Layer completeness gate
 

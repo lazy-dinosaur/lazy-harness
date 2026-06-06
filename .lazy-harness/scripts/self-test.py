@@ -5131,7 +5131,8 @@ def check_evidence_capsule_standard_phase5() -> None:
     for expected in (
         "keep evidence capsules optional and human-authored; do not auto-write them from hooks",
         "The checklist is recommend-level, not a hard gate.",
-        "`.lazy-harness/ssot/capabilities.json` registers `lazy-evidence-capsule`",
+        "In the framework source checkout, `.lazy-harness/ssot/capabilities.json` registers `lazy-evidence-capsule`",
+        "Downstream host capability registries are host-owned",
         "check_evidence_capsule_standard_phase5",
     ):
         if expected not in sdd:
@@ -5140,7 +5141,7 @@ def check_evidence_capsule_standard_phase5() -> None:
     tdd = tdd_path.read_text(encoding="utf-8")
     for expected in (
         "Missing heading",
-        "recommend-level, not warn/block",
+        "downstream host scope, absence is allowed",
         "Auto-writing evidence capsules from lifecycle hooks fails self-test",
         "Layer completeness gate",
     ):
@@ -5179,8 +5180,8 @@ def check_evidence_capsule_standard_phase5() -> None:
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     caps = {cap.get("id"): cap for cap in registry.get("capabilities", [])}
     cap = caps.get("lazy-evidence-capsule")
-    if not cap:
-        fail("capabilities registry missing lazy-evidence-capsule")
+    if not cap and ACTIVE_SCOPE == "framework":
+        fail("framework-source capabilities registry missing lazy-evidence-capsule")
     expected_cap = {
         "kind": "checklist",
         "level": "recommend",
@@ -5188,27 +5189,29 @@ def check_evidence_capsule_standard_phase5() -> None:
         "checklistPath": ".lazy-harness/templates/evidence-capsule.md",
         "owner": "framework-global",
     }
-    for key, value in expected_cap.items():
-        if cap.get(key) != value:
-            fail(f"lazy-evidence-capsule capability {key} mismatch: {cap.get(key)!r}")
-    if cap.get("level") in {"warn", "block"}:
-        fail("lazy-evidence-capsule must remain non-blocking recommend-level")
-    if "making_validation_claims" not in cap.get("appliesWhen", []):
-        fail("lazy-evidence-capsule missing making_validation_claims appliesWhen")
+    if cap:
+        for key, value in expected_cap.items():
+            if cap.get(key) != value:
+                fail(f"lazy-evidence-capsule capability {key} mismatch: {cap.get(key)!r}")
+        if cap.get("level") in {"warn", "block"}:
+            fail("lazy-evidence-capsule must remain non-blocking recommend-level")
+        if "making_validation_claims" not in cap.get("appliesWhen", []):
+            fail("lazy-evidence-capsule missing making_validation_claims appliesWhen")
 
     audit = subprocess.run([".lazy-harness/bin/lazy", "capability", "audit", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if audit.returncode != 0:
-        fail("capability audit failed with evidence capsule registry entry:\n" + audit.stdout + audit.stderr)
+        fail("capability audit failed for current host registry:\n" + audit.stdout + audit.stderr)
     audit_json = json.loads(audit.stdout)
     if audit_json.get("ok") is not True:
-        fail("capability audit should pass after evidence capsule registry entry: " + json.dumps(audit_json, ensure_ascii=False))
+        fail("capability audit should pass for current host registry: " + json.dumps(audit_json, ensure_ascii=False))
 
-    resolved = subprocess.run([".lazy-harness/bin/lazy", "capability", "resolve", "--intent", "making_validation_claims", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if resolved.returncode != 0:
-        fail("capability resolve failed for evidence capsule intent:\n" + resolved.stdout + resolved.stderr)
-    resolved_ids = [item.get("id") for item in json.loads(resolved.stdout).get("matches", [])]
-    if "lazy-evidence-capsule" not in resolved_ids:
-        fail("capability resolve should recommend lazy-evidence-capsule for validation claims: " + resolved.stdout)
+    if cap:
+        resolved = subprocess.run([".lazy-harness/bin/lazy", "capability", "resolve", "--intent", "making_validation_claims", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if resolved.returncode != 0:
+            fail("capability resolve failed for evidence capsule intent:\n" + resolved.stdout + resolved.stderr)
+        resolved_ids = [item.get("id") for item in json.loads(resolved.stdout).get("matches", [])]
+        if "lazy-evidence-capsule" not in resolved_ids:
+            fail("capability resolve should recommend lazy-evidence-capsule when registered: " + resolved.stdout)
 
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
@@ -5292,6 +5295,10 @@ def check_operational_state_packet_phase6() -> None:
 
     raw_message = "validate evidence raw-private-operational-state-message"
     missing_index = ROOT / ".lazy-harness" / "generated" / "__missing_operational_state_context_index.json"
+    registry = json.loads((LAZY / "ssot" / "capabilities.json").read_text(encoding="utf-8")) if (LAZY / "ssot" / "capabilities.json").exists() else {"capabilities": []}
+    has_evidence_capability = any(cap.get("id") == "lazy-evidence-capsule" for cap in registry.get("capabilities", []))
+    if ACTIVE_SCOPE == "framework" and not has_evidence_capability:
+        fail("framework-source registry should include lazy-evidence-capsule for operational-state validation fixture")
     completed = subprocess.run(
         [
             ".lazy-harness/bin/lazy",
@@ -5331,8 +5338,8 @@ def check_operational_state_packet_phase6() -> None:
         fail("operational-state packet must reference operational-state SDD by path and reason")
     if not any(item.get("path") == ".lazy-harness/spec/platform/context-delivery-contract.md" and item.get("reason") for item in required_reads):
         fail("operational-state packet must reference context delivery contract by path and reason")
-    if not any(cap.get("id") == "lazy-evidence-capsule" for cap in packet.get("capabilities", [])):
-        fail("operational-state validation packet should include lazy-evidence-capsule capability")
+    if has_evidence_capability and not any(cap.get("id") == "lazy-evidence-capsule" for cap in packet.get("capabilities", [])):
+        fail("operational-state validation packet should include lazy-evidence-capsule capability when registered")
     if not any(item.get("path") == ".lazy-harness/templates/evidence-capsule.md" for item in packet.get("evidence", [])):
         fail("operational-state validation packet should include evidence template pointer")
 
@@ -5355,8 +5362,10 @@ def check_operational_state_packet_phase6() -> None:
         fail("lazy operational-state Markdown failed:\n" + md.stdout + md.stderr)
     if raw_message in md.stdout or "raw-private-operational-state-message" in md.stdout:
         fail("operational-state Markdown output leaked raw message")
-    if "fallbackNeeded: true" not in md.stdout or "lazy-evidence-capsule" not in md.stdout:
-        fail("operational-state Markdown output missing fallback/capability summary:\n" + md.stdout)
+    if "fallbackNeeded: true" not in md.stdout:
+        fail("operational-state Markdown output missing fallback summary:\n" + md.stdout)
+    if has_evidence_capability and "lazy-evidence-capsule" not in md.stdout:
+        fail("operational-state Markdown output missing registered evidence capability summary:\n" + md.stdout)
 
     hook_files = list((LAZY / "hooks").rglob("*.sh")) + list((LAZY / "hooks").rglob("*.py"))
     offenders = [str(path.relative_to(ROOT)) for path in hook_files if "operational-state" in path.read_text(encoding="utf-8")]

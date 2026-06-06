@@ -94,13 +94,15 @@ The checklist is recommend-level, not a hard gate.
 
 ## Capability registration
 
-`.lazy-harness/ssot/capabilities.json` registers `lazy-evidence-capsule` as:
+In the framework source checkout, `.lazy-harness/ssot/capabilities.json` registers `lazy-evidence-capsule` as:
 
 - `kind`: `checklist`
 - `level`: `recommend`
 - `checklistPath`: `.lazy-harness/templates/evidence-capsule.md`
 
 It recommends the standard when closing non-trivial or evidence-heavy work, but it must not block commits or mutate records automatically.
+
+Downstream host capability registries are host-owned. A host may opt in to the `lazy-evidence-capsule` capability, but synced framework self-tests must not fail solely because a downstream host has not added that host-local registry entry. The synced template and SDD/TDD records remain usable without a capability entry.
 
 ## Implementation map
 
@@ -110,7 +112,7 @@ It recommends the standard when closing non-trivial or evidence-heavy work, but 
   - `.lazy-harness/tests/evidence-capsule-standard.md` — TDD/regression record for headings, privacy, recommend-only capability, and no automatic writing.
   - `.lazy-harness/evidence/README.md` — explains durable capsule storage and privacy posture.
   - `.lazy-harness/templates/evidence-capsule.md` — reusable template/checklist.
-  - `.lazy-harness/ssot/capabilities.json` — registers `lazy-evidence-capsule` as recommend-level checklist.
+  - `.lazy-harness/ssot/capabilities.json` — registers `lazy-evidence-capsule` as recommend-level checklist in the framework source checkout; downstream copies may keep host-owned registry entries.
   - `.lazy-harness/manifests/init-categories.json` — syncs the SDD/TDD/template/README framework assets while keeping actual capsule content host-authored.
   - `.lazy-harness/project/feature-navigation.xml` — maps evidence assets under `test-doctor` as validation/closure support.
   - `.lazy-harness/scripts/self-test.py` — protects headings, privacy note, capability audit, feature map, and no automatic evidence writer.

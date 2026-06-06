@@ -35,9 +35,10 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 
 1. Missing heading in `.lazy-harness/templates/evidence-capsule.md` fails self-test.
 2. Missing `Retention / privacy` guidance fails self-test.
-3. `lazy-evidence-capsule` capability missing, wrong kind, or stronger-than-recommend level fails self-test.
-4. Auto-writing evidence capsules from lifecycle hooks fails self-test.
-5. Capability audit must pass with the registry entry.
+3. In framework-source scope, missing `lazy-evidence-capsule` capability fails self-test; in downstream host scope, absence is allowed because `capabilities.json` is host-owned.
+4. If a host has `lazy-evidence-capsule`, wrong kind or stronger-than-recommend level fails self-test.
+5. Auto-writing evidence capsules from lifecycle hooks fails self-test.
+6. Capability audit must pass for the current host registry.
 
 ## Layer completeness gate
 
@@ -55,7 +56,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - `.lazy-harness/spec/platform/evidence-capsule-standard.md` — standard contract.
   - `.lazy-harness/templates/evidence-capsule.md` — heading/privacy template.
   - `.lazy-harness/evidence/README.md` — storage and privacy guidance.
-  - `.lazy-harness/ssot/capabilities.json` — recommend checklist capability.
+  - `.lazy-harness/ssot/capabilities.json` — recommend checklist capability in framework-source scope; host-owned registries may omit it.
   - `.lazy-harness/scripts/self-test.py` — regression checks.
 - Key symbols:
   - `check_evidence_capsule_standard_phase5` (`self-test.py`)
@@ -63,7 +64,8 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   1. Self-test reads SDD/TDD/template/README/capability registry.
   2. It checks headings and privacy language.
   3. It runs capability audit.
-  4. It scans lifecycle hooks for forbidden automatic evidence capsule writing.
+  4. It validates `lazy-evidence-capsule` only when present or in framework-source scope.
+  5. It scans lifecycle hooks for forbidden automatic evidence capsule writing.
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy capability audit --format=json`
