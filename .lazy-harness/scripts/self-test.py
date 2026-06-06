@@ -4973,6 +4973,148 @@ def check_source_feature_navigation_phase3() -> None:
     print(f"✓ source feature navigation Phase 3 ok ({len(expected)} features)")
 
 
+def _context_tier_entries(manifest: dict) -> list[dict]:
+    tiers = manifest.get("tiers")
+    if not isinstance(tiers, dict):
+        fail("context tier manifest fixture missing tiers object")
+    entries: list[dict] = []
+    for tier in ("always", "optional"):
+        bucket = tiers.get(tier)
+        if not isinstance(bucket, list):
+            fail(f"context tier manifest fixture tier {tier!r} must be a list")
+        entries.extend(bucket)
+    for tier in ("phase", "task"):
+        groups = tiers.get(tier)
+        if not isinstance(groups, list):
+            fail(f"context tier manifest fixture tier {tier!r} must be a list")
+        for group in groups:
+            if not isinstance(group, dict):
+                fail(f"context tier manifest fixture tier {tier!r} group must be an object")
+            if not group.get("id"):
+                fail(f"context tier manifest fixture tier {tier!r} group missing id")
+            applies = group.get("appliesWhen")
+            if not isinstance(applies, list) or not applies:
+                fail(f"context tier manifest fixture tier {tier!r} group missing appliesWhen")
+            group_entries = group.get("entries")
+            if not isinstance(group_entries, list):
+                fail(f"context tier manifest fixture tier {tier!r} group missing entries list")
+            entries.extend(group_entries)
+    return entries
+
+
+def _assert_context_tier_entry(entry: dict, allowed_kinds: set[str], allowed_postures: set[str]) -> None:
+    if not isinstance(entry, dict):
+        fail("context tier manifest entry must be an object")
+    required = {"path", "kind", "reason", "posture"}
+    missing = sorted(required - set(entry))
+    if missing:
+        fail(f"context tier manifest entry missing keys: {missing}")
+    extra = sorted(set(entry) - required)
+    if extra:
+        fail(f"context tier manifest entry has unexpected keys: {extra}")
+    if entry["kind"] not in allowed_kinds:
+        fail(f"context tier manifest entry has invalid kind: {entry['kind']}")
+    if entry["posture"] not in allowed_postures:
+        fail(f"context tier manifest entry has invalid posture: {entry['posture']}")
+    for key in ("path", "reason"):
+        if not isinstance(entry[key], str) or not entry[key].strip():
+            fail(f"context tier manifest entry key {key!r} must be a non-empty string")
+    path = entry["path"]
+    if pathlib.Path(path).is_absolute() or ".." in pathlib.Path(path).parts:
+        fail(f"context tier manifest entry path must stay root-relative: {path}")
+    if not (ROOT / path).exists():
+        fail(f"context tier manifest entry path does not exist: {path}")
+
+
+def check_context_tier_manifest_phase4() -> None:
+    """Phase 4 keeps context tier manifests optional, advisory, and pointer-audited."""
+    sdd_path = LAZY / "spec" / "platform" / "context-tier-manifest.md"
+    schema_path = LAZY / "schemas" / "context-tier-manifest.schema.json"
+    fixture_path = LAZY / "fixtures" / "context-delivery" / "context-tier-manifest.sample.json"
+    source_manifest_path = LAZY / "project" / "context-tiers.yaml"
+
+    for path in (sdd_path, schema_path, fixture_path):
+        if not path.exists():
+            fail(f"context tier manifest Phase 4 missing file: {path.relative_to(ROOT)}")
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    for expected in (
+        "treat context tiers as advisory pointer hints, not canonical truth",
+        "keep the default `message.received` hook static and unchanged",
+        "no context-index ingestion",
+        "absence of `.lazy-harness/project/context-tiers.yaml` is valid",
+    ):
+        if expected not in sdd:
+            fail("context tier manifest SDD missing invariant: " + expected)
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    if schema.get("title") != "ContextTierManifest":
+        fail("context tier manifest schema title mismatch")
+    if schema.get("properties", {}).get("status", {}).get("enum") != ["advisory"]:
+        fail("context tier manifest schema status must be advisory-only")
+    tier_props = schema.get("properties", {}).get("tiers", {}).get("properties", {})
+    expected_tiers = {"always", "phase", "task", "optional"}
+    if set(tier_props) != expected_tiers:
+        fail("context tier manifest schema tier keys mismatch")
+    definitions = schema.get("definitions", {})
+    allowed_kinds = set(definitions.get("kind", {}).get("enum", []))
+    allowed_postures = set(definitions.get("readPosture", {}).get("enum", []))
+    if not {"record", "plan", "project-profile", "source-file", "test", "schema", "fixture", "graph"}.issubset(allowed_kinds):
+        fail("context tier manifest schema missing required kind enum values")
+    if allowed_postures != {"required-hint", "optional-hint", "validation-hint"}:
+        fail("context tier manifest schema posture enum mismatch")
+
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    expected_top = {
+        "schemaVersion": "1.0",
+        "status": "advisory",
+        "scope": "framework-source",
+        "manifestKind": "context-tier-manifest",
+    }
+    for key, value in expected_top.items():
+        if fixture.get(key) != value:
+            fail(f"context tier manifest sample fixture {key} mismatch")
+    if set(fixture.get("tiers", {})) != expected_tiers:
+        fail("context tier manifest sample fixture tier keys mismatch")
+    for entry in _context_tier_entries(fixture):
+        _assert_context_tier_entry(entry, allowed_kinds, allowed_postures)
+
+    forbidden_key_fragments = ("rawmessage", "rawuser", "transcript", "assistantresponse", "rawassistant")
+    fixture_text = fixture_path.read_text(encoding="utf-8").lower()
+    if any(fragment in fixture_text for fragment in forbidden_key_fragments):
+        fail("context tier manifest sample fixture contains forbidden raw transcript/message field")
+
+    if source_manifest_path.exists():
+        source_text = source_manifest_path.read_text(encoding="utf-8")
+        for expected in ("status: advisory", "manifestKind: context-tier-manifest", "always:", "phase:", "task:", "optional:"):
+            if expected not in source_text:
+                fail("source context tier manifest missing expected marker: " + expected)
+        if ".lazy-harness/hooks/lifecycle/on-message-received.sh" in source_text:
+            fail("source context tier manifest must not reference message.received hook implementation")
+        for line_number, line in enumerate(source_text.splitlines(), 1):
+            match = re.match(r"^\s*-?\s*path:\s*(.+?)\s*$", line)
+            if not match:
+                continue
+            value = match.group(1).split(" #", 1)[0].strip().strip('"\'')
+            if not value:
+                fail(f"source context tier manifest empty path at line {line_number}")
+            path = pathlib.Path(value)
+            if path.is_absolute() or ".." in path.parts:
+                fail(f"source context tier manifest path must stay root-relative at line {line_number}: {value}")
+            if not (ROOT / value).exists():
+                fail(f"source context tier manifest path missing at line {line_number}: {value}")
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a = manifest.get("categories", {}).get("A", {}).get("items", [])
+    serialized_a = json.dumps(category_a, ensure_ascii=False)
+    if "spec/platform/context-tier-manifest.md" not in serialized_a:
+        fail("init categories missing context tier SDD")
+    if "context-delivery/*.json" not in serialized_a:
+        fail("init categories fixtures glob does not sync context-delivery JSON fixtures")
+
+    print("✓ context tier manifest Phase 4 ok")
+
+
 def check_context_delivery_dual_mode_phase4() -> None:
     """Phase 4 should produce packet-shaped dual-mode required-read context."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
@@ -6758,6 +6900,7 @@ def main() -> None:
         (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
+        (check_context_tier_manifest_phase4, "BOTH"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),

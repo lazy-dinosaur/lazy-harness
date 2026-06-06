@@ -1,0 +1,72 @@
+# Context Tier Manifest — lazy-harness source checkout
+# Status: advisory
+# Scope: framework-source
+#
+# Restricted YAML subset for Phase 4:
+# - path: scalar lines are audited by self-test.
+# - canonical truth remains in pointed records/source files.
+# - this file is not read by message.received and not synced as downstream host product truth.
+
+schemaVersion: "1.0"
+status: advisory
+scope: framework-source
+manifestKind: context-tier-manifest
+
+tiers:
+  always:
+    - path: .lazy-harness/spec/platform/context-delivery-contract.md
+      kind: record
+      posture: required-hint
+      reason: Context Delivery rules for required-read and non-canonical packets.
+    - path: .lazy-harness/spec/platform/project-profile.md
+      kind: record
+      posture: optional-hint
+      reason: Project Profile retrieval source rules.
+    - path: .lazy-harness/project/feature-navigation.xml
+      kind: project-profile
+      posture: optional-hint
+      reason: Source feature anchors for lazy-harness work.
+
+  phase:
+    - id: prompt-runtime-compression
+      appliesWhen: Prompt runtime compression rollout phases.
+      entries:
+        - path: .lazy-harness/plans/prompt-runtime-compression-implementation-plan.md
+          kind: plan
+          posture: required-hint
+          reason: Active rollout plan and acceptance criteria.
+        - path: .lazy-harness/spec/platform/prompt-budget.md
+          kind: record
+          posture: validation-hint
+          reason: Prompt budget measurement contract.
+
+  task:
+    - id: context-delivery-indexing
+      appliesWhen: Context index, context delivery, feature navigation, or tier manifest changes.
+      entries:
+        - path: .lazy-harness/spec/platform/context-tier-manifest.md
+          kind: record
+          posture: required-hint
+          reason: Tier manifest contract and safety invariants.
+        - path: .lazy-harness/schemas/context-tier-manifest.schema.json
+          kind: schema
+          posture: validation-hint
+          reason: Logical schema for tier manifest fixtures.
+        - path: .lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json
+          kind: fixture
+          posture: validation-hint
+          reason: Schema/sample fixture protected by self-test.
+        - path: .lazy-harness/scripts/self-test.py
+          kind: test
+          posture: validation-hint
+          reason: Pointer audit and schema/sample checks.
+
+  optional:
+    - path: .lazy-harness/ssot/project-navigation.md
+      kind: record
+      posture: optional-hint
+      reason: Source/downstream ownership boundary for project navigation records.
+    - path: .lazy-harness/knowledge/graph.jsonl
+      kind: graph
+      posture: optional-hint
+      reason: Machine-readable implementation links.

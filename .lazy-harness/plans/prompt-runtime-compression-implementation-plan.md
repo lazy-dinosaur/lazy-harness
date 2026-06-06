@@ -397,6 +397,8 @@ Revert Phase 3 commit. Context index already tolerates missing feature navigatio
 
 ## 8. Phase 4 — Context Tier Manifest
 
+Status: completed
+
 ### Goal
 
 Adopt homepage's SSOT tier-map idea as an optional, non-canonical hint for context delivery.
@@ -406,7 +408,14 @@ Adopt homepage's SSOT tier-map idea as an optional, non-canonical hint for conte
 - New SDD: `.lazy-harness/spec/platform/context-tier-manifest.md`
 - New schema: `.lazy-harness/schemas/context-tier-manifest.schema.json`
 - Optional source manifest:
-  - `.lazy-harness/project/context-tiers.yaml` or `.lazy-harness/ssot/context-tiers.yaml`
+  - `.lazy-harness/project/context-tiers.yaml`
+- New fixture:
+  - `.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json`
+- Updated:
+  - `.lazy-harness/spec/platform/context-delivery-contract.md` links the manifest as optional advisory context only.
+  - `.lazy-harness/project/feature-navigation.xml` maps tier manifest assets under `context-delivery-indexing`.
+  - `.lazy-harness/scripts/self-test.py` adds `check_context_tier_manifest_phase4`.
+  - `.lazy-harness/manifests/init-categories.json` syncs the new SDD and JSON fixture pattern while keeping `.lazy-harness/project/context-tiers.yaml` source/host-owned.
 
 ### Design constraints
 
@@ -434,11 +443,28 @@ Option B: context-index ingests manifest into `source.canonicalInputs` and outpu
 
 Recommended: start with Option A, then dogfood before Option B.
 
+Implemented option: Option A.
+
+- No context-index ingestion.
+- No `message.received` behavior change.
+- Source manifest is a restricted YAML pointer list audited by self-test.
+
 ### Acceptance criteria
 
-- Manifest schema validates sample fixture.
-- `doctor.py --profile=smoke` or new self-test can detect broken pointers.
-- No `message.received` behavior change.
+- [x] Manifest schema validates sample fixture through `check_context_tier_manifest_phase4` focused validation.
+- [x] New self-test detects broken source manifest pointers when `.lazy-harness/project/context-tiers.yaml` exists.
+- [x] No `message.received` behavior change; the SDD and self-test forbid using tier manifests as runtime hook input.
+- [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
+
+Validation evidence:
+
+- `git diff --check` passed.
+- `python3 -m py_compile .lazy-harness/scripts/self-test.py .lazy-harness/scripts/prompt-budget.py` passed.
+- Focused `check_context_tier_manifest_phase4` passed.
+- `python3 .lazy-harness/scripts/self-test.py` passed with `ran=80, skipped=0`.
+- `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
+- `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
+- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/context-tier-manifest.md` to `context-delivery-indexing`.
 
 ### Rollback
 

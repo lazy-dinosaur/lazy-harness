@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/context-tier-manifest.schema.json",
+  "title": "ContextTierManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "status", "scope", "manifestKind", "tiers"],
+  "properties": {
+    "schemaVersion": { "type": "string", "enum": ["1.0"] },
+    "status": { "type": "string", "enum": ["advisory"] },
+    "scope": { "type": "string", "enum": ["framework-source", "host-project"] },
+    "manifestKind": { "type": "string", "enum": ["context-tier-manifest"] },
+    "tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["always", "phase", "task", "optional"],
+      "properties": {
+        "always": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/entry" },
+          "default": []
+        },
+        "phase": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/group" },
+          "default": []
+        },
+        "task": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/group" },
+          "default": []
+        },
+        "optional": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/entry" },
+          "default": []
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    }
+  },
+  "definitions": {
+    "kind": {
+      "type": "string",
+      "enum": ["record", "plan", "project-profile", "source-file", "test", "schema", "fixture", "graph"]
+    },
+    "readPosture": {
+      "type": "string",
+      "enum": ["required-hint", "optional-hint", "validation-hint"]
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "reason", "posture"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/definitions/kind" },
+        "reason": { "type": "string", "minLength": 1 },
+        "posture": { "$ref": "#/definitions/readPosture" }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "appliesWhen", "entries"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "appliesWhen": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/entry" },
+          "default": []
+        }
+      }
+    }
+  }
+}

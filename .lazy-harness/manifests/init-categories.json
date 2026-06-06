@@ -87,7 +87,8 @@
           "kind": "directory",
           "glob": [
             "task-router/*.json",
-            "context-delivery/*.xml"
+            "context-delivery/*.xml",
+            "context-delivery/*.json"
           ],
           "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including ADR 0037 workflow route cases + context-delivery fixtures."
         },
@@ -247,6 +248,11 @@
           "path": "spec/platform/context-delivery-contract.md",
           "kind": "file",
           "description": "SDD contract for Native Context Broker packet output: raw hits, normalized evidence, required-read Context Delivery Packet, rendering, privacy, and fail-open rules."
+        },
+        {
+          "path": "spec/platform/context-tier-manifest.md",
+          "kind": "file",
+          "description": "SDD contract for optional advisory context tier manifests: always/phase/task/optional pointer hints, restricted YAML source manifests, schema fixture validation, and no message.received behavior change."
         },
         {
           "path": "spec/platform/context-broker-dogfood.md",

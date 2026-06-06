@@ -8,6 +8,7 @@ Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 Related SDD: `.lazy-harness/spec/platform/relevant-record-query.md`
 Related SDD: `.lazy-harness/spec/platform/record-digest-format.md`
+Related SDD: `.lazy-harness/spec/platform/context-tier-manifest.md`
 Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
 
 ## Rule digest
@@ -47,6 +48,7 @@ Related schema: `.lazy-harness/schemas/context-delivery-packet.schema.json`
   - `.lazy-harness/planning/native-context-broker-implementation-plan.md`
   - `.lazy-harness/spec/platform/pre-response-rule-context.md`
   - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/context-tier-manifest.md`
   - `.lazy-harness/spec/platform/response-rule-audit.md`
 
 ## Purpose
@@ -325,6 +327,20 @@ Rules:
 - Shell/CLI hooks must not choose `self-resolve-before-answer` vs `self-resolve-before-change` from raw user text.
 - The hook must not call a subagent, `jcode run`, hosted RAG, or other heavy model path synchronously for this protocol.
 - Protocol-only injections are not enough evidence for response audit to claim a concrete surfaced record was ignored; audit must wait for packet/journal evidence.
+
+## Optional context tier manifests
+
+`.lazy-harness/project/context-tiers.yaml` is an advisory pointer manifest, not a Context Delivery Packet field and not a default `message.received` input.
+
+Phase 4 behavior:
+
+- tier manifests may group existing records/files under `always`, `phase`, `task`, and `optional`,
+- every `path:` pointer must resolve inside the current host root when a manifest is present,
+- context-index and lifecycle hooks ignore the manifest by default,
+- agents/tools may use it as a manual hint only after reading `.lazy-harness/spec/platform/context-tier-manifest.md`,
+- tier membership never replaces reading the pointed record/source.
+
+If a later phase ingests tier manifests into Context Delivery or Context Index metadata, this SDD and the relevant schema must be updated in the same change.
 
 ## `기능패널` example
 

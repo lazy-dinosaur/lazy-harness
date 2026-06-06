@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0",
+  "status": "advisory",
+  "scope": "framework-source",
+  "manifestKind": "context-tier-manifest",
+  "tiers": {
+    "always": [
+      {
+        "path": ".lazy-harness/spec/platform/context-delivery-contract.md",
+        "kind": "record",
+        "reason": "Defines required-read and non-canonical context behavior.",
+        "posture": "required-hint"
+      },
+      {
+        "path": ".lazy-harness/project/feature-navigation.xml",
+        "kind": "project-profile",
+        "reason": "Maps source feature anchors to records/source/tests.",
+        "posture": "optional-hint"
+      }
+    ],
+    "phase": [
+      {
+        "id": "prompt-runtime-compression",
+        "appliesWhen": ["Working through the prompt runtime compression rollout plan."],
+        "entries": [
+          {
+            "path": ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
+            "kind": "plan",
+            "reason": "Owns phase goals and acceptance criteria.",
+            "posture": "required-hint"
+          }
+        ]
+      }
+    ],
+    "task": [
+      {
+        "id": "context-delivery-indexing",
+        "appliesWhen": ["Changing context-index, context-delivery, feature navigation, or tier manifests."],
+        "entries": [
+          {
+            "path": ".lazy-harness/scripts/context-index.ts",
+            "kind": "source-file",
+            "reason": "Derived context index builder and projectProfile parser.",
+            "posture": "validation-hint"
+          },
+          {
+            "path": ".lazy-harness/scripts/self-test.py",
+            "kind": "test",
+            "reason": "Framework regression coverage for context delivery fixtures.",
+            "posture": "validation-hint"
+          }
+        ]
+      }
+    ],
+    "optional": [
+      {
+        "path": ".lazy-harness/ssot/project-navigation.md",
+        "kind": "record",
+        "reason": "Source/downstream ownership boundary for project navigation records.",
+        "posture": "optional-hint"
+      }
+    ]
+  },
+  "notes": [
+    "This sample is a schema fixture, not runtime semantic authority.",
+    "Runtime hooks must ignore context tiers unless a future record explicitly adds a consumer."
+  ]
+}

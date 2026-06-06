@@ -108,6 +108,7 @@
     <records>
       <record layer="SDD">.lazy-harness/spec/platform/context-delivery-contract.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/context-broker-dogfood.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/context-tier-manifest.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/project-profile.md</record>
       <record layer="TDD">.lazy-harness/tests/context-broker-dogfood.md</record>
     </records>
@@ -118,7 +119,10 @@
       <path>.lazy-harness/scripts/relevant-record-query.ts</path>
       <path>.lazy-harness/schemas/context-index.schema.json</path>
       <path>.lazy-harness/schemas/context-delivery-packet.schema.json</path>
+      <path>.lazy-harness/schemas/context-tier-manifest.schema.json</path>
       <path>.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml</path>
+      <path>.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json</path>
+      <path>.lazy-harness/project/context-tiers.yaml</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </sourceFiles>
     <tests>
