@@ -245,7 +245,7 @@ Contract additions:
 - Compare logs must not store raw hook bodies, raw payloads, or raw user/assistant messages. They may store helper names, byte lengths, hashes, booleans, classes, and bounded metadata.
 - `lifecycle-check.py --sandbox` must run helpers with sandbox-local `LAZY_RUNTIME_ROOT` and `LAZY_SHARED_ROOT` so debug compare runs do not write duplicate state to the real host runtime.
 - Sandbox mode may provide read-only git facts through env variables (`LAZY_LIFECYCLE_GIT_LAST_SUBJECT`, `LAZY_LIFECYCLE_GIT_HEAD`) so git-dependent helpers can match real-host behavior without copying the real `.git` directory.
-- Sandbox mode may mirror bounded runtime state tails for helper fidelity: `open-gates.json`, `surfaced-rule-digests.jsonl`, and `context-delivery-packets.jsonl`.
+- Sandbox mode may mirror bounded runtime state tails for helper fidelity: `open-gates.json`, `surfaced-rule-digests.jsonl`, and `search-read-debt.jsonl`.
 - Sandbox mode may mirror `.jcode/hooks/tool-events.jsonl` only after filtering to current message/session id. Wholesale raw tool-event history copying is forbidden.
 - Production replacement remains forbidden until compare summary readiness is zero mismatch, no privacy issues, no orchestrator failures, and user approval is recorded.
 

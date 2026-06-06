@@ -43,8 +43,8 @@ The work must preserve these hard constraints:
   - Current accepted behavior: default `message.received` emits the same static harness inventory/search prompt for every non-empty user message.
   - Target budget: 200-600 tokens, hard ceiling 1,000 tokens.
   - Implementation: `.lazy-harness/hooks/lifecycle/on-message-received.sh`.
-- `.lazy-harness/spec/platform/context-delivery-contract.md`
-  - Context Delivery Packet is non-canonical helper output.
+- `.lazy-harness/spec/platform/search-read-debt-contract.md`
+  - Search/read-debt rows are non-canonical runtime evidence.
   - Default `message.received` must not run deterministic semantic backend automatically yet.
 - `.lazy-harness/ssot/capability-registry.md`
   - Kinds and enforcement levels are independent.
@@ -72,7 +72,6 @@ The work must preserve these hard constraints:
   - Existing tests explicitly enforce static prompt equality for smalltalk and implementation-like messages.
 - `.lazy-harness/scripts/context-index.ts`
   - Already parses records, graph, and `.lazy-harness/project/feature-navigation.xml` into derived context index.
-- `.lazy-harness/scripts/relevant-record-query.ts`
   - Already supports `--token-budget`, compact relevant-record output, explicit/manual use.
 - `.lazy-harness/bin/lazy`
   - Already dispatches `context-index`, `context-delivery`, `record-decision`, `capability`, etc.
@@ -412,7 +411,7 @@ Adopt homepage's SSOT tier-map idea as an optional, non-canonical hint for conte
 - New fixture:
   - `.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json`
 - Updated:
-  - `.lazy-harness/spec/platform/context-delivery-contract.md` links the manifest as optional advisory context only.
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md` links the manifest as optional advisory context only.
   - `.lazy-harness/project/feature-navigation.xml` maps tier manifest assets under `context-delivery-indexing`.
   - `.lazy-harness/scripts/self-test.py` adds `check_context_tier_manifest_phase4`.
   - `.lazy-harness/manifests/init-categories.json` syncs the new SDD and JSON fixture pattern while keeping `.lazy-harness/project/context-tiers.yaml` source/host-owned.

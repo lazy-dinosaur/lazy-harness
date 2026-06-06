@@ -1778,9 +1778,9 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         )
         if completed.returncode != 0:
             fail("lazy-sync prune fixture failed:\n" + completed.stdout + completed.stderr)
-        current = temp / ".lazy-harness" / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
+        current = temp / ".lazy-harness" / "fixtures" / "context-tier" / "context-tier-manifest.sample.json"
         if stale.exists() or not current.exists():
-            fail("lazy-sync must prune stale managed fixture and copy current fixture")
+            fail("lazy-sync must prune stale managed fixture and copy current context-tier fixture")
         still_present = [str(p.relative_to(temp)) for p in removed_managed if p.exists()]
         if still_present:
             fail("lazy-sync must prune known removed managed files: " + json.dumps(still_present, ensure_ascii=False))
@@ -2673,7 +2673,7 @@ def check_response_completed_no_auto_route_telemetry() -> None:
             fail("sandbox should receive read-only git facts so fix-regression compare matches legacy: " + json.dumps(fix_row, ensure_ascii=False))
 
         mirror_runtime = temp / ".lazy-harness" / "original-runtime-for-sandbox"
-        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl"):
+        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl"):
             target = mirror_runtime / "state" / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps({"fixture": name}, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -2693,7 +2693,7 @@ def check_response_completed_no_auto_route_telemetry() -> None:
             fail("lifecycle-check sandbox state mirror fixture failed:\n" + sandbox_check.stdout + sandbox_check.stderr)
         sandbox_json = json.loads(sandbox_check.stdout)
         mirrored = ((sandbox_json.get("sandboxContext") or {}).get("mirroredState") or {})
-        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl", ".jcode/hooks/tool-events.jsonl"):
+        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl", ".jcode/hooks/tool-events.jsonl"):
             if not (mirrored.get(name) or {}).get("copied"):
                 fail("lifecycle-check sandbox should mirror bounded state/journal fixture for " + name + ": " + json.dumps(mirrored, ensure_ascii=False))
 
@@ -2741,6 +2741,39 @@ def check_response_completed_no_auto_route_telemetry() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response.completed no auto route telemetry ok")
+
+
+def check_removed_query_helper_artifacts_absent() -> None:
+    """Deleted query-helper artifacts and commands must stay removed."""
+    deleted_paths = [
+        LAZY / "scripts" / ("context" + "-delivery.ts"),
+        LAZY / "scripts" / ("relevant" + "-record-query.ts"),
+        LAZY / "scripts" / ("context" + "-broker-dogfood.ts"),
+        LAZY / "schemas" / ("context" + "-delivery-packet.schema.json"),
+        LAZY / "schemas" / ("relevant" + "-record-index.schema.json"),
+        LAZY / "spec" / "platform" / ("context" + "-delivery-contract.md"),
+        LAZY / "spec" / "platform" / ("relevant" + "-record-query.md"),
+        LAZY / "spec" / "platform" / ("context" + "-broker-dogfood.md"),
+        LAZY / "tests" / ("relevant" + "-record-query-cli-equals-flags.md"),
+        LAZY / "tests" / ("context" + "-broker-dogfood.md"),
+    ]
+    present = [str(path.relative_to(ROOT)) for path in deleted_paths if path.exists()]
+    if present:
+        fail("deleted query-helper artifacts are present: " + json.dumps(present, ensure_ascii=False))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    forbidden_commands = ["context --message", "context-delivery", "context-dogfood"]
+    leaked = [cmd for cmd in forbidden_commands if cmd in help_text]
+    if leaked:
+        fail("lazy help still advertises deleted query-helper commands: " + json.dumps(leaked, ensure_ascii=False))
+
+    hook_text = (LAZY / "hooks" / "lifecycle" / "on-message-received.sh").read_text(encoding="utf-8")
+    helper_text = (LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py").read_text(encoding="utf-8")
+    literal_offenders = ["relevant" + "-record-query.ts", "context" + "-delivery.ts", "context" + "-broker-dogfood.ts"]
+    leaked_literals = [token for token in literal_offenders if token in hook_text or token in helper_text]
+    if leaked_literals:
+        fail("lifecycle path still references deleted query-helper scripts: " + json.dumps(leaked_literals, ensure_ascii=False))
+    print("✓ removed query-helper artifacts absent")
 
 
 def check_standalone_source_detection_uses_markers() -> None:
@@ -2896,10 +2929,10 @@ def check_parallel_runtime_state_isolation() -> None:
         if not runtime_a.startswith(str((secondary / ".git" / "lazy-harness" / "runtime").resolve())):
             fail(f"runtime root should live under caller worktree git-dir, got {runtime_a}")
         for runtime in [pathlib.Path(runtime_a), pathlib.Path(runtime_b)]:
-            journal = runtime / "state" / "context-delivery-packets.jsonl"
+            journal = runtime / "state" / "search-read-debt.jsonl"
             if not journal.exists():
                 fail(f"runtime journal missing: {journal}")
-        symlink_target_journal = primary / ".lazy-harness" / "state" / "context-delivery-packets.jsonl"
+        symlink_target_journal = primary / ".lazy-harness" / "state" / "search-read-debt.jsonl"
         if symlink_target_journal.exists() and str(symlink_target_journal.resolve()).startswith(str(LAZY.resolve())):
             # The source repo may have historical rows, but this fixture must not create
             # a fresh primary/symlink-target journal in the temp worktrees.
@@ -4339,216 +4372,7 @@ def write_digest_fixture(root: pathlib.Path) -> pathlib.Path:
     return record
 
 
-def check_relevant_record_query_cli() -> None:
-    """Relevant-record query should emit compact digest entries without tool keys."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-relevant-query-"))
-    try:
-        write_digest_fixture(temp)
-        script = LAZY / "scripts" / "relevant-record-query.ts"
-        completed = subprocess.run(
-            [
-                "bun",
-                str(script),
-                "--root",
-                str(temp),
-                "--message",
-                "PR description 작성해줘",
-                "--format",
-                "json",
-                "--require-digest",
-                "--token-budget",
-                "300",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            fail("relevant-record-query CLI failed:\n" + completed.stdout + completed.stderr)
-        result = json.loads(completed.stdout)
-        entries = result.get("digest", {}).get("entries", [])
-        if not entries:
-            fail("relevant-record-query did not return digest entries:\n" + completed.stdout)
-        first = entries[0]
-        if first.get("recordPath") != ".lazy-harness/ssot/pr-description-format.md":
-            fail("relevant-record-query returned wrong record:\n" + completed.stdout)
-        body = json.dumps(first, ensure_ascii=False)
-        if "Why, What, and Task" not in body or "gh or bash" not in body:
-            fail("relevant-record-query missed digest bullets:\n" + completed.stdout)
-        if result.get("digest", {}).get("estimatedTokens", 9999) > 300:
-            fail("relevant-record-query exceeded token budget:\n" + completed.stdout)
 
-        equals_completed = subprocess.run(
-            [
-                "bun",
-                str(script),
-                f"--root={temp}",
-                "--message=PR description 작성해줘",
-                "--format=json",
-                "--require-digest",
-                "--token-budget=300",
-                "--layer=SSOT",
-                "--status=active",
-                "--limit=1",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if equals_completed.returncode != 0:
-            fail("relevant-record-query --flag=value syntax failed:\n" + equals_completed.stdout + equals_completed.stderr)
-        equals_result = json.loads(equals_completed.stdout)
-        equals_entries = equals_result.get("digest", {}).get("entries", [])
-        if len(equals_entries) != 1 or equals_entries[0].get("recordPath") != ".lazy-harness/ssot/pr-description-format.md":
-            fail("relevant-record-query --flag=value syntax returned wrong entries:\n" + equals_completed.stdout)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ relevant-record-query CLI digest ok")
-
-
-def check_context_delivery_contract_sdd() -> None:
-    """Context Delivery should be a candidate retrieval contract, not semantic authority."""
-    sdd_path = LAZY / "spec" / "platform" / "context-delivery-contract.md"
-    schema_path = LAZY / "schemas" / "context-delivery-packet.schema.json"
-    if not sdd_path.exists():
-        fail("Context Delivery Contract SDD missing: " + str(sdd_path))
-    if not schema_path.exists():
-        fail("Context candidate packet schema missing: " + str(schema_path))
-
-    text = sdd_path.read_text(encoding="utf-8")
-    required_phrases = [
-        "## Rule digest",
-        "candidate evidence only",
-        "CLI-selected read-debt",
-        "LLM/searcher",
-        "candidateHits[]",
-        "matchedFields[]",
-        "fallbackSearches[]",
-        "Forbidden packet fields",
-        "Read-debt is still required",
-        "message.received static search-debt",
-        "기능패널",
-        "Implementation map",
-        "Rule placement",
-    ]
-    missing = [phrase for phrase in required_phrases if phrase not in text]
-    if missing:
-        fail("Context Delivery Contract SDD missing candidate-only content: " + json.dumps(missing, ensure_ascii=False))
-    forbidden_phrases = [
-        "deliver required-read context",
-        "required-read bullets",
-        "highest-confidence required reads",
-        "Packet evidence journals may store required/optional read paths",
-    ]
-    leaked = [phrase for phrase in forbidden_phrases if phrase in text]
-    if leaked:
-        fail("Context Delivery Contract SDD still contains semantic-authority wording: " + json.dumps(leaked, ensure_ascii=False))
-
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    if schema.get("title") != "ContextCandidatePacket":
-        fail("Context candidate packet schema title mismatch")
-    required = set(schema.get("required", []))
-    expected_required = {"schemaVersion", "generatedAt", "mode", "queries", "candidateHits", "fallbackSearches", "notes"}
-    if required != expected_required:
-        fail("Context candidate packet schema required fields mismatch: " + json.dumps(sorted(required)))
-    if schema.get("properties", {}).get("mode", {}).get("enum") != ["candidate-retrieval"]:
-        fail("Context candidate packet schema should be candidate-retrieval mode only")
-    forbidden_schema_fields = {"instructionLevel", "requiredRead", "optionalRead", "confidence", "candidateMeanings", "instruction", "risk", "intent", "gate"}
-    present_forbidden = forbidden_schema_fields & set(schema.get("properties", {}).keys())
-    if present_forbidden:
-        fail("Context candidate packet schema includes forbidden semantic fields: " + json.dumps(sorted(present_forbidden)))
-    hit_required = set(schema.get("definitions", {}).get("candidateHit", {}).get("required", []))
-    if hit_required != {"path", "kind", "matchedQueries", "matchedFields"}:
-        fail("candidateHit required fields mismatch: " + json.dumps(sorted(hit_required)))
-    print("✓ context delivery candidate contract SDD ok")
-
-def check_context_delivery_metadata_phase2() -> None:
-    """Phase 2 metadata should bridge aliases/profile navigation into retrieval evidence."""
-    digest_path = LAZY / "spec" / "platform" / "record-digest-format.md"
-    query_path = LAZY / "spec" / "platform" / "relevant-record-query.md"
-    profile_path = LAZY / "spec" / "platform" / "project-profile.md"
-    schema_path = LAZY / "schemas" / "relevant-record-index.schema.json"
-    fixture_path = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
-    for path in [digest_path, query_path, profile_path, schema_path, fixture_path]:
-        if not path.exists():
-            fail("Context Delivery Phase 2 expected artifact missing: " + str(path))
-
-    digest_text = digest_path.read_text(encoding="utf-8")
-    for phrase in [
-        "## Optional retrieval metadata",
-        "Aliases",
-        "Surface terms",
-        "Implementation hints",
-        "기능패널",
-        "FeaturePanel",
-        "aliases[]",
-        "implementationHints.routeHints[]",
-    ]:
-        if phrase not in digest_text:
-            fail("record-digest-format missing Phase 2 retrieval metadata phrase: " + phrase)
-
-    query_text = query_path.read_text(encoding="utf-8")
-    for phrase in [
-        "digest aliases/surface terms",
-        "Project Profile feature navigation",
-        "feature-navigation.xml",
-        "기능패널",
-        "candidate",
-    ]:
-        if phrase not in query_text:
-            fail("relevant-record-query missing Phase 2 retrieval phrase: " + phrase)
-
-    profile_text = profile_path.read_text(encoding="utf-8")
-    for phrase in [
-        "## Rule digest",
-        "## Feature navigation as retrieval source",
-        "feature-navigation.xml",
-        "기능패널",
-        "feature panel",
-        "FeaturePanel",
-        "candidate",
-    ]:
-        if phrase not in profile_text:
-            fail("project-profile missing Context Delivery feature navigation phrase: " + phrase)
-
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    record_props = schema.get("definitions", {}).get("recordEntry", {}).get("properties", {})
-    for prop in ["aliases", "surfaceTerms", "implementationHints"]:
-        if prop not in record_props:
-            fail("relevant-record-index schema missing Phase 2 property: " + prop)
-    hint_props = record_props.get("implementationHints", {}).get("properties", {})
-    for prop in ["routeHints", "componentHints", "fileHints", "symbolHints", "testHints"]:
-        if prop not in hint_props:
-            fail("relevant-record-index implementationHints missing property: " + prop)
-
-    root = ET.parse(fixture_path).getroot()
-    feature = root.find("feature")
-    if feature is None or feature.attrib.get("id") != "example-feature":
-        fail("context delivery feature-navigation fixture missing example-feature feature")
-    aliases = [node.text for node in feature.findall("./aliases/alias")]
-    for expected in ["기능패널", "기능화면", "feature panel", "FeaturePanel"]:
-        if expected not in aliases:
-            fail("context delivery feature-navigation fixture missing alias: " + expected)
-    paths = [node.text for node in feature.findall(".//path")]
-    if "src/features/example-feature/FeaturePanel.tsx" not in paths:
-        fail("context delivery feature-navigation fixture missing source path")
-    if "tests/example-feature/feature-panel.test.tsx" not in paths:
-        fail("context delivery feature-navigation fixture missing test path")
-    records = [node.text for node in feature.findall("./records/record")]
-    if ".lazy-harness/behavior/feature-surface.md" not in records:
-        fail("context delivery feature-navigation fixture missing BDD record path")
-
-    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
-    category_a_items = manifest.get("categories", {}).get("A", {}).get("items", [])
-    category_a_paths = {item.get("path") for item in category_a_items}
-    if "spec/platform/project-profile.md" not in category_a_paths:
-        fail("Context Delivery Phase 2 requires project-profile SDD to sync to hosts")
-    fixture_item = next((item for item in category_a_items if item.get("path") == "fixtures/"), {})
-    if "context-delivery/*.xml" not in fixture_item.get("glob", []):
-        fail("Context Delivery Phase 2 fixture glob missing from manifest")
-    print("✓ context delivery metadata Phase 2 ok")
 
 
 def check_context_index_generator_phase3() -> None:
@@ -4600,8 +4424,29 @@ def check_context_index_generator_phase3() -> None:
             "- Source: `src/features/example-feature/FeatureSurfacePage.tsx`\n",
             encoding="utf-8",
         )
-        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
-        shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
+        (temp / ".lazy-harness" / "project" / "feature-navigation.xml").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigation version="1.0">
+  <feature id="example-feature" status="confirmed">
+    <label>Feature Surface</label>
+    <aliases>
+      <alias lang="ko">기능패널</alias>
+      <alias lang="ko">기능화면</alias>
+      <alias lang="en">feature panel</alias>
+    </aliases>
+    <routes><route>/example-feature</route></routes>
+    <components><component>FeaturePanel</component></components>
+    <records>
+      <record layer="BDD">.lazy-harness/behavior/feature-surface.md</record>
+    </records>
+    <sourceFiles><path>src/features/example-feature/FeaturePanel.tsx</path></sourceFiles>
+    <tests><path>tests/example-feature/feature-panel.test.tsx</path></tests>
+    <risk>Fixture risk note.</risk>
+  </feature>
+</featureNavigation>
+""",
+            encoding="utf-8",
+        )
         (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
             json.dumps({
                 "id": "kg_feature_surface_behavior_impl",
@@ -4634,7 +4479,7 @@ def check_context_index_generator_phase3() -> None:
         if len(records) != 1:
             fail("context-index fixture should produce exactly one record")
         record = records[0]
-        for expected in ["기능패널", "기능화면", "feature panel", "FeaturePanel"]:
+        for expected in ["기능패널", "기능화면", "feature panel"]:
             if expected not in record.get("aliases", []) and expected not in record.get("surfaceTerms", []):
                 fail("context-index record missing retrieval term: " + expected)
         hints = record.get("implementationHints", {})
@@ -4688,13 +4533,11 @@ def check_source_feature_navigation_phase3() -> None:
                 ".lazy-harness/ssot/capabilities.json",
             },
         },
-        "context-delivery-indexing": {
-            "aliases": {"context delivery", "context index", "feature-navigation.xml"},
+        "record-source-indexing": {
+            "aliases": {"record index", "context index", "feature-navigation.xml"},
             "paths": {
-                ".lazy-harness/spec/platform/context-delivery-contract.md",
                 ".lazy-harness/spec/platform/project-profile.md",
                 ".lazy-harness/scripts/context-index.ts",
-                ".lazy-harness/scripts/context-delivery.ts",
                 ".lazy-harness/schemas/context-index.schema.json",
             },
         },
@@ -4869,7 +4712,7 @@ def check_context_tier_manifest_phase4() -> None:
     """Phase 4 keeps context tier manifests optional, advisory, and pointer-audited."""
     sdd_path = LAZY / "spec" / "platform" / "context-tier-manifest.md"
     schema_path = LAZY / "schemas" / "context-tier-manifest.schema.json"
-    fixture_path = LAZY / "fixtures" / "context-delivery" / "context-tier-manifest.sample.json"
+    fixture_path = LAZY / "fixtures" / "context-tier" / "context-tier-manifest.sample.json"
     source_manifest_path = LAZY / "project" / "context-tiers.yaml"
 
     for path in (sdd_path, schema_path, fixture_path):
@@ -4948,8 +4791,8 @@ def check_context_tier_manifest_phase4() -> None:
     serialized_a = json.dumps(category_a, ensure_ascii=False)
     if "spec/platform/context-tier-manifest.md" not in serialized_a:
         fail("init categories missing context tier SDD")
-    if "context-delivery/*.json" not in serialized_a:
-        fail("init categories fixtures glob does not sync context-delivery JSON fixtures")
+    if "context-tier/*.json" not in serialized_a:
+        fail("init categories fixtures glob does not sync context-tier JSON fixtures")
 
     print("✓ context tier manifest Phase 4 ok")
 
@@ -5076,246 +4919,7 @@ def check_evidence_capsule_standard_phase5() -> None:
     print("✓ evidence capsule standard Phase 5 ok")
 
 
-def check_context_delivery_candidate_retrieval_phase4() -> None:
-    """Context Delivery returns candidate hits only; LLM decides importance/read priority."""
-    delivery_script = LAZY / "scripts" / "context-delivery.ts"
-    index_script = LAZY / "scripts" / "context-index.ts"
-    packet_schema = LAZY / "schemas" / "context-delivery-packet.schema.json"
-    if not delivery_script.exists():
-        fail("Context candidate retrieval helper missing: " + str(delivery_script))
-    delivery_source = delivery_script.read_text(encoding="utf-8")
-    forbidden_framework_aliases = [
-        "surface aliases', targets",
-        "Code-style ",
-        "Deterministic multilingual expansion mapped",
-        "requiredRead",
-        "instructionLevel",
-        "self-resolve-before-change",
-        "confidence",
-    ]
-    leaked_aliases = [alias for alias in forbidden_framework_aliases if alias in delivery_source]
-    if leaked_aliases:
-        fail("context-delivery must not hardcode aliases or semantic authority fields: " + json.dumps(leaked_aliases, ensure_ascii=False))
-    schema = json.loads(packet_schema.read_text(encoding="utf-8"))
-    if schema.get("title") != "ContextCandidatePacket":
-        fail("Context candidate schema title mismatch")
 
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-"))
-    try:
-        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
-            "# Feature Surface\n\n"
-            "## Rule digest\n\n"
-            "- Status: active\n"
-            "- Layer: BDD\n"
-            "- Scope: host-project\n"
-            "- Applies when:\n"
-            "  - user asks about feature surface UI\n"
-            "- Must:\n"
-            "  - confirm feature panel behavior before editing\n"
-            "- Aliases:\n"
-            "  - 기능패널\n"
-            "  - feature panel\n"
-            "- Surface terms:\n"
-            "  - 기능화면\n"
-            "- Implementation hints:\n"
-            "  - Routes: `/example-feature`\n"
-            "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
-            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n"
-            "- Related records:\n"
-            "  - `.lazy-harness/spec/feature-surface.md`\n",
-            encoding="utf-8",
-        )
-        fixture = LAZY / "fixtures" / "context-delivery" / "feature-navigation-feature-surface.xml"
-        shutil.copy2(fixture, temp / ".lazy-harness" / "project" / "feature-navigation.xml")
-        (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
-            json.dumps({
-                "id": "kg_feature_surface_behavior_impl",
-                "source": ".lazy-harness/behavior/feature-surface.md",
-                "relation": "implemented_by",
-                "target": "src/features/example-feature/FeaturePanel.tsx",
-            }, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-
-        def run_delivery(*args: str) -> subprocess.CompletedProcess[str]:
-            return subprocess.run(
-                ["bun", str(delivery_script), "--root", str(temp), *args],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-        first = run_delivery("--message", "기능패널 고쳐줘", "--format", "json")
-        if first.returncode != 0:
-            fail("context-delivery source-scan fallback failed:\n" + first.stdout + first.stderr)
-        packet = json.loads(first.stdout)
-        if packet.get("mode") != "candidate-retrieval" or packet.get("schemaVersion") != "2.0":
-            fail("context-delivery should emit candidate-retrieval packet: " + first.stdout)
-        for forbidden in ["instructionLevel", "requiredRead", "optionalRead", "confidence", "candidateMeanings", "instruction"]:
-            if forbidden in packet:
-                fail("context-delivery packet must not include semantic field: " + forbidden + "\n" + first.stdout)
-        queries_text = json.dumps(packet.get("queries", []), ensure_ascii=False)
-        if "기능패널" not in queries_text:
-            fail("context-delivery missing literal query term: 기능패널")
-        hits = packet.get("candidateHits", [])
-        hit_pairs = {(item.get("kind"), item.get("path")) for item in hits}
-        for expected in [
-            ("record", ".lazy-harness/behavior/feature-surface.md"),
-            ("project-profile", ".lazy-harness/project/feature-navigation.xml"),
-            ("source-file", "src/features/example-feature/FeaturePanel.tsx"),
-            ("test", "tests/example-feature/feature-panel.test.tsx"),
-        ]:
-            if expected not in hit_pairs:
-                fail("context-delivery candidateHits missing " + repr(expected) + ":\n" + json.dumps(hits, ensure_ascii=False, indent=2))
-        if not all(item.get("matchedFields") and item.get("matchedQueries") for item in hits):
-            fail("context-delivery candidateHits must include matchedFields and matchedQueries")
-        if not any("candidate-only" in note for note in packet.get("notes", [])):
-            fail("context-delivery should explicitly note candidate-only semantics")
-        if not any("contextIndexSource=source-scan" == note for note in packet.get("notes", [])):
-            fail("context-delivery should note source-scan fallback when generated index is absent")
-
-        index_write = subprocess.run(
-            ["bun", str(index_script), "--root", str(temp), "--write", "--format=json"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if index_write.returncode != 0:
-            fail("context-index write for context-delivery fixture failed:\n" + index_write.stdout + index_write.stderr)
-        second = run_delivery("--message=기능패널 고쳐줘", "--format=json")
-        packet_from_index = json.loads(second.stdout)
-        if not any("contextIndexSource=generated-index" == note for note in packet_from_index.get("notes", [])):
-            fail("context-delivery should consume generated context index when present")
-        markdown = run_delivery("--message", "기능패널 고쳐줘", "--format", "md")
-        if markdown.returncode != 0 or "Context candidate retrieval" not in markdown.stdout or "Candidate hits" not in markdown.stdout:
-            fail("context-delivery markdown rendering missing candidate sections:\n" + markdown.stdout + markdown.stderr)
-        for forbidden in ["Required read", "STOP before response", "self-resolve-before-change", "confidence"]:
-            if forbidden in markdown.stdout:
-                fail("context-delivery markdown must not claim semantic/read-debt authority: " + forbidden + "\n" + markdown.stdout)
-
-        framework_only = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-framework-only-"))
-        try:
-            (framework_only / ".lazy-harness" / "spec" / "platform").mkdir(parents=True, exist_ok=True)
-            (framework_only / ".lazy-harness" / "knowledge").mkdir(parents=True, exist_ok=True)
-            (framework_only / ".lazy-harness" / "spec" / "platform" / "context-delivery-contract.md").write_text(
-                "# SDD - Context Delivery Contract\n\n"
-                "## Rule digest\n\n"
-                "- Status: active\n"
-                "- Layer: SDD\n"
-                "- Scope: framework-global\n"
-                "- Applies when:\n"
-                "  - implementing candidate retrieval\n"
-                "- Must:\n"
-                "  - use `기능패널` only as an example ambiguous surface term\n\n"
-                "## `기능패널` example\n\n기능패널 고쳐줘\n",
-                encoding="utf-8",
-            )
-            no_host = subprocess.run(
-                ["bun", str(delivery_script), "--root", str(framework_only), "--message", "기능패널 고쳐줘", "--format=json"],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            if no_host.returncode != 0:
-                fail("context-delivery framework-only negative fixture failed:\n" + no_host.stdout + no_host.stderr)
-            no_host_packet = json.loads(no_host.stdout)
-            if any(item.get("path") == ".lazy-harness/spec/platform/context-delivery-contract.md" for item in no_host_packet.get("candidateHits", [])):
-                fail("framework-global example record must not become candidate hit for host product-surface request")
-            if not no_host_packet.get("fallbackSearches"):
-                fail("framework-only product-surface request should retain fallback searches")
-        finally:
-            shutil.rmtree(framework_only, ignore_errors=True)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-delivery candidate retrieval Phase 4 ok")
-
-def check_context_delivery_optional_handoff_phase6() -> None:
-    """Context Delivery may render optional searcher handoff prompts, but only for candidate hits."""
-    delivery_script = LAZY / "scripts" / "context-delivery.ts"
-    hook_path = LAZY / "hooks" / "lifecycle" / "on-message-received.sh"
-    if not delivery_script.exists():
-        fail("Context candidate retrieval helper missing: " + str(delivery_script))
-    hook_text = hook_path.read_text(encoding="utf-8")
-    for forbidden in ["--handoff-prompt", "--journal", "jcode run", "subprocess.run", "context-delivery.ts", "relevant-record-query.ts"]:
-        if forbidden in hook_text:
-            fail("message.received hook must not run Context Delivery/query/handoff paths: " + forbidden)
-    for phrase in [
-        "STOP. Harness-first search/read debt before response.",
-        "Inventory counts:",
-        "Protocol: choose real candidate records from inventory",
-        "inspect real `.lazy-harness` records/source/tests in this host root",
-    ]:
-        if phrase not in hook_text:
-            fail("message.received hook should inject a compact harness-first inventory search prompt: " + phrase)
-
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
-    try:
-        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
-            "# Feature Surface\n\n"
-            "## Rule digest\n\n"
-            "- Status: active\n"
-            "- Layer: BDD\n"
-            "- Scope: host-project\n"
-            "- Aliases:\n"
-            "  - 기능패널\n"
-            "- Implementation hints:\n"
-            "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n",
-            encoding="utf-8",
-        )
-        completed = subprocess.run(
-            ["bun", str(delivery_script), "--root", str(temp), "--message", "기능패널 고쳐줘", "--handoff-prompt"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            fail("context-delivery --handoff-prompt failed:\n" + completed.stdout + completed.stderr)
-        out = completed.stdout
-        for phrase in [
-            "Context candidate search handoff",
-            "Current query",
-            "Host root",
-            str(temp),
-            "Do not mutate files",
-            "candidateHits",
-            "Do not decide final intent, importance, required reads, gates, record-write need, risk, or next action",
-            "Return one JSON object matching `.lazy-harness/schemas/context-delivery-packet.schema.json`",
-            "기능패널",
-            "FeaturePanel",
-        ]:
-            if phrase not in out:
-                fail("handoff prompt missing phrase: " + phrase + "\n" + out)
-        for forbidden in ["delegate-search", "requiredRead", "confidence", "instructionLevel"]:
-            if forbidden in out:
-                fail("handoff prompt must not include semantic-authority field: " + forbidden + "\n" + out)
-        match = re.search(r"```json\n(.*?)\n```", out, re.S)
-        if not match:
-            fail("handoff prompt missing seed packet JSON fence:\n" + out)
-        seed = json.loads(match.group(1))
-        if seed.get("mode") != "candidate-retrieval":
-            fail("handoff seed packet should be candidate-retrieval")
-        for field in ["schemaVersion", "queries", "candidateHits", "fallbackSearches", "notes"]:
-            if field not in seed:
-                fail("handoff seed packet missing field: " + field)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-delivery optional candidate handoff Phase 6 ok")
 
 def check_record_decision_broker_phase8() -> None:
     """Phase 8 should define a safe post-turn Record Decision Packet contract before runtime escalation."""
@@ -5340,7 +4944,7 @@ def check_record_decision_broker_phase8() -> None:
         "no automatic blind record writes",
         "Response shadow bridge",
         "check-record-decision-shadow.py",
-        "Context Delivery is pre-turn required-read",
+        "Search/read evidence is pre-turn read evidence",
         "Do not write automatically from this packet alone",
         "`.lazy-harness/scripts/record-decision-broker.ts`",
         "Implementation map",
@@ -5527,129 +5131,6 @@ def check_record_decision_broker_phase8() -> None:
         fail("record-decision-broker markdown output missing expected content:\n" + md_completed.stdout + md_completed.stderr)
     print("✓ record decision broker Phase 8 ok")
 
-
-def check_context_broker_dogfood_collector() -> None:
-    """Context Broker dogfood collector should gather sanitized rows from host lazy CLIs."""
-    collector_script = LAZY / "scripts" / "context-broker-dogfood.ts"
-    lazy_bin = LAZY / "bin" / "lazy"
-    sdd = LAZY / "spec" / "platform" / "context-broker-dogfood.md"
-    if not sdd.exists():
-        fail("Context Broker dogfood SDD missing")
-    sdd_text = sdd.read_text(encoding="utf-8")
-    for required in [
-        "Operator handoff",
-        "dogfood 확인해줘",
-        "Automatic shadow journal",
-        "Explicit aggregate dogfood",
-        "The user does not need to hand-collect evidence",
-        "Do not promote response.completed behavior from this alone",
-    ]:
-        if required not in sdd_text:
-            fail("Context Broker dogfood SDD missing handoff/stream contract: " + required)
-    required_scripts = [
-        LAZY / "scripts" / "runtime-paths.ts",
-        LAZY / "scripts" / "context-delivery.ts",
-        LAZY / "scripts" / "context-index.ts",
-        LAZY / "scripts" / "record-decision-broker.ts",
-    ]
-    for path in [collector_script, lazy_bin, *required_scripts]:
-        if not path.exists():
-            fail("Context Broker dogfood artifact missing: " + str(path))
-
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-dogfood-"))
-    try:
-        collector_root = temp / "collector"
-        host = temp / "host"
-        (collector_root / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
-        (host / ".lazy-harness" / "bin").mkdir(parents=True, exist_ok=True)
-        (host / ".lazy-harness" / "scripts").mkdir(parents=True, exist_ok=True)
-        (host / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (host / ".lazy-harness" / "state").mkdir(parents=True, exist_ok=True)
-        (host / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (host / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(lazy_bin, host / ".lazy-harness" / "bin" / "lazy")
-        (host / ".lazy-harness" / "bin" / "lazy").chmod(0o755)
-        for script in required_scripts:
-            shutil.copy2(script, host / ".lazy-harness" / "scripts" / script.name)
-        (host / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
-        (host / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
-        (host / ".lazy-harness" / "state" / "synced-from-commit").write_text(json.dumps({"syncedFromCommit": "dogfood-fixture"}), encoding="utf-8")
-        (host / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
-            "# Feature Surface\n\n"
-            "## Rule digest\n\n"
-            "- Status: active\n"
-            "- Layer: BDD\n"
-            "- Scope: host-project\n"
-            "- Applies when:\n"
-            "  - user asks about feature surface UI\n"
-            "- Must:\n"
-            "  - confirm feature panel behavior before editing\n"
-            "- Aliases:\n"
-            "  - 기능패널\n"
-            "  - feature panel\n"
-            "- Implementation hints:\n"
-            "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
-            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
-            encoding="utf-8",
-        )
-        out_path = collector_root / ".lazy-harness" / "state" / "context-broker-dogfood.jsonl"
-        completed = subprocess.run(
-            [
-                "bun", str(collector_script),
-                "--root", str(collector_root),
-                "--host", str(host),
-                "--case", "feature-surface::기능패널 고쳐줘",
-                "--out", str(out_path),
-                "--format", "json",
-                "--no-append",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            fail("context-broker-dogfood collector failed:\n" + completed.stdout + completed.stderr)
-        payload = json.loads(completed.stdout)
-        if payload.get("schemaVersion") != "1.0" or not payload.get("rows"):
-            fail("context-broker-dogfood output missing rows")
-        row = payload["rows"][0]
-        if row.get("event") != "context-broker.dogfood":
-            fail("context-broker-dogfood row event mismatch")
-        if row.get("caseLabel") != "feature-surface" or row.get("messageHash") == "기능패널 고쳐줘":
-            fail("context-broker-dogfood should store label plus hash, not raw message")
-        raw_output = json.dumps(payload, ensure_ascii=False)
-        if "기능패널 고쳐줘" in raw_output:
-            fail("context-broker-dogfood collector output must not store raw message")
-        context_delivery = row.get("contextDelivery", {})
-        if not context_delivery.get("ok") or context_delivery.get("mode") != "candidate-retrieval":
-            fail("context-broker-dogfood context delivery should pass as candidate retrieval: " + json.dumps(row, ensure_ascii=False))
-        if not context_delivery.get("candidateHitCount"):
-            fail("context-broker-dogfood should summarize candidate hit count: " + json.dumps(row, ensure_ascii=False))
-        if row.get("recordDecision", {}).get("disposition") != "no-record-needed":
-            fail("context-broker-dogfood collection turn should be no-record-needed")
-        if "packetJournal" in row:
-            fail("context-broker-dogfood should not depend on context-delivery packet journal rows")
-        if row.get("errors"):
-            fail("context-broker-dogfood row should have no errors: " + json.dumps(row.get("errors"), ensure_ascii=False))
-        if not out_path.exists():
-            fail("context-broker-dogfood should write JSONL output")
-        written_text = out_path.read_text(encoding="utf-8")
-        if "기능패널 고쳐줘" in written_text:
-            fail("context-broker-dogfood JSONL should not store raw message")
-        md = subprocess.run(
-            ["bun", str(collector_script), "--root", str(collector_root), "--host", str(host), "--case", "feature-surface::기능패널 고쳐줘", "--dry-run", "--format", "md"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if md.returncode != 0 or "# Context Broker Dogfood" not in md.stdout or "feature-surface" not in md.stdout:
-            fail("context-broker-dogfood markdown dry-run missing expected content:\n" + md.stdout + md.stderr)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context broker dogfood collector ok")
 
 
 def check_record_decision_shadow_response_completed() -> None:
@@ -5863,7 +5344,7 @@ def check_message_received_hook_context_injection() -> None:
             "find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f",
             "tree .lazy-harness | head -200",
             "Relevant lazy-harness rules",
-            "Context Delivery read-debt",
+            "Search/read debt",
             "FeaturePanel.tsx",
             "Search protocol: (1) extract 2-5 candidate meanings",
             "grep -rli <token>",
@@ -5873,7 +5354,7 @@ def check_message_received_hook_context_injection() -> None:
                 fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
 
         session_key = "session-" + hashlib.sha256("s-test".encode("utf-8")).hexdigest()[:20]
-        packet_journal = temp / ".git" / "lazy-harness" / "runtime" / session_key / "state" / "context-delivery-packets.jsonl"
+        packet_journal = temp / ".git" / "lazy-harness" / "runtime" / session_key / "state" / "search-read-debt.jsonl"
         if not packet_journal.exists():
             fail("message.received direct-search prompt should journal search-debt")
         packet_text = packet_journal.read_text(encoding="utf-8")
@@ -5881,8 +5362,8 @@ def check_message_received_hook_context_injection() -> None:
             fail("message.received search-debt journal must not store raw user message")
         rows = [json.loads(line) for line in packet_text.splitlines() if line.strip()]
         row = rows[-1]
-        if row.get("event") != "message.received.direct-search-debt" or row.get("fallbackSearchCount") != 1:
-            fail("direct-search journal row should be search-debt, not deterministic packet:\n" + json.dumps(row, ensure_ascii=False, indent=2))
+        if row.get("event") != "message.received.search-read-debt" or row.get("fallbackSearchCount") != 1:
+            fail("search/read-debt journal row should be static transport, not deterministic packet:\n" + json.dumps(row, ensure_ascii=False, indent=2))
         if row.get("instructionLevel") != "harness-first-static":
             fail("direct-search journal row should use static instruction level, not message-derived levels:\n" + json.dumps(row, ensure_ascii=False, indent=2))
         if "noSemanticBackend=true" not in row.get("notes", []):
@@ -5924,9 +5405,9 @@ def check_message_received_hook_context_injection() -> None:
             or "not a project/tool allowlist" not in no_search
         ):
             fail("direct-search debt should block action before real search evidence:\n" + no_search)
-        cli_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/context-delivery.ts --message 기능패널"}])
-        if "search-debt gate" not in cli_only:
-            fail("context-delivery/relevant-record CLI execution must not satisfy direct-search debt:\n" + cli_only)
+        cache_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/context-index.ts --write"}])
+        if "search-debt gate" not in cache_only:
+            fail("deterministic cache generation alone must not satisfy direct-search debt:\n" + cache_only)
         listed = run_permit([{"name": "bash", "args_preview": "tree .lazy-harness | head -200"}])
         if listed.strip():
             fail("root-bound tree inventory evidence should satisfy direct-search debt:\n" + listed)
@@ -6111,7 +5592,7 @@ def check_tool_execute_before_hook() -> None:
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
             "recent_tool_calls": [
                 {"name": "batch", "args": {"tool_calls": [
-                    {"tool": "read", "parameters": {"file_path": ".lazy-harness/spec/platform/context-delivery-contract.md"}},
+                    {"tool": "read", "parameters": {"file_path": ".lazy-harness/spec/platform/search-read-debt-contract.md"}},
                     {"tool": "read", "parameters": {"file_path": ".lazy-harness/ssot/harness-enforcement-policy.md"}},
                 ]}}
             ],
@@ -6199,7 +5680,7 @@ def check_read_debt_permit_generic_external_action() -> None:
             "requiredRead": [],
             "fallbackSearchCount": 2,
         }
-        (state / "context-delivery-packets.jsonl").write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+        (state / "search-read-debt.jsonl").write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
         base_payload = {
             "message_id": message_id,
             "tool": {"name": "mcp__external__get_context", "args": {"id": "fixture"}},
@@ -6345,6 +5826,7 @@ def main() -> None:
         (check_lifecycle_fixture_intake_cli, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
         (check_response_completed_no_auto_route_telemetry, "BOTH"),
+        (check_removed_query_helper_artifacts_absent, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_parallel_runtime_state_isolation, "BOTH"),
@@ -6366,18 +5848,12 @@ def main() -> None:
         (check_layer_impact_gate, "FRAMEWORK_ONLY"),
         (check_reference_resolver, "FRAMEWORK_ONLY"),
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
-        (check_relevant_record_query_cli, "FRAMEWORK_ONLY"),
-        (check_context_delivery_contract_sdd, "BOTH"),
-        (check_context_delivery_metadata_phase2, "BOTH"),
         (check_context_index_generator_phase3, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
-        (check_context_delivery_candidate_retrieval_phase4, "BOTH"),
-        (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
-        (check_context_broker_dogfood_collector, "BOTH"),
         (check_record_decision_shadow_response_completed, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),

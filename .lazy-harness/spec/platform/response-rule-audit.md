@@ -5,9 +5,9 @@ Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
-Related SDD: `.lazy-harness/spec/platform/relevant-record-query.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 Related SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
-Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 
 ## Rule digest
 
@@ -18,11 +18,11 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
   - implementing or debugging `response.completed` audits for records or search/read-debt surfaced before a turn
   - checking whether pre-response direct-search or explicit surfaced digest context was ignored
   - designing journal state for surfaced digest ids
-  - designing packet evidence journals for Context Delivery required-read audit
+  - designing search/read-debt evidence journals
   - moving tool-attached project policy into response lifecycle audit
 - Must:
   - read sanitized surfaced digest journal state only from explicit digest/dogfood paths, not as the default `message.received` transport
-  - read sanitized direct-search and Context Delivery packet evidence journal only when it can be correlated by safe message/session hashes
+  - read sanitized search/read-debt evidence journal only when it can be correlated by safe message/session hashes
   - keep clean turns silent
   - emit concise audit feedback only when evidence strongly shows a surfaced rule or record-completion obligation was missed
   - keep response.completed search/read audit advisory-only as a backstop; pre-action prevention is owned by the generic search/read evidence guard, not tool-specific adapters
@@ -119,7 +119,7 @@ Retention:
 Path:
 
 ```text
-$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl
+$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl
 ```
 
 Status:
@@ -128,7 +128,7 @@ Status:
 - safe to prune,
 - not a source of truth,
 - produced by bounded `message.received` static search/read-debt transport,
-- not produced by `context-delivery.ts` candidate retrieval.
+- not produced by deleted query-helper retrieval.
 
 Current row shape is intentionally generic. It may include empty `requiredRead` and fallback search prompts, but the row must not be interpreted as CLI-selected importance or required-read paths.
 
@@ -209,18 +209,17 @@ exit = 0
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized static harness-first search-debt rows for non-empty user-message turns without user-text semantic classification.
-  - `.lazy-harness/scripts/context-delivery.ts` — explicit candidate retrieval helper; does not write read-debt journals.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events evidence and emits conservative response audit feedback.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
   - `.lazy-harness/scripts/lifecycle-check.py` — runs the same audit helper in shadow/orchestrator lifecycle checks.
   - `.lazy-harness/scripts/self-test.py` — protects journal privacy, ignored surfaced PR rule detection, missing record-completion detection, and silent clean turns.
   - `.gitignore` — excludes `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl` runtime state in the source checkout.
-  - `.gitignore` — excludes `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` runtime state in the source checkout.
+  - `.gitignore` — excludes `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` runtime state in the source checkout.
 - Key symbols:
   - `sanitized_entries` (`on-message-received.sh`) — strips query output down to record-authored fields.
   - `surfaced-rule-digests.jsonl` (`on-message-received.sh`) — non-canonical journal state.
   - `matching_journal` (`check-response-rule-audit.py`) — resolves same-turn digest state by safe hashes/freshness.
-  - `appendPacketJournal` (`context-delivery.ts`) — appends bounded sanitized packet evidence rows.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — appends bounded sanitized search/read-debt rows.
   - `packet_required_paths` (`check-response-rule-audit.py`) — extracts required-read paths from packet evidence.
   - `has_required_read_evidence` (`check-response-rule-audit.py`) — checks recent read/search tool evidence before advisory output.
   - `pr_artifact_missing_headings` (`check-response-rule-audit.py`) — artifact/context check for PR body structure.
@@ -241,7 +240,7 @@ exit = 0
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
   - SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
-  - Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - TDD: `.lazy-harness/tests/response-rule-audit.md`
 - Machine index:

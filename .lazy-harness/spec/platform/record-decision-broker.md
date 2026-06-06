@@ -4,12 +4,12 @@ Status: accepted
 Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 Related SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
 Related SDD: `.lazy-harness/spec/platform/record-write-update-policy.md`
 Related TDD: `.lazy-harness/tests/record-decision-broker.md`
 Related schema: `.lazy-harness/schemas/record-decision-packet.schema.json`
-Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 
 ## Rule digest
 
@@ -19,7 +19,7 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 - Applies when:
   - designing or implementing post-turn record decision logic
   - deciding whether a completed turn needs record update, candidate capture, no-record-needed, or option gate
-  - integrating Context Delivery packet evidence with record-completion audit
+  - integrating search/read evidence with record-completion audit
   - reducing false positives from broad “record needed” lifecycle gates
 - Must:
   - output a structured Record Decision Packet before any automated record-write escalation
@@ -38,21 +38,21 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
   - turn missing/ambiguous evidence into blocking output
   - bypass option-gate discipline when layer placement or user intent is ambiguous
 - Record completion:
-  - changes to Record Decision Packet shape, dispositions, evidence criteria, or broker/audit behavior update this SDD, schema, TDD record, ADR 0041, and the native context broker plan
+  - changes to Record Decision Packet shape, dispositions, evidence criteria, or broker/audit behavior update this SDD, schema, TDD record, ADR 0041, and the searchable record memory cleanup plan
 - Related records:
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/spec/platform/response-rule-audit.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
   - `.lazy-harness/tests/record-decision-broker.md`
 
 ## Purpose
 
-The Post-turn Record Decision Broker is the mirror image of Context Delivery.
+The Post-turn Record Decision Broker is the mirror image of pre-turn search/read evidence.
 
-Context Delivery answers:
+Pre-turn search/read evidence answers:
 
 ```text
-Before a turn, what context must the agent read?
+Search/read evidence is pre-turn read evidence. It asks what real records/source/tests the agent has read or must still inspect before relying on context.
 ```
 
 Record Decision Broker answers:
@@ -215,16 +215,16 @@ Phase 8 does not replace `response-rule-audit.md`.
 
 Initial runtime integration is shadow-only. Default runtime output remains unchanged because the helper emits nothing unless `LAZY_RECORD_DECISION_SHADOW_ADVISORY=1` is explicitly enabled.
 
-## Relationship to Context Delivery
+## Relationship to pre-turn search/read evidence
 
-Record Decision Broker may consume Context Delivery evidence:
+Record Decision Broker may consume explicit search/read evidence:
 
 - `requiredRead` paths that were read before changes,
 - packet confidence,
 - candidate meanings and resolved aliases,
-- packet evidence journal rows from `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl`.
+- packet evidence journal rows from `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`.
 
-Context Delivery is pre-turn required-read. Record Decision Broker is post-turn record-write decision.
+Pre-turn search/read evidence informs reading. Record Decision Broker is post-turn record-write decision.
 
 ## Privacy and retention
 
@@ -246,13 +246,13 @@ Context Delivery is pre-turn required-read. Record Decision Broker is post-turn 
   - `.lazy-harness/bin/lazy` - exposes `lazy record-decision` against the current host root.
   - `.lazy-harness/tests/record-decision-broker.md` - false-positive and disposition fixture plan.
   - `.lazy-harness/scripts/self-test.py` - schema/document fixture validation.
-  - `.lazy-harness/planning/native-context-broker-implementation-plan.md` - Phase 8 roadmap status.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` - corrected cleanup-first retrieval plan status.
   - `.lazy-harness/knowledge/graph.jsonl` - graph rows linking contract, schema, plan, and tests.
 - Future implementation files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - future stricter consumer only after false-positive fixtures and dogfood evidence.
 - Flow:
   1. Turn completes.
-  2. Explicit generator normalizes supplied user confirmations, corrections, changed files, changed records, Context Delivery evidence, and validation evidence.
+  2. Explicit generator normalizes supplied user confirmations, corrections, changed files, changed records, search/read evidence, and validation evidence.
   3. Broker emits Record Decision Packet.
   4. If `record-updated`, audit can stay silent.
   5. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write.
@@ -293,7 +293,7 @@ Future validation:
 - Primary record: `.lazy-harness/spec/platform/record-decision-broker.md`
 - Why not AGENTS.md: this is a platform packet contract and lifecycle design, not compact base grammar.
 - Why not `.jcode`: this must sync to hosts and be shared by lazy-harness scripts, hooks, records, and optional future brokers.
-- Confirmation: user-confirmed by resuming Native Context Broker work after Phase 7 pause.
+- Confirmation: user-confirmed as explicit/offline record-decision work; later raw-message query-helper architecture was removed on 2026-06-06.
 
 ## Discovery capture
 

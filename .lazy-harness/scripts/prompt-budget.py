@@ -174,7 +174,7 @@ def render_message_received(root: pathlib.Path, transition_message_tokens: int) 
         token_estimate = estimate_tokens(body)
         line_count = count_lines(body)
         status = status_from_tokens(token_estimate, DEFAULT_BUDGETS["messageReceived"]["hardMaxTokens"], transition_message_tokens)
-        journal = runtime_dir / "state" / "context-delivery-packets.jsonl"
+        journal = runtime_dir / "state" / "search-read-debt.jsonl"
         journal_lines = 0
         if journal.exists():
             journal_lines = len([line for line in journal.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()])

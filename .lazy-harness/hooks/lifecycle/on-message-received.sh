@@ -83,20 +83,14 @@ packet_hash_seed = json.dumps({
 }, ensure_ascii=False, sort_keys=True)
 row = {
     'schemaVersion': '1.0',
-    'event': 'message.received.direct-search-debt',
+    'event': 'message.received.search-read-debt',
     'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(epoch)),
     'epochSeconds': epoch,
     'messageIdHash': stable_hash(message_id),
     'sessionIdHash': stable_hash(session_id),
     'packetHash': hashlib.sha256(packet_hash_seed.encode('utf-8')).hexdigest()[:16],
     'instructionLevel': level,
-    'confidence': 0,
-    'requiredReadCount': 0,
-    'optionalReadCount': 0,
-    'candidateMeaningCount': 0,
     'fallbackSearchCount': 1,
-    'requiredRead': [],
-    'optionalRead': [],
     'notes': [
         'directSearchPrompt=true',
         'staticTransport=true',
@@ -107,7 +101,7 @@ row = {
 }
 try:
     runtime_root = Path(os.environ.get('LAZY_RUNTIME_ROOT') or (root / '.lazy-harness' / '.runtime'))
-    journal = runtime_root / 'state' / 'context-delivery-packets.jsonl'
+    journal = runtime_root / 'state' / 'search-read-debt.jsonl'
     journal.parent.mkdir(parents=True, exist_ok=True)
     existing = []
     if journal.exists():
@@ -163,7 +157,7 @@ def harness_inventory_lines() -> list[str]:
     lines.append('- Inventory counts: ' + ' '.join(layer_bits))
 
     generated = root / '.lazy-harness' / 'generated'
-    index_names = ['implementation-index.json', 'reference-index.json', 'relevant-record-index.json', 'context-index.json']
+    index_names = ['implementation-index.json', 'reference-index.json']
     statuses = []
     for name in index_names:
         p = generated / name

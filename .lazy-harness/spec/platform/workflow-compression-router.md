@@ -34,7 +34,7 @@ Use deterministic candidate retrieval, graph/navigation maps, generated indexes,
   - task-router script and fixtures.
 - Replacement records:
   - `.lazy-harness/ssot/cli-tool-boundary.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
 - Protection:
   - `.lazy-harness/scripts/self-test.py`

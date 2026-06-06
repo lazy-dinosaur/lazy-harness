@@ -4,8 +4,8 @@ Status: accepted
 Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
-Related spec: `.lazy-harness/spec/platform/context-delivery-contract.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
+Related spec: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Rule digest
@@ -25,10 +25,10 @@ Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
   - keep aliases/surface terms optional, confirmed, compact, and separate from long prose
   - avoid full-document dumps in automatic context
 - Record completion:
-  - changes to digest structure update this SDD, relevant query schema, and Context Delivery Contract when packet behavior changes
+  - changes to digest structure update this SDD and search/read-debt or index-header records when retrieval behavior changes
 - Related records:
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Purpose
@@ -193,13 +193,13 @@ Use paths, not prose-only references. These paths help query expand context with
 
 ## Optional retrieval metadata
 
-Records may include optional compact retrieval metadata when a future Context Broker needs to bridge user-facing language to records, files, routes, components, or tests.
+Records may include optional compact retrieval metadata when a future record index or LLM/searcher flow needs to bridge user-facing language to records, files, routes, components, or tests.
 
 This metadata is optional. Do not make every record verbose. Add it when at least one of these is true:
 
 - users refer to the feature with aliases that differ from record or code names,
 - a Korean or multilingual surface term must map to English records/code,
-- implementation hints are stable enough to guide required-read selection,
+- implementation hints are stable enough to guide record/source/test discovery,
 - Project Profile feature navigation names this record as part of a feature map.
 
 Recommended Markdown shape inside or near `## Rule digest`:
@@ -224,7 +224,7 @@ Rules:
 2. Keep aliases short. Do not paste chat transcripts or long examples.
 3. Use root-bound file/test hints only.
 4. Prefer artifact classes (`Routes`, `Components`, `Files`, `Tests`) over tool names.
-5. The metadata helps produce Context Delivery Packet `queries`, `candidateMeanings`, `requiredRead`, and `optionalRead`; it is not itself a command to edit.
+5. The metadata helps the LLM/searcher and deterministic caches discover related records/source/tests; it is not itself a command to edit or a required-read decision.
 
 Schema mapping:
 
@@ -301,15 +301,12 @@ A response audit implementation SHOULD:
 - Status: `accepted; Phase 2 retrieval metadata specified`
 - Primary files:
   - `.lazy-harness/spec/platform/record-digest-format.md` — this SDD contract.
-  - `.lazy-harness/spec/platform/context-delivery-contract.md` — packet contract consuming aliases/surface terms as query and required-read evidence.
-  - `.lazy-harness/schemas/relevant-record-index.schema.json` — generated cache schema including optional aliases/surface terms and implementation hints.
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md` — packet contract consuming aliases/surface terms as query and required-read evidence.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — companion policy for updating records without duplicates/stale drift.
-  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — phase plan.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` — phase plan.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — architecture decision.
 - Supporting files:
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
-  - `.lazy-harness/scripts/relevant-record-query.ts`
-  - `.lazy-harness/generated/relevant-record-index.json`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/scripts/record-digest-audit.ts`
 - Flow:
   1. A canonical record declares a digest.
@@ -321,7 +318,7 @@ A response audit implementation SHOULD:
   - Current validation: `.lazy-harness/scripts/self-test.py`, `doctor.py --profile smoke`.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-  - Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - SDD: `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Rule placement
@@ -341,4 +338,4 @@ A response audit implementation SHOULD:
 - TDD: self-test now protects Phase 2 retrieval metadata contract; future parser/query fixtures still needed.
 - ADR: ADR 0041 selected organic hybrid guidance.
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
-- Planning: record-query context loop transition plan Phase 1.
+- Planning: searchable record memory cleanup plan Phase 1.

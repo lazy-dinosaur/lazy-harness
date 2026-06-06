@@ -4,9 +4,8 @@ Status: accepted
 Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-Related SDD: `.lazy-harness/spec/platform/relevant-record-query.md`
-Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
-Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 
 ## Rule digest
 
@@ -26,12 +25,12 @@ Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.
   - inject framework-structured harness-first instructions for ambiguous/surface-like or host-dependent requests without running a subagent or semantic search backend in the hook
   - include compact actual `.lazy-harness` layer/file inventory plus generated-index, graph, and project/profile pointers before any free-form query/alias expansion
   - journal sanitized direct-search debt before the first action so the generic evidence guard/audit can verify real root-bound search evidence
-  - keep Context Delivery and Relevant Record Query CLIs optional/manual/dogfood helpers, not automatic semantic authority in `message.received`
+  - keep deleted query-helper CLIs removed; `message.received` remains static transport, not automatic semantic authority
   - keep exploration tool names as examples, not a closed allowlist; the required behavior is following lazy-harness and leaving root-bound evidence before action
 - Record completion:
   - changes to pre-turn hook payload/output contract or self-resolution protocol update this SDD
 - Related records:
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
 
 ## Purpose
@@ -146,14 +145,14 @@ Semantics:
 4. emit the same compact `STOP. Harness-first search/read debt before response.` static transport for any non-empty user message,
 5. include bounded actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning/Plans/Project/Knowledge counts, generated-index presence, graph/candidate/project navigation pointers, and source/test/doc directory presence, without dumping per-layer samples,
 6. keep the compact prompt under the normal 200-600 token target for framework source dogfood when feasible and under the 1,000-token hard ceiling for normal hosts,
-7. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
+7. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
 8. stay silent only when no user message exists or the hook cannot resolve a host root,
-9. avoid running `relevant-record-query.ts`, `context-delivery.ts`, subagents, `jcode run`, or any semantic search backend inside `message.received`,
+9. avoid running deleted query helpers, subagents, `jcode run`, or any semantic search backend inside `message.received`,
 10. log latency without raw message bodies when logging is needed.
 
 The surfaced digest journal is runtime state only and is now written by explicit digest surfacing/dogfood paths, not by the default `message.received` harness-first search hook. It stores safe hashes and record-authored fields (record path, title, layer, status, record-completion text, compact bullets) so `response.completed` can audit the same turn without storing raw user or assistant message bodies.
 
-Protocol-only harness-first inventory/search injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Direct-search debt rows and explicit Context Delivery packet rows share `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` as non-canonical runtime state with sanitized metadata and safe message/session hashes; those rows are consumed by the generic evidence guard and response audit/backstop as search/read debt evidence.
+Protocol-only harness-first inventory/search injections are prompt context, not surfaced record evidence. They must not write raw user messages or synthetic candidate meanings to the surfaced digest journal. Static search/read-debt rows use `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` as non-canonical runtime state with sanitized metadata and safe message/session hashes; those rows are consumed by the generic evidence guard and response audit/backstop as search/read debt evidence.
 
 ## Token and latency budget
 
@@ -196,9 +195,8 @@ message.received
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, injects the same compact static harness-first inventory/search prompt for every non-empty user message, includes bounded layer counts, generated-index/graph/project pointers, and source/test/doc directory presence without per-layer sample dumps, and journals sanitized direct-search debt without running semantic query backends or user-text semantic classifiers.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence detector that blocks action until the turn shows root-bound harness-following inventory/search/read evidence; it is not a tool allowlist.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - post-response audit helper that consumes sanitized packet journal rows and reports missed requiredRead/search evidence.
-  - `.lazy-harness/scripts/relevant-record-query.ts` - read-only digest query CLI for explicit/manual/dogfood use, not automatic `message.received` semantic authority.
-  - `.lazy-harness/spec/platform/context-delivery-contract.md` - defines the self-resolution instruction level and packet-compatible search protocol.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - post-response audit helper that consumes sanitized search/read-debt journal rows and reports missed requiredRead/search evidence.
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md` - defines the static search/read-debt runtime row contract.
   - `.lazy-harness/scripts/self-test.py` - protects harness-first prompt, examples-not-allowlist wording, search-debt journal, and evidence guard fixtures.
 - Flow:
   1. Hook receives `last_user_message` and host root from Jcode.
@@ -227,4 +225,4 @@ message.received
 - TDD: fixtures protect lazy-harness hook payload/output behavior and generic evidence detection.
 - ADR: ADR 0041 selected the organic hybrid response lifecycle model.
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
-- Planning: record-query context loop transition plan Phase 3.
+- Planning: searchable record memory cleanup plan Phase 3.

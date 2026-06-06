@@ -25,7 +25,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - preserve the generic evidence guard behavior: block action before root-bound search/read evidence and allow after evidence
 - Must not:
   - reintroduce per-layer sample dumps into the default prompt
-  - run `relevant-record-query.ts`, `context-delivery.ts`, subagents, or `jcode run` inside default `message.received`
+  - run deleted query helpers, subagents, or `jcode run` inside default `message.received`
   - treat CLI/index output as proof that the LLM/searcher performed direct search
   - add broad edit/write hard stops as prompt-compression work
 - Record completion:

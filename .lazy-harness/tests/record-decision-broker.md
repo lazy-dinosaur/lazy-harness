@@ -5,7 +5,7 @@ Date: 2026-06-01
 Layer: TDD
 Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 Related schema: `.lazy-harness/schemas/record-decision-packet.schema.json`
-Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 
 ## Rule digest
 
@@ -87,7 +87,7 @@ The generator and response shadow fixtures are now active.
   - `.lazy-harness/scripts/lifecycle-check.py` — orchestrator helper chain registration under test.
   - `.lazy-harness/bin/lazy` — exposes the generator as `lazy record-decision`.
   - `.lazy-harness/scripts/self-test.py` — current contract fixture.
-  - `.lazy-harness/planning/native-context-broker-implementation-plan.md` — Phase 8 status.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` — corrected cleanup-first retrieval plan.
 - Future files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — future stricter packet consumer only after shadow fixtures and dogfood evidence.
 - Protection:

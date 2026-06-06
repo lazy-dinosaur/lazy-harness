@@ -27,7 +27,7 @@ Regression fixtures cover:
 13. Response audit emits advisory whenever a correlated search-debt packet reaches response.completed without root-bound search evidence, and stays silent when search evidence exists.
 14. Read/search evidence can come from `.jcode/hooks/tool-events.jsonl` when lifecycle `recent_tool_calls` omits prior Read/Search calls; this prevents false-positive action blocks after the agent already satisfied requiredRead/search-debt.
 15. Tool-events fallback must not accept same-session events from a different message when current `message_id` is present.
-16. Tool-events fallback must not accept evidence older than the correlated Context Delivery packet epoch.
+16. Tool-events fallback must not accept evidence older than the correlated search/read-debt row epoch.
 17. Packet journal matching must not accept a same-session packet from a different message when current `message_id` is present.
 18. Packet journal matching must not accept a same-message packet from a different session when current `session_id` is present.
 19. Category A sync manifest must include `.lazy-harness/tests/response-rule-audit.md` so host self-tests carry the response audit TDD fixture, not only the SDD contract.
@@ -90,4 +90,4 @@ Regression fixtures cover:
 
 ## Discovery capture
 
-- Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md` Phase 4 status should be updated after validation.
+- Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` Phase 4 status should be updated after validation.

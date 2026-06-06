@@ -37,11 +37,11 @@ if not isinstance(PAYLOAD, dict):
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
 if runtime_state_path is not None:
     DIGEST_JOURNAL = runtime_state_path(ROOT, "surfaced-rule-digests.jsonl", PAYLOAD)
-    PACKET_JOURNAL = runtime_state_path(ROOT, "context-delivery-packets.jsonl", PAYLOAD)
+    PACKET_JOURNAL = runtime_state_path(ROOT, "search-read-debt.jsonl", PAYLOAD)
 else:
     _runtime_root = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime"))
     DIGEST_JOURNAL = _runtime_root / "state" / "surfaced-rule-digests.jsonl"
-    PACKET_JOURNAL = _runtime_root / "state" / "context-delivery-packets.jsonl"
+    PACKET_JOURNAL = _runtime_root / "state" / "search-read-debt.jsonl"
 TOOL_EVENTS_JOURNAL = ROOT / ".jcode" / "hooks" / "tool-events.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_RESPONSE_RULE_AUDIT_TTL_SECONDS", "7200") or "7200")
 
@@ -476,7 +476,7 @@ def main() -> int:
             print("\n해야 할 일:")
             print("  A. 아래 requiredRead 경로를 읽고 변경 근거를 확인 (Recommended)")
             print("  B. 이미 읽었지만 payload evidence가 누락됐다면 응답에 읽은 경로를 명시")
-            print("  C. packet이 부정확했다면 Context Delivery index/query 기록을 보강")
+            print("  C. debt row가 부정확했다면 search/read-debt contract와 evidence 기록을 보강")
             print("\nRequired reads:")
             for path in required_paths[:5]:
                 print(f"  - {path}")

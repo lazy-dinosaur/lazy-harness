@@ -79,7 +79,7 @@ First-pass target:
 
 Tool hooks should remain only for minimal safety/logging/transport while policy moves into the record query + response audit loop.
 
-Comprehensive transition plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`.
+Comprehensive transition plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`.
 
 ## Candidate structure
 

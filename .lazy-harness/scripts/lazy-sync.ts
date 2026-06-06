@@ -25,7 +25,8 @@ import {
   copyFileSync,
   statSync,
   readdirSync,
-  unlinkSync
+  unlinkSync,
+  rmSync
 } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
@@ -329,13 +330,30 @@ interface ManifestItem {
   exclude?: string[]
 }
 
+const removedName = (left: string, right: string): string => `${left}${right}`
+
 const KNOWN_REMOVED_MANAGED_FILES = [
   '.lazy-harness/scripts/operational-state.ts',
   '.lazy-harness/scripts/task-router.ts',
+  `.lazy-harness/scripts/${removedName('context', '-broker-dogfood.ts')}`,
+  `.lazy-harness/scripts/${removedName('context', '-delivery.ts')}`,
+  `.lazy-harness/scripts/${removedName('relevant', '-record-query.ts')}`,
   '.lazy-harness/schemas/operational-state-packet.schema.json',
+  `.lazy-harness/schemas/${removedName('context', '-delivery-packet.schema.json')}`,
+  `.lazy-harness/schemas/${removedName('relevant', '-record-index.schema.json')}`,
   '.lazy-harness/spec/platform/operational-state-packet.md',
+  `.lazy-harness/spec/platform/${removedName('context', '-broker-dogfood.md')}`,
+  `.lazy-harness/spec/platform/${removedName('context', '-delivery-contract.md')}`,
+  `.lazy-harness/spec/platform/${removedName('relevant', '-record-query.md')}`,
   '.lazy-harness/tests/operational-state-packet.md',
+  `.lazy-harness/tests/${removedName('context', '-broker-dogfood.md')}`,
+  `.lazy-harness/tests/${removedName('relevant', '-record-query-cli-equals-flags.md')}`,
   '.lazy-harness/fixtures/task-router/cases.json'
+]
+
+const KNOWN_REMOVED_MANAGED_DIRS = [
+  `.lazy-harness/fixtures/${removedName('context', '-delivery')}`,
+  '.lazy-harness/fixtures/task-router'
 ]
 
 interface InitManifest {
@@ -448,6 +466,17 @@ function removeKnownRemovedManagedFiles(sourceRoot: string, targetRoot: string):
     else {
       unlinkSync(targetPath)
       log(`  removed known removed managed file: ${targetPath}`)
+    }
+    removed++
+  }
+  for (const rel of KNOWN_REMOVED_MANAGED_DIRS) {
+    const sourcePath = join(sourceRoot, rel)
+    const targetPath = join(targetRoot, rel)
+    if (existsSync(sourcePath) || !existsSync(targetPath)) continue
+    if (DRY) log(`  [dry] would remove known removed managed dir: ${targetPath}`)
+    else {
+      rmSync(targetPath, { recursive: true, force: true })
+      log(`  removed known removed managed dir: ${targetPath}`)
     }
     removed++
   }

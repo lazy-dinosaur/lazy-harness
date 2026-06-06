@@ -4,7 +4,7 @@ Status: accepted
 Date: 2026-06-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-Related plan: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 Related spec: `.lazy-harness/spec/platform/record-digest-format.md`
 Related spec: `.lazy-harness/spec/platform/project-rule-router.md`
 
@@ -276,12 +276,11 @@ Until implementation exists, this SDD is validated by source self-test/doctor an
   - `.lazy-harness/spec/platform/record-digest-format.md` — companion digest section contract.
   - `.lazy-harness/spec/platform/project-rule-router.md` — existing rule placement routing contract.
   - `.lazy-harness/spec/platform/implementation-map-standard.md` — implementation map requirements.
-  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — phase plan.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` — phase plan.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — architecture decision.
 - Future files:
   - `.lazy-harness/scripts/record-digest-audit.ts`
-  - `.lazy-harness/scripts/relevant-record-query.ts`
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Flow:
   1. New confirmed information appears.
   2. Agent searches existing records.
@@ -296,7 +295,7 @@ Until implementation exists, this SDD is validated by source self-test/doctor an
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
   - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-  - Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 
 ## Rule placement
 
@@ -315,4 +314,4 @@ Until implementation exists, this SDD is validated by source self-test/doctor an
 - TDD: future fixtures needed for update-vs-create, supersede/retire, and layer completeness.
 - ADR: ADR 0041 selected organic hybrid guidance.
 - SSOT: harness enforcement policy anchors mandatory record completion.
-- Planning: record-query context loop transition plan Phase 1.
+- Planning: searchable record memory cleanup plan Phase 1.

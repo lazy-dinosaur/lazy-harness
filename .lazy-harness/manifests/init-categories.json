@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, record-decision packet generator, and context-broker dogfood collector. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
+          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator and record-decision packet generator. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
         },
         {
           "path": "hooks/",
@@ -69,7 +69,7 @@
             "*.schema.json",
             "README.md"
           ],
-          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema + context-delivery packet schema + context-index schema + record-decision packet schema."
+          "description": "Unified result schema + decision schema + layer-impact schema + reference-map schema + context-index schema + record-decision packet schema."
         },
         {
           "path": "triggers/",
@@ -86,10 +86,9 @@
           "path": "fixtures/",
           "kind": "directory",
           "glob": [
-            "context-delivery/*.xml",
-            "context-delivery/*.json"
+            "context-tier/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-delivery fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures."
         },
         {
           "path": "evidence/",
@@ -202,7 +201,7 @@
         {
           "path": "spec/platform/project-profile.md",
           "kind": "file",
-          "description": "SDD contract for Project Profile architecture and feature-navigation retrieval metadata consumed by Context Delivery."
+          "description": "SDD contract for Project Profile architecture and feature-navigation retrieval metadata used by LLM/searcher direct reads."
         },
         {
           "path": "spec/platform/option-gate-discipline.md",
@@ -250,7 +249,7 @@
           "description": "SDD contract for compact Rule digest sections used by relevant-record query and lifecycle context injection."
         },
         {
-          "path": "spec/platform/relevant-record-query.md",
+          "path": "spec/platform/search-read-debt-contract.md",
           "kind": "file",
           "description": "SDD contract for intent-based canonical record query, compact digest output, ranking, status filtering, and token budget."
         },
@@ -260,14 +259,14 @@
           "description": "SDD contract for message.received pre-response relevant-record context injection and sanitized surfaced digest journal."
         },
         {
+          "path": "spec/platform/search-read-debt-contract.md",
+          "kind": "file",
+          "description": "SDD contract for static search/read-debt runtime rows, evidence guard semantics, and no raw user-text semantic helper authority."
+        },
+        {
           "path": "spec/platform/prompt-budget.md",
           "kind": "file",
           "description": "SDD contract for prompt budget measurement, rendered message.received token estimates, duplicate grammar hints, and read-only measurement behavior."
-        },
-        {
-          "path": "spec/platform/context-delivery-contract.md",
-          "kind": "file",
-          "description": "SDD contract for explicit candidate retrieval: paths, matched fields, fallback searches, privacy, and CLI-as-tool boundary without requiredRead/importance judgments."
         },
         {
           "path": "spec/platform/context-tier-manifest.md",
@@ -278,16 +277,6 @@
           "path": "spec/platform/evidence-capsule-standard.md",
           "kind": "file",
           "description": "SDD contract for optional manual evidence capsules: template headings, privacy posture, recommend-level checklist capability, and no automatic evidence writing."
-        },
-        {
-          "path": "spec/platform/context-broker-dogfood.md",
-          "kind": "file",
-          "description": "SDD contract for explicit sanitized Context Broker dogfood collection before response.completed integration."
-        },
-        {
-          "path": "tests/context-broker-dogfood.md",
-          "kind": "file",
-          "description": "TDD fixtures for Context Broker dogfood collector privacy, no-record-needed, and dry-run behavior."
         },
         {
           "path": "tests/prompt-budget.md",
@@ -307,7 +296,7 @@
         {
           "path": "tests/response-rule-audit.md",
           "kind": "file",
-          "description": "TDD contract fixtures for response.completed audit, Context Delivery search/read-debt evidence, and packet correlation false-positive coverage."
+          "description": "TDD contract fixtures for response.completed audit, search/read-debt evidence, and packet correlation false-positive coverage."
         },
         {
           "path": "tests/lifecycle-compare-fidelity.md",

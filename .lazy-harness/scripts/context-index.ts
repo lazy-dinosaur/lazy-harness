@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * context-index.ts — deterministic generated Context Delivery index.
+ * context-index.ts — deterministic generated record/source index.
  *
  * Canonical truth remains Markdown/XML records, knowledge graph JSONL, and
  * project profile files. This script builds a non-canonical cache at
- * .lazy-harness/generated/context-index.json for later Context Broker phases.
+ * .lazy-harness/generated/context-index.json for later direct record/source retrieval cache use.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'

@@ -29,7 +29,7 @@ The root causes were framework-general compare/sandbox fidelity gaps, not Mediva
 - compare-mode body hashing uses legacy-equivalent trailing-newline normalization while preserving raw byte lengths for diagnostics,
 - sandbox mode uses an isolated `LAZY_RUNTIME_ROOT` / `LAZY_SHARED_ROOT` rather than writing to the source host runtime,
 - sandbox mode receives safe read-only git facts for git-dependent helpers,
-- sandbox mode mirrors bounded runtime state tails for `open-gates.json`, `surfaced-rule-digests.jsonl`, and `context-delivery-packets.jsonl`,
+- sandbox mode mirrors bounded runtime state tails for `open-gates.json`, `surfaced-rule-digests.jsonl`, and `search-read-debt.jsonl`,
 - sandbox mode mirrors only message/session-correlated `.jcode/hooks/tool-events.jsonl` rows, not wholesale raw tool-event history,
 - duplicate open-gate suppression matches legacy behavior in compare mode,
 - `check-fix-regression.sh` matches legacy behavior in compare mode when the real host last commit is `Fix: ...`,

@@ -22,7 +22,7 @@
 - Record completion:
   - architecture changes to rule recall update this ADR or a successor ADR
 - Related records:
-  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/ssot/harness-enforcement-policy.md`
   - `.lazy-harness/spec/platform/pre-response-rule-context.md`
 
@@ -166,9 +166,9 @@ Implemented on 2026-06-01:
 
 ## Phase 7 implementation note
 
-Implemented on 2026-06-01:
+Implemented on 2026-06-01 and corrected on 2026-06-06:
 
-- Context Delivery is now explicit candidate retrieval only and does not append required-read journals.
+- The earlier explicit query-helper direction was removed after user correction because helper code that accepts raw user text can be mistaken for semantic authority.
 - Generic `message.received` search/read-debt rows remain the default evidence guard; the LLM/searcher must still perform root-bound search/read before mutation.
 - `response.completed` remains an audit/backstop, not a semantic router. Phase 7 intentionally does not add new STOP/hard-stop behavior.
 
@@ -185,16 +185,10 @@ Generator follow-up implemented after user selected Option A:
 - Added `.lazy-harness/scripts/record-decision-broker.ts` and `lazy record-decision` as explicit/offline packet generator.
 - The generator emits packet-shaped decisions from supplied evidence flags and does not mutate records, write journals, or run from `response.completed`.
 
-Dogfood collector follow-up implemented after user selected Option B:
+2026-06-06 correction:
 
-- Added `.lazy-harness/scripts/context-broker-dogfood.ts` and `lazy context-dogfood` as explicit/offline dogfood collector.
-- The collector gathers sanitized Context Delivery and Record Decision observations from hosts before any response.completed shadow/advisory integration.
-
-Dogfood handoff clarification:
-
-- Normal development can accumulate automatic Record Decision shadow rows via `response.completed`.
-- Aggregate Medivance/PWA Context Broker dogfood still requires the agent to run `lazy context-dogfood` explicitly when the user asks to check dogfood.
-- The user should not need to prepare inputs manually; the runbook lives in `.lazy-harness/spec/platform/context-broker-dogfood.md`.
+- The explicit aggregate query-helper dogfood collector was deleted with the rest of the raw-message helper architecture.
+- Host validation should use normal sync/test/doctor plus visible LLM/searcher root-bound evidence, not a helper that returns semantic candidates from a user message.
 
 Response shadow follow-up implemented after generator and dogfood collector evidence:
 
@@ -204,7 +198,7 @@ Response shadow follow-up implemented after generator and dogfood collector evid
 
 ### 2. Direct search is prompted before the response
 
-The preferred organic mechanism is a small direct-search prompt before the agent commits to an answer or plan. Relevant-record query remains an explicit helper, but the LLM/searcher owns semantic expansion and root-bound search.
+The preferred organic mechanism is a small direct-search prompt before the agent commits to an answer or plan. Deleted query helpers must stay removed; the LLM/searcher owns semantic expansion and root-bound search.
 
 The prompt is not a broad blocking scan. It should:
 
@@ -320,7 +314,7 @@ Initial candidates:
 
 Decision:
 
-- Promote Context Delivery search/read debt to a narrow pre-action permit.
+- Promote search/read-debt only through the normal narrow L5 promotion process if ever needed.
 - A non-LLM hook is not treated as the semantic authority for multilingual/user-surface intent. The LLM or an explicit searcher handoff performs semantic expansion and root-bound search.
 - If concrete required-read paths are known, action/mutation tools are blocked until those paths appear in recent read/search evidence.
 - If concrete paths are not known but the packet has self-resolve fallback searches, action/mutation tools are blocked until root-bound search evidence appears.
@@ -467,7 +461,7 @@ Any implementation of this ADR must validate:
 - Latency before/after for relevant lifecycle paths.
 - Fixtures proving relevant rules surface before action without broad blocking.
 - Fixtures proving promoted high-risk cases still hard-stop.
-- Fixture proving the relevant-record query returns PR/runtime/correction records without depending on a concrete tool name.
+- Fixture proving deleted query helpers remain absent and direct root-bound evidence satisfies the guard.
 
 ## Implementation map
 
@@ -478,19 +472,13 @@ Any implementation of this ADR must validate:
   - `.lazy-harness/ssot/harness-enforcement-policy.md` — user-confirmed enforcement policy anchor.
   - `.lazy-harness/planning/harness-enforcement-restoration-plan.md` — reverted hard-gate experiment memory.
   - `.lazy-harness/planning/performance-optimization-plan.md` — performance plan that must preserve this direction.
-  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md` — comprehensive transition plan for record digest/query/audit migration.
   - `.lazy-harness/spec/platform/record-digest-format.md` — Phase 1 SDD for compact rule digest sections.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — Phase 1 SDD for update-vs-create and digest maintenance behavior.
-  - `.lazy-harness/spec/platform/relevant-record-query.md` — Phase 2 SDD for natural-intent record lookup and compact digest output.
-  - `.lazy-harness/schemas/relevant-record-index.schema.json` — Phase 2 schema for generated relevant-record cache.
   - `.lazy-harness/scripts/search-provider.ts` — fallback SearchProvider path model aligned to current canonical record dirs.
   - `.lazy-harness/spec/platform/pre-response-rule-context.md` — Phase 3 SDD for Jcode `message.received` pre-turn context injection.
-  - `.lazy-harness/scripts/relevant-record-query.ts` — Phase 3 read-only query prototype and `lazy context` backend.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — Phase 3 Jcode hook that emits same-turn `system_reminder` injections.
-  - `.lazy-harness/planning/native-context-broker-implementation-plan.md` — follow-on retrieval plan for self-resolving context delivery.
-  - `.lazy-harness/spec/platform/context-delivery-contract.md` — Native Context Broker packet contract for raw hits, normalized evidence, required reads, rendering, privacy, and fail-open behavior.
-  - `.lazy-harness/schemas/context-delivery-packet.schema.json` — schema for packet-shaped self-resolution or searcher handoff output.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — promoted packet-scoped pre-action permit helper.
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md` — static search/read-debt runtime contract.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — generic evidence permit helper.
 - Candidate future files:
   - `.lazy-harness/spec/platform/organic-rule-context.md`
   - `.lazy-harness/spec/platform/soft-action-journal.md`

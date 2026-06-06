@@ -86,5 +86,5 @@ Phase 6 protection requires:
 
 ## Discovery capture
 
-- Planning: Phase 6 outputs and validation status are captured in `.lazy-harness/planning/record-query-context-loop-transition-plan.md`.
+- Planning: Phase 6 outputs and validation status are captured in `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`.
 - Candidate: Project Profile pre-response bootstrap remains a later weakness candidate in `.lazy-harness/knowledge/candidates.jsonl`, not a Phase 6 plan change.

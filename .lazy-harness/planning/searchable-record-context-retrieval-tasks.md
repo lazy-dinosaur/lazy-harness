@@ -1,4 +1,4 @@
-# Task Backlog — Searchable Record Context Retrieval
+# Task Backlog — Searchable Record Memory for LLM-Owned Retrieval
 
 Status: proposed
 Date: 2026-06-06
@@ -7,345 +7,243 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ## Rule placement
 
-- Rule: Implementation tasks for searchable record context retrieval should be tracked as a planning backlog with SDD/TDD/SSOT links, not left in chat.
+- Rule: cleanup and rebuild tasks for searchable record memory must be explicit so stale helper architecture cannot leak into future work.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
-- Why not AGENTS.md: this is execution backlog and sequencing, not runtime prompt grammar.
-- Why not `.jcode`: framework-global implementation backlog, not local/private Jcode wiring.
-- Confirmation: user-confirmed
+- Why not AGENTS.md: execution backlog, not runtime grammar.
+- Why not `.jcode`: framework-global implementation work.
+- Confirmation: user-confirmed correction on 2026-06-06.
 
 ## Task status legend
 
 - `todo`: not started
-- `blocked`: needs decision/user approval
 - `in-progress`: active branch work
 - `done`: implemented and validated
+- `blocked`: needs explicit decision
 - `deferred`: intentionally postponed
 
-## Milestone 0 — Approval and scope lock
+## Milestone 0 — Decontamination first
 
-### SCR-000 — Confirm Phase 1 implementation boundary
+### SCR-001 — Delete obsolete query-helper artifacts
+
+- Status: in-progress
+- Type: source/schema/spec/test cleanup
+- Delete tracked files:
+  - `.lazy-harness/scripts/context-delivery.ts`
+  - `.lazy-harness/scripts/relevant-record-query.ts`
+  - `.lazy-harness/scripts/context-broker-dogfood.ts`
+  - `.lazy-harness/schemas/context-delivery-packet.schema.json`
+  - `.lazy-harness/schemas/relevant-record-index.schema.json`
+  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/relevant-record-query.md`
+  - `.lazy-harness/spec/platform/context-broker-dogfood.md`
+  - `.lazy-harness/tests/relevant-record-query-cli-equals-flags.md`
+  - `.lazy-harness/tests/context-broker-dogfood.md`
+  - obsolete `fixtures/context-delivery/*`
+- Acceptance:
+  - `git ls-files` shows none of the deleted paths
+  - `lazy help` has no `context`, query-helper, or context-dogfood commands
+  - self-test has no checks that require deleted artifacts
+
+### SCR-002 — Rename runtime search/read debt journal
+
+- Status: in-progress
+- Type: runtime contract
+- Update:
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
+  - `.lazy-harness/scripts/lifecycle-check.py`
+  - `.lazy-harness/scripts/prompt-budget.py`
+  - `.lazy-harness/scripts/self-test.py`
+  - `.lazy-harness/spec/platform/pre-response-rule-context.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
+  - runtime/shared-state records
+- Change:
+  - from `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl`
+  - to `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`
+- Acceptance:
+  - all runtime tests use the new filename
+  - static prompt remains unchanged in behavior except obsolete generated-index inventory is removed
+
+### SCR-003 — Remove active stale references
+
+- Status: in-progress
+- Type: record cleanup
+- Update/remove:
+  - graph rows pointing to deleted helpers
+  - candidates that recommend obsolete helper architecture
+  - generated README/schema README/manifest descriptions
+  - Jcode integration text
+  - planning records that told agents to use the deleted architecture
+- Acceptance:
+  - root-bound grep finds no active instruction to use deleted query helpers
+  - historical mentions, if any, are explicitly marked removed/superseded and do not include runnable commands
+
+## Milestone 1 — Correct PRD/plan/task surface
+
+### SCR-101 — Rewrite PRD around LLM-owned retrieval
+
+- Status: in-progress
+- Type: PRD
+- Acceptance:
+  - no helper CLI takes raw user text to return semantic candidates
+  - goals start with cleanup/static debt/header quality
+  - acceptance criteria mention deleted helper absence
+
+### SCR-102 — Rewrite implementation plan
+
+- Status: in-progress
+- Type: planning
+- Acceptance:
+  - current state lists deleted artifacts and remaining allowed primitives
+  - implementation phases are cleanup → static debt → index header SDD/TDD → cache/parser only after approval
+  - validation commands are concrete
+
+### SCR-103 — Rewrite HTML report
+
+- Status: in-progress
+- Type: report
+- Acceptance:
+  - report explains why previous plan was wrong
+  - report shows deleted artifacts and corrected flow
+  - report links to corrected PRD/tasks/plan
+
+## Milestone 2 — Guard deleted helper absence
+
+### SCR-201 — Add self-test absence check
 
 - Status: todo
-- Type: planning gate
-- Primary records:
-  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
-  - `.lazy-harness/prd/searchable-record-context-retrieval-prd.md`
-- Scope:
-  - approve only Phase 1 before coding
-  - keep later phases as backlog
+- Type: TDD/source
+- Update:
+  - `.lazy-harness/scripts/self-test.py`
+- Requirements:
+  - deleted source/schema/spec/test files must not exist
+  - `lazy help` must not list deleted commands
+  - hook code must not invoke deleted query helpers
 - Acceptance:
-  - user approves exact SDD/TDD/files/parser fields/warning names for Phase 1
-  - no implementation starts before approval
+  - `python3 .lazy-harness/scripts/self-test.py` passes
 
-## Milestone 1 — Record Index Header Standard
+### SCR-202 — Update graph/generated indexes
 
-### SCR-101 — Create Record Index Header SDD
+- Status: todo
+- Type: hygiene
+- Requirements:
+  - remove graph edges to deleted files
+  - regenerate implementation index if needed
+  - run graph-hygiene
+- Acceptance:
+  - no graph rows target deleted paths
+  - graph-hygiene passes
+
+## Milestone 3 — Record Index Header standard, no query helper
+
+### SCR-301 — Create Record Index Header SDD
 
 - Status: todo
 - Type: SDD
 - Create:
   - `.lazy-harness/spec/platform/record-index-header.md`
-- Update:
-  - `.lazy-harness/spec/platform/record-digest-format.md`
-  - `.lazy-harness/ssot/cli-tool-boundary.md`
 - Requirements:
-  - define `## Index header` field names
-  - define relationship with `Rule digest` and `Implementation map`
-  - define structured fields allowed for candidate matching
-  - forbid generic prose matching as product-surface evidence
-  - include Rule placement and Implementation map
+  - define record-authored metadata fields
+  - clarify it is for storage/searchability, not raw-message matching authority
+  - define relationship to `Rule digest`, `Implementation map`, and graph rows
+  - include example header
 - Acceptance:
-  - SDD includes Rule digest
-  - SDD includes example complete header
-  - SDD includes migration/fallback behavior for legacy records
+  - SDD includes Rule digest, implementation map, layer completeness, and rule placement
 
-### SCR-102 — Create Record Index Header TDD
+### SCR-302 — Create Record Index Header TDD
 
 - Status: todo
 - Type: TDD
 - Create:
   - `.lazy-harness/tests/record-index-header.md`
 - Requirements:
-  - fixture complete record with index header
-  - fixture legacy record without header but with Rule digest fallback
-  - fixture framework-global example prose that must not become host product candidate
-  - fixture missing alias/search key warning
+  - complete header fixture
+  - missing header warning fixture
+  - legacy Rule digest fallback fixture
+  - no raw-message semantic query fixture
 - Acceptance:
-  - TDD lists self-test function names to add
-  - TDD includes SDD/BDD/SSOT/DDD impact notes
+  - TDD names future self-test fixtures without implementing parser yet
 
-### SCR-103 — Add context-index parser support
+## Milestone 4 — Deterministic cache/parser only after approval
+
+### SCR-401 — Context index cache rename/contract review
+
+- Status: blocked
+- Type: decision gate
+- Decision needed:
+  - keep `context-index` name, or rename to `record-index` to avoid obsolete architecture language
+- Acceptance before coding:
+  - user approves exact command/name/scope
+  - no raw-message query input
+  - output is cache/listing only
+
+### SCR-402 — Parser/cache implementation
+
+- Status: blocked
+- Type: source/test
+- Prerequisite:
+  - SCR-401 approved
+- Acceptance:
+  - deterministic record-authored fields only
+  - no requiredRead/confidence/intent/risk/gate/nextAction
+  - source scan/read remains the LLM/searcher responsibility
+
+## Milestone 5 — Record audit advisory warnings
+
+### SCR-501 — Extend record-audit
 
 - Status: todo
-- Type: source
-- Update:
-  - `.lazy-harness/scripts/context-index.ts`
+- Type: source/test
 - Requirements:
-  - parse `## Index header`
-  - expose `recordId`, `indexHeaderSource`, `primaryAliases`, `searchKeys`, `surfaceTerms`, `sourceFiles`, `testFiles`, `graphIds`
-  - preserve current Rule digest fallback
-  - avoid semantic judgment fields
+  - warn `missing-index-header`
+  - warn `missing-alias-or-search-key`
+  - warn `missing-source-test-hints`
+  - warn `missing-graph-link`
+  - advisory only for historical records
 - Acceptance:
-  - `lazy context-index --write --format=json` includes new fields
-  - source-scan fallback still works
-  - no requiredRead/confidence/intent/risk fields
+  - `lazy record-audit --format=json` reports counts
+  - self-test covers at least complete/missing historical cases
 
-### SCR-104 — Add self-test fixtures for index header parsing
+## Milestone 6 — Implementation-map backlog
+
+### SCR-601 — Produce needs-map backlog
 
 - Status: todo
-- Type: test
-- Update:
-  - `.lazy-harness/scripts/self-test.py`
-- Requirements:
-  - temp record with Index header parsed into context-index
-  - context-delivery returns candidate hit from index header alias/search key
-  - generic Must/Applies prose does not match as product candidate
+- Type: audit/planning
+- Command:
+  - `.lazy-harness/bin/lazy impl-map --format=json`
 - Acceptance:
-  - `python3 .lazy-harness/scripts/self-test.py` passes
+  - exact needs-map list captured
+  - migration batches proposed before edits
 
-## Milestone 2 — Record Audit Enforcement
+### SCR-602 — Migrate verified implementation maps
 
-### SCR-201 — Extend record-audit with searchable metadata checks
-
-- Status: todo
-- Type: source
-- Update:
-  - `.lazy-harness/scripts/record-audit.ts`
-  - `.lazy-harness/spec/platform/record-digest-format.md`
-- Requirements:
-  - detect `missing-index-header`
-  - detect `missing-alias-or-search-key`
-  - detect `missing-source-test-hints`
-  - detect `missing-graph-link`
-  - include implementation-map status
+- Status: deferred
+- Type: record migration
 - Acceptance:
-  - `lazy record-audit --format=json` reports summary counts
-  - warnings are advisory for historical records
-
-### SCR-202 — Add record-audit TDD coverage
-
-- Status: todo
-- Type: test
-- Update:
-  - `.lazy-harness/scripts/self-test.py`
-  - possibly `.lazy-harness/tests/record-index-header.md`
-- Requirements:
-  - complete record has no warning
-  - missing header warning appears
-  - historical ADR missing header is warning, not hard block
-- Acceptance:
-  - `lazy test` passes
-
-## Milestone 3 — Context Index Productization
-
-### SCR-301 — Write context-index cache with header fields
-
-- Status: todo
-- Type: source
-- Update:
-  - `.lazy-harness/scripts/context-index.ts`
-  - `.lazy-harness/generated/README.md`
-- Requirements:
-  - generated `context-index.json` includes index header fields
-  - include record fingerprint/stale metadata
-  - document regeneration triggers
-- Acceptance:
-  - `lazy context-index --write --format=md` creates cache
-  - deleting cache still falls back to source scan
-
-### SCR-302 — Add context-index generated cache self-test
-
-- Status: todo
-- Type: test
-- Update:
-  - `.lazy-harness/scripts/self-test.py`
-- Acceptance:
-  - validates generated cache path
-  - validates source-scan fallback
-
-## Milestone 4 — Relevant Record Query Candidate-Only Revision
-
-### SCR-401 — Revise relevant-record-query contract
-
-- Status: todo
-- Type: SDD/source
-- Update:
-  - `.lazy-harness/spec/platform/relevant-record-query.md`
-  - `.lazy-harness/scripts/relevant-record-query.ts`
-  - `.lazy-harness/schemas/relevant-record-index.schema.json`
-- Requirements:
-  - rename score/ranking language to matched cues/source order
-  - output `candidateRecords`, `matchedFields`, `matchedQueries`, `fallbackSearches`, `notes`
-  - no requiredRead/confidence/importance/intent/risk
-- Acceptance:
-  - schema forbids semantic authority fields
-  - helper remains explicit/manual only
-
-### SCR-402 — Add relevant-record-query tests
-
-- Status: todo
-- Type: test
-- Update:
-  - `.lazy-harness/scripts/self-test.py`
-- Acceptance:
-  - query returns candidates only
-  - no lifecycle hook invokes it automatically
-
-## Milestone 5 — Graph Query Candidate Tool
-
-### SCR-501 — Design graph-query SDD/TDD
-
-- Status: todo
-- Type: SDD/TDD
-- Create/update:
-  - `.lazy-harness/spec/platform/graph-query.md`
-  - `.lazy-harness/tests/graph-query.md`
-  - `.lazy-harness/ssot/implementation-map-storage.md`
-- Requirements:
-  - candidate-only graph neighbor query
-  - by record path, graph id, source file path
-  - no importance/requiredRead/nextAction
-
-### SCR-502 — Implement graph-query CLI
-
-- Status: todo
-- Type: source
-- Create:
-  - `.lazy-harness/scripts/graph-query.ts`
-- Update:
-  - `.lazy-harness/bin/lazy`
-  - `.lazy-harness/scripts/self-test.py`
-- Acceptance:
-  - `lazy graph-query --path <record>` returns linked candidate files/records
-  - `lazy graph-query --impacted-file <file>` returns candidate records/tests
+  - only verified source/test/graph links are recorded
   - graph-hygiene remains green
 
-## Milestone 6 — Implementation Map Backlog
+## Milestone 7 — Host sync validation
 
-### SCR-601 — Produce needs-map backlog report
-
-- Status: todo
-- Type: audit
-- Command:
-  - `lazy impl-map --format=json`
-- Acceptance:
-  - exact list of 31 needs-map records captured in a planning record or generated report
-
-### SCR-602 — Migrate ADR batches
-
-- Status: todo
-- Type: record migration
-- Batches:
-  - ADR 0001-0010
-  - ADR 0011-0020
-  - ADR 0021-0030
-- Acceptance:
-  - each touched ADR has Implementation map or explicit `Status: none/planned`
-  - graph rows only for verified links
-
-### SCR-603 — Migrate residual TDD/SDD records
-
-- Status: todo
-- Type: record migration
-- Acceptance:
-  - needs-map count decreases to 0 or accepted historical statuses
-
-## Milestone 7 — Host Profile and Feature Navigation Dogfood
-
-### SCR-701 — Audit host project profiles
+### SCR-701 — Sync cleanup to hosts
 
 - Status: todo
 - Type: dogfood
-- Hosts:
-  - `/home/lazydino/dev/medivance`
-  - `/home/lazydino/dev/medivance-homepage`
-  - `/home/lazydino/dev/medivance-pwa`
-- Check:
-  - project/profile.xml
-  - project/stack.xml
-  - project/filesystem.xml
-  - project/feature-navigation.xml
-  - tests/test-strategy.xml
-- Acceptance:
-  - gaps recorded as host planning/SSOT candidates, not chat-only
-
-### SCR-702 — Dogfood product-surface candidate queries
-
-- Status: todo
-- Type: dogfood
-- Commands:
-  - `lazy context-delivery --message "<host term>" --format=json`
-  - `lazy context-index --write --format=md`
-- Acceptance:
-  - host product aliases return candidate hits
-  - framework example prose does not become host product candidate
-
-## Milestone 8 — Prompt and Skill Search Instructions
-
-### SCR-801 — Compact search protocol prompt update
-
-- Status: todo
-- Type: prompt/SDD
-- Update:
-  - `.lazy-harness/AGENTS.md`
-  - `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - Requirements:
-  - mention Index header / Rule digest / Implementation map / graph / feature navigation as search surfaces
-  - keep token budget small
+  - sync framework source to selected hosts
+  - run host `lazy test` and doctor smoke
+  - verify removed helper artifacts prune from hosts
 - Acceptance:
-  - `lazy prompt-budget --format=json` pass/warn and duplicates 0
-
-### SCR-802 — Optional skill wrapper for context search
-
-- Status: todo
-- Type: skill
-- Scope:
-  - only if it helps LLM use tools correctly
-  - must not add semantic authority
-- Acceptance:
-  - skill points to SDD/SSOT, not duplicate long rules
-
-## Milestone 9 — Sync and Cross-host Validation
-
-### SCR-901 — Source validation
-
-- Status: todo
-- Type: validation
-- Commands:
-  - `python3 .lazy-harness/scripts/self-test.py`
-  - `.lazy-harness/bin/lazy test`
-  - `.lazy-harness/bin/lazy prompt-budget --format=json`
-  - `.lazy-harness/bin/lazy graph-hygiene --format=json --fail-on-issues`
-
-### SCR-902 — Host sync and managed-file comparison
-
-- Status: todo
-- Type: validation
-- Hosts:
-  - medivance
-  - medivance-homepage
-  - medivance-pwa
-- Acceptance:
-  - sync markers match source HEAD
-  - managed files missing/mismatched = 0
-  - known removed files absent
-  - host `lazy test`, doctor smoke, prompt-budget pass/warn
-
-## Cross-cutting non-goals for all tasks
-
-- Do not add CLI-selected `requiredRead`.
-- Do not add CLI `confidence`/importance/risk/intent/gate/nextAction.
-- Do not add automatic lifecycle calls to context-delivery/relevant-record-query/graph-query.
-- Do not make generated indexes canonical.
-- Do not bloat runtime prompt with full templates.
+  - no stale helper commands/files in synced hosts
+  - static search/read-debt reminder still works
 
 ## Discovery capture
 
-- DDD: none
-- SDD: candidate tasks SCR-101, SCR-401, SCR-501, SCR-801
-- BDD: candidate after host dogfood SCR-701/SCR-702
-- TDD: candidate tasks SCR-102, SCR-104, SCR-202, SCR-302, SCR-402, SCR-501/SCR-502
-- ADR: possible if Index header vs Rule digest extension becomes a trade-off decision
-- SSOT: candidate/updated through CLI boundary and implementation-map storage references
-- Planning: updated by this task backlog
+- SDD: `search-read-debt-contract` created; `record-index-header` planned.
+- TDD: deleted-helper absence and static debt tests planned/updated.
+- SSOT: CLI tool boundary remains canonical.
+- Planning: native query-helper plan removed; this backlog is the replacement.
+- ADR: no new ADR until a new trade-off decision is needed.

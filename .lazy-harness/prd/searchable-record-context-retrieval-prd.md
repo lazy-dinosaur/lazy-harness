@@ -1,172 +1,162 @@
-# PRD — Searchable Record Context Retrieval
+# PRD — Searchable Record Memory for LLM-Owned Retrieval
 
 Date: 2026-06-06
 Status: proposed
 Owner: lazy-harness
 Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
 Related task backlog: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
-
-> This PRD is for the lazy-harness framework itself. It defines the product requirement for making durable project memory searchable and selectively readable by LLM agents without letting CLI tools become semantic authorities.
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
+Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 
 ## 1. Product summary
 
-Searchable Record Context Retrieval makes lazy-harness records usable as external memory for LLM agents.
+Lazy-harness needs durable project memory that an LLM/searcher can rediscover quickly without turning deterministic code into a semantic decision-maker.
 
-The product turns records into:
+The product is not a query backend. The product is a better storage and evidence loop:
 
 ```text
-canonical human-readable knowledge
-+ searchable metadata
-+ graph/index pointers
-+ explicit candidate retrieval tools
+canonical records
++ searchable record-authored headers
++ implementation maps
++ graph/source/test pointers
++ static search/read-debt guard
+→ LLM/searcher performs real root-bound search/read
+→ LLM/searcher decides meaning, priority, gate, and next action
 ```
 
-so that an LLM can satisfy generic read/search-debt by finding and reading only the relevant records/source/tests, while retaining responsibility for intent, importance, required-read judgment, and next action.
+## 2. Core correction
 
-## 2. Target users
+The previous draft was wrong because it centered helper CLIs that could appear to choose candidates from raw user text. That conflicts with the confirmed boundary:
+
+```text
+Code may build deterministic caches from records.
+Code may validate, measure, and audit evidence.
+Code must not decide user intent, importance, required reads, risk, gate, or next action.
+```
+
+Therefore this PRD removes the candidate-query helper direction. The immediate work is cleanup plus record storage quality.
+
+## 3. Target users
 
 | Persona | Need |
 |---|---|
-| Main LLM agent | Quickly recover relevant project memory without loading everything |
-| Searcher subagent | Return candidate records/source/tests with matched fields, not decisions |
-| Framework maintainer | Enforce consistent searchable metadata at record-write time |
-| Host project owner | Preserve domain/product rules so future agents can rediscover them |
+| Main LLM agent | Know where to start searching, then read real records/source/tests before acting |
+| Searcher subagent | Use root-bound grep/read/graph/source inspection, not a semantic helper output |
+| Framework maintainer | Keep records searchable and implementation-mapped over time |
+| Host project owner | Ensure confirmed product/domain rules can be rediscovered next session |
 
-## 3. Problem statement
+## 4. Problem statement
 
-LLMs forget or fail to retrieve the right project memory. Current records are canonical, but not every record has consistent searchable metadata.
+Records are canonical, but retrieval discipline fails when metadata is inconsistent or when helper tools try to shortcut LLM judgment.
 
-Failure modes:
+Observed failure modes:
 
-1. LLM cannot remember which records exist.
-2. LLM opens too many files because there is no compact searchable header.
-3. LLM misses host-specific aliases or product surface names.
-4. Generated indexes exist but are incomplete/non-uniform.
-5. Some records lack implementation map/source/test hints.
-6. CLI tools are tempting to use as semantic classifiers, which violates the LLM-owned judgment rule.
+1. Stale helper artifacts remain in the framework and keep suggesting code-owned candidate selection.
+2. Runtime state names still carry obsolete architecture names.
+3. PRD/plan/tasks can accidentally reintroduce deleted semantic-query patterns.
+4. Records lack a consistent place for aliases, source/test hints, and graph ids.
+5. Generated indexes are sometimes treated as if they could decide relevance.
+6. Future agents may follow stale docs instead of the static search/read-debt loop.
 
-## 4. Goals
+## 5. Goals
 
-1. Every reusable record has a searchable header or audited fallback metadata.
-2. LLM/searcher can find candidate records from aliases, surface terms, source/test hints, graph ids, and related records.
-3. Tools return candidate evidence only: paths, matched fields, matched queries, fallback searches.
-4. Generic search/read-debt remains the enforcement mechanism.
-5. CLI-selected `requiredRead`, `confidence`, `intent`, `risk`, `gate`, or `nextAction` are forbidden.
-6. Generated indexes become useful caches but never canonical truth.
-7. Host project feature navigation/profile records become queryable by candidate tools.
-8. Record write/update workflows surface missing search metadata before future agents lose context.
+1. Delete obsolete candidate-query helper artifacts and stale references.
+2. Rename runtime debt journal to `search-read-debt.jsonl` so the name matches its actual purpose.
+3. Preserve the generic search/read-debt guard as static transport/evidence only.
+4. Define a `## Index header` record standard for record-authored metadata.
+5. Keep `context-index` or any future cache as deterministic cache only, with no raw-user-message semantic query.
+6. Extend audit/test coverage so removed helper artifacts cannot come back silently.
+7. Rebuild PRD/tasks/plan around LLM-owned root-bound search/read.
 
-## 5. Non-goals
+## 6. Non-goals
 
-- Do not reintroduce task-router or operational-state semantic classifiers.
-- Do not require hosted/vector RAG.
-- Do not make generated indexes canonical.
-- Do not block all historical records immediately for missing index headers.
-- Do not put full templates into the runtime prompt.
-- Do not replace LLM reasoning with CLI ranking or confidence scores.
+- No vector/RAG service.
+- No helper CLI that takes a raw user message and returns semantic candidate decisions.
+- No generated required-read, confidence, intent, risk, gate, or next-action fields.
+- No lifecycle hook query backend.
+- No full record dump in the default prompt.
+- No hard block for historical records missing headers until audit data proves a safe promotion path.
 
-## 6. Functional requirements
+## 7. Functional requirements
 
 | ID | Requirement |
 |---|---|
-| FR-1 | Define a `## Index header` standard for reusable records. |
-| FR-2 | Parse `Index header` fields into `context-index`. |
-| FR-3 | Make `context-delivery` prefer structured index-header fields before legacy fields. |
-| FR-4 | Extend `record-audit` to report missing searchable metadata. |
-| FR-5 | Keep audit warnings advisory first, then block only new/modified records after dogfood. |
-| FR-6 | Revise `relevant-record-query` to candidate-only output language and schema. |
-| FR-7 | Add a graph candidate query tool for record/file neighbor discovery. |
-| FR-8 | Reduce implementation-map `needs-map` backlog because retrieval quality depends on source/test links. |
-| FR-9 | Dogfood host feature-navigation/profile queries across medivance projects. |
-| FR-10 | Keep prompt budget within current bounds while adding only compact search instructions. |
+| FR-1 | Remove obsolete query-helper artifacts, CLI commands, schemas, tests, fixtures, and stale planning records. |
+| FR-2 | Replace `context-delivery-packets.jsonl` with `search-read-debt.jsonl` in runtime contracts, hooks, helpers, tests, and docs. |
+| FR-3 | Add/maintain an SDD for static search/read-debt runtime rows. |
+| FR-4 | Update the system reminder inventory so it does not advertise missing obsolete indexes. |
+| FR-5 | Add self-test coverage that deleted helper files/commands remain absent. |
+| FR-6 | Define `## Index header` as record-authored metadata, not a user-message query interface. |
+| FR-7 | Keep generated caches non-canonical and source-regenerable. |
+| FR-8 | Extend record-audit later to warn about missing headers/source/test/graph hints. |
+| FR-9 | Maintain implementation-map and graph hygiene after deletions. |
+| FR-10 | Rewrite planning/task docs so future agents do not follow the removed architecture. |
 
-## 7. Non-functional requirements
+## 8. Acceptance criteria
 
-| Area | Requirement |
-|---|---|
-| Correctness | Candidate tools must not output requiredRead/confidence/intent/risk/gate. |
-| Privacy | Candidate tools must not persist raw user messages by default. |
-| Portability | Sync must update all host projects without stale managed files. |
-| Performance | Runtime prompt remains compact; indexes are optional caches. |
-| Recoverability | Missing indexes fall back to source scan/root-bound grep. |
-| Auditability | PRD/tasks/SDD/TDD/implementation maps record every phase. |
+- Deleted artifacts are absent from `git ls-files` and `lazy help`.
+- Root-bound grep shows no active references that instruct agents to use removed query helpers.
+- Runtime code writes/reads `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`.
+- `message.received` still emits static harness-first prompt only.
+- `lazy test`, `prompt-budget`, and `graph-hygiene` pass.
+- PRD/tasks/plan describe LLM-owned retrieval only.
+- Any future `Index header` parser work has no raw-message query entry point.
 
-## 8. User stories
-
-1. As an LLM, when I receive a request with an unfamiliar host term, I can search index headers and feature navigation before opening full records.
-2. As a searcher subagent, I can return candidate paths and matched fields without deciding what is important.
-3. As a maintainer, when I add a record without aliases/source/test hints, `record-audit` warns me.
-4. As a host owner, when a product surface has aliases/routes/components/tests, future agents can rediscover them from `feature-navigation` and records.
-5. As a framework maintainer, when I sync lazy-harness to hosts, managed files match source and removed semantic classifiers stay removed.
-
-## 9. Acceptance criteria
-
-- New SDD/TDD exists for `record-index-header`.
-- `context-index --write` includes index-header fields.
-- `context-delivery --message "..."` returns candidate hits from index header fields.
-- `record-audit --format=json` reports index-header/search metadata gaps.
-- `relevant-record-query` no longer uses score/ranking/should-be-in-context semantics.
-- `graph-query` candidate tool can return neighbors for record path and source file path.
-- `impl-map --format=json` needs-map count trends down from 31.
-- `lazy test`, `doctor --profile=smoke`, `prompt-budget`, `graph-hygiene` pass in source and synced hosts.
-- Prompt budget duplicates remain 0.
-
-## 10. Metrics
+## 9. Metrics
 
 | Metric | Baseline | Target |
 |---|---:|---:|
-| implementation-map needs-map | 31 | 0 or accepted historical none/planned |
-| generated context-index presence | missing | generated on demand and validated |
-| generated relevant-record-index presence | missing | generated or superseded by candidate-only helper |
-| records with index header | 0 baseline | increasing per phase; enforce on new/modified records |
-| candidate tool semantic authority fields | 0 allowed | 0 |
-| prompt duplicates | 0 | 0 |
+| Obsolete helper source files tracked | 3 | 0 |
+| Obsolete query schemas tracked | 2 | 0 |
+| Obsolete helper CLI commands | 3 | 0 |
+| Runtime debt journal obsolete-name refs | many | 0 active refs |
+| Prompt advertised obsolete indexes | 2 | 0 |
+| Semantic authority fields in retrieval/cache outputs | 0 allowed | 0 |
+| Prompt duplicates | 0 | 0 |
 
-## 11. Dependencies
+## 10. Dependencies
 
 - `.lazy-harness/ssot/cli-tool-boundary.md`
-- `.lazy-harness/spec/platform/context-delivery-contract.md`
+- `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - `.lazy-harness/spec/platform/pre-response-rule-context.md`
+- `.lazy-harness/spec/platform/record-digest-format.md`
 - `.lazy-harness/spec/platform/implementation-map-standard.md`
 - `.lazy-harness/ssot/implementation-map-storage.md`
-- `.lazy-harness/project/feature-navigation.xml`
 
-## 12. Risks
+## 11. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Too many required fields make record writing heavy | Start advisory, block only new/modified records later |
-| Tool outputs creep back into semantic authority | Self-test forbidden fields and SSOT boundary checks |
-| Generated index goes stale | Keep source scan fallback and stale detection |
-| Host aliases are incomplete | Dogfood host feature-navigation/profile maps |
-| Prompt grows again | Maintain prompt-budget checks |
+| Removing helper artifacts breaks self-test | Remove obsolete checks, add absence checks, keep static guard tests |
+| Renaming runtime journal breaks guards | Update hook/helper/audit/lifecycle fixtures together |
+| Stale generated index still references deleted files | Regenerate derived indexes or remove stale rows |
+| Future plan reintroduces raw-message query helper | PRD/tasks explicitly forbid it; self-test checks commands absent |
+| Record search quality remains weak after cleanup | Add `Index header` standard and record-audit warnings as separate later phases |
 
-## 13. Rollout plan
+## 12. Rollout plan
 
-1. Phase 1: SDD/TDD for Record Index Header.
-2. Phase 2: parser + record-audit advisory warnings.
-3. Phase 3: context-index productization.
-4. Phase 4: relevant-record-query candidate-only revision.
-5. Phase 5: graph-query candidate tool.
-6. Phase 6: implementation-map backlog reduction.
-7. Phase 7: host dogfood and sync validation.
-8. Phase 8: compact prompt/skill search instructions.
+1. Cleanup and decontamination.
+2. Static search/read-debt contract rename and validation.
+3. PRD/tasks/plan rewrite.
+4. Record Index Header SDD/TDD only.
+5. Deterministic cache/parser work only after explicit approval.
+6. Record-audit advisory warnings.
+7. Implementation-map backlog reduction.
+8. Host sync/dogfood using normal LLM/searcher root-bound evidence, not query helpers.
 
 ## Rule placement
 
-- Rule: lazy-harness needs a product-level requirement for searchable record context retrieval so LLM agents can recover memory without CLI semantic authority.
+- Rule: lazy-harness searchable memory must be LLM-owned retrieval over canonical records, not code-owned semantic query/ranking.
 - Scope: framework-global
 - Primary record: `.lazy-harness/prd/searchable-record-context-retrieval-prd.md`
-- Why not AGENTS.md: PRD is product requirement and acceptance criteria, not runtime prompt grammar.
-- Why not `.jcode`: framework-global product requirement, not local/private Jcode preference.
-- Confirmation: user-confirmed
+- Why not AGENTS.md: product requirements and rollout criteria, not runtime prompt grammar.
+- Why not `.jcode`: framework-global behavior.
+- Confirmation: user-confirmed correction on 2026-06-06.
 
 ## Discovery capture
 
-- DDD: none
-- SDD: candidate/updated via planned `record-index-header`, `context-delivery`, `relevant-record-query`, graph-query contracts
-- BDD: none yet; host dogfood may add behavior records later
-- TDD: candidate/updated via planned `record-index-header` and dogfood tests
-- ADR: candidate if trade-off emerges around separate Index header vs extending Rule digest
-- SSOT: updated/related via CLI tool boundary and implementation-map storage
-- Planning: updated by this PRD and task backlog
+- SDD: new `search-read-debt-contract` replaces the removed helper contract.
+- TDD: self-test and pre-response/pre-action records protect static debt and deleted helper absence.
+- SSOT: CLI boundary remains canonical.
+- Planning: this PRD and the task backlog replace the earlier contaminated plan.
+- ADR: no new ADR yet; this implements the user-confirmed correction to ADR 0041 boundary.

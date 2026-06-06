@@ -8,14 +8,12 @@ Derived artifacts for AI/tool retrieval. Read-only outputs.
 |---|---|---|
 | `reference-index.json` | Derived reference resolver index/cache. | No |
 | `implementation-index.json` | Derived implementation map index for AI/LSP/AST/outline retrieval. | No |
-| `relevant-record-index.json` | Derived digest/query cache for pre-response relevant-record context. | No |
-| `context-index.json` | Derived Context Delivery cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
+| `context-index.json` | Derived record/source hint cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
 
 ## Trigger to fill
 
 - XML/source records updated → regenerate derived reference artifacts.
 - LSP/AST/outline/source scan available → regenerate `implementation-index.json`.
-- `## Rule digest` sections, record files, or graph records updated → regenerate `relevant-record-index.json`.
 - Rule digests, Project Profile `feature-navigation.xml`, implementation maps, or graph records updated → regenerate `context-index.json`.
 
 ## Implementation index policy
@@ -29,22 +27,12 @@ Canonical implementation knowledge lives in:
 
 If the generated index disagrees with Markdown or graph records, inspect source and then update/supersede canonical records or regenerate the index.
 
-## Relevant record index policy
-
-`relevant-record-index.json` is a cache for compact rule-digest lookup, not source of truth.
-
-Canonical relevant guidance lives in:
-
-1. Markdown `## Rule digest` sections in canonical records.
-2. Confirmed Markdown records and graph edges used as fallback evidence.
-
-If the generated relevant-record index disagrees with Markdown records, inspect and update the canonical record or regenerate the index.
 
 ## Context index policy
 
-`context-index.json` is a deterministic cache for Native Context Broker retrieval, not source of truth.
+`context-index.json` is a deterministic cache for record/source retrieval, not source of truth.
 
-Canonical context-delivery knowledge lives in:
+Canonical record/source retrieval knowledge lives in:
 
 1. Markdown `## Rule digest` sections and `Implementation map` sections.
 2. `.lazy-harness/project/feature-navigation.xml` in each host.

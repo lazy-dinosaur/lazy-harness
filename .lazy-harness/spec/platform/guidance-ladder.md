@@ -53,9 +53,9 @@ The framework should help agents use durable records while working in host proje
 | L4 | `warn-escalated` | Repeated or high-risk misses produce stronger response audit guidance. | case-by-case |
 | L5 | `hard-stop-promoted` | A narrow blocking boundary exists and is justified by promotion evidence. | rare |
 
-Phase 7 Context Delivery required-read/search-debt audit is an L3 advisory path. It may print `ADVISORY` when a correlated packet journal row has missing required-read evidence before mutation, or when a search-debt packet reaches response.completed without root-bound search evidence. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
+Search/read-debt audit is an L3 advisory path. It may print `ADVISORY` when a correlated static debt row lacks root-bound evidence before mutation or reaches response.completed without root-bound search evidence. It is not L4 escalation and cannot become L5 without dogfood miss/risk evidence plus the promotion record below.
 
-2026-06-02 update: Context Delivery search/read-debt is journaled at message.received and audited at response.completed by default. It is not a generated concrete-tool hard stop; any future blocking promotion requires the normal L5 evidence and explicit user confirmation.
+2026-06-06 update: search/read-debt is journaled at message.received and audited at response.completed by default. It is not a generated concrete-tool hard stop; any future blocking promotion requires the normal L5 evidence and explicit user confirmation.
 
 ## Hard-stop promotion criteria
 
@@ -162,4 +162,4 @@ python3 .lazy-harness/scripts/hard-stop-promotion-audit.py --root . --format jso
 - TDD: `.lazy-harness/tests/guidance-ladder-hard-stop-promotion.md` added.
 - ADR: ADR 0041 updated with Phase 6 note.
 - SSOT: `.lazy-harness/ssot/rule-lifecycle.md` and `.lazy-harness/ssot/harness-enforcement-policy.md` updated.
-- Planning: `.lazy-harness/planning/record-query-context-loop-transition-plan.md` updated after validation.
+- Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` updated after validation.

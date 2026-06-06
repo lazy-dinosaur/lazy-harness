@@ -11,7 +11,7 @@ Related ADR: `.lazy-harness/decisions/0002-conflict-resolution-protocol.md`
 
 When a secondary git worktree symlinks `.lazy-harness` to a primary checkout, lifecycle hooks used to write these runtime file classes under the symlink target's legacy state/log directories:
 
-- Context Delivery packet journals
+- search/read-debt journals
 - Record Decision shadow journals
 - open-gate caches
 - hook timing logs

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <featureNavigation id="lazy-harness-source" status="confirmed">
-  <purpose>High-altitude source-repo project map for lazy-harness framework development and Context Delivery retrieval.</purpose>
+  <purpose>High-altitude source-repo project map for lazy-harness framework development and direct LLM/searcher retrieval.</purpose>
   <scope>Framework source checkout only. Downstream hosts should maintain their own .lazy-harness/project/feature-navigation.xml.</scope>
 
   <feature id="prompt-runtime-lifecycle" status="confirmed">
@@ -81,55 +81,39 @@
     </tests>
     <risk>Medium: resolver output guides agents but new entries default to discover/recommend unless records justify stronger levels.</risk>
   </feature>
-
-  <feature id="context-delivery-indexing" status="confirmed">
-    <label>Context delivery and indexing</label>
+  <feature id="record-source-indexing" status="confirmed">
+    <label>Record/source indexing</label>
     <aliases>
-      <alias lang="en">context delivery</alias>
+      <alias lang="en">record index</alias>
       <alias lang="en">context index</alias>
-      <alias lang="en">relevant record query</alias>
-      <alias lang="en">project profile feature navigation</alias>
-      <alias lang="symbol">ContextDeliveryPacket</alias>
-      <alias lang="symbol">context-index.ts</alias>
-      <alias lang="symbol">feature-navigation.xml</alias>
+      <alias lang="en">feature-navigation.xml</alias>
+      <alias lang="ko">검색 가능한 레코드</alias>
     </aliases>
     <routes>
-      <route>lazy context</route>
       <route>lazy context-index</route>
-      <route>lazy context-delivery</route>
-      <route>lazy context-dogfood</route>
     </routes>
     <components>
-      <component>Context Delivery Packet</component>
-      <component>Context Index</component>
-      <component>Relevant Record Query</component>
+      <component>Context Index cache</component>
       <component>Project Profile feature navigation</component>
+      <component>Search/read debt runtime journal</component>
     </components>
     <records>
-      <record layer="SDD">.lazy-harness/spec/platform/context-delivery-contract.md</record>
-      <record layer="SDD">.lazy-harness/spec/platform/context-broker-dogfood.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/search-read-debt-contract.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/context-tier-manifest.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/project-profile.md</record>
-      <record layer="TDD">.lazy-harness/tests/context-broker-dogfood.md</record>
     </records>
     <sourceFiles>
       <path>.lazy-harness/scripts/context-index.ts</path>
-      <path>.lazy-harness/scripts/context-delivery.ts</path>
-      <path>.lazy-harness/scripts/context-broker-dogfood.ts</path>
-      <path>.lazy-harness/scripts/relevant-record-query.ts</path>
       <path>.lazy-harness/schemas/context-index.schema.json</path>
-      <path>.lazy-harness/schemas/context-delivery-packet.schema.json</path>
       <path>.lazy-harness/schemas/context-tier-manifest.schema.json</path>
-      <path>.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml</path>
-      <path>.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json</path>
+      <path>.lazy-harness/fixtures/context-tier/context-tier-manifest.sample.json</path>
       <path>.lazy-harness/project/context-tiers.yaml</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </sourceFiles>
     <tests>
-      <path>.lazy-harness/tests/context-broker-dogfood.md</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </tests>
-    <risk>High: context helpers are non-canonical and must not replace direct record/source reads or become shell-time semantic authority.</risk>
+    <risk>Medium: generated indexes are non-canonical and must not replace direct record/source reads or become semantic authority.</risk>
   </feature>
 
   <feature id="record-decision-broker" status="confirmed">

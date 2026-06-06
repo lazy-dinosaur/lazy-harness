@@ -102,7 +102,7 @@ Options:
   --changed-file PATH                Source/config file changed (repeatable)
   --changed-record PATH              .lazy-harness record/graph file changed (repeatable)
   --changed-test PATH                Test file changed (repeatable)
-  --required-read PATH               Context Delivery requiredRead path observed (repeatable)
+  --required-read PATH               Explicit required-read evidence path observed (repeatable)
   --tool-call NAME                   Tool name observed (repeatable)
   --validation TEXT                  Validation evidence summary (repeatable)
   --user-confirmation TEXT           Confirmed user fact/choice (repeatable)
@@ -288,7 +288,7 @@ function recommendedRecords(args: Args, disposition: Disposition, trigger: Trigg
     return [{ action: 'ask-option-gate', reason: 'Canonical layer/path/meaning is ambiguous; ask 3-5 options before mutating records.', confidence: 0.78 }]
   }
   if (disposition === 'deferred') {
-    return [{ path: '.lazy-harness/planning/native-context-broker-implementation-plan.md', layer: 'Planning', action: 'append', reason: 'User deferred the next action; capture the pause or backlog pointer in planning when durable.', confidence: 0.72 }]
+    return [{ path: '.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md', layer: 'Planning', action: 'append', reason: 'User deferred the next action; capture the pause or backlog pointer in planning when durable.', confidence: 0.72 }]
   }
   if (disposition === 'record-updated') {
     return unique(args.changedRecords).map((recordPath) => ({ path: recordPath, layer: inferLayer(recordPath), action: 'update', reason: 'Canonical record was already updated in this turn.', confidence: 0.9 }))

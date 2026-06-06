@@ -37,9 +37,9 @@ if not isinstance(PAYLOAD, dict):
 
 ROOT = Path(os.environ.get("LAZY_HOST_ROOT") or os.getcwd()).resolve()
 if runtime_state_path is not None:
-    PACKET_JOURNAL = runtime_state_path(ROOT, "context-delivery-packets.jsonl", PAYLOAD)
+    PACKET_JOURNAL = runtime_state_path(ROOT, "search-read-debt.jsonl", PAYLOAD)
 else:
-    PACKET_JOURNAL = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "state" / "context-delivery-packets.jsonl"
+    PACKET_JOURNAL = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime")) / "state" / "search-read-debt.jsonl"
 TOOL_EVENTS_JOURNAL = ROOT / ".jcode" / "hooks" / "tool-events.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_READ_DEBT_TTL_SECONDS", "7200") or "7200")
 MIN_CONFIDENCE = float(os.environ.get("LAZY_READ_DEBT_MIN_CONFIDENCE", "0.6") or "0.6")
@@ -85,7 +85,7 @@ ACTION_NAME_RE = re.compile(
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
-        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts)\b",
+        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/context-index\.ts)\b",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -100,7 +100,7 @@ GENERIC_READ_SEARCH_NAME_RE = re.compile(
 )
 
 DETERMINISTIC_PACKET_RE = re.compile(
-    r"\.lazy-harness/scripts/(?:context-delivery|relevant-record-query|context-index)\.ts",
+    r"\.lazy-harness/scripts/context-index\.ts",
     re.IGNORECASE,
 )
 
@@ -192,7 +192,7 @@ def is_search_handoff_args(args: dict[str, Any]) -> bool:
     blob = json.dumps(args, ensure_ascii=False).lower()
     return any(marker in blob for marker in (
         "searcher", "librarian", "explore", "atlas",
-        "root-bound search", "requiredread", "contextdeliverypacket",
+        "root-bound search", "requiredread",
         "do not mutate", "read-only", "search-debt",
     ))
 

@@ -50,8 +50,8 @@ Before Phase 5, this SSOT used rule-binding hard stops as the main answer to act
 | `captured` | Rule exists in a canonical record but has no digest/query/audit coverage yet. |
 | `digest-ready` | Rule has a compact `## Rule digest` and can be surfaced by relevant-record query. |
 | `surfaced` | Rule is expected to appear before relevant turns through `message.received` digest injection. |
-| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only Context Delivery required-read evidence checks, or journal silent Record Decision Packet shadow observations after fixtures. |
-| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. Context Delivery search/read-debt is journal/audit evidence by default, not a promoted generated tool gate. |
+| `audited` | `response.completed` can detect strong missed-rule or record-completion evidence, emit advisory-only search/read-debt evidence checks, or journal silent Record Decision Packet shadow observations after fixtures. |
+| `hard-stop-promoted` | A narrow blocking hook exists because Phase 6 criteria were met. Search/read-debt is journal/audit evidence by default, not a promoted generated tool gate. |
 | `advisory-only` | Rule is intentionally not enforced/audited beyond guidance; this must be explicit. |
 | `retired` | Rule is obsolete and should not be applied. |
 
@@ -66,11 +66,10 @@ Preferred metadata lives in:
 - `## Rule digest` sections in the canonical record,
 - related implementation map / graph facts,
 - response-rule-audit fixtures when a miss pattern has strong evidence,
-- packet evidence journal fixtures when Context Delivery required-read usage needs advisory dogfood observation,
+- search/read-debt journal fixtures when advisory observation is needed,
 - Record Decision Packet fixtures before broader post-turn record guidance,
 - explicit Record Decision generator and shadow fixtures before broader `response.completed` advisory integration,
-- explicit Context Broker dogfood collector rows before any stronger `response.completed` advisory/escalation integration,
-- automatic `response.completed` shadow rows are ambient evidence; aggregate downstream-host dogfood still requires explicit `lazy context-dogfood` execution,
+- automatic `response.completed` shadow rows are ambient evidence; aggregate downstream-host dogfood uses normal sync/test/doctor plus LLM/searcher root-bound evidence,
 - Phase 6 hard-stop promotion records only for rare high-risk boundaries.
 
 ## PR body rule after Phase 5
@@ -111,8 +110,6 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/record-decision-broker.md` — Phase 8 post-turn record decision contract.
   - `.lazy-harness/spec/platform/context-broker-dogfood.md` — explicit dogfood collection contract before lifecycle integration.
   - `.lazy-harness/scripts/record-decision-broker.ts` — explicit post-turn Record Decision Packet generator.
-  - `.lazy-harness/scripts/context-broker-dogfood.ts` — explicit Native Context Broker dogfood collector.
-  - `.lazy-harness/scripts/context-delivery.ts` — explicit/manual/dogfood deterministic packet producer and sanitized packet evidence collection for read-debt/audit.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — default direct-search prompt and sanitized search-debt journal producer.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — packet-scoped post-response search/read debt audit helper.
   - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — promotion metadata audit command.

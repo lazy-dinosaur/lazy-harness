@@ -113,7 +113,7 @@ timeout_ms = 800
 - user message 가 저장된 직후, provider prompt 구성 전에 실행된다.
 - `blocking = true` 는 hard policy block 이 아니라 bounded same-turn context injection 을 뜻한다.
 - timeout/failure 는 fail-open 이며 정상 흐름을 막지 않는다.
-- hook 은 `relevant-record-query.ts --require-digest` 로 compact `## Rule digest` 를 조회하고, 결과가 있을 때만 `system_reminder` inject JSON 을 출력한다.
+- hook 은 raw user text query helper 를 실행하지 않고 static search/read-debt reminder 만 주입한다.
 - `blocking = false` 로는 현재 turn prompt 에 들어간다는 보장이 없으므로 pre-response context 용으로 쓰지 않는다.
 
 ## 옵션 B — global `~/.jcode/`

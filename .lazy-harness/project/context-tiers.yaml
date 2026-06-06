@@ -14,10 +14,10 @@ manifestKind: context-tier-manifest
 
 tiers:
   always:
-    - path: .lazy-harness/spec/platform/context-delivery-contract.md
+    - path: .lazy-harness/spec/platform/search-read-debt-contract.md
       kind: record
       posture: required-hint
-      reason: Context Delivery rules for required-read and non-canonical packets.
+      reason: Search/read-debt rules for static evidence and non-canonical runtime rows.
     - path: .lazy-harness/spec/platform/project-profile.md
       kind: record
       posture: optional-hint
@@ -41,8 +41,8 @@ tiers:
           reason: Prompt budget measurement contract.
 
   task:
-    - id: context-delivery-indexing
-      appliesWhen: Context index, context delivery, feature navigation, or tier manifest changes.
+    - id: record-source-indexing
+      appliesWhen: Record/source index, feature navigation, static search/read-debt, or tier manifest changes.
       entries:
         - path: .lazy-harness/spec/platform/context-tier-manifest.md
           kind: record
@@ -52,7 +52,7 @@ tiers:
           kind: schema
           posture: validation-hint
           reason: Logical schema for tier manifest fixtures.
-        - path: .lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json
+        - path: .lazy-harness/fixtures/context-tier/context-tier-manifest.sample.json
           kind: fixture
           posture: validation-hint
           reason: Schema/sample fixture protected by self-test.

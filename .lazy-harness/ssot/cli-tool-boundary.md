@@ -5,7 +5,7 @@ Layer: SSOT
 Scope: framework-global
 Date: 2026-06-06
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 
 ## Rule digest
 
@@ -30,7 +30,7 @@ Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
   - changes that add or remove CLI semantic authority update this SSOT, affected SDD/TDD records, and implementation maps
 - Related records:
   - `.lazy-harness/ssot/rule-sources.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/spec/platform/pre-response-rule-context.md`
 
 ## Rule placement
@@ -48,12 +48,12 @@ Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
   - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical boundary rule.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — static transport that does not classify raw user text.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — must not run static route/user-intent classifiers.
-  - `.lazy-harness/scripts/context-delivery.ts` — explicit candidate retrieval tool; must not label candidates as required or important.
   - `.lazy-harness/scripts/prompt-budget.py` — allowed measurement tool.
   - `.lazy-harness/scripts/context-index.ts` — allowed deterministic generated index cache.
 - Removed/deferred examples:
   - task-router static classifier and automatic route telemetry.
   - operational-state packet prototype user-text classifier.
+  - deleted query-helper prototypes that accepted raw user messages.
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
-  - grep/static checks for forbidden auto semantic CLI invocation.
+  - grep/static checks for forbidden auto semantic CLI invocation and deleted helper absence.

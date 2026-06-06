@@ -40,7 +40,7 @@ Parallel agents need two properties at the same time:
 1. isolated runtime state so one session/worktree does not poison another session's hook packets, open-gate cache, timing log, or last-session snapshot;
 2. shared durable visibility so records, candidates, and confirmed knowledge from another session are discoverable.
 
-The failure mode observed in dogfooding was a worktree whose `.lazy-harness` was a symlink to the primary checkout. Runtime files such as `state/context-delivery-packets.jsonl`, `state/record-decision-packets.jsonl`, `questions/open.xml`, and `knowledge/*.jsonl` therefore appeared shared. Product git indexes were still worktree-local, but harness runtime/evidence streams were not isolated.
+The failure mode observed in dogfooding was a worktree whose `.lazy-harness` was a symlink to the primary checkout. Runtime files such as `state/search-read-debt.jsonl`, `state/record-decision-packets.jsonl`, `questions/open.xml`, and `knowledge/*.jsonl` therefore appeared shared. Product git indexes were still worktree-local, but harness runtime/evidence streams were not isolated.
 
 ## Contract
 
@@ -66,7 +66,7 @@ LAZY_SHARED_ROOT  = $(git rev-parse --git-common-dir)/lazy-harness/shared
 
 These are non-canonical and default to `LAZY_RUNTIME_ROOT`:
 
-- `state/context-delivery-packets.jsonl`
+- `state/search-read-debt.jsonl`
 - `state/record-decision-packets.jsonl`
 - `state/open-gates.json`
 - `state/last-session.json`

@@ -34,7 +34,7 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
 - Related records:
   - `.lazy-harness/tests/evidence-capsule-standard.md`
   - `.lazy-harness/ssot/capability-registry.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Implementation hints:
   - Files: `.lazy-harness/evidence/README.md`, `.lazy-harness/templates/evidence-capsule.md`, `.lazy-harness/ssot/capabilities.json`, `.lazy-harness/scripts/self-test.py`
   - Tests: `.lazy-harness/scripts/self-test.py`, `.lazy-harness/tests/evidence-capsule-standard.md`

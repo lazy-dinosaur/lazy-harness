@@ -177,7 +177,7 @@ Relevant implementation:
 
 - `check-response-rule-audit.py` reads runtime state and tool-event journals:
   - `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl`
-  - `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl`
+  - `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`
   - `.jcode/hooks/tool-events.jsonl`
 - `lifecycle-check.py --sandbox` does not copy `.jcode` or runtime/shared state. It ignores `.lazy-harness/state` and logs/state-like paths.
 

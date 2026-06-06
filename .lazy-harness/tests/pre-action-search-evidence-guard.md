@@ -3,7 +3,7 @@
 Status: accepted
 Layer: TDD
 Date: 2026-06-04
-Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 Related SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
 Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_apply_patch_gap_20260604`
@@ -35,9 +35,9 @@ Observed failure modes:
 ## Layer completeness
 
 - DDD: no domain/business entity changed.
-- SDD: impacted. `.lazy-harness/spec/platform/context-delivery-contract.md` remains the generic guard contract; this TDD clarifies the legacy compatibility helper must respect the same root-bound evidence semantics and not behave as a concrete-tool allowlist.
+- SDD: impacted. `.lazy-harness/spec/platform/search-read-debt-contract.md` is the generic guard contract; this TDD clarifies the legacy compatibility helper must respect the same root-bound evidence semantics and not behave as a concrete-tool allowlist.
 - BDD: impacted only for agent workflow behavior. Expected agent behavior after fix is that valid harness-first search/read evidence unblocks mutation, while no-search source mutation remains blocked.
-- SSOT: impacted. `.lazy-harness/ssot/harness-enforcement-policy.md` records the packet-scoped generic evidence policy and the rejection of broad stale edit gates.
+- SSOT: impacted. `.lazy-harness/ssot/harness-enforcement-policy.md` records the static search/read-debt evidence policy and the rejection of broad stale edit gates.
 - ADR: no new decision. ADR 0041 and existing hard-stop promotion policy still apply.
 
 ## Implementation map
@@ -46,7 +46,7 @@ Observed failure modes:
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper that chains generic read-debt permit and legacy search-performed compatibility helper.
   - `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — legacy source-edit compatibility helper fixed to parse payloads safely, flatten nested recent tool calls, recognize current record scopes/brace syntax, and cover patch/apply_patch/namespaced patch source edits.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — modern packet-scoped generic evidence guard that remains the primary search/read-debt mechanism.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — modern static search/read-debt generic evidence guard that remains the primary search/read-debt mechanism.
   - `.lazy-harness/scripts/self-test.py` — `check_tool_execute_before_hook` regression scenarios.
   - `.lazy-harness/manifests/init-categories.json` — syncs this TDD record to hosts.
 - Flow:
@@ -59,7 +59,7 @@ Observed failure modes:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - Direct reproduction checks for brace grep allow, batch read allow, apply_patch no-search deny, and namespaced apply_patch no-search deny.
 - Cross-layer links:
-  - SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
   - SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
   - Planning: `.lazy-harness/knowledge/candidates.jsonl#candidate_pre_action_legacy_search_performed_false_deny_apply_patch_gap_20260604`
@@ -79,7 +79,7 @@ Observed failure modes:
 ## Discovery capture
 
 - DDD: none.
-- SDD: context-delivery/pre-response guard contracts updated or linked.
+- SDD: search-read-debt/pre-response guard contracts updated or linked.
 - BDD: agent workflow expectation captured above.
 - TDD: this record is the regression protection.
 - ADR: none.

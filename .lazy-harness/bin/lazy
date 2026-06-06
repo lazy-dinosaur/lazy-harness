@@ -66,16 +66,10 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
-  context --message "..." [--format=json|md]
-                                Explicit helper: query compact relevant-record digest; not default message.received authority
   context-index [--write] [--format=json|md]
-                                Build deterministic generated Context Delivery index cache
-  context-delivery --message "..." [--format=json|md] [--handoff-prompt]
-                                Explicit candidate retrieval helper; LLM decides importance/actions
+                                Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
                                 Produce post-turn Record Decision Packet from explicit evidence flags
-  context-dogfood [--host DIR] [--case LABEL::MESSAGE]
-                                Collect sanitized Context Broker dogfood observations from hosts
   record-audit [--format=json|md] [--source=DIR]
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
@@ -170,13 +164,6 @@ case "$cmd" in
     fi
     exec bun "$SCRIPTS/implementation-map-audit.ts" "$@"
     ;;
-  context)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy context: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/relevant-record-query.ts" --root "$HOST_ROOT" "$@"
-    ;;
   context-index)
     if ! command -v bun >/dev/null 2>&1; then
       echo "lazy context-index: bun not found on PATH." >&2
@@ -184,26 +171,12 @@ case "$cmd" in
     fi
     exec bun "$SCRIPTS/context-index.ts" --root "$HOST_ROOT" "$@"
     ;;
-  context-delivery)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy context-delivery: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/context-delivery.ts" --root "$HOST_ROOT" "$@"
-    ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then
       echo "lazy record-decision: bun not found on PATH." >&2
       exit 127
     fi
     exec bun "$SCRIPTS/record-decision-broker.ts" --root "$HOST_ROOT" "$@"
-    ;;
-  context-dogfood)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy context-dogfood: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/context-broker-dogfood.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-audit)
     if ! command -v bun >/dev/null 2>&1; then

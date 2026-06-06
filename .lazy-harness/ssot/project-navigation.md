@@ -5,7 +5,7 @@ Layer: SSOT
 Date: 2026-06-06
 Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`
 Related SDD: `.lazy-harness/spec/platform/project-profile.md`
-Related SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 
 ## Rule digest
@@ -28,7 +28,7 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
   - store raw transcripts or raw user messages in the feature-navigation map
 - Related records:
   - `.lazy-harness/spec/platform/project-profile.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/spec/platform/prompt-budget.md`
   - `.lazy-harness/ssot/project-identity.md`
 - Implementation hints:
@@ -39,7 +39,7 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 
 `.lazy-harness/project/feature-navigation.xml` is the durable feature-navigation map for this lazy-harness source checkout.
 
-It exists to let agents and Context Delivery tooling start from a compact source-project map instead of repeatedly dumping broad layer inventories. The map is not a generated cache. It is a canonical host/project record for this checkout.
+It exists to let agents and direct LLM/searcher retrieval start from a compact source-project map instead of repeatedly dumping broad layer inventories. The map is not a generated cache. It is a canonical host/project record for this checkout.
 
 Generated outputs such as `.lazy-harness/generated/context-index.json` are rebuildable caches derived from:
 
@@ -80,7 +80,7 @@ Do not treat this source map as Medivance, homepage, or any other downstream app
   - `.lazy-harness/ssot/project-navigation.md` — this SSOT for the source checkout project navigation map and ownership boundary.
   - `.lazy-harness/project/feature-navigation.xml` — canonical source-checkout feature map consumed by context-index projectProfile parsing.
   - `.lazy-harness/spec/platform/project-profile.md` — framework contract defining feature-navigation as retrieval source.
-  - `.lazy-harness/spec/platform/context-delivery-contract.md` — Context Delivery contract that consumes project-profile feature navigation as required-read and hint evidence.
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md` — static search/read-debt contract that keeps direct retrieval evidence LLM-owned.
   - `.lazy-harness/scripts/context-index.ts` — parser/merger for `.lazy-harness/project/feature-navigation.xml` into `projectProfile.features` and record hints.
   - `.lazy-harness/schemas/context-index.schema.json` — output schema for feature entries and project profile metadata.
   - `.lazy-harness/scripts/self-test.py` — protects source feature ids, path existence, XML parsing, and context-index projectProfile output.
@@ -103,7 +103,7 @@ Do not treat this source map as Medivance, homepage, or any other downstream app
 - Cross-layer links:
   - Planning: `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`
   - SDD: `.lazy-harness/spec/platform/project-profile.md`
-  - SDD: `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`
 - Machine index:
   - graph ids: `kg_project_navigation_ssot_sources_feature_map`, `kg_project_navigation_feature_map_indexed_by_context_index`, `kg_project_navigation_feature_map_protected_by_self_test`
@@ -119,7 +119,7 @@ Do not treat this source map as Medivance, homepage, or any other downstream app
 ## Discovery capture
 
 - DDD: none.
-- SDD: existing Project Profile and Context Delivery contracts already define feature-navigation behavior.
+- SDD: existing Project Profile and search/read-debt contracts define feature-navigation and direct retrieval behavior.
 - BDD: no user-visible UI flow change.
 - TDD: self-test gains a source-map completeness fixture.
 - ADR: no new decision; implements the prompt runtime compression Phase 3 plan under ADR 0041 direction.

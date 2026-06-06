@@ -6,7 +6,7 @@
   "tiers": {
     "always": [
       {
-        "path": ".lazy-harness/spec/platform/context-delivery-contract.md",
+        "path": ".lazy-harness/spec/platform/search-read-debt-contract.md",
         "kind": "record",
         "reason": "Defines required-read and non-canonical context behavior.",
         "posture": "required-hint"
@@ -21,7 +21,9 @@
     "phase": [
       {
         "id": "context-tier-contract",
-        "appliesWhen": ["Changing context tier manifest schema, fixture, or pointer audit behavior."],
+        "appliesWhen": [
+          "Changing context tier manifest schema, fixture, or pointer audit behavior."
+        ],
         "entries": [
           {
             "path": ".lazy-harness/spec/platform/context-tier-manifest.md",
@@ -35,7 +37,9 @@
     "task": [
       {
         "id": "context-delivery-indexing",
-        "appliesWhen": ["Changing context-index, context-delivery, feature navigation, or tier manifests."],
+        "appliesWhen": [
+          "Changing context-index, context-delivery, feature navigation, or tier manifests."
+        ],
         "entries": [
           {
             "path": ".lazy-harness/scripts/context-index.ts",
@@ -46,7 +50,7 @@
           {
             "path": ".lazy-harness/scripts/self-test.py",
             "kind": "test",
-            "reason": "Framework regression coverage for context delivery fixtures.",
+            "reason": "Framework regression coverage for search/read-debt fixtures.",
             "posture": "validation-hint"
           }
         ]

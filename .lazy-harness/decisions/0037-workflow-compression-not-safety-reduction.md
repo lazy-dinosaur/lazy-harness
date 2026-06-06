@@ -56,7 +56,7 @@ Forbidden:
   - `.lazy-harness/AGENTS.md` — points to CLI-as-tool boundary instead of router advice.
 - Canonical replacement:
   - `.lazy-harness/ssot/cli-tool-boundary.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 
 ## Rule placement
 

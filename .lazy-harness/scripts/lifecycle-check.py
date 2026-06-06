@@ -294,7 +294,7 @@ def sandbox_root(root: Path, raw_payload: str) -> tuple[Path, dict[str, str], di
         helper_env["LAZY_LIFECYCLE_GIT_HEAD"] = head
 
     mirrored: dict[str, Any] = {}
-    for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "context-delivery-packets.jsonl"):
+    for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl"):
         ok, rows = mirror_first_existing_state(root, payload, sandbox_runtime, name, max_lines=400)
         mirrored[name] = {"copied": ok, "rows": rows}
 

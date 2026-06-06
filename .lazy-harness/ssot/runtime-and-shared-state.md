@@ -29,7 +29,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 |---|---|---|
 | Runtime root | `$(git rev-parse --absolute-git-dir)/lazy-harness/runtime/<session-key>` | current worktree/session |
 | Shared root | `$(git rev-parse --git-common-dir)/lazy-harness/shared` | repository/worktree set |
-| Runtime packet journal | `$LAZY_RUNTIME_ROOT/state/context-delivery-packets.jsonl` | current session |
+| Runtime packet journal | `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` | current session |
 | Runtime record-decision shadow | `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl` | current session |
 | Runtime gate cache | `$LAZY_RUNTIME_ROOT/state/open-gates.json` | current session |
 | Runtime timing log | `$LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl` | current session |

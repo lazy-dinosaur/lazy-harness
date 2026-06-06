@@ -33,7 +33,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - changes to prompt surfaces, budget thresholds, rendered-hook measurement, duplicate detection, or self-test enforcement update this SDD and `.lazy-harness/tests/prompt-budget.md`
 - Related records:
   - `.lazy-harness/spec/platform/pre-response-rule-context.md`
-  - `.lazy-harness/spec/platform/context-delivery-contract.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md`
 
 ## Purpose

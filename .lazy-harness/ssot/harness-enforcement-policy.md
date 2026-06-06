@@ -25,7 +25,7 @@ Confirmation: user-confirmed
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
 - Related records:
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-  - `.lazy-harness/planning/record-query-context-loop-transition-plan.md`
+  - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
 
 ## Rule
@@ -124,7 +124,7 @@ User-confirmed after dogfood screenshots:
 
 Accepted policy:
 
-- The deterministic Context Delivery/Relevant Record Query producers may be used explicitly for manual/dogfood evidence, but they must not be the default semantic authority in `message.received`.
+- Deleted query-helper producers must not be reintroduced as default semantic authority in `message.received`; use direct LLM/searcher root-bound evidence instead.
 - The LLM or searcher agent performs semantic expansion and root-bound search first.
 - When a correlated direct-search row or packet has concrete `requiredRead` paths or fallback searches, missing evidence becomes search/read debt and the generic evidence guard denies action until direct search/read evidence exists.
 - This is packet-scoped, not a concrete-tool project-policy adapter.
