@@ -555,6 +555,8 @@ Revert Phase 5 commit. Evidence directory/template is additive and non-runtime.
 
 ## 10. Phase 6 — Operational State Packet Prototype
 
+Status: completed
+
 ### Goal
 
 Prototype a compact runtime view that summarizes applicable context without becoming canonical truth or default semantic authority.
@@ -566,6 +568,12 @@ Prototype a compact runtime view that summarizes applicable context without beco
 - New script: `.lazy-harness/scripts/operational-state.ts`
 - CLI dispatch: `.lazy-harness/bin/lazy operational-state`
 - Self-test fixture.
+- New TDD: `.lazy-harness/tests/operational-state-packet.md`
+- Updated:
+  - `.lazy-harness/manifests/init-categories.json` syncs the SDD/TDD/schema/script through existing framework asset categories.
+  - `.lazy-harness/project/feature-navigation.xml` maps operational-state under `context-delivery-indexing`.
+  - `.lazy-harness/scripts/self-test.py` adds `check_operational_state_packet_phase6`.
+  - `.lazy-harness/knowledge/graph.jsonl` links the SDD, script, and self-test protection.
 
 ### Packet should include
 
@@ -597,10 +605,22 @@ Prototype a compact runtime view that summarizes applicable context without beco
 
 ### Acceptance criteria
 
-- `lazy operational-state --message "..." --format=json` emits schema-valid packet.
-- Packet references records by path and reason.
-- `self-test.py` covers missing context-index fallback.
-- No `message.received` default behavior changes.
+- [x] `lazy operational-state --message "..." --format=json` emits schema-shaped packet in focused validation.
+- [x] Packet references records by path and reason.
+- [x] `self-test.py` covers missing context-index fallback.
+- [x] No `message.received` default behavior changes; self-test scans lifecycle hooks for forbidden operational-state wiring.
+- [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
+
+Validation evidence:
+
+- `git diff --check` passed.
+- `python3 -m py_compile .lazy-harness/scripts/self-test.py .lazy-harness/scripts/prompt-budget.py` passed.
+- Focused `check_operational_state_packet_phase6` passed.
+- `.lazy-harness/bin/lazy operational-state --message 'validate evidence raw-private-operational-state-message' --index .lazy-harness/generated/__missing_operational_state_context_index.json --format=json` emitted advisory JSON with `taskKind=validation`, `risk=medium`, `fallbackNeeded=true`, and `lazy-evidence-capsule`, without raw message leakage.
+- `python3 .lazy-harness/scripts/self-test.py` passed with `ran=82, skipped=0`.
+- `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
+- `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
+- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/operational-state-packet.md` to `context-delivery-indexing`.
 
 ### Rollback
 

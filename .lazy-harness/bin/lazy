@@ -74,6 +74,8 @@ Commands:
                                 Build deterministic generated Context Delivery index cache
   context-delivery --message "..." [--format=json|md] [--handoff-prompt] [--journal]
                                 Produce Context Delivery Packet, optional search handoff prompt, or packet evidence journal
+  operational-state [--message "..."] [--format=json|md]
+                                Explicit manual Operational State Packet prototype; advisory only, not default message.received
   record-decision [--message "..."] [--format=json|md]
                                 Produce post-turn Record Decision Packet from explicit evidence flags
   context-dogfood [--host DIR] [--case LABEL::MESSAGE]
@@ -203,6 +205,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/context-delivery.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  operational-state)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy operational-state: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/operational-state.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then

@@ -48,7 +48,7 @@
             "__pycache__/",
             "__doctor_c17_negative_tmp_*.py"
           ],
-          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, record-decision packet generator, and context-broker dogfood collector. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
+          "description": "Framework code: reference-resolver, search-provider, self-test, doctor, lifecycle helpers, context-index generator, context-delivery packet generator, operational-state packet prototype, record-decision packet generator, and context-broker dogfood collector. doctor/self-test use ADR 0026 scope auto-detection so hosts run BOTH checks while framework dev runs BOTH + FRAMEWORK_ONLY."
         },
         {
           "path": "hooks/",
@@ -276,6 +276,11 @@
           "description": "SDD contract for optional manual evidence capsules: template headings, privacy posture, recommend-level checklist capability, and no automatic evidence writing."
         },
         {
+          "path": "spec/platform/operational-state-packet.md",
+          "kind": "file",
+          "description": "SDD contract for explicit/manual Operational State Packet prototype: advisory context pointers, generated-index fallback notes, no raw message output, and no message.received integration."
+        },
+        {
           "path": "spec/platform/context-broker-dogfood.md",
           "kind": "file",
           "description": "SDD contract for explicit sanitized Context Broker dogfood collection before response.completed integration."
@@ -289,6 +294,11 @@
           "path": "tests/evidence-capsule-standard.md",
           "kind": "file",
           "description": "TDD contract for evidence capsule template headings, privacy note, recommend-only capability, and no automatic evidence writing."
+        },
+        {
+          "path": "tests/operational-state-packet.md",
+          "kind": "file",
+          "description": "TDD contract for explicit operational-state CLI output, missing generated-index fallback, no raw message leakage, and no hook wiring."
         },
         {
           "path": "spec/platform/response-rule-audit.md",

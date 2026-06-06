@@ -89,7 +89,9 @@
       <alias lang="en">context index</alias>
       <alias lang="en">relevant record query</alias>
       <alias lang="en">project profile feature navigation</alias>
+      <alias lang="en">operational state</alias>
       <alias lang="symbol">ContextDeliveryPacket</alias>
+      <alias lang="symbol">OperationalStatePacket</alias>
       <alias lang="symbol">context-index.ts</alias>
       <alias lang="symbol">feature-navigation.xml</alias>
     </aliases>
@@ -97,11 +99,13 @@
       <route>lazy context</route>
       <route>lazy context-index</route>
       <route>lazy context-delivery</route>
+      <route>lazy operational-state</route>
       <route>lazy context-dogfood</route>
     </routes>
     <components>
       <component>Context Delivery Packet</component>
       <component>Context Index</component>
+      <component>Operational State Packet</component>
       <component>Relevant Record Query</component>
       <component>Project Profile feature navigation</component>
     </components>
@@ -109,17 +113,21 @@
       <record layer="SDD">.lazy-harness/spec/platform/context-delivery-contract.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/context-broker-dogfood.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/context-tier-manifest.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/operational-state-packet.md</record>
       <record layer="SDD">.lazy-harness/spec/platform/project-profile.md</record>
       <record layer="TDD">.lazy-harness/tests/context-broker-dogfood.md</record>
+      <record layer="TDD">.lazy-harness/tests/operational-state-packet.md</record>
     </records>
     <sourceFiles>
       <path>.lazy-harness/scripts/context-index.ts</path>
       <path>.lazy-harness/scripts/context-delivery.ts</path>
+      <path>.lazy-harness/scripts/operational-state.ts</path>
       <path>.lazy-harness/scripts/context-broker-dogfood.ts</path>
       <path>.lazy-harness/scripts/relevant-record-query.ts</path>
       <path>.lazy-harness/schemas/context-index.schema.json</path>
       <path>.lazy-harness/schemas/context-delivery-packet.schema.json</path>
       <path>.lazy-harness/schemas/context-tier-manifest.schema.json</path>
+      <path>.lazy-harness/schemas/operational-state-packet.schema.json</path>
       <path>.lazy-harness/fixtures/context-delivery/feature-navigation-feature-surface.xml</path>
       <path>.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json</path>
       <path>.lazy-harness/project/context-tiers.yaml</path>
@@ -127,6 +135,7 @@
     </sourceFiles>
     <tests>
       <path>.lazy-harness/tests/context-broker-dogfood.md</path>
+      <path>.lazy-harness/tests/operational-state-packet.md</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </tests>
     <risk>High: context helpers are non-canonical and must not replace direct record/source reads or become shell-time semantic authority.</risk>
