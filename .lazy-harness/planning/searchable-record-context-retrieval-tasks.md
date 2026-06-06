@@ -282,18 +282,28 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-601 — Produce needs-map backlog
 
-- Status: todo
+- Status: done
 - Type: audit/planning
 - Command:
   - `.lazy-harness/bin/lazy impl-map --format=json`
+- Result:
+  - dynamic audit output captured in `.lazy-harness/planning/scr-601-implementation-map-needs-map.md`
+  - current summary: `ok=80`, `needs-map=31`, `needs-review=0`
+  - `needs-map` is not static; it is emitted when current records have implementation hints but no `## Implementation map`
+  - migration batches proposed before any implementation-map edits
 - Acceptance:
   - exact needs-map list captured
   - migration batches proposed before edits
 
 ### SCR-602 — Migrate verified implementation maps
 
-- Status: deferred
+- Status: todo
 - Type: record migration
+- Input:
+  - `.lazy-harness/planning/scr-601-implementation-map-needs-map.md`
+- Constraint:
+  - start with proposed Batch 1 unless user selects a different batch
+  - inspect source/test/graph evidence per record before writing maps
 - Acceptance:
   - only verified source/test/graph links are recorded
   - graph-hygiene remains green
