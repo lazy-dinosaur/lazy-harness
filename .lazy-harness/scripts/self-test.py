@@ -4994,13 +4994,13 @@ def check_context_delivery_optional_handoff_phase6() -> None:
         if forbidden in hook_text:
             fail("message.received hook must not run Context Delivery/query/handoff paths: " + forbidden)
     for phrase in [
-        "STOP. Harness-first lazy-harness search-debt before response",
-        "Harness inventory (actual files first, compact)",
-        "Root-bound exploration affordances (examples, not a tool policy)",
-        "follow the harness and directly inspect stored records/files",
+        "STOP. Harness-first search/read debt before response.",
+        "Inventory counts:",
+        "Protocol: choose real candidate records from inventory",
+        "inspect real `.lazy-harness` records/source/tests in this host root",
     ]:
         if phrase not in hook_text:
-            fail("message.received hook should inject a harness-first inventory search prompt: " + phrase)
+            fail("message.received hook should inject a compact harness-first inventory search prompt: " + phrase)
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-handoff-"))
     try:
@@ -6055,36 +6055,45 @@ def check_message_received_hook_context_injection() -> None:
         )
         if empty.returncode != 0 or empty.stdout.strip():
             fail("message.received hook should stay silent only when no user message exists:\n" + empty.stdout + empty.stderr)
+
+        non_space = re.sub(r"\s+", "", body)
+        token_estimate = max(len(re.findall(r"\S+", body)), (len(non_space) + 5) // 6 if non_space else 0)
+        if token_estimate > 600:
+            fail(f"compact message.received prompt too large: {token_estimate} estimated tokens > 600\n" + output)
+
         for phrase in [
-            "STOP. Harness-first lazy-harness search-debt before response",
+            "STOP. Harness-first search/read debt before response.",
             "harness-first-static",
-            "Static transport: this shell hook does not classify or interpret the user message",
-            "Do not use a CLI/index/search backend as semantic authority",
-            "follow the harness and directly inspect stored records/files",
-            "Harness inventory (actual files first, compact)",
-            "Actual record layers",
-            "DDD=`.lazy-harness/domain/`",
-            "SDD=`.lazy-harness/spec/`",
-            "BDD=`.lazy-harness/behavior/`",
-            "TDD=`.lazy-harness/tests/`",
-            "ADR=`.lazy-harness/decisions/`",
-            "SSOT=`.lazy-harness/ssot/`",
-            "Generated indexes (derived, not canonical)",
-            "Canonical/derived pointers",
-            "Root-bound exploration affordances (examples, not a tool policy)",
-            "use any read-only/search/query tool that follows the harness",
-            "Search protocol: (1) inspect the actual inventory above",
-            "choose candidate records from real filenames/layers/index pointers",
-            "Related records, Implementation map, and graph links",
-            "only after inventory/content grounding expand multilingual/code aliases",
-            "Evidence examples (examples, not a required tool list)",
-            "find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f",
-            "tree .lazy-harness | head -200",
-            "ask a 3-5 option gate",
+            "static transport; no user-text classification; no CLI/index semantic authority",
+            "inspect real `.lazy-harness` records/source/tests in this host root",
+            "Inventory counts:",
+            "DDD=",
+            "SDD=",
+            "BDD=",
+            "TDD=",
+            "ADR=",
+            "SSOT=",
+            "Project=",
+            "Knowledge=",
+            "Derived indexes:",
+            "Pointers:",
+            "feature-navigation.xml=",
+            "Source/test/doc dirs:",
+            "Protocol: choose real candidate records from inventory",
+            "Rule digest/full body/Implementation map/graph links",
+            "3-5 option gate",
+            "Missing record: search current host code/docs/package/config",
+            "generic evidence guard",
         ]:
             if phrase not in body:
                 fail("direct-search prompt missing framework search phrase: " + phrase + "\n" + output)
         for forbidden in [
+            "Harness inventory (actual files first, compact)",
+            "Actual record layers",
+            "sample:",
+            "Evidence examples (examples, not a required tool list)",
+            "find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f",
+            "tree .lazy-harness | head -200",
             "Relevant lazy-harness rules",
             "Context Delivery read-debt",
             "FeaturePanel.tsx",

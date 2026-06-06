@@ -155,13 +155,12 @@ def list_files_limited(base: Path, limit: int = 4) -> tuple[int, list[str]]:
 
 def harness_inventory_lines() -> list[str]:
     lines: list[str] = []
-    lines.append('Harness inventory (actual files first, compact):')
-    lines.append('- Actual record layers:')
-    for label, folder, meaning in LAYER_INVENTORY:
+    layer_bits: list[str] = []
+    for label, folder, _meaning in LAYER_INVENTORY:
         layer_path = root / '.lazy-harness' / folder
-        count, samples = list_files_limited(layer_path)
-        sample_text = ', '.join(f'`{sample}`' for sample in samples) if samples else 'none'
-        lines.append(f'  - {label}=`.lazy-harness/{folder}/` ({meaning}): {count} file(s); sample: {sample_text}')
+        count, _samples = list_files_limited(layer_path, limit=0)
+        layer_bits.append(f'{label}={count}(`.lazy-harness/{folder}/`)')
+    lines.append('- Inventory counts: ' + ' '.join(layer_bits))
 
     generated = root / '.lazy-harness' / 'generated'
     index_names = ['implementation-index.json', 'reference-index.json', 'relevant-record-index.json', 'context-index.json']
@@ -169,7 +168,7 @@ def harness_inventory_lines() -> list[str]:
     for name in index_names:
         p = generated / name
         statuses.append(f'{name}={"present" if p.exists() else "missing"}')
-    lines.append('- Generated indexes (derived, not canonical): ' + '; '.join(statuses))
+    lines.append('- Derived indexes: ' + '; '.join(statuses))
 
     pointers = [
         ('.lazy-harness/knowledge/graph.jsonl', root / '.lazy-harness' / 'knowledge' / 'graph.jsonl'),
@@ -178,30 +177,25 @@ def harness_inventory_lines() -> list[str]:
         ('.lazy-harness/generated/README.md', root / '.lazy-harness' / 'generated' / 'README.md'),
     ]
     pointer_text = '; '.join(f'{name}={"present" if path.exists() else "missing"}' for name, path in pointers)
-    lines.append('- Canonical/derived pointers: ' + pointer_text)
+    lines.append('- Pointers: ' + pointer_text)
 
     source_dirs = []
     for name in ['src', 'tests', 'test', 'packages', 'apps', 'lib', 'docs']:
         if (root / name).exists():
             source_dirs.append(name)
-    lines.append('- Source/test/doc dirs present: ' + (', '.join(source_dirs) if source_dirs else 'none detected'))
+    lines.append('- Source/test/doc dirs: ' + (', '.join(source_dirs) if source_dirs else 'none detected'))
     return lines
 
 
 body = '\n'.join([
-    'STOP. Harness-first lazy-harness search-debt before response',
-    f'- Instruction: {level}',
-    '- Static transport: this shell hook does not classify or interpret the user message; understanding belongs to the LLM/searcher or an explicit read-only searcher handoff.',
-    '- Do not use a CLI/index/search backend as semantic authority for this turn.',
-    '- Before answering, analyzing, planning, option-gating, or editing, the LLM/searcher must follow the harness and directly inspect stored records/files.',
+    'STOP. Harness-first search/read debt before response.',
+    f'- Instruction: {level}; static transport; no user-text classification; no CLI/index semantic authority.',
+    '- Before answer/plan/edit: inspect real `.lazy-harness` records/source/tests in this host root; stay read-only until debt is satisfied.',
     f'- Search scope: `{search_hint}`',
     *harness_inventory_lines(),
-    '- Root-bound exploration affordances (examples, not a tool policy): use any read-only/search/query tool that follows the harness, stays in this host root, and inspects actual stored records/files. Examples include `ls`, `find`, `tree`/directory tree, `git ls-files`, `rg`, `grep`, `agentgrep`, `glob`, `read`, and read-only searcher handoff.',
-    '- Search protocol: (1) inspect the actual inventory above and choose candidate records from real filenames/layers/index pointers, (2) list/read matching stored records and their `## Rule digest`, full body, Related records, Implementation map, and graph links, (3) search source/tests only for confirmed files/symbols, (4) only after inventory/content grounding expand multilingual/code aliases or broader string queries, (5) only then answer/plan/edit.',
-    '- Evidence examples (examples, not a required tool list): `find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f`, `tree .lazy-harness | head -200`, `git ls-files`, `rg -n <confirmed terms> .lazy-harness src tests`, `agentgrep`, then `read` concrete records/files.',
-    '- If no record exists, search current host code/docs/package/config and converge missing durable knowledge into the right `.lazy-harness/<layer>/...` record after user confirmation.',
-    '- If meanings or layer placement still conflict after search/read evidence, ask a 3-5 option gate with Recommended and a custom option; do not self-select.',
-    '- Before debt is satisfied: keep to read-only inventory/search/read or explicit read-only searcher handoff. Action/mutation tools remain blocked by the generic evidence guard.',
+    '- Protocol: choose real candidate records from inventory → read Rule digest/full body/Implementation map/graph links → inspect source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
+    '- Missing record: search current host code/docs/package/config; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
+    '- Guard: action/mutation remains blocked by the generic evidence guard until root-bound harness-following search/read evidence exists.',
 ]).strip() + '\n'
 
 print(json.dumps({

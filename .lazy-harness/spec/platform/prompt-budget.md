@@ -81,6 +81,8 @@ This intentionally avoids external tokenizer dependencies.
 
 The transition hard ceilings are deliberately looser so Phase 1 can be merged before Phase 2 compacting work. Later phases may lower transition ceilings after dogfood evidence.
 
+Phase 2 compact prompt work should keep the rendered `message.received` body at or below the normal 600-token target in framework source self-test. The Phase 1 source baseline was 799 estimated tokens, so a successful Phase 2 source run should show at least meaningful reduction and no regression in debt journaling or static/no-classifier behavior.
+
 ## CLI contract
 
 Command:
