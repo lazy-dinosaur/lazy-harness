@@ -327,6 +327,8 @@
     <records>
       <record layer="ADR">.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md</record>
       <record layer="ADR">.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/evidence-capsule-standard.md</record>
+      <record layer="TDD">.lazy-harness/tests/evidence-capsule-standard.md</record>
       <record layer="TDD">.lazy-harness/tests/README.md</record>
     </records>
     <sourceFiles>
@@ -335,9 +337,13 @@
       <path>.lazy-harness/hooks/pre-commit-guard.sh</path>
       <path>.lazy-harness/hooks/pre-push.sh</path>
       <path>.lazy-harness/bin/lazy</path>
+      <path>.lazy-harness/evidence/README.md</path>
+      <path>.lazy-harness/templates/evidence-capsule.md</path>
+      <path>.lazy-harness/ssot/capabilities.json</path>
     </sourceFiles>
     <tests>
       <path>.lazy-harness/scripts/self-test.py</path>
+      <path>.lazy-harness/tests/evidence-capsule-standard.md</path>
       <path>.lazy-harness/tests/README.md</path>
     </tests>
     <risk>High: validation claims must run focused tests before completion; doctor/test scope separation must stay framework-vs-host aware.</risk>

@@ -5115,6 +5115,125 @@ def check_context_tier_manifest_phase4() -> None:
     print("✓ context tier manifest Phase 4 ok")
 
 
+def check_evidence_capsule_standard_phase5() -> None:
+    """Phase 5 should provide a manual evidence capsule checklist without auto-writing."""
+    sdd_path = LAZY / "spec" / "platform" / "evidence-capsule-standard.md"
+    tdd_path = LAZY / "tests" / "evidence-capsule-standard.md"
+    readme_path = LAZY / "evidence" / "README.md"
+    template_path = LAZY / "templates" / "evidence-capsule.md"
+    registry_path = LAZY / "ssot" / "capabilities.json"
+
+    for path in (sdd_path, tdd_path, readme_path, template_path, registry_path):
+        if not path.exists():
+            fail(f"evidence capsule Phase 5 missing file: {path.relative_to(ROOT)}")
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    for expected in (
+        "keep evidence capsules optional and human-authored; do not auto-write them from hooks",
+        "The checklist is recommend-level, not a hard gate.",
+        "`.lazy-harness/ssot/capabilities.json` registers `lazy-evidence-capsule`",
+        "check_evidence_capsule_standard_phase5",
+    ):
+        if expected not in sdd:
+            fail("evidence capsule SDD missing invariant: " + expected)
+
+    tdd = tdd_path.read_text(encoding="utf-8")
+    for expected in (
+        "Missing heading",
+        "recommend-level, not warn/block",
+        "Auto-writing evidence capsules from lifecycle hooks fails self-test",
+        "Layer completeness gate",
+    ):
+        if expected not in tdd:
+            fail("evidence capsule TDD missing regression/impact note: " + expected)
+
+    template = template_path.read_text(encoding="utf-8")
+    required_headings = [
+        "# Evidence: <topic>",
+        "## Scope",
+        "## Environment",
+        "## Commands",
+        "## Results",
+        "## Interpretation",
+        "## Reproduce",
+        "## Related records",
+        "## Retention / privacy",
+    ]
+    missing_headings = [heading for heading in required_headings if heading not in template]
+    if missing_headings:
+        fail("evidence capsule template missing headings: " + json.dumps(missing_headings, ensure_ascii=False))
+    template_lower = template.lower()
+    for expected in ("secrets", "credentials", "personal data", "raw transcripts", "raw assistant responses", "excessive raw logs"):
+        if expected not in template_lower:
+            fail("evidence capsule template missing privacy warning phrase: " + expected)
+
+    readme = readme_path.read_text(encoding="utf-8")
+    for expected in (
+        "Capsules are manually authored",
+        "supporting evidence, not canonical truth",
+        "Redact secrets, credentials, personal data, raw transcripts",
+    ):
+        if expected not in readme:
+            fail("evidence capsule README missing guidance: " + expected)
+
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    caps = {cap.get("id"): cap for cap in registry.get("capabilities", [])}
+    cap = caps.get("lazy-evidence-capsule")
+    if not cap:
+        fail("capabilities registry missing lazy-evidence-capsule")
+    expected_cap = {
+        "kind": "checklist",
+        "level": "recommend",
+        "sourceRecord": ".lazy-harness/spec/platform/evidence-capsule-standard.md",
+        "checklistPath": ".lazy-harness/templates/evidence-capsule.md",
+        "owner": "framework-global",
+    }
+    for key, value in expected_cap.items():
+        if cap.get(key) != value:
+            fail(f"lazy-evidence-capsule capability {key} mismatch: {cap.get(key)!r}")
+    if cap.get("level") in {"warn", "block"}:
+        fail("lazy-evidence-capsule must remain non-blocking recommend-level")
+    if "making_validation_claims" not in cap.get("appliesWhen", []):
+        fail("lazy-evidence-capsule missing making_validation_claims appliesWhen")
+
+    audit = subprocess.run([".lazy-harness/bin/lazy", "capability", "audit", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if audit.returncode != 0:
+        fail("capability audit failed with evidence capsule registry entry:\n" + audit.stdout + audit.stderr)
+    audit_json = json.loads(audit.stdout)
+    if audit_json.get("ok") is not True:
+        fail("capability audit should pass after evidence capsule registry entry: " + json.dumps(audit_json, ensure_ascii=False))
+
+    resolved = subprocess.run([".lazy-harness/bin/lazy", "capability", "resolve", "--intent", "making_validation_claims", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if resolved.returncode != 0:
+        fail("capability resolve failed for evidence capsule intent:\n" + resolved.stdout + resolved.stderr)
+    resolved_ids = [item.get("id") for item in json.loads(resolved.stdout).get("matches", [])]
+    if "lazy-evidence-capsule" not in resolved_ids:
+        fail("capability resolve should recommend lazy-evidence-capsule for validation claims: " + resolved.stdout)
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
+    for expected in (
+        "spec/platform/evidence-capsule-standard.md",
+        "tests/evidence-capsule-standard.md",
+        "evidence-capsule.md",
+        "evidence/",
+    ):
+        if expected not in category_a:
+            fail("init categories missing evidence capsule sync asset: " + expected)
+
+    forbidden_auto_write = ("evidence-capsule.md", ".lazy-harness/evidence/", "lazy-evidence-capsule")
+    hook_files = list((LAZY / "hooks").rglob("*.sh")) + list((LAZY / "hooks").rglob("*.py"))
+    offenders: list[str] = []
+    for hook in hook_files:
+        text = hook.read_text(encoding="utf-8")
+        if any(phrase in text for phrase in forbidden_auto_write):
+            offenders.append(str(hook.relative_to(ROOT)))
+    if offenders:
+        fail("hooks must not auto-write or invoke evidence capsules: " + json.dumps(offenders, ensure_ascii=False))
+
+    print("✓ evidence capsule standard Phase 5 ok")
+
+
 def check_context_delivery_dual_mode_phase4() -> None:
     """Phase 4 should produce packet-shaped dual-mode required-read context."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
@@ -6901,6 +7020,7 @@ def main() -> None:
         (check_context_index_generator_phase3, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
+        (check_evidence_capsule_standard_phase5, "BOTH"),
         (check_context_delivery_dual_mode_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
         (check_context_delivery_packet_journal_phase7, "BOTH"),

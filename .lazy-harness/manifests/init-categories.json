@@ -93,6 +93,22 @@
           "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including ADR 0037 workflow route cases + context-delivery fixtures."
         },
         {
+          "path": "evidence/",
+          "kind": "directory",
+          "glob": [
+            "README.md"
+          ],
+          "description": "Framework evidence capsule storage guidance. Actual evidence capsule contents are host/source-authored and not synced as framework truth."
+        },
+        {
+          "path": "templates/",
+          "kind": "directory",
+          "glob": [
+            "evidence-capsule.md"
+          ],
+          "description": "Framework templates, including the manual evidence capsule checklist/template."
+        },
+        {
           "path": "manifests/skills.xml",
           "kind": "file",
           "description": "Skill manifest. lazy-init/sync/doctor/test 등 어떤 skill 이 어디 있는지 single source."
@@ -255,6 +271,11 @@
           "description": "SDD contract for optional advisory context tier manifests: always/phase/task/optional pointer hints, restricted YAML source manifests, schema fixture validation, and no message.received behavior change."
         },
         {
+          "path": "spec/platform/evidence-capsule-standard.md",
+          "kind": "file",
+          "description": "SDD contract for optional manual evidence capsules: template headings, privacy posture, recommend-level checklist capability, and no automatic evidence writing."
+        },
+        {
           "path": "spec/platform/context-broker-dogfood.md",
           "kind": "file",
           "description": "SDD contract for explicit sanitized Context Broker dogfood collection before response.completed integration."
@@ -263,6 +284,11 @@
           "path": "tests/context-broker-dogfood.md",
           "kind": "file",
           "description": "TDD fixtures for Context Broker dogfood collector privacy, no-record-needed, and dry-run behavior."
+        },
+        {
+          "path": "tests/evidence-capsule-standard.md",
+          "kind": "file",
+          "description": "TDD contract for evidence capsule template headings, privacy note, recommend-only capability, and no automatic evidence writing."
         },
         {
           "path": "spec/platform/response-rule-audit.md",

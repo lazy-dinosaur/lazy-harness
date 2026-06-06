@@ -472,6 +472,8 @@ Revert Phase 4 commit. Since manifest is optional and non-canonical, no runtime 
 
 ## 9. Phase 5 — Evidence Capsule Standard + Work-unit Closure Checklist
 
+Status: completed
+
 ### Goal
 
 Import homepage's durable evidence pattern and make validation claims easier to audit.
@@ -484,8 +486,13 @@ Import homepage's durable evidence pattern and make validation claims easier to 
 - Optional template: `.lazy-harness/templates/evidence-capsule.md`
 - Optional CLI/checklist capability in `.lazy-harness/ssot/capabilities.json`:
   - `lazy-evidence-capsule`
-  - kind: `checklist` or `validation`
+  - kind: `checklist`
   - level: `recommend`
+- Updated:
+  - `.lazy-harness/manifests/init-categories.json` syncs the SDD/TDD/template/README framework assets while actual capsule content remains host/source-authored.
+  - `.lazy-harness/project/feature-navigation.xml` maps evidence capsule assets under `test-doctor`.
+  - `.lazy-harness/scripts/self-test.py` adds `check_evidence_capsule_standard_phase5`.
+  - `.lazy-harness/knowledge/graph.jsonl` links the standard, template, registry capability, and self-test protection.
 
 ### Evidence capsule template
 
@@ -524,10 +531,23 @@ Before commit:
 
 ### Acceptance criteria
 
-- Evidence standard record exists with Rule digest and Implementation map.
-- `self-test.py` checks template headings and privacy note.
-- Capability audit passes if adding registry entry.
-- No automatic evidence writing is added.
+- [x] Evidence standard record exists with Rule digest and Implementation map.
+- [x] `self-test.py` checks template headings and privacy note.
+- [x] Capability audit passes with the `lazy-evidence-capsule` registry entry in focused validation.
+- [x] No automatic evidence writing is added; self-test scans lifecycle hooks for forbidden capsule references.
+- [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
+
+Validation evidence:
+
+- `git diff --check` passed.
+- `python3 -m py_compile .lazy-harness/scripts/self-test.py .lazy-harness/scripts/prompt-budget.py` passed.
+- Focused `check_evidence_capsule_standard_phase5` passed.
+- `.lazy-harness/bin/lazy capability audit --format=json` returned `ok=true`, `count=2`.
+- `.lazy-harness/bin/lazy capability resolve --intent making_validation_claims --format=json` returned `lazy-evidence-capsule`.
+- `python3 .lazy-harness/scripts/self-test.py` passed with `ran=81, skipped=0`.
+- `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
+- `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
+- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/evidence-capsule-standard.md` to `test-doctor`.
 
 ### Rollback
 
