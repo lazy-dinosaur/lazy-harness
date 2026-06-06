@@ -12,21 +12,21 @@
         "posture": "required-hint"
       },
       {
-        "path": ".lazy-harness/project/feature-navigation.xml",
-        "kind": "project-profile",
-        "reason": "Maps source feature anchors to records/source/tests.",
+        "path": ".lazy-harness/spec/platform/project-profile.md",
+        "kind": "record",
+        "reason": "Defines Project Profile and feature-navigation retrieval source rules.",
         "posture": "optional-hint"
       }
     ],
     "phase": [
       {
-        "id": "prompt-runtime-compression",
-        "appliesWhen": ["Working through the prompt runtime compression rollout plan."],
+        "id": "context-tier-contract",
+        "appliesWhen": ["Changing context tier manifest schema, fixture, or pointer audit behavior."],
         "entries": [
           {
-            "path": ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
-            "kind": "plan",
-            "reason": "Owns phase goals and acceptance criteria.",
+            "path": ".lazy-harness/spec/platform/context-tier-manifest.md",
+            "kind": "record",
+            "reason": "Owns context tier manifest semantics and pointer audit rules.",
             "posture": "required-hint"
           }
         ]
@@ -54,9 +54,9 @@
     ],
     "optional": [
       {
-        "path": ".lazy-harness/ssot/project-navigation.md",
+        "path": ".lazy-harness/spec/platform/record-digest-format.md",
         "kind": "record",
-        "reason": "Source/downstream ownership boundary for project navigation records.",
+        "reason": "Defines compact record digest metadata used by retrieval helpers.",
         "posture": "optional-hint"
       }
     ]

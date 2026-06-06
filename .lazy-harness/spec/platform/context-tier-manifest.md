@@ -81,6 +81,8 @@ Allowed entry `kind` values:
 
 The logical schema is defined in `.lazy-harness/schemas/context-tier-manifest.schema.json` and shown as JSON in `.lazy-harness/fixtures/context-delivery/context-tier-manifest.sample.json`.
 
+The sample fixture is synced to downstream hosts and is validated by BOTH-scope self-test. Therefore sample `path` values must reference framework-synced/common files, not source-checkout-only records such as `.lazy-harness/ssot/project-navigation.md`.
+
 Source checkouts may store the same logical data as restricted YAML at `.lazy-harness/project/context-tiers.yaml` so it remains human-editable. The Phase 4 pointer audit intentionally supports a conservative YAML subset: it extracts `path:` scalar lines and verifies the referenced files exist. More complex YAML must wait for an explicit parser dependency and updated SDD/TDD.
 
 ## Runtime behavior
@@ -99,10 +101,11 @@ Future phases may ingest the manifest into `context-index.source.canonicalInputs
 When a source/host manifest is present, audit checks should:
 
 1. parse the JSON sample fixture against the schema's expected stable keys,
-2. extract all `path:` scalar values from `.lazy-harness/project/context-tiers.yaml`,
-3. fail if any path is absolute, escapes the host root, or does not exist,
-4. fail if tier keys outside `always`, `phase`, `task`, `optional` are introduced,
-5. fail if raw message/transcript/response fields are introduced.
+2. verify sample fixture paths resolve in both framework source and synced downstream hosts,
+3. extract all `path:` scalar values from `.lazy-harness/project/context-tiers.yaml`,
+4. fail if any path is absolute, escapes the host root, or does not exist,
+5. fail if tier keys outside `always`, `phase`, `task`, `optional` are introduced,
+6. fail if raw message/transcript/response fields are introduced.
 
 The audit is a validation guard. It does not mean every tier path is required-read for every turn.
 
