@@ -168,9 +168,9 @@ Implemented on 2026-06-01:
 
 Implemented on 2026-06-01:
 
-- Context Delivery can append sanitized packet evidence with explicit `lazy context-delivery --journal`; the default pre-turn hook does not run it automatically.
-- `response.completed` may consume correlated packet evidence as advisory-only required-read feedback.
-- Phase 7 intentionally does not add new STOP/hard-stop behavior; it creates dogfood evidence needed before any later escalation or Record Decision Broker integration.
+- Context Delivery is now explicit candidate retrieval only and does not append required-read journals.
+- Generic `message.received` search/read-debt rows remain the default evidence guard; the LLM/searcher must still perform root-bound search/read before mutation.
+- `response.completed` remains an audit/backstop, not a semantic router. Phase 7 intentionally does not add new STOP/hard-stop behavior.
 
 ## Phase 8 implementation note
 

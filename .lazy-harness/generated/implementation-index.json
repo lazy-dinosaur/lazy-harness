@@ -1006,96 +1006,6 @@
       "updatedAt": "2026-05-19T04:49:52.180702+00:00"
     },
     {
-      "id": "kg_sdd_workflow_compression_router",
-      "kind": "spec",
-      "layer": "SDD",
-      "path": ".lazy-harness/spec/platform/workflow-compression-router.md",
-      "relation": "defines_contract",
-      "target": "lazy route output schema and routing axes",
-      "source": "ADR 0037",
-      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
-    },
-    {
-      "id": "kg_task_router_cli",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/scripts/task-router.ts",
-      "relation": "implements",
-      "target": "read-only workflow compression route CLI",
-      "source": "lazy route --message ... --format=json|md",
-      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
-    },
-    {
-      "id": "kg_lazy_route_dispatch",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/bin/lazy",
-      "relation": "dispatches",
-      "target": "task-router.ts route subcommand",
-      "source": "route command added to per-host lazy dispatcher",
-      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
-    },
-    {
-      "id": "kg_task_router_fixtures",
-      "kind": "test",
-      "layer": "TDD",
-      "path": ".lazy-harness/fixtures/task-router/cases.json",
-      "relation": "protects",
-      "target": "workflow compression router safety invariants",
-      "source": "trivial/local/behavior/contract/ownership/ambiguous/risk/candidate cases",
-      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
-    },
-    {
-      "id": "kg_task_router_self_test",
-      "kind": "test",
-      "layer": "TDD",
-      "path": ".lazy-harness/scripts/self-test.py",
-      "relation": "protects",
-      "target": "task-router read-only contract, fixtures, and lazy route help",
-      "source": "check_task_router_read_only_contract, check_task_router_fixtures, check_lazy_route_cli_help",
-      "updatedAt": "2026-05-19T04:49:52.180702+00:00"
-    },
-    {
-      "id": "kg_manifest_task_router_host_sync",
-      "kind": "implementation",
-      "layer": "SSOT",
-      "path": ".lazy-harness/manifests/init-categories.json",
-      "relation": "syncs",
-      "target": "task-router fixtures, ADR 0037, and workflow-compression-router SDD to hosts",
-      "source": "host self-test requires task-router fixtures in Category A sync",
-      "updatedAt": "2026-05-19T04:52:18.413174+00:00"
-    },
-    {
-      "id": "kg_route_telemetry_log_mode",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/scripts/task-router.ts",
-      "relation": "implements",
-      "target": "lazy route --log append-only non-canonical telemetry",
-      "source": "stores route axes and messageHash in logs/route-decisions.jsonl without raw message",
-      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
-    },
-    {
-      "id": "kg_route_summary_cli",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/bin/lazy",
-      "relation": "dispatches",
-      "target": "lazy route-summary telemetry review",
-      "source": "task-router --summary summarizes route-decisions and optional route-feedback logs",
-      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
-    },
-    {
-      "id": "kg_test_route_telemetry_contract",
-      "kind": "test",
-      "layer": "TDD",
-      "path": ".lazy-harness/scripts/self-test.py",
-      "relation": "protects",
-      "target": "route default read-only, --log append-only, route-summary counts telemetry",
-      "source": "check_task_router_read_only_contract",
-      "updatedAt": "2026-05-19T05:01:37.278042+00:00"
-    },
-    {
       "id": "kg_hook_project_rule_placement_noop_judgement",
       "kind": "implementation",
       "layer": "TDD",
@@ -1114,66 +1024,6 @@
       "target": "non-applicable/no-record project rule placement judgement and Korean 기록하지 않음 false positive",
       "source": "project-rule-placement-gate-loop regression addendum 2026-05-19",
       "updatedAt": "2026-05-19T06:15:07.705526+00:00"
-    },
-    {
-      "id": "kg_response_completed_auto_route_telemetry",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
-      "relation": "implements",
-      "target": "automatic route telemetry from last_user_message on response.completed",
-      "source": "ADR 0037 telemetry amendment; deduped by messageIdHash",
-      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
-    },
-    {
-      "id": "kg_task_router_message_id_dedupe",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/scripts/task-router.ts",
-      "relation": "implements",
-      "target": "route telemetry message_id hash deduplication",
-      "source": "--message-id stores messageIdHash and avoids duplicate append",
-      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
-    },
-    {
-      "id": "kg_test_response_completed_auto_route_telemetry",
-      "kind": "test",
-      "layer": "TDD",
-      "path": ".lazy-harness/scripts/self-test.py",
-      "relation": "protects",
-      "target": "response.completed auto route telemetry, dedupe, and no raw message storage",
-      "source": "check_response_completed_auto_route_telemetry",
-      "updatedAt": "2026-05-19T09:44:31.413615+00:00"
-    },
-    {
-      "id": "kg_tdd_response_completed_route_telemetry_large_payload",
-      "kind": "record",
-      "layer": "TDD",
-      "path": ".lazy-harness/tests/response-completed-route-telemetry-large-payload.md",
-      "relation": "defines_regression",
-      "target": "response.completed automatic route telemetry must append for live-sized payloads",
-      "source": "normal Jcode use showed hook reminders but no route-decisions append; env payload parsing failed silently",
-      "updatedAt": "2026-05-20T02:16:00Z"
-    },
-    {
-      "id": "kg_response_completed_route_telemetry_stdin_payload",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
-      "relation": "implements",
-      "target": "automatic route telemetry stdin payload extraction and no-raw diagnostics",
-      "source": "parses response.completed payload from stdin, supports user-message aliases, writes route-telemetry-debug metadata only when extraction fails",
-      "updatedAt": "2026-05-20T02:16:00Z"
-    },
-    {
-      "id": "kg_test_response_completed_route_telemetry_large_payload",
-      "kind": "test",
-      "layer": "TDD",
-      "path": ".lazy-harness/scripts/self-test.py",
-      "relation": "protects",
-      "target": "response.completed route telemetry large payload append and message_id dedupe",
-      "source": "check_response_completed_auto_route_telemetry includes large recent_tool_calls payload",
-      "updatedAt": "2026-05-20T02:16:00Z"
     },
     {
       "id": "kg_sdd_project_profile_architecture_contract",
@@ -1426,46 +1276,6 @@
       "updatedAt": "2026-05-21T00:24:00Z"
     },
     {
-      "id": "kg_report_route_telemetry_medivance_appointment_20260521",
-      "kind": "retrospective_metric_report",
-      "layer": "TDD",
-      "path": ".lazy-harness/retrospective/metrics/2026-05-21-route-telemetry-medivance-appointment-report.md",
-      "relation": "analyzes",
-      "target": "route telemetry false-positive/false-negative candidates against medivance appointment worktree commits and dirty diff",
-      "source": "user requested first report and improvement plan after telemetry reached 60 medivance samples",
-      "updatedAt": "2026-05-21T01:51:52.012394+00:00"
-    },
-    {
-      "id": "kg_task_router_evidence_rich_telemetry",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/scripts/task-router.ts",
-      "relation": "implements",
-      "target": "route telemetry evidence fields and routeVersion 1.1",
-      "source": "2026-05-21 route telemetry medivance appointment report Phase A",
-      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
-    },
-    {
-      "id": "kg_response_completed_diff_aware_route_context",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
-      "relation": "implements",
-      "target": "dirty/staged changed file context for automatic route telemetry",
-      "source": "2026-05-21 route telemetry medivance appointment report Phase B",
-      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
-    },
-    {
-      "id": "kg_lazy_route_audit_commit_reclassification",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/scripts/task-router.ts",
-      "relation": "implements",
-      "target": "lazy route-audit recent commit reclassification with evidence flags",
-      "source": "2026-05-21 route telemetry medivance appointment report Phase C",
-      "updatedAt": "2026-05-21T02:20:53.888177+00:00"
-    },
-    {
       "id": "kg_test_route_evidence_diff_aware",
       "kind": "test",
       "layer": "TDD",
@@ -1684,16 +1494,6 @@
       "target": "Response hook and CLI performance optimization",
       "source": "User requested next plan for slow CLI/hook behavior; record captures P0 fast-path, P1 orchestrator, P2 indexes, P3 Bun cold-start mitigation, P4 fingerprint cache",
       "updatedAt": "2026-05-21T12:05:00Z"
-    },
-    {
-      "id": "kg_hook_performance_measurement",
-      "kind": "implementation",
-      "layer": "SDD",
-      "path": ".lazy-harness/hooks/lifecycle/on-response-completed.sh",
-      "relation": "implements",
-      "target": "Response.completed hook timing measurement",
-      "source": "Phase 0 measure-only instrumentation logs route telemetry, lifecycle helper, and hook-total timings without changing helper order or gate decisions",
-      "updatedAt": "2026-05-21T12:22:00Z"
     },
     {
       "id": "kg_hook_timing_summary_cli",
@@ -2444,35 +2244,6 @@
       }
     },
     {
-      "id": "kg_context_delivery_message_received_producer",
-      "createdAt": "2026-06-01T22:52:30Z",
-      "updatedAt": "2026-06-01T22:52:30Z",
-      "layer": "sdd",
-      "kind": "implementation",
-      "subject": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
-      "predicate": "runs",
-      "object": ".lazy-harness/scripts/context-delivery.ts",
-      "status": "confirmed",
-      "confidence": "code-evidence",
-      "evidence": [
-        {
-          "type": "source",
-          "path": ".lazy-harness/hooks/lifecycle/on-message-received.sh",
-          "quote": "Runs bounded context-delivery --journal from message.received, renders Context Delivery read-debt when concrete packet evidence exists, and falls back to self-resolution when unavailable."
-        }
-      ],
-      "links": [
-        {
-          "rel": "specified_by",
-          "target": ".lazy-harness/spec/platform/context-delivery-contract.md"
-        }
-      ],
-      "provenance": {
-        "source": "manual-implementation-map",
-        "confirmedAt": "2026-06-01T22:52:30Z"
-      }
-    },
-    {
       "id": "kg_context_delivery_pre_tool_wrapper",
       "createdAt": "2026-06-01T22:52:30Z",
       "updatedAt": "2026-06-01T22:52:30Z",
@@ -3048,6 +2819,26 @@
         "source": "manual-implementation-map",
         "confirmedAt": "2026-06-06T06:15:10Z"
       }
+    },
+    {
+      "id": "kg_ssot_cli_tool_boundary",
+      "kind": "record",
+      "layer": "SSOT",
+      "path": ".lazy-harness/ssot/cli-tool-boundary.md",
+      "relation": "defines_boundary",
+      "target": "CLI helpers are explicit tools; LLM/searcher owns intent, importance, read priority, write-need, risk, gate, and next-action judgment after evidence",
+      "source": "user-confirmed correction 2026-06-06",
+      "updatedAt": "2026-06-06T07:08:00Z"
+    },
+    {
+      "id": "kg_context_delivery_candidate_only",
+      "kind": "implementation",
+      "layer": "SDD",
+      "path": ".lazy-harness/scripts/context-delivery.ts",
+      "relation": "implements",
+      "target": "candidate-only context retrieval without requiredRead/importance/instructionLevel/confidence judgment",
+      "source": "context-delivery SDD candidate retrieval contract and rewritten helper",
+      "updatedAt": "2026-06-06T07:08:00Z"
     }
   ]
 }

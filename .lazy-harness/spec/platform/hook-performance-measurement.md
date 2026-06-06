@@ -151,7 +151,7 @@ Opt-in orchestrator primary mode:
 LAZY_RESPONSE_COMPLETED_ENGINE=orchestrator .lazy-harness/hooks/lifecycle/on-response-completed.sh
 ```
 
-`orchestrator` runs `lifecycle-check.py` as the primary helper engine after route telemetry. If it succeeds, its `injectJson`/no-output decision becomes the hook result. If it fails or cannot be parsed, the hook falls back to the legacy helper loop.
+`orchestrator` runs `lifecycle-check.py` as the primary helper engine after static timing setup. If it succeeds, its `injectJson`/no-output decision becomes the hook result. If it fails or cannot be parsed, the hook falls back to the legacy helper loop.
 
 Opt-in compare/debug mode:
 
@@ -180,7 +180,7 @@ rm -f $LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 ## Implementation map
 
 - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
-  - Emits timing rows around route telemetry, each lifecycle helper, and total hook runtime.
+  - Emits timing rows around each lifecycle helper and total hook runtime.
   - Applies Phase 1 read-only fast-path only for known read-only payloads, with full-check fallback for unknowns.
   - Supports Phase 3 opt-in `legacy|orchestrator|compare` engine selection; default is legacy.
 - `.lazy-harness/scripts/lifecycle-check.py`
@@ -195,7 +195,7 @@ rm -f $LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
 - `.lazy-harness/bin/lazy`
   - Exposes `lazy hook-timings`, `lazy lifecycle-check`, and `lazy lifecycle-parity`.
 - `.lazy-harness/scripts/self-test.py`
-  - `check_response_completed_auto_route_telemetry` verifies timing rows are emitted without changing telemetry behavior and that the summary CLI works.
+  - `check_response_completed_no_auto_route_telemetry` verifies timing rows are emitted without route/user-text classifier telemetry and that the summary CLI works.
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
   - The same test protects Phase 3 opt-in modes: orchestrator timing, sandboxed compare logging, and no raw body storage.
   - The same test protects user-correction capture: acknowledgement without durable capture emits STOP, while a `.lazy-harness` record write satisfies the gate.

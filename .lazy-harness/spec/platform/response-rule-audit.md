@@ -114,7 +114,7 @@ Retention:
 - payloads without message/session identifiers are not matched to the latest row; this avoids false positives from unrelated fresh digests.
 - source-repo `.gitignore` excludes this runtime journal; downstream hosts already ignore installed `.lazy-harness/` via lazy-init.
 
-## Packet evidence journal contract
+## Search/read-debt journal contract
 
 Path:
 
@@ -127,36 +127,18 @@ Status:
 - non-canonical runtime state,
 - safe to prune,
 - not a source of truth,
-- produced by bounded `message.received` direct-search prompt rows or explicit `lazy context-delivery --journal`, never by heavy model/subagent work.
+- produced by bounded `message.received` static search/read-debt transport,
+- not produced by `context-delivery.ts` candidate retrieval.
 
-Row shape:
+Current row shape is intentionally generic. It may include empty `requiredRead` and fallback search prompts, but the row must not be interpreted as CLI-selected importance or required-read paths.
 
 ```json
 {
   "schemaVersion": "1.0",
   "event": "context-delivery.packet",
-  "timestamp": "2026-06-01T00:00:00Z",
-  "epochSeconds": 1760000000,
-  "messageIdHash": "16-char-hash-or-null",
-  "sessionIdHash": "16-char-hash-or-null",
-  "turnCount": 7,
-  "packetHash": "16-char-hash",
-  "instructionLevel": "self-resolve-before-change",
-  "confidence": 0.76,
-  "requiredReadCount": 2,
-  "optionalReadCount": 1,
-  "candidateMeaningCount": 1,
-  "fallbackSearchCount": 2,
-  "requiredRead": [
-    {
-      "path": "src/features/example-feature/FeaturePanel.tsx",
-      "kind": "source",
-      "confidence": 0.82,
-      "matchedQueryCount": 3
-    }
-  ],
-  "optionalRead": [],
-  "notes": ["contextIndexSource=generated"]
+  "instructionLevel": "harness-first-static",
+  "requiredRead": [],
+  "fallbackSearches": ["grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/"]
 }
 ```
 
@@ -164,12 +146,12 @@ Privacy requirements:
 
 - no raw user message, assistant response, prompt, or transcript,
 - no raw record bullets or raw grep chunks,
-- required/optional read paths, kind, layer, confidence, symbol names, query counts, and short hashes are allowed,
+- hashes/counts/fallback commands are allowed,
 - rows without message/session identifiers are not matched for audit.
 
 ## Audit criteria
 
-The Phase 4 helper is intentionally conservative.
+The helper is intentionally conservative.
 
 It emits output only for strong evidence cases:
 
@@ -181,29 +163,13 @@ It emits output only for strong evidence cases:
    - A surfaced digest entry has `recordCompletion` text.
    - The turn evidence suggests a confirmed rule/correction/contract/regression/source change.
    - There is no same-turn `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}` or knowledge graph capture in recent write tool evidence.
-
-Phase 7 adds one advisory-only case:
-
-3. **Required-read evidence may be missing**
-   - A correlated packet evidence row exists.
-   - The row has `requiredRead` paths and sufficient confidence.
-   - The turn uses a mutation tool.
-   - Recent read/search evidence does not reference every concrete required-read path.
-   - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
+3. **Generic search-debt evidence may be missing**
+   - A correlated static search/read-debt row exists.
+   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`) or an explicit read-only searcher handoff.
+   - Running a deterministic CLI such as `context-delivery` or `relevant-record-query` is not sufficient search evidence by itself.
    - Output starts with `ADVISORY`, never `STOP`.
 
-Phase 7 also adds a search-debt advisory-only case:
-
-4. **Direct search evidence may be missing**
-   - A correlated packet evidence row exists.
-   - The row has no concrete `requiredRead` paths.
-   - The row has `instructionLevel` in self-resolve/delegate-search mode and fallback search evidence.
-   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`) or an explicit read-only searcher handoff. Running a deterministic CLI such as `context-delivery` or `relevant-record-query` is not sufficient search evidence by itself.
-   - Evidence is read from both lifecycle `recent_tool_calls` and same-message/session `.jcode/hooks/tool-events.jsonl` entries.
-   - Output is advisory at `response.completed` for every unsatisfied search-debt turn, regardless of whether the turn mutated, answered, planned, or option-gated.
-   - Output starts with `ADVISORY`, never `STOP`.
-
-The matching packet journal is produced before the turn and consumed by `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`; helpers use strict packet correlation before reading packet evidence. If `message_id` is available, journal rows must match the message hash and, when available, the session hash; session-only matching applies only when message id is absent. The audit helper uses `.jcode/hooks/tool-events.jsonl` as a fallback evidence journal when Jcode omits prior read/search tool calls from the lifecycle payload. The fallback is also strict: same `message_id` is required when available, same-session fallback applies only when message id is absent, and tool-events older than the correlated packet epoch are ignored. This response audit remains the after-completion backstop and dogfood signal.
+Legacy/manual packet rows with concrete `requiredRead` paths may still be audited for backward compatibility, but current framework CLIs must not generate those paths from raw user text.
 
 Everything else stays silent.
 
@@ -243,7 +209,7 @@ exit = 0
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized static harness-first search-debt rows for non-empty user-message turns without user-text semantic classification.
-  - `.lazy-harness/scripts/context-delivery.ts` — writes sanitized packet evidence journal for explicit `--journal` use.
+  - `.lazy-harness/scripts/context-delivery.ts` — explicit candidate retrieval helper; does not write read-debt journals.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events evidence and emits conservative response audit feedback.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
   - `.lazy-harness/scripts/lifecycle-check.py` — runs the same audit helper in shadow/orchestrator lifecycle checks.
@@ -266,11 +232,10 @@ exit = 0
   3. Explicit digest/dogfood paths may append sanitized entry metadata to `$LAZY_RUNTIME_ROOT/state/surfaced-rule-digests.jsonl`.
   4. `response.completed` runs normal helpers and the new response rule audit helper.
   5. Audit helper matches journal row for the message/session and emits only on strong miss evidence.
-  6. Default `message.received` direct-search rows and explicit `lazy context-delivery --journal` may append packet evidence for audit/dogfood collection.
-  7. Packet audit emits advisory-only output when correlated required-read evidence appears ignored before mutation, or whenever correlated search-debt lacks root-bound search evidence by turn completion.
+  6. Default `message.received` direct-search rows append generic search/read-debt packet evidence for audit/backstop behavior.
+  7. Packet audit emits advisory-only output when correlated generic search-debt lacks root-bound search evidence by turn completion; legacy/manual concrete requiredRead rows remain backward-compatible but current framework CLIs must not generate them from raw user text.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
-  - `.lazy-harness/scripts/self-test.py#check_context_delivery_packet_journal_phase7`
   - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`
   - `.lazy-harness/scripts/lifecycle-parity-runner.py`
 - Cross-layer links:

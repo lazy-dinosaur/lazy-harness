@@ -238,72 +238,7 @@ should_skip_helper() {
   printf '%s\n' "$FASTPATH_SKIP_HELPERS" | grep -Fx -- "$CANDIDATE" >/dev/null 2>&1
 }
 
-# ADR 0037 telemetry: collect one append-only route sample per response turn
-# when Jcode provides last_user_message. This is silent and best-effort; it does
-# not replace any gate or validation helper below.
-if command -v bun >/dev/null 2>&1 && [ -f .lazy-harness/scripts/task-router.ts ]; then
-  ROUTE_START_NS=$(now_ns)
-  ROUTE_EXIT=0
-  ROUTE_OUTPUT=false
-  ROUTE_INPUT=$(printf '%s' "$PAYLOAD" | python3 -c '
-import json, sys
-try:
-    payload = json.load(sys.stdin)
-except Exception:
-    raise SystemExit(0)
-last = ""
-for key in ("last_user_message", "lastUserMessage", "last_user_input", "lastUserInput", "user_message", "userMessage"):
-    value = payload.get(key)
-    if isinstance(value, str) and value.strip():
-        last = value.strip()
-        break
-mid = str(payload.get("message_id") or "")
-if last:
-    print(json.dumps({"message": last, "message_id": mid}, ensure_ascii=False))
-' 2>/dev/null || true)
-  if [ -n "$ROUTE_INPUT" ]; then
- 	ROUTE_MESSAGE=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message", ""))' 2>/dev/null || true)
-	ROUTE_MESSAGE_ID=$(printf '%s' "$ROUTE_INPUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("message_id", ""))' 2>/dev/null || true)
-		if [ -n "$ROUTE_MESSAGE" ]; then
-		  ROUTE_CHANGED_FILES=$( (git diff --name-only; git diff --cached --name-only) 2>/dev/null | awk 'NF' | sort -u | head -200 | paste -sd, - )
-		  if [ -n "$ROUTE_CHANGED_FILES" ]; then
-		    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" --changed-files "$ROUTE_CHANGED_FILES" >/dev/null 2>&1 || ROUTE_EXIT=$?
-		  else
-		    LAZY_HOST_ROOT="$ROOT_CANDIDATE" bun .lazy-harness/scripts/task-router.ts --message "$ROUTE_MESSAGE" --format=json --log --message-id "$ROUTE_MESSAGE_ID" >/dev/null 2>&1 || ROUTE_EXIT=$?
-		  fi
-		fi
-  else
-    # Non-canonical diagnostics only. Do not store raw payload values or messages.
-    printf '%s' "$PAYLOAD" | LAZY_HOST_ROOT="$ROOT_CANDIDATE" python3 -c '
-import hashlib, json, os, sys
-from datetime import datetime, timezone
-try:
-    payload = json.load(sys.stdin)
-except Exception:
-    payload = {}
-keys = sorted(payload.keys()) if isinstance(payload, dict) else []
-aliases = ["last_user_message", "lastUserMessage", "last_user_input", "lastUserInput", "user_message", "userMessage"]
-mid = str(payload.get("message_id") or "") if isinstance(payload, dict) else ""
-entry = {
-    "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-    "status": "no-route-message",
-    "payloadBytes": len(json.dumps(payload, ensure_ascii=False)) if isinstance(payload, dict) else 0,
-    "keys": keys,
-    "messageIdHash": hashlib.sha256(mid.encode()).hexdigest()[:16] if mid else None,
-    "messageAliasesPresent": [k for k in aliases if isinstance(payload.get(k), str) and payload.get(k).strip()] if isinstance(payload, dict) else [],
-}
-root = os.environ.get("LAZY_HOST_ROOT") or os.getcwd()
-shared_root = os.environ.get("LAZY_SHARED_ROOT") or os.path.join(root, ".lazy-harness", ".shared")
-path = os.path.join(shared_root, "logs", "route-telemetry-debug.jsonl")
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, "a", encoding="utf-8") as fh:
-    fh.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
-	' >/dev/null 2>&1 || true
-	  fi
-  ROUTE_END_NS=$(now_ns)
-  log_timing "route-telemetry" "$ROUTE_START_NS" "$ROUTE_END_NS" "$ROUTE_EXIT" "$ROUTE_OUTPUT"
-fi
-
+# CLI helpers are tools for explicit LLM/searcher use only; response.completed must not run user-text semantic classifiers.
 if [ "$LIFECYCLE_ENGINE" = "orchestrator" ] && [ -f .lazy-harness/scripts/lifecycle-check.py ]; then
   run_orchestrator_check "live"
   if [ "$ORCHESTRATOR_EXIT" -eq 0 ]; then

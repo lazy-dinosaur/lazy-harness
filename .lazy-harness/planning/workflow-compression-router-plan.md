@@ -1,8 +1,10 @@
 # Workflow Compression Plan — Read-only Router, Not Safety Reduction
 
 Date: 2026-05-19
-Status: planned
+Status: superseded
 Source: user-confirmed planning discussion + Opus/Oracle cross-validation
+
+> Superseded on 2026-06-06 by `.lazy-harness/ssot/cli-tool-boundary.md`. The old `lazy route`/task-router design remains below as historical planning context only. Do not implement or run it without a new LLM-first ADR/SDD.
 
 ## Summary
 

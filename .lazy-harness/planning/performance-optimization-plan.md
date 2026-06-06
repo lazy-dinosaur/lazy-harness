@@ -15,7 +15,7 @@ This is a planning record only. Do not start this implementation until the curre
 1. `on-response-completed.sh` runs many helper checks sequentially on every response.
 2. Each helper reparses the response payload JSON.
 3. Some helpers repeatedly run `git log`, `git diff`, `grep`, and file scans.
-4. Route telemetry can pay a Bun cold-start cost through `task-router.ts` on every response.
+4. Superseded: old route telemetry paid a Bun cold-start cost through task-router on every response; task-router has been removed.
 5. JSONL registry/graph access is mostly grep/full-scan based.
 
 ## Proposed priority order
@@ -41,8 +41,10 @@ This is a planning record only. Do not start this implementation until the curre
 
 ### P3 — avoid Bun cold start in response hook
 
-- Run route telemetry async/background or sample it.
-- Keep gate-critical checks in Python/bash or a long-lived daemon if needed.
+Status: resolved by removal of automatic task-router route telemetry.
+
+- Keep gate-critical checks in Python/bash or explicit LLM-invoked tools.
+- Do not reintroduce static route/user-text classifiers as hook hot paths.
 
 ### P4 — fingerprint cache
 
@@ -368,7 +370,7 @@ Phase 3 work is therefore explicitly not the next slice.
 Potential files to inspect next:
 
 - `.lazy-harness/hooks/on-response-completed.sh`
-- `.lazy-harness/scripts/task-router.ts`
+- historical task-router script removed by CLI tool boundary cleanup
 - `.lazy-harness/scripts/*placement*`
 - `.lazy-harness/scripts/*regression*`
 - `$LAZY_SHARED_ROOT/logs/route-telemetry-debug.jsonl`

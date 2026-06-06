@@ -172,7 +172,7 @@ host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝�
 
 - 능동 검색하면 hook 은 silent
 - Jcode edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. 반복 속도를 위해 개발 중에는 agent 가 본 규칙을 능동 준수하고, 최종 일관성은 git pre-commit/pre-push 의 `.lazy-harness/bin/lazy test` 가 blocking 으로 검증한다 (ADR 0016).
-- `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. 판단이 복잡하면 `lazy route --message "..." --format=md --log` 로 workflow route 를 받을 수 있고, 평시 route telemetry 는 `response.completed` 가 자동 누적한다. Router 는 advisory 이며 record-first/default-unknown/option-gate/queue-close 를 약화하지 않는다 (ADR 0037).
+- `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. CLI 는 LLM/searcher 가 필요할 때 호출하는 tool 일 뿐이며, lifecycle hook 이 user text 를 정적으로 분류해 intent/risk/importance/required-read/record-write/next-action 을 정하면 안 된다. 판단은 record/source/test 를 읽은 LLM/searcher 가 한다 (SSOT cli-tool-boundary, ADR 0041).
 - record 가 빈약하다? 누적해라. 1 주 동안 어느 layer 도 안 자라면 framework 활용 실패 신호
 - 검색 알고리즘 직접 구현 금지 (ADR 0024 §2). semantic 검색이 필요하면 SearchProvider (`search-provider.ts`) 통해 위임
 

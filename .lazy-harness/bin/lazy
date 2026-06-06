@@ -66,22 +66,16 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
-  route --message "..." [--format=json|md]
-                                Read-only workflow compression route (ADR 0037)
   context --message "..." [--format=json|md]
                                 Explicit helper: query compact relevant-record digest; not default message.received authority
   context-index [--write] [--format=json|md]
                                 Build deterministic generated Context Delivery index cache
-  context-delivery --message "..." [--format=json|md] [--handoff-prompt] [--journal]
-                                Produce Context Delivery Packet, optional search handoff prompt, or packet evidence journal
+  context-delivery --message "..." [--format=json|md] [--handoff-prompt]
+                                Explicit candidate retrieval helper; LLM decides importance/actions
   record-decision [--message "..."] [--format=json|md]
                                 Produce post-turn Record Decision Packet from explicit evidence flags
   context-dogfood [--host DIR] [--case LABEL::MESSAGE]
                                 Collect sanitized Context Broker dogfood observations from hosts
-  route-summary [--format=json|md]
-                                Summarize route telemetry for UX/FP review
-  route-audit [--commits=12] [--format=json|md]
-                                Reclassify recent commits with route evidence
   record-audit [--format=json|md] [--source=DIR]
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
@@ -176,13 +170,6 @@ case "$cmd" in
     fi
     exec bun "$SCRIPTS/implementation-map-audit.ts" "$@"
     ;;
-  route)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy route: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/task-router.ts" "$@"
-    ;;
   context)
     if ! command -v bun >/dev/null 2>&1; then
       echo "lazy context: bun not found on PATH." >&2
@@ -217,20 +204,6 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/context-broker-dogfood.ts" --root "$HOST_ROOT" "$@"
-    ;;
-  route-summary)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy route-summary: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/task-router.ts" --summary "$@"
-    ;;
-  route-audit)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy route-audit: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/task-router.ts" --audit "$@"
     ;;
   record-audit)
     if ! command -v bun >/dev/null 2>&1; then

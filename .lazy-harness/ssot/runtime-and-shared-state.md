@@ -33,7 +33,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 | Runtime record-decision shadow | `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl` | current session |
 | Runtime gate cache | `$LAZY_RUNTIME_ROOT/state/open-gates.json` | current session |
 | Runtime timing log | `$LAZY_RUNTIME_ROOT/logs/hook-timings.jsonl` | current session |
-| Shared route telemetry | `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl` | all sessions/worktrees |
+| Historical route telemetry | `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl` | deprecated old task-router experiment; current hooks must not append |
 | Durable knowledge | `.lazy-harness/knowledge/*.jsonl` | host institutional memory |
 
 ## Implementation map

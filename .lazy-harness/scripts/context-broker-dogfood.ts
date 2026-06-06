@@ -2,15 +2,14 @@
 /**
  * context-broker-dogfood.ts — explicit dogfood collector for Native Context Broker.
  *
- * Runs Context Delivery + Record Decision generator against one or more host roots
- * and writes sanitized JSONL observations. This is not a hook and does not mutate
- * canonical records. Context Delivery --journal may append host runtime state by design.
+ * Runs explicit Context Delivery candidate retrieval + Record Decision generator
+ * against one or more host roots and writes sanitized JSONL observations. This is
+ * not a hook and does not mutate canonical records.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { runtimeStatePath } from './runtime-paths.ts'
 
 type Format = 'json' | 'md'
 
@@ -45,18 +44,10 @@ interface DogfoodRow {
   messageHash: string
   contextDelivery: {
     ok: boolean
-    instructionLevel?: string
-    confidence?: number
-    requiredReadCount?: number
-    optionalReadCount?: number
-    candidateMeaningCount?: number
+    mode?: string
+    candidateHitCount?: number
     fallbackSearchCount?: number
-    topRequiredRead?: Array<{ path: string; kind: string; confidence: number }>
-  }
-  packetJournal: {
-    checked: boolean
-    hasMessageHash?: boolean
-    rawMessagePresent?: boolean
+    topCandidateHits?: Array<{ path: string; kind: string }>
   }
   recordDecision: {
     ok: boolean
@@ -169,7 +160,17 @@ function hash(value: string): string {
 
 function run(host: string, args: string[]): CommandResult {
   const lazy = path.join(host, '.lazy-harness', 'bin', 'lazy')
-  const result = spawnSync(lazy, args, { cwd: host, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+  const env = { ...process.env, LAZY_HOST_ROOT: host }
+  delete env.LAZY_RUNTIME_ROOT
+  delete env.LAZY_SHARED_ROOT
+  delete env.GIT_DIR
+  delete env.GIT_WORK_TREE
+  delete env.GIT_INDEX_FILE
+  delete env.GIT_COMMON_DIR
+  delete env.GIT_OBJECT_DIRECTORY
+  delete env.GIT_ALTERNATE_OBJECT_DIRECTORIES
+  delete env.GIT_PREFIX
+  const result = spawnSync(lazy, args, { cwd: host, env, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
   return {
     status: result.status,
     stdout: result.stdout || '',
@@ -188,32 +189,16 @@ function readMarker(host: string): string | null {
   }
 }
 
-function latestPacketJournal(host: string, sessionId = ''): Record<string, unknown> | null {
-  const journal = runtimeStatePath('context-delivery-packets.jsonl', host, sessionId)
-  if (!existsSync(journal)) return null
-  try {
-    const lines = readFileSync(journal, 'utf8').split(/\r?\n/).filter((line) => line.trim())
-    if (!lines.length) return null
-    return JSON.parse(lines[lines.length - 1])
-  } catch {
-    return null
-  }
-}
-
 function sanitizeContextPacket(packet: any): DogfoodRow['contextDelivery'] {
-  const required = Array.isArray(packet?.requiredRead) ? packet.requiredRead : []
+  const hits = Array.isArray(packet?.candidateHits) ? packet.candidateHits : []
   return {
     ok: true,
-    instructionLevel: String(packet?.instructionLevel || ''),
-    confidence: typeof packet?.confidence === 'number' ? packet.confidence : undefined,
-    requiredReadCount: required.length,
-    optionalReadCount: Array.isArray(packet?.optionalRead) ? packet.optionalRead.length : 0,
-    candidateMeaningCount: Array.isArray(packet?.candidateMeanings) ? packet.candidateMeanings.length : 0,
+    mode: String(packet?.mode || ''),
+    candidateHitCount: hits.length,
     fallbackSearchCount: Array.isArray(packet?.fallbackSearches) ? packet.fallbackSearches.length : 0,
-    topRequiredRead: required.slice(0, 5).map((item: any) => ({
+    topCandidateHits: hits.slice(0, 5).map((item: any) => ({
       path: String(item?.path || ''),
       kind: String(item?.kind || ''),
-      confidence: typeof item?.confidence === 'number' ? item.confidence : 0,
     })).filter((item: any) => item.path),
   }
 }
@@ -233,8 +218,6 @@ function sanitizeRecordDecision(packet: any): DogfoodRow['recordDecision'] {
 function collectCase(host: string, spec: CaseSpec): DogfoodRow {
   const now = new Date().toISOString()
   const messageHash = hash(spec.message)
-  const messageId = `dogfood-${spec.label}-${messageHash}`
-  const sessionId = `dogfood-${hash(host)}`
   const row: DogfoodRow = {
     schemaVersion: '1.0',
     event: 'context-broker.dogfood',
@@ -244,12 +227,11 @@ function collectCase(host: string, spec: CaseSpec): DogfoodRow {
     caseLabel: spec.label,
     messageHash,
     contextDelivery: { ok: false },
-    packetJournal: { checked: false },
     recordDecision: { ok: false },
     errors: [],
   }
 
-  const context = run(host, ['context-delivery', '--message', spec.message, '--journal', '--message-id', messageId, '--session-id', sessionId, '--format=json'])
+  const context = run(host, ['context-delivery', '--message', spec.message, '--format=json'])
   if (context.status !== 0) {
     row.errors.push(`context-delivery failed status=${context.status}: ${compact(context.stderr || context.stdout)}`)
   } else {
@@ -261,12 +243,6 @@ function collectCase(host: string, spec: CaseSpec): DogfoodRow {
     }
   }
 
-  const journalRow = latestPacketJournal(host, sessionId)
-  row.packetJournal.checked = true
-  if (journalRow) {
-    row.packetJournal.hasMessageHash = Boolean((journalRow as any).messageIdHash)
-    row.packetJournal.rawMessagePresent = JSON.stringify(journalRow).includes(spec.message)
-  }
 
   const decision = run(host, ['record-decision', '--message', spec.label, '--validation-only', '--validation', `context dogfood collection ${spec.label}`, '--format=json'])
   if (decision.status !== 0) {
@@ -295,10 +271,10 @@ function writeRows(outPath: string, rows: DogfoodRow[], append: boolean): void {
 }
 
 function renderMarkdown(rows: DogfoodRow[], outPath: string, dryRun: boolean): string {
-  const lines = ['# Context Broker Dogfood', '', `- Rows: ${rows.length}`, `- Output: ${dryRun ? '(dry-run)' : outPath}`, '', '| Host | Case | Context | Required | Decision | Journal raw? | Errors |', '|---|---|---:|---:|---|---|---:|']
+  const lines = ['# Context Broker Dogfood', '', `- Rows: ${rows.length}`, `- Output: ${dryRun ? '(dry-run)' : outPath}`, '', '| Host | Case | Context | Candidates | Decision | Errors |', '|---|---|---:|---:|---|---:|']
   for (const row of rows) {
     const hostName = path.basename(row.host)
-    lines.push(`| ${hostName} | ${row.caseLabel} | ${row.contextDelivery.ok ? 'ok' : 'fail'} | ${row.contextDelivery.requiredReadCount ?? 0} | ${row.recordDecision.disposition || 'fail'} | ${row.packetJournal.rawMessagePresent ? 'yes' : 'no'} | ${row.errors.length} |`)
+    lines.push(`| ${hostName} | ${row.caseLabel} | ${row.contextDelivery.ok ? 'ok' : 'fail'} | ${row.contextDelivery.candidateHitCount ?? 0} | ${row.recordDecision.disposition || 'fail'} | ${row.errors.length} |`)
   }
   lines.push('')
   return lines.join('\n')
@@ -319,8 +295,7 @@ function main(): void {
         caseLabel: 'host-missing-lazy-cli',
         messageHash: hash(host),
         contextDelivery: { ok: false },
-        packetJournal: { checked: false },
-        recordDecision: { ok: false },
+            recordDecision: { ok: false },
         errors: [`missing lazy CLI: ${lazy}`],
       })
       continue

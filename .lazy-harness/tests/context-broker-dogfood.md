@@ -18,7 +18,7 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
   - changing dogfood collection before response.completed integration
 - Must:
   - verify collector rows are sanitized and do not contain raw case messages
-  - verify collector uses host-local `context-delivery` and `record-decision` CLIs
+  - verify collector uses host-local `context-delivery` candidate retrieval and `record-decision` CLIs
   - verify collection-only decisions are `no-record-needed`
   - verify markdown dry-run output works without writing collector JSONL
   - verify the collector remains explicit aggregate dogfood rather than automatic response.completed journaling
@@ -35,21 +35,17 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 
 2. **Host-local context delivery**
    - Given fixture host records and source files.
-   - Expected: collector invokes host-local `lazy context-delivery --journal` and reports `contextDelivery.ok=true`.
+   - Expected: collector invokes host-local `lazy context-delivery --format=json` with `LAZY_HOST_ROOT` fixed to the target host, clears inherited lazy/Git runtime env, and reports `contextDelivery.ok=true` plus candidate-hit counts.
 
 3. **Collection-only record decision**
    - Given a dogfood collection turn.
    - Expected: record decision disposition is `no-record-needed`, because the collector itself is validation/data collection, not blind durable record creation; later agent analysis can still promote confirmed/grounded findings into canonical records.
 
-4. **Packet journal privacy check**
-   - Given `context-delivery --journal` was called.
-   - Expected: latest packet journal row has message hash and does not contain raw message.
-
-5. **Markdown dry-run**
+4. **Markdown dry-run**
    - Given `--dry-run --format=md`.
    - Expected: markdown summary renders and collector output JSONL is not required.
 
-6. **Automatic vs explicit evidence streams**
+5. **Automatic vs explicit evidence streams**
    - Given normal development may append response.completed Record Decision shadow rows.
    - Expected: aggregate host dogfood still requires `lazy context-dogfood`; the collector output path is separate from `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl`.
 
@@ -57,8 +53,8 @@ Related SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
 
 - `.lazy-harness/scripts/self-test.py#check_context_broker_dogfood_collector`
   - creates a fixture host with `.lazy-harness/bin/lazy`, `runtime-paths.ts`, `context-delivery.ts`, `context-index.ts`, and `record-decision-broker.ts`,
-  - runs the collector against that host,
-  - validates JSON/JSONL privacy and `no-record-needed`,
+  - runs the collector against that host while guarding against inherited source-root `LAZY_HOST_ROOT`,
+  - validates JSON/JSONL privacy, candidate-hit summaries, and `no-record-needed`,
   - validates markdown dry-run output.
   - validates explicit aggregate collection stays separate from runtime shadow journal semantics through the SDD contract.
   - validates the Operator handoff phrase and “user does not hand-collect evidence” contract remain in the SDD.

@@ -21,13 +21,11 @@ or validation work is enforced at git pre-commit/pre-push via framework-owned
 checks. This keeps normal coding iterations fast and moves expensive or noisy
 validation to an explicit commit boundary.
 
-When a request has many possible workflow obligations, agents may run
-`.lazy-harness/bin/lazy route --message "..." --format=md --log` as an advisory
-front door. Normal Jcode sessions also append route telemetry automatically from
-`response.completed` when `last_user_message` is present. Telemetry is
-non-canonical and exists only for later UX/false-positive review; it does not
-replace record-first search, option gates, queue close, response audit, or
-commit-time validation (ADR 0037).
+CLI helpers are explicit tools only. Lifecycle hooks must not run static
+user-text route classifiers, route telemetry, or context-delivery backends to
+pre-decide intent, importance, required reads, gates, record-write need, risk,
+or next action. Those judgments stay with the LLM/searcher after root-bound
+record/source/test evidence (SSOT cli-tool-boundary; ADR 0041).
 
 ## `response.completed` helper chain
 
@@ -61,7 +59,6 @@ or run helpers with dry-run semantics when available. This prevents response lif
 ## Status
 
 - Current operational gate: `.lazy-harness/bin/lazy test` and `.lazy-harness/bin/lazy doctor --profile smoke`.
-- Current advisory workflow helper: `.lazy-harness/bin/lazy route --message "..." --format=md --log`.
-- Route telemetry review: `.lazy-harness/bin/lazy route-summary --format=md`.
+- Current boundary: CLI helpers are explicit tools only; no automatic route telemetry.
 - Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.

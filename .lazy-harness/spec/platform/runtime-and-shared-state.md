@@ -38,7 +38,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 Parallel agents need two properties at the same time:
 
 1. isolated runtime state so one session/worktree does not poison another session's hook packets, open-gate cache, timing log, or last-session snapshot;
-2. shared durable visibility so records, candidates, route telemetry, and confirmed knowledge from another session are discoverable.
+2. shared durable visibility so records, candidates, and confirmed knowledge from another session are discoverable.
 
 The failure mode observed in dogfooding was a worktree whose `.lazy-harness` was a symlink to the primary checkout. Runtime files such as `state/context-delivery-packets.jsonl`, `state/record-decision-packets.jsonl`, `questions/open.xml`, and `knowledge/*.jsonl` therefore appeared shared. Product git indexes were still worktree-local, but harness runtime/evidence streams were not isolated.
 
@@ -82,7 +82,7 @@ These remain host-visible across sessions/worktrees:
 
 - human-facing records under `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans}`
 - knowledge JSONL under `.lazy-harness/knowledge/`
-- shared route telemetry under `LAZY_SHARED_ROOT/logs/route-decisions.jsonl`
+- historical route telemetry files may exist from the removed task-router experiment, but current hooks must not append them
 - future shared question/event queues that carry explicit scope metadata
 
 Shared writes must use lock + stable-id dedupe + conflict-visible recording.
@@ -113,7 +113,6 @@ Only `deduped-identical` may skip writing. Meaningful conflicts must remain visi
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — reads runtime packet journal.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` and `.lazy-harness/scripts/gate-state.ts` — use runtime `open-gates.json`.
   - `.lazy-harness/hooks/pre-commit-guard.sh` and `.lazy-harness/hooks/pre-push.sh` — use worktree-local git-action lock.
-  - `.lazy-harness/scripts/task-router.ts` — writes route telemetry to shared event bus and summarizes legacy + shared rows.
   - `.lazy-harness/scripts/lazy-sync.ts`, `.lazy-harness/scripts/document-resource-ingestion.ts`, `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — use stable-id append helpers for knowledge JSONL writes.
 - Key symbols:
   - `LAZY_RUNTIME_ROOT`

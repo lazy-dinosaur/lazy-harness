@@ -1,82 +1,52 @@
 #!/usr/bin/env bun
 /**
- * context-delivery.ts — dual-mode retrieval to Context Delivery Packet.
+ * context-delivery.ts — explicit candidate retrieval helper.
  *
- * Phase 4 of Native Context Broker. Produces packet-shaped required-read
- * context from a generated context index when available, or source-scan fallback
- * via context-index.ts when the cache is missing/stale.
+ * CLI boundary: this tool lists deterministic candidate hits from record-authored
+ * fields and generated indexes. It does not decide intent, importance, risk,
+ * required reads, gates, record-write need, or next actions. The LLM/searcher
+ * owns those judgments after reading root-bound evidence.
  */
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import * as path from 'node:path'
-import { buildContextIndex, type ContextIndex, type RecordEntry } from './context-index.ts'
-import { runtimeStatePath } from './runtime-paths.ts'
+import { buildContextIndex, type ContextIndex, type RecordEntry, type FeatureEntry } from './context-index.ts'
 
-type InstructionLevel = 'digest-only' | 'harness-first-static' | 'self-resolve-before-answer' | 'self-resolve-before-change' | 'delegate-search'
-type QuerySource = 'user-phrase' | 'llm-expansion' | 'deterministic-expansion' | 'record-link' | 'profile-link' | 'fallback'
-type ReadKind = 'record' | 'project-profile' | 'graph-edge' | 'source-file' | 'symbol' | 'test' | 'plan' | 'schema' | 'generated-index'
 type Format = 'json' | 'md'
+type QuerySource = 'user-phrase' | 'llm-supplied' | 'record-link' | 'fallback'
+type CandidateKind = 'record' | 'project-profile' | 'graph-edge' | 'source-file' | 'test' | 'schema' | 'generated-index'
 
 interface Args {
   root: string
-  message: string
+  query: string
   format: Format
   limit: number
   indexPath: string
   handoffPrompt: boolean
-  journal: boolean
-  journalPath: string
-  messageId: string
-  sessionId: string
-  turnCount: string
 }
 
 interface QueryItem {
   query: string
   source: QuerySource
-  purpose: string
-  targets?: Array<'records' | 'project-profile' | 'graph' | 'source' | 'tests' | 'symbols'>
 }
 
-interface CandidateMeaning {
-  label: string
-  confidence: number
-  why: string
-  language?: string
-}
-
-interface ReadItem {
+interface CandidateHit {
   path: string
-  kind: ReadKind
-  reason: string
-  confidence: number
-  whyMatched: string
+  kind: CandidateKind
   matchedQueries: string[]
+  matchedFields: string[]
   layer?: string
+  title?: string
   symbols?: string[]
 }
 
-interface ContextDeliveryPacket {
-  schemaVersion: '1.0'
+interface ContextCandidatePacket {
+  schemaVersion: '2.0'
   generatedAt: string
-  instructionLevel: InstructionLevel
-  resolvedPhrase?: string
-  candidateMeanings: CandidateMeaning[]
+  mode: 'candidate-retrieval'
   queries: QueryItem[]
-  requiredRead: ReadItem[]
-  optionalRead: ReadItem[]
-  confidence: number
+  candidateHits: CandidateHit[]
   fallbackSearches: string[]
-  instruction: string
-  notes?: string[]
-}
-
-interface ScoredRecord {
-  record: RecordEntry
-  score: number
-  matchedQueries: string[]
-  why: string[]
-  matchedFields: Set<string>
+  notes: string[]
 }
 
 function usage(): never {
@@ -84,23 +54,17 @@ function usage(): never {
 
 Options:
   --root DIR              Host root (default: LAZY_HOST_ROOT or cwd)
-  --message TEXT          User/coordinator request to resolve
+  --message TEXT          Literal user/LLM query to match against record-authored fields
+  --query TEXT            Alias for --message
   --format json|md        Output format (default json)
-  --limit N               Max read items per bucket (default 8)
+  --limit N               Max candidate hits to return in source order (default 20)
   --index PATH            Optional generated context-index path
-  --handoff-prompt        Render optional searcher subagent handoff prompt
-  --journal               Append sanitized packet evidence journal for response audit
-  --journal-path PATH     Override packet evidence journal path
-  --message-id ID         Optional message id to hash into journal
-  --session-id ID         Optional session id to hash into journal
-  --turn-count N          Optional turn count metadata for journal
+  --handoff-prompt        Render a searcher handoff prompt that returns candidate hits only
   --help                  Show this help
 
 Examples:
-  bun .lazy-harness/scripts/context-delivery.ts --message "feature surface 고쳐줘" --format md
-  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --format=json
-  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --handoff-prompt
-  .lazy-harness/bin/lazy context-delivery --message="feature surface 고쳐줘" --journal --message-id=m1
+  bun .lazy-harness/scripts/context-delivery.ts --message "feature surface" --format md
+  .lazy-harness/bin/lazy context-delivery --query="기능패널" --format=json
   `)
   process.exit(2)
 }
@@ -125,23 +89,20 @@ function parseArgs(argv: string[]): Args {
   const root = process.env.LAZY_HOST_ROOT || process.cwd()
   const args: Args = {
     root,
-    message: '',
+    query: '',
     format: 'json',
-    limit: 8,
+    limit: 20,
     indexPath: '',
     handoffPrompt: false,
-    journal: false,
-    journalPath: '',
-    messageId: process.env.LAZY_MESSAGE_ID || process.env.JCODE_MESSAGE_ID || '',
-    sessionId: process.env.LAZY_SESSION_ID || process.env.JCODE_SESSION_ID || '',
-    turnCount: process.env.LAZY_TURN_COUNT || '',
   }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     let parsed = valueFor(argv, i, '--root')
     if (parsed.value !== null) { args.root = parsed.value; i += parsed.consumed; continue }
     parsed = valueFor(argv, i, '--message')
-    if (parsed.value !== null) { args.message = parsed.value; i += parsed.consumed; continue }
+    if (parsed.value !== null) { args.query = parsed.value; i += parsed.consumed; continue }
+    parsed = valueFor(argv, i, '--query')
+    if (parsed.value !== null) { args.query = parsed.value; i += parsed.consumed; continue }
     parsed = valueFor(argv, i, '--format')
     if (parsed.value !== null) {
       if (parsed.value !== 'json' && parsed.value !== 'md' && parsed.value !== 'markdown') usage()
@@ -150,490 +111,246 @@ function parseArgs(argv: string[]): Args {
       continue
     }
     parsed = valueFor(argv, i, '--limit')
-    if (parsed.value !== null) { args.limit = Math.max(1, Number(parsed.value) || 8); i += parsed.consumed; continue }
+    if (parsed.value !== null) {
+      const n = Number(parsed.value)
+      if (!Number.isFinite(n) || n < 1) usage()
+      args.limit = Math.floor(n)
+      i += parsed.consumed
+      continue
+    }
     parsed = valueFor(argv, i, '--index')
     if (parsed.value !== null) { args.indexPath = parsed.value; i += parsed.consumed; continue }
-    if (arg === '--handoff-prompt') { args.handoffPrompt = true; continue }
-    if (arg === '--journal') { args.journal = true; continue }
-    parsed = valueFor(argv, i, '--journal-path')
-    if (parsed.value !== null) { args.journalPath = parsed.value; i += parsed.consumed; continue }
-    parsed = valueFor(argv, i, '--message-id')
-    if (parsed.value !== null) { args.messageId = parsed.value; i += parsed.consumed; continue }
-    parsed = valueFor(argv, i, '--session-id')
-    if (parsed.value !== null) { args.sessionId = parsed.value; i += parsed.consumed; continue }
-    parsed = valueFor(argv, i, '--turn-count')
-    if (parsed.value !== null) { args.turnCount = parsed.value; i += parsed.consumed; continue }
-    if (arg === '--help' || arg === '-h') usage()
+    if (arg === '--handoff-prompt') args.handoffPrompt = true
+    else if (arg === '--journal') {
+      console.error('journal mode was removed: CLI tools may return candidate evidence, but must not create required-read debt.')
+      process.exit(2)
+    } else if (arg === '--help' || arg === '-h') usage()
     else usage()
   }
-  if (!args.message.trim()) usage()
+  if (!args.query.trim()) usage()
   args.root = path.resolve(args.root)
-  args.indexPath = args.indexPath ? path.resolve(args.indexPath) : path.join(args.root, '.lazy-harness', 'generated', 'context-index.json')
-  args.journalPath = args.journalPath ? path.resolve(args.journalPath) : runtimeStatePath('context-delivery-packets.jsonl', args.root, args.sessionId)
+  if (!args.indexPath) args.indexPath = path.join(args.root, '.lazy-harness', 'generated', 'context-index.json')
+  else args.indexPath = path.resolve(args.indexPath)
   return args
 }
 
-function clamp(value: number): number {
-  return Math.max(0, Math.min(1, Number(value.toFixed(2))))
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-function unique(values: Array<string | undefined | null>): string[] {
-  return Array.from(new Set(values.map((v) => (v || '').trim()).filter(Boolean)))
+function queryTerms(query: string): string[] {
+  const full = query.trim()
+  const parts = full.split(/[\s,|/]+/).map((v) => v.trim()).filter((v) => v.length >= 2)
+  return Array.from(new Set([full, ...parts].filter(Boolean)))
 }
 
-function stableHash(value: string): string | null {
-  const text = String(value || '').trim()
-  if (!text) return null
-  return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16)
+function quoteForRg(query: string): string {
+  return query.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
-function lower(value: string): string {
-  return value.toLocaleLowerCase()
-}
-
-function tokenize(text: string): string[] {
-  const ascii = text.match(/[A-Za-z][A-Za-z0-9_.$/-]*/g) || []
-  const hangul = text.match(/[가-힣]{2,}/g) || []
-  return unique([...ascii, ...hangul]).filter((token) => token.length >= 2)
-}
-
-function hasHangul(text: string): boolean {
-  return /[가-힣]/.test(text)
-}
-
-function isChangeIntent(text: string): boolean {
-  return /(고쳐|수정|변경|만들|구현|추가|삭제|디버그|fix|change|update|modify|build|implement|add|delete|debug|refactor)/i.test(text)
-}
-
-function isAmbiguousSurface(text: string): boolean {
-  return hasHangul(text) || /(sheet|table|page|screen|surface|component|flow|ui)/i.test(text)
-}
-
-function isFrameworkContextIntent(text: string): boolean {
-  return /(lazy-harness|context delivery|context broker|native context|record query|rule digest|project profile|guidance ladder|framework|broker|retrieval|packet|generated index)/i.test(text)
-}
-
-function expandQueries(message: string): QueryItem[] {
-  const tokens = tokenize(message)
-  const out: QueryItem[] = [
-    { query: message.trim(), source: 'user-phrase', purpose: 'Original user request', targets: ['records', 'project-profile', 'source', 'tests'] },
+function fieldsForRecord(record: RecordEntry): Array<[string, string]> {
+  const hints = record.implementationHints
+  const rows: Array<[string, string]> = [
+    ['recordPath', record.recordPath],
+    ['title', record.title],
+    ['layer', record.layer],
+    ['status', record.status],
+    ...record.aliases.map((v) => ['alias', v] as [string, string]),
+    ...record.surfaceTerms.map((v) => ['surfaceTerm', v] as [string, string]),
+    ...record.digest.relatedRecords.map((v) => ['relatedRecord', v] as [string, string]),
+    ...hints.routeHints.map((v) => ['routeHint', v] as [string, string]),
+    ...hints.componentHints.map((v) => ['componentHint', v] as [string, string]),
+    ...hints.fileHints.map((v) => ['fileHint', v] as [string, string]),
+    ...hints.symbolHints.map((v) => ['symbolHint', v] as [string, string]),
+    ...hints.testHints.map((v) => ['testHint', v] as [string, string]),
   ]
-  const tokenQuery = tokens.filter((token) => !/^(고쳐|수정|변경|fix|change|update|please)$/i.test(token)).join(' ')
-  if (tokenQuery && tokenQuery !== message.trim()) {
-    out.push({ query: tokenQuery, source: 'deterministic-expansion', purpose: 'Tokenized request terms', targets: ['records', 'source', 'tests'] })
-  }
-  return dedupeQueries(out)
+  return rows
 }
 
-function dedupeQueries(queries: QueryItem[]): QueryItem[] {
-  const seen = new Set<string>()
-  const out: QueryItem[] = []
-  for (const query of queries) {
-    const key = `${query.source}:${query.query}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(query)
-  }
-  return out
-}
-
-function queryTerms(queries: QueryItem[]): string[] {
-  const terms: string[] = []
-  for (const query of queries) {
-    terms.push(query.query)
-    terms.push(...tokenize(query.query))
-  }
-  return unique(terms).sort((a, b) => b.length - a.length || a.localeCompare(b))
-}
-
-function includesTerm(haystack: string, term: string): boolean {
-  if (!term.trim()) return false
-  return lower(haystack).includes(lower(term))
-}
-
-function loadIndex(args: Args): { index: ContextIndex; source: 'generated-index' | 'source-scan' } {
-  if (existsSync(args.indexPath)) {
-    try {
-      const parsed = JSON.parse(readFileSync(args.indexPath, 'utf8')) as ContextIndex
-      if (parsed.schemaVersion === '1.0' && Array.isArray(parsed.records)) return { index: parsed, source: 'generated-index' }
-    } catch {
-      // Fall through to source scan.
+function matched(fields: Array<[string, string]>, terms: string[]): { matchedQueries: string[]; matchedFields: string[] } {
+  const matchedQueries = new Set<string>()
+  const matchedFields = new Set<string>()
+  for (const [field, value] of fields) {
+    const hay = normalize(value)
+    if (!hay) continue
+    for (const term of terms) {
+      const needle = normalize(term)
+      if (!needle) continue
+      if (hay.includes(needle) || needle.includes(hay)) {
+        matchedQueries.add(term)
+        matchedFields.add(field)
+      }
     }
+  }
+  return { matchedQueries: Array.from(matchedQueries), matchedFields: Array.from(matchedFields).sort() }
+}
+
+function addHit(target: Map<string, CandidateHit>, hit: CandidateHit): void {
+  const key = `${hit.kind}:${hit.path}`
+  const existing = target.get(key)
+  if (!existing) {
+    target.set(key, {
+      ...hit,
+      matchedQueries: Array.from(new Set(hit.matchedQueries)),
+      matchedFields: Array.from(new Set(hit.matchedFields)).sort(),
+      symbols: hit.symbols ? Array.from(new Set(hit.symbols)).sort() : undefined,
+    })
+    return
+  }
+  existing.matchedQueries = Array.from(new Set([...existing.matchedQueries, ...hit.matchedQueries]))
+  existing.matchedFields = Array.from(new Set([...existing.matchedFields, ...hit.matchedFields])).sort()
+  if (hit.symbols) existing.symbols = Array.from(new Set([...(existing.symbols || []), ...hit.symbols])).sort()
+}
+
+function kindForHintPath(value: string): CandidateKind {
+  if (/\btests?\//.test(value) || /\.test\./.test(value) || /\.spec\./.test(value)) return 'test'
+  if (/\.lazy-harness\/.+schema/.test(value) || /\.schema\.json$/.test(value)) return 'schema'
+  if (/^\.lazy-harness\//.test(value)) return 'record'
+  return 'source-file'
+}
+
+function collectRecordHits(index: ContextIndex, terms: string[]): CandidateHit[] {
+  const hits = new Map<string, CandidateHit>()
+  for (const record of index.records) {
+    const m = matched(fieldsForRecord(record), terms)
+    if (!m.matchedQueries.length) continue
+    addHit(hits, {
+      path: record.recordPath,
+      kind: 'record',
+      title: record.title,
+      layer: record.layer,
+      matchedQueries: m.matchedQueries,
+      matchedFields: m.matchedFields,
+      symbols: record.implementationHints.symbolHints,
+    })
+    for (const file of record.implementationHints.fileHints) {
+      addHit(hits, { path: file, kind: kindForHintPath(file), matchedQueries: m.matchedQueries, matchedFields: ['record.fileHint'] })
+    }
+    for (const test of record.implementationHints.testHints) {
+      addHit(hits, { path: test, kind: 'test', matchedQueries: m.matchedQueries, matchedFields: ['record.testHint'] })
+    }
+    for (const hint of record.graphHints) {
+      const target = hint.path || hint.target || hint.source
+      if (target) addHit(hits, { path: target, kind: target.startsWith('.lazy-harness/') ? 'record' : 'graph-edge', matchedQueries: m.matchedQueries, matchedFields: ['record.graphHint'] })
+    }
+  }
+  return Array.from(hits.values())
+}
+
+function fieldsForFeature(feature: FeatureEntry): Array<[string, string]> {
+  return [
+    ['feature.id', feature.id],
+    ['feature.label', feature.label],
+    ...feature.aliases.map((a) => ['feature.alias', a.value] as [string, string]),
+    ...feature.routes.map((v) => ['feature.route', v] as [string, string]),
+    ...feature.components.map((v) => ['feature.component', v] as [string, string]),
+  ]
+}
+
+function collectFeatureHits(index: ContextIndex, terms: string[]): CandidateHit[] {
+  const hits = new Map<string, CandidateHit>()
+  for (const feature of index.projectProfile.features) {
+    const m = matched(fieldsForFeature(feature), terms)
+    if (!m.matchedQueries.length) continue
+    const nav = index.projectProfile.featureNavigationPath
+    if (nav) addHit(hits, { path: nav, kind: 'project-profile', matchedQueries: m.matchedQueries, matchedFields: m.matchedFields, title: feature.label })
+    for (const ref of feature.records) addHit(hits, { path: ref.path, kind: 'record', layer: ref.layer, matchedQueries: m.matchedQueries, matchedFields: ['feature.record'] })
+    for (const file of feature.sourceFiles) addHit(hits, { path: file, kind: 'source-file', matchedQueries: m.matchedQueries, matchedFields: ['feature.sourceFile'] })
+    for (const test of feature.tests) addHit(hits, { path: test, kind: 'test', matchedQueries: m.matchedQueries, matchedFields: ['feature.test'] })
+  }
+  return Array.from(hits.values())
+}
+
+function loadIndex(args: Args): { index: ContextIndex; source: string } {
+  if (existsSync(args.indexPath)) {
+    return { index: JSON.parse(readFileSync(args.indexPath, 'utf8')) as ContextIndex, source: 'generated-index' }
   }
   return { index: buildContextIndex(args.root), source: 'source-scan' }
 }
 
-function scoreRecord(record: RecordEntry, terms: string[], message: string): ScoredRecord | null {
-  let score = 0
-  const matchedQueries = new Set<string>()
-  const why = new Set<string>()
-  const fields = new Set<string>()
-  const aliasSurface = [...record.aliases, ...record.surfaceTerms]
-  const profileText = record.projectProfileFeatureIds.join(' ')
-  const applies = record.digest.appliesWhen.join(' ')
-  const digestText = [record.title, record.recordPath, record.digest.bullets.join(' '), record.digest.must.join(' '), record.digest.relatedRecords.join(' ')].join(' ')
-  const hints = record.implementationHints
-  const hintText = [...hints.routeHints, ...hints.componentHints, ...hints.fileHints, ...hints.symbolHints, ...hints.testHints].join(' ')
-  const graphText = [...record.graphIds, ...record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.source, hint.target, hint.path])].join(' ')
-
-  for (const term of terms) {
-    let matchedThisTerm = false
-    if (aliasSurface.some((value) => includesTerm(value, term) || includesTerm(term, value))) {
-      score += 40
-      fields.add('alias')
-      why.add('matched alias/surface term')
-      matchedThisTerm = true
-    }
-    if (profileText && includesTerm(profileText, term)) {
-      score += 35
-      fields.add('project-profile')
-      why.add('matched Project Profile feature navigation')
-      matchedThisTerm = true
-    }
-    if (includesTerm(applies, term)) {
-      score += 30
-      fields.add('appliesWhen')
-      why.add('matched Rule digest Applies when')
-      matchedThisTerm = true
-    }
-    if (includesTerm(graphText, term)) {
-      score += 25
-      fields.add('graph')
-      why.add('matched graph/implementation edge')
-      matchedThisTerm = true
-    }
-    if (includesTerm(hintText, term)) {
-      score += 25
-      fields.add('implementationHint')
-      why.add('matched route/component/file/test hint')
-      matchedThisTerm = true
-    }
-    if (includesTerm(digestText, term)) {
-      score += 12
-      fields.add('digest')
-      why.add('matched record title/path/digest text')
-      matchedThisTerm = true
-    }
-    if (matchedThisTerm) matchedQueries.add(term)
-  }
-  if (matchedQueries.size > 1) score += Math.min(30, (matchedQueries.size - 1) * 10)
-  if (record.status === 'deprecated' || record.status === 'reverted') score -= 30
-  if (record.scope === 'framework-global' && isAmbiguousSurface(message) && !isFrameworkContextIntent(message)) {
-    score = Math.min(score, 35)
-    why.add('framework-global example match kept below required-read threshold for product-surface request')
-  }
-  if (score <= 0) return null
-  return { record, score, matchedQueries: Array.from(matchedQueries).slice(0, 10), why: Array.from(why), matchedFields: fields }
-}
-
-function readConfidence(score: number): number {
-  return clamp(Math.min(0.98, score / 110))
-}
-
-function addReadItem(bucket: Map<string, ReadItem>, item: ReadItem): void {
-  const existing = bucket.get(`${item.kind}:${item.path}`)
-  if (!existing || item.confidence > existing.confidence) bucket.set(`${item.kind}:${item.path}`, item)
-}
-
-function recordReadItem(scored: ScoredRecord): ReadItem {
-  const record = scored.record
-  return {
-    path: record.recordPath,
-    kind: 'record',
-    reason: `Read ${record.layer} record before acting on this surface.`,
-    confidence: readConfidence(scored.score),
-    whyMatched: scored.why.join('; ') || 'Matched context index evidence.',
-    matchedQueries: scored.matchedQueries,
-    layer: record.layer,
-    symbols: unique([...record.implementationHints.componentHints, ...record.implementationHints.symbolHints]).slice(0, 8),
-  }
-}
-
-function profileReadItem(scored: ScoredRecord): ReadItem | null {
-  if (!scored.record.projectProfileFeatureIds.length) return null
-  return {
-    path: '.lazy-harness/project/feature-navigation.xml',
-    kind: 'project-profile',
-    reason: 'Confirm feature aliases/routes/components from Project Profile feature navigation.',
-    confidence: clamp(readConfidence(scored.score) - 0.04),
-    whyMatched: `Feature ids: ${scored.record.projectProfileFeatureIds.join(', ')}`,
-    matchedQueries: scored.matchedQueries,
-  }
-}
-
-function graphReadItems(scored: ScoredRecord): ReadItem[] {
-  return scored.record.graphHints.slice(0, 3).map((hint) => ({
-    path: `.lazy-harness/knowledge/graph.jsonl#${hint.id}`,
-    kind: 'graph-edge' as const,
-    reason: 'Inspect graph edge that links record context to implementation evidence.',
-    confidence: clamp(readConfidence(scored.score) - 0.1),
-    whyMatched: hint.relation ? `Graph relation ${hint.relation}` : 'Matched graph edge evidence.',
-    matchedQueries: scored.matchedQueries,
-  }))
-}
-
-function fileReadItems(scored: ScoredRecord, changeIntent: boolean): ReadItem[] {
-  const record = scored.record
-  const out: ReadItem[] = []
-  const confidence = clamp(readConfidence(scored.score) - 0.12)
-  for (const file of record.implementationHints.fileHints.slice(0, 4)) {
-    out.push({
-      path: file,
-      kind: 'source-file',
-      reason: changeIntent ? 'Inspect implementation file before editing.' : 'Inspect implementation file if explanation needs code details.',
-      confidence,
-      whyMatched: 'Matched file hint from record/profile/implementation map.',
-      matchedQueries: scored.matchedQueries,
-      symbols: unique([...record.implementationHints.componentHints, ...record.implementationHints.symbolHints]).slice(0, 8),
-    })
-  }
-  for (const test of record.implementationHints.testHints.slice(0, 4)) {
-    out.push({
-      path: test,
-      kind: 'test',
-      reason: changeIntent ? 'Inspect or update protection test for this change.' : 'Inspect protection test if validation detail is needed.',
-      confidence: clamp(confidence - 0.03),
-      whyMatched: 'Matched test hint from record/profile/implementation map.',
-      matchedQueries: scored.matchedQueries,
-    })
-  }
-  return out
-}
-
-function candidateMeanings(scored: ScoredRecord[]): CandidateMeaning[] {
-  const out: CandidateMeaning[] = []
-  for (const item of scored.slice(0, 3)) {
-    const aliases = item.record.aliases.slice(0, 3).join(' / ')
-    out.push({
-      label: aliases ? `${item.record.title} / ${aliases}` : item.record.title,
-      confidence: readConfidence(item.score),
-      why: item.why.join('; ') || 'Matched context index evidence.',
-    })
-  }
-  const seen = new Set<string>()
-  return out.filter((item) => {
-    const key = item.label
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-function fallbackSearches(message: string, queries: QueryItem[]): string[] {
-  const terms = queryTerms(queries).filter((term) => term.length >= 2).slice(0, 12)
-  const pattern = unique(terms.map((term) => term.replace(/["'`|]/g, ''))).join('|') || message.replace(/["'`|]/g, '')
-  return [
-    `rg -n "${pattern}" .lazy-harness src tests`,
-    'bun .lazy-harness/scripts/context-index.ts --root . --format json',
-  ]
-}
-
-function buildPacket(args: Args): ContextDeliveryPacket {
+function buildPacket(args: Args): ContextCandidatePacket {
+  const terms = queryTerms(args.query)
   const { index, source } = loadIndex(args)
-  const queries = expandQueries(args.message)
-  const terms = queryTerms(queries)
-  const scored = index.records
-    .map((record) => scoreRecord(record, terms, args.message))
-    .filter((item): item is ScoredRecord => Boolean(item))
-    .sort((a, b) => b.score - a.score || a.record.recordPath.localeCompare(b.record.recordPath))
-
-  const changeIntent = isChangeIntent(args.message)
-  const ambiguous = isAmbiguousSurface(args.message)
-  const required = new Map<string, ReadItem>()
-  const optional = new Map<string, ReadItem>()
-
-  for (const item of scored) {
-    const targetBucket = item.score >= 70 ? required : item.score >= 40 ? optional : null
-    if (!targetBucket) continue
-    addReadItem(targetBucket, recordReadItem(item))
-    const profile = profileReadItem(item)
-    if (profile) addReadItem(targetBucket, profile)
-    for (const graph of graphReadItems(item)) addReadItem(optional, graph)
-    const shouldFuseFileTrack = item.matchedFields.has('implementationHint') || item.matchedFields.has('graph') || item.matchedFields.has('project-profile') || item.record.scope === 'host-project'
-    if (shouldFuseFileTrack) {
-      for (const file of fileReadItems(item, changeIntent)) {
-        if (item.score >= 70 && changeIntent) addReadItem(required, file)
-        else addReadItem(optional, file)
-      }
-    }
-  }
-
-  const requiredRead = Array.from(required.values())
-    .sort((a, b) => b.confidence - a.confidence || a.path.localeCompare(b.path))
-    .slice(0, args.limit)
-  const optionalRead = Array.from(optional.values())
-    .filter((item) => !required.has(`${item.kind}:${item.path}`))
-    .sort((a, b) => b.confidence - a.confidence || a.path.localeCompare(b.path))
-    .slice(0, args.limit)
-  const confidence = requiredRead[0]?.confidence || optionalRead[0]?.confidence || 0
-  const instructionLevel: InstructionLevel = requiredRead.length
-    ? (changeIntent ? 'self-resolve-before-change' : 'self-resolve-before-answer')
-    : (ambiguous ? (changeIntent ? 'self-resolve-before-change' : 'self-resolve-before-answer') : 'digest-only')
-  const resolvedPhrase = hasHangul(args.message) ? tokenize(args.message).find((token) => /[가-힣]/.test(token)) : undefined
+  const hits = new Map<string, CandidateHit>()
+  for (const hit of collectRecordHits(index, terms)) addHit(hits, hit)
+  for (const hit of collectFeatureHits(index, terms)) addHit(hits, hit)
+  const allHits = Array.from(hits.values())
+  const limited = allHits.slice(0, args.limit)
+  const notes = [
+    `contextIndexSource=${source}`,
+    'candidate-only: CLI does not decide intent, importance, required reads, gates, record-write need, or next action',
+  ]
+  if (allHits.length > limited.length) notes.push(`truncated=${allHits.length - limited.length}`)
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     generatedAt: new Date().toISOString(),
-    instructionLevel,
-    ...(resolvedPhrase ? { resolvedPhrase } : {}),
-    candidateMeanings: candidateMeanings(scored).slice(0, 5),
-    queries,
-    requiredRead,
-    optionalRead,
-    confidence,
-    fallbackSearches: fallbackSearches(args.message, queries),
-    instruction: requiredRead.length
-      ? 'STOP before response: read requiredRead before answering, analyzing, planning, option-gating, or editing. Ask an option gate only after required reads/search if ambiguity remains.'
-      : 'STOP before response: no high-confidence requiredRead was found. Run fallbackSearches/root-bound search before answering, analyzing, planning, option-gating, or editing; ask an option gate only after search evidence if ambiguity remains.',
-    notes: [`contextIndexSource=${source}`, `contextIndexFingerprint=${index.fingerprint}`],
+    mode: 'candidate-retrieval',
+    queries: terms.map((query) => ({ query, source: 'user-phrase' as QuerySource })),
+    candidateHits: limited,
+    fallbackSearches: [`rg -n "${quoteForRg(args.query)}" .lazy-harness src tests`],
+    notes,
   }
 }
 
-function renderMarkdown(packet: ContextDeliveryPacket): string {
-  const lines = [
-    'Context Delivery Packet',
-    `Instruction: ${packet.instructionLevel}`,
-  ]
-  if (packet.resolvedPhrase) lines.push(`Resolved phrase: ${packet.resolvedPhrase}`)
-  lines.push(`Confidence: ${packet.confidence.toFixed(2)}`)
-  if (packet.candidateMeanings.length) {
-    lines.push('', 'Candidate meanings')
-    for (const item of packet.candidateMeanings) lines.push(`- ${item.label} (${item.confidence.toFixed(2)}): ${item.why}`)
+function renderMarkdown(packet: ContextCandidatePacket): string {
+  const lines: string[] = []
+  lines.push('# Context candidate retrieval')
+  lines.push('')
+  lines.push('This is candidate evidence only. The LLM/searcher decides importance, required reads, gates, record-write need, and next action after reading evidence.')
+  lines.push('')
+  lines.push('## Queries')
+  for (const q of packet.queries) lines.push(`- ${q.query} (${q.source})`)
+  lines.push('')
+  lines.push('## Candidate hits')
+  if (!packet.candidateHits.length) lines.push('- none')
+  for (const hit of packet.candidateHits) {
+    const fields = hit.matchedFields.join(', ')
+    const queries = hit.matchedQueries.join(', ')
+    lines.push(`- ${hit.kind}: \`${hit.path}\` [fields: ${fields}; queries: ${queries}]`)
   }
-  if (packet.requiredRead.length) {
-    lines.push('', 'Required read before answer/analyze/plan/option-gate/change')
-    for (const item of packet.requiredRead) {
-      lines.push(`- \`${item.path}\` - ${item.kind} - ${item.confidence.toFixed(2)}`)
-      lines.push(`  - Reason: ${item.reason}`)
-      lines.push(`  - Matched: ${item.matchedQueries.join(', ')}`)
-      if (item.symbols?.length) lines.push(`  - Symbols: ${item.symbols.join(', ')}`)
-    }
-  }
-  if (packet.optionalRead.length) {
-    lines.push('', 'Optional read')
-    for (const item of packet.optionalRead.slice(0, 5)) lines.push(`- \`${item.path}\` - ${item.kind} - ${item.confidence.toFixed(2)}: ${item.reason}`)
-  }
-  if (packet.fallbackSearches.length) {
-    lines.push('', 'Fallback searches')
-    for (const search of packet.fallbackSearches) lines.push(`- \`${search}\``)
-  }
-  lines.push('', `Instruction: ${packet.instruction}`)
-  return `${lines.join('\n')}\n`
+  lines.push('')
+  lines.push('## Fallback searches')
+  for (const search of packet.fallbackSearches) lines.push(`- \`${search}\``)
+  lines.push('')
+  lines.push('## Notes')
+  for (const note of packet.notes) lines.push(`- ${note}`)
+  return lines.join('\n') + '\n'
 }
 
-function safeFence(value: string): string {
-  return value.replace(/```/g, "'''").trim()
-}
+function renderHandoff(args: Args, seed: ContextCandidatePacket): string {
+  const safeRoot = args.root
+  return `# Context candidate search handoff
 
-function handoffSeedPacket(packet: ContextDeliveryPacket): ContextDeliveryPacket {
-  return {
-    ...packet,
-    instructionLevel: 'delegate-search',
-    instruction: 'Search root-bound records, Project Profile, graph, source files, symbols, and tests; return a ContextDeliveryPacket JSON object matching the schema. Do not mutate files.',
-    notes: unique([...(packet.notes || []), 'handoffMode=searcher-subagent', 'mutationAllowed=false']),
-  }
-}
+You are a read-only searcher. Use root-bound search/read tools in this host only.
 
-function renderHandoffPrompt(packet: ContextDeliveryPacket, args: Args): string {
-  const seed = handoffSeedPacket(packet)
-  const lines = [
-    'Context Delivery search handoff',
-    '',
-    'Task: resolve required-read context for the current request and return a packet-shaped result.',
-    '',
-    'Current user request:',
-    '```text',
-    safeFence(args.message),
-    '```',
-    '',
-    'Host root:',
-    `\`${args.root}\``,
-    '',
-    'Root-bound constraints:',
-    '- Search only inside the host root.',
-    '- Use `.lazy-harness`, Project Profile, graph, source, symbols, and tests as evidence sources.',
-    '- Do not mutate files, run migrations, send network requests, or execute destructive commands.',
-    '- Do not call `jcode run` from `message.received`; this handoff is for explicit optional delegation only.',
-    '- Do not return raw grep chunks or prose-only summaries.',
-    '',
-    'Candidate queries:',
-  ]
-  for (const query of packet.queries.slice(0, 8)) {
-    const targets = query.targets?.length ? ` [${query.targets.join(', ')}]` : ''
-    lines.push(`- ${query.query} (${query.source}: ${query.purpose})${targets}`)
-  }
-  if (packet.fallbackSearches.length) {
-    lines.push('', 'Fallback searches:')
-    for (const search of packet.fallbackSearches.slice(0, 5)) lines.push(`- \`${search}\``)
-  }
-  lines.push(
-    '',
-    'Return contract:',
-    '- Return one JSON object matching `.lazy-harness/schemas/context-delivery-packet.schema.json`.',
-    '- Set `instructionLevel` to `delegate-search` when delegation was needed, otherwise keep the stricter self-resolve level.',
-    '- Include `candidateMeanings`, `queries`, `requiredRead`, `optionalRead`, `confidence`, `fallbackSearches`, and concise `instruction`.',
-    '- Every `requiredRead` item must include path, kind, reason, confidence, whyMatched, and matchedQueries.',
-    '- If candidate meanings conflict or confidence is low, say so in `instruction` and preserve fallback searches.',
-    '',
-    'Seed packet:',
-    '```json',
-    JSON.stringify(seed, null, 2),
-    '```',
-    '',
-  )
-  return lines.join('\n')
-}
+Host root: ${safeRoot}
+Current query: ${args.query}
 
-function sanitizeReadItem(item: ReadItem): Record<string, unknown> {
-  return {
-    path: item.path,
-    kind: item.kind,
-    confidence: item.confidence,
-    ...(item.layer ? { layer: item.layer } : {}),
-    ...(item.symbols?.length ? { symbols: item.symbols.slice(0, 8) } : {}),
-    matchedQueryCount: item.matchedQueries.length,
-  }
-}
+Return one JSON object matching \`.lazy-harness/schemas/context-delivery-packet.schema.json\`.
 
-function appendPacketJournal(packet: ContextDeliveryPacket, args: Args): void {
-  const row = {
-    schemaVersion: '1.0',
-    event: 'context-delivery.packet',
-    timestamp: new Date().toISOString(),
-    epochSeconds: Math.floor(Date.now() / 1000),
-    messageIdHash: stableHash(args.messageId),
-    sessionIdHash: stableHash(args.sessionId),
-    turnCount: args.turnCount ? Number(args.turnCount) || args.turnCount : undefined,
-    packetHash: stableHash(JSON.stringify(packet)),
-    instructionLevel: packet.instructionLevel,
-    confidence: packet.confidence,
-    requiredReadCount: packet.requiredRead.length,
-    optionalReadCount: packet.optionalRead.length,
-    candidateMeaningCount: packet.candidateMeanings.length,
-    fallbackSearchCount: packet.fallbackSearches.length,
-    requiredRead: packet.requiredRead.slice(0, args.limit).map(sanitizeReadItem),
-    optionalRead: packet.optionalRead.slice(0, Math.min(args.limit, 5)).map(sanitizeReadItem),
-    notes: unique(packet.notes || []).filter((note) => !/contextIndexFingerprint=/.test(note)).slice(0, 8),
-  }
-  mkdirSync(path.dirname(args.journalPath), { recursive: true })
-  let existing: string[] = []
-  if (existsSync(args.journalPath)) {
-    try {
-      existing = readFileSync(args.journalPath, 'utf8').split(/\r?\n/).filter((line) => line.trim()).slice(-199)
-    } catch {
-      existing = []
-    }
-  }
-  existing.push(JSON.stringify(row, null, 0))
-  writeFileSync(args.journalPath, `${existing.join('\n')}\n`, 'utf8')
+Important boundary:
+- Do not mutate files.
+- Do not decide final intent, importance, required reads, gates, record-write need, risk, or next action.
+- Return candidateHits with paths, matchedFields, and matchedQueries only.
+- The main LLM will read evidence and decide what matters.
+
+Seed packet:
+
+\`\`\`json
+${JSON.stringify(seed, null, 2)}
+\`\`\`
+`
 }
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
   const packet = buildPacket(args)
-  if (args.journal) appendPacketJournal(packet, args)
-  if (args.handoffPrompt) process.stdout.write(renderHandoffPrompt(packet, args))
-  else if (args.format === 'md') process.stdout.write(renderMarkdown(packet))
-  else process.stdout.write(`${JSON.stringify(packet, null, 2)}\n`)
+  if (args.handoffPrompt) {
+    process.stdout.write(renderHandoff(args, packet))
+    return
+  }
+  if (args.format === 'json') process.stdout.write(JSON.stringify(packet, null, 2) + '\n')
+  else process.stdout.write(renderMarkdown(packet))
 }
 
 main()

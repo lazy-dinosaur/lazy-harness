@@ -1,18 +1,10 @@
 # logs
 
-JSONL logs: actions, decisions, questions, validations, route telemetry. Append-only.
+JSONL logs: actions, decisions, questions, validations, and historical/deprecated route telemetry. Append-only where still produced.
 
-## Route telemetry
+## Route telemetry (deprecated)
 
-`response.completed` automatically appends one non-canonical workflow-compression telemetry entry per Jcode message when `last_user_message` is present. `lazy route --log` can also append explicit route probes. Both write to:
-
-```text
-$LAZY_SHARED_ROOT/logs/route-decisions.jsonl
-```
-
-`lazy route-summary --format=md` summarizes route counts, gate ratios, confidence ratios, and recommendations for deciding whether AGENTS compression, profiles, or heuristic adjustments are needed.
-
-Telemetry stores stable message/message-id hashes and route axes, not raw user messages. It never closes gates and never satisfies canonical record obligations. Duplicate lifecycle calls for the same `message_id` are deduped by `messageIdHash`.
+Route telemetry from the old task-router experiment is deprecated. Lifecycle hooks must not classify raw user text into route axes or append automatic route decisions. Historical `$LAZY_SHARED_ROOT/logs/route-decisions.jsonl` files may exist in old runtimes but are not current framework behavior.
 
 ## Hook timing telemetry
 

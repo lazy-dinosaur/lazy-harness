@@ -21,7 +21,8 @@ Related plan: `.lazy-harness/planning/native-context-broker-implementation-plan.
 - Must:
   - run only as an explicit CLI, not from `message.received` or `response.completed`
   - distinguish automatic shadow journals from explicit aggregate dogfood collection
-  - collect sanitized context-delivery and record-decision summaries from host roots
+  - collect sanitized context-delivery candidate summaries and record-decision summaries from host roots
+  - force host-local lazy execution with `LAZY_HOST_ROOT=<host>` and clear inherited lazy/Git runtime env so source-root test runs do not leak into fixture/downstream hosts
   - store case labels and message hashes, not raw user messages
   - keep output under `.lazy-harness/state/` as non-canonical runtime evidence
   - preserve clean/no-record-needed decision evidence for dogfood turns that only collect data
@@ -92,11 +93,11 @@ Success criteria:
 - both host markers match the source `HEAD` after sync,
 - collector writes sanitized rows to `.lazy-harness/state/context-broker-dogfood.jsonl`,
 - each row has `messageHash` and no raw case message,
-- feature-surface case produces useful Context Delivery required-read evidence,
+- feature-surface case produces useful Context Delivery candidate-hit evidence,
 - status-readonly case stays `recordDecision.disposition=no-record-needed`,
 - host `lazy test`, doctor smoke, and hard-stop audit pass.
 
-Do not promote response.completed behavior from this alone. Summarize row counts, required-read paths, dispositions, errors, and false-positive observations first; only then design audit/advisory changes.
+Do not promote response.completed behavior from this alone. Summarize row counts, candidate-hit paths, dispositions, errors, and false-positive observations first; only then design audit/advisory changes.
 
 ## Row shape
 
@@ -113,20 +114,12 @@ Each row is sanitized runtime evidence:
   "messageHash": "16-char-hash",
   "contextDelivery": {
     "ok": true,
-    "instructionLevel": "self-resolve-before-change",
-    "confidence": 0.6,
-    "requiredReadCount": 1,
-    "optionalReadCount": 2,
-    "candidateMeaningCount": 1,
-    "fallbackSearchCount": 3,
-    "topRequiredRead": [
-      { "path": ".lazy-harness/behavior/feature-surface.md", "kind": "record", "confidence": 0.82 }
+    "mode": "candidate-retrieval",
+    "candidateHitCount": 2,
+    "fallbackSearchCount": 1,
+    "topCandidateHits": [
+      { "path": ".lazy-harness/behavior/feature-surface.md", "kind": "record" }
     ]
-  },
-  "packetJournal": {
-    "checked": true,
-    "hasMessageHash": true,
-    "rawMessagePresent": false
   },
   "recordDecision": {
     "ok": true,
@@ -141,11 +134,12 @@ Each row is sanitized runtime evidence:
 
 ## Execution rules
 
-1. For each host/case, run host-local `lazy context-delivery --journal --format=json`.
-2. Read the latest host packet journal row only to verify sanitized journal behavior.
-3. Run host-local `lazy record-decision --validation-only` because the collector itself should not blindly create durable record obligations; the agent workflow must promote confirmed/grounded dogfood findings into canonical records after analysis.
-4. Append one sanitized row per host/case to the collector output unless `--dry-run` is set.
-5. Keep failures per-row in `errors`; do not fail the whole collector for one bad case unless the script itself cannot run.
+1. For each host/case, run host-local `lazy context-delivery --format=json`.
+2. Run host-local commands with `LAZY_HOST_ROOT` set to the target host and inherited runtime/Git env cleared.
+3. Summarize candidate hits only; do not convert them into required reads or read-debt.
+4. Run host-local `lazy record-decision --validation-only` because the collector itself should not blindly create durable record obligations; the agent workflow must promote confirmed/grounded dogfood findings into canonical records after analysis.
+5. Append one sanitized row per host/case to the collector output unless `--dry-run` is set.
+6. Keep failures per-row in `errors`; do not fail the whole collector for one bad case unless the script itself cannot run.
 
 ## Privacy rules
 
@@ -156,7 +150,7 @@ Allowed:
 - case label,
 - message hash,
 - context/decision counts,
-- required-read paths/kinds/confidence,
+- candidate-hit paths/kinds,
 - record-decision disposition/trigger/action names,
 - compact error summaries.
 
@@ -175,7 +169,7 @@ This collector is the explicit aggregate step before stronger response.completed
 There are two evidence streams:
 
 1. Automatic shadow journal: normal development can append sanitized Record Decision observations via `response.completed` to `$LAZY_RUNTIME_ROOT/state/record-decision-packets.jsonl`.
-2. Explicit aggregate dogfood: `lazy context-dogfood` must be run by the agent/operator to compare real hosts and collect Context Delivery + Record Decision summaries in `.lazy-harness/state/context-broker-dogfood.jsonl`.
+2. Explicit aggregate dogfood: `lazy context-dogfood` must be run by the agent/operator to compare real hosts and collect Context Delivery candidate + Record Decision summaries in `.lazy-harness/state/context-broker-dogfood.jsonl`.
 
 The user does not need to hand-collect evidence, but the agent must still run the explicit collector when asked to check dogfood. If the analysis finds confirmed or strongly grounded framework knowledge, the agent workflow must automatically create/update the appropriate canonical records.
 

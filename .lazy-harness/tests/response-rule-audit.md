@@ -18,9 +18,9 @@ Regression fixtures cover:
 4. If the PR artifact contains the required headings, audit stays silent.
 5. If a surfaced record has record-completion obligations and the turn changes harness/source behavior without durable `.lazy-harness` capture, audit emits a concise record-completion message.
 6. If same-turn durable record capture is visible, audit stays silent.
-7. `lazy context-delivery --journal` writes sanitized packet evidence without raw user messages or raw record bullets.
-8. Packet-aware response audit stays silent without mutation, stays silent when required-read evidence exists, and emits `ADVISORY` rather than `STOP` when a correlated packet has required reads and mutation lacks read/search evidence.
-9. Pre-action read-debt permit blocks action tools when a correlated packet has concrete requiredRead paths and no prior read/search evidence.
+7. `message.received` writes sanitized generic search/read-debt rows without raw user messages or raw record bullets.
+8. Packet-aware response audit stays silent when root-bound search/read evidence exists and emits `ADVISORY` rather than `STOP` when correlated generic search-debt lacks evidence.
+9. Pre-action read/search-debt permit blocks action tools when a correlated static debt row lacks prior root-bound search/read evidence.
 10. The permit stays silent for read/search tools, for action after all required paths were evidenced, and for clean/no-packet turns.
 11. Pre-action search-debt permit blocks action tools when a correlated self-resolve packet has fallback searches but no prior root-bound search evidence.
 12. Search-debt permit stays silent for search tools, explicit searcher handoff, and action after search evidence exists.
@@ -45,7 +45,7 @@ Regression fixtures cover:
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — legacy chain wiring.
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper for read-debt permit and legacy search gate.
   - `.lazy-harness/scripts/lifecycle-check.py` — shadow/orchestrator chain wiring.
-  - `.lazy-harness/scripts/self-test.py` — `check_response_rule_audit_from_surfaced_digest`, `check_context_delivery_packet_journal_phase7`, `check_read_debt_permit_generic_external_action`, and `check_framework_runtime_no_host_product_hardcoding` fixtures.
+  - `.lazy-harness/scripts/self-test.py` — `check_response_rule_audit_from_surfaced_digest`, `check_read_debt_permit_generic_external_action`, and `check_framework_runtime_no_host_product_hardcoding` fixtures.
   - `.lazy-harness/manifests/init-categories.json` — Category A sync manifest entry for this TDD record, preventing host copies from carrying the SDD without its regression fixture.
 - Flow:
   1. Test fixture writes a host-local PR description digest record.
@@ -54,7 +54,6 @@ Regression fixtures cover:
   4. Test runs `check-response-rule-audit.py` with matching `message_id` and PR creation evidence.
   5. Test checks STOP output for missing PR headings, then silence for a compliant body.
   6. Test writes a manual harness-enforcement journal row and checks record-completion miss vs captured cases.
-  7. Test runs `context-delivery.ts --journal` in a host fixture and checks sanitized packet evidence.
   8. Test runs `check-read-debt-permit.py` against packet evidence for read-debt action-block, read-allow, satisfied-action silence, and mixed batch block cases.
   9. Test runs `check-read-debt-permit.py` against packet evidence for search-debt action-block, search-tool allow, searcher handoff allow, and satisfied-action silence cases.
   10. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with empty lifecycle `recent_tool_calls` plus same-message/session `.jcode/hooks/tool-events.jsonl` Read/Search events to prevent the false-positive reported on 2026-06-01.

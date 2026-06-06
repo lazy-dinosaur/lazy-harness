@@ -2034,158 +2034,6 @@ def check_pre_commit_runs_lazy_test() -> None:
     print("✓ pre-commit lazy test gate ok")
 
 
-def _run_task_router(message: str, changed_files: list[str] | None = None, extra_args: list[str] | None = None, env: dict | None = None) -> dict:
-    command = ["bun", ".lazy-harness/scripts/task-router.ts", "--message", message, "--format=json"]
-    if changed_files:
-        command.extend(["--changed-files", ",".join(changed_files)])
-    if extra_args:
-        command.extend(extra_args)
-    completed = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, check=False)
-    if completed.returncode != 0:
-        fail("task-router command failed:\nSTDOUT:\n" + completed.stdout + "\nSTDERR:\n" + completed.stderr)
-    try:
-        return json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        fail(f"task-router did not emit JSON: {exc}\n{completed.stdout}")
-
-
-def check_task_router_read_only_contract() -> None:
-    """ADR 0037: route is read-only by default; --log is append-only telemetry."""
-    source = (LAZY / "scripts" / "task-router.ts").read_text(encoding="utf-8")
-    forbidden = [
-        "rmSync",
-        "unlinkSync",
-        "interview-loop",
-        "--apply",
-    ]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("task-router must stay read-only/advisory; forbidden phrase(s): " + json.dumps(leaked, ensure_ascii=False))
-
-    required = [
-        "router-read-only",
-        "no-recommended-auto-select",
-        "candidate-is-not-canonical",
-        "workflow-route",
-        "route-decisions.jsonl",
-        "messageHash",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("task-router missing invariant phrase(s): " + json.dumps(missing, ensure_ascii=False))
-
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="route_read_only_"))
-    try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
-        (temp / ".lazy-harness").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "logs").mkdir(parents=True, exist_ok=True)
-        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
-        _run_task_router("typo in README", env=env)
-        telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
-        legacy_telemetry = temp / ".lazy-harness" / "logs" / "route-decisions.jsonl"
-        if telemetry.exists():
-            fail("task-router default mode must not create route telemetry")
-        _run_task_router("typo in README", extra_args=["--log"], env=env)
-        if not telemetry.exists():
-            fail("task-router --log should append route telemetry")
-        if legacy_telemetry.exists():
-            fail("task-router --log should not write new route telemetry to runtime/canonical .lazy-harness logs")
-        entry = json.loads(telemetry.read_text(encoding="utf-8").strip())
-        if "message" in entry or "messagePreview" in entry:
-            fail("route telemetry must not store raw message: " + json.dumps(entry, ensure_ascii=False))
-        required_keys = ["messageHash", "scope", "risk", "gateMode", "recordCaptureMode", "routeVersion", "matchedSignals", "riskEvidence", "scopeEvidence", "pathEvidence", "gateReasonCode", "truncatedLikely", "changedFileKinds"]
-        missing_keys = [key for key in required_keys if key not in entry]
-        if missing_keys:
-            fail("route telemetry missing key(s): " + json.dumps(missing_keys, ensure_ascii=False))
-
-        completed = subprocess.run(
-            ["bun", ".lazy-harness/scripts/task-router.ts", "--summary", "--format=json"],
-            cwd=ROOT,
-            env=env,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            fail("task-router summary failed:\n" + completed.stdout + completed.stderr)
-        summary = json.loads(completed.stdout)
-        if summary.get("totalRoutes") != 1:
-            fail("route summary should count logged route: " + json.dumps(summary, ensure_ascii=False))
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-
-    print("✓ task-router read-only/log telemetry contract ok")
-
-
-def check_task_router_fixtures() -> None:
-    """Route fixtures protect workflow compression without safety reduction."""
-    fixtures_path = LAZY / "fixtures" / "task-router" / "cases.json"
-    if not fixtures_path.exists():
-        fail("task-router fixtures missing: " + str(fixtures_path))
-    cases = json.loads(fixtures_path.read_text(encoding="utf-8"))
-    if len(cases) < 8:
-        fail("task-router fixtures should cover critical route cases")
-
-    for case in cases:
-        result = _run_task_router(case["message"], case.get("changedFiles"))
-        route = result.get("route", {})
-        expect = case.get("expect", {})
-        checks = {
-            "intent": route.get("intent"),
-            "scope": route.get("scope"),
-            "risk": route.get("risk"),
-            "confidence": route.get("confidence"),
-            "recordSearchMode": route.get("recordSearch", {}).get("mode"),
-            "recordCaptureMode": route.get("recordCapture", {}).get("mode"),
-            "implMapTier": route.get("implementationMap", {}).get("tier"),
-            "gateMode": route.get("gate", {}).get("mode"),
-        }
-        for key, expected in expect.items():
-            if key == "layersInclude":
-                missing_layers = [layer for layer in expected if layer not in route.get("affectedLayers", [])]
-                if missing_layers:
-                    fail(f"task-router fixture {case['name']} missing layers {missing_layers}: " + json.dumps(result, ensure_ascii=False))
-            elif key == "nonNegotiablesInclude":
-                missing_items = [item for item in expected if item not in route.get("nonNegotiables", [])]
-                if missing_items:
-                    fail(f"task-router fixture {case['name']} missing non-negotiables {missing_items}: " + json.dumps(result, ensure_ascii=False))
-            elif key in checks and checks[key] != expected:
-                fail(f"task-router fixture {case['name']} expected {key}={expected}, got {checks[key]}: " + json.dumps(result, ensure_ascii=False))
-
-        if route.get("recordCapture", {}).get("mode") == "candidate" and "candidate-is-not-canonical" not in route.get("nonNegotiables", []):
-            fail("task-router candidate route must include candidate-is-not-canonical: " + json.dumps(result, ensure_ascii=False))
-        if route.get("gate", {}).get("mode") != "none" and "unresolved-gate-blocks-progress" not in route.get("nonNegotiables", []):
-            fail("task-router gated route must preserve unresolved-gate-blocks-progress: " + json.dumps(result, ensure_ascii=False))
-
-    print(f"✓ task-router fixtures ok ({len(cases)} cases)")
-
-
-def check_lazy_route_cli_help() -> None:
-    """lazy help must truthfully advertise self-test scope and route command."""
-    completed = subprocess.run([".lazy-harness/bin/lazy", "--help"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if completed.returncode != 0:
-        fail("lazy --help failed:\n" + completed.stdout + completed.stderr)
-    help_text = completed.stdout
-    required = ["test [--scope=auto|framework|host]", "capability add|list|resolve|candidates|audit", "gate-state list|clear-stale", "route --message", "route-summary", "route-audit", "hook-timings", "lifecycle-check", "lifecycle-parity", "lifecycle-fixture inspect|append|list", "Read-only workflow compression route"]
-    missing = [phrase for phrase in required if phrase not in help_text]
-    if missing:
-        fail("lazy help missing route/scope phrase(s): " + json.dumps(missing, ensure_ascii=False) + "\n" + help_text)
-    if "test [--profile=smoke|full]" in help_text:
-        fail("lazy help still advertises unsupported self-test --profile")
-
-    result = _run_task_router("typo in README")
-    if result.get("route", {}).get("implementationMap", {}).get("tier") != "none":
-        fail("lazy route trivial fixture should not require implementation map: " + json.dumps(result, ensure_ascii=False))
-    risky = _run_task_router("Feat: example record delete button", ["src/server/routes/example.ts", "src/ui/screens/Example/modal/ExampleDetailModal/index.tsx"])
-    route = risky["route"]
-    if route["risk"] != "high" or route["gate"]["mode"] != "option-gate" or "destructive-word" not in route["evidence"]["riskEvidence"] or "api-route" not in route["evidence"]["pathEvidence"]:
-        fail("lazy route should flag destructive API/UI commit evidence: " + json.dumps(risky, ensure_ascii=False))
-    audit = subprocess.run([".lazy-harness/bin/lazy", "route-audit", "--commits=1", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if audit.returncode != 0 or json.loads(audit.stdout).get("mode") != "route-audit":
-        fail("lazy route-audit should emit route-audit JSON:\n" + audit.stdout + audit.stderr)
-    print("✓ lazy route CLI help ok")
-
-
 def check_gate_state_cli_and_record_audit_source_guard() -> None:
     """Phase 3 readiness helpers protect runtime gate cleanup and source-arg mistakes."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-gate-state-"))
@@ -2547,9 +2395,9 @@ def check_capability_registry_cli_phase1() -> None:
     print("✓ capability registry Phase 1/2 CLI ok")
 
 
-def check_response_completed_auto_route_telemetry() -> None:
-    """response.completed should automatically log route telemetry once per message_id."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="route_auto_"))
+def check_response_completed_no_auto_route_telemetry() -> None:
+    """response.completed must not automatically run route/user-text classifiers; hook timing still works."""
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="no_route_auto_"))
     try:
         shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state"))
         subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
@@ -2561,12 +2409,12 @@ def check_response_completed_auto_route_telemetry() -> None:
             timings.unlink()
         payload = {
             "last_user_message": "fix a button click behavior bug",
-            "message_id": "auto-route-msg-1",
+            "message_id": "no-route-msg-1",
             "recent_tool_calls": [],
         }
         large_payload = {
             "last_user_message": "fix route telemetry for large response payloads",
-            "message_id": "auto-route-msg-large",
+            "message_id": "no-route-msg-large",
             "recent_tool_calls": [{"name": "read", "args_preview": "x" * 160000}],
         }
         hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
@@ -2581,7 +2429,7 @@ def check_response_completed_auto_route_telemetry() -> None:
                 env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(timings)),
             )
             if completed.returncode != 0:
-                fail("response.completed hook should stay best-effort for auto route telemetry:\n" + completed.stdout + completed.stderr)
+                fail("response.completed hook should stay best-effort without auto route telemetry:\n" + completed.stdout + completed.stderr)
         large_completed = subprocess.run(
             [str(hook)],
             cwd=temp,
@@ -2592,25 +2440,17 @@ def check_response_completed_auto_route_telemetry() -> None:
             env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), LAZY_HOOK_TIMING_LOG=str(timings)),
         )
         if large_completed.returncode != 0:
-            fail("response.completed hook should tolerate live-sized payloads for auto route telemetry:\n" + large_completed.stdout + large_completed.stderr)
-        if not telemetry.exists():
-            fail("response.completed hook should auto-create route telemetry")
-        lines = [line for line in telemetry.read_text(encoding="utf-8").splitlines() if line.strip()]
-        entries = [json.loads(line) for line in lines]
-        matching = [entry for entry in entries if entry.get("messageIdHash")]
-        if len(matching) != 2:
-            fail("response.completed auto telemetry should dedupe by message_id and tolerate live-sized payloads; got matching lines=" + str(len(matching)))
-        entry = matching[0]
-        if "message" in entry or "messagePreview" in entry:
-            fail("auto route telemetry must not store raw user message: " + json.dumps(entry, ensure_ascii=False))
-        if not entry.get("messageIdHash"):
-            fail("auto route telemetry should include messageIdHash for dedupe: " + json.dumps(entry, ensure_ascii=False))
+            fail("response.completed hook should tolerate live-sized payloads without auto route telemetry:\n" + large_completed.stdout + large_completed.stderr)
+        if telemetry.exists():
+            fail("response.completed must not auto-create route telemetry from raw user text")
         if not timings.exists():
             fail("response.completed hook should create timing telemetry in measure-only mode")
         timing_entries = [json.loads(line) for line in timings.read_text(encoding="utf-8").splitlines() if line.strip()]
         components = {entry.get("component") for entry in timing_entries}
-        if "route-telemetry" not in components or "hook-total" not in components:
-            fail("hook timings should include route-telemetry and hook-total components: " + json.dumps(sorted(components), ensure_ascii=False))
+        if "route-telemetry" in components:
+            fail("hook timings must not include route-telemetry after task-router removal: " + json.dumps(sorted(components), ensure_ascii=False))
+        if "hook-total" not in components:
+            fail("hook timings should include hook-total component: " + json.dumps(sorted(components), ensure_ascii=False))
         if not any(str(component).endswith("check-bdd-trigger.sh") for component in components):
             fail("hook timings should include lifecycle helper components that are not write-only fast-pathed")
         if any("durationMs" not in entry or "outputEmitted" not in entry or "exitCode" not in entry for entry in timing_entries):
@@ -2888,7 +2728,7 @@ def check_response_completed_auto_route_telemetry() -> None:
             fail("user correction with durable capture should not trigger correction gate:\n" + captured_completed.stdout + captured_completed.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ response.completed auto route telemetry ok")
+    print("✓ response.completed no auto route telemetry ok")
 
 
 def check_standalone_source_detection_uses_markers() -> None:
@@ -4557,103 +4397,60 @@ def check_relevant_record_query_cli() -> None:
 
 
 def check_context_delivery_contract_sdd() -> None:
-    """Native Context Broker Phase 1 must have a stable packet contract."""
+    """Context Delivery should be a candidate retrieval contract, not semantic authority."""
     sdd_path = LAZY / "spec" / "platform" / "context-delivery-contract.md"
     schema_path = LAZY / "schemas" / "context-delivery-packet.schema.json"
     if not sdd_path.exists():
         fail("Context Delivery Contract SDD missing: " + str(sdd_path))
     if not schema_path.exists():
-        fail("Context Delivery Packet schema missing: " + str(schema_path))
+        fail("Context candidate packet schema missing: " + str(schema_path))
 
     text = sdd_path.read_text(encoding="utf-8")
     required_phrases = [
         "## Rule digest",
-        "raw hit",
-        "Normalized evidence",
-        "Context Delivery Packet",
-        "digest-only",
-        "self-resolve-before-answer",
-        "self-resolve-before-change",
-        "delegate-search",
-        "requiredRead",
-        "optionalRead",
-        "candidateMeanings",
-        "fallbackSearches",
-        "system_reminder",
+        "candidate evidence only",
+        "CLI-selected read-debt",
+        "LLM/searcher",
+        "candidateHits[]",
+        "matchedFields[]",
+        "fallbackSearches[]",
+        "Forbidden packet fields",
+        "Read-debt is still required",
+        "message.received static search-debt",
         "기능패널",
-        "FeaturePanel",
-        "privacy",
-        "fail-open",
-        "Searcher subagent handoff",
         "Implementation map",
+        "Rule placement",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in text]
     if missing:
-        fail("Context Delivery Contract SDD missing required content: " + json.dumps(missing, ensure_ascii=False))
+        fail("Context Delivery Contract SDD missing candidate-only content: " + json.dumps(missing, ensure_ascii=False))
+    forbidden_phrases = [
+        "deliver required-read context",
+        "required-read bullets",
+        "highest-confidence required reads",
+        "Packet evidence journals may store required/optional read paths",
+    ]
+    leaked = [phrase for phrase in forbidden_phrases if phrase in text]
+    if leaked:
+        fail("Context Delivery Contract SDD still contains semantic-authority wording: " + json.dumps(leaked, ensure_ascii=False))
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    if schema.get("title") != "ContextDeliveryPacket":
-        fail("Context Delivery Packet schema title mismatch")
+    if schema.get("title") != "ContextCandidatePacket":
+        fail("Context candidate packet schema title mismatch")
     required = set(schema.get("required", []))
-    expected_required = {
-        "schemaVersion",
-        "generatedAt",
-        "instructionLevel",
-        "candidateMeanings",
-        "queries",
-        "requiredRead",
-        "optionalRead",
-        "confidence",
-        "fallbackSearches",
-        "instruction",
-    }
-    if not expected_required.issubset(required):
-        fail("Context Delivery Packet schema missing required fields: " + json.dumps(sorted(expected_required - required)))
-    levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
-    expected_levels = {"digest-only", "harness-first-static", "self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
-    if levels != expected_levels:
-        fail("Context Delivery Packet instruction levels mismatch: " + json.dumps(sorted(levels)))
-    read_kinds = set(schema.get("definitions", {}).get("readKind", {}).get("enum", []))
-    for expected in ["record", "project-profile", "graph-edge", "source-file", "symbol", "test", "plan", "schema", "generated-index"]:
-        if expected not in read_kinds:
-            fail("Context Delivery Packet schema missing read kind: " + expected)
-
-    sample_packet = {
-        "schemaVersion": "1.0",
-        "generatedAt": "2026-06-01T00:00:00.000Z",
-        "instructionLevel": "self-resolve-before-change",
-        "resolvedPhrase": "기능패널",
-        "candidateMeanings": [
-            {"label": "FeaturePanel / feature panel", "confidence": 0.76, "why": "multilingual surface candidate"}
-        ],
-        "queries": [
-            {"query": "기능패널 기능화면 기능관리", "source": "llm-expansion", "purpose": "Korean aliases"},
-            {"query": "feature panel feature panel FeaturePanel", "source": "llm-expansion", "purpose": "English and code aliases"},
-        ],
-        "requiredRead": [
-            {
-                "path": ".lazy-harness/behavior/feature-surface.md",
-                "kind": "record",
-                "reason": "Confirm UI behavior before editing.",
-                "confidence": 0.82,
-                "whyMatched": "Matched Korean and English feature-surface aliases.",
-                "matchedQueries": ["기능패널", "feature panel"],
-            }
-        ],
-        "optionalRead": [],
-        "confidence": 0.76,
-        "fallbackSearches": ["rg -n \"기능패널|feature panel|FeaturePanel\" .lazy-harness src tests"],
-        "instruction": "STOP before response: read requiredRead before answering, analyzing, planning, option-gating, or editing.",
-    }
-    for field in expected_required:
-        if field not in sample_packet:
-            fail("sample Context Delivery Packet missing field: " + field)
-    if sample_packet["instructionLevel"] not in expected_levels:
-        fail("sample Context Delivery Packet uses invalid instructionLevel")
-    if not 0 <= sample_packet["confidence"] <= 1:
-        fail("sample Context Delivery Packet confidence must be 0..1")
-    print("✓ context delivery contract SDD ok")
-
+    expected_required = {"schemaVersion", "generatedAt", "mode", "queries", "candidateHits", "fallbackSearches", "notes"}
+    if required != expected_required:
+        fail("Context candidate packet schema required fields mismatch: " + json.dumps(sorted(required)))
+    if schema.get("properties", {}).get("mode", {}).get("enum") != ["candidate-retrieval"]:
+        fail("Context candidate packet schema should be candidate-retrieval mode only")
+    forbidden_schema_fields = {"instructionLevel", "requiredRead", "optionalRead", "confidence", "candidateMeanings", "instruction", "risk", "intent", "gate"}
+    present_forbidden = forbidden_schema_fields & set(schema.get("properties", {}).keys())
+    if present_forbidden:
+        fail("Context candidate packet schema includes forbidden semantic fields: " + json.dumps(sorted(present_forbidden)))
+    hit_required = set(schema.get("definitions", {}).get("candidateHit", {}).get("required", []))
+    if hit_required != {"path", "kind", "matchedQueries", "matchedFields"}:
+        fail("candidateHit required fields mismatch: " + json.dumps(sorted(hit_required)))
+    print("✓ context delivery candidate contract SDD ok")
 
 def check_context_delivery_metadata_phase2() -> None:
     """Phase 2 metadata should bridge aliases/profile navigation into retrieval evidence."""
@@ -4686,7 +4483,7 @@ def check_context_delivery_metadata_phase2() -> None:
         "Project Profile feature navigation",
         "feature-navigation.xml",
         "기능패널",
-        "self-resolve-before-change",
+        "candidate",
     ]:
         if phrase not in query_text:
             fail("relevant-record-query missing Phase 2 retrieval phrase: " + phrase)
@@ -4699,7 +4496,7 @@ def check_context_delivery_metadata_phase2() -> None:
         "기능패널",
         "feature panel",
         "FeaturePanel",
-        "requiredRead",
+        "candidate",
     ]:
         if phrase not in profile_text:
             fail("project-profile missing Context Delivery feature navigation phrase: " + phrase)
@@ -5267,26 +5064,29 @@ def check_evidence_capsule_standard_phase5() -> None:
     print("✓ evidence capsule standard Phase 5 ok")
 
 
-def check_context_delivery_dual_mode_phase4() -> None:
-    """Phase 4 should produce packet-shaped dual-mode required-read context."""
+def check_context_delivery_candidate_retrieval_phase4() -> None:
+    """Context Delivery returns candidate hits only; LLM decides importance/read priority."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
     index_script = LAZY / "scripts" / "context-index.ts"
     packet_schema = LAZY / "schemas" / "context-delivery-packet.schema.json"
     if not delivery_script.exists():
-        fail("Context Delivery packet generator missing: " + str(delivery_script))
+        fail("Context candidate retrieval helper missing: " + str(delivery_script))
     delivery_source = delivery_script.read_text(encoding="utf-8")
     forbidden_framework_aliases = [
         "surface aliases', targets",
         "Code-style ",
         "Deterministic multilingual expansion mapped",
+        "requiredRead",
+        "instructionLevel",
+        "self-resolve-before-change",
+        "confidence",
     ]
     leaked_aliases = [alias for alias in forbidden_framework_aliases if alias in delivery_source]
     if leaked_aliases:
-        fail("context-delivery must not hardcode host-specific aliases; use records/project profile instead: " + json.dumps(leaked_aliases, ensure_ascii=False))
+        fail("context-delivery must not hardcode aliases or semantic authority fields: " + json.dumps(leaked_aliases, ensure_ascii=False))
     schema = json.loads(packet_schema.read_text(encoding="utf-8"))
-    levels = set(schema.get("definitions", {}).get("instructionLevel", {}).get("enum", []))
-    if "self-resolve-before-change" not in levels:
-        fail("Context Delivery packet schema missing self-resolve-before-change")
+    if schema.get("title") != "ContextCandidatePacket":
+        fail("Context candidate schema title mismatch")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-"))
     try:
@@ -5347,27 +5147,28 @@ def check_context_delivery_dual_mode_phase4() -> None:
         if first.returncode != 0:
             fail("context-delivery source-scan fallback failed:\n" + first.stdout + first.stderr)
         packet = json.loads(first.stdout)
-        if packet.get("instructionLevel") != "self-resolve-before-change":
-            fail("context-delivery should require self-resolve-before-change for 기능패널 change request")
+        if packet.get("mode") != "candidate-retrieval" or packet.get("schemaVersion") != "2.0":
+            fail("context-delivery should emit candidate-retrieval packet: " + first.stdout)
+        for forbidden in ["instructionLevel", "requiredRead", "optionalRead", "confidence", "candidateMeanings", "instruction"]:
+            if forbidden in packet:
+                fail("context-delivery packet must not include semantic field: " + forbidden + "\n" + first.stdout)
         queries_text = json.dumps(packet.get("queries", []), ensure_ascii=False)
-        for expected in ["기능패널"]:
-            if expected not in queries_text:
-                fail("context-delivery missing original/token query term: " + expected)
-        for forbidden_query in ["기능화면", "FeaturePanel"]:
-            if forbidden_query in queries_text:
-                fail("context-delivery producer must not implement semantic alias expansion: " + forbidden_query)
-        required = packet.get("requiredRead", [])
-        required_pairs = {(item.get("kind"), item.get("path")) for item in required}
+        if "기능패널" not in queries_text:
+            fail("context-delivery missing literal query term: 기능패널")
+        hits = packet.get("candidateHits", [])
+        hit_pairs = {(item.get("kind"), item.get("path")) for item in hits}
         for expected in [
             ("record", ".lazy-harness/behavior/feature-surface.md"),
             ("project-profile", ".lazy-harness/project/feature-navigation.xml"),
             ("source-file", "src/features/example-feature/FeaturePanel.tsx"),
             ("test", "tests/example-feature/feature-panel.test.tsx"),
         ]:
-            if expected not in required_pairs:
-                fail("context-delivery requiredRead missing " + repr(expected) + ":\n" + json.dumps(required, ensure_ascii=False, indent=2))
-        if not all(item.get("whyMatched") and item.get("matchedQueries") for item in required):
-            fail("context-delivery requiredRead items must include whyMatched and matchedQueries")
+            if expected not in hit_pairs:
+                fail("context-delivery candidateHits missing " + repr(expected) + ":\n" + json.dumps(hits, ensure_ascii=False, indent=2))
+        if not all(item.get("matchedFields") and item.get("matchedQueries") for item in hits):
+            fail("context-delivery candidateHits must include matchedFields and matchedQueries")
+        if not any("candidate-only" in note for note in packet.get("notes", [])):
+            fail("context-delivery should explicitly note candidate-only semantics")
         if not any("contextIndexSource=source-scan" == note for note in packet.get("notes", [])):
             fail("context-delivery should note source-scan fallback when generated index is absent")
 
@@ -5385,10 +5186,11 @@ def check_context_delivery_dual_mode_phase4() -> None:
         if not any("contextIndexSource=generated-index" == note for note in packet_from_index.get("notes", [])):
             fail("context-delivery should consume generated context index when present")
         markdown = run_delivery("--message", "기능패널 고쳐줘", "--format", "md")
-        if markdown.returncode != 0 or "Context Delivery Packet" not in markdown.stdout or "Required read before answer/analyze/plan/option-gate/change" not in markdown.stdout:
-            fail("context-delivery markdown rendering missing required sections:\n" + markdown.stdout + markdown.stderr)
-        if "STOP before response" not in markdown.stdout or "Ask an option gate only after" not in markdown.stdout:
-            fail("context-delivery markdown must enforce pre-answer search/read before option gate:\n" + markdown.stdout + markdown.stderr)
+        if markdown.returncode != 0 or "Context candidate retrieval" not in markdown.stdout or "Candidate hits" not in markdown.stdout:
+            fail("context-delivery markdown rendering missing candidate sections:\n" + markdown.stdout + markdown.stderr)
+        for forbidden in ["Required read", "STOP before response", "self-resolve-before-change", "confidence"]:
+            if forbidden in markdown.stdout:
+                fail("context-delivery markdown must not claim semantic/read-debt authority: " + forbidden + "\n" + markdown.stdout)
 
         framework_only = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-delivery-framework-only-"))
         try:
@@ -5401,7 +5203,7 @@ def check_context_delivery_dual_mode_phase4() -> None:
                 "- Layer: SDD\n"
                 "- Scope: framework-global\n"
                 "- Applies when:\n"
-                "  - implementing Context Delivery Packet retrieval\n"
+                "  - implementing candidate retrieval\n"
                 "- Must:\n"
                 "  - use `기능패널` only as an example ambiguous surface term\n\n"
                 "## `기능패널` example\n\n기능패널 고쳐줘\n",
@@ -5417,23 +5219,22 @@ def check_context_delivery_dual_mode_phase4() -> None:
             if no_host.returncode != 0:
                 fail("context-delivery framework-only negative fixture failed:\n" + no_host.stdout + no_host.stderr)
             no_host_packet = json.loads(no_host.stdout)
-            if any(item.get("path") == ".lazy-harness/spec/platform/context-delivery-contract.md" for item in no_host_packet.get("requiredRead", [])):
-                fail("framework-global example record must not become requiredRead for host product-surface request")
+            if any(item.get("path") == ".lazy-harness/spec/platform/context-delivery-contract.md" for item in no_host_packet.get("candidateHits", [])):
+                fail("framework-global example record must not become candidate hit for host product-surface request")
             if not no_host_packet.get("fallbackSearches"):
                 fail("framework-only product-surface request should retain fallback searches")
         finally:
             shutil.rmtree(framework_only, ignore_errors=True)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-delivery dual-mode Phase 4 ok")
-
+    print("✓ context-delivery candidate retrieval Phase 4 ok")
 
 def check_context_delivery_optional_handoff_phase6() -> None:
-    """Phase 6 should render optional searcher handoff prompts without hook-time subagent/jcode-run work."""
+    """Context Delivery may render optional searcher handoff prompts, but only for candidate hits."""
     delivery_script = LAZY / "scripts" / "context-delivery.ts"
     hook_path = LAZY / "hooks" / "lifecycle" / "on-message-received.sh"
     if not delivery_script.exists():
-        fail("Context Delivery packet generator missing: " + str(delivery_script))
+        fail("Context candidate retrieval helper missing: " + str(delivery_script))
     hook_text = hook_path.read_text(encoding="utf-8")
     for forbidden in ["--handoff-prompt", "--journal", "jcode run", "subprocess.run", "context-delivery.ts", "relevant-record-query.ts"]:
         if forbidden in hook_text:
@@ -5451,26 +5252,17 @@ def check_context_delivery_optional_handoff_phase6() -> None:
     try:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
         (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
             "# Feature Surface\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
             "- Scope: host-project\n"
-            "- Applies when:\n"
-            "  - user asks about feature surface UI\n"
-            "- Must:\n"
-            "  - confirm feature panel behavior before editing\n"
             "- Aliases:\n"
             "  - 기능패널\n"
-            "  - feature panel\n"
             "- Implementation hints:\n"
             "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
-            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n",
             encoding="utf-8",
         )
         completed = subprocess.run(
@@ -5484,518 +5276,34 @@ def check_context_delivery_optional_handoff_phase6() -> None:
             fail("context-delivery --handoff-prompt failed:\n" + completed.stdout + completed.stderr)
         out = completed.stdout
         for phrase in [
-            "Context Delivery search handoff",
-            "Current user request",
+            "Context candidate search handoff",
+            "Current query",
             "Host root",
             str(temp),
-            "Root-bound constraints",
             "Do not mutate files",
-            "Do not call `jcode run` from `message.received`",
+            "candidateHits",
+            "Do not decide final intent, importance, required reads, gates, record-write need, risk, or next action",
             "Return one JSON object matching `.lazy-harness/schemas/context-delivery-packet.schema.json`",
-            "Do not return raw grep chunks or prose-only summaries",
-            "delegate-search",
-            "requiredRead",
-            "fallbackSearches",
             "기능패널",
             "FeaturePanel",
         ]:
             if phrase not in out:
                 fail("handoff prompt missing phrase: " + phrase + "\n" + out)
+        for forbidden in ["delegate-search", "requiredRead", "confidence", "instructionLevel"]:
+            if forbidden in out:
+                fail("handoff prompt must not include semantic-authority field: " + forbidden + "\n" + out)
         match = re.search(r"```json\n(.*?)\n```", out, re.S)
         if not match:
             fail("handoff prompt missing seed packet JSON fence:\n" + out)
         seed = json.loads(match.group(1))
-        if seed.get("instructionLevel") != "delegate-search":
-            fail("handoff seed packet should use delegate-search")
-        for field in ["schemaVersion", "candidateMeanings", "queries", "requiredRead", "optionalRead", "confidence", "fallbackSearches", "instruction"]:
+        if seed.get("mode") != "candidate-retrieval":
+            fail("handoff seed packet should be candidate-retrieval")
+        for field in ["schemaVersion", "queries", "candidateHits", "fallbackSearches", "notes"]:
             if field not in seed:
                 fail("handoff seed packet missing field: " + field)
-        if not any("mutationAllowed=false" == note for note in seed.get("notes", [])):
-            fail("handoff seed packet should mark mutationAllowed=false")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-delivery optional handoff Phase 6 ok")
-
-
-def check_context_delivery_packet_journal_phase7() -> None:
-    """Phase 7 should journal sanitized packet evidence and audit it as advisory-only."""
-    delivery_script = LAZY / "scripts" / "context-delivery.ts"
-    helper_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
-    permit_src = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-packet-journal-"))
-    try:
-        subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
-        (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
-        (temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True, exist_ok=True)
-        (temp / ".jcode" / "hooks").mkdir(parents=True, exist_ok=True)
-        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
-        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
-        component = temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx"
-        component.write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
-        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("test('feature panel', () => {})\n", encoding="utf-8")
-        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
-            "# Feature Surface\n\n"
-            "## Rule digest\n\n"
-            "- Status: active\n"
-            "- Layer: BDD\n"
-            "- Scope: host-project\n"
-            "- Applies when:\n"
-            "  - user asks about feature surface UI\n"
-            "- Must:\n"
-            "  - confirm feature panel behavior before editing\n"
-            "- Aliases:\n"
-            "  - 기능패널\n"
-            "  - feature panel\n"
-            "- Implementation hints:\n"
-            "  - Components: `FeaturePanel`\n"
-            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
-            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n",
-            encoding="utf-8",
-        )
-        def journal_for_session(session_id: str) -> pathlib.Path:
-            key = "default" if not session_id else "session-" + hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:20]
-            return temp / ".git" / "lazy-harness" / "runtime" / key / "state" / "context-delivery-packets.jsonl"
-
-        def append_packet_for(session_id: str, packet_row: dict) -> None:
-            target = journal_for_session(session_id)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(packet_row, ensure_ascii=False) + "\n")
-
-        journal = journal_for_session("phase7-session")
-        completed = subprocess.run(
-            [
-                "bun", str(delivery_script),
-                "--root", str(temp),
-                "--message", "기능패널 고쳐줘",
-                "--journal",
-                "--message-id", "phase7-packet-message",
-                "--session-id", "phase7-session",
-                "--turn-count", "7",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            fail("context-delivery --journal failed:\n" + completed.stdout + completed.stderr)
-        if not journal.exists():
-            fail("context-delivery --journal should create packet evidence journal")
-        journal_text = journal.read_text(encoding="utf-8")
-        if "기능패널 고쳐줘" in journal_text or "feature surface UI" in journal_text:
-            fail("packet journal must not store raw user message or raw record bullets")
-        rows = [json.loads(line) for line in journal_text.splitlines() if line.strip()]
-        row = rows[-1]
-        for field in ["messageIdHash", "sessionIdHash", "packetHash", "instructionLevel", "confidence", "requiredRead", "requiredReadCount"]:
-            if field not in row:
-                fail("packet journal row missing sanitized field: " + field)
-        if row.get("messageIdHash") == "phase7-packet-message" or row.get("sessionIdHash") == "phase7-session":
-            fail("packet journal should hash identifiers")
-        required_paths = [item.get("path") for item in row.get("requiredRead", []) if isinstance(item, dict)]
-        if not required_paths:
-            fail("packet journal should include sanitized requiredRead paths")
-        if not any(path == "src/features/example-feature/FeaturePanel.tsx" for path in required_paths):
-            fail("packet journal fixture should include FeaturePanel requiredRead path: " + repr(required_paths))
-
-        helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-response-rule-audit.py"
-        shutil.copy2(helper_src, helper)
-        helper.chmod(0o755)
-        permit = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
-        shutil.copy2(permit_src, permit)
-        permit.chmod(0o755)
-        runtime_helper = temp / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py"
-        shutil.copy2(LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py", runtime_helper)
-        runtime_helper.chmod(0o755)
-
-        def run_helper(payload: dict) -> str:
-            result = subprocess.run(
-                [str(helper), json.dumps(payload, ensure_ascii=False)],
-                cwd=temp,
-                text=True,
-                capture_output=True,
-                check=False,
-                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
-            )
-            if result.returncode != 0:
-                fail("response audit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
-            return result.stdout
-
-        def run_permit(payload: dict) -> str:
-            result = subprocess.run(
-                [str(permit), json.dumps(payload, ensure_ascii=False)],
-                cwd=temp,
-                text=True,
-                capture_output=True,
-                check=False,
-                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
-            )
-            if result.returncode != 0:
-                fail("read-debt permit helper should remain fail-open exit 0:\n" + result.stdout + result.stderr)
-            return result.stdout
-
-        tool_events = temp / ".jcode" / "hooks" / "tool-events.jsonl"
-
-        def append_tool_event(message_id: str, session_id: str, name: str, args: dict) -> None:
-            event = {
-                "event": "tool.execute.after",
-                "session_id": session_id,
-                "message_id": message_id,
-                "tool": {"name": name, "args": args},
-            }
-            ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            with tool_events.open("a", encoding="utf-8") as fh:
-                fh.write(ts + " " + json.dumps(event, ensure_ascii=False) + "\n")
-
-        pre_action_block = run_permit({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if "read-debt gate" not in pre_action_block or "FeaturePanel.tsx" not in pre_action_block:
-            fail("read-debt permit should block action before requiredRead evidence:\n" + pre_action_block)
-
-        read_allowed = run_permit({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "tool": {"name": "read", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if read_allowed.strip():
-            fail("read-debt permit should allow read tools before debt is satisfied:\n" + read_allowed)
-
-        satisfied_action = run_permit({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [
-                {"name": "read", "args_preview": ".lazy-harness/behavior/feature-surface.md"},
-                {"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
-                {"name": "read", "args_preview": "tests/example-feature/feature-panel.test.tsx"},
-            ],
-        })
-        if satisfied_action.strip():
-            fail("read-debt permit should allow action after all requiredRead evidence exists:\n" + satisfied_action)
-
-        batch_with_action = run_permit({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "tool": {"name": "batch", "args": {"tool_calls": [
-                {"tool": "read", "parameters": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-                {"tool": "edit", "parameters": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            ]}},
-            "recent_tool_calls": [],
-        })
-        if "read-debt gate" not in batch_with_action:
-            fail("read-debt permit should block mixed read+action batch before prior evidence:\n" + batch_with_action)
-
-        def short_hash(value: str) -> str:
-            return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
-
-        wrong_message_packet = dict(row)
-        wrong_message_packet["messageIdHash"] = short_hash("phase7-other-packet-message")
-        wrong_message_packet["sessionIdHash"] = short_hash("phase7-same-packet-session")
-        wrong_message_packet["packetHash"] = "same-session-wrong-message-packet-fixture"
-        append_packet_for("phase7-same-packet-session", wrong_message_packet)
-        wrong_message_permit = run_permit({
-            "message_id": "phase7-current-packet-message",
-            "session_id": "phase7-same-packet-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if wrong_message_permit.strip():
-            fail("read-debt permit must not match same-session packet from a different message:\n" + wrong_message_permit)
-        wrong_message_audit = run_helper({
-            "message_id": "phase7-current-packet-message",
-            "session_id": "phase7-same-packet-session",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if wrong_message_audit.strip():
-            fail("response audit must not match same-session packet from a different message:\n" + wrong_message_audit)
-
-        wrong_session_packet = dict(row)
-        wrong_session_packet["messageIdHash"] = short_hash("phase7-same-packet-message")
-        wrong_session_packet["sessionIdHash"] = short_hash("phase7-other-packet-session")
-        wrong_session_packet["packetHash"] = "same-message-wrong-session-packet-fixture"
-        append_packet_for("phase7-current-packet-session", wrong_session_packet)
-        wrong_session_permit = run_permit({
-            "message_id": "phase7-same-packet-message",
-            "session_id": "phase7-current-packet-session",
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if wrong_session_permit.strip():
-            fail("read-debt permit must not match same-message packet from a different session:\n" + wrong_session_permit)
-        wrong_session_audit = run_helper({
-            "message_id": "phase7-same-packet-message",
-            "session_id": "phase7-current-packet-session",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if wrong_session_audit.strip():
-            fail("response audit must not match same-message packet from a different session:\n" + wrong_session_audit)
-
-        logged_read_message_id = "phase7-logged-read-message"
-        logged_read_session_id = "phase7-logged-read-session"
-        logged_read_row = dict(row)
-        logged_read_row["messageIdHash"] = short_hash(logged_read_message_id)
-        logged_read_row["sessionIdHash"] = short_hash(logged_read_session_id)
-        logged_read_row["packetHash"] = "logged-read-evidence-fixture"
-        append_packet_for(logged_read_session_id, logged_read_row)
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
-        append_tool_event(logged_read_message_id, logged_read_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
-        logged_read_satisfied = run_permit({
-            "message_id": logged_read_message_id,
-            "session_id": logged_read_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if logged_read_satisfied.strip():
-            fail("read-debt permit should accept tool-events journal read evidence when recent_tool_calls is empty:\n" + logged_read_satisfied)
-
-        strict_message_id = "phase7-strict-message"
-        strict_session_id = "phase7-strict-session"
-        strict_row = dict(row)
-        strict_row["messageIdHash"] = short_hash(strict_message_id)
-        strict_row["sessionIdHash"] = short_hash(strict_session_id)
-        strict_row["packetHash"] = "strict-message-correlation-fixture"
-        append_packet_for(strict_session_id, strict_row)
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": ".lazy-harness/behavior/feature-surface.md"})
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "src/features/example-feature/FeaturePanel.tsx"})
-        append_tool_event("phase7-other-message", strict_session_id, "read", {"file_path": "tests/example-feature/feature-panel.test.tsx"})
-        strict_message_block = run_permit({
-            "message_id": strict_message_id,
-            "session_id": strict_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if "read-debt gate" not in strict_message_block:
-            fail("read-debt permit must not accept same-session tool-events from a different message:\n" + strict_message_block)
-
-        epoch_message_id = "phase7-epoch-message"
-        epoch_session_id = "phase7-epoch-session"
-        old_ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 60))
-        for p in [".lazy-harness/behavior/feature-surface.md", "src/features/example-feature/FeaturePanel.tsx", "tests/example-feature/feature-panel.test.tsx"]:
-            event = {
-                "event": "tool.execute.after",
-                "session_id": epoch_session_id,
-                "message_id": epoch_message_id,
-                "tool": {"name": "read", "args": {"file_path": p}},
-            }
-            with tool_events.open("a", encoding="utf-8") as fh:
-                fh.write(old_ts + " " + json.dumps(event, ensure_ascii=False) + "\n")
-        epoch_row = dict(row)
-        epoch_row["messageIdHash"] = short_hash(epoch_message_id)
-        epoch_row["sessionIdHash"] = short_hash(epoch_session_id)
-        epoch_row["packetHash"] = "packet-epoch-filter-fixture"
-        epoch_row["epochSeconds"] = int(time.time())
-        append_packet_for(epoch_session_id, epoch_row)
-        epoch_block = run_permit({
-            "message_id": epoch_message_id,
-            "session_id": epoch_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if "read-debt gate" not in epoch_block:
-            fail("read-debt permit must not accept tool-events older than the packet epoch:\n" + epoch_block)
-
-        search_message_id = "phase7-search-message"
-        search_session_id = "phase7-search-session"
-        search_row = {
-            "schemaVersion": "1.0",
-            "event": "context-delivery.packet",
-            "timestamp": "2026-06-01T00:00:00Z",
-            "epochSeconds": int(time.time()),
-            "messageIdHash": short_hash(search_message_id),
-            "sessionIdHash": short_hash(search_session_id),
-            "packetHash": "search-debt-fixture",
-            "instructionLevel": "self-resolve-before-change",
-            "confidence": 0,
-            "requiredReadCount": 0,
-            "optionalReadCount": 0,
-            "candidateMeaningCount": 0,
-            "fallbackSearchCount": 2,
-            "requiredRead": [],
-            "optionalRead": [],
-            "notes": ["searchDebtFixture=true"],
-        }
-        append_packet_for(search_session_id, search_row)
-
-        search_action_block = run_permit({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if "search-debt gate" not in search_action_block or "root-bound search" not in search_action_block:
-            fail("search-debt permit should block action before search evidence:\n" + search_action_block)
-
-        search_tool_allowed = run_permit({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "tool": {"name": "agentgrep", "args": {"query": "기능패널 feature panel"}},
-            "recent_tool_calls": [],
-        })
-        if search_tool_allowed.strip():
-            fail("search-debt permit should allow search tools before debt is satisfied:\n" + search_tool_allowed)
-
-        searcher_handoff_allowed = run_permit({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "tool": {"name": "subagent", "args": {"subagent_type": "searcher", "prompt": "Perform root-bound search only. Do not mutate. Return ContextDeliveryPacket requiredRead."}},
-            "recent_tool_calls": [],
-        })
-        if searcher_handoff_allowed.strip():
-            fail("search-debt permit should allow explicit searcher handoff:\n" + searcher_handoff_allowed)
-
-        search_satisfied_action = run_permit({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [
-                {"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"},
-            ],
-        })
-        if search_satisfied_action.strip():
-            fail("search-debt permit should allow action after search evidence exists:\n" + search_satisfied_action)
-
-        logged_search_message_id = "phase7-logged-search-message"
-        logged_search_session_id = "phase7-logged-search-session"
-        logged_search_row = dict(search_row)
-        logged_search_row["messageIdHash"] = short_hash(logged_search_message_id)
-        logged_search_row["sessionIdHash"] = short_hash(logged_search_session_id)
-        logged_search_row["packetHash"] = "logged-search-evidence-fixture"
-        append_packet_for(logged_search_session_id, logged_search_row)
-        append_tool_event(logged_search_message_id, logged_search_session_id, "agentgrep", {"query": "기능패널 feature panel", "path": "."})
-        logged_search_satisfied = run_permit({
-            "message_id": logged_search_message_id,
-            "session_id": logged_search_session_id,
-            "tool": {"name": "Edit", "args": {"file_path": "src/features/example-feature/FeaturePanel.tsx"}},
-            "recent_tool_calls": [],
-        })
-        if logged_search_satisfied.strip():
-            fail("search-debt permit should accept tool-events journal search evidence when recent_tool_calls is empty:\n" + logged_search_satisfied)
-
-        search_advisory = run_helper({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if "search evidence may be missing" not in search_advisory:
-            fail("response audit should advise when search-debt action lacks search evidence:\n" + search_advisory)
-
-        search_turn_end_advisory = run_helper({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "recent_tool_calls": [],
-        })
-        if "search evidence may be missing" not in search_turn_end_advisory:
-            fail("response audit should advise for any search-debt turn without root-bound search evidence:\n" + search_turn_end_advisory)
-
-        search_response_advisory = run_helper({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "assistant_response": (
-                "분석 결과, 구현 액션 플랜을 제안합니다.\n"
-                "질문 게이트: 어느 방향으로 진행할까요?\n"
-                "1. (Recommended) 기능패널과 pending state를 모두 연동"
-            ),
-            "recent_tool_calls": [],
-        })
-        if "search evidence may be missing" not in search_response_advisory:
-            fail("response audit should advise when search-debt response lacks search evidence:\n" + search_response_advisory)
-
-        search_response_satisfied = run_helper({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "assistant_response": "분석 결과, 질문 게이트를 제안합니다.",
-            "recent_tool_calls": [{"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"}],
-        })
-        if search_response_satisfied.strip():
-            fail("response audit should stay silent when search-debt has search evidence:\n" + search_response_satisfied)
-
-        search_audit_satisfied = run_helper({
-            "message_id": search_message_id,
-            "session_id": search_session_id,
-            "recent_tool_calls": [
-                {"name": "agentgrep", "args_preview": "기능패널 feature panel .lazy-harness src tests"},
-                {"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
-            ],
-        })
-        if search_audit_satisfied.strip():
-            fail("response audit should stay silent when search-debt has search evidence:\n" + search_audit_satisfied)
-
-        logged_read_audit_satisfied = run_helper({
-            "message_id": logged_read_message_id,
-            "session_id": logged_read_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if logged_read_audit_satisfied.strip():
-            fail("response audit should accept tool-events journal read evidence:\n" + logged_read_audit_satisfied)
-
-        strict_message_audit = run_helper({
-            "message_id": strict_message_id,
-            "session_id": strict_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if "ADVISORY. Search/read debt audit" not in strict_message_audit:
-            fail("response audit must not accept same-session tool-events from a different message:\n" + strict_message_audit)
-
-        epoch_audit = run_helper({
-            "message_id": epoch_message_id,
-            "session_id": epoch_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if "ADVISORY. Search/read debt audit" not in epoch_audit:
-            fail("response audit must not accept tool-events older than packet epoch:\n" + epoch_audit)
-
-        logged_search_audit_satisfied = run_helper({
-            "message_id": logged_search_message_id,
-            "session_id": logged_search_session_id,
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if logged_search_audit_satisfied.strip():
-            fail("response audit should accept tool-events journal search evidence:\n" + logged_search_audit_satisfied)
-
-        no_mutation = run_helper({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "recent_tool_calls": [{"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if no_mutation.strip():
-            fail("packet audit should stay silent without mutation:\n" + no_mutation)
-
-        advisory = run_helper({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if "ADVISORY. Search/read debt audit" not in advisory or "STOP" in advisory:
-            fail("packet audit should emit advisory-only when mutation lacks read evidence:\n" + advisory)
-
-        satisfied = run_helper({
-            "message_id": "phase7-packet-message",
-            "session_id": "phase7-session",
-            "recent_tool_calls": [
-                {"name": "read", "args_preview": ".lazy-harness/behavior/feature-surface.md"},
-                {"name": "read", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
-                {"name": "read", "args_preview": "tests/example-feature/feature-panel.test.tsx"},
-                {"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"},
-            ],
-        })
-        if satisfied.strip():
-            fail("packet audit should stay silent when requiredRead evidence exists:\n" + satisfied)
-
-        uncorrelated = run_helper({
-            "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}],
-        })
-        if uncorrelated.strip():
-            fail("packet audit should not match packet rows without message/session ids:\n" + uncorrelated)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-delivery packet journal Phase 7 ok")
-
+    print("✓ context-delivery optional candidate handoff Phase 6 ok")
 
 def check_record_decision_broker_phase8() -> None:
     """Phase 8 should define a safe post-turn Record Decision Packet contract before runtime escalation."""
@@ -6302,12 +5610,15 @@ def check_context_broker_dogfood_collector() -> None:
         raw_output = json.dumps(payload, ensure_ascii=False)
         if "기능패널 고쳐줘" in raw_output:
             fail("context-broker-dogfood collector output must not store raw message")
-        if not row.get("contextDelivery", {}).get("ok"):
-            fail("context-broker-dogfood context delivery should pass: " + json.dumps(row, ensure_ascii=False))
+        context_delivery = row.get("contextDelivery", {})
+        if not context_delivery.get("ok") or context_delivery.get("mode") != "candidate-retrieval":
+            fail("context-broker-dogfood context delivery should pass as candidate retrieval: " + json.dumps(row, ensure_ascii=False))
+        if not context_delivery.get("candidateHitCount"):
+            fail("context-broker-dogfood should summarize candidate hit count: " + json.dumps(row, ensure_ascii=False))
         if row.get("recordDecision", {}).get("disposition") != "no-record-needed":
             fail("context-broker-dogfood collection turn should be no-record-needed")
-        if row.get("packetJournal", {}).get("rawMessagePresent"):
-            fail("context-broker-dogfood packet journal should not contain raw message")
+        if "packetJournal" in row:
+            fail("context-broker-dogfood should not depend on context-delivery packet journal rows")
         if row.get("errors"):
             fail("context-broker-dogfood row should have no errors: " + json.dumps(row.get("errors"), ensure_ascii=False))
         if not out_path.exists():
@@ -6544,7 +5855,6 @@ def check_message_received_hook_context_injection() -> None:
             "FeaturePanel.tsx",
             "Search protocol: (1) extract 2-5 candidate meanings",
             "grep -rli <token>",
-            "self-resolve-before-change",
             "self-resolve-before-answer",
         ]:
             if forbidden in body:
@@ -7019,13 +6329,10 @@ def main() -> None:
         (check_jcode_project_profile_skill_wrapper, "BOTH"),
         (check_jcode_doc_ingest_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
-        (check_task_router_read_only_contract, "BOTH"),
-        (check_task_router_fixtures, "BOTH"),
-        (check_lazy_route_cli_help, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
-        (check_response_completed_auto_route_telemetry, "BOTH"),
+        (check_response_completed_no_auto_route_telemetry, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),
         (check_lazy_host_root_resolution, "BOTH"),
         (check_parallel_runtime_state_isolation, "BOTH"),
@@ -7054,9 +6361,8 @@ def main() -> None:
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
-        (check_context_delivery_dual_mode_phase4, "BOTH"),
+        (check_context_delivery_candidate_retrieval_phase4, "BOTH"),
         (check_context_delivery_optional_handoff_phase6, "BOTH"),
-        (check_context_delivery_packet_journal_phase7, "BOTH"),
         (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
         (check_context_broker_dogfood_collector, "BOTH"),
