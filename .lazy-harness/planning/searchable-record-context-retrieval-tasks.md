@@ -333,6 +333,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - static search/read-debt reminder still works
 - Evidence: `.lazy-harness/evidence/2026-06-06-searchable-record-memory-host-sync.md`
 - Result: 13 initialized downstream hosts synced to marker `34c1ef2`; stale files/help/hook checks all zero.
+- Follow-up result: selected hosts `medivance`, `medivance-pwa`, and `medivance-homepage` synced to marker `30e9866` after SCR-402/SCR-501/SCR-601/SCR-602; `record-index` present, `context-index` absent, host `lazy test` passed. Evidence: `.lazy-harness/evidence/2026-06-06-selected-medivance-host-sync-record-index.md`.
 
 ## Discovery capture
 
