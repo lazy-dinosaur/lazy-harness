@@ -35,8 +35,8 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 
 | Fixture id | Scenario protected | Input shape | Expected result | Implementation status |
 |---|---|---|---|---|
-| `record_index_header_complete` | BDD Scenario 1 | Record with all recommended header fields | Header metadata can be parsed/listed as cues; no semantic fields exist | planned |
-| `record_index_header_missing` | BDD Scenario 5 | Record missing `## Index header` | Advisory warning only for historical records; no hard block | planned |
+| `record_index_header_complete` | BDD Scenario 1 | Record with all recommended header fields | `record-audit.recordQuality` counts it complete in SCR-501 fixture; header metadata remains cue-only | implemented via `check_record_audit_cli` |
+| `record_index_header_missing` | BDD Scenario 5 | Historical record missing `## Index header` | `record-audit.recordQuality.counts["missing-index-header"]` and sample path report advisory warning only; no hard block | implemented via `check_record_audit_cli` |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
@@ -149,7 +149,7 @@ Existing related guard:
 
 ## Implementation map
 
-- Status: `fixtures plus SCR-402 executable coverage`
+- Status: `fixtures plus SCR-402/SCR-501 executable coverage`
 - Primary files:
   - `.lazy-harness/tests/record-index-header.md` — this TDD fixture plan.
   - `.lazy-harness/spec/platform/record-index-header.md` — SDD contract under test.
@@ -157,17 +157,21 @@ Existing related guard:
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD invariants under test.
   - `.lazy-harness/ssot/cli-tool-boundary.md` — semantic-authority boundary under test.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — canonical naming ADR under test.
-  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation and old command absence.
+  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation, old command absence, and record-audit recordQuality complete/missing fixtures.
+  - `.lazy-harness/scripts/record-audit.ts` — SCR-501 advisory quality counts for historical record metadata.
 - Key symbols:
   - `check_record_index_generator_phase3` — validates schema title, deterministic output, aliases/surface terms, implementation hints, graph ids, projectProfile feature ids, generated cache write, and old context-index command/source/schema absence.
+  - `check_record_audit_cli` — validates `recordQuality.advisoryOnly`, inspected/complete counts, all four SCR-501 warning counts, sample path retention, and human-readable warning summaries.
 - Flow:
   1. SDD defines header field/consumer contract.
   2. TDD records fixture expectations before parser/cache implementation.
   3. SCR-401 decided canonical name/scope: `record-index`, listing/cache only.
   4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator and old command absence.
+  5. SCR-501 Option A implements advisory `recordQuality` counts and complete/missing historical self-test fixtures.
 - Protection today:
-  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, and old context-index command/source/schema absence.
-  - this record prevents semantic-authority drift in future parser/cache changes.
+  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, old context-index command/source/schema absence, and record-audit recordQuality advisories.
+  - recordQuality advisories are counts/samples only and do not make historical records invalid.
+  - this record prevents semantic-authority drift in future parser/cache/audit changes.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -175,7 +179,7 @@ Existing related guard:
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`
+  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`, `kg_record_audit_record_quality`, `kg_record_audit_record_quality_self_test`
   - generated cache key: `.lazy-harness/generated/record-index.json`
 
 ## Layer completeness impact
@@ -183,10 +187,10 @@ Existing related guard:
 - DDD: covered by `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md` and scenario mapping above.
 - SDD: covered by `.lazy-harness/spec/platform/record-index-header.md`.
-- TDD: this record defines fixtures and points to executable self-test coverage.
+- TDD: this record defines fixtures and points to executable self-test coverage, including SCR-501 complete/missing historical cases.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed as sufficient for SCR-303/304.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records canonical `record-index` naming.
-- Planning: task statuses updated.
+- Planning: task statuses updated through SCR-501 completion.
 
 ## Rule placement
 
@@ -201,7 +205,7 @@ Existing related guard:
 
 - DDD: covered/updated by `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: covered/updated by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
-- SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
+- SDD: updated by `.lazy-harness/spec/platform/record-index-header.md` and `.lazy-harness/spec/platform/record-audit.md`.
 - TDD: updated by this record.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` updated/created for SCR-401.
 - SSOT: reviewed/updated in `.lazy-harness/ssot/cli-tool-boundary.md`.

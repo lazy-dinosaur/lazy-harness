@@ -42,8 +42,9 @@ The JSON output must include:
 - `markers`: file counts for incomplete/risk markers such as `needs-interview`, `TODO`, `FIXME`, `stale`, `conflict`, `ambiguous`, and `needs-option-gate`.
 - `projectProfile`: separate `artifactsComplete` from `answersComplete` and report `needsInterviewFields`.
 - `graph`: implementation graph row count plus invalid, actionable missing path, source-only path, and comma-joined path hygiene signals.
+- `recordQuality`: advisory-only structured counts and samples for `missing-index-header`, `missing-alias-or-search-key`, `missing-source-test-hints`, and `missing-graph-link`.
 - `recentFiles`: recent non-framework record files for quick dogfood review.
-- `warnings` and `nextActions`: human/actionable summary.
+- `warnings` and `nextActions`: human/actionable summary; `recordQuality` warnings summarize counts without turning historical records into hard failures.
 
 ## Non-goals
 
@@ -62,20 +63,21 @@ The JSON output must include:
   - Reports graph hygiene and JSONL parseability without mutating files.
   - Separates `graph.sourceOnlyPaths` from actionable `graph.missingPaths` when `--source` is available.
   - Warns when `--source` points at the inspected host itself, because that misclassifies framework-source-only paths during installed-host readiness checks.
+  - Builds `recordQuality` as read-only advisory metadata quality counts and sample paths for historical records missing Index header, aliases/search keys, source/test hints, or graph links.
 - `.lazy-harness/bin/lazy`
   - Adds `lazy record-audit` dispatcher entry.
 - `.lazy-harness/scripts/self-test.py`
-  - `check_record_audit_cli` protects host/source comparison, Project Profile answer split, graph hygiene reporting, JSONL invalid-line reporting, marker counting, and dispatcher pass-through.
+  - `check_record_audit_cli` protects host/source comparison, Project Profile answer split, graph hygiene reporting, JSONL invalid-line reporting, marker counting, dispatcher pass-through, and SCR-501 complete/missing historical `recordQuality` fixtures.
   - `check_gate_state_cli_and_record_audit_source_guard` protects the self-source warning used by lifecycle Phase 3 readiness checks.
 - `.lazy-harness/knowledge/graph.jsonl`
-  - Stores confirmed implementation/test edges for this CLI.
+  - Stores confirmed implementation/test edges for this CLI, including SCR-501 `recordQuality` advisory output.
 
 ## Discovery capture
 
 - DDD: none.
-- SDD: this contract is accepted for the record audit CLI.
+- SDD: this contract is updated for SCR-501 structured `recordQuality` counts.
 - BDD: candidate, future host UX may render this as a compact dashboard.
-- TDD: protected by self-test fixture.
+- TDD: protected by self-test fixture complete/missing historical cases.
 - ADR: none for now; this is an incremental CLI under existing record-first and dogfood feedback rules.
-- SSOT: none.
-- Planning: dogfood improvement candidate promoted into this implementation slice.
+- SSOT: none; existing read-only CLI boundary remains sufficient.
+- Planning: SCR-501 completed in searchable-record memory backlog.

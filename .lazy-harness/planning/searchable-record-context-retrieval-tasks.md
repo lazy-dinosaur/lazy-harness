@@ -263,17 +263,20 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-501 — Extend record-audit
 
-- Status: todo
+- Status: done
 - Type: source/test
-- Requirements:
-  - warn `missing-index-header`
-  - warn `missing-alias-or-search-key`
-  - warn `missing-source-test-hints`
-  - warn `missing-graph-link`
-  - advisory only for historical records
+- Decision:
+  - Option A selected: add structured `recordQuality` counts/samples while keeping `warnings[]` as human summaries.
+- Result:
+  - `lazy record-audit --format=json` includes `recordQuality.advisoryOnly`, `inspectedRecords`, `completeRecords`, `counts`, and `issues[].samplePaths`.
+  - Advisory codes: `missing-index-header`, `missing-alias-or-search-key`, `missing-source-test-hints`, `missing-graph-link`.
+  - Historical records are not invalidated; warnings are advisory only.
 - Acceptance:
   - `lazy record-audit --format=json` reports counts
-  - self-test covers at least complete/missing historical cases
+  - self-test covers complete/missing historical cases in `check_record_audit_cli`
+- Validation:
+  - Focused `record-audit` JSON smoke passed.
+  - `python3 .lazy-harness/scripts/self-test.py` passed 72/72.
 
 ## Milestone 6 — Implementation-map backlog
 

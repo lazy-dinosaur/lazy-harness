@@ -71,6 +71,22 @@ interface RecentFile {
   mtime: string
 }
 
+type RecordQualityCode = 'missing-index-header' | 'missing-alias-or-search-key' | 'missing-source-test-hints' | 'missing-graph-link'
+
+interface RecordQualityIssue {
+  code: RecordQualityCode
+  count: number
+  samplePaths: string[]
+}
+
+interface RecordQualitySummary {
+  advisoryOnly: true
+  inspectedRecords: number
+  completeRecords: number
+  counts: Record<RecordQualityCode, number>
+  issues: RecordQualityIssue[]
+}
+
 interface AuditResult {
   ok: true
   mode: 'record-audit.inspect'
@@ -92,6 +108,7 @@ interface AuditResult {
   markers: MarkerSummary[]
   projectProfile: ProjectProfileSummary
   graph: GraphSummary
+  recordQuality: RecordQualitySummary
   recentFiles: RecentFile[]
   warnings: string[]
   nextActions: string[]
@@ -101,6 +118,8 @@ const LAYERS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot', 'pla
 const COMPARE_LAYERS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot', 'planning', 'plans', 'knowledge', 'project', 'handoff', 'questions']
 const MARKERS = ['needs-interview', 'TODO', 'FIXME', 'stale', 'conflict', 'ambiguous', 'needs-option-gate']
 const SKIP_RECENT_PARTS = new Set(['scripts', 'bin', 'schemas', 'fixtures', 'node_modules', 'generated', 'hooks', 'manifests'])
+const QUALITY_RECORD_LAYERS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot', 'planning', 'plans', 'handoff', 'questions']
+const RECORD_QUALITY_CODES: RecordQualityCode[] = ['missing-index-header', 'missing-alias-or-search-key', 'missing-source-test-hints', 'missing-graph-link']
 const PROJECT_ARTIFACTS = [
   '.lazy-harness/project/profile.xml',
   '.lazy-harness/project/stack.xml',
@@ -216,6 +235,191 @@ function safeText(path: string): string {
     return text(path)
   } catch {
     return ''
+  }
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+}
+
+function cleanMarkdownValue(value: string): string {
+  return value
+    .trim()
+    .replace(/^[-*]\s+/, '')
+    .replace(/`/g, '')
+    .replace(/^['"]|['"]$/g, '')
+    .trim()
+}
+
+function splitValues(value: string): string[] {
+  const ticked = Array.from(value.matchAll(/`([^`]+)`/g)).map((match) => cleanMarkdownValue(match[1]))
+  if (ticked.length) return unique(ticked)
+  return unique(value.split(',').map(cleanMarkdownValue))
+}
+
+function findHeadingBlock(body: string, heading: RegExp): string[] | null {
+  const lines = body.split(/\r?\n/)
+  let inFence = false
+  let start = -1
+  for (let i = 0; i < lines.length; i += 1) {
+    if (/^\s*```/.test(lines[i])) inFence = !inFence
+    if (!inFence && heading.test(lines[i].trim())) { start = i; break }
+  }
+  if (start < 0) return null
+  let end = lines.length
+  inFence = false
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (/^\s*```/.test(lines[i])) inFence = !inFence
+    if (!inFence && /^##\s+/.test(lines[i])) { end = i; break }
+  }
+  return lines.slice(start + 1, end)
+}
+
+function collectMarkdownListValues(lines: string[], labels: string[]): string[] {
+  const values: string[] = []
+  let current: string | null = null
+  for (const raw of lines) {
+    const line = raw.trimEnd()
+    const label = line.match(/^\s*-\s+([^:]+):\s*(.*)$/)
+    if (label && labels.some((item) => item.toLowerCase() === label[1].trim().toLowerCase())) {
+      current = label[1].trim().toLowerCase()
+      if (label[2].trim()) values.push(...splitValues(label[2]))
+      continue
+    }
+    const nextTopLevel = line.match(/^\s*-\s+([^:]+):\s*$/)
+    if (nextTopLevel && !labels.some((item) => item.toLowerCase() === nextTopLevel[1].trim().toLowerCase())) current = null
+    const bullet = line.match(/^\s{2,}-\s+(.+)$/)
+    if (current && bullet) values.push(...splitValues(bullet[1]))
+  }
+  return unique(values)
+}
+
+function collectImplementationHintValues(lines: string[], labels: string[]): string[] {
+  const values: string[] = []
+  let inImplementationHints = false
+  for (const raw of lines) {
+    const line = raw.trimEnd()
+    if (/^\s*-\s+Implementation hints:\s*$/i.test(line)) {
+      inImplementationHints = true
+      continue
+    }
+    const topLevel = line.match(/^\s*-\s+([^:]+):\s*$/)
+    if (topLevel && !/^Implementation hints$/i.test(topLevel[1].trim())) inImplementationHints = false
+    if (!inImplementationHints) continue
+    const hint = line.match(/^\s{2,}-\s+([^:]+):\s*(.+)$/)
+    if (hint && labels.some((item) => item.toLowerCase() === hint[1].trim().toLowerCase())) values.push(...splitValues(hint[2]))
+  }
+  return unique(values)
+}
+
+function implementationMapHints(body: string): { sourceHints: string[]; testHints: string[] } {
+  const block = findHeadingBlock(body, /^##\s+Implementation map\s*$/i)
+  if (!block) return { sourceHints: [], testHints: [] }
+  const sourceHints: string[] = []
+  const testHints: string[] = []
+  const content = block.join('\n')
+  const candidates = [
+    ...Array.from(content.matchAll(/`([^`]+)`/g)).map((match) => match[1]),
+    ...Array.from(content.matchAll(/(?:^|\s)((?:src|app|packages|components|tests|test|__tests__|\.lazy-harness)\/[A-Za-z0-9_./*-]+)/g)).map((match) => match[1]),
+  ].map(cleanMarkdownValue)
+  for (const candidate of candidates) {
+    if (!candidate || candidate.includes(' ')) continue
+    if (/test|spec|__tests__/.test(candidate)) testHints.push(candidate)
+    else if (/^(\.lazy-harness|src|app|packages|components)\//.test(candidate) || /\.[A-Za-z0-9]+$/.test(candidate)) sourceHints.push(candidate)
+  }
+  return { sourceHints: unique(sourceHints), testHints: unique(testHints) }
+}
+
+function qualityRecordFiles(root: string): string[] {
+  const files: string[] = []
+  for (const layer of QUALITY_RECORD_LAYERS) {
+    for (const file of walkFiles(join(root, '.lazy-harness', layer))) {
+      if (file.endsWith('.md') && !file.endsWith('/README.md')) files.push(file)
+    }
+  }
+  return files.sort((a, b) => a.localeCompare(b))
+}
+
+function rowStrings(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(rowStrings)
+  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(rowStrings)
+  return []
+}
+
+function graphRows(root: string): Array<Record<string, unknown>> {
+  const graphPath = join(root, '.lazy-harness', 'knowledge', 'graph.jsonl')
+  if (!existsSync(graphPath)) return []
+  const rows: Array<Record<string, unknown>> = []
+  for (const line of safeText(graphPath).split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try { rows.push(JSON.parse(line) as Record<string, unknown>) } catch { /* graph hygiene reports invalid rows elsewhere */ }
+  }
+  return rows
+}
+
+function graphRelatesTo(row: Record<string, unknown>, recordPath: string): boolean {
+  return rowStrings(row).some((value) => cleanMarkdownValue(value) === recordPath)
+}
+
+function recordQualitySummary(root: string): RecordQualitySummary {
+  const counts: Record<RecordQualityCode, number> = {
+    'missing-index-header': 0,
+    'missing-alias-or-search-key': 0,
+    'missing-source-test-hints': 0,
+    'missing-graph-link': 0,
+  }
+  const samples: Record<RecordQualityCode, string[]> = {
+    'missing-index-header': [],
+    'missing-alias-or-search-key': [],
+    'missing-source-test-hints': [],
+    'missing-graph-link': [],
+  }
+  const rows = graphRows(root)
+  let completeRecords = 0
+  const add = (code: RecordQualityCode, recordPath: string): void => {
+    counts[code] += 1
+    if (samples[code].length < 12) samples[code].push(recordPath)
+  }
+  const files = qualityRecordFiles(root)
+  for (const file of files) {
+    const recordPath = `.lazy-harness/${relFromLazy(root, file)}`
+    const body = safeText(file)
+    const indexHeader = findHeadingBlock(body, /^##\s+Index header\s*$/i)
+    const ruleDigest = findHeadingBlock(body, /^##\s+Rule digest\s*$/i)
+    const mapHints = implementationMapHints(body)
+
+    const aliasesOrSearchKeys = unique([
+      ...(indexHeader ? collectMarkdownListValues(indexHeader, ['Primary aliases', 'Search keys', 'Surface terms']) : []),
+      ...(ruleDigest ? collectMarkdownListValues(ruleDigest, ['Aliases', 'Surface terms']) : []),
+    ])
+    const sourceHints = unique([
+      ...(indexHeader ? collectMarkdownListValues(indexHeader, ['Source files']) : []),
+      ...(ruleDigest ? collectImplementationHintValues(ruleDigest, ['Files', 'Source files']) : []),
+      ...mapHints.sourceHints,
+    ])
+    const testHints = unique([
+      ...(indexHeader ? collectMarkdownListValues(indexHeader, ['Test files']) : []),
+      ...(ruleDigest ? collectImplementationHintValues(ruleDigest, ['Tests', 'Test files']) : []),
+      ...mapHints.testHints,
+    ])
+    const graphIds = indexHeader ? collectMarkdownListValues(indexHeader, ['Graph ids']) : []
+    const hasGraphLink = graphIds.length > 0 || rows.some((row) => graphRelatesTo(row, recordPath))
+
+    const missing: RecordQualityCode[] = []
+    if (!indexHeader) missing.push('missing-index-header')
+    if (aliasesOrSearchKeys.length === 0) missing.push('missing-alias-or-search-key')
+    if (sourceHints.length === 0 || testHints.length === 0) missing.push('missing-source-test-hints')
+    if (!hasGraphLink) missing.push('missing-graph-link')
+    if (missing.length === 0) completeRecords += 1
+    else for (const code of missing) add(code, recordPath)
+  }
+  return {
+    advisoryOnly: true,
+    inspectedRecords: files.length,
+    completeRecords,
+    counts,
+    issues: RECORD_QUALITY_CODES.map((code) => ({ code, count: counts[code], samplePaths: samples[code] })).filter((issue) => issue.count > 0),
   }
 }
 
@@ -382,6 +586,7 @@ function buildAudit(args: Args): AuditResult {
   const markers = markerSummaries(args.root)
   const projectProfile = projectProfileSummary(args.root)
   const graph = graphSummary(args.root, args.source)
+  const recordQuality = recordQualitySummary(args.root)
   const warnings: string[] = []
   if (!args.source) warnings.push('No framework source was found; host-owned/changed counts are unavailable.')
   if (sourceIsHost(args.root, args.source)) warnings.push('The --source argument points at this host .lazy-harness tree. Use the canonical framework source checkout for installed-host readiness checks, e.g. --source /home/lazydino/dev/lazy-harness.')
@@ -391,6 +596,7 @@ function buildAudit(args: Args): AuditResult {
   if (invalidJsonl > 0) warnings.push(`${invalidJsonl} invalid JSONL line(s) detected.`)
   const skipped = jsonl.find((item) => item.path.endsWith('/skipped.jsonl'))
   if (skipped && skipped.lines > 0) warnings.push(`Skipped workflow entries exist: ${skipped.lines}.`)
+  for (const issue of recordQuality.issues) warnings.push(`Record quality advisory ${issue.code}: ${issue.count} historical record(s).`)
   return {
     ok: true,
     mode: 'record-audit.inspect',
@@ -412,6 +618,7 @@ function buildAudit(args: Args): AuditResult {
     markers,
     projectProfile,
     graph,
+    recordQuality,
     recentFiles: recentFiles(args.root, args.recent),
     warnings,
     nextActions: [
@@ -453,6 +660,12 @@ function renderMd(result: AuditResult): string {
   lines.push(`- missingPaths: ${result.graph.missingPaths}`)
   lines.push(`- sourceOnlyPaths: ${result.graph.sourceOnlyPaths}`)
   lines.push(`- commaJoinedPaths: ${result.graph.commaJoinedPaths}`)
+  lines.push('')
+  lines.push('## Record quality')
+  lines.push(`- advisoryOnly: ${result.recordQuality.advisoryOnly}`)
+  lines.push(`- inspectedRecords: ${result.recordQuality.inspectedRecords}`)
+  lines.push(`- completeRecords: ${result.recordQuality.completeRecords}`)
+  for (const issue of result.recordQuality.issues) lines.push(`- ${issue.code}: count=${issue.count}, samples=${issue.samplePaths.join(', ')}`)
   lines.push('')
   lines.push('## JSONL')
   for (const item of result.jsonl) lines.push(`- ${item.path}: lines=${item.lines}, invalid=${item.invalid}`)

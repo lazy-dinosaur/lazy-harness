@@ -3744,10 +3744,12 @@ def check_record_audit_cli() -> None:
         source = base / "source"
         for path in [
             host / ".lazy-harness" / "domain",
+            host / ".lazy-harness" / "spec",
             host / ".lazy-harness" / "project",
             host / ".lazy-harness" / "knowledge",
             host / ".lazy-harness" / "logs",
             source / ".lazy-harness" / "domain",
+            source / ".lazy-harness" / "spec",
             source / ".lazy-harness" / "project",
             source / ".lazy-harness" / "knowledge",
             source / ".lazy-harness" / "logs",
@@ -3757,6 +3759,33 @@ def check_record_audit_cli() -> None:
         (source / ".lazy-harness" / "domain" / "framework-only.md").write_text("framework source only\n", encoding="utf-8")
         (host / ".lazy-harness" / "domain" / "base.md").write_text("base changed\n", encoding="utf-8")
         (host / ".lazy-harness" / "domain" / "host.md").write_text("host only TODO\n", encoding="utf-8")
+        (host / ".lazy-harness" / "spec" / "complete.md").write_text(
+            "# Complete Record\n\n"
+            "## Index header\n\n"
+            "- Record id: record_complete\n"
+            "- Layer: SDD\n"
+            "- Status: active\n"
+            "- Scope: framework-global\n"
+            "- Primary aliases:\n"
+            "  - Complete record\n"
+            "- Search keys:\n"
+            "  - complete-record\n"
+            "- Source files:\n"
+            "  - `.lazy-harness/scripts/record-audit.ts`\n"
+            "- Test files:\n"
+            "  - `.lazy-harness/scripts/self-test.py`\n"
+            "- Graph ids:\n"
+            "  - `kg_complete_record`\n\n"
+            "## Implementation map\n\n"
+            "- `.lazy-harness/scripts/record-audit.ts` implements the fixture.\n"
+            "- `.lazy-harness/scripts/self-test.py` protects the fixture.\n",
+            encoding="utf-8",
+        )
+        (host / ".lazy-harness" / "spec" / "missing.md").write_text(
+            "# Historical Missing Record\n\n"
+            "Historical records without Index header metadata remain advisory only.\n",
+            encoding="utf-8",
+        )
         (host / ".lazy-harness" / "project" / "profile.xml").write_text(
             '<projectProfile><purpose status="needs-interview"/><owner status="confirmed">x</owner></projectProfile>\n',
             encoding="utf-8",
@@ -3765,6 +3794,7 @@ def check_record_audit_cli() -> None:
             '{"id":"a","path":".lazy-harness/domain/host.md"}\n'
             '{"id":"b","path":".lazy-harness/domain/missing.md"}\n'
             '{"id":"c","path":".lazy-harness/domain/a.md,.lazy-harness/domain/b.md"}\n'
+            '{"id":"kg_complete_record","path":".lazy-harness/spec/complete.md"}\n'
             '{"id":"framework","path":".lazy-harness/domain/framework-only.md"}\n',
             encoding="utf-8",
         )
@@ -3791,14 +3821,35 @@ def check_record_audit_cli() -> None:
         if result.get("mode") != "record-audit.inspect":
             fail("record-audit mode changed")
         totals = result.get("totals", {})
-        if totals.get("hostUnique") != 3 or totals.get("hostChanged") != 1 or totals.get("hostOwnedOrChanged") != 4:
+        if totals.get("hostUnique") != 5 or totals.get("hostChanged") != 1 or totals.get("hostOwnedOrChanged") != 6:
             fail("record-audit should compare host-owned/changed records: " + json.dumps(totals, ensure_ascii=False))
         profile = result.get("projectProfile", {})
         if profile.get("artifactsComplete") is not False or profile.get("answersComplete") is not False or profile.get("needsInterviewFields") != 1 or profile.get("confirmedFields") != 1:
             fail("record-audit should split Project Profile artifact and answer completeness")
         graph = result.get("graph", {})
-        if graph.get("rows") != 4 or graph.get("missingPaths") != 2 or graph.get("sourceOnlyPaths") != 1 or graph.get("commaJoinedPaths") != 1:
+        if graph.get("rows") != 5 or graph.get("missingPaths") != 2 or graph.get("sourceOnlyPaths") != 1 or graph.get("commaJoinedPaths") != 1:
             fail("record-audit should report actionable graph hygiene and source-only paths")
+        record_quality = result.get("recordQuality", {})
+        counts = record_quality.get("counts", {})
+        expected_counts = {
+            "missing-index-header": 3,
+            "missing-alias-or-search-key": 3,
+            "missing-source-test-hints": 3,
+            "missing-graph-link": 2,
+        }
+        if record_quality.get("advisoryOnly") is not True or record_quality.get("inspectedRecords") != 4 or record_quality.get("completeRecords") != 1:
+            fail("record-audit should summarize advisory record quality counts: " + json.dumps(record_quality, ensure_ascii=False))
+        if counts != expected_counts:
+            fail("record-audit recordQuality counts changed: " + json.dumps(counts, ensure_ascii=False))
+        issues = {issue.get("code"): issue for issue in record_quality.get("issues", [])}
+        for code, count in expected_counts.items():
+            if issues.get(code, {}).get("count") != count:
+                fail("record-audit recordQuality issue missing count for " + code + ": " + json.dumps(record_quality, ensure_ascii=False))
+        if ".lazy-harness/spec/missing.md" not in issues["missing-index-header"].get("samplePaths", []):
+            fail("record-audit should sample historical missing record path")
+        warnings = result.get("warnings", [])
+        if not any("Record quality advisory missing-index-header" in warning for warning in warnings):
+            fail("record-audit should keep recordQuality advisory warnings human-readable")
         if sum(item.get("invalid", 0) for item in result.get("jsonl", [])) != 1:
             fail("record-audit should count invalid JSONL lines")
         marker_map = {item.get("marker"): item.get("files") for item in result.get("markers", [])}

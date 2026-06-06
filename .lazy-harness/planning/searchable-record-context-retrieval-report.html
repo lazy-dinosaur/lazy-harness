@@ -101,7 +101,7 @@
         <div class="card"><span class="badge ok">SCR-301</span><h3>DDD — Searchable Record Memory</h3><p>Searchable Record Memory, Record-authored metadata, Record Index Header, LLM-owned retrieval, Semantic authority, Deterministic cache를 정의했습니다.</p><p><strong>개선:</strong> 구현/계약 전에 용어 경계를 고정해서 코드가 판단하는 구조로 미끄러지지 않게 합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-302</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 먼저 고정합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성했습니다. parser 구현은 하지 않았습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
-        <div class="card"><span class="badge ok">SCR-401</span><h3>ADR — canonical record-index naming</h3><p>사용자가 Option A를 선택했고, ADR 0042가 canonical name을 <code>record-index</code>로 기록합니다. SCR-402는 active <code>context-index</code> command/source/schema/cache path를 제거하고 compatibility alias 없이 구현했습니다.</p><p><strong>다음:</strong> SCR-501 record-audit advisory warning으로 넘어갑니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-401</span><h3>ADR — canonical record-index naming</h3><p>사용자가 Option A를 선택했고, ADR 0042가 canonical name을 <code>record-index</code>로 기록합니다. SCR-402는 active <code>context-index</code> command/source/schema/cache path를 제거하고 compatibility alias 없이 구현했습니다.</p><p><strong>다음:</strong> SCR-501 record-audit advisory warning을 완료했고, 다음은 SCR-601 implementation-map backlog입니다.</p></div>
       </div>
     </section>
 
@@ -124,7 +124,7 @@
 .lazy-harness/bin/lazy prompt-budget --format=md # green
 bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
 host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
-      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. SCR-402 record-index-only cache migration은 no raw-message query/no semantic authority 조건을 유지합니다. 다음 단계는 SCR-501 record-audit advisory warning입니다.</p>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. SCR-402 record-index-only cache migration은 no raw-message query/no semantic authority 조건을 유지합니다. SCR-501 record-audit advisory warning도 완료되어 `recordQuality` structured counts/samples를 제공합니다. 다음 단계는 SCR-601 implementation-map backlog입니다.</p>
     </section>
   </main>
 </body>
