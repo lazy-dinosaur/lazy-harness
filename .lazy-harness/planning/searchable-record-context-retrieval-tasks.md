@@ -217,27 +217,34 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ## Milestone 4 — Deterministic cache/parser only after approval
 
-- Result: existing `.lazy-harness/ssot/cli-tool-boundary.md` is sufficient for SCR-303/304; no new ADR needed now. SCR-401 naming/scope remains blocked behind option gate and may require ADR after user choice.
+- Result: existing `.lazy-harness/ssot/cli-tool-boundary.md` is sufficient for SCR-303/304; ADR 0042 now records SCR-401 canonical `record-index` naming. SCR-402 may start as implementation planning/work under no-semantic-authority constraints.
 
-### SCR-401 — Context index cache rename/contract review
+### SCR-401 — Record-index cache/listing naming decision
 
-- Status: blocked
-- Type: decision gate
-- Decision needed:
-  - keep `context-index` name, or rename to `record-index` to avoid obsolete architecture language
+- Status: done
+- Type: ADR/SSOT decision
+- Decision:
+  - canonical future command/cache/schema naming surface is `record-index`
+  - existing `context-index` may remain only as legacy/deprecated compatibility during SCR-402 migration, if tests justify it
+  - exact scope is deterministic record-authored metadata listing/cache generation only
 - Acceptance before coding:
-  - user approves exact command/name/scope
+  - user approved Option A on 2026-06-06
   - no raw-message query input
   - output is cache/listing only
+  - ADR recorded in `.lazy-harness/decisions/0042-record-index-cache-naming.md`
+- Result: SCR-402 may start as implementation planning/work, but must not add semantic authority or raw-message query behavior.
 
-### SCR-402 — Parser/cache implementation
+### SCR-402 — Record-index parser/cache implementation
 
-- Status: blocked
+- Status: todo
 - Type: source/test
 - Prerequisite:
-  - SCR-401 approved
+  - SCR-401 approved and ADR 0042 accepted
 - Acceptance:
+  - canonical command/cache naming uses `record-index`
+  - any `context-index` behavior is compatibility/deprecated only and covered by tests if retained
   - deterministic record-authored fields only
+  - no raw-message query input
   - no requiredRead/confidence/intent/risk/gate/nextAction
   - source scan/read remains the LLM/searcher responsibility
 
@@ -299,7 +306,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - BDD: `llm-owned-record-retrieval` created for agent/searcher behavior.
 - SDD: `search-read-debt-contract` created; `record-index-header` created for header field/consumer contract.
 - TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` created for fixture expectations.
-- SSOT/ADR: `cli-tool-boundary` reviewed as sufficient for SCR-303/304; SCR-401 naming gate may need ADR later.
+- SSOT/ADR: `cli-tool-boundary` reviewed as sufficient for SCR-303/304; ADR 0042 records SCR-401 canonical `record-index` naming decision.
 - SSOT: CLI tool boundary remains canonical.
 - Planning: native query-helper plan removed; this backlog is the replacement.
 - ADR: no new ADR until a new trade-off decision is needed.

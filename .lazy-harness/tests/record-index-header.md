@@ -38,7 +38,8 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_complete` | BDD Scenario 1 | Record with all recommended header fields | Header metadata can be parsed/listed as cues; no semantic fields exist | planned |
 | `record_index_header_missing` | BDD Scenario 5 | Record missing `## Index header` | Advisory warning only for historical records; no hard block | planned |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
-| `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
+| `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
+| `record_index_header_canonical_name` | ADR 0042 | Future cache/listing command docs | Canonical name is `record-index`; `context-index` is compatibility/deprecated only if retained | planned |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
 | `record_index_header_conflict_option_gate` | BDD Scenario 2 | Two records share plausible aliases/surface terms | Agent must option-gate after evidence remains ambiguous; no automatic ranking | planned |
 | `record_index_header_missing_knowledge_converges` | BDD Scenario 4 | Needed host fact absent from records | Source/user-confirmed fact must be written to correct layer record | planned / framework behavior covered elsewhere |
@@ -53,6 +54,7 @@ These names are reserved for the implementation phase. They must not be marked c
 - `check_record_index_header_missing_is_advisory`
 - `check_record_index_header_legacy_rule_digest_fallback`
 - `check_record_index_header_no_raw_message_query`
+- `check_record_index_header_canonical_record_index_name`
 - `check_record_index_header_cache_hit_not_evidence`
 - `check_record_index_header_conflict_requires_option_gate`
 - `check_record_index_header_layer_package_discovery_capture`
@@ -108,7 +110,12 @@ Expected:
 
 ### No raw-message query fixture
 
-Given any future cache/listing command:
+Given any future `record-index` cache/listing command:
+
+Expected naming and forbidden patterns:
+
+- canonical user-facing name is `record-index`
+- `context-index` may appear only in compatibility/deprecation tests if retained
 
 Expected forbidden patterns:
 
@@ -149,13 +156,14 @@ Existing related guard:
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — scenarios mapped to fixtures.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD invariants under test.
   - `.lazy-harness/ssot/cli-tool-boundary.md` — semantic-authority boundary under test.
+  - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — canonical naming ADR under test.
   - `.lazy-harness/scripts/self-test.py` — future home for concrete executable checks.
 - Key symbols:
   - no concrete test functions yet; future self-test names reserved above.
 - Flow:
   1. SDD defines header field/consumer contract.
   2. TDD records fixture expectations before parser/cache implementation.
-  3. SCR-401 decides cache command/name/scope.
+  3. SCR-401 decided canonical name/scope: `record-index`, listing/cache only.
   4. Later implementation turns fixture sketches into executable self-test checks.
 - Protection today:
   - existing self-test protects deleted query helpers and static search/read debt.
@@ -177,7 +185,7 @@ Existing related guard:
 - SDD: covered by `.lazy-harness/spec/platform/record-index-header.md`.
 - TDD: this record defines fixtures.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed as sufficient for SCR-303/304.
-- ADR: none now; SCR-401 naming decision may need one after option gate.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records canonical `record-index` naming.
 - Planning: task statuses updated.
 
 ## Rule placement
@@ -195,6 +203,6 @@ Existing related guard:
 - BDD: covered/updated by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
 - TDD: updated by this record.
-- ADR: none now; SCR-401 naming trade-off remains blocked and may need ADR after option gate.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` updated/created for SCR-401.
 - SSOT: reviewed/updated in `.lazy-harness/ssot/cli-tool-boundary.md`.
 - Planning: updated in `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` and implementation plan.

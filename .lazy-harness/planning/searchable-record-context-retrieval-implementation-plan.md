@@ -53,7 +53,7 @@ Layer package completed:
 
 Remaining not-started / blocked work:
 
-1. Phase C: cache/parser naming and scope decision gate remains blocked behind user option gate.
+1. Phase C: record-index parser/cache implementation is next todo under ADR 0042 and no-semantic-authority constraints.
 2. Phase D: record-audit advisory warnings.
 3. Phase F: implementation-map backlog migration.
 
@@ -136,13 +136,14 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Created SDD for `## Index header` as record-authored metadata.
 - Created TDD with parser/audit/behavior expectations.
 - Reviewed SSOT/ADR boundary: existing CLI tool boundary is sufficient for SCR-303/304; no ADR needed now.
-- Parser/cache implementation remains blocked until SCR-401 option gate.
+- SCR-401 option gate completed: canonical future name is `record-index`; parser/cache implementation is not started.
 
-### Phase C — Cache/parser decision gate
+### Phase C — Record-index parser/cache implementation
 
-- Decide whether current `context-index` name is acceptable or should become `record-index`.
-- Approve exact fields and output shape.
-- Implement only deterministic record-authored cache parsing.
+- Canonical name is `record-index` per ADR 0042.
+- Existing `context-index` may be retained only as a legacy/deprecated compatibility alias if SCR-402 tests justify it.
+- Approve exact fields/output shape through SDD/TDD before code changes.
+- Implement only deterministic record-authored cache parsing/listing.
 - No raw-message query interface.
 
 ### Phase D — Record audit warnings
@@ -188,7 +189,7 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 - BDD: LLM-owned retrieval scenarios added and mapped by Index Header TDD.
 - SDD: removed obsolete helper contracts; added static search/read-debt SDD; added Index Header SDD.
 - TDD: self-test and pre-action/pre-response records updated; added Index Header TDD fixture plan.
-- ADR: no new ADR for SCR-303/304/305; SCR-401 naming gate may require ADR after option gate.
+- ADR: ADR 0042 records SCR-401 canonical `record-index` naming; no implementation code yet.
 - SSOT: runtime/shared-state and CLI boundary updated.
 - Planning: contaminated plan replaced.
 
@@ -208,6 +209,6 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 - BDD: updated/covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
 - TDD: updated by `.lazy-harness/tests/record-index-header.md`.
-- ADR: none now; SCR-401 naming/scope option gate may require ADR later.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401.
 - SSOT: updated by `.lazy-harness/ssot/cli-tool-boundary.md` SCR-305 review section.
 - Planning: updated by `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` and this plan.

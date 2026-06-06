@@ -53,7 +53,7 @@ Also completed on 2026-06-06:
 
 Not started yet:
 
-- Any deterministic cache/parser implementation.
+- Deterministic `record-index` parser/cache implementation.
 - Record-audit metadata warnings.
 - Implementation-map backlog migration.
 
@@ -85,7 +85,7 @@ Observed failure modes:
 2. Rename runtime debt journal to `search-read-debt.jsonl` so the name matches its actual purpose.
 3. Preserve the generic search/read-debt guard as static transport/evidence only.
 4. Define a `## Index header` record standard for record-authored metadata.
-5. Keep `context-index` or any future cache as deterministic cache only, with no raw-user-message semantic query.
+5. Use canonical future `record-index` naming for deterministic cache/listing, with no raw-user-message semantic query.
 6. Extend audit/test coverage so removed helper artifacts cannot come back silently.
 7. Rebuild PRD/tasks/plan around LLM-owned root-bound search/read.
 
@@ -121,7 +121,7 @@ Observed failure modes:
 - `message.received` still emits static harness-first prompt only.
 - `lazy test`, `prompt-budget`, and `graph-hygiene` pass.
 - PRD/tasks/plan describe LLM-owned retrieval only.
-- Any future `Index header` parser work has no raw-message query entry point.
+- Any future `record-index` / `Index header` parser work has no raw-message query entry point.
 
 ## 9. Metrics
 
@@ -145,6 +145,7 @@ Observed failure modes:
 - `.lazy-harness/spec/platform/record-digest-format.md`
 - `.lazy-harness/spec/platform/record-index-header.md`
 - `.lazy-harness/tests/record-index-header.md`
+- `.lazy-harness/decisions/0042-record-index-cache-naming.md`
 - `.lazy-harness/spec/platform/implementation-map-standard.md`
 - `.lazy-harness/ssot/implementation-map-storage.md`
 
@@ -164,7 +165,7 @@ Observed failure modes:
 2. Static search/read-debt contract rename and validation.
 3. PRD/tasks/plan rewrite.
 4. Record Index Header Layer Package: DDD, BDD, SDD, TDD, and SSOT/ADR impact review. Completed for contract/fixture planning on 2026-06-06.
-5. Deterministic cache/parser work only after explicit approval and after the layer package is accepted.
+5. Deterministic `record-index` cache/parser work only after explicit implementation planning and under ADR 0042 constraints.
 6. Record-audit advisory warnings.
 7. Implementation-map backlog reduction.
 8. Host sync/dogfood using normal LLM/searcher root-bound evidence, not query helpers.

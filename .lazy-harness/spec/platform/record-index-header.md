@@ -126,22 +126,23 @@ Parser/cache implementation is **not part of SCR-303**.
 
 Before implementation:
 
-1. SCR-401 must decide command/name/scope: keep `context-index` or rename to `record-index`.
-2. The chosen command must be listing/cache generation only.
+1. SCR-401 decision: canonical future command/cache name is `record-index`.
+2. The chosen command must be listing/cache generation only; any `context-index` path is legacy/deprecated compatibility only if retained during SCR-402.
 3. Output schema must avoid semantic-authority field names.
 4. Self-test must prove the command has no raw-user-message query entry point.
 5. BDD/TDD scenarios in `.lazy-harness/behavior/llm-owned-record-retrieval.md` and `.lazy-harness/tests/record-index-header.md` must be mapped to tests.
 
 ## Implementation map
 
-- Status: `contract-only`
+- Status: `contract-only; SCR-401 naming decided`
 - Primary files:
   - `.lazy-harness/spec/platform/record-index-header.md` — this SDD field/consumer contract.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD terms and invariants.
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — behavior scenarios this contract must preserve.
   - `.lazy-harness/tests/record-index-header.md` — TDD fixture plan.
-  - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical no semantic CLI authority boundary.
-  - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305 status.
+  - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical no semantic CLI authority boundary and SCR-401 decision.
+  - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — ADR for canonical `record-index` naming.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305/401 status.
 - Key symbols:
   - none yet; parser/cache implementation remains blocked.
 - Flow:
@@ -169,7 +170,7 @@ Before implementation:
 - SDD: this record defines the contract.
 - TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and future self-test names.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed; existing boundary is sufficient for SCR-303/304.
-- ADR: no new ADR needed for SCR-303/304; SCR-401 naming decision may require an ADR after user option gate.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.
 - Planning: tasks and implementation plan updated.
 
 ## Rule placement
@@ -187,6 +188,6 @@ Before implementation:
 - BDD: updated/covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: updated by this record.
 - TDD: updated by `.lazy-harness/tests/record-index-header.md`.
-- ADR: none now; SCR-401 naming trade-off remains blocked and may need ADR after option gate.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` updated/created for SCR-401.
 - SSOT: reviewed/updated in `.lazy-harness/ssot/cli-tool-boundary.md`.
 - Planning: updated in `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` and implementation plan.

@@ -73,9 +73,12 @@ Reasoning:
 
 Boundary for SCR-401:
 
-- `context-index` vs `record-index` naming and exact command scope is still blocked behind a user option gate.
-- If SCR-401 introduces a durable trade-off beyond this SSOT, create an ADR before implementation.
-- If SCR-401 merely chooses a name under this same boundary, update this SSOT, SDD, TDD, tasks, and implementation map without a separate ADR.
+- Decision: canonical future cache/listing name is `record-index`.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records the naming trade-off.
+- Scope: deterministic record-authored metadata listing/cache generation only.
+- Existing `context-index` may remain only as a legacy/deprecated compatibility alias during SCR-402 migration, if implementation tests justify it.
+- New docs/contracts must not describe `context-index` as the canonical name for searchable record memory.
+- SCR-402 remains implementation work and must preserve no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
 
 Discovery capture:
 
@@ -83,6 +86,6 @@ Discovery capture:
 - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` defines behavior scenarios.
 - SDD: `.lazy-harness/spec/platform/record-index-header.md` defines the field/consumer contract.
 - TDD: `.lazy-harness/tests/record-index-header.md` defines fixture expectations.
-- ADR: none for SCR-303/304; SCR-401 may require ADR after option gate.
+- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` captures SCR-401.
 - SSOT: this section records SCR-305.
 - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records status and next gate.
