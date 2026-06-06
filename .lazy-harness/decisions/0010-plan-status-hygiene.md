@@ -121,3 +121,24 @@ phase close 시 `handoff/00-current-state.md` 즉시 갱신 (이미 하고 있�
 - ADR 0006 (Directory Bridge): "암묵 → 명시" 패턴
 - 사용자 발언: 직감으로 plan hygiene 누락 catch
 - Principle 0: 사람도 AI 도 불완전 → 명시 + 자동 검증으로 보완
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — current plan/readme/handoff freshness checks.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — current task status record.
+  - `.lazy-harness/scripts/self-test.py` — full self-test used as validation gate.
+- Key symbols:
+  - `check_plan_freshness` (`doctor.py`) — current D04 phase README/handoff freshness check.
+- Flow:
+  1. Plan/status hygiene is implemented partly as doctor D04 and current planning records.
+  2. The original phase XML/status/progress daily-file C12 design is legacy and only partially represented now.
+  3. Keep needs-review pending a rewrite to current planning workflow.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` runs doctor smoke/full checks.
+- Cross-layer links:
+  - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
+- Machine index:
+  - graph ids: `kg_adr0010_plan_freshness_doctor`
+  - generated index key: `pending`

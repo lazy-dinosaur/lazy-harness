@@ -68,3 +68,27 @@ Lazy-Harness가 충분히 안정되면 별도 repository 또는 package로 extra
 - L2: `pre-push.sh`가 `origin/HEAD..HEAD` 대신 branch-aware range를 사용한다
 - L3: non-experimental branch에서 `.lazy-harness/` staged 시 차단되는지 검증 예정
 - L4: future extract 시 별도 repo로 옮겨도 boundary가 유지되는지 검증 예정
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/pre-commit-guard.sh` — branch-aware private file staged guard.
+  - `.lazy-harness/hooks/pre-push.sh` — branch-aware push leak guard.
+  - `.lazy-harness/scripts/doctor.py` — D05 branch/hook policy and standalone-source detection.
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md` — later standalone repo decision that supersedes old experimental branch model in source repo.
+- Key symbols:
+  - `check_branch_policy` (`doctor.py`) — validates branch/hook policy and standalone source markers.
+  - `pre-commit-guard.sh` branch condition — allows framework source/experimental branch and blocks host private files elsewhere.
+  - `pre-push.sh` branch/range logic — guards private file leaks.
+- Flow:
+  1. Branch/extract policy is partly implemented by branch-aware hooks and doctor D05.
+  2. ADR 0027 later changed the source-of-truth model to standalone repo, so the old experimental branch requirement is historical for the current source repo.
+  3. Keep needs-review.
+- Tests / protection:
+  - Self-test protects standalone source marker detection and LAZY_HOST_ROOT/root behavior; no non-experimental branch leak negative fixture is dedicated to ADR 0021.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+- Machine index:
+  - graph ids: `kg_adr0021_branch_policy_hooks`, `kg_adr0021_superseded_by_standalone_repo`
+  - generated index key: `pending`

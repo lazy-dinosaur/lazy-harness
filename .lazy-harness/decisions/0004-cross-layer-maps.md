@@ -103,3 +103,23 @@ trigger 발동 시 content 가 채워짐:
 - Principle #6: Trigger-Based Growth (placeholder 는 trigger 가 채움)
 - Principle #10: Empty-Container Tolerance (빈 컨테이너 = valid state)
 - ADR 0005: Meaning of "lazy" (이 결정의 이론적 근거)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/domain/domain-map.xml`, `.lazy-harness/spec/spec-map.xml`, `.lazy-harness/behavior/behavior-map.xml`, `.lazy-harness/tests/test-map.xml` — current map container examples.
+  - `.lazy-harness/scripts/doctor.py` — XML parse validation.
+- Key symbols:
+  - `check_xml_parse` (`doctor.py`) — validates XML containers parse.
+- Flow:
+  1. Layer map containers exist for multiple layers.
+  2. Doctor/self-test XML parse validates that containers remain parseable.
+  3. Original 12 placeholder mirror/generator automation is historical and only partially represented now.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` and `doctor.py` parse all `.xml` files.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+- Machine index:
+  - graph ids: `kg_adr0004_layer_maps_exist`, `kg_adr0004_xml_parse_protection`
+  - generated index key: `pending`

@@ -71,3 +71,23 @@ Backup 전략:
 - D-2026-05-10-002 (Principle 17 — conflict resolution 결정도 backup 대상)
 - M1 (harness-doctor 에 backup 검증 포함)
 - M2 (lifecycle hook 에 weekly snapshot 자동화)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/framework/framework-contract.md` — current Principle 18 Recovery Path text.
+  - `.lazy-harness/hooks/pre-commit-guard.sh` and `.lazy-harness/hooks/pre-push.sh` — current git-action locks and validation fallback gates.
+- Key symbols:
+  - `acquire_worktree_lock` (`pre-commit-guard.sh`, `pre-push.sh`) — prevents concurrent git-action corruption.
+- Flow:
+  1. Recovery Path is documented in framework-contract.
+  2. Current active hooks include lock/fallback behavior for git actions.
+  3. Weekly snapshot automation referenced by this ADR is not present in current active hooks.
+- Tests / protection:
+  - No current self-test verifies weekly snapshot/recovery-level automation; keep needs-review.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+- Machine index:
+  - graph ids: `kg_adr0003_recovery_contract`, `kg_adr0003_weekly_snapshot_missing`
+  - generated index key: `pending`

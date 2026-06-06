@@ -67,3 +67,21 @@ NOT  = framework minimalism
 - Principle 0: 사람 + AI 한계 보완 (사람의 lazy = AI 의 무거운 자동화)
 - Principle #6: Trigger-Based Growth (이 ADR 자체가 trigger 발동 결과)
 - Principle #17: Conflict Resolution Protocol (이 ADR 의 motivating protocol)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/framework/framework-contract.md` — current `What lazy means` contract section.
+  - `.lazy-harness/AGENTS.md` — operational prompt reminders that records are single source of truth.
+- Flow:
+  1. The meaning of lazy is codified in framework-contract.
+  2. Current harness behavior uses record-first/default-unknown rules rather than framework minimalism.
+  3. This is a policy/definition ADR, not a standalone executable implementation.
+- Tests / protection:
+  - Prompt budget/self-test protects prompt surfaces, but no dedicated test asserts this definition text.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0001-core-philosophy.md`
+- Machine index:
+  - graph ids: `kg_adr0005_lazy_meaning_contract`
+  - generated index key: `pending`

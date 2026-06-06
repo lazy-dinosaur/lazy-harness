@@ -88,3 +88,25 @@ AI 가 자동 실행:
 - D-2026-05-10-003 (Principle 18 Recovery Path)
 - M3 (Adapter Funnel 실작동) - 이 protocol 의 첫 실전
 - M4 (Interview Loop) - 이 protocol 의 양방향 흐름 시나리오
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/AGENTS.md` — active conflict/option-gate grammar.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh` — unresolved option-gate discipline helper.
+  - `.lazy-harness/scripts/self-test.py` — option-gate and aftershock helper coverage.
+- Key symbols:
+  - `check_option_gate_discipline_helper` (`self-test.py`) — protects unresolved gate stop behavior.
+  - `check_aftershock_reanalysis_helper` (`self-test.py`) — protects aftershock helper coverage.
+- Flow:
+  1. Record-first search and explicit option gates are active prompt rules.
+  2. Lifecycle helper prevents proceeding after unresolved gates.
+  3. Full eight-step protocol remains broad policy rather than one single executable implementation.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects option gate discipline and aftershock helper behavior.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+- Machine index:
+  - graph ids: `kg_adr0002_conflict_protocol_gate`, `kg_adr0002_aftershock_helper`
+  - generated index key: `pending`

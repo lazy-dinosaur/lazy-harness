@@ -107,3 +107,25 @@ C16 코드 변경은 5c 의 doctor 확장 작업으로 묶음.
 ### Risk
 
 - "C16 확장" 자체가 또 한 번의 self-report 가 될 가능성. 5c 에서 L3 negative test (의도적 stale handoff 만들고 fail 검증) 필수.
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — current D04 plan/readme/handoff freshness check.
+  - `.lazy-harness/scripts/self-test.py` — doctor smoke/full validation.
+  - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — current plan/status record.
+- Key symbols:
+  - `check_plan_freshness` (`doctor.py`) — current freshness check, but not named C16.
+  - `check_doctor_smoke` (`self-test.py`) — ensures doctor smoke succeeds.
+- Flow:
+  1. Current doctor has D04 plan README/handoff freshness checks.
+  2. The original C16 expanded addedDuringPhase/progress freshness logic is not present under the C16 name and appears partially superseded.
+  3. Keep needs-review.
+- Tests / protection:
+  - Self-test invokes doctor smoke/full but no explicit C16 stale-progress negative fixture exists.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0010-plan-status-hygiene.md`
+- Machine index:
+  - graph ids: `kg_adr0015_plan_freshness_current`, `kg_adr0015_c16_superseded`
+  - generated index key: `pending`

@@ -131,3 +131,25 @@ framework 코어가 의존할 수 있는 것 strict list:
 - Principle 0 (사람-AI 상호보완)
 - Principle 1.6 (Trigger-Based Growth) — 이번에 trigger source 가 명확화
 - Principle 1.8 (Thin sh + Thick TS) — 5c 부터 ts-morph 본격 활용
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — C17 external dependency invariant scanner.
+  - `.lazy-harness/scripts/self-test.py` — negative fixture for forbidden external SaaS call.
+  - `.lazy-harness/triggers/code-change.ts` and trigger source files — code-first trigger implementation.
+- Key symbols:
+  - `check_external_dependency_invariant` (`doctor.py`) — scans active code for forbidden external SaaS/network patterns.
+  - `check_doctor_c17_negative` (`self-test.py`) — validates C17 fails on a negative fixture.
+- Flow:
+  1. Framework core external dependency invariant is enforced by doctor D06/C17 against active code roots.
+  2. Self-test injects a forbidden fixture and verifies doctor fails for the right reason.
+  3. Code-trigger direction is represented by `.lazy-harness/triggers/`.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects C17 negative fixture and runtime host/product hardcoding guard.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0017-user-input-as-universal-trigger.md`
+- Machine index:
+  - graph ids: `kg_adr0013_external_dependency_doctor`, `kg_adr0013_c17_negative_test`
+  - generated index key: `pending`

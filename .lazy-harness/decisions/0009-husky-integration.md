@@ -191,3 +191,25 @@ E2E (2026-05-10 15:12):
 - ADR 0006: Directory Bridge Architecture (5 메커니즘 → 6 메커니즘으로 확장)
 - Principle 0 (Core Philosophy): 검증 없이 진행한 5a/5b 의 dead code 발각 사례
 - Principle 17 (Conflict Resolution Protocol): A/B/C/D/E 선택지로 사용자 결정 유도 → A 선택
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/lazy-init.ts` — current git pre-commit delegate installer.
+  - `.lazy-harness/hooks/pre-commit-guard.sh` and `.lazy-harness/hooks/pre-push.sh` — current git hook logic.
+  - `.husky/*` — missing in current standalone source repo.
+- Key symbols:
+  - `postInitPreCommitHook` (`lazy-init.ts`) — installs `.git/hooks/pre-commit`, not `.husky/*`.
+  - `run_commit_gate` (`pre-commit-guard.sh`) — runs `.lazy-harness/bin/lazy test`.
+- Flow:
+  1. ADR 0009 chose Husky chain in old medivance context.
+  2. Current standalone source repo uses `.git/hooks` delegate from lazy-init and has no `.husky/*` files.
+  3. Keep needs-review/conflict instead of pretending Husky remains current.
+- Tests / protection:
+  - Self-test protects pre-commit lazy test gate and current git hook delegate behavior, not Husky chain files.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+- Machine index:
+  - graph ids: `kg_adr0009_current_git_hook_delegate`, `kg_adr0009_husky_chain_missing`
+  - generated index key: `pending`

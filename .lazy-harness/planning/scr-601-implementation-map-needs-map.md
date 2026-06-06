@@ -1,6 +1,6 @@
 # SCR-601 Implementation-map needs-map backlog
 
-Status: captured; SCR-602 Batch 1, Batch 2, and Batch 3 completed
+Status: captured; SCR-602 completed
 Layer: Planning
 Generated: 2026-06-06
 Command: `.lazy-harness/bin/lazy impl-map --format=json`
@@ -20,6 +20,7 @@ No implementation-map edits are made by SCR-601. This record captures the exact 
 - After SCR-602 Batch 1: `needs-map=29`, `ok=82`
 - After SCR-602 Batch 2: `needs-map=21`, `ok=90`
 - After SCR-602 Batch 3: `needs-map=16`, `ok=95`
+- After SCR-602 Batch 4: `needs-map=0`, `ok=111`
 
 ### Needs-map by layer
 
@@ -108,10 +109,11 @@ These batches are planning only. Each record still requires source/test/graph re
   - `.lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md`
   - `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
 
-### Batch 4 — foundational/legacy ADR review
+### Batch 4 — foundational/legacy ADR review — completed in SCR-602
 
 - Rationale: older or broad ADRs; many may become `Status: none` or `needs-review` rather than verified implementation maps
 - Count: 16
+- Result: implementation maps added and graph rows recorded; `lazy impl-map` reports all records as `ok`. Verified: ADR 0008/0013. Needs-review: the rest, with explicit conflict/supersession notes for stale current-source divergences.
 - Records:
   - `.lazy-harness/decisions/0001-core-philosophy.md`
   - `.lazy-harness/decisions/0002-conflict-resolution-protocol.md`
@@ -154,7 +156,7 @@ These batches are planning only. Each record still requires source/test/graph re
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`, `kg_scr602_batch2_adr_maps`, `kg_scr602_batch3_adr_maps`
+  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`, `kg_scr602_batch2_adr_maps`, `kg_scr602_batch3_adr_maps`, `kg_scr602_batch4_legacy_maps`, `kg_scr602_complete`
 
 ## Discovery capture
 
@@ -164,5 +166,5 @@ These batches are planning only. Each record still requires source/test/graph re
 - TDD: no new executable test needed for list capture; existing self-test plus command smoke protect the audit command.
 - ADR: none; no new trade-off beyond existing ADR 0030/SSOT storage rules.
 - SSOT: `.lazy-harness/ssot/implementation-map-storage.md` confirms generated indexes are non-canonical and `lazy impl-map` is read-only.
-- Planning: SCR-601 captured; SCR-602 can start only after batch review/source evidence per record.
+- Planning: SCR-601 captured; SCR-602 completed all batches after source/test/graph evidence per record.
 

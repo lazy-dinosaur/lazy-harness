@@ -108,3 +108,25 @@ Tested:
 - `.jcode/AGENTS.md` 의 jcode prompt overlay 역할 (jcode harness 가 자동 머지)
 - ADR 0004/0005/0006 — 이전 세션 ADR 들이 모두 framework-contract 만 갱신해서 새 세션이 못 봄 → 이번 ADR 이 "보이게 만드는" 메커니즘
 - Principle 0: AI 한계 보완 (모르는 걸 모름)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `AGENTS.md` — root project prompt entry.
+  - `.lazy-harness/AGENTS.md` — canonical lazy-harness grammar.
+  - `.jcode/harness/05-lazy-harness.md` — pointer-only private Jcode harness module.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated Jcode prompt/wiring templates.
+- Key symbols:
+  - `installJcodeWiring` (`jcode-wiring.ts`) — writes pointer-only local Jcode harness modules.
+- Flow:
+  1. Modern prompt distribution is root AGENTS plus pointer-only `.jcode/harness/*` modules.
+  2. Old `.jcode/AGENTS.md` long lazy-harness section and `/harness-*` skills are legacy/superseded.
+  3. Keep needs-review until this ADR is rewritten against current Jcode wiring.
+- Tests / protection:
+  - Self-test protects pointer-only Jcode harness templates and prompt budget.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+- Machine index:
+  - graph ids: `kg_adr0007_agents_prompt_current`, `kg_adr0007_legacy_agents_section`
+  - generated index key: `pending`

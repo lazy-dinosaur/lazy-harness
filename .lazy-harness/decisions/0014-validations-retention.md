@@ -74,3 +74,25 @@ fi
 - Sisyphus session: bug-4 발견
 - ADR 0011 (Verification Discipline) — validations 는 verification entry 의 sample sink
 - 사용자: "버그 먼저 잡고가야하는거 아닌가??"
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/pre-push.sh` — current validation hook references validations log but intentionally avoids success writes.
+  - `.lazy-harness/scripts/doctor.py` — parses validations.jsonl if present.
+  - `.lazy-harness/framework/legacy-skills-2026-05-10/harness-doctor/scripts/doctor.sh` — historical implementation target for rotation.
+- Key symbols:
+  - `check_jsonl_parse` (`doctor.py`) — parses validations JSONL.
+  - `RESULT_LOG` (`pre-push.sh`) — current validation log path.
+- Flow:
+  1. ADR 0014 targeted legacy `doctor.sh` rotation.
+  2. Current active `doctor.py` does not append/rotate validations.jsonl, and pre-push success intentionally does not write tracked validations.
+  3. Keep needs-review; current behavior appears superseded rather than directly implemented.
+- Tests / protection:
+  - No current self-test verifies validations rotation.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0012-oracle-sisyphus-audit-cascade.md`
+- Machine index:
+  - graph ids: `kg_adr0014_validations_rotation_legacy`, `kg_adr0014_current_validations_parse_only`
+  - generated index key: `pending`

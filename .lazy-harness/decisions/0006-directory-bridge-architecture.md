@@ -73,3 +73,25 @@ slash command discovery 만 jcode 세션 시작 시 검증 가능 (5a-1 deferred
 - ADR 0004 (Cross-Layer Maps) — 같은 패턴 (사용자 질문 → framework gap 발견 → Section 추가)
 - ADR 0005 (Meaning of Lazy) — 동일 (정의 명시 안 했더니 오해 반복)
 - Principle #17 Conflict Resolution (이 ADR 도 Step 1-8 거쳤음)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/lazy-init.ts` — installs `.lazy-harness`, git hook delegate, and Jcode wiring.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated `.jcode` wiring.
+  - `.lazy-harness/scripts/lazy-sync.ts` — sync/repair of generated wiring.
+- Key symbols:
+  - `postInitPreCommitHook` (`lazy-init.ts`) — installs git pre-commit delegate.
+  - `installJcodeWiring` (`jcode-wiring.ts`) — installs project-local Jcode config/hooks/harness/skills.
+- Flow:
+  1. Modern bridge is implemented through lazy-init/lazy-sync/Jcode wiring.
+  2. The old `.jcode/skills/harness-*` bridge in this ADR is legacy and superseded by `.jcode/skills/lazy-*` wrappers.
+  3. Keep needs-review until the ADR is rewritten or explicitly marked historical.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects Jcode wiring and LAZY_HOST_ROOT/root detection.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+- Machine index:
+  - graph ids: `kg_adr0006_directory_bridge_current`, `kg_adr0006_legacy_skill_names`
+  - generated index key: `pending`

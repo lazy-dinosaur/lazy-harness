@@ -109,3 +109,25 @@ Oracle (claude-opus 의도-실현 gap 점검) + Sisyphus (mechanical silent-fail
 - Principle 1.5 — Self-Driving Loop (이번 audit cascade 가 강화 형태)
 - Sisyphus session: session_wolf_1778395541772_b9ecf1e87bc66fe3
 - Oracle session: session_jaguar_1778394837157_0ccab9abadc4d4a6
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — current doctor checks derived from old audit hardening.
+  - `.lazy-harness/hooks/pre-push.sh` — leak guard and validation gate.
+  - Global Jcode profile overlay — contains current oracle/sisyphus subagent profiles outside project records.
+- Key symbols:
+  - `check_external_dependency_invariant` (`doctor.py`) — C17 external dependency guard.
+  - `check_jsonl_parse` (`doctor.py`) — JSONL validity guard.
+- Flow:
+  1. Some audit findings became doctor/hook hardening.
+  2. Oracle/Sisyphus as named agent cascade is not an executable project-local source artifact in this repo.
+  3. Keep needs-review as historical audit process record.
+- Tests / protection:
+  - Self-test covers doctor JSONL/C17/hook behavior, but not the full Oracle/Sisyphus social process.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0011-verification-discipline.md`
+- Machine index:
+  - graph ids: `kg_adr0012_audit_hardening_doctor`, `kg_adr0012_oracle_sisyphus_process`
+  - generated index key: `pending`

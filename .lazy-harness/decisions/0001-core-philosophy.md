@@ -58,3 +58,22 @@ lazy-harness 의 존재 이유를 명확히 박아두지 않으면 framework 가
 - handoff/00-current-state.md (Principle 0 표)
 - D-2026-05-10-002 (Principle 17 Conflict Resolution Protocol)
 - D-2026-05-10-003 (Principle 18 Recovery Path)
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/framework/framework-contract.md` — current Principle 0 and lazy meaning contract.
+  - `.lazy-harness/AGENTS.md` — active prompt grammar that applies record-first/default-unknown behavior.
+- Flow:
+  1. Principle 0 is represented in framework-contract as the meta principle.
+  2. AGENTS grammar operationalizes record-first/default-unknown behavior in sessions.
+  3. This ADR is mostly philosophical/policy context, not an executable feature.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` indirectly protects prompt/contract invariants and prompt budget, but not the philosophy itself as executable behavior.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+  - SSOT: `.lazy-harness/ssot/rule-sources.md`
+- Machine index:
+  - graph ids: `kg_adr0001_principle0_contract`
+  - generated index key: `pending`

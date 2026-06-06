@@ -103,3 +103,23 @@ export async function diffContracts(
 - ADR 0005 — Meaning of Lazy (개발자 노력 최소화)
 - Phase 5b plan: `.lazy-harness/planning/phase-5-plan.xml` 5b-2/5b-6
 - Principle #11 (Trigger-Based Growth) — trigger 없으면 만들지 않음
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/scripts/contract-diff.ts` — placeholder/skeleton retained for deferred AST contract diff.
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md` — later ADR reverses/elevates parts of this decision.
+- Key symbols:
+  - `ContractDiff`, `diffContracts`, `summarizeTouchedContracts` (`contract-diff.ts`) — current skeleton and lightweight interim summary.
+- Flow:
+  1. ADR 0008 is explicitly marked reversed by ADR 0013.
+  2. `contract-diff.ts` still matches the deferred skeleton shape and throws for `diffContracts`.
+  3. Current active trigger work moved elsewhere; this map is verified as historical/deferred state only.
+- Tests / protection:
+  - No dedicated executable self-test for `contract-diff.ts`; source read confirms skeleton status.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+- Machine index:
+  - graph ids: `kg_adr0008_contract_diff_skeleton`, `kg_adr0008_reversed_by_0013`
+  - generated index key: `pending`

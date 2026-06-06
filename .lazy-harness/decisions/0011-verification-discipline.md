@@ -172,3 +172,25 @@ C13 — Verify Quality
 - ADR 0010 (Plan hygiene): 명시 안 한 의무 누락 패턴 — 동일 lesson
 - 사용자 발언 chain: "계획 실행할때마다 검증하고 체크" + "사람에게 물어보는것도 하는건가"
 - Principle 0: 사람도 AI 도 불완전 → verify 도 사람 보강 필요
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/self-test.py` — main verification gate with negative/focused checks.
+  - `.lazy-harness/hooks/pre-commit-guard.sh` — commit-time `lazy test` gate.
+  - `.lazy-harness/hooks/pre-push.sh` — push-time validation gate.
+- Key symbols:
+  - `check_doctor_c17_negative` (`self-test.py`) — negative doctor fixture.
+  - `run_commit_gate` (`pre-commit-guard.sh`) — blocks commits unless lazy test passes.
+- Flow:
+  1. Verification discipline is operationally represented by focused smoke checks, self-test, graph-hygiene, prompt-budget, and commit/push gates.
+  2. The original C13/phase-close human-review schema is broader than current implementation.
+  3. Keep needs-review.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` and pre-commit lazy test gate provide current reproducible validation.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+- Machine index:
+  - graph ids: `kg_adr0011_verification_selftest`, `kg_adr0011_commit_gate`
+  - generated index key: `pending`
