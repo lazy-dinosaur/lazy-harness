@@ -83,3 +83,29 @@ Hooks should call framework-owned validation first.
 - L2: pre-push hook이 framework-owned `lazy:test`를 실행
 - L3: `.jcode/`가 없는 worktree에서도 `bun run lazy:test` 통과
 - L4: future extract 후에도 lazy-harness 자체 검증이 작동
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — framework-owned doctor checks.
+  - `.lazy-harness/scripts/self-test.py` — reproducible framework/host self-test gate.
+  - `.lazy-harness/bin/lazy` — dispatches `lazy doctor` and `lazy test` to framework-owned scripts.
+  - `.lazy-harness/hooks/pre-commit-guard.sh` — commit-time lazy test gate.
+- Key symbols:
+  - `detect_scope` (`doctor.py`) — ADR 0026-compatible scope detection used by the framework-owned doctor.
+  - `check_doctor_smoke`, `check_doctor_c17_negative`, `check_doctor_package_health` (`self-test.py`) — executable doctor coverage.
+  - `main` (`self-test.py`) — scope-aware self-test runner used by `lazy test`.
+- Flow:
+  1. User or hook calls `.lazy-harness/bin/lazy test` or `.lazy-harness/bin/lazy doctor`.
+  2. The lazy CLI dispatches into `.lazy-harness/scripts/self-test.py` or `doctor.py`.
+  3. Pre-commit/pre-push gates block on `lazy test`; Jcode may wrap but does not own operational validation.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` validates doctor smoke/full negative/package-health behavior and pre-commit lazy test wiring.
+  - `python3 .lazy-harness/scripts/doctor.py --profile smoke|full` is invoked directly by self-test.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`
+  - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
+- Machine index:
+  - graph ids: `kg_adr0022_doctor_lazy_test_cli`, `kg_adr0022_doctor_lazy_test_selftest`
+  - generated index key: `pending`

@@ -161,3 +161,30 @@ All 7 checks passed. lazy-harness is ready.
 - ADR 0007 — AGENTS.md injection (jcode 와 `.lazy-harness/AGENTS.md` 의 역할 분리)
 - trails/02-north-star-milestones.xml — N4 격상 반영
 - plans/ai-first-redesign-roadmap.md — N4 작업 분해
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `install.sh` — public installer that clones/updates source and delegates layout to lazy-init.
+  - `.lazy-harness/scripts/lazy-init.ts` — host bootstrap entrypoint, manifest copy, pre-commit hook wiring, version marker, and Jcode wiring.
+  - `.lazy-harness/bin/lazy` — exposes `lazy init`, `lazy doctor`, and `lazy test` as single entrypoints.
+  - `.lazy-harness/scripts/doctor.py` and `.lazy-harness/scripts/self-test.py` — scope-aware validation after bootstrap.
+- Key symbols:
+  - `main`, `postInitPreCommitHook`, `postInitJcodeWiring`, `postInitVersionMarker` (`lazy-init.ts`) — install flow pieces.
+  - `detect_scope` (`doctor.py`) and `_detect_scope` (`self-test.py`) — host/framework validation scope.
+  - installer argument parsing in `install.sh` — public target/source/ref/skip options.
+- Flow:
+  1. Public `install.sh` resolves or fetches a framework source checkout.
+  2. It delegates actual host layout to `.lazy-harness/scripts/lazy-init.ts`.
+  3. `lazy-init` copies Category A, creates Category B skeletons, wires pre-commit, writes version marker, and installs Jcode wiring unless skipped.
+  4. Host validation runs through `lazy doctor` / `lazy test`.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` covers standalone source marker detection, LAZY_HOST_ROOT resolution, doctor scope behavior, and Jcode wiring generated defaults.
+  - Keep this map `needs-review` because the ADR's early inspect/interview/apply sketch evolved into current lazy-init plus separate Project Profile/document ingestion flows.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`, `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+  - SDD: `.lazy-harness/spec/platform/project-profile.md`
+- Machine index:
+  - graph ids: `kg_adr0025_public_install_entrypoint`, `kg_adr0025_lazy_init_bootstrap`
+  - generated index key: `pending`

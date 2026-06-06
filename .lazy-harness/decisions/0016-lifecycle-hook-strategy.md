@@ -185,3 +185,32 @@ jcode M11 Stage 3 (loop guard 3회) 외 우리 추가 안전망:
 ADR 0016 originally described the first 3 response helpers. The live chain has grown to 10 helpers as 5c/5d matured. The current source of truth is `.lazy-harness/hooks/README.md` and `.lazy-harness/hooks/lifecycle/on-response-completed.sh`.
 
 Read-only audits should disable hooks with `.lazy-harness/.hooks-disabled` or equivalent dry-run mode to avoid lifecycle continuation edits during audit collection.
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — primary response.completed lifecycle hook and helper timing loop.
+  - `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` — client disconnect cleanup hook surface.
+  - `.lazy-harness/hooks/pre-commit-guard.sh` — commit-time blocking lazy test gate.
+  - `.lazy-harness/scripts/self-test.py` — lifecycle, Jcode hook, pre-commit, and response.completed regression coverage.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated Jcode hook policy, including non-blocking edit/write behavior and bash safety-only hook.
+- Key symbols:
+  - `check_response_completed_no_auto_route_telemetry` (`self-test.py`) — verifies response.completed stays best-effort, does not run route classifiers, and still logs hook timings.
+  - `check_jcode_dev_hooks_are_nonblocking` (`self-test.py`) — protects the 2026-05-19 amendment that edit/write/multiedit development hooks stay non-blocking.
+  - `check_pre_commit_runs_lazy_test` (`self-test.py`) — protects commit-time `.lazy-harness/bin/lazy test` blocking gate.
+- Flow:
+  1. Jcode/tool lifecycle invokes generated hook surfaces.
+  2. response.completed runs lifecycle helpers and timing logging.
+  3. edit/write/multiedit blocking is intentionally absent during development.
+  4. pre-commit/pre-push retain blocking `lazy test` consistency checks.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` covers response.completed route telemetry removal, lifecycle parity/intake, pre-commit lazy test, Jcode non-blocking dev hooks, and bash safety-only policy.
+  - This ADR remains `needs-review` because it records historical M11 event semantics and several hook-stage intentions; not every historic stage is executable in this repo.
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/hook-performance-measurement.md`
+  - TDD: `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md`
+  - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
+- Machine index:
+  - graph ids: `kg_adr0016_lifecycle_hooks`, `kg_adr0016_lifecycle_tests`
+  - generated index key: `pending`

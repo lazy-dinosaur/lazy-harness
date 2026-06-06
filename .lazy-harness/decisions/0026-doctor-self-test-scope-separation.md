@@ -122,3 +122,27 @@ Implementation map addendum:
 ## Notes
 
 이 ADR 은 lazy-init MVP dogfooding 의 *0 번째* finding 이다. 실제로 host 박기 직전에 발견됐기 때문에 lazy-init MVP 의 일부로 통합된다. 정상적인 dogfooding finding 이라면 host 박은 후에 발견되어 다음 cycle 로 미뤄질 수도 있었지만, 이 issue 는 lazy-init 의 첫 사용자 경험을 직접 깨뜨리므로 MVP 안에서 해결한다.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/scripts/doctor.py` — scope-aware doctor checks.
+  - `.lazy-harness/scripts/self-test.py` — scope-aware self-test runner and scope fixtures.
+  - `.lazy-harness/bin/lazy` — passes through `lazy doctor` and `lazy test` to framework-owned scripts.
+- Key symbols:
+  - `detect_scope` (`doctor.py`) — uses framework markers to distinguish framework vs host.
+  - `_detect_scope`, `main`, `ACTIVE_SCOPE`, `doctor_scope_args` (`self-test.py`) — self-test scope selection and doctor forwarding.
+  - `check_standalone_source_detection_uses_markers`, `check_lazy_host_root_resolution` (`self-test.py`) — regression coverage for scope/root behavior.
+- Flow:
+  1. Doctor/self-test resolve `ROOT` from `LAZY_HOST_ROOT` or script location.
+  2. Scope auto-detect uses framework-only markers.
+  3. BOTH checks run everywhere, FRAMEWORK_ONLY checks skip on host scope.
+  4. `lazy test --scope host|framework` and `lazy doctor --scope ...` reuse the same scripts.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` covers doctor smoke/full behavior, source marker detection, LAZY_HOST_ROOT resolution, and scope-aware self-test execution.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`, `.lazy-harness/decisions/0025-portability-single-entry-point.md`
+- Machine index:
+  - graph ids: `kg_adr0026_doctor_scope`, `kg_adr0026_selftest_scope`
+  - generated index key: `pending`

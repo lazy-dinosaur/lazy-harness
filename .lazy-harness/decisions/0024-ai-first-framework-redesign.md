@@ -237,3 +237,29 @@ host 특화 룰의 진짜 자리는:
 - plans/ai-first-redesign-roadmap.md — 본 ADR 의 후속 실행 계획
 - `/tmp/jcode-bg-tasks/040210li73.output` — 본 ADR 작성 시 참조한 atlas subagent 정리
 - `/tmp/lazy-harness-agents-md-correction.md` — 얇은 AGENTS.md 통찰 메모
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/AGENTS.md` — AI-first record-search grammar and default-unknown behavior.
+  - `.lazy-harness/scripts/search-provider.ts` — SearchProvider interface and DirectAISearch prefilter.
+  - `.lazy-harness/scripts/reference-resolver.ts` — simplified deterministic resolver that delegates semantic search to AI/SearchProvider rules.
+  - `.lazy-harness/scripts/self-test.py` — SearchProvider canonical dirs and reference resolver checks.
+- Key symbols:
+  - `SearchProvider`, `DirectAISearch`, `SubagentSearch`, `RAGSearch` (`search-provider.ts`) — AI-first search abstraction and placeholders.
+  - `findPathStem`, `findTestStem`, `findCrossLayer` (`reference-resolver.ts`) — exact deterministic resolver pieces retained after algorithm removal.
+  - `check_search_provider_canonical_record_dirs`, `check_reference_resolver` (`self-test.py`) — executable coverage.
+- Flow:
+  1. AGENTS grammar requires record-first/default-unknown search by the AI.
+  2. Deterministic resolver surfaces exact candidates only.
+  3. Semantic interpretation remains with the AI/searcher rather than an IDF/burst keyword algorithm.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects SearchProvider canonical record dirs and reference resolver fixtures.
+  - Keep this map `needs-review` because the ADR also defines broad identity/governance and future Subagent/RAG paths that are intentionally not fully implemented.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0023-n2-reference-resolver-host-pilot-validation.md`
+  - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
+- Machine index:
+  - graph ids: `kg_adr0024_search_provider`, `kg_adr0024_reference_resolver_simplified`
+  - generated index key: `pending`

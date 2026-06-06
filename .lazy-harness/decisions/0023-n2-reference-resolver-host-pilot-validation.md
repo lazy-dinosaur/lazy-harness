@@ -120,3 +120,29 @@ No false positives, no false negatives. The remaining "missing TDD" warnings com
 - Backfill `.lazy-harness/{ssot,ddd,sdd}/` so the `d8e981d0`-style n/a case becomes evaluable.
 - Re-run pass with ≥20 commits once DDD/SSOT are populated; if precision dips below 0.9, consider tightening `MATCH_SCORE_FLOOR` to 0.55 before sliding `ADR_BURST_THRESHOLD` further down (preserve the patient-case).
 - Consider promoting `host-pilot.ts` from gitignored tooling to a checked-in CLI under `scripts/lazy-pilot.ts` once stable.
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/scripts/reference-resolver.ts` — current simplified N2 resolver.
+  - `.lazy-harness/scripts/layer-impact-gate.ts` — imports `resolveReferences` to enrich candidate records.
+  - `.lazy-harness/scripts/self-test.py` — reference resolver fixture coverage.
+  - `.lazy-harness/retrospective/host-pilot-N2-pass5.jsonl` — historical host-pilot evidence referenced by the ADR.
+- Key symbols:
+  - `resolveReferences` (`reference-resolver.ts`) — emits deterministic reference-map matches.
+  - `findTestStem`, `findPathStem`, `findCrossLayer` (`reference-resolver.ts`) — current exact deterministic match strategies.
+  - `check_reference_resolver` (`self-test.py`) — validates resolver fixture behavior.
+- Flow:
+  1. Historical ADR 0023 validated IDF/burst/ADR-keyword behavior during N2 host-pilot.
+  2. ADR 0024 later removed keyword/IDF/burst algorithm authority and kept only deterministic exact matching plus AI-led semantic search.
+  3. Current `layer-impact-gate.ts` still calls `resolveReferences`, but the current resolver intentionally differs from this ADR's old pilot implementation.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` runs reference resolver checks.
+  - Keep this map `needs-review` because the ADR is historical/superseded in part and should not be read as the current algorithm contract.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - Source: `.lazy-harness/scripts/reference-resolver.ts`
+- Machine index:
+  - graph ids: `kg_adr0023_reference_resolver_history`, `kg_adr0023_reference_resolver_current`
+  - generated index key: `pending`

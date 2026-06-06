@@ -1,6 +1,6 @@
 # SCR-601 Implementation-map needs-map backlog
 
-Status: captured; SCR-602 Batch 1 completed
+Status: captured; SCR-602 Batch 1 and Batch 2 completed
 Layer: Planning
 Generated: 2026-06-06
 Command: `.lazy-harness/bin/lazy impl-map --format=json`
@@ -18,6 +18,7 @@ No implementation-map edits are made by SCR-601. This record captures the exact 
 - Initial `ok`: 80
 - Initial `needs-review`: 0
 - After SCR-602 Batch 1: `needs-map=29`, `ok=82`
+- After SCR-602 Batch 2: `needs-map=21`, `ok=90`
 
 ### Needs-map by layer
 
@@ -79,10 +80,11 @@ These batches are planning only. Each record still requires source/test/graph re
   - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md`
   - `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md`
 
-### Batch 2 — framework tooling/storage ADRs
+### Batch 2 — framework tooling/storage ADRs — completed in SCR-602
 
 - Rationale: high implementation specificity with known scripts/hooks/lazy CLI relationships
 - Count: 8
+- Result: implementation maps added and graph rows recorded; `lazy impl-map` now reports all eight records as `ok`. Verified: ADR 0022/0026/0029/0030. Needs-review: ADR 0016/0023/0024/0025.
 - Records:
   - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
   - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
@@ -150,7 +152,7 @@ These batches are planning only. Each record still requires source/test/graph re
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`
+  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`, `kg_scr602_batch2_adr_maps`
 
 ## Discovery capture
 

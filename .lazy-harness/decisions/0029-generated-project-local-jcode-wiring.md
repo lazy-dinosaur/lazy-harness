@@ -66,3 +66,30 @@ Update policy:
 - `medivance-pwa` updated to `9d4d47b` and generated full `.jcode/` surface.
 - `dev/medivance` updated to `9d4d47b`, preserved user-owned `.jcode/*`, and added missing `lazy-update` skill.
 - Framework `doctor --profile smoke` and `self-test --scope framework` passed after implementation commits.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated project-local Jcode config/hooks/harness/skills templates and repair logic.
+  - `.lazy-harness/scripts/lazy-init.ts` — calls `installJcodeWiring` during host bootstrap unless `--skip-jcode`.
+  - `.lazy-harness/scripts/lazy-sync.ts` — refreshes/repairs Jcode wiring during sync, including equal-drift fast path.
+  - `.lazy-harness/scripts/self-test.py` — Jcode wiring regression tests.
+- Key symbols:
+  - `installJcodeWiring` (`jcode-wiring.ts`) — main project-local wiring generator/repair entrypoint.
+  - `postInitJcodeWiring` (`lazy-init.ts`) — bootstrap integration.
+  - `main` (`lazy-sync.ts`) — sync integration and equal-state Jcode wiring check.
+  - `check_jcode_wiring_pointer_only`, `check_jcode_wiring_repairs_stale_defaults`, `check_jcode_wiring_message_received_hook`, `check_jcode_dev_hooks_are_nonblocking`, `check_jcode_wiring_bash_safety_only_hook` (`self-test.py`) — executable coverage.
+- Flow:
+  1. `lazy-init` lays down `.lazy-harness` and then installs generated `.jcode` wiring unless skipped.
+  2. `lazy-sync` repairs generated `.jcode` files on sync or even equal-drift no-op.
+  3. Generated files with markers may refresh; markerless/user-owned files are preserved or archived according to repair rules.
+  4. Private/project rules stay pointer-only and durable rules belong in `.lazy-harness` records.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects pointer-only templates, stale markerless repair, message.received hook wiring, bash safety-only hook, non-blocking dev hook policy, and skill wrappers.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`, `.lazy-harness/decisions/0025-portability-single-entry-point.md`
+  - Docs: `.lazy-harness/JCODE-INTEGRATION.md`
+- Machine index:
+  - graph ids: `kg_adr0029_jcode_wiring_source`, `kg_adr0029_jcode_wiring_tests`
+  - generated index key: `pending`

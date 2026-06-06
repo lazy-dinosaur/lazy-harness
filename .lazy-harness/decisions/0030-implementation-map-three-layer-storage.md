@@ -60,3 +60,33 @@ Layer docs should include, when applicable:
 - SDD standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
 - SSOT storage: `.lazy-harness/ssot/implementation-map-storage.md`
 - Schema: `.lazy-harness/schemas/implementation-index.schema.json`
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md` — Markdown implementation-map contract.
+  - `.lazy-harness/ssot/implementation-map-storage.md` — storage/source-of-truth policy for Markdown, graph JSONL, and generated cache.
+  - `.lazy-harness/knowledge/graph.jsonl` — canonical machine-readable implementation graph facts.
+  - `.lazy-harness/schemas/implementation-index.schema.json` — schema for the derived implementation index cache.
+  - `.lazy-harness/scripts/implementation-map-audit.ts` — read-only audit that finds records needing implementation maps.
+  - `.lazy-harness/generated/implementation-index.json` — derived cache, not canonical truth.
+- Key symbols:
+  - `auditRecord`, `audit`, `summarize` (`implementation-map-audit.ts`) — dynamic implementation-map migration audit.
+  - `printMarkdown`, `printJcodePrompt` (`implementation-map-audit.ts`) — read-only migration guidance renderers.
+- Flow:
+  1. Humans/agents write canonical implementation maps in Markdown records.
+  2. Confirmed file/symbol/edge facts are also stored in `knowledge/graph.jsonl`.
+  3. Generated caches under `.lazy-harness/generated/` may be rebuilt and are never canonical truth.
+  4. `lazy impl-map` scans current records dynamically to identify missing maps for migration.
+- Tests / protection:
+  - `lazy impl-map --format=json` validates the dynamic audit output.
+  - `lazy graph-hygiene --format=json` validates JSONL graph health.
+  - `python3 .lazy-harness/scripts/self-test.py` protects graph-hygiene CLI, record-index graph IDs, and implementation-map related records through broader self-test coverage.
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
+  - Planning: `.lazy-harness/planning/scr-601-implementation-map-needs-map.md`
+- Machine index:
+  - graph ids: `kg_adr0030_impl_map_standard`, `kg_adr0030_impl_map_audit`
+  - generated index key: `.lazy-harness/generated/implementation-index.json`
