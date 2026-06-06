@@ -47,12 +47,15 @@ Evidence:
 - Source validations: self-test, prompt-budget, graph-hygiene.
 - Host smoke: sync exit 0, stale helper files 0, deleted helper help entries 0, stale hook output 0 for all 13 hosts.
 
-Next not-started work:
+Layer package completed:
 
-1. Phase B: Record Index Header Layer Package: DDD/BDD done, SDD/TDD and SSOT/ADR review next.
-2. Phase C: cache/parser naming and scope decision gate after layer package acceptance.
-3. Phase D: record-audit advisory warnings.
-4. Phase F: implementation-map backlog migration.
+- Phase B: Record Index Header Layer Package complete: DDD, BDD, SDD, TDD, and SSOT/ADR review done.
+
+Remaining not-started / blocked work:
+
+1. Phase C: cache/parser naming and scope decision gate remains blocked behind user option gate.
+2. Phase D: record-audit advisory warnings.
+3. Phase F: implementation-map backlog migration.
 
 ## Non-negotiable boundary
 
@@ -130,10 +133,10 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 
 - Create/maintain DDD terminology for Searchable Record Memory and semantic authority.
 - Create/maintain BDD scenarios for LLM-owned retrieval behavior.
-- Create SDD for `## Index header` as record-authored metadata.
-- Create TDD with parser/audit/behavior expectations.
-- Review SSOT/ADR boundary before any cache/parser implementation.
-- Do not implement parser yet unless separately approved.
+- Created SDD for `## Index header` as record-authored metadata.
+- Created TDD with parser/audit/behavior expectations.
+- Reviewed SSOT/ADR boundary: existing CLI tool boundary is sufficient for SCR-303/304; no ADR needed now.
+- Parser/cache implementation remains blocked until SCR-401 option gate.
 
 ### Phase C — Cache/parser decision gate
 
@@ -181,11 +184,11 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 
 ## Layer completeness impact
 
-- DDD: searchable record memory terminology/invariants added; future Index Header SDD must cite it.
-- BDD: LLM-owned retrieval scenarios added; future TDD must protect them.
-- SDD: removed obsolete helper contracts; added static search/read-debt SDD; Index Header SDD planned.
-- TDD: self-test and pre-action/pre-response records updated; Index Header TDD planned.
-- ADR: no new ADR; implements accepted CLI boundary correction.
+- DDD: searchable record memory terminology/invariants added and cited by Index Header SDD/TDD.
+- BDD: LLM-owned retrieval scenarios added and mapped by Index Header TDD.
+- SDD: removed obsolete helper contracts; added static search/read-debt SDD; added Index Header SDD.
+- TDD: self-test and pre-action/pre-response records updated; added Index Header TDD fixture plan.
+- ADR: no new ADR for SCR-303/304/305; SCR-401 naming gate may require ADR after option gate.
 - SSOT: runtime/shared-state and CLI boundary updated.
 - Planning: contaminated plan replaced.
 
@@ -197,3 +200,14 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 - Why not AGENTS.md: multi-phase implementation plan.
 - Why not `.jcode`: shared framework source behavior.
 - Confirmation: user-confirmed correction on 2026-06-06.
+
+
+## Discovery capture — SCR-303/304/305
+
+- DDD: updated/covered by `.lazy-harness/domain/searchable-record-memory.md`.
+- BDD: updated/covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
+- SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
+- TDD: updated by `.lazy-harness/tests/record-index-header.md`.
+- ADR: none now; SCR-401 naming/scope option gate may require ADR later.
+- SSOT: updated by `.lazy-harness/ssot/cli-tool-boundary.md` SCR-305 review section.
+- Planning: updated by `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` and this plan.

@@ -57,3 +57,32 @@ Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - grep/static checks for forbidden auto semantic CLI invocation and deleted helper absence.
+
+
+## Record Index Header boundary review — 2026-06-06
+
+Decision: existing SSOT is sufficient for SCR-303/SCR-304. No new ADR is required for the contract-only SDD/TDD phase.
+
+Reasoning:
+
+- `## Index header` is record-authored metadata in canonical records.
+- The SDD/TDD phase does not add parser/cache code.
+- Future deterministic cache/listing work remains allowed only as retrieval/listing/cache generation.
+- Raw-user-message query, ranking, required-read, confidence, intent, risk, gate, next-action, or candidate-meaning output remains forbidden.
+- A generated cache/header hit cannot satisfy search/read debt by itself.
+
+Boundary for SCR-401:
+
+- `context-index` vs `record-index` naming and exact command scope is still blocked behind a user option gate.
+- If SCR-401 introduces a durable trade-off beyond this SSOT, create an ADR before implementation.
+- If SCR-401 merely chooses a name under this same boundary, update this SSOT, SDD, TDD, tasks, and implementation map without a separate ADR.
+
+Discovery capture:
+
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines semantic-authority terms.
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` defines behavior scenarios.
+- SDD: `.lazy-harness/spec/platform/record-index-header.md` defines the field/consumer contract.
+- TDD: `.lazy-harness/tests/record-index-header.md` defines fixture expectations.
+- ADR: none for SCR-303/304; SCR-401 may require ADR after option gate.
+- SSOT: this section records SCR-305.
+- Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records status and next gate.

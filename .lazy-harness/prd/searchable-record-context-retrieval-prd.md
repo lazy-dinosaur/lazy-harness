@@ -47,9 +47,12 @@ Completed on 2026-06-06:
 - Graph/generated stale rows cleaned.
 - Cleanup synced to 13 initialized downstream hosts; see `.lazy-harness/evidence/2026-06-06-searchable-record-memory-host-sync.md`.
 
+Also completed on 2026-06-06:
+
+- Record Index Header Layer Package completed for DDD, BDD, SDD, TDD, and SSOT/ADR review.
+
 Not started yet:
 
-- Record Index Header Layer Package: DDD terminology, BDD behavior, SDD contract, TDD fixtures, and SSOT/ADR boundary review.
 - Any deterministic cache/parser implementation.
 - Record-audit metadata warnings.
 - Implementation-map backlog migration.
@@ -140,6 +143,8 @@ Observed failure modes:
 - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - `.lazy-harness/spec/platform/record-digest-format.md`
+- `.lazy-harness/spec/platform/record-index-header.md`
+- `.lazy-harness/tests/record-index-header.md`
 - `.lazy-harness/spec/platform/implementation-map-standard.md`
 - `.lazy-harness/ssot/implementation-map-storage.md`
 
@@ -158,7 +163,7 @@ Observed failure modes:
 1. Cleanup and decontamination.
 2. Static search/read-debt contract rename and validation.
 3. PRD/tasks/plan rewrite.
-4. Record Index Header Layer Package: DDD, BDD, SDD, TDD, and SSOT/ADR impact review.
+4. Record Index Header Layer Package: DDD, BDD, SDD, TDD, and SSOT/ADR impact review. Completed for contract/fixture planning on 2026-06-06.
 5. Deterministic cache/parser work only after explicit approval and after the layer package is accepted.
 6. Record-audit advisory warnings.
 7. Implementation-map backlog reduction.

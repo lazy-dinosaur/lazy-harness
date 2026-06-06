@@ -174,7 +174,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-303 — Create Record Index Header SDD
 
-- Status: todo
+- Status: done
 - Type: SDD
 - Create:
   - `.lazy-harness/spec/platform/record-index-header.md`
@@ -189,7 +189,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-304 — Create Record Index Header TDD
 
-- Status: todo
+- Status: done
 - Type: TDD
 - Create:
   - `.lazy-harness/tests/record-index-header.md`
@@ -206,7 +206,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-305 — SSOT/ADR semantic-authority boundary review
 
-- Status: todo
+- Status: done
 - Type: SSOT/ADR review
 - Requirements:
   - verify `.lazy-harness/ssot/cli-tool-boundary.md` covers Index Header/cache work
@@ -216,6 +216,8 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - plan records cite the SSOT/ADR decision result before parser/cache implementation starts
 
 ## Milestone 4 — Deterministic cache/parser only after approval
+
+- Result: existing `.lazy-harness/ssot/cli-tool-boundary.md` is sufficient for SCR-303/304; no new ADR needed now. SCR-401 naming/scope remains blocked behind option gate and may require ADR after user choice.
 
 ### SCR-401 — Context index cache rename/contract review
 
@@ -295,8 +297,9 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 - DDD: `searchable-record-memory` created for terminology/invariants.
 - BDD: `llm-owned-record-retrieval` created for agent/searcher behavior.
-- SDD: `search-read-debt-contract` created; `record-index-header` planned.
-- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` planned.
+- SDD: `search-read-debt-contract` created; `record-index-header` created for header field/consumer contract.
+- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` created for fixture expectations.
+- SSOT/ADR: `cli-tool-boundary` reviewed as sufficient for SCR-303/304; SCR-401 naming gate may need ADR later.
 - SSOT: CLI tool boundary remains canonical.
 - Planning: native query-helper plan removed; this backlog is the replacement.
 - ADR: no new ADR until a new trade-off decision is needed.

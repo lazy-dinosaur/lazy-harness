@@ -44,7 +44,7 @@
         <div class="card metric"><div class="label">cleanup tasks</div><div class="value">8/8</div><p>SCR-001~003, 101~103, 201~202 완료</p></div>
         <div class="card metric"><div class="label">hosts synced</div><div class="value">13</div><p>모든 initialized host smoke OK</p></div>
         <div class="card metric"><div class="label">stale helpers</div><div class="value">0</div><p>host stale files/help/hook checks 0</p></div>
-        <div class="card metric"><div class="label">next phase</div><div class="value">B</div><p>Index Header SDD/TDD, 구현 아님</p></div>
+        <div class="card metric"><div class="label">next phase</div><div class="value">C</div><p>cache/parser naming option gate, 구현 전 결정</p></div>
       </div>
     </section>
 
@@ -100,8 +100,8 @@
       <div class="grid2">
         <div class="card"><span class="badge ok">SCR-301</span><h3>DDD — Searchable Record Memory</h3><p>Searchable Record Memory, Record-authored metadata, Record Index Header, LLM-owned retrieval, Semantic authority, Deterministic cache를 정의했습니다.</p><p><strong>개선:</strong> 구현/계약 전에 용어 경계를 고정해서 코드가 판단하는 구조로 미끄러지지 않게 합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-302</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 먼저 고정합니다.</p></div>
-        <div class="card"><span class="badge todo">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성합니다. 아직 parser 구현은 하지 않습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
-        <div class="card"><span class="badge warn">SCR-305/401</span><h3>SSOT/ADR + cache naming decision</h3><p>CLI/tool semantic boundary가 충분한지 확인하고, <code>context-index</code> 이름 유지 vs <code>record-index</code> 변경을 결정합니다.</p><p><strong>개선:</strong> 도구 이름과 scope가 다시 obsolete architecture를 암시하지 않게 합니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성했습니다. parser 구현은 하지 않았습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-305</span><h3>SSOT/ADR boundary review</h3><p>기존 <code>cli-tool-boundary</code>가 SCR-303/304에는 충분하다고 기록했습니다. 새 ADR은 지금 필요 없습니다.</p><p><strong>다음:</strong> <code>context-index</code> 이름 유지 vs <code>record-index</code> 변경은 SCR-401 option gate입니다.</p></div>
       </div>
     </section>
 
@@ -111,7 +111,7 @@
         <thead><tr><th>문서</th><th>상태</th><th>핵심 내용</th></tr></thead>
         <tbody>
           <tr><td><a href="../prd/searchable-record-context-retrieval-prd.md">PRD</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/sync 완료 상태와 future phases를 분리함</td></tr>
-          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, DDD/BDD 추가 완료, SDD/TDD/SSOT review는 다음 todo로 정리</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, DDD/BDD/SDD/TDD/SSOT review 완료, parser/cache는 blocked</td></tr>
           <tr><td><a href="searchable-record-context-retrieval-implementation-plan.md">Plan</a></td><td><span class="badge ok">정리됨</span></td><td>current status, completed phases, next work를 분리함</td></tr>
           <tr><td><a href="../evidence/2026-06-06-searchable-record-memory-host-sync.md">Evidence capsule</a></td><td><span class="badge ok">신규</span></td><td>13개 host sync/smoke 결과 기록</td></tr>
         </tbody>
@@ -124,7 +124,7 @@
 .lazy-harness/bin/lazy prompt-budget --format=md # green
 bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
 host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
-      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. 다음 Phase B는 DDD/BDD/SDD/TDD/SSOT layer package로 진행하며, parser/cache 구현은 별도 승인 후 진행합니다.</p>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. Phase B layer package는 완료됐습니다. 다음 SCR-401은 cache/parser 이름과 scope에 대한 option gate이며, 구현은 별도 승인 후 진행합니다.</p>
     </section>
   </main>
 </body>
