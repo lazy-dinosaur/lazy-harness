@@ -86,11 +86,10 @@
           "path": "fixtures/",
           "kind": "directory",
           "glob": [
-            "task-router/*.json",
             "context-delivery/*.xml",
             "context-delivery/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including ADR 0037 workflow route cases + context-delivery fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-delivery fixtures."
         },
         {
           "path": "evidence/",
