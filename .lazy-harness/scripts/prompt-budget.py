@@ -92,7 +92,9 @@ def file_surface(root: pathlib.Path, path: pathlib.Path, *, kind: str, budget_ke
     budget = DEFAULT_BUDGETS.get(budget_key or "", {})
     hard = budget.get("hardMaxLines")
     transition = budget.get("transitionHardMaxLines")
-    status = status_from_line_count(line_count, hard if isinstance(hard, int) else None, transition if isinstance(transition, int) else None)
+    raw_status = status_from_line_count(line_count, hard if isinstance(hard, int) else None, transition if isinstance(transition, int) else None)
+    enforcement = "advisory" if kind == "skill-prompt" else "enforced"
+    status = "warn" if enforcement == "advisory" and raw_status == "fail" else raw_status
     return {
         "id": rel,
         "path": rel,
@@ -101,6 +103,8 @@ def file_surface(root: pathlib.Path, path: pathlib.Path, *, kind: str, budget_ke
         "lineCount": line_count,
         "tokenEstimate": token_estimate,
         "status": status,
+        "rawStatus": raw_status,
+        "enforcement": enforcement,
         "budgetKey": budget_key,
         "sha256": hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16],
     }
@@ -245,6 +249,7 @@ def build_report(root: pathlib.Path, transition_message_tokens: int) -> dict[str
     notes = [
         "Phase 1 is measurement-only; message.received behavior is not changed.",
         "Generated measurements are non-canonical and should be used as regression evidence only.",
+        "Skill prompts are measured as on-demand assets; oversized skill prompts are advisory warnings, not hard failures.",
     ]
     if duplicates:
         notes.append("Duplicate grammar blocks detected between .lazy-harness/AGENTS.md and .jcode/harness/05-lazy-harness.md.")
@@ -286,10 +291,10 @@ def render_md(report: dict[str, Any]) -> str:
     lines.append("")
     lines.append("## Prompt surfaces")
     lines.append("")
-    lines.append("| Surface | Kind | Lines | Est. tokens | Status |")
-    lines.append("|---|---|---:|---:|---|")
+    lines.append("| Surface | Kind | Lines | Est. tokens | Enforcement | Status |")
+    lines.append("|---|---|---:|---:|---|---|")
     for surface in report.get("surfaces", []):
-        lines.append(f"| `{surface.get('path')}` | {surface.get('kind')} | {surface.get('lineCount')} | {surface.get('tokenEstimate')} | `{surface.get('status')}` |")
+        lines.append(f"| `{surface.get('path')}` | {surface.get('kind')} | {surface.get('lineCount')} | {surface.get('tokenEstimate')} | {surface.get('enforcement', 'enforced')} | `{surface.get('status')}` |")
     lines.append("")
     lines.append("## Duplicate grammar hints")
     lines.append("")

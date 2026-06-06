@@ -77,9 +77,11 @@ This intentionally avoids external tokenizer dependencies.
 | Rendered `message.received` body | 200-600 tokens | 1,000 tokens | 1,400 tokens | warn above hard; fail above transition hard |
 | `.lazy-harness/AGENTS.md` | <= 140 lines | <= 200 lines | 220 lines | warn above hard; fail above transition hard |
 | `.jcode/harness/05-lazy-harness.md` | pointer-only | <= 80 lines | 220 lines | warn above hard; fail above transition hard |
-| `SKILL.md` prompt files | <= 120 lines | <= 160 lines | 200 lines | warn above hard; fail above transition hard |
+| `SKILL.md` prompt files | <= 120 lines | <= 160 lines | 200 lines | advisory only: warn above hard/transition; never fail solely due to skill length |
 
 The transition hard ceilings are deliberately looser so Phase 1 can be merged before Phase 2 compacting work. Later phases may lower transition ceilings after dogfood evidence.
+
+Skill prompts are on-demand instruction assets, not always-injected runtime prompt. `prompt-budget` must still measure them and report warnings, but it must not fail a host validation solely because a host-owned skill is long. Skill shortening, pointer-only rewrites, or migration into records require explicit user approval and are outside prompt-budget enforcement.
 
 Phase 2 compact prompt work should keep the rendered `message.received` body at or below the normal 600-token target in framework source self-test. The Phase 1 source baseline was 799 estimated tokens, so a successful Phase 2 source run should show at least meaningful reduction and no regression in debt journaling or static/no-classifier behavior.
 
@@ -138,7 +140,8 @@ When rendering the hook, the script must:
   2. CLI counts prompt-ish files.
   3. CLI renders `message.received` with isolated runtime state.
   4. CLI estimates tokens and status against budgets.
-  5. CLI reports duplicate grammar fingerprints where applicable.
+  5. CLI downgrades over-transition `skill-prompt` raw status to advisory `warn` for overall status aggregation.
+  6. CLI reports duplicate grammar fingerprints where applicable.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy prompt-budget --format=md`

@@ -20,10 +20,12 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - verify the rendered `message.received` measurement includes line and token estimates
   - verify the measurement uses isolated runtime state and does not emit the synthetic fixture message
   - allow current over-target prompt size during Phase 1 while failing severe transition-threshold regressions
+  - keep project-local skill prompts as measured advisory surfaces, not broad hard failures
   - verify `lazy prompt-budget --format=md` dispatch works
 - Must not:
   - require Phase 1 to shorten prompts
   - make prompt budget warnings into broad runtime hard stops
+  - require host-owned `SKILL.md` prompts to be shortened or rewritten
   - require external tokenizer packages
   - store raw user messages or transcripts
 - Record completion:
@@ -58,6 +60,7 @@ Phase 1 should add measurement only. Existing hook behavior must remain unchange
 6. Output does not contain the synthetic fixture message.
 7. `renderedMessageReceived.tokenEstimate` is below the Phase 1 transition hard ceiling.
 8. `.lazy-harness/bin/lazy prompt-budget --format=md` prints a human-readable report with line counts, token estimate, duplicate findings, and status.
+9. A 500+ line host-local `.jcode/skills/**/SKILL.md` fixture is reported as `skill-prompt` with `enforcement=advisory`, `rawStatus=fail`, `status=warn`, and does not make the top-level status `fail`.
 
 ## Acceptance command
 

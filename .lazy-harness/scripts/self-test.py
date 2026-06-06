@@ -1577,7 +1577,7 @@ def check_prompt_budget_measurement() -> None:
             fail("prompt budget artifact missing: " + str(path))
 
     script_text = script_path.read_text(encoding="utf-8")
-    for phrase in ["SYNTHETIC_MESSAGE", "LAZY_RUNTIME_ROOT", "fixtureMessageLeaked", "transitionHardMaxTokens"]:
+    for phrase in ["SYNTHETIC_MESSAGE", "LAZY_RUNTIME_ROOT", "fixtureMessageLeaked", "transitionHardMaxTokens", "enforcement", "advisory"]:
         if phrase not in script_text:
             fail("prompt-budget.py missing privacy/budget phrase: " + phrase)
 
@@ -1638,6 +1638,34 @@ def check_prompt_budget_measurement() -> None:
             fail("lazy prompt-budget markdown output missing phrase: " + phrase + "\n" + md.stdout)
     if "__lazy_prompt_budget_fixture_message__" in md.stdout:
         fail("lazy prompt-budget markdown leaked synthetic fixture message")
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="prompt-budget-huge-skill-"))
+    try:
+        (temp / ".lazy-harness").mkdir(parents=True)
+        skill = temp / ".jcode" / "skills" / "huge-host-skill" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text("# Huge host-local skill\n\n" + "\n".join(f"Detailed on-demand instruction line {i}" for i in range(1, 521)) + "\n", encoding="utf-8")
+        huge = subprocess.run(
+            ["python3", str(script_path), "--root", str(temp), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if huge.returncode != 0:
+            fail("prompt-budget should not fail solely due to oversized host-local skill:\n" + huge.stdout + huge.stderr)
+        huge_report = json.loads(huge.stdout)
+        if huge_report.get("status") == "fail":
+            fail("oversized host-local skill should not make top-level prompt-budget fail:\n" + huge.stdout)
+        skill_surfaces = [surface for surface in huge_report.get("surfaces", []) if surface.get("kind") == "skill-prompt"]
+        if len(skill_surfaces) != 1:
+            fail("oversized skill fixture should produce one skill-prompt surface: " + json.dumps(huge_report.get("surfaces", []), ensure_ascii=False))
+        surface = skill_surfaces[0]
+        if surface.get("enforcement") != "advisory" or surface.get("rawStatus") != "fail" or surface.get("status") != "warn":
+            fail("oversized skill fixture should be advisory warn with raw fail: " + json.dumps(surface, ensure_ascii=False))
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
     print("✓ prompt budget measurement ok")
 
