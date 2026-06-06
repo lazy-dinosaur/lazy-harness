@@ -6,7 +6,7 @@
 
 - `.jcode/config.toml` — prompt loading, private instruction globs, lifecycle hooks
 - `.jcode/AGENTS.md` — host-local Jcode private entrypoint
-- `.jcode/harness/05-lazy-harness.md` — `../../.lazy-harness/AGENTS.md` symlink
+- `.jcode/harness/05-lazy-harness.md` — generated pointer-only reminder; root `AGENTS.md` points at `.lazy-harness/AGENTS.md`
 - `.jcode/harness/10-routing-policy.md`, `20-project-rules.md`
 - `.jcode/hooks/check-bash.sh`, `log-tool.sh`
 - `.jcode/skills/lazy-{init,sync,update,doctor,test,skill-create}/SKILL.md`
@@ -45,12 +45,13 @@ bun /path/to/lazy-harness/.lazy-harness/scripts/lazy-init.ts --target "$PWD" --f
 ~/.claude/skills/jcode-init/scripts/init-jcode-project.sh "$(pwd)"
 ```
 
-### 2. AGENTS.md inject 설정 (symlink 방식)
+### 2. AGENTS.md inject 설정 (root symlink + pointer-only harness)
 
-jcode 는 별도 `extra_instructions` schema 가 없다. 대신 `.jcode/harness/*.md` 를 자동으로 로드 (`load_harness_dir = true` 기본값) 한다. lazy-harness AGENTS.md 를 그 디렉토리에 symlink:
+jcode 는 별도 `extra_instructions` schema 가 없다. Root `AGENTS.md` 는 `.lazy-harness/AGENTS.md` 를 가리켜 full rule body 를 로드하고, `.jcode/harness/05-lazy-harness.md` 는 같은 본문을 다시 싣지 않는 pointer-only generated file 이다:
 
 ```bash
-ln -s ../../.lazy-harness/AGENTS.md .jcode/harness/05-lazy-harness.md
+ln -s .lazy-harness/AGENTS.md AGENTS.md
+.lazy-harness/bin/lazy sync --force   # repairs .jcode/harness/05-lazy-harness.md as pointer-only when managed
 ```
 
 `.jcode/config.toml` 의 `[prompt]` 섹션에서 `load_harness_dir = true` 만 확인 (jcode init 의 기본값):
@@ -61,7 +62,7 @@ load_harness_dir = true   # .jcode/harness/*.md 자동 로드 (jcode init 기본
 load_jcode_agents = true  # .jcode/AGENTS.md 자동 로드
 ```
 
-→ 매 session 시작 시 jcode 가 symlink 를 따라가 `.lazy-harness/AGENTS.md` 내용을 AI system prompt 에 자동 첨부. single source of truth 유지 (편집은 `.lazy-harness/AGENTS.md` 한 곳).
+→ 매 session 시작 시 root `AGENTS.md` 가 `.lazy-harness/AGENTS.md` 내용을 AI system prompt 에 첨부하고, `.jcode/harness/05-lazy-harness.md` 는 duplicate grammar 없이 canonical path/reminder 만 제공한다. single source of truth 유지 (편집은 `.lazy-harness/AGENTS.md` 한 곳).
 
 ### 3. tool.execute.before hook 정책
 

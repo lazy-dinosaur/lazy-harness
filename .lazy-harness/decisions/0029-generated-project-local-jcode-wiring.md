@@ -22,7 +22,8 @@ Generated default surface:
 
 - `.jcode/config.toml`
 - `.jcode/AGENTS.md`
-- `.jcode/harness/05-lazy-harness.md` pointing at `.lazy-harness/AGENTS.md`
+- root `AGENTS.md` pointing at `.lazy-harness/AGENTS.md`
+- `.jcode/harness/05-lazy-harness.md` as pointer-only generated reminder
 - `.jcode/harness/10-routing-policy.md`
 - `.jcode/harness/20-project-rules.md`
 - `.jcode/hooks/check-bash.sh`
@@ -33,12 +34,13 @@ Generated default surface:
 Update policy:
 
 1. `.lazy-harness/*` remains framework-owned and is synced from source.
-2. `.jcode/harness/05-lazy-harness.md` is a symlink when possible, so AGENTS.md updates propagate through `.lazy-harness` sync.
-3. Generated `.jcode/*` files include a generated marker.
-4. Files with the marker may be refreshed by future template updates.
-5. Files without the marker are treated as user-owned and preserved.
-6. `install.sh` generates Jcode wiring by default. `--skip-jcode` is the opt-out.
-7. `lazy-update` must invoke the source checkout's latest `lazy-sync.ts` so newly introduced sync behavior applies even to outdated hosts on the first update run.
+2. root `AGENTS.md` is the symlink/full-body loader for `.lazy-harness/AGENTS.md`.
+3. `.jcode/harness/05-lazy-harness.md` must stay pointer-only when managed, so project-local Jcode harness loading does not duplicate the full lazy-harness grammar already loaded through root `AGENTS.md`.
+4. Generated `.jcode/*` files include a generated marker.
+5. Files with the marker may be refreshed by future template updates.
+6. Files without the marker are treated as user-owned and preserved.
+7. `install.sh` generates Jcode wiring by default. `--skip-jcode` is the opt-out.
+8. `lazy-update` must invoke the source checkout's latest `lazy-sync.ts` so newly introduced sync behavior applies even to outdated hosts on the first update run.
 
 ## Consequences
 
@@ -49,6 +51,7 @@ Update policy:
 - Existing private host customization is preserved.
 - Missing skills/hooks can be repaired by `lazy update --force`.
 - M45 private instruction loading becomes the primary behavior path instead of brittle prompt-injection hooks.
+- The same lazy-harness grammar is not loaded twice through both root `AGENTS.md` and generated `.jcode/harness/05-lazy-harness.md`.
 
 ### Negative / Trade-offs
 

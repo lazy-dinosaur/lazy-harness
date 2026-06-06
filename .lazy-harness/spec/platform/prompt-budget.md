@@ -128,6 +128,7 @@ When rendering the hook, the script must:
 
 ## Implementation map
 
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/spec/platform/prompt-budget.md` — this SDD contract.
   - `.lazy-harness/tests/prompt-budget.md` — regression/fixture record.
@@ -135,6 +136,11 @@ When rendering the hook, the script must:
   - `.lazy-harness/bin/lazy` — dispatches `lazy prompt-budget`.
   - `.lazy-harness/scripts/self-test.py` — protects script output shape, privacy, and transition thresholds.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — rendered by the measurement script but not changed in Phase 1.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — keeps `.jcode/harness/05-lazy-harness.md` pointer-only so `.lazy-harness/AGENTS.md` is not loaded twice through Jcode harness wiring.
+- Key symbols:
+  - `ensureLazyHarnessInstruction` (`.lazy-harness/scripts/jcode-wiring.ts`) — repairs existing generated 05-lazy-harness symlinks/stale copies into pointer-only files.
+  - `lazyHarnessPointerInstruction` (`.lazy-harness/scripts/jcode-wiring.ts`) — defines the managed pointer-only 05-lazy-harness content.
+  - `check_jcode_wiring_repairs_stale_defaults` (`.lazy-harness/scripts/self-test.py`) — protects pointer-only 05-lazy-harness repair behavior.
 - Flow:
   1. CLI resolves host root.
   2. CLI counts prompt-ish files.
@@ -142,10 +148,14 @@ When rendering the hook, the script must:
   4. CLI estimates tokens and status against budgets.
   5. CLI downgrades over-transition `skill-prompt` raw status to advisory `warn` for overall status aggregation.
   6. CLI reports duplicate grammar fingerprints where applicable.
+  7. Jcode wiring repair keeps managed `.jcode/harness/05-lazy-harness.md` pointer-only so duplicate grammar fingerprints do not appear for the 05 harness file.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy prompt-budget --format=md`
   - `python3 .lazy-harness/scripts/prompt-budget.py --root . --format=json`
+- Machine index:
+  - graph ids: `kg_prompt_budget_jcode_05_pointer_only`, `kg_prompt_budget_pointer_only_self_test`
+  - generated index key: `implementationIndex.records[*].id in {kg_prompt_budget_jcode_05_pointer_only, kg_prompt_budget_pointer_only_self_test}`
 
 ## Rule placement
 

@@ -61,6 +61,7 @@ Phase 1 should add measurement only. Existing hook behavior must remain unchange
 7. `renderedMessageReceived.tokenEstimate` is below the Phase 1 transition hard ceiling.
 8. `.lazy-harness/bin/lazy prompt-budget --format=md` prints a human-readable report with line counts, token estimate, duplicate findings, and status.
 9. A 500+ line host-local `.jcode/skills/**/SKILL.md` fixture is reported as `skill-prompt` with `enforcement=advisory`, `rawStatus=fail`, `status=warn`, and does not make the top-level status `fail`.
+10. Generated `.jcode/harness/05-lazy-harness.md` is pointer-only and must not duplicate the full `.lazy-harness/AGENTS.md` grammar already loaded through root `AGENTS.md`.
 
 ## Acceptance command
 
@@ -85,19 +86,25 @@ Runtime hook behavior is unchanged, so rollback should not require runtime journ
 
 ## Implementation map
 
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/tests/prompt-budget.md` — this TDD record.
   - `.lazy-harness/spec/platform/prompt-budget.md` — measurement contract.
   - `.lazy-harness/scripts/prompt-budget.py` — measured script under test.
   - `.lazy-harness/scripts/self-test.py` — test harness.
   - `.lazy-harness/bin/lazy` — command dispatch.
+  - `.lazy-harness/scripts/jcode-wiring.ts` — generated 05-lazy-harness pointer-only repair path.
 - Key symbols planned:
   - `estimate_tokens` (`prompt-budget.py`) — deterministic tokenizer-free estimate.
   - `render_message_received` (`prompt-budget.py`) — isolated hook render.
   - `find_duplicate_blocks` (`prompt-budget.py`) — duplicate grammar heuristic.
   - `check_prompt_budget_measurement` (`self-test.py`) — regression fixture.
+  - `check_jcode_wiring_repairs_stale_defaults` (`self-test.py`) — stale `.jcode/harness/05-lazy-harness.md` repair regression fixture.
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
+- Machine index:
+  - graph ids: `kg_prompt_budget_pointer_only_self_test`
+  - generated index key: `implementationIndex.records[*].id == kg_prompt_budget_pointer_only_self_test`
 
 ## Rule placement
 

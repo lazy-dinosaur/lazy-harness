@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 - 기본 source clone: `~/.cache/lazy-harness/source`
 - 실제 framework layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
 - host-local/private Jcode wiring 은 기본 생성한다: `.jcode/config.toml`, `.jcode/AGENTS.md`, `.jcode/harness/*.md`, `.jcode/hooks/*.sh`, `.jcode/skills/lazy-*`
-- `.jcode/harness/05-lazy-harness.md` 는 `.lazy-harness/AGENTS.md` symlink 이므로 AGENTS 변경은 `lazy update` 로 반영된다
+- root `AGENTS.md` 는 `.lazy-harness/AGENTS.md` symlink 이고, `.jcode/harness/05-lazy-harness.md` 는 duplicate prompt 를 피하는 pointer-only generated file 이다
 - generated marker 가 남아있는 `.jcode` 파일은 template 갱신 시 refresh, marker 없는 user-owned 파일은 보존
 
 ## 빠른 진입점

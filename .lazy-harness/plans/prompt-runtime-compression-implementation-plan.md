@@ -104,7 +104,7 @@ Current prompt-ish surface includes:
 - `.jcode/harness/10-routing-policy.md`
 - `.jcode/harness/20-project-rules.md`
 
-Observed report count: roughly 386 lines across prompt-ish files. The same lazy-harness grammar can be loaded from both `.lazy-harness/AGENTS.md` and `.jcode/harness/05-lazy-harness.md`.
+Observed report count before the pointer-only 05 update: roughly 386 lines across prompt-ish files. The same lazy-harness grammar could be loaded from both `.lazy-harness/AGENTS.md` and `.jcode/harness/05-lazy-harness.md`. Follow-up work changes managed `.jcode/harness/05-lazy-harness.md` to pointer-only while keeping root `AGENTS.md -> .lazy-harness/AGENTS.md` as the full-body loader.
 
 ### Risk B: Static prompt tests intentionally block compression
 

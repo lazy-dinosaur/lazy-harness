@@ -1346,19 +1346,21 @@ def check_jcode_wiring_repairs_stale_defaults() -> None:
 
         instruction = temp / ".jcode" / "harness" / "05-lazy-harness.md"
         if instruction.is_symlink():
-            if os.readlink(instruction) != "../../.lazy-harness/AGENTS.md":
-                fail("05-lazy-harness symlink target is wrong: " + os.readlink(instruction))
-        else:
-            content = instruction.read_text(encoding="utf-8")
-            if "4 단계 흐름" in content or "Default = 모름" not in content:
-                fail("05-lazy-harness fallback did not refresh stale instruction copy")
+            fail("05-lazy-harness should be pointer-only regular file, not symlink")
+        content = instruction.read_text(encoding="utf-8")
+        if generated_marker not in content:
+            fail("05-lazy-harness pointer-only file missing generated marker")
+        if "Lazy-Harness Pointer" not in content or "pointer-only" not in content:
+            fail("05-lazy-harness did not refresh to pointer-only instruction")
+        if "4 단계 흐름" in content or "Default = 모름" in content:
+            fail("05-lazy-harness pointer-only file duplicated full lazy-harness grammar")
 
         archive = temp / ".jcode" / "archive"
         archived_names = {p.name for p in archive.iterdir()} if archive.exists() else set()
         required_archives = {
             "AGENTS.md.pre-generated-marker",
             "config.toml.pre-generated-marker",
-            "05-lazy-harness.md.pre-symlink",
+            "05-lazy-harness.md.pre-pointer-only",
             "10-routing-policy.md.pre-generated-marker",
         }
         missing_archives = sorted(required_archives - archived_names)

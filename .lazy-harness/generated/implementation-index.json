@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T00:16:20Z",
+  "generatedAt": "2026-06-06T06:15:10Z",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2963,6 +2963,90 @@
       "provenance": {
         "source": "manual-implementation-map",
         "confirmedAt": "2026-06-02T00:16:20Z"
+      }
+    },
+    {
+      "id": "kg_prompt_budget_jcode_05_pointer_only",
+      "createdAt": "2026-06-06T06:15:10Z",
+      "updatedAt": "2026-06-06T06:15:10Z",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/scripts/jcode-wiring.ts",
+      "predicate": "implements",
+      "object": "Generated .jcode/harness/05-lazy-harness.md is pointer-only and does not duplicate the full .lazy-harness/AGENTS.md grammar already loaded through root AGENTS.md.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/jcode-wiring.ts",
+          "quote": "ensureLazyHarnessInstruction replaces existing symlinks and generated/stale copies with managedContent(lazyHarnessPointerInstruction())."
+        },
+        {
+          "type": "validation",
+          "path": "/tmp/lazy-prompt-budget.json",
+          "quote": "Prompt budget after local repair: .jcode/harness/05-lazy-harness.md lineCount=17 status=pass and duplicate_count=0."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/prompt-budget.md"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/scripts/self-test.py"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-06T06:15:10Z"
+      }
+    },
+    {
+      "id": "kg_prompt_budget_pointer_only_self_test",
+      "createdAt": "2026-06-06T06:15:10Z",
+      "updatedAt": "2026-06-06T06:15:10Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/scripts/self-test.py#check_jcode_wiring_repairs_stale_defaults",
+      "predicate": "protects",
+      "object": "Stale or symlinked .jcode/harness/05-lazy-harness.md is repaired to a generated pointer-only file with no duplicated full lazy-harness grammar.",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "source",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "Fails if 05-lazy-harness is a symlink, lacks generated marker, lacks Lazy-Harness Pointer/pointer-only text, or contains full grammar markers."
+        },
+        {
+          "type": "validation",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "python3 .lazy-harness/scripts/self-test.py passed after pointer-only repair."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/tests/prompt-budget.md"
+        },
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/prompt-budget.md"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "confirmedAt": "2026-06-06T06:15:10Z"
       }
     }
   ]
