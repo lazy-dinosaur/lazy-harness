@@ -4,6 +4,12 @@ Status: proposed
 Date: 2026-06-06
 Layer: Planning
 
+Related PRD:
+- `.lazy-harness/prd/searchable-record-context-retrieval-prd.md`
+
+Related task backlog:
+- `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
+
 Related SSOT:
 - `.lazy-harness/ssot/cli-tool-boundary.md`
 - `.lazy-harness/ssot/implementation-map-storage.md`
