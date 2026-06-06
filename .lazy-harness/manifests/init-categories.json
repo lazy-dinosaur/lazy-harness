@@ -261,6 +261,11 @@
           "description": "SDD contract for message.received pre-response relevant-record context injection and sanitized surfaced digest journal."
         },
         {
+          "path": "spec/platform/prompt-budget.md",
+          "kind": "file",
+          "description": "SDD contract for prompt budget measurement, rendered message.received token estimates, duplicate grammar hints, and read-only measurement behavior."
+        },
+        {
           "path": "spec/platform/context-delivery-contract.md",
           "kind": "file",
           "description": "SDD contract for Native Context Broker packet output: raw hits, normalized evidence, required-read Context Delivery Packet, rendering, privacy, and fail-open rules."
@@ -289,6 +294,11 @@
           "path": "tests/context-broker-dogfood.md",
           "kind": "file",
           "description": "TDD fixtures for Context Broker dogfood collector privacy, no-record-needed, and dry-run behavior."
+        },
+        {
+          "path": "tests/prompt-budget.md",
+          "kind": "file",
+          "description": "TDD contract for prompt budget measurement output, isolated message.received rendering, privacy checks, and lazy prompt-budget dispatch."
         },
         {
           "path": "tests/evidence-capsule-standard.md",
