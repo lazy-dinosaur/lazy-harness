@@ -7,6 +7,8 @@ Related PRD: `.lazy-harness/prd/searchable-record-context-retrieval-prd.md`
 Related tasks: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 Related HTML report: `.lazy-harness/planning/searchable-record-context-retrieval-report.html`
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
+Related DDD: `.lazy-harness/domain/searchable-record-memory.md`
+Related BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
 Related SDD:
 - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - `.lazy-harness/spec/platform/pre-response-rule-context.md`
@@ -47,8 +49,8 @@ Evidence:
 
 Next not-started work:
 
-1. Phase B: Record Index Header SDD/TDD only.
-2. Phase C: cache/parser naming and scope decision gate.
+1. Phase B: Record Index Header Layer Package: DDD/BDD done, SDD/TDD and SSOT/ADR review next.
+2. Phase C: cache/parser naming and scope decision gate after layer package acceptance.
 3. Phase D: record-audit advisory warnings.
 4. Phase F: implementation-map backlog migration.
 
@@ -124,10 +126,13 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Rewrite PRD/tasks/plan/report.
 - Validate with grep, self-test, prompt-budget, graph-hygiene.
 
-### Phase B — Record Index Header SDD/TDD only
+### Phase B — Record Index Header Layer Package
 
+- Create/maintain DDD terminology for Searchable Record Memory and semantic authority.
+- Create/maintain BDD scenarios for LLM-owned retrieval behavior.
 - Create SDD for `## Index header` as record-authored metadata.
-- Create TDD with parser/audit expectations.
+- Create TDD with parser/audit/behavior expectations.
+- Review SSOT/ADR boundary before any cache/parser implementation.
 - Do not implement parser yet unless separately approved.
 
 ### Phase C — Cache/parser decision gate
@@ -176,10 +181,10 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 
 ## Layer completeness impact
 
-- DDD: none.
-- SDD: removed obsolete helper contracts; added static search/read-debt SDD.
-- BDD: no product UI flow.
-- TDD: self-test and pre-action/pre-response records updated.
+- DDD: searchable record memory terminology/invariants added; future Index Header SDD must cite it.
+- BDD: LLM-owned retrieval scenarios added; future TDD must protect them.
+- SDD: removed obsolete helper contracts; added static search/read-debt SDD; Index Header SDD planned.
+- TDD: self-test and pre-action/pre-response records updated; Index Header TDD planned.
 - ADR: no new ADR; implements accepted CLI boundary correction.
 - SSOT: runtime/shared-state and CLI boundary updated.
 - Planning: contaminated plan replaced.

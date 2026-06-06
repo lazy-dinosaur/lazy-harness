@@ -98,10 +98,10 @@
     <section id="next">
       <h2>5. 앞으로 어디를 어떻게 수정해서 개선할 것인가</h2>
       <div class="grid2">
-        <div class="card"><span class="badge todo">SCR-301</span><h3>Record Index Header SDD</h3><p><code>## Index header</code>를 record-authored metadata 표준으로 정의합니다. alias/search key/source/test/graph id를 어디에 쓸지 정하되, raw-message query 권한은 주지 않습니다.</p><p><strong>개선:</strong> LLM/searcher가 record를 더 빨리 찾을 수 있는 저장 구조를 만듭니다.</p></div>
-        <div class="card"><span class="badge todo">SCR-302</span><h3>Record Index Header TDD</h3><p>complete/missing/legacy fallback/no semantic query fixtures를 문서화합니다. 아직 parser 구현은 하지 않습니다.</p><p><strong>개선:</strong> 나중에 구현할 때 테스트 기준이 먼저 고정됩니다.</p></div>
-        <div class="card"><span class="badge warn">SCR-401</span><h3>Cache naming/scope decision</h3><p><code>context-index</code> 이름을 유지할지 <code>record-index</code>로 바꿀지 승인받습니다. output은 cache/listing only입니다.</p><p><strong>개선:</strong> 도구 이름이 다시 obsolete context architecture를 암시하지 않게 합니다.</p></div>
-        <div class="card"><span class="badge todo">SCR-501</span><h3>Record audit advisory warnings</h3><p><code>missing-index-header</code>, <code>missing-alias-or-search-key</code>, <code>missing-source-test-hints</code>, <code>missing-graph-link</code>를 advisory로 추가합니다.</p><p><strong>개선:</strong> record가 검색 불가능한 상태로 쌓이는 것을 줄입니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-301</span><h3>DDD — Searchable Record Memory</h3><p>Searchable Record Memory, Record-authored metadata, Record Index Header, LLM-owned retrieval, Semantic authority, Deterministic cache를 정의했습니다.</p><p><strong>개선:</strong> 구현/계약 전에 용어 경계를 고정해서 코드가 판단하는 구조로 미끄러지지 않게 합니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-302</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 먼저 고정합니다.</p></div>
+        <div class="card"><span class="badge todo">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성합니다. 아직 parser 구현은 하지 않습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
+        <div class="card"><span class="badge warn">SCR-305/401</span><h3>SSOT/ADR + cache naming decision</h3><p>CLI/tool semantic boundary가 충분한지 확인하고, <code>context-index</code> 이름 유지 vs <code>record-index</code> 변경을 결정합니다.</p><p><strong>개선:</strong> 도구 이름과 scope가 다시 obsolete architecture를 암시하지 않게 합니다.</p></div>
       </div>
     </section>
 
@@ -111,7 +111,7 @@
         <thead><tr><th>문서</th><th>상태</th><th>핵심 내용</th></tr></thead>
         <tbody>
           <tr><td><a href="../prd/searchable-record-context-retrieval-prd.md">PRD</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/sync 완료 상태와 future phases를 분리함</td></tr>
-          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, Index Header/record-audit는 todo/blocked로 남김</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, DDD/BDD 추가 완료, SDD/TDD/SSOT review는 다음 todo로 정리</td></tr>
           <tr><td><a href="searchable-record-context-retrieval-implementation-plan.md">Plan</a></td><td><span class="badge ok">정리됨</span></td><td>current status, completed phases, next work를 분리함</td></tr>
           <tr><td><a href="../evidence/2026-06-06-searchable-record-memory-host-sync.md">Evidence capsule</a></td><td><span class="badge ok">신규</span></td><td>13개 host sync/smoke 결과 기록</td></tr>
         </tbody>
@@ -124,7 +124,7 @@
 .lazy-harness/bin/lazy prompt-budget --format=md # green
 bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
 host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
-      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. 그건 다음 Phase B/C에서 별도 SDD/TDD/승인 후 진행합니다.</p>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. 다음 Phase B는 DDD/BDD/SDD/TDD/SSOT layer package로 진행하며, parser/cache 구현은 별도 승인 후 진행합니다.</p>
     </section>
   </main>
 </body>

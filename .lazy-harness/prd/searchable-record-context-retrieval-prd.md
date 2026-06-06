@@ -49,7 +49,7 @@ Completed on 2026-06-06:
 
 Not started yet:
 
-- `## Index header` SDD/TDD.
+- Record Index Header Layer Package: DDD terminology, BDD behavior, SDD contract, TDD fixtures, and SSOT/ADR boundary review.
 - Any deterministic cache/parser implementation.
 - Record-audit metadata warnings.
 - Implementation-map backlog migration.
@@ -134,6 +134,8 @@ Observed failure modes:
 
 ## 10. Dependencies
 
+- `.lazy-harness/domain/searchable-record-memory.md`
+- `.lazy-harness/behavior/llm-owned-record-retrieval.md`
 - `.lazy-harness/ssot/cli-tool-boundary.md`
 - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - `.lazy-harness/spec/platform/pre-response-rule-context.md`
@@ -156,8 +158,8 @@ Observed failure modes:
 1. Cleanup and decontamination.
 2. Static search/read-debt contract rename and validation.
 3. PRD/tasks/plan rewrite.
-4. Record Index Header SDD/TDD only.
-5. Deterministic cache/parser work only after explicit approval.
+4. Record Index Header Layer Package: DDD, BDD, SDD, TDD, and SSOT/ADR impact review.
+5. Deterministic cache/parser work only after explicit approval and after the layer package is accepted.
 6. Record-audit advisory warnings.
 7. Implementation-map backlog reduction.
 8. Host sync/dogfood using normal LLM/searcher root-bound evidence, not query helpers.

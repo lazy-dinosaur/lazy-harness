@@ -136,9 +136,43 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - no graph rows target deleted paths
   - graph-hygiene passes
 
-## Milestone 3 — Record Index Header standard, no query helper
+## Milestone 3 — Record Index Header Layer Package, no query helper
 
-### SCR-301 — Create Record Index Header SDD
+### SCR-301 — Create/maintain DDD searchable record memory terminology
+
+- Status: done
+- Type: DDD
+- Create/Update:
+  - `.lazy-harness/domain/searchable-record-memory.md`
+- Requirements:
+  - define Searchable Record Memory
+  - define record-authored metadata
+  - define Record Index Header
+  - define LLM-owned retrieval
+  - define semantic authority
+  - define deterministic cache
+  - state that metadata improves findability, not authority
+- Acceptance:
+  - DDD includes Rule digest, ubiquitous language table, domain invariants, implementation map, layer completeness, and rule placement
+  - DDD cross-links BDD/SDD/TDD/SSOT/planning
+
+### SCR-302 — Create/maintain BDD LLM-owned retrieval behavior
+
+- Status: done
+- Type: BDD
+- Create/Update:
+  - `.lazy-harness/behavior/llm-owned-record-retrieval.md`
+- Requirements:
+  - scenario: metadata cue still requires real record read
+  - scenario: conflicting meanings require option gate
+  - scenario: cache hit is not proof of evidence
+  - scenario: missing knowledge converges after confirmation
+  - scenario: new retrieval concept triggers layer package
+- Acceptance:
+  - BDD includes Rule digest, scenarios, usability checks, implementation map, layer completeness, and rule placement
+  - BDD cross-links DDD/SDD/TDD/SSOT/planning
+
+### SCR-303 — Create Record Index Header SDD
 
 - Status: todo
 - Type: SDD
@@ -147,12 +181,13 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Requirements:
   - define record-authored metadata fields
   - clarify it is for storage/searchability, not raw-message matching authority
-  - define relationship to `Rule digest`, `Implementation map`, and graph rows
+  - define relationship to DDD terms, BDD scenarios, `Rule digest`, `Implementation map`, and graph rows
   - include example header
 - Acceptance:
   - SDD includes Rule digest, implementation map, layer completeness, and rule placement
+  - SDD cites `.lazy-harness/domain/searchable-record-memory.md` and `.lazy-harness/behavior/llm-owned-record-retrieval.md`
 
-### SCR-302 — Create Record Index Header TDD
+### SCR-304 — Create Record Index Header TDD
 
 - Status: todo
 - Type: TDD
@@ -163,8 +198,22 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - missing header warning fixture
   - legacy Rule digest fallback fixture
   - no raw-message semantic query fixture
+  - cache hit is not proof of evidence fixture
+  - conflict requires option gate fixture
 - Acceptance:
   - TDD names future self-test fixtures without implementing parser yet
+  - TDD maps every BDD scenario to at least one future fixture or existing guard
+
+### SCR-305 — SSOT/ADR semantic-authority boundary review
+
+- Status: todo
+- Type: SSOT/ADR review
+- Requirements:
+  - verify `.lazy-harness/ssot/cli-tool-boundary.md` covers Index Header/cache work
+  - decide whether a new ADR is needed for `context-index` vs `record-index` naming before SCR-401
+  - explicitly record “no new ADR needed” if existing SSOT is sufficient
+- Acceptance:
+  - plan records cite the SSOT/ADR decision result before parser/cache implementation starts
 
 ## Milestone 4 — Deterministic cache/parser only after approval
 
@@ -244,8 +293,10 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ## Discovery capture
 
+- DDD: `searchable-record-memory` created for terminology/invariants.
+- BDD: `llm-owned-record-retrieval` created for agent/searcher behavior.
 - SDD: `search-read-debt-contract` created; `record-index-header` planned.
-- TDD: deleted-helper absence and static debt tests planned/updated.
+- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` planned.
 - SSOT: CLI tool boundary remains canonical.
 - Planning: native query-helper plan removed; this backlog is the replacement.
 - ADR: no new ADR until a new trade-off decision is needed.
