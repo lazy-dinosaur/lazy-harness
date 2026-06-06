@@ -101,7 +101,7 @@
         <div class="card"><span class="badge ok">SCR-301</span><h3>DDD — Searchable Record Memory</h3><p>Searchable Record Memory, Record-authored metadata, Record Index Header, LLM-owned retrieval, Semantic authority, Deterministic cache를 정의했습니다.</p><p><strong>개선:</strong> 구현/계약 전에 용어 경계를 고정해서 코드가 판단하는 구조로 미끄러지지 않게 합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-302</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 먼저 고정합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성했습니다. parser 구현은 하지 않았습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
-        <div class="card"><span class="badge ok">SCR-401</span><h3>ADR — canonical record-index naming</h3><p>사용자가 Option A를 선택했고, ADR 0042가 canonical future name을 <code>record-index</code>로 기록합니다. 기존 <code>context-index</code>는 구현 시 compatibility/deprecated alias로만 검토합니다.</p><p><strong>다음:</strong> SCR-402에서 구현 계획/테스트를 세우되 raw-message query와 semantic authority는 계속 금지합니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-401</span><h3>ADR — canonical record-index naming</h3><p>사용자가 Option A를 선택했고, ADR 0042가 canonical name을 <code>record-index</code>로 기록합니다. SCR-402는 active <code>context-index</code> command/source/schema/cache path를 제거하고 compatibility alias 없이 구현했습니다.</p><p><strong>다음:</strong> SCR-501 record-audit advisory warning으로 넘어갑니다.</p></div>
       </div>
     </section>
 
@@ -111,7 +111,7 @@
         <thead><tr><th>문서</th><th>상태</th><th>핵심 내용</th></tr></thead>
         <tbody>
           <tr><td><a href="../prd/searchable-record-context-retrieval-prd.md">PRD</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/sync 완료 상태와 future phases를 분리함</td></tr>
-          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, layer package 완료, SCR-401 record-index naming decision 완료, SCR-402 구현은 todo</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, layer package 완료, SCR-401 naming decision 완료, SCR-402 record-index-only 구현 완료</td></tr>
           <tr><td><a href="searchable-record-context-retrieval-implementation-plan.md">Plan</a></td><td><span class="badge ok">정리됨</span></td><td>current status, completed phases, next work를 분리함</td></tr>
           <tr><td><a href="../evidence/2026-06-06-searchable-record-memory-host-sync.md">Evidence capsule</a></td><td><span class="badge ok">신규</span></td><td>13개 host sync/smoke 결과 기록</td></tr>
         </tbody>
@@ -124,7 +124,7 @@
 .lazy-harness/bin/lazy prompt-budget --format=md # green
 bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
 host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
-      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. 아직 Index Header parser/cache 구현의 정확성을 증명하는 검증은 아닙니다. Phase B layer package와 SCR-401 naming decision은 완료됐습니다. 다음 SCR-402는 record-index parser/cache 구현 계획이며, 구현은 no raw-message query/no semantic authority 조건을 만족해야 합니다.</p>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. SCR-402 record-index-only cache migration은 no raw-message query/no semantic authority 조건을 유지합니다. 다음 단계는 SCR-501 record-audit advisory warning입니다.</p>
     </section>
   </main>
 </body>

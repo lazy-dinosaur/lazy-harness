@@ -88,7 +88,7 @@ Remove:
 Keep:
 
 - `record-decision` explicit packet generator for supplied evidence flags
-- `context-index` only as an existing deterministic cache generator until a naming/scope decision is made
+- `record-index` as the deterministic cache generator after ADR 0042 and SCR-402 Option A
 - generic search/read-debt guard and response audit
 
 ### 2. Rename runtime debt journal
@@ -136,15 +136,15 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Created SDD for `## Index header` as record-authored metadata.
 - Created TDD with parser/audit/behavior expectations.
 - Reviewed SSOT/ADR boundary: existing CLI tool boundary is sufficient for SCR-303/304; no ADR needed now.
-- SCR-401 option gate completed: canonical future name is `record-index`; parser/cache implementation is not started.
+- SCR-401 option gate completed: canonical name is `record-index`.
 
 ### Phase C — Record-index parser/cache implementation
 
-- Canonical name is `record-index` per ADR 0042.
-- Existing `context-index` may be retained only as a legacy/deprecated compatibility alias if SCR-402 tests justify it.
-- Approve exact fields/output shape through SDD/TDD before code changes.
-- Implement only deterministic record-authored cache parsing/listing.
-- No raw-message query interface.
+- Status: complete for SCR-402 Option A.
+- Canonical command/cache/schema/source names are `record-index`, `record-index.json`, `record-index.schema.json`, and `record-index.ts`.
+- No `context-index` compatibility alias remains.
+- Implementation is deterministic record-authored cache parsing/listing only.
+- No raw-message query interface or semantic-authority output fields.
 
 ### Phase D — Record audit warnings
 

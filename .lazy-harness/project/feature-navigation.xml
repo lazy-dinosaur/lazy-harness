@@ -85,15 +85,15 @@
     <label>Record/source indexing</label>
     <aliases>
       <alias lang="en">record index</alias>
-      <alias lang="en">context index</alias>
+      <alias lang="en">record index</alias>
       <alias lang="en">feature-navigation.xml</alias>
       <alias lang="ko">검색 가능한 레코드</alias>
     </aliases>
     <routes>
-      <route>lazy context-index</route>
+      <route>lazy record-index</route>
     </routes>
     <components>
-      <component>Context Index cache</component>
+      <component>Record Index cache</component>
       <component>Project Profile feature navigation</component>
       <component>Search/read debt runtime journal</component>
     </components>
@@ -103,8 +103,8 @@
       <record layer="SDD">.lazy-harness/spec/platform/project-profile.md</record>
     </records>
     <sourceFiles>
-      <path>.lazy-harness/scripts/context-index.ts</path>
-      <path>.lazy-harness/schemas/context-index.schema.json</path>
+      <path>.lazy-harness/scripts/record-index.ts</path>
+      <path>.lazy-harness/schemas/record-index.schema.json</path>
       <path>.lazy-harness/schemas/context-tier-manifest.schema.json</path>
       <path>.lazy-harness/fixtures/context-tier/context-tier-manifest.sample.json</path>
       <path>.lazy-harness/project/context-tiers.yaml</path>

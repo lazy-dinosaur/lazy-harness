@@ -17,9 +17,9 @@
 - Must:
   - use `record-index` as the canonical future command/cache/schema naming surface
   - describe the tool scope as deterministic record-authored metadata listing/cache generation only
-  - keep `context-index` as legacy compatibility only until migration is implemented, if it remains at all
-  - keep parser/cache implementation blocked until SCR-402 starts with tests and no raw-message query interface
-  - update SDD/TDD/SSOT/planning together when the implementation migration starts
+  - keep `context-index` absent from active command/source/schema/cache paths after SCR-402 Option A unless a new option gate explicitly reopens compatibility
+  - keep parser/cache implementation covered by tests and no raw-message query interface
+  - update SDD/TDD/SSOT/planning together when implementation migration changes
 - Must not:
   - introduce new canonical `context-*` naming for searchable record memory
   - accept raw user-message input for record-index cache/listing
@@ -65,9 +65,9 @@ record-index
 
 Compatibility:
 
-- Existing `context-index` source/command is not changed by this ADR alone.
-- During SCR-402 implementation, `context-index` may be kept as a deprecated compatibility alias or removed, but it must not remain the canonical name in new docs/contracts.
-- If compatibility alias behavior has downstream risk, handle it in SCR-402 implementation plan/tests before code migration.
+- SCR-402 Option A implemented the clean replacement path: active `context-index` command/source/schema/cache paths are removed and no compatibility alias remains.
+- Historical references may remain in this ADR, migration plans, and absence/regression tests only.
+- Any future compatibility alias proposal requires a new option gate and tests because it would change the selected Option A outcome.
 
 ## Alternatives considered
 
@@ -109,7 +109,7 @@ Cons:
 - Higher sync/compatibility risk.
 - Larger implementation step than SCR-401 should decide.
 
-Deferred to SCR-402 planning as implementation detail.
+Selected in SCR-402 and implemented as the active outcome.
 
 ### D. Skip naming decision and start record-audit warnings
 
@@ -142,7 +142,7 @@ Rejected because parser/cache work should not proceed with ambiguous names.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-401/SCR-402 status.
 - Code implementation:
   - none in this ADR commit.
-  - future candidate files likely include `.lazy-harness/bin/lazy`, `.lazy-harness/scripts/context-index.ts` or replacement `.lazy-harness/scripts/record-index.ts`, and generated docs/schema if approved in SCR-402.
+  - implemented files include `.lazy-harness/bin/lazy`, `.lazy-harness/scripts/record-index.ts`, `.lazy-harness/schemas/record-index.schema.json`, `.lazy-harness/generated/README.md`, `.lazy-harness/scripts/self-test.py`, and lazy-sync stale path pruning.
 - Protection:
   - existing self-test protects no deleted helper commands and static search/read debt.
   - future SCR-402 tests must protect canonical `record-index`, compatibility alias behavior if any, and no raw-message query.

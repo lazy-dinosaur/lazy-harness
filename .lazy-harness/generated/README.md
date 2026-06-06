@@ -8,13 +8,13 @@ Derived artifacts for AI/tool retrieval. Read-only outputs.
 |---|---|---|
 | `reference-index.json` | Derived reference resolver index/cache. | No |
 | `implementation-index.json` | Derived implementation map index for AI/LSP/AST/outline retrieval. | No |
-| `context-index.json` | Derived record/source hint cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
+| `record-index.json` | Derived record/source hint cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
 
 ## Trigger to fill
 
 - XML/source records updated → regenerate derived reference artifacts.
 - LSP/AST/outline/source scan available → regenerate `implementation-index.json`.
-- Rule digests, Project Profile `feature-navigation.xml`, implementation maps, or graph records updated → regenerate `context-index.json`.
+- Rule digests, Project Profile `feature-navigation.xml`, implementation maps, or graph records updated → regenerate `record-index.json`.
 
 ## Implementation index policy
 
@@ -28,9 +28,9 @@ Canonical implementation knowledge lives in:
 If the generated index disagrees with Markdown or graph records, inspect source and then update/supersede canonical records or regenerate the index.
 
 
-## Context index policy
+## Record index policy
 
-`context-index.json` is a deterministic cache for record/source retrieval, not source of truth.
+`record-index.json` is a deterministic cache for record/source retrieval, not source of truth.
 
 Canonical record/source retrieval knowledge lives in:
 
@@ -42,10 +42,10 @@ Canonical record/source retrieval knowledge lives in:
 Regenerate with:
 
 ```bash
-.lazy-harness/bin/lazy context-index --write --format=md
+.lazy-harness/bin/lazy record-index --write --format=md
 ```
 
-The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. The source repository ignores `.lazy-harness/generated/context-index.json` by default to keep commits focused on canonical records and generator code.
+The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. The source repository ignores `.lazy-harness/generated/record-index.json` by default to keep commits focused on canonical records and generator code.
 
 ## Status
 

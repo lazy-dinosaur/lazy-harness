@@ -39,7 +39,7 @@ for host in /home/lazydino/dev/*; do
   bun .lazy-harness/scripts/lazy-sync.ts --from /home/lazydino/dev/lazy-harness --target "$host" --force --quiet
   "$host/.lazy-harness/bin/lazy" help | grep -E 'context --message|context-delivery|context-dogfood' && fail
   cd "$host" && .lazy-harness/hooks/lifecycle/on-message-received.sh < payload.json
-  # hook output checked for absence of relevant-record-index, context-index.json=missing,
+  # hook output checked for absence of relevant-record-index, record-index.json=missing,
   # context-delivery, relevant-record-query
  done
 ```

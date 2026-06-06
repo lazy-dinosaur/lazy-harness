@@ -13,7 +13,7 @@ Lazy-harness should **not** replace its record-first/project-defined policy mode
 
 ```text
 project-defined records/capabilities/evidence
-→ compact runtime/project navigation/context indexes
+→ compact runtime/project navigation/record indexes
 → short pre-response operational guidance
 → response audit/backstop
 → rare hard stops only when promoted by evidence
@@ -58,7 +58,7 @@ The work must preserve these hard constraints:
   - Post-turn record decisions are advisory/non-canonical until explicitly applied.
   - Supports explicit `no-record-needed` for read-only/evaluation turns.
 - `.lazy-harness/generated/README.md`
-  - `context-index.json` is derived cache.
+  - `record-index.json` is derived cache.
   - Canonical context inputs include `## Rule digest`, implementation maps, `.lazy-harness/project/feature-navigation.xml`, graph, source/tests.
 
 ### Source/test touchpoints inspected
@@ -70,12 +70,12 @@ The work must preserve these hard constraints:
   - `check_context_index_generator`
   - `check_message_received_hook_context_injection`
   - Existing tests explicitly enforce static prompt equality for smalltalk and implementation-like messages.
-- `.lazy-harness/scripts/context-index.ts`
-  - Already parses records, graph, and `.lazy-harness/project/feature-navigation.xml` into derived context index.
+- `.lazy-harness/scripts/record-index.ts`
+  - Already parses records, graph, and `.lazy-harness/project/feature-navigation.xml` into derived record index.
   - Already supports `--token-budget`, compact relevant-record output, explicit/manual use.
 - `.lazy-harness/bin/lazy`
-  - Already dispatches `context-index`, `context-delivery`, `record-decision`, `capability`, etc.
-- `.lazy-harness/schemas/context-index.schema.json`
+  - Already dispatches `record-index`, `context-delivery`, `record-decision`, `capability`, etc.
+- `.lazy-harness/schemas/record-index.schema.json`
   - Already models project profile feature navigation.
 
 ### External pattern synthesis
@@ -137,7 +137,7 @@ TimSquad-like phase/capability gates can be useful, but lazy-harness must not ad
 Phase 0: planning branch and baseline measurement
 Phase 1: prompt budget measurement and tests
 Phase 2: compact static pre-response prompt, same semantics
-Phase 3: project feature-navigation source file and context-index generation
+Phase 3: project feature-navigation source file and record-index generation
 Phase 4: context tier manifest as optional input/hint
 Phase 5: evidence capsule standard and work-unit closure checklist
 Phase 6: optional operational state packet / compact context helper
@@ -302,7 +302,7 @@ Reduce static prompt size while preserving current semantics:
 STOP. Harness-first search/read debt before response.
 - Static transport; no user-text classification; CLI/index output is not semantic authority.
 - Before answer/plan/edit: inspect real .lazy-harness records/source/tests in this host root.
-- Actual inventory: DDD=7 SDD=42 BDD=5 TDD=24 ADR=42 SSOT=13 Planning=29 Plans=14 Project=0 Knowledge=5; context-index=missing; feature-navigation=missing.
+- Actual inventory: DDD=7 SDD=42 BDD=5 TDD=24 ADR=42 SSOT=13 Planning=29 Plans=14 Project=0 Knowledge=5; record-index=missing; feature-navigation=missing.
 - Search scope: .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/ + src + tests.
 - Protocol: choose candidate real records → read Rule digest/full body/Implementation map/graph links → then source/tests → then answer or option gate.
 ```
@@ -334,10 +334,10 @@ Fill the missing project-navigation input so context compression can rely on a c
 - New SDD or SSOT:
   - `.lazy-harness/ssot/project-navigation.md`
 - Update:
-  - `.lazy-harness/scripts/context-index.ts` unchanged; existing parser already supports the needed fields.
-  - `.lazy-harness/schemas/context-index.schema.json` unchanged; no new output fields were added.
+  - `.lazy-harness/scripts/record-index.ts` unchanged; existing parser already supports the needed fields.
+  - `.lazy-harness/schemas/record-index.schema.json` unchanged; no new output fields were added.
   - `.lazy-harness/scripts/self-test.py` adds a framework-only source feature-navigation completeness check.
-  - `.lazy-harness/knowledge/graph.jsonl` links the SSOT, source map, context-index parser, and self-test protection.
+  - `.lazy-harness/knowledge/graph.jsonl` links the SSOT, source map, record-index parser, and self-test protection.
 
 ### Minimal source feature-navigation content
 
@@ -375,10 +375,10 @@ Each feature entry should include:
 ### Acceptance criteria
 
 - [x] `.lazy-harness/project/feature-navigation.xml` exists.
-- [x] `lazy context-index --format=json` includes projectProfile features.
+- [x] `lazy record-index --format=json` includes projectProfile features.
 - [x] Existing `check_context_index_generator_phase3` still passes in focused validation.
 - [x] New `check_source_feature_navigation_phase3` verifies source repo feature navigation contains at least the critical framework features above.
-- [x] Generated `.lazy-harness/generated/context-index.json` remains optional/ignored unless explicitly written.
+- [x] Generated `.lazy-harness/generated/record-index.json` remains optional/ignored unless explicitly written.
 - [x] Full `python3 .lazy-harness/scripts/self-test.py` and `.lazy-harness/bin/lazy doctor --profile=smoke` pass after final validation.
 
 Validation evidence:
@@ -388,7 +388,7 @@ Validation evidence:
 - `python3 .lazy-harness/scripts/self-test.py` passed with `ran=79, skipped=0`.
 - `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
 - `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
-- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids.
+- `.lazy-harness/bin/lazy record-index --format=json` returned 8 source feature ids.
 
 ### Rollback
 
@@ -435,7 +435,7 @@ Option A: keep manifest as documentation + doctor audit only.
 - Lowest risk.
 - Good first step.
 
-Option B: context-index ingests manifest into `source.canonicalInputs` and output metadata.
+Option B: record-index ingests manifest into `source.canonicalInputs` and output metadata.
 
 - Medium risk.
 - Useful for context delivery later.
@@ -444,7 +444,7 @@ Recommended: start with Option A, then dogfood before Option B.
 
 Implemented option: Option A.
 
-- No context-index ingestion.
+- No record-index ingestion.
 - No `message.received` behavior change.
 - Source manifest is a restricted YAML pointer list audited by self-test.
 
@@ -463,7 +463,7 @@ Validation evidence:
 - `python3 .lazy-harness/scripts/self-test.py` passed with `ran=80, skipped=0`.
 - `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
 - `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
-- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/context-tier-manifest.md` to `context-delivery-indexing`.
+- `.lazy-harness/bin/lazy record-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/context-tier-manifest.md` to `context-delivery-indexing`.
 
 ### Rollback
 
@@ -546,7 +546,7 @@ Validation evidence:
 - `python3 .lazy-harness/scripts/self-test.py` passed with `ran=81, skipped=0`.
 - `.lazy-harness/bin/lazy doctor --profile=smoke` passed.
 - `.lazy-harness/bin/lazy prompt-budget --format=json` returned `status=warn` with `message.received` estimate `259` tokens.
-- `.lazy-harness/bin/lazy context-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/evidence-capsule-standard.md` to `test-doctor`.
+- `.lazy-harness/bin/lazy record-index --format=json` returned 8 source feature ids and mapped `.lazy-harness/spec/platform/evidence-capsule-standard.md` to `test-doctor`.
 
 ### Rollback
 
@@ -576,7 +576,7 @@ Removed assets:
 ### What remains instead
 
 - `prompt-budget` remains because it is read-only measurement, not semantic authority.
-- `context-index`, `feature-navigation.xml`, `graph.jsonl`, and Implementation maps remain as deterministic navigation surfaces.
+- `record-index`, `feature-navigation.xml`, `graph.jsonl`, and Implementation maps remain as deterministic navigation surfaces.
 - Header/key/alias + linked-node retrieval remains a candidate path to formalize separately.
 
 ### Rollback
@@ -606,7 +606,7 @@ Source:
 python3 .lazy-harness/scripts/self-test.py
 .lazy-harness/bin/lazy doctor --profile=smoke
 .lazy-harness/bin/lazy prompt-budget --format=md
-.lazy-harness/bin/lazy context-index --format=json >/tmp/lazy-context-index.json
+.lazy-harness/bin/lazy record-index --format=json >/tmp/lazy-record-index.json
 ```
 
 Dogfood hosts after sync/dry-run first:
@@ -618,7 +618,7 @@ cd <host>
 .lazy-harness/bin/lazy test
 .lazy-harness/bin/lazy doctor --profile=smoke
 .lazy-harness/bin/lazy prompt-budget --format=md
-.lazy-harness/bin/lazy context-index --format=json >/tmp/<host>-context-index.json
+.lazy-harness/bin/lazy record-index --format=json >/tmp/<host>-record-index.json
 ```
 
 ### Metrics to compare
@@ -657,7 +657,7 @@ Final source/host outcome:
 - Previous branch comparison used `main` at merge-base `132c0ce34dc1`; `git diff --name-status main` reported 30 framework files changed and no `.jcode/skills` / `.lazy-harness/skills` diffs.
 - `medivance`, `medivance-pwa`, and `medivance-homepage` synced to `332e2e8fbc98`.
 - Manifest-managed file verification passed for all three hosts with `182` byte-equal files each, expected knowledge JSONL merge/conflict handling, and no skill file diffs.
-- All three hosts passed `lazy test`, `doctor --profile=smoke`, `prompt-budget`, and `context-index` in dogfood; operational-state was later removed/deferred after LLM-first review.
+- All three hosts passed `lazy test`, `doctor --profile=smoke`, `prompt-budget`, and `record-index` in dogfood; operational-state was later removed/deferred after LLM-first review.
 - `medivance-homepage` keeps the 570-line `medivance-figma-fidelity` skill unchanged; prompt-budget reports it as advisory `warn` with `rawStatus=fail`, not a hard validation failure.
 
 Decision gate result:
@@ -692,7 +692,7 @@ Use small commits:
 | 0/plan | `git revert <plan-commit>` | docs only |
 | 1 prompt budget | `git revert <phase1>` | removes measurement/CLI only |
 | 2 compact hook | `git revert <phase2>` | restores old static prompt; journal remains compatible |
-| 3 feature navigation | `git revert <phase3>` | context-index falls back to no project profile |
+| 3 feature navigation | `git revert <phase3>` | record-index falls back to no project profile |
 | 4 tier manifest | `git revert <phase4>` | optional hints removed |
 | 5 evidence/checklist | `git revert <phase5>` | docs/templates/capability removed |
 | 6 operational state | removed/deferred | no runtime dependency; do not re-add without LLM-first ADR/SDD |
@@ -730,7 +730,7 @@ Use small commits:
 
 - [x] Draft `.lazy-harness/project/feature-navigation.xml` for source repo.
 - [x] Add/adjust spec for feature navigation.
-- [x] Verify `context-index.ts` consumes it.
+- [x] Verify `record-index.ts` consumes it.
 - [x] Add self-test for critical feature entries.
 
 ### P2 — Tier manifest and evidence standard
@@ -809,7 +809,7 @@ Expected outcome:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
   - `.lazy-harness/scripts/self-test.py`
   - `.lazy-harness/scripts/prompt-budget.py`
-  - `.lazy-harness/scripts/context-index.ts`
+  - `.lazy-harness/scripts/record-index.ts`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/schemas/context-tier-manifest.schema.json`
 - Existing protection tests:

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * context-index.ts — deterministic generated record/source index.
+ * record-index.ts — deterministic generated record/source index.
  *
  * Canonical truth remains Markdown/XML records, knowledge graph JSONL, and
  * project profile files. This script builds a non-canonical cache at
- * .lazy-harness/generated/context-index.json for later direct record/source retrieval cache use.
+ * .lazy-harness/generated/record-index.json for later direct record/source retrieval cache use.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -123,13 +123,13 @@ interface GraphRow {
   [key: string]: unknown
 }
 
-export interface ContextIndex {
+export interface RecordIndex {
   schemaVersion: '1.0'
   generatedAt: string
   fingerprint: string
   source: {
     root: string
-    method: 'context-index-v1'
+    method: 'record-index-v1'
     tool: string
     canonicalInputs: string[]
   }
@@ -146,18 +146,18 @@ export interface ContextIndex {
 }
 
 function usage(): never {
-  console.error(`Usage: context-index [options]
+  console.error(`Usage: record-index [options]
 
 Options:
   --root DIR              Host root (default: LAZY_HOST_ROOT or cwd)
-  --output PATH           Output path (default: .lazy-harness/generated/context-index.json)
+  --output PATH           Output path (default: .lazy-harness/generated/record-index.json)
   --write                 Write output file instead of printing to stdout
   --format json|md        Output format when not writing (default json)
   --help                  Show this help
 
 Examples:
-  bun .lazy-harness/scripts/context-index.ts --root . --format json
-  .lazy-harness/bin/lazy context-index --write
+  bun .lazy-harness/scripts/record-index.ts --root . --format json
+  .lazy-harness/bin/lazy record-index --write
 `)
   process.exit(2)
 }
@@ -204,7 +204,7 @@ function parseArgs(argv: string[]): Args {
     else usage()
   }
   args.root = path.resolve(args.root)
-  if (!args.output) args.output = path.join(args.root, '.lazy-harness', 'generated', 'context-index.json')
+  if (!args.output) args.output = path.join(args.root, '.lazy-harness', 'generated', 'record-index.json')
   else args.output = path.resolve(args.output)
   return args
 }
@@ -610,7 +610,7 @@ function canonicalInputs(root: string): string[] {
   ].filter((p) => existsSync(path.join(root, p))))
 }
 
-export function buildContextIndex(root: string): ContextIndex {
+export function buildRecordIndex(root: string): RecordIndex {
   const records = buildRecordEntries(root)
   const profile = parseFeatureNavigation(root)
   mergeProjectProfile(records, profile)
@@ -626,8 +626,8 @@ export function buildContextIndex(root: string): ContextIndex {
 
   const source = {
     root,
-    method: 'context-index-v1' as const,
-    tool: '.lazy-harness/scripts/context-index.ts',
+    method: 'record-index-v1' as const,
+    tool: '.lazy-harness/scripts/record-index.ts',
     canonicalInputs: canonicalInputs(root),
   }
   const contentForHash = { source, records, projectProfile: { featureNavigationPath: profile.path, features: profile.features }, graph: { graphPath: graph.path, rows: graph.rows.length, invalidRows: graph.invalidRows } }
@@ -643,10 +643,10 @@ export function buildContextIndex(root: string): ContextIndex {
   }
 }
 
-function renderMarkdown(index: ContextIndex): string {
+function renderMarkdown(index: RecordIndex): string {
   const aliasRecords = index.records.filter((record) => record.aliases.length || record.surfaceTerms.length || record.projectProfileFeatureIds.length)
   const lines = [
-    'Context index',
+    'Record index',
     `- fingerprint: ${index.fingerprint}`,
     `- records: ${index.records.length}`,
     `- project profile features: ${index.projectProfile.features.length}`,
@@ -665,7 +665,7 @@ function renderMarkdown(index: ContextIndex): string {
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
-  const index = buildContextIndex(args.root)
+  const index = buildRecordIndex(args.root)
   const json = `${JSON.stringify(index, null, 2)}\n`
   if (args.write) {
     mkdirSync(path.dirname(args.output), { recursive: true })

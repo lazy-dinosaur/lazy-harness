@@ -236,24 +236,28 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-402 — Record-index parser/cache implementation
 
-- Status: blocked
+- Status: done
 - Type: source/test
-- Prerequisite:
-  - SCR-401 approved and ADR 0042 accepted
-  - compatibility option selected from `.lazy-harness/planning/record-index-parser-cache-migration-plan.md`
-- Decision needed:
-  - A: replace with record-index only
-  - B: canonical record-index plus hidden deprecated context-index alias
-  - C: canonical record-index plus visible deprecated alias
-  - D: defer SCR-402 and do SCR-501 first
+- Decision:
+  - Option A selected: replace old cache/listing surface with `record-index` only.
+  - No hidden or visible `context-index` alias remains.
+- Result:
+  - CLI command: `.lazy-harness/bin/lazy record-index [--write] [--format=json|md]`
+  - Source: `.lazy-harness/scripts/record-index.ts`
+  - Schema: `.lazy-harness/schemas/record-index.schema.json`
+  - Cache path: `.lazy-harness/generated/record-index.json`
+  - Lazy sync prunes old managed context-index source/schema/cache files from downstream hosts.
 - Acceptance:
   - canonical command/cache naming uses `record-index`
-  - any `context-index` behavior is compatibility/deprecated only and covered by tests if retained
+  - old `context-index` command/source/schema/cache paths are absent except historical record text and absence tests
   - deterministic record-authored fields only
   - no raw-message query input
   - no requiredRead/confidence/intent/risk/gate/nextAction
   - source scan/read remains the LLM/searcher responsibility
 - Planning: `.lazy-harness/planning/record-index-parser-cache-migration-plan.md`
+- Validation:
+  - `.lazy-harness/bin/lazy record-index --format=json` smoke output method is `record-index-v1`.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation and old command absence.
 
 ## Milestone 5 — Record audit advisory warnings
 

@@ -85,7 +85,7 @@ ACTION_NAME_RE = re.compile(
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
-        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/context-index\.ts)\b",
+        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/record-index\.ts)\b",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -100,7 +100,7 @@ GENERIC_READ_SEARCH_NAME_RE = re.compile(
 )
 
 DETERMINISTIC_PACKET_RE = re.compile(
-    r"\.lazy-harness/scripts/context-index\.ts",
+    r"\.lazy-harness/scripts/record-index\.ts",
     re.IGNORECASE,
 )
 

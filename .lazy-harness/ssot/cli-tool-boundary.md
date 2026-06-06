@@ -49,7 +49,7 @@ Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — static transport that does not classify raw user text.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — must not run static route/user-intent classifiers.
   - `.lazy-harness/scripts/prompt-budget.py` — allowed measurement tool.
-  - `.lazy-harness/scripts/context-index.ts` — allowed deterministic generated index cache.
+  - `.lazy-harness/scripts/record-index.ts` — allowed deterministic generated index cache.
 - Removed/deferred examples:
   - task-router static classifier and automatic route telemetry.
   - operational-state packet prototype user-text classifier.
@@ -66,19 +66,19 @@ Decision: existing SSOT is sufficient for SCR-303/SCR-304. No new ADR is require
 Reasoning:
 
 - `## Index header` is record-authored metadata in canonical records.
-- The SDD/TDD phase does not add parser/cache code.
-- Future deterministic cache/listing work remains allowed only as retrieval/listing/cache generation.
+- SCR-402 adds deterministic parser/cache code only as retrieval/listing/cache generation.
+- Deterministic cache/listing work remains explicit tooling and is not lifecycle semantic authority.
 - Raw-user-message query, ranking, required-read, confidence, intent, risk, gate, next-action, or candidate-meaning output remains forbidden.
 - A generated cache/header hit cannot satisfy search/read debt by itself.
 
-Boundary for SCR-401:
+Boundary for SCR-401/SCR-402:
 
 - Decision: canonical future cache/listing name is `record-index`.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records the naming trade-off.
 - Scope: deterministic record-authored metadata listing/cache generation only.
-- Existing `context-index` may remain only as a legacy/deprecated compatibility alias during SCR-402 migration, if implementation tests justify it.
+- SCR-402 Option A removes active `context-index` command/source/schema/cache paths rather than keeping a compatibility alias.
 - New docs/contracts must not describe `context-index` as the canonical name for searchable record memory.
-- SCR-402 remains implementation work and must preserve no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
+- The implemented `record-index` command preserves no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
 
 Discovery capture:
 
@@ -88,4 +88,4 @@ Discovery capture:
 - TDD: `.lazy-harness/tests/record-index-header.md` defines fixture expectations.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` captures SCR-401.
 - SSOT: this section records SCR-305.
-- Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records status and next gate.
+- Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records SCR-402 completion.

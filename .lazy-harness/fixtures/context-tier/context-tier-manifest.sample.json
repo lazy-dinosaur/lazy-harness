@@ -38,13 +38,13 @@
       {
         "id": "context-delivery-indexing",
         "appliesWhen": [
-          "Changing context-index, context-delivery, feature navigation, or tier manifests."
+          "Changing record-index, context-delivery, feature navigation, or tier manifests."
         ],
         "entries": [
           {
-            "path": ".lazy-harness/scripts/context-index.ts",
+            "path": ".lazy-harness/scripts/record-index.ts",
             "kind": "source-file",
-            "reason": "Derived context index builder and projectProfile parser.",
+            "reason": "Derived record index builder and projectProfile parser.",
             "posture": "validation-hint"
           },
           {

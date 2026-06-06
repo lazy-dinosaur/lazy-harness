@@ -5,7 +5,7 @@ Result schema (Principle #9 Unified Result Schema) + container XML schemas + gen
 Important generated index schemas:
 
 - `implementation-index.schema.json` — derived implementation map cache.
-- `context-index.schema.json` — derived record/source cache for record/profile/graph retrieval metadata.
+- `record-index.schema.json` — derived record/source cache for record/profile/graph retrieval metadata.
 - `context-tier-manifest.schema.json` — optional advisory context tier manifest shape for always/phase/task/optional pointer hints.
 - `record-decision-packet.schema.json` — post-turn record-action Record Decision Packet.
 

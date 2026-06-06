@@ -66,7 +66,7 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
-  context-index [--write] [--format=json|md]
+  record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
                                 Produce post-turn Record Decision Packet from explicit evidence flags
@@ -164,12 +164,12 @@ case "$cmd" in
     fi
     exec bun "$SCRIPTS/implementation-map-audit.ts" "$@"
     ;;
-  context-index)
+  record-index)
     if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy context-index: bun not found on PATH." >&2
+      echo "lazy record-index: bun not found on PATH." >&2
       exit 127
     fi
-    exec bun "$SCRIPTS/context-index.ts" --root "$HOST_ROOT" "$@"
+    exec bun "$SCRIPTS/record-index.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then

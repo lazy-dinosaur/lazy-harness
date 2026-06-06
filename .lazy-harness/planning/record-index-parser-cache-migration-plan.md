@@ -1,6 +1,6 @@
 # Planning — Record-index parser/cache migration plan
 
-Status: needs-option-gate
+Status: accepted — Option A selected and implemented
 Date: 2026-06-06
 Layer: Planning
 Related task: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md#scr-402--record-index-parsercache-implementation`
@@ -16,35 +16,35 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Scope: framework-global
 - Applies when:
   - starting SCR-402 record-index parser/cache implementation
-  - deciding how to migrate existing `context-index` source/CLI/schema/generated cache references
-  - deciding whether compatibility aliases are allowed without reintroducing context-helper architecture
+  - understanding the completed SCR-402 Option A migration from old cache names to canonical `record-index`
+  - deciding whether any future compatibility alias proposal would violate the record-index-only outcome
 - Must:
   - keep `record-index` as canonical future name
   - keep scope limited to deterministic record-authored metadata listing/cache generation
   - preserve no raw-user-message query input
   - preserve no semantic authority outputs
   - preserve cache/header-hit-not-evidence behavior
-  - require tests before code migration
-  - ask an option gate before changing compatibility behavior for existing `context-index`
+  - keep executable self-test coverage for record-index generation and old command absence
+  - follow the user-selected Option A policy: remove active `context-index` command/source/schema/generated cache path
 - Must not:
-  - implement parser/cache code before the compatibility option is selected
   - reintroduce `context-*` as canonical naming
-  - make `context-index` visible as a primary feature if retained only for compatibility
+  - make `context-index` visible as a primary or compatibility command without a new option gate and tests
 - Record completion:
-  - user choice updates this plan, SCR-402 task status, SDD/TDD fixtures, SSOT/ADR if needed, and implementation map.
+  - SCR-402 Option A completion keeps this plan, task status, SDD/TDD fixtures, SSOT/ADR, generated docs, and graph rows aligned.
 
-## Current implementation inventory
+## Completed implementation inventory
 
-Existing active implementation still uses `context-index` names:
+SCR-402 Option A replaced the old cache/listing surface with canonical `record-index` only:
 
-- CLI command: `.lazy-harness/bin/lazy` exposes `context-index [--write] [--format=json|md]`.
-- Source: `.lazy-harness/scripts/context-index.ts`.
-- Schema: `.lazy-harness/schemas/context-index.schema.json`.
-- Generated cache: `.lazy-harness/generated/context-index.json` when written.
-- Self-test: `.lazy-harness/scripts/self-test.py` protects the current `context-index` generator.
-- Project feature map and manifest records refer to record/source indexing, but still reference the current source file while migration has not happened.
+- CLI command: `.lazy-harness/bin/lazy` exposes `record-index [--write] [--format=json|md]`.
+- Source: `.lazy-harness/scripts/record-index.ts`.
+- Schema: `.lazy-harness/schemas/record-index.schema.json`.
+- Generated cache: `.lazy-harness/generated/record-index.json` when written.
+- Self-test: `.lazy-harness/scripts/self-test.py#check_record_index_generator_phase3` protects generation, determinism, output shape, old command absence, and no old source/schema files.
+- Project feature map, generated docs, manifest records, and graph rows now refer to record-index paths.
+- Lazy sync prunes old managed `.lazy-harness/scripts/context-index.ts`, `.lazy-harness/schemas/context-index.schema.json`, and `.lazy-harness/generated/context-index.json` paths from downstream hosts.
 
-This is allowed only as current-state evidence. ADR 0042 says future canonical naming is `record-index`.
+Historical references to `context-index` are allowed only in ADR/plan history or absence/regression tests.
 
 ## Direction constraints
 
@@ -132,7 +132,7 @@ Recommended: **A if the priority is maximum directional cleanliness**, because t
 
 Pragmatic alternative: **B** if host compatibility is more important than removing the old command immediately.
 
-Because this choice changes executable compatibility behavior, this plan stops at option gate before code mutation.
+User selected Option A. SCR-402 implementation removes active `context-index` executable/cache paths and keeps only canonical `record-index`.
 
 ## Proposed SCR-402 test mapping after option selection
 
@@ -158,47 +158,47 @@ Option-specific tests:
 - Option D:
   - no parser/cache tests; record-audit tests move first.
 
-## Implementation phases after option selection
+## Implementation phases for selected Option A
 
-1. Update task status from blocked/needs-option-gate to in-progress.
-2. Update SDD/TDD to selected compatibility policy.
-3. Add executable self-test fixtures first.
-4. Migrate CLI/source/schema/generated docs.
+1. Update task status from blocked/needs-option-gate to in-progress/done.
+2. Update SDD/TDD to Option A no-alias policy.
+3. Add executable self-test checks for record-index command and context-index absence.
+4. Migrate CLI/source/schema/generated docs to record-index.
 5. Validate no raw-message query and no semantic-authority outputs.
 6. Run self-test, prompt-budget, graph-hygiene.
-7. Sync/dogfood selected hosts if command compatibility changed.
+7. Sync/dogfood selected hosts because command compatibility changed.
 
 ## Implementation map
 
-- Status: `needs-option-gate`
-- Primary files to be considered after option selection:
+- Status: `implemented; Option A selected`
+- Primary files changed/covered by Option A:
   - `.lazy-harness/bin/lazy`
-  - `.lazy-harness/scripts/context-index.ts` or future `.lazy-harness/scripts/record-index.ts`
-  - `.lazy-harness/schemas/context-index.schema.json` or future `.lazy-harness/schemas/record-index.schema.json`
+  - `.lazy-harness/scripts/record-index.ts`
+  - `.lazy-harness/schemas/record-index.schema.json`
   - `.lazy-harness/scripts/self-test.py`
   - `.lazy-harness/generated/README.md`
   - `.lazy-harness/spec/platform/record-index-header.md`
   - `.lazy-harness/tests/record-index-header.md`
-- No code is changed by this plan.
+- Code migration completed by SCR-402 Option A; no compatibility alias remains.
 - Machine index:
-  - graph ids: `kg_record_index_scr402_option_gate`, `kg_record_index_migration_plan`
+  - graph ids: `kg_record_index_scr402_option_a_selected`, `kg_record_index_migration_plan`
 
 ## Layer completeness impact
 
 - DDD: no new term required; existing searchable record memory terms apply.
 - BDD: no new behavior required yet; existing LLM-owned retrieval scenarios apply.
-- SDD: candidate update after option choice to selected compatibility policy.
-- TDD: candidate update after option choice to option-specific self-test fixtures.
+- SDD: updated to Option A record-index-only policy.
+- TDD: updated to Option A context-index-absent fixtures.
 - ADR: ADR 0042 already decides canonical name; a new ADR is not needed unless user chooses an option that changes ADR 0042.
-- SSOT: candidate update after option choice if compatibility alias policy needs to be recorded.
-- Planning: this plan records the option gate.
+- SSOT: updated to record-index-only policy.
+- Planning: this plan records the selected option and completed migration.
 
 ## Discovery capture
 
 - DDD: none, existing record sufficient.
 - BDD: none, existing record sufficient.
-- SDD: candidate update after option choice.
-- TDD: candidate update after option choice.
+- SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
+- TDD: updated by `.lazy-harness/tests/record-index-header.md` and executable self-test coverage.
 - ADR: none unless option conflicts with ADR 0042.
-- SSOT: candidate update after option choice.
-- Planning: updated by this plan.
+- SSOT: updated by `.lazy-harness/ssot/cli-tool-boundary.md`.
+- Planning: updated by this plan and SCR-402 task status.

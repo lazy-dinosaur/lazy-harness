@@ -39,7 +39,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_missing` | BDD Scenario 5 | Record missing `## Index header` | Advisory warning only for historical records; no hard block | planned |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
-| `record_index_header_canonical_name` | ADR 0042 | Future cache/listing command docs | Canonical name is `record-index`; `context-index` is compatibility/deprecated only if retained | planned |
+| `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
 | `record_index_header_conflict_option_gate` | BDD Scenario 2 | Two records share plausible aliases/surface terms | Agent must option-gate after evidence remains ambiguous; no automatic ranking | planned |
 | `record_index_header_missing_knowledge_converges` | BDD Scenario 4 | Needed host fact absent from records | Source/user-confirmed fact must be written to correct layer record | planned / framework behavior covered elsewhere |
@@ -83,7 +83,7 @@ These names are reserved for the implementation phase. They must not be marked c
 - Related records:
   - `.lazy-harness/domain/searchable-record-memory.md`
 - Source files:
-  - `.lazy-harness/scripts/context-index.ts`
+  - `.lazy-harness/scripts/record-index.ts`
 - Test files:
   - `.lazy-harness/tests/record-index-header.md`
 - Graph ids:
@@ -115,7 +115,7 @@ Given any future `record-index` cache/listing command:
 Expected naming and forbidden patterns:
 
 - canonical user-facing name is `record-index`
-- `context-index` may appear only in compatibility/deprecation tests if retained
+- old `context-index` command/source/schema/cache paths must be absent after Option A
 
 Expected forbidden patterns:
 
@@ -149,7 +149,7 @@ Existing related guard:
 
 ## Implementation map
 
-- Status: `fixture-plan-only`
+- Status: `fixtures plus SCR-402 executable coverage`
 - Primary files:
   - `.lazy-harness/tests/record-index-header.md` — this TDD fixture plan.
   - `.lazy-harness/spec/platform/record-index-header.md` — SDD contract under test.
@@ -157,17 +157,17 @@ Existing related guard:
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD invariants under test.
   - `.lazy-harness/ssot/cli-tool-boundary.md` — semantic-authority boundary under test.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — canonical naming ADR under test.
-  - `.lazy-harness/scripts/self-test.py` — future home for concrete executable checks.
+  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation and old command absence.
 - Key symbols:
-  - no concrete test functions yet; future self-test names reserved above.
+  - `check_record_index_generator_phase3` — validates schema title, deterministic output, aliases/surface terms, implementation hints, graph ids, projectProfile feature ids, generated cache write, and old context-index command/source/schema absence.
 - Flow:
   1. SDD defines header field/consumer contract.
   2. TDD records fixture expectations before parser/cache implementation.
   3. SCR-401 decided canonical name/scope: `record-index`, listing/cache only.
-  4. Later implementation turns fixture sketches into executable self-test checks.
+  4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator and old command absence.
 - Protection today:
-  - existing self-test protects deleted query helpers and static search/read debt.
-  - this record prevents implementation without fixture expectations.
+  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, and old context-index command/source/schema absence.
+  - this record prevents semantic-authority drift in future parser/cache changes.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -175,15 +175,15 @@ Existing related guard:
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`
-  - generated index key: pending until cache generator approval
+  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`
+  - generated cache key: `.lazy-harness/generated/record-index.json`
 
 ## Layer completeness impact
 
 - DDD: covered by `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md` and scenario mapping above.
 - SDD: covered by `.lazy-harness/spec/platform/record-index-header.md`.
-- TDD: this record defines fixtures.
+- TDD: this record defines fixtures and points to executable self-test coverage.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed as sufficient for SCR-303/304.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records canonical `record-index` naming.
 - Planning: task statuses updated.

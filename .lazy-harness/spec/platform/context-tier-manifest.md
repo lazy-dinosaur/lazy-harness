@@ -90,7 +90,7 @@ Source checkouts may store the same logical data as restricted YAML at `.lazy-ha
 Phase 4 is Option A from the prompt runtime compression plan:
 
 - documentation + schema + pointer audit only,
-- no context-index ingestion,
+- no record-index ingestion,
 - no `message.received` behavior change,
 - absence of `.lazy-harness/project/context-tiers.yaml` is valid.
 

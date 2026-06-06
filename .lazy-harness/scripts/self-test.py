@@ -4375,23 +4375,31 @@ def write_digest_fixture(root: pathlib.Path) -> pathlib.Path:
 
 
 
-def check_context_index_generator_phase3() -> None:
-    """Phase 3 context-index generator should produce deterministic derived cache output."""
-    schema_path = LAZY / "schemas" / "context-index.schema.json"
-    script_path = LAZY / "scripts" / "context-index.ts"
+def check_record_index_generator_phase3() -> None:
+    """Phase 3 record-index generator should produce deterministic derived cache output."""
+    schema_path = LAZY / "schemas" / "record-index.schema.json"
+    script_path = LAZY / "scripts" / "record-index.ts"
     if not schema_path.exists():
-        fail("Context index schema missing: " + str(schema_path))
+        fail("Record index schema missing: " + str(schema_path))
     if not script_path.exists():
-        fail("Context index generator missing: " + str(script_path))
+        fail("Record index generator missing: " + str(script_path))
+    old_schema = LAZY / "schemas" / ("context" + "-index.schema.json")
+    old_script = LAZY / "scripts" / ("context" + "-index.ts")
+    if old_schema.exists() or old_script.exists():
+        fail("Option A requires old context-index files to be absent")
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "context" + "-index" in help_text:
+        fail("lazy help must not advertise old context-index command after Option A")
+
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    if schema.get("title") != "ContextIndex":
-        fail("Context index schema title mismatch")
+    if schema.get("title") != "RecordIndex":
+        fail("Record index schema title mismatch")
     record_props = schema.get("definitions", {}).get("recordEntry", {}).get("properties", {})
     for prop in ["recordPath", "digest", "aliases", "surfaceTerms", "implementationHints", "graphIds", "projectProfileFeatureIds"]:
         if prop not in record_props:
-            fail("Context index schema missing record property: " + prop)
+            fail("Record index schema missing record property: " + prop)
 
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-context-index-"))
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-record-index-"))
     try:
         (temp / ".lazy-harness" / "behavior").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "project").mkdir(parents=True, exist_ok=True)
@@ -4469,41 +4477,50 @@ def check_context_index_generator_phase3() -> None:
         first = run_index("--format", "json")
         second = run_index("--format=json")
         if first.returncode != 0:
-            fail("context-index generator failed:\n" + first.stdout + first.stderr)
+            fail("record-index generator failed:\n" + first.stdout + first.stderr)
         if first.stdout != second.stdout:
-            fail("context-index generator output is not deterministic")
+            fail("record-index generator output is not deterministic")
         index = json.loads(first.stdout)
-        if index.get("schemaVersion") != "1.0" or index.get("source", {}).get("method") != "context-index-v1":
-            fail("context-index output missing schema/method")
+        if index.get("schemaVersion") != "1.0" or index.get("source", {}).get("method") != "record-index-v1":
+            fail("record-index output missing schema/method")
         records = index.get("records", [])
         if len(records) != 1:
-            fail("context-index fixture should produce exactly one record")
+            fail("record-index fixture should produce exactly one record")
         record = records[0]
         for expected in ["기능패널", "기능화면", "feature panel"]:
             if expected not in record.get("aliases", []) and expected not in record.get("surfaceTerms", []):
-                fail("context-index record missing retrieval term: " + expected)
+                fail("record-index record missing retrieval term: " + expected)
         hints = record.get("implementationHints", {})
         if "FeaturePanel" not in hints.get("componentHints", []):
-            fail("context-index missing component hint")
+            fail("record-index missing component hint")
         if "src/features/example-feature/FeaturePanel.tsx" not in hints.get("fileHints", []):
-            fail("context-index missing file hint")
+            fail("record-index missing file hint")
         if "tests/example-feature/feature-panel.test.tsx" not in hints.get("testHints", []):
-            fail("context-index missing test hint")
+            fail("record-index missing test hint")
         if "kg_feature_surface_behavior_impl" not in record.get("graphIds", []):
-            fail("context-index missing graph edge id")
+            fail("record-index missing graph edge id")
         if "example-feature" not in record.get("projectProfileFeatureIds", []):
-            fail("context-index missing project profile feature id")
+            fail("record-index missing project profile feature id")
         if index.get("projectProfile", {}).get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
-            fail("context-index missing feature navigation path")
+            fail("record-index missing feature navigation path")
 
-        written = run_index("--write", "--output", str(temp / ".lazy-harness" / "generated" / "context-index.json"), "--format=md")
-        if written.returncode != 0 or "Context index" not in written.stdout:
-            fail("context-index --write markdown output failed:\n" + written.stdout + written.stderr)
-        if not (temp / ".lazy-harness" / "generated" / "context-index.json").exists():
-            fail("context-index --write did not create generated cache")
+        written = run_index("--write", "--output", str(temp / ".lazy-harness" / "generated" / "record-index.json"), "--format=md")
+        if written.returncode != 0 or "Record index" not in written.stdout:
+            fail("record-index --write markdown output failed:\n" + written.stdout + written.stderr)
+        if not (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
+            fail("record-index --write did not create generated cache")
+        old_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "context" + "-index", "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if old_cmd.returncode == 0:
+            fail("old context-index command must be absent after Option A migration")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ context-index generator Phase 3 ok")
+    print("✓ record-index generator Phase 3 ok")
 
 
 def check_source_feature_navigation_phase3() -> None:
@@ -4534,11 +4551,11 @@ def check_source_feature_navigation_phase3() -> None:
             },
         },
         "record-source-indexing": {
-            "aliases": {"record index", "context index", "feature-navigation.xml"},
+            "aliases": {"record index", "feature-navigation.xml"},
             "paths": {
                 ".lazy-harness/spec/platform/project-profile.md",
-                ".lazy-harness/scripts/context-index.ts",
-                ".lazy-harness/schemas/context-index.schema.json",
+                ".lazy-harness/scripts/record-index.ts",
+                ".lazy-harness/schemas/record-index.schema.json",
             },
         },
         "record-decision-broker": {
@@ -4626,31 +4643,31 @@ def check_source_feature_navigation_phase3() -> None:
         if nonexistent:
             fail(f"source feature {feature_id} references missing paths: {nonexistent}")
 
-    context_index = subprocess.run(
-        ["bun", str(LAZY / "scripts" / "context-index.ts"), "--root", str(ROOT), "--format=json"],
+    record_index = subprocess.run(
+        ["bun", str(LAZY / "scripts" / "record-index.ts"), "--root", str(ROOT), "--format=json"],
         cwd=ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
-    if context_index.returncode != 0:
-        fail("source context-index generation failed:\n" + context_index.stdout + context_index.stderr)
-    payload = json.loads(context_index.stdout)
+    if record_index.returncode != 0:
+        fail("source record-index generation failed:\n" + record_index.stdout + record_index.stderr)
+    payload = json.loads(record_index.stdout)
     profile = payload.get("projectProfile", {})
     if profile.get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
-        fail("source context-index missing source feature-navigation path")
+        fail("source record-index missing source feature-navigation path")
     indexed_ids = {feature.get("id") for feature in profile.get("features", [])}
     missing_indexed = sorted(set(expected) - indexed_ids)
     if missing_indexed:
-        fail("source context-index missing projectProfile feature ids: " + json.dumps(missing_indexed, ensure_ascii=False))
+        fail("source record-index missing projectProfile feature ids: " + json.dumps(missing_indexed, ensure_ascii=False))
 
     records = {record.get("recordPath"): record for record in payload.get("records", [])}
     prompt_record = records.get(".lazy-harness/spec/platform/pre-response-rule-context.md")
     if not prompt_record or "prompt-runtime-lifecycle" not in prompt_record.get("projectProfileFeatureIds", []):
-        fail("source context-index did not attach prompt-runtime-lifecycle to pre-response SDD")
+        fail("source record-index did not attach prompt-runtime-lifecycle to pre-response SDD")
     prompt_hints = prompt_record.get("implementationHints", {})
     if ".lazy-harness/hooks/lifecycle/on-message-received.sh" not in prompt_hints.get("fileHints", []):
-        fail("source context-index did not merge prompt runtime source file hint")
+        fail("source record-index did not merge prompt runtime source file hint")
 
     print(f"✓ source feature navigation Phase 3 ok ({len(expected)} features)")
 
@@ -4723,7 +4740,7 @@ def check_context_tier_manifest_phase4() -> None:
     for expected in (
         "treat context tiers as advisory pointer hints, not canonical truth",
         "keep the default `message.received` hook static and unchanged",
-        "no context-index ingestion",
+        "no record-index ingestion",
         "absence of `.lazy-harness/project/context-tiers.yaml` is valid",
     ):
         if expected not in sdd:
@@ -5405,7 +5422,7 @@ def check_message_received_hook_context_injection() -> None:
             or "not a project/tool allowlist" not in no_search
         ):
             fail("direct-search debt should block action before real search evidence:\n" + no_search)
-        cache_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/context-index.ts --write"}])
+        cache_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/record-index.ts --write"}])
         if "search-debt gate" not in cache_only:
             fail("deterministic cache generation alone must not satisfy direct-search debt:\n" + cache_only)
         listed = run_permit([{"name": "bash", "args_preview": "tree .lazy-harness | head -200"}])
@@ -5848,7 +5865,7 @@ def main() -> None:
         (check_layer_impact_gate, "FRAMEWORK_ONLY"),
         (check_reference_resolver, "FRAMEWORK_ONLY"),
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
-        (check_context_index_generator_phase3, "BOTH"),
+        (check_record_index_generator_phase3, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
