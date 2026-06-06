@@ -236,10 +236,16 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-402 — Record-index parser/cache implementation
 
-- Status: todo
+- Status: blocked
 - Type: source/test
 - Prerequisite:
   - SCR-401 approved and ADR 0042 accepted
+  - compatibility option selected from `.lazy-harness/planning/record-index-parser-cache-migration-plan.md`
+- Decision needed:
+  - A: replace with record-index only
+  - B: canonical record-index plus hidden deprecated context-index alias
+  - C: canonical record-index plus visible deprecated alias
+  - D: defer SCR-402 and do SCR-501 first
 - Acceptance:
   - canonical command/cache naming uses `record-index`
   - any `context-index` behavior is compatibility/deprecated only and covered by tests if retained
@@ -247,6 +253,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - no raw-message query input
   - no requiredRead/confidence/intent/risk/gate/nextAction
   - source scan/read remains the LLM/searcher responsibility
+- Planning: `.lazy-harness/planning/record-index-parser-cache-migration-plan.md`
 
 ## Milestone 5 — Record audit advisory warnings
 
