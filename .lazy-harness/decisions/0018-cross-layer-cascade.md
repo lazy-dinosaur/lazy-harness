@@ -156,3 +156,31 @@ BDD trigger 가 발견하는 raw scenario / cross-ref gap 은 제품 코드 변�
 - ADR 0019 (예정) — TDD gate in 5d Interview Loop (cross-verify)
 - 5c-5 Cross-layer consistency map 설계 spec
 - 5c-3 BDD detector 자연어 분석 구체화
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/triggers/code-change.ts` — orchestrates DDD/SDD/BDD/SSOT trigger candidates and cross-layer map construction.
+  - `.lazy-harness/triggers/cross-layer.ts` — builds cross-layer candidate maps.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — captures BDD candidates as non-blocking candidate queue rows.
+  - `.lazy-harness/knowledge/candidates.jsonl` — candidate queue for unconfirmed BDD/cross-layer discoveries.
+  - `.lazy-harness/scripts/self-test.py` — BDD trigger loop suppression and lifecycle candidate capture tests.
+- Key symbols:
+  - `runCodeChangeTrigger` (`code-change.ts`) — assembles trigger candidates and invokes `buildCrossLayerMap`.
+  - `buildCrossLayerMap` (`cross-layer.ts`) — connects detector candidates across layers.
+  - `check_bdd_trigger_loop_suppression` and `check_lifecycle_hook_integration` (`self-test.py`) — protect silent candidate capture behavior.
+- Flow:
+  1. Trigger run gathers DDD/SDD/BDD/SSOT candidates from code and user message context.
+  2. Cross-layer map construction links candidate layers.
+  3. response.completed BDD helper captures raw BDD candidates to `candidates.jsonl` instead of forcing repeated option gates.
+  4. Canonical DDD/SDD/BDD/SSOT promotion remains a separate user-confirmed action.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects BDD loop suppression and lifecycle shadow parity.
+  - Keep this map `needs-review` because the original ADR's full four-detector cross-reference matrix is only partially represented by current candidate capture/cross-layer tooling.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0017-user-input-as-universal-trigger.md`
+  - ADR: `.lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md`
+- Machine index:
+  - graph ids: `kg_adr0018_cross_layer_trigger`, `kg_adr0018_bdd_candidate_capture`
+  - generated index key: `pending`

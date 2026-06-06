@@ -111,3 +111,31 @@ flowchart LR
 - 5c-1 ts-morph PoC (DDD term detector)
 - 5c-7 E2E 시연 — 사용자 발화 trigger 정확도 측정
 - 5c-8 Doctor C17 — framework 코드 안 외부 import grep
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — response.completed hook entrypoint used for user-message-triggered lifecycle checks.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — captures user-flow BDD candidates into `knowledge/candidates.jsonl` without surfacing repeated gates.
+  - `.lazy-harness/triggers/code-change.ts` — code/user-message trigger runner for DDD/SDD/BDD/SSOT candidates.
+  - `.lazy-harness/scripts/self-test.py` — lifecycle BDD candidate and no-auto-route-telemetry regression coverage.
+  - `.lazy-harness/framework/framework-contract.md` — contains stale `triggers/external/*` wording that conflicts with this ADR and must be reviewed before marking verified.
+- Key symbols:
+  - `runCodeChangeTrigger` (`code-change.ts`) — accepts `lastUserMessage` and routes BDD detection through detector results.
+  - `check_bdd_trigger_loop_suppression` and `check_lifecycle_hook_integration` (`self-test.py`) — protect silent BDD candidate capture from user utterances.
+  - `check_response_completed_no_auto_route_telemetry` (`self-test.py`) — protects removal of automatic raw user-text route telemetry.
+- Flow:
+  1. User utterance enters response.completed payload.
+  2. BDD helper extracts `last_user_message` and optional edited files.
+  3. `code-change.ts --layer bdd` evaluates BDD candidates.
+  4. Raw candidates append to `.lazy-harness/knowledge/candidates.jsonl` and canonical record promotion remains user-confirmed.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` covers BDD candidate silent capture, lifecycle shadow parity, and no route telemetry from raw text.
+  - Keep this map `needs-review` because `.lazy-harness/framework/framework-contract.md` still contains old `triggers/external/*` plugin text.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0018-cross-layer-cascade.md`
+  - TDD: `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md`
+- Machine index:
+  - graph ids: `kg_adr0017_user_input_trigger_current`, `kg_adr0017_external_trigger_stale_contract`
+  - generated index key: `pending`

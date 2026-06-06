@@ -161,3 +161,30 @@ TDD gate 외 5d 의 다른 sub-task:
 - 5c-1~5c-5 완료
 - 5d-3 (이 ADR) 구현 시 fixture + 8 통과 조건 패턴 (5c-1/5c-2 와 동일)
 - ubiquitous-language.xml / SDD spec 파일 구체화
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh` — response.completed helper that invokes TDD cross-verify and surfaces a force gate.
+  - `.lazy-harness/scripts/tdd-cross-verify.ts` — source/test existence checker and question writer.
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — lifecycle helper loop that runs the TDD helper.
+  - `.lazy-harness/triggers/fixtures/tdd-cross-verify/` — fixture files for missing/covered test cases.
+  - `.lazy-harness/scripts/self-test.py` — TDD cross-verify and lifecycle integration coverage.
+- Key symbols:
+  - `matchingTests`, `verifyFile`, `buildQuestion`, `persistQuestions` (`tdd-cross-verify.ts`) — implement missing-test force gate mechanics.
+  - `check_tdd_cross_verify` and `check_lifecycle_hook_integration` (`self-test.py`) — protect CLI and lifecycle helper behavior.
+- Flow:
+  1. response.completed payload contains edited source files.
+  2. `check-tdd-cross-verify.sh` extracts source paths and calls `tdd-cross-verify.ts`.
+  3. Missing matching tests produce `forceGate=true` and XML questions with A/B/C/D choices.
+  4. The lifecycle hook injects the first helper output as a system reminder.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects TDD cross-verify CLI, lifecycle helper output, queue persistence, and shadow parity.
+  - Keep this map `needs-review` because current implementation covers source↔test existence, not all five original DDD/SDD/BDD/SSOT cross-check dimensions.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+  - Fixtures: `.lazy-harness/triggers/fixtures/tdd-cross-verify/`
+- Machine index:
+  - graph ids: `kg_adr0020_tdd_cross_verify_source`, `kg_adr0020_tdd_cross_verify_tests`
+  - generated index key: `pending`

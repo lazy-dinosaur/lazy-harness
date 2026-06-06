@@ -304,12 +304,14 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Progress:
   - Batch 1 completed for the two TDD regression records.
   - Batch 2 completed for eight framework tooling/storage ADRs.
-  - dynamic `lazy impl-map --format=json` summary moved from `ok=80, needs-map=31` to `ok=90, needs-map=21`.
+  - Batch 3 completed for five lifecycle/gate/graph ADRs.
+  - dynamic `lazy impl-map --format=json` summary moved from `ok=80, needs-map=31` to `ok=95, needs-map=16`.
   - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md` map is `needs-review` because the dirty-source regression remains manual-only.
   - `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md` map is `verified` by `check_response_completed_no_auto_route_telemetry`.
   - Batch 2 statuses: ADR 0022/0026/0029/0030 verified; ADR 0016/0023/0024/0025 needs-review because they are historical, broad, or partially superseded.
+  - Batch 3 statuses: all five ADR maps are `needs-review`; ADR 0017 also records stale `triggers/external` framework-contract conflict.
 - Constraint:
-  - continue with proposed Batch 3 unless user selects a different batch
+  - continue with proposed Batch 4 unless user selects a different batch
   - inspect source/test/graph evidence per record before writing maps
 - Acceptance:
   - only verified source/test/graph links are recorded

@@ -155,3 +155,28 @@ Ask (Principle 17):
 - 5c-2 acronym tuning — Emr 케이스 force gate 적용
 - ubiquitous-language.xml 안 acronym section 추가 (canonical + 풀네임)
 - forbidden list registry (`/lazy-harness/domain/forbidden-terms.xml`?) — noise 영구 기록
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh` — runtime guard that blocks tool execution or self-selected Recommended path after unresolved option gates.
+  - `.lazy-harness/scripts/self-test.py` — option gate discipline fixture coverage.
+  - `.lazy-harness/AGENTS.md` — active grammar for 3–5 option gates, Recommended marker, and type-your-own option.
+  - `.lazy-harness/scripts/knowledge-intake.ts` — emits structured ask options for ambiguous knowledge candidates.
+- Key symbols:
+  - `check_option_gate_discipline_helper` (`self-test.py`) — validates plain gate pass, write/exec after gate block, self-selection block, and inferred-from-record pass.
+  - `makeOptions` and `candidate` (`knowledge-intake.ts`) — build A/B/C/D/custom ask options for candidate classification.
+- Flow:
+  1. Ambiguous or unresolved decision presents a structured option gate.
+  2. Option gate discipline helper detects if the same turn ran mutating tools or self-selected Recommended.
+  3. Self-test protects that unresolved gates force a stop until user confirmation or record evidence exists.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` runs `check_option_gate_discipline_helper`.
+  - Keep this map `needs-review` because the original detector-wide confidence taxonomy is broader than the implemented option-gate discipline helper and knowledge-intake ask surface.
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md`
+  - SSOT: `.lazy-harness/ssot/rule-sources.md`
+- Machine index:
+  - graph ids: `kg_adr0019_option_gate_discipline`, `kg_adr0019_knowledge_intake_ask`
+  - generated index key: `pending`

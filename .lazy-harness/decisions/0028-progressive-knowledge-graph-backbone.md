@@ -74,3 +74,33 @@ Key decisions:
 - ambiguous layer selection produces A/B/C/D/custom ask.
 - JSONL stores must parse under doctor/self-test.
 - Medivance dogfooding must pass after framework sync.
+
+## Implementation map
+
+- Status: `needs-review`
+- Primary files:
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md` — SDD contract for candidate/draft/canonical graph records and implementation-map extensions.
+  - `.lazy-harness/ssot/knowledge-graph-storage.md` — storage SSOT for candidates, graph drafts, canonical graph, and generated indexes.
+  - `.lazy-harness/scripts/knowledge-intake.ts` — Stage 1 candidate detector and ask renderer; plan mode is read-only.
+  - `.lazy-harness/scripts/graph-hygiene.ts` — read-only graph JSONL/path/id hygiene checker.
+  - `.lazy-harness/knowledge/graph.jsonl` — canonical machine-readable graph rows for confirmed implementation facts.
+  - `.lazy-harness/scripts/self-test.py` — knowledge-intake and graph-hygiene coverage.
+- Key symbols:
+  - `candidate`, `detectOne`, `analyze` (`knowledge-intake.ts`) — detect reusable knowledge candidates with confidence/options.
+  - `inspect` (`graph-hygiene.ts`) — validates graph JSONL IDs, duplicate/missing IDs, comma-joined paths, and missing paths.
+  - `check_knowledge_intake` and `check_graph_hygiene_cli` (`self-test.py`) — executable coverage for candidate detection and graph hygiene.
+- Flow:
+  1. Knowledge-intake plan mode detects candidate facts and emits ask/JSON output without writing records.
+  2. Candidate and graph storage paths are defined by SDD/SSOT records.
+  3. `graph.jsonl` stores confirmed implementation facts and is checked by graph-hygiene.
+  4. Generated indexes remain derived/non-canonical.
+- Tests / protection:
+  - `python3 .lazy-harness/scripts/self-test.py` protects JSONL parse, schema metadata, knowledge-intake fixtures, and graph-hygiene CLI.
+  - Keep this map `needs-review` because ADR 0028's later KG stages (promotion, conflict/supersession query/projection) are only partially implemented.
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - SSOT: `.lazy-harness/ssot/knowledge-graph-storage.md`
+  - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+- Machine index:
+  - graph ids: `kg_adr0028_knowledge_intake`, `kg_adr0028_graph_hygiene`, `kg_adr0028_storage_contract`
+  - generated index key: `.lazy-harness/generated/implementation-index.json`

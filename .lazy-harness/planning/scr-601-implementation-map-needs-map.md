@@ -1,6 +1,6 @@
 # SCR-601 Implementation-map needs-map backlog
 
-Status: captured; SCR-602 Batch 1 and Batch 2 completed
+Status: captured; SCR-602 Batch 1, Batch 2, and Batch 3 completed
 Layer: Planning
 Generated: 2026-06-06
 Command: `.lazy-harness/bin/lazy impl-map --format=json`
@@ -19,6 +19,7 @@ No implementation-map edits are made by SCR-601. This record captures the exact 
 - Initial `needs-review`: 0
 - After SCR-602 Batch 1: `needs-map=29`, `ok=82`
 - After SCR-602 Batch 2: `needs-map=21`, `ok=90`
+- After SCR-602 Batch 3: `needs-map=16`, `ok=95`
 
 ### Needs-map by layer
 
@@ -95,10 +96,11 @@ These batches are planning only. Each record still requires source/test/graph re
   - `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
   - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
 
-### Batch 3 — lifecycle/gate/graph ADRs
+### Batch 3 — lifecycle/gate/graph ADRs — completed in SCR-602
 
 - Rationale: cross-layer policy records that likely need graph/source/test evidence before verified maps
 - Count: 5
+- Result: implementation maps added and graph rows recorded; `lazy impl-map` now reports all five records as `ok`. All remain `needs-review` because they are broad/partial historical ADRs. ADR 0017 includes an explicit stale `triggers/external` framework-contract conflict.
 - Records:
   - `.lazy-harness/decisions/0017-user-input-as-universal-trigger.md`
   - `.lazy-harness/decisions/0018-cross-layer-cascade.md`
@@ -152,7 +154,7 @@ These batches are planning only. Each record still requires source/test/graph re
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`, `kg_scr602_batch2_adr_maps`
+  - graph ids: `kg_scr601_needs_map_backlog`, `kg_scr601_impl_map_audit_command`, `kg_scr602_batch1_tdd_maps`, `kg_scr602_batch2_adr_maps`, `kg_scr602_batch3_adr_maps`
 
 ## Discovery capture
 
