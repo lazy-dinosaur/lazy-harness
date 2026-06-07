@@ -183,16 +183,45 @@ Comprehensive revalidation follow-up (2026-06-07 10:05 UTC):
 
 This follow-up directly covers the user question about whether search, record/evidence writing templates, and post-write formatting/validation are working: search/index smoke passed, template heading checks passed, `git diff --check` passed, and commit/push hook gate sources were validated.
 
+Overview-first sync + missing-file verification follow-up (2026-06-07 10:54-11:02 UTC):
+
+- Source commit synced: `6c792728d09f3e6dc4d8c50a134b4db645ceb7f4` (`Require overview-first record map search`)
+- Overview-first sync artifact: `/tmp/lazy-harness-overview-first-sync/20260607T105400Z/summary.json`
+- Overview-first sync result: `ok=true`
+  - Downstream smoke: `14/14 ok`
+  - Checks per host: `syncOk`, `markerOk`, `helpOverviewOk`, `overviewOk`, `queryMapOk`, `messageReminderOk`, `hookGateOk`
+  - Three requested host lazy-tests: `3/3 ok`
+    - `medivance` — `164.36s`
+    - `medivance-homepage` — ok
+    - `medivance-pwa` — ok
+- Missing-file verifier artifact: `/tmp/lazy-harness-missing-file-verify-v3/20260607T110247Z/summary.json`
+- Missing-file verifier result: `14/14 ok`
+  - Manifest-managed entries checked per host: `171`
+  - `missing`: `[]`
+  - `mismatched`: `[]`
+  - `staleManaged`: `[]`
+  - `knowledgeSeedUnaccounted`: `[]`
+  - Hash-checked managed copies per host: `168`
+  - Knowledge JSONL seed/merge checks per host: `3`
+
+Verifier notes:
+
+- The first missing-file verifier run was intentionally rejected as too strict for `knowledge/*.jsonl`; those files are host-local append-only stores and are seed-merged, not overwritten.
+- The second verifier run was rejected because Python `fnmatch` treated `*.ts` as matching nested `fixtures/*.ts`, while `lazy-sync.ts` intentionally compiles `*` as `[^/]*`; the final v3 verifier mirrors `lazy-sync.ts` `matchGlob` semantics.
+- Therefore the final `14/14 ok` result is the authoritative verifier result for Category A managed-file presence/content, stale managed-file pruning, marker storage, and knowledge seed accounting.
+
 ## Interpretation
 
-The sync reached every initialized downstream host discovered under `/home/lazydino/dev` and updated each `.lazy-harness/state/synced-from-commit` marker to `f560375aeb11cf6d0c38de05c947e8a9e0175803`.
+The initial Record Map sync reached every initialized downstream host discovered under `/home/lazydino/dev` at `f560375aeb11cf6d0c38de05c947e8a9e0175803`. The latest overview-first sync supersedes that marker and updates every downstream marker to `6c792728d09f3e6dc4d8c50a134b4db645ceb7f4`.
 
-The smoke checks prove:
+The latest smoke and missing-file checks prove:
 
-- `lazy map` is available in all synced hosts.
+- `lazy map --overview` is available in all synced hosts.
 - `lazy map record map --format=json --limit=1` runs in all synced hosts.
+- The message.received reminder in all synced hosts includes mandatory overview-first CLI and exact query-map CLI.
 - The managed pre-commit/pre-push hook files in all synced hosts contain the `lazy test all green` gate wording.
 - `lazy-sync` marker storage and managed Jcode/hook refresh behavior matched `.lazy-harness/spec/lazy-sync-drift-detection.md`.
+- Category A manifest-managed files are present in all synced hosts, non-knowledge managed copies match source content, stale managed files are absent, and `knowledge/*.jsonl` seed rows are accounted for by append/merge/conflict semantics.
 
 Known caveats:
 
@@ -231,6 +260,7 @@ Confidence: high for framework sync/marker/help/map/hook propagation; medium for
 - `.lazy-harness/tests/record-index-header.md`
 - `.lazy-harness/ssot/cli-tool-boundary.md`
 - Commit: `f560375 Add lazy record map drilldown CLI`
+- Commit: `6c79272 Require overview-first record map search`
 
 ## Retention / privacy
 
