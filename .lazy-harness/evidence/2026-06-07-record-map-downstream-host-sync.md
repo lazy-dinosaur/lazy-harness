@@ -162,6 +162,27 @@ Requested three-host live follow-up (2026-06-07 09:44 UTC):
 
 This follow-up means the three explicitly requested roots (`dev/medivance`, `dev/medivance-pwa`, `dev/medivance-homepage`) all have framework sync markers, `lazy map`, managed hooks, and host lazy-harness self-tests passing at the latest observed state.
 
+Comprehensive revalidation follow-up (2026-06-07 10:05 UTC):
+
+- Run artifact: `/tmp/lazy-harness-comprehensive-revalidation/20260607T100540Z/summary.json`
+- Overall result: `ok=true`
+- Source checks: `8/8 ok`
+  - `git diff --check`
+  - `lazy map evidence capsule --format=json --limit=3`
+  - `lazy record-index --format=json`
+  - `lazy graph-hygiene --format=json`
+  - `lazy record-audit --format=json`
+  - source `.lazy-harness/bin/lazy test`
+  - evidence template required headings
+  - post-write pre-commit/pre-push `lazy test` gate wording
+- Downstream smoke checks: `14/14 ok` for marker/help/map/hook.
+- Three requested host lazy-tests: `3/3 ok`
+  - `medivance` — `139.34s`
+  - `medivance-pwa` — `54.8s`
+  - `medivance-homepage` — `63.1s`
+
+This follow-up directly covers the user question about whether search, record/evidence writing templates, and post-write formatting/validation are working: search/index smoke passed, template heading checks passed, `git diff --check` passed, and commit/push hook gate sources were validated.
+
 ## Interpretation
 
 The sync reached every initialized downstream host discovered under `/home/lazydino/dev` and updated each `.lazy-harness/state/synced-from-commit` marker to `f560375aeb11cf6d0c38de05c947e8a9e0175803`.
