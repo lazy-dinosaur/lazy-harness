@@ -36,8 +36,8 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 요청 받자마자 검색 (필수)
 
-발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 디테일이 등장하면 즉시 `lazy map --overview` 로 전체 record/feature/graph 구조를 본 뒤 핵심 토큰 `lazy map` 으로 후보를 펼친다.
-결과는 cue-only/read proof 아님. 빈 결과 / 애매함 / 누락이면 grep fallback, 후보 record 의 Rule digest / 본문 / Implementation map 과 관련 source/tests 를 반드시 읽는다.
+발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 디테일이 등장하면 즉시 `lazy map --overview` 로 전체 구조를 본 뒤 후보 토큰/파일/레이어별 `lazy map` 을 반복한다.
+결과는 cue-only/read proof 아님. 빈 결과 / 애매함 / 누락이면 grep fallback, 후보 record 의 Rule digest / 본문 / Implementation map 과 분산된 source/tests 를 끝까지 읽는다.
 
 ```bash
 .lazy-harness/bin/lazy map --overview --format=md --limit=20

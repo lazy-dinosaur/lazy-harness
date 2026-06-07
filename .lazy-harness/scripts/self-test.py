@@ -4621,6 +4621,8 @@ def check_record_index_generator_phase3() -> None:
         overview_notes = "\n".join(str(note) for note in overview.get("notes", []))
         if "Overview first" not in overview_notes or "before choosing search terms" not in overview_notes:
             fail("lazy map overview notes must require overview-first search term selection")
+        if "multiple candidate tokens/files/layers" not in overview_notes or "dispersed records/source/tests" not in overview_notes:
+            fail("lazy map overview notes must require repeated query-map coverage across dispersed evidence")
         inventory = overview.get("inventory", {})
         if not inventory.get("totalRecords") or not inventory.get("layers"):
             fail("lazy map overview must include whole record/layer inventory")
@@ -5475,9 +5477,10 @@ def check_message_received_hook_context_injection() -> None:
             "Source/test/doc dirs:",
             "Mandatory overview first: `.lazy-harness/bin/lazy map --overview --format=md --limit=20`",
             "to see the whole record/feature/graph structure before choosing search terms",
-            "Then query map: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`",
+            "Then repeat query map for multiple candidate tokens/files/layers until dispersed records/source/tests are covered",
+            "`.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`",
+            "choose multiple candidate records from inventory",
             "fallback only if empty/ambiguous/incomplete",
-            "Protocol: choose real candidate records from inventory",
             "Rule digest/full body/Implementation map/graph links",
             "3-5 option gate",
             "Missing record: search current host code/docs/package/config",

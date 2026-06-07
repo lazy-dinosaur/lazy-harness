@@ -158,10 +158,10 @@ Implementation constraints:
   3. Agent/searcher reads real record/source/test evidence.
   4. Deterministic `record-index` cache lists metadata only and remains non-canonical.
   5. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
-  6. `lazy map <term-or-file>` narrows that structure into drill-down candidates only.
+  6. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers narrow that structure into dispersed drill-down candidates only.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map --overview`, `lazy map` drill-down output, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map --overview`, repeated `lazy map` drill-down output guidance, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`

@@ -48,10 +48,10 @@ And only then answers, plans, or edits.
 Given a user request touches a host detail
 When the agent runs `lazy map --overview` first
 Then the output shows whole record/feature/graph structure for choosing search terms
-And when the agent runs `lazy map <term-or-file>`
-Then the output may suggest feature, record, graph, source, and test candidates
+And when the agent repeatedly runs `lazy map <term-or-file>` for multiple candidate tokens/files/layers
+Then the outputs may suggest dispersed feature, record, graph, source, and test candidates
 But those candidates are cue-only
-And the agent must still read the actual record body, Implementation map, source, and tests before answering or mutating.
+And the agent must still read all relevant actual record bodies, Implementation maps, source, and tests before answering or mutating.
 
 ### Scenario 2 — Conflicting meanings require option gate
 
@@ -102,8 +102,8 @@ And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not 
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
   2. `lazy map --overview` shows whole structure before term selection.
-  3. `lazy map <term-or-file>` or metadata may suggest candidate records or files.
-  4. Agent reads canonical evidence and resolves or gates ambiguity.
+  3. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers may suggest dispersed candidate records or files.
+  4. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
   5. Confirmed missing knowledge is persisted into records.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.

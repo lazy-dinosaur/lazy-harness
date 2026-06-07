@@ -142,13 +142,13 @@ Expected:
 
 ### Record Map drill-down fixture
 
-Given `lazy map <term-or-file>` runs against a host with record-authored aliases, project feature navigation, and graph rows:
+Given repeated `lazy map <term-or-file>` calls run against a host with record-authored aliases, project feature navigation, and graph rows:
 
 Expected:
 
 - output mode is `record-map.inspect`
 - output includes `drilldown.recordPaths`, `drilldown.sourceFiles`, `drilldown.testFiles`, and `drilldown.graphIds`
-- output notes say the result is cue-only and still requires real record/source/test reads
+- output notes say the result is cue-only and still requires repeated query-map exploration plus real record/source/test reads
 - output does not include field names `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
 
 ### Cache hit not evidence fixture

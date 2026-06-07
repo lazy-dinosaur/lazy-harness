@@ -504,7 +504,7 @@ export function buildRecordMapOverview(root: string, limit = 20): RecordMapOverv
     },
     notes: [
       'Overview first: inspect this whole structure before choosing search terms.',
-      "Then run `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`, read real evidence, and only then answer or mutate.",
+      "Then repeat `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8` for multiple candidate tokens/files/layers until dispersed records/source/tests are covered; read real evidence, and only then answer or mutate.",
       'Cues only: overview and drill-down candidates do not satisfy search/read debt by themselves.',
     ],
     inventory: {
@@ -597,8 +597,8 @@ function renderOverviewMarkdown(result: RecordMapOverview): string {
   lines.push(`- features: ${result.inventory.totalFeatures}`)
   lines.push(`- graph rows: ${result.inventory.totalGraphRows}`)
   lines.push(`- generated indexes: record-index=${result.inventory.generatedIndexes.recordIndex ? 'present' : 'missing'}, implementation-index=${result.inventory.generatedIndexes.implementationIndex ? 'present' : 'missing'}, reference-index=${result.inventory.generatedIndexes.referenceIndex ? 'present' : 'missing'}`)
-  lines.push('- first step: use this overview to choose search terms, then run the exact query CLI below.')
-  lines.push("- query CLI: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`")
+  lines.push('- first step: use this overview to choose multiple candidate tokens/files/layers, then repeat the exact query CLI below until dispersed records/source/tests are covered.')
+  lines.push("- repeat query CLI: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`")
   lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
   lines.push('', '## Layers')
   for (const layer of result.inventory.layers) {
