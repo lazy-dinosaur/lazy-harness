@@ -24,7 +24,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
   - keep cross-session durable event/knowledge visibility under `LAZY_SHARED_ROOT` or canonical `.lazy-harness` records
   - default `LAZY_SHARED_ROOT` to the git common-dir plus `lazy-harness/shared`
   - preserve the invariant that a shared write result is one of `appended`, `deduped-identical`, `conflict-recorded`, or `blocked/needs-human-resolution`
-  - only dedupe rows with the same stable id when the canonical JSON payload is identical
+  - dedupe rows when the canonical JSON payload is identical, including rows without a stable id
   - record same-id/different-payload writes in `*.conflicts.jsonl` instead of silently overwriting or dropping them
   - serialize same-file durable writes with a lock
   - guard commit/push validation with a worktree-local git-action lock
@@ -85,20 +85,20 @@ These remain host-visible across sessions/worktrees:
 - historical route telemetry files may exist from the removed task-router experiment, but current hooks must not append them
 - future shared question/event queues that carry explicit scope metadata
 
-Shared writes must use lock + stable-id dedupe + conflict-visible recording.
+Shared writes must use lock + canonical-payload dedupe + stable-id conflict-visible recording.
 
 ### No silent drop invariant
 
-For a shared stable-id write, the implementation returns exactly one status:
+For a shared stable JSONL write, the implementation returns exactly one status:
 
 | Status | Meaning |
 |---|---|
 | `appended` | row was new and appended |
-| `deduped-identical` | same stable id and same canonical JSON payload already existed |
+| `deduped-identical` | the same canonical JSON payload already existed, even when the row has no stable id |
 | `conflict-recorded` | same stable id but different payload; conflict row written |
 | `blocked/needs-human-resolution` | merge would rewrite a canonical document or ambiguous conflict requires a human gate |
 
-Only `deduped-identical` may skip writing. Meaningful conflicts must remain visible.
+Only `deduped-identical` may skip writing. Idless rows may only dedupe by identical canonical payload; different idless payloads append as new rows. Meaningful same-id conflicts must remain visible.
 
 ## Implementation map
 
@@ -113,7 +113,7 @@ Only `deduped-identical` may skip writing. Meaningful conflicts must remain visi
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — reads runtime packet journal.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` and `.lazy-harness/scripts/gate-state.ts` — use runtime `open-gates.json`.
   - `.lazy-harness/hooks/pre-commit-guard.sh` and `.lazy-harness/hooks/pre-push.sh` — use worktree-local git-action lock.
-  - `.lazy-harness/scripts/lazy-sync.ts`, `.lazy-harness/scripts/document-resource-ingestion.ts`, `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — use stable-id append helpers for knowledge JSONL writes.
+  - `.lazy-harness/scripts/lazy-sync.ts`, `.lazy-harness/scripts/document-resource-ingestion.ts`, `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh` — use stable JSONL append helpers for knowledge JSONL writes.
 - Key symbols:
   - `LAZY_RUNTIME_ROOT`
   - `LAZY_SHARED_ROOT`
@@ -131,7 +131,7 @@ Only `deduped-identical` may skip writing. Meaningful conflicts must remain visi
 - DDD: no domain/business terminology impact.
 - SDD: this file defines runtime/shared state contracts.
 - BDD: user-visible behavior is fewer false blocks/contamination reports in parallel sessions.
-- TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md` protects symlink and same-worktree parallel cases.
+- TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md` protects symlink and same-worktree parallel cases, plus stable JSONL identical-payload dedupe and same-id conflict visibility.
 - ADR: ADR 0002 conflict protocol already mandates no silent conflict resolution; no new trade-off beyond applying it to runtime/shared storage.
 - SSOT: `.lazy-harness/ssot/runtime-and-shared-state.md` defines canonical root/path ownership.
 

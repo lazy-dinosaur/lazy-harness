@@ -2964,16 +2964,18 @@ def check_shared_jsonl_conflict_visible() -> None:
         runtime_paths = str((LAZY / "scripts" / "runtime-paths.ts").resolve())
         script = f"""
 import {{ appendJsonlStable }} from {json.dumps(runtime_paths)}
-const path = './.lazy-harness/knowledge/test-conflict.jsonl'
-console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
-console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
-console.log(appendJsonlStable(path, {{ id: 'row-1', value: 2 }}, 'id', process.cwd()))
-"""
+	const path = './.lazy-harness/knowledge/test-conflict.jsonl'
+	console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
+	console.log(appendJsonlStable(path, {{ id: 'row-1', value: 1 }}, 'id', process.cwd()))
+	console.log(appendJsonlStable(path, {{ id: 'row-1', value: 2 }}, 'id', process.cwd()))
+	console.log(appendJsonlStable(path, {{ topic: 'idless', nested: {{ b: 2, a: 1 }} }}, 'id', process.cwd()))
+	console.log(appendJsonlStable(path, {{ nested: {{ a: 1, b: 2 }}, topic: 'idless' }}, 'id', process.cwd()))
+	"""
         completed = subprocess.run(["bun", "-e", script], cwd=temp, env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)), text=True, capture_output=True, check=False)
         if completed.returncode != 0:
             fail("appendJsonlStable fixture failed:\n" + completed.stdout + completed.stderr)
         statuses = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-        if statuses != ["appended", "deduped-identical", "conflict-recorded"]:
+        if statuses != ["appended", "deduped-identical", "conflict-recorded", "appended", "deduped-identical"]:
             fail("appendJsonlStable statuses changed: " + json.dumps(statuses, ensure_ascii=False))
         target = temp / ".lazy-harness" / "knowledge" / "test-conflict.jsonl"
         conflicts = pathlib.Path(str(target) + ".conflicts.jsonl")
@@ -2981,10 +2983,31 @@ console.log(appendJsonlStable(path, {{ id: 'row-1', value: 2 }}, 'id', process.c
             fail("appendJsonlStable should create target and conflict journals")
         rows = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines() if line.strip()]
         conflict_rows = [json.loads(line) for line in conflicts.read_text(encoding="utf-8").splitlines() if line.strip()]
-        if len(rows) != 1 or rows[0].get("value") != 1:
+        if len(rows) != 2 or rows[0].get("value") != 1 or rows[1].get("topic") != "idless":
             fail("appendJsonlStable should not overwrite existing row: " + json.dumps(rows, ensure_ascii=False))
         if len(conflict_rows) != 1 or conflict_rows[0].get("status") != "conflict-recorded":
             fail("appendJsonlStable conflict row missing: " + json.dumps(conflict_rows, ensure_ascii=False))
+        py_helper = str((LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py").resolve())
+        py_script = f"""
+import importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('runtime_paths', {json.dumps(py_helper)})
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+path = Path('./.lazy-harness/knowledge/test-python-idless.jsonl')
+print(mod.append_jsonl_stable(Path.cwd(), path, {{'topic':'idless-python','nested':{{'b':2,'a':1}}}}))
+print(mod.append_jsonl_stable(Path.cwd(), path, {{'nested':{{'a':1,'b':2}},'topic':'idless-python'}}))
+"""
+        py_completed = subprocess.run([sys.executable, "-c", py_script], cwd=temp, env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)), text=True, capture_output=True, check=False)
+        if py_completed.returncode != 0:
+            fail("python append_jsonl_stable idless fixture failed:\n" + py_completed.stdout + py_completed.stderr)
+        py_statuses = [line.strip() for line in py_completed.stdout.splitlines() if line.strip()]
+        if py_statuses != ["appended", "deduped-identical"]:
+            fail("python append_jsonl_stable idless statuses changed: " + json.dumps(py_statuses, ensure_ascii=False))
+        py_target = temp / ".lazy-harness" / "knowledge" / "test-python-idless.jsonl"
+        py_rows = [json.loads(line) for line in py_target.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(py_rows) != 1 or py_rows[0].get("topic") != "idless-python":
+            fail("python append_jsonl_stable should dedupe idless stable JSON rows: " + json.dumps(py_rows, ensure_ascii=False))
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ shared JSONL conflict visibility ok")

@@ -120,15 +120,16 @@ function atomicWrite(filePath: string, text: string): void {
 
 export function appendJsonlStable(filePath: string, row: Record<string, unknown>, idKey = 'id', root = hostRoot()): JsonlAppendStatus {
   const id = typeof row[idKey] === 'string' ? String(row[idKey]) : ''
+  const incoming = stableJson(row)
   const lockName = `jsonl-${stableHash(filePath, 24)}`
   return withLock(lockName, () => {
     const lines = existsSync(filePath) ? readFileSync(filePath, 'utf8').split(/\r?\n/).filter((line) => line.trim()) : []
-    if (id) {
-      for (const line of lines) {
-        try {
-          const existing = JSON.parse(line)
+    for (const line of lines) {
+      try {
+        const existing = JSON.parse(line)
+        if (stableJson(existing) === incoming) return 'deduped-identical'
+        if (id) {
           if (existing && typeof existing === 'object' && existing[idKey] === id) {
-            if (stableJson(existing) === stableJson(row)) return 'deduped-identical'
             const conflict = {
               id: `conflict_${id}_${stableHash(stableJson(row), 12)}`,
               event: 'lazy-harness.jsonl-conflict',
@@ -147,9 +148,9 @@ export function appendJsonlStable(filePath: string, row: Record<string, unknown>
             writeFileSync(conflictPath, `${current}${JSON.stringify(conflict)}\n`, 'utf8')
             return 'conflict-recorded'
           }
-        } catch {
-          // malformed historical lines do not block appending a new stable id
         }
+      } catch {
+        // malformed historical lines do not block appending a new stable row
       }
     }
     lines.push(JSON.stringify(row))

@@ -18,7 +18,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
   - use `LAZY_RUNTIME_ROOT` for lifecycle packet journals, open-gate cache, hook timing, compare logs, disconnect snapshots, and other ephemeral state
   - use `LAZY_SHARED_ROOT` for shared non-canonical event telemetry that should be visible across sessions/worktrees
   - keep human-facing records and knowledge files in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,knowledge}` as canonical or durable host memory
-  - use stable-id lock/dedupe/conflict-visible helpers for shared JSONL writes
+  - use lock + canonical-payload dedupe + stable-id conflict-visible helpers for shared JSONL writes
 - Must not:
   - use a symlink target's `.lazy-harness/state` as the default runtime state for a caller worktree
   - silently drop a same-id/different-payload durable row
@@ -40,6 +40,6 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 
 - `.lazy-harness/scripts/runtime-paths.ts` and `.lazy-harness/hooks/lifecycle/helpers/runtime_paths.py` implement the root derivation.
 - `.lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh` exports the env vars for shell hooks.
-- `.lazy-harness/spec/platform/runtime-and-shared-state.md` defines behavior and no-silent-drop invariant.
-- `.lazy-harness/tests/parallel-runtime-state-isolation.md` protects the storage split.
+- `.lazy-harness/spec/platform/runtime-and-shared-state.md` defines behavior and no-silent-drop invariant, including idless identical-payload dedupe.
+- `.lazy-harness/tests/parallel-runtime-state-isolation.md` protects the storage split and stable JSONL append contract.
 - Machine graph rows: `kg_sdd_runtime_shared_state`, `kg_ssot_runtime_shared_roots`.

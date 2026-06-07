@@ -24,7 +24,7 @@ This made multiple agents/sessions look contaminated even when product git index
 - Tool-before read-debt checks must read the same session runtime root.
 - Response-completed timing/compare/record-decision shadow logs must land in runtime roots.
 - Gate-fingerprint `open-gates.json` must be runtime-local.
-- Shared durable JSONL append helpers must dedupe identical stable IDs and record same-id conflicts in `*.conflicts.jsonl`.
+- Shared durable JSONL append helpers must dedupe identical canonical JSON payloads, including idless rows, and record same-id/different-payload conflicts in `*.conflicts.jsonl`.
 - Pre-commit/pre-push must use a worktree-local git-action lock to avoid concurrent validation in the same worktree.
 
 ## Layer completeness
@@ -53,4 +53,4 @@ This made multiple agents/sessions look contaminated even when product git index
   - `.lazy-harness/scripts/self-test.py`
 - Test symbols:
   - `check_parallel_runtime_state_isolation`
-  - `check_shared_jsonl_conflict_visible`
+  - `check_shared_jsonl_conflict_visible` protects TypeScript/Python helper dedupe for idless identical payloads and same-id conflict visibility.

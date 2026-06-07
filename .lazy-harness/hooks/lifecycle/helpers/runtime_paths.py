@@ -135,16 +135,16 @@ def append_jsonl_stable(root: Path, path: Path, row: dict[str, Any], id_key: str
         path.parent.mkdir(parents=True, exist_ok=True)
         lines = [line for line in path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()] if path.exists() else []
         row_id = row.get(id_key)
-        if isinstance(row_id, str) and row_id:
-            incoming = stable_json(row)
-            for line in lines:
-                try:
-                    existing = json.loads(line)
-                except Exception:
-                    continue
+        incoming = stable_json(row)
+        for line in lines:
+            try:
+                existing = json.loads(line)
+            except Exception:
+                continue
+            if stable_json(existing) == incoming:
+                return "deduped-identical"
+            if isinstance(row_id, str) and row_id:
                 if isinstance(existing, dict) and existing.get(id_key) == row_id:
-                    if stable_json(existing) == incoming:
-                        return "deduped-identical"
                     conflict = {
                         "id": f"conflict_{row_id}_{stable_hash(incoming, 12)}",
                         "event": "lazy-harness.jsonl-conflict",
