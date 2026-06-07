@@ -1,0 +1,466 @@
+#!/usr/bin/env bun
+/**
+ * Record Map
+ *
+ * Read-only overview/drill-down helper for searchable record memory.
+ * It uses record-authored metadata, feature navigation, and graph links as
+ * navigation cues only. It must not decide intent, confidence, required reads,
+ * risk, gates, or next actions.
+ */
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { buildRecordIndex, type FeatureEntry, type RecordEntry } from './record-index.ts'
+
+type OutputFormat = 'json' | 'md'
+
+interface Args {
+  root: string
+  query: string
+  format: OutputFormat
+  limit: number
+}
+
+interface MatchDetail {
+  field: string
+  value: string
+}
+
+interface FeatureMatch {
+  id: string
+  label: string
+  status: string
+  matchCount: number
+  matched: MatchDetail[]
+  aliases: string[]
+  routes: string[]
+  components: string[]
+  records: string[]
+  sourceFiles: string[]
+  testFiles: string[]
+}
+
+interface RecordMatch {
+  recordPath: string
+  title: string
+  layer: string
+  status: string
+  matchCount: number
+  matched: MatchDetail[]
+  aliases: string[]
+  surfaceTerms: string[]
+  featureIds: string[]
+  sourceFiles: string[]
+  testFiles: string[]
+  symbols: string[]
+  routes: string[]
+  components: string[]
+  graphIds: string[]
+  relatedRecords: string[]
+}
+
+interface GraphMatch {
+  id: string
+  relation?: string
+  kind?: string
+  path?: string
+  source?: string
+  target?: string
+  matchCount: number
+  matched: MatchDetail[]
+}
+
+interface Drilldown {
+  recordPaths: string[]
+  sourceFiles: string[]
+  testFiles: string[]
+  graphIds: string[]
+}
+
+interface RecordMapResult {
+  schemaVersion: '1.0'
+  mode: 'record-map.inspect'
+  query: string
+  root: string
+  source: {
+    method: 'record-map-v1'
+    tool: '.lazy-harness/scripts/record-map.ts'
+    recordIndexMethod: 'record-index-v1'
+  }
+  counts: {
+    features: number
+    records: number
+    graphRows: number
+  }
+  notes: string[]
+  features: FeatureMatch[]
+  records: RecordMatch[]
+  graphRows: GraphMatch[]
+  drilldown: Drilldown
+}
+
+interface GraphRow {
+  id?: string
+  relation?: string
+  kind?: string
+  type?: string
+  path?: string
+  source?: string
+  target?: string
+  [key: string]: unknown
+}
+
+const LAYER_DIRS = [
+  '.lazy-harness/domain/',
+  '.lazy-harness/spec/',
+  '.lazy-harness/behavior/',
+  '.lazy-harness/tests/',
+  '.lazy-harness/decisions/',
+  '.lazy-harness/ssot/',
+  '.lazy-harness/planning/',
+  '.lazy-harness/plans/',
+  '.lazy-harness/project/',
+]
+
+function usage(exitCode = 2): never {
+  const out = exitCode === 0 ? console.log : console.error
+  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]\n  bun .lazy-harness/scripts/record-map.ts --root . ActionBoard --format=md\n\nRead-only overview helper. It lists matching feature/record/graph cues and drill-down file candidates. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
+  process.exit(exitCode)
+}
+
+function parseArgs(argv: string[]): Args {
+  const args: Args = {
+    root: process.env.LAZY_HOST_ROOT || process.cwd(),
+    query: '',
+    format: 'md',
+    limit: 8,
+  }
+  const queryParts: string[] = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i]
+    const next = argv[i + 1]
+    if (arg === '--help' || arg === '-h') usage(0)
+    else if ((arg === '--root' || arg === '--host') && next) { args.root = next; i += 1 }
+    else if (arg.startsWith('--root=')) args.root = arg.slice('--root='.length)
+    else if (arg.startsWith('--host=')) args.root = arg.slice('--host='.length)
+    else if ((arg === '--format' || arg === '-f') && next) {
+      args.format = normalizeFormat(next)
+      i += 1
+    } else if (arg.startsWith('--format=')) args.format = normalizeFormat(arg.slice('--format='.length))
+    else if ((arg === '--limit' || arg === '-n') && next) {
+      args.limit = normalizeLimit(next)
+      i += 1
+    } else if (arg.startsWith('--limit=')) args.limit = normalizeLimit(arg.slice('--limit='.length))
+    else if (arg.startsWith('-')) throw new Error(`Unknown argument: ${arg}`)
+    else queryParts.push(arg)
+  }
+  args.query = queryParts.join(' ').trim()
+  if (!args.query) usage()
+  args.root = path.resolve(args.root)
+  return args
+}
+
+function normalizeFormat(value: string): OutputFormat {
+  if (value === 'markdown') return 'md'
+  if (value === 'json' || value === 'md') return value
+  throw new Error(`Unsupported --format: ${value}`)
+}
+
+function normalizeLimit(value: string): number {
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 1 || n > 100) throw new Error(`Unsupported --limit: ${value}`)
+  return n
+}
+
+function uniq(values: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(values.map((value) => (value || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+}
+
+function compact(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9가-힣]/g, '')
+}
+
+function normalized(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9가-힣]+/g, ' ').trim()
+}
+
+function queryNeedles(query: string): string[] {
+  const base = normalized(query)
+  const parts = base.split(/\s+/).filter((part) => part.length >= 2)
+  return uniq([base, compact(query), ...parts.map(compact), ...parts])
+}
+
+function matches(query: string, value: string): boolean {
+  if (!value) return false
+  const base = normalized(query)
+  const compactBase = compact(query)
+  const parts = base.split(/\s+/).filter((part) => part.length >= 2)
+  const hay = normalized(value)
+  const compactHay = compact(value)
+  if (base && hay.includes(base)) return true
+  if (compactBase && compactHay.includes(compactBase)) return true
+  if (parts.length > 1) {
+    return parts.every((part) => compactHay.includes(compact(part)))
+  }
+  const needles = queryNeedles(query)
+  return needles.some((needle) => needle && (hay.includes(needle) || compactHay.includes(compact(needle))))
+}
+
+function addMatches(out: MatchDetail[], query: string, field: string, values: string[] | string | undefined): void {
+  const list = Array.isArray(values) ? values : values ? [values] : []
+  for (const value of list) {
+    if (matches(query, value)) out.push({ field, value })
+  }
+}
+
+function rowStrings(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(rowStrings)
+  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(rowStrings)
+  return []
+}
+
+function isPathLike(value: string): boolean {
+  if (/\s/.test(value)) return false
+  return value.startsWith('.lazy-harness/') || value.startsWith('src/') || value.startsWith('app/') || value.startsWith('tests/') || value.includes('/') || /\.[A-Za-z0-9]+(#.+)?$/.test(value)
+}
+
+function looksLikeRecordPath(value: string): boolean {
+  return LAYER_DIRS.some((dir) => value.startsWith(dir)) && /\.(md|xml)$/.test(value)
+}
+
+function looksLikeTestPath(value: string): boolean {
+  return /(^|\/)(tests?|__tests__)(\/|$)/.test(value) || /\.(test|spec)\.[A-Za-z0-9]+$/.test(value)
+}
+
+function addPath(value: string, target: Drilldown): void {
+  const cleaned = value.replace(/`/g, '').trim()
+  if (!cleaned || !isPathLike(cleaned)) return
+  if (looksLikeRecordPath(cleaned)) target.recordPaths.push(cleaned)
+  else if (looksLikeTestPath(cleaned)) target.testFiles.push(cleaned)
+  else target.sourceFiles.push(cleaned)
+}
+
+function featureMatch(query: string, feature: FeatureEntry): FeatureMatch | null {
+  const matched: MatchDetail[] = []
+  const aliases = feature.aliases.map((alias) => alias.value)
+  addMatches(matched, query, 'feature.id', feature.id)
+  addMatches(matched, query, 'feature.label', feature.label)
+  addMatches(matched, query, 'feature.aliases', aliases)
+  addMatches(matched, query, 'feature.routes', feature.routes)
+  addMatches(matched, query, 'feature.components', feature.components)
+  addMatches(matched, query, 'feature.records', feature.records.map((record) => record.path))
+  addMatches(matched, query, 'feature.sourceFiles', feature.sourceFiles)
+  addMatches(matched, query, 'feature.tests', feature.tests)
+  if (!matched.length) return null
+  return {
+    id: feature.id,
+    label: feature.label,
+    status: feature.status,
+    matchCount: matched.length,
+    matched,
+    aliases,
+    routes: feature.routes,
+    components: feature.components,
+    records: feature.records.map((record) => record.path),
+    sourceFiles: feature.sourceFiles,
+    testFiles: feature.tests,
+  }
+}
+
+function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
+  const matched: MatchDetail[] = []
+  const hints = record.implementationHints
+  addMatches(matched, query, 'record.path', record.recordPath)
+  addMatches(matched, query, 'record.title', record.title)
+  addMatches(matched, query, 'record.layer', record.layer)
+  addMatches(matched, query, 'record.aliases', record.aliases)
+  addMatches(matched, query, 'record.surfaceTerms', record.surfaceTerms)
+  addMatches(matched, query, 'record.featureIds', record.projectProfileFeatureIds)
+  addMatches(matched, query, 'record.digest.appliesWhen', record.digest.appliesWhen)
+  addMatches(matched, query, 'record.digest.must', record.digest.must)
+  addMatches(matched, query, 'record.digest.mustNot', record.digest.mustNot)
+  addMatches(matched, query, 'record.digest.bullets', record.digest.bullets)
+  addMatches(matched, query, 'record.digest.relatedRecords', record.digest.relatedRecords)
+  addMatches(matched, query, 'record.routes', hints.routeHints)
+  addMatches(matched, query, 'record.components', hints.componentHints)
+  addMatches(matched, query, 'record.sourceFiles', hints.fileHints)
+  addMatches(matched, query, 'record.symbols', hints.symbolHints)
+  addMatches(matched, query, 'record.testFiles', hints.testHints)
+  addMatches(matched, query, 'record.graphIds', record.graphIds)
+  addMatches(matched, query, 'record.graphHints', record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.path, hint.source, hint.target].filter((value): value is string => Boolean(value))))
+  if (!matched.length) return null
+  return {
+    recordPath: record.recordPath,
+    title: record.title,
+    layer: record.layer,
+    status: record.status,
+    matchCount: matched.length,
+    matched,
+    aliases: record.aliases,
+    surfaceTerms: record.surfaceTerms,
+    featureIds: record.projectProfileFeatureIds,
+    sourceFiles: hints.fileHints,
+    testFiles: hints.testHints,
+    symbols: hints.symbolHints,
+    routes: hints.routeHints,
+    components: hints.componentHints,
+    graphIds: record.graphIds,
+    relatedRecords: record.digest.relatedRecords,
+  }
+}
+
+function graphRows(root: string): GraphRow[] {
+  const graphPath = path.join(root, '.lazy-harness', 'knowledge', 'graph.jsonl')
+  if (!existsSync(graphPath)) return []
+  const rows: GraphRow[] = []
+  for (const line of readFileSync(graphPath, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue
+    try { rows.push(JSON.parse(line) as GraphRow) } catch { /* graph-hygiene reports invalid rows */ }
+  }
+  return rows
+}
+
+function graphMatch(query: string, row: GraphRow): GraphMatch | null {
+  const matched: MatchDetail[] = []
+  for (const [key, value] of Object.entries(row)) {
+    for (const text of rowStrings(value)) addMatches(matched, query, `graph.${key}`, text)
+  }
+  if (!matched.length) return null
+  return {
+    id: String(row.id || ''),
+    relation: typeof row.relation === 'string' ? row.relation : typeof row.type === 'string' ? row.type : undefined,
+    kind: typeof row.kind === 'string' ? row.kind : undefined,
+    path: typeof row.path === 'string' ? row.path : undefined,
+    source: typeof row.source === 'string' ? row.source : undefined,
+    target: typeof row.target === 'string' ? row.target : undefined,
+    matchCount: matched.length,
+    matched,
+  }
+}
+
+function sortMatches<T extends { matchCount: number }>(items: T[], label: (item: T) => string): T[] {
+  return [...items].sort((a, b) => b.matchCount - a.matchCount || label(a).localeCompare(label(b)))
+}
+
+function buildDrilldown(features: FeatureMatch[], records: RecordMatch[], graphRows: GraphMatch[]): Drilldown {
+  const out: Drilldown = { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
+  for (const feature of features) {
+    for (const record of feature.records) addPath(record, out)
+    for (const file of feature.sourceFiles) addPath(file, out)
+    for (const file of feature.testFiles) addPath(file, out)
+  }
+  for (const record of records) {
+    addPath(record.recordPath, out)
+    for (const related of record.relatedRecords) addPath(related, out)
+    for (const file of record.sourceFiles) addPath(file, out)
+    for (const file of record.testFiles) addPath(file, out)
+    for (const id of record.graphIds) out.graphIds.push(id)
+  }
+  for (const row of graphRows) {
+    if (row.id) out.graphIds.push(row.id)
+    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, out)
+  }
+  return {
+    recordPaths: uniq(out.recordPaths),
+    sourceFiles: uniq(out.sourceFiles),
+    testFiles: uniq(out.testFiles),
+    graphIds: uniq(out.graphIds),
+  }
+}
+
+export function buildRecordMap(root: string, query: string, limit = 8): RecordMapResult {
+  const index = buildRecordIndex(root)
+  const features = sortMatches(index.projectProfile.features.map((feature) => featureMatch(query, feature)).filter((value): value is FeatureMatch => Boolean(value)), (item) => item.id).slice(0, limit)
+  const records = sortMatches(index.records.map((record) => recordMatch(query, record)).filter((value): value is RecordMatch => Boolean(value)), (item) => item.recordPath).slice(0, limit)
+  const graph = sortMatches(graphRows(root).map((row) => graphMatch(query, row)).filter((value): value is GraphMatch => Boolean(value)), (item) => item.id || item.path || '').slice(0, limit)
+  return {
+    schemaVersion: '1.0',
+    mode: 'record-map.inspect',
+    query,
+    root,
+    source: {
+      method: 'record-map-v1',
+      tool: '.lazy-harness/scripts/record-map.ts',
+      recordIndexMethod: index.source.method,
+    },
+    counts: { features: features.length, records: records.length, graphRows: graph.length },
+    notes: [
+      'Cues only: read real record bodies, Implementation maps, source, and tests before relying on a match.',
+      'If matches conflict or remain incomplete after evidence reads, ask an option gate instead of auto-selecting.',
+    ],
+    features,
+    records,
+    graphRows: graph,
+    drilldown: buildDrilldown(features, records, graph),
+  }
+}
+
+function renderList(values: string[], indent = '  '): string[] {
+  if (!values.length) return [`${indent}- -`]
+  return values.map((value) => `${indent}- \`${value}\``)
+}
+
+function renderMarkdown(result: RecordMapResult): string {
+  const lines: string[] = []
+  lines.push('# Record map')
+  lines.push('')
+  lines.push(`- query: \`${result.query}\``)
+  lines.push(`- features: ${result.counts.features}`)
+  lines.push(`- records: ${result.counts.records}`)
+  lines.push(`- graph rows: ${result.counts.graphRows}`)
+  lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
+  lines.push('')
+  lines.push('## Features')
+  if (!result.features.length) lines.push('- -')
+  for (const feature of result.features) {
+    lines.push(`- \`${feature.id}\` — ${feature.label || '(no label)'} (${feature.status}, matches=${feature.matchCount})`)
+    if (feature.routes.length) lines.push(`  - routes: ${feature.routes.map((item) => `\`${item}\``).join(', ')}`)
+    if (feature.components.length) lines.push(`  - components: ${feature.components.map((item) => `\`${item}\``).join(', ')}`)
+    if (feature.records.length) lines.push(`  - records: ${feature.records.map((item) => `\`${item}\``).join(', ')}`)
+  }
+  lines.push('', '## Records')
+  if (!result.records.length) lines.push('- -')
+  for (const record of result.records) {
+    lines.push(`- \`${record.recordPath}\` — ${record.title} (${record.layer}/${record.status}, matches=${record.matchCount})`)
+    if (record.aliases.length) lines.push(`  - aliases: ${record.aliases.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.components.length) lines.push(`  - components: ${record.components.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.sourceFiles.length) lines.push(`  - source: ${record.sourceFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.graphIds.length) lines.push(`  - graph: ${record.graphIds.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+  }
+  lines.push('', '## Graph rows')
+  if (!result.graphRows.length) lines.push('- -')
+  for (const row of result.graphRows) {
+    lines.push(`- \`${row.id || '(no id)'}\` (${row.relation || row.kind || 'row'}, matches=${row.matchCount})`)
+    if (row.path) lines.push(`  - path: \`${row.path}\``)
+    if (row.source) lines.push(`  - source: \`${row.source}\``)
+    if (row.target) lines.push(`  - target: \`${row.target}\``)
+  }
+  lines.push('', '## Drill-down candidates')
+  lines.push('- Records:')
+  lines.push(...renderList(result.drilldown.recordPaths, '  '))
+  lines.push('- Source files:')
+  lines.push(...renderList(result.drilldown.sourceFiles, '  '))
+  lines.push('- Test files:')
+  lines.push(...renderList(result.drilldown.testFiles, '  '))
+  lines.push('- Graph ids:')
+  lines.push(...renderList(result.drilldown.graphIds, '  '))
+  lines.push('')
+  lines.push('## Fallback')
+  lines.push('- If this map is empty or ambiguous, do root-bound source search inside this host, then create/update records only after evidence and user confirmation.')
+  return `${lines.join('\n')}\n`
+}
+
+function main(): void {
+  try {
+    const args = parseArgs(process.argv.slice(2))
+    const result = buildRecordMap(args.root, args.query, args.limit)
+    if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+    else process.stdout.write(renderMarkdown(result))
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+}
+
+if (import.meta.main) main()

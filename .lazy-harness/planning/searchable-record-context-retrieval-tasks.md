@@ -259,6 +259,26 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - `.lazy-harness/bin/lazy record-index --format=json` smoke output method is `record-index-v1`.
   - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation and old command absence.
 
+### SCR-403 — Record Map drill-down CLI
+
+- Status: done
+- Type: source/test/record update
+- Decision:
+  - Add `lazy map <term-or-file>` as a read-only overview helper over record-index, feature navigation, and graph rows.
+  - Output remains cue-only and cannot satisfy search/read debt by itself.
+- Result:
+  - CLI command: `.lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]`
+  - Source: `.lazy-harness/scripts/record-map.ts`
+  - AGENTS search routine is map-first, then grep fallback when empty/ambiguous/incomplete.
+  - DDD/BDD/SDD/TDD/SSOT records updated for Record Map terminology, behavior, contract, fixture, and boundary.
+- Acceptance:
+  - output includes feature/record/graph matches plus `drilldown.recordPaths`, `sourceFiles`, `testFiles`, and `graphIds`
+  - no requiredRead/confidence/intent/risk/gate/nextAction/candidateMeanings output
+  - self-test covers fixture output and help dispatch
+- Validation:
+  - `.lazy-harness/bin/lazy map record-index --format=md --limit=3` smoke passed.
+  - `python3 .lazy-harness/scripts/self-test.py` protects `lazy map` via `check_record_index_generator_phase3`.
+
 ## Milestone 5 — Record audit advisory warnings
 
 ### SCR-501 — Extend record-audit
@@ -339,9 +359,9 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 - DDD: `searchable-record-memory` created for terminology/invariants.
 - BDD: `llm-owned-record-retrieval` created for agent/searcher behavior.
-- SDD: `search-read-debt-contract` created; `record-index-header` created for header field/consumer contract.
-- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` created for fixture expectations.
-- SSOT/ADR: `cli-tool-boundary` reviewed as sufficient for SCR-303/304; ADR 0042 records SCR-401 canonical `record-index` naming decision.
+- SDD: `search-read-debt-contract` created; `record-index-header` created/updated for header field, record-index cache, and Record Map consumer contract.
+- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` created/updated for fixture expectations including Record Map.
+- SSOT/ADR: `cli-tool-boundary` reviewed/updated for SCR-303/304/SCR-403; ADR 0042 records SCR-401 canonical `record-index` naming decision.
 - SSOT: CLI tool boundary remains canonical.
 - Planning: native query-helper plan removed; this backlog is the replacement.
 - ADR: no new ADR until a new trade-off decision is needed.

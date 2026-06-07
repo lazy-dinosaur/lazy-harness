@@ -39,6 +39,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_missing` | BDD Scenario 5 | Historical record missing `## Index header` | `record-audit.recordQuality.counts["missing-index-header"]` and sample path report advisory warning only; no hard block | implemented via `check_record_audit_cli` |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
+| `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <term-or-file>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
 | `record_index_header_conflict_option_gate` | BDD Scenario 2 | Two records share plausible aliases/surface terms | Agent must option-gate after evidence remains ambiguous; no automatic ranking | planned |
@@ -54,6 +55,7 @@ These names are reserved for the implementation phase. They must not be marked c
 - `check_record_index_header_missing_is_advisory`
 - `check_record_index_header_legacy_rule_digest_fallback`
 - `check_record_index_header_no_raw_message_query`
+- `check_record_index_map_drilldown_cue_only`
 - `check_record_index_header_canonical_record_index_name`
 - `check_record_index_header_cache_hit_not_evidence`
 - `check_record_index_header_conflict_requires_option_gate`
@@ -125,6 +127,17 @@ Expected forbidden patterns:
 - lifecycle `message.received` invoking the cache/listing command as semantic query
 - output fields named `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, `candidateMeanings`
 
+### Record Map drill-down fixture
+
+Given `lazy map <term-or-file>` runs against a host with record-authored aliases, project feature navigation, and graph rows:
+
+Expected:
+
+- output mode is `record-map.inspect`
+- output includes `drilldown.recordPaths`, `drilldown.sourceFiles`, `drilldown.testFiles`, and `drilldown.graphIds`
+- output notes say the result is cue-only and still requires real record/source/test reads
+- output does not include field names `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
+
 ### Cache hit not evidence fixture
 
 Given a generated cache entry mentions `.lazy-harness/spec/platform/record-index-header.md`
@@ -141,7 +154,7 @@ Existing related guard:
 
 | BDD scenario | Covered by fixture(s) |
 |---|---|
-| Metadata cue still requires real record read | complete header, cache hit not evidence |
+| Metadata cue still requires real record read | complete header, cache hit not evidence, record map drill-down cue only |
 | Conflicting meanings require option gate | conflict option gate |
 | Cache hit is not proof of evidence | cache hit not evidence |
 | Missing knowledge converges after confirmation | missing knowledge converges |
@@ -157,19 +170,21 @@ Existing related guard:
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD invariants under test.
   - `.lazy-harness/ssot/cli-tool-boundary.md` — semantic-authority boundary under test.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — canonical naming ADR under test.
-  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation, old command absence, and record-audit recordQuality complete/missing fixtures.
+  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation, `lazy map` drill-down output, old command absence, and record-audit recordQuality complete/missing fixtures.
+  - `.lazy-harness/scripts/record-map.ts` — read-only CLI under test for cue-only drill-down candidates.
   - `.lazy-harness/scripts/record-audit.ts` — SCR-501 advisory quality counts for historical record metadata.
 - Key symbols:
   - `check_record_index_generator_phase3` — validates schema title, deterministic output, aliases/surface terms, implementation hints, graph ids, projectProfile feature ids, generated cache write, and old context-index command/source/schema absence.
+  - `check_record_index_generator_phase3` — also validates `lazy map` output mode, feature alias match, record/source/test/graph drill-down candidates, and absence of semantic-authority field names.
   - `check_record_audit_cli` — validates `recordQuality.advisoryOnly`, inspected/complete counts, all four SCR-501 warning counts, sample path retention, and human-readable warning summaries.
 - Flow:
   1. SDD defines header field/consumer contract.
   2. TDD records fixture expectations before parser/cache implementation.
   3. SCR-401 decided canonical name/scope: `record-index`, listing/cache only.
-  4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator and old command absence.
+  4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator, `lazy map`, and old command absence.
   5. SCR-501 Option A implements advisory `recordQuality` counts and complete/missing historical self-test fixtures.
 - Protection today:
-  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, old context-index command/source/schema absence, and record-audit recordQuality advisories.
+  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, `lazy map` cue-only drill-down output, old context-index command/source/schema absence, and record-audit recordQuality advisories.
   - recordQuality advisories are counts/samples only and do not make historical records invalid.
   - this record prevents semantic-authority drift in future parser/cache/audit changes.
 - Cross-layer links:
@@ -179,7 +194,7 @@ Existing related guard:
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`, `kg_record_audit_record_quality`, `kg_record_audit_record_quality_self_test`
+  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`, `kg_record_index_map_self_test`, `kg_record_audit_record_quality`, `kg_record_audit_record_quality_self_test`
   - generated cache key: `.lazy-harness/generated/record-index.json`
 
 ## Layer completeness impact
@@ -187,7 +202,7 @@ Existing related guard:
 - DDD: covered by `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md` and scenario mapping above.
 - SDD: covered by `.lazy-harness/spec/platform/record-index-header.md`.
-- TDD: this record defines fixtures and points to executable self-test coverage, including SCR-501 complete/missing historical cases.
+- TDD: this record defines fixtures and points to executable self-test coverage, including `lazy map` drill-down and SCR-501 complete/missing historical cases.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed as sufficient for SCR-303/304.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records canonical `record-index` naming.
 - Planning: task statuses updated through SCR-501 completion.

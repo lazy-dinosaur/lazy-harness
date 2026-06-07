@@ -4430,10 +4430,13 @@ def check_record_index_generator_phase3() -> None:
     """Phase 3 record-index generator should produce deterministic derived cache output."""
     schema_path = LAZY / "schemas" / "record-index.schema.json"
     script_path = LAZY / "scripts" / "record-index.ts"
+    map_script_path = LAZY / "scripts" / "record-map.ts"
     if not schema_path.exists():
         fail("Record index schema missing: " + str(schema_path))
     if not script_path.exists():
         fail("Record index generator missing: " + str(script_path))
+    if not map_script_path.exists():
+        fail("Record map CLI missing: " + str(map_script_path))
     old_schema = LAZY / "schemas" / ("context" + "-index.schema.json")
     old_script = LAZY / "scripts" / ("context" + "-index.ts")
     if old_schema.exists() or old_script.exists():
@@ -4441,6 +4444,8 @@ def check_record_index_generator_phase3() -> None:
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "context" + "-index" in help_text:
         fail("lazy help must not advertise old context-index command after Option A")
+    if "map <term-or-file>" not in help_text:
+        fail("lazy help must advertise map drill-down command")
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     if schema.get("title") != "RecordIndex":
@@ -4555,6 +4560,49 @@ def check_record_index_generator_phase3() -> None:
         if index.get("projectProfile", {}).get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
             fail("record-index missing feature navigation path")
 
+        map_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if map_cmd.returncode != 0:
+            fail("lazy map command failed:\n" + map_cmd.stdout + map_cmd.stderr)
+        record_map = json.loads(map_cmd.stdout)
+        if record_map.get("mode") != "record-map.inspect":
+            fail("lazy map output missing inspect mode")
+        if record_map.get("source", {}).get("method") != "record-map-v1":
+            fail("lazy map output missing method")
+        if not record_map.get("features") or record_map["features"][0].get("id") != "example-feature":
+            fail("lazy map should match feature navigation aliases")
+        drilldown = record_map.get("drilldown", {})
+        if ".lazy-harness/behavior/feature-surface.md" not in drilldown.get("recordPaths", []):
+            fail("lazy map drilldown missing record path")
+        if "src/features/example-feature/FeaturePanel.tsx" not in drilldown.get("sourceFiles", []):
+            fail("lazy map drilldown missing source file")
+        if "tests/example-feature/feature-panel.test.tsx" not in drilldown.get("testFiles", []):
+            fail("lazy map drilldown missing test file")
+        if "kg_feature_surface_behavior_impl" not in drilldown.get("graphIds", []):
+            fail("lazy map drilldown missing graph id")
+        notes_text = "\n".join(str(note) for note in record_map.get("notes", []))
+        if "Cues only" not in notes_text or "read real record" not in notes_text:
+            fail("lazy map notes must state cue-only/read-real-evidence behavior")
+        forbidden_map_fields = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+        def assert_no_forbidden_map_fields(value: object, where: str = "$") -> None:
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if key in forbidden_map_fields:
+                        fail("lazy map must not emit semantic-authority field: " + where + "." + key)
+                    assert_no_forbidden_map_fields(child, where + "." + str(key))
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    assert_no_forbidden_map_fields(child, where + f"[{index}]")
+
+        assert_no_forbidden_map_fields(record_map)
+
         written = run_index("--write", "--output", str(temp / ".lazy-harness" / "generated" / "record-index.json"), "--format=md")
         if written.returncode != 0 or "Record index" not in written.stdout:
             fail("record-index --write markdown output failed:\n" + written.stdout + written.stderr)
@@ -4602,10 +4650,12 @@ def check_source_feature_navigation_phase3() -> None:
             },
         },
         "record-source-indexing": {
-            "aliases": {"record index", "feature-navigation.xml"},
+            "aliases": {"record index", "record map", "feature-navigation.xml"},
             "paths": {
                 ".lazy-harness/spec/platform/project-profile.md",
                 ".lazy-harness/scripts/record-index.ts",
+                ".lazy-harness/scripts/record-map.ts",
+                ".lazy-harness/bin/lazy",
                 ".lazy-harness/schemas/record-index.schema.json",
             },
         },

@@ -86,14 +86,17 @@
     <aliases>
       <alias lang="en">record index</alias>
       <alias lang="en">record index</alias>
+      <alias lang="en">record map</alias>
       <alias lang="en">feature-navigation.xml</alias>
       <alias lang="ko">검색 가능한 레코드</alias>
     </aliases>
     <routes>
       <route>lazy record-index</route>
+      <route>lazy map</route>
     </routes>
     <components>
       <component>Record Index cache</component>
+      <component>Record Map drill-down CLI</component>
       <component>Project Profile feature navigation</component>
       <component>Search/read debt runtime journal</component>
     </components>
@@ -104,6 +107,8 @@
     </records>
     <sourceFiles>
       <path>.lazy-harness/scripts/record-index.ts</path>
+      <path>.lazy-harness/scripts/record-map.ts</path>
+      <path>.lazy-harness/bin/lazy</path>
       <path>.lazy-harness/schemas/record-index.schema.json</path>
       <path>.lazy-harness/schemas/context-tier-manifest.schema.json</path>
       <path>.lazy-harness/fixtures/context-tier/context-tier-manifest.sample.json</path>

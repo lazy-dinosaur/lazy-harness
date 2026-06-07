@@ -15,10 +15,12 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Scope: framework-global
 - Applies when:
   - an agent/searcher uses searchable record memory before answering, planning, or editing
+  - an agent/searcher runs `lazy map <term-or-file>` to find candidate records/source/tests
   - `## Index header` or other metadata suggests records/source/tests
   - retrieved metadata conflicts, is incomplete, or could be mistaken for semantic authority
 - Must:
   - use metadata as a starting cue only
+  - treat `lazy map` output as drill-down candidates, not evidence that anything was read
   - read the real record body/Rule digest/Implementation map before relying on a record
   - inspect source/tests when a plan or mutation depends on implementation facts
   - ask a 3-5 option gate when meanings/layers still conflict after evidence reads
@@ -40,6 +42,14 @@ When the agent uses the metadata to choose where to start
 Then the agent reads the actual record body and Rule digest
 And reads implementation maps/source/tests when implementation facts matter
 And only then answers, plans, or edits.
+
+### Scenario 1a — Record Map narrows the first pass only
+
+Given a user request touches a host detail
+When the agent runs `lazy map <term-or-file>`
+Then the output may suggest feature, record, graph, source, and test candidates
+But those candidates are cue-only
+And the agent must still read the actual record body, Implementation map, source, and tests before answering or mutating.
 
 ### Scenario 2 — Conflicting meanings require option gate
 
@@ -77,23 +87,24 @@ And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not 
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — this BDD behavior record.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD terms used by the scenarios.
+  - `.lazy-harness/scripts/record-map.ts` — read-only `lazy map` implementation that lists cue-only candidates.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — injects static search/read debt reminder.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — guards mutation until evidence exists.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — schedules the layer package.
 - Key symbols:
-  - none in this record; behavior is protected by future fixtures plus existing lifecycle helpers.
+  - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — emits candidate records/source/tests/graph ids without semantic-authority fields.
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
-  2. Metadata may suggest candidate records or files.
+  2. `lazy map` or metadata may suggest candidate records or files.
   3. Agent reads canonical evidence and resolves or gates ambiguity.
   4. Confirmed missing knowledge is persisted into records.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
-  - Future `.lazy-harness/tests/record-index-header.md` — should include scenarios above.
+  - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`

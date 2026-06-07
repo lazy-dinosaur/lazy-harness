@@ -36,6 +36,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | Searchable Record Memory | The durable `.lazy-harness` record system made easier for an LLM/searcher to rediscover through stable terms, implementation maps, graph links, and optional deterministic caches. | A RAG service, classifier, or lifecycle query backend. |
 | Record-authored metadata | Metadata written inside canonical records, such as aliases, surface terms, source/test hints, graph ids, and future `## Index header` fields. | Generated judgement about the current user request. |
 | Record Index Header | A planned record section that stores compact record-authored metadata for searchability. | A command, ranking system, or required-read selector. |
+| Record Map | A read-only CLI overview (`lazy map <term-or-file>`) that surfaces record/feature/graph cues and drill-down file candidates from record-authored metadata. | Proof that evidence was read, a semantic query engine, ranking authority, or a lifecycle classifier. |
 | LLM-owned retrieval | The process where the LLM/searcher performs root-bound search/read, inspects records/source/tests, then decides relevance and ambiguity. | Code-owned candidate selection from raw user text. |
 | Semantic authority | The authority to decide intent, meaning, priority, required reads, risk, gate, or next action. In this framework, that authority belongs to the LLM/searcher plus canonical evidence, not deterministic helper code. | Deterministic parsing, validation, cache generation, or evidence bookkeeping. |
 | Deterministic cache | A rebuildable cache derived from already-authored records/source/graph data. | Canonical memory or proof of read evidence. |
@@ -51,21 +52,24 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/domain/searchable-record-memory.md` — defines the domain terms and invariants for searchable record memory.
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — records the expected agent/searcher behavior that uses these terms.
+  - `.lazy-harness/scripts/record-map.ts` — read-only Record Map implementation that emits cue-only overview and drill-down candidates.
+  - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index` commands.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — schedules DDD/BDD/SDD/TDD layer package tasks.
   - `.lazy-harness/prd/searchable-record-context-retrieval-prd.md` — product requirements for searchable record memory.
 - Key symbols:
-  - none; this is terminology/behavior planning, not implementation code.
+  - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — builds cue-only feature/record/graph overview from canonical records and graph rows.
+  - `buildRecordIndex` (`.lazy-harness/scripts/record-index.ts`) — supplies deterministic record-authored metadata cache used by Record Map.
 - Flow:
   1. DDD defines what “searchable record memory” and “semantic authority” mean.
   2. BDD describes how agents behave when metadata exists or conflicts.
-  3. SDD/TDD will define and protect `## Index header` structure.
-  4. Only after the layer package is accepted may deterministic cache/parser work be considered.
+  3. `lazy map` lists candidate records/source/tests/graph ids as navigation cues only.
+  4. The agent reads actual records/source/tests and option-gates unresolved ambiguity.
 - Tests / protection:
-  - Future `.lazy-harness/tests/record-index-header.md` will protect the no-semantic-query invariant.
+  - `.lazy-harness/tests/record-index-header.md` protects the no-semantic-query invariant and map drill-down output.
   - Existing `.lazy-harness/scripts/self-test.py` protects deleted helper absence and static search/read debt.
 - Cross-layer links:
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -74,6 +78,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
+  - SDD: `.lazy-harness/spec/platform/record-index-header.md`
 - Machine index:
   - graph ids: `kg_searchable_record_memory_defines_domain`, `kg_llm_owned_retrieval_behaves_from_domain`
   - generated index key: pending until index generator exists

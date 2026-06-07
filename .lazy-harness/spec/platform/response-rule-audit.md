@@ -138,7 +138,10 @@ Current row shape is intentionally generic. It may include empty `requiredRead` 
   "event": "context-delivery.packet",
   "instructionLevel": "harness-first-static",
   "requiredRead": [],
-  "fallbackSearches": ["grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/"]
+  "fallbackSearches": [
+    ".lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8",
+    "grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/"
+  ]
 }
 ```
 

@@ -134,7 +134,7 @@ Implementation constraints:
 
 ## Implementation map
 
-- Status: `contract plus SCR-402 record-index cache migration`
+- Status: `contract plus SCR-402 record-index cache and Record Map migration`
 - Primary files:
   - `.lazy-harness/spec/platform/record-index-header.md` — this SDD field/consumer contract.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD terms and invariants.
@@ -143,18 +143,23 @@ Implementation constraints:
   - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical no semantic CLI authority boundary and SCR-401 decision.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — ADR for canonical `record-index` naming.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305/401/402 status.
+  - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview that uses record-index output plus graph rows as cue-only drill-down candidates.
+  - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index`.
 - Key symbols:
   - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator.
+  - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — returns feature/record/graph matches and drill-down record/source/test candidates.
   - `RecordIndex` — generated cache TypeScript interface.
   - `.lazy-harness/bin/lazy record-index` — canonical CLI command.
+  - `.lazy-harness/bin/lazy map` — cue-only overview command; not a raw-message semantic query interface.
 - Flow:
   1. Record author writes canonical metadata in `## Index header`.
   2. Agent/searcher may use metadata as a starting cue.
   3. Agent/searcher reads real record/source/test evidence.
   4. Deterministic `record-index` cache lists metadata only and remains non-canonical.
+  5. `lazy map` fuses record-index, feature navigation, and graph rows into drill-down candidates only.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map` drill-down output, old command absence, deleted helper absence, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -162,7 +167,7 @@ Implementation constraints:
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_record_index_header_contract_defines_fields`, `kg_record_index_header_tdd_protects_contract`, `kg_record_index_phase3_lazy_cli`, `kg_record_index_phase3_self_test`
+  - graph ids: `kg_record_index_header_contract_defines_fields`, `kg_record_index_header_tdd_protects_contract`, `kg_record_index_phase3_lazy_cli`, `kg_record_index_map_cli`, `kg_record_index_map_self_test`, `kg_record_index_phase3_self_test`
   - generated cache key: `.lazy-harness/generated/record-index.json`
 
 ## Layer completeness impact
@@ -170,7 +175,7 @@ Implementation constraints:
 - DDD: already updated in `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: already updated in `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: this record defines the contract.
-- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation checks.
+- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation plus `lazy map` drill-down checks.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` records SCR-402 record-index-only boundary.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.
 - Planning: tasks and implementation plan updated for SCR-402 completion.

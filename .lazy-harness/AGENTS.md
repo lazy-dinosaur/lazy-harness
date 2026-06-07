@@ -36,10 +36,12 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 요청 받자마자 검색 (필수)
 
-발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 의 디테일·이름·경로·동작·룰이 등장하면 즉시:
+발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 의 디테일·이름·경로·동작·룰이 등장하면 즉시 `lazy map` 으로 record/feature/graph 후보를 펼친다.
+결과는 cue-only/read proof 아님. 빈 결과 / 애매함 / 누락이면 grep fallback, 후보 record 의 Rule digest / 본문 / Implementation map 과 관련 source/tests 를 반드시 읽는다.
 
 ```bash
-grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/
+.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8
+grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/
 ```
 
 **Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.
@@ -48,7 +50,6 @@ record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs
 `.lazy-harness/<layer>/...` 에 새 record 를 만들고 Implementation map 으로 연결한다. 기록/계획/하려던 일은 `session_search` 보다 `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,knowledge}/` 를 먼저 찾고, 세션 대화는 fallback/보조 증거로만 쓴다.
 Jcode 전용 로컬/개인 실행 메모만 `.jcode/harness/20-project-rules.md` 에 둔다. 프로젝트별 확장/커스텀 규칙 본문은 `.lazy-harness` record 에 두고 `.jcode` 는 pointer-only 로 유지한다.
 Jcode `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. 그런 규칙은 `.lazy-harness` record 로 수렴하고 잘못 저장한 memory 는 삭제한다.
-
 또는 N2 resolver 활용: `bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask`
 
 ### 2.2 발견된 record 끝까지 Read
