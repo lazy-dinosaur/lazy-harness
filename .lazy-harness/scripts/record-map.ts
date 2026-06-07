@@ -7,9 +7,9 @@
  * navigation cues only. It must not decide intent, confidence, required reads,
  * risk, gates, or next actions.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { buildRecordIndex, type FeatureEntry, type RecordEntry } from './record-index.ts'
+import { buildRecordIndex, type FeatureEntry, type RecordEntry, type RecordIndex } from './record-index.ts'
 
 type OutputFormat = 'json' | 'md'
 
@@ -19,6 +19,13 @@ interface Args {
   format: OutputFormat
   limit: number
   overview: boolean
+  fresh: boolean
+}
+
+interface CacheInfo {
+  path: string
+  used: boolean
+  reason: string
 }
 
 interface MatchDetail {
@@ -86,6 +93,7 @@ interface RecordMapResult {
     method: 'record-map-v1'
     tool: '.lazy-harness/scripts/record-map.ts'
     recordIndexMethod: 'record-index-v1'
+    recordIndexCache: CacheInfo
   }
   counts: {
     features: number
@@ -113,6 +121,7 @@ interface RecordMapOverview {
     method: 'record-map-v1'
     tool: '.lazy-harness/scripts/record-map.ts'
     recordIndexMethod: 'record-index-v1'
+    recordIndexCache: CacheInfo
   }
   notes: string[]
   inventory: {
@@ -161,9 +170,21 @@ const LAYER_DIRS = [
   '.lazy-harness/project/',
 ]
 
+const RECORD_INDEX_INPUTS = [
+  '.lazy-harness/domain',
+  '.lazy-harness/spec',
+  '.lazy-harness/behavior',
+  '.lazy-harness/tests',
+  '.lazy-harness/decisions',
+  '.lazy-harness/ssot',
+  '.lazy-harness/planning',
+  '.lazy-harness/project/feature-navigation.xml',
+  '.lazy-harness/knowledge/graph.jsonl',
+]
+
 function usage(exitCode = 2): never {
   const out = exitCode === 0 ? console.log : console.error
-  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N]\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only overview/drill-down helper. Start with --overview to see the whole record/feature/graph structure before choosing search terms. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
+  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N] [--fresh]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only overview/drill-down helper. Start with --overview to see the whole record/feature/graph structure before choosing search terms. Uses fresh generated record-index cache when available; --fresh forces source rebuild. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
   process.exit(exitCode)
 }
 
@@ -174,6 +195,7 @@ function parseArgs(argv: string[]): Args {
     format: 'md',
     limit: 8,
     overview: false,
+    fresh: false,
   }
   const queryParts: string[] = []
   for (let i = 0; i < argv.length; i += 1) {
@@ -181,6 +203,7 @@ function parseArgs(argv: string[]): Args {
     const next = argv[i + 1]
     if (arg === '--help' || arg === '-h') usage(0)
     else if (arg === '--overview') args.overview = true
+    else if (arg === '--fresh' || arg === '--no-cache') args.fresh = true
     else if ((arg === '--root' || arg === '--host') && next) { args.root = next; i += 1 }
     else if (arg.startsWith('--root=')) args.root = arg.slice('--root='.length)
     else if (arg.startsWith('--host=')) args.root = arg.slice('--host='.length)
@@ -211,6 +234,62 @@ function normalizeLimit(value: string): number {
   const n = Number(value)
   if (!Number.isInteger(n) || n < 1 || n > 100) throw new Error(`Unsupported --limit: ${value}`)
   return n
+}
+
+function newestMtimeMs(targetPath: string): number {
+  if (!existsSync(targetPath)) return 0
+  let stat
+  try { stat = statSync(targetPath) } catch { return 0 }
+  if (!stat.isDirectory()) return stat.mtimeMs
+  let newest = stat.mtimeMs
+  let entries
+  try { entries = readdirSync(targetPath, { withFileTypes: true }) } catch { return newest }
+  for (const entry of entries) {
+    const full = path.join(targetPath, entry.name)
+    if (entry.isDirectory()) newest = Math.max(newest, newestMtimeMs(full))
+    else if (entry.isFile()) {
+      try { newest = Math.max(newest, statSync(full).mtimeMs) } catch { /* ignore unreadable files */ }
+    }
+  }
+  return newest
+}
+
+function newestCanonicalInputMtimeMs(root: string): number {
+  return Math.max(0, ...RECORD_INDEX_INPUTS.map((input) => newestMtimeMs(path.join(root, input))))
+}
+
+function validateRecordIndex(value: unknown): value is RecordIndex {
+  if (!value || typeof value !== 'object') return false
+  const index = value as Partial<RecordIndex>
+  return index.schemaVersion === '1.0'
+    && index.source?.method === 'record-index-v1'
+    && Array.isArray(index.records)
+    && Array.isArray(index.projectProfile?.features)
+}
+
+function loadRecordIndex(root: string, fresh = false): { index: RecordIndex; cache: CacheInfo } {
+  const cachePath = path.join(root, '.lazy-harness', 'generated', 'record-index.json')
+  const relCachePath = '.lazy-harness/generated/record-index.json'
+  if (fresh) {
+    return { index: buildRecordIndex(root), cache: { path: relCachePath, used: false, reason: '--fresh requested source rebuild' } }
+  }
+  if (!existsSync(cachePath)) {
+    return { index: buildRecordIndex(root), cache: { path: relCachePath, used: false, reason: 'cache missing; source rebuilt' } }
+  }
+  const cacheMtime = newestMtimeMs(cachePath)
+  const newestInputMtime = newestCanonicalInputMtimeMs(root)
+  if (cacheMtime < newestInputMtime) {
+    return { index: buildRecordIndex(root), cache: { path: relCachePath, used: false, reason: 'cache older than canonical inputs; source rebuilt' } }
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(cachePath, 'utf8'))
+    if (!validateRecordIndex(parsed)) {
+      return { index: buildRecordIndex(root), cache: { path: relCachePath, used: false, reason: 'cache schema invalid; source rebuilt' } }
+    }
+    return { index: parsed, cache: { path: relCachePath, used: true, reason: 'fresh generated cache' } }
+  } catch {
+    return { index: buildRecordIndex(root), cache: { path: relCachePath, used: false, reason: 'cache unreadable; source rebuilt' } }
+  }
 }
 
 function uniq(values: Array<string | undefined | null>): string[] {
@@ -410,8 +489,8 @@ function buildDrilldown(features: FeatureMatch[], records: RecordMatch[], graphR
   }
 }
 
-export function buildRecordMap(root: string, query: string, limit = 8): RecordMapResult {
-  const index = buildRecordIndex(root)
+export function buildRecordMap(root: string, query: string, limit = 8, fresh = false): RecordMapResult {
+  const { index, cache } = loadRecordIndex(root, fresh)
   const features = sortMatches(index.projectProfile.features.map((feature) => featureMatch(query, feature)).filter((value): value is FeatureMatch => Boolean(value)), (item) => item.id).slice(0, limit)
   const records = sortMatches(index.records.map((record) => recordMatch(query, record)).filter((value): value is RecordMatch => Boolean(value)), (item) => item.recordPath).slice(0, limit)
   const graph = sortMatches(graphRows(root).map((row) => graphMatch(query, row)).filter((value): value is GraphMatch => Boolean(value)), (item) => item.id || item.path || '').slice(0, limit)
@@ -424,6 +503,7 @@ export function buildRecordMap(root: string, query: string, limit = 8): RecordMa
       method: 'record-map-v1',
       tool: '.lazy-harness/scripts/record-map.ts',
       recordIndexMethod: index.source.method,
+      recordIndexCache: cache,
     },
     counts: { features: features.length, records: records.length, graphRows: graph.length },
     notes: [
@@ -437,8 +517,8 @@ export function buildRecordMap(root: string, query: string, limit = 8): RecordMa
   }
 }
 
-export function buildRecordMapOverview(root: string, limit = 20): RecordMapOverview {
-  const index = buildRecordIndex(root)
+export function buildRecordMapOverview(root: string, limit = 20, fresh = false): RecordMapOverview {
+  const { index, cache } = loadRecordIndex(root, fresh)
   const graphSourceRows = graphRows(root)
   const graphMatches = graphSourceRows.map((row) => ({
     id: String(row.id || ''),
@@ -501,6 +581,7 @@ export function buildRecordMapOverview(root: string, limit = 20): RecordMapOverv
       method: 'record-map-v1',
       tool: '.lazy-harness/scripts/record-map.ts',
       recordIndexMethod: index.source.method,
+      recordIndexCache: cache,
     },
     notes: [
       'Overview first: inspect this whole structure before choosing search terms.',
@@ -545,6 +626,7 @@ function renderMarkdown(result: RecordMapResult): string {
   lines.push(`- features: ${result.counts.features}`)
   lines.push(`- records: ${result.counts.records}`)
   lines.push(`- graph rows: ${result.counts.graphRows}`)
+  lines.push(`- record-index cache: ${result.source.recordIndexCache.used ? 'used' : 'rebuilt'} (${result.source.recordIndexCache.reason})`)
   lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
   lines.push('')
   lines.push('## Features')
@@ -596,6 +678,7 @@ function renderOverviewMarkdown(result: RecordMapOverview): string {
   lines.push(`- records: ${result.inventory.totalRecords}`)
   lines.push(`- features: ${result.inventory.totalFeatures}`)
   lines.push(`- graph rows: ${result.inventory.totalGraphRows}`)
+  lines.push(`- record-index cache: ${result.source.recordIndexCache.used ? 'used' : 'rebuilt'} (${result.source.recordIndexCache.reason})`)
   lines.push(`- generated indexes: record-index=${result.inventory.generatedIndexes.recordIndex ? 'present' : 'missing'}, implementation-index=${result.inventory.generatedIndexes.implementationIndex ? 'present' : 'missing'}, reference-index=${result.inventory.generatedIndexes.referenceIndex ? 'present' : 'missing'}`)
   lines.push('- first step: use this overview to choose multiple candidate tokens/files/layers, then repeat the exact query CLI below until dispersed records/source/tests are covered.')
   lines.push("- repeat query CLI: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`")
@@ -632,11 +715,11 @@ function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
     if (args.overview) {
-      const result = buildRecordMapOverview(args.root, args.limit)
+      const result = buildRecordMapOverview(args.root, args.limit, args.fresh)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else process.stdout.write(renderOverviewMarkdown(result))
     } else {
-      const result = buildRecordMap(args.root, args.query, args.limit)
+      const result = buildRecordMap(args.root, args.query, args.limit, args.fresh)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else process.stdout.write(renderMarkdown(result))
     }

@@ -66,10 +66,10 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
-  map --overview [--format=json|md] [--limit=N]
+  map --overview [--format=json|md] [--limit=N] [--fresh]
                                 Show whole record/feature/graph structure before choosing search terms
-  map <term-or-file> [--format=json|md] [--limit=N]
-                                Show matching record/feature/graph drill-down file candidates
+  map <term-or-file> [--format=json|md] [--limit=N] [--fresh]
+                                Show matching record/feature/graph drill-down file candidates; uses fresh generated cache when available
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]

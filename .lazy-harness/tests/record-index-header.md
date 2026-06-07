@@ -41,6 +41,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
 | `record_index_map_overview_first` | BDD Scenario 1a | `lazy map --overview` against records, feature navigation, and graph rows | Output includes whole record/layer/feature/graph structure before search-term selection and no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <term-or-file>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
+| `record_index_map_cache_fast_path` | Query speed / cache policy | `lazy map <term-or-file>` after `lazy record-index --write` | Output reports `recordIndexCache.used=true`; `--fresh` reports cache bypass and rebuild | implemented via `check_record_index_generator_phase3` |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
 | `record_index_header_conflict_option_gate` | BDD Scenario 2 | Two records share plausible aliases/surface terms | Agent must option-gate after evidence remains ambiguous; no automatic ranking | planned |
@@ -58,6 +59,7 @@ These names are reserved for the implementation phase. They must not be marked c
 - `check_record_index_header_no_raw_message_query`
 - `check_record_index_map_overview_first`
 - `check_record_index_map_drilldown_cue_only`
+- `check_record_index_map_cache_fast_path`
 - `check_record_index_header_canonical_record_index_name`
 - `check_record_index_header_cache_hit_not_evidence`
 - `check_record_index_header_conflict_requires_option_gate`

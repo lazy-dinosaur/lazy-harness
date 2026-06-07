@@ -45,7 +45,7 @@ Regenerate with:
 .lazy-harness/bin/lazy record-index --write --format=md
 ```
 
-The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. The source repository ignores `.lazy-harness/generated/record-index.json` by default to keep commits focused on canonical records and generator code.
+The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. `lazy map` uses this cache only when it is fresher than canonical record inputs; pass `--fresh` to force a source rebuild. The source repository ignores `.lazy-harness/generated/record-index.json` by default to keep commits focused on canonical records and generator code.
 
 ## Status
 

@@ -143,10 +143,11 @@ Implementation constraints:
   - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical no semantic CLI authority boundary and SCR-401 decision.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — ADR for canonical `record-index` naming.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305/401/402 status.
-  - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview/drill-down helper that shows whole structure before search-term selection and then uses record-index output plus graph rows as cue-only drill-down candidates.
+  - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview/drill-down helper that shows whole structure before search-term selection and then uses fresh generated `record-index.json` cache plus graph rows as cue-only drill-down candidates, falling back to source rebuild when cache is missing/stale/invalid or `--fresh` is passed.
   - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index`.
 - Key symbols:
   - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator.
+  - `loadRecordIndex` (`.lazy-harness/scripts/record-map.ts`) — loads fresh generated cache when possible and rebuilds from canonical records when cache is missing/stale/invalid or `--fresh` is passed.
   - `buildRecordMapOverview` (`.lazy-harness/scripts/record-map.ts`) — returns whole record/feature/graph structure for search-term selection.
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — returns feature/record/graph matches and drill-down record/source/test candidates.
   - `RecordIndex` — generated cache TypeScript interface.
@@ -157,11 +158,12 @@ Implementation constraints:
   2. Agent/searcher may use metadata as a starting cue.
   3. Agent/searcher reads real record/source/test evidence.
   4. Deterministic `record-index` cache lists metadata only and remains non-canonical.
-  5. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
-  6. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers narrow that structure into dispersed drill-down candidates only.
+  5. `lazy map` uses fresh generated `record-index.json` for repeated query speed, or rebuilds from source if the cache is absent/stale/invalid.
+  6. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
+  7. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers narrow that structure into dispersed drill-down candidates only.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map --overview`, repeated `lazy map` drill-down output guidance, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map --overview`, repeated `lazy map` drill-down output guidance, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`

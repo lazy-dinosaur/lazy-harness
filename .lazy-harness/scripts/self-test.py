@@ -4577,6 +4577,9 @@ def check_record_index_generator_phase3() -> None:
             fail("lazy map output missing inspect mode")
         if record_map.get("source", {}).get("method") != "record-map-v1":
             fail("lazy map output missing method")
+        initial_cache = record_map.get("source", {}).get("recordIndexCache", {})
+        if initial_cache.get("used") is not False or "missing" not in str(initial_cache.get("reason", "")):
+            fail("lazy map should rebuild when generated record-index cache is missing in fixture")
         if not record_map.get("features") or record_map["features"][0].get("id") != "example-feature":
             fail("lazy map should match feature navigation aliases")
         drilldown = record_map.get("drilldown", {})
@@ -4637,6 +4640,34 @@ def check_record_index_generator_phase3() -> None:
             fail("record-index --write markdown output failed:\n" + written.stdout + written.stderr)
         if not (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
             fail("record-index --write did not create generated cache")
+        cached_map_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if cached_map_cmd.returncode != 0:
+            fail("lazy map cached command failed:\n" + cached_map_cmd.stdout + cached_map_cmd.stderr)
+        cached_map = json.loads(cached_map_cmd.stdout)
+        cached_info = cached_map.get("source", {}).get("recordIndexCache", {})
+        if cached_info.get("used") is not True or cached_info.get("reason") != "fresh generated cache":
+            fail("lazy map should use fresh generated record-index cache after record-index --write")
+        fresh_map_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json", "--fresh"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if fresh_map_cmd.returncode != 0:
+            fail("lazy map --fresh command failed:\n" + fresh_map_cmd.stdout + fresh_map_cmd.stderr)
+        fresh_map = json.loads(fresh_map_cmd.stdout)
+        fresh_info = fresh_map.get("source", {}).get("recordIndexCache", {})
+        if fresh_info.get("used") is not False or "--fresh" not in str(fresh_info.get("reason", "")):
+            fail("lazy map --fresh should bypass generated record-index cache")
         old_cmd = subprocess.run(
             [str(LAZY / "bin" / "lazy"), "context" + "-index", "--help"],
             cwd=ROOT,
