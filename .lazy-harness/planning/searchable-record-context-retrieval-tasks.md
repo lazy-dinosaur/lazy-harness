@@ -259,22 +259,24 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - `.lazy-harness/bin/lazy record-index --format=json` smoke output method is `record-index-v1`.
   - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation and old command absence.
 
-### SCR-403 — Record Map drill-down CLI
+### SCR-403 — Record Map overview/drill-down CLI
 
 - Status: done
 - Type: source/test/record update
 - Decision:
-  - Add `lazy map <term-or-file>` as a read-only overview helper over record-index, feature navigation, and graph rows.
+  - Add `lazy map --overview` as the mandatory whole-structure first pass before token search.
+  - Add `lazy map <term-or-file>` as a read-only drill-down helper over record-index, feature navigation, and graph rows.
   - Output remains cue-only and cannot satisfy search/read debt by itself.
 - Result:
-  - CLI command: `.lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]`
+  - CLI commands: `.lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N]`, then `.lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]`
   - Source: `.lazy-harness/scripts/record-map.ts`
-  - AGENTS search routine is map-first, then grep fallback when empty/ambiguous/incomplete.
+  - AGENTS/search reminder routine is overview-first, then token map, then grep fallback when empty/ambiguous/incomplete.
   - DDD/BDD/SDD/TDD/SSOT records updated for Record Map terminology, behavior, contract, fixture, and boundary.
 - Acceptance:
-  - output includes feature/record/graph matches plus `drilldown.recordPaths`, `sourceFiles`, `testFiles`, and `graphIds`
+  - overview output includes record/layer/feature/graph structure before search-term selection
+  - token output includes feature/record/graph matches plus `drilldown.recordPaths`, `sourceFiles`, `testFiles`, and `graphIds`
   - no requiredRead/confidence/intent/risk/gate/nextAction/candidateMeanings output
-  - self-test covers fixture output and help dispatch
+  - self-test covers overview output, token fixture output, exact reminder CLI, and help dispatch
 - Validation:
   - `.lazy-harness/bin/lazy map record-index --format=md --limit=3` smoke passed.
   - `python3 .lazy-harness/scripts/self-test.py` protects `lazy map` via `check_record_index_generator_phase3`.

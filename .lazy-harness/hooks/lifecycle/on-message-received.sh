@@ -187,6 +187,8 @@ body = '\n'.join([
     '- Before answer/plan/edit: inspect real `.lazy-harness` records/source/tests in this host root; stay read-only until debt is satisfied.',
     f'- Search scope: `{search_hint}`',
     *harness_inventory_lines(),
+    "- Mandatory overview first: `.lazy-harness/bin/lazy map --overview --format=md --limit=20` to see the whole record/feature/graph structure before choosing search terms.",
+    "- Then query map: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`; fallback only if empty/ambiguous/incomplete: `grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/`.",
     '- Protocol: choose real candidate records from inventory → read Rule digest/full body/Implementation map/graph links → inspect source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
     '- Missing record: search current host code/docs/package/config; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until root-bound harness-following search/read evidence exists.',

@@ -39,6 +39,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_missing` | BDD Scenario 5 | Historical record missing `## Index header` | `record-audit.recordQuality.counts["missing-index-header"]` and sample path report advisory warning only; no hard block | implemented via `check_record_audit_cli` |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
+| `record_index_map_overview_first` | BDD Scenario 1a | `lazy map --overview` against records, feature navigation, and graph rows | Output includes whole record/layer/feature/graph structure before search-term selection and no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <term-or-file>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
@@ -55,6 +56,7 @@ These names are reserved for the implementation phase. They must not be marked c
 - `check_record_index_header_missing_is_advisory`
 - `check_record_index_header_legacy_rule_digest_fallback`
 - `check_record_index_header_no_raw_message_query`
+- `check_record_index_map_overview_first`
 - `check_record_index_map_drilldown_cue_only`
 - `check_record_index_header_canonical_record_index_name`
 - `check_record_index_header_cache_hit_not_evidence`
@@ -126,6 +128,17 @@ Expected forbidden patterns:
 - `--query-user-message`
 - lifecycle `message.received` invoking the cache/listing command as semantic query
 - output fields named `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, `candidateMeanings`
+
+### Record Map overview-first fixture
+
+Given `lazy map --overview` runs against a host with records, feature navigation, and graph rows:
+
+Expected:
+
+- output mode is `record-map.overview`
+- output includes whole structure: record/layer counts, feature navigation entries, graph relation counts, and generated-index presence
+- output says to inspect the overview before choosing search terms
+- output does not include field names `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
 
 ### Record Map drill-down fixture
 

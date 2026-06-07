@@ -18,6 +18,7 @@ interface Args {
   query: string
   format: OutputFormat
   limit: number
+  overview: boolean
 }
 
 interface MatchDetail {
@@ -98,6 +99,45 @@ interface RecordMapResult {
   drilldown: Drilldown
 }
 
+interface OverviewLayer {
+  layer: string
+  count: number
+  records: Array<{ recordPath: string; title: string; status: string }>
+}
+
+interface RecordMapOverview {
+  schemaVersion: '1.0'
+  mode: 'record-map.overview'
+  root: string
+  source: {
+    method: 'record-map-v1'
+    tool: '.lazy-harness/scripts/record-map.ts'
+    recordIndexMethod: 'record-index-v1'
+  }
+  notes: string[]
+  inventory: {
+    totalRecords: number
+    totalFeatures: number
+    totalGraphRows: number
+    layers: OverviewLayer[]
+    generatedIndexes: Record<string, boolean>
+  }
+  features: Array<{
+    id: string
+    label: string
+    status: string
+    aliases: string[]
+    routes: string[]
+    components: string[]
+    records: string[]
+  }>
+  graph: {
+    relations: Array<{ relation: string; count: number }>
+    sampleRows: GraphMatch[]
+  }
+  drilldown: Drilldown
+}
+
 interface GraphRow {
   id?: string
   relation?: string
@@ -123,7 +163,7 @@ const LAYER_DIRS = [
 
 function usage(exitCode = 2): never {
   const out = exitCode === 0 ? console.log : console.error
-  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]\n  bun .lazy-harness/scripts/record-map.ts --root . ActionBoard --format=md\n\nRead-only overview helper. It lists matching feature/record/graph cues and drill-down file candidates. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
+  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N]\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only overview/drill-down helper. Start with --overview to see the whole record/feature/graph structure before choosing search terms. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
   process.exit(exitCode)
 }
 
@@ -133,12 +173,14 @@ function parseArgs(argv: string[]): Args {
     query: '',
     format: 'md',
     limit: 8,
+    overview: false,
   }
   const queryParts: string[] = []
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
     if (arg === '--help' || arg === '-h') usage(0)
+    else if (arg === '--overview') args.overview = true
     else if ((arg === '--root' || arg === '--host') && next) { args.root = next; i += 1 }
     else if (arg.startsWith('--root=')) args.root = arg.slice('--root='.length)
     else if (arg.startsWith('--host=')) args.root = arg.slice('--host='.length)
@@ -154,7 +196,7 @@ function parseArgs(argv: string[]): Args {
     else queryParts.push(arg)
   }
   args.query = queryParts.join(' ').trim()
-  if (!args.query) usage()
+  if (!args.query && !args.overview) usage()
   args.root = path.resolve(args.root)
   return args
 }
@@ -395,6 +437,101 @@ export function buildRecordMap(root: string, query: string, limit = 8): RecordMa
   }
 }
 
+export function buildRecordMapOverview(root: string, limit = 20): RecordMapOverview {
+  const index = buildRecordIndex(root)
+  const graphSourceRows = graphRows(root)
+  const graphMatches = graphSourceRows.map((row) => ({
+    id: String(row.id || ''),
+    relation: typeof row.relation === 'string' ? row.relation : typeof row.type === 'string' ? row.type : undefined,
+    kind: typeof row.kind === 'string' ? row.kind : undefined,
+    path: typeof row.path === 'string' ? row.path : undefined,
+    source: typeof row.source === 'string' ? row.source : undefined,
+    target: typeof row.target === 'string' ? row.target : undefined,
+    matchCount: 0,
+    matched: [],
+  }))
+  const layerGroups = new Map<string, RecordEntry[]>()
+  for (const record of index.records) {
+    const existing = layerGroups.get(record.layer) || []
+    existing.push(record)
+    layerGroups.set(record.layer, existing)
+  }
+  const layers = Array.from(layerGroups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([layer, records]) => ({
+      layer,
+      count: records.length,
+      records: records.slice(0, limit).map((record) => ({ recordPath: record.recordPath, title: record.title, status: record.status })),
+    }))
+  const relationCounts = new Map<string, number>()
+  for (const row of graphMatches) {
+    const relation = row.relation || row.kind || 'row'
+    relationCounts.set(relation, (relationCounts.get(relation) || 0) + 1)
+  }
+  const features = index.projectProfile.features.slice(0, limit).map((feature) => ({
+    id: feature.id,
+    label: feature.label,
+    status: feature.status,
+    aliases: feature.aliases.map((alias) => alias.value),
+    routes: feature.routes,
+    components: feature.components,
+    records: feature.records.map((record) => record.path),
+  }))
+  const drilldown: Drilldown = { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
+  for (const record of index.records) {
+    addPath(record.recordPath, drilldown)
+    for (const file of record.implementationHints.fileHints) addPath(file, drilldown)
+    for (const file of record.implementationHints.testHints) addPath(file, drilldown)
+    for (const id of record.graphIds) drilldown.graphIds.push(id)
+  }
+  for (const feature of index.projectProfile.features) {
+    for (const record of feature.records) addPath(record.path, drilldown)
+    for (const file of feature.sourceFiles) addPath(file, drilldown)
+    for (const file of feature.tests) addPath(file, drilldown)
+  }
+  for (const row of graphMatches) {
+    if (row.id) drilldown.graphIds.push(row.id)
+    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown)
+  }
+  return {
+    schemaVersion: '1.0',
+    mode: 'record-map.overview',
+    root,
+    source: {
+      method: 'record-map-v1',
+      tool: '.lazy-harness/scripts/record-map.ts',
+      recordIndexMethod: index.source.method,
+    },
+    notes: [
+      'Overview first: inspect this whole structure before choosing search terms.',
+      "Then run `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`, read real evidence, and only then answer or mutate.",
+      'Cues only: overview and drill-down candidates do not satisfy search/read debt by themselves.',
+    ],
+    inventory: {
+      totalRecords: index.records.length,
+      totalFeatures: index.projectProfile.features.length,
+      totalGraphRows: graphSourceRows.length,
+      layers,
+      generatedIndexes: {
+        recordIndex: existsSync(path.join(root, '.lazy-harness', 'generated', 'record-index.json')),
+        implementationIndex: existsSync(path.join(root, '.lazy-harness', 'generated', 'implementation-index.json')),
+        referenceIndex: existsSync(path.join(root, '.lazy-harness', 'generated', 'reference-index.json')),
+      },
+    },
+    features,
+    graph: {
+      relations: Array.from(relationCounts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([relation, count]) => ({ relation, count })),
+      sampleRows: graphMatches.slice(0, limit),
+    },
+    drilldown: {
+      recordPaths: uniq(drilldown.recordPaths).slice(0, limit * 3),
+      sourceFiles: uniq(drilldown.sourceFiles).slice(0, limit * 3),
+      testFiles: uniq(drilldown.testFiles).slice(0, limit * 3),
+      graphIds: uniq(drilldown.graphIds).slice(0, limit * 3),
+    },
+  }
+}
+
 function renderList(values: string[], indent = '  '): string[] {
   if (!values.length) return [`${indent}- -`]
   return values.map((value) => `${indent}- \`${value}\``)
@@ -451,12 +588,58 @@ function renderMarkdown(result: RecordMapResult): string {
   return `${lines.join('\n')}\n`
 }
 
+function renderOverviewMarkdown(result: RecordMapOverview): string {
+  const lines: string[] = []
+  lines.push('# Record map overview')
+  lines.push('')
+  lines.push('- mode: `record-map.overview`')
+  lines.push(`- records: ${result.inventory.totalRecords}`)
+  lines.push(`- features: ${result.inventory.totalFeatures}`)
+  lines.push(`- graph rows: ${result.inventory.totalGraphRows}`)
+  lines.push(`- generated indexes: record-index=${result.inventory.generatedIndexes.recordIndex ? 'present' : 'missing'}, implementation-index=${result.inventory.generatedIndexes.implementationIndex ? 'present' : 'missing'}, reference-index=${result.inventory.generatedIndexes.referenceIndex ? 'present' : 'missing'}`)
+  lines.push('- first step: use this overview to choose search terms, then run the exact query CLI below.')
+  lines.push("- query CLI: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`")
+  lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
+  lines.push('', '## Layers')
+  for (const layer of result.inventory.layers) {
+    lines.push(`- ${layer.layer}: ${layer.count}`)
+    for (const record of layer.records.slice(0, 5)) lines.push(`  - \`${record.recordPath}\` — ${record.title} (${record.status})`)
+  }
+  lines.push('', '## Features')
+  if (!result.features.length) lines.push('- -')
+  for (const feature of result.features) {
+    lines.push(`- \`${feature.id}\` — ${feature.label || '(no label)'} (${feature.status})`)
+    if (feature.aliases.length) lines.push(`  - aliases: ${feature.aliases.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (feature.routes.length) lines.push(`  - routes: ${feature.routes.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (feature.components.length) lines.push(`  - components: ${feature.components.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+  }
+  lines.push('', '## Graph relations')
+  if (!result.graph.relations.length) lines.push('- -')
+  for (const relation of result.graph.relations.slice(0, 20)) lines.push(`- ${relation.relation}: ${relation.count}`)
+  lines.push('', '## Drill-down candidates')
+  lines.push('- Records:')
+  lines.push(...renderList(result.drilldown.recordPaths, '  '))
+  lines.push('- Source files:')
+  lines.push(...renderList(result.drilldown.sourceFiles, '  '))
+  lines.push('- Test files:')
+  lines.push(...renderList(result.drilldown.testFiles, '  '))
+  lines.push('- Graph ids:')
+  lines.push(...renderList(result.drilldown.graphIds, '  '))
+  return `${lines.join('\n')}\n`
+}
+
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
-    const result = buildRecordMap(args.root, args.query, args.limit)
-    if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
-    else process.stdout.write(renderMarkdown(result))
+    if (args.overview) {
+      const result = buildRecordMapOverview(args.root, args.limit)
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else process.stdout.write(renderOverviewMarkdown(result))
+    } else {
+      const result = buildRecordMap(args.root, args.query, args.limit)
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else process.stdout.write(renderMarkdown(result))
+    }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(1)

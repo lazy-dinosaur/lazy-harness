@@ -4444,6 +4444,8 @@ def check_record_index_generator_phase3() -> None:
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "context" + "-index" in help_text:
         fail("lazy help must not advertise old context-index command after Option A")
+    if "map --overview" not in help_text:
+        fail("lazy help must advertise map overview command")
     if "map <term-or-file>" not in help_text:
         fail("lazy help must advertise map drill-down command")
 
@@ -4602,6 +4604,31 @@ def check_record_index_generator_phase3() -> None:
                     assert_no_forbidden_map_fields(child, where + f"[{index}]")
 
         assert_no_forbidden_map_fields(record_map)
+
+        overview_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=json", "--limit=3"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if overview_cmd.returncode != 0:
+            fail("lazy map --overview command failed:\n" + overview_cmd.stdout + overview_cmd.stderr)
+        overview = json.loads(overview_cmd.stdout)
+        if overview.get("mode") != "record-map.overview":
+            fail("lazy map --overview output missing overview mode")
+        overview_notes = "\n".join(str(note) for note in overview.get("notes", []))
+        if "Overview first" not in overview_notes or "before choosing search terms" not in overview_notes:
+            fail("lazy map overview notes must require overview-first search term selection")
+        inventory = overview.get("inventory", {})
+        if not inventory.get("totalRecords") or not inventory.get("layers"):
+            fail("lazy map overview must include whole record/layer inventory")
+        if not overview.get("features") or overview["features"][0].get("id") != "example-feature":
+            fail("lazy map overview should include feature navigation structure")
+        if "kg_feature_surface_behavior_impl" not in overview.get("drilldown", {}).get("graphIds", []):
+            fail("lazy map overview drilldown missing graph id")
+        assert_no_forbidden_map_fields(overview)
 
         written = run_index("--write", "--output", str(temp / ".lazy-harness" / "generated" / "record-index.json"), "--format=md")
         if written.returncode != 0 or "Record index" not in written.stdout:
@@ -5446,6 +5473,10 @@ def check_message_received_hook_context_injection() -> None:
             "Pointers:",
             "feature-navigation.xml=",
             "Source/test/doc dirs:",
+            "Mandatory overview first: `.lazy-harness/bin/lazy map --overview --format=md --limit=20`",
+            "to see the whole record/feature/graph structure before choosing search terms",
+            "Then query map: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`",
+            "fallback only if empty/ambiguous/incomplete",
             "Protocol: choose real candidate records from inventory",
             "Rule digest/full body/Implementation map/graph links",
             "3-5 option gate",
@@ -5466,6 +5497,7 @@ def check_message_received_hook_context_injection() -> None:
             "FeaturePanel.tsx",
             "Search protocol: (1) extract 2-5 candidate meanings",
             "grep -rli <token>",
+            "agentgrep",
             "self-resolve-before-answer",
         ]:
             if forbidden in body:

@@ -46,7 +46,9 @@ And only then answers, plans, or edits.
 ### Scenario 1a — Record Map narrows the first pass only
 
 Given a user request touches a host detail
-When the agent runs `lazy map <term-or-file>`
+When the agent runs `lazy map --overview` first
+Then the output shows whole record/feature/graph structure for choosing search terms
+And when the agent runs `lazy map <term-or-file>`
 Then the output may suggest feature, record, graph, source, and test candidates
 But those candidates are cue-only
 And the agent must still read the actual record body, Implementation map, source, and tests before answering or mutating.
@@ -99,9 +101,10 @@ And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not 
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — emits candidate records/source/tests/graph ids without semantic-authority fields.
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
-  2. `lazy map` or metadata may suggest candidate records or files.
-  3. Agent reads canonical evidence and resolves or gates ambiguity.
-  4. Confirmed missing knowledge is persisted into records.
+  2. `lazy map --overview` shows whole structure before term selection.
+  3. `lazy map <term-or-file>` or metadata may suggest candidate records or files.
+  4. Agent reads canonical evidence and resolves or gates ambiguity.
+  5. Confirmed missing knowledge is persisted into records.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.

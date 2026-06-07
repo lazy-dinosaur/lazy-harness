@@ -36,14 +36,14 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 요청 받자마자 검색 (필수)
 
-발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 의 디테일·이름·경로·동작·룰이 등장하면 즉시 `lazy map` 으로 record/feature/graph 후보를 펼친다.
+발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 디테일이 등장하면 즉시 `lazy map --overview` 로 전체 record/feature/graph 구조를 본 뒤 핵심 토큰 `lazy map` 으로 후보를 펼친다.
 결과는 cue-only/read proof 아님. 빈 결과 / 애매함 / 누락이면 grep fallback, 후보 record 의 Rule digest / 본문 / Implementation map 과 관련 source/tests 를 반드시 읽는다.
 
 ```bash
+.lazy-harness/bin/lazy map --overview --format=md --limit=20
 .lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8
 grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/
 ```
-
 **Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.
 `find ..`, `grep ../`, sibling repo 참조로 host 지식을 가져오는 것은 금지다.
 record 가 없으면 부모로 올라가지 말고 현재 host 의 코드 / docs / package / config 를 읽어

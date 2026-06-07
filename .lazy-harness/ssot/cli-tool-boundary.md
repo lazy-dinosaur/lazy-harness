@@ -76,7 +76,7 @@ Boundary for SCR-401/SCR-402:
 - Decision: canonical future cache/listing name is `record-index`.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records the naming trade-off.
 - Scope: deterministic record-authored metadata listing/cache generation only.
-- `lazy map <term-or-file>` is a read-only overview/drill-down helper that uses record-authored metadata, feature navigation, and graph rows as cues only.
+- `lazy map --overview` and `lazy map <term-or-file>` are read-only overview/drill-down helpers that use record-authored metadata, feature navigation, and graph rows as cues only.
 - SCR-402 Option A removes active `context-index` command/source/schema/cache paths rather than keeping a compatibility alias.
 - New docs/contracts must not describe `context-index` as the canonical name for searchable record memory.
 - The implemented `record-index` command preserves no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
