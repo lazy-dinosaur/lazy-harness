@@ -154,6 +154,14 @@ Targeted rerun summary:
 }
 ```
 
+Requested three-host live follow-up (2026-06-07 09:44 UTC):
+
+- `medivance` — marker/help/map/hook/lazy-test `ok` (`lazyTestSeconds=157.55`)
+- `medivance-pwa` — marker/help/map/hook/lazy-test `ok` (`lazyTestSeconds=71.99`)
+- `medivance-homepage` — initial live full validation showed marker/help/map/hook `ok` and `lazyTestOk=false` because the working tree had a host-local billing typecheck failure; immediate rerun after the already-present billing working-tree changes were visible returned `lazy-harness self-test ok (scope=host, ran=54, skipped=18)` with `doctor D07 package health ok`.
+
+This follow-up means the three explicitly requested roots (`dev/medivance`, `dev/medivance-pwa`, `dev/medivance-homepage`) all have framework sync markers, `lazy map`, managed hooks, and host lazy-harness self-tests passing at the latest observed state.
+
 ## Interpretation
 
 The sync reached every initialized downstream host discovered under `/home/lazydino/dev` and updated each `.lazy-harness/state/synced-from-commit` marker to `f560375aeb11cf6d0c38de05c947e8a9e0175803`.
