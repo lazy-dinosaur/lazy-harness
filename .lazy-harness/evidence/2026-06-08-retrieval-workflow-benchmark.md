@@ -71,6 +71,13 @@ Validation:
 - Markdown output included `measurement-only` and `does not change lifecycle/prompt/overview policy`.
 - Read-only guard verified `.lazy-harness/knowledge/graph.jsonl` and `.lazy-harness/generated/record-index.json` did not mutate during the benchmark.
 
+Downstream sync and smoke validation:
+
+- Source commit synced: `f77e073f700cb55895afa6aa8094317c4591e89b` (`Add retrieval workflow benchmark`).
+- Aggregate artifact: `/tmp/lazy-harness-retrieval-workflow-benchmark-sync/20260608T084456Z/summary.json`.
+- Result: 14 downstream hosts discovered, 14 synced, 14 benchmark smokes passed, 0 failed.
+- Smoke criteria: marker matches source commit, managed benchmark files hash-match source, `lazy help` advertises `retrieval-workflow-benchmark`, JSON benchmark output has `mode=retrieval-workflow-benchmark`, no forbidden semantic-authority fields, policy-boundary warning, read-only graph/record-index behavior, expected surfaces/helper call counts, and graph-query proxy win versus map-plus-retrieval-audit.
+
 ## Interpretation
 
 What this evidence supports:
@@ -94,6 +101,12 @@ What this evidence does not support by itself:
    .lazy-harness/bin/lazy retrieval-workflow-benchmark --format=json --limit=8
    .lazy-harness/bin/lazy retrieval-workflow-benchmark --format=md --limit=8
    python3 .lazy-harness/scripts/self-test.py --scope framework
+   ```
+
+   Downstream sync/smoke summary while retained locally:
+
+   ```bash
+   cat /tmp/lazy-harness-retrieval-workflow-benchmark-sync/20260608T084456Z/summary.json
    ```
 
 2. Confirm JSON fields:

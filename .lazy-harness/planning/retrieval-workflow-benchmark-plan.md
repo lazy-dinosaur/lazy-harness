@@ -96,6 +96,8 @@ Validation:
 - `python3 .lazy-harness/scripts/self-test.py --scope framework` passed.
 - Self-test count: scope=framework, ran=75, skipped=0.
 - Evidence capsule: `.lazy-harness/evidence/2026-06-08-retrieval-workflow-benchmark.md`.
+- Downstream sync/smoke: source commit `f77e073f700cb55895afa6aa8094317c4591e89b`, 14/14 hosts ok, failed 0.
+- Downstream artifact: `/tmp/lazy-harness-retrieval-workflow-benchmark-sync/20260608T084456Z/summary.json`.
 
 Interpretation:
 
