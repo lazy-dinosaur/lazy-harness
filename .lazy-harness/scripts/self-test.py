@@ -5031,10 +5031,57 @@ def check_graph_query_cli() -> None:
         "graph_query_partial",
         "graph_query_no_semantic_fields",
         "graph_query_read_only",
+        "graph_query_payload_compactness",
         "check_graph_query_cli",
     ]:
         if phrase not in tdd_text:
             fail("Graph query TDD missing phrase: " + phrase)
+
+    def assert_compact_graph_payload(result: dict, limit: int, context: str) -> None:
+        collections = {
+            "seeds": result.get("seeds", []),
+            "subgraph.nodes": result.get("subgraph", {}).get("nodes", []),
+            "subgraph.edges": result.get("subgraph", {}).get("edges", []),
+            "citations": result.get("citations", []),
+        }
+        for name, values in collections.items():
+            if len(values) > limit:
+                fail(f"graph query {context} exceeded compact {name} limit {limit}: {len(values)}")
+        bad_edges = []
+        for edge in result.get("subgraph", {}).get("edges", []):
+            source = str(edge.get("source", ""))
+            target = str(edge.get("target", ""))
+            if any(marker in source or marker in target for marker in [".lazy-harness/", "src/", "tests/"]):
+                bad_edges.append(edge)
+        if bad_edges:
+            fail("graph query emitted full-path edge endpoint in compact payload: " + json.dumps(bad_edges[:3], ensure_ascii=False))
+        provenance_lengths = [
+            len(item.get("provenance", []))
+            for item in result.get("subgraph", {}).get("nodes", []) + result.get("subgraph", {}).get("edges", [])
+            if isinstance(item, dict)
+        ]
+        if provenance_lengths and max(provenance_lengths) > 2:
+            fail(f"graph query {context} provenance was not capped: max={max(provenance_lengths)}")
+
+    source_graph = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "graph", "query", "retrieval coverage audit", "--format=json", "--limit=20"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    source_graph_size = len(source_graph.stdout.encode("utf-8"))
+    if source_graph_size >= 40000:
+        fail(f"graph query source compactness regression: expected <40000 bytes, got {source_graph_size}")
+    try:
+        source_graph_payload = json.loads(source_graph.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"source graph query compactness output was not JSON: {exc}")
+    assert_compact_graph_payload(source_graph_payload, 20, "source benchmark")
+    source_record_paths = set(source_graph_payload.get("candidates", {}).get("recordPaths", []))
+    for marker in ["/domain/", "/behavior/", "/spec/", "/tests/", "/ssot/"]:
+        if not any(marker in value for value in source_record_paths):
+            fail("source graph query compactness benchmark lost layer candidate marker: " + marker)
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-query-"))
     try:
@@ -5213,6 +5260,7 @@ def check_graph_query_cli() -> None:
             fail("graph query mapped fixture missing subgraph nodes/edges")
         if not mapped.get("citations"):
             fail("graph query mapped fixture missing citations")
+        assert_compact_graph_payload(mapped, 20, "mapped fixture")
         bad_source_candidates = [value for value in candidates.get("sourceFiles", []) if value in {"coverage.gaps", "coverage.state"} or " " in value]
         if bad_source_candidates:
             fail("graph query emitted non-path source candidates: " + json.dumps(bad_source_candidates, ensure_ascii=False))

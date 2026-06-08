@@ -307,6 +307,72 @@ Interpretation:
 - Smoke criteria: marker matches source commit, managed graph-query files hash-match source, `lazy help` advertises `graph query <term-or-file>`, `lazy graph query 'retrieval coverage audit' --format=json --limit=20` returns mapped with DDD/BDD/SDD/TDD/SSOT candidates and no forbidden semantic-authority fields.
 - Caveat: this confirms source distribution and smoke behavior only; it does not justify lifecycle/prompt/overview policy relaxation.
 
+## Slice 2 plan — payload compactness and workflow benchmark
+
+Status: completed-slice-2
+Date: 2026-06-08
+
+Goal:
+
+- Reduce `lazy graph query 'retrieval coverage audit' --format=json --limit=20` output from the slice-1 61,004-byte baseline while preserving five-layer candidate coverage, citations, subgraph cues, and forbidden-field protection.
+
+Non-goals:
+
+- No `path`/`explain` implementation.
+- No lifecycle, prompt, overview hard-block, MCP, daemon, language-runtime, or semantic-authority change.
+- No claim that graph-query output satisfies read evidence by itself.
+
+Measured baseline:
+
+| Field | Bytes | Approx tokens | Share |
+|---|---:|---:|---:|
+| whole payload | 61,004 | 15,240 | 100% |
+| `subgraph` | 25,581 | 6,392 | 42% |
+| `citations` | 9,444 | 2,361 | 15% |
+| `seeds` | 7,211 | 1,794 | 12% |
+| `candidates` | 3,974 | 994 | 7% |
+
+Implementation slice:
+
+1. Compact node ids so edge endpoints do not repeat full record/source/test paths.
+2. Keep full paths in node `path`, candidates, and citations.
+3. Cap seeds, subgraph nodes, subgraph edges, and citations by `--limit` instead of larger multipliers.
+4. Cap node/edge provenance arrays deterministically.
+5. Add self-test assertions for compactness, candidate coverage, no full path edge endpoints, and no forbidden semantic fields.
+6. Benchmark before/after and record result in SDD/TDD/graph row.
+
+Result:
+
+- Implemented compact deterministic node ids, short path labels, deterministic provenance caps, and `--limit`-bounded seeds/nodes/edges/citations.
+- Source benchmark query `retrieval coverage audit`, JSON `--limit=20`: 61,004 bytes → below 40,000-byte guard; latest focused observations are about 29.6 KB, estimated 15,240 → about 7.4k tokens.
+- Reduction from baseline observation: about 31 KB, about 51%.
+- Exact byte count may drift slightly as records/graph rows change; the stable acceptance guard is below 40,000 bytes.
+- Candidate coverage remained present for DDD/BDD/SDD/TDD/SSOT.
+- Self-test protection added in `.lazy-harness/scripts/self-test.py#check_graph_query_cli`.
+
+Acceptance:
+
+- Source benchmark query with JSON `--limit=20` is below 40,000 bytes.
+- DDD/BDD/SDD/TDD/SSOT candidate coverage remains present.
+- No edge endpoint contains `.lazy-harness/`, `src/`, or `tests/` full path text.
+- Full framework self-test passes.
+- Downstream sync/verification runs after commit if source changes land.
+
+Validation:
+
+- `python3 -m py_compile .lazy-harness/scripts/self-test.py` passed.
+- `bun .lazy-harness/scripts/graph-query.ts --root "$PWD" query 'retrieval coverage audit' --format=json --limit=20` emitted below the 40,000-byte guard with `mapped` result state; latest focused observations are about 29.6 KB.
+- `python3 .lazy-harness/scripts/self-test.py --scope framework` passed, scope=framework, ran=74, skipped=0.
+
+## Rule placement
+
+- Rule: Graph-query payload compactness is a transient implementation plan and benchmark guard for slice 2; it must not change lifecycle/prompt/overview policy or canonical read-evidence rules.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/graph-query-prototype-implementation-plan.md`
+- Why not AGENTS.md: this is point-in-time optimization work, not permanent prompt grammar.
+- Why not `.jcode`: this is shared framework planning, not local/private Jcode-only execution preference.
+- Confirmation: user-approved next-step execution inferred from prior completed plan and current request.
+
 ## Discovery capture
 
 - DDD: no new domain term yet; existing `searchable-record-memory` applies.

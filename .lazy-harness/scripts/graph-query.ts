@@ -100,6 +100,7 @@ type Args = {
 }
 
 const FORBIDDEN_COMMANDS = new Set(['path', 'explain'])
+const MAX_PROVENANCE_PER_ITEM = 2
 
 function usage(exitCode = 1): never {
   const msg = `Usage: graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n\nPrototype slice 1 supports only: graph query\nUnsupported until separate approval: graph path, graph explain, MCP/daemon.`
@@ -191,6 +192,10 @@ function uniquePreserve(values: string[]): string[] {
   return result
 }
 
+function compactProvenance(values: string[]): string[] {
+  return uniquePreserve(values).slice(0, MAX_PROVENANCE_PER_ITEM)
+}
+
 function capped(values: string[], limit: number): string[] {
   return uniquePreserve(values).slice(0, limit)
 }
@@ -275,10 +280,10 @@ function readImplementationIndex(root: string): ImplRecord[] {
 function addNode(map: Map<string, SubgraphNode>, node: SubgraphNode): void {
   const existing = map.get(node.id)
   if (!existing) {
-    map.set(node.id, { ...node, provenance: unique(node.provenance) })
+    map.set(node.id, { ...node, provenance: compactProvenance(node.provenance) })
     return
   }
-  existing.provenance = unique([...existing.provenance, ...node.provenance])
+  existing.provenance = compactProvenance([...existing.provenance, ...node.provenance])
   if (!existing.path && node.path) existing.path = node.path
 }
 
@@ -286,22 +291,44 @@ function addEdge(map: Map<string, SubgraphEdge>, edge: SubgraphEdge): void {
   const key = `${edge.source}\u0000${edge.relation}\u0000${edge.target}`
   const existing = map.get(key)
   if (!existing) {
-    map.set(key, { ...edge, provenance: unique(edge.provenance) })
+    map.set(key, { ...edge, provenance: compactProvenance(edge.provenance) })
     return
   }
-  existing.provenance = unique([...existing.provenance, ...edge.provenance])
+  existing.provenance = compactProvenance([...existing.provenance, ...edge.provenance])
+}
+
+function stableHash(value: string): string {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+function shortLabel(value: string): string {
+  const withoutFragment = value.split('#')[0]
+  const base = path.basename(withoutFragment) || value
+  const fragment = value.includes('#') ? `#${value.split('#').slice(1).join('#')}` : ''
+  const label = `${base}${fragment}`
+  return label.length > 64 ? `${label.slice(0, 61)}...` : label
+}
+
+function compactNodeId(prefix: string, value: string): string {
+  const label = shortLabel(value).replace(/[^A-Za-z0-9_.#-]+/g, '_').slice(0, 32) || prefix
+  return `${prefix}:${label}:${stableHash(value)}`
 }
 
 function recordNodeId(recordPath: string): string {
-  return `record:${recordPath}`
+  return compactNodeId('r', recordPath)
 }
 
 function pathNodeId(kind: 'source' | 'test' | 'implementation', value: string): string {
-  return `${kind}:${value}`
+  return compactNodeId(kind === 'source' ? 's' : kind === 'test' ? 't' : 'i', value)
 }
 
 function graphNodeId(id: string): string {
-  return `graph:${id}`
+  return compactNodeId('g', id)
 }
 
 function isTestPath(value: string): boolean {
@@ -441,12 +468,12 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
       if (!looksLikePath(file)) continue
       if (isTestPath(file)) {
         testFiles.push(file)
-        addNode(nodes, { id: pathNodeId('test', file), kind: 'test', label: file, path: file, provenance: [`${record.recordPath}:implementationHints.fileHints`] })
+        addNode(nodes, { id: pathNodeId('test', file), kind: 'test', label: shortLabel(file), path: file, provenance: [`${record.recordPath}:implementationHints.fileHints`] })
         addEdge(edges, { source: recordNodeId(record.recordPath), target: pathNodeId('test', file), relation: 'hints_test', provenance: [record.recordPath] })
         cite({ kind: 'test', path: file, provenance: record.recordPath })
       } else {
         sourceFiles.push(file)
-        addNode(nodes, { id: pathNodeId('source', file), kind: 'source', label: file, path: file, provenance: [`${record.recordPath}:implementationHints.fileHints`] })
+        addNode(nodes, { id: pathNodeId('source', file), kind: 'source', label: shortLabel(file), path: file, provenance: [`${record.recordPath}:implementationHints.fileHints`] })
         addEdge(edges, { source: recordNodeId(record.recordPath), target: pathNodeId('source', file), relation: 'hints_source', provenance: [record.recordPath] })
         cite({ kind: 'source', path: file, provenance: record.recordPath })
       }
@@ -461,7 +488,7 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
       }
       if (!looksLikePath(file)) continue
       testFiles.push(file)
-      addNode(nodes, { id: pathNodeId('test', file), kind: 'test', label: file, path: file, provenance: [`${record.recordPath}:implementationHints.testHints`] })
+      addNode(nodes, { id: pathNodeId('test', file), kind: 'test', label: shortLabel(file), path: file, provenance: [`${record.recordPath}:implementationHints.testHints`] })
       addEdge(edges, { source: recordNodeId(record.recordPath), target: pathNodeId('test', file), relation: 'hints_test', provenance: [record.recordPath] })
       cite({ kind: 'test', path: file, provenance: record.recordPath })
     }
@@ -510,7 +537,7 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
 
   function includeImplementation(row: ImplRecord, provenance: string): void {
     const id = row.id || row.subject || row.path || JSON.stringify(row).slice(0, 80)
-    addNode(nodes, { id: pathNodeId('implementation', id), kind: 'implementation', label: id, path: row.path || row.subject, provenance: [provenance] })
+    addNode(nodes, { id: pathNodeId('implementation', id), kind: 'implementation', label: shortLabel(id), path: row.path || row.subject, provenance: [provenance] })
     cite({ kind: 'generated-index', id, path: row.path || row.subject, provenance: '.lazy-harness/generated/implementation-index.json' })
     for (const target of [row.subject, row.object, row.path, ...(row.links || []).map((link) => link.target)].filter((value): value is string => typeof value === 'string' && value.length > 0)) {
       if (recordByPath.has(target)) {
@@ -572,10 +599,10 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
     query,
     resultState,
     coverage: { gaps },
-    seeds: seeds.sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`)).slice(0, limit * 2),
+    seeds: seeds.sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`)).slice(0, limit),
     subgraph: {
-      nodes: Array.from(nodes.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit * 2),
-      edges: Array.from(edges.values()).sort((a, b) => `${a.source}:${a.relation}:${a.target}`.localeCompare(`${b.source}:${b.relation}:${b.target}`)).slice(0, limit * 3),
+      nodes: Array.from(nodes.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit),
+      edges: Array.from(edges.values()).sort((a, b) => `${a.source}:${a.relation}:${a.target}`.localeCompare(`${b.source}:${b.relation}:${b.target}`)).slice(0, limit),
     },
     candidates: {
       recordPaths: candidateRecordPaths,
@@ -583,7 +610,7 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
       testFiles: candidateTestFiles,
       graphIds: candidateGraphIds,
     },
-    citations: citations.sort((a, b) => `${a.kind}:${a.id || ''}:${a.path || ''}`.localeCompare(`${b.kind}:${b.id || ''}:${b.path || ''}`)).slice(0, limit * 3),
+    citations: citations.sort((a, b) => `${a.kind}:${a.id || ''}:${a.path || ''}`.localeCompare(`${b.kind}:${b.id || ''}:${b.path || ''}`)).slice(0, limit),
     fallback: buildFallback(query),
     notes: [
       'cue-only: graph query output is navigation context, not proof that evidence was read',

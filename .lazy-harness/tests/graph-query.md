@@ -23,6 +23,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
   - protect mapped, partial, and gap result states
   - protect DDD/BDD/SDD/TDD/SSOT related-record candidate surfacing
   - protect compact subgraph nodes/edges with provenance/citations
+  - protect payload compactness so `--limit` bounds seeds/subgraph/citations and compact node ids avoid repeating full paths in edge endpoints
   - protect fallback command output for gaps/partials
   - protect no semantic-authority fields recursively
   - protect read-only behavior: no canonical record, graph, generated cache, runtime journal, or user memory mutation
@@ -47,6 +48,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
 | `graph_query_read_only` | Running graph query in temp host | canonical records, graph JSONL, generated caches, and runtime files remain unmodified |
 | `graph_query_help_and_dispatcher` | `lazy help` and `lazy graph query` | help advertises graph query; dispatcher routes through `.lazy-harness/scripts/graph-query.ts` |
 | `graph_query_slice_boundary` | User tries `lazy graph path` or `lazy graph explain` in slice 1 | command fails with explicit unsupported-in-prototype message |
+| `graph_query_payload_compactness` | Source query `retrieval coverage audit` with JSON `--limit=20` | payload is materially below the slice-1 61,004-byte baseline, keeps DDD/BDD/SDD/TDD/SSOT candidates, caps seeds/nodes/edges/citations by `--limit`, and emits no edge endpoint containing a full `.lazy-harness/` path |
 
 ## Self-test design
 
@@ -79,6 +81,7 @@ Required self-test assertions:
 7. Running graph query does not write/modify generated record-index cache or canonical graph JSONL in the temp host.
 8. `lazy graph path` and `lazy graph explain` fail explicitly in slice 1.
 9. Markdown output contains cue-only / read real evidence warning.
+10. Source benchmark query `lazy graph query 'retrieval coverage audit' --format=json --limit=20` stays compact relative to the 61,004-byte slice-1 baseline without losing five-layer candidate coverage.
 
 ## Validation commands
 
@@ -102,6 +105,13 @@ Benchmark validation after correctness:
 # compare raw full record read vs lazy map/retrieval-audit vs lazy graph query token/tool/latency/missing-layer metrics
 ```
 
+Payload compactness acceptance:
+
+- `retrieval coverage audit` JSON `--limit=20` should be below 40,000 bytes in the current source checkout after slice-2 optimization.
+- `seeds.length <= limit`, `subgraph.nodes.length <= limit`, `subgraph.edges.length <= limit`, and `citations.length <= limit`.
+- Edge `source`/`target` ids should be compact ids, not full record/source/test paths; full paths remain in nodes/candidates/citations.
+- This compactness threshold is a benchmark guard, not a lifecycle/prompt policy gate.
+
 ## Implementation map
 
 - Status: verified
@@ -124,7 +134,7 @@ Benchmark validation after correctness:
   2. Dispatcher invokes graph-query CLI through `lazy graph query`.
   3. Assertions verify mapped/partial/gap states, related layer candidates, source/test/graph citations, no forbidden keys, no mutation, and unsupported path/explain boundary.
 - Machine index:
-  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`
+  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`
 
 ## Layer completeness impact
 

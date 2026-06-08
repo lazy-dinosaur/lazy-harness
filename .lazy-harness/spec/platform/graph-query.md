@@ -25,6 +25,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
   - keep the prototype additive, read-only, cue-only, and deterministic
   - use existing inputs only: canonical records through record-index, `.lazy-harness/knowledge/graph.jsonl`, and optional generated implementation index
   - surface compact cited subgraph/context candidates for records, source files, tests, graph rows, and implementation-index hits
+  - keep default JSON output compact enough for read-followup workflows by using compact deterministic node ids, capped provenance arrays, and `--limit`-bounded seeds/subgraph/citations
   - include related DDD/BDD/SDD/TDD/SSOT records when linked from matched records
   - emit fallback commands for gaps/partials
   - cap output by `--limit` and prototype depth by `--depth` max 2
@@ -80,6 +81,13 @@ JSON output must include:
 - `citations`: record paths, graph row ids, generated index names, and source paths that justify candidates
 - `fallback`: overview, lazy map query, retrieval-audit, and grep commands
 - `notes`: cue-only / generated-non-canonical / read real evidence reminders
+
+Compactness constraints:
+
+- Node ids should be stable compact identifiers, not full record/source/test paths. Full paths remain available through node `path`, candidates, and citations.
+- Source/test node `label` should be a short display label when `path` already carries the full path.
+- Per-node and per-edge `provenance` arrays should be capped deterministically; full provenance is a cue, not canonical evidence.
+- Default `query --format=json --limit=20` for the source benchmark query `retrieval coverage audit` should target a materially smaller payload than the 2026-06-08 slice-1 baseline of 61,004 bytes while preserving DDD/BDD/SDD/TDD/SSOT candidate coverage.
 
 Forbidden fields anywhere in output:
 
@@ -139,7 +147,33 @@ Prototype slice 1 is intentionally narrow:
   - `.lazy-harness/tests/graph-query.md`
   - `.lazy-harness/scripts/self-test.py#check_graph_query_cli`
 - Machine index:
-  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`
+  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`
+
+## Payload compactness benchmark history
+
+Baseline, 2026-06-08 slice 1, source query `retrieval coverage audit`, JSON `--limit=20`:
+
+- bytes: 61,004
+- estimated tokens: 15,240
+- largest contributors: `subgraph` 25,581 bytes, `citations` 9,444 bytes, `seeds` 7,211 bytes
+- candidate coverage: DDD/BDD/SDD/TDD/SSOT present
+
+Optimization target for slice 2:
+
+- reduce the same benchmark payload materially without removing candidate lists, citations, subgraph nodes/edges, or forbidden-field protection
+- keep graph query cue-only; do not use payload compactness as a reason to relax harness-first search/read debt
+
+Slice-2 result, 2026-06-08, same source query and `--limit=20`:
+
+- bytes guard: below 40,000
+- latest focused observations: about 29.6 KB
+- estimated tokens from observation: about 7.4k
+- reduction from baseline observation: about 31 KB, about 51%
+- note: exact byte count may drift slightly as records/graph rows change; the stable acceptance guard is below 40,000 bytes
+- collection caps: `seeds=20`, `subgraph.nodes=20`, `subgraph.edges=20`, `citations=20`
+- edge endpoint compactness: no edge `source`/`target` contains full `.lazy-harness/`, `src/`, or `tests/` path text
+- candidate coverage: DDD/BDD/SDD/TDD/SSOT present
+- validation: `python3 .lazy-harness/scripts/self-test.py --scope framework` passed
 
 ## Layer completeness impact
 
