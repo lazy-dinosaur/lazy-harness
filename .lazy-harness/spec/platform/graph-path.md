@@ -10,6 +10,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
 Related evidence: `.lazy-harness/evidence/2026-06-08-graph-query-coverage-ranking-hardening.md`
 Related evidence: `.lazy-harness/evidence/2026-06-08-graph-path-downstream-sync.md`
+Related evidence: `.lazy-harness/evidence/2026-06-08-graph-path-portability-sync.md`
 
 ## Rule digest
 
