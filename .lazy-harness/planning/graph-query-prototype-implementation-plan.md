@@ -238,8 +238,8 @@ After implementation:
    - `scripts/*.ts` already syncs source
    - add SDD/TDD graph-query records explicitly if needed
 5. [x] Commit source + records.
-6. [ ] Sync 14 downstream hosts.
-7. [ ] Verify each downstream host:
+6. [x] Sync 14 downstream hosts.
+7. [x] Verify each downstream host:
    - marker matches source commit
    - `lazy graph query 'retrieval coverage audit'` returns mapped
    - DDD/BDD/SDD/TDD/SSOT candidates present
@@ -278,7 +278,7 @@ Before every implementation commit, verify:
 - Implemented `.lazy-harness/scripts/graph-query.ts` and dispatcher help/route for `lazy graph query`.
 - Added `.lazy-harness/scripts/self-test.py#check_graph_query_cli` for mapped/partial/gap, related layer candidates, no semantic fields, read-only behavior, markdown warnings, and unsupported `path`/`explain` boundaries.
 - Added SDD/TDD manifest sync entries and graph JSONL implementation/test/dispatcher/sync rows.
-- Benchmark is recorded below; downstream sync remains follow-up work before any lifecycle/batch/prompt policy proposal.
+- Benchmark is recorded below; 14/14 downstream hosts were synced and smoke-validated.
 
 ## Benchmark snapshot — 2026-06-08 slice 1
 
@@ -296,6 +296,16 @@ Interpretation:
 - Graph query improves cross-layer candidate coverage in this benchmark, especially DDD/BDD/SDD/TDD/SSOT completeness.
 - Graph query is not yet a token-reduction win versus retrieval-audit, so no lifecycle, batch, or prompt policy should change from this benchmark alone.
 - Before proposing `path`, `explain`, overview-packet injection, or overview hard-block relaxation, reduce graph-query payload size or prove a workflow-level token/tool-call win with real read-followup measurements.
+
+## Downstream sync snapshot — 2026-06-08 slice 1
+
+- Source commit synced: `4b20a02244b28d61ac0f14e7ad33f8a9740ead4a` (`Add lazy graph query prototype`).
+- Aggregate artifact: `/tmp/lazy-harness-graph-query-downstream-sync/20260608T072408Z/summary.json`.
+- Evidence capsule: `.lazy-harness/evidence/2026-06-08-graph-query-downstream-sync.md`.
+- Evidence capsule sync: Category A manifest includes this capsule so the graph row link is not dangling in downstream hosts.
+- Result: 14 downstream hosts discovered, 14 synced, 14 graph-query smokes passed, 0 failed.
+- Smoke criteria: marker matches source commit, managed graph-query files hash-match source, `lazy help` advertises `graph query <term-or-file>`, `lazy graph query 'retrieval coverage audit' --format=json --limit=20` returns mapped with DDD/BDD/SDD/TDD/SSOT candidates and no forbidden semantic-authority fields.
+- Caveat: this confirms source distribution and smoke behavior only; it does not justify lifecycle/prompt/overview policy relaxation.
 
 ## Discovery capture
 
