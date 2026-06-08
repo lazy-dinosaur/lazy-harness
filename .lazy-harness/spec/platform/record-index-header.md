@@ -131,6 +131,7 @@ Implementation constraints:
 3. Output schema must avoid semantic-authority field names.
 4. Self-test must prove the command has no raw-user-message query entry point.
 5. BDD/TDD scenarios in `.lazy-harness/behavior/llm-owned-record-retrieval.md` and `.lazy-harness/tests/record-index-header.md` must be mapped to tests.
+6. Existing top-level `Related <Layer>:` metadata near the record title is parsed into `digest.relatedRecords` as record-authored cue-only metadata so cross-layer search/final verification can notice missing impacted layers.
 
 ## Implementation map
 
@@ -143,10 +144,11 @@ Implementation constraints:
   - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical no semantic CLI authority boundary and SCR-401 decision.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — ADR for canonical `record-index` naming.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305/401/402 status.
+  - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator that indexes Rule digest, Implementation map, feature-navigation, graph ids, and top-level `Related <Layer>:` paths.
   - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview/drill-down helper that shows whole structure before search-term selection and then uses fresh generated `record-index.json` cache plus graph rows as cue-only drill-down candidates, falling back to source rebuild when cache is missing/stale/invalid or `--fresh` is passed.
   - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index`.
 - Key symbols:
-  - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator.
+  - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator, including `extractTopLevelRelatedRecords`.
   - `loadRecordIndex` (`.lazy-harness/scripts/record-map.ts`) — loads fresh generated cache when possible and rebuilds from canonical records when cache is missing/stale/invalid or `--fresh` is passed.
   - `buildRecordMapOverview` (`.lazy-harness/scripts/record-map.ts`) — returns whole record/feature/graph structure for search-term selection.
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — returns feature/record/graph matches and drill-down record/source/test candidates.
@@ -158,12 +160,13 @@ Implementation constraints:
   2. Agent/searcher may use metadata as a starting cue.
   3. Agent/searcher reads real record/source/test evidence.
   4. Deterministic `record-index` cache lists metadata only and remains non-canonical.
+  4a. Top-level `Related <Layer>:` links are normalized into `digest.relatedRecords` as cue-only cross-layer navigation paths.
   5. `lazy map` uses fresh generated `record-index.json` for repeated query speed, or rebuilds from source if the cache is absent/stale/invalid.
   6. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
   7. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers narrow that structure into dispersed drill-down candidates only.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, `lazy map --overview`, repeated `lazy map` drill-down output guidance, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, `lazy map --overview`, repeated `lazy map` drill-down output guidance, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -179,7 +182,7 @@ Implementation constraints:
 - DDD: already updated in `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: already updated in `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: this record defines the contract.
-- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation plus `lazy map` drill-down checks.
+- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation, top-level Related path parsing, plus `lazy map` drill-down checks.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` records SCR-402 record-index-only boundary.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.
 - Planning: tasks and implementation plan updated for SCR-402 completion.

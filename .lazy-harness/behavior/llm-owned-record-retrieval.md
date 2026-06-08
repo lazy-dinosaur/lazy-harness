@@ -81,6 +81,13 @@ When planning the next phase
 Then DDD, BDD, SDD, TDD, and SSOT/ADR impact must be considered together
 And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not impacted.
 
+### Scenario 6 — Search and final verification check for missing related layers
+
+Given a retrieved record declares top-level `Related DDD`, `Related BDD`, `Related SDD`, `Related TDD`, `Related SSOT`, or similar layer links
+When an agent/searcher uses `lazy map`, `record-index`, or `lazy retrieval-audit` during search or final validation
+Then those related record paths must be surfaced as cue-only candidates
+And the agent checks whether any impacted DDD/BDD/SDD/TDD/ADR/SSOT records are missing before writing records, committing, or reporting completion.
+
 ## Usability checks
 
 - The behavior should make it obvious to an agent that metadata is a navigation aid, not an answer.
@@ -105,9 +112,11 @@ And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not 
   3. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers may suggest dispersed candidate records or files.
   4. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
   5. Confirmed missing knowledge is persisted into records.
+  6. Search-time and final verification-time checks include related layer records so “SDD/TDD only” does not silently pass when DDD/BDD/SSOT are linked.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.
+  - `.lazy-harness/tests/retrieval-coverage-audit.md` — protects cross-layer related-record candidates and missing-completeness checks.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
@@ -124,6 +133,7 @@ And “SDD/TDD only” is insufficient unless DDD/BDD are explicitly judged not 
 - BDD: this record covers expected agent/searcher behavior.
 - SDD: future Index Header contract must cite this behavior.
 - TDD: future fixtures should protect every scenario listed above.
+- TDD: retrieval-audit fixtures protect top-level Related DDD/BDD/SSOT/TDD candidate surfacing.
 - SSOT: CLI boundary remains canonical for code/tool authority.
 - ADR: required only for unresolved cache naming or authority trade-offs.
 

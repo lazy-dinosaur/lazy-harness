@@ -45,7 +45,7 @@ Output shape:
 - `coverage.state`: `mapped | partial | gap`
 - `coverage.gaps`: structural gap labels only, e.g. `no-map-matches`, `no-record-candidates`, `no-source-candidates`, `no-test-candidates`, `no-graph-candidates`
 - `matches`: feature/record/graph matches and matched fields
-- `candidates`: record/source/test/graph candidates and repeated query terms
+- `candidates`: record/source/test/graph candidates and repeated query terms, including top-level Related layer record paths surfaced from matched records
 - `commands`: overview, exact query map, repeated query map commands, and fallback grep command
 - `notes`: cue-only/LLM-owned semantic authority reminder
 
@@ -56,8 +56,9 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
 1. LLM/searcher starts with `lazy map --overview`.
 2. If a query-map is empty or suspiciously narrow, LLM/searcher may call `lazy retrieval-audit <query>`.
 3. Audit reports whether map/index/graph surfaces yielded structural entrypoints.
-4. For `gap` or `partial`, LLM/searcher follows repeated query terms and fallback grep, then reads real record/source/test files.
-5. If evidence remains missing or ambiguous, LLM/searcher uses an option gate or MultiCandidate record-decision packet. The audit itself never becomes the answer.
+4. When matched records declare top-level Related DDD/BDD/SDD/TDD/ADR/SSOT links, audit includes those paths as cue-only record candidates so search and final verification can check for missing impacted layers.
+5. For `gap` or `partial`, LLM/searcher follows repeated query terms and fallback grep, then reads real record/source/test files.
+6. If evidence remains missing or ambiguous, LLM/searcher uses an option gate or MultiCandidate record-decision packet. The audit itself never becomes the answer.
 
 ## Implementation map
 
@@ -65,7 +66,7 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
 - Primary files:
   - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — read-only CLI implementation.
   - `.lazy-harness/bin/lazy` — exposes `lazy retrieval-audit`.
-  - `.lazy-harness/scripts/record-index.ts` — provides deterministic record/feature/graph index input.
+  - `.lazy-harness/scripts/record-index.ts` — provides deterministic record/feature/graph index input, including top-level Related layer record paths.
   - `.lazy-harness/scripts/self-test.py` — regression coverage.
 - Key symbols:
   - `buildAudit`
@@ -75,7 +76,7 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
 - Flow:
   1. CLI builds a fresh record index from canonical records, feature navigation, and graph rows.
   2. CLI matches query against structural fields only.
-  3. CLI emits gap labels, candidate paths, and fallback commands.
+  3. CLI emits gap labels, candidate paths, related-record paths, and fallback commands.
   4. LLM/searcher reads the surfaced files and remains the semantic authority.
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py#check_retrieval_coverage_audit_cli`
@@ -87,7 +88,7 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
 
 - DDD: `searchable-record-memory` terminology remains unchanged; retrieval audit is a new tool over existing memory/index concepts.
 - SDD: this record defines the CLI contract.
-- BDD: `llm-owned-record-retrieval` behavior is reinforced: CLI is a cue provider, LLM reads and judges.
+- BDD: `llm-owned-record-retrieval` behavior is reinforced: CLI is a cue provider, LLM reads and judges; search/final validation must check related layer candidates for missing DDD/BDD/SSOT/TDD impacts.
 - TDD: `.lazy-harness/tests/retrieval-coverage-audit.md` and self-test protect gap/partial/mapped behavior.
 - ADR: no new trade-off decision; ADR 0041 already defines CLI/LLM boundary.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains canonical.

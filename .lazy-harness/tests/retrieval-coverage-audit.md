@@ -35,6 +35,7 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
 | Fixture id | Scenario | Expected |
 |---|---|---|
 | `retrieval_audit_mapped` | Query matches feature/record/graph and has record/source/test candidates | `coverage.state=mapped`, no gaps, candidates populated |
+| `retrieval_audit_cross_layer_related_records` | Query matches an SDD that declares top-level Related DDD/BDD/SSOT/TDD links | related DDD/BDD/SDD/SSOT/TDD record paths all appear in `candidates.recordPaths` |
 | `retrieval_audit_partial` | Query matches a record but has no source/test hints | `coverage.state=partial`, structural gap labels include source/test gaps, fallback commands present |
 | `retrieval_audit_gap` | Query has no matches | `coverage.state=gap`, `no-map-matches` and fallback grep command present |
 | `retrieval_audit_no_semantic_fields` | Any audit output | Forbidden semantic-authority fields are absent recursively |
@@ -56,15 +57,15 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
 - Flow:
   1. Self-test builds a temp host with feature navigation, records, and graph row.
   2. `lazy retrieval-audit` runs mapped/partial/gap queries through the dispatcher.
-  3. Assertions verify coverage state, candidate/fallback fields, and absence of semantic-authority fields.
+  3. Assertions verify coverage state, cross-layer related-record candidates, candidate/fallback fields, and absence of semantic-authority fields.
 - Machine index:
   - graph ids: `kg_retrieval_coverage_audit_cli_20260608`, `kg_retrieval_coverage_audit_self_test_20260608`
 
 ## Layer completeness impact
 
-- DDD: no new domain terms beyond searchable record memory.
+- DDD: no new domain terms beyond searchable record memory; related DDD paths must be surfaced when linked.
 - SDD: `.lazy-harness/spec/platform/retrieval-coverage-audit.md` defines the contract.
-- BDD: LLM-owned retrieval behavior remains unchanged and is reinforced.
+- BDD: LLM-owned retrieval behavior now explicitly requires search-time and final verification-time missing layer checks.
 - TDD: this record and `check_retrieval_coverage_audit_cli` protect behavior.
 - ADR: no new decision beyond ADR 0041 CLI/LLM boundary.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains canonical.

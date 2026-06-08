@@ -308,6 +308,20 @@ function splitHintValues(value: string): string[] {
   return uniqueSorted(value.split(',').map(cleanMarkdownValue))
 }
 
+function extractTopLevelRelatedRecords(body: string): string[] {
+  const related: string[] = []
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim()
+    const match = line.match(/^Related\s+[A-Za-z0-9 _/-]+:\s*(.+)$/i)
+    if (!match) continue
+    const value = match[1]
+    const ticked = Array.from(value.matchAll(/`([^`]+)`/g)).map((m) => cleanMarkdownValue(m[1]))
+    const paths = ticked.length ? ticked : Array.from(value.matchAll(/(\.lazy-harness\/[A-Za-z0-9_./-]+)/g)).map((m) => cleanMarkdownValue(m[1]))
+    related.push(...paths.filter((pathValue) => pathValue.startsWith('.lazy-harness/')))
+  }
+  return uniqueSorted(related)
+}
+
 function addHint(hints: ImplementationHints, kind: string, values: string[]): void {
   const k = kind.toLowerCase()
   if (/^routes?$/.test(k)) hints.routeHints = uniqueSorted([...hints.routeHints, ...values])
@@ -320,6 +334,7 @@ function addHint(hints: ImplementationHints, kind: string, values: string[]): vo
 function parseDigest(body: string, layer: Layer): DigestInfo {
   const block = findHeadingBlock(body, /^##\s+Rule digest\s*$/i)
   const fallbackScope: Scope = layer === 'Planning' ? 'transient-plan' : 'layer-fact'
+  const topLevelRelatedRecords = extractTopLevelRelatedRecords(body)
   if (!block) {
     const preview = body.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).slice(0, 2)
     return {
@@ -331,7 +346,7 @@ function parseDigest(body: string, layer: Layer): DigestInfo {
       must: [],
       mustNot: [],
       bullets: preview,
-      relatedRecords: [],
+      relatedRecords: topLevelRelatedRecords,
       aliases: [],
       surfaceTerms: [],
       implementationHints: emptyHints(),
@@ -345,7 +360,7 @@ function parseDigest(body: string, layer: Layer): DigestInfo {
   const appliesWhen: string[] = []
   const must: string[] = []
   const mustNot: string[] = []
-  const relatedRecords: string[] = []
+  const relatedRecords: string[] = [...topLevelRelatedRecords]
   const aliases: string[] = []
   const surfaceTerms: string[] = []
   const implementationHints = emptyHints()

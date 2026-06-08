@@ -4488,6 +4488,7 @@ def check_record_index_generator_phase3() -> None:
         (temp / ".lazy-harness" / "generated").mkdir(parents=True, exist_ok=True)
         (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
             "# Feature Surface\n\n"
+            "Related SDD: `.lazy-harness/spec/feature-surface.md`\n\n"
             "## Rule digest\n\n"
             "- Status: active\n"
             "- Layer: BDD\n"
@@ -4580,6 +4581,8 @@ def check_record_index_generator_phase3() -> None:
             fail("record-index missing test hint")
         if "kg_feature_surface_behavior_impl" not in record.get("graphIds", []):
             fail("record-index missing graph edge id")
+        if ".lazy-harness/spec/feature-surface.md" not in record.get("digest", {}).get("relatedRecords", []):
+            fail("record-index missing top-level Related record path")
         if "example-feature" not in record.get("projectProfileFeatureIds", []):
             fail("record-index missing project profile feature id")
         if index.get("projectProfile", {}).get("featureNavigationPath") != ".lazy-harness/project/feature-navigation.xml":
@@ -4737,6 +4740,7 @@ def check_retrieval_coverage_audit_cli() -> None:
         "retrieval_audit_mapped",
         "retrieval_audit_partial",
         "retrieval_audit_gap",
+        "retrieval_audit_cross_layer_related_records",
         "retrieval_audit_no_semantic_fields",
         "check_retrieval_coverage_audit_cli",
     ]:
@@ -4745,8 +4749,75 @@ def check_retrieval_coverage_audit_cli() -> None:
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-retrieval-audit-"))
     try:
-        for subdir in ["behavior", "spec", "project", "knowledge", "generated"]:
+        for subdir in ["behavior", "domain", "spec", "ssot", "tests", "project", "knowledge", "generated"]:
             (temp / ".lazy-harness" / subdir).mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "domain" / "searchable-record-memory.md").write_text(
+            "# Searchable Record Memory\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: DDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - defining retrieval coverage audit terminology\n"
+            "- Must:\n"
+            "  - keep record memory searchable without semantic authority\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "behavior" / "llm-owned-record-retrieval.md").write_text(
+            "# LLM-Owned Record Retrieval\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval coverage audit surfaces cross-layer candidates\n"
+            "- Must:\n"
+            "  - read actual DDD BDD SDD TDD SSOT records before relying on candidates\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ssot" / "cli-tool-boundary.md").write_text(
+            "# CLI Tool Boundary\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SSOT\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval coverage audit emits cue-only CLI output\n"
+            "- Must:\n"
+            "  - keep semantic authority with the LLM/searcher\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "tests" / "retrieval-coverage-audit.md").write_text(
+            "# Retrieval Coverage Audit Regression\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: TDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval coverage audit must verify no cross-layer records are missing\n"
+            "- Must:\n"
+            "  - protect DDD BDD SDD TDD SSOT related-record retrieval\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "spec" / "retrieval-coverage-audit.md").write_text(
+            "# Retrieval Coverage Audit\n\n"
+            "Related DDD: `.lazy-harness/domain/searchable-record-memory.md`\n"
+            "Related BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`\n"
+            "Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`\n"
+            "Related TDD: `.lazy-harness/tests/retrieval-coverage-audit.md`\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval coverage audit checks missing cross-layer records\n"
+            "- Must:\n"
+            "  - include related DDD BDD SSOT and TDD records as retrieval candidates\n\n"
+            "## Implementation map\n\n"
+            "- Source: `.lazy-harness/scripts/retrieval-coverage-audit.ts`\n"
+            "- Tests: `.lazy-harness/scripts/self-test.py`\n",
+            encoding="utf-8",
+        )
         (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
             "# Feature Surface\n\n"
             "## Rule digest\n\n"
@@ -4807,13 +4878,19 @@ def check_retrieval_coverage_audit_cli() -> None:
                 "source": ".lazy-harness/behavior/feature-surface.md",
                 "relation": "implemented_by",
                 "target": "src/features/example-feature/FeaturePanel.tsx",
+            }, ensure_ascii=False) + "\n" +
+            json.dumps({
+                "id": "kg_retrieval_coverage_audit_fixture_impl",
+                "path": ".lazy-harness/spec/retrieval-coverage-audit.md",
+                "relation": "implemented_by",
+                "target": ".lazy-harness/scripts/retrieval-coverage-audit.ts",
             }, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
 
         def run_audit(query: str) -> dict:
             completed = subprocess.run(
-                [str(LAZY / "bin" / "lazy"), "retrieval-audit", query, "--format=json", "--limit=6"],
+                [str(LAZY / "bin" / "lazy"), "retrieval-audit", query, "--format=json", "--limit=12"],
                 cwd=ROOT,
                 text=True,
                 capture_output=True,
@@ -4841,6 +4918,27 @@ def check_retrieval_coverage_audit_cli() -> None:
             fail("mapped audit missing test candidate")
         if "kg_feature_surface_behavior_impl" not in candidates.get("graphIds", []):
             fail("mapped audit missing graph candidate")
+
+        cross_layer = run_audit("retrieval coverage audit")
+        if cross_layer.get("coverage", {}).get("state") != "mapped":
+            fail("retrieval coverage audit query should map cross-layer records: " + json.dumps(cross_layer.get("coverage"), ensure_ascii=False))
+        cross_paths = set(cross_layer.get("candidates", {}).get("recordPaths", []))
+        for required_path in [
+            ".lazy-harness/domain/searchable-record-memory.md",
+            ".lazy-harness/behavior/llm-owned-record-retrieval.md",
+            ".lazy-harness/spec/retrieval-coverage-audit.md",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            ".lazy-harness/tests/retrieval-coverage-audit.md",
+        ]:
+            if required_path not in cross_paths:
+                fail("retrieval-audit missing cross-layer related record candidate: " + required_path)
+        cross_candidates = cross_layer.get("candidates", {})
+        if ".lazy-harness/scripts/retrieval-coverage-audit.ts" not in cross_candidates.get("sourceFiles", []):
+            fail("retrieval-audit cross-layer fixture missing source candidate")
+        if ".lazy-harness/scripts/self-test.py" not in cross_candidates.get("testFiles", []):
+            fail("retrieval-audit cross-layer fixture missing test candidate")
+        if "kg_retrieval_coverage_audit_fixture_impl" not in cross_candidates.get("graphIds", []):
+            fail("retrieval-audit cross-layer fixture missing graph candidate")
 
         partial = run_audit("orphan audit")
         if partial.get("coverage", {}).get("state") != "partial":
@@ -4872,7 +4970,7 @@ def check_retrieval_coverage_audit_cli() -> None:
                 for idx, child in enumerate(value):
                     assert_no_forbidden_keys(child, path + f"{idx}.")
 
-        for result in [mapped, partial, gap]:
+        for result in [mapped, cross_layer, partial, gap]:
             assert_no_forbidden_keys(result)
 
         if (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
