@@ -4705,6 +4705,183 @@ def check_record_index_generator_phase3() -> None:
     print("✓ record-index generator Phase 3 ok")
 
 
+def check_retrieval_coverage_audit_cli() -> None:
+    """Retrieval audit should expose structural coverage gaps without semantic authority."""
+    script_path = LAZY / "scripts" / "retrieval-coverage-audit.ts"
+    sdd_path = LAZY / "spec" / "platform" / "retrieval-coverage-audit.md"
+    tdd_path = LAZY / "tests" / "retrieval-coverage-audit.md"
+    for path in [script_path, sdd_path, tdd_path]:
+        if not path.exists():
+            fail("Retrieval coverage audit artifact missing: " + str(path))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "retrieval-audit <term-or-file>" not in help_text:
+        fail("lazy help must advertise retrieval-audit command")
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "mode: retrieval-coverage-audit",
+        "coverage.state",
+        "mapped | partial | gap",
+        "no-map-matches",
+        "LLM/searcher remains the semantic search engine",
+        "Forbidden fields",
+        "`.lazy-harness/scripts/retrieval-coverage-audit.ts`",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Retrieval coverage audit SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "retrieval_audit_mapped",
+        "retrieval_audit_partial",
+        "retrieval_audit_gap",
+        "retrieval_audit_no_semantic_fields",
+        "check_retrieval_coverage_audit_cli",
+    ]:
+        if phrase not in tdd_text:
+            fail("Retrieval coverage audit TDD missing phrase: " + phrase)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-retrieval-audit-"))
+    try:
+        for subdir in ["behavior", "spec", "project", "knowledge", "generated"]:
+            (temp / ".lazy-harness" / subdir).mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "behavior" / "feature-surface.md").write_text(
+            "# Feature Surface\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - user asks about feature surface UI\n"
+            "- Must:\n"
+            "  - confirm feature panel behavior before editing\n"
+            "- Aliases:\n"
+            "  - feature panel\n"
+            "- Surface terms:\n"
+            "  - feature surface\n"
+            "- Implementation hints:\n"
+            "  - Components: `FeaturePanel`\n"
+            "  - Files: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "  - Tests: `tests/example-feature/feature-panel.test.tsx`\n"
+            "- Related records:\n"
+            "  - `.lazy-harness/spec/feature-surface.md`\n\n"
+            "## Implementation map\n\n"
+            "- Source: `src/features/example-feature/FeaturePanel.tsx`\n"
+            "- Tests: `tests/example-feature/feature-panel.test.tsx`\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "spec" / "partial-record.md").write_text(
+            "# Orphan Audit\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - orphan audit fixture appears\n"
+            "- Must:\n"
+            "  - keep structural partial coverage visible\n"
+            "- Aliases:\n"
+            "  - orphan audit\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "project" / "feature-navigation.xml").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigation version="1.0">
+  <feature id="example-feature" status="confirmed">
+    <label>Feature Surface</label>
+    <aliases><alias lang="en">feature panel</alias></aliases>
+    <components><component>FeaturePanel</component></components>
+    <records><record layer="BDD">.lazy-harness/behavior/feature-surface.md</record></records>
+    <sourceFiles><path>src/features/example-feature/FeaturePanel.tsx</path></sourceFiles>
+    <tests><path>tests/example-feature/feature-panel.test.tsx</path></tests>
+  </feature>
+</featureNavigation>
+""",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "knowledge" / "graph.jsonl").write_text(
+            json.dumps({
+                "id": "kg_feature_surface_behavior_impl",
+                "source": ".lazy-harness/behavior/feature-surface.md",
+                "relation": "implemented_by",
+                "target": "src/features/example-feature/FeaturePanel.tsx",
+            }, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        def run_audit(query: str) -> dict:
+            completed = subprocess.run(
+                [str(LAZY / "bin" / "lazy"), "retrieval-audit", query, "--format=json", "--limit=6"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+            )
+            if completed.returncode != 0:
+                fail(f"lazy retrieval-audit failed for {query!r}:\n" + completed.stdout + completed.stderr)
+            try:
+                return json.loads(completed.stdout)
+            except Exception as exc:  # noqa: BLE001
+                fail(f"retrieval-audit output was not JSON for {query!r}: {exc}\n{completed.stdout}")
+
+        mapped = run_audit("feature panel")
+        if mapped.get("mode") != "retrieval-coverage-audit":
+            fail("retrieval-audit output mode mismatch")
+        if mapped.get("coverage", {}).get("state") != "mapped" or mapped.get("coverage", {}).get("gaps"):
+            fail("feature panel query should be fully mapped: " + json.dumps(mapped.get("coverage"), ensure_ascii=False))
+        candidates = mapped.get("candidates", {})
+        if ".lazy-harness/behavior/feature-surface.md" not in candidates.get("recordPaths", []):
+            fail("mapped audit missing record candidate")
+        if "src/features/example-feature/FeaturePanel.tsx" not in candidates.get("sourceFiles", []):
+            fail("mapped audit missing source candidate")
+        if "tests/example-feature/feature-panel.test.tsx" not in candidates.get("testFiles", []):
+            fail("mapped audit missing test candidate")
+        if "kg_feature_surface_behavior_impl" not in candidates.get("graphIds", []):
+            fail("mapped audit missing graph candidate")
+
+        partial = run_audit("orphan audit")
+        if partial.get("coverage", {}).get("state") != "partial":
+            fail("orphan audit query should be partial: " + json.dumps(partial.get("coverage"), ensure_ascii=False))
+        partial_gaps = set(partial.get("coverage", {}).get("gaps", []))
+        for gap in ["no-source-candidates", "no-test-candidates", "no-graph-candidates"]:
+            if gap not in partial_gaps:
+                fail("partial audit missing gap label: " + gap)
+        if "no-map-matches" in partial_gaps:
+            fail("partial audit should have at least one structural map match")
+
+        gap = run_audit("zzzz-missing-token")
+        if gap.get("coverage", {}).get("state") != "gap":
+            fail("missing query should be a retrieval gap")
+        if "no-map-matches" not in gap.get("coverage", {}).get("gaps", []):
+            fail("gap audit missing no-map-matches label")
+        if "grep -Rli" not in gap.get("commands", {}).get("fallbackGrep", ""):
+            fail("gap audit missing fallback grep command")
+
+        forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+        def assert_no_forbidden_keys(value: object, path: str = "$.") -> None:
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if key in forbidden:
+                        fail("retrieval-audit emitted forbidden semantic-authority key: " + path + key)
+                    assert_no_forbidden_keys(child, path + key + ".")
+            elif isinstance(value, list):
+                for idx, child in enumerate(value):
+                    assert_no_forbidden_keys(child, path + f"{idx}.")
+
+        for result in [mapped, partial, gap]:
+            assert_no_forbidden_keys(result)
+
+        if (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
+            fail("retrieval-audit must not write generated record-index cache")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ retrieval coverage audit CLI ok")
+
+
 def check_source_feature_navigation_phase3() -> None:
     """Source repo Phase 3 should expose a compact canonical project feature map."""
     feature_path = LAZY / "project" / "feature-navigation.xml"
@@ -6103,6 +6280,7 @@ def main() -> None:
         (check_reference_resolver, "FRAMEWORK_ONLY"),
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_record_index_generator_phase3, "BOTH"),
+        (check_retrieval_coverage_audit_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),

@@ -319,6 +319,16 @@
           "description": "TDD contract fixtures for Phase 8 Record Decision Broker false-positive and disposition coverage; required by BOTH-scope self-test."
         },
         {
+          "path": "spec/platform/retrieval-coverage-audit.md",
+          "kind": "file",
+          "description": "SDD contract for lazy retrieval-audit structural coverage gaps, fallback commands, and no semantic-authority output."
+        },
+        {
+          "path": "tests/retrieval-coverage-audit.md",
+          "kind": "file",
+          "description": "TDD contract fixtures for retrieval-audit mapped/partial/gap coverage states and cue-only output."
+        },
+        {
           "path": "spec/platform/record-write-update-policy.md",
           "kind": "file",
           "description": "SDD contract for updating existing canonical records before creating new records."

@@ -70,6 +70,8 @@ Commands:
                                 Show whole record/feature/graph structure before choosing search terms
   map <term-or-file> [--format=json|md] [--limit=N] [--fresh]
                                 Show matching record/feature/graph drill-down file candidates; uses fresh generated cache when available
+  retrieval-audit <term-or-file> [--format=json|md] [--limit=N]
+                                Audit lazy map/record-index coverage gaps and fallback grep/read candidates
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
@@ -181,6 +183,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/record-index.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  retrieval-audit)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy retrieval-audit: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/retrieval-coverage-audit.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then
