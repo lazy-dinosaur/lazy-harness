@@ -169,6 +169,11 @@
           "description": "BDD foundation record for LLM-owned retrieval, cross-layer related-record checks, and overview-first standalone ordering."
         },
         {
+          "path": "planning/retrieval-architecture-holistic-review.md",
+          "kind": "file",
+          "description": "Planning record preserving the user-confirmed holistic review of shallow record-map traversal, Graphify-style query/path/explain, compact overview reminder, and batch policy trade-offs."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
