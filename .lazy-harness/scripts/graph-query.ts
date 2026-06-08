@@ -847,6 +847,54 @@ function selectEndpointCandidates(result: GraphQueryResult, cue: string, limit: 
   return Array.from(selected.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
 }
 
+function reinforceEndpointRecordEdges(root: string, endpointNodes: SubgraphNode[], nodes: Map<string, SubgraphNode>, edges: Map<string, SubgraphEdge>): void {
+  const endpointPaths = uniquePreserve(endpointNodes.map((node) => node.path || '').filter((value) => value.startsWith('.lazy-harness/')))
+  if (endpointPaths.length < 2) return
+  const endpointSet = new Set(endpointPaths)
+  const index = buildRecordIndex(root)
+  const recordByPath = new Map(index.records.map((record) => [record.recordPath, record]))
+  for (const sourcePath of endpointPaths) {
+    const sourceRecord = recordByPath.get(sourcePath)
+    if (!sourceRecord) continue
+    addNode(nodes, { id: recordNodeId(sourcePath), kind: 'record', label: sourceRecord.title || sourcePath, path: sourcePath, provenance: ['endpoint-record-edge'] })
+    const candidateEdges: Array<{ targetPath: string; relation: string; provenance: string }> = []
+    for (const targetPath of sourceRecord.implementationHints.fileHints) candidateEdges.push({ targetPath, relation: 'hints_record', provenance: `${sourcePath}:implementationHints.fileHints` })
+    for (const targetPath of sourceRecord.implementationHints.testHints) candidateEdges.push({ targetPath, relation: 'hints_record', provenance: `${sourcePath}:implementationHints.testHints` })
+    for (const targetPath of sourceRecord.digest.relatedRecords) candidateEdges.push({ targetPath, relation: 'related_record', provenance: `${sourcePath}:relatedRecords` })
+    for (const edge of candidateEdges) {
+      if (!endpointSet.has(edge.targetPath) || !recordByPath.has(edge.targetPath)) continue
+      const targetRecord = recordByPath.get(edge.targetPath)!
+      addNode(nodes, { id: recordNodeId(edge.targetPath), kind: 'record', label: targetRecord.title || edge.targetPath, path: edge.targetPath, provenance: ['endpoint-record-edge'] })
+      addEdge(edges, { source: recordNodeId(sourcePath), target: recordNodeId(edge.targetPath), relation: edge.relation, provenance: [edge.provenance] })
+    }
+  }
+}
+
+function graphQueryCandidatePaths(result: GraphQueryResult): Set<string> {
+  return new Set([
+    ...result.candidates.recordPaths,
+    ...result.candidates.sourceFiles,
+    ...result.candidates.testFiles,
+    ...result.subgraph.nodes.map((node) => node.path || '').filter(Boolean),
+  ])
+}
+
+function addCandidateOverlapEdges(fromResult: GraphQueryResult, toResult: GraphQueryResult, fromCandidates: SubgraphNode[], toCandidates: SubgraphNode[], edges: Map<string, SubgraphEdge>): void {
+  const fromPaths = graphQueryCandidatePaths(fromResult)
+  const toPaths = graphQueryCandidatePaths(toResult)
+  for (const fromNode of fromCandidates) {
+    for (const toNode of toCandidates) {
+      const fromPath = fromNode.path || ''
+      const toPath = toNode.path || ''
+      const provenance: string[] = []
+      if (toPath && fromPaths.has(toPath)) provenance.push(`from-query:candidate:${toPath}`)
+      if (fromPath && toPaths.has(fromPath)) provenance.push(`to-query:candidate:${fromPath}`)
+      if (!provenance.length) continue
+      addEdge(edges, { source: fromNode.id, target: toNode.id, relation: 'candidate_context', provenance })
+    }
+  }
+}
+
 function edgeKey(edge: SubgraphEdge): string {
   return `${edge.source}\u0000${edge.relation}\u0000${edge.target}`
 }
@@ -880,6 +928,11 @@ function findBoundedPaths(fromIds: string[], toIds: string[], edgeByKey: Map<str
     const visited = new Set(current.nodeIds)
     for (const next of adjacency.get(nodeId) || []) {
       if (visited.has(next.next)) continue
+      if (targetIds.has(next.next)) {
+        results.push({ nodeIds: [...current.nodeIds, next.next], edgeKeys: [...current.edgeKeys, next.edgeKey] })
+        if (results.length >= maxPaths) break
+        continue
+      }
       queue.push({ nodeIds: [...current.nodeIds, next.next], edgeKeys: [...current.edgeKeys, next.edgeKey] })
     }
   }
@@ -903,10 +956,15 @@ function buildGraphPath(root: string, from: string, to: string, limit: number, m
   const fromCandidates = selectEndpointCandidates(fromResult, from, limit, nodes)
   const toCandidates = selectEndpointCandidates(toResult, to, limit, nodes)
   for (const node of [...fromCandidates, ...toCandidates]) addNode(nodes, node)
+  reinforceEndpointRecordEdges(root, [...fromCandidates, ...toCandidates], nodes, edges)
 
-  const walks = fromCandidates.length && toCandidates.length
+  let walks = fromCandidates.length && toCandidates.length
     ? findBoundedPaths(fromCandidates.map((node) => node.id), toCandidates.map((node) => node.id), edges, maxDepth, maxPaths)
     : []
+  if (!walks.length && fromCandidates.length && toCandidates.length) {
+    addCandidateOverlapEdges(fromResult, toResult, fromCandidates, toCandidates, edges)
+    walks = findBoundedPaths(fromCandidates.map((node) => node.id), toCandidates.map((node) => node.id), edges, maxDepth, maxPaths)
+  }
 
   const pathResults: GraphPath[] = walks.map((walk) => {
     const pathNodes = walk.nodeIds.map((id) => nodes.get(id)).filter((node): node is SubgraphNode => Boolean(node))

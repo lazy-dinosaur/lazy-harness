@@ -119,10 +119,12 @@ Implementation should:
 
 1. Build endpoint candidate subgraphs by running the existing graph-query builder for `<from>` and `<to>`.
 2. Merge nodes/edges from both bounded cue subgraphs.
-3. Add confirmed graph JSONL / implementation-index edges that touch candidate nodes when already represented in graph-query output.
-4. Run deterministic bounded BFS over compact node ids.
-5. Return shortest paths first, then stable lexicographic tie-breakers.
-6. If no path exists, return endpoint candidates plus fallback commands, not a semantic conclusion.
+3. Reinforce endpoint record-to-record edges from record-index related records and implementation hints so direct endpoint links are not lost when query subgraph edge output is capped.
+4. Add confirmed graph JSONL / implementation-index edges that touch candidate nodes when already represented in graph-query output.
+5. Run deterministic bounded BFS over compact node ids with immediate target-neighbor detection.
+6. If direct/indexed BFS finds no path, add `candidate_context` fallback edges only when one endpoint path already appears in the other endpoint's graph-query candidate packet. This is cue-only portability support for hosts that have source graph rows but not every source record file.
+7. Return shortest paths first, then stable lexicographic tie-breakers.
+8. If no path exists, return endpoint candidates plus fallback commands, not a semantic conclusion.
 
 ## Implementation map
 
@@ -137,6 +139,8 @@ Implementation should:
 - Key symbols:
   - `GraphPathResult`
   - `buildGraphPath`
+  - `reinforceEndpointRecordEdges`
+  - `addCandidateOverlapEdges`
   - `findBoundedPaths`
   - `renderPathMarkdown`
   - `parseArgs`

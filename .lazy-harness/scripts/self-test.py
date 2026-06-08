@@ -5423,6 +5423,32 @@ def check_graph_path_cli() -> None:
             for idx, child in enumerate(value):
                 assert_no_forbidden_keys(child, path + f"{idx}.")
 
+    source_linked = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "graph",
+            "path",
+            "workflow compression not safety reduction",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            "--format=json",
+            "--limit=8",
+            "--max-depth=4",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if source_linked.returncode != 0:
+        fail("graph path source linked regression command failed:\n" + source_linked.stdout + source_linked.stderr)
+    try:
+        source_payload = json.loads(source_linked.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"graph path source linked regression output was not JSON: {exc}\n{source_linked.stdout}")
+    if source_payload.get("resultState") != "linked" or not source_payload.get("paths"):
+        fail("graph path source linked regression should remain linked for workflow compression -> CLI boundary")
+    assert_no_forbidden_keys(source_payload)
+
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-path-"))
     try:
         for subdir in ["spec", "ssot", "tests", "knowledge", "generated"]:
@@ -5452,7 +5478,8 @@ def check_graph_path_cli() -> None:
             "- Applies when:\n"
             "  - graph path emits generated navigation context\n"
             "- Must:\n"
-            "  - keep LLM/searcher as semantic authority\n",
+            "  - keep LLM/searcher as semantic authority\n"
+            "  - workflow compression not safety reduction downstream fallback cue\n",
             encoding="utf-8",
         )
         (temp / ".lazy-harness" / "tests" / "graph-path.md").write_text(
@@ -5474,6 +5501,12 @@ def check_graph_path_cli() -> None:
             "relation": "specified_by",
             "target": ".lazy-harness/ssot/cli-tool-boundary.md",
             "path": ".lazy-harness/spec/retrieval-path-source.md",
+        }, ensure_ascii=False) + "\n" + json.dumps({
+            "id": "kg_workflow_compression_not_safety_reduction_fixture",
+            "source": "user-confirmed fixture",
+            "relation": "defines_policy",
+            "target": "workflow compression not safety reduction",
+            "path": ".lazy-harness/decisions/missing-workflow-compression-not-safety-reduction.md",
         }, ensure_ascii=False) + "\n"
         graph_path.write_text(graph_text, encoding="utf-8")
         record_index_path = temp / ".lazy-harness" / "generated" / "record-index.json"
@@ -5514,6 +5547,25 @@ def check_graph_path_cli() -> None:
         if not payload.get("endpoints", {}).get("fromCandidates") or not payload.get("endpoints", {}).get("toCandidates"):
             fail("graph path linked fixture missing endpoint candidates")
         assert_no_forbidden_keys(payload)
+
+        fallback_linked = run_graph_path(
+            "path",
+            "workflow compression not safety reduction",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            "--format=json",
+            "--limit=8",
+            "--max-depth=4",
+        )
+        try:
+            fallback_payload = json.loads(fallback_linked.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"graph path candidate-context fallback output was not JSON: {exc}\n{fallback_linked.stdout}")
+        if fallback_payload.get("resultState") != "linked" or not fallback_payload.get("paths"):
+            fail("graph path candidate-context fallback should link when from record file is absent but to endpoint is a from-query candidate")
+        fallback_edges = [edge for path_item in fallback_payload.get("paths", []) for edge in path_item.get("edges", [])]
+        if not any(edge.get("relation") == "candidate_context" for edge in fallback_edges):
+            fail("graph path candidate-context fallback fixture missing candidate_context edge")
+        assert_no_forbidden_keys(fallback_payload)
 
         gap = run_graph_path("path", "zzzz-missing-from", "zzzz-missing-to", "--format=json", "--limit=8")
         try:

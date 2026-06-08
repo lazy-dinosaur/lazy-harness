@@ -36,6 +36,8 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | Fixture id | Scenario | Expected |
 |---|---|---|
 | `graph_path_linked_query_to_record` | `lazy graph path 'workflow compression not safety reduction' '.lazy-harness/ssot/cli-tool-boundary.md' --format=json --limit=8` | `resultState=linked`, at least one bounded path, endpoints include from/to candidates, no forbidden semantic fields |
+| `graph_path_source_endpoint_edge_cap_regression` | Source graph rows/record-map ranking push a direct endpoint edge outside the bounded query subgraph edge slice | `lazy graph path 'workflow compression not safety reduction' '.lazy-harness/ssot/cli-tool-boundary.md' --format=json --limit=8 --max-depth=4` remains `linked` through endpoint edge reinforcement |
+| `graph_path_candidate_context_portability` | Host has a source graph row/path candidate but does not have the source record file needed for implementation-hint edges | direct BFS may fail, then fallback `candidate_context` edge links only if one endpoint path is already present in the other endpoint's graph-query candidate packet |
 | `graph_path_gap` | from/to cues do not match any structural candidates | `resultState=gap`, `no-from-candidates` or `no-to-candidates`, fallback commands present |
 | `graph_path_partial` | endpoints exist but no bounded path under max depth | `resultState=partial`, `no-paths`, endpoint candidates present |
 | `graph_path_read_only` | running path in source/temp host | graph JSONL and generated record-index cache are unchanged |
@@ -103,6 +105,8 @@ A graph path is a navigation cue only. It is not:
 - Key symbols:
   - `check_graph_path_cli`
   - `buildGraphPath`
+  - `reinforceEndpointRecordEdges`
+  - `addCandidateOverlapEdges`
   - `findBoundedPaths`
   - `renderPathMarkdown`
   - `parseArgs`
