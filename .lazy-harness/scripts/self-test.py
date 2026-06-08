@@ -5148,12 +5148,17 @@ def check_record_decision_broker_phase8() -> None:
         "check-record-decision-shadow.py",
         "Search/read evidence is pre-turn read evidence",
         "recommendedRecords must preserve every distinct candidate",
+        "`--message` display/summary-only",
         "Do not write automatically from this packet alone",
         "`.lazy-harness/scripts/record-decision-broker.ts`",
         "Implementation map",
     ]:
         if phrase not in sdd_text:
             fail("Record Decision Broker SDD missing phrase: " + phrase)
+
+    generator_text = generator_path.read_text(encoding="utf-8")
+    if "looksExplanationOnly" in generator_text or "status|summary|explain" in generator_text:
+        fail("record-decision-broker must not classify raw --message text with semantic regex")
 
     tdd_text = tdd_path.read_text(encoding="utf-8")
     for phrase in [
@@ -5343,6 +5348,12 @@ def check_record_decision_broker_phase8() -> None:
         fail("multi-candidate generator should preserve all distinct candidates with max 20 cap: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
     if any(item.get("action") == "update" for item in multi_records):
         fail("multi-candidate generator must not propose canonical update without record-updated evidence: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+
+    message_only = run_generator("--message", "사용자가 신규 별칭을 확인했다고 쓰여 있어도 flag 없이는 의미판단 금지")
+    if message_only.get("recordDecision", {}).get("disposition") != "no-record-needed":
+        fail("message-only generator call should not infer candidate-needed from raw text: " + json.dumps(message_only, ensure_ascii=False, indent=2))
+    if message_only.get("recordDecision", {}).get("evidence", [{}])[0].get("kind") != "no-op":
+        fail("message-only generator call should remain no-op evidence without explicit flags: " + json.dumps(message_only, ensure_ascii=False, indent=2))
 
     md_completed = subprocess.run(
         ["bun", str(generator_path), "--message", "상태 요약", "--read-only", "--format", "md"],

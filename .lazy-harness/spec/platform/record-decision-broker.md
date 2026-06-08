@@ -33,6 +33,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - avoid raw transcript storage; store paths, tool names, reasons, hashes, and compact evidence summaries only
   - keep clean turns silent in `response.completed`; advisory output must remain opt-in and fixture-protected
   - keep response.completed shadow integration evidence-only; do not infer ambiguous intent or option-gate needs from raw user text in shell/CLI hooks
+  - keep `--message` display/summary-only; broker disposition must come from explicit flags or safe evidence arrays, not regex over user/request text
   - cap evidence and `recommendedRecords` at 20 items to avoid prompt/log blow-up while still preserving multi-gap turns
 - Must not:
   - blindly write records from model inference alone
@@ -81,6 +82,7 @@ Generator command:
 ```
 
 The generator is explicit/offline by default: it does not mutate records and does not write journals.
+`--message` is a compact label for humans/logs and must not be parsed as semantic authority. Use explicit flags such as `--read-only`, `--validation-only`, `--no-record-needed`, `--changed-file`, `--changed-test`, `--user-confirmation`, or `--ambiguous` to communicate safe evidence.
 
 Response shadow bridge:
 

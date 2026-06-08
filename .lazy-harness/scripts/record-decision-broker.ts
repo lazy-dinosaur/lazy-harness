@@ -298,12 +298,8 @@ function chooseDisposition(args: Args): { disposition: Disposition; trigger: Tri
   if (args.changedTests.length) return { disposition: 'candidate-needed', trigger: 'test-change', confidence: 0.72 }
   if (args.changedFiles.length) return { disposition: 'candidate-needed', trigger: inferChangeTrigger(args), confidence: 0.7 }
   if (args.validationOnly || args.validations.length) return { disposition: 'no-record-needed', trigger: 'validation-only', confidence: 0.86 }
-  if (args.readOnly || args.noRecordNeeded || looksExplanationOnly(args.message)) return { disposition: 'no-record-needed', trigger: 'explanation-only', confidence: 0.84 }
+  if (args.readOnly || args.noRecordNeeded) return { disposition: 'no-record-needed', trigger: 'explanation-only', confidence: 0.84 }
   return { disposition: 'no-record-needed', trigger: 'explanation-only', confidence: 0.7 }
-}
-
-function looksExplanationOnly(message: string): boolean {
-  return /(status|summary|explain|what is|차이|설명|요약|상태|뭐야|무엇|왜)/i.test(message || '')
 }
 
 function recommendedRecords(args: Args, disposition: Disposition, trigger: Trigger): RecommendedRecord[] {

@@ -23,6 +23,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - prove clean/read-only/explanation turns can be represented as `no-record-needed`
   - prevent automatic record writes from packet inference alone
   - require concrete evidence before `candidate-needed` or stricter audit output
+  - prove `--message` is display/summary-only and is not parsed by raw text regex to decide disposition
   - keep ambiguous layer/path cases in `option-gate-needed`, not mutation
 - Record completion:
   - changes to Record Decision Broker schema, dispositions, evidence kinds, or runtime integration update this TDD record and `.lazy-harness/spec/platform/record-decision-broker.md`
@@ -69,6 +70,7 @@ The generator and response shadow fixtures are now active.
   - validates sample `candidate-needed`, `no-record-needed`, and `option-gate-needed` packet shapes.
   - runs `.lazy-harness/scripts/record-decision-broker.ts` for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated` cases.
   - validates a multi-candidate packet preserves BDD, SDD, TDD, and Knowledge recommendations instead of only the first candidate.
+  - statically rejects raw-message semantic helper functions such as `looksExplanationOnly` and validates clean outcomes use explicit evidence/flags.
 - `.lazy-harness/scripts/self-test.py#check_record_decision_shadow_response_completed`
   - validates `response.completed` helper chain registration,
   - validates read-only turns stay silent and journal `no-record-needed`,
