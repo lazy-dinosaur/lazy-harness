@@ -339,6 +339,11 @@
           "description": "Evidence capsule for graph-query coverage/ranking hardening that improves workflow benchmark full-layer coverage while preserving cue-only policy boundaries."
         },
         {
+          "path": "evidence/2026-06-08-graph-path-downstream-sync.md",
+          "kind": "file",
+          "description": "Evidence capsule for graph-path source commit sync and smoke validation across initialized downstream hosts."
+        },
+        {
           "path": "tests/prompt-budget.md",
           "kind": "file",
           "description": "TDD contract for prompt budget measurement output, isolated message.received rendering, privacy checks, and lazy prompt-budget dispatch."

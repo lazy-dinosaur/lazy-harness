@@ -120,7 +120,7 @@ python3 .lazy-harness/scripts/self-test.py --scope framework
 - Run lazy-sync verification / downstream sync to active hosts.
 - Commit/summarize downstream sync if applicable.
 
-Status: source implementation and focused graph-query/path self-tests passed in source checkout. Full framework self-test and downstream sync remain validation steps.
+Status: source implementation, focused graph-query/path checks, full framework self-test, commit hook lazy test, and 15/15 downstream host sync/smoke validation passed. Evidence: `.lazy-harness/evidence/2026-06-08-graph-path-downstream-sync.md`.
 
 ## Risks and mitigations
 
