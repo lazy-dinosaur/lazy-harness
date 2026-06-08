@@ -11,6 +11,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
 Related Planning: `.lazy-harness/planning/retrieval-architecture-holistic-review.md`
 Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.md`
+Related evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md`
 
 ## Rule digest
 
@@ -144,6 +145,7 @@ Forbidden statement examples:
   - `.lazy-harness/scripts/graph-query.ts` — implements parser, Phase 1 types, `buildGraphExplain`, and JSON output.
   - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` regression protection.
   - `.lazy-harness/bin/lazy` — advertises graph explain Phase 1 JSON.
+  - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke validation capsule for source commit `dfd11ffe676500ad928c61789034835a81097ef1`.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -159,6 +161,7 @@ Forbidden statement examples:
   - `kg_graph_explain_structural_design_20260608`
   - `kg_graph_explain_phase1_cli_20260608`
   - `kg_graph_explain_phase1_self_test_20260608`
+  - `kg_graph_explain_phase1_downstream_sync_20260608`
 
 ## Layer completeness impact
 

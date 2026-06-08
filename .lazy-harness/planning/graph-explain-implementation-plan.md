@@ -10,6 +10,7 @@ Related SDD: `.lazy-harness/spec/platform/graph-path.md`
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related Planning: `.lazy-harness/planning/retrieval-architecture-holistic-review.md`
 Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.md`
+Related evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md`
 
 ## Rule digest
 
@@ -82,7 +83,12 @@ Exit criteria:
 
 ## Phase 1 — Minimal JSON structural packet
 
-Status: implemented, validation in progress
+Status: implemented and downstream-validated
+
+Evidence:
+
+- Source implementation commit `dfd11ffe676500ad928c61789034835a81097ef1` (`feat(graph): implement graph explain phase 1`) passed focused graph explain checks, full framework self-test, commit hook lazy test, source smoke, origin push, and 16/16 initialized downstream host sync/smoke validation.
+- Evidence capsule: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md`.
 
 Tasks:
 
@@ -134,7 +140,11 @@ Exit criteria:
 - Path-backed statements explain relation/provenance only.
 - Source and downstream graph-path fixtures remain linked.
 
-## Phase 4 — Validation and downstream sync, future implementation
+## Phase 4 — Validation and downstream sync
+
+Status: completed for Phase 1 JSON implementation.
+
+Evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` records 16/16 downstream hosts synced to source commit `dfd11ffe676500ad928c61789034835a81097ef1` and smoke-validated `graph-query.explain` structural JSON with cited statements and no forbidden semantic-authority fields.
 
 Focused validation:
 
@@ -195,8 +205,9 @@ Downstream validation:
   - `.lazy-harness/scripts/graph-query.ts` — implements Phase 1 parser, `GraphExplainResult` types, `buildGraphExplain`, and JSON output.
   - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` Phase 1 regression coverage.
   - `.lazy-harness/bin/lazy` — advertises `graph explain <term-or-file>` JSON Phase 1.
-  - `.lazy-harness/manifests/init-categories.json` — design record sync entries.
-  - `.lazy-harness/knowledge/graph.jsonl` — design graph rows.
+  - `.lazy-harness/manifests/init-categories.json` — Phase 1 record and evidence sync entries.
+  - `.lazy-harness/knowledge/graph.jsonl` — Phase 1 implementation/test/evidence graph rows.
+  - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke evidence capsule.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -211,6 +222,7 @@ Downstream validation:
   - `kg_graph_explain_structural_plan_20260608`
   - `kg_graph_explain_phase1_cli_20260608`
   - `kg_graph_explain_phase1_self_test_20260608`
+  - `kg_graph_explain_phase1_downstream_sync_20260608`
 
 ## Layer completeness impact
 

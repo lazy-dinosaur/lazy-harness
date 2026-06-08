@@ -8,6 +8,7 @@ Related SDD: `.lazy-harness/spec/platform/graph-query.md`
 Related SDD: `.lazy-harness/spec/platform/graph-path.md`
 Related Planning: `.lazy-harness/planning/graph-explain-implementation-plan.md`
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
+Related evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md`
 
 ## Rule digest
 
@@ -110,6 +111,7 @@ A graph explain packet is a structural explanation only. It is not:
   - `.lazy-harness/scripts/graph-query.ts` — implements parser, Phase 1 types, `buildGraphExplain`, and JSON output.
   - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` regression protection.
   - `.lazy-harness/bin/lazy` — advertises graph explain Phase 1 JSON.
+  - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke validation capsule for Phase 1.
 - Key symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -123,6 +125,7 @@ A graph explain packet is a structural explanation only. It is not:
   - `kg_graph_explain_structural_tdd_20260608`
   - `kg_graph_explain_phase1_cli_20260608`
   - `kg_graph_explain_phase1_self_test_20260608`
+  - `kg_graph_explain_phase1_downstream_sync_20260608`
 
 ## Layer completeness impact
 
