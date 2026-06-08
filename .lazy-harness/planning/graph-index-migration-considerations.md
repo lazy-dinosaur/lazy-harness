@@ -3,6 +3,7 @@
 Status: exploratory
 Date: 2026-05-15
 Related candidate: `.lazy-harness/knowledge/candidates.jsonl` entry `ki_graphify_external_graph_backend_d4313176da`
+Confirmed external reference: <https://github.com/safishamsi/graphify>
 Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
 Related ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
 Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
@@ -11,6 +12,8 @@ Related SDD: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 ## Question
 
 If lazy-harness adopts a Graphify-inspired derived index/query system, will migration become difficult?
+
+User-confirmed reference (2026-06-08): Graphify means `safishamsi/graphify`, described by its README as a Claude Code skill that reads files, builds a persistent graph, emits `graphify-out/graph.json`, `graph.html`, wiki/Obsidian outputs, supports query/path/explain commands, incremental update/cache, watch mode, MCP, and claims large token reduction versus rereading raw files.
 
 ## Current migration boundary
 
@@ -67,6 +70,17 @@ source-read fallback when stale/missing
   ↓ user-confirmed promotion only
 .lazy-harness/knowledge/graph.jsonl + layer records
 ```
+
+Graphify-style outputs should therefore be treated as generated navigation/query surfaces unless and until a separate ADR promotes a specific subset into canonical lazy-harness graph facts. The LLM/searcher remains the semantic search engine; Graphify-style CLI output is index/cue/evidence.
+
+## Rule placement
+
+- Rule: `safishamsi/graphify` is the confirmed external reference for Graphify-inspired graph/index migration discussions; any adoption must preserve generated/non-canonical boundary until separately approved.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/graph-index-migration-considerations.md`
+- Why not AGENTS.md: this is exploratory architecture/reference context, not a universal operating instruction.
+- Why not `.jcode`: this is shared lazy-harness planning knowledge, not local/private Jcode wiring.
+- Confirmation: user-confirmed
 
 ## Migration strategy
 
