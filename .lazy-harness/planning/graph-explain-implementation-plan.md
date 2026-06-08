@@ -49,7 +49,13 @@ It must not say what the user means, what must be read, how confident the system
 
 ## Phase 0 — Design records, current slice
 
-Status: in progress
+Status: completed
+Completed: 2026-06-08
+Evidence:
+
+- Design-only records committed and pushed in `e056634` (`Docs: add graph explain structural design records`).
+- Full framework self-test passed before commit (`python3 .lazy-harness/scripts/self-test.py --scope framework`, task `610228ra1x`, exit 0) and commit hook reported `✅ .lazy-harness/bin/lazy test all green`.
+- Focused smoke confirmed `lazy graph explain` still exits unsupported with the explicit prototype-slice message.
 
 Tasks:
 
