@@ -16,6 +16,7 @@ Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - adding or changing CLI helpers, lifecycle hooks, generated indexes, search/query helpers, context delivery, or record/write helpers
   - a tool would inspect raw user text, rank candidate importance, choose required reads, decide whether records should be written, choose risk/intent/gate, or pick the next action
 - Must:
+  - treat the LLM/searcher as the search engine and semantic judge; CLI output is only tool-produced index/cue/evidence
   - treat CLI programs as tools the LLM/searcher explicitly invokes when useful
   - keep semantic judgment with the LLM/searcher after root-bound record/source/test reads
   - limit deterministic CLIs to retrieval, listing, normalization, linking, measurement, validation, hygiene, and cache generation
@@ -42,10 +43,31 @@ Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Why not `.jcode`: this is lazy-harness framework policy shared by hosts, not a local/private Jcode preference.
 - Confirmation: user-confirmed
 
+## LLM/searcher is the search engine
+
+User-confirmed correction (2026-06-08): **the search engine is the LLM/searcher; CLI is a tool.**
+
+Meaning:
+
+- `lazy map`, `record-index`, generated indexes, graph joins, and helper packets expose structured index/cue/evidence surfaces.
+- The LLM/searcher chooses candidate terms, reads actual records/source/tests, follows graph/Implementation map links, notices gaps, and decides whether the evidence is sufficient.
+- A CLI may say “this index has these paths/rows/matches”; it must not say “this is the user’s meaning” or “this is the complete semantic answer.”
+- Empty or partial CLI output is not proof that no relevant knowledge exists. The LLM/searcher must use overview, multiple candidate tokens, fallback grep/source reads, and option gates when evidence is incomplete.
+
+Rule placement:
+
+- Rule: The LLM/searcher is the search engine and semantic authority; CLI is a deterministic tool/index/cue provider.
+- Scope: framework-global
+- Primary record: `.lazy-harness/ssot/cli-tool-boundary.md`
+- Why not AGENTS.md: this boundary needs durable SSOT wording plus source/test implementation maps; AGENTS can point to it but should not be the only canonical store.
+- Why not `.jcode`: this is shared lazy-harness framework policy, not local/private Jcode preference.
+- Confirmation: user-confirmed
+
 ## Implementation map
 
 - Primary files:
   - `.lazy-harness/ssot/cli-tool-boundary.md` — canonical boundary rule.
+  - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — BDD behavior that treats metadata as cue-only and requires real LLM-owned record/source/test reads.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — static transport that does not classify raw user text.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — must not run static route/user-intent classifiers.
   - `.lazy-harness/scripts/prompt-budget.py` — allowed measurement tool.
