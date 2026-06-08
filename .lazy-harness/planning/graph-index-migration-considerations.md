@@ -15,6 +15,18 @@ If lazy-harness adopts a Graphify-inspired derived index/query system, will migr
 
 User-confirmed reference (2026-06-08): Graphify means `safishamsi/graphify`, described by its README as a Claude Code skill that reads files, builds a persistent graph, emits `graphify-out/graph.json`, `graph.html`, wiki/Obsidian outputs, supports query/path/explain commands, incremental update/cache, watch mode, MCP, and claims large token reduction versus rereading raw files.
 
+Source-verified reference (2026-06-08): cloned `https://github.com/safishamsi/graphify` at commit `8a04560bf5d5eaeef8e466bce084270b7f68faae` on branch `v8` into `/tmp/lazy-harness-graphify-20260608T025932Z` and read `README.md`, `pyproject.toml`, `ARCHITECTURE.md`, `docs/how-it-works.md`, `graphify/__main__.py`, `graphify/build.py`, `graphify/export.py`, `graphify/wiki.py`, `graphify/serve.py`, `graphify/watch.py`, `graphify/mcp_ingest.py`, `graphify/querylog.py`, and related tests/search hits.
+
+Verified facts from source:
+
+- Package is `graphifyy` with CLI entrypoint `graphify = graphify.__main__:main`.
+- Default output directory is `graphify-out` via `GRAPHIFY_OUT`; README documents `graph.html`, `GRAPH_REPORT.md`, and `graph.json`.
+- Architecture pipeline is `detect → extract → build_graph → cluster → analyze → report → export`, with plain dict/NetworkX handoffs and stated side effects outside only `graphify-out/`.
+- `graphify-out/cache/` is SHA256 cache; docs state reruns skip unchanged files.
+- `graphify.serve` exposes MCP stdio/http query tools over `graph.json`; source implements query scoring, BFS/DFS subgraph rendering, context filters, reload checks, and sanitized output.
+- Installed assistant hooks/instructions nudge agents toward `graphify query`, `graphify explain`, and `graphify path` when `graphify-out/graph.json` exists, but this is advisory guidance.
+- Export code writes generated graph artifacts and wiki/Obsidian-style outputs; these remain generated navigation/query surfaces for lazy-harness, not canonical records.
+
 ## Current migration boundary
 
 Canonical data today:
