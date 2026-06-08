@@ -82,7 +82,7 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
   - `.lazy-harness/scripts/self-test.py#check_retrieval_coverage_audit_cli`
   - `.lazy-harness/tests/retrieval-coverage-audit.md`
 - Machine index:
-  - graph ids: `kg_retrieval_coverage_audit_cli_20260608`, `kg_retrieval_coverage_audit_self_test_20260608`
+  - graph ids: `kg_retrieval_coverage_audit_cli_20260608`, `kg_retrieval_coverage_audit_self_test_20260608`, `kg_record_index_top_level_related_parser_20260608`, `kg_retrieval_audit_cross_layer_related_self_test_20260608`
 
 ## Layer completeness impact
 

@@ -100,12 +100,16 @@ And the agent checks whether any impacted DDD/BDD/SDD/TDD/ADR/SSOT records are m
 - Primary files:
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — this BDD behavior record.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD terms used by the scenarios.
+  - `.lazy-harness/scripts/record-index.ts` — indexes top-level Related layer links into cue-only related-record metadata.
   - `.lazy-harness/scripts/record-map.ts` — read-only `lazy map` implementation that lists cue-only candidates.
+  - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — read-only coverage audit that surfaces related-record candidates plus structural coverage gaps.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — injects static search/read debt reminder.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — guards mutation until evidence exists.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — schedules the layer package.
 - Key symbols:
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — emits candidate records/source/tests/graph ids without semantic-authority fields.
+  - `extractTopLevelRelatedRecords` (`.lazy-harness/scripts/record-index.ts`) — parses `Related <Layer>:` links as cue-only related-record paths.
+  - `buildAudit` (`.lazy-harness/scripts/retrieval-coverage-audit.ts`) — includes related-record paths during coverage audit without becoming semantic authority.
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
   2. `lazy map --overview` shows whole structure before term selection.
@@ -124,7 +128,7 @@ And the agent checks whether any impacted DDD/BDD/SDD/TDD/ADR/SSOT records are m
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_llm_owned_retrieval_behaves_from_domain`, `kg_record_index_header_layer_package_planned`
+  - graph ids: `kg_llm_owned_retrieval_behaves_from_domain`, `kg_record_index_header_layer_package_planned`, `kg_record_index_top_level_related_parser_20260608`, `kg_retrieval_audit_cross_layer_related_self_test_20260608`
   - generated index key: pending until index generator exists
 
 ## Layer completeness impact

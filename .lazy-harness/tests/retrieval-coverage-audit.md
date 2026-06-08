@@ -59,7 +59,7 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
   2. `lazy retrieval-audit` runs mapped/partial/gap queries through the dispatcher.
   3. Assertions verify coverage state, cross-layer related-record candidates, candidate/fallback fields, and absence of semantic-authority fields.
 - Machine index:
-  - graph ids: `kg_retrieval_coverage_audit_cli_20260608`, `kg_retrieval_coverage_audit_self_test_20260608`
+  - graph ids: `kg_retrieval_coverage_audit_cli_20260608`, `kg_retrieval_coverage_audit_self_test_20260608`, `kg_record_index_top_level_related_parser_20260608`, `kg_retrieval_audit_cross_layer_related_self_test_20260608`
 
 ## Layer completeness impact
 
