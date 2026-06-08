@@ -17,7 +17,9 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 - Scope: framework-global
 - Applies when:
   - evaluating whether `lazy map --overview` should be a hard sequential gate, soft guidance, or prompt/reminder context
+  - Graphify adoption evaluation: vendoring Graphify code vs porting Graphify principles
   - comparing current `record-map` shallow candidate retrieval with Graphify-style graph query/path/explain traversal
+  - deciding whether to adopt Graphify by vendoring code or porting its principles
   - deciding whether batching is safe for overview/query/read workflows
   - deciding whether overview text should be injected into reminders instead of forcing another tool call
 - Must:
@@ -26,6 +28,7 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - distinguish local CLI latency from LLM token/context savings
   - evaluate dogfood friction, not only theoretical correctness
   - consider a soft/depth-aware workflow before keeping a hard batch block
+  - prefer porting Graphify principles into TypeScript/Bun before considering wholesale Python vendoring
 - Must not:
   - forget the user concern that hard-blocking batch may be low value if the workflow is still shallow
   - inject full graphs or full overview into every prompt without measuring token cost
@@ -45,6 +48,19 @@ The user asked not to forget these points:
 5. The goal is not just rule compliance; the flow must be practically faster, lower-token, and less annoying while still safe.
 
 ## Current state assessment
+
+### Graphify adoption note
+
+- Graphify clone verification already read source at commit `8a04560bf5d5eaeef8e466bce084270b7f68faae`.
+- License is MIT, so copying/adapting is legally permissive if copyright/license notice is preserved.
+- Package is Python (`graphifyy`, CLI entrypoint `graphify = graphify.__main__:main`, `requires-python >=3.10`), while lazy-harness core tooling is TypeScript/Bun.
+- Therefore the preferred first implementation is **port the principles and data flow**, not wholesale vendoring:
+  - persistent generated graph/cache,
+  - query/path/explain commands,
+  - compact cited subgraph/context output,
+  - stale/missing fallback to canonical records/source/tests,
+  - generated/non-canonical boundary.
+- Direct vendoring remains possible later, but should be a separate ADR because it introduces Python runtime/dependency/package maintenance into lazy-harness.
 
 ### What is working
 
