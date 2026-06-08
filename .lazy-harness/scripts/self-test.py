@@ -4651,6 +4651,28 @@ def check_record_index_generator_phase3() -> None:
 
         assert_no_forbidden_map_fields(record_map)
 
+        aggregate_map_cmd = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "map", "기능화면 FeaturePanel tests", "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
+        )
+        if aggregate_map_cmd.returncode != 0:
+            fail("lazy map aggregate fallback command failed:\n" + aggregate_map_cmd.stdout + aggregate_map_cmd.stderr)
+        aggregate_map = json.loads(aggregate_map_cmd.stdout)
+        aggregate_records = aggregate_map.get("records", [])
+        if not aggregate_records or aggregate_records[0].get("recordPath") != ".lazy-harness/behavior/feature-surface.md":
+            fail("lazy map aggregate token fallback should return the feature-surface record")
+        aggregate_matched = aggregate_records[0].get("matched", [])
+        if not any(item.get("field") == "record.aggregateTokenFallback" for item in aggregate_matched):
+            fail("lazy map aggregate token fallback should expose cue-only aggregate matched fields")
+        aggregate_drilldown = aggregate_map.get("drilldown", {})
+        if "tests/example-feature/feature-panel.test.tsx" not in aggregate_drilldown.get("testFiles", []):
+            fail("lazy map aggregate fallback drilldown missing test file")
+        assert_no_forbidden_map_fields(aggregate_map)
+
         overview_cmd = subprocess.run(
             [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=json", "--limit=3"],
             cwd=ROOT,

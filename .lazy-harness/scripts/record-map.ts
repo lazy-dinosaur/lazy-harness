@@ -310,6 +310,10 @@ function queryNeedles(query: string): string[] {
   return uniq([base, compact(query), ...parts.map(compact), ...parts])
 }
 
+function queryParts(query: string): string[] {
+  return uniq(normalized(query).split(/\s+/).filter((part) => part.length >= 2).map(compact))
+}
+
 function matches(query: string, value: string): boolean {
   if (!value) return false
   const base = normalized(query)
@@ -331,6 +335,18 @@ function addMatches(out: MatchDetail[], query: string, field: string, values: st
   for (const value of list) {
     if (matches(query, value)) out.push({ field, value })
   }
+}
+
+function addAggregateFallbackMatches(out: MatchDetail[], query: string, field: string, values: Array<string | undefined | null>): void {
+  if (out.length) return
+  const parts = queryParts(query)
+  if (parts.length < 3) return
+  const hay = compact(values.filter((value): value is string => Boolean(value && value.trim())).join(' '))
+  if (!hay) return
+  const matchedParts = parts.filter((part) => hay.includes(part))
+  const minimum = Math.max(2, Math.ceil(parts.length * 0.5))
+  if (matchedParts.length < minimum) return
+  for (const part of matchedParts) out.push({ field, value: `token:${part}` })
 }
 
 function rowStrings(value: unknown): string[] {
@@ -372,6 +388,17 @@ function featureMatch(query: string, feature: FeatureEntry): FeatureMatch | null
   addMatches(matched, query, 'feature.records', feature.records.map((record) => record.path))
   addMatches(matched, query, 'feature.sourceFiles', feature.sourceFiles)
   addMatches(matched, query, 'feature.tests', feature.tests)
+  addAggregateFallbackMatches(matched, query, 'feature.aggregateTokenFallback', [
+    feature.id,
+    feature.label,
+    feature.status,
+    ...aliases,
+    ...feature.routes,
+    ...feature.components,
+    ...feature.records.map((record) => record.path),
+    ...feature.sourceFiles,
+    ...feature.tests,
+  ])
   if (!matched.length) return null
   return {
     id: feature.id,
@@ -409,6 +436,27 @@ function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
   addMatches(matched, query, 'record.testFiles', hints.testHints)
   addMatches(matched, query, 'record.graphIds', record.graphIds)
   addMatches(matched, query, 'record.graphHints', record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.path, hint.source, hint.target].filter((value): value is string => Boolean(value))))
+  addAggregateFallbackMatches(matched, query, 'record.aggregateTokenFallback', [
+    record.recordPath,
+    record.title,
+    record.layer,
+    record.status,
+    ...record.aliases,
+    ...record.surfaceTerms,
+    ...record.projectProfileFeatureIds,
+    ...record.digest.appliesWhen,
+    ...record.digest.must,
+    ...record.digest.mustNot,
+    ...record.digest.bullets,
+    ...record.digest.relatedRecords,
+    ...hints.routeHints,
+    ...hints.componentHints,
+    ...hints.fileHints,
+    ...hints.symbolHints,
+    ...hints.testHints,
+    ...record.graphIds,
+    ...record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.path, hint.source, hint.target]),
+  ])
   if (!matched.length) return null
   return {
     recordPath: record.recordPath,
@@ -446,6 +494,7 @@ function graphMatch(query: string, row: GraphRow): GraphMatch | null {
   for (const [key, value] of Object.entries(row)) {
     for (const text of rowStrings(value)) addMatches(matched, query, `graph.${key}`, text)
   }
+  addAggregateFallbackMatches(matched, query, 'graph.aggregateTokenFallback', rowStrings(row))
   if (!matched.length) return null
   return {
     id: String(row.id || ''),

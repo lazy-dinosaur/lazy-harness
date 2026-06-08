@@ -53,6 +53,7 @@ When the agent runs `lazy map --overview` first
 Then the output shows whole record/feature/graph structure for choosing search terms
 And when the agent repeatedly runs `lazy map <term-or-file>` for multiple candidate tokens/files/layers
 Then the outputs may suggest dispersed feature, record, graph, source, and test candidates
+And long composite cues may be matched by aggregate token fallback across record-authored fields when no single field contains the whole cue
 But those candidates are cue-only
 And the agent must still read all relevant actual record bodies, Implementation maps, source, and tests before answering or mutating.
 

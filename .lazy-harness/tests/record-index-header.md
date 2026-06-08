@@ -43,6 +43,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_overview_batch_guard` | BDD Scenario 7 | Current tool call is `batch` or `multi_tool_use.parallel` and one child contains `lazy map --overview` | Pre-action hook denies with `Overview-first batch guard`; independent batched reads chosen after overview remain allowed | implemented via `check_tool_execute_before_hook` |
 | `record_index_foundation_records_synced` | Downstream sync discoverability | Category A manifest entries for DDD/BDD/SDD/TDD retrieval/index foundation records | Downstream hosts receive `searchable-record-memory`, `llm-owned-record-retrieval`, `record-index-header` SDD, and `record-index-header` TDD records so `lazy map` can discover the guard/contracts | implemented via `check_manifest_syncs_python_lifecycle_helpers` |
 | `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <term-or-file>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
+| `record_index_map_aggregate_token_fallback` | BDD Scenario 1a | Long composite `lazy map <term-or-file>` where tokens are spread across alias, component, test, source, or graph fields | Output returns cue-only feature/record/graph candidates with `aggregateTokenFallback` matched fields, while still emitting no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_top_level_related_paths` | BDD Scenario 6 | Record declares top-level `Related <Layer>:` links near the title | `digest.relatedRecords` includes those record-authored paths and downstream map/audit drill-down can surface them as cue-only candidates | implemented via `check_record_index_generator_phase3` and `check_retrieval_coverage_audit_cli` |
 | `record_index_map_cache_fast_path` | Query speed / cache policy | `lazy map <term-or-file>` after `lazy record-index --write` | Output reports `recordIndexCache.used=true`; `--fresh` reports cache bypass and rebuild | implemented via `check_record_index_generator_phase3` |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
@@ -189,21 +190,21 @@ Existing related guard:
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD invariants under test.
   - `.lazy-harness/ssot/cli-tool-boundary.md` — semantic-authority boundary under test.
   - `.lazy-harness/decisions/0042-record-index-cache-naming.md` — canonical naming ADR under test.
-  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation, `lazy map` drill-down output, old command absence, and record-audit recordQuality complete/missing fixtures.
-  - `.lazy-harness/scripts/record-map.ts` — read-only CLI under test for cue-only drill-down candidates.
+  - `.lazy-harness/scripts/self-test.py` — concrete executable checks for record-index generation, `lazy map` drill-down output, aggregate token fallback, old command absence, and record-audit recordQuality complete/missing fixtures.
+  - `.lazy-harness/scripts/record-map.ts` — read-only CLI under test for cue-only drill-down candidates and aggregate token fallback for long composite cues.
   - `.lazy-harness/scripts/record-audit.ts` — SCR-501 advisory quality counts for historical record metadata.
 - Key symbols:
   - `check_record_index_generator_phase3` — validates schema title, deterministic output, aliases/surface terms, implementation hints, graph ids, projectProfile feature ids, generated cache write, and old context-index command/source/schema absence.
-  - `check_record_index_generator_phase3` — also validates `lazy map` output mode, feature alias match, record/source/test/graph drill-down candidates, and absence of semantic-authority field names.
+  - `check_record_index_generator_phase3` — also validates `lazy map` output mode, feature alias match, aggregate token fallback, record/source/test/graph drill-down candidates, and absence of semantic-authority field names.
   - `check_record_audit_cli` — validates `recordQuality.advisoryOnly`, inspected/complete counts, all four SCR-501 warning counts, sample path retention, and human-readable warning summaries.
 - Flow:
   1. SDD defines header field/consumer contract.
   2. TDD records fixture expectations before parser/cache implementation.
   3. SCR-401 decided canonical name/scope: `record-index`, listing/cache only.
-  4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator, `lazy map`, and old command absence.
+  4. SCR-402 Option A implements executable self-test coverage for the deterministic cache generator, `lazy map`, aggregate token fallback, and old command absence.
   5. SCR-501 Option A implements advisory `recordQuality` counts and complete/missing historical self-test fixtures.
 - Protection today:
-  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, `lazy map` cue-only drill-down output, old context-index command/source/schema absence, and record-audit recordQuality advisories.
+  - existing self-test protects deleted query helpers, static search/read debt, record-index generation, `lazy map` cue-only drill-down output, aggregate token fallback, old context-index command/source/schema absence, and record-audit recordQuality advisories.
   - recordQuality advisories are counts/samples only and do not make historical records invalid.
   - this record prevents semantic-authority drift in future parser/cache/audit changes.
 - Cross-layer links:
@@ -213,7 +214,7 @@ Existing related guard:
   - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
 - Machine index:
-  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`, `kg_record_index_map_self_test`, `kg_record_audit_record_quality`, `kg_record_audit_record_quality_self_test`
+  - graph ids: `kg_record_index_header_tdd_protects_contract`, `kg_record_index_header_no_raw_message_fixture`, `kg_record_index_phase3_self_test`, `kg_record_index_map_self_test`, `kg_record_map_aggregate_token_fallback_20260608`, `kg_record_audit_record_quality`, `kg_record_audit_record_quality_self_test`
   - generated cache key: `.lazy-harness/generated/record-index.json`
 
 ## Layer completeness impact
@@ -221,7 +222,7 @@ Existing related guard:
 - DDD: covered by `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md` and scenario mapping above.
 - SDD: covered by `.lazy-harness/spec/platform/record-index-header.md`.
-- TDD: this record defines fixtures and points to executable self-test coverage, including `lazy map` drill-down and SCR-501 complete/missing historical cases.
+- TDD: this record defines fixtures and points to executable self-test coverage, including `lazy map` drill-down, aggregate token fallback, and SCR-501 complete/missing historical cases.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` reviewed as sufficient for SCR-303/304.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records canonical `record-index` naming.
 - Planning: task statuses updated through SCR-501 completion.
