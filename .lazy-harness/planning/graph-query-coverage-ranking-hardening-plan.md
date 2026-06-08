@@ -73,7 +73,7 @@ Forbidden:
    - forbidden semantic-authority fields remain absent.
 5. [x] Run focused validation and full framework self-test.
 6. [x] Record benchmark result and graph rows.
-7. [ ] Commit and downstream sync if validation passes.
+7. [x] Commit and downstream sync if validation passes.
 
 ## Acceptance
 
@@ -108,6 +108,13 @@ Interpretation:
 
 - Coverage/ranking hardening met the slice acceptance criteria.
 - This still does not approve lifecycle/prompt/overview/read-debt/option-gate policy relaxation.
+
+Downstream validation:
+
+- Source commit synced: `a8dea0c2180a23e3982f76ce477356a525621e03`.
+- Adjusted downstream smoke summary: `/tmp/lazy-harness-graph-query-coverage-hardening-adjusted-sync/20260608T123646Z/summary.json`.
+- Result: 14 downstream hosts discovered, 14 synced, 14 adjusted smokes passed, 0 failed.
+- Downstream smoke intentionally checks direct graph-query five-layer coverage and benchmark token win. It does not require every host-local aggregate benchmark to equal the source benchmark's 4/4 full-layer count because downstream hosts retain host-local records.
 
 ## Plan self-review
 

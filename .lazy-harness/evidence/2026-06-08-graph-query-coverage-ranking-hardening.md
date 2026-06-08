@@ -58,6 +58,27 @@ Self-test:
 lazy-harness self-test ok (scope=framework, ran=75, skipped=0)
 ```
 
+Downstream sync and adjusted smoke validation:
+
+```text
+source a8dea0c2180a
+total 14
+ok 14
+failed []
+summary /tmp/lazy-harness-graph-query-coverage-hardening-adjusted-sync/20260608T123646Z/summary.json
+```
+
+Downstream smoke criteria:
+
+- marker commit and sourceRoot match source commit `a8dea0c2180a23e3982f76ce477356a525621e03`,
+- managed graph-query/source/test/record/manifest files hash-match source,
+- `lazy graph query 'workflow compression not safety reduction' --format=json --limit=8` returns `mapped` and includes DDD/BDD/SDD/TDD/SSOT candidates,
+- graph-query output has no forbidden semantic-authority fields,
+- `lazy retrieval-workflow-benchmark --format=json --limit=8` remains measurement-only and keeps `graph_query` token win over `map_plus_retrieval_audit`,
+- graph/record-index files do not mutate during the smoke.
+
+Note: downstream hosts have host-local record differences. The source benchmark acceptance remains `graph_query.fullLayerCoverageCount == 4/4`; downstream smoke validates direct graph-query five-layer coverage plus benchmark token win rather than requiring every host-local aggregate benchmark to be exactly 4/4.
+
 ## Before / after
 
 | Metric | Before coverage hardening | After coverage hardening |
@@ -92,6 +113,11 @@ What this evidence does not support by itself:
    - workflow benchmark `graph_query.fullLayerCoverageCount == 4`,
    - `graph_query.totalEstimatedTokens < map_plus_retrieval_audit.totalEstimatedTokens`,
    - full self-test passes.
+3. For downstream smoke, confirm the adjusted sync summary while retained locally:
+
+   ```bash
+   cat /tmp/lazy-harness-graph-query-coverage-hardening-adjusted-sync/20260608T123646Z/summary.json
+   ```
 
 ## Retention / privacy
 
