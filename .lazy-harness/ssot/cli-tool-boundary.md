@@ -103,6 +103,7 @@ Boundary for SCR-401/SCR-402:
 - New docs/contracts must not describe `context-index` as the canonical name for searchable record memory.
 - The implemented `record-index` command preserves no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
 - The implemented `map` command preserves no required-read/confidence/risk/gate/next-action field names and cannot satisfy search/read debt by itself.
+- The overview-first batch guard is allowed because it inspects only the current tool-call shape/order (`batch`/`multi_tool_use.parallel` containing `lazy map --overview`) and does not inspect raw user text, classify intent/risk, rank candidates, or choose required reads.
 
 Discovery capture:
 

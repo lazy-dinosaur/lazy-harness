@@ -6074,12 +6074,15 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
 def check_tool_execute_before_hook() -> None:
     """N2.5 — Layer 2 force-gate hook (ADR 0024).
 
-    Run on-tool-execute-before.sh through 5 canonical scenarios and assert
+    Run on-tool-execute-before.sh through canonical scenarios and assert
     deny / allow + session-cache behavior matches design.
     """
     hook = LAZY / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
     if not hook.exists() or not os.access(hook, os.X_OK):
         fail("N2.5 hook missing or not executable: on-tool-execute-before.sh")
+    overview_batch_helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-overview-batch-order.py"
+    if not overview_batch_helper.exists() or not os.access(overview_batch_helper, os.X_OK):
+        fail("overview batch helper missing or not executable: check-overview-batch-order.py")
 
     # Clean cache before run (deterministic)
     cache_dir = LAZY / ".cache" / "session"
@@ -6126,6 +6129,24 @@ def check_tool_execute_before_hook() -> None:
                 ]}}
             ],
         }, 0, ""),
+        ("batch-overview-with-query-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_batch_overview",
+            "tool": {"name": "batch", "args": {"tool_calls": [
+                {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}},
+                {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map 'retrieval coverage audit' --format=md --limit=8"}},
+            ]}},
+            "recent_tool_calls": [],
+        }, 1, "Overview-first batch guard"),
+        ("multi-tool-overview-parallel-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_parallel_overview",
+            "tool": {"name": "multi_tool_use.parallel", "args": {"tool_uses": [
+                {"recipient_name": "functions.bash", "parameters": {"command": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}},
+                {"recipient_name": "functions.read", "parameters": {"file_path": ".lazy-harness/behavior/llm-owned-record-retrieval.md"}},
+            ]}},
+            "recent_tool_calls": [],
+        }, 1, "Overview-first batch guard"),
         ("apply-patch-src-no-search-deny", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_apply_patch",
