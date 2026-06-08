@@ -54,6 +54,11 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
    - Expected packet: `disposition=deferred`, evidence includes user instruction and planning path.
    - Expected lifecycle behavior: stop at the requested boundary.
 
+6. **Multiple missing candidates**
+   - Given: one completed turn has safe evidence for a UI flow file, an API/route contract file, and a regression test.
+   - Expected packet: `disposition=candidate-needed`, `recommendedRecords` contains distinct BDD, SDD, TDD, and Knowledge candidates, capped at 20.
+   - Expected lifecycle behavior: response shadow journals the full candidate array/count/layers silently by default and never rewrites canonical records from the packet alone.
+
 ## Current protection
 
 The generator and response shadow fixtures are now active.
@@ -63,12 +68,14 @@ The generator and response shadow fixtures are now active.
   - validates schema title, required top-level fields, dispositions, evidence kinds, triggers, and actions,
   - validates sample `candidate-needed`, `no-record-needed`, and `option-gate-needed` packet shapes.
   - runs `.lazy-harness/scripts/record-decision-broker.ts` for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated` cases.
+  - validates a multi-candidate packet preserves BDD, SDD, TDD, and Knowledge recommendations instead of only the first candidate.
 - `.lazy-harness/scripts/self-test.py#check_record_decision_shadow_response_completed`
   - validates `response.completed` helper chain registration,
   - validates read-only turns stay silent and journal `no-record-needed`,
   - validates source edits stay silent by default while journaling `candidate-needed`,
   - validates explicit advisory mode emits `ADVISORY` text without blocking language,
   - validates ambiguous mutations journal `option-gate-needed` without raw user text,
+  - validates multi-candidate shadow rows preserve recommendation count and candidate layers,
   - validates same-turn record edits journal `record-updated` silently.
 
 ## Future protection

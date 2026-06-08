@@ -58,7 +58,7 @@ When facts are judged but not promoted to records yet, use:
 - Planning: updated/candidate/none because ...
 ```
 
-If any item is `candidate`, append a structured line to `.lazy-harness/knowledge/candidates.jsonl` or create/update a `.lazy-harness/planning/` backlog. Do not leave the candidate only in chat.
+If any item is `candidate`, append structured lines to `.lazy-harness/knowledge/candidates.jsonl` or create/update a `.lazy-harness/planning/` backlog. When multiple DDD/SDD/BDD/TDD/ADR/SSOT/Planning discoveries are present, capture each distinct candidate; do not satisfy the gate by recording only the first missing layer.
 
 ## Candidate queue behavior
 
@@ -79,6 +79,8 @@ Minimum candidate fields for manual capture:
 - `questions`
 
 Canonical promotion still requires explicit confirmation or a future validated safe rule.
+
+Multi-candidate turns may also be represented by the Record Decision Broker MultiCandidate Packet (`recordDecision.recommendedRecords`) when the turn evidence is only safe paths/tool summaries. That packet is journal/advisory evidence, not canonical record mutation.
 
 ## Lifecycle helper behavior
 

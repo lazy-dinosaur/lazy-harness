@@ -25,6 +25,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - output a structured Record Decision Packet before any automated record-write escalation
   - keep the explicit generator local and deterministic and require separate fixtures for each response lifecycle integration step
   - keep response lifecycle integration shadow/silent by default until dogfood evidence justifies stronger guidance
+  - treat `recommendedRecords` as the MultiCandidate Packet: every distinct candidate inferred from safe evidence must be preserved, not collapsed to the first match
   - support explicit `no-record-needed` for explanation/evaluation/inspection-only turns
   - require concrete turn evidence before `candidate-needed`, `record-updated`, or `option-gate-needed`
   - prefer updating existing canonical records before creating new records
@@ -32,6 +33,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - avoid raw transcript storage; store paths, tool names, reasons, hashes, and compact evidence summaries only
   - keep clean turns silent in `response.completed`; advisory output must remain opt-in and fixture-protected
   - keep response.completed shadow integration evidence-only; do not infer ambiguous intent or option-gate needs from raw user text in shell/CLI hooks
+  - cap evidence and `recommendedRecords` at 20 items to avoid prompt/log blow-up while still preserving multi-gap turns
 - Must not:
   - blindly write records from model inference alone
   - convert every edit into a record obligation
@@ -93,7 +95,7 @@ The shadow bridge is silent by default. It writes sanitized non-canonical packet
 
 ## Packet shape
 
-Record Decision Packet top-level shape:
+Record Decision Packet top-level shape. `recommendedRecords` is the **MultiCandidate Packet** surface: recommendedRecords must preserve every distinct candidate up to the 20-item cap. A turn that has BDD + SDD + TDD evidence must emit BDD + SDD + TDD candidate entries plus the non-canonical Knowledge fallback instead of only the first detected layer.
 
 ```json
 {
@@ -186,6 +188,7 @@ Rules:
 2. Use `candidate`/`.lazy-harness/knowledge/candidates.jsonl` when evidence is useful but canonical layer or wording is not confirmed.
 3. Use `ask-option-gate` when DDD/SDD/BDD/TDD/ADR/SSOT placement is ambiguous.
 4. Use `none` only with `no-record-needed` or when a record was already updated elsewhere.
+5. For `candidate-needed`, emit one recommendation per distinct safe evidence bucket/layer/path, deduped by action/path/layer/reason and capped at 20. Never collapse several missing candidates into one generic entry.
 
 ## False-positive policy
 
@@ -253,17 +256,17 @@ Pre-turn search/read evidence informs reading. Record Decision Broker is post-tu
 - Flow:
   1. Turn completes.
   2. Explicit generator normalizes supplied user confirmations, corrections, changed files, changed records, search/read evidence, and validation evidence.
-  3. Broker emits Record Decision Packet.
+  3. Broker emits Record Decision Packet. For `candidate-needed`, each safe evidence bucket becomes a separate MultiCandidate `recommendedRecords` entry.
   4. If `record-updated`, audit can stay silent.
   5. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write.
   6. If `option-gate-needed`, agent asks options before mutating records.
   7. If `no-record-needed`, response lifecycle stays silent.
-  8. In response shadow mode, the helper writes a sanitized runtime row and emits no stdout unless advisory mode is explicitly enabled; it does not derive `option-gate-needed` from raw user text.
+  8. In response shadow mode, the helper writes a sanitized runtime row preserving `recommendedRecords`, `recommendedRecordCount`, `candidateLayers`, and `candidatePaths`; it emits no stdout unless advisory mode is explicitly enabled and does not derive `option-gate-needed` from raw user text.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
-    - validates schema/contract and generator output for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated`.
+    - validates schema/contract and generator output for `no-record-needed`, `candidate-needed`, `option-gate-needed`, `record-updated`, and MultiCandidate BDD/SDD/TDD/Knowledge preservation.
   - `.lazy-harness/scripts/self-test.py#check_record_decision_shadow_response_completed`
-    - validates clean silent turns, candidate silent-by-default rows, advisory-only output under env flag, record-updated silence, no raw ambiguous user text in the shadow journal, and no raw-text-driven option-gate inference.
+    - validates clean silent turns, candidate silent-by-default rows, multi-candidate count/layer preservation, advisory-only output under env flag, record-updated silence, no raw ambiguous user text in the shadow journal, and no raw-text-driven option-gate inference.
 
 ## Validation plan
 

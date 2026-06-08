@@ -37,6 +37,8 @@ type EvidenceKind =
 type RecordAction = 'update' | 'create' | 'append' | 'candidate' | 'none' | 'ask-option-gate'
 type Layer = 'DDD' | 'SDD' | 'BDD' | 'TDD' | 'ADR' | 'SSOT' | 'Planning' | 'Knowledge'
 
+const MAX_RECOMMENDED_RECORDS = 20
+
 interface Args {
   root: string
   message: string
@@ -247,6 +249,30 @@ function inferChangeTrigger(args: Args): Trigger {
   return 'source-change'
 }
 
+function pushUniqueRecommendation(recs: RecommendedRecord[], rec: RecommendedRecord): void {
+  const key = [rec.action, rec.path || '', rec.layer || '', rec.reason].join('\u0000')
+  const exists = recs.some((existing) => [existing.action, existing.path || '', existing.layer || '', existing.reason].join('\u0000') === key)
+  if (!exists && recs.length < MAX_RECOMMENDED_RECORDS) recs.push(rec)
+}
+
+function candidateForSourcePath(filePath: string): RecommendedRecord {
+  const normalized = filePath.replace(/\\/g, '/')
+  const lower = normalized.toLowerCase()
+  if (/(^|\/)(tests?|__tests__)\/|\.(test|spec)\./.test(lower)) {
+    return { path: '.lazy-harness/tests/', layer: 'TDD', action: 'candidate', reason: `Regression/test change may need TDD capture: ${normalized}`, confidence: 0.74 }
+  }
+  if (/(^|\/)(api|server|routes?)\/|schema|contract|protocol|endpoint|rpc|ipc|types?|route\.(ts|tsx|js|jsx)$/.test(lower)) {
+    return { path: '.lazy-harness/spec/', layer: 'SDD', action: 'candidate', reason: `Contract/API/source interface evidence may need SDD capture: ${normalized}`, confidence: 0.73 }
+  }
+  if (/\.(tsx|jsx)$/.test(lower) || /(^|\/)(components?|screens?|pages?|views?|ui|app)\//.test(lower)) {
+    return { path: '.lazy-harness/behavior/', layer: 'BDD', action: 'candidate', reason: `User-visible UI/flow evidence may need BDD capture: ${normalized}`, confidence: 0.73 }
+  }
+  if (/(^|\/)(config|env|schema)\/|package\.json$|\.toml$|\.ya?ml$|\.env/.test(lower)) {
+    return { path: '.lazy-harness/ssot/', layer: 'SSOT', action: 'candidate', reason: `Configuration/source-of-truth evidence may need SSOT capture: ${normalized}`, confidence: 0.7 }
+  }
+  return { path: '.lazy-harness/knowledge/candidates.jsonl', layer: 'Knowledge', action: 'candidate', reason: `Source evidence is useful but layer is not confidently known: ${normalized}`, confidence: 0.66 }
+}
+
 function baseEvidence(args: Args): Evidence[] {
   const evidence: Evidence[] = []
   for (const summary of args.userConfirmations) evidence.push({ kind: 'user-confirmation', summary: `User confirmation: ${summary}`, confidence: 0.9 })
@@ -291,25 +317,24 @@ function recommendedRecords(args: Args, disposition: Disposition, trigger: Trigg
     return [{ path: '.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md', layer: 'Planning', action: 'append', reason: 'User deferred the next action; capture the pause or backlog pointer in planning when durable.', confidence: 0.72 }]
   }
   if (disposition === 'record-updated') {
-    return unique(args.changedRecords).map((recordPath) => ({ path: recordPath, layer: inferLayer(recordPath), action: 'update', reason: 'Canonical record was already updated in this turn.', confidence: 0.9 }))
+    const recs: RecommendedRecord[] = []
+    for (const recordPath of unique(args.changedRecords)) pushUniqueRecommendation(recs, { path: recordPath, layer: inferLayer(recordPath), action: 'update', reason: 'Canonical record was already updated in this turn.', confidence: 0.9 })
+    return recs
   }
   const recs: RecommendedRecord[] = []
-  if (trigger === 'user-correction') {
-    recs.push({ path: '.lazy-harness/ssot/project-identity.md', layer: 'SSOT', action: 'update', reason: 'User correction may change source-of-truth, ownership, or project identity.', confidence: 0.76 })
+  for (const _ of args.userCorrections) {
+    pushUniqueRecommendation(recs, { path: '.lazy-harness/ssot/project-identity.md', layer: 'SSOT', action: 'candidate', reason: 'User correction may change source-of-truth, ownership, or project identity.', confidence: 0.78 })
   }
-  if (trigger === 'new-alias-found' || trigger === 'behavior-change') {
-    recs.push({ path: '.lazy-harness/behavior/', layer: 'BDD', action: 'candidate', reason: 'User-facing alias or behavior may need a BDD record update.', confidence: 0.72 })
+  for (const _ of args.userConfirmations) {
+    pushUniqueRecommendation(recs, { path: '.lazy-harness/behavior/', layer: 'BDD', action: 'candidate', reason: 'Confirmed alias or user-facing term may need BDD/domain capture after user-confirmed placement.', confidence: 0.74 })
   }
-  if (trigger === 'contract-change') {
-    recs.push({ path: '.lazy-harness/spec/', layer: 'SDD', action: 'candidate', reason: 'Contract/schema evidence may need SDD capture.', confidence: 0.72 })
+  for (const filePath of unique(args.changedFiles)) pushUniqueRecommendation(recs, candidateForSourcePath(filePath))
+  for (const testPath of unique(args.changedTests)) pushUniqueRecommendation(recs, { path: '.lazy-harness/tests/', layer: 'TDD', action: 'candidate', reason: `Regression/test evidence may need TDD capture: ${testPath}`, confidence: 0.74 })
+  for (const _ of args.responseAuditAdvisories) {
+    pushUniqueRecommendation(recs, { path: '.lazy-harness/knowledge/candidates.jsonl', layer: 'Knowledge', action: 'candidate', reason: 'Response audit advisory is useful evidence but should not become a blind canonical write.', confidence: 0.7 })
   }
-  if (trigger === 'test-change') {
-    recs.push({ path: '.lazy-harness/tests/', layer: 'TDD', action: 'candidate', reason: 'Test/regression evidence may need TDD capture.', confidence: 0.72 })
-  }
-  if (trigger === 'architecture-decision') {
-    recs.push({ path: '.lazy-harness/decisions/', layer: 'ADR', action: 'candidate', reason: 'Architecture/trade-off evidence may need ADR capture.', confidence: 0.72 })
-  }
-  recs.push({ path: '.lazy-harness/knowledge/candidates.jsonl', layer: 'Knowledge', action: 'candidate', reason: 'Evidence is useful but should not become a blind canonical write.', confidence: 0.7 })
+  if (trigger === 'architecture-decision') pushUniqueRecommendation(recs, { path: '.lazy-harness/decisions/', layer: 'ADR', action: 'candidate', reason: 'Architecture/trade-off evidence may need ADR capture.', confidence: 0.72 })
+  pushUniqueRecommendation(recs, { path: '.lazy-harness/knowledge/candidates.jsonl', layer: 'Knowledge', action: 'candidate', reason: 'Preserve all unconfirmed record gaps as candidates; do not write canonical records automatically from this packet alone.', confidence: 0.7 })
   return recs
 }
 

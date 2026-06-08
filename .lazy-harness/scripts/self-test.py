@@ -5144,8 +5144,10 @@ def check_record_decision_broker_phase8() -> None:
         "deferred",
         "no automatic blind record writes",
         "Response shadow bridge",
+        "MultiCandidate Packet",
         "check-record-decision-shadow.py",
         "Search/read evidence is pre-turn read evidence",
+        "recommendedRecords must preserve every distinct candidate",
         "Do not write automatically from this packet alone",
         "`.lazy-harness/scripts/record-decision-broker.ts`",
         "Implementation map",
@@ -5159,6 +5161,7 @@ def check_record_decision_broker_phase8() -> None:
         "Confirmed new alias",
         "Ambiguous layer placement",
         "Same-turn record update",
+        "Multiple missing candidates",
         "Deferred by user",
         "generator and response shadow fixtures",
         "check_record_decision_shadow_response_completed",
@@ -5202,6 +5205,8 @@ def check_record_decision_broker_phase8() -> None:
     expected_decision_fields = {"disposition", "confidence", "trigger", "summary", "evidence", "recommendedRecords", "instructions"}
     if not expected_decision_fields.issubset(decision_required):
         fail("recordDecision schema missing fields: " + json.dumps(sorted(expected_decision_fields - decision_required)))
+    if definitions.get("recordDecision", {}).get("properties", {}).get("recommendedRecords", {}).get("maxItems") != 20:
+        fail("recordDecision recommendedRecords must cap multi-candidate packets at 20")
 
     samples = [
         {
@@ -5321,6 +5326,24 @@ def check_record_decision_broker_phase8() -> None:
         if "mutationAllowed=false" not in notes or "runtimeMutationIntegration=false" not in notes or "runtimeDefaultOutput=false" not in notes:
             fail("generator packet must state mutation/hook safety notes")
 
+    multi_packet = run_generator(
+        "--message", "multi candidate evidence",
+        "--changed-file", "src/features/reservation/ReservationPanel.tsx",
+        "--changed-file", "src/api/reservations/route.ts",
+        "--changed-test", "tests/reservation.spec.ts",
+        "--response-audit-advisory", "record gap repeated across dogfood turns",
+    )
+    multi_decision = multi_packet.get("recordDecision", {})
+    multi_records = [item for item in multi_decision.get("recommendedRecords", []) if isinstance(item, dict)]
+    multi_layers = {item.get("layer") for item in multi_records}
+    for expected_layer in ["BDD", "SDD", "TDD", "Knowledge"]:
+        if expected_layer not in multi_layers:
+            fail("multi-candidate generator should preserve layer " + expected_layer + ": " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+    if len(multi_records) < 4 or len(multi_records) > 20:
+        fail("multi-candidate generator should preserve all distinct candidates with max 20 cap: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+    if any(item.get("action") == "update" for item in multi_records):
+        fail("multi-candidate generator must not propose canonical update without record-updated evidence: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+
     md_completed = subprocess.run(
         ["bun", str(generator_path), "--message", "상태 요약", "--read-only", "--format", "md"],
         cwd=ROOT,
@@ -5400,6 +5423,19 @@ def check_record_decision_shadow_response_completed() -> None:
         row = last_row()
         if row.get("disposition") != "candidate-needed" or row.get("trigger") not in {"behavior-change", "source-change"}:
             fail("source edit shadow row should be candidate-needed: " + json.dumps(row, ensure_ascii=False))
+
+        multi_candidate = run_helper({"message_id": "multi-candidate", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/reservation/ReservationPanel.tsx src/api/reservations/route.ts tests/reservation.spec.ts"}]})
+        if multi_candidate.strip():
+            fail("Record Decision shadow should stay silent by default for multi-candidate packets:\n" + multi_candidate)
+        row = last_row()
+        if row.get("disposition") != "candidate-needed":
+            fail("multi-candidate shadow row should be candidate-needed: " + json.dumps(row, ensure_ascii=False))
+        layers = set(row.get("candidateLayers") or [])
+        for expected_layer in ["BDD", "SDD", "TDD", "Knowledge"]:
+            if expected_layer not in layers:
+                fail("multi-candidate shadow row should preserve layer " + expected_layer + ": " + json.dumps(row, ensure_ascii=False, indent=2))
+        if int(row.get("recommendedRecordCount") or 0) < 4 or len(row.get("recommendedRecords") or []) < 4:
+            fail("multi-candidate shadow row should preserve all recommendations, not just one: " + json.dumps(row, ensure_ascii=False, indent=2))
 
         advisory = run_helper({"message_id": "candidate-advisory", "recent_tool_calls": [{"name": "Edit", "args_preview": "src/features/example-feature/FeaturePanel.tsx"}]}, advisory=True)
         if "ADVISORY. Record Decision shadow" not in advisory or "STOP" in advisory:

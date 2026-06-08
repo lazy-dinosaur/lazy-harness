@@ -102,11 +102,13 @@
         "evidence": {
           "type": "array",
           "items": { "$ref": "#/definitions/evidence" },
+          "maxItems": 20,
           "default": []
         },
         "recommendedRecords": {
           "type": "array",
           "items": { "$ref": "#/definitions/recommendedRecord" },
+          "maxItems": 20,
           "default": []
         },
         "instructions": {

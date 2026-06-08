@@ -22,6 +22,7 @@ D. 직접 입력
 
 - The BDD trigger must not emit STOP / A-B-C-D option prompts for raw scenario discovery.
 - Raw BDD scenario discoveries are automatically captured as deduped candidates in `.lazy-harness/knowledge/candidates.jsonl`.
+- If the BDD detector returns multiple distinct BDD candidates, every distinct candidate must be appended/deduped; the helper must not stop after the first row.
 - Canonical registration into `behavior/`, `domain/`, or `spec/` still requires explicit user confirmation later.
 - The same pending BDD candidate must remain silent across turns, not only within the same `message_id`.
 - Production jcode `response.completed` payload does not include `assistant_response`, so text-based suppression is invalid.

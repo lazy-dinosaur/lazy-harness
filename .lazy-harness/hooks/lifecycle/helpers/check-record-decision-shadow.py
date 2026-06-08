@@ -239,6 +239,15 @@ def sanitize_packet(packet: dict[str, Any]) -> dict[str, Any]:
             "action": item.get("action"),
             "confidence": item.get("confidence"),
         })
+    capped_recommended = recommended[:20]
+    candidate_layers = sorted({str(item.get("layer")) for item in capped_recommended if item.get("layer")})
+    candidate_paths = []
+    seen_paths: set[str] = set()
+    for item in capped_recommended:
+        path = item.get("path")
+        if isinstance(path, str) and path and path not in seen_paths:
+            candidate_paths.append(path)
+            seen_paths.add(path)
     return {
         "schemaVersion": "1.0",
         "event": "record-decision.shadow",
@@ -251,7 +260,10 @@ def sanitize_packet(packet: dict[str, Any]) -> dict[str, Any]:
         "trigger": decision.get("trigger"),
         "confidence": decision.get("confidence"),
         "evidence": evidence[:20],
-        "recommendedRecords": recommended[:20],
+        "recommendedRecords": capped_recommended,
+        "recommendedRecordCount": len(capped_recommended),
+        "candidateLayers": candidate_layers,
+        "candidatePaths": candidate_paths[:20],
         "notes": ["shadow=true", "advisoryDefault=false", "mutationAllowed=false"],
     }
 
@@ -280,7 +292,7 @@ def advisory_text(row: dict[str, Any]) -> str:
     else:
         title = "ADVISORY. Record Decision shadow: option gate may be needed."
         problem = "문제: shadow RecordDecisionPacket이 option-gate-needed를 산출했습니다. layer/path/meaning이 애매할 수 있다는 관측이며 차단이 아닙니다."
-    lines = [title, "", problem, "", "추천 확인:"]
+    lines = [title, "", problem, "", f"추천 확인 ({row.get('recommendedRecordCount', 0)}개 후보):"]
     for rec in row.get("recommendedRecords") or []:
         if not isinstance(rec, dict):
             continue

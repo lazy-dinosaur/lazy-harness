@@ -20,6 +20,12 @@ When the user shows screenshots, transcripts, or short ambiguous references duri
 - Host installs such as `/home/lazydino/dev/medivance/.lazy-harness` are downstream installed copies, not the source of truth.
 - Dogfooding feedback loop: build and change the lazy-harness framework in this source checkout, sync it into downstream hosts such as `/home/lazydino/dev/medivance`, observe normal-use results there, then bring those results back here to improve the framework. Medivance telemetry is evidence for framework quality; it is not the source of truth and should not shift framework ownership away from this repo.
 
+## Commit and downstream-tooling boundary
+
+- This checkout is **not** the Medivance product repo. Do not apply downstream Medivance commit/release-note conventions, hospital-user-facing `User-note` language, or `Internal-only` trailer requirements to commits in this lazy-harness source repository unless the user explicitly asks for that downstream convention.
+- If a Jcode skill or overlay from a downstream host is accidentally loaded while working in `/home/lazydino/dev/lazy-harness`, treat it as non-canonical for this source repo when it conflicts with this SSOT.
+- Commit messages in this source repo should describe framework behavior, tests, records, sync, hooks, or harness integration in lazy-harness terms. Downstream host phrasing such as “병원 직원 화면/동작” is out of scope for lazy-harness framework commits.
+
 ## Allowed work in this host
 
 - Update lazy-harness framework records, prompts, hooks, scripts, specs, ADRs, SSOT, tests, and generated/reference assets.
@@ -66,6 +72,7 @@ Project-specific rules should normally be records, not hardcoded into the shared
   - Primary dogfooding feedback host: `/home/lazydino/dev/medivance`
   - This host may change: framework grammar, records, hooks, scripts, specs, ADRs, SSOT, tests, generated/reference assets.
   - This host must not change without explicit confirmation: downstream app behavior, releases/pushes, destructive worktree/database operations.
+  - Commit/tooling boundary: downstream Medivance commit/release-note rules are not canonical in this source repo and must not introduce hospital-user-facing language into lazy-harness commits.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
   - ADR: `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md`
