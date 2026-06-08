@@ -57,13 +57,14 @@ Supported flags:
 - `--depth=N` — graph expansion depth; default `1`, max `2` in prototype slice 1
 - `--fresh` — rebuild record-index inputs from canonical records before query
 
-Supported adjacent slice:
+Supported adjacent slices:
 
 - `lazy graph path` — defined by `.lazy-harness/spec/platform/graph-path.md`; still cue-only and read-only.
+- `lazy graph explain` — Phase 1 JSON structural packet defined by `.lazy-harness/spec/platform/graph-explain.md`; still cue-only and read-only.
 
 Unsupported in the current prototype boundary:
 
-- `lazy graph explain`
+- graph explain Markdown renderer/path-backed statements
 - daemon/MCP server
 - prompt/reminder packet injection
 
@@ -143,8 +144,8 @@ Acceptance for coverage hardening:
 
 Prototype slice 1 is intentionally narrow:
 
-- Add `lazy graph query` only.
-- Do not add `path` or `explain` yet.
+- Keep `lazy graph query` itself narrow.
+- Adjacent `graph path` and Phase 1 `graph explain` are separate cue-only commands and must not change query semantics.
 - Do not change lifecycle/batch/reminder policy.
 - Do not introduce new runtime language or persistent service.
 - Benchmark before proposing larger policy changes.

@@ -1,6 +1,6 @@
 # SDD — Graph Explain
 
-Status: accepted-design-not-implemented
+Status: accepted-phase1-json
 Date: 2026-06-08
 Layer: SDD
 Related SDD: `.lazy-harness/spec/platform/graph-query.md`
@@ -19,7 +19,7 @@ Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.m
 - Scope: framework-global
 - User-confirmed option: A, Cited structural explanation
 - Applies when:
-  - designing, implementing, or validating a future `lazy graph explain` command
+  - designing, implementing, or validating `lazy graph explain`
   - using graph query/path outputs to produce human-readable structural explanations
   - evaluating whether Graphify-style `explain` can be added without making CLI output semantic authority
 - Must:
@@ -30,7 +30,7 @@ Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.m
   - reuse existing graph query/path inputs and output contracts where possible
   - cap output by `--limit`, `--max-statements`, and optional path-depth controls
   - include explicit notes that output does not satisfy read evidence
-  - keep `lazy graph explain` unsupported until SDD/TDD/plan validation is complete and implementation is separately committed
+  - support Phase 1 JSON structural packets while keeping Markdown rendering and path-backed statements as future slices
 - Must not:
   - emit `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
   - summarize or interpret user intent
@@ -41,28 +41,29 @@ Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.m
 - Record completion:
   - implementation changes must update this SDD, `.lazy-harness/tests/graph-explain.md`, `.lazy-harness/planning/graph-explain-implementation-plan.md`, `graph-query.ts`, self-test, manifest, graph rows, and downstream evidence together.
 
-## CLI contract, planned
+## CLI contract, Phase 1 current
 
 Command:
 
 ```bash
-.lazy-harness/bin/lazy graph explain '<term-or-file>' [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths]
+.lazy-harness/bin/lazy graph explain '<term-or-file>' [--format=json] [--limit=N] [--max-statements=N] [--include-paths]
 ```
 
-Planned flags:
+Phase 1 flags:
 
-- `--format=json|md` — default `md`.
+- `--format=json` — Phase 1 output. If omitted, `graph explain` defaults to JSON. Explicit `--format=md` fails with the Phase 2 boundary message.
 - `--limit=N` — caps underlying query/path candidates; default `8`.
 - `--max-statements=N` — caps cited structural explanation statements; default `8`, max `20`.
-- `--include-paths` — optionally include bounded path evidence between top candidates, still cue-only.
+- `--include-paths` — accepted in Phase 1 as a boundary flag; output reports `no-path-evidence` and leaves `pathPackets` empty until Phase 3.
 - `--fresh` — allowed only if it preserves read-only/non-mutating behavior for canonical records and generated caches.
 
 Current boundary:
 
-- `lazy graph explain` remains unsupported until a later implementation commit.
-- The current command must continue to fail with an explicit unsupported prototype-slice message.
+- `lazy graph explain` is supported for Phase 1 JSON structural packets.
+- Markdown rendering remains a Phase 2 boundary and fails explicitly when `--format=md` is requested.
+- Path-backed statements remain a Phase 3 boundary; `--include-paths` emits `no-path-evidence` with empty `pathPackets`.
 
-## Output shape, planned
+## Output shape, Phase 1 JSON
 
 JSON output must include:
 
@@ -80,7 +81,7 @@ JSON output must include:
     - `provenance`
   - `citations`: array of citation ids/paths repeated from support
 - `queryPacket`: compact selected fields from `GraphQueryResult`
-- `pathPackets`: optional compact selected fields from `GraphPathResult`
+- `pathPackets`: empty array in Phase 1; future compact selected fields from `GraphPathResult` are Phase 3
 - `fallback`: overview/map/retrieval-audit/grep commands
 - `notes`: cue-only / generated-non-canonical / read-real-evidence reminders
 
@@ -124,44 +125,48 @@ Forbidden statement examples:
 - `You should do Y next.`
 - `This proves X caused Y.`
 
-## Implementation strategy, planned
+## Implementation strategy, Phase 1 current
 
-1. Parse `graph explain <query>` only after this SDD/TDD/plan is accepted.
+1. Parse `graph explain <query>` as a supported JSON-only Phase 1 command.
 2. Build a `GraphQueryResult` with existing `buildGraphQuery`.
-3. Convert seeds, matched fields, candidate lists, citations, and graph edges into bounded structural statements.
-4. If `--include-paths` is set, optionally call `buildGraphPath` between selected endpoint candidates, but only as cited support.
-5. Render JSON and Markdown from the same structural packet.
+3. Convert seeds, matched fields, citations, and graph edges into bounded structural statements.
+4. Keep `--include-paths` as a boundary flag that reports `no-path-evidence` with empty `pathPackets` until Phase 3.
+5. Keep explicit `--format=md` as a Phase 2 boundary until `renderExplainMarkdown` is implemented.
 6. Keep all statements compact and citation-backed.
-7. Preserve current unsupported behavior until implementation is complete.
 
 ## Implementation map
 
-- Status: planned
+- Status: implemented-phase1-json
 - Primary files:
   - `.lazy-harness/spec/platform/graph-explain.md` — this SDD.
-  - `.lazy-harness/tests/graph-explain.md` — regression contract for future implementation.
+  - `.lazy-harness/tests/graph-explain.md` — Phase 1 regression contract.
   - `.lazy-harness/planning/graph-explain-implementation-plan.md` — phased implementation plan.
-  - `.lazy-harness/scripts/graph-query.ts` — planned implementation location for parser, builder, and renderer.
-  - `.lazy-harness/scripts/self-test.py` — planned regression protection.
-  - `.lazy-harness/bin/lazy` — planned help/dispatcher update if implementation starts.
-- Planned symbols:
+  - `.lazy-harness/scripts/graph-query.ts` — implements parser, Phase 1 types, `buildGraphExplain`, and JSON output.
+  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` regression protection.
+  - `.lazy-harness/bin/lazy` — advertises graph explain Phase 1 JSON.
+- Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
+  - `GraphExplainSupport`
   - `buildGraphExplain`
-  - `renderExplainMarkdown`
   - `check_graph_explain_cli`
+- Future symbols:
+  - `renderExplainMarkdown`
 - Current protection:
-  - `check_graph_query_cli` and `check_graph_path_cli` keep `lazy graph explain` unsupported until implementation.
-- Planned graph id:
+  - `check_graph_explain_cli` verifies Phase 1 JSON shape, support/citations on every statement, recursive forbidden-field absence, read-only behavior, include-paths boundary, and Markdown boundary.
+  - `check_graph_query_cli` and `check_graph_path_cli` remain graph query/path regression protection.
+- Graph ids:
   - `kg_graph_explain_structural_design_20260608`
+  - `kg_graph_explain_phase1_cli_20260608`
+  - `kg_graph_explain_phase1_self_test_20260608`
 
 ## Layer completeness impact
 
 - DDD: no new domain entity; existing Searchable Record Memory still controls cue-only retrieval interpretation.
 - BDD: LLM-owned record retrieval behavior remains unchanged; explain output is cue-only.
-- SDD: this record defines the planned explain contract.
-- TDD: `.lazy-harness/tests/graph-explain.md` defines implementation fixtures before code changes.
-- ADR: no new ADR required for this design-only slice because it does not relax policy or add runtime/dependency architecture. A new ADR is required before adding semantic authority, MCP, daemon, watch mode, Graphify vendoring, or lifecycle policy changes.
+- SDD: this record defines the Phase 1 explain contract.
+- TDD: `.lazy-harness/tests/graph-explain.md` defines Phase 1 and future fixtures.
+- ADR: no new ADR required for Phase 1 because it does not relax policy or add runtime/dependency architecture. A new ADR is required before adding semantic authority, MCP, daemon, watch mode, Graphify vendoring, or lifecycle policy changes.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains controlling.
 - Planning: `.lazy-harness/planning/graph-explain-implementation-plan.md` tracks phased implementation.
 

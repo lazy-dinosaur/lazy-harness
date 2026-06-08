@@ -22,7 +22,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - keep the implementation additive, read-only, cue-only, deterministic, TS/Bun based
   - write/update SDD and TDD before source changes
   - reuse existing graph-query candidate construction where possible
-  - preserve `lazy graph explain` as unsupported
+  - leave graph explain behavior to its separate SDD/TDD/plan slice
   - validate with focused graph-path commands and full framework self-test
   - sync downstream hosts after committing framework changes
 - Must not:
@@ -41,7 +41,7 @@ This slice implements only:
 
 Explicitly out of scope:
 
-- `lazy graph explain`
+- graph explain changes outside its separate SDD/TDD/plan slice
 - MCP/daemon/watch
 - graph artifact export/wiki/report
 - prompt packet injection
@@ -64,7 +64,7 @@ Patch `.lazy-harness/scripts/graph-query.ts`:
    - command: `query | path`
    - `--max-depth`
    - `--max-paths`
-2. Keep `explain` forbidden with explicit unsupported message.
+2. Keep graph explain changes out of the graph path patch.
 3. Add `GraphPathResult` type with no forbidden semantic fields.
 4. Export/refactor internal graph query builder enough for path reuse inside the same file.
 5. Implement `buildGraphPath(root, from, to, limit, maxDepth, maxPaths, fresh)`:
@@ -88,14 +88,14 @@ Patch `.lazy-harness/scripts/self-test.py`:
 - Verify linked fixture and gap fixture.
 - Verify no forbidden fields recursively.
 - Verify read-only behavior for graph JSONL and record-index cache.
-- Verify explain remains unsupported.
+- Verify graph path behavior remains unchanged by any separate graph-explain slice.
 - Add the function to the framework check list.
 
 ### Phase 3 — Knowledge graph and sync metadata
 
 - Append confirmed graph rows for SDD/TDD/source/test implementation edges.
 - Update `.lazy-harness/manifests/init-categories.json` if new records need Category A sync inclusion.
-- Update graph-query SDD/TDD wording so path is no longer listed as slice-1 unsupported, while explain remains unsupported.
+- Update graph-query SDD/TDD wording so path is no longer listed as slice-1 unsupported; graph explain wording is owned by the separate graph-explain records.
 
 ### Phase 4 — Validation
 
@@ -104,7 +104,6 @@ Focused:
 ```bash
 .lazy-harness/bin/lazy graph path 'workflow compression not safety reduction' '.lazy-harness/ssot/cli-tool-boundary.md' --format=json --limit=8 --max-depth=4
 .lazy-harness/bin/lazy graph path 'zzzz-missing-from' 'zzzz-missing-to' --format=json --limit=8
-.lazy-harness/bin/lazy graph explain 'workflow compression' --format=json
 python3 -m py_compile .lazy-harness/scripts/self-test.py
 ```
 
@@ -129,7 +128,7 @@ Status: source implementation, focused graph-query/path checks, full framework s
 | Path output is over-read as semantic proof | Notes, SDD/TDD, forbidden fields, self-test guard |
 | BFS output grows too large | `--limit`, `--max-depth`, `--max-paths`, compact ids |
 | Existing graph-query compactness regresses | keep existing self-test compactness checks passing |
-| Explain accidentally becomes allowed | explicit explain self-test failure expectation |
+| Path-backed or semantic explain accidentally becomes allowed through graph path | graph-explain Phase 1 tests keep JSON structural only; Markdown/path-backed support remains future |
 | Path cannot find useful connection | return endpoint candidates and fallback, not conclusions |
 
 ## Implementation map
@@ -141,7 +140,7 @@ Status: source implementation, focused graph-query/path checks, full framework s
   - `.lazy-harness/tests/graph-path.md` — TDD contract.
   - `.lazy-harness/scripts/graph-query.ts` — implements parser, `GraphPathResult`, bounded BFS path search, JSON output, and Markdown rendering.
   - `.lazy-harness/bin/lazy` — advertises graph path.
-  - `.lazy-harness/scripts/self-test.py` — protects graph path linked/gap/read-only/no-semantic-field/explain-boundary fixtures.
+  - `.lazy-harness/scripts/self-test.py` — protects graph path linked/gap/read-only/no-semantic-field fixtures and keeps graph-explain Phase 1 tests separate.
   - `.lazy-harness/knowledge/graph.jsonl` — implementation map edges for graph path SDD/TDD/source/test.
 - Symbols:
   - `GraphPathResult`
@@ -159,4 +158,4 @@ Status: source implementation, focused graph-query/path checks, full framework s
 
 - Captured Graphify-style path as an additive next slice in SDD/TDD/Planning instead of chat-only backlog.
 - No ADR opened because this is a CLI helper implementation, not a lifecycle/policy authority change.
-- Future `graph explain` still requires a separate SDD/TDD/plan and option gate/ADR if it would summarize semantics.
+- Future graph-explain Markdown/path-backed support remains owned by the separate graph-explain SDD/TDD/plan; semantic summarization still requires an option gate/ADR.

@@ -1,6 +1,6 @@
 # Graph Explain Implementation Plan
 
-Status: accepted-design-not-implemented
+Status: phase1-json-implemented
 Date: 2026-06-08
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/graph-explain.md`
@@ -22,10 +22,10 @@ Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.m
   - deciding whether explain can be added without semantic authority or policy relaxation
   - sequencing source, tests, records, sync, and evidence for graph explain
 - Must:
-  - keep the first explain slice design-only until this plan, SDD, and TDD are committed
-  - implement only cited structural explanation in the future source slice
+  - keep Phase 1 JSON explain limited to cited structural statements
+  - keep future slices limited to Markdown rendering and optional path-backed support unless a new option gate/ADR expands scope
   - keep all statements support-backed and citation-backed
-  - preserve `lazy graph explain` unsupported behavior until implementation begins
+  - preserve graph query/path outputs and cue-only/read-only policy while implementing explain
   - preserve query/path outputs and self-tests
   - run focused tests, full framework self-test, downstream sync/smoke, and evidence capture after implementation
 - Must not:
@@ -34,7 +34,7 @@ Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.m
   - implement MCP, daemon, watch mode, prompt/reminder injection, or Graphify vendoring
   - change lifecycle/read-debt/overview/option-gate policy
 - Record completion:
-  - design-only completion updates SDD/TDD/Planning/manifest/graph rows and verifies `lazy graph explain` remains unsupported.
+  - design-only completion updates SDD/TDD/Planning/manifest/graph rows and verified the pre-implementation command boundary.
   - implementation completion later updates source/self-test/help/evidence/downstream sync together.
 
 ## Direction lock
@@ -55,7 +55,7 @@ Evidence:
 
 - Design-only records committed and pushed in `e056634` (`Docs: add graph explain structural design records`).
 - Full framework self-test passed before commit (`python3 .lazy-harness/scripts/self-test.py --scope framework`, task `610228ra1x`, exit 0) and commit hook reported `✅ .lazy-harness/bin/lazy test all green`.
-- Focused smoke confirmed `lazy graph explain` still exits unsupported with the explicit prototype-slice message.
+- Focused smoke confirmed the Phase 0 pre-implementation command boundary before source changes.
 
 Tasks:
 
@@ -69,7 +69,7 @@ Tasks:
    - required phrases exist,
    - manifest JSON parses,
    - graph JSONL parses and has no duplicate ids,
-   - `lazy graph explain` remains unsupported,
+   - Phase 0 pre-implementation command boundary holds,
    - current graph query/path focused checks still pass,
    - full framework self-test passes.
 7. Commit and push design-only records.
@@ -78,14 +78,16 @@ Exit criteria:
 
 - Design-only records are committed and pushed.
 - No source implementation exists yet.
-- `lazy graph explain` still fails with the unsupported prototype-slice message.
+- Phase 0 pre-implementation command boundary holds until the separate source slice.
 
-## Phase 1 — Minimal JSON structural packet, future implementation
+## Phase 1 — Minimal JSON structural packet
+
+Status: implemented, validation in progress
 
 Tasks:
 
 1. Extend `parseArgs` in `.lazy-harness/scripts/graph-query.ts` to allow `command: 'explain'` only in this implementation commit.
-2. Add planned types:
+2. Add types:
    - `GraphExplainResult`
    - `GraphExplainStatement`
    - `GraphExplainSupport`
@@ -138,7 +140,7 @@ Focused validation:
 
 ```bash
 .lazy-harness/bin/lazy graph explain 'workflow compression not safety reduction' --format=json --limit=8
-.lazy-harness/bin/lazy graph explain 'workflow compression not safety reduction' --format=md --limit=8 --include-paths
+.lazy-harness/bin/lazy graph explain 'workflow compression not safety reduction' --format=json --limit=8 --include-paths
 .lazy-harness/bin/lazy graph explain 'zzzz-missing-term' --format=json --limit=8
 python3 - <<'PY'
 # recursive forbidden-key check
@@ -185,42 +187,45 @@ Downstream validation:
 
 ## Implementation map
 
-- Status: planned
+- Status: implemented-phase1-json
 - Primary files:
   - `.lazy-harness/planning/graph-explain-implementation-plan.md` — this plan.
-  - `.lazy-harness/spec/platform/graph-explain.md` — planned command contract.
-  - `.lazy-harness/tests/graph-explain.md` — planned regression fixtures.
-  - `.lazy-harness/scripts/graph-query.ts` — future implementation location.
-  - `.lazy-harness/scripts/self-test.py` — future focused self-test location.
-  - `.lazy-harness/bin/lazy` — future help/dispatcher wording if needed.
+  - `.lazy-harness/spec/platform/graph-explain.md` — Phase 1 command contract.
+  - `.lazy-harness/tests/graph-explain.md` — Phase 1 regression fixtures.
+  - `.lazy-harness/scripts/graph-query.ts` — implements Phase 1 parser, `GraphExplainResult` types, `buildGraphExplain`, and JSON output.
+  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` Phase 1 regression coverage.
+  - `.lazy-harness/bin/lazy` — advertises `graph explain <term-or-file>` JSON Phase 1.
   - `.lazy-harness/manifests/init-categories.json` — design record sync entries.
   - `.lazy-harness/knowledge/graph.jsonl` — design graph rows.
-- Planned symbols:
+- Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
   - `GraphExplainSupport`
   - `buildGraphExplain`
-  - `renderExplainMarkdown`
   - `check_graph_explain_cli`
+- Future symbols:
+  - `renderExplainMarkdown`
 - Current protection:
-  - Existing graph-query/path self-tests keep `lazy graph explain` unsupported.
-- Planned graph id:
+  - `check_graph_explain_cli` verifies Phase 1 JSON shape, support/citations, recursive forbidden-field absence, include-paths boundary, Markdown boundary, and read-only behavior.
+- Graph ids:
   - `kg_graph_explain_structural_plan_20260608`
+  - `kg_graph_explain_phase1_cli_20260608`
+  - `kg_graph_explain_phase1_self_test_20260608`
 
 ## Layer completeness impact
 
 - DDD: no new domain entity.
 - BDD: LLM-owned record retrieval remains unchanged.
-- SDD: `.lazy-harness/spec/platform/graph-explain.md` defines the planned command contract.
-- TDD: `.lazy-harness/tests/graph-explain.md` defines pre-implementation and future fixtures.
-- ADR: not needed for design-only or cue-only implementation. Required before semantic authority, Graphify vendoring, MCP/daemon/watch, prompt/reminder injection, or lifecycle policy changes.
+- SDD: `.lazy-harness/spec/platform/graph-explain.md` defines the Phase 1 command contract.
+- TDD: `.lazy-harness/tests/graph-explain.md` defines Phase 1 and future fixtures.
+- ADR: not needed for cue-only Phase 1 implementation. Required before semantic authority, Graphify vendoring, MCP/daemon/watch, prompt/reminder injection, or lifecycle policy changes.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains controlling.
 - Planning: this record tracks phased implementation.
 
 ## Discovery capture
 
 - Captured user-confirmed option A as durable SDD/TDD/Planning records instead of chat-only state.
-- Captured that `lazy graph explain` remains unsupported until a future implementation commit.
+- Captured that `lazy graph explain` Phase 1 is implemented as JSON-only structural explanation while Markdown/path-backed support remain future slices.
 - Captured future ADR boundary for semantic authority or runtime/dependency expansion.
 
 ## Rule placement

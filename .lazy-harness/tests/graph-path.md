@@ -23,7 +23,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - protect bounded BFS path output between two known graph-query cues
   - protect no semantic-authority fields recursively
   - protect read-only behavior: no canonical record, graph, generated cache, runtime journal, or user memory mutation
-  - protect `lazy graph explain` remains unsupported until a separate slice
+  - protect path behavior remains unchanged by the separate graph-explain slice
 - Must not:
   - allow required-read, optional-read, confidence, intent, risk, gate, next-action, or candidate-meaning fields
   - treat path output as proof of evidence read or proof of causality
@@ -42,7 +42,6 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `graph_path_partial` | endpoints exist but no bounded path under max depth | `resultState=partial`, `no-paths`, endpoint candidates present |
 | `graph_path_read_only` | running path in source/temp host | graph JSONL and generated record-index cache are unchanged |
 | `graph_path_markdown_warning` | markdown output | includes cue-only / measurement boundary warning and does not claim required reads |
-| `graph_explain_still_unsupported` | `lazy graph explain` | still fails with explicit unsupported message |
 
 Forbidden keys anywhere in output:
 
@@ -62,8 +61,7 @@ Self-test must verify:
 6. Recursive forbidden-key check passes.
 7. Graph path does not mutate `.lazy-harness/knowledge/graph.jsonl` or `.lazy-harness/generated/record-index.json`.
 8. Markdown output contains `cue-only` and `does not satisfy read evidence`.
-9. `lazy graph explain` remains unsupported.
-10. Existing `lazy graph query` compactness and coverage tests still pass.
+9. Existing `lazy graph query` compactness/coverage and `lazy graph explain` Phase 1 tests still pass without changing path semantics.
 
 ## Validation commands
 

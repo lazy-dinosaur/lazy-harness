@@ -29,7 +29,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-08-graph-path-portability-sync
   - preserve the LLM/searcher as semantic authority; graph path output is navigation evidence only
   - include no `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings` fields
 - Must not:
-  - implement `lazy graph explain`, MCP, daemon, watch mode, or prompt/reminder injection
+  - expand `lazy graph explain` beyond its separate SDD/TDD/plan slice, or add MCP, daemon, watch mode, or prompt/reminder injection
   - relax overview/read-debt/lifecycle/prompt/option-gate policy
   - treat a path as proof that evidence was read or as proof of causality
   - invent edges that are not already present in query subgraphs or confirmed/generated indexes
@@ -58,9 +58,9 @@ Flags:
 - `--max-paths=N` — number of paths to return; default `3`, max `10` in this slice.
 - `--fresh` — accepted for parity with `graph query`, but must not write generated caches.
 
-Unsupported in this slice:
+Unsupported in this path slice:
 
-- `lazy graph explain`
+- graph explain Markdown/path-backed statements unless the separate graph-explain records say otherwise
 - daemon/MCP/watch mode
 - prompt/reminder packet injection
 

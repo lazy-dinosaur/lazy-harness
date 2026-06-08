@@ -5360,11 +5360,6 @@ def check_graph_query_cli() -> None:
         for result in [mapped, partial, gap]:
             assert_no_forbidden_keys(result)
 
-        failed = run_graph("explain", "retrieval coverage audit", "--format=json", expect_ok=False)
-        combined = failed.stdout + failed.stderr
-        if "unsupported in this prototype slice" not in combined:
-            fail("graph query slice boundary missing unsupported explain message")
-
         if graph_path.read_text(encoding="utf-8") != graph_before:
             fail("graph query must not mutate canonical graph.jsonl")
         if implementation_index_path.read_text(encoding="utf-8") != implementation_index_before:
@@ -5405,7 +5400,6 @@ def check_graph_path_cli() -> None:
         "graph_path_linked_query_to_record",
         "graph_path_gap",
         "graph_path_read_only",
-        "graph_explain_still_unsupported",
         "check_graph_path_cli",
     ]:
         if phrase not in tdd_text:
@@ -5589,10 +5583,6 @@ def check_graph_path_cli() -> None:
         if "cue-only" not in markdown or "does not satisfy read evidence" not in markdown:
             fail("graph path markdown missing cue-only/read-evidence warning")
 
-        failed = run_graph_path("explain", "retrieval path source", expect_ok=False)
-        if "unsupported in this prototype slice" not in failed.stdout + failed.stderr:
-            fail("graph explain unsupported message missing")
-
         if graph_path.read_text(encoding="utf-8") != graph_before:
             fail("graph path must not mutate canonical graph.jsonl")
         if record_index_before is None and record_index_path.exists():
@@ -5602,6 +5592,122 @@ def check_graph_path_cli() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ graph path CLI ok")
+
+
+def check_graph_explain_cli() -> None:
+    """Graph explain Phase 1 should emit cited structural JSON without semantic authority."""
+    script_path = LAZY / "scripts" / "graph-query.ts"
+    sdd_path = LAZY / "spec" / "platform" / "graph-explain.md"
+    tdd_path = LAZY / "tests" / "graph-explain.md"
+    plan_path = LAZY / "planning" / "graph-explain-implementation-plan.md"
+    for path in [script_path, sdd_path, tdd_path, plan_path]:
+        if not path.exists():
+            fail("Graph explain artifact missing: " + str(path))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "graph explain <term-or-file>" not in help_text:
+        fail("lazy help must advertise graph explain command")
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "mode: graph-query.explain",
+        "explanationKind: structural",
+        "resultState: explained | partial | gap",
+        "does not satisfy read evidence",
+        "Forbidden output fields anywhere",
+        "buildGraphExplain",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Graph explain SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "graph_explain_explained_query",
+        "graph_explain_gap",
+        "graph_explain_no_semantic_fields",
+        "graph_explain_read_only",
+        "check_graph_explain_cli",
+    ]:
+        if phrase not in tdd_text:
+            fail("Graph explain TDD missing phrase: " + phrase)
+
+    forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+    def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden:
+                    fail("graph explain emitted forbidden semantic-authority key: " + path + key)
+                assert_no_forbidden_keys(child, path + key + ".")
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                assert_no_forbidden_keys(child, path + f"{idx}.")
+
+    def run_explain(*args: str, expect_ok: bool = True) -> subprocess.CompletedProcess[str]:
+        completed = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph", "explain", *args],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if expect_ok and completed.returncode != 0:
+            fail(f"lazy graph explain failed for {args!r}:\n" + completed.stdout + completed.stderr)
+        if not expect_ok and completed.returncode == 0:
+            fail(f"lazy graph explain should fail for {args!r}:\n" + completed.stdout + completed.stderr)
+        return completed
+
+    graph_path = LAZY / "knowledge" / "graph.jsonl"
+    record_index_path = LAZY / "generated" / "record-index.json"
+    implementation_index_path = LAZY / "generated" / "implementation-index.json"
+    graph_before = graph_path.read_bytes() if graph_path.exists() else b""
+    record_index_before = record_index_path.read_bytes() if record_index_path.exists() else b""
+    implementation_index_before = implementation_index_path.read_bytes() if implementation_index_path.exists() else b""
+
+    explained_completed = run_explain("workflow compression not safety reduction", "--format=json", "--limit=8", "--max-statements=8")
+    try:
+        explained = json.loads(explained_completed.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"graph explain output was not JSON: {exc}\n{explained_completed.stdout[:1000]}")
+    if explained.get("mode") != "graph-query.explain" or explained.get("explanationKind") != "structural":
+        fail("graph explain mode/explanationKind mismatch")
+    if explained.get("resultState") not in {"explained", "partial"}:
+        fail("graph explain mapped query should produce explained/partial state")
+    statements = explained.get("statements", [])
+    if not statements or len(statements) > 8:
+        fail("graph explain mapped query should emit 1..8 statements")
+    for idx, statement in enumerate(statements):
+        if not statement.get("statement") or not statement.get("support") or not statement.get("citations"):
+            fail(f"graph explain statement missing text/support/citations at index {idx}")
+    if explained.get("queryPacket", {}).get("mode") != "graph-query.query":
+        fail("graph explain missing embedded graph-query packet")
+    assert_no_forbidden_keys(explained)
+
+    path_requested = json.loads(run_explain("workflow compression not safety reduction", "--format=json", "--include-paths", "--limit=8").stdout)
+    if "no-path-evidence" not in path_requested.get("coverage", {}).get("gaps", []):
+        fail("graph explain Phase 1 include-paths should report no-path-evidence")
+    if path_requested.get("pathPackets") != []:
+        fail("graph explain Phase 1 should not emit pathPackets")
+    assert_no_forbidden_keys(path_requested)
+
+    gap = json.loads(run_explain("zzzz-missing-token", "--format=json", "--limit=8").stdout)
+    if gap.get("resultState") != "gap" or "no-query-candidates" not in gap.get("coverage", {}).get("gaps", []):
+        fail("graph explain missing-query should be gap with no-query-candidates")
+    assert_no_forbidden_keys(gap)
+
+    md_failed = run_explain("workflow compression not safety reduction", "--format=md", expect_ok=False)
+    if "markdown output is reserved" not in md_failed.stdout + md_failed.stderr:
+        fail("graph explain Phase 1 markdown boundary message missing")
+
+    if (graph_path.read_bytes() if graph_path.exists() else b"") != graph_before:
+        fail("graph explain must not mutate canonical graph.jsonl")
+    if (record_index_path.read_bytes() if record_index_path.exists() else b"") != record_index_before:
+        fail("graph explain must not mutate generated record-index.json")
+    if (implementation_index_path.read_bytes() if implementation_index_path.exists() else b"") != implementation_index_before:
+        fail("graph explain must not mutate generated implementation-index.json")
+
+    print("✓ graph explain CLI ok")
 
 
 def check_retrieval_workflow_benchmark_cli() -> None:
@@ -7165,6 +7271,7 @@ def main() -> None:
         (check_retrieval_coverage_audit_cli, "BOTH"),
         (check_graph_query_cli, "BOTH"),
         (check_graph_path_cli, "BOTH"),
+        (check_graph_explain_cli, "BOTH"),
         (check_retrieval_workflow_benchmark_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),

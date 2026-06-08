@@ -181,12 +181,12 @@
         {
           "path": "planning/graph-path-implementation-plan.md",
           "kind": "file",
-          "description": "Implementation plan for additive cue-only `lazy graph path` bounded navigation over graph-query subgraphs, with explain/MCP/daemon and policy changes out of scope."
+          "description": "Implementation plan for additive cue-only `lazy graph path` bounded navigation over graph-query subgraphs, with graph explain changes owned by separate records and MCP/daemon/policy changes out of scope."
         },
         {
           "path": "planning/graph-explain-implementation-plan.md",
           "kind": "file",
-          "description": "Design-first implementation plan for future cue-only `lazy graph explain` as cited structural explanation, with semantic authority and policy changes out of scope."
+          "description": "Implementation plan for cue-only `lazy graph explain` as Phase 1 JSON cited structural explanation, with Markdown/path-backed support future and semantic authority/policy changes out of scope."
         },
         {
           "path": "planning/retrieval-workflow-benchmark-plan.md",
@@ -421,17 +421,17 @@
         {
           "path": "tests/graph-path.md",
           "kind": "file",
-          "description": "TDD contract fixtures for graph path linked/partial/gap states, no semantic fields, read-only behavior, and explain-boundary enforcement."
+          "description": "TDD contract fixtures for graph path linked/partial/gap states, no semantic fields, read-only behavior, and regression compatibility with separate graph-explain tests."
         },
         {
           "path": "spec/platform/graph-explain.md",
           "kind": "file",
-          "description": "SDD design contract for future cue-only `lazy graph explain` cited structural explanation output."
+          "description": "SDD contract for Phase 1 cue-only `lazy graph explain` JSON cited structural explanation output, with Markdown/path-backed support future."
         },
         {
           "path": "tests/graph-explain.md",
           "kind": "file",
-          "description": "TDD design contract for graph explain unsupported boundary and future cited structural explanation fixtures."
+          "description": "TDD contract for graph explain Phase 1 JSON shape, support/citations, forbidden semantic fields, read-only behavior, and future Markdown/path boundaries."
         },
         {
           "path": "spec/platform/retrieval-workflow-benchmark.md",

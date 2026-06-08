@@ -76,6 +76,8 @@ Commands:
                                 Prototype cue-only graph query over record-index, graph JSONL, and generated indexes
   graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh]
                                 Prototype cue-only bounded graph path over graph-query subgraphs
+  graph explain <term-or-file> [--format=json] [--limit=N] [--max-statements=N] [--include-paths] [--fresh]
+                                Phase 1 cue-only cited structural explanation JSON over graph query output
   retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
                                 Measure post-overview map/retrieval-audit/graph-query workflow costs
   record-index [--write] [--format=json|md]

@@ -47,7 +47,6 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
 | `graph_query_no_semantic_fields` | Any JSON output | forbidden semantic-authority fields absent recursively |
 | `graph_query_read_only` | Running graph query in temp host | canonical records, graph JSONL, generated caches, and runtime files remain unmodified |
 | `graph_query_help_and_dispatcher` | `lazy help` and `lazy graph query` | help advertises graph query; dispatcher routes through `.lazy-harness/scripts/graph-query.ts` |
-| `graph_query_slice_boundary` | User tries `lazy graph explain` before a separate explain slice | command fails with explicit unsupported-in-prototype message |
 | `graph_query_payload_compactness` | Source query `retrieval coverage audit` with JSON `--limit=20` | payload is materially below the slice-1 61,004-byte baseline, keeps DDD/BDD/SDD/TDD/SSOT candidates, caps seeds/nodes/edges/citations by `--limit`, and emits no edge endpoint containing a full `.lazy-harness/` path |
 | `graph_query_layer_bridge_coverage` | Source query `workflow compression not safety reduction` with JSON `--limit=8` | candidates include DDD, BDD, SDD, TDD, and SSOT record paths by using verified bridge/protection records, while no forbidden semantic-authority fields appear |
 | `graph_query_workflow_benchmark_coverage` | `lazy retrieval-workflow-benchmark --format=json --limit=8` | `graph_query` full layer coverage improves beyond the 1/4 baseline and total estimated tokens remain below `map_plus_retrieval_audit` |
@@ -81,7 +80,7 @@ Required self-test assertions:
 5. `lazy graph query 'orphan graph fixture' --format=json` returns `partial` with missing category gaps.
 6. Recursive forbidden-key check passes for mapped/partial/gap outputs.
 7. Running graph query does not write/modify generated record-index cache or canonical graph JSONL in the temp host.
-8. `lazy graph path` and `lazy graph explain` fail explicitly in slice 1.
+8. `lazy graph path` and `lazy graph explain` are separate cue-only commands and must not alter graph query output semantics.
 9. Markdown output contains cue-only / read real evidence warning.
 10. Source benchmark query `lazy graph query 'retrieval coverage audit' --format=json --limit=20` stays compact relative to the 61,004-byte slice-1 baseline without losing five-layer candidate coverage.
 11. Source query `lazy graph query 'workflow compression not safety reduction' --format=json --limit=8` returns DDD/BDD/SDD/TDD/SSOT record candidates.
@@ -143,7 +142,7 @@ Layer coverage hardening acceptance:
 - Flow:
   1. Self-test builds a temp host fixture.
   2. Dispatcher invokes graph-query CLI through `lazy graph query`.
-  3. Assertions verify mapped/partial/gap states, related layer candidates, source/test/graph citations, no forbidden keys, no mutation, and unsupported path/explain boundary.
+  3. Assertions verify mapped/partial/gap states, related layer candidates, source/test/graph citations, no forbidden keys, no mutation, supported path/explain dispatch boundaries, and semantic-authority absence.
 - Machine index:
   - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`, `kg_graph_query_coverage_ranking_hardening_20260608`, `kg_graph_query_coverage_ranking_plan_20260608`
 

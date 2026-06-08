@@ -6,6 +6,7 @@ import { buildRecordIndex, type RecordEntry, type RecordIndex } from './record-i
 type Format = 'json' | 'md'
 type ResultState = 'mapped' | 'partial' | 'gap'
 type PathResultState = 'linked' | 'partial' | 'gap'
+type ExplainResultState = 'explained' | 'partial' | 'gap'
 type NodeKind = 'record' | 'source' | 'test' | 'graph-row' | 'implementation' | 'feature'
 type LayerName = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'SSOT'
 
@@ -120,9 +121,37 @@ type GraphPathResult = {
   notes: string[]
 }
 
+type GraphExplainSupport = {
+  kind: 'matched-field' | 'graph-edge' | 'graph-row' | 'record' | 'source' | 'test' | 'path'
+  path?: string
+  id?: string
+  relation?: string
+  provenance: string
+  matchedFields?: string[]
+}
+
+type GraphExplainStatement = {
+  statement: string
+  support: GraphExplainSupport[]
+  citations: string[]
+}
+
+type GraphExplainResult = {
+  mode: 'graph-query.explain'
+  query: string
+  resultState: ExplainResultState
+  explanationKind: 'structural'
+  coverage: { gaps: string[] }
+  statements: GraphExplainStatement[]
+  queryPacket: GraphQueryResult
+  pathPackets: GraphPathResult[]
+  fallback: GraphQueryResult['fallback']
+  notes: string[]
+}
+
 type Args = {
   root: string
-  command: 'query' | 'path'
+  command: 'query' | 'path' | 'explain'
   query: string
   to?: string
   format: Format
@@ -130,10 +159,11 @@ type Args = {
   depth: number
   maxDepth: number
   maxPaths: number
+  maxStatements: number
+  includePaths: boolean
   fresh: boolean
 }
 
-const FORBIDDEN_COMMANDS = new Set(['explain'])
 const MAX_PROVENANCE_PER_ITEM = 2
 const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; reason: string }> = [
   { layer: 'DDD', recordPath: '.lazy-harness/domain/searchable-record-memory.md', reason: 'retrieval-helper-domain-bridge' },
@@ -141,7 +171,7 @@ const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; rea
 ]
 
 function usage(exitCode = 1): never {
-  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n\nSupported: graph query, graph path\nUnsupported until separate approval: graph explain, MCP/daemon.`
+  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON structural packet\nUnsupported in this slice: graph explain markdown renderer, MCP/daemon.`
   if (exitCode === 0) console.log(msg)
   else console.error(msg)
   process.exit(exitCode)
@@ -154,6 +184,9 @@ function parseArgs(argv: string[]): Args {
   let depth = 1
   let maxDepth = 4
   let maxPaths = 3
+  let maxStatements = 8
+  let includePaths = false
+  let formatExplicit = false
   let fresh = false
   const positional: string[] = []
   for (let i = 0; i < argv.length; i += 1) {
@@ -169,10 +202,12 @@ function parseArgs(argv: string[]): Args {
       const next = argv[++i]
       if (next !== 'json' && next !== 'md') usage()
       format = next
+      formatExplicit = true
     } else if (arg.startsWith('--format=')) {
       const value = arg.slice('--format='.length)
       if (value !== 'json' && value !== 'md') usage()
       format = value
+      formatExplicit = true
     } else if (arg === '--limit') {
       const next = argv[++i]
       if (!next) usage()
@@ -188,6 +223,12 @@ function parseArgs(argv: string[]): Args {
       if (!next) usage()
       maxPaths = parsePositiveInt(next, 'max-paths')
     } else if (arg.startsWith('--max-paths=')) maxPaths = parsePositiveInt(arg.slice('--max-paths='.length), 'max-paths')
+    else if (arg === '--max-statements') {
+      const next = argv[++i]
+      if (!next) usage()
+      maxStatements = parsePositiveInt(next, 'max-statements')
+    } else if (arg.startsWith('--max-statements=')) maxStatements = parsePositiveInt(arg.slice('--max-statements='.length), 'max-statements')
+    else if (arg === '--include-paths') includePaths = true
     else if (arg === '--depth') {
       const next = argv[++i]
       if (!next) usage()
@@ -197,10 +238,6 @@ function parseArgs(argv: string[]): Args {
   }
   if (!positional.length) usage()
   const command = positional.shift() || 'query'
-  if (FORBIDDEN_COMMANDS.has(command)) {
-    console.error(`lazy graph ${command} is unsupported in this prototype slice. Implement and benchmark query/path helpers first, then open an option gate/ADR before explain.`)
-    process.exit(2)
-  }
   if (command === 'query') {
     const query = positional.join(' ').trim()
     if (!query) usage()
@@ -213,6 +250,8 @@ function parseArgs(argv: string[]): Args {
       depth: Math.min(Math.max(depth, 1), 2),
       maxDepth: Math.min(Math.max(maxDepth, 1), 6),
       maxPaths: Math.min(Math.max(maxPaths, 1), 10),
+      maxStatements: Math.min(Math.max(maxStatements, 1), 20),
+      includePaths,
       fresh,
     }
   }
@@ -230,6 +269,30 @@ function parseArgs(argv: string[]): Args {
       depth: Math.min(Math.max(depth, 1), 2),
       maxDepth: Math.min(Math.max(maxDepth, 1), 6),
       maxPaths: Math.min(Math.max(maxPaths, 1), 10),
+      maxStatements: Math.min(Math.max(maxStatements, 1), 20),
+      includePaths,
+      fresh,
+    }
+  }
+  if (command === 'explain') {
+    const query = positional.join(' ').trim()
+    if (!query) usage()
+    if (!formatExplicit) format = 'json'
+    if (format === 'md') {
+      console.error('lazy graph explain markdown output is reserved for the next implementation slice; use --format=json in Phase 1.')
+      process.exit(2)
+    }
+    return {
+      root: path.resolve(root),
+      command,
+      query,
+      format,
+      limit: Math.min(Math.max(limit, 1), 100),
+      depth: Math.min(Math.max(depth, 1), 2),
+      maxDepth: Math.min(Math.max(maxDepth, 1), 6),
+      maxPaths: Math.min(Math.max(maxPaths, 1), 10),
+      maxStatements: Math.min(Math.max(maxStatements, 1), 20),
+      includePaths,
       fresh,
     }
   }
@@ -756,7 +819,7 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
     notes: [
       'cue-only: graph query output is navigation context, not proof that evidence was read',
       'generated/non-canonical: read real records/source/tests before relying on any candidate',
-      'prototype boundary: lazy graph query/path helpers are supported; explain/lifecycle policy changes are out of scope',
+      'prototype boundary: lazy graph query/path/explain JSON helpers are supported; lifecycle policy changes and Markdown/path-backed explain remain out of scope',
     ],
   }
 }
@@ -1013,7 +1076,96 @@ function buildGraphPath(root: string, from: string, to: string, limit: number, m
     notes: [
       'cue-only: graph path output is navigation context and does not satisfy read evidence',
       'generated/non-canonical: read real records/source/tests before relying on any path',
-      'prototype boundary: query/path helpers are supported; graph explain, MCP/daemon, and lifecycle policy changes are out of scope',
+      'prototype boundary: query/path helpers and graph explain Phase 1 JSON are supported; graph-explain path-backed integration, MCP/daemon, and lifecycle policy changes are out of scope',
+    ],
+  }
+}
+
+function supportCitation(support: GraphExplainSupport): string {
+  return support.path || support.id || `${support.kind}:${support.relation || ''}:${support.provenance}`
+}
+
+function citationSupport(citation: Citation): GraphExplainSupport | null {
+  if (citation.kind === 'generated-index') return null
+  return {
+    kind: citation.kind,
+    id: citation.id,
+    path: citation.path,
+    provenance: citation.provenance,
+  }
+}
+
+function pushExplainStatement(statements: GraphExplainStatement[], maxStatements: number, statement: string, support: GraphExplainSupport[]): void {
+  if (statements.length >= maxStatements || !support.length) return
+  const citations = uniquePreserve(support.map(supportCitation))
+  if (!citations.length) return
+  statements.push({ statement, support, citations })
+}
+
+function compactExplainLabel(value: string): string {
+  const label = shortLabel(value)
+  return label.length > 80 ? `${label.slice(0, 77)}...` : label
+}
+
+function buildGraphExplain(root: string, query: string, limit: number, maxStatements: number, includePaths: boolean, fresh = false): GraphExplainResult {
+  const queryPacket = buildGraphQuery(root, query, limit, 1, fresh)
+  const statements: GraphExplainStatement[] = []
+
+  for (const seed of queryPacket.seeds) {
+    const target = seed.path || seed.id
+    const fields = seed.matchedFields.length ? seed.matchedFields.join(', ') : 'indexed seed surface'
+    pushExplainStatement(
+      statements,
+      maxStatements,
+      `${seed.kind} candidate ${compactExplainLabel(target)} appears because the query matched field(s): ${fields}.`,
+      [{ kind: 'matched-field', id: seed.path ? undefined : seed.id, path: seed.path, provenance: seed.provenance, matchedFields: seed.matchedFields }],
+    )
+  }
+
+  for (const citation of queryPacket.citations) {
+    const support = citationSupport(citation)
+    if (!support) continue
+    pushExplainStatement(
+      statements,
+      maxStatements,
+      `${citation.kind} citation ${compactExplainLabel(citation.path || citation.id || citation.provenance)} is present from provenance ${citation.provenance}.`,
+      [support],
+    )
+  }
+
+  for (const edge of queryPacket.subgraph.edges) {
+    pushExplainStatement(
+      statements,
+      maxStatements,
+      `Subgraph edge ${compactExplainLabel(edge.source)} --${edge.relation}--> ${compactExplainLabel(edge.target)} appears from indexed provenance.`,
+      [{ kind: 'graph-edge', id: `${edge.source}--${edge.relation}-->${edge.target}`, relation: edge.relation, provenance: edge.provenance.join(' | ') || 'subgraph.edge' }],
+    )
+  }
+
+  const gaps = uniquePreserve([
+    ...queryPacket.coverage.gaps,
+    ...(queryPacket.seeds.length ? [] : ['no-query-candidates']),
+    ...(queryPacket.citations.length ? [] : ['no-citations']),
+    ...(includePaths ? ['no-path-evidence'] : []),
+    ...(statements.length ? [] : ['no-structural-statements']),
+  ])
+  const resultState: ExplainResultState = !statements.length ? 'gap' : gaps.length || queryPacket.resultState !== 'mapped' ? 'partial' : 'explained'
+
+  return {
+    mode: 'graph-query.explain',
+    query,
+    resultState,
+    explanationKind: 'structural',
+    coverage: { gaps },
+    statements,
+    queryPacket,
+    pathPackets: [],
+    fallback: buildFallback(query),
+    notes: [
+      'cue-only: graph explain output describes indexed/cited structure only and does not satisfy read evidence',
+      'generated/non-canonical: read real records/source/tests before relying on any statement',
+      'semantic boundary: LLM/searcher remains the semantic authority for meaning, sufficiency, risk, gates, and next action',
+      includePaths ? 'phase boundary: --include-paths was requested, but Phase 1 records no pathPackets and reports no-path-evidence' : 'phase boundary: Phase 1 emits JSON structural statements only; Markdown and path-backed statements remain separate slices',
     ],
   }
 }
@@ -1104,6 +1256,11 @@ function renderPathMarkdown(result: GraphPathResult): string {
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
+  if (args.command === 'explain') {
+    const result = buildGraphExplain(args.root, args.query, args.limit, args.maxStatements, args.includePaths, args.fresh)
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    return
+  }
   if (args.command === 'path') {
     const result = buildGraphPath(args.root, args.query, args.to || '', args.limit, args.maxDepth, args.maxPaths, args.fresh)
     if (args.format === 'json') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
@@ -1117,4 +1274,4 @@ function main(): void {
 
 if (import.meta.main) main()
 
-export { buildGraphQuery, buildGraphPath, type GraphQueryResult, type GraphPathResult }
+export { buildGraphQuery, buildGraphPath, buildGraphExplain, type GraphQueryResult, type GraphPathResult, type GraphExplainResult }
