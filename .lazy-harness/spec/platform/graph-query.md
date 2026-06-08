@@ -20,7 +20,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
 - Applies when:
   - implementing or changing the additive TS/Bun `lazy graph query` prototype
   - using existing record-index / graph JSONL / generated implementation index inputs to produce compact retrieval context
-  - evaluating Graphify-style query behavior before path/explain/lifecycle policy changes
+  - evaluating Graphify-style query behavior before explain/lifecycle policy changes
 - Must:
   - keep the prototype additive, read-only, cue-only, and deterministic
   - use existing inputs only: canonical records through record-index, `.lazy-harness/knowledge/graph.jsonl`, and optional generated implementation index
@@ -57,9 +57,12 @@ Supported flags:
 - `--depth=N` — graph expansion depth; default `1`, max `2` in prototype slice 1
 - `--fresh` — rebuild record-index inputs from canonical records before query
 
-Unsupported in prototype slice 1:
+Supported adjacent slice:
 
-- `lazy graph path`
+- `lazy graph path` — defined by `.lazy-harness/spec/platform/graph-path.md`; still cue-only and read-only.
+
+Unsupported in the current prototype boundary:
+
 - `lazy graph explain`
 - daemon/MCP server
 - prompt/reminder packet injection

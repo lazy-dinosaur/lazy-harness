@@ -5,6 +5,7 @@ import { buildRecordIndex, type RecordEntry, type RecordIndex } from './record-i
 
 type Format = 'json' | 'md'
 type ResultState = 'mapped' | 'partial' | 'gap'
+type PathResultState = 'linked' | 'partial' | 'gap'
 type NodeKind = 'record' | 'source' | 'test' | 'graph-row' | 'implementation' | 'feature'
 type LayerName = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'SSOT'
 
@@ -90,17 +91,49 @@ type GraphQueryResult = {
   notes: string[]
 }
 
+type GraphPath = {
+  nodes: SubgraphNode[]
+  edges: SubgraphEdge[]
+  length: number
+  provenance: string[]
+}
+
+type GraphPathResult = {
+  mode: 'graph-query.path'
+  from: string
+  to: string
+  resultState: PathResultState
+  coverage: { gaps: string[] }
+  endpoints: {
+    fromCandidates: SubgraphNode[]
+    toCandidates: SubgraphNode[]
+  }
+  paths: GraphPath[]
+  subgraph: { nodes: SubgraphNode[]; edges: SubgraphEdge[] }
+  citations: Citation[]
+  fallback: {
+    overview: string
+    map: string
+    retrievalAudit: string
+    grep: string
+  }
+  notes: string[]
+}
+
 type Args = {
   root: string
-  command: string
+  command: 'query' | 'path'
   query: string
+  to?: string
   format: Format
   limit: number
   depth: number
+  maxDepth: number
+  maxPaths: number
   fresh: boolean
 }
 
-const FORBIDDEN_COMMANDS = new Set(['path', 'explain'])
+const FORBIDDEN_COMMANDS = new Set(['explain'])
 const MAX_PROVENANCE_PER_ITEM = 2
 const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; reason: string }> = [
   { layer: 'DDD', recordPath: '.lazy-harness/domain/searchable-record-memory.md', reason: 'retrieval-helper-domain-bridge' },
@@ -108,7 +141,7 @@ const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; rea
 ]
 
 function usage(exitCode = 1): never {
-  const msg = `Usage: graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n\nPrototype slice 1 supports only: graph query\nUnsupported until separate approval: graph path, graph explain, MCP/daemon.`
+  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n\nSupported: graph query, graph path\nUnsupported until separate approval: graph explain, MCP/daemon.`
   if (exitCode === 0) console.log(msg)
   else console.error(msg)
   process.exit(exitCode)
@@ -119,6 +152,8 @@ function parseArgs(argv: string[]): Args {
   let format: Format = 'md'
   let limit = 8
   let depth = 1
+  let maxDepth = 4
+  let maxPaths = 3
   let fresh = false
   const positional: string[] = []
   for (let i = 0; i < argv.length; i += 1) {
@@ -143,6 +178,16 @@ function parseArgs(argv: string[]): Args {
       if (!next) usage()
       limit = parsePositiveInt(next, 'limit')
     } else if (arg.startsWith('--limit=')) limit = parsePositiveInt(arg.slice('--limit='.length), 'limit')
+    else if (arg === '--max-depth') {
+      const next = argv[++i]
+      if (!next) usage()
+      maxDepth = parsePositiveInt(next, 'max-depth')
+    } else if (arg.startsWith('--max-depth=')) maxDepth = parsePositiveInt(arg.slice('--max-depth='.length), 'max-depth')
+    else if (arg === '--max-paths') {
+      const next = argv[++i]
+      if (!next) usage()
+      maxPaths = parsePositiveInt(next, 'max-paths')
+    } else if (arg.startsWith('--max-paths=')) maxPaths = parsePositiveInt(arg.slice('--max-paths='.length), 'max-paths')
     else if (arg === '--depth') {
       const next = argv[++i]
       if (!next) usage()
@@ -153,13 +198,42 @@ function parseArgs(argv: string[]): Args {
   if (!positional.length) usage()
   const command = positional.shift() || 'query'
   if (FORBIDDEN_COMMANDS.has(command)) {
-    console.error(`lazy graph ${command} is unsupported in prototype slice 1. Implement and benchmark lazy graph query first, then open an option gate/ADR before path/explain.`)
+    console.error(`lazy graph ${command} is unsupported in this prototype slice. Implement and benchmark query/path helpers first, then open an option gate/ADR before explain.`)
     process.exit(2)
   }
-  if (command !== 'query') usage()
-  const query = positional.join(' ').trim()
-  if (!query) usage()
-  return { root: path.resolve(root), command, query, format, limit: Math.min(Math.max(limit, 1), 100), depth: Math.min(Math.max(depth, 1), 2), fresh }
+  if (command === 'query') {
+    const query = positional.join(' ').trim()
+    if (!query) usage()
+    return {
+      root: path.resolve(root),
+      command,
+      query,
+      format,
+      limit: Math.min(Math.max(limit, 1), 100),
+      depth: Math.min(Math.max(depth, 1), 2),
+      maxDepth: Math.min(Math.max(maxDepth, 1), 6),
+      maxPaths: Math.min(Math.max(maxPaths, 1), 10),
+      fresh,
+    }
+  }
+  if (command === 'path') {
+    if (positional.length !== 2) usage()
+    const [query, to] = positional
+    if (!query?.trim() || !to?.trim()) usage()
+    return {
+      root: path.resolve(root),
+      command,
+      query: query.trim(),
+      to: to.trim(),
+      format,
+      limit: Math.min(Math.max(limit, 1), 100),
+      depth: Math.min(Math.max(depth, 1), 2),
+      maxDepth: Math.min(Math.max(maxDepth, 1), 6),
+      maxPaths: Math.min(Math.max(maxPaths, 1), 10),
+      fresh,
+    }
+  }
+  usage()
 }
 
 function parsePositiveInt(raw: string, name: string): number {
@@ -682,7 +756,206 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
     notes: [
       'cue-only: graph query output is navigation context, not proof that evidence was read',
       'generated/non-canonical: read real records/source/tests before relying on any candidate',
-      'prototype slice 1: only lazy graph query is supported; path/explain/lifecycle policy changes are out of scope',
+      'prototype boundary: lazy graph query/path helpers are supported; explain/lifecycle policy changes are out of scope',
+    ],
+  }
+}
+
+function citationKey(citation: Citation): string {
+  return `${citation.kind}\u0000${citation.id || ''}\u0000${citation.path || ''}\u0000${citation.provenance}`
+}
+
+function mergeCitations(citations: Citation[], limit: number): Citation[] {
+  const seen = new Set<string>()
+  const result: Citation[] = []
+  for (const citation of citations.sort((a, b) => citationKey(a).localeCompare(citationKey(b)))) {
+    const key = citationKey(citation)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(citation)
+    if (result.length >= limit) break
+  }
+  return result
+}
+
+function seedNode(seed: Seed, nodeById: Map<string, SubgraphNode>): SubgraphNode | null {
+  if (seed.kind === 'record' && seed.path) {
+    const id = recordNodeId(seed.path)
+    return nodeById.get(id) || { id, kind: 'record', label: seed.label || seed.path, path: seed.path, provenance: [seed.provenance] }
+  }
+  if (seed.kind === 'graph-row') {
+    const id = graphNodeId(seed.id)
+    return nodeById.get(id) || { id, kind: 'graph-row', label: seed.label || seed.id, path: seed.path, provenance: [seed.provenance] }
+  }
+  if (seed.kind === 'implementation') {
+    const id = pathNodeId('implementation', seed.id)
+    return nodeById.get(id) || { id, kind: 'implementation', label: seed.label || seed.id, path: seed.path, provenance: [seed.provenance] }
+  }
+  if (seed.kind === 'feature') {
+    const id = `feature:${seed.id}`
+    return nodeById.get(id) || { id, kind: 'feature', label: seed.label || seed.id, provenance: [seed.provenance] }
+  }
+  return null
+}
+
+function candidatePathNode(candidatePath: string, kind: 'record' | 'source' | 'test', provenance: string, nodeById: Map<string, SubgraphNode>): SubgraphNode {
+  const id = kind === 'record' ? recordNodeId(candidatePath) : pathNodeId(kind, candidatePath)
+  return nodeById.get(id) || { id, kind, label: shortLabel(candidatePath), path: candidatePath, provenance: [provenance] }
+}
+
+function nodeMatchesCue(node: SubgraphNode, cue: string, exactOnly = false): boolean {
+  const normalizedCue = normalize(cue)
+  const surfaces = [node.path, node.label, node.id].filter((value): value is string => Boolean(value)).map(normalize)
+  if (surfaces.some((surface) => surface === normalizedCue)) return true
+  if (exactOnly) return false
+  const tokens = queryTokens(cue)
+  if (!tokens.length) return false
+  return surfaces.some((surface) => tokens.every((token) => surface.includes(token)))
+}
+
+function selectEndpointCandidates(result: GraphQueryResult, cue: string, limit: number, nodeById: Map<string, SubgraphNode>): SubgraphNode[] {
+  const selected = new Map<string, SubgraphNode>()
+  const push = (node: SubgraphNode | null): void => {
+    if (!node || selected.has(node.id)) return
+    selected.set(node.id, { ...node, provenance: compactProvenance(node.provenance) })
+  }
+
+  for (const node of result.subgraph.nodes) if (nodeMatchesCue(node, cue, true)) push(node)
+  for (const seed of result.seeds) {
+    const node = seedNode(seed, nodeById)
+    if (node && nodeMatchesCue(node, cue)) push(node)
+  }
+  for (const recordPath of result.candidates.recordPaths) {
+    const node = candidatePathNode(recordPath, 'record', 'record-candidate', nodeById)
+    if (nodeMatchesCue(node, cue)) push(node)
+  }
+  for (const sourceFile of result.candidates.sourceFiles) {
+    const node = candidatePathNode(sourceFile, 'source', 'source-candidate', nodeById)
+    if (nodeMatchesCue(node, cue)) push(node)
+  }
+  for (const testFile of result.candidates.testFiles) {
+    const node = candidatePathNode(testFile, 'test', 'test-candidate', nodeById)
+    if (nodeMatchesCue(node, cue)) push(node)
+  }
+  for (const node of result.subgraph.nodes) if (nodeMatchesCue(node, cue)) push(node)
+
+  if (!selected.size) {
+    for (const seed of result.seeds) push(seedNode(seed, nodeById))
+    for (const recordPath of result.candidates.recordPaths) push(candidatePathNode(recordPath, 'record', 'record-candidate', nodeById))
+  }
+
+  return Array.from(selected.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit)
+}
+
+function edgeKey(edge: SubgraphEdge): string {
+  return `${edge.source}\u0000${edge.relation}\u0000${edge.target}`
+}
+
+type PathWalk = { nodeIds: string[]; edgeKeys: string[] }
+
+function findBoundedPaths(fromIds: string[], toIds: string[], edgeByKey: Map<string, SubgraphEdge>, maxDepth: number, maxPaths: number): PathWalk[] {
+  const targetIds = new Set(toIds)
+  const adjacency = new Map<string, Array<{ next: string; edgeKey: string }>>()
+  for (const [key, edge] of edgeByKey) {
+    if (!adjacency.has(edge.source)) adjacency.set(edge.source, [])
+    if (!adjacency.has(edge.target)) adjacency.set(edge.target, [])
+    adjacency.get(edge.source)!.push({ next: edge.target, edgeKey: key })
+    adjacency.get(edge.target)!.push({ next: edge.source, edgeKey: key })
+  }
+  for (const values of adjacency.values()) values.sort((a, b) => `${a.next}:${a.edgeKey}`.localeCompare(`${b.next}:${b.edgeKey}`))
+
+  const results: PathWalk[] = []
+  const queue: PathWalk[] = uniquePreserve(fromIds).sort((a, b) => a.localeCompare(b)).map((id) => ({ nodeIds: [id], edgeKeys: [] }))
+  let expansions = 0
+  const maxExpansions = 5000
+  while (queue.length && results.length < maxPaths && expansions < maxExpansions) {
+    const current = queue.shift()!
+    expansions += 1
+    const nodeId = current.nodeIds[current.nodeIds.length - 1]
+    if (targetIds.has(nodeId)) {
+      results.push(current)
+      continue
+    }
+    if (current.edgeKeys.length >= maxDepth) continue
+    const visited = new Set(current.nodeIds)
+    for (const next of adjacency.get(nodeId) || []) {
+      if (visited.has(next.next)) continue
+      queue.push({ nodeIds: [...current.nodeIds, next.next], edgeKeys: [...current.edgeKeys, next.edgeKey] })
+    }
+  }
+  return results.sort((a, b) => {
+    if (a.edgeKeys.length !== b.edgeKeys.length) return a.edgeKeys.length - b.edgeKeys.length
+    return a.nodeIds.join('>').localeCompare(b.nodeIds.join('>'))
+  }).slice(0, maxPaths)
+}
+
+function buildGraphPath(root: string, from: string, to: string, limit: number, maxDepth: number, maxPaths: number, fresh = false): GraphPathResult {
+  const internalLimit = 100
+  const fromResult = buildGraphQuery(root, from, internalLimit, 2, fresh)
+  const toResult = buildGraphQuery(root, to, internalLimit, 2, fresh)
+  const nodes = new Map<string, SubgraphNode>()
+  const edges = new Map<string, SubgraphEdge>()
+  for (const result of [fromResult, toResult]) {
+    for (const node of result.subgraph.nodes) addNode(nodes, node)
+    for (const edge of result.subgraph.edges) addEdge(edges, edge)
+  }
+
+  const fromCandidates = selectEndpointCandidates(fromResult, from, limit, nodes)
+  const toCandidates = selectEndpointCandidates(toResult, to, limit, nodes)
+  for (const node of [...fromCandidates, ...toCandidates]) addNode(nodes, node)
+
+  const walks = fromCandidates.length && toCandidates.length
+    ? findBoundedPaths(fromCandidates.map((node) => node.id), toCandidates.map((node) => node.id), edges, maxDepth, maxPaths)
+    : []
+
+  const pathResults: GraphPath[] = walks.map((walk) => {
+    const pathNodes = walk.nodeIds.map((id) => nodes.get(id)).filter((node): node is SubgraphNode => Boolean(node))
+    const pathEdges = walk.edgeKeys.map((key) => edges.get(key)).filter((edge): edge is SubgraphEdge => Boolean(edge))
+    return {
+      nodes: pathNodes,
+      edges: pathEdges,
+      length: pathEdges.length,
+      provenance: compactProvenance([...pathNodes.flatMap((node) => node.provenance), ...pathEdges.flatMap((edge) => edge.provenance)]),
+    }
+  })
+
+  const pathNodeIds = new Set(pathResults.flatMap((item) => item.nodes.map((node) => node.id)))
+  const pathEdgeKeys = new Set(pathResults.flatMap((item) => item.edges.map(edgeKey)))
+  const subgraphNodes = Array.from(nodes.values())
+    .filter((node) => pathNodeIds.has(node.id) || fromCandidates.some((candidate) => candidate.id === node.id) || toCandidates.some((candidate) => candidate.id === node.id))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice(0, limit)
+  const subgraphEdges = Array.from(edges.values())
+    .filter((edge) => pathEdgeKeys.has(edgeKey(edge)))
+    .sort((a, b) => edgeKey(a).localeCompare(edgeKey(b)))
+    .slice(0, limit)
+
+  const gaps: string[] = []
+  if (!fromCandidates.length) gaps.push('no-from-candidates')
+  if (!toCandidates.length) gaps.push('no-to-candidates')
+  if (fromCandidates.length && toCandidates.length && !pathResults.length) gaps.push('no-paths')
+  const resultState: PathResultState = !fromCandidates.length || !toCandidates.length ? 'gap' : pathResults.length ? 'linked' : 'partial'
+  return {
+    mode: 'graph-query.path',
+    from,
+    to,
+    resultState,
+    coverage: { gaps },
+    endpoints: {
+      fromCandidates: fromCandidates.slice(0, limit),
+      toCandidates: toCandidates.slice(0, limit),
+    },
+    paths: pathResults.slice(0, maxPaths),
+    subgraph: {
+      nodes: subgraphNodes.length ? subgraphNodes : Array.from(nodes.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit),
+      edges: subgraphEdges.length ? subgraphEdges : Array.from(edges.values()).sort((a, b) => edgeKey(a).localeCompare(edgeKey(b))).slice(0, limit),
+    },
+    citations: mergeCitations([...fromResult.citations, ...toResult.citations], limit),
+    fallback: buildFallback(`${from} ${to}`),
+    notes: [
+      'cue-only: graph path output is navigation context and does not satisfy read evidence',
+      'generated/non-canonical: read real records/source/tests before relying on any path',
+      'prototype boundary: query/path helpers are supported; graph explain, MCP/daemon, and lifecycle policy changes are out of scope',
     ],
   }
 }
@@ -731,8 +1004,54 @@ function renderMarkdown(result: GraphQueryResult): string {
   return `${lines.join('\n')}\n`
 }
 
+function renderPathMarkdown(result: GraphPathResult): string {
+  const lines: string[] = []
+  lines.push('# Graph path')
+  lines.push('')
+  lines.push(`- mode: \`${result.mode}\``)
+  lines.push(`- from: \`${result.from}\``)
+  lines.push(`- to: \`${result.to}\``)
+  lines.push(`- resultState: \`${result.resultState}\``)
+  if (result.coverage.gaps.length) lines.push(`- gaps: ${result.coverage.gaps.map((gap) => `\`${gap}\``).join(', ')}`)
+  lines.push('- caveat: cue-only; graph path output does not satisfy read evidence.')
+  lines.push('')
+  lines.push('## Endpoints')
+  lines.push('- From candidates:')
+  if (!result.endpoints.fromCandidates.length) lines.push('  - -')
+  for (const node of result.endpoints.fromCandidates) lines.push(`  - ${node.kind}: \`${node.path || node.label || node.id}\``)
+  lines.push('- To candidates:')
+  if (!result.endpoints.toCandidates.length) lines.push('  - -')
+  for (const node of result.endpoints.toCandidates) lines.push(`  - ${node.kind}: \`${node.path || node.label || node.id}\``)
+  lines.push('', '## Paths')
+  if (!result.paths.length) lines.push('- -')
+  result.paths.forEach((item, index) => {
+    lines.push(`- path ${index + 1}: length=${item.length}`)
+    lines.push(`  - nodes: ${item.nodes.map((node) => `\`${node.path || node.label || node.id}\``).join(' → ') || '-'}`)
+    for (const edge of item.edges) lines.push(`  - edge: ${edge.source} --${edge.relation}--> ${edge.target}`)
+  })
+  lines.push('', '## Subgraph')
+  lines.push(`- nodes: ${result.subgraph.nodes.length}`)
+  for (const node of result.subgraph.nodes.slice(0, 12)) lines.push(`  - ${node.kind}: ${node.path || node.id}`)
+  lines.push(`- edges: ${result.subgraph.edges.length}`)
+  for (const edge of result.subgraph.edges.slice(0, 12)) lines.push(`  - ${edge.source} --${edge.relation}--> ${edge.target}`)
+  lines.push('', '## Fallback')
+  lines.push(`- overview: \`${result.fallback.overview}\``)
+  lines.push(`- map: \`${result.fallback.map}\``)
+  lines.push(`- retrieval-audit: \`${result.fallback.retrievalAudit}\``)
+  lines.push(`- grep: \`${result.fallback.grep}\``)
+  lines.push('', '## Notes')
+  for (const note of result.notes) lines.push(`- ${note}`)
+  return `${lines.join('\n')}\n`
+}
+
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
+  if (args.command === 'path') {
+    const result = buildGraphPath(args.root, args.query, args.to || '', args.limit, args.maxDepth, args.maxPaths, args.fresh)
+    if (args.format === 'json') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    else process.stdout.write(renderPathMarkdown(result))
+    return
+  }
   const result = buildGraphQuery(args.root, args.query, args.limit, args.depth, args.fresh)
   if (args.format === 'json') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   else process.stdout.write(renderMarkdown(result))
@@ -740,4 +1059,4 @@ function main(): void {
 
 if (import.meta.main) main()
 
-export { buildGraphQuery, type GraphQueryResult }
+export { buildGraphQuery, buildGraphPath, type GraphQueryResult, type GraphPathResult }

@@ -29,7 +29,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
   - protect read-only behavior: no canonical record, graph, generated cache, runtime journal, or user memory mutation
   - protect help/dispatcher wiring for `lazy graph query`
 - Must not:
-  - allow path/explain/MCP/daemon/lifecycle behavior in prototype slice 1
+  - allow explain/MCP/daemon/lifecycle behavior in the query/path prototype boundary
   - allow required-read, optional-read, confidence, intent, risk, gate, next-action, or candidate-meaning fields
   - treat graph query output as proof of evidence read
 - Record completion:
@@ -47,7 +47,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
 | `graph_query_no_semantic_fields` | Any JSON output | forbidden semantic-authority fields absent recursively |
 | `graph_query_read_only` | Running graph query in temp host | canonical records, graph JSONL, generated caches, and runtime files remain unmodified |
 | `graph_query_help_and_dispatcher` | `lazy help` and `lazy graph query` | help advertises graph query; dispatcher routes through `.lazy-harness/scripts/graph-query.ts` |
-| `graph_query_slice_boundary` | User tries `lazy graph path` or `lazy graph explain` in slice 1 | command fails with explicit unsupported-in-prototype message |
+| `graph_query_slice_boundary` | User tries `lazy graph explain` before a separate explain slice | command fails with explicit unsupported-in-prototype message |
 | `graph_query_payload_compactness` | Source query `retrieval coverage audit` with JSON `--limit=20` | payload is materially below the slice-1 61,004-byte baseline, keeps DDD/BDD/SDD/TDD/SSOT candidates, caps seeds/nodes/edges/citations by `--limit`, and emits no edge endpoint containing a full `.lazy-harness/` path |
 | `graph_query_layer_bridge_coverage` | Source query `workflow compression not safety reduction` with JSON `--limit=8` | candidates include DDD, BDD, SDD, TDD, and SSOT record paths by using verified bridge/protection records, while no forbidden semantic-authority fields appear |
 | `graph_query_workflow_benchmark_coverage` | `lazy retrieval-workflow-benchmark --format=json --limit=8` | `graph_query` full layer coverage improves beyond the 1/4 baseline and total estimated tokens remain below `map_plus_retrieval_audit` |

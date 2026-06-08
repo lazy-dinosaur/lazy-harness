@@ -5017,7 +5017,7 @@ def check_graph_query_cli() -> None:
         "subgraph.nodes",
         "candidates.sourceFiles",
         "Forbidden fields anywhere in output",
-        "prototype slice 1",
+        "prototype boundary",
         "`.lazy-harness/scripts/graph-query.ts`",
         "Implementation map",
     ]:
@@ -5338,11 +5338,10 @@ def check_graph_query_cli() -> None:
         for result in [mapped, partial, gap]:
             assert_no_forbidden_keys(result)
 
-        for subcommand in ["path", "explain"]:
-            failed = run_graph(subcommand, "retrieval coverage audit", "--format=json", expect_ok=False)
-            combined = failed.stdout + failed.stderr
-            if "unsupported in prototype slice 1" not in combined:
-                fail("graph query slice boundary missing unsupported message for " + subcommand)
+        failed = run_graph("explain", "retrieval coverage audit", "--format=json", expect_ok=False)
+        combined = failed.stdout + failed.stderr
+        if "unsupported in this prototype slice" not in combined:
+            fail("graph query slice boundary missing unsupported explain message")
 
         if graph_path.read_text(encoding="utf-8") != graph_before:
             fail("graph query must not mutate canonical graph.jsonl")
@@ -5353,6 +5352,182 @@ def check_graph_query_cli() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ graph query CLI ok")
+
+
+def check_graph_path_cli() -> None:
+    """Graph path prototype should emit bounded cue-only paths without mutation."""
+    script_path = LAZY / "scripts" / "graph-query.ts"
+    sdd_path = LAZY / "spec" / "platform" / "graph-path.md"
+    tdd_path = LAZY / "tests" / "graph-path.md"
+    for path in [script_path, sdd_path, tdd_path]:
+        if not path.exists():
+            fail("Graph path artifact missing: " + str(path))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "graph path <from> <to>" not in help_text:
+        fail("lazy help must advertise graph path command")
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "mode: graph-query.path",
+        "resultState: linked | partial | gap",
+        "does not satisfy read evidence",
+        "GraphPathResult",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Graph path SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "graph_path_linked_query_to_record",
+        "graph_path_gap",
+        "graph_path_read_only",
+        "graph_explain_still_unsupported",
+        "check_graph_path_cli",
+    ]:
+        if phrase not in tdd_text:
+            fail("Graph path TDD missing phrase: " + phrase)
+
+    forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+    def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden:
+                    fail("graph path emitted forbidden semantic-authority key: " + path + key)
+                assert_no_forbidden_keys(child, path + key + ".")
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                assert_no_forbidden_keys(child, path + f"{idx}.")
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-path-"))
+    try:
+        for subdir in ["spec", "ssot", "tests", "knowledge", "generated"]:
+            (temp / ".lazy-harness" / subdir).mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "spec" / "retrieval-path-source.md").write_text(
+            "# Retrieval Path Source\n\n"
+            "Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval path source connects to cli boundary\n"
+            "- Must:\n"
+            "  - keep graph path cue-only and read-only\n\n"
+            "## Implementation map\n\n"
+            "- Source: `.lazy-harness/scripts/graph-query.ts`\n"
+            "- Tests: `.lazy-harness/scripts/self-test.py`\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ssot" / "cli-tool-boundary.md").write_text(
+            "# CLI Tool Boundary\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SSOT\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph path emits generated navigation context\n"
+            "- Must:\n"
+            "  - keep LLM/searcher as semantic authority\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "tests" / "graph-path.md").write_text(
+            "# Graph Path Regression\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: TDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph path protects linked partial gap outputs\n"
+            "- Must:\n"
+            "  - forbid semantic authority fields\n",
+            encoding="utf-8",
+        )
+        graph_path = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        graph_text = json.dumps({
+            "id": "kg_graph_path_fixture",
+            "source": ".lazy-harness/spec/retrieval-path-source.md",
+            "relation": "specified_by",
+            "target": ".lazy-harness/ssot/cli-tool-boundary.md",
+            "path": ".lazy-harness/spec/retrieval-path-source.md",
+        }, ensure_ascii=False) + "\n"
+        graph_path.write_text(graph_text, encoding="utf-8")
+        record_index_path = temp / ".lazy-harness" / "generated" / "record-index.json"
+        graph_before = graph_path.read_text(encoding="utf-8")
+        record_index_before = record_index_path.read_text(encoding="utf-8") if record_index_path.exists() else None
+
+        def run_graph_path(*args: str, expect_ok: bool = True) -> subprocess.CompletedProcess[str]:
+            completed = subprocess.run(
+                [str(LAZY / "bin" / "lazy"), "graph", *args],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            )
+            if expect_ok and completed.returncode != 0:
+                fail(f"lazy graph path fixture failed for {args!r}:\n" + completed.stdout + completed.stderr)
+            if not expect_ok and completed.returncode == 0:
+                fail(f"lazy graph path fixture should fail for {args!r}:\n" + completed.stdout + completed.stderr)
+            return completed
+
+        linked = run_graph_path(
+            "path",
+            "retrieval path source",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            "--format=json",
+            "--limit=8",
+            "--max-depth=4",
+        )
+        try:
+            payload = json.loads(linked.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"graph path linked output was not JSON: {exc}\n{linked.stdout}")
+        if payload.get("mode") != "graph-query.path" or payload.get("resultState") != "linked":
+            fail("graph path linked fixture state mismatch: " + json.dumps(payload.get("coverage"), ensure_ascii=False))
+        if not payload.get("paths") or not payload.get("subgraph", {}).get("nodes") or not payload.get("subgraph", {}).get("edges"):
+            fail("graph path linked fixture missing paths/subgraph")
+        if not payload.get("endpoints", {}).get("fromCandidates") or not payload.get("endpoints", {}).get("toCandidates"):
+            fail("graph path linked fixture missing endpoint candidates")
+        assert_no_forbidden_keys(payload)
+
+        gap = run_graph_path("path", "zzzz-missing-from", "zzzz-missing-to", "--format=json", "--limit=8")
+        try:
+            gap_payload = json.loads(gap.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"graph path gap output was not JSON: {exc}\n{gap.stdout}")
+        if gap_payload.get("resultState") != "gap":
+            fail("graph path gap fixture state mismatch")
+        gap_labels = set(gap_payload.get("coverage", {}).get("gaps", []))
+        if not ({"no-from-candidates", "no-to-candidates"} & gap_labels):
+            fail("graph path gap fixture missing endpoint gap labels")
+        assert_no_forbidden_keys(gap_payload)
+
+        markdown = run_graph_path(
+            "path",
+            "retrieval path source",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            "--format=md",
+            "--limit=8",
+        ).stdout
+        if "cue-only" not in markdown or "does not satisfy read evidence" not in markdown:
+            fail("graph path markdown missing cue-only/read-evidence warning")
+
+        failed = run_graph_path("explain", "retrieval path source", expect_ok=False)
+        if "unsupported in this prototype slice" not in failed.stdout + failed.stderr:
+            fail("graph explain unsupported message missing")
+
+        if graph_path.read_text(encoding="utf-8") != graph_before:
+            fail("graph path must not mutate canonical graph.jsonl")
+        if record_index_before is None and record_index_path.exists():
+            fail("graph path must not write generated record-index cache")
+        if record_index_before is not None and record_index_path.read_text(encoding="utf-8") != record_index_before:
+            fail("graph path must not mutate generated record-index cache")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ graph path CLI ok")
 
 
 def check_retrieval_workflow_benchmark_cli() -> None:
@@ -6915,6 +7090,7 @@ def main() -> None:
         (check_record_index_generator_phase3, "BOTH"),
         (check_retrieval_coverage_audit_cli, "BOTH"),
         (check_graph_query_cli, "BOTH"),
+        (check_graph_path_cli, "BOTH"),
         (check_retrieval_workflow_benchmark_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
