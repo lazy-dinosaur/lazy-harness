@@ -150,6 +150,7 @@ Implementation constraints:
   - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator that indexes Rule digest, Implementation map, feature-navigation, graph ids, and top-level `Related <Layer>:` paths.
   - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview/drill-down helper that shows whole structure before search-term selection and then uses fresh generated `record-index.json` cache plus graph rows as cue-only drill-down candidates, falling back to source rebuild when cache is missing/stale/invalid or `--fresh` is passed.
   - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — pre-action shape guard for overview-first sequential ordering.
+  - `.lazy-harness/manifests/init-categories.json` — syncs DDD/BDD/SDD/TDD retrieval/index foundation records so downstream hosts can discover the guard and contracts, not only the helper code.
   - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index`.
 - Key symbols:
   - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator, including `extractTopLevelRelatedRecords`.
@@ -157,6 +158,7 @@ Implementation constraints:
   - `buildRecordMapOverview` (`.lazy-harness/scripts/record-map.ts`) — returns whole record/feature/graph structure for search-term selection.
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — returns feature/record/graph matches and drill-down record/source/test candidates.
   - `check-overview-batch-order.py` — denies current `batch`/`multi_tool_use.parallel` calls containing `lazy map --overview`.
+  - `init-categories.json` Category A entries — copy `domain/searchable-record-memory.md`, `behavior/llm-owned-record-retrieval.md`, `spec/platform/record-index-header.md`, and `tests/record-index-header.md` into downstream hosts.
   - `RecordIndex` — generated cache TypeScript interface.
   - `.lazy-harness/bin/lazy record-index` — canonical CLI command.
   - `.lazy-harness/bin/lazy map` — cue-only overview command; not a raw-message semantic query interface.
@@ -173,7 +175,7 @@ Implementation constraints:
   9. Independent reads or searches chosen after the overview may be batched when they no longer depend on unavailable overview output.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, standalone `lazy map --overview` ordering, repeated `lazy map` drill-down output guidance, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, standalone `lazy map --overview` ordering, foundation record sync manifest entries, repeated `lazy map` drill-down output guidance, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -190,6 +192,7 @@ Implementation constraints:
 - BDD: already updated in `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: this record defines the contract.
 - TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation, top-level Related path parsing, overview-batch denial, plus `lazy map` drill-down checks.
+- Sync: `init-categories.json` must seed the DDD/BDD/SDD/TDD foundation record package to downstream hosts.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` records SCR-402 record-index-only boundary.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.
 - Planning: tasks and implementation plan updated for SCR-402 completion.

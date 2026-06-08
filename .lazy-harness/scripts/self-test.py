@@ -1732,6 +1732,7 @@ def check_framework_runtime_no_host_product_hardcoding() -> None:
 def check_manifest_syncs_python_lifecycle_helpers() -> None:
     """Hosts need Python lifecycle helpers copied by lazy-sync/lazy-init."""
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    item_paths = {item.get("path") for item in manifest["categories"]["A"]["items"]}
     hooks_item = None
     for item in manifest["categories"]["A"]["items"]:
         if item.get("path") == "hooks/":
@@ -1739,6 +1740,14 @@ def check_manifest_syncs_python_lifecycle_helpers() -> None:
             break
     if not hooks_item or "lifecycle/helpers/*.py" not in hooks_item.get("glob", []):
         fail("init-categories manifest must sync Python lifecycle helpers for host guard support")
+    for required_record in [
+        "domain/searchable-record-memory.md",
+        "behavior/llm-owned-record-retrieval.md",
+        "spec/platform/record-index-header.md",
+        "tests/record-index-header.md",
+    ]:
+        if required_record not in item_paths:
+            fail("init-categories manifest must sync retrieval/index foundation record: " + required_record)
     print("✓ manifest Python lifecycle helper sync ok")
 
 
@@ -1781,6 +1790,14 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         current = temp / ".lazy-harness" / "fixtures" / "context-tier" / "context-tier-manifest.sample.json"
         if stale.exists() or not current.exists():
             fail("lazy-sync must prune stale managed fixture and copy current context-tier fixture")
+        for required_record in [
+            "domain/searchable-record-memory.md",
+            "behavior/llm-owned-record-retrieval.md",
+            "spec/platform/record-index-header.md",
+            "tests/record-index-header.md",
+        ]:
+            if not (temp / ".lazy-harness" / required_record).exists():
+                fail("lazy-sync must copy retrieval/index foundation record: " + required_record)
         still_present = [str(p.relative_to(temp)) for p in removed_managed if p.exists()]
         if still_present:
             fail("lazy-sync must prune known removed managed files: " + json.dumps(still_present, ensure_ascii=False))

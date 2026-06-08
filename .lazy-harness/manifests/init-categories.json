@@ -159,6 +159,16 @@
           "targetPath": "framework/operational-adrs/0040-capability-registry-kind-level-separation.md"
         },
         {
+          "path": "domain/searchable-record-memory.md",
+          "kind": "file",
+          "description": "DDD foundation record for searchable record memory terms used by record-index, lazy map, retrieval-audit, and overview-first workflow."
+        },
+        {
+          "path": "behavior/llm-owned-record-retrieval.md",
+          "kind": "file",
+          "description": "BDD foundation record for LLM-owned retrieval, cross-layer related-record checks, and overview-first standalone ordering."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -247,6 +257,16 @@
           "path": "spec/platform/record-digest-format.md",
           "kind": "file",
           "description": "SDD contract for compact Rule digest sections used by relevant-record query and lifecycle context injection."
+        },
+        {
+          "path": "spec/platform/record-index-header.md",
+          "kind": "file",
+          "description": "SDD contract for record-index/lazy map cue-only metadata, top-level Related path parsing, and overview-first standalone ordering."
+        },
+        {
+          "path": "tests/record-index-header.md",
+          "kind": "file",
+          "description": "TDD fixtures for record-index/lazy map, related-record parsing, cache behavior, and overview-batch guard coverage."
         },
         {
           "path": "spec/platform/search-read-debt-contract.md",
