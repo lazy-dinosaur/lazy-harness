@@ -4997,6 +4997,280 @@ def check_retrieval_coverage_audit_cli() -> None:
     print("✓ retrieval coverage audit CLI ok")
 
 
+def check_graph_query_cli() -> None:
+    """Graph query prototype should emit cue-only cited subgraph candidates."""
+    script_path = LAZY / "scripts" / "graph-query.ts"
+    sdd_path = LAZY / "spec" / "platform" / "graph-query.md"
+    tdd_path = LAZY / "tests" / "graph-query.md"
+    for path in [script_path, sdd_path, tdd_path]:
+        if not path.exists():
+            fail("Graph query artifact missing: " + str(path))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "graph query <term-or-file>" not in help_text:
+        fail("lazy help must advertise graph query command")
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "mode: graph-query.query",
+        "resultState: mapped | partial | gap",
+        "subgraph.nodes",
+        "candidates.sourceFiles",
+        "Forbidden fields anywhere in output",
+        "prototype slice 1",
+        "`.lazy-harness/scripts/graph-query.ts`",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Graph query SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "graph_query_mapped_retrieval_audit",
+        "graph_query_gap",
+        "graph_query_partial",
+        "graph_query_no_semantic_fields",
+        "graph_query_read_only",
+        "check_graph_query_cli",
+    ]:
+        if phrase not in tdd_text:
+            fail("Graph query TDD missing phrase: " + phrase)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-query-"))
+    try:
+        for subdir in ["behavior", "domain", "spec", "ssot", "tests", "project", "knowledge", "generated"]:
+            (temp / ".lazy-harness" / subdir).mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "domain" / "searchable-record-memory.md").write_text(
+            "# Searchable Record Memory\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: DDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph query indexes searchable record memory\n"
+            "- Must:\n"
+            "  - keep graph query cue-only without semantic authority\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "behavior" / "llm-owned-record-retrieval.md").write_text(
+            "# LLM-Owned Record Retrieval\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: BDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph query surfaces cross-layer candidates\n"
+            "- Must:\n"
+            "  - read real DDD BDD SDD TDD SSOT records before relying on graph candidates\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ssot" / "cli-tool-boundary.md").write_text(
+            "# CLI Tool Boundary\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SSOT\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph query emits generated navigation context\n"
+            "- Must:\n"
+            "  - keep LLM/searcher as semantic authority\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "tests" / "graph-query.md").write_text(
+            "# Graph Query Regression\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: TDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph query must verify related record and implementation retrieval\n"
+            "- Must:\n"
+            "  - protect graph query mapped partial gap and no semantic fields\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "spec" / "retrieval-coverage-audit.md").write_text(
+            "# Retrieval Coverage Audit\n\n"
+            "Related DDD: `.lazy-harness/domain/searchable-record-memory.md`\n"
+            "Related BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`\n"
+            "Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`\n"
+            "Related TDD: `.lazy-harness/tests/graph-query.md`\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval coverage audit checks graph query cross-layer records\n"
+            "- Must:\n"
+            "  - include related DDD BDD SSOT and TDD records as graph query candidates\n\n"
+            "## Implementation map\n\n"
+            "- Source: `.lazy-harness/scripts/retrieval-coverage-audit.ts`\n"
+            "- Tests: `.lazy-harness/scripts/self-test.py`\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "spec" / "partial-record.md").write_text(
+            "# Orphan Graph Fixture\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - orphan graph fixture appears\n"
+            "- Must:\n"
+            "  - keep structural partial graph coverage visible\n"
+            "- Aliases:\n"
+            "  - orphan graph fixture\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "project" / "feature-navigation.xml").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigation version="1.0">
+  <feature id="graph-fixture" status="confirmed">
+    <label>Graph Query Fixture</label>
+    <aliases><alias lang="en">retrieval coverage audit</alias></aliases>
+    <components><component>RetrievalCoverageAudit</component></components>
+    <records><record layer="SDD">.lazy-harness/spec/retrieval-coverage-audit.md</record></records>
+    <sourceFiles><path>.lazy-harness/scripts/retrieval-coverage-audit.ts</path></sourceFiles>
+    <tests><path>.lazy-harness/scripts/self-test.py</path></tests>
+  </feature>
+</featureNavigation>
+""",
+            encoding="utf-8",
+        )
+        graph_path = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        graph_text = (
+            json.dumps({
+                "id": "kg_graph_query_fixture_impl",
+                "source": ".lazy-harness/spec/retrieval-coverage-audit.md",
+                "relation": "implemented_by",
+                "target": ".lazy-harness/scripts/retrieval-coverage-audit.ts",
+                "path": ".lazy-harness/spec/retrieval-coverage-audit.md",
+            }, ensure_ascii=False) + "\n"
+        )
+        graph_path.write_text(graph_text, encoding="utf-8")
+        implementation_index_path = temp / ".lazy-harness" / "generated" / "implementation-index.json"
+        implementation_index_text = json.dumps({
+            "records": [
+                {
+                    "id": "impl_graph_query_fixture",
+                    "subject": ".lazy-harness/scripts/retrieval-coverage-audit.ts",
+                    "predicate": "implements",
+                    "object": ".lazy-harness/spec/retrieval-coverage-audit.md",
+                    "path": ".lazy-harness/scripts/retrieval-coverage-audit.ts",
+                    "evidence": [{"path": ".lazy-harness/scripts/self-test.py", "quote": "retrieval coverage audit graph query fixture"}],
+                }
+            ]
+        }, ensure_ascii=False)
+        implementation_index_path.write_text(implementation_index_text, encoding="utf-8")
+
+        def run_graph(*args: str, expect_ok: bool = True) -> subprocess.CompletedProcess[str]:
+            completed = subprocess.run(
+                [str(LAZY / "bin" / "lazy"), "graph", *args],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            )
+            if expect_ok and completed.returncode != 0:
+                fail(f"lazy graph failed for {args!r}:\n" + completed.stdout + completed.stderr)
+            if not expect_ok and completed.returncode == 0:
+                fail(f"lazy graph should fail for {args!r}:\n" + completed.stdout + completed.stderr)
+            return completed
+
+        def run_graph_json(query: str) -> dict:
+            completed = run_graph("query", query, "--format=json", "--limit=20")
+            try:
+                return json.loads(completed.stdout)
+            except Exception as exc:  # noqa: BLE001
+                fail(f"graph query output was not JSON for {query!r}: {exc}\n{completed.stdout}")
+
+        graph_before = graph_path.read_text(encoding="utf-8")
+        implementation_index_before = implementation_index_path.read_text(encoding="utf-8")
+
+        mapped = run_graph_json("retrieval coverage audit")
+        if mapped.get("mode") != "graph-query.query":
+            fail("graph query output mode mismatch")
+        if mapped.get("resultState") != "mapped" or mapped.get("coverage", {}).get("gaps"):
+            fail("retrieval coverage audit graph query should be mapped: " + json.dumps(mapped.get("coverage"), ensure_ascii=False))
+        candidates = mapped.get("candidates", {})
+        record_paths = set(candidates.get("recordPaths", []))
+        for required_path in [
+            ".lazy-harness/domain/searchable-record-memory.md",
+            ".lazy-harness/behavior/llm-owned-record-retrieval.md",
+            ".lazy-harness/spec/retrieval-coverage-audit.md",
+            ".lazy-harness/ssot/cli-tool-boundary.md",
+            ".lazy-harness/tests/graph-query.md",
+        ]:
+            if required_path not in record_paths:
+                fail("graph query missing related record candidate: " + required_path)
+        if ".lazy-harness/scripts/retrieval-coverage-audit.ts" not in candidates.get("sourceFiles", []):
+            fail("graph query mapped fixture missing source candidate")
+        if ".lazy-harness/scripts/self-test.py" not in candidates.get("testFiles", []):
+            fail("graph query mapped fixture missing test candidate")
+        if "kg_graph_query_fixture_impl" not in candidates.get("graphIds", []):
+            fail("graph query mapped fixture missing graph id candidate")
+        if not mapped.get("subgraph", {}).get("nodes") or not mapped.get("subgraph", {}).get("edges"):
+            fail("graph query mapped fixture missing subgraph nodes/edges")
+        if not mapped.get("citations"):
+            fail("graph query mapped fixture missing citations")
+        bad_source_candidates = [value for value in candidates.get("sourceFiles", []) if value in {"coverage.gaps", "coverage.state"} or " " in value]
+        if bad_source_candidates:
+            fail("graph query emitted non-path source candidates: " + json.dumps(bad_source_candidates, ensure_ascii=False))
+
+        partial = run_graph_json("orphan graph fixture")
+        if partial.get("resultState") != "partial":
+            fail("orphan graph fixture should be partial: " + json.dumps(partial.get("coverage"), ensure_ascii=False))
+        partial_gaps = set(partial.get("coverage", {}).get("gaps", []))
+        for gap_name in ["no-source-candidates", "no-test-candidates", "no-graph-candidates"]:
+            if gap_name not in partial_gaps:
+                fail("partial graph query missing gap label: " + gap_name)
+        if "no-seeds" in partial_gaps:
+            fail("partial graph query should have structural seed")
+
+        gap = run_graph_json("zzzz-missing-token")
+        if gap.get("resultState") != "gap":
+            fail("missing query should be graph gap")
+        if "no-seeds" not in gap.get("coverage", {}).get("gaps", []):
+            fail("gap graph query missing no-seeds label")
+        if "grep -Rli" not in gap.get("fallback", {}).get("grep", ""):
+            fail("gap graph query missing fallback grep command")
+
+        markdown = run_graph("query", "retrieval coverage audit", "--format=md", "--limit=12").stdout
+        if "cue-only" not in markdown or "read real records/source/tests" not in markdown:
+            fail("graph query markdown missing cue-only/read-real-evidence warning")
+
+        forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+        def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if key in forbidden:
+                        fail("graph query emitted forbidden semantic-authority key: " + path + key)
+                    assert_no_forbidden_keys(child, path + key + ".")
+            elif isinstance(value, list):
+                for idx, child in enumerate(value):
+                    assert_no_forbidden_keys(child, path + f"{idx}.")
+
+        for result in [mapped, partial, gap]:
+            assert_no_forbidden_keys(result)
+
+        for subcommand in ["path", "explain"]:
+            failed = run_graph(subcommand, "retrieval coverage audit", "--format=json", expect_ok=False)
+            combined = failed.stdout + failed.stderr
+            if "unsupported in prototype slice 1" not in combined:
+                fail("graph query slice boundary missing unsupported message for " + subcommand)
+
+        if graph_path.read_text(encoding="utf-8") != graph_before:
+            fail("graph query must not mutate canonical graph.jsonl")
+        if implementation_index_path.read_text(encoding="utf-8") != implementation_index_before:
+            fail("graph query must not mutate generated implementation-index.json")
+        if (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
+            fail("graph query must not write generated record-index cache")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ graph query CLI ok")
+
+
 def check_source_feature_navigation_phase3() -> None:
     """Source repo Phase 3 should expose a compact canonical project feature map."""
     feature_path = LAZY / "project" / "feature-navigation.xml"
@@ -6417,6 +6691,7 @@ def main() -> None:
         (check_search_provider_canonical_record_dirs, "FRAMEWORK_ONLY"),
         (check_record_index_generator_phase3, "BOTH"),
         (check_retrieval_coverage_audit_cli, "BOTH"),
+        (check_graph_query_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),

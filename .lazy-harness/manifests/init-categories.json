@@ -359,6 +359,16 @@
           "description": "TDD contract fixtures for retrieval-audit mapped/partial/gap coverage states and cue-only output."
         },
         {
+          "path": "spec/platform/graph-query.md",
+          "kind": "file",
+          "description": "SDD contract for additive cue-only lazy graph query prototype over record-index, graph JSONL, and generated implementation index."
+        },
+        {
+          "path": "tests/graph-query.md",
+          "kind": "file",
+          "description": "TDD contract fixtures for graph query mapped/partial/gap states, subgraph citations, read-only behavior, and slice-boundary enforcement."
+        },
+        {
           "path": "spec/platform/record-write-update-policy.md",
           "kind": "file",
           "description": "SDD contract for updating existing canonical records before creating new records."

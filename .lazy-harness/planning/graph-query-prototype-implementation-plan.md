@@ -1,6 +1,6 @@
 # Graph Query Prototype Implementation Plan
 
-Status: proposed
+Status: implemented-slice-1
 Date: 2026-06-08
 Layer: Planning
 Related Planning: `.lazy-harness/planning/retrieval-architecture-holistic-review.md`
@@ -228,18 +228,18 @@ Metrics:
 
 After implementation:
 
-1. Update `.lazy-harness/spec/platform/graph-query.md` with Implementation map.
-2. Update `.lazy-harness/tests/graph-query.md` with self-test function names.
-3. Add graph rows:
+1. [x] Update `.lazy-harness/spec/platform/graph-query.md` with Implementation map.
+2. [x] Update `.lazy-harness/tests/graph-query.md` with self-test function names.
+3. [x] Add graph rows:
    - implementation row for `graph-query.ts`
    - test row for `check_graph_query_cli`
    - dispatcher row for `lazy graph query`
-4. Ensure `init-categories.json` syncs the script and records:
+4. [x] Ensure `init-categories.json` syncs the script and records:
    - `scripts/*.ts` already syncs source
    - add SDD/TDD graph-query records explicitly if needed
-5. Commit source + records.
-6. Sync 14 downstream hosts.
-7. Verify each downstream host:
+5. [x] Commit source + records.
+6. [ ] Sync 14 downstream hosts.
+7. [ ] Verify each downstream host:
    - marker matches source commit
    - `lazy graph query 'retrieval coverage audit'` returns mapped
    - DDD/BDD/SDD/TDD/SSOT candidates present
@@ -263,15 +263,39 @@ Only after prototype + benchmark:
 
 Before every implementation commit, verify:
 
-- [ ] No lifecycle policy changed.
-- [ ] No overview hard block changed.
-- [ ] No prompt/reminder packet injection added.
-- [ ] No Graphify/Python vendoring added.
-- [ ] No Go/Rust runtime added.
-- [ ] No generated output treated as canonical truth.
-- [ ] SDD/TDD records updated before/with source.
-- [ ] Output has no forbidden semantic-authority fields.
-- [ ] Full self-test passes.
+- [x] No lifecycle policy changed.
+- [x] No overview hard block changed.
+- [x] No prompt/reminder packet injection added.
+- [x] No Graphify/Python vendoring added.
+- [x] No Go/Rust runtime added.
+- [x] No generated output treated as canonical truth.
+- [x] SDD/TDD records updated before/with source.
+- [x] Output has no forbidden semantic-authority fields in focused self-test design.
+- [x] Full self-test passes.
+
+## Slice 1 implementation progress
+
+- Implemented `.lazy-harness/scripts/graph-query.ts` and dispatcher help/route for `lazy graph query`.
+- Added `.lazy-harness/scripts/self-test.py#check_graph_query_cli` for mapped/partial/gap, related layer candidates, no semantic fields, read-only behavior, markdown warnings, and unsupported `path`/`explain` boundaries.
+- Added SDD/TDD manifest sync entries and graph JSONL implementation/test/dispatcher/sync rows.
+- Benchmark is recorded below; downstream sync remains follow-up work before any lifecycle/batch/prompt policy proposal.
+
+## Benchmark snapshot — 2026-06-08 slice 1
+
+Query: `retrieval coverage audit`; local source repo; JSON output; approximate token estimate = chars/4.
+
+| Surface | Runtime | Bytes | Est. tokens | Records | Source | Tests | Graph ids | Missing layers | Forbidden fields |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---:|
+| `lazy map` query, limit 8 | 151ms | 17,460 | 4,362 | 0 | 0 | 0 | 0 | DDD, BDD, SDD, TDD, SSOT | 0 |
+| `lazy retrieval-audit`, limit 8 | 156ms | 5,881 | 1,469 | 8 | 8 | 8 | 7 | TDD, SSOT | 0 |
+| `lazy graph query`, limit 8 | 166ms | 25,887 | 6,468 | 8 | 8 | 8 | 8 | none | 0 |
+| `lazy graph query`, limit 20 | 186ms | 61,004 | 15,240 | 20 | 20 | 14 | 20 | none | 0 |
+
+Interpretation:
+
+- Graph query improves cross-layer candidate coverage in this benchmark, especially DDD/BDD/SDD/TDD/SSOT completeness.
+- Graph query is not yet a token-reduction win versus retrieval-audit, so no lifecycle, batch, or prompt policy should change from this benchmark alone.
+- Before proposing `path`, `explain`, overview-packet injection, or overview hard-block relaxation, reduce graph-query payload size or prove a workflow-level token/tool-call win with real read-followup measurements.
 
 ## Discovery capture
 

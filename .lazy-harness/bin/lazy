@@ -72,6 +72,8 @@ Commands:
                                 Show matching record/feature/graph drill-down file candidates; uses fresh generated cache when available
   retrieval-audit <term-or-file> [--format=json|md] [--limit=N]
                                 Audit lazy map/record-index coverage gaps and fallback grep/read candidates
+  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh]
+                                Prototype cue-only graph query over record-index, graph JSONL, and generated indexes
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
@@ -190,6 +192,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/retrieval-coverage-audit.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  graph)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy graph: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/graph-query.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then
