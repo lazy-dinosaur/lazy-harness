@@ -18,6 +18,7 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 - Applies when:
   - evaluating whether `lazy map --overview` should be a hard sequential gate, soft guidance, or prompt/reminder context
   - Graphify adoption evaluation: vendoring Graphify code vs porting Graphify principles
+  - prototype-sized implementation vs big-change boundary for graph query rollout
   - comparing current `record-map` shallow candidate retrieval with Graphify-style graph query/path/explain traversal
   - deciding whether to adopt Graphify by vendoring code or porting its principles
   - deciding whether batching is safe for overview/query/read workflows
@@ -29,6 +30,7 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - evaluate dogfood friction, not only theoretical correctness
   - consider a soft/depth-aware workflow before keeping a hard batch block
   - prefer porting Graphify principles into TypeScript/Bun before considering wholesale Python vendoring
+  - keep the first `lazy graph query` slice additive/read-only before changing lifecycle or batch policy
 - Must not:
   - forget the user concern that hard-blocking batch may be low value if the workflow is still shallow
   - inject full graphs or full overview into every prompt without measuring token cost
@@ -148,6 +150,38 @@ Recommended: **D + C, then reassess B**.
    - deny only when no overview/context packet exists,
    - warn when overview is batched but no dependent evidence read follows,
    - allow parallel reads after packet/overview evidence exists.
+
+## Scope sizing
+
+The next step should be treated as a **prototype-sized implementation**, not the full architecture migration.
+
+### Prototype-sized / safe first slice
+
+- Add a TS/Bun CLI over existing generated/canonical inputs, e.g. `.lazy-harness/scripts/graph-query.ts`.
+- Add `lazy graph query <text>` first.
+- Use existing inputs only:
+  - `.lazy-harness/knowledge/graph.jsonl`,
+  - `.lazy-harness/generated/record-index.json` or fresh `record-index.ts` rebuild,
+  - `.lazy-harness/generated/implementation-index.json` when present.
+- Output a compact cue-only cited context packet.
+- Do not change lifecycle policy yet.
+- Do not remove `lazy map` or `retrieval-audit`.
+- Do not vendor Graphify/Python.
+
+This first slice is **medium-small** because it is additive, read-only, and can be guarded by self-test without changing agent policy.
+
+### Big-change boundary
+
+It becomes a large architectural change only when one of these happens:
+
+- Replace overview-first policy with graph-query-first policy.
+- Relax or remove `check-overview-batch-order.py` hard block.
+- Inject compact overview/graph packets into every reminder/prompt.
+- Add a persistent daemon/MCP server.
+- Vendor Graphify or introduce Python/Go/Rust runtime dependencies.
+- Make generated graph output influence semantic authority instead of remaining cue-only.
+
+Therefore: implement `lazy graph query` as an additive TS/Bun prototype first, benchmark it, then decide whether the larger policy/runtime change is justified.
 
 ## Evaluation plan
 
