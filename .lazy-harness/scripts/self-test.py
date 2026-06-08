@@ -5037,6 +5037,18 @@ def check_graph_query_cli() -> None:
         if phrase not in tdd_text:
             fail("Graph query TDD missing phrase: " + phrase)
 
+    forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+    def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden:
+                    fail("graph query emitted forbidden semantic-authority key: " + path + key)
+                assert_no_forbidden_keys(child, path + key + ".")
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                assert_no_forbidden_keys(child, path + f"{idx}.")
+
     def assert_compact_graph_payload(result: dict, limit: int, context: str) -> None:
         collections = {
             "seeds": result.get("seeds", []),
@@ -5082,6 +5094,42 @@ def check_graph_query_cli() -> None:
     for marker in ["/domain/", "/behavior/", "/spec/", "/tests/", "/ssot/"]:
         if not any(marker in value for value in source_record_paths):
             fail("source graph query compactness benchmark lost layer candidate marker: " + marker)
+
+    workflow_graph = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "graph", "query", "workflow compression not safety reduction", "--format=json", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    try:
+        workflow_graph_payload = json.loads(workflow_graph.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"workflow compression graph query output was not JSON: {exc}")
+    workflow_record_paths = set(workflow_graph_payload.get("candidates", {}).get("recordPaths", []))
+    for marker in ["/domain/", "/behavior/", "/spec/", "/tests/", "/ssot/"]:
+        if not any(marker in value for value in workflow_record_paths):
+            fail("workflow compression graph query lost layer bridge candidate marker: " + marker)
+    assert_no_forbidden_keys(workflow_graph_payload)
+
+    workflow_benchmark = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=json", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    try:
+        workflow_benchmark_payload = json.loads(workflow_benchmark.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"retrieval workflow benchmark output was not JSON: {exc}")
+    aggregate = workflow_benchmark_payload.get("summary", {}).get("aggregate", {})
+    graph_query = aggregate.get("graph_query", {})
+    map_plus = aggregate.get("map_plus_retrieval_audit", {})
+    if graph_query.get("fullLayerCoverageCount", 0) <= 1:
+        fail("graph_query workflow benchmark full layer coverage did not improve beyond 1/4 baseline")
+    if graph_query.get("totalEstimatedTokens", 10**18) >= map_plus.get("totalEstimatedTokens", 0):
+        fail("graph_query workflow benchmark lost total-token win over map_plus_retrieval_audit")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-query-"))
     try:
@@ -5286,18 +5334,6 @@ def check_graph_query_cli() -> None:
         markdown = run_graph("query", "retrieval coverage audit", "--format=md", "--limit=12").stdout
         if "cue-only" not in markdown or "read real records/source/tests" not in markdown:
             fail("graph query markdown missing cue-only/read-real-evidence warning")
-
-        forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
-
-        def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
-            if isinstance(value, dict):
-                for key, child in value.items():
-                    if key in forbidden:
-                        fail("graph query emitted forbidden semantic-authority key: " + path + key)
-                    assert_no_forbidden_keys(child, path + key + ".")
-            elif isinstance(value, list):
-                for idx, child in enumerate(value):
-                    assert_no_forbidden_keys(child, path + f"{idx}.")
 
         for result in [mapped, partial, gap]:
             assert_no_forbidden_keys(result)

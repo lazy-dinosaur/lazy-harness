@@ -49,6 +49,8 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
 | `graph_query_help_and_dispatcher` | `lazy help` and `lazy graph query` | help advertises graph query; dispatcher routes through `.lazy-harness/scripts/graph-query.ts` |
 | `graph_query_slice_boundary` | User tries `lazy graph path` or `lazy graph explain` in slice 1 | command fails with explicit unsupported-in-prototype message |
 | `graph_query_payload_compactness` | Source query `retrieval coverage audit` with JSON `--limit=20` | payload is materially below the slice-1 61,004-byte baseline, keeps DDD/BDD/SDD/TDD/SSOT candidates, caps seeds/nodes/edges/citations by `--limit`, and emits no edge endpoint containing a full `.lazy-harness/` path |
+| `graph_query_layer_bridge_coverage` | Source query `workflow compression not safety reduction` with JSON `--limit=8` | candidates include DDD, BDD, SDD, TDD, and SSOT record paths by using verified bridge/protection records, while no forbidden semantic-authority fields appear |
+| `graph_query_workflow_benchmark_coverage` | `lazy retrieval-workflow-benchmark --format=json --limit=8` | `graph_query` full layer coverage improves beyond the 1/4 baseline and total estimated tokens remain below `map_plus_retrieval_audit` |
 
 ## Self-test design
 
@@ -82,6 +84,8 @@ Required self-test assertions:
 8. `lazy graph path` and `lazy graph explain` fail explicitly in slice 1.
 9. Markdown output contains cue-only / read real evidence warning.
 10. Source benchmark query `lazy graph query 'retrieval coverage audit' --format=json --limit=20` stays compact relative to the 61,004-byte slice-1 baseline without losing five-layer candidate coverage.
+11. Source query `lazy graph query 'workflow compression not safety reduction' --format=json --limit=8` returns DDD/BDD/SDD/TDD/SSOT record candidates.
+12. Workflow benchmark `graph_query` full layer coverage improves from the 1/4 baseline without losing its token win over `map_plus_retrieval_audit`.
 
 ## Validation commands
 
@@ -112,6 +116,13 @@ Payload compactness acceptance:
 - Edge `source`/`target` ids should be compact ids, not full record/source/test paths; full paths remain in nodes/candidates/citations.
 - This compactness threshold is a benchmark guard, not a lifecycle/prompt policy gate.
 
+Layer coverage hardening acceptance:
+
+- Coverage bridge records must be existing canonical records, not generated placeholder records.
+- DDD/BDD bridge candidates may use the generic retrieval-boundary records because graph query itself is a retrieval helper.
+- TDD bridge candidates must come from a matched TDD record or verified protection relation.
+- Benchmark improvements are evidence for future discussion only; they do not relax overview/read-debt/lifecycle/prompt policy.
+
 ## Implementation map
 
 - Status: verified
@@ -134,7 +145,7 @@ Payload compactness acceptance:
   2. Dispatcher invokes graph-query CLI through `lazy graph query`.
   3. Assertions verify mapped/partial/gap states, related layer candidates, source/test/graph citations, no forbidden keys, no mutation, and unsupported path/explain boundary.
 - Machine index:
-  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`
+  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`, `kg_graph_query_coverage_ranking_hardening_20260608`, `kg_graph_query_coverage_ranking_plan_20260608`
 
 ## Layer completeness impact
 

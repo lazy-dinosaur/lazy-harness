@@ -6,6 +6,7 @@ import { buildRecordIndex, type RecordEntry, type RecordIndex } from './record-i
 type Format = 'json' | 'md'
 type ResultState = 'mapped' | 'partial' | 'gap'
 type NodeKind = 'record' | 'source' | 'test' | 'graph-row' | 'implementation' | 'feature'
+type LayerName = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'SSOT'
 
 type GraphRow = {
   id?: string
@@ -101,6 +102,10 @@ type Args = {
 
 const FORBIDDEN_COMMANDS = new Set(['path', 'explain'])
 const MAX_PROVENANCE_PER_ITEM = 2
+const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; reason: string }> = [
+  { layer: 'DDD', recordPath: '.lazy-harness/domain/searchable-record-memory.md', reason: 'retrieval-helper-domain-bridge' },
+  { layer: 'BDD', recordPath: '.lazy-harness/behavior/llm-owned-record-retrieval.md', reason: 'retrieval-helper-behavior-bridge' },
+]
 
 function usage(exitCode = 1): never {
   const msg = `Usage: graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n\nPrototype slice 1 supports only: graph query\nUnsupported until separate approval: graph path, graph explain, MCP/daemon.`
@@ -198,6 +203,37 @@ function compactProvenance(values: string[]): string[] {
 
 function capped(values: string[], limit: number): string[] {
   return uniquePreserve(values).slice(0, limit)
+}
+
+function layerForRecordPath(recordPath: string): LayerName | null {
+  if (recordPath.includes('/domain/')) return 'DDD'
+  if (recordPath.includes('/behavior/')) return 'BDD'
+  if (recordPath.includes('/spec/')) return 'SDD'
+  if (recordPath.includes('/tests/')) return 'TDD'
+  if (recordPath.includes('/ssot/')) return 'SSOT'
+  return null
+}
+
+function layerCoverage(recordPaths: string[]): Record<LayerName, boolean> {
+  return {
+    DDD: recordPaths.some((recordPath) => layerForRecordPath(recordPath) === 'DDD'),
+    BDD: recordPaths.some((recordPath) => layerForRecordPath(recordPath) === 'BDD'),
+    SDD: recordPaths.some((recordPath) => layerForRecordPath(recordPath) === 'SDD'),
+    TDD: recordPaths.some((recordPath) => layerForRecordPath(recordPath) === 'TDD'),
+    SSOT: recordPaths.some((recordPath) => layerForRecordPath(recordPath) === 'SSOT'),
+  }
+}
+
+function capRecordPathsWithBridges(values: string[], bridgeValues: string[], limit: number): string[] {
+  const all = uniquePreserve(values)
+  if (all.length <= limit) return all
+  const bridges = uniquePreserve(bridgeValues).filter((value) => all.includes(value))
+  if (!bridges.length) return all.slice(0, limit)
+  const direct = all.filter((value) => !bridges.includes(value))
+  const reservedBridgeCount = Math.min(bridges.length, Math.max(0, limit - 1))
+  const reservedBridges = bridges.slice(0, reservedBridgeCount)
+  const directBudget = Math.max(0, limit - reservedBridges.length)
+  return uniquePreserve([...direct.slice(0, directBudget), ...reservedBridges]).slice(0, limit)
 }
 
 function stringifyField(value: unknown): string {
@@ -447,6 +483,7 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
   const sourceFiles: string[] = []
   const testFiles: string[] = []
   const graphIds: string[] = []
+  const bridgeRecordPaths: string[] = []
 
   function cite(citation: Citation): void {
     const key = `${citation.kind}\u0000${citation.id || ''}\u0000${citation.path || ''}\u0000${citation.provenance}`
@@ -554,6 +591,34 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
     }
   }
 
+  function includeBridgeRecord(recordPath: string, provenance: string): void {
+    const record = recordByPath.get(recordPath)
+    if (!record) return
+    const anchor = uniquePreserve(recordPaths).find((candidate) => candidate !== recordPath)
+    recordPaths.push(recordPath)
+    bridgeRecordPaths.push(recordPath)
+    addNode(nodes, { id: recordNodeId(recordPath), kind: 'record', label: record.title || recordPath, path: recordPath, provenance: [provenance] })
+    if (anchor) addEdge(edges, { source: recordNodeId(anchor), target: recordNodeId(recordPath), relation: 'layer_bridge', provenance: [provenance] })
+    cite({ kind: 'record', path: recordPath, provenance })
+  }
+
+  function includeLayerBridges(candidateLimit: number): void {
+    const current = uniquePreserve(recordPaths)
+    if (!current.length) return
+    const preview = current.slice(0, candidateLimit)
+    const coverage = layerCoverage(preview)
+    for (const bridge of RETRIEVAL_LAYER_BRIDGES) {
+      if (!coverage[bridge.layer] && recordByPath.has(bridge.recordPath)) includeBridgeRecord(bridge.recordPath, bridge.reason)
+    }
+    const afterRetrievalBridges = layerCoverage(uniquePreserve(recordPaths).slice(0, candidateLimit))
+    if (!afterRetrievalBridges.TDD) {
+      const existingTdd = uniquePreserve(recordPaths).find((recordPath) => layerForRecordPath(recordPath) === 'TDD')
+      const tddSeed = recordSeeds.find((seed) => layerForRecordPath(seed.record.recordPath) === 'TDD')
+      const tddBridge = existingTdd || tddSeed?.record.recordPath
+      if (tddBridge) includeBridgeRecord(tddBridge, 'matched-tdd-protection-bridge')
+    }
+  }
+
   for (const seed of recordSeeds.slice(0, limit)) {
     seeds.push({ kind: 'record', id: seed.record.recordPath, label: seed.record.title, path: seed.record.recordPath, matchedFields: seed.fields, provenance: 'record-index' })
     includeRecord(seed.record, 'record-index-match', depth)
@@ -582,7 +647,9 @@ function buildGraphQuery(root: string, query: string, limit: number, depth: numb
     includeImplementation(seed.row, 'implementation-index-match')
   }
 
-  const candidateRecordPaths = capped(recordPaths, limit)
+  includeLayerBridges(limit)
+
+  const candidateRecordPaths = capRecordPathsWithBridges(recordPaths, bridgeRecordPaths, limit)
   const candidateSourceFiles = capped(sourceFiles, limit)
   const candidateTestFiles = capped(testFiles, limit)
   const candidateGraphIds = capped(graphIds, limit)

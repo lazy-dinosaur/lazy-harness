@@ -184,6 +184,11 @@
           "description": "Planning record for read-only workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview costs."
         },
         {
+          "path": "planning/graph-query-coverage-ranking-hardening-plan.md",
+          "kind": "file",
+          "description": "Planning record for graph-query layer bridge coverage and ranking hardening after workflow benchmark coverage misses."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -322,6 +327,11 @@
           "path": "evidence/2026-06-08-retrieval-workflow-benchmark.md",
           "kind": "file",
           "description": "Evidence capsule for workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview helper costs."
+        },
+        {
+          "path": "evidence/2026-06-08-graph-query-coverage-ranking-hardening.md",
+          "kind": "file",
+          "description": "Evidence capsule for graph-query coverage/ranking hardening that improves workflow benchmark full-layer coverage while preserving cue-only policy boundaries."
         },
         {
           "path": "tests/prompt-budget.md",

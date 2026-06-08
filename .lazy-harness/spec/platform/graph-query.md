@@ -27,6 +27,7 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
   - surface compact cited subgraph/context candidates for records, source files, tests, graph rows, and implementation-index hits
   - keep default JSON output compact enough for read-followup workflows by using compact deterministic node ids, capped provenance arrays, and `--limit`-bounded seeds/subgraph/citations
   - include related DDD/BDD/SDD/TDD/SSOT records when linked from matched records
+  - preserve layer bridge candidates when a matched retrieval/framework topic has verified DDD/BDD/TDD records that define how retrieval should be interpreted or protected
   - emit fallback commands for gaps/partials
   - cap output by `--limit` and prototype depth by `--depth` max 2
   - state that LLM/searcher remains the semantic authority and must read real evidence
@@ -110,6 +111,31 @@ Forbidden fields anywhere in output:
 6. The LLM/searcher reads the surfaced real records/source/tests before relying on the result.
 7. `gap` or `partial` output is not evidence of absence; it is a fallback cue.
 
+## Layer coverage and ranking hardening
+
+Workflow benchmark slice 1 showed `graph_query` was a workflow-cost win but only had full DDD/BDD/SDD/TDD/SSOT follow-up coverage for 1 of 4 benchmark queries. Coverage hardening must therefore improve candidate ordering and related-layer bridge surfacing without making graph query a semantic authority.
+
+Allowed hardening:
+
+- deterministic layer bridge records that are already canonical and relevant to retrieval-helper interpretation, such as:
+  - DDD: `.lazy-harness/domain/searchable-record-memory.md`
+  - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
+- deterministic protection bridge records when query terms match a TDD record title/body or a matched record declares a related TDD/protection record.
+- layer-aware ordering that keeps direct matches first, but reserves room inside `--limit` for missing DDD/BDD/TDD/SSOT candidates when they are verified bridges.
+
+Forbidden hardening:
+
+- inventing topic-specific DDD/BDD records that do not exist,
+- hiding missing coverage by changing the benchmark metric,
+- adding `requiredRead`, `confidence`, `risk`, `intent`, `gate`, `nextAction`, or candidate meaning labels,
+- treating bridge records as mandatory proof of evidence read.
+
+Acceptance for coverage hardening:
+
+- `lazy retrieval-workflow-benchmark --format=json --limit=8` should improve `graph_query` full-layer follow-up coverage from the 1/4 baseline while preserving the token win over `map_plus_retrieval_audit`.
+- `lazy graph query 'workflow compression not safety reduction' --format=json --limit=8` should include DDD, BDD, SDD, TDD, and SSOT record candidates without forbidden semantic-authority fields.
+- Output should stay under the existing source compactness guard for `retrieval coverage audit` JSON `--limit=20`.
+
 ## Direction lock
 
 Prototype slice 1 is intentionally narrow:
@@ -147,7 +173,7 @@ Prototype slice 1 is intentionally narrow:
   - `.lazy-harness/tests/graph-query.md`
   - `.lazy-harness/scripts/self-test.py#check_graph_query_cli`
 - Machine index:
-  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`
+  - graph ids: `kg_graph_query_cli_20260608`, `kg_graph_query_self_test_20260608`, `kg_graph_query_manifest_20260608`, `kg_graph_query_payload_compactness_20260608`, `kg_graph_query_coverage_ranking_hardening_20260608`, `kg_graph_query_coverage_ranking_plan_20260608`
 
 ## Payload compactness benchmark history
 
