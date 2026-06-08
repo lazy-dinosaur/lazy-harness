@@ -74,6 +74,8 @@ Commands:
                                 Audit lazy map/record-index coverage gaps and fallback grep/read candidates
   graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh]
                                 Prototype cue-only graph query over record-index, graph JSONL, and generated indexes
+  retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
+                                Measure post-overview map/retrieval-audit/graph-query workflow costs
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
@@ -199,6 +201,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/graph-query.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  retrieval-workflow-benchmark)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy retrieval-workflow-benchmark: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/retrieval-workflow-benchmark.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then

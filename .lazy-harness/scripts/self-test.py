@@ -5319,6 +5319,145 @@ def check_graph_query_cli() -> None:
     print("✓ graph query CLI ok")
 
 
+def check_retrieval_workflow_benchmark_cli() -> None:
+    """Retrieval workflow benchmark should stay read-only and measurement-only."""
+    script_path = LAZY / "scripts" / "retrieval-workflow-benchmark.ts"
+    sdd_path = LAZY / "spec" / "platform" / "retrieval-workflow-benchmark.md"
+    tdd_path = LAZY / "tests" / "retrieval-workflow-benchmark.md"
+    for path in [script_path, sdd_path, tdd_path]:
+        if not path.exists():
+            fail("Retrieval workflow benchmark artifact missing: " + str(path))
+
+    sdd_text = sdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "mode: \"retrieval-workflow-benchmark\"",
+        "post-overview helper cost",
+        "map_plus_retrieval_audit",
+        "Follow-up read simulation",
+        "Forbidden fields anywhere in output",
+        "measurement-only",
+        "Implementation map",
+    ]:
+        if phrase not in sdd_text:
+            fail("Retrieval workflow benchmark SDD missing phrase: " + phrase)
+
+    tdd_text = tdd_path.read_text(encoding="utf-8")
+    for phrase in [
+        "retrieval_workflow_benchmark_shape",
+        "retrieval_workflow_benchmark_no_semantic_fields",
+        "retrieval_workflow_benchmark_read_only",
+        "graph_query.helperCalls == 1",
+        "map_plus_retrieval_audit.helperCalls == 2",
+        "does not change lifecycle/prompt/overview policy",
+    ]:
+        if phrase not in tdd_text:
+            fail("Retrieval workflow benchmark TDD missing phrase: " + phrase)
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "retrieval-workflow-benchmark" not in help_text:
+        fail("lazy help must advertise retrieval-workflow-benchmark command")
+
+    graph_path = LAZY / "knowledge" / "graph.jsonl"
+    record_index_path = LAZY / "generated" / "record-index.json"
+    graph_before = graph_path.read_bytes() if graph_path.exists() else b""
+    record_index_before = record_index_path.read_bytes() if record_index_path.exists() else b""
+
+    completed = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=json", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        fail("retrieval-workflow-benchmark JSON command failed:\n" + completed.stdout + completed.stderr)
+    try:
+        payload = json.loads(completed.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"retrieval-workflow-benchmark output was not JSON: {exc}\n{completed.stdout[:1000]}")
+
+    if payload.get("schemaVersion") != "1.0" or payload.get("mode") != "retrieval-workflow-benchmark":
+        fail("retrieval-workflow-benchmark schema/mode mismatch")
+    queries = payload.get("querySet", [])
+    for required_query in ["retrieval coverage audit", "workflow compression not safety reduction"]:
+        if required_query not in queries:
+            fail("retrieval-workflow-benchmark missing default query: " + required_query)
+    if "measurement-only" not in payload.get("policyBoundary", ""):
+        fail("retrieval-workflow-benchmark missing measurement-only policy boundary")
+
+    forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
+
+    def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden:
+                    fail("retrieval-workflow-benchmark emitted forbidden semantic-authority key: " + path + key)
+                assert_no_forbidden_keys(child, path + key + ".")
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                assert_no_forbidden_keys(child, path + f"{idx}.")
+
+    assert_no_forbidden_keys(payload)
+
+    surfaces = payload.get("surfaces", [])
+    if not surfaces:
+        fail("retrieval-workflow-benchmark missing per-query surfaces")
+    for query_result in surfaces:
+        per_surface = query_result.get("surfaces", {})
+        for name in ["map", "map_plus_retrieval_audit", "graph_query"]:
+            if name not in per_surface:
+                fail("retrieval-workflow-benchmark missing surface " + name)
+            item = per_surface[name]
+            for numeric_path in [
+                ["helperBytes"],
+                ["helperEstimatedTokens"],
+                ["elapsedMs"],
+                ["totalEstimatedTokens"],
+                ["candidateCounts", "records"],
+                ["candidateCounts", "sources"],
+                ["candidateCounts", "tests"],
+                ["candidateCounts", "graphs"],
+                ["followupRead", "readCount"],
+                ["followupRead", "bytes"],
+                ["followupRead", "estimatedTokens"],
+            ]:
+                cursor = item
+                for key in numeric_path:
+                    cursor = cursor[key]
+                if not isinstance(cursor, (int, float)):
+                    fail("retrieval-workflow-benchmark numeric field missing: " + name + "." + ".".join(numeric_path))
+            covered_layers = item.get("followupRead", {}).get("coveredLayers", {})
+            for layer in ["DDD", "BDD", "SDD", "TDD", "SSOT"]:
+                if layer not in covered_layers:
+                    fail("retrieval-workflow-benchmark missing covered layer: " + layer)
+        if per_surface["graph_query"].get("helperCalls") != 1:
+            fail("graph_query helperCalls should be 1")
+        if per_surface["map_plus_retrieval_audit"].get("helperCalls") != 2:
+            fail("map_plus_retrieval_audit helperCalls should be 2")
+
+    for surface_name in ["map", "map_plus_retrieval_audit", "graph_query"]:
+        if surface_name not in payload.get("summary", {}).get("aggregate", {}):
+            fail("retrieval-workflow-benchmark missing aggregate surface: " + surface_name)
+
+    md = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=md", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if md.returncode != 0:
+        fail("retrieval-workflow-benchmark markdown command failed:\n" + md.stdout + md.stderr)
+    if "measurement-only" not in md.stdout or "does not change lifecycle/prompt/overview policy" not in md.stdout:
+        fail("retrieval-workflow-benchmark markdown missing policy boundary warning")
+
+    if graph_path.exists() and graph_path.read_bytes() != graph_before:
+        fail("retrieval-workflow-benchmark must not mutate canonical graph.jsonl")
+    if record_index_path.exists() and record_index_path.read_bytes() != record_index_before:
+        fail("retrieval-workflow-benchmark must not mutate generated record-index cache")
+    print("✓ retrieval workflow benchmark CLI ok")
+
+
 def check_source_feature_navigation_phase3() -> None:
     """Source repo Phase 3 should expose a compact canonical project feature map."""
     feature_path = LAZY / "project" / "feature-navigation.xml"
@@ -6740,6 +6879,7 @@ def main() -> None:
         (check_record_index_generator_phase3, "BOTH"),
         (check_retrieval_coverage_audit_cli, "BOTH"),
         (check_graph_query_cli, "BOTH"),
+        (check_retrieval_workflow_benchmark_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),

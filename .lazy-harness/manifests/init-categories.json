@@ -179,6 +179,11 @@
           "description": "Detailed direction-locked implementation plan for the additive TS/Bun `lazy graph query` prototype, including non-deviation checklist, SDD/TDD gates, benchmark plan, and big-change boundary."
         },
         {
+          "path": "planning/retrieval-workflow-benchmark-plan.md",
+          "kind": "file",
+          "description": "Planning record for read-only workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview costs."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
@@ -314,6 +319,11 @@
           "description": "Evidence capsule for graph-query prototype source commit sync and smoke validation across initialized downstream hosts."
         },
         {
+          "path": "evidence/2026-06-08-retrieval-workflow-benchmark.md",
+          "kind": "file",
+          "description": "Evidence capsule for workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview helper costs."
+        },
+        {
           "path": "tests/prompt-budget.md",
           "kind": "file",
           "description": "TDD contract for prompt budget measurement output, isolated message.received rendering, privacy checks, and lazy prompt-budget dispatch."
@@ -372,6 +382,16 @@
           "path": "tests/graph-query.md",
           "kind": "file",
           "description": "TDD contract fixtures for graph query mapped/partial/gap states, subgraph citations, read-only behavior, and slice-boundary enforcement."
+        },
+        {
+          "path": "spec/platform/retrieval-workflow-benchmark.md",
+          "kind": "file",
+          "description": "SDD contract for read-only retrieval workflow benchmark over map, retrieval-audit, and graph-query helper costs."
+        },
+        {
+          "path": "tests/retrieval-workflow-benchmark.md",
+          "kind": "file",
+          "description": "TDD contract fixtures for retrieval workflow benchmark output shape, no semantic fields, read-only behavior, and dispatcher availability."
         },
         {
           "path": "spec/platform/record-write-update-policy.md",
