@@ -1,0 +1,5 @@
+{
+  "packages": [
+    "../packages/lazy-harness-pi"
+  ]
+}

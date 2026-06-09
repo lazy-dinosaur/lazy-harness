@@ -320,6 +320,16 @@
           "description": "TDD fixtures for static message.received REMINDER wording, compact prompt behavior, no user-text classifiers, and generic evidence guard compatibility."
         },
         {
+          "path": "spec/platform/pi-agent-package.md",
+          "kind": "file",
+          "description": "SDD contract for the source-repo Pi package: package resources, extension lifecycle bridge, local install, and trust boundary."
+        },
+        {
+          "path": "tests/pi-agent-package.md",
+          "kind": "file",
+          "description": "TDD fixtures for Pi package manifest, before_agent_start/tool_call/tool_result bridge coverage, and package skill resources."
+        },
+        {
           "path": "spec/platform/search-read-debt-contract.md",
           "kind": "file",
           "description": "SDD contract for static search/read-debt runtime rows, evidence guard semantics, and no raw user-text semantic helper authority."

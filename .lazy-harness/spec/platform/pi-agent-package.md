@@ -1,0 +1,87 @@
+# Pi Agent Package Contract
+
+Status: active
+Layer: SDD
+
+## Purpose
+
+Provide a Pi Coding Agent package that installs lazy-harness behavior into Pi without a separate repository.
+
+## Package root
+
+```text
+packages/lazy-harness-pi/
+```
+
+This package is framework-source owned. It is installed into Pi by local path and locates the active host root at runtime.
+
+## Manifest contract
+
+`packages/lazy-harness-pi/package.json` must include:
+
+```json
+{
+  "name": "@lazy-dinosaur/lazy-harness-pi",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  }
+}
+```
+
+## Extension contract
+
+`packages/lazy-harness-pi/extensions/lazy-harness/index.ts` must:
+
+1. export a default Pi extension function,
+2. walk upward from `ctx.cwd` to find `.lazy-harness/bin/lazy`,
+3. handle `before_agent_start` by invoking `.lazy-harness/hooks/lifecycle/on-message-received.sh` through stdin JSON and appending the returned reminder body to the system prompt,
+4. handle `tool_call` by normalizing Pi tool payload into lazy lifecycle JSON and invoking `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh`,
+5. return `{ block: true, reason }` only when the lazy hook emits a deny reason,
+6. handle `tool_result` by retaining recent tool evidence for later guard invocations,
+7. register convenience commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
+
+## Install contract
+
+Project-local install:
+
+```bash
+pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
+```
+
+This writes source-repo project-local Pi settings:
+
+```json
+{
+  "packages": ["../packages/lazy-harness-pi"]
+}
+```
+
+The tracked `.pi/settings.json` keeps the source repo itself attached to the local Pi package.
+
+One-run smoke:
+
+```bash
+pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+```
+
+## Boundaries
+
+- The extension is a bridge, not a duplicate policy engine.
+- The canonical prompt/runtime behavior remains in `.lazy-harness/hooks/lifecycle/**` and `.lazy-harness` records.
+- Pi `tool_call` is a hard-block surface; the extension must preserve the recent relaxed policy by blocking only actual mutation/evidence guard denials.
+- Read-only overview batch/parallel behavior must not be blocked by this package.
+- Because Pi extensions run with project extension permissions, package README must document the trust boundary.
+
+## Implementation map
+
+- `packages/lazy-harness-pi/package.json` — Pi package manifest.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation.
+- `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
+- `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
+- `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
+- `.pi/settings.json` — source-repo Pi local package attachment created by `pi install -l`.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
+- `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.

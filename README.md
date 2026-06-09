@@ -31,7 +31,7 @@ Core goals:
     ├── README.md             # Full framework documentation
     ├── JCODE-INTEGRATION.md  # Optional host-side Jcode wiring guide
     ├── framework/            # Framework contract and principles
-    ├── decisions/            # ADRs
+    ├── decisions/          # 43 ADRs
     ├── domain/               # DDD records
     ├── spec/                 # SDD records and platform specs
     ├── behavior/             # BDD scenarios

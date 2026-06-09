@@ -1,0 +1,18 @@
+{
+  "name": "@lazy-dinosaur/lazy-harness-pi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.",
+  "keywords": ["pi-package", "lazy-harness", "agent", "extension"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

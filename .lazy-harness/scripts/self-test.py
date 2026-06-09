@@ -1458,6 +1458,67 @@ def check_jcode_wiring_removes_rejected_layer2_block() -> None:
     print("✓ jcode rejected Layer 2 block cleanup ok")
 
 
+def check_pi_package_layout_and_contract() -> None:
+    """Pi package must expose native package resources and bridge lazy lifecycle hooks."""
+    pkg_root = ROOT / "packages" / "lazy-harness-pi"
+    manifest = pkg_root / "package.json"
+    extension = pkg_root / "extensions" / "lazy-harness" / "index.ts"
+    prompt = pkg_root / "prompts" / "lazy-harness.md"
+    readme = pkg_root / "README.md"
+    for path in [manifest, extension, prompt, readme]:
+        if not path.exists():
+            fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
+
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    if data.get("name") != "@lazy-dinosaur/lazy-harness-pi":
+        fail("Pi package manifest has unexpected name")
+    if "pi-package" not in data.get("keywords", []):
+        fail("Pi package manifest missing pi-package keyword")
+    pi_manifest = data.get("pi") if isinstance(data.get("pi"), dict) else {}
+    for key, expected in {"extensions": "./extensions", "skills": "./skills", "prompts": "./prompts"}.items():
+        values = pi_manifest.get(key)
+        if not isinstance(values, list) or expected not in values:
+            fail(f"Pi package manifest missing pi.{key} entry {expected!r}")
+
+    pi_settings = ROOT / ".pi" / "settings.json"
+    if not pi_settings.exists():
+        fail("Pi project-local settings missing after `pi install -l packages/lazy-harness-pi`")
+    settings_data = json.loads(pi_settings.read_text(encoding="utf-8"))
+    if "../packages/lazy-harness-pi" not in settings_data.get("packages", []):
+        fail("Pi project-local settings missing ../packages/lazy-harness-pi package entry")
+
+    extension_text = extension.read_text(encoding="utf-8")
+    required_phrases = [
+        "before_agent_start",
+        "tool_call",
+        "tool_result",
+        "on-message-received.sh",
+        "on-tool-execute-before.sh",
+        "recent_tool_calls",
+        "rememberToolCall",
+        "block: true",
+        "REMINDER. Harness-first search/read debt before response.",
+        "LAZY_HARNESS_INVOKER",
+        "pi.registerCommand(\"lazy-map\"",
+        "pi.registerCommand(\"lazy-doctor\"",
+        "pi.registerCommand(\"lazy-test\"",
+    ]
+    missing = [phrase for phrase in required_phrases if phrase not in extension_text]
+    if missing:
+        fail("Pi package extension missing bridge contract phrases: " + json.dumps(missing, ensure_ascii=False))
+
+    expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test"]
+    for skill in expected_skills:
+        skill_file = pkg_root / "skills" / skill / "SKILL.md"
+        if not skill_file.exists():
+            fail(f"Pi package missing skill wrapper: {skill_file.relative_to(ROOT)}")
+        content = skill_file.read_text(encoding="utf-8")
+        if "name:" not in content or skill not in content:
+            fail(f"Pi package skill wrapper lacks expected frontmatter/content: {skill}")
+
+    print("✓ Pi package layout and extension contract ok")
+
+
 def check_jcode_wiring_message_received_hook() -> None:
     """Generated and user-owned Jcode configs must wire static harness prompt plus generic search/read evidence guard."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
@@ -7485,6 +7546,7 @@ def main() -> None:
         (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
         (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
+        (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_jcode_wiring_message_received_hook, "BOTH"),
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
