@@ -11,6 +11,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related Planning: `.lazy-harness/planning/retrieval-architecture-holistic-review.md`
 Related Planning: `.lazy-harness/planning/graph-index-migration-considerations.md`
 Related evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md`
+Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md`
 
 ## Rule digest
 
@@ -113,7 +114,12 @@ Exit criteria:
 
 ## Phase 2 — Markdown renderer
 
-Status: implemented, validation in progress
+Status: implemented and downstream-validated
+
+Evidence:
+
+- Source implementation commit `4208c85758fac89ff22b5edcddefad358d547d2a` (`feat(graph): render graph explain markdown`) passed focused graph explain JSON/Markdown checks, full framework self-test, commit hook lazy test, source smoke, origin push, and 16/16 initialized downstream host JSON/Markdown sync/smoke validation.
+- Evidence capsule: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md`.
 
 Tasks:
 
@@ -144,9 +150,11 @@ Exit criteria:
 
 ## Phase 4 — Validation and downstream sync
 
-Status: completed for Phase 1 JSON implementation.
+Status: completed for Phase 1 JSON implementation and Phase 2 Markdown implementation.
 
 Evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` records 16/16 downstream hosts synced to source commit `dfd11ffe676500ad928c61789034835a81097ef1` and smoke-validated `graph-query.explain` structural JSON with cited statements and no forbidden semantic-authority fields.
+
+Evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` records 16/16 downstream hosts synced to source commit `4208c85758fac89ff22b5edcddefad358d547d2a` and smoke-validated both JSON and Markdown output with cited/support-backed statements and no forbidden semantic-authority fields.
 
 Focused validation:
 
@@ -210,6 +218,7 @@ Downstream validation:
   - `.lazy-harness/manifests/init-categories.json` — graph explain record and evidence sync entries.
   - `.lazy-harness/knowledge/graph.jsonl` — graph explain implementation/test/evidence graph rows.
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke evidence capsule.
+  - `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` — downstream JSON/Markdown sync/smoke evidence capsule.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -226,6 +235,7 @@ Downstream validation:
   - `kg_graph_explain_phase1_downstream_sync_20260608`
   - `kg_graph_explain_phase2_markdown_cli_20260609`
   - `kg_graph_explain_phase2_markdown_self_test_20260609`
+  - `kg_graph_explain_phase2_downstream_sync_20260609`
 
 ## Layer completeness impact
 
