@@ -199,6 +199,11 @@
           "description": "Planning record for graph-query layer bridge coverage and ranking hardening after workflow benchmark coverage misses."
         },
         {
+          "path": "planning/graph-explain-ranking-hardening-plan.md",
+          "kind": "file",
+          "description": "Reviewed planning record for Graphify-style graph query/explain ranking hardening with gold-labeled retrieval metrics, cue-only boundaries, and acceptance gates."
+        },
+        {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
           "kind": "file",
           "description": "Progressive knowledge graph pipeline plan. Hosts need this operating spec for dogfooding and M45-guided behavior."
