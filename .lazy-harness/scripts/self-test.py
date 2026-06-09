@@ -1746,6 +1746,8 @@ def check_manifest_syncs_python_lifecycle_helpers() -> None:
         "behavior/llm-owned-record-retrieval.md",
         "spec/platform/record-index-header.md",
         "tests/record-index-header.md",
+        "spec/platform/pre-response-rule-context.md",
+        "tests/pre-response-rule-context.md",
     ]:
         if required_record not in item_paths:
             fail("init-categories manifest must sync retrieval/index foundation record: " + required_record)
@@ -1796,6 +1798,8 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             "behavior/llm-owned-record-retrieval.md",
             "spec/platform/record-index-header.md",
             "tests/record-index-header.md",
+            "spec/platform/pre-response-rule-context.md",
+            "tests/pre-response-rule-context.md",
         ]:
             if not (temp / ".lazy-harness" / required_record).exists():
                 fail("lazy-sync must copy retrieval/index foundation record: " + required_record)

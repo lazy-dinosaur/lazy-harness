@@ -167,7 +167,7 @@
         {
           "path": "behavior/llm-owned-record-retrieval.md",
           "kind": "file",
-          "description": "BDD foundation record for LLM-owned retrieval, cross-layer related-record checks, and overview-first standalone ordering."
+          "description": "BDD foundation record for LLM-owned retrieval, cross-layer related-record checks, and overview-first advisory behavior."
         },
         {
           "path": "planning/retrieval-architecture-holistic-review.md",
@@ -297,12 +297,12 @@
         {
           "path": "spec/platform/record-index-header.md",
           "kind": "file",
-          "description": "SDD contract for record-index/lazy map cue-only metadata, top-level Related path parsing, and overview-first standalone ordering."
+          "description": "SDD contract for record-index/lazy map cue-only metadata, top-level Related path parsing, and overview-first advisory behavior."
         },
         {
           "path": "tests/record-index-header.md",
           "kind": "file",
-          "description": "TDD fixtures for record-index/lazy map, related-record parsing, cache behavior, and overview-batch guard coverage."
+          "description": "TDD fixtures for record-index/lazy map, related-record parsing, cache behavior, and overview-batch advisory/no-op compatibility coverage."
         },
         {
           "path": "spec/platform/search-read-debt-contract.md",
@@ -313,6 +313,11 @@
           "path": "spec/platform/pre-response-rule-context.md",
           "kind": "file",
           "description": "SDD contract for message.received pre-response relevant-record context injection and sanitized surfaced digest journal."
+        },
+        {
+          "path": "tests/pre-response-rule-context.md",
+          "kind": "file",
+          "description": "TDD fixtures for static message.received REMINDER wording, compact prompt behavior, no user-text classifiers, and generic evidence guard compatibility."
         },
         {
           "path": "spec/platform/search-read-debt-contract.md",
