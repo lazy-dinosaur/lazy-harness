@@ -26,7 +26,7 @@ Out of scope:
 - Source branch: `feature/map-first-record-navigation`
 - Explain implementation commit baseline: `e8a0ca8` (`feat(graph): add path-backed graph explain support`), records synced through `e5c082b`.
 - Token estimate: `bytes/4` (same convention as `retrieval-workflow-benchmark.ts`).
-- Measurement scripts (temp, read-only): `/tmp/explain-bench/measure.py` and `/tmp/explain-matrix.py`.
+- Measurement scripts (temp, read-only): `/tmp/explain-bench/measure.py`, `/tmp/explain-matrix.py`, and `/tmp/graph-explain-gold-accuracy.py`.
 - Graph index size at measurement time: graph ids=467, sources=406, targets=310; plus 9 feature ids from `feature-navigation.xml`.
 - Re-audit note: rerun on the same source branch after committing this evidence capsule kept the four-query headline result (`98.3%` Markdown-vs-full-cited-read reduction and `64/64` citation references real), but current cited-file sizes changed the full-read proxy from 265,534 to 265,724 tokens because the manifest/records grew. Expanded matrix rerun after user challenge covered 27 scenarios and produced `97.7%` Markdown-vs-full-cited-read reduction with `410/410` real structural references.
 
@@ -49,6 +49,10 @@ python3 /tmp/explain-bench/measure.py
 # Expanded scenario matrix (post-question re-audit)
 python3 /tmp/explain-matrix.py
 cat /tmp/explain-matrix-summary.json
+
+# Gold-labeled retrieval accuracy spot test (post-question)
+python3 /tmp/graph-explain-gold-accuracy.py
+cat /tmp/graph-explain-gold-accuracy-summary.json
 
 # Contract guard
 python3 .lazy-harness/scripts/self-test.py --scope framework
@@ -113,6 +117,29 @@ Additional re-audit comparison against `graph query` helper payloads:
 - Markdown explain is 62.2% smaller than graph-query JSON helper payloads in this sample.
 - JSON explain is 51.1% larger than graph-query JSON helper payloads because it embeds the query packet plus explanation statements. Therefore the 98.3% headline must be read as Markdown explain vs. full cited-record reads, not JSON explain vs. graph-query helper output.
 
+Gold-labeled retrieval accuracy spot test after user asked how to test "real" accuracy:
+
+- Scenario count: 8 total (7 non-gap gold-labeled retrieval scenarios + 1 unrelated Korean gap scenario).
+- Gold labels: 33 human-selected must-include paths across ADR/BDD/DDD/SDD/TDD/SSOT/Planning/source/evidence concerns.
+- Corrected measurement note: first run undercounted recall because the temporary extractor read `queryPacket.candidates.records/sources/tests`, but the real packet uses `recordPaths/sourceFiles/testFiles`; after fixing extraction, results below are current.
+- Micro recall: 31/33 = 93.9%.
+- Macro recall: 94.3%.
+- Macro strict Precision@8: 21.4% (strict against only the listed gold labels, so unlisted-but-relevant candidates count as non-gold).
+- Macro MRR: 46.7%.
+- Macro nDCG: 55.4%.
+- Macro layer recall: 100.0%.
+- Negative contamination scenarios: 0/8.
+- Gap accuracy: 100.0% for the unrelated Korean query.
+- Full-gold-or-gap scenario pass count: 7/8.
+- Misses: the `lazy-sync-drift-detection` scenario found `.lazy-harness/spec/lazy-sync-drift-detection.md`, `.lazy-harness/scripts/lazy-sync.ts`, and `.lazy-harness/scripts/lazy-init.ts`, but missed `.lazy-harness/planning/selected-medivance-host-sync-plan.md` and `.lazy-harness/evidence/2026-06-06-selected-medivance-host-sync-record-index.md`.
+- Ranking weakness: although recall is high, several gold labels rank outside top 8, e.g. `retrieval-workflow-benchmark` gold records at ranks 11-16, `workflow-compression` bridge records at ranks 28-31, and `pre-action-search-evidence-guard.md` at rank 27.
+
+Interpretation of the gold-labeled test:
+
+- `graph explain` is strong at broad retrieval coverage in this sample (93.9% micro recall, 100% layer recall, 0 negative contamination), but weak as a top-8 ranker (strict P@8 21.4%, nDCG 55.4%).
+- Therefore it is useful as a compact cue surface, but not sufficient as a precise first-read router unless ranking/cross-layer promotion improves.
+- Concrete improvement target: promote SDD/TDD/Planning records from `queryPacket.candidates.recordPaths` into earlier explanation statements when the query directly names the feature/contract, and add drift/sync evidence/plan graph links so sync scenarios retrieve their evidence capsule.
+
 Measurement-script correctness note:
 
 - A first run reported 87.5% accuracy on two queries because the resolver did not yet include `feature-navigation.xml` feature ids. The two "unresolved" references (`capability-registry`, `sync-install-update`) are real feature ids with `provenance: feature-navigation` that explain cited correctly. After adding feature ids to the resolver, accuracy is 100.0%. The gap was in the measurement script, not in explain output.
@@ -128,7 +155,7 @@ What this evidence supports:
 What this evidence does not support:
 
 - It does not prove explain candidates are semantically sufficient for a real task. Explain is cue-only; the LLM/searcher must still read real records/source/tests.
-- It does not prove universal behavior over every possible query. It now covers a 27-scenario framework matrix, not just the original 4-query sample, but it remains a representative test matrix.
+- It does not prove universal behavior over every possible query. It now covers a 27-scenario structural matrix and an 8-scenario gold-labeled retrieval spot test, but both remain representative test sets.
 - "Accuracy" here means citation/structure fidelity (no hallucinated references), not semantic correctness, intent, or sufficiency. The expanded matrix uses the corrected structural-reference definition: on-disk path, graph row/source/target, feature id, or output-local subgraph edge id.
 - The token-savings figure is a read-cost proxy (sum of cited record bytes), not a measured end-to-end agent transcript. Current re-audit total is 265,724 proxy tokens; the original 265,534 value was from the immediately preceding snapshot before the evidence/manifest growth.
 - It does not authorize relaxing overview-first/read-debt policy or adding semantic authority.
@@ -141,7 +168,8 @@ What this evidence does not support:
 4. Run `--include-paths` and confirm 100% reference resolution.
 5. Run `python3 .lazy-harness/scripts/self-test.py --scope framework` and confirm `ran=77, skipped=0`, exit 0.
 6. For the expanded scenario matrix, run `python3 /tmp/explain-matrix.py` while the temp artifact is retained and confirm 27/27 scenarios pass, 410/410 references resolve, no forbidden fields appear, no watched files mutate, and non-gap Markdown-vs-full-read proxy reduction is ~97.7%.
-7. Treat output as measurement evidence only; real task work still requires reading actual records/source/tests.
+7. For the gold-labeled retrieval accuracy spot test, run `python3 /tmp/graph-explain-gold-accuracy.py` while the temp artifact is retained and confirm micro recall 93.9%, macro recall 94.3%, strict P@8 21.4%, nDCG 55.4%, layer recall 100.0%, negative contamination 0/8, and gap accuracy 100.0%.
+8. Treat output as measurement evidence only; real task work still requires reading actual records/source/tests.
 
 ## Related records
 
