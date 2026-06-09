@@ -1,6 +1,6 @@
 # Graph Explain Implementation Plan
 
-Status: phase1-json-implemented
+Status: phase2-markdown-implemented
 Date: 2026-06-08
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/graph-explain.md`
@@ -23,8 +23,8 @@ Related evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downst
   - deciding whether explain can be added without semantic authority or policy relaxation
   - sequencing source, tests, records, sync, and evidence for graph explain
 - Must:
-  - keep Phase 1 JSON explain limited to cited structural statements
-  - keep future slices limited to Markdown rendering and optional path-backed support unless a new option gate/ADR expands scope
+  - keep JSON/Markdown explain limited to cited structural statements
+  - keep future slices limited to optional path-backed support unless a new option gate/ADR expands scope
   - keep all statements support-backed and citation-backed
   - preserve graph query/path outputs and cue-only/read-only policy while implementing explain
   - preserve query/path outputs and self-tests
@@ -111,7 +111,9 @@ Exit criteria:
 - Every statement has support and citations.
 - No forbidden semantic fields appear.
 
-## Phase 2 — Markdown renderer, future implementation
+## Phase 2 — Markdown renderer
+
+Status: implemented, validation in progress
 
 Tasks:
 
@@ -197,47 +199,48 @@ Downstream validation:
 
 ## Implementation map
 
-- Status: implemented-phase1-json
+- Status: implemented-phase2-markdown
 - Primary files:
   - `.lazy-harness/planning/graph-explain-implementation-plan.md` — this plan.
-  - `.lazy-harness/spec/platform/graph-explain.md` — Phase 1 command contract.
-  - `.lazy-harness/tests/graph-explain.md` — Phase 1 regression fixtures.
-  - `.lazy-harness/scripts/graph-query.ts` — implements Phase 1 parser, `GraphExplainResult` types, `buildGraphExplain`, and JSON output.
-  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` Phase 1 regression coverage.
-  - `.lazy-harness/bin/lazy` — advertises `graph explain <term-or-file>` JSON Phase 1.
-  - `.lazy-harness/manifests/init-categories.json` — Phase 1 record and evidence sync entries.
-  - `.lazy-harness/knowledge/graph.jsonl` — Phase 1 implementation/test/evidence graph rows.
+  - `.lazy-harness/spec/platform/graph-explain.md` — Phase 2 JSON/Markdown command contract.
+  - `.lazy-harness/tests/graph-explain.md` — JSON/Markdown regression fixtures.
+  - `.lazy-harness/scripts/graph-query.ts` — implements Phase 1/2 parser, `GraphExplainResult` types, `buildGraphExplain`, JSON output, and `renderExplainMarkdown`.
+  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` JSON/Markdown regression coverage.
+  - `.lazy-harness/bin/lazy` — advertises `graph explain <term-or-file>` JSON/Markdown.
+  - `.lazy-harness/manifests/init-categories.json` — graph explain record and evidence sync entries.
+  - `.lazy-harness/knowledge/graph.jsonl` — graph explain implementation/test/evidence graph rows.
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke evidence capsule.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
   - `GraphExplainSupport`
   - `buildGraphExplain`
-  - `check_graph_explain_cli`
-- Future symbols:
   - `renderExplainMarkdown`
+  - `check_graph_explain_cli`
 - Current protection:
-  - `check_graph_explain_cli` verifies Phase 1 JSON shape, support/citations, recursive forbidden-field absence, include-paths boundary, Markdown boundary, and read-only behavior.
+  - `check_graph_explain_cli` verifies JSON shape, Markdown caveats/support/citations, recursive forbidden-field absence, include-paths boundary, and read-only behavior.
 - Graph ids:
   - `kg_graph_explain_structural_plan_20260608`
   - `kg_graph_explain_phase1_cli_20260608`
   - `kg_graph_explain_phase1_self_test_20260608`
   - `kg_graph_explain_phase1_downstream_sync_20260608`
+  - `kg_graph_explain_phase2_markdown_cli_20260609`
+  - `kg_graph_explain_phase2_markdown_self_test_20260609`
 
 ## Layer completeness impact
 
 - DDD: no new domain entity.
 - BDD: LLM-owned record retrieval remains unchanged.
-- SDD: `.lazy-harness/spec/platform/graph-explain.md` defines the Phase 1 command contract.
-- TDD: `.lazy-harness/tests/graph-explain.md` defines Phase 1 and future fixtures.
-- ADR: not needed for cue-only Phase 1 implementation. Required before semantic authority, Graphify vendoring, MCP/daemon/watch, prompt/reminder injection, or lifecycle policy changes.
+- SDD: `.lazy-harness/spec/platform/graph-explain.md` defines the JSON/Markdown command contract.
+- TDD: `.lazy-harness/tests/graph-explain.md` defines JSON/Markdown and future path-backed fixtures.
+- ADR: not needed for cue-only Phase 2 Markdown implementation. Required before semantic authority, Graphify vendoring, MCP/daemon/watch, prompt/reminder injection, or lifecycle policy changes.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains controlling.
 - Planning: this record tracks phased implementation.
 
 ## Discovery capture
 
 - Captured user-confirmed option A as durable SDD/TDD/Planning records instead of chat-only state.
-- Captured that `lazy graph explain` Phase 1 is implemented as JSON-only structural explanation while Markdown/path-backed support remain future slices.
+- Captured that `lazy graph explain` Phase 2 adds Markdown rendering from the same structural packet while path-backed support remains a future slice.
 - Captured future ADR boundary for semantic authority or runtime/dependency expansion.
 
 ## Rule placement

@@ -5595,7 +5595,7 @@ def check_graph_path_cli() -> None:
 
 
 def check_graph_explain_cli() -> None:
-    """Graph explain Phase 1 should emit cited structural JSON without semantic authority."""
+    """Graph explain should emit cited structural JSON/Markdown without semantic authority."""
     script_path = LAZY / "scripts" / "graph-query.ts"
     sdd_path = LAZY / "spec" / "platform" / "graph-explain.md"
     tdd_path = LAZY / "tests" / "graph-explain.md"
@@ -5616,6 +5616,7 @@ def check_graph_explain_cli() -> None:
         "does not satisfy read evidence",
         "Forbidden output fields anywhere",
         "buildGraphExplain",
+        "renderExplainMarkdown",
         "Implementation map",
     ]:
         if phrase not in sdd_text:
@@ -5627,6 +5628,7 @@ def check_graph_explain_cli() -> None:
         "graph_explain_gap",
         "graph_explain_no_semantic_fields",
         "graph_explain_read_only",
+        "graph_explain_markdown_citations",
         "check_graph_explain_cli",
     ]:
         if phrase not in tdd_text:
@@ -5696,9 +5698,27 @@ def check_graph_explain_cli() -> None:
         fail("graph explain missing-query should be gap with no-query-candidates")
     assert_no_forbidden_keys(gap)
 
-    md_failed = run_explain("workflow compression not safety reduction", "--format=md", expect_ok=False)
-    if "markdown output is reserved" not in md_failed.stdout + md_failed.stderr:
-        fail("graph explain Phase 1 markdown boundary message missing")
+    markdown = run_explain("workflow compression not safety reduction", "--format=md", "--limit=8", "--max-statements=8").stdout
+    for phrase in [
+        "# Graph explain",
+        "cue-only",
+        "does not satisfy read evidence",
+        "read real records/source/tests",
+        "## Statements",
+        "support:",
+        "citations:",
+        "LLM/searcher remains the semantic authority",
+    ]:
+        if phrase not in markdown:
+            fail("graph explain Markdown missing phrase: " + phrase)
+    statement_lines = [line for line in markdown.splitlines() if line.startswith("- statement ")]
+    if not statement_lines:
+        fail("graph explain Markdown missing statement bullets")
+    for line in statement_lines:
+        if "support:" not in line or "citations:" not in line:
+            fail("graph explain Markdown statement missing support/citations: " + line)
+    if "reserved for the next implementation slice" in markdown:
+        fail("graph explain Markdown still reports Phase 1 boundary")
 
     if (graph_path.read_bytes() if graph_path.exists() else b"") != graph_before:
         fail("graph explain must not mutate canonical graph.jsonl")

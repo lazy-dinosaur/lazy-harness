@@ -186,7 +186,7 @@
         {
           "path": "planning/graph-explain-implementation-plan.md",
           "kind": "file",
-          "description": "Implementation plan for cue-only `lazy graph explain` as Phase 1 JSON cited structural explanation, with Markdown/path-backed support future and semantic authority/policy changes out of scope."
+          "description": "Implementation plan for cue-only `lazy graph explain` as JSON/Markdown cited structural explanation, with path-backed support future and semantic authority/policy changes out of scope."
         },
         {
           "path": "planning/retrieval-workflow-benchmark-plan.md",
@@ -431,12 +431,12 @@
         {
           "path": "spec/platform/graph-explain.md",
           "kind": "file",
-          "description": "SDD contract for Phase 1 cue-only `lazy graph explain` JSON cited structural explanation output, with Markdown/path-backed support future."
+          "description": "SDD contract for cue-only `lazy graph explain` JSON/Markdown cited structural explanation output, with path-backed support future."
         },
         {
           "path": "tests/graph-explain.md",
           "kind": "file",
-          "description": "TDD contract for graph explain Phase 1 JSON shape, support/citations, forbidden semantic fields, read-only behavior, and future Markdown/path boundaries."
+          "description": "TDD contract for graph explain JSON/Markdown shape, support/citations, forbidden semantic fields, read-only behavior, and future path-backed boundaries."
         },
         {
           "path": "spec/platform/retrieval-workflow-benchmark.md",

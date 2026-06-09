@@ -60,11 +60,11 @@ Supported flags:
 Supported adjacent slices:
 
 - `lazy graph path` — defined by `.lazy-harness/spec/platform/graph-path.md`; still cue-only and read-only.
-- `lazy graph explain` — Phase 1 JSON structural packet defined by `.lazy-harness/spec/platform/graph-explain.md`; still cue-only and read-only.
+- `lazy graph explain` — JSON/Markdown structural packet defined by `.lazy-harness/spec/platform/graph-explain.md`; still cue-only and read-only.
 
 Unsupported in the current prototype boundary:
 
-- graph explain Markdown renderer/path-backed statements
+- graph explain path-backed statements
 - daemon/MCP server
 - prompt/reminder packet injection
 

@@ -171,7 +171,7 @@ const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; rea
 ]
 
 function usage(exitCode = 1): never {
-  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON structural packet\nUnsupported in this slice: graph explain markdown renderer, MCP/daemon.`
+  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON/Markdown structural packet\nUnsupported in this slice: graph explain path-backed statements, MCP/daemon.`
   if (exitCode === 0) console.log(msg)
   else console.error(msg)
   process.exit(exitCode)
@@ -278,10 +278,6 @@ function parseArgs(argv: string[]): Args {
     const query = positional.join(' ').trim()
     if (!query) usage()
     if (!formatExplicit) format = 'json'
-    if (format === 'md') {
-      console.error('lazy graph explain markdown output is reserved for the next implementation slice; use --format=json in Phase 1.')
-      process.exit(2)
-    }
     return {
       root: path.resolve(root),
       command,
@@ -1076,7 +1072,7 @@ function buildGraphPath(root: string, from: string, to: string, limit: number, m
     notes: [
       'cue-only: graph path output is navigation context and does not satisfy read evidence',
       'generated/non-canonical: read real records/source/tests before relying on any path',
-      'prototype boundary: query/path helpers and graph explain Phase 1 JSON are supported; graph-explain path-backed integration, MCP/daemon, and lifecycle policy changes are out of scope',
+      'prototype boundary: query/path helpers and graph explain JSON/Markdown are supported; graph-explain path-backed integration, MCP/daemon, and lifecycle policy changes are out of scope',
     ],
   }
 }
@@ -1254,11 +1250,63 @@ function renderPathMarkdown(result: GraphPathResult): string {
   return `${lines.join('\n')}\n`
 }
 
+function renderExplainMarkdown(result: GraphExplainResult): string {
+  const lines: string[] = []
+  lines.push('# Graph explain')
+  lines.push('')
+  lines.push('> cue-only: graph explain describes indexed/cited structure only and does not satisfy read evidence.')
+  lines.push('> generated/non-canonical: read real records/source/tests before relying on any statement.')
+  lines.push('')
+  lines.push(`- mode: \`${result.mode}\``)
+  lines.push(`- query: \`${result.query}\``)
+  lines.push(`- resultState: \`${result.resultState}\``)
+  lines.push(`- explanationKind: \`${result.explanationKind}\``)
+  if (result.coverage.gaps.length) lines.push(`- structural gaps: ${result.coverage.gaps.map((gap) => `\`${gap}\``).join(', ')}`)
+  lines.push('')
+  lines.push('## Statements')
+  if (!result.statements.length) lines.push('- no cited structural statements were produced (support: structural gap; citations: `coverage.gaps`)')
+  result.statements.forEach((item, index) => {
+    const citations = item.citations.map((citation) => `\`${citation}\``).join(', ') || '`-`'
+    const supportSummary = item.support.map((support) => {
+      const subject = support.path || support.id || support.relation || support.kind
+      const relation = support.relation ? ` relation=${support.relation}` : ''
+      return `${support.kind}:${subject}${relation}`
+    }).join('; ') || '-'
+    lines.push(`- statement ${index + 1}: ${item.statement} (support: ${supportSummary}; citations: ${citations})`)
+    for (const support of item.support.slice(0, 4)) {
+      const subject = support.path || support.id || support.relation || support.kind
+      const matched = support.matchedFields?.length ? `; matched=${support.matchedFields.join(', ')}` : ''
+      const relation = support.relation ? `; relation=${support.relation}` : ''
+      lines.push(`  - support: ${support.kind} \`${subject}\`${relation}; provenance=${support.provenance}${matched}`)
+    }
+  })
+  lines.push('', '## Query packet summary')
+  lines.push(`- seeds: ${result.queryPacket.seeds.length}`)
+  lines.push(`- citations: ${result.queryPacket.citations.length}`)
+  lines.push(`- subgraph nodes: ${result.queryPacket.subgraph.nodes.length}`)
+  lines.push(`- subgraph edges: ${result.queryPacket.subgraph.edges.length}`)
+  lines.push(`- path packets: ${result.pathPackets.length}`)
+  lines.push('', '## Fallback')
+  lines.push(`- overview: \`${result.fallback.overview}\``)
+  lines.push(`- map: \`${result.fallback.map}\``)
+  lines.push(`- retrieval-audit: \`${result.fallback.retrievalAudit}\``)
+  lines.push(`- grep: \`${result.fallback.grep}\``)
+  lines.push('', '## Notes')
+  lines.push('- cue-only: this Markdown explains structural evidence labels, not meaning or sufficiency.')
+  lines.push('- read-evidence: this output does not satisfy read evidence; inspect real records/source/tests before relying on it.')
+  lines.push('- boundary: LLM/searcher remains the semantic authority; this helper does not decide actions or policy status.')
+  if (result.pathPackets.length === 0 && result.coverage.gaps.includes('no-path-evidence')) {
+    lines.push('- phase boundary: path-backed explain statements remain a future slice; `--include-paths` currently records `no-path-evidence`.')
+  }
+  return `${lines.join('\n')}\n`
+}
+
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
   if (args.command === 'explain') {
     const result = buildGraphExplain(args.root, args.query, args.limit, args.maxStatements, args.includePaths, args.fresh)
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    if (args.format === 'json') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+    else process.stdout.write(renderExplainMarkdown(result))
     return
   }
   if (args.command === 'path') {
@@ -1274,4 +1322,4 @@ function main(): void {
 
 if (import.meta.main) main()
 
-export { buildGraphQuery, buildGraphPath, buildGraphExplain, type GraphQueryResult, type GraphPathResult, type GraphExplainResult }
+export { buildGraphQuery, buildGraphPath, buildGraphExplain, renderExplainMarkdown, type GraphQueryResult, type GraphPathResult, type GraphExplainResult }
