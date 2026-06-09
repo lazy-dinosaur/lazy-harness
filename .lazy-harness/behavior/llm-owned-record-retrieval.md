@@ -100,6 +100,16 @@ Then `lazy map --overview` must run as a standalone sequential tool call, not in
 And dependent `lazy map <term>`, grep, source reads, or record reads must be chosen only after the overview is available.
 Independent reads chosen after the overview may still be batched.
 
+### Scenario 8 — Dynamic write/read loop treats graph as cue, not truth
+
+Given an agent is iterating through search, record/source edits, validation, and follow-up reads
+And generated graph/query/explain output suggests ranked candidates
+When the agent has just changed records, source, tests, manifests, or graph rows
+Then the agent may use graph output as a routing accelerator only
+And must read the changed canonical records/source/tests directly before relying on the result
+And must run focused validation when implementation or record truth changed
+And must not treat generated graph state as fresher than the canonical files.
+
 ## Usability checks
 
 - The behavior should make it obvious to an agent that metadata is a navigation aid, not an answer.
@@ -132,6 +142,7 @@ Independent reads chosen after the overview may still be batched.
   5. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
   6. Confirmed missing knowledge is persisted into records.
   7. Search-time and final verification-time checks include related layer records so “SDD/TDD only” does not silently pass when DDD/BDD/SSOT are linked.
+  8. In dynamic write/read loops, graph/query/explain cues may narrow candidate paths, but canonical records/source/tests and validation remain the source of truth after mutation.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.

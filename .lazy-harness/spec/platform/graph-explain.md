@@ -81,6 +81,18 @@ Current boundary:
 
 - The benchmark is measurement-only and cue-only; it does not become semantic authority or required-read policy.
 
+## Dynamic write/read workflow boundary
+
+User-confirmed direction (2026-06-09): lazy-harness agents are expected to continuously search, read, write records/source, run validation, and search/read again. In that loop, generated graph/query/explain output is useful as a fast ranked cue surface, but it is not the source of truth.
+
+Contract:
+
+- `graph query`, `graph path`, and `graph explain` may accelerate navigation through ranked/cited generated graph context.
+- They must remain stale-cache-safe: a generated graph result can be behind recently edited records/source/tests until indexes are rebuilt.
+- After any mutation, agents must read the changed canonical records/source/tests and run focused validation rather than trusting generated graph state.
+- Future Graphify-style watch, MCP, daemon, or generated graph export work must preserve this cue-only/non-canonical boundary.
+- The preferred architecture for dynamic LLM write/read loops is hybrid: Graphify-style cue graph plus canonical record/source/test reads plus validation gates.
+
 ## Output shape, Phase 1 JSON
 
 JSON output must include:

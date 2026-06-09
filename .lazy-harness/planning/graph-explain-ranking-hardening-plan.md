@@ -274,3 +274,36 @@ Implemented on 2026-06-09.
 - Primary record: `.lazy-harness/planning/graph-explain-ranking-hardening-plan.md`
 - Why not AGENTS.md: this is an implementation plan and acceptance criteria, not always-loaded prompt grammar.
 - Why not `.jcode`: shared framework retrieval architecture work, not local/private Jcode preference.
+
+## Dynamic LLM write/read workflow comparison discovery
+
+Discovery date: 2026-06-09
+Status: user-confirmed
+
+Question:
+
+- Is the Graphify-style generated graph approach better than the current lazy-harness hybrid approach for an LLM that continuously reads, writes, updates records, runs tests, and reads again?
+
+Current judgment:
+
+- Pure Graphify-style generated graph is strong for repository exploration, cached query/path/explain, and compact subgraph navigation.
+- Pure generated-graph-as-truth is risky in dynamic LLM write loops because recently edited files, renamed paths, updated records, or changed tests can make the generated graph stale until a rebuild/watch cycle catches up.
+- The lazy-harness hybrid approach is better for this framework's dynamic workflow: generated graph/query/explain is a cue and routing accelerator, while canonical truth remains real records/source/tests plus focused validation.
+- Therefore the preferred architecture is not "Graphify vs records" but "Graphify-style cue graph + canonical record/source/test reads + validation gates".
+
+Operational implication:
+
+- Keep graph/query/explain fast, compact, ranked, and cited.
+- Do not let graph output satisfy read evidence or semantic sufficiency.
+- After mutation, read the changed canonical files and rerun focused validation rather than trusting generated graph state.
+- Any future watch/MCP/daemon adoption must preserve the cue-only/non-canonical boundary and stale-cache safety checks.
+
+Discovery capture:
+
+- DDD: none.
+- SDD: candidate/update — graph explain/query contracts should continue to state generated graph output is cue-only and non-canonical in dynamic write loops.
+- BDD: candidate/update — LLM-owned record retrieval should treat graph output as a routing accelerator, not the source of truth.
+- TDD: candidate/update — stale generated graph/cache behavior should remain guarded by read-only/no-mutation and real-file validation checks.
+- ADR: candidate — vendoring Graphify/watch/MCP would require a separate ADR because it changes runtime architecture and cache freshness assumptions.
+- SSOT: candidate/update — `cli-tool-boundary.md` remains the controlling boundary: CLI tools may assist retrieval but must not determine semantic action.
+- Planning: updated — this section records the preferred hybrid direction for dynamic LLM write/read workflows.

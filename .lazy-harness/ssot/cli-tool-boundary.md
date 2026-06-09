@@ -54,6 +54,17 @@ Meaning:
 - A CLI may say “this index has these paths/rows/matches”; it must not say “this is the user’s meaning” or “this is the complete semantic answer.”
 - Empty or partial CLI output is not proof that no relevant knowledge exists. The LLM/searcher must use overview, multiple candidate tokens, fallback grep/source reads, and option gates when evidence is incomplete.
 
+## Dynamic write/read generated graph boundary — 2026-06-09
+
+User-confirmed direction: lazy-harness agents routinely search, write, modify, validate, and search/read again. In that loop, generated graph/index/cache outputs are allowed retrieval accelerators, not canonical truth.
+
+Boundary:
+
+- `lazy map`, `record-index`, `graph query`, `graph path`, `graph explain`, and benchmark packets may route the LLM/searcher toward likely records/source/tests.
+- Generated graph/index/cache state may be stale relative to just-edited canonical files.
+- After mutation, the LLM/searcher must read the changed canonical records/source/tests and run validation instead of trusting generated graph state.
+- Any future Graphify-style watch, MCP, daemon, or graph export integration must keep generated graph output as cue-only and must not become lifecycle semantic authority.
+
 Rule placement:
 
 - Rule: The LLM/searcher is the search engine and semantic authority; CLI is a deterministic tool/index/cue provider.
