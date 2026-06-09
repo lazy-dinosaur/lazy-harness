@@ -6955,7 +6955,7 @@ def check_message_received_hook_context_injection() -> None:
             fail(f"compact message.received prompt too large: {token_estimate} estimated tokens > 600\n" + output)
 
         for phrase in [
-            "STOP. Harness-first search/read debt before response.",
+            "REMINDER. Harness-first search/read debt before response.",
             "harness-first-static",
             "static transport; no user-text classification; no CLI/index semantic authority",
             "inspect real `.lazy-harness` records/source/tests in this host root",
@@ -7250,7 +7250,7 @@ def check_tool_execute_before_hook() -> None:
                 ]}}
             ],
         }, 0, ""),
-        ("batch-overview-with-query-deny", {
+        ("batch-overview-with-query-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_batch_overview",
             "tool": {"name": "batch", "args": {"tool_calls": [
@@ -7258,8 +7258,8 @@ def check_tool_execute_before_hook() -> None:
                 {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map 'retrieval coverage audit' --format=md --limit=8"}},
             ]}},
             "recent_tool_calls": [],
-        }, 1, "Overview-first batch guard"),
-        ("multi-tool-overview-parallel-deny", {
+        }, 0, ""),
+        ("multi-tool-overview-parallel-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_parallel_overview",
             "tool": {"name": "multi_tool_use.parallel", "args": {"tool_uses": [
@@ -7267,7 +7267,7 @@ def check_tool_execute_before_hook() -> None:
                 {"recipient_name": "functions.read", "parameters": {"file_path": ".lazy-harness/behavior/llm-owned-record-retrieval.md"}},
             ]}},
             "recent_tool_calls": [],
-        }, 1, "Overview-first batch guard"),
+        }, 0, ""),
         ("apply-patch-src-no-search-deny", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_apply_patch",

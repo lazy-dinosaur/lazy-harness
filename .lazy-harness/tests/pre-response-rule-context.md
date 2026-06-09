@@ -36,7 +36,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 1. Non-empty smalltalk and implementation-like messages render identical prompt bodies.
 2. Empty message produces no output.
 3. Rendered body contains:
-   - `STOP. Harness-first search/read debt before response.`
+   - `REMINDER. Harness-first search/read debt before response.`
    - `harness-first-static`
    - `static transport; no user-text classification`
    - `no CLI/index semantic authority`

@@ -182,7 +182,7 @@ def harness_inventory_lines() -> list[str]:
 
 
 body = '\n'.join([
-    'STOP. Harness-first search/read debt before response.',
+    'REMINDER. Harness-first search/read debt before response.',
     f'- Instruction: {level}; static transport; no user-text classification; no CLI/index semantic authority.',
     '- Before answer/plan/edit: inspect real `.lazy-harness` records/source/tests in this host root; stay read-only until debt is satisfied.',
     f'- Search scope: `{search_hint}`',

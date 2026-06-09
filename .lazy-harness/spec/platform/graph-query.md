@@ -32,8 +32,8 @@ Related Planning: `.lazy-harness/planning/graph-query-prototype-implementation-p
   - cap output by `--limit` and prototype depth by `--depth` max 2
   - state that LLM/searcher remains the semantic authority and must read real evidence
 - Must not:
-  - replace `lazy map`, `retrieval-audit`, or overview-first behavior
-  - relax/remove overview hard block or change lifecycle/prompt reminder behavior
+  - replace `lazy map`, `retrieval-audit`, or overview-first advisory behavior
+  - change lifecycle/prompt reminder behavior as part of graph-query work
   - vendor Graphify/Python, add Go/Rust, add MCP/daemon, or add persistent service
   - mutate canonical records, generated indexes, runtime journals, or user memory
   - decide user intent, risk, confidence, gates, required reads, next action, or candidate meanings

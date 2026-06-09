@@ -26,7 +26,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - validate with focused graph-path commands and full framework self-test
   - sync downstream hosts after committing framework changes
 - Must not:
-  - change lifecycle policy, overview hard block, prompt reminders, option gate rules, or read-debt semantics
+  - change lifecycle policy, overview advisory behavior, prompt reminders, option gate rules, or read-debt semantics
   - implement Graphify MCP/daemon/watch/export/wiki behavior
   - vendor Graphify/Python or introduce another runtime
   - add semantic authority fields or next-action recommendations

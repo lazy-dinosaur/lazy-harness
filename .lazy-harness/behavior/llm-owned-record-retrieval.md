@@ -21,7 +21,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - retrieved metadata conflicts, is incomplete, or could be mistaken for semantic authority
 - Must:
   - use metadata as a starting cue only
-  - run `lazy map --overview` as a standalone sequential call before dependent follow-up queries/reads
+  - prefer `lazy map --overview` as the first inventory call before choosing dependent follow-up queries/reads
   - treat `lazy map` output as drill-down candidates, not evidence that anything was read
   - read the real record body/Rule digest/Implementation map before relying on a record
   - inspect source/tests when a plan or mutation depends on implementation facts
@@ -29,7 +29,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - create or update durable records after user confirmation when missing host knowledge is found
 - Must not:
   - answer or mutate based only on cache/header existence
-  - put `lazy map --overview` inside `batch` or `multi_tool_use.parallel` with dependent query/read work
+  - treat batched `lazy map --overview` output as proof that dependent follow-up calls were evidence-informed or read-satisfying
   - treat metadata field names as requiredRead, confidence, risk, gate, or next-action output
   - skip DDD/BDD impact when a new retrieval concept or behavior appears
 - Record completion:
@@ -92,13 +92,13 @@ When an agent/searcher uses `lazy map`, `record-index`, or `lazy retrieval-audit
 Then those related record paths must be surfaced as cue-only candidates
 And the agent checks whether any impacted DDD/BDD/SDD/TDD/ADR/SSOT records are missing before writing records, committing, or reporting completion.
 
-### Scenario 7 — Overview-first calls are not batched with dependent work
+### Scenario 7 — Overview-first guidance is advisory, not a tool block
 
 Given `lazy map --overview` is the required first inventory step
 When an agent/searcher has not yet inspected the overview output
-Then `lazy map --overview` must run as a standalone sequential tool call, not inside `batch` or `multi_tool_use.parallel`
-And dependent `lazy map <term>`, grep, source reads, or record reads must be chosen only after the overview is available.
-Independent reads chosen after the overview may still be batched.
+Then the agent/searcher should prefer a standalone sequential overview before choosing dependent `lazy map <term>`, grep, source reads, or record reads
+But `batch` or `multi_tool_use.parallel` tool shapes containing `lazy map --overview` are not hard-blocked
+And the generic search/read evidence guard still blocks mutation until root-bound record/source/test evidence exists.
 
 ### Scenario 8 — Dynamic write/read loop treats graph as cue, not truth
 
@@ -126,18 +126,18 @@ And must not treat generated graph state as fresher than the canonical files.
   - `.lazy-harness/scripts/record-map.ts` — read-only `lazy map` implementation that lists cue-only candidates.
   - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — read-only coverage audit that surfaces related-record candidates plus structural coverage gaps.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — injects static search/read debt reminder.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — pre-action shape guard that denies batching the overview call with dependent work.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — retired compatibility no-op for the old overview batch hard block.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — guards mutation until evidence exists.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — schedules the layer package.
 - Key symbols:
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — emits candidate records/source/tests/graph ids without semantic-authority fields.
   - `extractTopLevelRelatedRecords` (`.lazy-harness/scripts/record-index.ts`) — parses `Related <Layer>:` links as cue-only related-record paths.
   - `buildAudit` (`.lazy-harness/scripts/retrieval-coverage-audit.ts`) — includes related-record paths during coverage audit without becoming semantic authority.
-  - `check-overview-batch-order.py` — inspects the current tool-call shape only; it denies `batch`/`multi_tool_use.parallel` containing `lazy map --overview`.
+  - `check-overview-batch-order.py` — compatibility helper that intentionally emits no deny output; batching policy is advisory while mutation safety stays in `check-read-debt-permit.py`.
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
   2. `lazy map --overview` shows whole structure before term selection.
-  3. The overview call is standalone and sequential; it must not be grouped with dependent follow-up queries/reads in a batch.
+  3. Standalone sequential overview remains preferred, but read-only batch/parallel tool shapes are allowed and must not be treated as evidence reads by themselves.
   4. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers may suggest dispersed candidate records or files.
   5. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
   6. Confirmed missing knowledge is persisted into records.
@@ -147,7 +147,7 @@ And must not treat generated graph state as fresher than the canonical files.
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.
   - `.lazy-harness/tests/retrieval-coverage-audit.md` — protects cross-layer related-record candidates and missing-completeness checks.
-  - `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — protects overview-batch denial and permits independent batched reads.
+  - `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — protects removal of the overview-batch hard block while preserving generic mutation evidence denial.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`

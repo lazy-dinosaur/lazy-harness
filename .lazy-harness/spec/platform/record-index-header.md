@@ -25,13 +25,13 @@ Related SDD: `.lazy-harness/spec/platform/record-digest-format.md`
   - keep Index Header fields as searchability/storage cues only
   - require real record body, Rule digest, Implementation map, source, and test reads before an agent relies on a record
   - cite DDD terms and BDD behavior scenarios when changing the header contract
-  - preserve `lazy map --overview` as a standalone sequential inventory step before dependent follow-up queries/reads
+  - preserve `lazy map --overview` as the recommended first inventory step before dependent follow-up queries/reads
   - keep generated cache output non-canonical and rebuildable
   - allow `lazy map` aggregate token fallback for long composite cues only as a cue-only drill-down aid when terms are spread across indexed fields
   - keep parser/cache implementation blocked until SCR-401 naming/scope approval
 - Must not:
   - define any raw-user-message query interface
-  - allow `lazy map --overview` to be batched with dependent `lazy map <term>`, grep, read, or retrieval-audit calls
+  - treat any batched `lazy map --overview` output as read evidence or semantic authority by itself
   - define required-read, optional-read, confidence, intent, risk, gate, next-action, or candidate-meaning fields
   - allow a cache/header hit to satisfy evidence debt by itself
   - rank, infer, or decide what the user means from the header alone
@@ -151,7 +151,7 @@ Implementation constraints:
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — SCR-303/304/305/401/402 status.
   - `.lazy-harness/scripts/record-index.ts` — deterministic record/source cache generator that indexes Rule digest, Implementation map, feature-navigation, graph ids, and top-level `Related <Layer>:` paths.
   - `.lazy-harness/scripts/record-map.ts` — read-only CLI overview/drill-down helper that shows whole structure before search-term selection and then uses fresh generated `record-index.json` cache plus graph rows as cue-only drill-down candidates, falling back to source rebuild when cache is missing/stale/invalid or `--fresh` is passed; long composite queries may use aggregate token fallback across indexed fields as cue-only findability.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — pre-action shape guard for overview-first sequential ordering.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — retired compatibility no-op for the old overview-first batch hard block.
   - `.lazy-harness/manifests/init-categories.json` — syncs DDD/BDD/SDD/TDD retrieval/index foundation records so downstream hosts can discover the guard and contracts, not only the helper code.
   - `.lazy-harness/bin/lazy` — exposes `lazy map` and `lazy record-index`.
 - Key symbols:
@@ -160,7 +160,7 @@ Implementation constraints:
   - `buildRecordMapOverview` (`.lazy-harness/scripts/record-map.ts`) — returns whole record/feature/graph structure for search-term selection.
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — returns feature/record/graph matches and drill-down record/source/test candidates.
   - `addAggregateFallbackMatches` (`.lazy-harness/scripts/record-map.ts`) — when no strict field match exists, matches long composite cues across indexed fields and emits `aggregateTokenFallback` cue-only matched fields.
-  - `check-overview-batch-order.py` — denies current `batch`/`multi_tool_use.parallel` calls containing `lazy map --overview`.
+  - `check-overview-batch-order.py` — compatibility helper that exits successfully without output so overview batching is not a tool block.
   - `init-categories.json` Category A entries — copy `domain/searchable-record-memory.md`, `behavior/llm-owned-record-retrieval.md`, `spec/platform/record-index-header.md`, and `tests/record-index-header.md` into downstream hosts.
   - `RecordIndex` — generated cache TypeScript interface.
   - `.lazy-harness/bin/lazy record-index` — canonical CLI command.
@@ -179,7 +179,7 @@ Implementation constraints:
   9. Independent reads or searches chosen after the overview may be batched when they no longer depend on unavailable overview output.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, standalone `lazy map --overview` ordering, foundation record sync manifest entries, repeated `lazy map` drill-down output guidance, aggregate token fallback for long composite cues, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, deleted helper absence, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, advisory `lazy map --overview` ordering, foundation record sync manifest entries, repeated `lazy map` drill-down output guidance, aggregate token fallback for long composite cues, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, compatibility helper no-op behavior, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`
@@ -195,7 +195,7 @@ Implementation constraints:
 - DDD: already updated in `.lazy-harness/domain/searchable-record-memory.md`.
 - BDD: already updated in `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
 - SDD: this record defines the contract.
-- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation, top-level Related path parsing, overview-batch denial, aggregate token fallback, plus `lazy map` drill-down checks.
+- TDD: `.lazy-harness/tests/record-index-header.md` defines fixtures and `.lazy-harness/scripts/self-test.py` implements record-index generation, top-level Related path parsing, overview-batch advisory/no-op compatibility, aggregate token fallback, plus `lazy map` drill-down checks.
 - Sync: `init-categories.json` must seed the DDD/BDD/SDD/TDD foundation record package to downstream hosts.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` records SCR-402 record-index-only boundary.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.

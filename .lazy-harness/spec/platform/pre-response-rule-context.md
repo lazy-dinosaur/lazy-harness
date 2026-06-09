@@ -122,7 +122,7 @@ The hook may output JSON:
 {
   "action": "allow",
   "inject": {
-    "body": "STOP. Harness-first search/read debt before response.\n- ...",
+    "body": "REMINDER. Harness-first search/read debt before response.\n- ...",
     "format": "system_reminder"
   }
 }
@@ -142,7 +142,7 @@ Semantics:
 1. resolve host root,
 2. parse payload,
 3. avoid all user-text semantic classification in shell/CLI code; the hook must not branch on words such as `fix`, `test`, `고쳐`, or `확인`,
-4. emit the same compact `STOP. Harness-first search/read debt before response.` static transport for any non-empty user message,
+4. emit the same compact `REMINDER. Harness-first search/read debt before response.` static transport for any non-empty user message,
 5. include bounded actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning/Plans/Project/Knowledge counts, generated-index presence, graph/candidate/project navigation pointers, and source/test/doc directory presence, without dumping per-layer samples,
 6. keep the compact prompt under the normal 200-600 token target for framework source dogfood when feasible and under the 1,000-token hard ceiling for normal hosts,
 7. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,

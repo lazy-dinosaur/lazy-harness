@@ -25,10 +25,11 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - use existing inputs only: `knowledge/graph.jsonl`, `record-index`, optional `implementation-index`
   - preserve canonical record/source/test authority and generated/non-canonical boundary
   - measure tokens, tool count, latency, missed-layer rate, and false-block impact before changing lifecycle/batch policy
+  - note: the prototype slice completed without relaxing lifecycle/batch policy; a later user-confirmed 2026-06-09 policy audit retired the overview-batch hard block separately.
   - sync and verify downstream hosts after committed framework changes
 - Must not:
   - replace `lazy map`, `retrieval-audit`, or overview-first behavior in the prototype slice
-  - relax/remove `check-overview-batch-order.py` in the prototype slice
+  - relax/remove `check-overview-batch-order.py` in the prototype slice; post-prototype policy changes must update BDD/SDD/TDD/graph rows separately
   - inject graph/overview packets into reminders in the prototype slice
   - vendor Graphify/Python, add Go/Rust, add MCP/daemon, or add persistent service in the prototype slice
   - treat graph query output as semantic authority or required-read proof
@@ -159,11 +160,11 @@ Update `.lazy-harness/bin/lazy`:
 - case:
   - `graph)` routes to `bun "$SCRIPTS/graph-query.ts" --root "$HOST_ROOT" "$@"`
 
-### 1.3 No lifecycle changes
+### 1.3 No lifecycle changes in prototype slice
 
 Do not touch:
 
-- `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py`
+- `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` during the prototype slice; this helper was later retired into a no-op after a separate user-confirmed policy audit
 - message reminder injection
 - response.completed lifecycle behavior
 
@@ -253,10 +254,10 @@ Only after prototype + benchmark:
   - propose `lazy graph path`
   - propose `lazy graph explain`
   - propose compact overview packet
-  - propose relaxing hard overview batch block to context-aware warning/deny
+  - propose further read-only overview workflow compression without changing mutation evidence guards
 - If graph query is not better:
   - keep current `lazy map`/`retrieval-audit`
-  - do not relax overview hard block
+  - keep overview-first advisory behavior
   - document why Graphify-style retrieval was not justified
 
 ## Non-deviation checklist
@@ -264,7 +265,7 @@ Only after prototype + benchmark:
 Before every implementation commit, verify:
 
 - [x] No lifecycle policy changed.
-- [x] No overview hard block changed.
+- [x] No overview policy changed in this graph-query slice; later 2026-06-09 policy audit retired the old overview-batch hard block separately.
 - [x] No prompt/reminder packet injection added.
 - [x] No Graphify/Python vendoring added.
 - [x] No Go/Rust runtime added.

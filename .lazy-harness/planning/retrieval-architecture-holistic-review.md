@@ -146,10 +146,7 @@ Recommended: **D + C, then reassess B**.
    - `lazy graph path <from> <to>`
    - output compact cited subgraph/context packet
 2. Add a compact overview digest to reminder or lifecycle packet, not full overview.
-3. Once the agent has either compact overview or graph query context available, change hard overview-batch denial into a more nuanced rule:
-   - deny only when no overview/context packet exists,
-   - warn when overview is batched but no dependent evidence read follows,
-   - allow parallel reads after packet/overview evidence exists.
+3. Completed follow-up on 2026-06-09 after user-confirmed policy audit: the hard overview-batch denial was retired into a compatibility no-op, while mutation safety remains in the generic search/read evidence guard.
 
 ## Scope sizing
 
@@ -175,7 +172,7 @@ This first slice is **medium-small** because it is additive, read-only, and can 
 It becomes a large architectural change only when one of these happens:
 
 - Replace overview-first policy with graph-query-first policy.
-- Relax or remove `check-overview-batch-order.py` hard block.
+- Reintroduce any hard block for read-only overview batching.
 - Inject compact overview/graph packets into every reminder/prompt.
 - Add a persistent daemon/MCP server.
 - Vendor Graphify or introduce Python/Go/Rust runtime dependencies.
@@ -206,7 +203,7 @@ Therefore: implement `lazy graph query` as an additive TS/Bun prototype first, b
   - `.lazy-harness/scripts/record-map.ts` — current 1-hop overview/drill-down CLI.
   - `.lazy-harness/scripts/record-index.ts` — generated record/source cache.
   - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — structural coverage audit.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — current hard batch guard.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — retired compatibility no-op for the old hard batch guard.
   - `.lazy-harness/planning/graph-index-migration-considerations.md` — Graphify source-verified constraints.
   - `.lazy-harness/planning/jcode-graph-memory-tool-integration.md` — graph memory tool concept.
   - future `.lazy-harness/scripts/graph-query.ts` or `.lazy-harness/scripts/index-query.ts` — deep query/path/explain prototype.
