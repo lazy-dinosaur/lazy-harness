@@ -525,6 +525,11 @@
           "description": "SSOT for Capability Registry kind/level separation and non-blocking Phase 1 behavior. Host-specific capabilities.json remains host-owned."
         },
         {
+          "path": "ssot/pi-mcp-parity.md",
+          "kind": "file",
+          "description": "SSOT for non-secret Pi MCP adapter parity with Jcode MCP servers: config paths, server names, conversion rules, backup, and validation commands."
+        },
+        {
           "path": "knowledge/",
           "kind": "directory",
           "glob": [
