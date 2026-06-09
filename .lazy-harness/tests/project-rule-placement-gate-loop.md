@@ -16,6 +16,8 @@ Additional observed symptom on 2026-05-19: a different session answered the gate
 
 Additional observed symptom on 2026-05-21: the helper's own `STOP. Project rule placement gate` reminder was surfaced back into a later turn as `last_user_message`. Because the message includes rule/action/placement cues, the helper interpreted its own reminder as a fresh user request and re-injected the same gate across turns. This fix is intentionally narrow: only recognizable helper-generated STOP reminder text is ignored; real user project-rule changes still gate.
 
+Additional observed symptom on 2026-06-09: the self-test runner for `check-project-rule-placement.sh` can inherit an outer lazy/Jcode runtime session environment, while the test cleanup deletes only the deterministic default `open-gates.json`. That mismatch makes the duplicate same-turn fixture flaky because first and second fires may read/write a different runtime state file than the cleanup target.
+
 ## Root cause
 
 - Jcode production payload shape is a constraint: `response.completed` does not reliably include assistant response text.
@@ -32,6 +34,8 @@ Primary ownership: lazy-harness hook behavior. Jcode payload shape is an input c
 
 2026-05-21 addendum: the helper exits silently when the input is its own STOP reminder echoed back by the harness UI. This prevents cross-turn self-triggering without weakening normal project-rule placement detection.
 
+2026-06-09 addendum: `run_project_rule_placement_helper` now uses `env_without_lazy_runtime()` when spawning the helper, so the fixture uses the deterministic default runtime state and duplicate-suppression cleanup is reliable.
+
 Expected behavior:
 
 1. First derived project-rule placement gate for a `(message_id, fingerprint)` emits STOP.
@@ -47,6 +51,7 @@ Expected behavior:
 - TDD: `check_project_rule_placement_helper` protects first fire, same-turn suppression, and new-turn re-fire without `assistant_response`.
 - TDD: `check_project_rule_placement_helper` also protects non-applicable/no-record judgement and Korean `기록하지 않음` false-positive cases.
 - TDD: `check_project_rule_placement_helper` also protects echoed self-reminder text (`STOP. Project rule placement gate`) so helper output does not become new input.
+- TDD: `run_project_rule_placement_helper` also protects helper fixture runtime isolation by clearing inherited lazy/Jcode runtime environment.
 - ADR: no new ADR; existing option-gate discipline and project-rule router decisions cover the trade-off.
 
 ## Implementation map
@@ -62,6 +67,7 @@ Expected behavior:
   - `gate_already_open_this_turn` (`check-project-rule-placement.sh`) — duplicate suppression function.
   - `has_rule_placement_judgement` (`check-project-rule-placement.sh`) — accepts full placement judgement and completed no-op judgement.
   - `check_project_rule_placement_helper` (`self-test.py`) — validates first fire, duplicate same-turn silence, and new-turn re-fire.
+  - `run_project_rule_placement_helper` (`self-test.py`) — invokes helper with inherited lazy runtime env cleared.
 - Flow:
   1. Project rule placement cues are detected and no complete placement/canonical record update satisfies the gate.
   2. Helper computes fingerprint from `last_user_message`, relevant tool-call blobs, and derived cue booleans.
@@ -76,4 +82,4 @@ Expected behavior:
   - SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md`
   - SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
 - Machine index:
-  - graph ids: `kg_tdd_project_rule_placement_gate_loop`, `kg_hook_project_rule_placement_fingerprint_suppression`, `kg_test_project_rule_placement_fingerprint_suppression`
+  - graph ids: `kg_tdd_project_rule_placement_gate_loop`, `kg_hook_project_rule_placement_fingerprint_suppression`, `kg_test_project_rule_placement_fingerprint_suppression`, `kg_test_project_rule_placement_env_isolation_20260609`

@@ -97,6 +97,8 @@ The helper must avoid false positives on casual mentions of AGENTS.md or `.jcode
 
 The helper must also avoid same-turn repeated STOP reminders. Production Jcode `response.completed` payloads may not include `assistant_response`, so the helper can repeatedly derive the same project-rule placement gate from stable fields such as `last_user_message` and `recent_tool_calls`. When it emits a derived gate, it records a deterministic `project-rule-placement:<fingerprint>` entry in `$LAZY_RUNTIME_ROOT/state/open-gates.json`; the same `(message_id, fingerprint)` exits silently, while a new `message_id` may re-fire.
 
+Self-test runners for this helper must clear inherited lazy runtime/session environment before invoking `check-project-rule-placement.sh`, so fixture duplicate-suppression state is read from the deterministic default runtime path rather than an outer Jcode session path.
+
 Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into `.jcode`.
 
 Existing user-owned `.jcode/harness/20-project-rules.md` files that predate pointer-only behavior are migrated by Jcode wiring: the active file becomes the generated pointer-only note, and the previous content is archived under `.jcode/archive/20-project-rules.pre-pointer-only-migration.md` so it is not loaded as active harness instructions.
@@ -130,6 +132,7 @@ Existing user-owned `.jcode/harness/20-project-rules.md` files that predate poin
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
   - focused: `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper` validates first fire, same-turn suppression, and new-turn re-fire without `assistant_response`.
+  - focused: `.lazy-harness/scripts/self-test.py` `run_project_rule_placement_helper` invokes the helper with `env_without_lazy_runtime()` so duplicate-suppression fixtures do not inherit outer Jcode runtime/session state.
 - Cross-layer links:
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md`

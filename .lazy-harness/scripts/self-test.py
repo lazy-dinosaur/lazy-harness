@@ -466,6 +466,7 @@ def run_project_rule_placement_helper(payload: dict) -> str:
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh", json.dumps(payload)],
         cwd=ROOT,
+        env=env_without_lazy_runtime(),
         text=True,
         capture_output=True,
         check=False,
@@ -5607,6 +5608,18 @@ def check_graph_explain_cli() -> None:
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "graph explain <term-or-file>" not in help_text:
         fail("lazy help must advertise graph explain command")
+    subcommand_help = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "graph", "explain", "--help"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    combined_help = help_text + subcommand_help.stdout + subcommand_help.stderr
+    if "graph explain JSON/Markdown/path-backed structural packet" not in combined_help:
+        fail("graph explain help must advertise path-backed structural packet after Phase 3")
+    if "graph explain path-backed statements" in combined_help:
+        fail("graph explain help must not advertise path-backed support as unsupported after Phase 3")
 
     sdd_text = sdd_path.read_text(encoding="utf-8")
     for phrase in [
@@ -5686,12 +5699,128 @@ def check_graph_explain_cli() -> None:
         fail("graph explain missing embedded graph-query packet")
     assert_no_forbidden_keys(explained)
 
-    path_requested = json.loads(run_explain("workflow compression not safety reduction", "--format=json", "--include-paths", "--limit=8").stdout)
-    if "no-path-evidence" not in path_requested.get("coverage", {}).get("gaps", []):
-        fail("graph explain Phase 1 include-paths should report no-path-evidence")
-    if path_requested.get("pathPackets") != []:
-        fail("graph explain Phase 1 should not emit pathPackets")
+    path_requested = json.loads(run_explain("workflow compression not safety reduction", "--format=json", "--include-paths", "--limit=8", "--max-statements=8").stdout)
+    if "no-path-evidence" in path_requested.get("coverage", {}).get("gaps", []):
+        fail("graph explain Phase 3 include-paths should attach path evidence when indexed paths exist")
+    path_packets = path_requested.get("pathPackets", [])
+    if not path_packets:
+        fail("graph explain Phase 3 should emit pathPackets")
+    if not any(packet.get("mode") == "graph-query.path" and packet.get("paths") for packet in path_packets):
+        fail("graph explain pathPackets should include at least one linked graph path packet")
+    path_supports = [
+        support
+        for statement in path_requested.get("statements", [])
+        for support in statement.get("support", [])
+        if support.get("kind") == "path"
+    ]
+    if not path_supports:
+        fail("graph explain include-paths should add path support statements")
+    if any(support.get("relation") == "bounded_path" for support in path_supports):
+        fail("graph explain path support must not invent bounded_path for zero-edge/self paths")
+    edge_backed_packets = [packet for packet in path_packets if any(path.get("edges") for path in packet.get("paths", []))]
+    if not edge_backed_packets:
+        fail("graph explain include-paths should expose at least one edge-backed path packet")
+    zero_edge_only_targets = {
+        packet.get("to")
+        for packet in path_packets
+        if packet.get("paths") and not any(path.get("edges") for path in packet.get("paths", []))
+    }
+    if any(support.get("path") in zero_edge_only_targets for support in path_supports):
+        fail("graph explain must not turn zero-edge/self path packets into path evidence")
     assert_no_forbidden_keys(path_requested)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-graph-explain-candidate-context-"))
+    try:
+        for subdir in ["spec", "ssot", "tests", "knowledge", "generated"]:
+            (temp / ".lazy-harness" / subdir).mkdir(parents=True, exist_ok=True)
+        (temp / ".lazy-harness" / "spec" / "retrieval-path-source.md").write_text(
+            "# Retrieval Path Source\n\n"
+            "Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - retrieval path source connects to cli boundary\n"
+            "- Must:\n"
+            "  - keep graph explain path support cue-only and read-only\n\n"
+            "## Implementation map\n\n"
+            "- Source: `.lazy-harness/scripts/graph-query.ts`\n"
+            "- Tests: `.lazy-harness/scripts/self-test.py`\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ssot" / "cli-tool-boundary.md").write_text(
+            "# CLI Tool Boundary\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SSOT\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph explain emits generated navigation context\n"
+            "- Must:\n"
+            "  - keep LLM/searcher as semantic authority\n"
+            "  - workflow compression not safety reduction downstream fallback cue\n",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "tests" / "graph-explain.md").write_text(
+            "# Graph Explain Regression\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: TDD\n"
+            "- Scope: host-project\n"
+            "- Applies when:\n"
+            "  - graph explain protects candidate_context output\n"
+            "- Must:\n"
+            "  - forbid semantic authority fields\n",
+            encoding="utf-8",
+        )
+        temp_graph_path = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        temp_graph_text = json.dumps({
+            "id": "kg_graph_explain_candidate_context_fixture",
+            "source": ".lazy-harness/spec/retrieval-path-source.md",
+            "relation": "specified_by",
+            "target": ".lazy-harness/ssot/cli-tool-boundary.md",
+            "path": ".lazy-harness/spec/retrieval-path-source.md",
+        }, ensure_ascii=False) + "\n" + json.dumps({
+            "id": "kg_workflow_compression_not_safety_reduction_explain_fixture",
+            "source": "user-confirmed fixture",
+            "relation": "defines_policy",
+            "target": "workflow compression not safety reduction",
+            "path": ".lazy-harness/decisions/missing-workflow-compression-not-safety-reduction.md",
+        }, ensure_ascii=False) + "\n"
+        temp_graph_path.write_text(temp_graph_text, encoding="utf-8")
+        temp_graph_before = temp_graph_path.read_text(encoding="utf-8")
+        candidate_completed = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph", "explain", "workflow compression not safety reduction", "--format=json", "--include-paths", "--limit=8", "--max-statements=8"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+        )
+        if candidate_completed.returncode != 0:
+            fail("graph explain candidate_context fixture failed:\n" + candidate_completed.stdout + candidate_completed.stderr)
+        try:
+            candidate_payload = json.loads(candidate_completed.stdout)
+        except Exception as exc:  # noqa: BLE001
+            fail(f"graph explain candidate_context output was not JSON: {exc}\n{candidate_completed.stdout[:1000]}")
+        candidate_statements = [
+            statement
+            for statement in candidate_payload.get("statements", [])
+            if any(support.get("kind") == "path" and support.get("relation") == "candidate_context" for support in statement.get("support", []))
+        ]
+        if not candidate_statements:
+            fail("graph explain candidate_context fixture missing candidate_context path support statement")
+        candidate_statement_text = "\n".join(statement.get("statement", "") for statement in candidate_statements)
+        if "appeared in the other query packet" not in candidate_statement_text:
+            fail("graph explain candidate_context statement must describe endpoint presence in the other query packet")
+        if "does not claim semantic connection" not in candidate_statement_text:
+            fail("graph explain candidate_context statement must preserve semantic boundary")
+        assert_no_forbidden_keys(candidate_payload)
+        if temp_graph_path.read_text(encoding="utf-8") != temp_graph_before:
+            fail("graph explain candidate_context fixture must not mutate canonical graph.jsonl")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
     gap = json.loads(run_explain("zzzz-missing-token", "--format=json", "--limit=8").stdout)
     if gap.get("resultState") != "gap" or "no-query-candidates" not in gap.get("coverage", {}).get("gaps", []):
@@ -5719,6 +5848,11 @@ def check_graph_explain_cli() -> None:
             fail("graph explain Markdown statement missing support/citations: " + line)
     if "reserved for the next implementation slice" in markdown:
         fail("graph explain Markdown still reports Phase 1 boundary")
+
+    markdown_with_paths = run_explain("workflow compression not safety reduction", "--format=md", "--include-paths", "--limit=8", "--max-statements=8").stdout
+    for phrase in ["## Path packets", "path packet 1:", "path-backed:"]:
+        if phrase not in markdown_with_paths:
+            fail("graph explain Markdown with paths missing phrase: " + phrase)
 
     if (graph_path.read_bytes() if graph_path.exists() else b"") != graph_before:
         fail("graph explain must not mutate canonical graph.jsonl")

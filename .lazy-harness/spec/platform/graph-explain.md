@@ -1,6 +1,6 @@
 # SDD — Graph Explain
 
-Status: accepted-phase2-markdown
+Status: accepted-phase3-path-backed
 Date: 2026-06-08
 Layer: SDD
 Related SDD: `.lazy-harness/spec/platform/graph-query.md`
@@ -32,7 +32,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdo
   - reuse existing graph query/path inputs and output contracts where possible
   - cap output by `--limit`, `--max-statements`, and optional path-depth controls
   - include explicit notes that output does not satisfy read evidence
-  - support JSON structural packets and Phase 2 Markdown rendering while keeping path-backed statements as a future slice
+  - support JSON structural packets, Markdown rendering, and optional path-backed statement support through bounded graph path packets
 - Must not:
   - emit `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
   - summarize or interpret user intent
@@ -43,7 +43,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdo
 - Record completion:
   - implementation changes must update this SDD, `.lazy-harness/tests/graph-explain.md`, `.lazy-harness/planning/graph-explain-implementation-plan.md`, `graph-query.ts`, self-test, manifest, graph rows, and downstream evidence together.
 
-## CLI contract, Phase 2 current
+## CLI contract, Phase 3 current
 
 Command:
 
@@ -57,14 +57,15 @@ Current flags:
 - `--format=md` — Phase 2 human-readable Markdown rendering of the same structural packet.
 - `--limit=N` — caps underlying query/path candidates; default `8`.
 - `--max-statements=N` — caps cited structural explanation statements; default `8`, max `20`.
-- `--include-paths` — accepted in Phase 1 as a boundary flag; output reports `no-path-evidence` and leaves `pathPackets` empty until Phase 3.
+- `--include-paths` — attaches bounded `GraphPathResult` packets for selected structural candidates when indexed paths exist; reports `no-path-evidence` only when no bounded path evidence is found.
 - `--fresh` — allowed only if it preserves read-only/non-mutating behavior for canonical records and generated caches.
 
 Current boundary:
 
-- `lazy graph explain` is supported for JSON structural packets and Phase 2 Markdown rendering.
-- Markdown rendering is supported as a Phase 2 view over the same structural packet.
-- Path-backed statements remain a Phase 3 boundary; `--include-paths` emits `no-path-evidence` with empty `pathPackets`.
+- `lazy graph explain` is supported for JSON structural packets, Markdown rendering, and optional path-backed statements.
+- Markdown rendering is a view over the same structural packet.
+- Path-backed statements are structural navigation cues only; they do not prove evidence was read, causality, correctness, risk, gate state, or next action.
+- Path-backed statements must use edge-backed paths only. Zero-edge/self paths may appear inside a bounded `pathPackets` payload, but they must not become `support.kind=path`, must not invent a `bounded_path` relation, and must not clear `no-path-evidence` by themselves.
 
 ## Output shape, Phase 1 JSON
 
@@ -84,7 +85,7 @@ JSON output must include:
     - `provenance`
   - `citations`: array of citation ids/paths repeated from support
 - `queryPacket`: compact selected fields from `GraphQueryResult`
-- `pathPackets`: empty array in Phase 1; future compact selected fields from `GraphPathResult` are Phase 3
+- `pathPackets`: empty unless `--include-paths`; with `--include-paths`, contains bounded `GraphPathResult` packets selected from graph-query candidates
 - `fallback`: overview/map/retrieval-audit/grep commands
 - `notes`: cue-only / generated-non-canonical / read-real-evidence reminders
 
@@ -139,24 +140,26 @@ Forbidden statement examples:
 - `You should do Y next.`
 - `This proves X caused Y.`
 
-## Implementation strategy, Phase 2 current
+## Implementation strategy, Phase 3 current
 
 1. Parse `graph explain <query>` as a supported JSON/Markdown command.
 2. Build a `GraphQueryResult` with existing `buildGraphQuery`.
 3. Convert seeds, matched fields, citations, and graph edges into bounded structural statements.
-4. Keep `--include-paths` as a boundary flag that reports `no-path-evidence` with empty `pathPackets` until Phase 3.
-5. Render `--format=md` via `renderExplainMarkdown` from the same JSON packet.
-6. Keep all JSON and Markdown statements compact, citation-backed, and support-backed.
+4. Implement `--include-paths` by selecting bounded graph-query candidate targets and calling `buildGraphPath` as cited structural support.
+5. Render `--format=md` via `renderExplainMarkdown` from the same JSON packet, including a `## Path packets` section.
+6. Convert only edge-backed paths into path support statements; do not promote zero-edge/self paths as evidence.
+7. Keep `candidate_context` wording limited to endpoint presence in the other graph-query packet and explicit non-semantic boundary language.
+8. Keep all JSON and Markdown statements compact, citation-backed, support-backed, and non-semantic.
 
 ## Implementation map
 
-- Status: implemented-phase2-markdown
+- Status: implemented-phase3-path-backed
 - Primary files:
   - `.lazy-harness/spec/platform/graph-explain.md` — this SDD.
   - `.lazy-harness/tests/graph-explain.md` — JSON/Markdown regression contract.
   - `.lazy-harness/planning/graph-explain-implementation-plan.md` — phased implementation plan.
-  - `.lazy-harness/scripts/graph-query.ts` — implements parser, Phase 1/2 types, `buildGraphExplain`, JSON output, and `renderExplainMarkdown`.
-  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` regression protection for JSON and Markdown.
+  - `.lazy-harness/scripts/graph-query.ts` — implements parser, `buildGraphExplain`, JSON output, `renderExplainMarkdown`, `explainPathTargets`, `buildExplainPathPackets`, and `pathPacketSupport`.
+  - `.lazy-harness/scripts/self-test.py` — implements `check_graph_explain_cli` regression protection for JSON, Markdown, `--include-paths` path packets, zero-edge/self path non-evidence, and `candidate_context` boundary wording.
   - `.lazy-harness/bin/lazy` — advertises graph explain JSON/Markdown.
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke validation capsule for source commit `dfd11ffe676500ad928c61789034835a81097ef1`.
   - `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` — downstream sync/smoke validation capsule for Phase 2 Markdown source commit `4208c85758fac89ff22b5edcddefad358d547d2a`.
@@ -166,9 +169,12 @@ Forbidden statement examples:
   - `GraphExplainSupport`
   - `buildGraphExplain`
   - `renderExplainMarkdown`
+  - `explainPathTargets`
+  - `buildExplainPathPackets`
+  - `pathPacketSupport`
   - `check_graph_explain_cli`
 - Current protection:
-  - `check_graph_explain_cli` verifies JSON shape, Markdown caveats/support/citations, support/citations on every statement, recursive forbidden-field absence, read-only behavior, and include-paths boundary.
+  - `check_graph_explain_cli` verifies JSON shape, Markdown caveats/support/citations, support/citations on every statement, recursive forbidden-field absence, read-only behavior, `--include-paths` path packet/support behavior, zero-edge/self path non-evidence, and `candidate_context` boundary wording.
   - `check_graph_query_cli` and `check_graph_path_cli` remain graph query/path regression protection.
 - Graph ids:
   - `kg_graph_explain_structural_design_20260608`
@@ -176,6 +182,8 @@ Forbidden statement examples:
   - `kg_graph_explain_phase1_self_test_20260608`
   - `kg_graph_explain_phase2_markdown_cli_20260609`
   - `kg_graph_explain_phase2_markdown_self_test_20260609`
+  - `kg_graph_explain_phase3_path_cli_20260609`
+  - `kg_graph_explain_phase3_path_self_test_20260609`
   - `kg_graph_explain_phase2_downstream_sync_20260609`
   - `kg_graph_explain_phase1_downstream_sync_20260608`
 
@@ -183,9 +191,9 @@ Forbidden statement examples:
 
 - DDD: no new domain entity; existing Searchable Record Memory still controls cue-only retrieval interpretation.
 - BDD: LLM-owned record retrieval behavior remains unchanged; explain output is cue-only.
-- SDD: this record defines the JSON/Markdown explain contract.
-- TDD: `.lazy-harness/tests/graph-explain.md` defines JSON/Markdown and future path-backed fixtures.
-- ADR: no new ADR required for Phase 2 because it does not relax policy or add runtime/dependency architecture. A new ADR is required before adding semantic authority, MCP, daemon, watch mode, Graphify vendoring, or lifecycle policy changes.
+- SDD: this record defines the JSON/Markdown/path-backed explain contract.
+- TDD: `.lazy-harness/tests/graph-explain.md` defines JSON/Markdown/path-backed fixtures.
+- ADR: no new ADR required for Phase 3 because it does not relax policy or add runtime/dependency architecture. A new ADR is required before adding semantic authority, MCP, daemon, watch mode, Graphify vendoring, or lifecycle policy changes.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains controlling.
 - Planning: `.lazy-harness/planning/graph-explain-implementation-plan.md` tracks phased implementation.
 

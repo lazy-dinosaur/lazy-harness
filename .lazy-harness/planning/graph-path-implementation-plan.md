@@ -128,7 +128,7 @@ Status: source implementation, focused graph-query/path checks, full framework s
 | Path output is over-read as semantic proof | Notes, SDD/TDD, forbidden fields, self-test guard |
 | BFS output grows too large | `--limit`, `--max-depth`, `--max-paths`, compact ids |
 | Existing graph-query compactness regresses | keep existing self-test compactness checks passing |
-| Path-backed or semantic explain accidentally becomes allowed through graph path | graph-explain Phase 1 tests keep JSON structural only; Markdown/path-backed support remains future |
+| Path-backed or semantic explain overreaches through graph path | graph-explain tests keep path-backed support structural/cue-only and forbid semantic authority fields |
 | Path cannot find useful connection | return endpoint candidates and fallback, not conclusions |
 
 ## Implementation map
@@ -158,4 +158,4 @@ Status: source implementation, focused graph-query/path checks, full framework s
 
 - Captured Graphify-style path as an additive next slice in SDD/TDD/Planning instead of chat-only backlog.
 - No ADR opened because this is a CLI helper implementation, not a lifecycle/policy authority change.
-- Future graph-explain Markdown/path-backed support remains owned by the separate graph-explain SDD/TDD/plan; semantic summarization still requires an option gate/ADR.
+- Current graph-explain path-backed support is owned by the separate graph-explain SDD/TDD/plan; semantic summarization still requires an option gate/ADR.

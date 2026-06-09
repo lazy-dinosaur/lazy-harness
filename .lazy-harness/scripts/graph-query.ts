@@ -171,7 +171,7 @@ const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; rea
 ]
 
 function usage(exitCode = 1): never {
-  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON/Markdown structural packet\nUnsupported in this slice: graph explain path-backed statements, MCP/daemon.`
+  const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON/Markdown/path-backed structural packet\nUnsupported in this slice: MCP/daemon.`
   if (exitCode === 0) console.log(msg)
   else console.error(msg)
   process.exit(exitCode)
@@ -1072,7 +1072,7 @@ function buildGraphPath(root: string, from: string, to: string, limit: number, m
     notes: [
       'cue-only: graph path output is navigation context and does not satisfy read evidence',
       'generated/non-canonical: read real records/source/tests before relying on any path',
-      'prototype boundary: query/path helpers and graph explain JSON/Markdown are supported; graph-explain path-backed integration, MCP/daemon, and lifecycle policy changes are out of scope',
+      'prototype boundary: query/path helpers and graph explain JSON/Markdown/path-backed support are supported; MCP/daemon and lifecycle policy changes are out of scope',
     ],
   }
 }
@@ -1103,9 +1103,90 @@ function compactExplainLabel(value: string): string {
   return label.length > 80 ? `${label.slice(0, 77)}...` : label
 }
 
+function explainPathTargets(queryPacket: GraphQueryResult, limit: number): string[] {
+  const candidates = uniquePreserve([
+    ...queryPacket.candidates.recordPaths,
+    ...queryPacket.candidates.sourceFiles,
+    ...queryPacket.candidates.testFiles,
+    ...queryPacket.citations.map((citation) => citation.path || '').filter(Boolean),
+    ...queryPacket.subgraph.nodes.map((node) => node.path || '').filter(Boolean),
+  ])
+  return candidates
+    .filter((candidate) => candidate.startsWith('.lazy-harness/'))
+    .slice(0, Math.min(Math.max(limit, 1), 3))
+}
+
+function buildExplainPathPackets(root: string, query: string, queryPacket: GraphQueryResult, limit: number, fresh: boolean): GraphPathResult[] {
+  const targets = explainPathTargets(queryPacket, limit)
+  const packets: GraphPathResult[] = []
+  for (const target of targets) {
+    const packet = buildGraphPath(root, query, target, limit, 4, 2, fresh)
+    if (packet.paths.length || packet.endpoints.toCandidates.length) packets.push(packet)
+    if (packets.length >= Math.min(Math.max(limit, 1), 3)) break
+  }
+  return packets
+}
+
+function edgeBackedPath(packet: GraphPathResult): GraphPath | null {
+  return packet.paths.find((path) => path.edges.length > 0) || null
+}
+
+function candidateContextSummary(path: GraphPath): string {
+  const details = uniquePreserve(path.edges
+    .filter((edge) => edge.relation === 'candidate_context')
+    .flatMap((edge) => edge.provenance)
+    .filter((item) => item.includes(':candidate:'))
+    .map((item) => {
+      const [querySide, endpointPath] = item.split(':candidate:')
+      const queryLabel = querySide === 'from-query' ? 'from-query' : querySide === 'to-query' ? 'to-query' : 'other query'
+      return `endpoint path ${compactExplainLabel(endpointPath || item)} appeared in the other query packet (${queryLabel})`
+    }))
+  return details.length ? details.join('; ') : 'endpoint path appeared in the other query packet'
+}
+
+function pathPacketSupport(packet: GraphPathResult): GraphExplainSupport | null {
+  const firstPath = edgeBackedPath(packet)
+  if (!firstPath) return null
+  const firstEdge = firstPath.edges[0]
+  if (!firstEdge) return null
+  return {
+    kind: 'path',
+    path: packet.to.startsWith('.lazy-harness/') ? packet.to : undefined,
+    id: `${packet.from} -> ${packet.to}`,
+    relation: firstEdge.relation,
+    provenance: compactProvenance([
+      ...firstPath.provenance,
+      ...firstPath.edges.flatMap((edge) => edge.provenance),
+    ]).join(' | ') || 'graph path packet',
+  }
+}
+
+function pathPacketStatement(packet: GraphPathResult, path: GraphPath): string {
+  const relations = uniquePreserve(path.edges.map((edge) => edge.relation).filter(Boolean)).slice(0, 3)
+  const relationSummary = relations.join(', ')
+  if (relations.includes('candidate_context')) {
+    return `Path packet to ${compactExplainLabel(packet.to)} used candidate_context fallback because ${candidateContextSummary(path)}; this structural fallback does not claim semantic connection or causality.`
+  }
+  return `Path packet to ${compactExplainLabel(packet.to)} returned ${packet.resultState} with ${packet.paths.filter((item) => item.edges.length > 0).length} edge-backed bounded path(s) and edge relation(s): ${relationSummary}.`
+}
+
 function buildGraphExplain(root: string, query: string, limit: number, maxStatements: number, includePaths: boolean, fresh = false): GraphExplainResult {
   const queryPacket = buildGraphQuery(root, query, limit, 1, fresh)
+  const pathPackets = includePaths ? buildExplainPathPackets(root, query, queryPacket, limit, fresh) : []
   const statements: GraphExplainStatement[] = []
+
+  for (const packet of pathPackets) {
+    const support = pathPacketSupport(packet)
+    if (!support) continue
+    const firstPath = edgeBackedPath(packet)
+    if (!firstPath) continue
+    pushExplainStatement(
+      statements,
+      maxStatements,
+      pathPacketStatement(packet, firstPath),
+      [support],
+    )
+  }
 
   for (const seed of queryPacket.seeds) {
     const target = seed.path || seed.id
@@ -1142,7 +1223,7 @@ function buildGraphExplain(root: string, query: string, limit: number, maxStatem
     ...queryPacket.coverage.gaps,
     ...(queryPacket.seeds.length ? [] : ['no-query-candidates']),
     ...(queryPacket.citations.length ? [] : ['no-citations']),
-    ...(includePaths ? ['no-path-evidence'] : []),
+    ...(includePaths && !pathPackets.some((packet) => edgeBackedPath(packet)) ? ['no-path-evidence'] : []),
     ...(statements.length ? [] : ['no-structural-statements']),
   ])
   const resultState: ExplainResultState = !statements.length ? 'gap' : gaps.length || queryPacket.resultState !== 'mapped' ? 'partial' : 'explained'
@@ -1155,13 +1236,13 @@ function buildGraphExplain(root: string, query: string, limit: number, maxStatem
     coverage: { gaps },
     statements,
     queryPacket,
-    pathPackets: [],
+    pathPackets,
     fallback: buildFallback(query),
     notes: [
       'cue-only: graph explain output describes indexed/cited structure only and does not satisfy read evidence',
       'generated/non-canonical: read real records/source/tests before relying on any statement',
       'semantic boundary: LLM/searcher remains the semantic authority for meaning, sufficiency, risk, gates, and next action',
-      includePaths ? 'phase boundary: --include-paths was requested, but Phase 1 records no pathPackets and reports no-path-evidence' : 'phase boundary: Phase 1 emits JSON structural statements only; Markdown and path-backed statements remain separate slices',
+      includePaths ? 'path-backed support: --include-paths attaches bounded graph path packets as structural navigation cues only' : 'path-backed support: pass --include-paths to attach bounded graph path packets',
     ],
   }
 }
@@ -1286,6 +1367,15 @@ function renderExplainMarkdown(result: GraphExplainResult): string {
   lines.push(`- subgraph nodes: ${result.queryPacket.subgraph.nodes.length}`)
   lines.push(`- subgraph edges: ${result.queryPacket.subgraph.edges.length}`)
   lines.push(`- path packets: ${result.pathPackets.length}`)
+  lines.push('', '## Path packets')
+  if (!result.pathPackets.length) lines.push('- none; pass `--include-paths` to attach bounded graph path packets when indexed paths exist')
+  result.pathPackets.forEach((packet, index) => {
+    lines.push(`- path packet ${index + 1}: to=\`${packet.to}\`; resultState=\`${packet.resultState}\`; paths=${packet.paths.length}`)
+    for (const item of packet.paths.slice(0, 2)) {
+      lines.push(`  - nodes: ${item.nodes.map((node) => `\`${node.path || node.label || node.id}\``).join(' → ') || '-'}`)
+      for (const edge of item.edges.slice(0, 4)) lines.push(`  - edge: ${edge.source} --${edge.relation}--> ${edge.target}`)
+    }
+  })
   lines.push('', '## Fallback')
   lines.push(`- overview: \`${result.fallback.overview}\``)
   lines.push(`- map: \`${result.fallback.map}\``)
@@ -1295,9 +1385,8 @@ function renderExplainMarkdown(result: GraphExplainResult): string {
   lines.push('- cue-only: this Markdown explains structural evidence labels, not meaning or sufficiency.')
   lines.push('- read-evidence: this output does not satisfy read evidence; inspect real records/source/tests before relying on it.')
   lines.push('- boundary: LLM/searcher remains the semantic authority; this helper does not decide actions or policy status.')
-  if (result.pathPackets.length === 0 && result.coverage.gaps.includes('no-path-evidence')) {
-    lines.push('- phase boundary: path-backed explain statements remain a future slice; `--include-paths` currently records `no-path-evidence`.')
-  }
+  if (result.pathPackets.length) lines.push('- path-backed: path packets are bounded graph navigation cues, not proof of causality or read evidence.')
+  else if (result.coverage.gaps.includes('no-path-evidence')) lines.push('- path-backed: no bounded path evidence was found for the selected structural candidates.')
   return `${lines.join('\n')}\n`
 }
 
