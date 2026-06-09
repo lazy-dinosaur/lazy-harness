@@ -135,7 +135,9 @@ Exit criteria:
 
 ## Phase 3 — Optional path support
 
-Status: implemented, validation in progress
+Status: implemented and downstream-synced
+
+Evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md` records 16/16 downstream hosts synced to source commit `e8a0ca872b8e531fb0ca7e4ac2250cf613ce9941` and smoke-validated JSON/Markdown `--include-paths` output with path packets, edge-backed path support, `candidate_context` boundary wording, zero-edge/self path non-evidence, and no forbidden semantic-authority fields.
 
 Tasks:
 
@@ -154,11 +156,13 @@ Exit criteria:
 
 ## Phase 4 — Validation and downstream sync
 
-Status: completed for Phase 1 JSON implementation and Phase 2 Markdown implementation.
+Status: completed for Phase 1 JSON implementation, Phase 2 Markdown implementation, and Phase 3 path-backed implementation.
 
 Evidence: `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` records 16/16 downstream hosts synced to source commit `dfd11ffe676500ad928c61789034835a81097ef1` and smoke-validated `graph-query.explain` structural JSON with cited statements and no forbidden semantic-authority fields.
 
 Evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` records 16/16 downstream hosts synced to source commit `4208c85758fac89ff22b5edcddefad358d547d2a` and smoke-validated both JSON and Markdown output with cited/support-backed statements and no forbidden semantic-authority fields.
+
+Evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md` records 16/16 downstream hosts synced to source commit `e8a0ca872b8e531fb0ca7e4ac2250cf613ce9941` and smoke-validated JSON/Markdown `--include-paths` output with path packets, edge-backed path support, `candidate_context` boundary wording, zero-edge/self path non-evidence, and no forbidden semantic-authority fields.
 
 Focused validation:
 
@@ -224,6 +228,7 @@ Downstream validation:
   - `.lazy-harness/knowledge/graph.jsonl` — graph explain implementation/test/evidence graph rows.
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke evidence capsule.
   - `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` — downstream JSON/Markdown sync/smoke evidence capsule.
+  - `.lazy-harness/evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md` — downstream JSON/Markdown `--include-paths` sync/smoke evidence capsule.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -246,6 +251,7 @@ Downstream validation:
   - `kg_graph_explain_phase2_downstream_sync_20260609`
   - `kg_graph_explain_phase3_path_cli_20260609`
   - `kg_graph_explain_phase3_path_self_test_20260609`
+  - `kg_graph_explain_phase3_path_downstream_sync_20260609`
 
 ## Layer completeness impact
 

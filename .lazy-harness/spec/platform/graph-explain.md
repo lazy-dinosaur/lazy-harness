@@ -163,6 +163,7 @@ Forbidden statement examples:
   - `.lazy-harness/bin/lazy` — advertises graph explain JSON/Markdown.
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke validation capsule for source commit `dfd11ffe676500ad928c61789034835a81097ef1`.
   - `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` — downstream sync/smoke validation capsule for Phase 2 Markdown source commit `4208c85758fac89ff22b5edcddefad358d547d2a`.
+  - `.lazy-harness/evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md` — downstream sync/smoke validation capsule for Phase 3 path-backed source commit `e8a0ca872b8e531fb0ca7e4ac2250cf613ce9941`.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
@@ -184,6 +185,7 @@ Forbidden statement examples:
   - `kg_graph_explain_phase2_markdown_self_test_20260609`
   - `kg_graph_explain_phase3_path_cli_20260609`
   - `kg_graph_explain_phase3_path_self_test_20260609`
+  - `kg_graph_explain_phase3_path_downstream_sync_20260609`
   - `kg_graph_explain_phase2_downstream_sync_20260609`
   - `kg_graph_explain_phase1_downstream_sync_20260608`
 
