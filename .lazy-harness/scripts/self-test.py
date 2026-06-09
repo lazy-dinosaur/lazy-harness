@@ -7525,7 +7525,7 @@ def main() -> None:
         (check_graph_path_cli, "BOTH"),
         (check_graph_explain_cli, "BOTH"),
         (check_retrieval_workflow_benchmark_cli, "BOTH"),
-        (check_graph_explain_accuracy_benchmark_cli, "BOTH"),
+        (check_graph_explain_accuracy_benchmark_cli, "FRAMEWORK_ONLY"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),

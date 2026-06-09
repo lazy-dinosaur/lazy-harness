@@ -80,6 +80,7 @@ Current boundary:
 ```
 
 - The benchmark is measurement-only and cue-only; it does not become semantic authority or required-read policy.
+- `--fail-on-thresholds` is a framework source-checkout gate because the gold labels are selected against the source repo's framework records/evidence. Downstream product hosts may run the command for schema/policy smoke, but must not treat source gold-threshold failure as a downstream deployment failure.
 
 ## Dynamic write/read workflow boundary
 
