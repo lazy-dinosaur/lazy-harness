@@ -117,6 +117,17 @@ Additional re-audit comparison against `graph query` helper payloads:
 - Markdown explain is 62.2% smaller than graph-query JSON helper payloads in this sample.
 - JSON explain is 51.1% larger than graph-query JSON helper payloads because it embeds the query packet plus explanation statements. Therefore the 98.3% headline must be read as Markdown explain vs. full cited-record reads, not JSON explain vs. graph-query helper output.
 
+Phase 4 ranking hardening update:
+
+- Permanent fixture/script added: `.lazy-harness/fixtures/graph-explain-gold-accuracy.json` and `.lazy-harness/scripts/graph-explain-accuracy-benchmark.ts`.
+- Public CLI added: `.lazy-harness/bin/lazy graph-explain-accuracy-benchmark [--format=json|md] [--precision-k=N] [--fail-on-thresholds]`.
+- Internal-only ranking change: `graph-query.ts` now ranks graph-explain candidate statements independently from seed/citation/edge generation order using deterministic path/title/slug token coverage, candidate array order, and query-token-gated cross-layer bridge boosts.
+- Output boundary preserved: no score/confidence/importance/required-read/optional-read/risk/gate/intent/next-action/candidate-meaning fields are emitted.
+- Final threshold-gated benchmark command: `.lazy-harness/bin/lazy graph-explain-accuracy-benchmark --format=json --fail-on-thresholds`.
+- Final metrics: micro recall 100.0%, macro recall 100.0%, strict P@8 53.6%, MRR 100.0%, nDCG 92.9%, layer recall 100.0%, negative contamination 0/8, gap accuracy 100.0%, forbidden-field scenarios 0, watched files mutated 0.
+- Delta from gold spot-test baseline: strict P@8 21.4% -> 53.6%, MRR 46.7% -> 100.0%, nDCG 55.4% -> 92.9%; recall/layer/gap/negative-contamination stayed stable or improved after replacing product-specific gold labels with framework-generic sync/drift labels.
+- Existing workflow benchmark preserved: `graph_query.totalEstimatedTokens` 69,170, `fullLayerCoverageCount` 4/4, still below `map_plus_retrieval_audit.totalEstimatedTokens` 268,166.
+
 Gold-labeled retrieval accuracy spot test after user asked how to test "real" accuracy:
 
 - Scenario count: 8 total (7 non-gap gold-labeled retrieval scenarios + 1 unrelated Korean gap scenario).

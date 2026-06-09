@@ -1,6 +1,6 @@
 # SDD — Graph Explain
 
-Status: accepted-phase3-path-backed
+Status: accepted-phase4-ranking-hardened
 Date: 2026-06-08
 Layer: SDD
 Related SDD: `.lazy-harness/spec/platform/graph-query.md`
@@ -16,7 +16,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdo
 
 ## Rule digest
 
-- Status: active
+- Status: accepted-phase4-ranking-hardened
 - Layer: SDD
 - Scope: framework-global
 - User-confirmed option: A, Cited structural explanation
@@ -66,6 +66,20 @@ Current boundary:
 - Markdown rendering is a view over the same structural packet.
 - Path-backed statements are structural navigation cues only; they do not prove evidence was read, causality, correctness, risk, gate state, or next action.
 - Path-backed statements must use edge-backed paths only. Zero-edge/self paths may appear inside a bounded `pathPackets` payload, but they must not become `support.kind=path`, must not invent a `bounded_path` relation, and must not clear `no-path-evidence` by themselves.
+
+## Ranking hardening, Phase 4
+
+- `lazy graph explain` may use internal-only deterministic scoring to rank candidate statements.
+- Internal scoring may consider path/title/slug token coverage, candidate array order, and a small query-token-gated cross-layer bridge set for retrieval/workflow and CLI-boundary records.
+- Scores, confidence, importance, required-read, optional-read, risk, gate, intent, next action, or candidate meaning must not appear in JSON or Markdown output.
+- Candidate statements are ranked independently from seed/citation/edge generation order, but every emitted statement must remain support-backed and citation-backed.
+- The permanent gold-labeled benchmark command is:
+
+```bash
+.lazy-harness/bin/lazy graph-explain-accuracy-benchmark [--format=json|md] [--precision-k=N] [--fail-on-thresholds]
+```
+
+- The benchmark is measurement-only and cue-only; it does not become semantic authority or required-read policy.
 
 ## Output shape, Phase 1 JSON
 

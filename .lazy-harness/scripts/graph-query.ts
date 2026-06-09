@@ -169,6 +169,13 @@ const RETRIEVAL_LAYER_BRIDGES: Array<{ layer: LayerName; recordPath: string; rea
   { layer: 'DDD', recordPath: '.lazy-harness/domain/searchable-record-memory.md', reason: 'retrieval-helper-domain-bridge' },
   { layer: 'BDD', recordPath: '.lazy-harness/behavior/llm-owned-record-retrieval.md', reason: 'retrieval-helper-behavior-bridge' },
 ]
+const EXPLAIN_CROSS_LAYER_BRIDGES = new Set<string>([
+  ...RETRIEVAL_LAYER_BRIDGES.map((bridge) => bridge.recordPath),
+  '.lazy-harness/spec/platform/graph-query.md',
+  '.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md',
+  '.lazy-harness/spec/platform/search-read-debt-contract.md',
+  '.lazy-harness/tests/pre-action-search-evidence-guard.md',
+])
 
 function usage(exitCode = 1): never {
   const msg = `Usage:\n  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh] [--root DIR]\n  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh] [--root DIR]\n  graph explain <term-or-file> [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths] [--fresh] [--root DIR]\n\nSupported: graph query, graph path, graph explain JSON/Markdown/path-backed structural packet\nUnsupported in this slice: MCP/daemon.`
@@ -410,6 +417,47 @@ function relevanceScore(fields: Record<string, unknown>, tokens: string[], phras
     score += fieldMatched
   }
   return score
+}
+
+function pathRankingScore(candidatePath: string, tokens: string[], phrase: string): number {
+  const normalizedPath = normalize(candidatePath)
+  const basename = normalize(path.basename(candidatePath.split('#')[0] || candidatePath))
+  const slugPhrase = tokens.join('-')
+  let score = 0
+  if (phrase.length >= 3 && normalizedPath.includes(phrase)) score += 900
+  if (slugPhrase.length >= 3 && normalizedPath.includes(slugPhrase)) score += 700
+  if (phrase.length >= 3 && basename.includes(phrase)) score += 500
+  if (slugPhrase.length >= 3 && basename.includes(slugPhrase)) score += 450
+  const matchedTokens = tokens.filter((token) => normalizedPath.includes(token))
+  const uniqueMatched = new Set(matchedTokens)
+  score += uniqueMatched.size * 80
+  if (tokens.length && uniqueMatched.size === tokens.length) score += 250
+  if (candidatePath.startsWith('.lazy-harness/spec/')) score += 90
+  else if (candidatePath.startsWith('.lazy-harness/tests/')) score += 80
+  else if (candidatePath.startsWith('.lazy-harness/planning/') || candidatePath.startsWith('.lazy-harness/plans/')) score += 70
+  else if (candidatePath.startsWith('.lazy-harness/decisions/')) score += 65
+  else if (candidatePath.startsWith('.lazy-harness/ssot/')) score += 60
+  else if (candidatePath.startsWith('.lazy-harness/domain/') || candidatePath.startsWith('.lazy-harness/behavior/')) score += 55
+  else if (candidatePath.startsWith('.lazy-harness/evidence/')) score += 45
+  else if (candidatePath.startsWith('.lazy-harness/scripts/')) score += 40
+  if (/\.md$|\.xml$|\.json$|\.ts$|\.py$/.test(candidatePath)) score += 10
+  return score
+}
+
+function explainBridgeBoost(candidatePath: string, kind: 'record' | 'source' | 'test', tokens: string[]): number {
+  if (kind !== 'record' || !EXPLAIN_CROSS_LAYER_BRIDGES.has(candidatePath)) return 0
+  const tokenSet = new Set(tokens)
+  const hasAny = (values: string[]) => values.some((value) => tokenSet.has(value))
+  if (RETRIEVAL_LAYER_BRIDGES.some((bridge) => bridge.recordPath === candidatePath)) {
+    return hasAny(['workflow', 'compression', 'retrieval']) ? 190 : 0
+  }
+  if (candidatePath === '.lazy-harness/spec/platform/graph-query.md') {
+    return hasAny(['workflow', 'retrieval', 'query']) ? 120 : 0
+  }
+  if (candidatePath === '.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md' || candidatePath === '.lazy-harness/spec/platform/search-read-debt-contract.md' || candidatePath === '.lazy-harness/tests/pre-action-search-evidence-guard.md') {
+    return hasAny(['cli', 'boundary', 'lifecycle', 'hook', 'classification', 'search', 'read', 'debt']) ? 260 : 0
+  }
+  return 0
 }
 
 function byScoreThenLabel<T extends { score: number; label: string }>(a: T, b: T): number {
@@ -1081,6 +1129,18 @@ function supportCitation(support: GraphExplainSupport): string {
   return support.path || support.id || `${support.kind}:${support.relation || ''}:${support.provenance}`
 }
 
+function uniqueSupport(support: GraphExplainSupport[]): GraphExplainSupport[] {
+  const seen = new Set<string>()
+  const result: GraphExplainSupport[] = []
+  for (const item of support) {
+    const key = `${item.kind}\u0000${item.path || ''}\u0000${item.id || ''}\u0000${item.relation || ''}\u0000${item.provenance}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(item)
+  }
+  return result
+}
+
 function citationSupport(citation: Citation): GraphExplainSupport | null {
   if (citation.kind === 'generated-index') return null
   return {
@@ -1170,30 +1230,81 @@ function pathPacketStatement(packet: GraphPathResult, path: GraphPath): string {
   return `Path packet to ${compactExplainLabel(packet.to)} returned ${packet.resultState} with ${packet.paths.filter((item) => item.edges.length > 0).length} edge-backed bounded path(s) and edge relation(s): ${relationSummary}.`
 }
 
+type ExplainStatementCandidate = GraphExplainStatement & { score: number; rankKey: string }
+
+function pushExplainCandidate(candidates: ExplainStatementCandidate[], score: number, rankKey: string, statement: string, support: GraphExplainSupport[]): void {
+  const cleanSupport = support.filter((item) => item.path || item.id || item.provenance)
+  if (!cleanSupport.length) return
+  const citations = uniquePreserve(cleanSupport.map(supportCitation))
+  if (!citations.length) return
+  const existing = candidates.find((item) => item.rankKey === rankKey)
+  if (existing) {
+    existing.score = Math.max(existing.score, score)
+    existing.support = uniqueSupport([...existing.support, ...cleanSupport])
+    existing.citations = uniquePreserve([...existing.citations, ...citations])
+    return
+  }
+  candidates.push({ statement, support: uniqueSupport(cleanSupport), citations, score, rankKey })
+}
+
+function candidateKindSupportKind(kind: 'record' | 'source' | 'test'): GraphExplainSupport['kind'] {
+  if (kind === 'record') return 'record'
+  if (kind === 'test') return 'test'
+  return 'source'
+}
+
+function rankedExplainCandidateStatements(query: string, queryPacket: GraphQueryResult): ExplainStatementCandidate[] {
+  const tokens = queryTokens(query)
+  const phrase = normalize(query)
+  const candidates: ExplainStatementCandidate[] = []
+  const pushPath = (candidatePath: string, kind: 'record' | 'source' | 'test', index: number): void => {
+    const bridgeBoost = explainBridgeBoost(candidatePath, kind, tokens)
+    const score = pathRankingScore(candidatePath, tokens, phrase) + bridgeBoost + Math.max(0, 300 - index * 3)
+    pushExplainCandidate(
+      candidates,
+      score,
+      `${kind}:${candidatePath}`,
+      `${kind} candidate ${compactExplainLabel(candidatePath)} appears in ranked graph-query candidates from structural context.`,
+      [{ kind: candidateKindSupportKind(kind), path: candidatePath, provenance: `graph-query.candidates.${kind === 'record' ? 'recordPaths' : kind === 'source' ? 'sourceFiles' : 'testFiles'}` }],
+    )
+  }
+  queryPacket.candidates.recordPaths.forEach((candidatePath, index) => pushPath(candidatePath, 'record', index))
+  queryPacket.candidates.sourceFiles.forEach((candidatePath, index) => pushPath(candidatePath, 'source', index))
+  queryPacket.candidates.testFiles.forEach((candidatePath, index) => pushPath(candidatePath, 'test', index))
+  return candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return a.rankKey.localeCompare(b.rankKey)
+  })
+}
+
 function buildGraphExplain(root: string, query: string, limit: number, maxStatements: number, includePaths: boolean, fresh = false): GraphExplainResult {
   const queryPacket = buildGraphQuery(root, query, limit, 1, fresh)
   const pathPackets = includePaths ? buildExplainPathPackets(root, query, queryPacket, limit, fresh) : []
-  const statements: GraphExplainStatement[] = []
+  const statementCandidates: ExplainStatementCandidate[] = []
 
   for (const packet of pathPackets) {
     const support = pathPacketSupport(packet)
     if (!support) continue
     const firstPath = edgeBackedPath(packet)
     if (!firstPath) continue
-    pushExplainStatement(
-      statements,
-      maxStatements,
+    pushExplainCandidate(
+      statementCandidates,
+      2000,
+      `path:${packet.to}`,
       pathPacketStatement(packet, firstPath),
       [support],
     )
   }
 
+  statementCandidates.push(...rankedExplainCandidateStatements(query, queryPacket))
+
   for (const seed of queryPacket.seeds) {
     const target = seed.path || seed.id
     const fields = seed.matchedFields.length ? seed.matchedFields.join(', ') : 'indexed seed surface'
-    pushExplainStatement(
-      statements,
-      maxStatements,
+    pushExplainCandidate(
+      statementCandidates,
+      pathRankingScore(target, queryTokens(query), normalize(query)) + 250,
+      `seed:${seed.kind}:${target}`,
       `${seed.kind} candidate ${compactExplainLabel(target)} appears because the query matched field(s): ${fields}.`,
       [{ kind: 'matched-field', id: seed.path ? undefined : seed.id, path: seed.path, provenance: seed.provenance, matchedFields: seed.matchedFields }],
     )
@@ -1202,22 +1313,33 @@ function buildGraphExplain(root: string, query: string, limit: number, maxStatem
   for (const citation of queryPacket.citations) {
     const support = citationSupport(citation)
     if (!support) continue
-    pushExplainStatement(
-      statements,
-      maxStatements,
+    const target = citation.path || citation.id || citation.provenance
+    pushExplainCandidate(
+      statementCandidates,
+      pathRankingScore(target, queryTokens(query), normalize(query)) + 120,
+      `citation:${target}`,
       `${citation.kind} citation ${compactExplainLabel(citation.path || citation.id || citation.provenance)} is present from provenance ${citation.provenance}.`,
       [support],
     )
   }
 
   for (const edge of queryPacket.subgraph.edges) {
-    pushExplainStatement(
-      statements,
-      maxStatements,
+    pushExplainCandidate(
+      statementCandidates,
+      50,
+      `edge:${edge.source}:${edge.relation}:${edge.target}`,
       `Subgraph edge ${compactExplainLabel(edge.source)} --${edge.relation}--> ${compactExplainLabel(edge.target)} appears from indexed provenance.`,
       [{ kind: 'graph-edge', id: `${edge.source}--${edge.relation}-->${edge.target}`, relation: edge.relation, provenance: edge.provenance.join(' | ') || 'subgraph.edge' }],
     )
   }
+
+  const statements = statementCandidates
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return a.rankKey.localeCompare(b.rankKey)
+    })
+    .slice(0, maxStatements)
+    .map(({ statement, support, citations }) => ({ statement, support, citations }))
 
   const gaps = uniquePreserve([
     ...queryPacket.coverage.gaps,

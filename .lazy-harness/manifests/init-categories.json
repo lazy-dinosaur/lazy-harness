@@ -86,7 +86,8 @@
           "path": "fixtures/",
           "kind": "directory",
           "glob": [
-            "context-tier/*.json"
+            "context-tier/*.json",
+            "graph-explain-gold-accuracy.json"
           ],
           "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures."
         },

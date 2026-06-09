@@ -1,6 +1,6 @@
 # Graph Explain Ranking Hardening Plan
 
-Status: planned-reviewed
+Status: implemented-phase4-ranking-hardened
 Date: 2026-06-09
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/graph-query.md`
@@ -221,6 +221,22 @@ bun .lazy-harness/scripts/graph-explain-accuracy-benchmark.ts --format=json
 python3 .lazy-harness/scripts/self-test.py --scope framework
 .lazy-harness/bin/lazy test
 ```
+
+## Implementation result
+
+Implemented on 2026-06-09.
+
+- Permanent fixture/script created:
+  - `.lazy-harness/fixtures/graph-explain-gold-accuracy.json`
+  - `.lazy-harness/scripts/graph-explain-accuracy-benchmark.ts`
+- CLI added: `.lazy-harness/bin/lazy graph-explain-accuracy-benchmark`.
+- Self-test guard added: `check_graph_explain_accuracy_benchmark_cli`.
+- Ranking implementation:
+  - internal-only `pathRankingScore` and query-token-gated `explainBridgeBoost`,
+  - ranked candidate statements independent of seed/citation/edge generation order,
+  - no score/confidence/importance fields emitted in output.
+- Final benchmark result: micro recall 1.0, macro recall 1.0, strict P@8 0.536, MRR 1.0, nDCG 0.929, layer recall 1.0, negative hit scenarios 0, gap accuracy 1.0.
+- Retrieval workflow preserved: graph_query total estimated tokens 69,170, full layer coverage 4/4, below map_plus_retrieval_audit 268,166.
 
 ## Cross-layer impact assessment
 

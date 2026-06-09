@@ -1,6 +1,6 @@
 # TDD — Graph Explain
 
-Status: accepted-phase3-path-backed
+Status: accepted-phase4-ranking-hardened
 Date: 2026-06-08
 Layer: TDD
 Related SDD: `.lazy-harness/spec/platform/graph-explain.md`
@@ -13,7 +13,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdo
 
 ## Rule digest
 
-- Status: active
+- Status: accepted-phase4-ranking-hardened
 - Layer: TDD
 - Scope: framework-global
 - User-confirmed option: A, Cited structural explanation
@@ -50,6 +50,7 @@ Related evidence: `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdo
 | `graph_explain_query_path_regression` | Existing query/path fixtures after explain implementation | `graph query` and `graph path` self-tests still pass |
 | `graph_explain_no_zero_edge_path_evidence` | A selected path packet contains only zero-edge/self paths | no `support.kind=path` is emitted for that target and no invented `bounded_path` relation appears |
 | `graph_explain_candidate_context_boundary` | Path support contains `candidate_context` fallback | statement says endpoint path appeared in the other query packet; does not claim semantic connection |
+| `graph_explain_accuracy_benchmark` | Gold-labeled retrieval/ranking quality fixture | `graph-explain-accuracy-benchmark --fail-on-thresholds` passes micro/macro recall, P@8, MRR, nDCG, layer recall, gap, negative-contamination, no-forbidden-field, and read-only gates |
 
 ## Acceptance assertions for `check_graph_explain_cli`
 
@@ -67,6 +68,7 @@ Self-test must verify:
 10. `candidate_context` path support states only that an endpoint path appeared in the other query packet and explicitly preserves the semantic boundary.
 11. `--format=md` emits Markdown with top/bottom caveats and statement bullets containing both support and citations.
 12. Existing graph-query and graph-path focused tests still pass.
+13. `graph-explain-accuracy-benchmark --format=json --fail-on-thresholds` passes permanent gold-labeled retrieval/ranking gates: micro recall >= 0.939, macro recall >= 0.94, strict P@8 >= 0.5, MRR >= 0.7, nDCG >= 0.75, layer recall = 1, gap accuracy = 1, negative-hit scenarios = 0, forbidden-field scenarios = 0, and watched files unchanged.
 
 ## Validation commands
 

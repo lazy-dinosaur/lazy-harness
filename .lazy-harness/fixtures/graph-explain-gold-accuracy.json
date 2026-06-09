@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0",
+  "mode": "graph-explain-gold-accuracy-fixture",
+  "notes": [
+    "Gold labels are human-selected must-include paths for retrieval accuracy measurement only.",
+    "Precision is strict against listed gold labels, so unlisted-but-relevant candidates count as non-gold.",
+    "This fixture is cue-only validation data, not semantic authority or a required-read policy."
+  ],
+  "scenarios": [
+    {
+      "id": "workflow-compression-adr",
+      "query": "workflow compression not safety reduction",
+      "gold": [
+        ".lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md",
+        ".lazy-harness/behavior/llm-owned-record-retrieval.md",
+        ".lazy-harness/domain/searchable-record-memory.md",
+        ".lazy-harness/spec/platform/graph-query.md"
+      ],
+      "expectedLayers": ["ADR", "BDD", "DDD", "SDD"],
+      "negativeContains": ["release", "figma", "toss", "payment"]
+    },
+    {
+      "id": "graph-explain-contract",
+      "query": "graph explain contract semantic authority citation support path-backed",
+      "gold": [
+        ".lazy-harness/spec/platform/graph-explain.md",
+        ".lazy-harness/tests/graph-explain.md",
+        ".lazy-harness/planning/graph-explain-implementation-plan.md",
+        ".lazy-harness/scripts/graph-query.ts",
+        ".lazy-harness/scripts/self-test.py"
+      ],
+      "expectedLayers": ["SDD", "TDD", "Planning", "source"],
+      "negativeContains": ["release", "figma"]
+    },
+    {
+      "id": "retrieval-workflow-benchmark",
+      "query": "retrieval workflow benchmark graph query map retrieval audit token followup read",
+      "gold": [
+        ".lazy-harness/spec/platform/retrieval-workflow-benchmark.md",
+        ".lazy-harness/tests/retrieval-workflow-benchmark.md",
+        ".lazy-harness/planning/retrieval-workflow-benchmark-plan.md",
+        ".lazy-harness/scripts/retrieval-workflow-benchmark.ts",
+        ".lazy-harness/evidence/2026-06-08-retrieval-workflow-benchmark.md"
+      ],
+      "expectedLayers": ["SDD", "TDD", "Planning", "source", "evidence"],
+      "negativeContains": ["figma", "payment"]
+    },
+    {
+      "id": "capability-registry",
+      "query": "capability registry capability resolution kind level separation",
+      "gold": [
+        ".lazy-harness/ssot/capability-registry.md",
+        ".lazy-harness/spec/platform/capability-resolution.md",
+        ".lazy-harness/tests/capability-registry.md",
+        ".lazy-harness/planning/capability-registry-implementation-plan.md",
+        ".lazy-harness/decisions/0040-capability-registry-kind-level-separation.md"
+      ],
+      "expectedLayers": ["SSOT", "SDD", "TDD", "Planning", "ADR"],
+      "negativeContains": ["figma", "release"]
+    },
+    {
+      "id": "lazy-sync-drift-detection",
+      "query": "lazy sync drift detection contract host pilot sync marker manifest",
+      "gold": [
+        ".lazy-harness/spec/lazy-sync-drift-detection.md",
+        ".lazy-harness/planning/jcode-wiring-drift-audit.md",
+        ".lazy-harness/tests/lazy-sync-dirty-false-positive.md",
+        ".lazy-harness/scripts/lazy-sync.ts",
+        ".lazy-harness/scripts/lazy-init.ts"
+      ],
+      "expectedLayers": ["SDD", "Planning", "evidence", "source"],
+      "negativeContains": ["figma", "payment"]
+    },
+    {
+      "id": "record-index-header-cache",
+      "query": "record index header cache naming record map overview related records",
+      "gold": [
+        ".lazy-harness/spec/platform/record-index-header.md",
+        ".lazy-harness/tests/record-index-header.md",
+        ".lazy-harness/decisions/0042-record-index-cache-naming.md",
+        ".lazy-harness/scripts/record-index.ts",
+        ".lazy-harness/scripts/record-map.ts"
+      ],
+      "expectedLayers": ["SDD", "TDD", "ADR", "source"],
+      "negativeContains": ["release", "payment"]
+    },
+    {
+      "id": "cli-tool-boundary",
+      "query": "cli tool boundary no semantic authority lifecycle hook classification",
+      "gold": [
+        ".lazy-harness/ssot/cli-tool-boundary.md",
+        ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
+        ".lazy-harness/spec/platform/search-read-debt-contract.md",
+        ".lazy-harness/tests/pre-action-search-evidence-guard.md"
+      ],
+      "expectedLayers": ["SSOT", "ADR", "SDD", "TDD"],
+      "negativeContains": ["figma", "payment"]
+    },
+    {
+      "id": "gap-unrelated-korean",
+      "query": "강아지 산책 날씨 완전 무관한 문장",
+      "gold": [],
+      "expectedGap": true,
+      "expectedLayers": [],
+      "negativeContains": []
+    }
+  ]
+}

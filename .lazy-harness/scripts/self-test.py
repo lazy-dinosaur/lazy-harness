@@ -6003,6 +6003,104 @@ def check_retrieval_workflow_benchmark_cli() -> None:
     print("✓ retrieval workflow benchmark CLI ok")
 
 
+def check_graph_explain_accuracy_benchmark_cli() -> None:
+    """Graph explain gold accuracy benchmark should be read-only and threshold-gated."""
+    fixture_path = LAZY / "fixtures" / "graph-explain-gold-accuracy.json"
+    script_path = LAZY / "scripts" / "graph-explain-accuracy-benchmark.ts"
+    plan_path = LAZY / "planning" / "graph-explain-ranking-hardening-plan.md"
+    for path in [fixture_path, script_path, plan_path]:
+        if not path.exists():
+            fail("Graph explain accuracy benchmark artifact missing: " + str(path))
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "graph-explain-accuracy-benchmark" not in help_text:
+        fail("lazy help must advertise graph-explain-accuracy-benchmark command")
+
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    if fixture.get("mode") != "graph-explain-gold-accuracy-fixture" or len(fixture.get("scenarios", [])) < 8:
+        fail("graph explain accuracy fixture shape mismatch")
+
+    graph_path = LAZY / "knowledge" / "graph.jsonl"
+    record_index_path = LAZY / "generated" / "record-index.json"
+    implementation_index_path = LAZY / "generated" / "implementation-index.json"
+    graph_before = graph_path.read_bytes() if graph_path.exists() else b""
+    record_index_before = record_index_path.read_bytes() if record_index_path.exists() else b""
+    implementation_index_before = implementation_index_path.read_bytes() if implementation_index_path.exists() else b""
+
+    completed = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "graph-explain-accuracy-benchmark", "--format=json", "--fail-on-thresholds"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        fail("graph-explain-accuracy-benchmark threshold command failed:\n" + completed.stdout + completed.stderr)
+    try:
+        payload = json.loads(completed.stdout)
+    except Exception as exc:  # noqa: BLE001
+        fail(f"graph-explain-accuracy-benchmark output was not JSON: {exc}\n{completed.stdout[:1000]}")
+    if payload.get("schemaVersion") != "1.0" or payload.get("mode") != "graph-explain-accuracy-benchmark":
+        fail("graph-explain-accuracy-benchmark schema/mode mismatch")
+    if "measurement-only" not in payload.get("policyBoundary", ""):
+        fail("graph-explain-accuracy-benchmark missing measurement-only policy boundary")
+    summary = payload.get("summary", {})
+    threshold_checks = {
+        "microRecall": 0.939,
+        "macroRecall": 0.94,
+        "macroPrecisionAtKStrict": 0.5,
+        "macroMrr": 0.7,
+        "macroNdcg": 0.75,
+        "macroLayerRecall": 1,
+        "gapAccuracy": 1,
+    }
+    for key, minimum in threshold_checks.items():
+        value = summary.get(key)
+        if not isinstance(value, (int, float)) or value < minimum:
+            fail(f"graph-explain-accuracy-benchmark threshold failed for {key}: {value} < {minimum}")
+    if summary.get("negativeHitScenarios") != 0:
+        fail("graph-explain-accuracy-benchmark should have zero negative-hit scenarios")
+    if summary.get("forbiddenFieldScenarios") != 0:
+        fail("graph-explain-accuracy-benchmark should have zero forbidden-field scenarios")
+    if summary.get("watchedFilesMutated"):
+        fail("graph-explain-accuracy-benchmark mutated watched files: " + json.dumps(summary.get("watchedFilesMutated")))
+
+    forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings", "importance", "score"}
+
+    def assert_no_forbidden_keys(value: object, path: str = "$." ) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden:
+                    fail("graph-explain-accuracy-benchmark emitted forbidden semantic-authority key: " + path + key)
+                assert_no_forbidden_keys(child, path + key + ".")
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                assert_no_forbidden_keys(child, path + f"{idx}.")
+
+    assert_no_forbidden_keys(payload)
+
+    md = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "graph-explain-accuracy-benchmark", "--format=md"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if md.returncode != 0:
+        fail("graph-explain-accuracy-benchmark markdown command failed:\n" + md.stdout + md.stderr)
+    if "measurement-only" not in md.stdout or "Graph explain accuracy benchmark" not in md.stdout:
+        fail("graph-explain-accuracy-benchmark markdown missing measurement boundary")
+
+    if graph_path.exists() and graph_path.read_bytes() != graph_before:
+        fail("graph-explain-accuracy-benchmark must not mutate canonical graph.jsonl")
+    if record_index_path.exists() and record_index_path.read_bytes() != record_index_before:
+        fail("graph-explain-accuracy-benchmark must not mutate generated record-index cache")
+    if implementation_index_path.exists() and implementation_index_path.read_bytes() != implementation_index_before:
+        fail("graph-explain-accuracy-benchmark must not mutate generated implementation-index cache")
+
+    print("✓ graph explain accuracy benchmark CLI ok")
+
+
 def check_source_feature_navigation_phase3() -> None:
     """Source repo Phase 3 should expose a compact canonical project feature map."""
     feature_path = LAZY / "project" / "feature-navigation.xml"
@@ -7427,6 +7525,7 @@ def main() -> None:
         (check_graph_path_cli, "BOTH"),
         (check_graph_explain_cli, "BOTH"),
         (check_retrieval_workflow_benchmark_cli, "BOTH"),
+        (check_graph_explain_accuracy_benchmark_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),

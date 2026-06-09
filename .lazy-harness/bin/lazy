@@ -80,6 +80,8 @@ Commands:
                                 Cue-only cited structural explanation over graph query output
   retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
                                 Measure post-overview map/retrieval-audit/graph-query workflow costs
+  graph-explain-accuracy-benchmark [--format=json|md] [--precision-k=N] [--fail-on-thresholds]
+                                Measure gold-labeled graph explain retrieval/ranking accuracy
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
@@ -212,6 +214,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/retrieval-workflow-benchmark.ts" --root "$HOST_ROOT" "$@"
+    ;;
+  graph-explain-accuracy-benchmark)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy graph-explain-accuracy-benchmark: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/graph-explain-accuracy-benchmark.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then
