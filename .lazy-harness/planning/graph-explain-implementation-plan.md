@@ -229,6 +229,7 @@ Downstream validation:
   - `.lazy-harness/evidence/2026-06-08-graph-explain-phase1-downstream-sync.md` — downstream sync/smoke evidence capsule.
   - `.lazy-harness/evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md` — downstream JSON/Markdown sync/smoke evidence capsule.
   - `.lazy-harness/evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md` — downstream JSON/Markdown `--include-paths` sync/smoke evidence capsule.
+  - `.lazy-harness/evidence/2026-06-09-graph-explain-token-savings-accuracy.md` — token-savings (98.3% reduction) and citation-accuracy (100%) measurement evidence capsule.
 - Current symbols:
   - `GraphExplainResult`
   - `GraphExplainStatement`
