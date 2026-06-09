@@ -1,0 +1,28 @@
+{
+  // Antigravity MCP config fixture for importer regression tests.
+  "mcpServers": {
+    "local-db": {
+      "command": "node",
+      "args": ["server.js"],
+      "env": { "DATABASE_URL": "$env:DATABASE_URL" }
+    },
+    "remote-oauth": {
+      "serverUrl": "http://127.0.0.1:39391/mcp/",
+      "oauth": {
+        "clientId": "fixture-client-id",
+        "clientSecret": "fixture-client-secret",
+        "scope": "read write"
+      },
+      "disabledTools": ["dangerous_tool"]
+    },
+    "gcp-adc": {
+      "serverUrl": "http://127.0.0.1:39392/mcp/",
+      "authProviderType": "google_credentials"
+    },
+    "disabled-one": {
+      "command": "node",
+      "args": ["disabled.js"],
+      "disabled": true
+    }
+  }
+}

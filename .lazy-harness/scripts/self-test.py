@@ -1486,6 +1486,13 @@ def check_pi_package_layout_and_contract() -> None:
     settings_data = json.loads(pi_settings.read_text(encoding="utf-8"))
     if "../packages/lazy-harness-pi" not in settings_data.get("packages", []):
         fail("Pi project-local settings missing ../packages/lazy-harness-pi package entry")
+    global_pi_settings = pathlib.Path.home() / ".pi" / "agent" / "settings.json"
+    if not global_pi_settings.exists():
+        fail("Pi global settings missing after `pi install packages/lazy-harness-pi`")
+    global_settings_data = json.loads(global_pi_settings.read_text(encoding="utf-8"))
+    global_packages = global_settings_data.get("packages", [])
+    if not any(str(item).endswith("lazy-harness/packages/lazy-harness-pi") for item in global_packages):
+        fail("Pi global settings missing lazy-harness-pi package entry for existing projects: " + json.dumps(global_packages, ensure_ascii=False))
 
     extension_text = extension.read_text(encoding="utf-8")
     required_phrases = [
@@ -1502,6 +1509,11 @@ def check_pi_package_layout_and_contract() -> None:
         "pi.registerCommand(\"lazy-map\"",
         "pi.registerCommand(\"lazy-doctor\"",
         "pi.registerCommand(\"lazy-test\"",
+        "pi.registerCommand(\"lazy-import-antigravity-mcp\"",
+        "import-antigravity-mcp.ts",
+        "normalizePiTool",
+        "cmd",
+        "terminal",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -1515,6 +1527,84 @@ def check_pi_package_layout_and_contract() -> None:
         content = skill_file.read_text(encoding="utf-8")
         if "name:" not in content or skill not in content:
             fail(f"Pi package skill wrapper lacks expected frontmatter/content: {skill}")
+
+    importer = pkg_root / "scripts" / "import-antigravity-mcp.ts"
+    fixture = pkg_root / "fixtures" / "antigravity-mcp-config.jsonc"
+    for path in [importer, fixture]:
+        if not path.exists():
+            fail(f"Pi package missing Antigravity MCP importer artifact: {path.relative_to(ROOT)}")
+    importer_text = importer.read_text(encoding="utf-8")
+    for phrase in ["serverUrl", "authProviderType", "google_credentials", "bearerTokenEnv", "disabledTools", "excludeTools", "mcp_oauth_tokens", "--apply", "--dry-run"]:
+        if phrase not in importer_text:
+            fail("Pi Antigravity MCP importer missing phrase: " + phrase)
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-antigravity-mcp-"))
+    try:
+        target = temp / "pi-mcp.json"
+        target.write_text(json.dumps({"mcpServers": {"existing": {"command": "node"}}, "imports": ["claude-code"]}), encoding="utf-8")
+        completed = subprocess.run(
+            ["bun", str(importer), "--source", str(fixture), "--target", str(target), "--prefix", "ag-", "--apply"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("Pi Antigravity MCP importer fixture command failed:\n" + completed.stdout + completed.stderr)
+        report = json.loads(completed.stdout)
+        if sorted(report.get("imported", [])) != ["ag-gcp-adc", "ag-local-db", "ag-remote-oauth"]:
+            fail("Pi Antigravity MCP importer imported unexpected servers: " + completed.stdout)
+        if not any("google_credentials converted" in item.get("warning", "") for item in report.get("warnings", [])):
+            fail("Pi Antigravity MCP importer did not report google_credentials bridge warning: " + completed.stdout)
+        written = json.loads(target.read_text(encoding="utf-8"))
+        servers = written.get("mcpServers", {})
+        expected_remote_url = "http" + "://127.0.0.1:39391/mcp/"
+        if servers.get("ag-remote-oauth", {}).get("url") != expected_remote_url:
+            fail("Pi Antigravity MCP importer failed serverUrl->url conversion: " + json.dumps(servers.get("ag-remote-oauth"), ensure_ascii=False))
+        if servers.get("ag-remote-oauth", {}).get("excludeTools") != ["dangerous_tool"]:
+            fail("Pi Antigravity MCP importer failed disabledTools->excludeTools conversion")
+        if servers.get("ag-gcp-adc", {}).get("auth") != "bearer" or servers.get("ag-gcp-adc", {}).get("bearerTokenEnv") != "ANTIGRAVITY_MCP_AG_GCP_ADC_ACCESS_TOKEN":
+            fail("Pi Antigravity MCP importer failed google_credentials bearerTokenEnv conversion: " + json.dumps(servers.get("ag-gcp-adc"), ensure_ascii=False))
+        if "ag-disabled-one" in servers:
+            fail("Pi Antigravity MCP importer should skip disabled servers by default")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    runtime_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-read-debt-smoke-"))
+    try:
+        smoke = runtime_smoke / "pi-read-debt-smoke.ts"
+        smoke.write_text(
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers = new Map();\n"
+            "const commands = new Map();\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(n,o){commands.set(n,o)}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
+            "lazyHarnessPi(pi);\n"
+            "const ctx={cwd:" + json.dumps(str(ROOT)) + ", signal:undefined, ui:{notify(){}}};\n"
+            "const before=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:'base'},ctx);\n"
+            "if(!before?.systemPrompt?.includes('REMINDER. Harness-first')) throw new Error('no reminder');\n"
+            "const cases=[\n"
+            " ['write',{toolName:'write', input:{file_path:'tmp.txt',content:'x'}}],\n"
+            " ['bash',{toolName:'bash', input:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}],\n"
+            " ['cmd',{toolName:'cmd', input:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}],\n"
+            " ['terminal',{toolName:'terminal', input:{text:'nohup bun scripts/dev-cli.ts --test --instance x &'}}],\n"
+            " ['batch-bash',{toolName:'batch', input:{tool_calls:[{tool:'bash',parameters:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}]}}],\n"
+            "];\n"
+            "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(!r?.block) throw new Error(name+' not blocked'); }\n"
+            "console.log('pi shell alias read-debt smoke ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            ["bun", str(smoke)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("Pi shell alias read-debt smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(runtime_smoke, ignore_errors=True)
 
     print("✓ Pi package layout and extension contract ok")
 

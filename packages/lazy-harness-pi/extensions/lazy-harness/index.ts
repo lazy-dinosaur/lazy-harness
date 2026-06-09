@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const EXTENSION_NAME = "lazy-harness";
 const MAX_RECENT_TOOL_CALLS = 80;
@@ -99,6 +100,24 @@ function previewContent(content: unknown): unknown {
   return content;
 }
 
+
+function normalizePiTool(toolName: unknown, input: unknown): { name: string; args: JsonObject } {
+  const rawName = String(toolName || "");
+  const args = (input && typeof input === "object" ? input : {}) as JsonObject;
+  const lower = rawName.toLowerCase();
+  if (["cmd", "command", "shell", "terminal"].includes(lower)) {
+    const command = typeof args.command === "string"
+      ? args.command
+      : typeof args.cmd === "string"
+        ? args.cmd
+        : typeof args.text === "string"
+          ? args.text
+          : "";
+    return { name: "bash", args: { ...args, command } };
+  }
+  return { name: rawName, args };
+}
+
 function rememberToolCall(call: RecentToolCall): void {
   recentToolCalls.push(call);
   while (recentToolCalls.length > MAX_RECENT_TOOL_CALLS) recentToolCalls.shift();
@@ -118,6 +137,22 @@ async function runLazyCommand(pi: ExtensionAPI, ctx: any, args: string, lazyArgs
   const code = (result as any).exitCode ?? (result as any).code ?? 0;
   const body = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(0, 1600) || `lazy ${lazyArgs.join(" ")} completed`;
   ctx.ui?.notify?.(`lazy-harness ${lazyArgs.join(" ")} exit=${code}\n${body}`, code ? "warning" : "info");
+}
+
+async function runPackageScript(pi: ExtensionAPI, ctx: any, args: string, scriptRelativeToExtension: string): Promise<void> {
+  const root = findLazyRoot(ctx.cwd);
+  if (!root) {
+    ctx.ui?.notify?.("lazy-harness: .lazy-harness/bin/lazy not found from current cwd", "warning");
+    return;
+  }
+  const scriptPath = fileURLToPath(new URL(scriptRelativeToExtension, import.meta.url));
+  const extra = args.trim() ? args.trim().split(/\s+/) : [];
+  const result = await pi.exec("bun", [scriptPath, ...extra], { cwd: root, timeout: 120000, signal: ctx.signal });
+  const stdout = String((result as any).stdout ?? "");
+  const stderr = String((result as any).stderr ?? "");
+  const code = (result as any).exitCode ?? (result as any).code ?? 0;
+  const body = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n").slice(0, 2000) || `${scriptPath} completed`;
+  ctx.ui?.notify?.(`lazy-harness package script exit=${code}\n${body}`, code ? "warning" : "info");
 }
 
 export default function lazyHarnessPi(pi: ExtensionAPI) {
@@ -165,10 +200,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       session_id: packet.sessionId,
       message_id: packet.messageId,
       working_dir: root,
-      tool: {
-        name: event.toolName,
-        args: event.input || {},
-      },
+      tool: normalizePiTool(event.toolName, event.input || {}),
       recent_tool_calls: recentToolCalls.slice(-40),
     };
 
@@ -182,8 +214,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
   pi.on("tool_result", async (event: any) => {
     rememberToolCall({
-      name: String(event.toolName || ""),
-      args: (event.input && typeof event.input === "object" ? event.input : {}) as JsonObject,
+      ...normalizePiTool(event.toolName, event.input || {}),
       toolCallId: String(event.toolCallId || ""),
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
@@ -214,5 +245,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.registerCommand("lazy-update", {
     description: "Run lazy update from the current project root.",
     handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args, ["update"]),
+  });
+
+  pi.registerCommand("lazy-import-antigravity-mcp", {
+    description: "Import Antigravity MCP config into Pi MCP adapter config. Defaults to dry-run; pass --apply to write ~/.pi/agent/mcp.json.",
+    handler: async (args: string, ctx: any) => runPackageScript(pi, ctx, args || "--dry-run", "../../scripts/import-antigravity-mcp.ts"),
   });
 }

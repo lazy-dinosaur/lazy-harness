@@ -13,8 +13,10 @@ The in-repo Pi package must remain installable and must bridge Pi extension even
 |---|---|---|
 | `pi_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keyword includes `pi-package`; `pi.extensions`, `pi.skills`, and `pi.prompts` point to package-local resource directories |
 | `pi_project_local_install_settings` | Parse `.pi/settings.json` | `packages` contains `../packages/lazy-harness-pi`, proving the source repo has the package installed project-locally |
+| `pi_global_install_settings` | Parse `~/.pi/agent/settings.json` | `packages` contains a path ending in `lazy-harness/packages/lazy-harness-pi`, proving existing projects can load the package globally |
 | `pi_extension_before_agent_start_bridge` | Inspect extension source | Source contains `before_agent_start`, calls `on-message-received.sh`, and injects `REMINDER. Harness-first search/read debt before response.` fallback |
 | `pi_extension_tool_call_bridge` | Inspect extension source | Source contains `tool_call`, calls `on-tool-execute-before.sh`, and returns `{ block: true, reason }` only when hook output supplies a reason |
+| `pi_extension_shell_alias_guard` | Fake Pi runtime calls `tool_call` with `cmd`, `terminal`, `bash`, and `batch` shell actions after `before_agent_start` | All action shell variants block until root-bound read/search evidence exists |
 | `pi_extension_tool_result_evidence` | Inspect extension source | Source contains `tool_result` and records recent tool calls for evidence guard payloads |
 | `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
 
@@ -51,6 +53,7 @@ pi list --approve
 
 - `packages/lazy-harness-pi/package.json` — fixture for package manifest resource paths.
 - `.pi/settings.json` — fixture for project-local package install path.
+- `~/.pi/agent/settings.json` — fixture for global package install path, not committed to the repository.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for skill availability.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation.

@@ -325,9 +325,19 @@
           "description": "SDD contract for the source-repo Pi package: package resources, extension lifecycle bridge, local install, and trust boundary."
         },
         {
+          "path": "spec/platform/antigravity-mcp-pi-bridge.md",
+          "kind": "file",
+          "description": "SDD contract for importing Antigravity MCP configs into Pi MCP adapter config without copying OAuth token stores."
+        },
+        {
           "path": "tests/pi-agent-package.md",
           "kind": "file",
           "description": "TDD fixtures for Pi package manifest, before_agent_start/tool_call/tool_result bridge coverage, and package skill resources."
+        },
+        {
+          "path": "tests/antigravity-mcp-pi-bridge.md",
+          "kind": "file",
+          "description": "TDD fixtures for Antigravity MCP importer conversions: serverUrl/url, OAuth, Google ADC bearerTokenEnv bridge, disabledTools, and disabled server skip behavior."
         },
         {
           "path": "spec/platform/search-read-debt-contract.md",

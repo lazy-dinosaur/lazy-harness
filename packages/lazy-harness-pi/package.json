@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.",
+  "scripts": {
+    "import:antigravity-mcp": "bun scripts/import-antigravity-mcp.ts"
+  },
   "keywords": ["pi-package", "lazy-harness", "agent", "extension"],
   "license": "MIT",
   "pi": {

@@ -43,7 +43,25 @@ This package is framework-source owned. It is installed into Pi by local path an
 6. handle `tool_result` by retaining recent tool evidence for later guard invocations,
 7. register convenience commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
 
+Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must normalize to lazy `bash` before the guard runs. Otherwise shell actions can bypass read-debt enforcement because the canonical helper classifies `bash` as an action tool.
+
 ## Install contract
+
+Global install for all Pi projects:
+
+```bash
+pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
+```
+
+This writes user-global Pi settings:
+
+```json
+{
+  "packages": ["../../dev/lazy-harness/packages/lazy-harness-pi"]
+}
+```
+
+Global install is required when Pi is used from multiple existing projects. Project-local install only affects the current repository.
 
 Project-local install:
 
@@ -73,6 +91,7 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - The canonical prompt/runtime behavior remains in `.lazy-harness/hooks/lifecycle/**` and `.lazy-harness` records.
 - Pi `tool_call` is a hard-block surface; the extension must preserve the recent relaxed policy by blocking only actual mutation/evidence guard denials.
 - Read-only overview batch/parallel behavior must not be blocked by this package.
+- Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must not bypass the guard.
 - Because Pi extensions run with project extension permissions, package README must document the trust boundary.
 
 ## Implementation map
@@ -83,5 +102,6 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
 - `.pi/settings.json` — source-repo Pi local package attachment created by `pi install -l`.
+- `~/.pi/agent/settings.json` — user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
