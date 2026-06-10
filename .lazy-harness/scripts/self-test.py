@@ -1927,6 +1927,28 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         stale.write_text("<legacy-fixture />\n", encoding="utf-8")
         host_graph_row = {"id": "host_local_graph_fact", "source": "host-local fact must survive lazy-sync"}
         graph.write_text(json.dumps(host_graph_row, ensure_ascii=False) + "\n", encoding="utf-8")
+        capabilities = temp / ".lazy-harness" / "ssot" / "capabilities.json"
+        capabilities.parent.mkdir(parents=True, exist_ok=True)
+        capabilities.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "capabilities": [
+                        {
+                            "id": "host-local-capability",
+                            "kind": "command",
+                            "level": "discover",
+                            "sourceRecord": ".lazy-harness/ssot/host-local.md",
+                            "appliesWhen": ["host_local_only"],
+                            "actions": ["host-local action"],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, env=env_without_lazy_runtime(), text=True).strip()
         (state / "synced-from-commit").write_text(
             json.dumps({"syncedFromCommit": head, "sourceRoot": str(ROOT)}, ensure_ascii=False),
@@ -1960,6 +1982,19 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         graph_text = graph.read_text(encoding="utf-8")
         if "host_local_graph_fact" not in graph_text or "kg_" not in graph_text:
             fail("lazy-sync must merge source knowledge seeds while preserving host-local graph rows")
+        if not (temp / ".lazy-harness" / "rules" / "README.md").exists():
+            fail("lazy-sync must copy the framework rulebook README seed")
+        capability_ids = [
+            cap.get("id")
+            for cap in json.loads(capabilities.read_text(encoding="utf-8")).get("capabilities", [])
+        ]
+        for required_capability in [
+            "host-local-capability",
+            "project-operating-rulebook",
+            "retrieval-purpose-test",
+        ]:
+            if required_capability not in capability_ids:
+                fail("lazy-sync must preserve host capabilities and merge framework seeds: " + required_capability)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ lazy-sync stale managed file prune ok")

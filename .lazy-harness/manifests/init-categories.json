@@ -535,6 +535,16 @@
           "description": "SSOT for Capability Registry kind/level separation and non-blocking Phase 1 behavior. Host-specific capabilities.json remains host-owned."
         },
         {
+          "path": "ssot/capabilities.json",
+          "kind": "file",
+          "description": "Framework seed Capability Registry. lazy-sync merges missing source capability ids into host-owned registries without overwriting host-local entries."
+        },
+        {
+          "path": "rules/README.md",
+          "kind": "file",
+          "description": "Framework-global project operating rulebook seed. Host-specific rules live in additional .lazy-harness/rules/**/*.md files."
+        },
+        {
           "path": "ssot/pi-mcp-parity.md",
           "kind": "file",
           "description": "SSOT for non-secret Pi MCP adapter parity with Jcode MCP servers: config paths, server names, conversion rules, backup, and validation commands."

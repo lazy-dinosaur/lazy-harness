@@ -165,6 +165,55 @@ function isKnowledgeSeedItem(item: ManifestItem): boolean {
   return item.path === 'knowledge/' || item.path === 'knowledge'
 }
 
+function isCapabilitiesSeedItem(item: ManifestItem): boolean {
+  return item.path === 'ssot/capabilities.json'
+}
+
+function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchanged' {
+  if (!existsSync(dest)) {
+    copyFile(src, dest)
+    return 'updated'
+  }
+
+  let srcData: Record<string, unknown>
+  let destData: Record<string, unknown>
+  try {
+    srcData = JSON.parse(readFileSync(src, 'utf8')) as Record<string, unknown>
+    destData = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
+  } catch (err) {
+    log(`  ⚠ could not merge capabilities seed: ${(err as Error).message}`)
+    return 'unchanged'
+  }
+
+  const srcCaps = Array.isArray(srcData.capabilities) ? srcData.capabilities : []
+  const destCaps = Array.isArray(destData.capabilities) ? destData.capabilities : []
+  const existingIds = new Set(
+    destCaps
+      .map((cap) => (cap && typeof cap === 'object' ? (cap as Record<string, unknown>).id : undefined))
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  )
+  const missing = srcCaps.filter((cap) => {
+    if (!cap || typeof cap !== 'object') return false
+    const id = (cap as Record<string, unknown>).id
+    return typeof id === 'string' && id.length > 0 && !existingIds.has(id)
+  })
+
+  if (missing.length === 0) return 'unchanged'
+  if (DRY) {
+    log(`  [dry] would merge ${missing.length} seed capabilities into: ${dest}`)
+    return 'updated'
+  }
+
+  const merged: Record<string, unknown> = { ...destData }
+  if (!('$schema' in merged) && '$schema' in srcData) merged.$schema = srcData.$schema
+  if (!('version' in merged) && 'version' in srcData) merged.version = srcData.version
+  merged.capabilities = [...destCaps, ...missing]
+  ensureDir(dirname(dest))
+  writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`, 'utf8')
+  log(`  merged ${missing.length} seed capabilities into: ${dest}`)
+  return 'updated'
+}
+
 
 function removeRelocatedStaleCopy(src: string, staleDest: string, dest: string): boolean {
   if (staleDest === dest || !existsSync(staleDest)) return false
@@ -399,6 +448,12 @@ function syncCategoryA(
       const dest = join(targetLazy, item.targetPath ?? item.path)
       if (!existsSync(src)) {
         missing++
+        continue
+      }
+      if (isCapabilitiesSeedItem(item)) {
+        const result = mergeCapabilitiesSeed(src, dest)
+        if (result === 'updated') updated++
+        else unchanged++
         continue
       }
       if (existsSync(dest) && readFileSync(src).compare(readFileSync(dest)) === 0) {

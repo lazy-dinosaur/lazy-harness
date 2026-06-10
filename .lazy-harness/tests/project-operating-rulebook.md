@@ -22,6 +22,7 @@ Self-test must prove:
 - Missing rulebook/capability links fail audit deterministically.
 - No blocking hook is installed by Phase 0-2.
 - Response audit can advisory-warn when `warn|block` capability `discouragedActions` are used without prior rule/capability resolve evidence.
+- `lazy-sync` copies the framework `.lazy-harness/rules/README.md` seed and merges missing framework capability ids into host-owned `.lazy-harness/ssot/capabilities.json` while preserving host-specific capabilities.
 
 ## Layer completeness gate
 
@@ -37,6 +38,8 @@ Self-test must prove:
 - Primary files:
   - `.lazy-harness/scripts/rulebook.ts`
   - `.lazy-harness/scripts/capability.ts`
+  - `.lazy-harness/scripts/lazy-sync.ts`
+  - `.lazy-harness/manifests/init-categories.json`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`
 - Key symbols:
@@ -44,7 +47,9 @@ Self-test must prove:
   - `auditRules`
   - `resolveRules`
   - `resolveCapabilities`
+  - `mergeCapabilitiesSeed`
   - `check_project_operating_rulebook_cli`
+  - `check_lazy_sync_prunes_stale_managed_files`
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy test`

@@ -96,6 +96,8 @@ Non-strict audit reports the same issues but only exits non-zero for errors.
 - Source files:
   - `.lazy-harness/scripts/rulebook.ts`
   - `.lazy-harness/scripts/capability.ts`
+  - `.lazy-harness/scripts/lazy-sync.ts`
+  - `.lazy-harness/manifests/init-categories.json`
   - `.lazy-harness/schemas/capabilities.schema.json`
   - `.lazy-harness/bin/lazy`
 - Records:

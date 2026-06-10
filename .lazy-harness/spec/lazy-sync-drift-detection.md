@@ -36,6 +36,8 @@ For Category A manifest directory entries, `lazy-sync` must remove stale destina
 
 Exception: `knowledge/` JSONL files are host-local append-only stores. They are seed-merged, not overwritten or pruned: missing source seed rows are appended to the host file, while host-local graph/candidate rows are preserved.
 
+`ssot/capabilities.json` is also host-owned. When the manifest includes the framework seed registry, `lazy-sync` merges missing source capability ids into the host registry without deleting or overwriting host-local capability entries. This lets downstream hosts receive new framework capability surfaces such as retrieval-purpose and rulebook capabilities while preserving project-specific capabilities.
+
 After file sync, `installJcodeWiring` must refresh lazy-harness managed blocks in `.jcode/config.toml` when their marker comments are present. User-owned config content remains preserved, but managed hook blocks should receive updated framework wording/commands instead of staying stale forever.
 
 ## Implementation map
@@ -47,6 +49,7 @@ After file sync, `installJcodeWiring` must refresh lazy-harness managed blocks i
 - **Marker storage**: `state/synced-from-commit` JSON file in the host. Written after each successful sync.
 - **Managed directory prune**: `syncCategoryA` walks the destination directory for each Category A directory item and removes files that match that item's managed globs but are absent from the source, except `knowledge/` JSONL stores.
 - **Knowledge seed merge**: `mergeJsonlSeed` appends missing source seed JSONL rows into host `knowledge/*.jsonl` without removing or overwriting host-local rows.
+- **Capability seed merge**: `mergeCapabilitiesSeed` appends missing source entries from `.lazy-harness/ssot/capabilities.json` by `id` without removing or overwriting host-local capabilities.
 - **Jcode managed block refresh**: `installJcodeWiring` refreshes marked lazy-harness blocks, including the generic search/read evidence guard block, while leaving unmarked user-owned config sections intact.
 
 ### Related records
@@ -72,6 +75,9 @@ bun .lazy-harness/scripts/lazy-sync.ts --target /path/to/host-project-a --force
 
 # Host has extra knowledge/graph.jsonl rows, then sync.
 # Expected: host rows remain, missing source seed rows are appended.
+
+# Host has an existing ssot/capabilities.json with project-specific entries, then sync.
+# Expected: host capability ids remain and missing framework capability ids are appended.
 ```
 
 ## Non-goals
