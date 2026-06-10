@@ -524,3 +524,157 @@ Exit criteria:
 - ADR: add ADR 0042 for the storage split and hybrid architecture.
 - SSOT: update rule-sources and capability-registry.
 - Planning: this plan is the execution entrypoint.
+
+## 2026-06-10 correction — purpose-scoped retrieval, not universal record sweep
+
+Status: user-confirmed-requirement
+Confirmation: user-confirmed
+
+User correction:
+
+```text
+중요한건 llm이 목적에따라 검색할때 영역을 선택할수 있는게 좋을꺼거든
+test 를 위햇 test 관련 된걸 찾는다고 record 를 검색할필욘없잔아 그지??
+...
+레코드를 뒤질 필요가 없는거아냐
+```
+
+Interpretation:
+
+The framework goal is not “always search every record layer first.” The goal is **purpose-scoped retrieval**: the agent should select the smallest relevant search space for the task.
+
+Examples:
+
+- Test/validation intent should start in TDD/test surfaces: `.lazy-harness/tests/**`, test capabilities, `lazy affected`, `lazy test`, source test files, and only read factual records if a contract/behavior/domain question is actually needed.
+- Operating-policy intent should start in `.lazy-harness/rules/**` and capability action bindings, not the full DDD/SDD/BDD/ADR/SSOT corpus.
+- Command/tool-selection intent should start with `lazy capability resolve` / `lazy rules resolve` by exact intent/action labels.
+- Architecture/contract changes still need the full record/source/test package and layer completeness gate.
+
+Current problem:
+
+`message.received` and generic search/read debt language still nudges agents toward broad record-first retrieval. That is safer than guessing, but it is too expensive/noisy after the framework has separate rulebook, capability, test, feature-navigation, graph, and source-index spaces.
+
+Target:
+
+Add a retrieval routing layer that is deterministic and explicit, not a raw semantic classifier:
+
+```text
+purpose / mode / explicit CLI option
+  -> chosen search spaces
+  -> cue-only candidates
+  -> required reads limited to those spaces
+  -> escalation to broader records only when needed
+```
+
+The router should be tool/user controlled, for example through explicit modes such as:
+
+- `test`
+- `rulebook`
+- `capability`
+- `source`
+- `record`
+- `architecture`
+- `full`
+
+Potential CLI surfaces:
+
+- `lazy find --purpose test <query>`
+- `lazy map --scope tests <query>`
+- `lazy route --purpose test <query>`
+- `lazy rules resolve --intent ...` and `lazy capability resolve --intent ...` for operating rules/tool choices
+
+## Design constraints
+
+- Do not infer high-stakes intent from raw user text inside lifecycle hooks.
+- Prefer explicit user/LLM-selected purpose flags or command-specific resolver calls.
+- Keep outputs cue-only unless real files are read.
+- Preserve root-bound search.
+- Allow escalation: test-scoped search can widen to SDD/BDD/SSOT when tests imply contract/behavior/config impact.
+- Update response audit so it does not punish purpose-scoped retrieval for not reading irrelevant records.
+
+## Candidate implementation options
+
+A. Add `lazy map --scope <records|tests|rules|capabilities|source|feature|graph|full>`.
+   - Minimal change to existing retrieval surface.
+   - Needs record-map source-space filtering.
+
+B. Add new `lazy find --purpose <test|rulebook|capability|source|record|architecture|full>`.
+   - Clearer product model: purpose first, sources second.
+   - Can orchestrate `lazy map`, `lazy rules`, `lazy capability`, grep/source search, and test files.
+
+C. Add `lazy route --purpose ...` that only prints the recommended commands/search spaces.
+   - Safer first step because it does not pretend to retrieve evidence.
+   - Requires the LLM to execute selected commands.
+
+D. Extend capability registry with retrieval capabilities and let `lazy capability resolve --intent testing_changes` return test search/validation actions.
+   - Reuses existing capability mechanism.
+   - May be too indirect for normal search UX unless combined with A or B.
+
+Recommended candidate: **B + D later**.
+
+Start with `lazy find --purpose ...` as a user/LLM explicit retrieval entrypoint. Then register common purpose routes as capabilities so project-specific hosts can override/add routes.
+
+## Rule placement
+
+- Rule: Lazy-harness retrieval should become purpose-scoped; agents should not perform broad record sweeps when a task only needs test/rulebook/capability/source surfaces, and should escalate to broader records only when needed.
+- Scope: framework-global
+- Primary record: `.lazy-harness/planning/project-operating-rulebook-implementation-plan.md`
+- Why not AGENTS.md: this is a retrieval architecture requirement and implementation option set, not yet a final prompt grammar rule.
+- Why not `.jcode`: it changes shared framework retrieval behavior across hosts, not local/private Jcode wiring.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- DDD: retrieval vocabulary now includes “purpose-scoped retrieval”; candidate DDD update may be needed.
+- SDD: search/read debt and record-map contracts need a purpose-scoped successor or extension.
+- BDD: LLM retrieval behavior should route by task purpose before reading broad record sets.
+- TDD: add regression proving test-purpose search does not require reading unrelated fact records before test/source surfaces.
+- ADR: likely needed if replacing record-first static debt language with purpose-first routing.
+- SSOT: CLI boundary must still forbid raw-text semantic authority in lifecycle hooks.
+- Planning: this section is the active requirement entrypoint.
+
+### Information retrieval vs operating-rule retrieval
+
+The retrieval router must distinguish two fundamentally different questions:
+
+1. **Information / fact retrieval**
+   - Question: “What is true about this project?”
+   - Search spaces:
+     - DDD/SDD/BDD/TDD/ADR/SSOT records
+     - implementation maps
+     - source/tests/config/docs
+   - Examples:
+     - contract details
+     - actual implementation facts
+     - project identity
+     - schema/config/source-of-truth
+     - why a design decision exists
+   - Records are appropriate and often required.
+
+2. **Operating-rule / behavior retrieval**
+   - Question: “How should I act in this project?”
+   - Search spaces:
+     - `.lazy-harness/rules/**`
+     - `.lazy-harness/ssot/capabilities.json`
+     - `lazy rules resolve`
+     - `lazy capability resolve`
+     - validation/test capabilities when the action is testing
+   - Examples:
+     - preferred command
+     - discouraged command
+     - required validation workflow
+     - bypass policy
+     - default/warn/block level
+   - Broad fact-record retrieval is token waste unless the rule points to missing factual support or the user asks for project facts.
+
+The framework should therefore avoid treating “record search” as a universal synonym for “context retrieval.” Records are one retrieval space among several. The selected space should follow the task purpose.
+
+Operational rule:
+
+```text
+If the user/LLM is deciding what to do, start from rulebook/capability/action surfaces.
+If the user/LLM is deciding what is true, start from project fact records and implementation evidence.
+If the task is test/validation-only, start from tests/test capabilities/source test files and widen only when contract/behavior/config facts are needed.
+```
+
+This requirement should be promoted from planning into a dedicated SDD/BDD/TDD package before changing lifecycle hooks, because current `search-read-debt` still assumes broad record/source/test evidence as the generic safety baseline.
