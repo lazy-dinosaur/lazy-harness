@@ -125,3 +125,16 @@ Discovery capture:
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` captures SCR-401.
 - SSOT: this section records SCR-305 and the cue-only `lazy map` boundary.
 - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records SCR-402 completion.
+
+## Purpose-scoped retrieval boundary — 2026-06-10
+
+`lazy find --purpose ...` is allowed because purpose is explicit LLM/user input and output is cue-only. The command must not infer user intent from raw prompts, assign risk/gates, generate required-read lists, or choose next actions. It may narrow deterministic search spaces for fact, rulebook, test, capability, source, architecture, or full retrieval.
+
+Rule placement:
+
+- Rule: Purpose-scoped retrieval is a deterministic cue tool only; explicit `--purpose` is required and lifecycle hooks must not classify raw prompts into purposes.
+- Scope: framework-global
+- Primary record: `.lazy-harness/ssot/cli-tool-boundary.md`
+- Why not AGENTS.md: this boundary needs source/test implementation maps.
+- Why not `.jcode`: shared lazy-harness framework behavior.
+- Confirmation: user-confirmed

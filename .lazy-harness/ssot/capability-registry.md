@@ -106,3 +106,15 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+
+## Purpose-scoped retrieval capabilities
+
+Purpose retrieval affordances are registered as `recommend` command capabilities:
+
+- `retrieval-purpose-fact`
+- `retrieval-purpose-rulebook`
+- `retrieval-purpose-test`
+- `retrieval-purpose-source`
+- `retrieval-purpose-architecture`
+
+These capabilities point to `lazy find --purpose ...` and must not escalate to warn/block without a separate Guidance Ladder decision.

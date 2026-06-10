@@ -336,6 +336,54 @@
     <risk>Medium: operating rules guide agent behavior across hosts; keep hard stops behind Guidance Ladder promotion and avoid tool-specific adapter sprawl.</risk>
   </feature>
 
+  <feature id="purpose-scoped-retrieval" status="confirmed">
+    <label>Purpose-scoped retrieval</label>
+    <aliases>
+      <alias lang="en">purpose scoped retrieval</alias>
+      <alias lang="en">lazy find</alias>
+      <alias lang="en">fact retrieval</alias>
+      <alias lang="en">rulebook retrieval</alias>
+      <alias lang="en">test retrieval</alias>
+      <alias lang="ko">목적별 검색</alias>
+      <alias lang="ko">정보 검색</alias>
+      <alias lang="ko">행동 규약 검색</alias>
+      <alias lang="symbol">purpose-find.ts</alias>
+    </aliases>
+    <routes>
+      <route>lazy find</route>
+      <route>lazy map</route>
+      <route>lazy rules</route>
+      <route>lazy capability</route>
+    </routes>
+    <components>
+      <component>explicit purpose parser</component>
+      <component>purpose search space selector</component>
+      <component>fact/rulebook/test/source/capability candidate finder</component>
+      <component>cue-only retrieval packet</component>
+    </components>
+    <records>
+      <record layer="ADR">.lazy-harness/decisions/0045-purpose-scoped-retrieval.md</record>
+      <record layer="DDD">.lazy-harness/domain/purpose-scoped-retrieval.md</record>
+      <record layer="BDD">.lazy-harness/behavior/purpose-scoped-retrieval.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/purpose-scoped-retrieval.md</record>
+      <record layer="TDD">.lazy-harness/tests/purpose-scoped-retrieval.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/cli-tool-boundary.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/capability-registry.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/scripts/purpose-find.ts</path>
+      <path>.lazy-harness/bin/lazy</path>
+      <path>.lazy-harness/ssot/capabilities.json</path>
+      <path>.lazy-harness/project/feature-navigation.xml</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/purpose-scoped-retrieval.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: retrieval narrowing saves tokens but must not become semantic authority or skip broad evidence for architecture/fact-sensitive work.</risk>
+  </feature>
+
   <feature id="test-doctor" status="confirmed">
     <label>Test and doctor</label>
     <aliases>
