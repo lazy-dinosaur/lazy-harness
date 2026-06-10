@@ -142,7 +142,7 @@ Semantics:
 1. resolve host root,
 2. parse payload,
 3. avoid all user-text semantic classification in shell/CLI code; the hook must not branch on words such as `fix`, `test`, `고쳐`, or `확인`,
-4. emit the same compact `REMINDER. Harness-first search/read debt before response.` static transport for any non-empty user message,
+4. emit the same compact `REMINDER. Harness-first search/read debt before response.` static transport for any non-empty user message, with static guidance that the LLM/searcher explicitly chooses a retrieval purpose before search,
 5. include bounded actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning/Plans/Project/Knowledge counts, generated-index presence, graph/candidate/project navigation pointers, and source/test/doc directory presence, without dumping per-layer samples,
 6. keep the compact prompt under the normal 200-600 token target for framework source dogfood when feasible and under the 1,000-token hard ceiling for normal hosts,
 7. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
@@ -201,7 +201,7 @@ message.received
 - Flow:
   1. Hook receives `last_user_message` and host root from Jcode.
   2. Hook checks only structural prerequisites: host root exists and user message is non-empty.
-  3. Hook injects bounded `.lazy-harness` layer counts, generated-index/graph/project pointers, and a compact search/read protocol without inspecting message meaning.
+  3. Hook injects bounded `.lazy-harness` layer counts, generated-index/graph/project pointers, and a compact purpose-scoped search/read protocol without inspecting message meaning.
   4. Hook journals direct-search debt with safe hashes and static instruction level `harness-first-static`.
   5. Main LLM/searcher follows lazy-harness, reads actual records/source, and may use any root-bound read-only/search/query affordance before answering or acting.
   6. Unsatisfied direct-search/read debt is guarded before action and audited after response.
@@ -226,3 +226,24 @@ message.received
 - ADR: ADR 0041 selected the organic hybrid response lifecycle model.
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
 - Planning: searchable record memory cleanup plan Phase 3.
+
+## Phase 5 purpose-scoped prompt guidance
+
+The static `message.received` reminder now teaches explicit purpose selection without classifying the user message:
+
+- fact/contract → `lazy find --purpose fact` or `lazy map`
+- rule/action → `lazy find --purpose rulebook` plus `lazy rules` / `lazy capability`
+- validation/test → `lazy find --purpose test`
+- implementation/source → `lazy find --purpose source`
+- architecture/ambiguous/high-risk → `lazy find --purpose architecture` plus overview/map
+
+The hook remains static: it must render the same body for all non-empty messages, avoid raw user-text classifiers, and journal the same sanitized `harness-first-static` search debt. Purpose selection is done by the LLM/searcher or user, not the hook.
+
+## Rule placement
+
+- Rule: `message.received` prompt guidance should point agents to explicit purpose-scoped retrieval while remaining static/non-semantic and preserving broad overview for architecture/ambiguous/high-risk work.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pre-response-rule-context.md`
+- Why not AGENTS.md: this is hook output contract and regression behavior.
+- Why not `.jcode`: shared lazy-harness lifecycle behavior.
+- Confirmation: inferred-from-record

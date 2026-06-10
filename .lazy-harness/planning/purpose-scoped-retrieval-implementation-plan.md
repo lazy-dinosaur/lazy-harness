@@ -424,7 +424,7 @@ Use dogfood cases:
 
 ## 2026-06-10 next candidate — Phase 5 prompt guidance alignment
 
-Status: candidate-next
+Status: implemented
 Confirmation: inferred-from-record
 
 After Phase 4, purpose-scoped retrieval works in CLI, evidence guards, response audit, and downstream dogfood fixtures. The remaining mismatch is the default `message.received` reminder: it still reads as broad harness-first record/source/test retrieval guidance, while the implemented framework now supports purpose-scoped retrieval.
@@ -481,3 +481,21 @@ Validation:
 - ADR: no new ADR expected unless static prompt policy changes.
 - SSOT: no new SSOT expected unless CLI boundary changes.
 - Planning: this section is the active next-step candidate.
+
+## Phase 5 implementation result — 2026-06-10
+
+Status: implemented
+
+Implemented static prompt guidance alignment in `.lazy-harness/hooks/lifecycle/on-message-received.sh`:
+
+- teaches explicit retrieval-purpose selection;
+- keeps `message.received` static and non-semantic;
+- preserves broad overview/map guidance for architecture/ambiguous/high-risk or unclear purpose;
+- keeps evidence guard and search-debt journaling unchanged;
+- updates SDD/TDD/prompt-budget records and self-test prompt assertions.
+
+Validation target:
+
+- `check_message_received_hook_context_injection`
+- `lazy prompt-budget --format=json`
+- `.lazy-harness/bin/lazy test`

@@ -123,3 +123,12 @@ Runtime hook behavior is unchanged, so rollback should not require runtime journ
 - ADR: no new decision; implements ADR 0041 compression direction.
 - SSOT: no new source-of-truth beyond budgets in SDD.
 - Planning: Phase 1 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
+
+## Phase 5 purpose-scoped prompt guidance
+
+The `message.received` prompt may include explicit `lazy find --purpose ...` examples as long as:
+
+- static equality remains true for all non-empty messages;
+- no raw user-text classifier is introduced;
+- rendered token estimate remains under the framework source dogfood threshold protected by `check_message_received_hook_context_injection`;
+- `lazy prompt-budget --format=json` reports a passing `renderedMessageReceived` surface.
