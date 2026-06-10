@@ -294,3 +294,76 @@ Concrete phases:
   - `98c979c` — lazy harness instruction pointer-only.
 - Protection gap:
   - no current fixture proves a host operational rule changes later command choice via capability/default/warn/block behavior.
+
+## 2026-06-10 correction — separate project facts from operating rulebook
+
+Status: user-confirmed-requirement
+Confirmation: user-confirmed
+
+User correction:
+
+```text
+규칙을 저장하는 방식도 만들도록 하는게 좋겠지?? 이게 레코드는 프로젝트에대한사실이고 이 프로젝트를 개발하면서의 행동규약은 따로있어야하잖아
+```
+
+Interpretation:
+
+Lazy-harness currently uses `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/**` records for project facts, contracts, behavior, decisions, regressions, and source-of-truth knowledge. That is necessary but not sufficient for project-specific development behavior.
+
+The framework also needs a distinct **project operating rulebook** concept for rules that tell agents how to work inside a host project:
+
+- which commands are canonical/default,
+- which commands are discouraged or require justification,
+- which workflow steps must happen before mutation,
+- which project-specific tools, scripts, skills, or validations should be preferred,
+- which actions warn or block,
+- how those rules are surfaced to agents at planning/action time.
+
+This rulebook must not be stored only in `.jcode` or Jcode memory. It should be canonical under `.lazy-harness`, but semantically separate from factual records.
+
+## Proposed storage split
+
+| Knowledge type | Meaning | Canonical storage |
+|---|---|---|
+| Project fact record | What the project is / has / guarantees | `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/**` |
+| Operating rulebook entry | How agents should work while developing this project | proposed `.lazy-harness/rules/**` or `.lazy-harness/ssot/project-operating-rules.*` |
+| Capability/action registry | Machine-readable command/tool/prompt/validation mapping and level | `.lazy-harness/ssot/capabilities.json` or successor registry |
+| Runtime evidence/journal | What happened in a session | `.lazy-harness/state/**` or `.lazy-harness/logs/**`, non-canonical |
+| Local/private Jcode wiring | User/private harness execution preference | `.jcode/**`, pointer/local-only only |
+
+## Design implication
+
+The next design should not only improve record discovery. It should define a first-class project operating rule storage path and connect it to Capability Registry / Guidance Ladder so that rules can become:
+
+```text
+discover → recommend → default → warn → block
+```
+
+without turning every rule into a brittle tool-specific hook.
+
+## Open design options
+
+A. Add `.lazy-harness/rules/` as a new first-class layer for project operating rules.
+B. Keep all canonical rule bodies under `.lazy-harness/ssot/`, but define a dedicated `project-operating-rules.md/json` schema.
+C. Use Capability Registry as the canonical rulebook and require every operating rule to map to a capability entry.
+D. Hybrid: human-readable rulebook under `.lazy-harness/rules/**`, machine-readable action mapping in `.lazy-harness/ssot/capabilities.json`. Recommended candidate.
+E. Other user-specified structure.
+
+## Rule placement
+
+- Rule: Project facts and project development operating rules must be modeled separately; storing facts in records is not enough because agents also need a project operating rulebook that changes development behavior.
+- Scope: framework-global
+- Primary record: `.lazy-harness/planning/project-rule-adaptation-regression-audit-20260610.md`
+- Why not AGENTS.md: this is a framework architecture requirement pending design/implementation, not a short universal prompt rule yet.
+- Why not `.jcode`: `.jcode` is local/private wiring and must not become the canonical shared project rulebook.
+- Confirmation: user-confirmed
+
+## Discovery capture
+
+- DDD: no business/domain vocabulary change.
+- SDD: candidate contract for project operating rulebook storage and resolution.
+- BDD: agent behavior should distinguish fact lookup from operating-rule application.
+- TDD: future regression should prove host worktree/dev-instance rules are stored separately from facts and influence command selection.
+- ADR: likely required to choose `.lazy-harness/rules/**` vs SSOT-only vs Capability-only storage.
+- SSOT: existing rule-sources and capability-registry records need alignment with the chosen storage model.
+- Planning: this section extends the active regression audit.
