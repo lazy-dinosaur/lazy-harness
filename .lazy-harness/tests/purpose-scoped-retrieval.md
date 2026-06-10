@@ -24,6 +24,7 @@ Self-test must prove:
 - purpose-scoped find evidence for `architecture`/`full` must not satisfy search-debt by itself.
 - response audit stays silent when correlated search-debt has safe purpose-scoped find evidence.
 - required-read debt still requires concrete read evidence; purpose-scoped find is not read evidence.
+- downstream dogfood worktree/dev-instance fixture proves `rulebook`, `test`, `fact`, and `capability` purposes search different first surfaces.
 
 ## Layer completeness gate
 
@@ -41,7 +42,25 @@ Self-test must prove:
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
   - `.lazy-harness/scripts/self-test.py`
+  - temporary downstream dogfood fixture in `check_purpose_scoped_retrieval_cli`
 - Test symbol:
   - `check_purpose_scoped_retrieval_cli`
 - Validation:
   - `.lazy-harness/bin/lazy test`
+
+## Phase 4 downstream dogfood fixture
+
+Self-test creates a temporary downstream-like host with:
+
+- `.lazy-harness/rules/dev-worktree.md` — operating rule for `bun run wt new` / `bun run dev:instance` wrappers.
+- `.lazy-harness/ssot/capabilities.json` — `dev-worktree-standard-command` with `preferredActions` and `discouragedActions`.
+- `.lazy-harness/spec/infra/dev-worktree-instances.md` — fact/contract record.
+- `.lazy-harness/tests/dev-worktree-instances.md` — TDD/regression record.
+- `tests/dev-worktree.spec.ts` — source test cue.
+
+Required assertions:
+
+- `lazy find --purpose rulebook 'git worktree add'` returns the rulebook/capability surfaces and no broad fact records.
+- `lazy find --purpose test 'worktree dev instance'` returns TDD/source-test surfaces and no SDD fact record by default.
+- `lazy find --purpose fact 'dev worktree instances'` returns the SDD fact record.
+- `lazy find --purpose capability 'git worktree add'` returns `dev-worktree-standard-command`.

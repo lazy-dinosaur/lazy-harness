@@ -2777,6 +2777,168 @@ def check_purpose_scoped_retrieval_cli() -> None:
     cap = subprocess.run([".lazy-harness/bin/lazy", "capability", "resolve", "--intent", "retrieval_test", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if cap.returncode != 0:
         fail("retrieval purpose capability resolve failed:\n" + cap.stdout + cap.stderr)
+
+
+    dogfood = pathlib.Path(tempfile.mkdtemp(prefix="lazy-purpose-dogfood-"))
+    try:
+        (dogfood / ".lazy-harness" / "rules").mkdir(parents=True)
+        (dogfood / ".lazy-harness" / "ssot").mkdir(parents=True)
+        (dogfood / ".lazy-harness" / "spec" / "infra").mkdir(parents=True)
+        (dogfood / ".lazy-harness" / "tests").mkdir(parents=True)
+        (dogfood / "tests").mkdir(parents=True)
+        (dogfood / ".lazy-harness" / "rules" / "dev-worktree.md").write_text(
+            """# Dev Worktree Operating Rule
+
+Status: active
+Layer: Rulebook
+Scope: host-project
+Owner: fixture
+Level: warn
+Related capability: dev-worktree-standard-command
+Related records:
+- `.lazy-harness/spec/infra/dev-worktree-instances.md`
+
+## Rule digest
+
+- Applies when:
+  - creating_worktree
+  - starting_dev_instance
+- Prefer:
+  - `bun run wt new`
+  - `bun run dev:instance`
+- Avoid:
+  - raw `git worktree add`
+  - raw `bun run dev`
+- Requires:
+  - use project wrappers for dogfood worktree/dev-instance sessions
+- Bypass:
+  - explicit user confirmation and reason required
+- Record completion:
+  - update capability binding when wrappers change
+
+## Operating rule
+
+Use the host worktree and dev-instance wrappers instead of raw git worktree or raw dev-server commands.
+
+## Capability binding
+
+- Capability id: dev-worktree-standard-command
+- Preferred actions: `bun run wt new`, `bun run dev:instance`
+- Discouraged actions: `git worktree add`, `bun run dev`
+- Intent labels: creating_worktree, starting_dev_instance
+- Enforcement level: warn
+
+## Implementation map
+
+- Source records: `.lazy-harness/spec/infra/dev-worktree-instances.md`
+- Capabilities: `dev-worktree-standard-command`
+- Tests: `.lazy-harness/tests/dev-worktree-instances.md`
+""",
+            encoding="utf-8",
+        )
+        (dogfood / ".lazy-harness" / "spec" / "infra" / "dev-worktree-instances.md").write_text(
+            """# Dev Worktree Instances
+
+Status: accepted
+Layer: SDD
+
+## Rule digest
+
+- Worktree wrapper: `bun run wt new <branch> --base develop`
+- Dev instance wrapper: `bun run dev:instance -- --instance <name|auto>`
+- Inspect URL: `bun run dev:inspect <name>`
+
+## Implementation map
+
+- Commands: `bun run wt new`, `bun run dev:instance`, `bun run dev:inspect`
+""",
+            encoding="utf-8",
+        )
+        (dogfood / ".lazy-harness" / "tests" / "dev-worktree-instances.md").write_text(
+            """# Dev Worktree Instance Regression
+
+Status: accepted
+Layer: TDD
+
+## Regression
+
+Purpose-scoped retrieval must find worktree/dev-instance validation surfaces without broad fact record sweeps.
+
+## Implementation map
+
+- Protected command wrapper: `bun run wt new`
+- Protected dev instance wrapper: `bun run dev:instance`
+""",
+            encoding="utf-8",
+        )
+        (dogfood / "tests" / "dev-worktree.spec.ts").write_text(
+            """describe('dev worktree instance wrappers', () => {
+  it('documents bun run wt new and bun run dev:instance dogfood validation', () => {})
+})
+""",
+            encoding="utf-8",
+        )
+        (dogfood / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
+            json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "dev-worktree-standard-command",
+                    "kind": "command",
+                    "level": "warn",
+                    "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "appliesWhen": ["creating_worktree", "starting_dev_instance"],
+                    "preferredActions": ["bun run wt new", "bun run dev:instance", "bun run dev:inspect"],
+                    "discouragedActions": ["git worktree add", "bun run dev"],
+                    "entrypoint": "bun run wt new / bun run dev:instance",
+                    "requiresReasonForBypass": True,
+                    "description": "Dogfood fixture for project worktree/dev-instance wrapper retrieval.",
+                    "owner": "host-project",
+                    "tags": ["rulebook", "worktree", "dev-instance"],
+                }],
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(dogfood))
+        dog_rulebook = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "rulebook", "git worktree add", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
+        if dog_rulebook.returncode != 0:
+            fail("dogfood rulebook purpose search failed:\n" + dog_rulebook.stdout + dog_rulebook.stderr)
+        dog_rulebook_json = json.loads(dog_rulebook.stdout)
+        if dog_rulebook_json.get("candidates", {}).get("records"):
+            fail("dogfood rulebook purpose must not default to fact records: " + dog_rulebook.stdout)
+        if ".lazy-harness/rules/dev-worktree.md" not in [entry.get("path") for entry in dog_rulebook_json.get("candidates", {}).get("rules", [])]:
+            fail("dogfood rulebook purpose should find worktree operating rule: " + dog_rulebook.stdout)
+        if "dev-worktree-standard-command" not in [entry.get("id") for entry in dog_rulebook_json.get("candidates", {}).get("capabilities", [])]:
+            fail("dogfood rulebook purpose should find worktree capability: " + dog_rulebook.stdout)
+
+        dog_test = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "test", "worktree dev instance", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
+        if dog_test.returncode != 0:
+            fail("dogfood test purpose search failed:\n" + dog_test.stdout + dog_test.stderr)
+        dog_test_json = json.loads(dog_test.stdout)
+        dog_test_records = [entry.get("path") for entry in dog_test_json.get("candidates", {}).get("records", [])]
+        dog_test_files = [entry.get("path") for entry in dog_test_json.get("candidates", {}).get("testFiles", [])]
+        if ".lazy-harness/tests/dev-worktree-instances.md" not in dog_test_records:
+            fail("dogfood test purpose should find TDD worktree record: " + dog_test.stdout)
+        if "tests/dev-worktree.spec.ts" not in dog_test_files:
+            fail("dogfood test purpose should find source test file: " + dog_test.stdout)
+        if any(str(path).startswith(".lazy-harness/spec/") for path in dog_test_records):
+            fail("dogfood test purpose should not default to SDD fact records: " + dog_test.stdout)
+
+        dog_fact = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "fact", "dev worktree instances", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
+        if dog_fact.returncode != 0:
+            fail("dogfood fact purpose search failed:\n" + dog_fact.stdout + dog_fact.stderr)
+        dog_fact_records = [entry.get("path") for entry in json.loads(dog_fact.stdout).get("candidates", {}).get("records", [])]
+        if ".lazy-harness/spec/infra/dev-worktree-instances.md" not in dog_fact_records:
+            fail("dogfood fact purpose should find dev-worktree SDD fact record: " + dog_fact.stdout)
+
+        dog_capability = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "capability", "git worktree add", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
+        if dog_capability.returncode != 0:
+            fail("dogfood capability purpose search failed:\n" + dog_capability.stdout + dog_capability.stderr)
+        if "dev-worktree-standard-command" not in [entry.get("id") for entry in json.loads(dog_capability.stdout).get("candidates", {}).get("capabilities", [])]:
+            fail("dogfood capability purpose should find discouraged raw worktree capability: " + dog_capability.stdout)
+    finally:
+        shutil.rmtree(dogfood, ignore_errors=True)
+
     cap_ids = [entry.get("id") for entry in json.loads(cap.stdout).get("matches", [])]
     if "retrieval-purpose-test" not in cap_ids:
         fail("retrieval_test capability should resolve to retrieval-purpose-test: " + cap.stdout)

@@ -80,7 +80,7 @@ Markdown output must communicate the same cue-only sections.
 
 ## Implementation map
 
-- Status: `phase-3-implemented`
+- Status: `phase-4-dogfood-fixture-implemented`
 - Source files:
   - `.lazy-harness/scripts/purpose-find.ts`
   - `.lazy-harness/bin/lazy`
@@ -99,6 +99,7 @@ Markdown output must communicate the same cue-only sections.
   - `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
   - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action`
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
+  - downstream worktree/dev-instance fixture in `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
 
 ## Phase 3 evidence integration
 
@@ -124,3 +125,16 @@ Lifecycle helpers may count this as **search evidence only** when the explicit p
 - `source` / `implementation`.
 
 They must not count `architecture`, `design`, or `full` purpose output as satisfying search-debt by itself. Required-read debt still requires actual read/search evidence for concrete paths; purpose-scoped find evidence is not read evidence.
+
+## Phase 4 downstream dogfood fixture
+
+The implementation is protected by a temporary downstream-like host fixture in `check_purpose_scoped_retrieval_cli`. The fixture models a host with a worktree/dev-instance operating rule, a capability binding, an SDD fact record, a TDD record, and a source test file.
+
+Purpose behavior under this fixture:
+
+- `rulebook` returns `.lazy-harness/rules/dev-worktree.md` and `dev-worktree-standard-command`, without broad fact records.
+- `test` returns `.lazy-harness/tests/dev-worktree-instances.md` and `tests/dev-worktree.spec.ts`, without defaulting to `.lazy-harness/spec/infra/dev-worktree-instances.md`.
+- `fact` returns `.lazy-harness/spec/infra/dev-worktree-instances.md`.
+- `capability` returns `dev-worktree-standard-command` for discouraged raw `git worktree add`.
+
+This fixture exists because downstream dogfood originally showed that worktree/dev-instance policy could be present but not applied by retrieval/action guidance.

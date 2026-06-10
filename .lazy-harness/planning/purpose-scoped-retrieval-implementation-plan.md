@@ -320,6 +320,8 @@ Constraints:
 
 ### Phase 4 — downstream dogfood fixtures
 
+Phase 4 status: implemented in `check_purpose_scoped_retrieval_cli` on 2026-06-10.
+
 Use dogfood cases:
 
 - rulebook search for worktree/dev-instance policy should use rulebook/capability first.
