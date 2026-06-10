@@ -444,6 +444,79 @@ def has_search_evidence(packet_row: dict[str, Any] | None = None) -> bool:
     return any(call_has_search_evidence(call) for call in evidence_calls(packet_row))
 
 
+
+def load_capabilities() -> list[dict[str, Any]]:
+    path = ROOT / ".lazy-harness" / "ssot" / "capabilities.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    capabilities = data.get("capabilities") if isinstance(data, dict) else []
+    return [cap for cap in capabilities if isinstance(cap, dict)] if isinstance(capabilities, list) else []
+
+
+def action_label_matches(label: str, blob: str) -> bool:
+    needle = str(label or "").strip().lower()
+    haystack = str(blob or "").lower()
+    return bool(needle and needle in haystack)
+
+
+def capability_action_labels(cap: dict[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for key in ("discouragedActions", "preferredActions", "actions"):
+        values = cap.get(key)
+        if isinstance(values, list):
+            labels.extend(str(value) for value in values if str(value or "").strip())
+    entrypoint = cap.get("entrypoint")
+    if isinstance(entrypoint, str) and entrypoint.strip():
+        labels.append(entrypoint.strip())
+    return labels
+
+
+def is_resolve_evidence_for_capability(cap: dict[str, Any], matched_action: str, packet_row: dict[str, Any] | None = None) -> bool:
+    cap_id = str(cap.get("id") or "")
+    labels = [matched_action, *capability_action_labels(cap)]
+    for call in evidence_calls(packet_row):
+        blob = call_blob(call).lower()
+        if "lazy rules resolve" not in blob and "lazy capability resolve" not in blob:
+            continue
+        if cap_id and cap_id.lower() in blob:
+            return True
+        if any(action_label_matches(label, blob) for label in labels):
+            return True
+    return False
+
+
+def missed_discouraged_action(packet_row: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    capabilities = load_capabilities()
+    if not capabilities:
+        return None
+    calls = evidence_calls(packet_row)
+    for cap in capabilities:
+        level = str(cap.get("level") or "").strip().lower()
+        if level not in {"warn", "block"}:
+            continue
+        discouraged = cap.get("discouragedActions")
+        if not isinstance(discouraged, list) or not discouraged:
+            continue
+        for call in calls:
+            blob = call_blob(call)
+            lower = blob.lower()
+            # Resolver/find calls are evidence, not missed actions.
+            if "lazy rules resolve" in lower or "lazy capability resolve" in lower or "lazy find" in lower:
+                continue
+            for action in discouraged:
+                action_text = str(action or "").strip()
+                if not action_label_matches(action_text, blob):
+                    continue
+                if is_resolve_evidence_for_capability(cap, action_text, packet_row):
+                    continue
+                return {"capability": cap, "action": action_text, "toolBlob": blob}
+    return None
+
+
 def has_pr_description_rule(entries: list[dict[str, Any]]) -> bool:
     for entry in entries:
         text = f"{entry.get('recordPath','')} {entry.get('title','')}".lower()
@@ -544,6 +617,29 @@ def main() -> int:
             print("  B. 검색을 이미 했지만 payload evidence가 누락됐다면 검색 쿼리/경로를 명시")
             print("  C. 검색 결과가 모호하면 option gate 또는 searcher subagent handoff로 수렴")
             return 0
+
+    missed = missed_discouraged_action(packet_row)
+    if missed:
+        cap = missed.get("capability") or {}
+        preferred = cap.get("preferredActions") if isinstance(cap, dict) else []
+        preferred_list = [str(value) for value in preferred if str(value or "").strip()] if isinstance(preferred, list) else []
+        print("ADVISORY. Operating rule audit: discouraged action may have missed project rulebook guidance.\n")
+        print("문제: 최근 tool evidence에서 project operating rulebook capability가 discourages 하는 action이 보였지만, 사전 `lazy rules resolve` / `lazy capability resolve` 증거를 찾지 못했습니다.")
+        print("\nMatched capability:")
+        print(f"  - id: {cap.get('id', '(unknown)')}")
+        print(f"  - level: {cap.get('level', '(unknown)')}")
+        print(f"  - discouraged action: {missed.get('action')}")
+        if preferred_list:
+            print("  - preferred actions: " + ", ".join(preferred_list[:5]))
+        if cap.get("sourceRecord"):
+            print(f"  - sourceRecord: {cap.get('sourceRecord')}")
+        if cap.get("rulebookRecord"):
+            print(f"  - rulebookRecord: {cap.get('rulebookRecord')}")
+        print("\n해야 할 일:")
+        print("  A. `lazy rules resolve --action <action>` 또는 `lazy capability resolve --action <action>`로 project rulebook guidance를 확인 (Recommended)")
+        print("  B. 예외가 맞다면 관련 rulebook/SSOT/ADR에 bypass 사유를 기록")
+        print("  C. capability가 부정확하면 preferredActions/discouragedActions를 수정")
+        return 0
 
     return 0
 

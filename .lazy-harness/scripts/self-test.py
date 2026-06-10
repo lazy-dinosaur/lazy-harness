@@ -7689,6 +7689,27 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
                 fail("response rule audit helper exit changed:\n" + completed.stdout + completed.stderr)
             return completed.stdout
 
+        cap_dir = temp / ".lazy-harness" / "ssot"
+        cap_dir.mkdir(parents=True, exist_ok=True)
+        (cap_dir / "capabilities.json").write_text(json.dumps({
+            "version": 1,
+            "capabilities": [{
+                "id": "dev-worktree-standard-command",
+                "kind": "command",
+                "level": "warn",
+                "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
+                "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
+                "appliesWhen": ["creating_worktree", "starting_dev_instance"],
+                "preferredActions": ["bun run wt new", "bun run dev:instance"],
+                "discouragedActions": ["git worktree add", "bun run dev"],
+                "entrypoint": "bun run wt new / bun run dev:instance",
+                "requiresReasonForBypass": True,
+                "description": "Fixture warns when raw worktree/dev server commands skip rulebook resolution.",
+                "owner": "host-project",
+                "tags": ["rulebook", "worktree", "dev-instance"],
+            }],
+        }, ensure_ascii=False), encoding="utf-8")
+
         ignored_pr = run_helper({
             "message_id": pr_message_id,
             "recent_tool_calls": [
@@ -7706,6 +7727,30 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
         })
         if clean_pr.strip():
             fail("response rule audit should stay silent when surfaced PR rule is satisfied:\n" + clean_pr)
+
+        missed_action = run_helper({
+            "message_id": "phase-missed-discouraged-action",
+            "recent_tool_calls": [{"name": "bash", "args_preview": "git worktree add ../fixture feature/foo"}],
+        })
+        if "Operating rule audit" not in missed_action or "dev-worktree-standard-command" not in missed_action or "bun run wt new" not in missed_action:
+            fail("response audit should advise for missed discouragedAction without resolve evidence:\n" + missed_action)
+
+        resolved_action = run_helper({
+            "message_id": "phase-resolved-discouraged-action",
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy capability resolve --action 'git worktree add ../fixture feature/foo' --format=json"},
+                {"name": "bash", "args_preview": "git worktree add ../fixture feature/foo"},
+            ],
+        })
+        if resolved_action.strip():
+            fail("response audit should stay silent when discouragedAction was resolved first:\n" + resolved_action)
+
+        no_action_match = run_helper({
+            "message_id": "phase-no-discouraged-action",
+            "recent_tool_calls": [{"name": "bash", "args_preview": "git status --short"}],
+        })
+        if no_action_match.strip():
+            fail("response audit should stay silent when no discouraged action matches:\n" + no_action_match)
 
         # Manual journal row for a record-completion obligation not tied to PR.
         missing_capture_id = "phase4-record-missing"

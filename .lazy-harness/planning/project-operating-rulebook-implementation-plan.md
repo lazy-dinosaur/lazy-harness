@@ -678,3 +678,21 @@ If the task is test/validation-only, start from tests/test capabilities/source t
 ```
 
 This requirement should be promoted from planning into a dedicated SDD/BDD/TDD package before changing lifecycle hooks, because current `search-read-debt` still assumes broad record/source/test evidence as the generic safety baseline.
+
+## Response audit missed-action advisory result — 2026-06-10
+
+Status: implemented
+
+Implemented advisory-only detection in `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`:
+
+- loads `.lazy-harness/ssot/capabilities.json`;
+- scans `warn|block` capabilities with `discouragedActions`;
+- matches recent tool evidence against discouraged action labels;
+- stays silent when prior `lazy rules resolve` or `lazy capability resolve` evidence exists;
+- emits `ADVISORY. Operating rule audit` with preferred actions and source/rulebook records otherwise;
+- does not hard block or promote Guidance Ladder level.
+
+Validation target:
+
+- `check_response_rule_audit_from_surfaced_digest`;
+- `.lazy-harness/bin/lazy test`.

@@ -21,6 +21,7 @@ Self-test must prove:
 - `lazy capability resolve --action 'git worktree add feature/x'` also matches `discouragedActions`.
 - Missing rulebook/capability links fail audit deterministically.
 - No blocking hook is installed by Phase 0-2.
+- Response audit can advisory-warn when `warn|block` capability `discouragedActions` are used without prior rule/capability resolve evidence.
 
 ## Layer completeness gate
 

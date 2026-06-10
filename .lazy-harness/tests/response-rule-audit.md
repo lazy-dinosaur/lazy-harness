@@ -35,6 +35,7 @@ Regression fixtures cover:
 21. Runtime/generator/fixture surfaces must remain host-agnostic: downstream host/product aliases and app-specific path taxonomy are forbidden outside allowed dogfood/history records.
 22. Response audit must advise for every correlated search-debt packet that reaches response.completed without root-bound search evidence; it must stay silent once root-bound search evidence exists.
 23. Response audit must stay silent when correlated search-debt has safe purpose-scoped find evidence, and must still advise for `architecture`/`full` purpose-only evidence.
+24. Response audit emits advisory-only feedback when a recent tool action matches a `warn|block` capability `discouragedActions` entry and no prior `lazy rules resolve` / `lazy capability resolve` evidence exists. It stays silent when resolve evidence exists or no discouraged action matches.
 
 ## Implementation map
 

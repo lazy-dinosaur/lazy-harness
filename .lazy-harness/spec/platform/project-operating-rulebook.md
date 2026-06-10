@@ -105,3 +105,9 @@ Non-strict audit reports the same issues but only exits non-zero for errors.
 - Tests:
   - `.lazy-harness/tests/project-operating-rulebook.md`
   - `.lazy-harness/scripts/self-test.py`
+
+## Response audit missed-action advisory
+
+Rulebook-backed capabilities can participate in advisory-only response audit. When a capability is `warn` or `block` and declares `discouragedActions`, `response.completed` can detect matching recent tool evidence. If no prior `lazy rules resolve` / `lazy capability resolve` evidence exists for the same action/capability, the helper emits an advisory that points to preferred actions and source/rulebook records.
+
+This is not a hard block. Hard stops still require Guidance Ladder promotion.
