@@ -421,3 +421,63 @@ Use dogfood cases:
   - `.lazy-harness/bin/lazy test`
   - focused `lazy find --purpose ...` fixtures
   - source grep proving no `lazy route` or raw prompt classifier reintroduction
+
+## 2026-06-10 next candidate — Phase 5 prompt guidance alignment
+
+Status: candidate-next
+Confirmation: inferred-from-record
+
+After Phase 4, purpose-scoped retrieval works in CLI, evidence guards, response audit, and downstream dogfood fixtures. The remaining mismatch is the default `message.received` reminder: it still reads as broad harness-first record/source/test retrieval guidance, while the implemented framework now supports purpose-scoped retrieval.
+
+Candidate next phase:
+
+```text
+Phase 5 — prompt guidance alignment
+```
+
+Goal:
+
+- Keep `message.received` static and non-semantic.
+- Do not classify raw user text into purposes.
+- Update the reminder wording to teach the LLM/searcher to choose an explicit retrieval purpose:
+  - information/fact → `lazy find --purpose fact` / `lazy map`
+  - action/rule → `lazy find --purpose rulebook` / `lazy rules` / `lazy capability`
+  - validation/test → `lazy find --purpose test`
+  - implementation/source → `lazy find --purpose source`
+  - broad design/mutation → `lazy find --purpose architecture` or current overview/map flow
+- Preserve broad overview requirement for architecture/ambiguous/high-risk work.
+- Keep prompt budget and static equality tests green.
+
+Likely files:
+
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh`
+- `.lazy-harness/spec/platform/pre-response-rule-context.md`
+- `.lazy-harness/tests/pre-response-rule-context.md`
+- `.lazy-harness/tests/prompt-budget.md`
+- `.lazy-harness/scripts/self-test.py`
+
+Validation:
+
+- `check_message_received_hook_context_injection` still proves no user-text semantic classifier and static output equality.
+- prompt budget remains under threshold.
+- reminder contains purpose-scoped retrieval examples without requiring broad record sweeps for every task.
+- `.lazy-harness/bin/lazy test` all green.
+
+## Rule placement
+
+- Rule: After purpose-scoped retrieval exists, default prompt guidance should teach explicit purpose selection while staying static/non-semantic and preserving broad retrieval for architecture/ambiguous/high-risk work.
+- Scope: framework-global
+- Primary record: `.lazy-harness/planning/purpose-scoped-retrieval-implementation-plan.md`
+- Why not AGENTS.md: this is candidate implementation planning for prompt/runtime lifecycle, not final universal grammar yet.
+- Why not `.jcode`: shared lazy-harness framework prompt behavior, not local/private Jcode wiring.
+- Confirmation: inferred-from-record
+
+## Discovery capture
+
+- DDD: none.
+- BDD: candidate update to agent-visible retrieval behavior in pre-response reminder.
+- SDD: candidate update to pre-response context contract.
+- TDD: candidate update to pre-response prompt and prompt-budget regression tests.
+- ADR: no new ADR expected unless static prompt policy changes.
+- SSOT: no new SSOT expected unless CLI boundary changes.
+- Planning: this section is the active next-step candidate.
