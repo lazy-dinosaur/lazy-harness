@@ -170,11 +170,14 @@ It emits output only for strong evidence cases:
    - A correlated static search/read-debt row exists.
    - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`) or an explicit read-only searcher handoff.
    - Running a deterministic CLI such as `context-delivery` or `relevant-record-query` is not sufficient search evidence by itself.
+   - Exception: explicit safe-purpose `lazy find` evidence may satisfy search-debt as cue-only search evidence, but not required-read debt and not `architecture`/`full` purpose.
    - Output starts with `ADVISORY`, never `STOP`.
 
 Legacy/manual packet rows with concrete `requiredRead` paths may still be audited for backward compatibility, but current framework CLIs must not generate those paths from raw user text.
 
 Everything else stays silent.
+
+Purpose-scoped retrieval evidence from `lazy find` is accepted only as search evidence for safe explicit purposes. It is not read evidence and does not weaken required-read or architecture/full evidence obligations.
 
 ## Output contract
 

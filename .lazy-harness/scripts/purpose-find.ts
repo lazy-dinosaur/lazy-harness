@@ -22,6 +22,15 @@ type FindResult = {
   purpose: Purpose
   query: string
   root: string
+  evidence: {
+    schemaVersion: '1.0'
+    event: 'purpose-scoped-retrieval.evidence'
+    purpose: Purpose
+    searchEvidence: boolean
+    readEvidence: false
+    qualifiesSearchDebt: boolean
+    caveat: string
+  }
   searchSpaces: string[]
   commands: string[]
   candidates: {
@@ -258,6 +267,11 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
+
+function qualifiesSearchDebt(purpose: Purpose): boolean {
+  return !['architecture', 'full'].includes(purpose)
+}
+
 function spacesFor(purpose: Purpose): string[] {
   switch (purpose) {
     case 'rulebook': return ['rules', 'capabilities']
@@ -289,6 +303,15 @@ function buildResult(root: string, purpose: Purpose, query: string, limit: numbe
     purpose,
     query,
     root,
+    evidence: {
+      schemaVersion: '1.0',
+      event: 'purpose-scoped-retrieval.evidence',
+      purpose,
+      searchEvidence: true,
+      readEvidence: false,
+      qualifiesSearchDebt: qualifiesSearchDebt(purpose),
+      caveat: 'cue-only search evidence; not proof that candidate files were read',
+    },
     searchSpaces: spacesFor(purpose),
     commands: commandsFor(purpose, query),
     candidates: { records: [], rules: [], capabilities: [], sourceFiles: [], testFiles: [], graphRows: [] },
@@ -342,6 +365,7 @@ function printMd(result: FindResult): void {
   console.log(`\n- purpose: \`${result.purpose}\``)
   console.log(`- query: \`${result.query}\``)
   console.log(`- searchSpaces: ${result.searchSpaces.map((s) => `\`${s}\``).join(', ')}`)
+  console.log(`- searchEvidence: ${result.evidence.searchEvidence ? 'yes' : 'no'}${result.evidence.qualifiesSearchDebt ? ' (qualifies search-debt)' : ' (cue only; broad evidence still required)'}`)
   console.log('\n## Suggested commands')
   for (const command of result.commands) console.log(`- \`${command}\``)
   printCandidateGroup('Records', result.candidates.records)

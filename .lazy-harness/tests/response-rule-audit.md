@@ -34,6 +34,7 @@ Regression fixtures cover:
 20. Generic search-debt guard must treat unknown external MCP-like action as action until root-bound local search evidence exists; no concrete tool/Figma adapter names may be required.
 21. Runtime/generator/fixture surfaces must remain host-agnostic: downstream host/product aliases and app-specific path taxonomy are forbidden outside allowed dogfood/history records.
 22. Response audit must advise for every correlated search-debt packet that reaches response.completed without root-bound search evidence; it must stay silent once root-bound search evidence exists.
+23. Response audit must stay silent when correlated search-debt has safe purpose-scoped find evidence, and must still advise for `architecture`/`full` purpose-only evidence.
 
 ## Implementation map
 

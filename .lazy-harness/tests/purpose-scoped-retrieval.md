@@ -20,6 +20,10 @@ Self-test must prove:
 - `lazy find` requires explicit `--purpose`.
 - source does not reintroduce `lazy route` or raw prompt classifier semantics.
 - `lazy map 'purpose scoped retrieval'` finds the dedicated record package.
+- purpose-scoped find evidence for `rulebook`/`test` can satisfy generic search-debt as search evidence.
+- purpose-scoped find evidence for `architecture`/`full` must not satisfy search-debt by itself.
+- response audit stays silent when correlated search-debt has safe purpose-scoped find evidence.
+- required-read debt still requires concrete read evidence; purpose-scoped find is not read evidence.
 
 ## Layer completeness gate
 
@@ -34,6 +38,8 @@ Self-test must prove:
 - Source:
   - `.lazy-harness/scripts/purpose-find.ts`
   - `.lazy-harness/bin/lazy`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
   - `.lazy-harness/scripts/self-test.py`
 - Test symbol:
   - `check_purpose_scoped_retrieval_cli`

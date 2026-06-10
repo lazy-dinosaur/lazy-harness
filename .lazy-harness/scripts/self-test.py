@@ -7571,6 +7571,43 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
         })
         if captured.strip():
             fail("response rule audit should stay silent when durable record capture is present:\n" + captured)
+
+
+        packet_journal = journal.parent / "search-read-debt.jsonl"
+        safe_find_message_id = "phase4-safe-purpose-find"
+        arch_find_message_id = "phase4-architecture-purpose-find"
+        packet_journal.write_text("".join([
+            json.dumps({
+                "event": "context-delivery.packet",
+                "epochSeconds": int(time.time()),
+                "messageIdHash": hashlib.sha256(safe_find_message_id.encode()).hexdigest()[:16],
+                "instructionLevel": "self-resolve-before-change",
+                "confidence": 0.0,
+                "requiredRead": [],
+                "fallbackSearchCount": 2,
+            }, ensure_ascii=False) + "\n",
+            json.dumps({
+                "event": "context-delivery.packet",
+                "epochSeconds": int(time.time()),
+                "messageIdHash": hashlib.sha256(arch_find_message_id.encode()).hexdigest()[:16],
+                "instructionLevel": "self-resolve-before-change",
+                "confidence": 0.0,
+                "requiredRead": [],
+                "fallbackSearchCount": 2,
+            }, ensure_ascii=False) + "\n",
+        ]), encoding="utf-8")
+        safe_find_audit = run_helper({
+            "message_id": safe_find_message_id,
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose test 'purpose scoped retrieval' --format=json"}],
+        })
+        if safe_find_audit.strip():
+            fail("response audit should accept safe-purpose lazy find as search evidence:\n" + safe_find_audit)
+        architecture_find_audit = run_helper({
+            "message_id": arch_find_message_id,
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose architecture 'purpose scoped retrieval' --format=json"}],
+        })
+        if "Search/read debt audit" not in architecture_find_audit:
+            fail("response audit should not accept architecture-purpose lazy find alone as search evidence:\n" + architecture_find_audit)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response rule audit from surfaced digest ok")
@@ -7760,6 +7797,57 @@ def check_read_debt_permit_generic_external_action() -> None:
         )
         if with_search.stdout.strip():
             fail("root-bound search evidence should satisfy generic search-debt guard:\n" + with_search.stdout + with_search.stderr)
+
+
+        with_purpose_find = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose rulebook 'project policy storage' --format=json"}]}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if with_purpose_find.stdout.strip():
+            fail("safe-purpose lazy find evidence should satisfy search-debt guard:\n" + with_purpose_find.stdout + with_purpose_find.stderr)
+
+        with_architecture_find = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose architecture 'project policy storage' --format=json"}]}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "search-debt gate" not in with_architecture_find.stdout:
+            fail("architecture-purpose lazy find alone must not satisfy search-debt guard:\n" + with_architecture_find.stdout + with_architecture_find.stderr)
+
+        required_message_id = "generic-message-required-read"
+        required_row = {
+            "event": "context-delivery.packet",
+            "epochSeconds": time.time(),
+            "messageIdHash": hashlib.sha256(required_message_id.encode()).hexdigest()[:16],
+            "instructionLevel": "self-resolve-before-change",
+            "confidence": 0.8,
+            "requiredRead": [{"path": ".lazy-harness/spec/platform/purpose-scoped-retrieval.md"}],
+            "fallbackSearchCount": 0,
+        }
+        with (state / "search-read-debt.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(required_row, ensure_ascii=False) + "\n")
+        required_payload = {
+            "message_id": required_message_id,
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose fact 'purpose scoped retrieval' --format=json"}],
+        }
+        required_result = subprocess.run(
+            ["python3", str(helper), json.dumps(required_payload, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "read-debt gate" not in required_result.stdout:
+            fail("purpose-scoped find is search evidence, not requiredRead evidence:\n" + required_result.stdout + required_result.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ read-debt generic external action guard ok")
