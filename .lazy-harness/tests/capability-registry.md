@@ -29,6 +29,8 @@ Phase 2 add must:
 - be idempotent on repeated identical input
 - append/upsert knowledge graph capability rows
 - preserve repeated multi-value flags for `--applies-when`, `--action`, and `--tag`
+- preserve rulebook-specific fields: `preferredActions`, `discouragedActions`, `rulebookRecord`, and `requiresReasonForBypass`
+- resolve capabilities by `discouragedActions` so raw commands can surface preferred replacements
 
 Candidate detection must:
 
@@ -50,6 +52,7 @@ Candidate detection must:
 - Status: `phase-2-implemented`
 - Primary files:
   - `.lazy-harness/scripts/capability.ts`
+  - `.lazy-harness/scripts/rulebook.ts`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`
 - Key symbols:

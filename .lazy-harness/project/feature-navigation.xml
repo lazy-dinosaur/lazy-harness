@@ -293,6 +293,49 @@
     <risk>High: source/downstream ownership boundaries must be respected; do not patch downstream hosts as source-of-truth fixes without explicit confirmation.</risk>
   </feature>
 
+  <feature id="project-operating-rulebook" status="confirmed">
+    <label>Project operating rulebook</label>
+    <aliases>
+      <alias lang="en">project operating rulebook</alias>
+      <alias lang="en">operating rules</alias>
+      <alias lang="en">lazy rules</alias>
+      <alias lang="ko">행동규약</alias>
+      <alias lang="ko">프로젝트 규칙</alias>
+      <alias lang="symbol">rulebook.ts</alias>
+    </aliases>
+    <routes>
+      <route>lazy rules</route>
+      <route>lazy capability</route>
+    </routes>
+    <components>
+      <component>rulebook parser</component>
+      <component>rulebook audit</component>
+      <component>rulebook resolver</component>
+      <component>capability preferred/discouraged action binding</component>
+    </components>
+    <records>
+      <record layer="ADR">.lazy-harness/decisions/0044-project-operating-rulebook.md</record>
+      <record layer="SDD">.lazy-harness/spec/platform/project-operating-rulebook.md</record>
+      <record layer="TDD">.lazy-harness/tests/project-operating-rulebook.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/rule-sources.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/capability-registry.md</record>
+    </records>
+    <sourceFiles>
+      <path>.lazy-harness/rules/README.md</path>
+      <path>.lazy-harness/scripts/rulebook.ts</path>
+      <path>.lazy-harness/scripts/capability.ts</path>
+      <path>.lazy-harness/schemas/capabilities.schema.json</path>
+      <path>.lazy-harness/ssot/capabilities.json</path>
+      <path>.lazy-harness/bin/lazy</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </sourceFiles>
+    <tests>
+      <path>.lazy-harness/tests/project-operating-rulebook.md</path>
+      <path>.lazy-harness/scripts/self-test.py</path>
+    </tests>
+    <risk>Medium: operating rules guide agent behavior across hosts; keep hard stops behind Guidance Ladder promotion and avoid tool-specific adapter sprawl.</risk>
+  </feature>
+
   <feature id="test-doctor" status="confirmed">
     <label>Test and doctor</label>
     <aliases>

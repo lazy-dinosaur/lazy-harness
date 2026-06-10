@@ -53,8 +53,8 @@ At least one of `--intent` or `--action` is required for resolve.
 A capability matches when:
 
 - `intent` exactly equals one of `appliesWhen`, or
-- `action` exactly equals one of `actions`, or
-- `action` contains an action string with word-ish boundaries for simple CLI labels.
+- `action` exactly equals one of `actions`, `preferredActions`, or `discouragedActions`, or
+- `action` contains one of those action strings for simple CLI labels.
 
 Phase 1 intentionally avoids complex semantic matching.
 
@@ -80,6 +80,8 @@ Within the same level, preserve registry order.
 - duplicate ids
 - missing source records
 - warn/block entries that do not declare an enforcement surface
+- missing `rulebookRecord` files when provided
+- malformed `preferredActions`, `discouragedActions`, or `requiresReasonForBypass` fields
 
 Phase 1 audit is report-only and does not install hooks.
 
@@ -93,6 +95,7 @@ Phase 1 audit is report-only and does not install hooks.
 - Key symbols:
   - `upsertCapability`
   - `resolveCapabilities`
+  - `capabilityActionLabels`
   - `auditRegistry`
   - `capabilityCandidates`
   - `printCandidates`

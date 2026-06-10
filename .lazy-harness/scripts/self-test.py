@@ -2580,6 +2580,150 @@ def check_capability_registry_cli_phase1() -> None:
     print("✓ capability registry Phase 1/2 CLI ok")
 
 
+def check_project_operating_rulebook_cli() -> None:
+    """Project operating rulebook stays separate from fact records and resolves rule-backed actions."""
+    script = LAZY / "scripts" / "rulebook.ts"
+    if not script.exists():
+        fail("rulebook CLI script missing")
+
+    root_audit = subprocess.run([".lazy-harness/bin/lazy", "rules", "audit", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if root_audit.returncode != 0:
+        fail("source lazy rules audit --strict failed:\n" + root_audit.stdout + root_audit.stderr)
+    root_audit_json = json.loads(root_audit.stdout)
+    if root_audit_json.get("ok") is not True or root_audit_json.get("count", 0) < 1:
+        fail("source rulebook audit should pass and see at least README: " + root_audit.stdout)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-rulebook-cli-"))
+    try:
+        (temp / ".lazy-harness" / "rules").mkdir(parents=True)
+        (temp / ".lazy-harness" / "ssot").mkdir(parents=True)
+        (temp / ".lazy-harness" / "rules" / "dev-worktree.md").write_text(
+            """# Dev Worktree Operating Rule
+
+Status: active
+Layer: Rulebook
+Scope: host-project
+Owner: fixture
+Level: warn
+Related capability: dev-worktree-standard-command
+Related records:
+- `.lazy-harness/spec/infra/dev-worktree-instances.md`
+
+## Rule digest
+
+- Applies when:
+  - creating_worktree
+  - starting_dev_instance
+- Prefer:
+  - `bun run wt new`
+  - `bun run dev:instance`
+- Avoid:
+  - raw `git worktree add`
+  - raw `bun run dev`
+- Requires:
+  - inspect project operating rule before creating worktrees or starting dev servers
+- Bypass:
+  - allowed only with explicit user confirmation and reason
+- Record completion:
+  - update capability binding when command wrappers change
+
+## Operating rule
+
+Use the host worktree and dev-instance wrappers instead of raw git worktree or raw dev-server commands.
+
+## Examples
+
+- Good: `bun run wt new feature/foo --base develop`
+- Good: `bun run dev:instance -- --instance feature-foo`
+- Avoid: `git worktree add ../foo feature/foo`
+- Avoid: `bun run dev`
+
+## Capability binding
+
+- Capability id: dev-worktree-standard-command
+- Preferred actions: `bun run wt new`, `bun run dev:instance`
+- Discouraged actions: `git worktree add`, `bun run dev`
+- Intent labels: creating_worktree, starting_dev_instance
+- Enforcement level: warn
+
+## Implementation map
+
+- Source records: `.lazy-harness/spec/infra/dev-worktree-instances.md`
+- Capabilities: `dev-worktree-standard-command`
+- Validation: `lazy rules audit --strict`
+- Tests: `.lazy-harness/tests/project-operating-rulebook.md`
+""",
+            encoding="utf-8",
+        )
+        (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
+            json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "dev-worktree-standard-command",
+                    "kind": "command",
+                    "level": "warn",
+                    "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "appliesWhen": ["creating_worktree", "starting_dev_instance"],
+                    "preferredActions": ["bun run wt new", "bun run dev:instance"],
+                    "discouragedActions": ["git worktree add", "bun run dev"],
+                    "entrypoint": "bun run wt new / bun run dev:instance",
+                    "requiresReasonForBypass": True,
+                    "description": "Use host worktree/dev-instance wrappers instead of raw commands.",
+                    "owner": "host-project",
+                    "tags": ["rulebook", "worktree", "dev-instance"],
+                }],
+            }),
+            encoding="utf-8",
+        )
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
+        listed = subprocess.run([str(LAZY / "bin" / "lazy"), "rules", "list", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if listed.returncode != 0:
+            fail("lazy rules list fixture failed:\n" + listed.stdout + listed.stderr)
+        listed_json = json.loads(listed.stdout)
+        if [rule.get("path") for rule in listed_json.get("rules", [])] != [".lazy-harness/rules/dev-worktree.md"]:
+            fail("lazy rules list should parse fixture rulebook entry: " + listed.stdout)
+
+        audit = subprocess.run([str(LAZY / "bin" / "lazy"), "rules", "audit", "--strict", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if audit.returncode != 0:
+            fail("lazy rules audit --strict fixture failed:\n" + audit.stdout + audit.stderr)
+        audit_json = json.loads(audit.stdout)
+        if audit_json.get("ok") is not True or audit_json.get("count") != 1:
+            fail("lazy rules audit fixture should pass exactly one rule: " + audit.stdout)
+
+        resolved_rule = subprocess.run([str(LAZY / "bin" / "lazy"), "rules", "resolve", "--action", "git worktree add feature/foo", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if resolved_rule.returncode != 0:
+            fail("lazy rules resolve discouraged action failed:\n" + resolved_rule.stdout + resolved_rule.stderr)
+        rule_json = json.loads(resolved_rule.stdout)
+        matches = rule_json.get("matches", [])
+        if not matches or matches[0].get("matchType") != "discouraged-action":
+            fail("lazy rules resolve should match discouraged raw worktree command: " + resolved_rule.stdout)
+        cap = matches[0].get("capability", {})
+        if "bun run wt new" not in cap.get("preferredActions", []):
+            fail("lazy rules resolve should show preferred worktree command: " + resolved_rule.stdout)
+
+        resolved_cap = subprocess.run([str(LAZY / "bin" / "lazy"), "capability", "resolve", "--action", "git worktree add feature/foo", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if resolved_cap.returncode != 0:
+            fail("lazy capability resolve discouraged action failed:\n" + resolved_cap.stdout + resolved_cap.stderr)
+        cap_matches = [cap.get("id") for cap in json.loads(resolved_cap.stdout).get("matches", [])]
+        if cap_matches[:1] != ["dev-worktree-standard-command"]:
+            fail("capability resolve should match discouragedActions-backed capability: " + resolved_cap.stdout)
+
+        broken = json.loads((temp / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+        broken["capabilities"][0]["rulebookRecord"] = ".lazy-harness/rules/missing.md"
+        (temp / ".lazy-harness" / "ssot" / "capabilities.json").write_text(json.dumps(broken), encoding="utf-8")
+        bad = subprocess.run([str(LAZY / "bin" / "lazy"), "rules", "audit", "--strict", "--format=json"], cwd=temp, env=env, text=True, capture_output=True, check=False)
+        if bad.returncode == 0:
+            fail("lazy rules audit should fail missing rulebookRecord")
+        bad_json = json.loads(bad.stdout)
+        if not any("missing rulebookRecord" in issue.get("message", "") for issue in bad_json.get("issues", [])):
+            fail("lazy rules audit missing rulebookRecord error not reported: " + bad.stdout)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    print("✓ project operating rulebook CLI ok")
+
+
 def check_response_completed_no_auto_route_telemetry() -> None:
     """response.completed must not automatically run route/user-text classifiers; hook timing still works."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="no_route_auto_"))
@@ -6332,6 +6476,19 @@ def check_source_feature_navigation_phase3() -> None:
                 ".lazy-harness/scripts/jcode-wiring.ts",
             },
         },
+        "project-operating-rulebook": {
+            "aliases": {"project operating rulebook", "lazy rules", "행동규약"},
+            "paths": {
+                ".lazy-harness/decisions/0044-project-operating-rulebook.md",
+                ".lazy-harness/spec/platform/project-operating-rulebook.md",
+                ".lazy-harness/tests/project-operating-rulebook.md",
+                ".lazy-harness/rules/README.md",
+                ".lazy-harness/scripts/rulebook.ts",
+                ".lazy-harness/scripts/capability.ts",
+                ".lazy-harness/schemas/capabilities.schema.json",
+                ".lazy-harness/bin/lazy",
+            },
+        },
         "test-doctor": {
             "aliases": {"lazy test", "lazy doctor", "self-test.py"},
             "paths": {
@@ -7652,6 +7809,7 @@ def main() -> None:
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
+        (check_project_operating_rulebook_cli, "BOTH"),
         (check_response_completed_no_auto_route_telemetry, "BOTH"),
         (check_removed_query_helper_artifacts_absent, "BOTH"),
         (check_standalone_source_detection_uses_markers, "BOTH"),

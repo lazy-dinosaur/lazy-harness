@@ -33,7 +33,7 @@ When instructions conflict, use this order:
 |---|---|
 | Framework-common agent behavior that applies to every host | `.lazy-harness/AGENTS.md` |
 | Host identity, source-of-truth, ownership, forbidden mutation | `.lazy-harness/ssot/project-identity.md` or dedicated SSOT |
-| Team/project operating policy shared by all agents | `.lazy-harness/ssot/rule-sources.md` or relevant ADR/SSOT |
+| Team/project operating policy shared by all agents | `.lazy-harness/rules/**` plus `.lazy-harness/ssot/capabilities.json` when it should steer actions |
 | Domain/business language or invariant | `.lazy-harness/domain/**` |
 | API/component/data/IPC contract | `.lazy-harness/spec/**` |
 | User-visible workflow or expected behavior | `.lazy-harness/behavior/**` |
@@ -72,8 +72,8 @@ F. 직접 입력
 
 ## Examples
 
-- PR/worktree tracker policy used by future agents: `.lazy-harness/planning/**` plus SSOT/ADR if enduring.
-- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/rule-sources.md` or dedicated SSOT, not `.jcode` by default.
+- PR/worktree tracker policy used by future agents: `.lazy-harness/rules/**` plus capability binding when it should steer commands; planning may track rollout/backlog.
+- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/rules/**` plus `.lazy-harness/ssot/capabilities.json`, not `.jcode` by default.
 - Personal shortcut, preferred shell alias, or Jcode-only UI workflow: `.jcode/harness/20-project-rules.md` with `Scope: jcode-local`.
 - Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record; Jcode memory must not be used as durable policy storage.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
@@ -119,3 +119,11 @@ Required standard:
 - Machine index:
   - graph ids: `kg_ssot_rule_sources_project_rule_router`
   - generated index key: `pending until implementation-index generator exists`
+
+## Project operating rulebook
+
+Project facts and project operating rules are distinct. Facts, contracts, regressions, and decisions remain in DDD/SDD/BDD/TDD/ADR/SSOT. Development behavior rules that tell agents how to work inside a host belong in `.lazy-harness/rules/**` and, when they should influence command/tool choice, in `.lazy-harness/ssot/capabilities.json`.
+
+Examples include canonical worktree commands, discouraged raw dev-server commands, validation workflows, bypass rules, and team operating policy.
+
+Rulebook entries still need `## Rule placement` when created from a user correction or new project policy.

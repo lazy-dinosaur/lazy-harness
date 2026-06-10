@@ -16,7 +16,11 @@ type Capability = {
   sourceRecord: string
   appliesWhen: string[]
   actions?: string[]
+  preferredActions?: string[]
+  discouragedActions?: string[]
   entrypoint?: string
+  rulebookRecord?: string
+  requiresReasonForBypass?: boolean
   description: string
   owner: string
   tags?: string[]
@@ -61,7 +65,11 @@ Candidates are read-only evidence summaries for source-side dogfood tuning.
 
 Add options:
   --action <action[,action]>      Action labels used by resolve
+  --preferred-action <a[,a]>      Preferred canonical actions for operating rules
+  --discouraged-action <a[,a]>    Discouraged actions that should resolve to guidance
   --entrypoint <command-or-path>  Script/command/hook entrypoint
+  --rulebook-record <path>        Linked .lazy-harness/rules/** entry
+  --requires-reason-for-bypass    Mark default/warn/block bypass as reason-required
   --tag <tag[,tag]>              Capability tag(s)
   --fallback <text>              Bypass/fallback note
   --allow-missing-source-record   Allow draft capability with missing source record
@@ -98,7 +106,7 @@ function parseOptions(argv: string[]): Record<string, string | boolean> {
       setOption(opts, k, rest.join('='))
     } else if (a.startsWith('--')) {
       const k = a.slice(2)
-      if (['format', 'id', 'kind', 'level', 'intent', 'action', 'target', 'source-record', 'applies-when', 'entrypoint', 'description', 'owner', 'tag', 'fallback', 'skill-name', 'template-path', 'tool', 'adapter', 'checklist-path', 'audit-command'].includes(k)) setOption(opts, k, value(argv, i++, a))
+      if (['format', 'id', 'kind', 'level', 'intent', 'action', 'preferred-action', 'discouraged-action', 'target', 'source-record', 'applies-when', 'entrypoint', 'description', 'owner', 'tag', 'fallback', 'skill-name', 'template-path', 'tool', 'adapter', 'checklist-path', 'audit-command', 'rulebook-record'].includes(k)) setOption(opts, k, value(argv, i++, a))
       else setOption(opts, k, true)
     } else {
       console.error(`Unknown argument: ${a}`)
@@ -191,8 +199,16 @@ function collectPackageScriptActions(root: string, pkg: any, names: string[]): s
   return names.filter((name) => typeof scripts[name] === 'string').map((name) => `${pm} ${name}`)
 }
 
+function capabilityActionLabels(cap: Capability): string[] {
+  return [
+    ...(Array.isArray(cap.actions) ? cap.actions : []),
+    ...(Array.isArray(cap.preferredActions) ? cap.preferredActions : []),
+    ...(Array.isArray(cap.discouragedActions) ? cap.discouragedActions : []),
+  ].map(String)
+}
+
 function hasAnyAction(cap: Capability, actions: string[]): boolean {
-  const existing = Array.isArray(cap.actions) ? cap.actions : []
+  const existing = capabilityActionLabels(cap)
   return actions.some((action) => existing.some((candidate) => actionMatches(String(candidate), action)))
 }
 
@@ -286,8 +302,13 @@ function capabilityFromOptions(opts: Record<string, string | boolean>): Capabili
     owner: requireString(opts, 'owner'),
   }
   const actions = splitList(opts.action)
+  const preferredActions = splitList(opts['preferred-action'])
+  const discouragedActions = splitList(opts['discouraged-action'])
   const tags = splitList(opts.tag)
   if (actions.length) cap.actions = actions
+  if (preferredActions.length) cap.preferredActions = preferredActions
+  if (discouragedActions.length) cap.discouragedActions = discouragedActions
+  if (opts['requires-reason-for-bypass'] === true) cap.requiresReasonForBypass = true
   if (tags.length) cap.tags = tags
   const fieldMap: Record<string, keyof Capability> = {
     entrypoint: 'entrypoint',
@@ -298,6 +319,7 @@ function capabilityFromOptions(opts: Record<string, string | boolean>): Capabili
     adapter: 'adapter',
     'checklist-path': 'checklistPath',
     'audit-command': 'auditCommand',
+    'rulebook-record': 'rulebookRecord',
   }
   for (const [optKey, capKey] of Object.entries(fieldMap)) {
     const value = opts[optKey]
@@ -333,6 +355,9 @@ function upsertGraphEntry(root: string, cap: Capability, status: string, dryRun:
     sourceRecord: cap.sourceRecord,
     appliesWhen: cap.appliesWhen,
     actions: cap.actions || [],
+    preferredActions: cap.preferredActions || [],
+    discouragedActions: cap.discouragedActions || [],
+    rulebookRecord: cap.rulebookRecord,
     updatedAt: new Date().toISOString(),
   }
   mkdirSync(dirname(path), { recursive: true })
@@ -371,7 +396,7 @@ function actionMatches(needle: string, action: string): boolean {
 function resolveCapabilities(caps: Capability[], intent?: string, action?: string): Capability[] {
   const matched = caps.filter((cap) => {
     const applies = Array.isArray(cap.appliesWhen) ? cap.appliesWhen : []
-    const actions = Array.isArray(cap.actions) ? cap.actions : []
+    const actions = capabilityActionLabels(cap)
     return Boolean(
       (intent && applies.includes(intent)) ||
       (action && actions.some((a) => actionMatches(String(a), action)))
@@ -405,12 +430,23 @@ function auditRegistry(root: string, registry: Registry): AuditIssue[] {
     if (cap?.level && !LEVELS.has(String(cap.level))) issues.push({ severity: 'error', id, message: `unsupported level: ${cap.level}` })
     if (!Array.isArray(cap?.appliesWhen) || cap.appliesWhen.length === 0) issues.push({ severity: 'error', id, message: 'appliesWhen must be a non-empty array' })
     if (cap?.actions !== undefined && !Array.isArray(cap.actions)) issues.push({ severity: 'error', id, message: 'actions must be an array when present' })
+    if (cap?.preferredActions !== undefined && !Array.isArray(cap.preferredActions)) issues.push({ severity: 'error', id, message: 'preferredActions must be an array when present' })
+    if (cap?.discouragedActions !== undefined && !Array.isArray(cap.discouragedActions)) issues.push({ severity: 'error', id, message: 'discouragedActions must be an array when present' })
+    if (cap?.requiresReasonForBypass !== undefined && typeof cap.requiresReasonForBypass !== 'boolean') issues.push({ severity: 'error', id, message: 'requiresReasonForBypass must be a boolean when present' })
     if (typeof cap?.sourceRecord === 'string') {
       const p = resolve(root, cap.sourceRecord)
       if (!existsSync(p)) issues.push({ severity: 'error', id, message: `missing sourceRecord: ${cap.sourceRecord}` })
     }
-    if ((cap?.level === 'warn' || cap?.level === 'block') && !cap?.entrypoint && !Array.isArray(cap?.actions)) {
+    if (typeof cap?.rulebookRecord === 'string') {
+      const p = resolve(root, cap.rulebookRecord)
+      if (!existsSync(p)) issues.push({ severity: 'error', id, message: `missing rulebookRecord: ${cap.rulebookRecord}` })
+    }
+    const actionSurfaceCount = capabilityActionLabels(cap as Capability).length
+    if ((cap?.level === 'warn' || cap?.level === 'block') && !cap?.entrypoint && actionSurfaceCount === 0) {
       issues.push({ severity: 'warn', id, message: `${cap.level} capability has no entrypoint/actions enforcement surface` })
+    }
+    if (Array.isArray(cap?.discouragedActions) && cap.discouragedActions.length > 0 && (!Array.isArray(cap?.preferredActions) || cap.preferredActions.length === 0)) {
+      issues.push({ severity: 'warn', id, message: 'discouragedActions present without preferredActions guidance' })
     }
   })
   return issues
@@ -433,7 +469,10 @@ function printCapabilityList(caps: Capability[], format: Format): void {
     console.log(`- level: ${cap.level}`)
     console.log(`- appliesWhen: ${cap.appliesWhen.join(', ')}`)
     if (cap.actions?.length) console.log(`- actions: ${cap.actions.join(', ')}`)
+    if (cap.preferredActions?.length) console.log(`- preferredActions: ${cap.preferredActions.join(', ')}`)
+    if (cap.discouragedActions?.length) console.log(`- discouragedActions: ${cap.discouragedActions.join(', ')}`)
     if (cap.entrypoint) console.log(`- entrypoint: ${cap.entrypoint}`)
+    if (cap.rulebookRecord) console.log(`- rulebookRecord: ${cap.rulebookRecord}`)
     console.log(`- sourceRecord: ${cap.sourceRecord}`)
     console.log(`- owner: ${cap.owner}`)
     console.log(`- description: ${cap.description}`)
@@ -453,6 +492,9 @@ function printResolve(caps: Capability[], intent: string | undefined, action: st
     console.log(`\n## ${cap.id} (${cap.level})`)
     console.log(`- kind: ${cap.kind}`)
     if (cap.entrypoint) console.log(`- use: ${cap.entrypoint}`)
+    if (cap.preferredActions?.length) console.log(`- prefer: ${cap.preferredActions.join(', ')}`)
+    if (cap.discouragedActions?.length) console.log(`- avoid: ${cap.discouragedActions.join(', ')}`)
+    if (cap.rulebookRecord) console.log(`- rulebookRecord: ${cap.rulebookRecord}`)
     console.log(`- sourceRecord: ${cap.sourceRecord}`)
     console.log(`- description: ${cap.description}`)
   }
@@ -485,6 +527,8 @@ function printCandidates(candidates: CapabilityCandidate[], format: Format): voi
     console.log(`- suggested: ${candidate.suggestedCapability.kind}/${candidate.suggestedCapability.level}`)
     console.log(`- appliesWhen: ${candidate.suggestedCapability.appliesWhen.join(', ')}`)
     if (candidate.suggestedCapability.actions?.length) console.log(`- actions: ${candidate.suggestedCapability.actions.join(', ')}`)
+    if (candidate.suggestedCapability.preferredActions?.length) console.log(`- preferredActions: ${candidate.suggestedCapability.preferredActions.join(', ')}`)
+    if (candidate.suggestedCapability.discouragedActions?.length) console.log(`- discouragedActions: ${candidate.suggestedCapability.discouragedActions.join(', ')}`)
     console.log('- evidence:')
     for (const item of candidate.evidence) console.log(`  - ${item}`)
   }

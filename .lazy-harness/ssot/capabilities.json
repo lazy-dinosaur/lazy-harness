@@ -50,6 +50,43 @@
         "checklist",
         "phase5"
       ]
+    },
+    {
+      "id": "project-operating-rulebook",
+      "kind": "command",
+      "level": "discover",
+      "sourceRecord": ".lazy-harness/rules/README.md",
+      "rulebookRecord": ".lazy-harness/rules/README.md",
+      "appliesWhen": [
+        "adding_project_operating_policy",
+        "resolving_project_operating_rule",
+        "inspecting_project_rules",
+        "distinguishing_project_facts_from_operating_rules"
+      ],
+      "actions": [
+        "lazy rules list",
+        "lazy rules resolve",
+        "lazy rules audit"
+      ],
+      "entrypoint": ".lazy-harness/bin/lazy rules",
+      "description": "List, audit, and resolve project operating rulebook entries separately from project fact records.",
+      "owner": "framework-global",
+      "tags": [
+        "rules",
+        "rulebook",
+        "capability",
+        "phase0-2"
+      ],
+      "preferredActions": [
+        ".lazy-harness/rules/**",
+        ".lazy-harness/bin/lazy rules",
+        ".lazy-harness/ssot/capabilities.json"
+      ],
+      "discouragedActions": [
+        ".jcode/harness/20-project-rules.md project policy body",
+        "Jcode memory project/team rule body"
+      ],
+      "requiresReasonForBypass": false
     }
   ]
 }

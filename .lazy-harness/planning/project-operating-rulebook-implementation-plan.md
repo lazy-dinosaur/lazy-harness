@@ -234,7 +234,7 @@ Candidate behavior:
 
 Files:
 
-- `.lazy-harness/decisions/0042-project-operating-rulebook.md`
+- `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - `.lazy-harness/spec/platform/project-operating-rulebook.md`
 - `.lazy-harness/tests/project-operating-rulebook.md`
 - `.lazy-harness/ssot/rule-sources.md` update
@@ -495,7 +495,7 @@ Exit criteria:
   - `.lazy-harness/spec/platform/capability-resolution.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md`
 - New records/files:
-  - `.lazy-harness/decisions/0042-project-operating-rulebook.md`
+  - `.lazy-harness/decisions/0044-project-operating-rulebook.md`
   - `.lazy-harness/spec/platform/project-operating-rulebook.md`
   - `.lazy-harness/tests/project-operating-rulebook.md`
   - `.lazy-harness/rules/README.md`

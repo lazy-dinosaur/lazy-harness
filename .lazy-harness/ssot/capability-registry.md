@@ -52,7 +52,7 @@ New capabilities should default to `discover` or `recommend` unless the user/tea
 
 The canonical machine-readable registry is `.lazy-harness/ssot/capabilities.json`.
 
-Generated indexes may live under `.lazy-harness/generated/**`, but generated files are derived cache only.
+Generated indexes may live under `.lazy-harness/generated/**`, but generated files are derived cache only. Project operating rulebook entries live under `.lazy-harness/rules/**` and may be linked from capabilities through `sourceRecord` or `rulebookRecord`.
 
 ## Required fields
 
@@ -91,7 +91,8 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
   - `.lazy-harness/spec/platform/capability-resolution.md` — resolver contract.
   - `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md` — ADR.
   - `.lazy-harness/tests/capability-registry.md` — regression record.
-  - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/candidates/audit.
+  - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/candidates/audit, including rulebook action fields.
+  - `.lazy-harness/scripts/rulebook.ts` — CLI implementation for project operating rulebook list/audit/resolve.
   - `.lazy-harness/bin/lazy` — dispatches `lazy capability`.
   - `.lazy-harness/scripts/self-test.py` — fixtures.
 - Key symbols:
