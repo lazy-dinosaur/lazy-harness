@@ -22,7 +22,7 @@ const FORBIDDEN_FIELDS = new Set(['requiredRead', 'optionalRead', 'confidence', 
 const LAYERS = ['DDD', 'BDD', 'SDD', 'TDD', 'SSOT'] as const
 
 type Format = 'json' | 'md'
-type SurfaceName = 'map' | 'map_plus_retrieval_audit' | 'graph_query'
+type SurfaceName = 'map' | 'map_plus_retrieval_audit'
 type LayerName = typeof LAYERS[number]
 
 interface Args {
@@ -93,12 +93,7 @@ interface RetrievalWorkflowBenchmark {
       fullLayerCoverageCount: number
     }>
     deltas: {
-      graphQueryVsMapPlusRetrievalAudit: {
-        helperCallDelta: number
-        helperTokenDelta: number
-        totalTokenDelta: number
-      }
-      graphQueryVsMap: {
+      mapPlusRetrievalAuditVsMap: {
         helperCallDelta: number
         helperTokenDelta: number
         totalTokenDelta: number
@@ -109,7 +104,7 @@ interface RetrievalWorkflowBenchmark {
 
 function usage(exitCode = 2): never {
   const out = exitCode === 0 ? console.log : console.error
-  out(`Retrieval Workflow Benchmark\n\nUsage:\n  .lazy-harness/bin/lazy retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]\n\nRead-only measurement helper. Compares post-overview lazy map, retrieval-audit, and graph query workflows. Measurement only; not semantic authority.`)
+  out(`Retrieval Workflow Benchmark\n\nUsage:\n  .lazy-harness/bin/lazy retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]\n\nRead-only measurement helper. Compares post-overview lazy map and retrieval-audit workflows. Measurement only; not semantic authority.`)
   process.exit(exitCode)
 }
 
@@ -167,10 +162,6 @@ function unique(values: Array<string | undefined | null>): string[] {
     out.push(value)
   }
   return out
-}
-
-function emptyCandidates(): Candidates {
-  return { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
 }
 
 function mergeCandidates(...sets: Candidates[]): Candidates {
@@ -294,11 +285,9 @@ function metric(name: SurfaceName, helperCalls: number, helperBytes: number, ela
 function measureQuery(root: string, query: string, limit: number): QueryBenchmark {
   const map = runLazyJson(root, ['map', query, '--format=json', `--limit=${limit}`, '--fresh'])
   const retrieval = runLazyJson(root, ['retrieval-audit', query, '--format=json', `--limit=${limit}`])
-  const graph = runLazyJson(root, ['graph', 'query', query, '--format=json', `--limit=${limit}`])
 
   const mapCandidates = candidatesFromMap(map.payload)
   const retrievalCandidates = candidatesFromStandard(retrieval.payload)
-  const graphCandidates = candidatesFromStandard(graph.payload)
   const merged = mergeCandidates(mapCandidates, retrievalCandidates)
 
   return {
@@ -306,7 +295,6 @@ function measureQuery(root: string, query: string, limit: number): QueryBenchmar
     surfaces: {
       map: metric('map', 1, map.bytes, map.elapsedMs, resultState(map.payload), mapCandidates, root),
       map_plus_retrieval_audit: metric('map_plus_retrieval_audit', 2, map.bytes + retrieval.bytes, map.elapsedMs + retrieval.elapsedMs, resultState(retrieval.payload), merged, root),
-      graph_query: metric('graph_query', 1, graph.bytes, graph.elapsedMs, resultState(graph.payload), graphCandidates, root),
     },
   }
 }
@@ -329,7 +317,6 @@ function buildBenchmark(root: string, queries: string[], limit: number): Retriev
   const surfaces = queries.map((query) => measureQuery(root, query, limit))
   const aggregateMap = aggregate(surfaces, 'map')
   const aggregateMapRetrieval = aggregate(surfaces, 'map_plus_retrieval_audit')
-  const aggregateGraph = aggregate(surfaces, 'graph_query')
   return {
     schemaVersion: '1.0',
     mode: 'retrieval-workflow-benchmark',
@@ -340,6 +327,7 @@ function buildBenchmark(root: string, queries: string[], limit: number): Retriev
       'measurement-only; cues are not semantic authority',
       'post-overview helper comparison only; lazy map --overview remains mandatory/common',
       'follow-up reads are deterministic cost proxies, not proof of sufficient evidence',
+      'graph query/path/explain CLI has been removed from the default retrieval workflow',
       'does not change lifecycle/prompt/overview policy',
     ],
     policyBoundary: 'measurement-only; does not change lifecycle/prompt/overview policy or replace real record/source/test reads',
@@ -349,18 +337,12 @@ function buildBenchmark(root: string, queries: string[], limit: number): Retriev
       aggregate: {
         map: aggregateMap,
         map_plus_retrieval_audit: aggregateMapRetrieval,
-        graph_query: aggregateGraph,
       },
       deltas: {
-        graphQueryVsMapPlusRetrievalAudit: {
-          helperCallDelta: aggregateGraph.helperCalls - aggregateMapRetrieval.helperCalls,
-          helperTokenDelta: aggregateGraph.helperEstimatedTokens - aggregateMapRetrieval.helperEstimatedTokens,
-          totalTokenDelta: aggregateGraph.totalEstimatedTokens - aggregateMapRetrieval.totalEstimatedTokens,
-        },
-        graphQueryVsMap: {
-          helperCallDelta: aggregateGraph.helperCalls - aggregateMap.helperCalls,
-          helperTokenDelta: aggregateGraph.helperEstimatedTokens - aggregateMap.helperEstimatedTokens,
-          totalTokenDelta: aggregateGraph.totalEstimatedTokens - aggregateMap.totalEstimatedTokens,
+        mapPlusRetrievalAuditVsMap: {
+          helperCallDelta: aggregateMapRetrieval.helperCalls - aggregateMap.helperCalls,
+          helperTokenDelta: aggregateMapRetrieval.helperEstimatedTokens - aggregateMap.helperEstimatedTokens,
+          totalTokenDelta: aggregateMapRetrieval.totalEstimatedTokens - aggregateMap.totalEstimatedTokens,
         },
       },
     },
@@ -380,16 +362,15 @@ function renderMarkdown(benchmark: RetrievalWorkflowBenchmark): string {
   lines.push('')
   lines.push('| Surface | Helper calls | Helper tokens | Follow-up reads | Follow-up tokens | Total tokens | Full layer coverage |')
   lines.push('|---|---:|---:|---:|---:|---:|---:|')
-  for (const name of ['map', 'map_plus_retrieval_audit', 'graph_query'] as SurfaceName[]) {
+  for (const name of ['map', 'map_plus_retrieval_audit'] as SurfaceName[]) {
     const item = benchmark.summary.aggregate[name]
     lines.push(`| ${name} | ${item.helperCalls} | ${item.helperEstimatedTokens} | ${item.followupReadCount} | ${item.followupEstimatedTokens} | ${item.totalEstimatedTokens} | ${item.fullLayerCoverageCount}/${benchmark.summary.queryCount} |`)
   }
   lines.push('')
   lines.push('## Deltas')
   lines.push('')
-  lines.push(`- graph_query vs map_plus_retrieval_audit helper call delta: ${benchmark.summary.deltas.graphQueryVsMapPlusRetrievalAudit.helperCallDelta}`)
-  lines.push(`- graph_query vs map_plus_retrieval_audit total token delta: ${benchmark.summary.deltas.graphQueryVsMapPlusRetrievalAudit.totalTokenDelta}`)
-  lines.push(`- graph_query vs map total token delta: ${benchmark.summary.deltas.graphQueryVsMap.totalTokenDelta}`)
+  lines.push(`- map_plus_retrieval_audit vs map helper call delta: ${benchmark.summary.deltas.mapPlusRetrievalAuditVsMap.helperCallDelta}`)
+  lines.push(`- map_plus_retrieval_audit vs map total token delta: ${benchmark.summary.deltas.mapPlusRetrievalAuditVsMap.totalTokenDelta}`)
   lines.push('')
   lines.push('## Per query')
   for (const query of benchmark.surfaces) {
@@ -397,7 +378,7 @@ function renderMarkdown(benchmark: RetrievalWorkflowBenchmark): string {
     lines.push(`### ${query.query}`)
     lines.push('| Surface | State | Helper tokens | Follow-up reads | Total tokens | Missing layers |')
     lines.push('|---|---|---:|---:|---:|---|')
-    for (const name of ['map', 'map_plus_retrieval_audit', 'graph_query'] as SurfaceName[]) {
+    for (const name of ['map', 'map_plus_retrieval_audit'] as SurfaceName[]) {
       const item = query.surfaces[name]
       lines.push(`| ${name} | ${item.resultState} | ${item.helperEstimatedTokens} | ${item.followupRead.readCount} | ${item.totalEstimatedTokens} | ${item.followupRead.missingLayers.join(', ') || '-'} |`)
     }

@@ -86,8 +86,7 @@
           "path": "fixtures/",
           "kind": "directory",
           "glob": [
-            "context-tier/*.json",
-            "graph-explain-gold-accuracy.json"
+            "context-tier/*.json"
           ],
           "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures."
         },
@@ -172,37 +171,12 @@
         {
           "path": "planning/retrieval-architecture-holistic-review.md",
           "kind": "file",
-          "description": "Planning record preserving the user-confirmed holistic review of shallow record-map traversal, Graphify-style query/path/explain, compact overview reminder, and batch policy trade-offs."
-        },
-        {
-          "path": "planning/graph-query-prototype-implementation-plan.md",
-          "kind": "file",
-          "description": "Detailed direction-locked implementation plan for the additive TS/Bun `lazy graph query` prototype, including non-deviation checklist, SDD/TDD gates, benchmark plan, and big-change boundary."
-        },
-        {
-          "path": "planning/graph-path-implementation-plan.md",
-          "kind": "file",
-          "description": "Implementation plan for additive cue-only `lazy graph path` bounded navigation over graph-query subgraphs, with graph explain changes owned by separate records and MCP/daemon/policy changes out of scope."
-        },
-        {
-          "path": "planning/graph-explain-implementation-plan.md",
-          "kind": "file",
-          "description": "Implementation plan for cue-only `lazy graph explain` as JSON/Markdown/path-backed cited structural explanation, with semantic authority/policy changes out of scope."
+          "description": "Planning record preserving the historical review of shallow record-map traversal, Graphify-style prototypes, compact overview reminder, and batch policy trade-offs; graph CLI prototype has since been rolled back."
         },
         {
           "path": "planning/retrieval-workflow-benchmark-plan.md",
           "kind": "file",
-          "description": "Planning record for read-only workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview costs."
-        },
-        {
-          "path": "planning/graph-query-coverage-ranking-hardening-plan.md",
-          "kind": "file",
-          "description": "Planning record for graph-query layer bridge coverage and ranking hardening after workflow benchmark coverage misses."
-        },
-        {
-          "path": "planning/graph-explain-ranking-hardening-plan.md",
-          "kind": "file",
-          "description": "Reviewed planning record for Graphify-style graph query/explain ranking hardening with gold-labeled retrieval metrics, cue-only boundaries, and acceptance gates."
+          "description": "Planning record for read-only workflow-level benchmark comparing lazy map and retrieval-audit post-overview costs after graph CLI rollback."
         },
         {
           "path": "plans/progressive-knowledge-graph-pipeline.md",
@@ -360,54 +334,9 @@
           "description": "SDD contract for optional manual evidence capsules: template headings, privacy posture, recommend-level checklist capability, and no automatic evidence writing."
         },
         {
-          "path": "evidence/2026-06-08-graph-query-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-query prototype source commit sync and smoke validation across initialized downstream hosts."
-        },
-        {
           "path": "evidence/2026-06-08-retrieval-workflow-benchmark.md",
           "kind": "file",
           "description": "Evidence capsule for workflow-level benchmark comparing lazy map, retrieval-audit, and graph-query post-overview helper costs."
-        },
-        {
-          "path": "evidence/2026-06-08-graph-query-coverage-ranking-hardening.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-query coverage/ranking hardening that improves workflow benchmark full-layer coverage while preserving cue-only policy boundaries."
-        },
-        {
-          "path": "evidence/2026-06-08-graph-path-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-path source commit sync and smoke validation across initialized downstream hosts."
-        },
-        {
-          "path": "evidence/2026-06-08-graph-path-portability-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for portable graph-path endpoint edge and candidate_context fallback sync validation across initialized downstream hosts."
-        },
-        {
-          "path": "evidence/2026-06-08-graph-explain-phase1-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-explain Phase 1 JSON source commit sync and smoke validation across initialized downstream hosts."
-        },
-        {
-          "path": "evidence/2026-06-09-graph-explain-phase2-markdown-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-explain Phase 2 Markdown source commit sync and JSON/Markdown smoke validation across initialized downstream hosts."
-        },
-        {
-          "path": "evidence/2026-06-09-graph-explain-phase3-path-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-explain Phase 3 path-backed source commit sync and JSON/Markdown --include-paths smoke validation across initialized downstream hosts."
-        },
-        {
-          "path": "evidence/2026-06-09-graph-explain-token-savings-accuracy.md",
-          "kind": "file",
-          "description": "Evidence capsule measuring graph-explain Markdown token savings (98.3% reduction vs cited-record reads) and citation accuracy (100% references resolve to real graph rows/files/feature ids) across four representative queries."
-        },
-        {
-          "path": "evidence/2026-06-09-graph-explain-ranking-downstream-sync.md",
-          "kind": "file",
-          "description": "Evidence capsule for graph-explain ranking hardening, source-only gold benchmark guard, and dynamic hybrid graph boundary sync/smoke validation across initialized downstream hosts."
         },
         {
           "path": "tests/prompt-budget.md",
@@ -460,39 +389,9 @@
           "description": "TDD contract fixtures for retrieval-audit mapped/partial/gap coverage states and cue-only output."
         },
         {
-          "path": "spec/platform/graph-query.md",
-          "kind": "file",
-          "description": "SDD contract for additive cue-only lazy graph query prototype over record-index, graph JSONL, and generated implementation index."
-        },
-        {
-          "path": "tests/graph-query.md",
-          "kind": "file",
-          "description": "TDD contract fixtures for graph query mapped/partial/gap states, subgraph citations, read-only behavior, and slice-boundary enforcement."
-        },
-        {
-          "path": "spec/platform/graph-path.md",
-          "kind": "file",
-          "description": "SDD contract for additive cue-only lazy graph path bounded navigation between two endpoint cues over graph-query subgraphs."
-        },
-        {
-          "path": "tests/graph-path.md",
-          "kind": "file",
-          "description": "TDD contract fixtures for graph path linked/partial/gap states, no semantic fields, read-only behavior, and regression compatibility with separate graph-explain tests."
-        },
-        {
-          "path": "spec/platform/graph-explain.md",
-          "kind": "file",
-          "description": "SDD contract for cue-only `lazy graph explain` JSON/Markdown/path-backed cited structural explanation output."
-        },
-        {
-          "path": "tests/graph-explain.md",
-          "kind": "file",
-          "description": "TDD contract for graph explain JSON/Markdown shape, support/citations, forbidden semantic fields, read-only behavior, and future path-backed boundaries."
-        },
-        {
           "path": "spec/platform/retrieval-workflow-benchmark.md",
           "kind": "file",
-          "description": "SDD contract for read-only retrieval workflow benchmark over map, retrieval-audit, and graph-query helper costs."
+          "description": "SDD contract for read-only retrieval workflow benchmark over map and retrieval-audit helper costs after graph CLI rollback."
         },
         {
           "path": "tests/retrieval-workflow-benchmark.md",

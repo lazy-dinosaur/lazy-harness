@@ -252,14 +252,14 @@ function commandsFor(purpose: Purpose, query: string): string[] {
     case 'capability':
       return [`.lazy-harness/bin/lazy capability resolve --intent ${q} --format=md`, `.lazy-harness/bin/lazy capability resolve --action ${q} --format=md`]
     case 'source':
-      return [`grep -rli ${q} src tests packages .lazy-harness/scripts`, `.lazy-harness/bin/lazy graph query ${q} --format=md --limit=8`]
+      return [`grep -rli ${q} src tests packages .lazy-harness/scripts`, `.lazy-harness/bin/lazy map ${q} --format=md --limit=8`]
     case 'architecture':
-      return [`.lazy-harness/bin/lazy map --overview --format=md --limit=20`, `.lazy-harness/bin/lazy map ${q} --format=md --limit=8`, `.lazy-harness/bin/lazy graph query ${q} --format=md --limit=8`]
+      return [`.lazy-harness/bin/lazy map --overview --format=md --limit=20`, `.lazy-harness/bin/lazy map ${q} --format=md --limit=8`, `grep -rli ${q} .lazy-harness tests src packages`]
     case 'full':
       return [`.lazy-harness/bin/lazy map --overview --format=md --limit=20`, `.lazy-harness/bin/lazy map ${q} --format=md --limit=8`, `.lazy-harness/bin/lazy rules resolve --intent ${q} --format=md`, `.lazy-harness/bin/lazy capability resolve --intent ${q} --format=md`, `grep -rli ${q} .lazy-harness tests src packages`]
     case 'fact':
     default:
-      return [`.lazy-harness/bin/lazy map ${q} --format=md --limit=8`, `.lazy-harness/bin/lazy graph query ${q} --format=md --limit=8`]
+      return [`.lazy-harness/bin/lazy map ${q} --format=md --limit=8`, `grep -rli ${q} .lazy-harness tests src packages`]
   }
 }
 

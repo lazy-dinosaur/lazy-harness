@@ -27,7 +27,7 @@ These paths are the single source of truth for progressive knowledge graph stora
 4. Canonical confirmation requires explicit confirmation or a future auditable safe rule.
 5. Conflicts are represented as graph state, not silent overwrites.
 6. Supersession preserves old records with `status=superseded` and a `supersedes` link.
-7. Blocking source-search hooks are not the primary mechanism; M45 private instructions and graph query are the normal path.
+7. Blocking source-search hooks are not the primary mechanism; M45 private instructions plus lazy map/find/retrieval-audit and real record/source/test reads are the normal path. Removed graph query/path/explain CLI is not an active path.
 8. Implementation maps use the ADR 0030 three-layer model: Markdown summary, JSONL graph facts, generated implementation index cache.
 9. `generated/implementation-index.json` is derived and non-canonical; absence is valid until generated.
 

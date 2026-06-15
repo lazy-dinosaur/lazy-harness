@@ -60,7 +60,7 @@ User-confirmed direction: lazy-harness agents routinely search, write, modify, v
 
 Boundary:
 
-- `lazy map`, `record-index`, `graph query`, `graph path`, `graph explain`, and benchmark packets may route the LLM/searcher toward likely records/source/tests.
+- `lazy map`, `record-index`, `lazy find`, `retrieval-audit`, and benchmark packets may route the LLM/searcher toward likely records/source/tests. Removed graph query/path/explain CLI packets must not be treated as active retrieval surfaces.
 - Generated graph/index/cache state may be stale relative to just-edited canonical files.
 - After mutation, the LLM/searcher must read the changed canonical records/source/tests and run validation instead of trusting generated graph state.
 - Any future Graphify-style watch, MCP, daemon, or graph export integration must keep generated graph output as cue-only and must not become lifecycle semantic authority.

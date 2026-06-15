@@ -76,16 +76,8 @@ Commands:
                                 Show matching record/feature/graph drill-down file candidates; uses fresh generated cache when available
   retrieval-audit <term-or-file> [--format=json|md] [--limit=N]
                                 Audit lazy map/record-index coverage gaps and fallback grep/read candidates
-  graph query <term-or-file> [--format=json|md] [--limit=N] [--depth=N] [--fresh]
-                                Prototype cue-only graph query over record-index, graph JSONL, and generated indexes
-  graph path <from> <to> [--format=json|md] [--limit=N] [--max-depth=N] [--max-paths=N] [--fresh]
-                                Prototype cue-only bounded graph path over graph-query subgraphs
-  graph explain <term-or-file> [--format=json|md] [--limit=N] [--max-statements=N] [--include-paths] [--fresh]
-                                Cue-only cited structural explanation over graph query output
   retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
-                                Measure post-overview map/retrieval-audit/graph-query workflow costs
-  graph-explain-accuracy-benchmark [--format=json|md] [--precision-k=N] [--fail-on-thresholds]
-                                Measure gold-labeled graph explain retrieval/ranking accuracy
+                                Measure post-overview map/retrieval-audit workflow costs
   record-index [--write] [--format=json|md]
                                 Build deterministic generated record/source index cache
   record-decision [--message "..."] [--format=json|md]
@@ -219,26 +211,12 @@ case "$cmd" in
     fi
     exec bun "$SCRIPTS/retrieval-coverage-audit.ts" --root "$HOST_ROOT" "$@"
     ;;
-  graph)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy graph: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/graph-query.ts" --root "$HOST_ROOT" "$@"
-    ;;
   retrieval-workflow-benchmark)
     if ! command -v bun >/dev/null 2>&1; then
       echo "lazy retrieval-workflow-benchmark: bun not found on PATH." >&2
       exit 127
     fi
     exec bun "$SCRIPTS/retrieval-workflow-benchmark.ts" --root "$HOST_ROOT" "$@"
-    ;;
-  graph-explain-accuracy-benchmark)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy graph-explain-accuracy-benchmark: bun not found on PATH." >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/graph-explain-accuracy-benchmark.ts" --root "$HOST_ROOT" "$@"
     ;;
   record-decision)
     if ! command -v bun >/dev/null 2>&1; then

@@ -1,11 +1,11 @@
 # SDD — Retrieval Workflow Benchmark
 
 Status: verified
-Date: 2026-06-08
+Date: 2026-06-15
 Layer: SDD
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
-Related SDD: `.lazy-harness/spec/platform/graph-query.md`, `.lazy-harness/spec/platform/retrieval-coverage-audit.md`, `.lazy-harness/spec/platform/prompt-budget.md`
+Related SDD: `.lazy-harness/spec/platform/retrieval-coverage-audit.md`, `.lazy-harness/spec/platform/prompt-budget.md`
 Related TDD: `.lazy-harness/tests/retrieval-workflow-benchmark.md`
 Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
 
@@ -15,8 +15,8 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
-  - measuring whether `lazy graph query` reduces retrieval workflow cost after payload compactness
-  - comparing `lazy map`, `lazy retrieval-audit`, and `lazy graph query` as cue-only helper surfaces
+  - measuring post-overview retrieval helper cost after graph query/path/explain CLI removal
+  - comparing `lazy map` and `lazy retrieval-audit` as cue-only helper surfaces
   - collecting evidence before any lifecycle/prompt/overview policy proposal
 - Must:
   - remain read-only and deterministic
@@ -27,7 +27,7 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
   - preserve privacy by storing only command metrics, paths/counts, aggregate byte counts, and no raw user text/transcripts
 - Must not:
   - classify raw user text
-  - decide whether graph query should replace harness-first search/read debt
+  - reintroduce `lazy graph query`, `lazy graph path`, or `lazy graph explain` as benchmark surfaces
   - decide user intent, risk, gate, required reads, or next action
   - mutate canonical records, generated indexes, runtime journals, or memory
 - Record completion:
@@ -58,7 +58,6 @@ Output shape:
 - `surfaces`: per-query metrics for:
   - `map`
   - `map_plus_retrieval_audit`
-  - `graph_query`
 - `summary`: aggregate metrics and deltas
 - `policyBoundary`: stable text stating this is measurement-only and does not change lifecycle/prompt/overview policy
 
@@ -88,7 +87,6 @@ Measured paths:
 
 1. `map`: run `lazy map <query> --format=json --limit=N --fresh` so the benchmark rebuilds from source in-process without refreshing generated record-index cache.
 2. `map_plus_retrieval_audit`: run map plus `lazy retrieval-audit <query> --format=json --limit=N` and merge candidates.
-3. `graph_query`: run `lazy graph query <query> --format=json --limit=N`.
 
 Follow-up read simulation:
 
@@ -108,8 +106,7 @@ Follow-up read simulation:
   - `.lazy-harness/scripts/self-test.py` — regression fixture.
   - `.lazy-harness/scripts/record-map.ts` — measured helper, invoked with `--fresh` to avoid generated cache writes.
   - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — measured helper.
-  - `.lazy-harness/scripts/graph-query.ts` — measured helper.
-- Key symbols planned:
+- Key symbols:
   - `buildBenchmark`
   - `measureQuery`
   - `simulateFollowupRead`
@@ -123,11 +120,11 @@ Follow-up read simulation:
 
 - DDD: no new domain term; existing Searchable Record Memory applies.
 - BDD: reinforces LLM-owned retrieval behavior, no behavior automation change.
-- SDD: this record defines measurement output and boundaries.
+- SDD: this record defines measurement output and graph-CLI-removed boundaries.
 - TDD: `.lazy-harness/tests/retrieval-workflow-benchmark.md` and self-test protect measurement-only behavior.
 - ADR: no new ADR required for measurement-only helper; ADR required before policy relaxation.
 - SSOT: CLI semantic boundary remains `.lazy-harness/ssot/cli-tool-boundary.md`.
-- Planning: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md` tracks execution.
+- Planning: graph CLI rollback intent is captured in `.lazy-harness/knowledge/candidates.jsonl` and should be promoted to `.lazy-harness/planning/graph-cli-rollback-plan.md` if more work remains.
 
 ## Rule placement
 
@@ -136,4 +133,13 @@ Follow-up read simulation:
 - Primary record: `.lazy-harness/spec/platform/retrieval-workflow-benchmark.md`
 - Why not AGENTS.md: output contract and measurement details belong in SDD/TDD/source, not always-loaded prompt grammar.
 - Why not `.jcode`: shared lazy-harness framework behavior, not local/private Jcode wiring.
-- Confirmation: user-approved next-stage execution inferred from graph-query plan and current request.
+
+## Discovery capture
+
+- DDD: none.
+- BDD: updated by implication only; graph CLI removal restores real record/source/test read emphasis.
+- SDD: updated here.
+- TDD: updated in `.lazy-harness/tests/retrieval-workflow-benchmark.md`.
+- ADR: none.
+- SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` should no longer advertise graph query/path/explain as active cue helpers.
+- Planning: graph CLI rollback captured as candidate/plan follow-up.
