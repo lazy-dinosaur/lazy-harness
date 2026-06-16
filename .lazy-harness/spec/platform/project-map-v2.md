@@ -46,6 +46,21 @@ A Project Map node is a **knowledge node backed by canonical evidence**.
 
 It may be indexed, rendered, or generated into views, but the generated view is never the truth by itself. The node must point back to canonical records/source/tests/evidence.
 
+The map is not only a flat list of nodes. A topic, feature, policy, or project fact may act as an **anchor** from which related knowledge branches outward:
+
+```text
+Topic / Feature Anchor
+  ├─ facts / DDD
+  ├─ expectations / BDD
+  ├─ contracts / SDD
+  ├─ validation / TDD
+  ├─ decisions / ADR
+  ├─ ownership / SSOT
+  └─ source links
+```
+
+So the question should not be “is this information DDD or SDD?” first. The better question is “what project-map cluster does this information belong to, and which branches does it create or update?”
+
 ## Node shape
 
 The first V2 node shape is JSON-compatible and can later be represented in Markdown frontmatter, sidecar JSON, XML, or generated map views.
@@ -62,6 +77,7 @@ Required fields:
   "status": "draft",
   "scope": "framework-global",
   "canonicalRecords": [".lazy-harness/..."],
+  "cluster": { "role": "anchor", "anchorId": "stable-slug", "branches": [], "edges": [] },
   "links": {},
   "evidence": [],
   "policies": []
@@ -80,6 +96,7 @@ Required fields:
 | `status` | yes | draft/active/deprecated/etc. | Lifecycle state. | Not truth confidence. |
 | `scope` | yes | framework-global/host-project/team-policy/etc. | Applicability scope. | Not a hard enforcement level. |
 | `canonicalRecords` | yes | record paths | Canonical records backing the node. | Not proof those records have been read this turn. |
+| `cluster` | yes | object | Anchor/branch/edge metadata that places this node in a project-map cluster. | Not a generated semantic judgment or automatic graph traversal result. |
 | `links` | yes | object | Source/test/decision/ownership/related links. | Navigation only, not semantic authority. |
 | `evidence` | yes | array | Validation or observation evidence. | Not automatic proof of current correctness. |
 | `policies` | yes | array | Stage-aware project/team policy references or inline policy hints. | Not hard-block unless policy level says so and adapter enforces it. |
@@ -138,6 +155,64 @@ Examples:
 - A behavior requirement with API contract and tests: `primary=expectations`, `facets=["BDD", "SDD", "TDD"]`.
 - A project/team commit convention: `primary=policies`, `facets=["Policy", "SSOT", "TDD"]` when it includes validation gates.
 - A source ownership boundary: `primary=ownership`, `facets=["SSOT", "Source"]`.
+
+## Anchor / branch / edge model
+
+Project Map V2 should represent knowledge as clusters, not just isolated typed records.
+
+### Cluster roles
+
+- `anchor`: a topic, feature, policy, domain concept, or project area that organizes related branches.
+- `branch`: a specific piece of related knowledge, such as a domain fact, behavior expectation, contract, test, decision, ownership rule, or source link.
+
+### Cluster object
+
+`cluster` must contain:
+
+```json
+{
+  "role": "anchor",
+  "anchorId": "chat-window-patient-sharing",
+  "branchOf": null,
+  "branches": [
+    { "id": "chat-window-patient-sharing-domain", "primary": "facts", "facets": ["DDD", "SSOT"] }
+  ],
+  "edges": [
+    { "from": "chat-window-patient-sharing", "to": "chat-window-patient-sharing-domain", "relation": "has-fact" }
+  ]
+}
+```
+
+For an anchor node, `anchorId` should equal the node `id`. For a branch node, `anchorId` points back to the anchor and `branchOf` should identify the parent anchor or branch.
+
+### Initial branch categories
+
+Branches usually point to one of the same primary categories:
+
+- `facts`: domain/project fact branches, such as “use `pcLocationId`, not `pcId`.”
+- `expectations`: behavior/requirement branches, such as “chat supports patient sharing.”
+- `contracts`: design/API/component branches, such as “share request payload includes `pcLocationId`.”
+- `validation`: test/evidence branches, such as “wrong id fails; correct id succeeds.”
+- `decisions`: why/trade-off branches.
+- `ownership`: source-of-truth and boundary branches.
+- `source-links`: implementation/navigation branches.
+- `policies`: project/team convention branches.
+
+### Initial edge relations
+
+Allowed Phase 1 edge relations:
+
+- `has-fact`
+- `has-expectation`
+- `has-contract`
+- `has-validation`
+- `has-decision`
+- `has-ownership`
+- `has-source-link`
+- `has-policy`
+- `related-to`
+
+Edges are navigation/evidence structure only. They must not decide intent, risk, required reads, confidence, gate, or next action.
 
 ## Link model
 
@@ -216,7 +291,7 @@ The canonical Phase 1 fixture is:
 .lazy-harness/fixtures/project-map-v2/example-node.json
 ```
 
-It demonstrates a policy-oriented node with multiple facets, stage-aware policy levels, Pi-primary adapter direction, Jcode compatibility, and source/test/record links.
+It demonstrates a policy-oriented anchor node with multiple facets, cluster branches, typed edges, stage-aware policy levels, Pi-primary adapter direction, Jcode compatibility, and source/test/record links.
 
 ## Implementation map
 
@@ -248,6 +323,7 @@ It demonstrates a policy-oriented node with multiple facets, stage-aware policy 
 ## Rule placement
 
 - Rule: Project Map V2 nodes use one primary category plus multiple facets, stay backed by canonical records/source/tests, and remain adapter-neutral with Pi as the primary future adapter direction.
+- Rule detail: Project Map V2 must also support anchor/branch/edge clusters so one project topic can branch into DDD facts, BDD expectations, SDD contracts, TDD validation, ADR decisions, SSOT ownership, and source links.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/project-map-v2.md`
 - Why not AGENTS.md: this is schema/contract design, not immediate prompt grammar.
@@ -256,10 +332,10 @@ It demonstrates a policy-oriented node with multiple facets, stage-aware policy 
 
 ## Discovery capture
 
-- DDD: updated as facts category/facet compatibility only.
-- BDD: updated as expectations and stage-aware behavior compatibility only.
-- SDD: updated by this SDD.
-- TDD: updated by `.lazy-harness/tests/project-map-v2.md` and self-test fixture.
+- DDD: updated as facts category/facet/branch compatibility.
+- BDD: updated as expectations and stage-aware behavior branch compatibility.
+- SDD: updated by this SDD and contract branch semantics.
+- TDD: updated by `.lazy-harness/tests/project-map-v2.md`, validation branch semantics, and self-test fixture.
 - ADR: none yet.
 - SSOT: updated by `.lazy-harness/ssot/project-map-taxonomy.md`.
 - Planning: roadmap Phase 1 started.

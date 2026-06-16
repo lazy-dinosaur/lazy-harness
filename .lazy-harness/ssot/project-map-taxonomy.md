@@ -69,6 +69,47 @@ Facet rules:
 3. Facets must not be used as proof that all impacted layers were considered.
 4. New facets require SSOT update and fixture/test update.
 
+## Cluster roles
+
+Project Map V2 represents knowledge as clusters of related nodes.
+
+Allowed Phase 1 cluster roles:
+
+| Role | Meaning |
+|---|---|
+| `anchor` | A topic, feature, policy, domain concept, or project area that organizes branches. |
+| `branch` | A specific related knowledge node attached to an anchor or another branch. |
+
+Cluster rules:
+
+1. A node may be an anchor or a branch.
+2. An anchor node should have `cluster.anchorId == id`.
+3. A branch node should identify its `cluster.anchorId` and `cluster.branchOf`.
+4. Branches should point to normal primary categories such as facts, expectations, contracts, validation, decisions, ownership, source-links, or policies.
+5. Cluster edges are navigation/evidence structure only; they are not semantic authority.
+
+## Edge relations
+
+Allowed Phase 1 cluster edge relations:
+
+| Relation | Meaning |
+|---|---|
+| `has-fact` | Anchor or branch points to a facts/DDD branch. |
+| `has-expectation` | Anchor or branch points to an expectations/BDD branch. |
+| `has-contract` | Anchor or branch points to a contracts/SDD branch. |
+| `has-validation` | Anchor or branch points to a validation/TDD branch. |
+| `has-decision` | Anchor or branch points to a decisions/ADR branch. |
+| `has-ownership` | Anchor or branch points to an ownership/SSOT branch. |
+| `has-source-link` | Anchor or branch points to an implementation/source navigation branch. |
+| `has-policy` | Anchor or branch points to a policy branch. |
+| `related-to` | Non-hierarchical relationship between nodes or branches. |
+
+Edge relation rules:
+
+1. Edge relations are controlled vocabulary in Phase 1.
+2. New relations require SSOT, SDD, TDD, fixture, and self-test updates.
+3. Edges must stay cue-only and must not decide intent, risk, required reads, confidence, gate, or next action.
+
 ## Stage vocabulary
 
 Allowed Phase 1 stages:
@@ -118,6 +159,25 @@ Promotion/demotion must be evidence-backed and record-backed.
 
 Phase 1 does not move files. It defines a compatibility view.
 
+## Branching example
+
+A single feature/topic should usually become a cluster, not one overloaded file.
+
+Example:
+
+```text
+chat-window-patient-sharing
+  ├─ facts / DDD: use pcLocationId, not pcId
+  ├─ expectations / BDD: user can share patient context from chat
+  ├─ contracts / SDD: share API payload includes pcLocationId
+  ├─ validation / TDD: wrong id fails, correct id succeeds
+  ├─ decisions / ADR: why location-scoped sharing was chosen
+  ├─ ownership / SSOT: which service owns location identity
+  └─ source-links: implementation/test files
+```
+
+This example is illustrative only; host-specific facts still require user/source confirmation before becoming canonical records.
+
 ## Adapter taxonomy
 
 - `core`: lazy-harness agent-neutral records, project map, policy machinery, validation contracts.
@@ -154,7 +214,7 @@ Adapters must not own taxonomy semantics.
 
 ## Rule placement
 
-- Rule: Project Map V2 taxonomy defines primary categories, facets, stages, policy levels, and adapter taxonomy for the V2 project atlas.
+- Rule: Project Map V2 taxonomy defines primary categories, facets, cluster roles, edge relations, stages, policy levels, and adapter taxonomy for the V2 project atlas.
 - Scope: framework-global
 - Primary record: `.lazy-harness/ssot/project-map-taxonomy.md`
 - Why not AGENTS.md: taxonomy/schema belongs in SSOT/SDD, not always-loaded prompt grammar.
@@ -163,10 +223,10 @@ Adapters must not own taxonomy semantics.
 
 ## Discovery capture
 
-- DDD: updated as facts/DDD compatibility.
-- BDD: updated as expectations/BDD compatibility and stage-aware behavior vocabulary.
-- SDD: updated by related SDD.
-- TDD: updated by related TDD/self-test.
+- DDD: updated as facts/DDD branch compatibility.
+- BDD: updated as expectations/BDD branch compatibility and stage-aware behavior vocabulary.
+- SDD: updated by related SDD and contract edge vocabulary.
+- TDD: updated by related TDD/self-test and validation branch vocabulary.
 - ADR: none yet.
 - SSOT: updated here.
 - Planning: roadmap Phase 1 started.

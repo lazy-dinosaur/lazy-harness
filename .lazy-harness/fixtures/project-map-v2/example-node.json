@@ -3,7 +3,14 @@
   "id": "lazy-harness-v2-dynamic-policy-discovery",
   "title": "V2 dynamic project policy discovery",
   "primary": "policies",
-  "facets": ["Policy", "BDD", "SDD", "SSOT", "TDD", "Project"],
+  "facets": [
+    "Policy",
+    "BDD",
+    "SDD",
+    "SSOT",
+    "TDD",
+    "Project"
+  ],
   "status": "draft",
   "scope": "framework-global",
   "summary": "Project Interview should seed project/team policies that can evolve by stage and adapter while the Project Map remains backed by canonical records.",
@@ -60,7 +67,9 @@
   },
   "adapterBoundary": {
     "primary": "pi",
-    "compatibility": ["jcode"],
+    "compatibility": [
+      "jcode"
+    ],
     "core": "lazy-harness project map and policy machinery remain adapter-neutral"
   },
   "policies": [
@@ -70,9 +79,21 @@
       "dimension": "validation",
       "nonTestPolicy": false,
       "stages": [
-        { "stage": "turn", "level": "recommend", "behavior": "run focused validation for the implemented change" },
-        { "stage": "commit", "level": "default", "behavior": "run project-defined affected checks" },
-        { "stage": "push", "level": "warn", "behavior": "run broader project validation gate" }
+        {
+          "stage": "turn",
+          "level": "recommend",
+          "behavior": "run focused validation for the implemented change"
+        },
+        {
+          "stage": "commit",
+          "level": "default",
+          "behavior": "run project-defined affected checks"
+        },
+        {
+          "stage": "push",
+          "level": "warn",
+          "behavior": "run broader project validation gate"
+        }
       ]
     },
     {
@@ -81,9 +102,21 @@
       "dimension": "dependency-change",
       "nonTestPolicy": true,
       "stages": [
-        { "stage": "turn", "level": "recommend", "behavior": "surface dependency ownership and alternatives" },
-        { "stage": "edit", "level": "warn", "behavior": "require record-backed reason for new runtime dependency" },
-        { "stage": "high-risk-mutation", "level": "block", "behavior": "block supply-chain-sensitive dependency changes without explicit confirmation" }
+        {
+          "stage": "turn",
+          "level": "recommend",
+          "behavior": "surface dependency ownership and alternatives"
+        },
+        {
+          "stage": "edit",
+          "level": "warn",
+          "behavior": "require record-backed reason for new runtime dependency"
+        },
+        {
+          "stage": "high-risk-mutation",
+          "level": "block",
+          "behavior": "block supply-chain-sensitive dependency changes without explicit confirmation"
+        }
       ]
     }
   ],
@@ -97,5 +130,97 @@
   "openQuestions": [
     "Whether V2 node metadata should live in Markdown frontmatter, sidecar JSON, XML, or generated view only.",
     "Whether policy registry replaces or absorbs rulebook in Phase 3."
-  ]
+  ],
+  "cluster": {
+    "role": "anchor",
+    "anchorId": "lazy-harness-v2-dynamic-policy-discovery",
+    "branchOf": null,
+    "branches": [
+      {
+        "id": "lazy-harness-v2-policy-discovery-facts",
+        "title": "Project policy discovery is part of project understanding",
+        "primary": "facts",
+        "facets": [
+          "DDD",
+          "Project"
+        ]
+      },
+      {
+        "id": "lazy-harness-v2-policy-discovery-expectations",
+        "title": "Project interview captures team/project expectations",
+        "primary": "expectations",
+        "facets": [
+          "BDD",
+          "Project",
+          "Policy"
+        ]
+      },
+      {
+        "id": "lazy-harness-v2-policy-discovery-contracts",
+        "title": "Project profile emits map and policy seed candidates",
+        "primary": "contracts",
+        "facets": [
+          "SDD",
+          "Policy"
+        ]
+      },
+      {
+        "id": "lazy-harness-v2-policy-discovery-validation",
+        "title": "Project Map V2 fixture and self-test protect the schema",
+        "primary": "validation",
+        "facets": [
+          "TDD",
+          "Evidence"
+        ]
+      },
+      {
+        "id": "lazy-harness-v2-policy-discovery-ownership",
+        "title": "Project map taxonomy owns category/facet/stage vocabulary",
+        "primary": "ownership",
+        "facets": [
+          "SSOT"
+        ]
+      },
+      {
+        "id": "lazy-harness-v2-policy-discovery-source",
+        "title": "Project profile, capability, and Pi adapter source links implement future branches",
+        "primary": "source-links",
+        "facets": [
+          "Source"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-facts",
+        "relation": "has-fact"
+      },
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-expectations",
+        "relation": "has-expectation"
+      },
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-contracts",
+        "relation": "has-contract"
+      },
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-validation",
+        "relation": "has-validation"
+      },
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-ownership",
+        "relation": "has-ownership"
+      },
+      {
+        "from": "lazy-harness-v2-dynamic-policy-discovery",
+        "to": "lazy-harness-v2-policy-discovery-source",
+        "relation": "has-source-link"
+      }
+    ]
+  }
 }

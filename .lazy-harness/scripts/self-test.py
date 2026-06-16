@@ -6068,6 +6068,8 @@ def check_project_map_v2_schema() -> None:
     tdd = tdd_path.read_text(encoding="utf-8")
     for expected in (
         "one primary category and multiple facets",
+        "Anchor / branch / edge model",
+        "what project-map cluster does this information belong to",
         "Pi is the primary future adapter direction",
         "Jcode remains a compatibility adapter",
         "Phase 1 must not move them",
@@ -6077,6 +6079,9 @@ def check_project_map_v2_schema() -> None:
             fail("Project Map V2 SDD missing invariant: " + expected)
     for expected in (
         "A Project Map node has exactly one primary category in Phase 1.",
+        "Cluster roles",
+        "Edge relations",
+        "chat-window-patient-sharing",
         "Tests are one example.",
         "pi`: primary future adapter",
         "jcode`: compatibility adapter",
@@ -6085,6 +6090,8 @@ def check_project_map_v2_schema() -> None:
             fail("Project Map V2 taxonomy missing invariant: " + expected)
     for expected in (
         "project_map_node_required_fields",
+        "project_map_node_cluster",
+        "project_map_node_edges",
         "project_map_node_policy_stages",
         "project_map_node_adapter_boundary",
         "Forbidden semantic-authority fields",
@@ -6102,6 +6109,7 @@ def check_project_map_v2_schema() -> None:
         "status",
         "scope",
         "canonicalRecords",
+        "cluster",
         "links",
         "evidence",
         "policies",
@@ -6120,6 +6128,62 @@ def check_project_map_v2_schema() -> None:
         fail("Project Map V2 fixture facets invalid: " + json.dumps(facets, ensure_ascii=False))
     if len(facets) < 2:
         fail("Project Map V2 fixture should demonstrate multi-facet nodes")
+    cluster = fixture.get("cluster")
+    if not isinstance(cluster, dict):
+        fail("Project Map V2 fixture cluster must be an object")
+    if cluster.get("role") not in {"anchor", "branch"}:
+        fail("Project Map V2 fixture cluster role invalid")
+    if cluster.get("role") == "anchor" and cluster.get("anchorId") != fixture.get("id"):
+        fail("Project Map V2 anchor fixture must have cluster.anchorId == id")
+    branches = cluster.get("branches")
+    if not isinstance(branches, list) or not branches:
+        fail("Project Map V2 fixture must include cluster branches")
+    branch_ids = {fixture.get("id")}
+    branch_primary = set()
+    for branch in branches:
+        if not isinstance(branch, dict):
+            fail("Project Map V2 cluster branch must be an object")
+        branch_id = branch.get("id")
+        if not isinstance(branch_id, str) or not branch_id:
+            fail("Project Map V2 cluster branch missing id")
+        branch_ids.add(branch_id)
+        primary = branch.get("primary")
+        if primary not in allowed_primary:
+            fail("Project Map V2 cluster branch primary invalid: " + json.dumps(branch, ensure_ascii=False))
+        branch_primary.add(primary)
+        branch_facets = branch.get("facets")
+        if not isinstance(branch_facets, list) or not branch_facets or any(facet not in allowed_facets for facet in branch_facets):
+            fail("Project Map V2 cluster branch facets invalid: " + json.dumps(branch, ensure_ascii=False))
+    required_branch_primary = {"facts", "expectations", "contracts", "validation"}
+    if not required_branch_primary.issubset(branch_primary):
+        fail("Project Map V2 fixture cluster must demonstrate facts/expectations/contracts/validation branches")
+    allowed_edge_relations = {
+        "has-fact",
+        "has-expectation",
+        "has-contract",
+        "has-validation",
+        "has-decision",
+        "has-ownership",
+        "has-source-link",
+        "has-policy",
+        "related-to",
+    }
+    edges = cluster.get("edges")
+    if not isinstance(edges, list) or not edges:
+        fail("Project Map V2 fixture must include cluster edges")
+    seen_relations = set()
+    for edge in edges:
+        if not isinstance(edge, dict):
+            fail("Project Map V2 cluster edge must be an object")
+        if edge.get("from") not in branch_ids or edge.get("to") not in branch_ids:
+            fail("Project Map V2 cluster edge endpoint unknown: " + json.dumps(edge, ensure_ascii=False))
+        relation = edge.get("relation")
+        if relation not in allowed_edge_relations:
+            fail("Project Map V2 cluster edge relation invalid: " + json.dumps(edge, ensure_ascii=False))
+        seen_relations.add(relation)
+    for relation in ("has-fact", "has-expectation", "has-contract", "has-validation"):
+        if relation not in seen_relations:
+            fail("Project Map V2 fixture missing required branch relation: " + relation)
     for record_path in fixture.get("canonicalRecords", []):
         if not isinstance(record_path, str) or not record_path.startswith(".lazy-harness/") or ".." in pathlib.Path(record_path).parts:
             fail("Project Map V2 fixture canonical record path must stay root-bound: " + repr(record_path))
