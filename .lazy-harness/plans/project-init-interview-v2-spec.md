@@ -10,13 +10,13 @@ Related TDD: `.lazy-harness/tests/project-profile-v2.md`
 
 ## Purpose
 
-Project Init Interview V2 is the structured entry point for building a project map and discovering project/team policies.
+Project Init Interview V2 is a structured install-time, mid-project adoption, or refresh channel for building/repairing a project profile, seeding the project map, and discovering project/team policies.
 
-It should ask enough to seed the project atlas, but it must not turn into a one-time wizard that freezes decisions forever.
+It should ask enough to find missing project context and define the baseline project profile: goals, system design, folder/source structure, technology stack, ownership boundaries, and basic development conventions. It must not turn into a one-time wizard that freezes decisions forever.
 
 ## Principles
 
-1. **Project understanding first** — interview answers become Project Map cluster candidates.
+1. **Project profile bootstrap/repair first** — interview answers become Project Map cluster candidates and profile gap repairs.
 2. **Policy discovery, not universal defaults** — project/team rules are discovered, confirmed, evolved, promoted, or demoted.
 3. **No silent defaults** — unknown means unknown, not guessed.
 4. **Stage-aware behavior** — policies may differ between turn, edit, commit, push, release, and high-risk mutation.
@@ -27,7 +27,8 @@ It should ask enough to seed the project atlas, but it must not turn into a one-
 ## Interview flow
 
 ```text
-inspect existing project/profile/doc evidence
+install lazy-harness or run profile refresh on an existing project
+→ inspect existing project/profile/doc evidence
 → present missing/uncertain areas
 → ask grouped questions
 → produce Project Map seed candidates
@@ -38,6 +39,8 @@ inspect existing project/profile/doc evidence
 ```
 
 ## Question group details
+
+The interview is not the only way the Project Map is updated. It is the structured path for initial installation, mid-project adoption, or profile refresh when the framework needs to understand what is missing and what baseline project conventions should be recorded.
 
 ### 1. Project purpose
 

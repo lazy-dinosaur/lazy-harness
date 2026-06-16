@@ -38,6 +38,8 @@ The V2 center should remain:
 Project Interview is only one path among several:
 
 - project interview / profile refresh
+- lazy-harness installation on a new project
+- mid-project adoption to discover missing profile/context
 - normal implementation work
 - user corrections
 - source/test inspection
@@ -69,7 +71,7 @@ The SDD phrase “Project Interview as the entry point” is too strong if read 
 Better wording:
 
 ```text
-Project Interview V2 is one initialization/refresh channel for Project Map and policy discovery.
+Project Interview V2 is one installation/adoption/refresh channel for Project Profile bootstrap, missing-context detection, Project Map seeding, and policy discovery.
 ```
 
 The main architecture should describe the general Project Map update loop:
@@ -169,6 +171,19 @@ That should answer:
 5. How do policy candidates get promoted/demoted?
 6. How does Pi consume/update this without Jcode-specific assumptions?
 7. Where does Project Interview fit among these channels?
+
+### 7. Interview's proper role is project profile bootstrap/repair
+
+User clarified that interview matters because lazy-harness may be installed on a project from scratch or introduced into an existing project midstream. In that context, interview should:
+
+- find missing profile/map/policy areas,
+- define baseline project conventions,
+- capture system design and folder/source structure,
+- capture tech stack and project goals,
+- record how the project should be developed and collaborated on,
+- and seed the profile/map so future work is standardized.
+
+This reinforces that interview is useful, but still not the V2 center.
 
 After that, Project Interview V2 can be implemented as one adapter/channel inside the broader model.
 

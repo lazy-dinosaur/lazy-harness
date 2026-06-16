@@ -15,7 +15,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
-  - redesigning Project Interview as the entry point for V2 Project Map seeds and project/team policy discovery
+  - redesigning Project Interview as an install-time, mid-project adoption, or refresh channel for V2 Project Map seeds and project/team policy discovery
   - extending `project-profile.ts` interview/plan/fill behavior in a future implementation phase
   - designing Pi-primary adapter output for project profile/interview data
 - Must:
@@ -36,7 +36,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 
 ## Purpose
 
-Project Profile V2 turns Project Interview into the entry point for:
+Project Profile V2 treats Project Interview as an installation/adoption/refresh channel for:
 
 1. project understanding,
 2. Project Map cluster seed discovery,
@@ -44,7 +44,9 @@ Project Profile V2 turns Project Interview into the entry point for:
 4. stage-aware capability candidates,
 5. unresolved ambiguity capture.
 
-The output should help a Pi-first or Jcode-compatible agent start from the project map instead of guessing file edits or applying universal workflow defaults.
+The output should help a Pi-first or Jcode-compatible agent bootstrap or repair the project profile: identify missing parts, capture system design and folder/source structure, record tech stack and ownership, define basic project/team conventions, and start future work from the project map instead of guessing file edits or applying universal workflow defaults.
+
+Project Interview is not the V2 core engine. The core remains Project Map, policy machinery, evidence/validation loop, and adapter-neutral update paths. Interview is one structured channel for creating or refreshing the profile when lazy-harness is installed on a new project, introduced into an existing project midstream, or asked to audit/profile missing project context.
 
 ## Current baseline
 
@@ -99,7 +101,7 @@ confidence intent risk requiredRead optionalRead gate nextAction candidateMeanin
 
 ## Question groups
 
-Project Interview V2 should cover at least these dimensions:
+When used for installation, mid-project adoption, or project profile refresh, Project Interview V2 should cover at least these dimensions:
 
 1. `project-purpose` — product goal, users, constraints, quality priorities.
 2. `stack-platform` — runtime, framework, platform, deployment assumptions.
