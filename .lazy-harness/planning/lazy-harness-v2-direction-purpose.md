@@ -46,6 +46,7 @@ The core product is not a CLI, folder taxonomy, hook, or graph search engine. Th
 6. **Dynamic project/team policy optimization**
    - V2 should deserve the word "framework" by letting each project/team evolve its own working rules.
    - Examples include testing style, commit style, review style, system-design boundaries, release flow, validation commands, and collaboration conventions.
+   - Testing is only one policy dimension. V2 must not become test-centric; it should handle any repeatable project/team convention that benefits from discovery, confirmation, staged execution, audit, and evolution.
    - These rules are not one universal lazy-harness policy. They should be discovered, confirmed, versioned, audited, and promoted/demoted per project as real evidence accumulates.
    - The framework supplies the machinery: records, policy/capability registry, adapters, evidence capture, audit, sync, validation, and rollback paths.
    - A project decides whether a rule/capability is only discoverable, recommended, default, warning-level, or blocking.
@@ -58,7 +59,7 @@ The core product is not a CLI, folder taxonomy, hook, or graph search engine. Th
 8. **Stage-aware rule execution**
    - The same project policy can execute differently by stage.
    - Example: during a normal agent turn, run only focused tests for the implemented change; on commit/push, run the broader project-defined validation gate.
-   - Other policies can follow the same pattern: discover/recommend/default/warn/block can vary by turn, edit, commit, push, release, or high-risk mutation boundary.
+   - Other policies can follow the same pattern: system design review, dependency addition, schema migration, database changes, UI accessibility checks, security checks, release dispatch, PR body style, branch strategy, documentation updates, or human confirmation boundaries can vary by turn, edit, commit, push, release, or high-risk mutation boundary.
    - V2 should model this as flexible project policy machinery, not as one hardcoded testing workflow.
 
 ## Non-goals for this direction note
@@ -98,7 +99,7 @@ Project interview is the entry point for this machinery:
 - DDD: candidate only; uses existing Searchable Record Memory terms.
 - BDD: candidate only; implies agent behavior should maintain project understanding and follow stage-aware project policies.
 - SDD: candidate only; future project policy schema should model stage-aware execution and policy levels.
-- TDD: candidate only; testing policy is an example of stage-aware validation behavior, not the only policy type.
+- TDD: candidate only; testing policy is an example of stage-aware validation behavior, not the center of the V2 policy model.
 - ADR: none yet; trade-off decision still needs a future ADR if adopted.
 - SSOT: candidate only; future taxonomy/ownership records may be needed.
 - Planning: updated by this draft direction record.

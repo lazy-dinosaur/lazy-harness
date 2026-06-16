@@ -26,6 +26,12 @@ The initial target was not “more automation.” The target was a working loop 
 - project knowledge accumulates instead of being lost between sessions,
 - and validation catches drift before broken assumptions become permanent.
 
+V1 also already aimed at project-specific development rules, not only generic records. The Project Init / Project Profile plan says the framework should interview the user and generate a durable project profile that defines how the project should be built, tested, designed, and evolved. It also says the map structure is part of the project contract, not just documentation.
+
+So the V2 direction is not a new goal invented after V1. It is a recovery and simplification of the original V1 intent:
+
+> maintain project understanding and let project/team-specific working rules emerge, be confirmed, and evolve over time.
+
 ## What V1 built
 
 V1 accumulated several useful capabilities:
@@ -76,6 +82,8 @@ V1 accumulated several useful capabilities:
 ## V2 interpretation
 
 V2 should treat V1 as a proof that durable record memory works, but the presentation needs to become simpler and more project-map-oriented.
+
+It should also treat V1 as proof that the original policy-machinery goal was correct, but became overgrown through prompts, gates, and tool surfaces. The next version should keep the dynamic project/team rule goal while making the execution model clearer and less test-centric.
 
 The V2 product should be:
 
