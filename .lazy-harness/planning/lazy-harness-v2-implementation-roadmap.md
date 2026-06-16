@@ -132,11 +132,95 @@ Define the canonical V2 knowledge node model before moving folders or rewriting 
 - At least 5 current records can be represented as V2 nodes without moving files.
 - Self-test includes static validation for the schema fixture.
 
-## Phase 2 — Redesign Project Interview into V2 Project Profile / Policy Discovery
+## Phase 1.5 — Project Map Update Loop / Knowledge Ingestion Model
 
 ### Goal
 
-Turn Project Interview into the entry point for both project understanding and project/team policy discovery.
+Define how Project Map clusters are created, updated, confirmed, linked to evidence, and consumed by adapters before implementing Project Interview runtime, Policy Machinery runtime, generated map views, or adapter-specific behavior.
+
+### Why this phase exists
+
+Project Map V2 now has anchor/branch/edge clusters, but the roadmap still needs the lifecycle for how those clusters change over time. Without this phase, Project Interview, Policy Machinery, generated map, Pi adapter, and Jcode compatibility could each invent their own update semantics and drift apart.
+
+### Core questions
+
+1. What events can create/update Project Map clusters?
+2. How does a normal implementation turn update the map?
+3. How do user corrections become canonical knowledge?
+4. How do validation failures become evidence/validation branches?
+5. How do ADR decisions become decision branches?
+6. How do document ingestion and source/test inspection update the map?
+7. How do policy candidates get promoted/demoted?
+8. How do Pi/Jcode adapters consume/update the same core loop?
+9. Where does Project Interview fit as one bootstrap/refresh channel?
+
+### Initial event vocabulary
+
+Design-only Phase 1.5 should cover at least these update event types:
+
+- `user-correction`
+- `implementation-change`
+- `source-discovery`
+- `validation-failure`
+- `validation-success`
+- `adr-decision`
+- `project-profile-refresh`
+- `policy-promotion`
+- `policy-demotion`
+- `document-ingestion`
+- `adapter-event`
+
+### Deliverables
+
+1. `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
+   - event packet shape
+   - candidate/canonical transition model
+   - evidence attachment rules
+   - adapter-neutral update semantics
+   - forbidden semantic-authority fields
+
+2. `.lazy-harness/ssot/project-map-ingestion-sources.md`
+   - controlled event source vocabulary
+   - event-to-branch mapping
+   - confirmation requirements
+   - Pi/Jcode adapter source boundary
+
+3. `.lazy-harness/tests/project-map-update-loop-v2.md`
+   - regression cases for update events
+   - candidate vs canonical transitions
+   - no-silent-defaults and no generated-authority checks
+
+4. `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
+   - user correction
+   - implementation change
+   - validation failure
+   - ADR decision
+   - project interview/profile refresh
+   - policy promotion/demotion
+   - Pi adapter event
+
+### Adapter boundary note
+
+Phase 1.5 should include an early adapter boundary note even though full adapter implementation remains Phase 5:
+
+- Pi can submit observations/evidence/update events.
+- Jcode can submit compatibility events through existing hooks.
+- Neither adapter becomes semantic authority.
+- Core update loop owns candidate/canonical transition semantics.
+
+### Exit criteria
+
+- Update-loop SDD, SSOT, TDD, and fixture exist.
+- Fixture demonstrates all required event types.
+- Static validation protects event vocabulary and forbidden fields.
+- No runtime implementation is added before review.
+- `lazy test` remains green.
+
+## Phase 2 — Project Profile / Interview as one bootstrap channel
+
+### Goal
+
+Keep Project Interview as an install-time, mid-project adoption, or refresh channel for Project Profile bootstrap, missing-context detection, Project Map seeding, and policy discovery. Do not implement Project Interview runtime until the Phase 1.5 update loop defines shared update semantics.
 
 ### Current baseline
 
@@ -153,7 +237,7 @@ Turn Project Interview into the entry point for both project understanding and p
 
 ### V2 changes
 
-Project Interview should discover more than test strategy:
+Project Interview should be one ingestion channel among many and should discover more than test strategy:
 
 1. Project purpose and constraints.
 2. Stack/platform.
@@ -191,7 +275,9 @@ Project Interview should discover more than test strategy:
 
 ### Exit criteria
 
-- `project-profile.ts --mode interview --dry-run` can produce V2 policy questions.
+- Project Interview V2 design is aligned with the update-loop event model.
+- `project-profile.ts --mode interview-v2 --dry-run` or equivalent can produce V2 policy questions only after runtime implementation is approved.
+- Project/profile refresh output is represented as a Project Map update event, not a special authority path.
 - `fill --confirm` writes only confirmed answers.
 - Existing Project Profile tests still pass.
 
@@ -199,7 +285,7 @@ Project Interview should discover more than test strategy:
 
 ### Goal
 
-Make project/team rules practical, flexible, and stage-aware without keeping a heavy separate rulebook surface if it does not help.
+Make project/team rules practical, flexible, and stage-aware without keeping a heavy separate rulebook surface if it does not help. This phase depends on Phase 1.5 because policy promotion/demotion is a Project Map update event.
 
 ### Current baseline
 
@@ -253,6 +339,7 @@ Make the expanding project map useful without creating another graph-query failu
 ### Approach
 
 - Keep canonical records/source/tests as truth.
+- Build only after the update loop defines node/edge/candidate/evidence lifecycle.
 - Generate a V2 project map view from records, feature-navigation, implementation maps, graph.jsonl, and capabilities.
 - The generated view is a navigation aid only.
 
@@ -421,31 +508,34 @@ Start with **A**. Do not physically move records until V2 map/schema proves usef
 ## Suggested execution order
 
 ```text
-1. Project Map V2 schema
-2. Project Interview V2 questions and output
-3. Policy Machinery V2 stage-aware model
-4. Generated Project Map view/audit
-5. Pi/Jcode adapter boundary cleanup
-6. Lifecycle/gate simplification
-7. Dogfood on lazy-harness
-8. Host pilot and migration decision
+1. Project Map V2 schema                                      [done]
+1.5 Project Map Update Loop / Knowledge Ingestion Model        [next]
+2. Project Interview as bootstrap/profile-refresh channel      [draft exists, parked]
+3. Policy Machinery V2 stage-aware model                       [after update loop]
+4. Generated Project Map view/audit                            [after update loop + policy model]
+5. Pi/Jcode adapter boundary cleanup                           [design boundary during 1.5, implementation later]
+6. Lifecycle/gate simplification                               [after policy/update loop]
+7. Dogfood in small slices on lazy-harness
+8. Host pilot and physical migration decision
 ```
 
 ## First concrete next task
 
-Create the V2 information model records:
+Create the Update Loop / Knowledge Ingestion Model records:
 
-1. `.lazy-harness/spec/platform/project-map-v2.md`
-2. `.lazy-harness/ssot/project-map-taxonomy.md`
-3. `.lazy-harness/tests/project-map-v2.md`
-4. one fixture showing a node with:
-   - primary category,
-   - facets,
-   - source links,
-   - validation links,
-   - policy/stage metadata.
+1. `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
+2. `.lazy-harness/ssot/project-map-ingestion-sources.md`
+3. `.lazy-harness/tests/project-map-update-loop-v2.md`
+4. `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` showing:
+   - user correction,
+   - implementation change,
+   - validation failure,
+   - ADR decision,
+   - project interview/profile refresh,
+   - policy promotion/demotion,
+   - Pi adapter event.
 
-This should be done before changing project-profile, capability, rulebook, or Pi adapter code.
+This should be design-only first. No runtime code changes until review.
 
 ## Success criteria for V2
 
@@ -473,7 +563,7 @@ V2 is successful if:
 
 ## Rule placement
 
-- Rule: Lazy-Harness V2 should be implemented through a staged roadmap: define Project Map schema, redesign Project Interview as policy discovery, unify rule/capability policy machinery, generate map views, split core/adapters, simplify lifecycle gates, dogfood, then decide migration.
+- Rule: Lazy-Harness V2 should be implemented through a staged roadmap: define Project Map schema, define the Project Map Update Loop / Knowledge Ingestion Model, keep Project Interview as one bootstrap/profile-refresh channel, then build policy machinery, generated map views, adapter boundaries, lifecycle simplification, dogfood, and migration decisions.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md`
 - Why not AGENTS.md: this is an implementation roadmap and architecture plan, not immediate prompt grammar.
@@ -482,10 +572,10 @@ V2 is successful if:
 
 ## Discovery capture
 
-- DDD: candidate only; project-map vocabulary and project facts category require future DDD/SSOT refinement.
-- BDD: candidate only; stage-aware agent behavior and project interview flows require future BDD.
-- SDD: candidate; Phase 1/2/3 require new SDD contracts.
-- TDD: candidate; each phase requires tests/fixtures before code changes.
+- DDD: candidate only; update loop must model fact/domain branch updates.
+- BDD: candidate only; update loop must model expectation/behavior branch updates and stage-aware policy behavior.
+- SDD: candidate; Phase 1.5 requires a new update-loop SDD before runtime work.
+- TDD: candidate; Phase 1.5 requires tests/fixtures before code changes.
 - ADR: candidate; major V2 trade-offs need ADR once user approves direction.
-- SSOT: candidate; project-map taxonomy and policy registry need SSOT records.
-- Planning: updated by this roadmap.
+- SSOT: candidate; project-map ingestion source taxonomy and policy registry need SSOT records.
+- Planning: updated by this roadmap amendment.
