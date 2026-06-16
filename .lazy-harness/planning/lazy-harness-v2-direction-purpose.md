@@ -81,13 +81,13 @@ And V2 should be more framework-like:
 
 > Provide the machinery for project/team-specific rules to emerge, change, and become optimized for the project instead of hardcoding one universal workflow.
 
-Project interview is the entry point for this machinery:
+Project interview is one structured bootstrap/refresh channel for this machinery, especially when lazy-harness is installed on a new project, adopted mid-project, or asked to audit missing profile context:
 
-> It should turn team/project preferences into initial project policies, then let real use promote, demote, or revise those policies over time.
+> It should help identify missing project profile context and turn confirmed team/project preferences into initial project policies, then let real use promote, demote, or revise those policies over time.
 
 ## Rule placement
 
-- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas, agent-neutral durable understanding, project-interview-driven policy discovery, stage-aware project/team policy optimization, and Pi as a primary adapter direction.
+- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas, agent-neutral durable understanding, multiple project-map/policy ingestion channels including Project Interview as a bootstrap/refresh channel, stage-aware project/team policy optimization, and Pi as a primary adapter direction.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
 - Why not AGENTS.md: this is architectural direction, not an immediate prompt rule.
