@@ -43,6 +43,13 @@ The core product is not a CLI, folder taxonomy, hook, or graph search engine. Th
      - source links
    - Existing V1 folders can remain as compatibility or implementation detail while the V2 taxonomy matures.
 
+6. **Dynamic project/team policy optimization**
+   - V2 should deserve the word "framework" by letting each project/team evolve its own working rules.
+   - Examples include testing style, commit style, review style, system-design boundaries, release flow, validation commands, and collaboration conventions.
+   - These rules are not one universal lazy-harness policy. They should be discovered, confirmed, versioned, audited, and promoted/demoted per project as real evidence accumulates.
+   - The framework supplies the machinery: records, policy/capability registry, adapters, evidence capture, audit, sync, validation, and rollback paths.
+   - A project decides whether a rule/capability is only discoverable, recommended, default, warning-level, or blocking.
+
 ## Non-goals for this direction note
 
 - This is not implementation approval.
@@ -58,9 +65,13 @@ V2 should be simpler:
 
 > Maintain a living project map so agents can recover project understanding, make better changes, and leave the map clearer than they found it.
 
+And V2 should be more framework-like:
+
+> Provide the machinery for project/team-specific rules to emerge, change, and become optimized for the project instead of hardcoding one universal workflow.
+
 ## Rule placement
 
-- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas and agent-neutral durable understanding, with Pi as a primary adapter direction.
+- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas, agent-neutral durable understanding, and dynamic project/team policy optimization, with Pi as a primary adapter direction.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
 - Why not AGENTS.md: this is architectural direction, not an immediate prompt rule.
