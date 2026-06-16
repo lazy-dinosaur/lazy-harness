@@ -50,6 +50,17 @@ The core product is not a CLI, folder taxonomy, hook, or graph search engine. Th
    - The framework supplies the machinery: records, policy/capability registry, adapters, evidence capture, audit, sync, validation, and rollback paths.
    - A project decides whether a rule/capability is only discoverable, recommended, default, warning-level, or blocking.
 
+7. **Project interview as policy discovery**
+   - Project interview exists to discover and seed the project's actual working rules instead of applying silent framework defaults.
+   - The interview should ask about project-specific testing, commit, push, review, design, release, collaboration, and validation expectations.
+   - The output should not be a frozen preset. It should seed policies/capabilities that can later evolve as the team and project produce evidence.
+
+8. **Stage-aware rule execution**
+   - The same project policy can execute differently by stage.
+   - Example: during a normal agent turn, run only focused tests for the implemented change; on commit/push, run the broader project-defined validation gate.
+   - Other policies can follow the same pattern: discover/recommend/default/warn/block can vary by turn, edit, commit, push, release, or high-risk mutation boundary.
+   - V2 should model this as flexible project policy machinery, not as one hardcoded testing workflow.
+
 ## Non-goals for this direction note
 
 - This is not implementation approval.
@@ -69,9 +80,13 @@ And V2 should be more framework-like:
 
 > Provide the machinery for project/team-specific rules to emerge, change, and become optimized for the project instead of hardcoding one universal workflow.
 
+Project interview is the entry point for this machinery:
+
+> It should turn team/project preferences into initial project policies, then let real use promote, demote, or revise those policies over time.
+
 ## Rule placement
 
-- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas, agent-neutral durable understanding, and dynamic project/team policy optimization, with Pi as a primary adapter direction.
+- Rule: Lazy-Harness V2 direction should center on an expanding project map/atlas, agent-neutral durable understanding, project-interview-driven policy discovery, stage-aware project/team policy optimization, and Pi as a primary adapter direction.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
 - Why not AGENTS.md: this is architectural direction, not an immediate prompt rule.
@@ -81,9 +96,9 @@ And V2 should be more framework-like:
 ## Discovery capture
 
 - DDD: candidate only; uses existing Searchable Record Memory terms.
-- BDD: candidate only; implies agent behavior should maintain project understanding.
-- SDD: none yet; schema/contract is not designed here.
-- TDD: none yet; validation strategy is not designed here.
+- BDD: candidate only; implies agent behavior should maintain project understanding and follow stage-aware project policies.
+- SDD: candidate only; future project policy schema should model stage-aware execution and policy levels.
+- TDD: candidate only; testing policy is an example of stage-aware validation behavior, not the only policy type.
 - ADR: none yet; trade-off decision still needs a future ADR if adopted.
 - SSOT: candidate only; future taxonomy/ownership records may be needed.
 - Planning: updated by this draft direction record.
