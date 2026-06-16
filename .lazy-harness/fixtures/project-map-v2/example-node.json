@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "project-map-node/v1",
+  "id": "lazy-harness-v2-dynamic-policy-discovery",
+  "title": "V2 dynamic project policy discovery",
+  "primary": "policies",
+  "facets": ["Policy", "BDD", "SDD", "SSOT", "TDD", "Project"],
+  "status": "draft",
+  "scope": "framework-global",
+  "summary": "Project Interview should seed project/team policies that can evolve by stage and adapter while the Project Map remains backed by canonical records.",
+  "aliases": [
+    "Project Map V2",
+    "dynamic project policy",
+    "project interview policy discovery",
+    "Pi primary adapter"
+  ],
+  "canonicalRecords": [
+    ".lazy-harness/planning/lazy-harness-v2-direction-purpose.md",
+    ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
+    ".lazy-harness/spec/platform/project-map-v2.md",
+    ".lazy-harness/ssot/project-map-taxonomy.md",
+    ".lazy-harness/tests/project-map-v2.md"
+  ],
+  "links": {
+    "facts": [
+      ".lazy-harness/domain/searchable-record-memory.md"
+    ],
+    "expectations": [
+      ".lazy-harness/plans/project-init-interview-spec.md"
+    ],
+    "contracts": [
+      ".lazy-harness/spec/platform/project-profile.md",
+      ".lazy-harness/spec/platform/pi-agent-package.md"
+    ],
+    "decisions": [
+      ".lazy-harness/decisions/0043-pi-native-package-in-source-repo.md",
+      ".lazy-harness/decisions/0044-project-operating-rulebook.md"
+    ],
+    "validation": [
+      ".lazy-harness/tests/project-map-v2.md",
+      ".lazy-harness/scripts/self-test.py"
+    ],
+    "ownership": [
+      ".lazy-harness/ssot/project-map-taxonomy.md",
+      ".lazy-harness/ssot/capability-registry.md"
+    ],
+    "source": [
+      ".lazy-harness/scripts/project-profile.ts",
+      ".lazy-harness/scripts/capability.ts",
+      "packages/lazy-harness-pi/extensions/lazy-harness/index.ts"
+    ],
+    "tests": [
+      ".lazy-harness/scripts/self-test.py#check_project_map_v2_schema"
+    ],
+    "policies": [
+      ".lazy-harness/ssot/project-map-taxonomy.md"
+    ],
+    "related": [
+      ".lazy-harness/planning/lazy-harness-v2-evolution-context.md"
+    ]
+  },
+  "adapterBoundary": {
+    "primary": "pi",
+    "compatibility": ["jcode"],
+    "core": "lazy-harness project map and policy machinery remain adapter-neutral"
+  },
+  "policies": [
+    {
+      "id": "validation-stage-policy-example",
+      "title": "Stage-aware validation policy example",
+      "dimension": "validation",
+      "nonTestPolicy": false,
+      "stages": [
+        { "stage": "turn", "level": "recommend", "behavior": "run focused validation for the implemented change" },
+        { "stage": "commit", "level": "default", "behavior": "run project-defined affected checks" },
+        { "stage": "push", "level": "warn", "behavior": "run broader project validation gate" }
+      ]
+    },
+    {
+      "id": "dependency-addition-policy-example",
+      "title": "Dependency addition review policy example",
+      "dimension": "dependency-change",
+      "nonTestPolicy": true,
+      "stages": [
+        { "stage": "turn", "level": "recommend", "behavior": "surface dependency ownership and alternatives" },
+        { "stage": "edit", "level": "warn", "behavior": "require record-backed reason for new runtime dependency" },
+        { "stage": "high-risk-mutation", "level": "block", "behavior": "block supply-chain-sensitive dependency changes without explicit confirmation" }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "planning-record",
+      "path": ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
+      "note": "Phase 1 defines Project Map V2 schema before code migration."
+    }
+  ],
+  "openQuestions": [
+    "Whether V2 node metadata should live in Markdown frontmatter, sidecar JSON, XML, or generated view only.",
+    "Whether policy registry replaces or absorbs rulebook in Phase 3."
+  ]
+}

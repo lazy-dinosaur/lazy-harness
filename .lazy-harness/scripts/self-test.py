@@ -6030,6 +6030,139 @@ def check_context_tier_manifest_phase4() -> None:
     print("✓ context tier manifest Phase 4 ok")
 
 
+def _assert_no_project_map_forbidden_fields(value, path_name="$") -> None:
+    forbidden = {
+        "confidence",
+        "intent",
+        "risk",
+        "requiredRead",
+        "optionalRead",
+        "gate",
+        "nextAction",
+        "candidateMeaning",
+        "candidateMeanings",
+    }
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in forbidden:
+                fail(f"project-map V2 fixture contains forbidden semantic-authority field: {path_name}.{key}")
+            _assert_no_project_map_forbidden_fields(child, f"{path_name}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _assert_no_project_map_forbidden_fields(child, f"{path_name}[{index}]")
+
+
+def check_project_map_v2_schema() -> None:
+    """Project Map V2 Phase 1 must define cue-only node schema, taxonomy, and fixture."""
+    sdd_path = LAZY / "spec" / "platform" / "project-map-v2.md"
+    ssot_path = LAZY / "ssot" / "project-map-taxonomy.md"
+    tdd_path = LAZY / "tests" / "project-map-v2.md"
+    fixture_path = LAZY / "fixtures" / "project-map-v2" / "example-node.json"
+
+    for path in (sdd_path, ssot_path, tdd_path, fixture_path):
+        if not path.exists():
+            fail(f"Project Map V2 missing file: {path.relative_to(ROOT)}")
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    ssot = ssot_path.read_text(encoding="utf-8")
+    tdd = tdd_path.read_text(encoding="utf-8")
+    for expected in (
+        "one primary category and multiple facets",
+        "Pi is the primary future adapter direction",
+        "Jcode remains a compatibility adapter",
+        "Phase 1 must not move them",
+        "generated view is never the truth by itself",
+    ):
+        if expected not in sdd:
+            fail("Project Map V2 SDD missing invariant: " + expected)
+    for expected in (
+        "A Project Map node has exactly one primary category in Phase 1.",
+        "Tests are one example.",
+        "pi`: primary future adapter",
+        "jcode`: compatibility adapter",
+    ):
+        if expected not in ssot:
+            fail("Project Map V2 taxonomy missing invariant: " + expected)
+    for expected in (
+        "project_map_node_required_fields",
+        "project_map_node_policy_stages",
+        "project_map_node_adapter_boundary",
+        "Forbidden semantic-authority fields",
+    ):
+        if expected not in tdd:
+            fail("Project Map V2 TDD missing regression case: " + expected)
+
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    required = {
+        "schemaVersion",
+        "id",
+        "title",
+        "primary",
+        "facets",
+        "status",
+        "scope",
+        "canonicalRecords",
+        "links",
+        "evidence",
+        "policies",
+    }
+    missing = sorted(required - set(fixture))
+    if missing:
+        fail("Project Map V2 fixture missing required fields: " + json.dumps(missing, ensure_ascii=False))
+    if fixture.get("schemaVersion") != "project-map-node/v1":
+        fail("Project Map V2 fixture schemaVersion mismatch")
+    allowed_primary = {"facts", "expectations", "contracts", "decisions", "validation", "ownership", "source-links", "policies"}
+    if fixture.get("primary") not in allowed_primary:
+        fail("Project Map V2 fixture primary category invalid")
+    allowed_facets = {"DDD", "BDD", "SDD", "TDD", "ADR", "SSOT", "Planning", "Policy", "Evidence", "Project", "Source"}
+    facets = fixture.get("facets")
+    if not isinstance(facets, list) or not facets or any(facet not in allowed_facets for facet in facets):
+        fail("Project Map V2 fixture facets invalid: " + json.dumps(facets, ensure_ascii=False))
+    if len(facets) < 2:
+        fail("Project Map V2 fixture should demonstrate multi-facet nodes")
+    for record_path in fixture.get("canonicalRecords", []):
+        if not isinstance(record_path, str) or not record_path.startswith(".lazy-harness/") or ".." in pathlib.Path(record_path).parts:
+            fail("Project Map V2 fixture canonical record path must stay root-bound: " + repr(record_path))
+        if not (ROOT / record_path).exists():
+            fail("Project Map V2 fixture canonical record path missing: " + record_path)
+    allowed_stages = {"turn", "read-only-analysis", "edit", "commit", "push", "release", "high-risk-mutation"}
+    allowed_levels = {"discover", "recommend", "default", "warn", "block"}
+    policies = fixture.get("policies")
+    if not isinstance(policies, list) or not policies:
+        fail("Project Map V2 fixture must include policy examples")
+    has_non_test_policy = False
+    for policy in policies:
+        if policy.get("nonTestPolicy") is True:
+            has_non_test_policy = True
+        stages = policy.get("stages")
+        if not isinstance(stages, list) or not stages:
+            fail("Project Map V2 policy missing stages: " + json.dumps(policy, ensure_ascii=False))
+        for stage in stages:
+            if stage.get("stage") not in allowed_stages:
+                fail("Project Map V2 policy stage invalid: " + json.dumps(stage, ensure_ascii=False))
+            if stage.get("level") not in allowed_levels:
+                fail("Project Map V2 policy level invalid: " + json.dumps(stage, ensure_ascii=False))
+    if not has_non_test_policy:
+        fail("Project Map V2 fixture must include at least one non-test policy example")
+    adapter = fixture.get("adapterBoundary", {})
+    if adapter.get("primary") != "pi" or "jcode" not in adapter.get("compatibility", []):
+        fail("Project Map V2 adapter boundary must be Pi-primary with Jcode compatibility")
+    _assert_no_project_map_forbidden_fields(fixture)
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
+    for expected in (
+        "spec/platform/project-map-v2.md",
+        "ssot/project-map-taxonomy.md",
+        "tests/project-map-v2.md",
+        "project-map-v2/*.json",
+    ):
+        if expected not in category_a:
+            fail("init categories missing Project Map V2 sync asset: " + expected)
+
+    print("✓ Project Map V2 schema ok")
+
+
 def check_evidence_capsule_standard_phase5() -> None:
     """Phase 5 should provide a manual evidence capsule checklist without auto-writing."""
     sdd_path = LAZY / "spec" / "platform" / "evidence-capsule-standard.md"
@@ -7302,6 +7435,7 @@ def main() -> None:
         (check_retrieval_workflow_benchmark_cli, "BOTH"),
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
+        (check_project_map_v2_schema, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
         (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),

@@ -86,9 +86,10 @@
           "path": "fixtures/",
           "kind": "directory",
           "glob": [
-            "context-tier/*.json"
+            "context-tier/*.json",
+            "project-map-v2/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures and Project Map V2 schema fixtures."
         },
         {
           "path": "evidence/",
@@ -471,6 +472,21 @@
           "path": "ssot/cli-tool-boundary.md",
           "kind": "file",
           "description": "SSOT boundary: CLI helpers are explicit tools; LLM/searcher owns semantic judgment after evidence."
+        },
+        {
+          "path": "spec/platform/project-map-v2.md",
+          "kind": "file",
+          "description": "SDD contract for Lazy-Harness V2 Project Map / Project Atlas node schema and Pi-primary adapter-neutral boundary."
+        },
+        {
+          "path": "ssot/project-map-taxonomy.md",
+          "kind": "file",
+          "description": "SSOT taxonomy for Project Map V2 primary categories, facets, stages, policy levels, and adapter vocabulary."
+        },
+        {
+          "path": "tests/project-map-v2.md",
+          "kind": "file",
+          "description": "TDD record for Project Map V2 schema/fixture validation and cue-only generated map boundaries."
         }
       ]
     },
