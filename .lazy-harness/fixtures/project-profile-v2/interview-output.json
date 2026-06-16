@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "project-profile-interview-v2/v1",
+  "mode": "interview-v2",
+  "adapterBoundary": {
+    "primary": "pi",
+    "compatibility": ["jcode"],
+    "core": "Project Profile V2 output is agent-neutral project map and policy discovery data"
+  },
+  "writes": {
+    "dryRun": true,
+    "confirmedOnly": true,
+    "noSilentDefaults": true
+  },
+  "questionGroups": [
+    { "id": "project-purpose", "title": "Project purpose and constraints", "dimensions": ["facts", "expectations"] },
+    { "id": "source-ownership", "title": "Source ownership and filesystem boundaries", "dimensions": ["ownership", "source-links", "policies"] },
+    { "id": "system-design", "title": "System design and architecture boundaries", "dimensions": ["contracts", "decisions", "policies"] },
+    { "id": "domain-vocabulary", "title": "Domain vocabulary and invariants", "dimensions": ["facts", "ownership", "validation"] },
+    { "id": "validation-policy", "title": "Validation and testing policy", "dimensions": ["validation", "policies"] },
+    { "id": "dependency-policy", "title": "Dependency and tool policy", "dimensions": ["policies", "ownership", "contracts"] },
+    { "id": "security-privacy", "title": "Security, privacy, and compliance boundaries", "dimensions": ["ownership", "policies", "validation"] },
+    { "id": "human-confirmation", "title": "Human confirmation and autonomy boundaries", "dimensions": ["policies", "ownership"] }
+  ],
+  "projectMapSeeds": [
+    {
+      "id": "project-policy-discovery",
+      "title": "Project/team policy discovery",
+      "primary": "policies",
+      "facets": ["Policy", "Project", "BDD", "SDD"],
+      "status": "draft",
+      "scope": "host-project",
+      "cluster": {
+        "role": "anchor",
+        "anchorId": "project-policy-discovery",
+        "branchOf": null,
+        "branches": [
+          { "id": "project-validation-policy", "primary": "validation", "facets": ["TDD", "Policy"] },
+          { "id": "project-dependency-policy", "primary": "policies", "facets": ["Policy", "SSOT"] },
+          { "id": "project-design-boundary", "primary": "contracts", "facets": ["SDD", "ADR"] },
+          { "id": "project-human-confirmation", "primary": "ownership", "facets": ["SSOT", "Policy"] }
+        ],
+        "edges": [
+          { "from": "project-policy-discovery", "to": "project-validation-policy", "relation": "has-validation" },
+          { "from": "project-policy-discovery", "to": "project-dependency-policy", "relation": "has-policy" },
+          { "from": "project-policy-discovery", "to": "project-design-boundary", "relation": "has-contract" },
+          { "from": "project-policy-discovery", "to": "project-human-confirmation", "relation": "has-ownership" }
+        ]
+      },
+      "canonicalRecords": [
+        ".lazy-harness/spec/platform/project-profile-v2.md",
+        ".lazy-harness/spec/platform/project-map-v2.md"
+      ]
+    }
+  ],
+  "policyCandidates": [
+    {
+      "id": "project-validation-stage-policy",
+      "dimension": "validation",
+      "sourceQuestionGroup": "validation-policy",
+      "confirmed": false,
+      "stages": [
+        { "stage": "turn", "level": "recommend", "behavior": "ask project whether focused validation is expected for changed code" },
+        { "stage": "push", "level": "discover", "behavior": "ask project whether broad validation should run before push" }
+      ]
+    },
+    {
+      "id": "dependency-addition-review-policy",
+      "dimension": "dependency-change",
+      "sourceQuestionGroup": "dependency-policy",
+      "confirmed": false,
+      "stages": [
+        { "stage": "edit", "level": "recommend", "behavior": "ask project whether new runtime dependencies require record-backed justification" },
+        { "stage": "high-risk-mutation", "level": "discover", "behavior": "ask project whether supply-chain-sensitive dependency changes require explicit confirmation" }
+      ]
+    }
+  ],
+  "unresolvedAmbiguities": [
+    {
+      "id": "policy-storage-target",
+      "question": "Should confirmed project policies be written first as Project Map candidates, .lazy-harness/rules records, or capabilities.json bindings?",
+      "options": ["project-map-candidate", "rules-record", "capability-binding", "decide-per-policy"]
+    }
+  ],
+  "proposedWrites": [
+    { "path": ".lazy-harness/project/profile.xml", "requiresConfirmation": true },
+    { "path": ".lazy-harness/project/feature-navigation.xml", "requiresConfirmation": true },
+    { "path": ".lazy-harness/tests/test-strategy.xml", "requiresConfirmation": true },
+    { "path": ".lazy-harness/rules/", "requiresConfirmation": true },
+    { "path": ".lazy-harness/ssot/capabilities.json", "requiresConfirmation": true }
+  ]
+}

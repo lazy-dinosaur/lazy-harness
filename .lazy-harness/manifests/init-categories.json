@@ -87,9 +87,10 @@
           "kind": "directory",
           "glob": [
             "context-tier/*.json",
-            "project-map-v2/*.json"
+            "project-map-v2/*.json",
+            "project-profile-v2/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including advisory context-tier fixtures and Project Map V2 schema fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2, and Project Profile V2 fixtures."
         },
         {
           "path": "evidence/",
@@ -487,6 +488,21 @@
           "path": "tests/project-map-v2.md",
           "kind": "file",
           "description": "TDD record for Project Map V2 schema/fixture validation and cue-only generated map boundaries."
+        },
+        {
+          "path": "spec/platform/project-profile-v2.md",
+          "kind": "file",
+          "description": "SDD draft for Project Profile V2 / Project Interview policy discovery output contract."
+        },
+        {
+          "path": "plans/project-init-interview-v2-spec.md",
+          "kind": "file",
+          "description": "Draft design plan for Project Init Interview V2 question groups, Project Map seeds, and policy discovery."
+        },
+        {
+          "path": "tests/project-profile-v2.md",
+          "kind": "file",
+          "description": "TDD draft for Project Profile V2 interview output and future runtime implementation."
         }
       ]
     },

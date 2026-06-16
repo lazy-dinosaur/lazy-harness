@@ -5,6 +5,7 @@ Date: 2026-05-20
 Layer: SDD
 Related: `.lazy-harness/plans/project-init-interview-spec.md`, `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.lazy-harness/ssot/project-identity.md`
 Related: `.lazy-harness/spec/platform/search-read-debt-contract.md`
+Related V2 draft: `.lazy-harness/spec/platform/project-profile-v2.md`, `.lazy-harness/plans/project-init-interview-v2-spec.md`, `.lazy-harness/tests/project-profile-v2.md`
 Related skill: `/lazy-project-profile`
 
 ## Rule digest
@@ -136,6 +137,20 @@ Rules:
 - Not a place to hide host-specific rules in shared `AGENTS.md`.
 - Not a one-time init wizard only; normal use can discover profile gaps and fill them.
 - Not the document ingestion/reproduction engine. External document assimilation is a separate capability that Project Profile may consume.
+
+## V2 draft extension
+
+Project Profile V2 is being designed as Project Interview policy discovery over Project Map V2 clusters.
+
+The V2 draft does not replace this accepted V1 contract yet. It defines the next target shape:
+
+- Pi primary adapter, Jcode compatibility adapter.
+- Project Map cluster seed candidates.
+- Stage-aware project/team policy candidates.
+- Question groups beyond testing, including source ownership, system design, domain vocabulary, dependency policy, security/privacy, documentation, human confirmation, and agent autonomy.
+- Confirmed-only writes and no silent defaults.
+
+Runtime changes must not be made until the V2 draft is reviewed and explicitly approved.
 
 ## Implementation map
 
