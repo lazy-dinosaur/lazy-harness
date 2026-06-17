@@ -1,6 +1,6 @@
 # SDD — Project Profile V2 / Project Interview Policy Discovery
 
-Status: active-runtime-queue-v2
+Status: active-runtime-promote-v2-preview
 Date: 2026-06-16
 Updated: 2026-06-17
 Layer: SDD
@@ -12,7 +12,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 
 ## Rule digest
 
-- Status: active-runtime-queue-v2
+- Status: active-runtime-promote-v2-preview
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
@@ -20,6 +20,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
   - extending `project-profile.ts` interview/plan/fill behavior
   - using `project-profile.ts --mode interview-v2 --dry-run --format json`
   - using `project-profile.ts --mode queue-v2 --dry-run|--confirm --format json`
+  - using `project-profile.ts --mode promote-v2 --item <id> --dry-run --format json`
   - designing Pi-primary adapter output for project profile/interview data
 - Must:
   - treat Project Interview as project understanding + policy discovery, not a test-strategy wizard
@@ -31,13 +32,15 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
   - keep existing Project Profile V1 behavior compatible until a migration is explicitly approved
   - keep `interview-v2` read-only and dry-run only
   - keep `queue-v2 --confirm` limited to `.lazy-harness/project/profile-queue.json`
+  - keep `promote-v2` preview-only in this slice: `--dry-run` required, `--confirm` unsupported, and `status=accepted` required
 - Must not:
   - write confirmed project facts, policies, or block-level capabilities without user-confirmed answers
+  - let `promote-v2 --dry-run` mutate the queue or write canonical records/rules/capabilities/update-loop events
   - treat interview output as a frozen preset
   - promote a policy to `warn` or `block` only because a generated fixture or adapter suggests it
   - make tests the center of the policy model
 - Record completion:
-  - changes update this SDD, V2 interview/queue plan, TDD, fixtures, `project-profile.ts`, self-test, manifest sync entries, and graph rows together.
+  - changes update this SDD, V2 interview/queue/promote plan, TDD, fixtures, `project-profile.ts`, self-test, manifest sync entries, and graph rows together.
 
 ## Purpose
 
@@ -209,7 +212,8 @@ No-silent-pass-through rule:
 - Confirmed or pending policy candidates should first be written to a profile queue file with status such as `pending`, `accepted`, `rejected`, or `promoted`.
 - The queue summary should show remaining pending candidates so humans/agents can revisit them.
 - Promotion from the queue follows: `policy candidate → confirmed rulebook record → optional capability binding`.
-- Update-loop event append remains a later promote step; the first apply slice stores event-ready metadata only.
+- `promote-v2 --dry-run` previews one `status=accepted` item only, exposes confirmation-gated `plannedWrites`, and previews the queue status transition to `promoted` without writing it.
+- Update-loop event append remains a later confirmed promote step; the first promote slice only previews event-ready/update-loop promotion plans.
 
 Non-policy project knowledge routing:
 
@@ -253,16 +257,17 @@ Project Profile V2 is core framework data.
 
 ## Implementation map
 
-- Status: queue-v2 runtime slice implemented.
+- Status: promote-v2 dry-run preview slice implemented.
 - Primary files:
   - `.lazy-harness/spec/platform/project-profile-v2.md` — this SDD contract.
   - `.lazy-harness/plans/project-init-interview-v2-spec.md` — detailed interview plan.
   - `.lazy-harness/tests/project-profile-v2.md` — TDD expectations.
   - `.lazy-harness/fixtures/project-profile-v2/interview-output.json` — desired interview packet fixture.
   - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — category-first queue-v2 output fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-preview.json` — accepted-item promote-v2 dry-run preview fixture.
   - `.lazy-harness/spec/platform/project-profile.md` — V1 baseline and V2 pointer.
-  - `.lazy-harness/scripts/project-profile.ts` — implements read-only `interview-v2 --dry-run` and typed `queue-v2` queue output/writer.
-  - `.lazy-harness/scripts/self-test.py` — protects V2 interview/queue runtime packets and V1 backward compatibility.
+  - `.lazy-harness/scripts/project-profile.ts` — implements read-only `interview-v2 --dry-run`, typed `queue-v2` queue output/writer, and `promote-v2 --dry-run` preview.
+  - `.lazy-harness/scripts/self-test.py` — protects V2 interview/queue/promote runtime packets, write boundaries, and V1 backward compatibility.
 - Key symbols:
   - `project-profile.ts#ProjectProfileInterviewV2Packet`
   - `project-profile.ts#buildInterviewV2Result`
@@ -272,29 +277,35 @@ Project Profile V2 is core framework data.
   - `project-profile.ts#buildProfileQueueV1FromInterviewV2` — category-first queue route builder
   - `project-profile.ts#buildProfileQueueV1`
   - `project-profile.ts#applyProfileQueue`
+  - `project-profile.ts#ProjectProfilePromoteV2Preview`
+  - `project-profile.ts#readProfileQueue`
+  - `project-profile.ts#buildPromoteV2Preview`
+  - `project-profile.ts#renderPromoteV2Md`
   - `self-test.py#check_project_profile_v2_runtime`
   - `self-test.py#check_project_profile_v2_queue_runtime`
 - Protection:
   - `bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm --format json`
+  - `bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <accepted-id> --dry-run --format json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 - Runtime boundary:
   - `interview-v2` requires `--dry-run`.
   - `interview-v2 --confirm` is blocked.
   - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
-  - No candidate row, rulebook, capability, canonical record, or update-loop event append occurs in this slice.
+  - `promote-v2` requires `--dry-run`, rejects non-accepted queue items, and blocks `--confirm`.
+  - No candidate row, rulebook, capability, canonical record, queue status mutation, or update-loop event append occurs in this slice.
 
 ## Layer completeness impact
 
 - DDD: domain-vocabulary question group seeds facts/DDD branches.
 - BDD: expectations and user/team behavior are captured through question groups and policy stages.
 - SDD: this record defines the V2 interview and queue output contracts.
-- TDD: `.lazy-harness/tests/project-profile-v2.md`, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the interview and queue runtime packets.
+- TDD: `.lazy-harness/tests/project-profile-v2.md`, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the interview, queue, and promote preview runtime packets.
 - ADR: future ADR needed before replacing V1 Project Profile behavior or deprecating rulebook.
 - SSOT: capability registry and taxonomy remain the controlled vocabulary sources.
-- Planning: Phase 2 interview dry-run and queue-v2 writer slices are implemented; promotion behavior remains future work.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, and promote-v2 dry-run preview slices are implemented; confirmed promotion writers remain future work.
 
 ## Rule placement
 

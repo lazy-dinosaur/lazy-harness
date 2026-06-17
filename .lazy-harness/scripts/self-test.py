@@ -4464,6 +4464,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     if fixture.get("schemaVersion") != "project-profile-queue/v1" or fixture.get("mode") != "project-profile.queue-v2":
         fail("Project Profile V2 queue fixture schema/mode mismatch")
+    promote_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-preview.json"
+    if not promote_fixture_path.exists():
+        fail("Project Profile V2 promote preview fixture missing: " + str(promote_fixture_path.relative_to(ROOT)))
+    promote_fixture = json.loads(promote_fixture_path.read_text(encoding="utf-8"))
+    if promote_fixture.get("schemaVersion") != "project-profile-promote-preview/v1" or promote_fixture.get("mode") != "project-profile.promote-v2":
+        fail("Project Profile V2 promote preview fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4533,6 +4539,86 @@ def check_project_profile_v2_queue_runtime() -> None:
             fail("written profile queue must not persist transient appliedWrites")
         if applied.get("mode") != "project-profile.queue-v2-apply" or applied.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-queue.json":
             fail("project-profile queue-v2 --confirm should report only profile-queue.json write")
+        pending_item_id = written_queue["items"][0]["id"]
+        pending_promote = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                pending_item_id,
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if pending_promote.returncode == 0 or "only previews status=accepted" not in pending_promote.stderr:
+            fail("project-profile promote-v2 must reject pending queue items")
+        no_dry_run_promote = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                pending_item_id,
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if no_dry_run_promote.returncode == 0 or "requires --dry-run" not in no_dry_run_promote.stderr:
+            fail("project-profile promote-v2 without --dry-run must be blocked")
+        written_queue["items"][0]["status"] = "accepted"
+        queue_file = root / ".lazy-harness" / "project" / "profile-queue.json"
+        queue_file.write_text(json.dumps(written_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_promote_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        before_promote_queue = queue_file.read_text(encoding="utf-8")
+        promote = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                pending_item_id,
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote.returncode != 0:
+            fail("project-profile promote-v2 --dry-run failed:\n" + promote.stdout + promote.stderr)
+        promote_preview = json.loads(promote.stdout)
+        after_promote_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        after_promote_queue = queue_file.read_text(encoding="utf-8")
+        if after_promote_files != before_promote_files or after_promote_queue != before_promote_queue:
+            fail("project-profile promote-v2 --dry-run must not write files or mutate queue")
+        if promote_preview.get("schemaVersion") != promote_fixture.get("schemaVersion") or promote_preview.get("mode") != promote_fixture.get("mode"):
+            fail("project-profile promote-v2 preview schema/mode mismatch")
+        if promote_preview.get("item", {}).get("id") != pending_item_id or promote_preview.get("item", {}).get("status") != "accepted":
+            fail("project-profile promote-v2 preview must echo the accepted item")
+        queue_update = promote_preview.get("queueUpdate", {})
+        if queue_update.get("from") != "accepted" or queue_update.get("to") != "promoted" or queue_update.get("previewOnly") is not True:
+            fail("project-profile promote-v2 preview must include accepted→promoted preview queue update")
+        planned_writes = promote_preview.get("plannedWrites", [])
+        if not planned_writes or planned_writes[0].get("requiresConfirmation") is not True or planned_writes[0].get("action") != promote_fixture.get("plannedWrites", [{}])[0].get("action"):
+            fail("project-profile promote-v2 preview must expose confirmation-gated planned writes")
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))

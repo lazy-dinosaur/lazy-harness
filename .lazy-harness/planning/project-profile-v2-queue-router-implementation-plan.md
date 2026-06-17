@@ -1,6 +1,6 @@
 # Planning — Project Profile V2 Queue Router Implementation Plan
 
-Status: implemented-queue-v2
+Status: implemented-promote-v2-preview
 Date: 2026-06-17
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/project-profile-v2.md`
@@ -11,7 +11,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 
 ## Rule digest
 
-- Status: implemented queue-v2 runtime slice
+- Status: implemented queue-v2 runtime slice and promote-v2 dry-run preview
 - Layer: Planning
 - Scope: framework-global
 - Applies when:
@@ -23,11 +23,13 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - write a typed profile queue first, with every queue item carrying an explicit primary route, optional related routes/facets, and status
   - keep update-loop output as event-ready metadata in the first apply slice
   - avoid direct writes to candidates/rules/capabilities/update-loop events in the first queue-writer slice
+  - keep the first promote slice preview-only: `promote-v2 --dry-run` requires one `status=accepted` item and writes nothing
 - Must not:
   - make policy candidate the universal path for project knowledge
   - append directly to `.lazy-harness/knowledge/candidates.jsonl` from the first V2 apply slice
   - silently drop pending policy candidates or unresolved routed items
   - promote queue items without explicit confirmation or accepted evidence
+  - let dry-run promotion mutate `.lazy-harness/project/profile-queue.json` or canonical targets
 
 ## Recommended implementation shape
 
@@ -189,12 +191,15 @@ First writer command should be explicit, for example:
 ```bash
 bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run --format json
 bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm --format json
+bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <accepted-id> --dry-run --format json
 ```
 
 Boundary:
 
 - `queue-v2 --dry-run` prints the queue only.
 - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
+- `promote-v2 --dry-run` reads `.lazy-harness/project/profile-queue.json`, rejects non-accepted items, emits a preview packet, and writes nothing.
+- `promote-v2 --confirm` remains unsupported until a separate confirmed writer is designed.
 - Existing V1 `inspect/plan/apply/interview/fill` behavior remains unchanged.
 - `interview-v2` remains read-only and requires `--dry-run`.
 
@@ -230,11 +235,12 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
    - focused `project-profile` CLI tests,
    - `python3 .lazy-harness/scripts/self-test.py --scope framework`,
    - `.lazy-harness/bin/lazy test`.
-6. Later, design promote commands for accepted queue items.
+6. Add `promote-v2 --dry-run` preview for one accepted queue item. The preview includes confirmation-gated planned writes and an accepted→promoted queue-update preview, but no queue/canonical mutation.
+7. Later, design the confirmed promote writer for accepted queue items.
 
 ## Implementation map
 
-- Status: queue-v2 runtime slice implemented.
+- Status: promote-v2 dry-run preview slice implemented.
 - Primary files:
   - `.lazy-harness/planning/project-profile-v2-queue-router-implementation-plan.md` — this plan.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD to update with queue schema.
@@ -242,6 +248,7 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
   - `.lazy-harness/scripts/project-profile.ts` — queue builder/writer implementation.
   - `.lazy-harness/scripts/self-test.py` — runtime protection.
   - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — queue-v2 fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-preview.json` — promote-v2 preview fixture.
 - Implemented symbols:
   - `ProjectProfileQueueV1`
   - `ProjectProfileQueueItem`
@@ -250,6 +257,9 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
   - `buildProfileQueueV1FromInterviewV2`
   - `buildProfileQueueV1`
   - `applyProfileQueue`
+  - `ProjectProfilePromoteV2Preview`
+  - `buildPromoteV2Preview`
+  - `renderPromoteV2Md`
   - `renderProfileQueueMd`
   - `check_project_profile_v2_queue_runtime`
 
@@ -257,6 +267,9 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 
 - `queue-v2 --dry-run` emits `schemaVersion == "project-profile-queue/v1"` and category-first primary routes.
 - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
+- `promote-v2 --dry-run` rejects pending/non-accepted queue items.
+- `promote-v2 --dry-run` emits `project-profile-promote-preview/v1`, `plannedWrites`, and accepted→promoted queue-update preview metadata.
+- `promote-v2 --dry-run` does not mutate the queue or write canonical targets.
 - The output includes at least one non-policy category-routed item and one policy-candidate source item under `primaryRoute=policies`.
 - At least one item demonstrates a category-first `primaryRoute` with multiple `facets`/`relatedRoutes`.
 - All `promotionTarget.requiresConfirmation` values are true.
@@ -282,4 +295,4 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 - TDD: future queue route for validation/regression defined.
 - ADR: future route for trade-off decisions defined.
 - SSOT: future route for ownership/source-of-truth and event-ready metadata defined.
-- Planning: queue-v2 implementation completed here; next planning target is promote commands for accepted queue items.
+- Planning: queue-v2 implementation and promote-v2 dry-run preview completed here; next planning target is the confirmed promote writer for accepted queue items.

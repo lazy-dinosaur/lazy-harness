@@ -1,0 +1,62 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2",
+  "schemaVersion": "project-profile-promote-preview/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": true,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-cea8a0880301",
+    "status": "accepted",
+    "primaryRoute": "facts",
+    "facets": [
+      "DDD",
+      "BDD",
+      "Project"
+    ],
+    "relatedRoutes": [
+      "expectations"
+    ],
+    "promotionTarget": {
+      "kind": "record",
+      "path": ".lazy-harness/domain/",
+      "requiresConfirmation": true
+    },
+    "source": {
+      "kind": "question-group",
+      "id": "project-purpose"
+    },
+    "summary": "Project purpose and constraints: facts, expectations",
+    "evidence": [
+      {
+        "kind": "project-profile-question-group",
+        "summary": "Derived from interview-v2 question group project-purpose"
+      }
+    ]
+  },
+  "plannedWrites": [
+    {
+      "kind": "record",
+      "path": ".lazy-harness/domain/",
+      "action": "create-or-update",
+      "requiresConfirmation": true,
+      "summary": "Preview record promotion for PPQ-cea8a0880301 to .lazy-harness/domain/"
+    }
+  ],
+  "queueUpdate": {
+    "id": "PPQ-cea8a0880301",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/domain/"
+    ],
+    "previewOnly": true
+  },
+  "warnings": [
+    "promote-v2 is dry-run preview only in this slice.",
+    "No queue status is changed and no canonical record/rule/capability/update-loop event is written.",
+    "A later confirm writer must re-check status=accepted before mutating anything."
+  ]
+}

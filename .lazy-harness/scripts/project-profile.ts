@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue-v2' | 'fill'
+type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue-v2' | 'promote-v2' | 'fill'
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
 type QueueStatus = 'pending' | 'accepted' | 'rejected' | 'promoted' | 'superseded'
@@ -26,6 +26,7 @@ interface Args {
   dryRun: boolean
   confirm: boolean
   answers?: string
+  item?: string
 }
 
 interface RequiredArtifact {
@@ -274,6 +275,33 @@ interface ProjectProfileQueueV1 {
   appliedWrites?: Array<{ path: string; action: 'written'; summary: string }>
 }
 
+interface ProjectProfilePromoteV2Preview {
+  ok: true
+  mode: 'project-profile.promote-v2'
+  schemaVersion: 'project-profile-promote-preview/v1'
+  root: string
+  generatedAt: string
+  dryRun: true
+  queuePath: '.lazy-harness/project/profile-queue.json'
+  item: ProjectProfileQueueItem
+  plannedWrites: Array<{
+    kind: QueuePromotionKind
+    path?: string
+    action: 'create-or-update' | 'append' | 'preview-only'
+    requiresConfirmation: true
+    summary: string
+  }>
+  queueUpdate: {
+    id: string
+    from: 'accepted'
+    to: 'promoted'
+    promotedAt: string
+    promotedTo: string[]
+    previewOnly: true
+  }
+  warnings: string[]
+}
+
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
   { path: '.lazy-harness/project/stack.xml', label: 'Stack and platform choices', layer: 'project' as const },
@@ -293,12 +321,12 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
-    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'fill'].includes(next)) {
+    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'promote-v2', 'fill'].includes(next)) {
       args.mode = next as Mode
       i += 1
     } else if (arg.startsWith('--mode=')) {
       const value = arg.slice('--mode='.length)
-      if (!['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
+      if (!['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'promote-v2', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
       args.mode = value as Mode
     } else if (arg === '--format' && (next === 'json' || next === 'md' || next === 'markdown')) {
       args.format = next === 'markdown' ? 'md' : next
@@ -321,6 +349,11 @@ function parseArgs(argv: string[]): Args {
       i += 1
     } else if (arg.startsWith('--answers=')) {
       args.answers = arg.slice('--answers='.length)
+    } else if (arg === '--item' && next) {
+      args.item = next
+      i += 1
+    } else if (arg.startsWith('--item=')) {
+      args.item = arg.slice('--item='.length)
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -332,7 +365,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews one accepted queue item and is dry-run only in this slice. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -964,7 +997,7 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
     status: 'pending',
     primaryRoute: 'event-ready-metadata',
     facets: ['Project', 'Evidence'],
-    relatedRoutes: ['project-map-branch'],
+    relatedRoutes: ['source-links'],
     source: { kind: 'update-loop', id: packet.updateLoop.target.nodeId },
     summary: `${packet.updateLoop.eventType} event-ready metadata for ${packet.updateLoop.target.anchorId}`,
     evidence: packet.updateLoop.evidence.map((item) => ({ kind: item.kind, path: item.path, summary: item.summary })),
@@ -1014,6 +1047,86 @@ function applyProfileQueue(queue: ProjectProfileQueueV1): ProjectProfileQueueV1 
   const content = JSON.stringify({ ...queue, appliedWrites: undefined }, null, 2) + '\n'
   writeFileSync(abs, content, 'utf8')
   return { ...queue, appliedWrites: [{ path: queue.queuePath, action: 'written', summary: `Wrote ${queue.items.length} Project Profile queue item(s)` }] }
+}
+
+function readProfileQueue(root: string): ProjectProfileQueueV1 {
+  const queuePath = join(root, '.lazy-harness/project/profile-queue.json')
+  if (!existsSync(queuePath)) throw new Error('promote-v2 requires .lazy-harness/project/profile-queue.json; run queue-v2 --confirm first')
+  const queue = JSON.parse(readFileSync(queuePath, 'utf8')) as ProjectProfileQueueV1
+  if (queue.schemaVersion !== 'project-profile-queue/v1' || !Array.isArray(queue.items)) {
+    throw new Error('profile-queue.json is not a project-profile-queue/v1 queue')
+  }
+  return queue
+}
+
+function actionForPromotionKind(kind: QueuePromotionKind): 'create-or-update' | 'append' | 'preview-only' {
+  if (kind === 'candidate-row' || kind === 'update-loop-event') return 'append'
+  if (kind === 'queue-only') return 'preview-only'
+  return 'create-or-update'
+}
+
+function buildPromoteV2Preview(args: Args): ProjectProfilePromoteV2Preview {
+  if (!args.dryRun || args.confirm) throw new Error('promote-v2 first slice is preview-only and requires --dry-run; --confirm is intentionally unsupported')
+  if (!args.item) throw new Error('promote-v2 requires --item <queue-item-id>')
+  const queue = readProfileQueue(args.root)
+  const item = queue.items.find((candidate) => candidate.id === args.item)
+  if (!item) throw new Error(`Queue item not found: ${args.item}`)
+  if (item.status !== 'accepted') throw new Error(`promote-v2 only previews status=accepted items; ${item.id} is status=${item.status}`)
+  const generatedAt = new Date().toISOString()
+  const target = item.promotionTarget
+  const plannedWrites = [{
+    kind: target.kind,
+    path: target.path,
+    action: actionForPromotionKind(target.kind),
+    requiresConfirmation: true as const,
+    summary: target.path
+      ? `Preview ${target.kind} promotion for ${item.id} to ${target.path}`
+      : `Preview ${target.kind} promotion for ${item.id}`,
+  }]
+  const promotedTo = plannedWrites.map((write) => write.path || write.kind)
+  return {
+    ok: true,
+    mode: 'project-profile.promote-v2',
+    schemaVersion: 'project-profile-promote-preview/v1',
+    root: args.root,
+    generatedAt,
+    dryRun: true,
+    queuePath: '.lazy-harness/project/profile-queue.json',
+    item,
+    plannedWrites,
+    queueUpdate: {
+      id: item.id,
+      from: 'accepted',
+      to: 'promoted',
+      promotedAt: generatedAt,
+      promotedTo,
+      previewOnly: true,
+    },
+    warnings: [
+      'promote-v2 is dry-run preview only in this slice.',
+      'No queue status is changed and no canonical record/rule/capability/update-loop event is written.',
+      'A later confirm writer must re-check status=accepted before mutating anything.',
+    ],
+  }
+}
+
+function renderPromoteV2Md(result: ProjectProfilePromoteV2Preview): string {
+  return [
+    '# Project Profile promote V2 dry-run',
+    '',
+    `- Item: \`${result.item.id}\``,
+    `- Status: ${result.item.status}`,
+    `- Primary route: ${result.item.primaryRoute}`,
+    `- Facets: ${result.item.facets.join(', ')}`,
+    `- Queue update preview: ${result.queueUpdate.from} → ${result.queueUpdate.to}`,
+    '',
+    '## Planned writes',
+    ...result.plannedWrites.map((write) => `- ${write.action}: ${write.kind}${write.path ? ` → \`${write.path}\`` : ''}`),
+    '',
+    '## Warnings',
+    ...result.warnings.map((warning) => `- ${warning}`),
+    '',
+  ].join('\n')
 }
 
 function renderProfileQueueMd(queue: ProjectProfileQueueV1): string {
@@ -1193,6 +1306,12 @@ function main(): void {
       const result = args.confirm && !args.dryRun ? applyProfileQueue(queue) : queue
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderProfileQueueMd(result))
+      return
+    }
+    if (args.mode === 'promote-v2') {
+      const result = buildPromoteV2Preview(args)
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else console.log(renderPromoteV2Md(result))
       return
     }
     if (args.mode === 'fill') {

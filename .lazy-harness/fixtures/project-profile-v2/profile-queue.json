@@ -703,7 +703,7 @@
         "Evidence"
       ],
       "relatedRoutes": [
-        "project-map-branch"
+        "source-links"
       ],
       "source": {
         "kind": "update-loop",
