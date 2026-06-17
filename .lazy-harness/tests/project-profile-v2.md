@@ -55,7 +55,7 @@ The design fixture is:
 | `project_profile_v2_backward_compat` | existing V1 project-profile commands | `inspect`, `plan`, `apply`, `interview`, and `fill` still pass existing self-test until migration is explicitly approved. |
 | `project_profile_v2_queue_shape` | `queue-v2 --dry-run` output | `schemaVersion == "project-profile-queue/v1"`, queue path, source packet, summary, and typed items present. |
 | `project_profile_v2_queue_write_boundary` | `queue-v2 --confirm` | writes only `.lazy-harness/project/profile-queue.json`; no candidates/rules/capabilities/update-loop append. |
-| `project_profile_v2_queue_routes` | queue items | includes non-policy, policy-candidate, event-ready metadata, and at least one multi-facet item. |
+| `project_profile_v2_queue_routes` | queue items | uses Project Map category-first `primaryRoute` values, includes non-policy/category-routed items, policy source items under `policies`, event-ready metadata, and at least one multi-facet item. |
 
 ## Acceptance assertions for implemented dry-run runtime
 
@@ -72,7 +72,7 @@ The design fixture is:
 9. `queue-v2 --dry-run` emits `project-profile-queue/v1`.
 10. `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
 11. Queue items all include `status`, `primaryRoute`, `facets`, `relatedRoutes`, `source`, `evidence`, and `promotionTarget`.
-12. Queue output includes non-policy layer routes, policy-candidate route, event-ready metadata, and a multi-facet item.
+12. Queue output uses category-first `primaryRoute` values such as `facts`, `expectations`, `contracts`, `validation`, `ownership`, `source-links`, and `policies`; layer labels remain in `facets`; output includes event-ready metadata and a multi-facet item.
 
 ## Implementation map
 
@@ -113,7 +113,7 @@ The design fixture is:
 - DDD: domain vocabulary/invariant question groups protected as future fixture expectation.
 - BDD: project expectations and workflow behavior protected as future fixture expectation.
 - SDD: paired with Project Profile V2 SDD.
-- TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview and queue packets.
+- TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview and category-first queue packets.
 - ADR: future ADR needed before replacing V1 mode semantics.
 - SSOT: policy/capability/taxonomy SSOT inputs are referenced, not changed here.
 - Planning: Phase 2 interview dry-run and queue-v2 writer slices implemented; promotion remains future work.
@@ -131,7 +131,7 @@ The design fixture is:
 
 - DDD: future domain branch coverage.
 - BDD: future behavior/policy coverage.
-- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result` plus `project-profile.ts#buildProfileQueueV1FromInterviewV2`.
+- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result` plus category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`.
 - TDD: updated here and in `self-test.py#check_project_profile_v2_runtime` plus `self-test.py#check_project_profile_v2_queue_runtime`.
 - ADR: none yet; ADR required only before replacing V1 behavior.
 - SSOT: no SSOT mutation; uses Project Map ingestion source vocabulary.

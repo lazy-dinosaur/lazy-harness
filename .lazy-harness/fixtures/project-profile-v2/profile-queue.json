@@ -3,31 +3,32 @@
   "mode": "project-profile.queue-v2",
   "schemaVersion": "project-profile-queue/v1",
   "root": ".",
-  "createdAt": "2026-06-17T07:54:19.251Z",
-  "updatedAt": "2026-06-17T07:54:19.251Z",
+  "createdAt": "2026-06-17T08:51:00.338Z",
+  "updatedAt": "2026-06-17T08:51:00.338Z",
   "dryRun": true,
   "dryRunSource": true,
   "queuePath": ".lazy-harness/project/profile-queue.json",
   "sourcePacket": {
     "schemaVersion": "project-profile-interview-v2/v1",
-    "generatedAt": "2026-06-17T07:54:19.251Z",
+    "generatedAt": "2026-06-17T08:51:00.338Z",
     "mode": "interview-v2"
   },
   "items": [
     {
       "id": "PPQ-cea8a0880301",
       "status": "pending",
-      "primaryRoute": "bdd",
+      "primaryRoute": "facts",
       "facets": [
+        "DDD",
         "BDD",
         "Project"
       ],
       "relatedRoutes": [
-        "project-map-branch"
+        "expectations"
       ],
       "promotionTarget": {
         "kind": "record",
-        "path": ".lazy-harness/behavior/",
+        "path": ".lazy-harness/domain/",
         "requiresConfirmation": true
       },
       "source": {
@@ -45,13 +46,15 @@
     {
       "id": "PPQ-7f2c697a3853",
       "status": "pending",
-      "primaryRoute": "ssot",
+      "primaryRoute": "ownership",
       "facets": [
         "SSOT",
-        "Policy"
+        "Policy",
+        "Source"
       ],
       "relatedRoutes": [
-        "policy-candidate"
+        "source-links",
+        "policies"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -73,13 +76,15 @@
     {
       "id": "PPQ-dafd08ed1631",
       "status": "pending",
-      "primaryRoute": "sdd",
+      "primaryRoute": "contracts",
       "facets": [
         "SDD",
-        "BDD"
+        "ADR",
+        "Policy"
       ],
       "relatedRoutes": [
-        "bdd"
+        "decisions",
+        "policies"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -101,13 +106,13 @@
     {
       "id": "PPQ-c412e45be439",
       "status": "pending",
-      "primaryRoute": "ddd",
+      "primaryRoute": "facts",
       "facets": [
         "DDD",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -129,15 +134,15 @@
     {
       "id": "PPQ-1bc42dab4a2e",
       "status": "pending",
-      "primaryRoute": "bdd",
+      "primaryRoute": "expectations",
       "facets": [
         "BDD",
         "SDD",
         "TDD"
       ],
       "relatedRoutes": [
-        "sdd",
-        "tdd"
+        "contracts",
+        "validation"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -159,13 +164,15 @@
     {
       "id": "PPQ-967981b403d7",
       "status": "pending",
-      "primaryRoute": "sdd",
+      "primaryRoute": "contracts",
       "facets": [
         "SDD",
-        "BDD"
+        "SSOT",
+        "TDD"
       ],
       "relatedRoutes": [
-        "bdd"
+        "ownership",
+        "validation"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -187,13 +194,13 @@
     {
       "id": "PPQ-de879d85c667",
       "status": "pending",
-      "primaryRoute": "tdd",
+      "primaryRoute": "validation",
       "facets": [
         "TDD",
         "Policy"
       ],
       "relatedRoutes": [
-        "policy-candidate"
+        "policies"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -215,13 +222,13 @@
     {
       "id": "PPQ-19177e9733fd",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "rulebook",
@@ -243,13 +250,13 @@
     {
       "id": "PPQ-e7a6b493aad4",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "rulebook",
@@ -271,13 +278,15 @@
     {
       "id": "PPQ-a9e36954b665",
       "status": "pending",
-      "primaryRoute": "ssot",
+      "primaryRoute": "ownership",
       "facets": [
         "SSOT",
-        "Policy"
+        "Policy",
+        "TDD"
       ],
       "relatedRoutes": [
-        "policy-candidate"
+        "policies",
+        "validation"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -299,13 +308,13 @@
     {
       "id": "PPQ-2ae87f05d92e",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "rulebook",
@@ -327,13 +336,13 @@
     {
       "id": "PPQ-6d07cbbc4ef7",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "rulebook",
@@ -355,13 +364,13 @@
     {
       "id": "PPQ-fd305d769c53",
       "status": "pending",
-      "primaryRoute": "adr",
+      "primaryRoute": "decisions",
       "facets": [
         "ADR",
         "Policy"
       ],
       "relatedRoutes": [
-        "policy-candidate"
+        "policies"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -383,14 +392,14 @@
     {
       "id": "PPQ-bbb050d82ced",
       "status": "pending",
-      "primaryRoute": "project-map-branch",
+      "primaryRoute": "source-links",
       "facets": [
         "Project",
         "Evidence"
       ],
       "relatedRoutes": [
-        "bdd",
-        "sdd"
+        "expectations",
+        "contracts"
       ],
       "source": {
         "kind": "project-map-seed",
@@ -412,13 +421,13 @@
     {
       "id": "PPQ-45b08d5f8aa2",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "source": {
         "kind": "policy-candidate",
@@ -440,13 +449,13 @@
     {
       "id": "PPQ-c0f0750452d8",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "source": {
         "kind": "policy-candidate",
@@ -468,13 +477,13 @@
     {
       "id": "PPQ-6c259faaccb8",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "source": {
         "kind": "policy-candidate",
@@ -496,13 +505,13 @@
     {
       "id": "PPQ-fcc183500726",
       "status": "pending",
-      "primaryRoute": "ssot",
+      "primaryRoute": "policies",
       "facets": [
         "SSOT",
         "Policy"
       ],
       "relatedRoutes": [
-        "policy-candidate"
+        "ownership"
       ],
       "source": {
         "kind": "unresolved-ambiguity",
@@ -549,13 +558,13 @@
     {
       "id": "PPQ-1d4a7f9eee29",
       "status": "pending",
-      "primaryRoute": "ssot",
+      "primaryRoute": "ownership",
       "facets": [
         "SSOT",
         "Project"
       ],
       "relatedRoutes": [
-        "project-map-branch"
+        "source-links"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -578,13 +587,13 @@
     {
       "id": "PPQ-a2d7f615822e",
       "status": "pending",
-      "primaryRoute": "ssot",
+      "primaryRoute": "ownership",
       "facets": [
         "SSOT",
         "Project"
       ],
       "relatedRoutes": [
-        "project-map-branch"
+        "source-links"
       ],
       "promotionTarget": {
         "kind": "record",
@@ -607,7 +616,7 @@
     {
       "id": "PPQ-42b7c89eea96",
       "status": "pending",
-      "primaryRoute": "tdd",
+      "primaryRoute": "validation",
       "facets": [
         "TDD"
       ],
@@ -633,7 +642,7 @@
     {
       "id": "PPQ-2956588289aa",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy"
       ],
@@ -659,13 +668,13 @@
     {
       "id": "PPQ-44bb947aee0f",
       "status": "pending",
-      "primaryRoute": "policy-candidate",
+      "primaryRoute": "policies",
       "facets": [
         "Policy",
         "SSOT"
       ],
       "relatedRoutes": [
-        "ssot"
+        "ownership"
       ],
       "promotionTarget": {
         "kind": "capability-binding",
@@ -718,18 +727,18 @@
     "total": 25,
     "pending": 25,
     "byPrimaryRoute": {
-      "bdd": 2,
-      "ssot": 5,
-      "sdd": 2,
-      "ddd": 1,
-      "tdd": 2,
-      "policy-candidate": 9,
-      "adr": 1,
-      "project-map-branch": 1,
+      "facts": 2,
+      "ownership": 4,
+      "contracts": 2,
+      "expectations": 1,
+      "validation": 2,
+      "policies": 10,
+      "decisions": 1,
+      "source-links": 1,
       "queue-only": 1,
       "event-ready-metadata": 1
     },
-    "pendingPolicyCandidates": 9,
+    "pendingPolicyCandidates": 3,
     "pendingEventReadyMetadata": 1
   },
   "warnings": [

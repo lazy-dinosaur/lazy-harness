@@ -221,8 +221,10 @@ Non-policy project knowledge routing:
   - business/domain vocabulary → DDD plus Project Map `facts` branch.
   - test/regression expectation → TDD plus Project Map `validation` branch.
   - implementation navigation/source ownership → SSOT/source-links branch or implementation map.
-- Queue routing should mirror Project Map V2: one primary route plus many facets/related routes.
-- Example: Figma/UI behavior may use `primaryRoute=bdd`, `facets=[BDD, SDD, TDD]`, and `relatedRoutes=[sdd, tdd]` when the same item affects visible behavior, component contract, and regression coverage.
+- Queue routing should mirror Project Map V2: one category-first `primaryRoute` plus many layer `facets` and related Project Map routes.
+- `primaryRoute` uses Project Map categories such as `facts`, `expectations`, `contracts`, `validation`, `decisions`, `ownership`, `source-links`, and `policies`, not layer/folder names such as `bdd` or `sdd`.
+- `facets` uses layer/lens labels such as `BDD`, `SDD`, and `TDD`.
+- Example: Figma/UI behavior may use `primaryRoute=expectations`, `facets=[BDD, SDD, TDD]`, and `relatedRoutes=[contracts, validation]` when the same item affects visible behavior, component contract, and regression coverage.
 - Only repeated/stage-specific operating behavior becomes a policy candidate.
 - Therefore natural implementation/design conversation should become layered project knowledge directly when confirmed, while only “how we should repeatedly work” becomes policy-candidate material.
 
@@ -257,7 +259,7 @@ Project Profile V2 is core framework data.
   - `.lazy-harness/plans/project-init-interview-v2-spec.md` — detailed interview plan.
   - `.lazy-harness/tests/project-profile-v2.md` — TDD expectations.
   - `.lazy-harness/fixtures/project-profile-v2/interview-output.json` — desired interview packet fixture.
-  - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — queue-v2 output fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — category-first queue-v2 output fixture.
   - `.lazy-harness/spec/platform/project-profile.md` — V1 baseline and V2 pointer.
   - `.lazy-harness/scripts/project-profile.ts` — implements read-only `interview-v2 --dry-run` and typed `queue-v2` queue output/writer.
   - `.lazy-harness/scripts/self-test.py` — protects V2 interview/queue runtime packets and V1 backward compatibility.
@@ -267,7 +269,7 @@ Project Profile V2 is core framework data.
   - `project-profile.ts#renderInterviewV2Md`
   - `project-profile.ts#ProjectProfileQueueV1`
   - `project-profile.ts#ProjectProfileQueueItem`
-  - `project-profile.ts#buildProfileQueueV1FromInterviewV2`
+  - `project-profile.ts#buildProfileQueueV1FromInterviewV2` — category-first queue route builder
   - `project-profile.ts#buildProfileQueueV1`
   - `project-profile.ts#applyProfileQueue`
   - `self-test.py#check_project_profile_v2_runtime`
@@ -311,4 +313,4 @@ Project Profile V2 is core framework data.
 - TDD: updated by `.lazy-harness/tests/project-profile-v2.md`, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime`.
 - ADR: none yet; ADR required only before replacing V1 mode semantics.
 - SSOT: uses existing taxonomy/capability registry and Project Map ingestion source vocabulary; no SSOT schema change.
-- Planning: Phase 2 interview dry-run and queue-v2 writer slices implemented.
+- Planning: Phase 2 interview dry-run and category-first queue-v2 writer slices implemented.

@@ -14,7 +14,7 @@ type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
 type QueueStatus = 'pending' | 'accepted' | 'rejected' | 'promoted' | 'superseded'
-type QueuePrimaryRoute = 'ddd' | 'bdd' | 'sdd' | 'tdd' | 'adr' | 'ssot' | 'source-link' | 'project-map-branch' | 'policy-candidate' | 'event-ready-metadata' | 'queue-only'
+type QueuePrimaryRoute = 'facts' | 'expectations' | 'contracts' | 'validation' | 'decisions' | 'ownership' | 'source-links' | 'policies' | 'event-ready-metadata' | 'queue-only'
 type QueueFacet = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'ADR' | 'SSOT' | 'Policy' | 'Project' | 'Source' | 'Evidence'
 type QueueSourceKind = 'question-group' | 'project-map-seed' | 'policy-candidate' | 'unresolved-ambiguity' | 'proposed-write' | 'update-loop'
 type QueuePromotionKind = 'record' | 'project-map-branch' | 'rulebook' | 'capability-binding' | 'candidate-row' | 'update-loop-event' | 'queue-only'
@@ -867,21 +867,24 @@ function queueItemId(sourceKind: QueueSourceKind, id: string): string {
 }
 
 function queueRouteForQuestionGroup(id: string): Pick<ProjectProfileQueueItem, 'primaryRoute' | 'facets' | 'relatedRoutes' | 'promotionTarget'> {
-  if (id === 'domain-vocabulary') return { primaryRoute: 'ddd', facets: ['DDD', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'record', path: '.lazy-harness/domain/', requiresConfirmation: true } }
-  if (id === 'frontend-design') return { primaryRoute: 'bdd', facets: ['BDD', 'SDD', 'TDD'], relatedRoutes: ['sdd', 'tdd'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
-  if (id === 'backend-data' || id === 'system-design') return { primaryRoute: 'sdd', facets: ['SDD', 'BDD'], relatedRoutes: ['bdd'], promotionTarget: { kind: 'record', path: '.lazy-harness/spec/', requiresConfirmation: true } }
-  if (id === 'validation-policy') return { primaryRoute: 'tdd', facets: ['TDD', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/tests/', requiresConfirmation: true } }
-  if (id === 'source-ownership' || id === 'security-privacy') return { primaryRoute: 'ssot', facets: ['SSOT', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/ssot/', requiresConfirmation: true } }
-  if (id === 'agent-autonomy') return { primaryRoute: 'adr', facets: ['ADR', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/decisions/', requiresConfirmation: true } }
-  if (id === 'workflow-policy' || id === 'dependency-policy' || id === 'documentation-policy' || id === 'human-confirmation') return { primaryRoute: 'policy-candidate', facets: ['Policy', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'rulebook', path: '.lazy-harness/rules/', requiresConfirmation: true } }
-  return { primaryRoute: 'bdd', facets: ['BDD', 'Project'], relatedRoutes: ['project-map-branch'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
+  if (id === 'project-purpose') return { primaryRoute: 'facts', facets: ['DDD', 'BDD', 'Project'], relatedRoutes: ['expectations'], promotionTarget: { kind: 'record', path: '.lazy-harness/domain/', requiresConfirmation: true } }
+  if (id === 'domain-vocabulary') return { primaryRoute: 'facts', facets: ['DDD', 'SSOT'], relatedRoutes: ['ownership'], promotionTarget: { kind: 'record', path: '.lazy-harness/domain/', requiresConfirmation: true } }
+  if (id === 'frontend-design') return { primaryRoute: 'expectations', facets: ['BDD', 'SDD', 'TDD'], relatedRoutes: ['contracts', 'validation'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
+  if (id === 'backend-data') return { primaryRoute: 'contracts', facets: ['SDD', 'SSOT', 'TDD'], relatedRoutes: ['ownership', 'validation'], promotionTarget: { kind: 'record', path: '.lazy-harness/spec/', requiresConfirmation: true } }
+  if (id === 'system-design') return { primaryRoute: 'contracts', facets: ['SDD', 'ADR', 'Policy'], relatedRoutes: ['decisions', 'policies'], promotionTarget: { kind: 'record', path: '.lazy-harness/spec/', requiresConfirmation: true } }
+  if (id === 'validation-policy') return { primaryRoute: 'validation', facets: ['TDD', 'Policy'], relatedRoutes: ['policies'], promotionTarget: { kind: 'record', path: '.lazy-harness/tests/', requiresConfirmation: true } }
+  if (id === 'source-ownership') return { primaryRoute: 'ownership', facets: ['SSOT', 'Policy', 'Source'], relatedRoutes: ['source-links', 'policies'], promotionTarget: { kind: 'record', path: '.lazy-harness/ssot/', requiresConfirmation: true } }
+  if (id === 'security-privacy') return { primaryRoute: 'ownership', facets: ['SSOT', 'Policy', 'TDD'], relatedRoutes: ['policies', 'validation'], promotionTarget: { kind: 'record', path: '.lazy-harness/ssot/', requiresConfirmation: true } }
+  if (id === 'agent-autonomy') return { primaryRoute: 'decisions', facets: ['ADR', 'Policy'], relatedRoutes: ['policies'], promotionTarget: { kind: 'record', path: '.lazy-harness/decisions/', requiresConfirmation: true } }
+  if (id === 'workflow-policy' || id === 'dependency-policy' || id === 'documentation-policy' || id === 'human-confirmation') return { primaryRoute: 'policies', facets: ['Policy', 'SSOT'], relatedRoutes: ['ownership'], promotionTarget: { kind: 'rulebook', path: '.lazy-harness/rules/', requiresConfirmation: true } }
+  return { primaryRoute: 'expectations', facets: ['BDD', 'Project'], relatedRoutes: ['source-links'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
 }
 
 function routeForProposedWrite(path: string): Pick<ProjectProfileQueueItem, 'primaryRoute' | 'facets' | 'relatedRoutes' | 'promotionTarget'> {
-  if (path.includes('/rules/')) return { primaryRoute: 'policy-candidate', facets: ['Policy'], relatedRoutes: [], promotionTarget: { kind: 'rulebook', path, requiresConfirmation: true } }
-  if (path.endsWith('capabilities.json')) return { primaryRoute: 'policy-candidate', facets: ['Policy', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'capability-binding', path, requiresConfirmation: true } }
-  if (path.includes('/tests/')) return { primaryRoute: 'tdd', facets: ['TDD'], relatedRoutes: [], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
-  if (path.includes('/project/')) return { primaryRoute: 'ssot', facets: ['SSOT', 'Project'], relatedRoutes: ['project-map-branch'], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
+  if (path.includes('/rules/')) return { primaryRoute: 'policies', facets: ['Policy'], relatedRoutes: [], promotionTarget: { kind: 'rulebook', path, requiresConfirmation: true } }
+  if (path.endsWith('capabilities.json')) return { primaryRoute: 'policies', facets: ['Policy', 'SSOT'], relatedRoutes: ['ownership'], promotionTarget: { kind: 'capability-binding', path, requiresConfirmation: true } }
+  if (path.includes('/tests/')) return { primaryRoute: 'validation', facets: ['TDD'], relatedRoutes: [], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
+  if (path.includes('/project/')) return { primaryRoute: 'ownership', facets: ['SSOT', 'Project'], relatedRoutes: ['source-links'], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
   return { primaryRoute: 'queue-only', facets: ['Project'], relatedRoutes: [], promotionTarget: { kind: 'queue-only', path, requiresConfirmation: true } }
 }
 
@@ -905,9 +908,9 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
     items.push({
       id: queueItemId('project-map-seed', seed.id),
       status: 'pending',
-      primaryRoute: 'project-map-branch',
+      primaryRoute: 'source-links',
       facets: ['Project', 'Evidence'],
-      relatedRoutes: ['bdd', 'sdd'],
+      relatedRoutes: ['expectations', 'contracts'],
       source: { kind: 'project-map-seed', id: seed.id },
       summary: `${seed.title}: ${seed.cluster.branches.length} branch(es), ${seed.cluster.edges.length} edge(s)`,
       evidence: [{ kind: 'project-map-seed', summary: `Derived from interview-v2 Project Map seed ${seed.id}` }],
@@ -919,9 +922,9 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
     items.push({
       id: queueItemId('policy-candidate', policy.id),
       status: 'pending',
-      primaryRoute: 'policy-candidate',
+      primaryRoute: 'policies',
       facets: ['Policy', 'SSOT'],
-      relatedRoutes: ['ssot'],
+      relatedRoutes: ['ownership'],
       source: { kind: 'policy-candidate', id: policy.id },
       summary: `${policy.dimension}: ${policy.stages.map((stage) => `${stage.stage}/${stage.level}`).join(', ')}`,
       evidence: [{ kind: 'policy-candidate', summary: `Derived from interview-v2 policy candidate ${policy.id}` }],
@@ -934,9 +937,9 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
     items.push({
       id: queueItemId('unresolved-ambiguity', ambiguity.id),
       status: 'pending',
-      primaryRoute: policyLike ? 'ssot' : 'queue-only',
+      primaryRoute: policyLike ? 'policies' : 'queue-only',
       facets: policyLike ? ['SSOT', 'Policy'] : ['Project'],
-      relatedRoutes: policyLike ? ['policy-candidate'] : [],
+      relatedRoutes: policyLike ? ['ownership'] : [],
       source: { kind: 'unresolved-ambiguity', id: ambiguity.id },
       summary: ambiguity.question,
       evidence: [{ kind: 'unresolved-ambiguity', summary: `Options: ${ambiguity.options.join(', ')}` }],
@@ -988,7 +991,7 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
       total: items.length,
       pending: items.filter((item) => item.status === 'pending').length,
       byPrimaryRoute,
-      pendingPolicyCandidates: items.filter((item) => item.status === 'pending' && item.primaryRoute === 'policy-candidate').length,
+      pendingPolicyCandidates: items.filter((item) => item.status === 'pending' && item.source.kind === 'policy-candidate').length,
       pendingEventReadyMetadata: items.filter((item) => item.status === 'pending' && item.primaryRoute === 'event-ready-metadata').length,
     },
     warnings: [

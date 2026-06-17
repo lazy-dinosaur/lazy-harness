@@ -4545,7 +4545,7 @@ def check_project_profile_v2_queue_runtime() -> None:
     items = queue.get("items", [])
     if not isinstance(items, list) or not items:
         fail("project-profile queue-v2 must emit queue items")
-    allowed_routes = {"ddd", "bdd", "sdd", "tdd", "adr", "ssot", "source-link", "project-map-branch", "policy-candidate", "event-ready-metadata", "queue-only"}
+    allowed_routes = {"facts", "expectations", "contracts", "validation", "decisions", "ownership", "source-links", "policies", "event-ready-metadata", "queue-only"}
     allowed_statuses = {"pending", "accepted", "rejected", "promoted", "superseded"}
     allowed_promotion_kinds = {"record", "project-map-branch", "rulebook", "capability-binding", "candidate-row", "update-loop-event", "queue-only"}
     seen_routes = set()
@@ -4571,10 +4571,12 @@ def check_project_profile_v2_queue_runtime() -> None:
             fail("project-profile queue-v2 relatedRoutes must be a list")
         if len(facets) > 1 and related_routes:
             has_multifacet = True
-        if route != "policy-candidate":
+        if item.get("source", {}).get("kind") != "policy-candidate":
             has_non_policy = True
-        if route == "policy-candidate":
+        if item.get("source", {}).get("kind") == "policy-candidate":
             has_policy = True
+            if route != "policies":
+                fail("policy-candidate source items should use primaryRoute=policies: " + json.dumps(item, ensure_ascii=False))
             if item.get("promotionTarget", {}).get("kind") not in {"rulebook", "capability-binding"}:
                 fail("policy-candidate queue items should promote to rulebook/capability targets: " + json.dumps(item, ensure_ascii=False))
         if route == "event-ready-metadata":
@@ -4590,8 +4592,8 @@ def check_project_profile_v2_queue_runtime() -> None:
         fail("project-profile queue-v2 must include at least one multi-facet item")
     if not has_non_policy or not has_policy or not has_event_ready:
         fail("project-profile queue-v2 must include non-policy, policy-candidate, and event-ready metadata routes")
-    if not {"bdd", "sdd", "ddd", "tdd", "ssot", "project-map-branch", "policy-candidate", "event-ready-metadata"}.issubset(seen_routes):
-        fail("project-profile queue-v2 missing expected route coverage: " + json.dumps(sorted(seen_routes), ensure_ascii=False))
+    if not {"facts", "expectations", "contracts", "validation", "ownership", "source-links", "policies", "event-ready-metadata"}.issubset(seen_routes):
+        fail("project-profile queue-v2 missing expected category route coverage: " + json.dumps(sorted(seen_routes), ensure_ascii=False))
     summary = queue.get("summary", {})
     if summary.get("total") != len(items) or summary.get("pending") != len(items):
         fail("project-profile queue-v2 summary totals must match pending items")
