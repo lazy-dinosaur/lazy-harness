@@ -235,7 +235,9 @@ Keep Project Interview as an install-time, mid-project adoption, or refresh chan
 
 Baseline/gap audit completed on 2026-06-17: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`.
 
-Next recommended implementation slice is read-only `project-profile.ts --mode interview-v2 --dry-run --format json`; it must preserve all V1 modes and must not write canonical records.
+First runtime slice completed on 2026-06-17: read-only `project-profile.ts --mode interview-v2 --dry-run --format json`. It preserves all V1 modes and does not write canonical records.
+
+Next recommended slice is the V2 apply/write decision design: resolve `policy-storage-target`, decide whether confirmed Project Profile refresh appends update-loop events or stays event-ready metadata first, and choose whether future V2 apply writes a profile queue file or candidate rows.
 
 ### Current baseline
 
@@ -291,7 +293,7 @@ Project Interview should be one ingestion channel among many and should discover
 ### Exit criteria
 
 - Project Interview V2 design is aligned with the update-loop event model.
-- `project-profile.ts --mode interview-v2 --dry-run` or equivalent can produce V2 policy questions only after runtime implementation is approved.
+- `project-profile.ts --mode interview-v2 --dry-run` can produce V2 policy questions without writing files.
 - Project/profile refresh output is represented as a Project Map update event, not a special authority path.
 - `fill --confirm` writes only confirmed answers.
 - Existing Project Profile tests still pass.
