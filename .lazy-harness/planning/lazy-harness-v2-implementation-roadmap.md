@@ -134,6 +134,8 @@ Define the canonical V2 knowledge node model before moving folders or rewriting 
 
 ## Phase 1.5 — Project Map Update Loop / Knowledge Ingestion Model
 
+Status: design records added on 2026-06-17; runtime implementation intentionally not added yet.
+
 ### Goal
 
 Define how Project Map clusters are created, updated, confirmed, linked to evidence, and consumed by adapters before implementing Project Interview runtime, Policy Machinery runtime, generated map views, or adapter-specific behavior.
@@ -215,6 +217,13 @@ Phase 1.5 should include an early adapter boundary note even though full adapter
 - Static validation protects event vocabulary and forbidden fields.
 - No runtime implementation is added before review.
 - `lazy test` remains green.
+
+### Current design records
+
+- `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
+- `.lazy-harness/ssot/project-map-ingestion-sources.md`
+- `.lazy-harness/tests/project-map-update-loop-v2.md`
+- `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Phase 2 — Project Profile / Interview as one bootstrap channel
 

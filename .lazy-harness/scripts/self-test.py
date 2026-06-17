@@ -6273,6 +6273,233 @@ def check_project_map_v2_schema() -> None:
     print("✓ Project Map V2 schema ok")
 
 
+def check_project_map_update_loop_v2() -> None:
+    """Project Map Phase 1.5 must define adapter-neutral update events without runtime mutation."""
+    sdd_path = LAZY / "spec" / "platform" / "project-map-update-loop-v2.md"
+    ssot_path = LAZY / "ssot" / "project-map-ingestion-sources.md"
+    tdd_path = LAZY / "tests" / "project-map-update-loop-v2.md"
+    fixture_path = LAZY / "fixtures" / "project-map-update-loop-v2" / "events.json"
+    storage_ssot_path = LAZY / "ssot" / "project-map-record-storage.md"
+
+    for path in (sdd_path, ssot_path, tdd_path, fixture_path, storage_ssot_path):
+        if not path.exists():
+            fail(f"Project Map update-loop V2 missing file: {path.relative_to(ROOT)}")
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    ssot = ssot_path.read_text(encoding="utf-8")
+    tdd = tdd_path.read_text(encoding="utf-8")
+    storage_ssot = storage_ssot_path.read_text(encoding="utf-8")
+    for expected in (
+        "Project Map update events are JSON-compatible and adapter-neutral.",
+        "Candidate/canonical transition model",
+        "Forbidden fields anywhere in update event output",
+        "Core update-loop semantics decide candidate/canonical transitions.",
+        "Runtime implementation remains future work after Phase 1.5 review.",
+    ):
+        if expected not in sdd:
+            fail("Project Map update-loop SDD missing invariant: " + expected)
+    for expected in (
+        "Controlled source vocabulary",
+        "Controlled event vocabulary",
+        "Event-to-branch mapping",
+        "Canonical promotion requires all of these",
+        "Neither may set canonical truth without the core record-write/update path.",
+    ):
+        if expected not in ssot:
+            fail("Project Map ingestion SSOT missing invariant: " + expected)
+    for expected in (
+        "project_map_update_event_required_fields",
+        "project_map_update_event_vocabulary",
+        "project_map_update_sources",
+        "project_map_update_transitions",
+        "project_map_update_forbidden_fields",
+        "project_map_update_no_runtime",
+    ):
+        if expected not in tdd:
+            fail("Project Map update-loop TDD missing regression case: " + expected)
+    for expected in (
+        "project-map-update-loop-v2.md",
+        "project-map-ingestion-sources.md",
+        "needs-confirmation",
+        "adapters may submit events but do not become semantic authority",
+    ):
+        if expected not in storage_ssot:
+            fail("Project Map record storage SSOT missing update-loop link: " + expected)
+
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    if fixture.get("schemaVersion") != "project-map-update-events/v1":
+        fail("Project Map update-loop fixture schemaVersion mismatch")
+    events = fixture.get("events")
+    if not isinstance(events, list) or not events:
+        fail("Project Map update-loop fixture must contain events")
+
+    allowed_event_types = {
+        "user-correction",
+        "implementation-change",
+        "source-discovery",
+        "validation-failure",
+        "validation-success",
+        "adr-decision",
+        "project-profile-refresh",
+        "policy-promotion",
+        "policy-demotion",
+        "document-ingestion",
+        "adapter-event",
+    }
+    allowed_sources = {
+        "user",
+        "agent",
+        "source-inspection",
+        "test-run",
+        "record-write",
+        "project-profile",
+        "document-resource",
+        "policy-machinery",
+        "pi-adapter",
+        "jcode-adapter",
+    }
+    allowed_primary = {"facts", "expectations", "contracts", "decisions", "validation", "ownership", "source-links", "policies"}
+    allowed_facets = {"DDD", "BDD", "SDD", "TDD", "ADR", "SSOT", "Planning", "Policy", "Evidence", "Project", "Source"}
+    allowed_states = {"observation", "candidate", "needs-confirmation", "canonical", "superseded", "rejected"}
+    allowed_evidence_kinds = {
+        "user-confirmation",
+        "user-correction",
+        "changed-source",
+        "changed-record",
+        "changed-test",
+        "source-inspection",
+        "document-resource",
+        "validation-output",
+        "adr-record",
+        "project-profile",
+        "policy-record",
+        "adapter-observation",
+    }
+    allowed_effect_actions = {
+        "append-candidate",
+        "update-record",
+        "create-record",
+        "append-graph-edge",
+        "attach-evidence",
+        "supersede-record",
+        "mark-candidate-rejected",
+        "none",
+    }
+
+    seen_event_types = set()
+    seen_sources = set()
+    seen_to_states = set()
+    seen_adapter_sources = set()
+    required_fields = {"schemaVersion", "id", "eventType", "source", "occurredAt", "scope", "target", "transition", "evidence", "effects"}
+    for event in events:
+        if not isinstance(event, dict):
+            fail("Project Map update-loop event must be object")
+        missing = sorted(required_fields - set(event))
+        if missing:
+            fail("Project Map update-loop event missing fields: " + json.dumps({"id": event.get("id"), "missing": missing}, ensure_ascii=False))
+        if event.get("schemaVersion") != "project-map-update-event/v1":
+            fail("Project Map update-loop event schemaVersion mismatch: " + repr(event.get("id")))
+        event_type = event.get("eventType")
+        if event_type not in allowed_event_types:
+            fail("Project Map update-loop eventType invalid: " + json.dumps(event, ensure_ascii=False))
+        seen_event_types.add(event_type)
+        source = event.get("source")
+        if source not in allowed_sources:
+            fail("Project Map update-loop source invalid: " + json.dumps(event, ensure_ascii=False))
+        seen_sources.add(source)
+        if source in {"pi-adapter", "jcode-adapter"}:
+            seen_adapter_sources.add(source)
+            transition_to = event.get("transition", {}).get("to")
+            if transition_to == "canonical":
+                fail("adapter event must not become canonical by itself: " + repr(event.get("id")))
+
+        target = event.get("target")
+        if not isinstance(target, dict):
+            fail("Project Map update-loop target must be object: " + repr(event.get("id")))
+        for key in ("anchorId", "branch", "nodeId", "primary", "facets"):
+            if key not in target:
+                fail("Project Map update-loop target missing " + key + ": " + repr(event.get("id")))
+        if target.get("primary") not in allowed_primary:
+            fail("Project Map update-loop target primary invalid: " + json.dumps(event, ensure_ascii=False))
+        facets = target.get("facets")
+        if not isinstance(facets, list) or not facets or any(facet not in allowed_facets for facet in facets):
+            fail("Project Map update-loop target facets invalid: " + json.dumps(event, ensure_ascii=False))
+
+        transition = event.get("transition")
+        if not isinstance(transition, dict):
+            fail("Project Map update-loop transition must be object: " + repr(event.get("id")))
+        for key in ("from", "to", "requiresConfirmation", "canonicalRecords", "candidateStore"):
+            if key not in transition:
+                fail("Project Map update-loop transition missing " + key + ": " + repr(event.get("id")))
+        if transition.get("from") not in allowed_states or transition.get("to") not in allowed_states:
+            fail("Project Map update-loop transition state invalid: " + json.dumps(event, ensure_ascii=False))
+        seen_to_states.add(transition.get("to"))
+        if not isinstance(transition.get("requiresConfirmation"), bool):
+            fail("Project Map update-loop requiresConfirmation must be boolean: " + repr(event.get("id")))
+        canonical_records = transition.get("canonicalRecords")
+        if not isinstance(canonical_records, list):
+            fail("Project Map update-loop canonicalRecords must be list: " + repr(event.get("id")))
+        if transition.get("to") in {"canonical", "superseded"} and not canonical_records:
+            fail("canonical/superseded update-loop event must include canonicalRecords: " + repr(event.get("id")))
+        for record_path in canonical_records:
+            if not isinstance(record_path, str) or not record_path.startswith(".lazy-harness/") or ".." in pathlib.Path(record_path).parts:
+                fail("Project Map update-loop canonical record path must stay root-bound: " + repr(record_path))
+            if not (ROOT / record_path).exists():
+                fail("Project Map update-loop canonical record path missing: " + record_path)
+        candidate_store = transition.get("candidateStore")
+        if candidate_store != ".lazy-harness/knowledge/candidates.jsonl":
+            fail("Project Map update-loop candidateStore must be canonical candidates JSONL: " + repr(event.get("id")))
+
+        evidence = event.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            fail("Project Map update-loop event must include compact evidence: " + repr(event.get("id")))
+        for item in evidence:
+            if item.get("kind") not in allowed_evidence_kinds:
+                fail("Project Map update-loop evidence kind invalid: " + json.dumps(item, ensure_ascii=False))
+            path_value = item.get("path")
+            if path_value:
+                path_obj = pathlib.Path(path_value)
+                if path_obj.is_absolute() or ".." in path_obj.parts:
+                    fail("Project Map update-loop evidence path must stay root-relative: " + path_value)
+        effects = event.get("effects")
+        if not isinstance(effects, list):
+            fail("Project Map update-loop effects must be list: " + repr(event.get("id")))
+        for effect in effects:
+            if effect.get("action") not in allowed_effect_actions:
+                fail("Project Map update-loop effect action invalid: " + json.dumps(effect, ensure_ascii=False))
+            path_value = effect.get("path")
+            if path_value:
+                path_obj = pathlib.Path(path_value)
+                if path_obj.is_absolute() or ".." in path_obj.parts:
+                    fail("Project Map update-loop effect path must stay root-relative: " + path_value)
+        _assert_no_project_map_forbidden_fields(event, f"event[{event.get('id')}]")
+
+    missing_event_types = sorted(allowed_event_types - seen_event_types)
+    if missing_event_types:
+        fail("Project Map update-loop fixture missing event types: " + json.dumps(missing_event_types, ensure_ascii=False))
+    required_sources = {"pi-adapter", "jcode-adapter", "project-profile", "document-resource", "policy-machinery"}
+    if not required_sources.issubset(seen_sources):
+        fail("Project Map update-loop fixture missing required sources: " + json.dumps(sorted(required_sources - seen_sources), ensure_ascii=False))
+    required_states = {"candidate", "needs-confirmation", "canonical", "superseded", "rejected"}
+    if not required_states.issubset(seen_to_states):
+        fail("Project Map update-loop fixture missing transition states: " + json.dumps(sorted(required_states - seen_to_states), ensure_ascii=False))
+    if seen_adapter_sources != {"pi-adapter", "jcode-adapter"}:
+        fail("Project Map update-loop fixture must include Pi and Jcode adapter events")
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
+    for expected in (
+        "spec/platform/project-map-update-loop-v2.md",
+        "ssot/project-map-ingestion-sources.md",
+        "tests/project-map-update-loop-v2.md",
+        "project-map-update-loop-v2/*.json",
+    ):
+        if expected not in category_a:
+            fail("init categories missing Project Map update-loop sync asset: " + expected)
+
+    print("✓ Project Map update-loop V2 ok")
+
+
 def check_evidence_capsule_standard_phase5() -> None:
     """Phase 5 should provide a manual evidence capsule checklist without auto-writing."""
     sdd_path = LAZY / "spec" / "platform" / "evidence-capsule-standard.md"
@@ -7546,6 +7773,7 @@ def main() -> None:
         (check_source_feature_navigation_phase3, "FRAMEWORK_ONLY"),
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_project_map_v2_schema, "BOTH"),
+        (check_project_map_update_loop_v2, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
         (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),

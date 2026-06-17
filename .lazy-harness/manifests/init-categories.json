@@ -89,9 +89,10 @@
             "context-tier/*.json",
             "project-map-v2/*.json",
             "project-profile-v2/*.json",
-            "project-map-v2/*.md"
+            "project-map-v2/*.md",
+            "project-map-update-loop-v2/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2, and Project Profile V2 fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2/update-loop, and Project Profile V2 fixtures."
         },
         {
           "path": "evidence/",
@@ -514,6 +515,21 @@
           "path": "tests/project-map-record-storage.md",
           "kind": "file",
           "description": "TDD record for Project Map V2 record storage and branch-block fixture validation."
+        },
+        {
+          "path": "spec/platform/project-map-update-loop-v2.md",
+          "kind": "file",
+          "description": "SDD for Project Map Phase 1.5 adapter-neutral update events and candidate/canonical transitions."
+        },
+        {
+          "path": "ssot/project-map-ingestion-sources.md",
+          "kind": "file",
+          "description": "SSOT for Project Map update-loop source/event vocabulary and event-to-branch mapping."
+        },
+        {
+          "path": "tests/project-map-update-loop-v2.md",
+          "kind": "file",
+          "description": "TDD record for Project Map update-loop event fixtures and transition validation."
         }
       ]
     },

@@ -1,0 +1,416 @@
+{
+  "schemaVersion": "project-map-update-events/v1",
+  "events": [
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-user-correction-location-id",
+      "eventType": "user-correction",
+      "source": "user",
+      "occurredAt": "2026-06-17T00:00:00Z",
+      "scope": "framework-global",
+      "summary": "User correction promotes an identity rule after canonical record update.",
+      "target": {
+        "anchorId": "chat-window-patient-sharing",
+        "branch": "facts",
+        "nodeId": "patient-sharing-identity-rule",
+        "primary": "facts",
+        "facets": ["DDD", "SSOT"]
+      },
+      "transition": {
+        "from": "needs-confirmation",
+        "to": "canonical",
+        "requiresConfirmation": false,
+        "canonicalRecords": [".lazy-harness/ssot/project-map-record-storage.md"],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "user-correction",
+          "path": ".lazy-harness/ssot/project-map-record-storage.md",
+          "summary": "Confirmed correction captured in canonical SSOT.",
+          "redaction": "none"
+        }
+      ],
+      "effects": [
+        { "action": "update-record", "path": ".lazy-harness/ssot/project-map-record-storage.md" },
+        { "action": "append-graph-edge", "path": ".lazy-harness/knowledge/graph.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-implementation-change-contract",
+      "eventType": "implementation-change",
+      "source": "agent",
+      "occurredAt": "2026-06-17T00:01:00Z",
+      "scope": "framework-global",
+      "summary": "Implementation change creates a contract candidate until reviewed.",
+      "target": {
+        "anchorId": "project-map-update-loop",
+        "branch": "contracts",
+        "nodeId": "update-event-packet-contract",
+        "primary": "contracts",
+        "facets": ["SDD", "Source"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "candidate",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "changed-source",
+          "path": "src/example.ts",
+          "summary": "Source file changed; matching contract review is pending.",
+          "redaction": "fixture"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-source-discovery-route",
+      "eventType": "source-discovery",
+      "source": "source-inspection",
+      "occurredAt": "2026-06-17T00:02:00Z",
+      "scope": "framework-global",
+      "summary": "Source inspection discovers a route/source-link candidate.",
+      "target": {
+        "anchorId": "project-navigation",
+        "branch": "source-links",
+        "nodeId": "route-source-link",
+        "primary": "source-links",
+        "facets": ["Source", "Project"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "candidate",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "source-inspection",
+          "path": "src/routes/example.ts",
+          "summary": "Source inspection found a route-like file.",
+          "redaction": "fixture"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-validation-failure-regression",
+      "eventType": "validation-failure",
+      "source": "test-run",
+      "occurredAt": "2026-06-17T00:03:00Z",
+      "scope": "framework-global",
+      "summary": "Validation failure becomes a validation candidate until a regression record is written.",
+      "target": {
+        "anchorId": "project-map-update-loop",
+        "branch": "validation",
+        "nodeId": "update-loop-regression-candidate",
+        "primary": "validation",
+        "facets": ["TDD", "Evidence"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "needs-confirmation",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/project-map-update-loop-v2.md",
+          "summary": "Focused validation failed before the regression was recorded.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-validation-success-evidence",
+      "eventType": "validation-success",
+      "source": "test-run",
+      "occurredAt": "2026-06-17T00:04:00Z",
+      "scope": "framework-global",
+      "summary": "Validation success attaches evidence after canonical test record exists.",
+      "target": {
+        "anchorId": "project-map-update-loop",
+        "branch": "validation",
+        "nodeId": "update-loop-validation-evidence",
+        "primary": "validation",
+        "facets": ["TDD", "Evidence"]
+      },
+      "transition": {
+        "from": "candidate",
+        "to": "canonical",
+        "requiresConfirmation": false,
+        "canonicalRecords": [".lazy-harness/tests/project-map-update-loop-v2.md"],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/project-map-update-loop-v2.md",
+          "summary": "Self-test protects update-loop fixture expectations.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "attach-evidence", "path": ".lazy-harness/tests/project-map-update-loop-v2.md" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-adr-decision-transition",
+      "eventType": "adr-decision",
+      "source": "record-write",
+      "occurredAt": "2026-06-17T00:05:00Z",
+      "scope": "framework-global",
+      "summary": "ADR record creates a canonical decision branch.",
+      "target": {
+        "anchorId": "project-map-update-loop",
+        "branch": "decisions",
+        "nodeId": "update-loop-runtime-deferred-decision",
+        "primary": "decisions",
+        "facets": ["ADR"]
+      },
+      "transition": {
+        "from": "candidate",
+        "to": "canonical",
+        "requiresConfirmation": false,
+        "canonicalRecords": [".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md"],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "adr-record",
+          "path": ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
+          "summary": "ADR record supplies decision authority.",
+          "redaction": "none"
+        }
+      ],
+      "effects": [
+        { "action": "update-record", "path": ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-project-profile-refresh",
+      "eventType": "project-profile-refresh",
+      "source": "project-profile",
+      "occurredAt": "2026-06-17T00:06:00Z",
+      "scope": "framework-global",
+      "summary": "Project profile refresh seeds project-map candidates without special authority.",
+      "target": {
+        "anchorId": "project-profile-v2",
+        "branch": "ownership",
+        "nodeId": "profile-ownership-seed",
+        "primary": "ownership",
+        "facets": ["SSOT", "Project"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "candidate",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "project-profile",
+          "path": ".lazy-harness/project/project-profile.xml",
+          "summary": "Profile refresh suggests an ownership branch.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-policy-promotion",
+      "eventType": "policy-promotion",
+      "source": "policy-machinery",
+      "occurredAt": "2026-06-17T00:07:00Z",
+      "scope": "framework-global",
+      "summary": "Policy promotion updates a canonical policy record.",
+      "target": {
+        "anchorId": "project-operating-rulebook",
+        "branch": "policies",
+        "nodeId": "rulebook-policy-promotion",
+        "primary": "policies",
+        "facets": ["Policy", "SSOT"]
+      },
+      "transition": {
+        "from": "needs-confirmation",
+        "to": "canonical",
+        "requiresConfirmation": false,
+        "canonicalRecords": [".lazy-harness/ssot/project-map-ingestion-sources.md"],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "policy-record",
+          "path": ".lazy-harness/ssot/project-map-ingestion-sources.md",
+          "summary": "Policy vocabulary and promotion rule are recorded.",
+          "redaction": "none"
+        }
+      ],
+      "effects": [
+        { "action": "update-record", "path": ".lazy-harness/ssot/project-map-ingestion-sources.md" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-policy-demotion",
+      "eventType": "policy-demotion",
+      "source": "policy-machinery",
+      "occurredAt": "2026-06-17T00:08:00Z",
+      "scope": "framework-global",
+      "summary": "Policy demotion supersedes a candidate or canonical policy branch after review.",
+      "target": {
+        "anchorId": "project-operating-rulebook",
+        "branch": "policies",
+        "nodeId": "rulebook-policy-demotion",
+        "primary": "policies",
+        "facets": ["Policy", "ADR"]
+      },
+      "transition": {
+        "from": "canonical",
+        "to": "superseded",
+        "requiresConfirmation": false,
+        "canonicalRecords": [".lazy-harness/ssot/project-map-ingestion-sources.md"],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "policy-record",
+          "path": ".lazy-harness/ssot/project-map-ingestion-sources.md",
+          "summary": "Demotion rule requires visible supersession rather than silent history edits.",
+          "redaction": "none"
+        }
+      ],
+      "effects": [
+        { "action": "supersede-record", "path": ".lazy-harness/ssot/project-map-ingestion-sources.md" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-document-ingestion",
+      "eventType": "document-ingestion",
+      "source": "document-resource",
+      "occurredAt": "2026-06-17T00:09:00Z",
+      "scope": "framework-global",
+      "summary": "Document ingestion remains a candidate until document-resource evidence is recorded.",
+      "target": {
+        "anchorId": "document-resource-ingestion",
+        "branch": "facts",
+        "nodeId": "ingested-doc-fact-candidate",
+        "primary": "facts",
+        "facets": ["DDD", "Evidence"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "needs-confirmation",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "document-resource",
+          "path": ".lazy-harness/planning/document-resource-ingestion-implementation-plan.md",
+          "summary": "Document-resource flow can supply evidence but not automatic truth.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-pi-adapter-observation",
+      "eventType": "adapter-event",
+      "source": "pi-adapter",
+      "adapter": "pi",
+      "occurredAt": "2026-06-17T00:10:00Z",
+      "scope": "framework-global",
+      "summary": "Pi adapter submits an observation; core loop keeps transition non-canonical.",
+      "target": {
+        "anchorId": "pi-agent-package",
+        "branch": "source-links",
+        "nodeId": "pi-adapter-event-observation",
+        "primary": "source-links",
+        "facets": ["Source", "Project"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "candidate",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "adapter-observation",
+          "path": ".lazy-harness/spec/platform/pi-agent-package.md",
+          "summary": "Pi adapter observation is an event source only.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-jcode-adapter-observation-rejected",
+      "eventType": "adapter-event",
+      "source": "jcode-adapter",
+      "adapter": "jcode",
+      "occurredAt": "2026-06-17T00:11:00Z",
+      "scope": "framework-global",
+      "summary": "Jcode compatibility event can be rejected without changing canonical records.",
+      "target": {
+        "anchorId": "jcode-compatibility",
+        "branch": "policies",
+        "nodeId": "jcode-adapter-event-rejected",
+        "primary": "policies",
+        "facets": ["Policy", "Project"]
+      },
+      "transition": {
+        "from": "candidate",
+        "to": "rejected",
+        "requiresConfirmation": false,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "adapter-observation",
+          "path": ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
+          "summary": "Adapter observation rejected by core update-loop semantics.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "mark-candidate-rejected", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ]
+    }
+  ]
+}

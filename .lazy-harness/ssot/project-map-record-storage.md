@@ -6,6 +6,7 @@ Layer: SSOT
 Related SDD: `.lazy-harness/spec/platform/project-map-v2.md`
 Related taxonomy: `.lazy-harness/ssot/project-map-taxonomy.md`
 Related write policy: `.lazy-harness/spec/platform/record-write-update-policy.md`
+Related update loop: `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
 Related TDD: `.lazy-harness/tests/project-map-record-storage.md`
 Related fixture: `.lazy-harness/fixtures/project-map-v2/record-branch-block.md`
 
@@ -98,12 +99,13 @@ But generated view output is always a navigation aid. It must point back to cano
 
 ## Candidate vs canonical note
 
-Until Phase 1.5 defines the full update-loop event model:
+Phase 1.5 defines the update-loop event model in `.lazy-harness/spec/platform/project-map-update-loop-v2.md` and the source/event vocabulary in `.lazy-harness/ssot/project-map-ingestion-sources.md`.
 
 - user-confirmed facts can be written to canonical records using existing record-write policy,
-- unconfirmed discoveries should remain candidates or planning notes,
+- unconfirmed discoveries should remain candidates or `needs-confirmation` update events,
 - Project Map generated views remain derived,
-- cluster/branch metadata can be added to canonical records when the anchor/branch relationship is confirmed.
+- cluster/branch metadata can be added to canonical records when the anchor/branch relationship is confirmed,
+- adapters may submit events but do not become semantic authority.
 
 ## Implementation map
 
@@ -113,6 +115,8 @@ Until Phase 1.5 defines the full update-loop event model:
   - `.lazy-harness/spec/platform/project-map-v2.md` — Project Map node/cluster SDD.
   - `.lazy-harness/ssot/project-map-taxonomy.md` — category/facet/edge taxonomy.
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — write/update policy integration.
+  - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — candidate/canonical update-loop event contract.
+  - `.lazy-harness/ssot/project-map-ingestion-sources.md` — ingestion source vocabulary.
   - `.lazy-harness/tests/project-map-record-storage.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-v2/record-branch-block.md` — canonical record branch-block fixture.
   - `.lazy-harness/scripts/self-test.py` — static validation.
