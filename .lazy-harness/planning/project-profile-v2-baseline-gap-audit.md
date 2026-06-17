@@ -211,6 +211,44 @@ Out of scope for the next slice:
 
 These do not block the recommended first dry-run slice because it is read-only and can preserve the ambiguity explicitly.
 
+## Confirmed apply/write decision 1 — policy storage target
+
+User confirmation on 2026-06-17: use the recommended policy storage path.
+
+Decision:
+
+```text
+policy candidate → confirmed rulebook record → optional capability binding
+```
+
+- `policy candidate`: draft suggestion card only; not a rule and not behavior-changing.
+- `.lazy-harness/rules/**`: primary canonical location for confirmed human-readable operating policies.
+- `.lazy-harness/ssot/capabilities.json`: optional machine-readable binding when the confirmed rule should steer concrete intents/actions or carry an explicit level such as `recommend`, `default`, `warn`, or `block`.
+
+Remaining open decisions:
+
+- Whether V2 runtime should emit actual update-loop event packets immediately or only event-ready metadata in the first apply slice.
+- Whether future V2 apply mode writes a profile queue file or only candidate rows after user confirmation.
+
+### Rule placement
+
+- Rule: confirmed Project Profile V2 policy candidates should become `.lazy-harness/rules/**` records first, with optional capability bindings only when action steering is needed.
+- Scope: framework-global
+- Primary record: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`
+- Why not AGENTS.md: this is Phase 2 apply/write design, not prompt grammar.
+- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; Jcode is compatibility only.
+- Confirmation: user-confirmed on 2026-06-17.
+
+### Discovery capture
+
+- DDD: none.
+- BDD: none.
+- SDD: policy storage path confirmed for future V2 apply/write design.
+- TDD: future apply/write tests should protect this path.
+- ADR: candidate if the path later changes or conflicts with Phase 3 Policy Machinery.
+- SSOT: aligns with Project Operating Rulebook and Capability Registry records.
+- Planning: updated here.
+
 ## Implementation map
 
 - Status: audit complete, first dry-run runtime slice implemented.
