@@ -96,6 +96,59 @@ Every item should have a visible status:
 - `promoted` — already moved to a canonical target
 - `superseded` — replaced by a newer queue item or record
 
+## Proposed queue schema
+
+This is the next implementation target. It remains planning-level until SDD/TDD/fixture are updated in the implementation slice.
+
+```ts
+type ProjectProfileQueueV1 = {
+  schemaVersion: 'project-profile-queue/v1'
+  sourcePacket: {
+    schemaVersion: 'project-profile-interview-v2/v1'
+    generatedAt: string
+    mode: 'interview-v2'
+  }
+  createdAt: string
+  updatedAt: string
+  dryRunSource: true
+  items: ProjectProfileQueueItem[]
+  summary: {
+    total: number
+    pending: number
+    byPrimaryRoute: Record<string, number>
+    pendingPolicyCandidates: number
+    pendingEventReadyMetadata: number
+  }
+}
+
+type ProjectProfileQueueItem = {
+  id: string
+  status: 'pending' | 'accepted' | 'rejected' | 'promoted' | 'superseded'
+  primaryRoute: 'ddd' | 'bdd' | 'sdd' | 'tdd' | 'adr' | 'ssot' | 'source-link' | 'project-map-branch' | 'policy-candidate' | 'event-ready-metadata'
+  facets: Array<'DDD' | 'BDD' | 'SDD' | 'TDD' | 'ADR' | 'SSOT' | 'Policy' | 'Project' | 'Source' | 'Evidence'>
+  relatedRoutes: string[]
+  source: {
+    kind: 'question-group' | 'project-map-seed' | 'policy-candidate' | 'unresolved-ambiguity' | 'proposed-write' | 'update-loop'
+    id: string
+  }
+  summary: string
+  evidence: Array<{ kind: string; path?: string; summary: string }>
+  promotionTarget: {
+    kind: 'record' | 'project-map-branch' | 'rulebook' | 'capability-binding' | 'candidate-row' | 'update-loop-event' | 'queue-only'
+    path?: string
+    requiresConfirmation: true
+  }
+}
+```
+
+Minimum invariant:
+
+```text
+Every item has status + primaryRoute + facets + source + evidence + promotionTarget.
+```
+
+This lets one item carry many layer implications without losing the first canonical home.
+
 ## First writer boundary
 
 First implementation should write only the queue file, for example future path:
@@ -113,6 +166,37 @@ It should not directly write:
 - canonical DDD/BDD/SDD/TDD/ADR/SSOT records
 
 Those writes belong to later explicit promote/apply phases.
+
+## Builder mapping plan
+
+Build queue items from the existing `interview-v2 --dry-run` packet as follows:
+
+| Packet source | Queue item route | Purpose |
+|---|---|---|
+| `questionGroups[]` | one or more of `ddd`/`bdd`/`sdd`/`tdd`/`ssot`/`adr` | Preserve project knowledge questions as layer-routed pending items. |
+| `projectMapSeeds[]` | `project-map-branch` | Preserve anchor/branch/edge metadata without writing canonical Project Map output. |
+| `policyCandidates[]` | `policy-candidate` | Preserve only repeated/stage-specific operating behavior candidates. |
+| `unresolvedAmbiguities[]` | route by ambiguity topic, often `ssot` or `policy-candidate` | Keep ambiguous decisions visible. |
+| `proposedWrites[]` | target layer route or `queue-only` | Record future write targets, still requiring confirmation. |
+| `updateLoop` | `event-ready-metadata` | Preserve future `project-profile-refresh` event draft without appending it. |
+
+The builder should be deterministic and idempotent: the same source packet should produce the same queue item ids.
+
+## Writer mode plan
+
+First writer command should be explicit, for example:
+
+```bash
+bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run --format json
+bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm --format json
+```
+
+Boundary:
+
+- `queue-v2 --dry-run` prints the queue only.
+- `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
+- Existing V1 `inspect/plan/apply/interview/fill` behavior remains unchanged.
+- `interview-v2` remains read-only and requires `--dry-run`.
 
 ## Why this resolves the concern
 
@@ -133,7 +217,7 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 
 1. Define `ProjectProfileQueueV1` schema/fixture and update Project Profile V2 SDD/TDD.
 2. Add `project-profile.ts` queue builder from current `interview-v2` packet.
-3. Add a first writer mode that requires explicit confirmation and writes only `.lazy-harness/project/profile-queue.json`.
+3. Add `queue-v2 --dry-run` and `queue-v2 --confirm` writer mode that writes only `.lazy-harness/project/profile-queue.json`.
 4. Add self-test checks:
    - every queue item has `primaryRoute`, `facets`, `status`, `evidence`, and `promotionTarget`,
    - queue items may have multiple facets/related routes,
@@ -141,7 +225,12 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
    - non-policy knowledge items route to canonical layers,
    - update-loop data is event-ready only,
    - no direct candidates/rules/capabilities/event append occurs.
-5. Later, design promote commands for accepted queue items.
+5. Run validation:
+   - JSON parse fixture and emitted queue packet,
+   - focused `project-profile` CLI tests,
+   - `python3 .lazy-harness/scripts/self-test.py --scope framework`,
+   - `.lazy-harness/bin/lazy test`.
+6. Later, design promote commands for accepted queue items.
 
 ## Implementation map
 
@@ -157,8 +246,21 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
   - `ProjectProfileQueueItem`
   - `primaryRoute`
   - `relatedRoutes`
+  - `buildProfileQueueV1FromInterviewV2`
   - `buildProfileQueueV1`
   - `check_project_profile_v2_queue_runtime`
+
+## Validation checklist for next implementation
+
+- `queue-v2 --dry-run` emits `schemaVersion == "project-profile-queue/v1"`.
+- `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
+- The output includes at least one non-policy layer-routed item and one policy-candidate item.
+- At least one item demonstrates `primaryRoute` with multiple `facets`/`relatedRoutes`.
+- All `promotionTarget.requiresConfirmation` values are true.
+- No direct append/write occurs to candidates/rules/capabilities/update-loop events.
+- V1 commands still pass existing tests.
+- `interview-v2 --confirm` remains blocked.
+- Full `lazy test` remains green.
 
 ## Rule placement
 
