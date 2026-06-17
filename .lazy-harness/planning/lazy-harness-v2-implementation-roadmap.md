@@ -237,7 +237,7 @@ Baseline/gap audit completed on 2026-06-17: `.lazy-harness/planning/project-prof
 
 First runtime slice completed on 2026-06-17: read-only `project-profile.ts --mode interview-v2 --dry-run --format json`. It preserves all V1 modes and does not write canonical records.
 
-Next recommended slice is the V2 apply/write decision design: resolve `policy-storage-target`, decide whether confirmed Project Profile refresh appends update-loop events or stays event-ready metadata first, and choose whether future V2 apply writes a profile queue file or candidate rows.
+V2 apply/write decisions were confirmed on 2026-06-17: confirmed policy candidates go to rulebook records first with optional capability bindings; first apply stores event-ready metadata instead of appending update-loop events immediately; first apply writes a profile queue file before later promotion to candidates/rules/capabilities/events.
 
 ### Current baseline
 

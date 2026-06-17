@@ -230,6 +230,63 @@ Remaining open decisions:
 - Whether V2 runtime should emit actual update-loop event packets immediately or only event-ready metadata in the first apply slice.
 - Whether future V2 apply mode writes a profile queue file or only candidate rows after user confirmation.
 
+## Confirmed apply/write decisions 2-3 — event metadata and queue-first apply
+
+User confirmation on 2026-06-17: use the recommended safer first implementation path.
+
+Decision 2:
+
+```text
+confirmed Project Profile refresh → event-ready metadata first → later explicit update-loop event append/promote
+```
+
+- The first V2 apply/write slice must not append official update-loop history immediately.
+- It should store enough event-ready metadata to later create a `project-profile-refresh` update-loop event.
+- This avoids making noisy or premature official history while the apply/promote flow is still being introduced.
+
+Decision 3:
+
+```text
+interview-v2 apply → profile queue file first → later promote to candidates/rules/capabilities/events
+```
+
+- The first V2 apply/write slice should write a profile queue file, not append directly to `.lazy-harness/knowledge/candidates.jsonl`.
+- The queue is the safe holding area for confirmed answers, pending policy candidates, unresolved ambiguities, and event-ready metadata.
+- Later promote logic can move accepted items to Project Map candidates, `.lazy-harness/rules/**`, optional capability bindings, canonical records, or update-loop events.
+
+Policy candidate criteria:
+
+- Create a policy candidate when evidence describes repeated or stage-specific operating behavior, not mere facts.
+- Signals include: “always”, “normally”, “before push”, “must ask”, “must not”, “prefer/avoid”, approval gates, security/privacy constraints, dependency/tooling rules, validation gates, release gates, and ownership boundaries.
+- Do not create one for one-off task commands, simple facts, API/component contracts, bug reports, or ambiguous questions with no proposed operating behavior.
+- Ambiguous policy-like material stays `discover` or `unresolvedAmbiguities`; `warn`/`block` require explicit confirmation or canonical evidence.
+
+No-silent-pass-through rule:
+
+- Future `interview-v2 apply` must not silently drop policy candidates.
+- Queue entries must keep a visible status such as `pending`, `accepted`, `rejected`, or `promoted`.
+- Apply output should summarize pending items so humans/agents can revisit them.
+- Promotion requires explicit user/team confirmation or accepted policy record evidence.
+
+### Rule placement
+
+- Rule: first V2 apply/write implementation should store event-ready metadata and a profile queue first, while keeping policy candidates visible until accepted/rejected/promoted.
+- Scope: framework-global
+- Primary record: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`
+- Why not AGENTS.md: this is Phase 2 Project Profile apply/write design, not prompt grammar.
+- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; Jcode is compatibility only.
+- Confirmation: user-confirmed on 2026-06-17.
+
+### Discovery capture
+
+- DDD: none.
+- BDD: future apply behavior should expose pending candidates instead of silently dropping them.
+- SDD: event-ready metadata first, profile queue first, and candidate criteria confirmed.
+- TDD: future apply/write tests should protect queue visibility and no immediate update-loop append.
+- ADR: candidate if queue-first vs direct-candidate-row trade-off changes.
+- SSOT: aligns with Project Map ingestion source vocabulary and rulebook/capability records.
+- Planning: updated here.
+
 ### Rule placement
 
 - Rule: confirmed Project Profile V2 policy candidates should become `.lazy-harness/rules/**` records first, with optional capability bindings only when action steering is needed.

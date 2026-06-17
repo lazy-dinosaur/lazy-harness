@@ -193,6 +193,22 @@ Initial candidate rule:
 - If the user explicitly says “normally do X,” initial level may be `recommend` or `default`.
 - `warn` and `block` require explicit confirmation or existing canonical policy evidence.
 
+Candidate creation criteria:
+
+- Create a policy candidate when interview/source/user evidence says how the agent or project should behave repeatedly, conditionally, or at a lifecycle stage.
+- Typical signals: “always”, “normally”, “before push”, “when editing DB/schema”, “must ask”, “must not”, “prefer X”, “avoid Y”, “needs approval”, security/privacy/compliance constraints, dependency/tooling rules, validation gates, release gates, or ownership boundaries.
+- Do not create a policy candidate for a one-off task instruction, a plain factual fact, an API/component contract, a bug report, or an unresolved question with no proposed operating behavior.
+- If evidence is ambiguous, keep it as `unresolvedAmbiguities` or `discover`, not `warn`/`block`.
+- A candidate must carry enough context for a human to decide: source question/evidence, suggested stage, suggested level, and intended behavior.
+
+No-silent-pass-through rule:
+
+- Future `interview-v2 apply` must not drop policy candidates silently.
+- Confirmed or pending policy candidates should first be written to a profile queue file with status such as `pending`, `accepted`, `rejected`, or `promoted`.
+- The queue summary should show remaining pending candidates so humans/agents can revisit them.
+- Promotion from the queue follows: `policy candidate → confirmed rulebook record → optional capability binding`.
+- Update-loop event append remains a later promote step; the first apply slice stores event-ready metadata only.
+
 ## Output targets
 
 V2 interview should plan writes into canonical records, but not write them without confirmation.
