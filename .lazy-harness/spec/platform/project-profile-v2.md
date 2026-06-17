@@ -160,6 +160,15 @@ The same pattern must support non-test clusters, such as dependency additions, D
 
 Project Interview V2 should emit policy candidates using the same stage/level vocabulary as Project Map V2:
 
+Plain-language role:
+
+- A policy candidate is a **draft suggestion card**, not a rule.
+- It says: “The project might want a rule here. Should we confirm it?”
+- It is safe to generate from interview answers or source evidence because it does not change agent behavior by itself.
+- If confirmed as an operating policy, the human-readable rule belongs in `.lazy-harness/rules/**`.
+- If that rule should steer commands/actions, `.lazy-harness/ssot/capabilities.json` links it to machine-readable actions and an explicit level.
+- Therefore the usual path is: `policy candidate → confirmed rulebook record → optional capability binding`.
+
 Stages:
 
 - `turn`
