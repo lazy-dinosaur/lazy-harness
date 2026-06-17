@@ -231,6 +231,12 @@ Phase 1.5 should include an early adapter boundary note even though full adapter
 
 Keep Project Interview as an install-time, mid-project adoption, or refresh channel for Project Profile bootstrap, missing-context detection, Project Map seeding, and policy discovery. Do not implement Project Interview runtime until the Phase 1.5 update loop defines shared update semantics.
 
+### Audit status
+
+Baseline/gap audit completed on 2026-06-17: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`.
+
+Next recommended implementation slice is read-only `project-profile.ts --mode interview-v2 --dry-run --format json`; it must preserve all V1 modes and must not write canonical records.
+
 ### Current baseline
 
 `project-profile.ts` already supports:
