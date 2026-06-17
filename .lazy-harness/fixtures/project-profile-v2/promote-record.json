@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-cea8a0880301",
+    "status": "promoted",
+    "primaryRoute": "facts",
+    "facets": [
+      "DDD",
+      "BDD",
+      "Project"
+    ],
+    "relatedRoutes": [
+      "expectations"
+    ],
+    "promotionTarget": {
+      "kind": "record",
+      "path": ".lazy-harness/domain/",
+      "requiresConfirmation": true
+    },
+    "source": {
+      "kind": "question-group",
+      "id": "project-purpose"
+    },
+    "summary": "Project purpose and constraints: facts, expectations",
+    "evidence": [
+      {
+        "kind": "project-profile-question-group",
+        "summary": "Derived from interview-v2 question group project-purpose"
+      }
+    ],
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/domain/project-purpose.md"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "record",
+        "path": ".lazy-harness/domain/project-purpose.md",
+        "status": "applied",
+        "action": "create-record",
+        "summary": "Created needs-interview record target for PPQ-cea8a0880301",
+        "reason": "Record target writer creates only needs-interview skeletons and does not assert confirmed project facts."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "record",
+      "path": ".lazy-harness/domain/project-purpose.md",
+      "status": "applied",
+      "action": "create-record",
+      "summary": "Created needs-interview record target for PPQ-cea8a0880301",
+      "reason": "Record target writer creates only needs-interview skeletons and does not assert confirmed project facts."
+    }
+  ],
+  "queueUpdate": {
+    "id": "PPQ-cea8a0880301",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/domain/project-purpose.md"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/domain/project-purpose.md",
+      "action": "written",
+      "summary": "Create needs-interview record target for PPQ-cea8a0880301"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-cea8a0880301 in Project Profile queue and applied record target writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and a needs-interview record target.",
+    "The generated record target is a skeleton and must not be treated as confirmed project truth.",
+    "No rulebook, capability, candidate row, or update-loop event was written."
+  ]
+}

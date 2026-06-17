@@ -7,65 +7,64 @@
   "dryRun": false,
   "queuePath": ".lazy-harness/project/profile-queue.json",
   "item": {
-    "id": "PPQ-cea8a0880301",
+    "id": "PPQ-19177e9733fd",
     "status": "promoted",
-    "primaryRoute": "facts",
+    "primaryRoute": "policies",
     "facets": [
-      "DDD",
-      "BDD",
-      "Project"
+      "Policy",
+      "SSOT"
     ],
     "relatedRoutes": [
-      "expectations"
+      "ownership"
     ],
     "promotionTarget": {
-      "kind": "record",
-      "path": ".lazy-harness/domain/",
+      "kind": "rulebook",
+      "path": ".lazy-harness/rules/",
       "requiresConfirmation": true
     },
     "source": {
       "kind": "question-group",
-      "id": "project-purpose"
+      "id": "workflow-policy"
     },
-    "summary": "Project purpose and constraints: facts, expectations",
+    "summary": "Commit, push, PR, review, and release workflow: policies, expectations",
     "evidence": [
       {
         "kind": "project-profile-question-group",
-        "summary": "Derived from interview-v2 question group project-purpose"
+        "summary": "Derived from interview-v2 question group workflow-policy"
       }
     ],
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/domain/"
+      ".lazy-harness/rules/"
     ],
     "promotionEffects": [
       {
-        "kind": "record",
-        "path": ".lazy-harness/domain/",
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
         "status": "deferred",
         "action": "defer-target-writer",
-        "summary": "Deferred record target writer for PPQ-cea8a0880301 to .lazy-harness/domain/",
+        "summary": "Deferred rulebook target writer for PPQ-19177e9733fd to .lazy-harness/rules/",
         "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
       }
     ]
   },
   "targetEffects": [
     {
-      "kind": "record",
-      "path": ".lazy-harness/domain/",
+      "kind": "rulebook",
+      "path": ".lazy-harness/rules/",
       "status": "deferred",
       "action": "defer-target-writer",
-      "summary": "Deferred record target writer for PPQ-cea8a0880301 to .lazy-harness/domain/",
+      "summary": "Deferred rulebook target writer for PPQ-19177e9733fd to .lazy-harness/rules/",
       "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
     }
   ],
   "queueUpdate": {
-    "id": "PPQ-cea8a0880301",
+    "id": "PPQ-19177e9733fd",
     "from": "accepted",
     "to": "promoted",
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/domain/"
+      ".lazy-harness/rules/"
     ],
     "previewOnly": false
   },
@@ -73,7 +72,7 @@
     {
       "path": ".lazy-harness/project/profile-queue.json",
       "action": "written",
-      "summary": "Promoted PPQ-cea8a0880301 in Project Profile queue only"
+      "summary": "Promoted PPQ-19177e9733fd in Project Profile queue only"
     }
   ],
   "warnings": [

@@ -4476,6 +4476,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_confirm_fixture = json.loads(promote_confirm_fixture_path.read_text(encoding="utf-8"))
     if promote_confirm_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_confirm_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote confirm fixture schema/mode mismatch")
+    promote_record_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-record.json"
+    if not promote_record_fixture_path.exists():
+        fail("Project Profile V2 promote record fixture missing: " + str(promote_record_fixture_path.relative_to(ROOT)))
+    promote_record_fixture = json.loads(promote_record_fixture_path.read_text(encoding="utf-8"))
+    if promote_record_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_record_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote record fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4546,6 +4552,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         if applied.get("mode") != "project-profile.queue-v2-apply" or applied.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-queue.json":
             fail("project-profile queue-v2 --confirm should report only profile-queue.json write")
         pending_item_id = written_queue["items"][0]["id"]
+        non_record_item_id = next(item["id"] for item in written_queue["items"] if item.get("promotionTarget", {}).get("kind") != "record")
         pending_promote = subprocess.run(
             [
                 "bun",
@@ -4625,8 +4632,8 @@ def check_project_profile_v2_queue_runtime() -> None:
         planned_writes = promote_preview.get("plannedWrites", [])
         if not planned_writes or planned_writes[0].get("requiresConfirmation") is not True or planned_writes[0].get("action") != promote_fixture.get("plannedWrites", [{}])[0].get("action"):
             fail("project-profile promote-v2 preview must expose confirmation-gated planned writes")
-        before_confirm_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
-        promote_confirm = subprocess.run(
+        before_record_confirm_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_record = subprocess.run(
             [
                 "bun",
                 str(LAZY / "scripts" / "project-profile.ts"),
@@ -4644,35 +4651,40 @@ def check_project_profile_v2_queue_runtime() -> None:
             capture_output=True,
             check=False,
         )
-        if promote_confirm.returncode != 0:
-            fail("project-profile promote-v2 --confirm failed:\n" + promote_confirm.stdout + promote_confirm.stderr)
-        promote_result = json.loads(promote_confirm.stdout)
-        after_confirm_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
-        if after_confirm_files != before_confirm_files or after_confirm_files != [".lazy-harness/project/profile-queue.json"]:
-            fail("project-profile promote-v2 --confirm must write only profile-queue.json: " + json.dumps(after_confirm_files, ensure_ascii=False))
+        if promote_record.returncode != 0:
+            fail("project-profile promote-v2 record target --confirm failed:\n" + promote_record.stdout + promote_record.stderr)
+        promote_record_result = json.loads(promote_record.stdout)
+        after_record_confirm_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_record_files = sorted(before_record_confirm_files + [".lazy-harness/domain/project-purpose.md"])
+        if after_record_confirm_files != expected_record_files:
+            fail("project-profile promote-v2 record target must write only queue plus deterministic record: " + json.dumps(after_record_confirm_files, ensure_ascii=False))
         confirmed_queue = json.loads(queue_file.read_text(encoding="utf-8"))
         if "appliedWrites" in confirmed_queue:
             fail("promote-v2 --confirm must not persist transient appliedWrites in queue file")
         confirmed_item = confirmed_queue["items"][0]
         if confirmed_item.get("id") != pending_item_id or confirmed_item.get("status") != "promoted":
             fail("promote-v2 --confirm must mark exactly the selected accepted item as promoted")
-        if not confirmed_item.get("promotedAt") or confirmed_item.get("promotedTo") != [promote_fixture.get("plannedWrites", [{}])[0].get("path")]:
+        if not confirmed_item.get("promotedAt") or confirmed_item.get("promotedTo") != [promote_record_fixture.get("targetEffects", [{}])[0].get("path")]:
             fail("promote-v2 --confirm must persist promotedAt/promotedTo metadata")
         effects = confirmed_item.get("promotionEffects", [])
-        if not effects or effects[0].get("status") != "deferred" or effects[0].get("action") != "defer-target-writer":
-            fail("promote-v2 --confirm must persist deferred target effects")
+        if not effects or effects[0].get("status") != "applied" or effects[0].get("action") != "create-record":
+            fail("promote-v2 --confirm must persist applied record target effects")
         if confirmed_queue.get("summary", {}).get("pending") != len(confirmed_queue.get("items", [])) - 1:
             fail("promote-v2 --confirm must update queue pending summary")
-        if promote_result.get("schemaVersion") != promote_confirm_fixture.get("schemaVersion") or promote_result.get("mode") != promote_confirm_fixture.get("mode"):
-            fail("project-profile promote-v2 confirm schema/mode mismatch")
-        if promote_result.get("item", {}).get("status") != "promoted" or promote_result.get("queueUpdate", {}).get("previewOnly") is not False:
-            fail("project-profile promote-v2 confirm must report a real queue status update")
-        target_effects = promote_result.get("targetEffects", [])
-        if not target_effects or target_effects[0].get("status") != promote_confirm_fixture.get("targetEffects", [{}])[0].get("status"):
-            fail("project-profile promote-v2 confirm must expose deferred target effects")
-        applied_writes = promote_result.get("appliedWrites", [])
-        if applied_writes != promote_confirm_fixture.get("appliedWrites"):
-            fail("project-profile promote-v2 confirm must report only queue-file applied write")
+        record_file = root / ".lazy-harness" / "domain" / "project-purpose.md"
+        record_text = record_file.read_text(encoding="utf-8")
+        if "Status: needs-interview" not in record_text or "treat this generated skeleton as confirmed project truth" not in record_text:
+            fail("project-profile promote-v2 record target must create a needs-interview skeleton with anti-truth warning")
+        if promote_record_result.get("schemaVersion") != promote_record_fixture.get("schemaVersion") or promote_record_result.get("mode") != promote_record_fixture.get("mode"):
+            fail("project-profile promote-v2 record schema/mode mismatch")
+        if promote_record_result.get("item", {}).get("status") != "promoted" or promote_record_result.get("queueUpdate", {}).get("previewOnly") is not False:
+            fail("project-profile promote-v2 record target must report a real queue status update")
+        record_target_effects = promote_record_result.get("targetEffects", [])
+        if not record_target_effects or record_target_effects[0].get("status") != promote_record_fixture.get("targetEffects", [{}])[0].get("status") or record_target_effects[0].get("action") != promote_record_fixture.get("targetEffects", [{}])[0].get("action"):
+            fail("project-profile promote-v2 record target must expose applied record effects")
+        record_applied_writes = promote_record_result.get("appliedWrites", [])
+        if record_applied_writes != promote_record_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 record target must report record and queue writes")
         promote_again = subprocess.run(
             [
                 "bun",
@@ -4693,6 +4705,41 @@ def check_project_profile_v2_queue_runtime() -> None:
         )
         if promote_again.returncode == 0 or "status=promoted" not in promote_again.stderr:
             fail("project-profile promote-v2 --confirm must reject already-promoted items")
+        confirmed_queue["items"] = [
+            {**item, "status": "accepted"} if item.get("id") == non_record_item_id else item
+            for item in confirmed_queue["items"]
+        ]
+        queue_file.write_text(json.dumps(confirmed_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_non_record_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_non_record = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                non_record_item_id,
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_non_record.returncode != 0:
+            fail("project-profile promote-v2 non-record target --confirm failed:\n" + promote_non_record.stdout + promote_non_record.stderr)
+        non_record_result = json.loads(promote_non_record.stdout)
+        after_non_record_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        if after_non_record_files != before_non_record_files:
+            fail("project-profile promote-v2 non-record target must not write additional canonical files")
+        non_record_effects = non_record_result.get("targetEffects", [])
+        if not non_record_effects or non_record_effects[0].get("status") != promote_confirm_fixture.get("targetEffects", [{}])[0].get("status") or non_record_effects[0].get("action") != "defer-target-writer":
+            fail("project-profile promote-v2 non-record target must remain deferred")
+        if non_record_result.get("appliedWrites") != promote_confirm_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 non-record target must report only queue-file applied write")
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))

@@ -281,10 +281,19 @@ interface ProjectProfileQueueV1 {
 interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
-  status: 'deferred'
-  action: 'defer-target-writer'
+  status: 'applied' | 'deferred'
+  action: 'create-record' | 'skip-existing-record' | 'defer-target-writer'
   summary: string
   reason: string
+}
+
+interface ProjectProfileRecordPromotionWrite {
+  kind: 'record'
+  path: string
+  action: 'create' | 'skip-existing'
+  content: string
+  summary: string
+  effect: ProjectProfilePromotionTargetEffect
 }
 
 interface ProjectProfilePromoteV2Preview {
@@ -332,7 +341,7 @@ interface ProjectProfilePromoteV2Result {
     promotedTo: string[]
     previewOnly: false
   }
-  appliedWrites: Array<{ path: string; action: 'written'; summary: string }>
+  appliedWrites: Array<{ path: string; action: 'written' | 'skipped'; summary: string }>
   warnings: string[]
 }
 
@@ -643,6 +652,47 @@ function renderPlanMd(result: PlanResult): string {
 
 function stableId(value: string): string {
   return `PPQ-${createHash('sha256').update(value).digest('hex').slice(0, 12)}`
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'project-profile-record'
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function layerForRecordPath(path: string, fallback: QueuePrimaryRoute): 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'ADR' | 'SSOT' | 'Planning' {
+  if (path.includes('/domain/')) return 'DDD'
+  if (path.includes('/behavior/')) return 'BDD'
+  if (path.includes('/spec/')) return 'SDD'
+  if (path.includes('/tests/')) return 'TDD'
+  if (path.includes('/decisions/')) return 'ADR'
+  if (path.includes('/ssot/')) return 'SSOT'
+  if (path.includes('/planning/') || path.includes('/plans/')) return 'Planning'
+  if (fallback === 'facts') return 'DDD'
+  if (fallback === 'expectations') return 'BDD'
+  if (fallback === 'contracts') return 'SDD'
+  if (fallback === 'validation') return 'TDD'
+  if (fallback === 'decisions') return 'ADR'
+  if (fallback === 'ownership') return 'SSOT'
+  return 'Planning'
+}
+
+function recordPathForPromotion(item: ProjectProfileQueueItem): string {
+  const base = item.promotionTarget.path || '.lazy-harness/planning/'
+  if (base.endsWith('.md')) return base
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`
+  const sourceId = item.source.id || item.id
+  return `${normalizedBase}${slugify(sourceId)}.md`
 }
 
 function labelForTarget(path: string, elementName: string, attrs: string): string {
@@ -1127,6 +1177,117 @@ function buildPromotionTargetEffect(item: ProjectProfileQueueItem): ProjectProfi
   }
 }
 
+function buildRecordPromotionWrite(item: ProjectProfileQueueItem, generatedAt: string, root: string): ProjectProfileRecordPromotionWrite | null {
+  if (item.promotionTarget.kind !== 'record') return null
+  const path = recordPathForPromotion(item)
+  const abs = join(root, path)
+  const exists = existsSync(abs)
+  const layer = layerForRecordPath(path, item.primaryRoute)
+  const sourceLabel = titleCase(item.source.id || item.primaryRoute)
+  const title = `${layer} — Project Profile: ${sourceLabel}`
+  const nodeId = slugify(item.source.id || item.id)
+  const facets = item.facets.join(', ')
+  const relatedRoutes = item.relatedRoutes.length ? item.relatedRoutes.join(', ') : 'none'
+  const evidence = item.evidence.length
+    ? item.evidence.map((entry) => `- ${entry.path ? `\`${entry.path}\` — ` : ''}${entry.summary}`).join('\n')
+    : '- none'
+  const content = `# ${title}
+
+Status: needs-interview
+Date: ${generatedAt.slice(0, 10)}
+Layer: ${layer}
+Source: Project Profile V2 queue item \`${item.id}\`
+
+## Rule digest
+
+- Status: needs-review
+- Layer: ${layer}
+- Scope: host-project
+- Applies when:
+  - completing Project Profile V2 queue item \`${item.id}\`
+  - filling ${item.primaryRoute} information discovered by Project Interview V2
+- Must:
+  - replace needs-interview placeholders with explicit confirmed project facts before relying on this record
+  - keep Project Profile queue evidence linked until the record is completed
+- Must not:
+  - treat this generated skeleton as confirmed project truth
+- Record completion:
+  - update this record when the corresponding Project Profile answers are confirmed
+- Related records:
+  - \`.lazy-harness/spec/platform/project-profile-v2.md\`
+  - \`.lazy-harness/tests/project-profile-v2.md\`
+
+## Project Profile queue promotion
+
+- Queue item: \`${item.id}\`
+- Source: ${item.source.kind} / \`${item.source.id}\`
+- Primary route: ${item.primaryRoute}
+- Facets: ${facets}
+- Related routes: ${relatedRoutes}
+- Summary: ${item.summary}
+- Promoted at: ${generatedAt}
+- Completion status: needs-interview
+
+## Evidence
+
+${evidence}
+
+## Project Map branch
+
+- Anchor: \`project-profile-v2\`
+- Branch: \`${item.primaryRoute}\`
+- Node: \`${nodeId}\`
+- Primary: \`${item.primaryRoute}\`
+- Facets: ${facets}
+- Edges:
+  - \`project-profile-v2 --seeds--> ${nodeId}\`
+- Related records:
+  - \`.lazy-harness/spec/platform/project-profile-v2.md\`
+  - \`.lazy-harness/tests/project-profile-v2.md\`
+
+## Implementation map
+
+- Status: planned
+- Primary files:
+  - \`${path}\` — generated needs-interview record target.
+  - \`.lazy-harness/scripts/project-profile.ts\` — record target writer.
+  - \`.lazy-harness/project/profile-queue.json\` — queue source when present.
+- Key symbols:
+  - \`project-profile.ts#buildRecordPromotionWrite\`
+  - \`project-profile.ts#applyPromoteV2\`
+- Protection:
+  - \`self-test.py#check_project_profile_v2_queue_runtime\`
+- Ownership boundaries:
+  - This generated record is not confirmed domain/project truth until a user fills it.
+  - Do not escalate this skeleton to active guidance without explicit confirmation.
+
+## Discovery capture
+
+- DDD: ${layer === 'DDD' ? 'candidate needs-interview record created' : 'none'}.
+- BDD: ${layer === 'BDD' ? 'candidate needs-interview record created' : 'none'}.
+- SDD: ${layer === 'SDD' ? 'candidate needs-interview record created' : 'updated, Project Profile V2 record writer created this skeleton'}.
+- TDD: ${layer === 'TDD' ? 'candidate needs-interview record created' : 'covered by Project Profile V2 queue runtime self-test'}.
+- ADR: ${layer === 'ADR' ? 'candidate needs-interview record created' : 'none'}.
+- SSOT: ${layer === 'SSOT' ? 'candidate needs-interview record created' : 'none'}.
+- Planning: Project Profile V2 queue item promoted to a needs-interview record skeleton.
+`
+  return {
+    kind: 'record',
+    path,
+    action: exists ? 'skip-existing' : 'create',
+    content,
+    summary: exists ? `Record target already exists for ${item.id}` : `Create needs-interview record target for ${item.id}`,
+    effect: {
+      kind: 'record',
+      path,
+      status: 'applied',
+      action: exists ? 'skip-existing-record' : 'create-record',
+      summary: exists ? `Record target already existed for ${item.id}` : `Created needs-interview record target for ${item.id}`,
+      reason: 'Record target writer creates only needs-interview skeletons and does not assert confirmed project facts.',
+    },
+  }
+}
+
 function selectAcceptedPromotionItem(root: string, itemId?: string): { queue: ProjectProfileQueueV1; item: ProjectProfileQueueItem; index: number } {
   if (!itemId) throw new Error('promote-v2 requires --item <queue-item-id>')
   const queue = readProfileQueue(root)
@@ -1182,7 +1343,8 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   if (!args.confirm || args.dryRun) throw new Error('promote-v2 --confirm requires --confirm without --dry-run')
   const { queue, item, index } = selectAcceptedPromotionItem(args.root, args.item)
   const generatedAt = new Date().toISOString()
-  const targetEffects = [buildPromotionTargetEffect(item)]
+  const recordWrite = buildRecordPromotionWrite(item, generatedAt, args.root)
+  const targetEffects = [recordWrite?.effect || buildPromotionTargetEffect(item)]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1207,9 +1369,21 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       'Canonical target writers remain deferred by target kind.',
     ],
   }
+  const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
+  if (recordWrite) {
+    const recordAbs = join(args.root, recordWrite.path)
+    if (recordWrite.action === 'create') {
+      ensureParent(recordAbs)
+      writeFileSync(recordAbs, recordWrite.content, 'utf8')
+      appliedWrites.push({ path: recordWrite.path, action: 'written', summary: recordWrite.summary })
+    } else {
+      appliedWrites.push({ path: recordWrite.path, action: 'skipped', summary: recordWrite.summary })
+    }
+  }
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1228,12 +1402,18 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       promotedTo,
       previewOnly: false,
     },
-    appliedWrites: [{ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue only` }],
-    warnings: [
-      'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
-      'Target-specific canonical writers were separated as deferred effects.',
-      'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
-    ],
+    appliedWrites,
+    warnings: recordWrite
+      ? [
+        'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and a needs-interview record target.',
+        'The generated record target is a skeleton and must not be treated as confirmed project truth.',
+        'No rulebook, capability, candidate row, or update-loop event was written.',
+      ]
+      : [
+        'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
+        'Target-specific canonical writers were separated as deferred effects.',
+        'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
+      ],
   }
 }
 

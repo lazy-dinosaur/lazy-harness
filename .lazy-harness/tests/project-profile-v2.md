@@ -1,6 +1,6 @@
 # TDD — Project Profile V2 / Project Interview Policy Discovery
 
-Status: active-runtime-promote-v2-confirm-queue
+Status: active-runtime-promote-v2-record-writer
 Date: 2026-06-16
 Updated: 2026-06-17
 Layer: TDD
@@ -10,7 +10,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 
 ## Rule digest
 
-- Status: active-runtime-promote-v2-confirm-queue
+- Status: active-runtime-promote-v2-record-writer
 - Layer: TDD
 - Scope: framework-global
 - Applies when:
@@ -25,13 +25,15 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - verify dry-run and confirmed-only write semantics
   - verify queue-v2 emits typed queue items and writes only `.lazy-harness/project/profile-queue.json`
   - verify promote-v2 dry-run preview requires `status=accepted` and does not mutate queue/canonical targets
-  - verify promote-v2 confirmed writer requires `status=accepted`, writes only the queue file, and records deferred target effects
+  - verify promote-v2 non-record targets write only the queue file and record deferred target effects
+  - verify promote-v2 record writer creates only deterministic `needs-interview` record skeletons for `promotionTarget.kind=record`
   - verify forbidden semantic-authority fields are absent
 - Must not:
   - permit silent defaults
   - permit unconfirmed facts/policies to become canonical writes
   - permit promote-v2 preview to write records/rules/capabilities/update-loop events or queue status changes
-  - permit first promote-v2 confirm writer to write canonical records/rules/capabilities/candidates/update-loop events
+  - permit promote-v2 record writer to assert confirmed project facts without explicit answers
+  - permit non-record target writers to write rules/capabilities/candidates/update-loop events in the record-writer slice
   - center the model on tests only
   - require write/apply behavior before a separate approval
 - Record completion:
@@ -63,8 +65,10 @@ The design fixture is:
 | `project_profile_v2_promote_requires_accepted` | `promote-v2 --dry-run` on pending item | command fails and reports that only `status=accepted` items can be previewed. |
 | `project_profile_v2_promote_preview_boundary` | accepted item + `promote-v2 --dry-run` | emits `project-profile-promote-preview/v1`, echoes accepted item, shows accepted→promoted preview update, exposes confirmation-gated planned writes, and writes nothing. |
 | `project_profile_v2_promote_requires_mode` | `promote-v2` without `--dry-run` or `--confirm` | command is blocked because one explicit mode is required. |
-| `project_profile_v2_promote_confirm_queue_only` | accepted item + `promote-v2 --confirm` | emits `project-profile-promote-result/v1`, writes only profile queue, marks exactly one item promoted, records promoted metadata, and records deferred target effects. |
+| `project_profile_v2_promote_confirm_queue_only` | accepted non-record item + `promote-v2 --confirm` | emits `project-profile-promote-result/v1`, writes only profile queue, marks exactly one item promoted, records promoted metadata, and records deferred target effects. |
 | `project_profile_v2_promote_confirm_rejects_reuse` | already promoted item + `promote-v2 --confirm` | command fails because only `status=accepted` items can be promoted. |
+| `project_profile_v2_promote_record_writer` | accepted `promotionTarget.kind=record` item + `promote-v2 --confirm` | writes queue plus one deterministic `needs-interview` record skeleton, reports an applied record effect, and does not write non-record targets. |
+| `project_profile_v2_promote_non_record_deferred` | accepted non-record item + `promote-v2 --confirm` | writes only queue status/promoted metadata and persists a deferred effect. |
 
 ## Acceptance assertions for implemented runtime
 
@@ -88,10 +92,12 @@ The design fixture is:
 16. `promote-v2 --confirm` rejects pending/already-promoted items and accepts only `status=accepted` queue items.
 17. `promote-v2 --confirm` emits `project-profile-promote-result/v1`, writes only `.lazy-harness/project/profile-queue.json`, and marks exactly one item promoted.
 18. `promote-v2 --confirm` records target-specific deferred effects and does not write canonical targets.
+19. `promote-v2 --confirm` for `promotionTarget.kind=record` writes one deterministic `needs-interview` record target and marks the effect applied.
+20. `promote-v2 --confirm` for non-record targets keeps canonical target effects deferred.
 
 ## Implementation map
 
-- Status: promote-v2 confirmed queue-status writer slice implemented.
+- Status: promote-v2 record target writer slice implemented.
 - Primary files:
   - `.lazy-harness/tests/project-profile-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD output contract.
@@ -100,7 +106,8 @@ The design fixture is:
   - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — queue-v2 output fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-preview.json` — promote-v2 preview fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-confirm.json` — promote-v2 confirm queue-status result fixture.
-  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, and first `promote-v2 --confirm` queue-status writer.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-record.json` — promote-v2 record writer result fixture.
+  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, and record target writer.
   - `.lazy-harness/scripts/self-test.py` — protects interview/queue/promote runtime packet shapes, write boundaries, and V1 backward compatibility.
 - Key symbols:
   - `project-profile.ts#ProjectProfileInterviewV2Packet`
@@ -114,7 +121,9 @@ The design fixture is:
   - `project-profile.ts#ProjectProfilePromoteV2Preview`
   - `project-profile.ts#ProjectProfilePromoteV2Result`
   - `project-profile.ts#ProjectProfilePromotionTargetEffect`
+  - `project-profile.ts#ProjectProfileRecordPromotionWrite`
   - `project-profile.ts#buildPromoteV2Preview`
+  - `project-profile.ts#buildRecordPromotionWrite`
   - `project-profile.ts#applyPromoteV2`
   - `project-profile.ts#renderPromoteV2Md`
   - `self-test.py#check_project_profile_v2_runtime`
@@ -132,7 +141,7 @@ The design fixture is:
   - `interview-v2 --confirm` is blocked.
   - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
   - `promote-v2 --dry-run` requires `status=accepted` and previews only, with no queue/canonical mutation.
-  - `promote-v2 --confirm` writes only queue status/promoted metadata and emits deferred target effects.
+  - `promote-v2 --confirm` writes queue status/promoted metadata and, only for record targets, a deterministic `needs-interview` record skeleton.
   - no candidates/rules/capabilities/update-loop event append happens in this slice.
 
 ## Layer completeness impact
@@ -143,7 +152,7 @@ The design fixture is:
 - TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview, category-first queue, promote preview, and confirmed queue-status promotion packets.
 - ADR: future ADR needed before replacing V1 mode semantics.
 - SSOT: policy/capability/taxonomy SSOT inputs are referenced, not changed here.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, and first confirmed queue-status promotion writer implemented; canonical target writers remain future work.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, and record target writer implemented; non-record target writers remain future work.
 
 ## Rule placement
 
@@ -158,8 +167,8 @@ The design fixture is:
 
 - DDD: future domain branch coverage.
 - BDD: future behavior/policy coverage.
-- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result`, category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`, `project-profile.ts#buildPromoteV2Preview`, and `project-profile.ts#applyPromoteV2`.
+- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result`, category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`, `project-profile.ts#buildPromoteV2Preview`, `project-profile.ts#buildRecordPromotionWrite`, and `project-profile.ts#applyPromoteV2`.
 - TDD: updated here and in `self-test.py#check_project_profile_v2_runtime` plus `self-test.py#check_project_profile_v2_queue_runtime`.
 - ADR: none yet; ADR required only before replacing V1 behavior.
 - SSOT: no SSOT mutation; uses Project Map ingestion source vocabulary.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, and first confirmed queue-status promotion writer implemented; canonical target writers deferred.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, and record target writer implemented; non-record target writers deferred.
