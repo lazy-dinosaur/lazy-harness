@@ -20,7 +20,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 - Must:
   - keep normal implementation/Figma/domain/API/test knowledge routed directly to canonical layer records/Project Map branches when confirmed
   - use policy candidates only for repeated/stage-specific operating behavior
-  - write a typed profile queue first, with every queue item carrying an explicit route and status
+  - write a typed profile queue first, with every queue item carrying an explicit primary route, optional related routes/facets, and status
   - keep update-loop output as event-ready metadata in the first apply slice
   - avoid direct writes to candidates/rules/capabilities/update-loop events in the first queue-writer slice
 - Must not:
@@ -37,13 +37,23 @@ The next slice should be a **typed queue/router**, not a policy-candidate funnel
 interview-v2 dry-run
 → user reviews packet
 → queue writer creates/updates profile queue
-→ each queue item has route + status
+→ each queue item has primaryRoute + facets/relatedRoutes + status
 → later promote moves items to canonical targets
 ```
 
 ## Queue item routes
 
-Use explicit routes, for example:
+Use one primary route plus optional related routes/facets.
+
+This mirrors Project Map V2's `primary + facets` model:
+
+```text
+primaryRoute: the first canonical home/promotion target
+facets: additional lenses/layers affected by the item
+relatedRoutes: optional secondary queue routes/promotions to create later
+```
+
+Available routes include:
 
 - `ddd` — domain terms/facts/business meaning
 - `bdd` — user-visible behavior/workflows/Figma behavior
@@ -55,6 +65,26 @@ Use explicit routes, for example:
 - `project-map-branch` — Project Map metadata/branch edge
 - `policy-candidate` — repeated/stage-specific operating behavior candidate
 - `event-ready-metadata` — future update-loop event draft, not appended yet
+
+Examples:
+
+```json
+{
+  "primaryRoute": "bdd",
+  "facets": ["BDD", "SDD", "TDD"],
+  "relatedRoutes": ["sdd", "tdd"],
+  "summary": "Figma mobile modal behavior also affects component contract and regression coverage"
+}
+```
+
+```json
+{
+  "primaryRoute": "sdd",
+  "facets": ["SDD", "BDD"],
+  "relatedRoutes": ["bdd"],
+  "summary": "Approval API contract also changes visible approval flow expectations"
+}
+```
 
 ## Queue item status
 
@@ -86,15 +116,15 @@ Those writes belong to later explicit promote/apply phases.
 
 ## Why this resolves the concern
 
-Most human implementation conversation is normal project knowledge, not policy material. The queue only preserves mixed interview/apply output so it does not vanish. Routing happens per item:
+Most human implementation conversation is normal project knowledge, not policy material. The queue only preserves mixed interview/apply output so it does not vanish. Routing happens per item with one primary route and many facets/related routes:
 
 ```text
-Figma behavior item → route=bdd or sdd
-API payload item → route=sdd
-Domain meaning item → route=ddd
-Regression item → route=tdd
-Operating behavior item → route=policy-candidate
-Project refresh event draft → route=event-ready-metadata
+Figma behavior item → primaryRoute=bdd, facets=[BDD, SDD], relatedRoutes=[sdd]
+API payload item → primaryRoute=sdd, facets=[SDD, BDD], relatedRoutes=[bdd]
+Domain meaning item → primaryRoute=ddd, facets=[DDD, SSOT]
+Regression item → primaryRoute=tdd, facets=[TDD, BDD]
+Operating behavior item → primaryRoute=policy-candidate, facets=[Policy, SSOT]
+Project refresh event draft → primaryRoute=event-ready-metadata, facets=[Project, Evidence]
 ```
 
 So knowledge can still accumulate naturally in the correct layer records. Policy candidates remain narrow.
@@ -105,7 +135,8 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 2. Add `project-profile.ts` queue builder from current `interview-v2` packet.
 3. Add a first writer mode that requires explicit confirmation and writes only `.lazy-harness/project/profile-queue.json`.
 4. Add self-test checks:
-   - every queue item has `route`, `status`, `evidence`, and `promotionTarget`,
+   - every queue item has `primaryRoute`, `facets`, `status`, `evidence`, and `promotionTarget`,
+   - queue items may have multiple facets/related routes,
    - policy-candidate items are only operating-rule candidates,
    - non-policy knowledge items route to canonical layers,
    - update-loop data is event-ready only,
@@ -124,6 +155,8 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 - Future symbols:
   - `ProjectProfileQueueV1`
   - `ProjectProfileQueueItem`
+  - `primaryRoute`
+  - `relatedRoutes`
   - `buildProfileQueueV1`
   - `check_project_profile_v2_queue_runtime`
 

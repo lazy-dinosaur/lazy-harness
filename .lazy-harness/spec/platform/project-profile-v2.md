@@ -219,6 +219,8 @@ Non-policy project knowledge routing:
   - business/domain vocabulary → DDD plus Project Map `facts` branch.
   - test/regression expectation → TDD plus Project Map `validation` branch.
   - implementation navigation/source ownership → SSOT/source-links branch or implementation map.
+- Queue routing should mirror Project Map V2: one primary route plus many facets/related routes.
+- Example: Figma/UI behavior may use `primaryRoute=bdd`, `facets=[BDD, SDD, TDD]`, and `relatedRoutes=[sdd, tdd]` when the same item affects visible behavior, component contract, and regression coverage.
 - Only repeated/stage-specific operating behavior becomes a policy candidate.
 - Therefore natural implementation/design conversation should become layered project knowledge directly when confirmed, while only “how we should repeatedly work” becomes policy-candidate material.
 
