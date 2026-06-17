@@ -246,6 +246,9 @@ interface ProjectProfileQueueItem {
     path?: string
     requiresConfirmation: true
   }
+  promotedAt?: string
+  promotedTo?: string[]
+  promotionEffects?: ProjectProfilePromotionTargetEffect[]
 }
 
 interface ProjectProfileQueueV1 {
@@ -275,6 +278,15 @@ interface ProjectProfileQueueV1 {
   appliedWrites?: Array<{ path: string; action: 'written'; summary: string }>
 }
 
+interface ProjectProfilePromotionTargetEffect {
+  kind: QueuePromotionKind
+  path?: string
+  status: 'deferred'
+  action: 'defer-target-writer'
+  summary: string
+  reason: string
+}
+
 interface ProjectProfilePromoteV2Preview {
   ok: true
   mode: 'project-profile.promote-v2'
@@ -301,6 +313,30 @@ interface ProjectProfilePromoteV2Preview {
   }
   warnings: string[]
 }
+
+interface ProjectProfilePromoteV2Result {
+  ok: true
+  mode: 'project-profile.promote-v2-apply'
+  schemaVersion: 'project-profile-promote-result/v1'
+  root: string
+  generatedAt: string
+  dryRun: false
+  queuePath: '.lazy-harness/project/profile-queue.json'
+  item: ProjectProfileQueueItem
+  targetEffects: ProjectProfilePromotionTargetEffect[]
+  queueUpdate: {
+    id: string
+    from: 'accepted'
+    to: 'promoted'
+    promotedAt: string
+    promotedTo: string[]
+    previewOnly: false
+  }
+  appliedWrites: Array<{ path: string; action: 'written'; summary: string }>
+  warnings: string[]
+}
+
+type ProjectProfilePromoteV2Output = ProjectProfilePromoteV2Preview | ProjectProfilePromoteV2Result
 
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
@@ -365,7 +401,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews one accepted queue item and is dry-run only in this slice. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm writes only queue status/promoted metadata and defers canonical target writers. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -1059,19 +1095,51 @@ function readProfileQueue(root: string): ProjectProfileQueueV1 {
   return queue
 }
 
+function summarizeProfileQueueItems(items: ProjectProfileQueueItem[]): ProjectProfileQueueV1['summary'] {
+  const byPrimaryRoute: Record<string, number> = {}
+  for (const item of items) byPrimaryRoute[item.primaryRoute] = (byPrimaryRoute[item.primaryRoute] || 0) + 1
+  return {
+    total: items.length,
+    pending: items.filter((item) => item.status === 'pending').length,
+    byPrimaryRoute,
+    pendingPolicyCandidates: items.filter((item) => item.status === 'pending' && item.source.kind === 'policy-candidate').length,
+    pendingEventReadyMetadata: items.filter((item) => item.status === 'pending' && item.primaryRoute === 'event-ready-metadata').length,
+  }
+}
+
 function actionForPromotionKind(kind: QueuePromotionKind): 'create-or-update' | 'append' | 'preview-only' {
   if (kind === 'candidate-row' || kind === 'update-loop-event') return 'append'
   if (kind === 'queue-only') return 'preview-only'
   return 'create-or-update'
 }
 
+function buildPromotionTargetEffect(item: ProjectProfileQueueItem): ProjectProfilePromotionTargetEffect {
+  const target = item.promotionTarget
+  return {
+    kind: target.kind,
+    path: target.path,
+    status: 'deferred',
+    action: 'defer-target-writer',
+    summary: target.path
+      ? `Deferred ${target.kind} target writer for ${item.id} to ${target.path}`
+      : `Deferred ${target.kind} target writer for ${item.id}`,
+    reason: 'This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind.',
+  }
+}
+
+function selectAcceptedPromotionItem(root: string, itemId?: string): { queue: ProjectProfileQueueV1; item: ProjectProfileQueueItem; index: number } {
+  if (!itemId) throw new Error('promote-v2 requires --item <queue-item-id>')
+  const queue = readProfileQueue(root)
+  const index = queue.items.findIndex((candidate) => candidate.id === itemId)
+  if (index < 0) throw new Error(`Queue item not found: ${itemId}`)
+  const item = queue.items[index]
+  if (item.status !== 'accepted') throw new Error(`promote-v2 only promotes status=accepted items; ${item.id} is status=${item.status}`)
+  return { queue, item, index }
+}
+
 function buildPromoteV2Preview(args: Args): ProjectProfilePromoteV2Preview {
-  if (!args.dryRun || args.confirm) throw new Error('promote-v2 first slice is preview-only and requires --dry-run; --confirm is intentionally unsupported')
-  if (!args.item) throw new Error('promote-v2 requires --item <queue-item-id>')
-  const queue = readProfileQueue(args.root)
-  const item = queue.items.find((candidate) => candidate.id === args.item)
-  if (!item) throw new Error(`Queue item not found: ${args.item}`)
-  if (item.status !== 'accepted') throw new Error(`promote-v2 only previews status=accepted items; ${item.id} is status=${item.status}`)
+  if (!args.dryRun || args.confirm) throw new Error('promote-v2 --dry-run preview requires --dry-run without --confirm')
+  const { item } = selectAcceptedPromotionItem(args.root, args.item)
   const generatedAt = new Date().toISOString()
   const target = item.promotionTarget
   const plannedWrites = [{
@@ -1103,25 +1171,97 @@ function buildPromoteV2Preview(args: Args): ProjectProfilePromoteV2Preview {
       previewOnly: true,
     },
     warnings: [
-      'promote-v2 is dry-run preview only in this slice.',
+      'promote-v2 --dry-run is preview only.',
       'No queue status is changed and no canonical record/rule/capability/update-loop event is written.',
-      'A later confirm writer must re-check status=accepted before mutating anything.',
+      'promote-v2 --confirm must re-check status=accepted before mutating the queue file.',
     ],
   }
 }
 
-function renderPromoteV2Md(result: ProjectProfilePromoteV2Preview): string {
+function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
+  if (!args.confirm || args.dryRun) throw new Error('promote-v2 --confirm requires --confirm without --dry-run')
+  const { queue, item, index } = selectAcceptedPromotionItem(args.root, args.item)
+  const generatedAt = new Date().toISOString()
+  const targetEffects = [buildPromotionTargetEffect(item)]
+  const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
+  const promotedItem: ProjectProfileQueueItem = {
+    ...item,
+    status: 'promoted',
+    promotedAt: generatedAt,
+    promotedTo,
+    promotionEffects: targetEffects,
+  }
+  const items = queue.items.slice()
+  items[index] = promotedItem
+  const nextQueue: ProjectProfileQueueV1 = {
+    ...queue,
+    root: args.root,
+    mode: 'project-profile.queue-v2-apply',
+    dryRun: false,
+    updatedAt: generatedAt,
+    items,
+    summary: summarizeProfileQueueItems(items),
+    warnings: [
+      ...queue.warnings.filter((warning) => !warning.includes('candidates/rules/capabilities/update-loop events require later explicit promotion')),
+      'promote-v2 --confirm wrote only queue status/promoted metadata.',
+      'Canonical target writers remain deferred by target kind.',
+    ],
+  }
+  const abs = join(args.root, nextQueue.queuePath)
+  ensureParent(abs)
+  writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
+  return {
+    ok: true,
+    mode: 'project-profile.promote-v2-apply',
+    schemaVersion: 'project-profile-promote-result/v1',
+    root: args.root,
+    generatedAt,
+    dryRun: false,
+    queuePath: nextQueue.queuePath,
+    item: promotedItem,
+    targetEffects,
+    queueUpdate: {
+      id: item.id,
+      from: 'accepted',
+      to: 'promoted',
+      promotedAt: generatedAt,
+      promotedTo,
+      previewOnly: false,
+    },
+    appliedWrites: [{ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue only` }],
+    warnings: [
+      'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
+      'Target-specific canonical writers were separated as deferred effects.',
+      'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
+    ],
+  }
+}
+
+function renderPromoteV2Md(result: ProjectProfilePromoteV2Output): string {
   return [
-    '# Project Profile promote V2 dry-run',
+    result.dryRun ? '# Project Profile promote V2 dry-run' : '# Project Profile promote V2 apply',
     '',
     `- Item: \`${result.item.id}\``,
     `- Status: ${result.item.status}`,
     `- Primary route: ${result.item.primaryRoute}`,
     `- Facets: ${result.item.facets.join(', ')}`,
-    `- Queue update preview: ${result.queueUpdate.from} → ${result.queueUpdate.to}`,
+    `- Queue update: ${result.queueUpdate.from} → ${result.queueUpdate.to}${result.queueUpdate.previewOnly ? ' (preview)' : ''}`,
     '',
-    '## Planned writes',
-    ...result.plannedWrites.map((write) => `- ${write.action}: ${write.kind}${write.path ? ` → \`${write.path}\`` : ''}`),
+    ...('plannedWrites' in result ? [
+      '## Planned writes',
+      ...result.plannedWrites.map((write) => `- ${write.action}: ${write.kind}${write.path ? ` → \`${write.path}\`` : ''}`),
+      '',
+    ] : []),
+    ...('targetEffects' in result ? [
+      '## Target effects',
+      ...result.targetEffects.map((effect) => `- ${effect.status}: ${effect.kind}${effect.path ? ` → \`${effect.path}\`` : ''}`),
+      '',
+    ] : []),
+    ...('appliedWrites' in result ? [
+      '## Applied writes',
+      ...result.appliedWrites.map((write) => `- ${write.action}: \`${write.path}\` — ${write.summary}`),
+      '',
+    ] : []),
     '',
     '## Warnings',
     ...result.warnings.map((warning) => `- ${warning}`),
@@ -1309,7 +1449,8 @@ function main(): void {
       return
     }
     if (args.mode === 'promote-v2') {
-      const result = buildPromoteV2Preview(args)
+      if (!args.dryRun && !args.confirm) throw new Error('promote-v2 requires --dry-run for preview or --confirm to update queue status')
+      const result = args.confirm && !args.dryRun ? applyPromoteV2(args) : buildPromoteV2Preview(args)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderPromoteV2Md(result))
       return

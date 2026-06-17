@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-cea8a0880301",
+    "status": "promoted",
+    "primaryRoute": "facts",
+    "facets": [
+      "DDD",
+      "BDD",
+      "Project"
+    ],
+    "relatedRoutes": [
+      "expectations"
+    ],
+    "promotionTarget": {
+      "kind": "record",
+      "path": ".lazy-harness/domain/",
+      "requiresConfirmation": true
+    },
+    "source": {
+      "kind": "question-group",
+      "id": "project-purpose"
+    },
+    "summary": "Project purpose and constraints: facts, expectations",
+    "evidence": [
+      {
+        "kind": "project-profile-question-group",
+        "summary": "Derived from interview-v2 question group project-purpose"
+      }
+    ],
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/domain/"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "record",
+        "path": ".lazy-harness/domain/",
+        "status": "deferred",
+        "action": "defer-target-writer",
+        "summary": "Deferred record target writer for PPQ-cea8a0880301 to .lazy-harness/domain/",
+        "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "record",
+      "path": ".lazy-harness/domain/",
+      "status": "deferred",
+      "action": "defer-target-writer",
+      "summary": "Deferred record target writer for PPQ-cea8a0880301 to .lazy-harness/domain/",
+      "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
+    }
+  ],
+  "queueUpdate": {
+    "id": "PPQ-cea8a0880301",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/domain/"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-cea8a0880301 in Project Profile queue only"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.",
+    "Target-specific canonical writers were separated as deferred effects.",
+    "No canonical record, rulebook, capability, candidate row, or update-loop event was written."
+  ]
+}
