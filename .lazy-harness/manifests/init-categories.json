@@ -88,7 +88,8 @@
           "glob": [
             "context-tier/*.json",
             "project-map-v2/*.json",
-            "project-profile-v2/*.json"
+            "project-profile-v2/*.json",
+            "project-map-v2/*.md"
           ],
           "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2, and Project Profile V2 fixtures."
         },
@@ -503,6 +504,16 @@
           "path": "tests/project-profile-v2.md",
           "kind": "file",
           "description": "TDD draft for Project Profile V2 interview output and future runtime implementation."
+        },
+        {
+          "path": "ssot/project-map-record-storage.md",
+          "kind": "file",
+          "description": "SSOT for Project Map V2 canonical record storage, Project Map branch blocks, and generated cue-only map views."
+        },
+        {
+          "path": "tests/project-map-record-storage.md",
+          "kind": "file",
+          "description": "TDD record for Project Map V2 record storage and branch-block fixture validation."
         }
       ]
     },

@@ -41,7 +41,7 @@ This policy is the write-side companion to relevant-record query.
 confirmed information
 → route to layer
 → update existing record or create new record
-→ maintain digest + implementation map + graph links as needed
+→ maintain digest + Project Map branch + implementation map + graph links as needed
 → future query can surface it
 ```
 
@@ -147,9 +147,18 @@ Relevant-record query depends on duplicate control. Duplicate active digests cre
 Add or maintain:
 
 - `## Rule digest`
+- `## Project Map branch` when the record participates in a Project Map V2 cluster
 - `## Implementation map` when implementation exists or will exist
 - `## Rule placement` when the record captures a user-confirmed rule/correction
 - `## Discovery capture` for non-trivial analysis/plan discoveries
+
+### Project Map branch records
+
+When a confirmed record participates in a Project Map V2 cluster, add or maintain a `## Project Map branch` block following `.lazy-harness/ssot/project-map-record-storage.md`.
+
+The block links the canonical record to its anchor/branch/edge metadata while keeping the record itself as the source of truth. Generated Project Map views may use this metadata, but generated views remain cue-only and non-canonical.
+
+Do not add Project Map branch metadata for an unconfirmed host-specific fact unless it is clearly marked as candidate/planning or the user/source/test evidence confirms it.
 
 ### Planning records
 

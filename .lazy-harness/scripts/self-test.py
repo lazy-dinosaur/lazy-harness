@@ -6056,16 +6056,22 @@ def check_project_map_v2_schema() -> None:
     """Project Map V2 Phase 1 must define cue-only node schema, taxonomy, and fixture."""
     sdd_path = LAZY / "spec" / "platform" / "project-map-v2.md"
     ssot_path = LAZY / "ssot" / "project-map-taxonomy.md"
+    storage_ssot_path = LAZY / "ssot" / "project-map-record-storage.md"
     tdd_path = LAZY / "tests" / "project-map-v2.md"
+    storage_tdd_path = LAZY / "tests" / "project-map-record-storage.md"
     fixture_path = LAZY / "fixtures" / "project-map-v2" / "example-node.json"
+    branch_fixture_path = LAZY / "fixtures" / "project-map-v2" / "record-branch-block.md"
 
-    for path in (sdd_path, ssot_path, tdd_path, fixture_path):
+    for path in (sdd_path, ssot_path, storage_ssot_path, tdd_path, storage_tdd_path, fixture_path, branch_fixture_path):
         if not path.exists():
             fail(f"Project Map V2 missing file: {path.relative_to(ROOT)}")
 
     sdd = sdd_path.read_text(encoding="utf-8")
     ssot = ssot_path.read_text(encoding="utf-8")
+    storage_ssot = storage_ssot_path.read_text(encoding="utf-8")
     tdd = tdd_path.read_text(encoding="utf-8")
+    storage_tdd = storage_tdd_path.read_text(encoding="utf-8")
+    branch_fixture = branch_fixture_path.read_text(encoding="utf-8")
     for expected in (
         "one primary category and multiple facets",
         "Anchor / branch / edge model",
@@ -6073,6 +6079,8 @@ def check_project_map_v2_schema() -> None:
         "Pi is the primary future adapter direction",
         "Jcode remains a compatibility adapter",
         "Phase 1 must not move them",
+        "Canonical storage pattern",
+        "Project Map branch blocks inside those records",
         "generated view is never the truth by itself",
     ):
         if expected not in sdd:
@@ -6082,6 +6090,8 @@ def check_project_map_v2_schema() -> None:
         "Cluster roles",
         "Edge relations",
         "chat-window-patient-sharing",
+        "Record storage pattern",
+        "generated views are never the source of truth",
         "Tests are one example.",
         "pi`: primary future adapter",
         "jcode`: compatibility adapter",
@@ -6098,6 +6108,41 @@ def check_project_map_v2_schema() -> None:
     ):
         if expected not in tdd:
             fail("Project Map V2 TDD missing regression case: " + expected)
+    for expected in (
+        "canonical layer records",
+        "Project Map branch blocks",
+        "generated Project Map view",
+        "do not become the source of truth",
+    ):
+        if expected not in storage_ssot:
+            fail("Project Map V2 storage SSOT missing invariant: " + expected)
+    for expected in (
+        "project_map_record_storage_ssot_exists",
+        "project_map_branch_block_fixture",
+        "project_map_generated_view_cue_only",
+    ):
+        if expected not in storage_tdd:
+            fail("Project Map V2 storage TDD missing regression case: " + expected)
+    for expected in (
+        "## Project Map branch",
+        "- Anchor:",
+        "- Branch:",
+        "- Node:",
+        "- Primary:",
+        "- Facets:",
+        "- Edges:",
+        "- Related records:",
+    ):
+        if expected not in branch_fixture:
+            fail("Project Map V2 branch block fixture missing field: " + expected)
+    record_write_policy = (LAZY / "spec" / "platform" / "record-write-update-policy.md").read_text(encoding="utf-8")
+    for expected in (
+        "maintain digest + Project Map branch + implementation map + graph links",
+        "Project Map branch records",
+        "generated views remain cue-only and non-canonical",
+    ):
+        if expected not in record_write_policy:
+            fail("record-write-update-policy missing Project Map branch storage rule: " + expected)
 
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     required = {
@@ -6220,6 +6265,7 @@ def check_project_map_v2_schema() -> None:
         "ssot/project-map-taxonomy.md",
         "tests/project-map-v2.md",
         "project-map-v2/*.json",
+        "project-map-v2/*.md",
     ):
         if expected not in category_a:
             fail("init categories missing Project Map V2 sync asset: " + expected)

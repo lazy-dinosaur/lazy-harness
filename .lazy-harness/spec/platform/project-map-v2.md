@@ -235,6 +235,34 @@ Edges are navigation/evidence structure only. They must not decide intent, risk,
 
 Path-like links must stay root-bound to the current host. External links may be allowed later only through explicit document-resource records.
 
+## Canonical storage pattern
+
+Project Map V2 does not move canonical truth into generated map output.
+
+The approved Phase 1 storage pattern is:
+
+```text
+canonical layer records
++ Project Map branch blocks inside those records
++ generated Project Map view derived from records/graph links
+```
+
+This means:
+
+- DDD facts stay in `.lazy-harness/domain/**` records.
+- BDD expectations stay in `.lazy-harness/behavior/**` records.
+- SDD contracts stay in `.lazy-harness/spec/**` records.
+- TDD validation stays in `.lazy-harness/tests/**` records.
+- ADR decisions stay in `.lazy-harness/decisions/**` records.
+- SSOT ownership/source-of-truth stays in `.lazy-harness/ssot/**` records.
+
+Records that participate in a Project Map cluster should include a `## Project Map branch` block. The canonical storage SSOT and fixture are:
+
+- `.lazy-harness/ssot/project-map-record-storage.md`
+- `.lazy-harness/fixtures/project-map-v2/record-branch-block.md`
+
+Generated Project Map views are derived/cue-only. They may render clusters, branches, edges, and links, but must point back to canonical records/source/tests before being relied on.
+
 ## Stage-aware policies
 
 Project Map V2 supports policy references so a project/team can express different behavior by stage.

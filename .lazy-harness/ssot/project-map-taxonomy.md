@@ -159,6 +159,22 @@ Promotion/demotion must be evidence-backed and record-backed.
 
 Phase 1 does not move files. It defines a compatibility view.
 
+## Record storage pattern
+
+Canonical Project Map V2 knowledge stays in the existing layer records. Project Map metadata links those records into clusters.
+
+Storage rule:
+
+```text
+canonical layer records
++ `## Project Map branch` blocks
++ generated cue-only Project Map view
+```
+
+The canonical storage SSOT is `.lazy-harness/ssot/project-map-record-storage.md`.
+
+Generated views may assemble branch blocks, implementation maps, graph rows, feature navigation, and policy/capability entries, but generated views are never the source of truth.
+
 ## Branching example
 
 A single feature/topic should usually become a cluster, not one overloaded file.
