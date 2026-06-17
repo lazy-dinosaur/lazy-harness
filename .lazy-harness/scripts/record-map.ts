@@ -369,12 +369,21 @@ function looksLikeTestPath(value: string): boolean {
   return /(^|\/)(tests?|__tests__)(\/|$)/.test(value) || /\.(test|spec)\.[A-Za-z0-9]+$/.test(value)
 }
 
-function addPath(value: string, target: Drilldown): void {
+function readablePathExists(root: string | undefined, value: string): boolean {
+  if (!root) return true
+  const withoutAnchor = value.split('#', 1)[0]
+  if (!withoutAnchor || withoutAnchor.includes('*') || withoutAnchor.startsWith('~')) return false
+  const full = path.isAbsolute(withoutAnchor) ? withoutAnchor : path.join(root, withoutAnchor)
+  return existsSync(full)
+}
+
+function addPath(value: string, target: Drilldown, root?: string): void {
   const cleaned = value.replace(/`/g, '').trim()
   if (!cleaned || !isPathLike(cleaned)) return
   if (looksLikeRecordPath(cleaned)) target.recordPaths.push(cleaned)
-  else if (looksLikeTestPath(cleaned)) target.testFiles.push(cleaned)
-  else target.sourceFiles.push(cleaned)
+  else if (looksLikeTestPath(cleaned)) {
+    if (readablePathExists(root, cleaned)) target.testFiles.push(cleaned)
+  } else if (readablePathExists(root, cleaned)) target.sourceFiles.push(cleaned)
 }
 
 function featureMatch(query: string, feature: FeatureEntry): FeatureMatch | null {
@@ -512,23 +521,23 @@ function sortMatches<T extends { matchCount: number }>(items: T[], label: (item:
   return [...items].sort((a, b) => b.matchCount - a.matchCount || label(a).localeCompare(label(b)))
 }
 
-function buildDrilldown(features: FeatureMatch[], records: RecordMatch[], graphRows: GraphMatch[]): Drilldown {
+function buildDrilldown(root: string, features: FeatureMatch[], records: RecordMatch[], graphRows: GraphMatch[]): Drilldown {
   const out: Drilldown = { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
   for (const feature of features) {
-    for (const record of feature.records) addPath(record, out)
-    for (const file of feature.sourceFiles) addPath(file, out)
-    for (const file of feature.testFiles) addPath(file, out)
+    for (const record of feature.records) addPath(record, out, root)
+    for (const file of feature.sourceFiles) addPath(file, out, root)
+    for (const file of feature.testFiles) addPath(file, out, root)
   }
   for (const record of records) {
-    addPath(record.recordPath, out)
-    for (const related of record.relatedRecords) addPath(related, out)
-    for (const file of record.sourceFiles) addPath(file, out)
-    for (const file of record.testFiles) addPath(file, out)
+    addPath(record.recordPath, out, root)
+    for (const related of record.relatedRecords) addPath(related, out, root)
+    for (const file of record.sourceFiles) addPath(file, out, root)
+    for (const file of record.testFiles) addPath(file, out, root)
     for (const id of record.graphIds) out.graphIds.push(id)
   }
   for (const row of graphRows) {
     if (row.id) out.graphIds.push(row.id)
-    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, out)
+    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, out, root)
   }
   return {
     recordPaths: uniq(out.recordPaths),
@@ -562,7 +571,7 @@ export function buildRecordMap(root: string, query: string, limit = 8, fresh = f
     features,
     records,
     graphRows: graph,
-    drilldown: buildDrilldown(features, records, graph),
+    drilldown: buildDrilldown(root, features, records, graph),
   }
 }
 
@@ -608,19 +617,19 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false):
   }))
   const drilldown: Drilldown = { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
   for (const record of index.records) {
-    addPath(record.recordPath, drilldown)
-    for (const file of record.implementationHints.fileHints) addPath(file, drilldown)
-    for (const file of record.implementationHints.testHints) addPath(file, drilldown)
+    addPath(record.recordPath, drilldown, root)
+    for (const file of record.implementationHints.fileHints) addPath(file, drilldown, root)
+    for (const file of record.implementationHints.testHints) addPath(file, drilldown, root)
     for (const id of record.graphIds) drilldown.graphIds.push(id)
   }
   for (const feature of index.projectProfile.features) {
-    for (const record of feature.records) addPath(record.path, drilldown)
-    for (const file of feature.sourceFiles) addPath(file, drilldown)
-    for (const file of feature.tests) addPath(file, drilldown)
+    for (const record of feature.records) addPath(record.path, drilldown, root)
+    for (const file of feature.sourceFiles) addPath(file, drilldown, root)
+    for (const file of feature.tests) addPath(file, drilldown, root)
   }
   for (const row of graphMatches) {
     if (row.id) drilldown.graphIds.push(row.id)
-    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown)
+    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown, root)
   }
   return {
     schemaVersion: '1.0',

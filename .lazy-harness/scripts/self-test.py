@@ -21,7 +21,10 @@ import sys
 import tempfile
 import time
 import shutil
-import xml.etree.ElementTree as ET
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from xml_compat import XMLParseError, parse_xml_file, parse_xml_text_pure, parse_xml_tree
 
 ROOT = pathlib.Path(os.environ.get("LAZY_HOST_ROOT", pathlib.Path(__file__).resolve().parents[2])).resolve()
 LAZY = ROOT / ".lazy-harness"
@@ -165,12 +168,21 @@ def check_xml() -> None:
     errors: list[str] = []
     for path in sorted(LAZY.rglob("*.xml")):
         try:
-            ET.parse(path)
+            parse_xml_file(path)
         except Exception as exc:  # noqa: BLE001 - surface parser detail
             errors.append(f"{path.relative_to(ROOT)}: {exc}")
     if errors:
         fail("XML parse errors:\n" + "\n".join(errors))
     print("✓ XML parse ok")
+
+def check_xml_compat_parser() -> None:
+    parse_xml_text_pure("<root><child attr='1' /></root>")
+    try:
+        parse_xml_text_pure("<root><child></root>")
+    except XMLParseError:
+        print("✓ XML compat parser malformed fixture ok")
+        return
+    fail("XML compat parser accepted a mismatched closing tag")
 
 
 def check_jsonl() -> None:
@@ -550,7 +562,7 @@ def check_interview_loop_collect() -> None:
         expected_ids = ["Q-ec56f39bb7555484", "Q-3e77e39bd09c434f", "Q-17029903de55218f"]
         if ids != expected_ids:
             fail(f"interview-loop question ids changed: expected {expected_ids}, got {ids}")
-        ET.parse(queue)
+        parse_xml_file(queue)
         second = run_interview_collect(queue)
         if second.get("created") != 0 or second.get("existing") != 3 or second.get("totalOpen") != 3:
             fail("interview-loop dedupe changed: " + json.dumps(second, ensure_ascii=False))
@@ -575,7 +587,7 @@ def check_interview_loop_answer() -> None:
         applied = run_interview_answer(queue, decisions, question_id, "A", apply=True)
         if applied.get("applied") is not True or not applied.get("decision"):
             fail("interview-loop answer apply changed: " + json.dumps(applied, ensure_ascii=False))
-        root = ET.parse(queue).getroot()
+        root = parse_xml_tree(queue).getroot()
         matched = [question for question in root.findall("question") if question.attrib.get("id") == question_id]
         if not matched or matched[0].attrib.get("status") != "answered" or not matched[0].attrib.get("decisionId"):
             fail("interview-loop answered status not persisted")
@@ -600,7 +612,7 @@ def check_tdd_cross_verify() -> None:
         question = (missing.get("questions") or [{}])[0]
         if question.get("id") != "Q-22c6c7cf5a7620f1" or question.get("criterionId") != "5d-3" or question.get("source") != "tdd-cross-verify":
             fail("tdd-cross-verify question identity changed: " + json.dumps(question, ensure_ascii=False))
-        root = ET.parse(queue).getroot()
+        root = parse_xml_tree(queue).getroot()
         persisted = [entry for entry in root.findall("question") if entry.attrib.get("id") == "Q-22c6c7cf5a7620f1"]
         if not persisted or persisted[0].attrib.get("criterionId") != "5d-3":
             fail("tdd-cross-verify question was not persisted to queue")
@@ -4456,7 +4468,7 @@ def check_aftershock_reanalysis() -> None:
         question = (first.get("questions") or [{}])[0]
         if question.get("id") != "Q-e69259ad4ca94b24" or question.get("criterionId") != "5d-4" or question.get("source") != "aftershock" or question.get("layer") != "sdd":
             fail("aftershock question identity changed: " + json.dumps(question, ensure_ascii=False))
-        root = ET.parse(queue).getroot()
+        root = parse_xml_tree(queue).getroot()
         persisted = [entry for entry in root.findall("question") if entry.attrib.get("id") == "Q-e69259ad4ca94b24"]
         if not persisted or persisted[0].attrib.get("criterionId") != "5d-4" or persisted[0].attrib.get("source") != "aftershock":
             fail("aftershock question was not persisted to queue")
@@ -4492,7 +4504,7 @@ def check_lifecycle_hook_integration() -> None:
         tdd_out = run_response_completed_hook(tdd_payload, tdd_queue)
         if "5d-3 TDD Cross-Verify Gate" not in tdd_out or "Q-22c6c7cf5a7620f1" not in tdd_out:
             fail("response.completed did not surface TDD cross-verify gate:\n" + tdd_out)
-        tdd_root = ET.parse(tdd_queue).getroot()
+        tdd_root = parse_xml_tree(tdd_queue).getroot()
         if not any(question.attrib.get("criterionId") == "5d-3" for question in tdd_root.findall("question")):
             fail("response.completed TDD helper did not persist question")
 
@@ -4514,7 +4526,7 @@ def check_lifecycle_hook_integration() -> None:
         aftershock_out = run_response_completed_hook(aftershock_payload, aftershock_queue, decisions=decisions)
         if "5d-4 Aftershock Re-analysis" not in aftershock_out or "Q-e69259ad4ca94b24" not in aftershock_out:
             fail("response.completed did not surface aftershock gate:\n" + aftershock_out)
-        aftershock_root = ET.parse(aftershock_queue).getroot()
+        aftershock_root = parse_xml_tree(aftershock_queue).getroot()
         if not any(question.attrib.get("criterionId") == "5d-4" for question in aftershock_root.findall("question")):
             fail("response.completed aftershock helper did not persist question")
 
@@ -5078,7 +5090,7 @@ def check_project_profile_inspect() -> None:
         interview_apply = json.loads(interview_apply_completed.stdout)
         if interview_apply.get("mode") != "project-profile.interview-apply" or interview_apply.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-interview.xml":
             fail("project-profile interview --confirm should write open-question transcript")
-        ET.parse(root / ".lazy-harness" / "project" / "profile-interview.xml")
+        parse_xml_file(root / ".lazy-harness" / "project" / "profile-interview.xml")
         answers_path = root / "answers.json"
         answers_path.write_text(json.dumps({"answers": [
             {"target": "profile.purpose", "value": "Build a safe test host", "source": "user-confirmed"},
@@ -5161,7 +5173,7 @@ def check_project_profile_inspect() -> None:
         if 'layer="DDD" status="confirmed"' not in nav_content or "Start from domain records" not in nav_content:
             fail("project-profile fill should confirm layer-specific navigation step")
         for name in ["profile.xml", "stack.xml", "filesystem.xml", "feature-navigation.xml"]:
-            ET.parse(root / ".lazy-harness" / "project" / name)
+            parse_xml_file(root / ".lazy-harness" / "project" / name)
     print("✓ project-profile inspect/plan/apply ok")
 
 
@@ -5646,7 +5658,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         if after_branch_files != expected_branch_files:
             fail("project-profile promote-v2 project-map-branch target must write only queue plus feature-navigation.xml: " + json.dumps(after_branch_files, ensure_ascii=False))
         feature_nav_path = root / ".lazy-harness" / "project" / "feature-navigation.xml"
-        feature_root = ET.parse(feature_nav_path).getroot()
+        feature_root = parse_xml_tree(feature_nav_path).getroot()
         feature_nodes = feature_root.findall("feature")
         matching_features = [node for node in feature_nodes if node.attrib.get("id") == promote_branch_fixture.get("projectMapBranch", {}).get("id")]
         if len(matching_features) != 1:
@@ -6881,6 +6893,10 @@ def check_record_index_generator_phase3() -> None:
             }, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
+        (temp / "src" / "features" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "src" / "features" / "example-feature" / "FeaturePanel.tsx").write_text("export function FeaturePanel() { return null }\n", encoding="utf-8")
+        (temp / "tests" / "example-feature").mkdir(parents=True, exist_ok=True)
+        (temp / "tests" / "example-feature" / "feature-panel.test.tsx").write_text("import './feature-panel'\n", encoding="utf-8")
 
         def run_index(*args: str) -> subprocess.CompletedProcess[str]:
             return subprocess.run(
@@ -7586,7 +7602,7 @@ def check_source_feature_navigation_phase3() -> None:
         },
     }
 
-    root = ET.parse(feature_path).getroot()
+    root = parse_xml_tree(feature_path).getroot()
     features = {feature.attrib.get("id"): feature for feature in root.findall("feature")}
     missing_features = [feature_id for feature_id in expected if feature_id not in features]
     if missing_features:
@@ -10197,6 +10213,7 @@ def main() -> None:
         (check_doctor_package_health, "BOTH"),
         (check_package_health_generate_remediation_heuristic, "BOTH"),
         (check_xml, "BOTH"),
+        (check_xml_compat_parser, "BOTH"),
         (check_jsonl, "BOTH"),
         (check_schemas, "BOTH"),
         (check_lint_output, "FRAMEWORK_ONLY"),

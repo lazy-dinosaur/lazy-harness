@@ -19,7 +19,11 @@ import os
 import pathlib
 import re
 import subprocess
-import xml.etree.ElementTree as ET
+import sys
+SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from xml_compat import parse_xml_file
 from dataclasses import dataclass
 from typing import Callable, Literal
 
@@ -76,7 +80,7 @@ def check_xml_parse() -> CheckResult:
     errors: list[str] = []
     for path in sorted(LAZY.rglob("*.xml")):
         try:
-            ET.parse(path)
+            parse_xml_file(path)
         except Exception as exc:  # noqa: BLE001 - doctor must surface parser detail
             errors.append(f"{rel(path)}: {exc}")
     if errors:
