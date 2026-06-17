@@ -22,43 +22,47 @@ PAYLOAD="${1:-}"
 TRIGGER_TS=".lazy-harness/triggers/code-change.ts"
 [ ! -f "$TRIGGER_TS" ] && exit 0
 
-PARSED=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
+PARSED_FILE=$(mktemp -t lazy-bdd-trigger.XXXXXX)
+PAYLOAD_JSON="$PAYLOAD" PARSED_FILE="$PARSED_FILE" python3 <<'PY' 2>/dev/null || true
 import hashlib
 import json
 import os
 import re
+from pathlib import Path
 
 try:
-    payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
+    payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
 except Exception:
     raise SystemExit(0)
 
-last = payload.get('last_user_message') or ''
-message_id = str(payload.get('message_id') or '')
+last = payload.get("last_user_message") or ""
+message_id = str(payload.get("message_id") or "")
 paths = []
-allowed = {'Write', 'Edit', 'MultiEdit', 'write', 'edit', 'multiedit',
-           'mcp__filesystem__write_file', 'mcp__filesystem__edit_file'}
-pattern = re.compile(r'(?:src|app|packages|\.lazy-harness/triggers/fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts)')
-for call in payload.get('recent_tool_calls', []) or []:
-    if str(call.get('name', '')) not in allowed:
+allowed = {"Write", "Edit", "MultiEdit", "write", "edit", "multiedit",
+           "mcp__filesystem__write_file", "mcp__filesystem__edit_file"}
+pattern = re.compile(r"""(?:src|app|packages|\.lazy-harness/triggers/fixtures)/[^\s"',)}]+\.(?:tsx|ts)""")
+for call in payload.get("recent_tool_calls", []) or []:
+    if str(call.get("name", "")) not in allowed:
         continue
-    args = str(call.get('args_preview', ''))
+    args = str(call.get("args_preview", ""))
     for match in pattern.finditer(args):
         paths.append(match.group(0))
 
 files_sorted = sorted(dict.fromkeys(paths))
-fp_input = '|'.join(files_sorted) + '||' + last.strip()
-fingerprint = hashlib.sha1(fp_input.encode('utf-8')).hexdigest()[:16]
-message_hash = hashlib.sha256(message_id.encode('utf-8')).hexdigest()[:16] if message_id else ''
+fp_input = "|".join(files_sorted) + "||" + last.strip()
+fingerprint = hashlib.sha1(fp_input.encode("utf-8")).hexdigest()[:16]
+message_hash = hashlib.sha256(message_id.encode("utf-8")).hexdigest()[:16] if message_id else ""
 
-print(json.dumps({
-    'last': last,
-    'files': files_sorted,
-    'messageIdHash': message_hash,
-    'fingerprint': fingerprint,
-}, ensure_ascii=False))
+Path(os.environ["PARSED_FILE"]).write_text(json.dumps({
+    "last": last,
+    "files": files_sorted,
+    "messageIdHash": message_hash,
+    "fingerprint": fingerprint,
+}, ensure_ascii=False), encoding="utf-8")
 PY
-)
+PARSED=""
+[ -f "$PARSED_FILE" ] && PARSED=$(<"$PARSED_FILE")
+rm -f "$PARSED_FILE"
 [ -z "$PARSED" ] && exit 0
 
 LAST_USER_MESSAGE=$(printf '%s' "$PARSED" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("last", ""))' 2>/dev/null || true)

@@ -83,9 +83,14 @@ ACTION_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+LAZY_MAP_COMMAND_RE = re.compile(
+    r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+map(?:\s|$)",
+    re.IGNORECASE,
+)
+
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
-        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/record-index\.ts)\b",
+        r"(?:pwd|ls|tree|find|rg|grep|cat|sed|awk|head|tail|wc|git\s+(?:status|diff|show|log|grep|ls-files|rev-parse)|bun\s+\.lazy-harness/scripts/record-index\.ts|(?:\.lazy-harness/bin/lazy|lazy)\s+map)\b",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -418,6 +423,8 @@ def evidence_blob(packet_row: dict[str, Any] | None = None) -> str:
 def shell_has_search_evidence(command: str) -> bool:
     if DETERMINISTIC_PACKET_RE.search(command):
         return False
+    if LAZY_MAP_COMMAND_RE.search(command):
+        return True
     if blob_has_any_purpose_scoped_find(command):
         return blob_has_purpose_scoped_find_evidence(command)
     return bool(re.search(

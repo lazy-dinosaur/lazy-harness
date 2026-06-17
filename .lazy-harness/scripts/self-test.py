@@ -2027,7 +2027,7 @@ def check_pi_package_layout_and_contract() -> None:
             if completed.returncode != 0:
                 fail("Pi wrapper cwd-independent dry-run failed: " + " ".join(command) + "\n" + completed.stdout + completed.stderr)
             payload = json.loads(completed.stdout)
-            if payload.get("runtime") != expected_runtime or payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root) or payload.get("targetRepo") != str(temp_cwd) or payload.get("result", {}).get("command") != expected_command:
+            if payload.get("runtime") != expected_runtime or payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root) or payload.get("targetRepo") != str(temp_cwd.resolve()) or payload.get("result", {}).get("command") != expected_command:
                 fail("Pi/OMP wrapper cwd-independent package path mismatch: " + completed.stdout)
     finally:
         shutil.rmtree(temp_cwd, ignore_errors=True)
@@ -2150,6 +2150,8 @@ def check_pi_package_layout_and_contract() -> None:
             " ['batch-bash',{toolName:'batch', input:{tool_calls:[{tool:'bash',parameters:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}]}}],\n"
             "];\n"
             "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(!r?.block) throw new Error(name+' not blocked'); }\n"
+            "const allowed=await handlers.get('tool_call')({toolCallId:'lazy-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'}},ctx);\n"
+            "if(allowed?.block) throw new Error('lazy map read-only bash should not be blocked: '+allowed.reason);\n"
             "console.log('pi shell alias read-debt smoke ok');\n",
             encoding="utf-8",
         )
@@ -9941,6 +9943,12 @@ def check_tool_execute_before_hook() -> None:
                 {"recipient_name": "functions.bash", "parameters": {"command": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}},
                 {"recipient_name": "functions.read", "parameters": {"file_path": ".lazy-harness/behavior/llm-owned-record-retrieval.md"}},
             ]}},
+            "recent_tool_calls": [],
+        }, 0, ""),
+        ("single-lazy-map-readonly-allow", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_single_lazy_map",
+            "tool": {"name": "bash", "args": {"command": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}},
             "recent_tool_calls": [],
         }, 0, ""),
         ("apply-patch-src-no-search-deny", {

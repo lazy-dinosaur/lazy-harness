@@ -60,7 +60,7 @@ has_message = bool(str(payload.get('last_user_message') or payload.get('message'
 if not has_message:
     raise SystemExit(0)
 
-def stable_hash(value: Any) -> str | None:
+def stable_hash(value: Any):
     text = str(value or '').strip()
     if not text:
         return None

@@ -14,23 +14,29 @@ SCRIPT=".lazy-harness/scripts/tdd-cross-verify.ts"
 QUEUE="${LAZY_HARNESS_QUESTION_QUEUE:-.lazy-harness/questions/open.xml}"
 [ ! -f "$SCRIPT" ] && exit 0
 
-FILES=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
-import json, os, re
+FILES_FILE=$(mktemp -t lazy-tdd-cross-files.XXXXXX)
+PAYLOAD_JSON="$PAYLOAD" FILES_FILE="$FILES_FILE" python3 <<'PY' 2>/dev/null || true
+import json
+import os
+import re
+from pathlib import Path
 try:
-    payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
+    payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
 except Exception:
     raise SystemExit(0)
-allowed = {'Write','Edit','MultiEdit','write','edit','multiedit','mcp__filesystem__write_file','mcp__filesystem__edit_file'}
-pattern = re.compile(r'(?:src|app|packages|\.lazy-harness/triggers/fixtures|\.lazy-harness/triggers/walkthrough-fixtures)/[^\s"\'`,)}]+\.(?:tsx|ts|jsx|js)')
+allowed = {"Write", "Edit", "MultiEdit", "write", "edit", "multiedit", "mcp__filesystem__write_file", "mcp__filesystem__edit_file"}
+pattern = re.compile(r"""(?:src|app|packages|\.lazy-harness/triggers/fixtures|\.lazy-harness/triggers/walkthrough-fixtures)/[^\s"',)}]+\.(?:tsx|ts|jsx|js)""")
 paths = []
-for call in payload.get('recent_tool_calls', []):
-    if str(call.get('name', '')) not in allowed:
+for call in payload.get("recent_tool_calls", []):
+    if str(call.get("name", "")) not in allowed:
         continue
-    for match in pattern.finditer(str(call.get('args_preview', ''))):
+    for match in pattern.finditer(str(call.get("args_preview", ""))):
         paths.append(match.group(0))
-print(','.join(dict.fromkeys(paths)))
+Path(os.environ["FILES_FILE"]).write_text(",".join(dict.fromkeys(paths)), encoding="utf-8")
 PY
-)
+FILES=""
+[ -f "$FILES_FILE" ] && FILES=$(<"$FILES_FILE")
+rm -f "$FILES_FILE"
 
 [ -z "$FILES" ] && exit 0
 
