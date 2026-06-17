@@ -268,6 +268,21 @@ No-silent-pass-through rule:
 - Apply output should summarize pending items so humans/agents can revisit them.
 - Promotion requires explicit user/team confirmation or accepted policy record evidence.
 
+Clarification from user correction on 2026-06-17:
+
+- The queue-first apply design must not make **policy candidate** the universal path for implementation/design knowledge.
+- Most implementation work, Figma detail, product branch explanation, domain vocabulary, API/component shape, and validation detail is ordinary project knowledge.
+- Ordinary project knowledge should accumulate through the proper canonical layer records and Project Map branches when confirmed:
+  - DDD for domain terms/facts,
+  - BDD for user-visible behavior,
+  - SDD for design/API/component contracts,
+  - TDD for validation/regression expectations,
+  - ADR for trade-offs,
+  - SSOT for ownership/config/source-of-truth,
+  - implementation maps/source-links for code navigation.
+- Policy candidates are only for repeated/stage-specific operating behavior, such as validation gates, approval gates, dependency/tooling rules, release rules, security/privacy constraints, or ownership boundaries that should guide future agent behavior.
+- Profile queue can hold mixed apply output, but each item must keep its intended route; policy candidates route to rulebook/capability promotion, while non-policy knowledge routes to the appropriate layer record/Project Map branch.
+
 ### Rule placement
 
 - Rule: first V2 apply/write implementation should store event-ready metadata and a profile queue first, while keeping policy candidates visible until accepted/rejected/promoted.
@@ -282,6 +297,7 @@ No-silent-pass-through rule:
 - DDD: none.
 - BDD: future apply behavior should expose pending candidates instead of silently dropping them.
 - SDD: event-ready metadata first, profile queue first, and candidate criteria confirmed.
+- SDD: clarified that policy candidates are narrow operating-rule candidates, not the default route for Figma/implementation/domain/spec knowledge.
 - TDD: future apply/write tests should protect queue visibility and no immediate update-loop append.
 - ADR: candidate if queue-first vs direct-candidate-row trade-off changes.
 - SSOT: aligns with Project Map ingestion source vocabulary and rulebook/capability records.

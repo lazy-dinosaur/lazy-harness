@@ -209,6 +209,19 @@ No-silent-pass-through rule:
 - Promotion from the queue follows: `policy candidate → confirmed rulebook record → optional capability binding`.
 - Update-loop event append remains a later promote step; the first apply slice stores event-ready metadata only.
 
+Non-policy project knowledge routing:
+
+- Policy candidates are a narrow subset of project knowledge, not a gate for all knowledge.
+- Implementation details, Figma/design details, product branches, domain terms, behavior expectations, API/component contracts, validation cases, and source links should accumulate through their normal canonical layer records and Project Map branches.
+- Examples:
+  - Figma/UI behavior → BDD/SDD plus Project Map `expectations` or `contracts` branch.
+  - API/component shape → SDD plus Project Map `contracts` branch.
+  - business/domain vocabulary → DDD plus Project Map `facts` branch.
+  - test/regression expectation → TDD plus Project Map `validation` branch.
+  - implementation navigation/source ownership → SSOT/source-links branch or implementation map.
+- Only repeated/stage-specific operating behavior becomes a policy candidate.
+- Therefore natural implementation/design conversation should become layered project knowledge directly when confirmed, while only “how we should repeatedly work” becomes policy-candidate material.
+
 ## Output targets
 
 V2 interview should plan writes into canonical records, but not write them without confirmation.
