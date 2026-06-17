@@ -1,6 +1,6 @@
 # Planning — Project Profile V2 Queue Router Implementation Plan
 
-Status: draft-next-slice
+Status: implemented-queue-v2
 Date: 2026-06-17
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/project-profile-v2.md`
@@ -11,7 +11,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 
 ## Rule digest
 
-- Status: active next-slice plan
+- Status: implemented queue-v2 runtime slice
 - Layer: Planning
 - Scope: framework-global
 - Applies when:
@@ -213,7 +213,7 @@ Project refresh event draft → primaryRoute=event-ready-metadata, facets=[Proje
 
 So knowledge can still accumulate naturally in the correct layer records. Policy candidates remain narrow.
 
-## Next concrete slices
+## Implemented concrete slices
 
 1. Define `ProjectProfileQueueV1` schema/fixture and update Project Profile V2 SDD/TDD.
 2. Add `project-profile.ts` queue builder from current `interview-v2` packet.
@@ -234,20 +234,23 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 
 ## Implementation map
 
-- Status: planning only, implementation pending.
+- Status: queue-v2 runtime slice implemented.
 - Primary files:
   - `.lazy-harness/planning/project-profile-v2-queue-router-implementation-plan.md` — this plan.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD to update with queue schema.
   - `.lazy-harness/tests/project-profile-v2.md` — TDD to update with queue checks.
-  - `.lazy-harness/scripts/project-profile.ts` — future queue builder/writer implementation.
-  - `.lazy-harness/scripts/self-test.py` — future runtime protection.
-- Future symbols:
+  - `.lazy-harness/scripts/project-profile.ts` — queue builder/writer implementation.
+  - `.lazy-harness/scripts/self-test.py` — runtime protection.
+  - `.lazy-harness/fixtures/project-profile-v2/profile-queue.json` — queue-v2 fixture.
+- Implemented symbols:
   - `ProjectProfileQueueV1`
   - `ProjectProfileQueueItem`
   - `primaryRoute`
   - `relatedRoutes`
   - `buildProfileQueueV1FromInterviewV2`
   - `buildProfileQueueV1`
+  - `applyProfileQueue`
+  - `renderProfileQueueMd`
   - `check_project_profile_v2_queue_runtime`
 
 ## Validation checklist for next implementation
@@ -279,4 +282,4 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 - TDD: future queue route for validation/regression defined.
 - ADR: future route for trade-off decisions defined.
 - SSOT: future route for ownership/source-of-truth and event-ready metadata defined.
-- Planning: updated here.
+- Planning: queue-v2 implementation completed here; next planning target is promote commands for accepted queue items.

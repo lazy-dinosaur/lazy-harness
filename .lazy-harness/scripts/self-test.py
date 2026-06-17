@@ -4456,6 +4456,151 @@ def check_project_profile_v2_runtime() -> None:
     print("✓ project-profile V2 runtime ok")
 
 
+def check_project_profile_v2_queue_runtime() -> None:
+    """Project Profile V2 queue mode must write only a typed profile queue."""
+    fixture_path = LAZY / "fixtures" / "project-profile-v2" / "profile-queue.json"
+    if not fixture_path.exists():
+        fail("Project Profile V2 queue fixture missing: " + str(fixture_path.relative_to(ROOT)))
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    if fixture.get("schemaVersion") != "project-profile-queue/v1" or fixture.get("mode") != "project-profile.queue-v2":
+        fail("Project Profile V2 queue fixture schema/mode mismatch")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        blocked = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "queue-v2",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if blocked.returncode == 0 or "requires --dry-run or --confirm" not in blocked.stderr:
+            fail("project-profile queue-v2 without --dry-run/--confirm must be blocked")
+        before_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        dry_run = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "queue-v2",
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if dry_run.returncode != 0:
+            fail("project-profile queue-v2 --dry-run failed:\n" + dry_run.stdout + dry_run.stderr)
+        queue = json.loads(dry_run.stdout)
+        after_dry_run_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        if after_dry_run_files != before_files:
+            fail("project-profile queue-v2 --dry-run must not write files: " + json.dumps(after_dry_run_files, ensure_ascii=False))
+        confirm = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "queue-v2",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if confirm.returncode != 0:
+            fail("project-profile queue-v2 --confirm failed:\n" + confirm.stdout + confirm.stderr)
+        applied = json.loads(confirm.stdout)
+        written_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        if written_files != [".lazy-harness/project/profile-queue.json"]:
+            fail("project-profile queue-v2 --confirm must write only profile-queue.json: " + json.dumps(written_files, ensure_ascii=False))
+        written_queue = json.loads((root / ".lazy-harness" / "project" / "profile-queue.json").read_text(encoding="utf-8"))
+        if "appliedWrites" in written_queue:
+            fail("written profile queue must not persist transient appliedWrites")
+        if applied.get("mode") != "project-profile.queue-v2-apply" or applied.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-queue.json":
+            fail("project-profile queue-v2 --confirm should report only profile-queue.json write")
+
+    required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
+    missing = sorted(required_top - set(queue))
+    if missing:
+        fail("project-profile queue-v2 packet missing fields: " + json.dumps(missing, ensure_ascii=False))
+    if queue.get("schemaVersion") != "project-profile-queue/v1" or queue.get("queuePath") != ".lazy-harness/project/profile-queue.json":
+        fail("project-profile queue-v2 schema/path mismatch")
+    if queue.get("sourcePacket", {}).get("schemaVersion") != "project-profile-interview-v2/v1":
+        fail("project-profile queue-v2 must reference interview-v2 source packet")
+    items = queue.get("items", [])
+    if not isinstance(items, list) or not items:
+        fail("project-profile queue-v2 must emit queue items")
+    allowed_routes = {"ddd", "bdd", "sdd", "tdd", "adr", "ssot", "source-link", "project-map-branch", "policy-candidate", "event-ready-metadata", "queue-only"}
+    allowed_statuses = {"pending", "accepted", "rejected", "promoted", "superseded"}
+    allowed_promotion_kinds = {"record", "project-map-branch", "rulebook", "capability-binding", "candidate-row", "update-loop-event", "queue-only"}
+    seen_routes = set()
+    has_multifacet = False
+    has_non_policy = False
+    has_policy = False
+    has_event_ready = False
+    for item in items:
+        for key in ("id", "status", "primaryRoute", "facets", "relatedRoutes", "source", "summary", "evidence", "promotionTarget"):
+            if key not in item:
+                fail("project-profile queue-v2 item missing key: " + key)
+        if item.get("status") not in allowed_statuses:
+            fail("project-profile queue-v2 item status invalid: " + json.dumps(item, ensure_ascii=False))
+        route = item.get("primaryRoute")
+        if route not in allowed_routes:
+            fail("project-profile queue-v2 item primaryRoute invalid: " + json.dumps(item, ensure_ascii=False))
+        seen_routes.add(route)
+        facets = item.get("facets")
+        related_routes = item.get("relatedRoutes")
+        if not isinstance(facets, list) or not facets:
+            fail("project-profile queue-v2 item must include non-empty facets: " + json.dumps(item, ensure_ascii=False))
+        if not isinstance(related_routes, list):
+            fail("project-profile queue-v2 relatedRoutes must be a list")
+        if len(facets) > 1 and related_routes:
+            has_multifacet = True
+        if route != "policy-candidate":
+            has_non_policy = True
+        if route == "policy-candidate":
+            has_policy = True
+            if item.get("promotionTarget", {}).get("kind") not in {"rulebook", "capability-binding"}:
+                fail("policy-candidate queue items should promote to rulebook/capability targets: " + json.dumps(item, ensure_ascii=False))
+        if route == "event-ready-metadata":
+            has_event_ready = True
+            if item.get("promotionTarget", {}).get("kind") != "update-loop-event":
+                fail("event-ready metadata should promote only to update-loop-event target")
+        promotion = item.get("promotionTarget", {})
+        if promotion.get("kind") not in allowed_promotion_kinds or promotion.get("requiresConfirmation") is not True:
+            fail("project-profile queue-v2 promotion target invalid: " + json.dumps(item, ensure_ascii=False))
+        if not isinstance(item.get("evidence"), list) or not item.get("evidence"):
+            fail("project-profile queue-v2 items must include evidence")
+    if not has_multifacet:
+        fail("project-profile queue-v2 must include at least one multi-facet item")
+    if not has_non_policy or not has_policy or not has_event_ready:
+        fail("project-profile queue-v2 must include non-policy, policy-candidate, and event-ready metadata routes")
+    if not {"bdd", "sdd", "ddd", "tdd", "ssot", "project-map-branch", "policy-candidate", "event-ready-metadata"}.issubset(seen_routes):
+        fail("project-profile queue-v2 missing expected route coverage: " + json.dumps(sorted(seen_routes), ensure_ascii=False))
+    summary = queue.get("summary", {})
+    if summary.get("total") != len(items) or summary.get("pending") != len(items):
+        fail("project-profile queue-v2 summary totals must match pending items")
+    if summary.get("pendingPolicyCandidates", 0) < 1 or summary.get("pendingEventReadyMetadata") != 1:
+        fail("project-profile queue-v2 summary must expose pending policy/event-ready counts")
+    _assert_no_project_map_forbidden_fields(queue, "projectProfileQueueV2")
+    print("✓ project-profile V2 queue runtime ok")
+
+
 def check_record_audit_cli() -> None:
     """Record audit must summarize host-owned records, markers, JSONL, Project Profile, and graph hygiene."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -7883,6 +8028,7 @@ def main() -> None:
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_v2_runtime, "FRAMEWORK_ONLY"),
+        (check_project_profile_v2_queue_runtime, "FRAMEWORK_ONLY"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),

@@ -1,0 +1,740 @@
+{
+  "ok": true,
+  "mode": "project-profile.queue-v2",
+  "schemaVersion": "project-profile-queue/v1",
+  "root": ".",
+  "createdAt": "2026-06-17T07:54:19.251Z",
+  "updatedAt": "2026-06-17T07:54:19.251Z",
+  "dryRun": true,
+  "dryRunSource": true,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "sourcePacket": {
+    "schemaVersion": "project-profile-interview-v2/v1",
+    "generatedAt": "2026-06-17T07:54:19.251Z",
+    "mode": "interview-v2"
+  },
+  "items": [
+    {
+      "id": "PPQ-cea8a0880301",
+      "status": "pending",
+      "primaryRoute": "bdd",
+      "facets": [
+        "BDD",
+        "Project"
+      ],
+      "relatedRoutes": [
+        "project-map-branch"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/behavior/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "project-purpose"
+      },
+      "summary": "Project purpose and constraints: facts, expectations",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group project-purpose"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-7f2c697a3853",
+      "status": "pending",
+      "primaryRoute": "ssot",
+      "facets": [
+        "SSOT",
+        "Policy"
+      ],
+      "relatedRoutes": [
+        "policy-candidate"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/ssot/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "source-ownership"
+      },
+      "summary": "Source ownership and filesystem boundaries: ownership, source-links, policies",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group source-ownership"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-dafd08ed1631",
+      "status": "pending",
+      "primaryRoute": "sdd",
+      "facets": [
+        "SDD",
+        "BDD"
+      ],
+      "relatedRoutes": [
+        "bdd"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/spec/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "system-design"
+      },
+      "summary": "System design and architecture boundaries: contracts, decisions, policies",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group system-design"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-c412e45be439",
+      "status": "pending",
+      "primaryRoute": "ddd",
+      "facets": [
+        "DDD",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/domain/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "domain-vocabulary"
+      },
+      "summary": "Domain vocabulary and invariants: facts, ownership, validation",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group domain-vocabulary"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-1bc42dab4a2e",
+      "status": "pending",
+      "primaryRoute": "bdd",
+      "facets": [
+        "BDD",
+        "SDD",
+        "TDD"
+      ],
+      "relatedRoutes": [
+        "sdd",
+        "tdd"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/behavior/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "frontend-design"
+      },
+      "summary": "Frontend design system and accessibility baseline: contracts, expectations, policies",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group frontend-design"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-967981b403d7",
+      "status": "pending",
+      "primaryRoute": "sdd",
+      "facets": [
+        "SDD",
+        "BDD"
+      ],
+      "relatedRoutes": [
+        "bdd"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/spec/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "backend-data"
+      },
+      "summary": "Backend API, persistence, auth, error, and migration boundaries: contracts, ownership, validation",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group backend-data"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-de879d85c667",
+      "status": "pending",
+      "primaryRoute": "tdd",
+      "facets": [
+        "TDD",
+        "Policy"
+      ],
+      "relatedRoutes": [
+        "policy-candidate"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/tests/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "validation-policy"
+      },
+      "summary": "Validation and testing policy: validation, policies",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group validation-policy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-19177e9733fd",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "workflow-policy"
+      },
+      "summary": "Commit, push, PR, review, and release workflow: policies, expectations",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group workflow-policy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-e7a6b493aad4",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "dependency-policy"
+      },
+      "summary": "Dependency and tool policy: policies, ownership, contracts",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group dependency-policy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-a9e36954b665",
+      "status": "pending",
+      "primaryRoute": "ssot",
+      "facets": [
+        "SSOT",
+        "Policy"
+      ],
+      "relatedRoutes": [
+        "policy-candidate"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/ssot/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "security-privacy"
+      },
+      "summary": "Security, privacy, and compliance boundaries: ownership, policies, validation",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group security-privacy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-2ae87f05d92e",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "documentation-policy"
+      },
+      "summary": "Documentation and record update expectations: policies, source-links",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group documentation-policy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-6d07cbbc4ef7",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "human-confirmation"
+      },
+      "summary": "Human confirmation and autonomy boundaries: policies, ownership",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group human-confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-fd305d769c53",
+      "status": "pending",
+      "primaryRoute": "adr",
+      "facets": [
+        "ADR",
+        "Policy"
+      ],
+      "relatedRoutes": [
+        "policy-candidate"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/decisions/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "question-group",
+        "id": "agent-autonomy"
+      },
+      "summary": "Agent autonomy and refactor boundaries: policies, decisions",
+      "evidence": [
+        {
+          "kind": "project-profile-question-group",
+          "summary": "Derived from interview-v2 question group agent-autonomy"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-bbb050d82ced",
+      "status": "pending",
+      "primaryRoute": "project-map-branch",
+      "facets": [
+        "Project",
+        "Evidence"
+      ],
+      "relatedRoutes": [
+        "bdd",
+        "sdd"
+      ],
+      "source": {
+        "kind": "project-map-seed",
+        "id": "project-policy-discovery"
+      },
+      "summary": "Project/team policy discovery: 5 branch(es), 5 edge(s)",
+      "evidence": [
+        {
+          "kind": "project-map-seed",
+          "summary": "Derived from interview-v2 Project Map seed project-policy-discovery"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "project-map-branch",
+        "path": ".lazy-harness/project/feature-navigation.xml",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-45b08d5f8aa2",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "source": {
+        "kind": "policy-candidate",
+        "id": "project-validation-stage-policy"
+      },
+      "summary": "validation: turn/recommend, push/discover",
+      "evidence": [
+        {
+          "kind": "policy-candidate",
+          "summary": "Derived from interview-v2 policy candidate project-validation-stage-policy"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-c0f0750452d8",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "source": {
+        "kind": "policy-candidate",
+        "id": "dependency-addition-review-policy"
+      },
+      "summary": "dependency-change: edit/recommend, high-risk-mutation/discover",
+      "evidence": [
+        {
+          "kind": "policy-candidate",
+          "summary": "Derived from interview-v2 policy candidate dependency-addition-review-policy"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-6c259faaccb8",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "source": {
+        "kind": "policy-candidate",
+        "id": "human-confirmation-boundary-policy"
+      },
+      "summary": "human-confirmation: high-risk-mutation/recommend, release/discover",
+      "evidence": [
+        {
+          "kind": "policy-candidate",
+          "summary": "Derived from interview-v2 policy candidate human-confirmation-boundary-policy"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-fcc183500726",
+      "status": "pending",
+      "primaryRoute": "ssot",
+      "facets": [
+        "SSOT",
+        "Policy"
+      ],
+      "relatedRoutes": [
+        "policy-candidate"
+      ],
+      "source": {
+        "kind": "unresolved-ambiguity",
+        "id": "policy-storage-target"
+      },
+      "summary": "Should confirmed project policies be written first as Project Map candidates, .lazy-harness/rules records, or capabilities.json bindings?",
+      "evidence": [
+        {
+          "kind": "unresolved-ambiguity",
+          "summary": "Options: project-map-candidate, rules-record, capability-binding, decide-per-policy"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/ssot/",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-3e9b2e253d34",
+      "status": "pending",
+      "primaryRoute": "queue-only",
+      "facets": [
+        "Project"
+      ],
+      "relatedRoutes": [],
+      "source": {
+        "kind": "unresolved-ambiguity",
+        "id": "project-profile-refresh-event-shape"
+      },
+      "summary": "Should future confirmed Project Profile refresh write update-loop event packets immediately or keep event-ready metadata until a later apply mode?",
+      "evidence": [
+        {
+          "kind": "unresolved-ambiguity",
+          "summary": "Options: event-ready-metadata, append-update-event, ask-each-refresh, decide-after-policy-machinery"
+        }
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/planning/",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "PPQ-1d4a7f9eee29",
+      "status": "pending",
+      "primaryRoute": "ssot",
+      "facets": [
+        "SSOT",
+        "Project"
+      ],
+      "relatedRoutes": [
+        "project-map-branch"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/project/profile.xml",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "proposed-write",
+        "id": ".lazy-harness/project/profile.xml"
+      },
+      "summary": "Future confirmed write target: .lazy-harness/project/profile.xml",
+      "evidence": [
+        {
+          "kind": "proposed-write",
+          "path": ".lazy-harness/project/profile.xml",
+          "summary": "Interview V2 proposed write target requiring confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-a2d7f615822e",
+      "status": "pending",
+      "primaryRoute": "ssot",
+      "facets": [
+        "SSOT",
+        "Project"
+      ],
+      "relatedRoutes": [
+        "project-map-branch"
+      ],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/project/feature-navigation.xml",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "proposed-write",
+        "id": ".lazy-harness/project/feature-navigation.xml"
+      },
+      "summary": "Future confirmed write target: .lazy-harness/project/feature-navigation.xml",
+      "evidence": [
+        {
+          "kind": "proposed-write",
+          "path": ".lazy-harness/project/feature-navigation.xml",
+          "summary": "Interview V2 proposed write target requiring confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-42b7c89eea96",
+      "status": "pending",
+      "primaryRoute": "tdd",
+      "facets": [
+        "TDD"
+      ],
+      "relatedRoutes": [],
+      "promotionTarget": {
+        "kind": "record",
+        "path": ".lazy-harness/tests/test-strategy.xml",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "proposed-write",
+        "id": ".lazy-harness/tests/test-strategy.xml"
+      },
+      "summary": "Future confirmed write target: .lazy-harness/tests/test-strategy.xml",
+      "evidence": [
+        {
+          "kind": "proposed-write",
+          "path": ".lazy-harness/tests/test-strategy.xml",
+          "summary": "Interview V2 proposed write target requiring confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-2956588289aa",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy"
+      ],
+      "relatedRoutes": [],
+      "promotionTarget": {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "proposed-write",
+        "id": ".lazy-harness/rules/"
+      },
+      "summary": "Future confirmed write target: .lazy-harness/rules/",
+      "evidence": [
+        {
+          "kind": "proposed-write",
+          "path": ".lazy-harness/rules/",
+          "summary": "Interview V2 proposed write target requiring confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-44bb947aee0f",
+      "status": "pending",
+      "primaryRoute": "policy-candidate",
+      "facets": [
+        "Policy",
+        "SSOT"
+      ],
+      "relatedRoutes": [
+        "ssot"
+      ],
+      "promotionTarget": {
+        "kind": "capability-binding",
+        "path": ".lazy-harness/ssot/capabilities.json",
+        "requiresConfirmation": true
+      },
+      "source": {
+        "kind": "proposed-write",
+        "id": ".lazy-harness/ssot/capabilities.json"
+      },
+      "summary": "Future confirmed write target: .lazy-harness/ssot/capabilities.json",
+      "evidence": [
+        {
+          "kind": "proposed-write",
+          "path": ".lazy-harness/ssot/capabilities.json",
+          "summary": "Interview V2 proposed write target requiring confirmation"
+        }
+      ]
+    },
+    {
+      "id": "PPQ-c02eaae3d4a8",
+      "status": "pending",
+      "primaryRoute": "event-ready-metadata",
+      "facets": [
+        "Project",
+        "Evidence"
+      ],
+      "relatedRoutes": [
+        "project-map-branch"
+      ],
+      "source": {
+        "kind": "update-loop",
+        "id": "project-profile-refresh-candidate"
+      },
+      "summary": "project-profile-refresh event-ready metadata for project-profile-v2",
+      "evidence": [
+        {
+          "kind": "project-profile",
+          "path": ".lazy-harness/project/profile.xml",
+          "summary": "Project Profile V2 dry-run output is candidate/event-ready metadata only."
+        }
+      ],
+      "promotionTarget": {
+        "kind": "update-loop-event",
+        "requiresConfirmation": true
+      }
+    }
+  ],
+  "summary": {
+    "total": 25,
+    "pending": 25,
+    "byPrimaryRoute": {
+      "bdd": 2,
+      "ssot": 5,
+      "sdd": 2,
+      "ddd": 1,
+      "tdd": 2,
+      "policy-candidate": 9,
+      "adr": 1,
+      "project-map-branch": 1,
+      "queue-only": 1,
+      "event-ready-metadata": 1
+    },
+    "pendingPolicyCandidates": 9,
+    "pendingEventReadyMetadata": 1
+  },
+  "warnings": [
+    "queue-v2 is a typed inbox/router; it does not promote records by itself.",
+    "queue-v2 --confirm writes only .lazy-harness/project/profile-queue.json.",
+    "candidates/rules/capabilities/update-loop events require later explicit promotion."
+  ]
+}

@@ -10,9 +10,14 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'fill'
+type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue-v2' | 'fill'
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
+type QueueStatus = 'pending' | 'accepted' | 'rejected' | 'promoted' | 'superseded'
+type QueuePrimaryRoute = 'ddd' | 'bdd' | 'sdd' | 'tdd' | 'adr' | 'ssot' | 'source-link' | 'project-map-branch' | 'policy-candidate' | 'event-ready-metadata' | 'queue-only'
+type QueueFacet = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'ADR' | 'SSOT' | 'Policy' | 'Project' | 'Source' | 'Evidence'
+type QueueSourceKind = 'question-group' | 'project-map-seed' | 'policy-candidate' | 'unresolved-ambiguity' | 'proposed-write' | 'update-loop'
+type QueuePromotionKind = 'record' | 'project-map-branch' | 'rulebook' | 'capability-binding' | 'candidate-row' | 'update-loop-event' | 'queue-only'
 
 interface Args {
   mode: Mode
@@ -223,6 +228,52 @@ interface ProjectProfileInterviewV2Packet {
   warnings: string[]
 }
 
+interface ProjectProfileQueueItem {
+  id: string
+  status: QueueStatus
+  primaryRoute: QueuePrimaryRoute
+  facets: QueueFacet[]
+  relatedRoutes: QueuePrimaryRoute[]
+  source: {
+    kind: QueueSourceKind
+    id: string
+  }
+  summary: string
+  evidence: Array<{ kind: string; path?: string; summary: string }>
+  promotionTarget: {
+    kind: QueuePromotionKind
+    path?: string
+    requiresConfirmation: true
+  }
+}
+
+interface ProjectProfileQueueV1 {
+  ok: true
+  mode: 'project-profile.queue-v2' | 'project-profile.queue-v2-apply'
+  schemaVersion: 'project-profile-queue/v1'
+  root: string
+  createdAt: string
+  updatedAt: string
+  dryRun: boolean
+  dryRunSource: true
+  queuePath: '.lazy-harness/project/profile-queue.json'
+  sourcePacket: {
+    schemaVersion: ProjectProfileInterviewV2Packet['schemaVersion']
+    generatedAt: string
+    mode: ProjectProfileInterviewV2Packet['mode']
+  }
+  items: ProjectProfileQueueItem[]
+  summary: {
+    total: number
+    pending: number
+    byPrimaryRoute: Record<string, number>
+    pendingPolicyCandidates: number
+    pendingEventReadyMetadata: number
+  }
+  warnings: string[]
+  appliedWrites?: Array<{ path: string; action: 'written'; summary: string }>
+}
+
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
   { path: '.lazy-harness/project/stack.xml', label: 'Stack and platform choices', layer: 'project' as const },
@@ -242,12 +293,12 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
-    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'fill'].includes(next)) {
+    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'fill'].includes(next)) {
       args.mode = next as Mode
       i += 1
     } else if (arg.startsWith('--mode=')) {
       const value = arg.slice('--mode='.length)
-      if (!['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
+      if (!['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'queue-v2', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
       args.mode = value as Mode
     } else if (arg === '--format' && (next === 'json' || next === 'md' || next === 'markdown')) {
       args.format = next === 'markdown' ? 'md' : next
@@ -281,7 +332,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -811,6 +862,183 @@ function renderInterviewV2Md(result: ProjectProfileInterviewV2Packet): string {
   ].join('\n')
 }
 
+function queueItemId(sourceKind: QueueSourceKind, id: string): string {
+  return stableId(`project-profile-queue-v1:${sourceKind}:${id}`)
+}
+
+function queueRouteForQuestionGroup(id: string): Pick<ProjectProfileQueueItem, 'primaryRoute' | 'facets' | 'relatedRoutes' | 'promotionTarget'> {
+  if (id === 'domain-vocabulary') return { primaryRoute: 'ddd', facets: ['DDD', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'record', path: '.lazy-harness/domain/', requiresConfirmation: true } }
+  if (id === 'frontend-design') return { primaryRoute: 'bdd', facets: ['BDD', 'SDD', 'TDD'], relatedRoutes: ['sdd', 'tdd'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
+  if (id === 'backend-data' || id === 'system-design') return { primaryRoute: 'sdd', facets: ['SDD', 'BDD'], relatedRoutes: ['bdd'], promotionTarget: { kind: 'record', path: '.lazy-harness/spec/', requiresConfirmation: true } }
+  if (id === 'validation-policy') return { primaryRoute: 'tdd', facets: ['TDD', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/tests/', requiresConfirmation: true } }
+  if (id === 'source-ownership' || id === 'security-privacy') return { primaryRoute: 'ssot', facets: ['SSOT', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/ssot/', requiresConfirmation: true } }
+  if (id === 'agent-autonomy') return { primaryRoute: 'adr', facets: ['ADR', 'Policy'], relatedRoutes: ['policy-candidate'], promotionTarget: { kind: 'record', path: '.lazy-harness/decisions/', requiresConfirmation: true } }
+  if (id === 'workflow-policy' || id === 'dependency-policy' || id === 'documentation-policy' || id === 'human-confirmation') return { primaryRoute: 'policy-candidate', facets: ['Policy', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'rulebook', path: '.lazy-harness/rules/', requiresConfirmation: true } }
+  return { primaryRoute: 'bdd', facets: ['BDD', 'Project'], relatedRoutes: ['project-map-branch'], promotionTarget: { kind: 'record', path: '.lazy-harness/behavior/', requiresConfirmation: true } }
+}
+
+function routeForProposedWrite(path: string): Pick<ProjectProfileQueueItem, 'primaryRoute' | 'facets' | 'relatedRoutes' | 'promotionTarget'> {
+  if (path.includes('/rules/')) return { primaryRoute: 'policy-candidate', facets: ['Policy'], relatedRoutes: [], promotionTarget: { kind: 'rulebook', path, requiresConfirmation: true } }
+  if (path.endsWith('capabilities.json')) return { primaryRoute: 'policy-candidate', facets: ['Policy', 'SSOT'], relatedRoutes: ['ssot'], promotionTarget: { kind: 'capability-binding', path, requiresConfirmation: true } }
+  if (path.includes('/tests/')) return { primaryRoute: 'tdd', facets: ['TDD'], relatedRoutes: [], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
+  if (path.includes('/project/')) return { primaryRoute: 'ssot', facets: ['SSOT', 'Project'], relatedRoutes: ['project-map-branch'], promotionTarget: { kind: 'record', path, requiresConfirmation: true } }
+  return { primaryRoute: 'queue-only', facets: ['Project'], relatedRoutes: [], promotionTarget: { kind: 'queue-only', path, requiresConfirmation: true } }
+}
+
+function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Packet, args: Args): ProjectProfileQueueV1 {
+  const now = new Date().toISOString()
+  const items: ProjectProfileQueueItem[] = []
+
+  for (const group of packet.questionGroups) {
+    const route = queueRouteForQuestionGroup(group.id)
+    items.push({
+      id: queueItemId('question-group', group.id),
+      status: 'pending',
+      ...route,
+      source: { kind: 'question-group', id: group.id },
+      summary: `${group.title}: ${group.dimensions.join(', ')}`,
+      evidence: [{ kind: 'project-profile-question-group', summary: `Derived from interview-v2 question group ${group.id}` }],
+    })
+  }
+
+  for (const seed of packet.projectMapSeeds) {
+    items.push({
+      id: queueItemId('project-map-seed', seed.id),
+      status: 'pending',
+      primaryRoute: 'project-map-branch',
+      facets: ['Project', 'Evidence'],
+      relatedRoutes: ['bdd', 'sdd'],
+      source: { kind: 'project-map-seed', id: seed.id },
+      summary: `${seed.title}: ${seed.cluster.branches.length} branch(es), ${seed.cluster.edges.length} edge(s)`,
+      evidence: [{ kind: 'project-map-seed', summary: `Derived from interview-v2 Project Map seed ${seed.id}` }],
+      promotionTarget: { kind: 'project-map-branch', path: '.lazy-harness/project/feature-navigation.xml', requiresConfirmation: true },
+    })
+  }
+
+  for (const policy of packet.policyCandidates) {
+    items.push({
+      id: queueItemId('policy-candidate', policy.id),
+      status: 'pending',
+      primaryRoute: 'policy-candidate',
+      facets: ['Policy', 'SSOT'],
+      relatedRoutes: ['ssot'],
+      source: { kind: 'policy-candidate', id: policy.id },
+      summary: `${policy.dimension}: ${policy.stages.map((stage) => `${stage.stage}/${stage.level}`).join(', ')}`,
+      evidence: [{ kind: 'policy-candidate', summary: `Derived from interview-v2 policy candidate ${policy.id}` }],
+      promotionTarget: { kind: 'rulebook', path: '.lazy-harness/rules/', requiresConfirmation: true },
+    })
+  }
+
+  for (const ambiguity of packet.unresolvedAmbiguities) {
+    const policyLike = ambiguity.id.includes('policy')
+    items.push({
+      id: queueItemId('unresolved-ambiguity', ambiguity.id),
+      status: 'pending',
+      primaryRoute: policyLike ? 'ssot' : 'queue-only',
+      facets: policyLike ? ['SSOT', 'Policy'] : ['Project'],
+      relatedRoutes: policyLike ? ['policy-candidate'] : [],
+      source: { kind: 'unresolved-ambiguity', id: ambiguity.id },
+      summary: ambiguity.question,
+      evidence: [{ kind: 'unresolved-ambiguity', summary: `Options: ${ambiguity.options.join(', ')}` }],
+      promotionTarget: { kind: 'record', path: policyLike ? '.lazy-harness/ssot/' : '.lazy-harness/planning/', requiresConfirmation: true },
+    })
+  }
+
+  for (const proposedWrite of packet.proposedWrites) {
+    const route = routeForProposedWrite(proposedWrite.path)
+    items.push({
+      id: queueItemId('proposed-write', proposedWrite.path),
+      status: 'pending',
+      ...route,
+      source: { kind: 'proposed-write', id: proposedWrite.path },
+      summary: `Future confirmed write target: ${proposedWrite.path}`,
+      evidence: [{ kind: 'proposed-write', path: proposedWrite.path, summary: 'Interview V2 proposed write target requiring confirmation' }],
+    })
+  }
+
+  items.push({
+    id: queueItemId('update-loop', packet.updateLoop.target.nodeId),
+    status: 'pending',
+    primaryRoute: 'event-ready-metadata',
+    facets: ['Project', 'Evidence'],
+    relatedRoutes: ['project-map-branch'],
+    source: { kind: 'update-loop', id: packet.updateLoop.target.nodeId },
+    summary: `${packet.updateLoop.eventType} event-ready metadata for ${packet.updateLoop.target.anchorId}`,
+    evidence: packet.updateLoop.evidence.map((item) => ({ kind: item.kind, path: item.path, summary: item.summary })),
+    promotionTarget: { kind: 'update-loop-event', requiresConfirmation: true },
+  })
+
+  const byPrimaryRoute = items.reduce<Record<string, number>>((acc, item) => {
+    acc[item.primaryRoute] = (acc[item.primaryRoute] || 0) + 1
+    return acc
+  }, {})
+  return {
+    ok: true,
+    mode: args.confirm ? 'project-profile.queue-v2-apply' : 'project-profile.queue-v2',
+    schemaVersion: 'project-profile-queue/v1',
+    root: args.root,
+    createdAt: now,
+    updatedAt: now,
+    dryRun: !args.confirm,
+    dryRunSource: true,
+    queuePath: '.lazy-harness/project/profile-queue.json',
+    sourcePacket: { schemaVersion: packet.schemaVersion, generatedAt: packet.generatedAt, mode: packet.mode },
+    items,
+    summary: {
+      total: items.length,
+      pending: items.filter((item) => item.status === 'pending').length,
+      byPrimaryRoute,
+      pendingPolicyCandidates: items.filter((item) => item.status === 'pending' && item.primaryRoute === 'policy-candidate').length,
+      pendingEventReadyMetadata: items.filter((item) => item.status === 'pending' && item.primaryRoute === 'event-ready-metadata').length,
+    },
+    warnings: [
+      'queue-v2 is a typed inbox/router; it does not promote records by itself.',
+      'queue-v2 --confirm writes only .lazy-harness/project/profile-queue.json.',
+      'candidates/rules/capabilities/update-loop events require later explicit promotion.',
+    ],
+  }
+}
+
+function buildProfileQueueV1(args: Args): ProjectProfileQueueV1 {
+  if (!args.dryRun && !args.confirm) throw new Error('queue-v2 mode requires --dry-run or --confirm')
+  const packet = buildInterviewV2Result({ ...args, dryRun: true, confirm: false })
+  return buildProfileQueueV1FromInterviewV2(packet, args)
+}
+
+function applyProfileQueue(queue: ProjectProfileQueueV1): ProjectProfileQueueV1 {
+  const abs = join(queue.root, queue.queuePath)
+  ensureParent(abs)
+  const content = JSON.stringify({ ...queue, appliedWrites: undefined }, null, 2) + '\n'
+  writeFileSync(abs, content, 'utf8')
+  return { ...queue, appliedWrites: [{ path: queue.queuePath, action: 'written', summary: `Wrote ${queue.items.length} Project Profile queue item(s)` }] }
+}
+
+function renderProfileQueueMd(queue: ProjectProfileQueueV1): string {
+  const lines: string[] = []
+  lines.push(queue.mode === 'project-profile.queue-v2-apply' ? '# Project Profile queue V2 apply' : '# Project Profile queue V2')
+  lines.push('')
+  lines.push(`- Root: \`${queue.root}\``)
+  lines.push(`- Dry run: ${queue.dryRun ? 'yes' : 'no'}`)
+  lines.push(`- Queue path: \`${queue.queuePath}\``)
+  lines.push(`- Items: ${queue.summary.total}`)
+  lines.push(`- Pending policy candidates: ${queue.summary.pendingPolicyCandidates}`)
+  lines.push(`- Pending event-ready metadata: ${queue.summary.pendingEventReadyMetadata}`)
+  lines.push('')
+  lines.push('## Items')
+  for (const item of queue.items) {
+    lines.push(`- ${item.id}: ${item.primaryRoute} [${item.facets.join(', ')}] — ${item.summary}`)
+  }
+  if (queue.appliedWrites?.length) {
+    lines.push('')
+    lines.push('## Applied writes')
+    for (const write of queue.appliedWrites) lines.push(`- ${write.action}: \`${write.path}\` — ${write.summary}`)
+  }
+  lines.push('')
+  lines.push('## Warnings')
+  for (const warning of queue.warnings) lines.push(`- ${warning}`)
+  return lines.join('\n')
+}
+
 function parseAnswers(args: Args): ProfileAnswer[] {
   if (!args.answers) throw new Error('fill mode requires --answers <answers.json>')
   const raw = JSON.parse(readFileSync(args.answers, 'utf8')) as unknown
@@ -955,6 +1183,13 @@ function main(): void {
       const result = buildInterviewV2Result(args)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderInterviewV2Md(result))
+      return
+    }
+    if (args.mode === 'queue-v2') {
+      const queue = buildProfileQueueV1(args)
+      const result = args.confirm && !args.dryRun ? applyProfileQueue(queue) : queue
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else console.log(renderProfileQueueMd(result))
       return
     }
     if (args.mode === 'fill') {
