@@ -1,7 +1,8 @@
 # SDD — Project Profile V2 / Project Interview Policy Discovery
 
-Status: draft
+Status: active-runtime-dry-run
 Date: 2026-06-16
+Updated: 2026-06-17
 Layer: SDD
 Related SDD: `.lazy-harness/spec/platform/project-profile.md`, `.lazy-harness/spec/platform/project-map-v2.md`
 Related plan: `.lazy-harness/plans/project-init-interview-v2-spec.md`, `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md`
@@ -11,12 +12,13 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 
 ## Rule digest
 
-- Status: draft
+- Status: active-runtime-dry-run
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
   - redesigning Project Interview as an install-time, mid-project adoption, or refresh channel for V2 Project Map seeds and project/team policy discovery
-  - extending `project-profile.ts` interview/plan/fill behavior in a future implementation phase
+  - extending `project-profile.ts` interview/plan/fill behavior
+  - using `project-profile.ts --mode interview-v2 --dry-run --format json`
   - designing Pi-primary adapter output for project profile/interview data
 - Must:
   - treat Project Interview as project understanding + policy discovery, not a test-strategy wizard
@@ -25,14 +27,15 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
   - keep initial policy levels at `discover` or `recommend` unless user/team explicitly confirms stronger enforcement
   - preserve no-silent-defaults behavior
   - keep Pi as primary future adapter and Jcode as compatibility adapter
-  - keep existing Project Profile V1 behavior compatible until implementation migration is approved
+  - keep existing Project Profile V1 behavior compatible until a migration is explicitly approved
+  - keep `interview-v2` read-only and dry-run only in the first runtime slice
 - Must not:
   - write confirmed project facts, policies, or block-level capabilities without user-confirmed answers
   - treat interview output as a frozen preset
   - promote a policy to `warn` or `block` only because a generated fixture or adapter suggests it
   - make tests the center of the policy model
 - Record completion:
-  - changes update this SDD, V2 interview plan, TDD, fixture, manifest sync entries, and graph rows together.
+  - changes update this SDD, V2 interview plan, TDD, fixture, `project-profile.ts`, self-test, manifest sync entries, and graph rows together.
 
 ## Purpose
 
@@ -61,7 +64,7 @@ The existing `project-profile.ts` supports:
 - missing artifact detection
 - needs-interview fields
 
-Phase 2 design must not break this baseline. Runtime implementation comes after user 검수.
+Phase 2 design must not break this baseline. The first runtime slice is now implemented as read-only `project-profile.ts --mode interview-v2 --dry-run --format json`; broader write/apply behavior still needs separate approval.
 
 ## V2 interview output model
 
@@ -206,33 +209,38 @@ Project Profile V2 is core framework data.
 
 ## Implementation map
 
-- Status: draft design only
+- Status: first dry-run runtime slice implemented.
 - Primary files:
   - `.lazy-harness/spec/platform/project-profile-v2.md` — this SDD contract.
   - `.lazy-harness/plans/project-init-interview-v2-spec.md` — detailed interview plan.
   - `.lazy-harness/tests/project-profile-v2.md` — TDD expectations.
   - `.lazy-harness/fixtures/project-profile-v2/interview-output.json` — desired output packet fixture.
   - `.lazy-harness/spec/platform/project-profile.md` — V1 baseline and V2 pointer.
-- Future implementation files, not changed in this design phase:
-  - `.lazy-harness/scripts/project-profile.ts`
-  - `.lazy-harness/scripts/self-test.py`
-- Key future symbols:
-  - `ProjectProfileInterviewV2Packet`
-  - `buildInterviewV2Result`
-  - `validateInterviewV2Packet`
+  - `.lazy-harness/scripts/project-profile.ts` — implements read-only `interview-v2 --dry-run` packet output.
+  - `.lazy-harness/scripts/self-test.py` — protects V2 runtime packet and V1 backward compatibility.
+- Key symbols:
+  - `project-profile.ts#ProjectProfileInterviewV2Packet`
+  - `project-profile.ts#buildInterviewV2Result`
+  - `project-profile.ts#renderInterviewV2Md`
+  - `self-test.py#check_project_profile_v2_runtime`
 - Protection:
-  - current: record/fixture validation + `lazy test`
-  - future: self-test fixture after implementation phase
+  - `bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --format json`
+  - `python3 .lazy-harness/scripts/self-test.py --scope framework`
+  - `.lazy-harness/bin/lazy test`
+- Runtime boundary:
+  - `interview-v2` requires `--dry-run`.
+  - `interview-v2 --confirm` is blocked.
+  - No file writes, candidate appends, canonical promotions, or update-loop event appends occur in this slice.
 
 ## Layer completeness impact
 
 - DDD: domain-vocabulary question group seeds facts/DDD branches.
 - BDD: expectations and user/team behavior are captured through question groups and policy stages.
 - SDD: this record defines the V2 output contract.
-- TDD: `.lazy-harness/tests/project-profile-v2.md` defines acceptance before runtime code changes.
+- TDD: `.lazy-harness/tests/project-profile-v2.md` and `self-test.py#check_project_profile_v2_runtime` protect the dry-run runtime packet.
 - ADR: future ADR needed before replacing V1 Project Profile behavior or deprecating rulebook.
 - SSOT: capability registry and taxonomy remain the controlled vocabulary sources.
-- Planning: Phase 2 design draft only; runtime code changes need user 검수.
+- Planning: Phase 2 dry-run runtime slice is implemented; write/apply behavior remains future work.
 
 ## Rule placement
 
@@ -241,14 +249,14 @@ Project Profile V2 is core framework data.
 - Primary record: `.lazy-harness/spec/platform/project-profile-v2.md`
 - Why not AGENTS.md: this is an SDD output contract, not immediate prompt grammar.
 - Why not `.jcode`: V2 is Pi-primary and agent-neutral; Jcode is only compatibility adapter.
-- Confirmation: user-approved Phase 2 design draft; no runtime implementation approval yet.
+- Confirmation: user-approved Phase 2 design draft and first read-only runtime slice on 2026-06-17.
 
 ## Discovery capture
 
 - DDD: candidate domain-vocabulary branch discovery.
 - BDD: candidate expectation/policy behavior discovery.
-- SDD: updated by this SDD.
-- TDD: updated by `.lazy-harness/tests/project-profile-v2.md`.
-- ADR: none yet.
-- SSOT: uses existing taxonomy/capability registry; no SSOT schema change yet.
-- Planning: Phase 2 design started.
+- SDD: updated by this SDD and implemented by `project-profile.ts#buildInterviewV2Result`.
+- TDD: updated by `.lazy-harness/tests/project-profile-v2.md` and `self-test.py#check_project_profile_v2_runtime`.
+- ADR: none yet; ADR required only before replacing V1 mode semantics.
+- SSOT: uses existing taxonomy/capability registry and Project Map ingestion source vocabulary; no SSOT schema change.
+- Planning: Phase 2 first dry-run runtime slice implemented.

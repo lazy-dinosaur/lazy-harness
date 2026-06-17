@@ -494,7 +494,7 @@
         {
           "path": "spec/platform/project-profile-v2.md",
           "kind": "file",
-          "description": "SDD draft for Project Profile V2 / Project Interview policy discovery output contract."
+          "description": "SDD for Project Profile V2 / Project Interview policy discovery output contract and first read-only interview-v2 runtime slice."
         },
         {
           "path": "plans/project-init-interview-v2-spec.md",
@@ -504,7 +504,7 @@
         {
           "path": "tests/project-profile-v2.md",
           "kind": "file",
-          "description": "TDD draft for Project Profile V2 interview output and future runtime implementation."
+          "description": "TDD for Project Profile V2 interview output and read-only interview-v2 runtime implementation."
         },
         {
           "path": "ssot/project-map-record-storage.md",

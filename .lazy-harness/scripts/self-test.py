@@ -4333,6 +4333,129 @@ def check_project_profile_inspect() -> None:
     print("✓ project-profile inspect/plan/apply ok")
 
 
+def check_project_profile_v2_runtime() -> None:
+    """Project Profile V2 should emit a read-only interview packet without breaking V1 modes."""
+    fixture_path = LAZY / "fixtures" / "project-profile-v2" / "interview-output.json"
+    if not fixture_path.exists():
+        fail("Project Profile V2 fixture missing: " + str(fixture_path.relative_to(ROOT)))
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        before_paths = sorted(str(path.relative_to(root)) for path in root.rglob("*"))
+        blocked = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "interview-v2",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if blocked.returncode == 0 or "requires --dry-run" not in blocked.stderr:
+            fail("project-profile interview-v2 without --dry-run must be blocked")
+        confirmed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "interview-v2",
+                "--dry-run",
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if confirmed.returncode == 0 or "--confirm is intentionally unsupported" not in confirmed.stderr:
+            fail("project-profile interview-v2 --confirm must be blocked")
+        completed = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "interview-v2",
+                "--dry-run",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            fail("project-profile interview-v2 --dry-run failed:\n" + completed.stdout + completed.stderr)
+        packet = json.loads(completed.stdout)
+        after_paths = sorted(str(path.relative_to(root)) for path in root.rglob("*"))
+        if after_paths != before_paths:
+            fail("project-profile interview-v2 --dry-run must not write files: " + json.dumps(after_paths, ensure_ascii=False))
+
+    required_top = {
+        "schemaVersion",
+        "mode",
+        "adapterBoundary",
+        "writes",
+        "questionGroups",
+        "projectMapSeeds",
+        "policyCandidates",
+        "unresolvedAmbiguities",
+        "proposedWrites",
+    }
+    missing = sorted(required_top - set(packet))
+    if missing:
+        fail("project-profile interview-v2 packet missing fields: " + json.dumps(missing, ensure_ascii=False))
+    if packet.get("schemaVersion") != "project-profile-interview-v2/v1" or packet.get("mode") != "interview-v2":
+        fail("project-profile interview-v2 packet schema/mode mismatch: " + completed.stdout[:500])
+    boundary = packet.get("adapterBoundary", {})
+    if boundary.get("primary") != "pi" or "jcode" not in boundary.get("compatibility", []):
+        fail("project-profile interview-v2 must keep Pi primary/Jcode compatibility")
+    writes = packet.get("writes", {})
+    if writes.get("dryRun") is not True or writes.get("confirmedOnly") is not True or writes.get("noSilentDefaults") is not True:
+        fail("project-profile interview-v2 writes declaration must remain dry-run/confirmed-only/no-silent-defaults")
+    group_ids = {group.get("id") for group in packet.get("questionGroups", [])}
+    for expected in ("source-ownership", "system-design", "domain-vocabulary", "dependency-policy", "security-privacy", "human-confirmation"):
+        if expected not in group_ids:
+            fail("project-profile interview-v2 missing non-test question group: " + expected)
+    fixture_group_ids = {group.get("id") for group in fixture.get("questionGroups", [])}
+    if not fixture_group_ids.issubset(group_ids):
+        fail("project-profile interview-v2 runtime must cover fixture question groups: " + json.dumps(sorted(fixture_group_ids - group_ids), ensure_ascii=False))
+    seeds = packet.get("projectMapSeeds", [])
+    if not seeds or not seeds[0].get("cluster", {}).get("branches") or not seeds[0].get("cluster", {}).get("edges"):
+        fail("project-profile interview-v2 must include Project Map cluster seed branches and edges")
+    policies = packet.get("policyCandidates", [])
+    if len(policies) < 2 or not any(policy.get("dimension") != "validation" for policy in policies):
+        fail("project-profile interview-v2 must include validation and non-test policy candidates")
+    for policy in policies:
+        if policy.get("confirmed") is not False:
+            fail("project-profile interview-v2 policy candidates must remain unconfirmed")
+        for stage in policy.get("stages", []):
+            if stage.get("level") not in {"discover", "recommend"}:
+                fail("project-profile interview-v2 initial policy level must be discover/recommend: " + json.dumps(stage, ensure_ascii=False))
+    if not packet.get("unresolvedAmbiguities") or not any(item.get("id") == "policy-storage-target" for item in packet.get("unresolvedAmbiguities", [])):
+        fail("project-profile interview-v2 must preserve unresolved policy-storage-target ambiguity")
+    if not all(write.get("requiresConfirmation") is True for write in packet.get("proposedWrites", [])):
+        fail("project-profile interview-v2 proposed writes must require confirmation")
+    update_loop = packet.get("updateLoop", {})
+    if update_loop.get("eventType") != "project-profile-refresh" or update_loop.get("source") != "project-profile":
+        fail("project-profile interview-v2 must include project-profile-refresh update-loop metadata")
+    transition = update_loop.get("transition", {})
+    if transition.get("to") != "candidate" or transition.get("requiresConfirmation") is not True or transition.get("canonicalRecords") != []:
+        fail("project-profile interview-v2 update-loop metadata must stay candidate-only")
+    _assert_no_project_map_forbidden_fields(packet, "projectProfileInterviewV2")
+    print("✓ project-profile V2 runtime ok")
+
+
 def check_record_audit_cli() -> None:
     """Record audit must summarize host-owned records, markers, JSONL, Project Profile, and graph hygiene."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -7759,6 +7882,7 @@ def main() -> None:
         (check_knowledge_intake, "FRAMEWORK_ONLY"),
         (check_document_resource_ingestion_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
+        (check_project_profile_v2_runtime, "FRAMEWORK_ONLY"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),

@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'fill'
+type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'fill'
 type Format = 'json' | 'md'
 type ArtifactStatus = 'present' | 'missing'
 
@@ -144,6 +144,85 @@ interface FillResult {
   warnings: string[]
 }
 
+interface ProjectProfileInterviewV2Packet {
+  schemaVersion: 'project-profile-interview-v2/v1'
+  mode: 'interview-v2'
+  root: string
+  generatedAt: string
+  adapterBoundary: {
+    primary: 'pi'
+    compatibility: ['jcode']
+    core: string
+  }
+  writes: {
+    dryRun: true
+    confirmedOnly: true
+    noSilentDefaults: true
+  }
+  inspectContext: {
+    schemaVersion: ProjectProfileInspectResult['schemaVersion']
+    summary: ProjectProfileInspectResult['summary']
+    requiredArtifacts: Array<Pick<RequiredArtifact, 'path' | 'label' | 'layer' | 'status'>>
+    documentIngestion: ProjectProfileInspectResult['documentIngestion']
+  }
+  questionGroups: Array<{
+    id: string
+    title: string
+    dimensions: string[]
+  }>
+  projectMapSeeds: Array<{
+    id: string
+    title: string
+    primary: string
+    facets: string[]
+    status: 'draft'
+    scope: 'host-project'
+    cluster: {
+      role: 'anchor'
+      anchorId: string
+      branchOf: null
+      branches: Array<{ id: string; primary: string; facets: string[] }>
+      edges: Array<{ from: string; to: string; relation: string }>
+    }
+    canonicalRecords: string[]
+  }>
+  policyCandidates: Array<{
+    id: string
+    dimension: string
+    sourceQuestionGroup: string
+    confirmed: false
+    stages: Array<{ stage: string; level: 'discover' | 'recommend'; behavior: string }>
+  }>
+  unresolvedAmbiguities: Array<{
+    id: string
+    question: string
+    options: string[]
+  }>
+  proposedWrites: Array<{ path: string; requiresConfirmation: true }>
+  updateLoop: {
+    schemaVersion: 'project-map-update-event/v1'
+    eventType: 'project-profile-refresh'
+    source: 'project-profile'
+    target: {
+      anchorId: string
+      branch: string
+      nodeId: string
+      primary: string
+      facets: string[]
+    }
+    transition: {
+      from: 'observation'
+      to: 'candidate'
+      requiresConfirmation: true
+      canonicalRecords: []
+      candidateStore: '.lazy-harness/knowledge/candidates.jsonl'
+    }
+    evidence: Array<{ kind: 'project-profile'; path: string; summary: string; redaction: 'compact' }>
+    effects: Array<{ action: 'append-candidate'; path: '.lazy-harness/knowledge/candidates.jsonl' }>
+  }
+  warnings: string[]
+}
+
 const REQUIRED_ARTIFACTS = [
   { path: '.lazy-harness/project/profile.xml', label: 'Project goal/profile root', layer: 'project' as const },
   { path: '.lazy-harness/project/stack.xml', label: 'Stack and platform choices', layer: 'project' as const },
@@ -163,12 +242,12 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     const next = argv[i + 1]
-    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'fill'].includes(next)) {
+    if (arg === '--mode' && next && ['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'fill'].includes(next)) {
       args.mode = next as Mode
       i += 1
     } else if (arg.startsWith('--mode=')) {
       const value = arg.slice('--mode='.length)
-      if (!['inspect', 'plan', 'apply', 'interview', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
+      if (!['inspect', 'plan', 'apply', 'interview', 'interview-v2', 'fill'].includes(value)) throw new Error(`Unsupported --mode: ${value}`)
       args.mode = value as Mode
     } else if (arg === '--format' && (next === 'json' || next === 'md' || next === 'markdown')) {
       args.format = next === 'markdown' ? 'md' : next
@@ -202,7 +281,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -572,6 +651,166 @@ function renderInterviewMd(result: InterviewResult): string {
   return lines.join('\n')
 }
 
+function buildInterviewV2Result(args: Args): ProjectProfileInterviewV2Packet {
+  if (!args.dryRun || args.confirm) {
+    throw new Error('interview-v2 mode is read-only and requires --dry-run; --confirm is intentionally unsupported')
+  }
+  const inspectResult = inspect(args)
+  return {
+    schemaVersion: 'project-profile-interview-v2/v1',
+    mode: 'interview-v2',
+    root: args.root,
+    generatedAt: new Date().toISOString(),
+    adapterBoundary: {
+      primary: 'pi',
+      compatibility: ['jcode'],
+      core: 'Project Profile V2 output is agent-neutral project map and policy discovery data',
+    },
+    writes: { dryRun: true, confirmedOnly: true, noSilentDefaults: true },
+    inspectContext: {
+      schemaVersion: inspectResult.schemaVersion,
+      summary: inspectResult.summary,
+      requiredArtifacts: inspectResult.requiredArtifacts.map((item) => ({ path: item.path, label: item.label, layer: item.layer, status: item.status })),
+      documentIngestion: inspectResult.documentIngestion,
+    },
+    questionGroups: [
+      { id: 'project-purpose', title: 'Project purpose and constraints', dimensions: ['facts', 'expectations'] },
+      { id: 'source-ownership', title: 'Source ownership and filesystem boundaries', dimensions: ['ownership', 'source-links', 'policies'] },
+      { id: 'system-design', title: 'System design and architecture boundaries', dimensions: ['contracts', 'decisions', 'policies'] },
+      { id: 'domain-vocabulary', title: 'Domain vocabulary and invariants', dimensions: ['facts', 'ownership', 'validation'] },
+      { id: 'frontend-design', title: 'Frontend design system and accessibility baseline', dimensions: ['contracts', 'expectations', 'policies'] },
+      { id: 'backend-data', title: 'Backend API, persistence, auth, error, and migration boundaries', dimensions: ['contracts', 'ownership', 'validation'] },
+      { id: 'validation-policy', title: 'Validation and testing policy', dimensions: ['validation', 'policies'] },
+      { id: 'workflow-policy', title: 'Commit, push, PR, review, and release workflow', dimensions: ['policies', 'expectations'] },
+      { id: 'dependency-policy', title: 'Dependency and tool policy', dimensions: ['policies', 'ownership', 'contracts'] },
+      { id: 'security-privacy', title: 'Security, privacy, and compliance boundaries', dimensions: ['ownership', 'policies', 'validation'] },
+      { id: 'documentation-policy', title: 'Documentation and record update expectations', dimensions: ['policies', 'source-links'] },
+      { id: 'human-confirmation', title: 'Human confirmation and autonomy boundaries', dimensions: ['policies', 'ownership'] },
+      { id: 'agent-autonomy', title: 'Agent autonomy and refactor boundaries', dimensions: ['policies', 'decisions'] },
+    ],
+    projectMapSeeds: [{
+      id: 'project-policy-discovery',
+      title: 'Project/team policy discovery',
+      primary: 'policies',
+      facets: ['Policy', 'Project', 'BDD', 'SDD'],
+      status: 'draft',
+      scope: 'host-project',
+      cluster: {
+        role: 'anchor',
+        anchorId: 'project-policy-discovery',
+        branchOf: null,
+        branches: [
+          { id: 'project-validation-policy', primary: 'validation', facets: ['TDD', 'Policy'] },
+          { id: 'project-dependency-policy', primary: 'policies', facets: ['Policy', 'SSOT'] },
+          { id: 'project-design-boundary', primary: 'contracts', facets: ['SDD', 'ADR'] },
+          { id: 'project-human-confirmation', primary: 'ownership', facets: ['SSOT', 'Policy'] },
+          { id: 'project-domain-vocabulary', primary: 'facts', facets: ['DDD', 'Project'] },
+        ],
+        edges: [
+          { from: 'project-policy-discovery', to: 'project-validation-policy', relation: 'has-validation' },
+          { from: 'project-policy-discovery', to: 'project-dependency-policy', relation: 'has-policy' },
+          { from: 'project-policy-discovery', to: 'project-design-boundary', relation: 'has-contract' },
+          { from: 'project-policy-discovery', to: 'project-human-confirmation', relation: 'has-ownership' },
+          { from: 'project-policy-discovery', to: 'project-domain-vocabulary', relation: 'has-fact' },
+        ],
+      },
+      canonicalRecords: ['.lazy-harness/spec/platform/project-profile-v2.md', '.lazy-harness/spec/platform/project-map-v2.md'],
+    }],
+    policyCandidates: [
+      {
+        id: 'project-validation-stage-policy',
+        dimension: 'validation',
+        sourceQuestionGroup: 'validation-policy',
+        confirmed: false,
+        stages: [
+          { stage: 'turn', level: 'recommend', behavior: 'ask project whether focused validation is expected for changed code' },
+          { stage: 'push', level: 'discover', behavior: 'ask project whether broad validation should run before push' },
+        ],
+      },
+      {
+        id: 'dependency-addition-review-policy',
+        dimension: 'dependency-change',
+        sourceQuestionGroup: 'dependency-policy',
+        confirmed: false,
+        stages: [
+          { stage: 'edit', level: 'recommend', behavior: 'ask project whether new runtime dependencies require record-backed justification' },
+          { stage: 'high-risk-mutation', level: 'discover', behavior: 'ask project whether supply-chain-sensitive dependency changes require explicit confirmation' },
+        ],
+      },
+      {
+        id: 'human-confirmation-boundary-policy',
+        dimension: 'human-confirmation',
+        sourceQuestionGroup: 'human-confirmation',
+        confirmed: false,
+        stages: [
+          { stage: 'high-risk-mutation', level: 'recommend', behavior: 'ask project which irreversible or externally visible actions need explicit confirmation' },
+          { stage: 'release', level: 'discover', behavior: 'ask project whether release actions require a human approval checkpoint' },
+        ],
+      },
+    ],
+    unresolvedAmbiguities: [
+      {
+        id: 'policy-storage-target',
+        question: 'Should confirmed project policies be written first as Project Map candidates, .lazy-harness/rules records, or capabilities.json bindings?',
+        options: ['project-map-candidate', 'rules-record', 'capability-binding', 'decide-per-policy'],
+      },
+      {
+        id: 'project-profile-refresh-event-shape',
+        question: 'Should future confirmed Project Profile refresh write update-loop event packets immediately or keep event-ready metadata until a later apply mode?',
+        options: ['event-ready-metadata', 'append-update-event', 'ask-each-refresh', 'decide-after-policy-machinery'],
+      },
+    ],
+    proposedWrites: [
+      { path: '.lazy-harness/project/profile.xml', requiresConfirmation: true },
+      { path: '.lazy-harness/project/feature-navigation.xml', requiresConfirmation: true },
+      { path: '.lazy-harness/tests/test-strategy.xml', requiresConfirmation: true },
+      { path: '.lazy-harness/rules/', requiresConfirmation: true },
+      { path: '.lazy-harness/ssot/capabilities.json', requiresConfirmation: true },
+    ],
+    updateLoop: {
+      schemaVersion: 'project-map-update-event/v1',
+      eventType: 'project-profile-refresh',
+      source: 'project-profile',
+      target: { anchorId: 'project-profile-v2', branch: 'ownership', nodeId: 'project-profile-refresh-candidate', primary: 'ownership', facets: ['SSOT', 'Project'] },
+      transition: { from: 'observation', to: 'candidate', requiresConfirmation: true, canonicalRecords: [], candidateStore: '.lazy-harness/knowledge/candidates.jsonl' },
+      evidence: [{ kind: 'project-profile', path: '.lazy-harness/project/profile.xml', summary: 'Project Profile V2 dry-run output is candidate/event-ready metadata only.', redaction: 'compact' }],
+      effects: [{ action: 'append-candidate', path: '.lazy-harness/knowledge/candidates.jsonl' }],
+    },
+    warnings: [
+      'interview-v2 is read-only and requires --dry-run.',
+      'Project Map seeds and policy candidates are candidates, not canonical truth.',
+      'No files are written and no Project Map update event is appended by this mode.',
+      'Use confirmed answers plus a future apply mode before promoting profile data to canonical records.',
+    ],
+  }
+}
+
+function renderInterviewV2Md(result: ProjectProfileInterviewV2Packet): string {
+  return [
+    '# Project Profile Interview V2',
+    '',
+    `Generated: ${result.generatedAt}`,
+    `Adapter boundary: primary=${result.adapterBoundary.primary}, compatibility=${result.adapterBoundary.compatibility.join(', ')}`,
+    `Writes: dryRun=${result.writes.dryRun}, confirmedOnly=${result.writes.confirmedOnly}, noSilentDefaults=${result.writes.noSilentDefaults}`,
+    '',
+    '## Question groups',
+    ...result.questionGroups.map((group) => `- ${group.id}: ${group.title}`),
+    '',
+    '## Project Map seeds',
+    ...result.projectMapSeeds.map((seed) => `- ${seed.id}: ${seed.primary} [${seed.facets.join(', ')}]`),
+    '',
+    '## Policy candidates',
+    ...result.policyCandidates.map((policy) => `- ${policy.id}: ${policy.dimension} (${policy.stages.map((stage) => `${stage.stage}:${stage.level}`).join(', ')})`),
+    '',
+    '## Unresolved ambiguities',
+    ...result.unresolvedAmbiguities.map((item) => `- ${item.id}: ${item.question}`),
+    '',
+    '## Warnings',
+    ...result.warnings.map((warning) => `- ${warning}`),
+    '',
+  ].join('\n')
+}
+
 function parseAnswers(args: Args): ProfileAnswer[] {
   if (!args.answers) throw new Error('fill mode requires --answers <answers.json>')
   const raw = JSON.parse(readFileSync(args.answers, 'utf8')) as unknown
@@ -710,6 +949,12 @@ function main(): void {
       const result = args.confirm && !args.dryRun ? applyInterviewQueue(interview) : interview
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else console.log(renderInterviewMd(result))
+      return
+    }
+    if (args.mode === 'interview-v2') {
+      const result = buildInterviewV2Result(args)
+      if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
+      else console.log(renderInterviewV2Md(result))
       return
     }
     if (args.mode === 'fill') {

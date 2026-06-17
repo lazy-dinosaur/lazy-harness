@@ -1,6 +1,6 @@
 # Planning — Project Profile V2 Baseline / Gap Audit
 
-Status: completed-audit
+Status: completed-audit-and-runtime-dry-run
 Date: 2026-06-17
 Layer: Planning
 Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md#phase-2--project-profile--interview-as-one-bootstrap-channel`
@@ -12,7 +12,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 
 ## Rule digest
 
-- Status: active audit result
+- Status: active audit result + first runtime dry-run slice implemented
 - Layer: Planning
 - Scope: framework-global
 - Applies when:
@@ -22,7 +22,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 - Must:
   - preserve V1 `project-profile.ts` modes: `inspect`, `plan`, `apply`, `interview`, `fill`
   - keep `fill --confirm` confirmed-answer only
-  - add V2 runtime as read-only dry-run output first
+  - keep V2 runtime as read-only dry-run output first
   - align V2 profile refresh with Project Map update-loop `project-profile-refresh` semantics
   - keep Pi primary and Jcode compatibility in V2 packet metadata
   - keep unconfirmed Project Map seeds and policies as candidates/unresolved ambiguities
@@ -166,9 +166,9 @@ Phase 1.5 update-loop records already define:
 | Validation | Existing self-test protects V1 behavior; V2 fixture/TDD are design-only | runtime fixture self-test after implementation | Future test absent by design | Add focused runtime self-test with implementation. |
 | Backward compatibility | Existing V1 tests green | V1 remains green | Must preserve | Add V2 mode without changing existing mode behavior. |
 
-## Recommended next implementation slice
+## Implemented runtime slice
 
-Implement the smallest runtime slice:
+Implemented the smallest runtime slice:
 
 ```text
 project-profile.ts --mode interview-v2 --dry-run --format json
@@ -186,6 +186,14 @@ Scope:
 8. Do not promote candidates to canonical.
 9. Preserve all existing V1 self-tests.
 10. Add focused self-test assertions that compare V2 output shape to the fixture and recursively reject forbidden semantic-authority fields.
+
+Implementation result on 2026-06-17:
+
+- `project-profile.ts#Mode` includes `interview-v2`.
+- `project-profile.ts#ProjectProfileInterviewV2Packet` defines the dry-run packet.
+- `project-profile.ts#buildInterviewV2Result` emits Project Map seeds, policy candidates, unresolved ambiguities, and `project-profile-refresh` event-ready metadata.
+- `project-profile.ts#renderInterviewV2Md` renders a markdown summary.
+- `self-test.py#check_project_profile_v2_runtime` protects shape, adapter boundary, candidate-only semantics, no writes, and forbidden fields.
 
 Out of scope for the next slice:
 
@@ -205,7 +213,7 @@ These do not block the recommended first dry-run slice because it is read-only a
 
 ## Implementation map
 
-- Status: audit complete, runtime pending.
+- Status: audit complete, first dry-run runtime slice implemented.
 - Primary files:
   - `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md` — this audit.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — V2 output contract.
@@ -213,8 +221,8 @@ These do not block the recommended first dry-run slice because it is read-only a
   - `.lazy-harness/fixtures/project-profile-v2/interview-output.json` — desired packet fixture.
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — update-loop event contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — source/event vocabulary.
-  - `.lazy-harness/scripts/project-profile.ts` — current V1 runtime and future V2 runtime target.
-  - `.lazy-harness/scripts/self-test.py` — current V1 checks and future V2 runtime checks.
+  - `.lazy-harness/scripts/project-profile.ts` — current V1 runtime plus read-only V2 `interview-v2 --dry-run` runtime.
+  - `.lazy-harness/scripts/self-test.py` — V1 checks plus `check_project_profile_v2_runtime`.
 - Current symbols:
   - `project-profile.ts#Mode`
   - `project-profile.ts#ProjectProfileInspectResult`
@@ -222,26 +230,33 @@ These do not block the recommended first dry-run slice because it is read-only a
   - `project-profile.ts#buildInterviewResult`
   - `project-profile.ts#buildFillResult`
   - `self-test.py#check_project_profile_inspect`
-- Future symbols:
-  - `ProjectProfileInterviewV2Packet`
-  - `buildInterviewV2Result`
-  - `check_project_profile_v2_runtime`
+- Implemented symbols:
+  - `project-profile.ts#ProjectProfileInterviewV2Packet`
+  - `project-profile.ts#buildInterviewV2Result`
+  - `project-profile.ts#renderInterviewV2Md`
+  - `self-test.py#check_project_profile_v2_runtime`
 - Protection now:
+  - `bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --format json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
+  - `.lazy-harness/bin/lazy test`
 - Protection future:
-  - focused V2 runtime fixture check plus full `.lazy-harness/bin/lazy test`.
+  - additional V2 apply/write-mode checks after separate approval.
 - Machine index:
   - graph id: `kg_project_profile_v2_baseline_gap_audit`
+  - graph id: `kg_project_profile_v2_runtime_source`
+  - graph id: `kg_project_profile_v2_runtime_test`
+  - graph id: `kg_project_profile_v2_runtime_sdd`
+  - graph id: `kg_project_profile_v2_runtime_tdd`
 
 ## Layer completeness impact
 
 - DDD: V2 needs domain-vocabulary question groups and Project Map fact seed candidates.
 - BDD: V2 needs workflow/human-confirmation behavior and expectation seed candidates.
-- SDD: V2 output contract exists; runtime mode absent.
-- TDD: V1 runtime checks exist; V2 runtime checks are future work.
+- SDD: V2 output contract exists and read-only `interview-v2 --dry-run` runtime is implemented.
+- TDD: V1 runtime checks exist and V2 runtime dry-run checks are implemented.
 - ADR: ADR needed before replacing or migrating V1 mode semantics.
 - SSOT: update-loop ingestion source `project-profile` already exists; policy storage target remains open.
-- Planning: this audit defines the next implementation slice.
+- Planning: this audit now records the implemented first dry-run runtime slice and next apply/write decision slice.
 
 ## Rule placement
 
@@ -256,8 +271,8 @@ These do not block the recommended first dry-run slice because it is read-only a
 
 - DDD: domain vocabulary group gap identified for V2 runtime.
 - BDD: workflow/human-confirmation group gap identified for V2 runtime.
-- SDD: runtime mode gap identified against V2 packet contract.
-- TDD: future runtime fixture check identified.
+- SDD: runtime mode gap closed for read-only dry-run packet.
+- TDD: runtime fixture/self-test check implemented.
 - ADR: no ADR yet; required only if replacing V1 semantics.
 - SSOT: policy-storage-target remains unresolved.
-- Planning: next implementation slice defined.
+- Planning: first dry-run runtime slice implemented; next slice is V2 apply/write decision design.
