@@ -555,6 +555,11 @@
           "path": "tests/project-map-update-loop-v2.md",
           "kind": "file",
           "description": "TDD record for Project Map update-loop event fixtures and transition validation."
+        },
+        {
+          "path": "decisions/0041-organic-hybrid-rule-guidance.md",
+          "kind": "file",
+          "description": "ADR canonical record referenced by Project Map update-loop adr-decision fixture. Hosts need it so BOTH-scope update-loop canonical record checks pass after sync."
         }
       ]
     },

@@ -7525,6 +7525,7 @@ def check_project_map_update_loop_v2() -> None:
         "spec/platform/project-map-update-loop-v2.md",
         "ssot/project-map-ingestion-sources.md",
         "tests/project-map-update-loop-v2.md",
+        "decisions/0041-organic-hybrid-rule-guidance.md",
         "project-map-update-loop-v2/*.json",
     ):
         if expected not in category_a:

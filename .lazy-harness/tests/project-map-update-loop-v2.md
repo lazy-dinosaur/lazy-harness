@@ -24,6 +24,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - verify event packets use required fields and controlled source vocabulary
   - verify candidate/canonical transitions are explicit and evidence-backed
   - verify canonical events include root-bound canonical records
+  - verify the host sync package includes canonical records referenced by canonical update-loop fixture transitions
   - verify forbidden semantic-authority fields are absent recursively
   - verify Pi/Jcode adapter events remain non-authoritative unless core confirmation rules are satisfied
   - verify Project Profile update-loop promotion appends only `.lazy-harness/knowledge/project-map-update-events.jsonl` plus queue status metadata
@@ -45,6 +46,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 | `project_map_update_sources` | `events.json` + SSOT | Sources are controlled and include pi-adapter/jcode-adapter boundaries. |
 | `project_map_update_transitions` | `events.json` | Candidate, needs-confirmation, canonical, superseded/rejected or observation states are explicit. |
 | `project_map_update_canonical_records` | canonical transitions | Canonical target states include root-bound canonicalRecords. |
+| `project_map_update_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes the ADR 0041 canonical record used by the `adr-decision` fixture. |
 | `project_map_update_forbidden_fields` | recursive event walk | No confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
 | `project_map_update_limited_runtime_boundary` | SDD/TDD text + Project Profile fixture | Only confirmed Project Profile `promote-v2` writes append non-canonical update event rows; general adapter runtime remains future work. |
 
@@ -64,6 +66,7 @@ Self-test should verify:
 10. Forbidden semantic-authority fields are absent recursively.
 11. SDD/SSOT say adapters are event sources, not authorities.
 12. Manifest includes update-loop SDD/SSOT/TDD and fixture glob.
+12a. Manifest includes ADR 0041 because the `adr-decision` fixture uses it as a canonical record.
 13. Project Profile `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one non-canonical event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and writes only queue status metadata otherwise.
 14. Duplicate Project Profile update-loop promotion dedupes identical event rows and does not create a conflict file.
 
@@ -75,6 +78,8 @@ Self-test should verify:
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — event packet contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — source vocabulary SSOT.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event fixture.
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — canonical ADR backing the `adr-decision` fixture event.
+  - `.lazy-harness/manifests/init-categories.json` — Category A host sync package.
   - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — Project Profile promote writer fixture.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
   - `.lazy-harness/scripts/self-test.py` — static validation.
@@ -113,6 +118,6 @@ Self-test should verify:
 - BDD: behavior transition coverage recorded.
 - SDD: event contract coverage recorded.
 - TDD: validation event coverage recorded.
-- ADR: decision event coverage recorded.
+- ADR: decision event coverage and host sync dependency recorded.
 - SSOT: ingestion source coverage recorded.
 - Planning: Phase 1.5 exit criteria captured.

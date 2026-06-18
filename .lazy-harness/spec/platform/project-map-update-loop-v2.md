@@ -216,6 +216,7 @@ Generated Project Map views may render update event history, current branch stat
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — controlled source/event mapping.
   - `.lazy-harness/tests/project-map-update-loop-v2.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event packet fixture.
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — canonical ADR record referenced by the `adr-decision` fixture event.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
   - `.lazy-harness/scripts/project-profile.ts` — limited Project Profile `promote-v2` update-loop-event writer.
   - `.lazy-harness/scripts/self-test.py` — static validation.
@@ -234,8 +235,8 @@ Generated Project Map views may render update event history, current branch stat
 - DDD: facts/domain terms can be target branches for update events.
 - BDD: expectations/user behavior can be target branches for update events.
 - SDD: this record defines the event contract and limited confirmed Project Profile event writer boundary.
-- TDD: update-loop fixture/self-test protect event vocabulary, transitions, and Project Profile append-only writer behavior.
-- ADR: ADR decisions become `adr-decision` events; no new ADR is required for the confirmed limited writer because it does not change canonical promotion semantics.
+- TDD: update-loop fixture/self-test protect event vocabulary, transitions, host sync dependencies, and Project Profile append-only writer behavior.
+- ADR: ADR decisions become `adr-decision` events; ADR 0041 is synced as fixture canonical evidence. No new ADR is required for the confirmed limited writer because it does not change canonical promotion semantics.
 - SSOT: ingestion-source mapping is defined in `.lazy-harness/ssot/project-map-ingestion-sources.md`; event store placement is defined here and in `.lazy-harness/ssot/project-map-record-storage.md`.
 - Planning: Phase 1.5 design deliverables remain complete; limited Project Profile runtime append slice is implemented.
 
