@@ -23,6 +23,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - verify policy stage/level metadata supports non-test policies
   - verify Pi is represented as primary future adapter and Jcode as compatibility adapter
   - verify generated map data remains navigation/cue-only, not semantic authority
+  - verify the host sync manifest includes Project Map V2 fixture canonical records and related planning context needed by BOTH-scope host checks
 - Must not:
   - require physical movement of existing layer records in Phase 1
   - permit forbidden semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction
@@ -43,6 +44,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `project_map_node_adapter_boundary` | example fixture | adapter direction says Pi primary and Jcode compatibility. |
 | `project_map_node_forbidden_fields` | recursive walk | no confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
 | `project_map_v1_compatibility` | SDD/SSOT records | records explicitly say V1 layer folders are not moved in Phase 1. |
+| `project_map_v2_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes Project Map V2 direction, roadmap, evolution context, SDD, taxonomy, TDD, and fixture globs used by BOTH-scope host tests. |
 
 ## Acceptance assertions
 
@@ -63,6 +65,7 @@ Self-test must verify:
 13. Fixture adapter boundary has `primary == "pi"` and includes `jcode` as compatibility adapter.
 14. Forbidden semantic-authority fields are absent recursively.
 15. SDD and SSOT mention that Phase 1 does not move existing V1 folders.
+16. Category A sync manifest includes all framework Project Map V2 records needed for host fixture canonical path checks.
 
 ## Validation commands
 
@@ -86,8 +89,12 @@ Full validation:
 - Primary files:
   - `.lazy-harness/tests/project-map-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-map-v2.md` — SDD node contract.
+  - `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md` — fixture canonical direction record.
+  - `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md` — fixture canonical roadmap record.
+  - `.lazy-harness/planning/lazy-harness-v2-evolution-context.md` — fixture related context record.
   - `.lazy-harness/ssot/project-map-taxonomy.md` — taxonomy SSOT.
   - `.lazy-harness/fixtures/project-map-v2/example-node.json` — fixture under test.
+  - `.lazy-harness/manifests/init-categories.json` — Category A host sync package.
   - `.lazy-harness/scripts/self-test.py` — validation implementation.
 - Key symbols:
   - `self-test.py#check_project_map_v2_schema`
@@ -104,7 +111,7 @@ Full validation:
 - TDD: this record defines tests.
 - ADR: no ADR yet; physical migration/core rewrite requires future ADR.
 - SSOT: taxonomy SSOT is tested.
-- Planning: roadmap Phase 1 exit criteria are protected.
+- Planning: roadmap/direction/context records are included in the sync package and protected by manifest checks.
 
 ## Rule placement
 

@@ -2,6 +2,8 @@
 
 Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.
 
+The package is not installed by default after a clean reset. Install it only when you want Pi to load lazy-harness behavior.
+
 ## Install locally into a project
 
 Global install for all projects:

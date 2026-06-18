@@ -1480,19 +1480,8 @@ def check_pi_package_layout_and_contract() -> None:
         if not isinstance(values, list) or expected not in values:
             fail(f"Pi package manifest missing pi.{key} entry {expected!r}")
 
-    pi_settings = ROOT / ".pi" / "settings.json"
-    if not pi_settings.exists():
-        fail("Pi project-local settings missing after `pi install -l packages/lazy-harness-pi`")
-    settings_data = json.loads(pi_settings.read_text(encoding="utf-8"))
-    if "../packages/lazy-harness-pi" not in settings_data.get("packages", []):
-        fail("Pi project-local settings missing ../packages/lazy-harness-pi package entry")
-    global_pi_settings = pathlib.Path.home() / ".pi" / "agent" / "settings.json"
-    if not global_pi_settings.exists():
-        fail("Pi global settings missing after `pi install packages/lazy-harness-pi`")
-    global_settings_data = json.loads(global_pi_settings.read_text(encoding="utf-8"))
-    global_packages = global_settings_data.get("packages", [])
-    if not any(str(item).endswith("lazy-harness/packages/lazy-harness-pi") for item in global_packages):
-        fail("Pi global settings missing lazy-harness-pi package entry for existing projects: " + json.dumps(global_packages, ensure_ascii=False))
+    if (ROOT / ".pi" / "settings.json").exists():
+        fail("Pi project-local settings should not be committed by default; run `pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve` only when intentionally attaching this checkout")
 
     extension_text = extension.read_text(encoding="utf-8")
     required_phrases = [
@@ -1518,6 +1507,16 @@ def check_pi_package_layout_and_contract() -> None:
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
         fail("Pi package extension missing bridge contract phrases: " + json.dumps(missing, ensure_ascii=False))
+    readme_text = readme.read_text(encoding="utf-8")
+    for phrase in [
+        "Global install for all projects",
+        "Project-local install for this repo only",
+        "The package is not installed by default after a clean reset",
+        "pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve",
+        "pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve",
+    ]:
+        if phrase not in readme_text:
+            fail("Pi package README missing clean install guidance: " + phrase)
 
     expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test"]
     for skill in expected_skills:
@@ -7190,6 +7189,9 @@ def check_project_map_v2_schema() -> None:
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in (
+        "planning/lazy-harness-v2-direction-purpose.md",
+        "planning/lazy-harness-v2-implementation-roadmap.md",
+        "planning/lazy-harness-v2-evolution-context.md",
         "spec/platform/project-map-v2.md",
         "ssot/project-map-taxonomy.md",
         "tests/project-map-v2.md",

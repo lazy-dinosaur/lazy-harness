@@ -47,13 +47,17 @@ Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must normalize to laz
 
 ## Install contract
 
+Clean default:
+
+The source checkout must not require active Pi installation settings. After a factory reset, `~/.pi/agent/` and project-local `.pi/settings.json` may be absent. The package remains installable from source, but it is not installed by default.
+
 Global install for all Pi projects:
 
 ```bash
 pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
 ```
 
-This writes user-global Pi settings:
+This creates/writes user-global Pi settings:
 
 ```json
 {
@@ -69,7 +73,7 @@ Project-local install:
 pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
 ```
 
-This writes source-repo project-local Pi settings:
+This creates/writes source-repo project-local Pi settings:
 
 ```json
 {
@@ -77,7 +81,7 @@ This writes source-repo project-local Pi settings:
 }
 ```
 
-The tracked `.pi/settings.json` keeps the source repo itself attached to the local Pi package.
+Project-local `.pi/settings.json` is generated only when intentionally attaching this checkout. It must not be committed as the default clean state.
 
 One-run smoke:
 
@@ -101,7 +105,7 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
-- `.pi/settings.json` — source-repo Pi local package attachment created by `pi install -l`.
-- `~/.pi/agent/settings.json` — user-global package attachment created by `pi install` so all existing Pi projects load the extension.
+- `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
+- `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.

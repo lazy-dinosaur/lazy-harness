@@ -26,6 +26,7 @@ Related Pi: `.lazy-harness/spec/platform/pi-agent-package.md`
   - support stage-aware project/team policy metadata without making testing the center of the model
   - keep Pi as the primary future adapter direction and Jcode as compatibility adapter
   - preserve V1 record folders as compatible canonical storage until a separate migration is approved
+  - sync framework Project Map V2 planning records referenced by fixtures to hosts so canonical evidence paths remain root-bound and present
 - Must not:
   - physically move DDD/SDD/BDD/TDD/ADR/SSOT records in Phase 1
   - treat generated project-map output as canonical truth
@@ -326,6 +327,9 @@ It demonstrates a policy-oriented anchor node with multiple facets, cluster bran
 - Status: draft
 - Primary files:
   - `.lazy-harness/spec/platform/project-map-v2.md` — this SDD contract.
+  - `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md` — direction record backing the example node.
+  - `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md` — roadmap record backing the example node.
+  - `.lazy-harness/planning/lazy-harness-v2-evolution-context.md` — related context linked by the example node.
   - `.lazy-harness/ssot/project-map-taxonomy.md` — canonical categories/facets/stages/levels taxonomy.
   - `.lazy-harness/tests/project-map-v2.md` — TDD acceptance and regression cases.
   - `.lazy-harness/fixtures/project-map-v2/example-node.json` — JSON fixture for Phase 1 node shape.
@@ -345,8 +349,8 @@ It demonstrates a policy-oriented anchor node with multiple facets, cluster bran
 - SDD: this record defines the Phase 1 node contract.
 - TDD: `.lazy-harness/tests/project-map-v2.md` and self-test fixture validation protect the shape.
 - ADR: no final trade-off ADR yet; future V2 adoption/migration decisions need ADRs.
-- SSOT: `.lazy-harness/ssot/project-map-taxonomy.md` defines canonical taxonomy.
-- Planning: roadmap Phase 1 is implemented as draft records/fixture only.
+- SSOT: `.lazy-harness/ssot/project-map-taxonomy.md` defines canonical taxonomy; `.lazy-harness/manifests/init-categories.json` controls the host sync package for fixture canonical evidence records.
+- Planning: roadmap/direction/context records are included in the sync package and protected by manifest checks.
 
 ## Rule placement
 

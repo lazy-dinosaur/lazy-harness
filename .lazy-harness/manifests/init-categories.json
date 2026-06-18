@@ -482,6 +482,21 @@
           "description": "SDD contract for Lazy-Harness V2 Project Map / Project Atlas node schema and Pi-primary adapter-neutral boundary."
         },
         {
+          "path": "planning/lazy-harness-v2-direction-purpose.md",
+          "kind": "file",
+          "description": "Planning direction record referenced by Project Map V2 fixtures as canonical backing evidence. Hosts need it so BOTH-scope Project Map V2 fixture checks pass after sync."
+        },
+        {
+          "path": "planning/lazy-harness-v2-implementation-roadmap.md",
+          "kind": "file",
+          "description": "Planning roadmap referenced by Project Map V2 fixtures as canonical backing evidence. Hosts need it so BOTH-scope Project Map V2 fixture checks pass after sync."
+        },
+        {
+          "path": "planning/lazy-harness-v2-evolution-context.md",
+          "kind": "file",
+          "description": "Planning context linked from the Project Map V2 example node; synced with the Project Map V2 package so host navigation links stay root-bound and available."
+        },
+        {
           "path": "ssot/project-map-taxonomy.md",
           "kind": "file",
           "description": "SSOT taxonomy for Project Map V2 primary categories, facets, stages, policy levels, and adapter vocabulary."
