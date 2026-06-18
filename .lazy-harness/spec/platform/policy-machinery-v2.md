@@ -29,6 +29,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - keep `.lazy-harness/rules/**` as compatibility/generated/explain surface during migration, not canonical source for new policy semantics
   - expose `lazy policy resolve` as advisory-only guidance for `discover`, `recommend`, and `default` levels
   - expose warn-level policies only through explicit structured `policy_context` and `warn-only` output
+  - render rulebook explanations from typed policy records through `lazy policy render-rulebook`
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -38,6 +39,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - turn advisory policies into blocking hooks from this contract-only slice
   - infer warn/block decisions from raw user text or assistant text
   - treat warn-only output as a block
+  - edit `.lazy-harness/generated/policy-rulebook.md` as canonical source
   - allow generated policy packets to become canonical truth without record-write policy or explicit confirmation
   - add semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning
 - Record completion:
@@ -116,6 +118,19 @@ Warn-only runtime is intentionally narrow:
 - Warnings are bypassable by adding `policy_context.acknowledgedPolicyWarnings` with the policy id.
 - Block runtime remains out of scope.
 
+## Generated rulebook view slice
+
+User confirmed the next step after warn-only runtime: generate/explain rulebook views from typed policy records.
+
+`lazy policy render-rulebook` is deterministic and derived:
+
+- Reads canonical `.lazy-harness/ssot/policies.json`.
+- Renders Markdown with a `GENERATED VIEW, NON-CANONICAL` disclaimer.
+- Writes only to root-relative `.lazy-harness/generated/**` when `--write` is passed.
+- Rejects output paths outside `.lazy-harness/generated/**`.
+- Does not replace `policies.json` or create policy semantics.
+- Host sync does not need to copy generated cache contents; each host can regenerate locally.
+
 ## Storage posture
 
 Phase 3 selected Option B:
@@ -156,8 +171,9 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — update-loop evidence/transition model.
 - Source files:
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
-  - `.lazy-harness/scripts/policy.ts` — read-only typed policy list/audit/explain CLI.
+  - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook CLI.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py` — explicit-context warn-only response.completed helper.
+  - `.lazy-harness/generated/policy-rulebook.md` — non-canonical generated/explain view rendered from typed policies.
   - `.lazy-harness/scripts/rulebook.ts` — current rulebook CLI, unchanged by this slice.
   - `.lazy-harness/ssot/policies.json` — canonical typed policy registry.
   - `.lazy-harness/schemas/policies.schema.json` — policy registry schema.
@@ -168,6 +184,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy policy audit --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy render-rulebook --write --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

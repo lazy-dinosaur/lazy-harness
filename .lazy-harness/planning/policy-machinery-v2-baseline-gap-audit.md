@@ -95,6 +95,8 @@ User confirmed the recommended next step (A) on 2026-06-18: add advisory-only `l
 
 User confirmed the follow-up next step (B) on 2026-06-18: add explicit-context warn-only runtime. The slice must stay non-blocking, must not classify raw user/assistant text, and must keep block runtime deferred.
 
+User confirmed the follow-up next step on 2026-06-18: add a deterministic generated/explain rulebook view from typed policy records. The slice must keep `.lazy-harness/ssot/policies.json` canonical and keep generated Markdown non-canonical.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`
@@ -108,6 +110,7 @@ User confirmed the follow-up next step (B) on 2026-06-18: add explicit-context w
   - `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json`
 - Source/test:
   - `.lazy-harness/scripts/policy.ts`
+  - `.lazy-harness/generated/policy-rulebook.md`
   - `.lazy-harness/ssot/policies.json`
   - `.lazy-harness/schemas/policies.schema.json`
   - `.lazy-harness/scripts/self-test.py#check_policy_machinery_v2`

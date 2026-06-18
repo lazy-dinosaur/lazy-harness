@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
 
 const SCOPES = new Set(['framework-global', 'host-project', 'team-policy', 'adapter'])
 const STAGES = new Set(['turn', 'edit', 'commit', 'push', 'release', 'high-risk-mutation'])
@@ -72,6 +72,7 @@ Commands:
   audit [--format=json|md]
   explain --id <policy-id> [--format=json|md]
   resolve [--format=json|md] [--stage=STAGE] [--applies-to=A,B] [--max-level=default|recommend|discover|warn] [--runtime=advisory|warn]
+  render-rulebook [--format=json|md] [--write] [--output=.lazy-harness/generated/policy-rulebook.md]
 
 Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
 Resolve defaults to advisory-only. Warn runtime requires --runtime=warn and never blocks.
@@ -98,7 +99,7 @@ function parseOptions(argv: string[]): Record<string, string | boolean> {
       opts[k] = rest.join('=')
     } else if (a.startsWith('--')) {
       const k = a.slice(2)
-      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level', 'runtime'].includes(k)) opts[k] = value(argv, i++, a)
+      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level', 'runtime', 'output'].includes(k)) opts[k] = value(argv, i++, a)
       else opts[k] = true
     } else {
       console.error(`Unknown argument: ${a}`)
@@ -140,6 +141,15 @@ function printJson(data: unknown): void {
 
 function isRootRelativeLazyPath(path: unknown): path is string {
   return typeof path === 'string' && path.startsWith('.lazy-harness/') && !path.split('/').includes('..') && !path.startsWith('/')
+}
+
+function generatedOutputPath(root: string, opts: Record<string, string | boolean>): string {
+  const requested = typeof opts.output === 'string' ? opts.output : '.lazy-harness/generated/policy-rulebook.md'
+  if (requested.startsWith('/') || requested.split('/').includes('..') || !requested.startsWith('.lazy-harness/generated/')) {
+    console.error('policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path')
+    process.exit(2)
+  }
+  return join(root, requested)
 }
 
 function walkForbidden(value: unknown, issues: AuditIssue[], id: string, path = '$'): void {
@@ -369,6 +379,93 @@ function explainPolicy(policy: Policy, format: Format): void {
   for (const criterion of policy.rollback.criteria) console.log(`  - ${criterion}`)
 }
 
+function policyRuntimeDescription(policy: Policy): string {
+  if (policy.level === 'warn') return 'warn-only (explicit policy_context required)'
+  if (policy.level === 'block') return 'block (not implemented by current runtime)'
+  return 'advisory-only'
+}
+
+function renderPolicyRulebook(registry: PolicyRegistry): string {
+  const policies = [...registry.policies].sort((a, b) => a.id.localeCompare(b.id))
+  const lines: string[] = []
+  lines.push('# Generated Policy Rulebook')
+  lines.push('')
+  lines.push('> GENERATED VIEW, NON-CANONICAL.')
+  lines.push('> Canonical behavior policy source: `.lazy-harness/ssot/policies.json`.')
+  lines.push('> Regenerate with: `.lazy-harness/bin/lazy policy render-rulebook --write`.')
+  lines.push('')
+  lines.push('This file explains typed behavior policies for humans/LLMs. Do not edit it as source of truth.')
+  lines.push('')
+  lines.push('## Summary')
+  lines.push('')
+  lines.push(`- Policy count: ${policies.length}`)
+  lines.push('- Canonical source: `.lazy-harness/ssot/policies.json`')
+  lines.push('- Generated/explain view only: yes')
+  lines.push('')
+  lines.push('| Policy | Level | Stage | Runtime | Summary |')
+  lines.push('|---|---|---|---|---|')
+  for (const policy of policies) {
+    const summary = (policy.explain?.summary || policy.title).replace(/\|/g, '\\|')
+    lines.push(`| \`${policy.id}\` | ${policy.level} | ${policy.stage} | ${policyRuntimeDescription(policy)} | ${summary} |`)
+  }
+  for (const policy of policies) {
+    lines.push('')
+    lines.push(`## ${policy.id}`)
+    lines.push('')
+    lines.push(`- Title: ${policy.title}`)
+    lines.push(`- Scope: ${policy.scope}`)
+    lines.push(`- Stage: ${policy.stage}`)
+    lines.push(`- Level: ${policy.level}`)
+    lines.push(`- Runtime: ${policyRuntimeDescription(policy)}`)
+    lines.push(`- Source record: \`${policy.sourceRecord}\``)
+    if (policy.capabilityIds?.length) lines.push(`- Capabilities: ${policy.capabilityIds.join(', ')}`)
+    lines.push(`- Summary: ${policy.explain?.summary || policy.title}`)
+    lines.push('')
+    lines.push('### Applies to')
+    for (const item of policy.appliesTo) lines.push(`- ${item}`)
+    lines.push('')
+    lines.push('### Evidence')
+    for (const item of policy.evidence) lines.push(`- ${item.kind}${item.path ? ` \`${item.path}\`` : ''}: ${item.summary}`)
+    lines.push('')
+    lines.push('### Promotion / rollback')
+    lines.push(`- Requires confirmation: ${policy.promotion.requiresConfirmation}`)
+    lines.push(`- Allowed target levels: ${policy.promotion.allowedTargetLevels.join(', ')}`)
+    lines.push(`- Rollback target: ${policy.rollback.demotionTarget}`)
+    for (const criterion of policy.rollback.criteria) lines.push(`  - ${criterion}`)
+  }
+  lines.push('')
+  return lines.join('\n')
+}
+
+function renderRulebook(root: string, opts: Record<string, string | boolean>, format: Format): void {
+  const registry = loadRegistry(root)
+  const content = renderPolicyRulebook(registry)
+  const outputPath = generatedOutputPath(root, opts)
+  const relOutput = relative(root, outputPath).split('\\').join('/')
+  if (opts.write === true) {
+    mkdirSync(dirname(outputPath), { recursive: true })
+    writeFileSync(outputPath, content, 'utf8')
+  }
+  const result = {
+    schemaVersion: 'policy-rulebook-render/v1',
+    ok: true,
+    canonicalSource: '.lazy-harness/ssot/policies.json',
+    generatedView: true,
+    nonCanonical: true,
+    outputPath: relOutput,
+    wrote: opts.write === true,
+    policyCount: registry.policies.length,
+    content,
+  }
+  if (format === 'json') return printJson(result)
+  if (opts.write === true) {
+    console.log(`Wrote generated policy rulebook: ${relOutput}`)
+    console.log('Canonical source: .lazy-harness/ssot/policies.json')
+    return
+  }
+  process.stdout.write(content)
+}
+
 function audit(root: string, format: Format): void {
   const registry = loadRegistry(root)
   const issues = auditRegistry(root, registry)
@@ -395,6 +492,7 @@ function main(): void {
   if (command === 'list') return listPolicies(root, opts, format)
   if (command === 'audit') return audit(root, format)
   if (command === 'resolve') return resolvePolicies(root, opts, format)
+  if (command === 'render-rulebook') return renderRulebook(root, opts, format)
   if (command === 'explain') {
     const id = typeof opts.id === 'string' ? opts.id : ''
     if (!id) {

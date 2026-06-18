@@ -28,6 +28,7 @@ Registry: `.lazy-harness/ssot/policies.json`
 - Must not:
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat LLM-generated explanation text as canonical truth
+  - edit `.lazy-harness/generated/policy-rulebook.md` as policy source
   - auto-promote policies to warn/block from a registry entry alone
   - classify raw user or assistant text to trigger warn runtime
 - Record completion:
@@ -85,6 +86,22 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
 
 `.lazy-harness/rules/**` is a compatibility/generated/explain surface during Option B migration. It may remain for readability and host compatibility, but new semantic policy changes should land in `policies.json`.
 
+## Generated policy rulebook view
+
+The deterministic generated view is:
+
+```text
+.lazy-harness/generated/policy-rulebook.md
+```
+
+Regenerate with:
+
+```bash
+.lazy-harness/bin/lazy policy render-rulebook --write
+```
+
+The generated view is useful for human/LLM explanation, review, and compatibility, but it is non-canonical. If it disagrees with `policies.json`, regenerate it or fix `policies.json`.
+
 ## Implementation map
 
 - Status: `option-b-selected-first-slice`
@@ -98,6 +115,7 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
   - `.lazy-harness/schemas/policies.schema.json`
   - `.lazy-harness/scripts/policy.ts`
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py`
+  - `.lazy-harness/generated/policy-rulebook.md`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`
 - Validation:
@@ -105,6 +123,7 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
   - `lazy policy list --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy render-rulebook --write --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

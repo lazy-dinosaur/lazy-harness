@@ -313,6 +313,7 @@
       <component>rulebook audit</component>
       <component>rulebook resolver</component>
       <component>typed policy advisory/warn resolver</component>
+      <component>generated policy rulebook view</component>
       <component>capability preferred/discouraged action binding</component>
     </components>
     <records>
@@ -331,6 +332,7 @@
       <path>.lazy-harness/schemas/capabilities.schema.json</path>
       <path>.lazy-harness/ssot/capabilities.json</path>
       <path>.lazy-harness/ssot/policies.json</path>
+      <path>.lazy-harness/generated/policy-rulebook.md</path>
       <path>.lazy-harness/bin/lazy</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </sourceFiles>

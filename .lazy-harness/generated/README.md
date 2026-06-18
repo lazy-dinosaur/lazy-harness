@@ -9,12 +9,14 @@ Derived artifacts for AI/tool retrieval. Read-only outputs.
 | `reference-index.json` | Derived reference resolver index/cache. | No |
 | `implementation-index.json` | Derived implementation map index for AI/LSP/AST/outline retrieval. | No |
 | `record-index.json` | Derived record/source hint cache combining record digests, aliases/surface terms, implementation hints, graph hints, and Project Profile feature navigation. | No |
+| `policy-rulebook.md` | Deterministic generated/explain view rendered from `.lazy-harness/ssot/policies.json`. | No |
 
 ## Trigger to fill
 
 - XML/source records updated → regenerate derived reference artifacts.
 - LSP/AST/outline/source scan available → regenerate `implementation-index.json`.
 - Rule digests, Project Profile `feature-navigation.xml`, implementation maps, or graph records updated → regenerate `record-index.json`.
+- Typed policy registry updated → regenerate `policy-rulebook.md` with `lazy policy render-rulebook --write`.
 
 ## Implementation index policy
 
@@ -46,6 +48,24 @@ Regenerate with:
 ```
 
 The generated file may be absent. Runtime query must fall back to source scanning when the cache is missing or stale. `lazy map` uses this cache only when it is fresher than canonical record inputs; pass `--fresh` to force a source rebuild. The source repository ignores `.lazy-harness/generated/record-index.json` by default to keep commits focused on canonical records and generator code.
+
+## Policy rulebook view policy
+
+`policy-rulebook.md` is a deterministic explanation view for humans/LLMs.
+
+Canonical behavior policy semantics live in:
+
+```text
+.lazy-harness/ssot/policies.json
+```
+
+Regenerate with:
+
+```bash
+.lazy-harness/bin/lazy policy render-rulebook --write
+```
+
+Do not edit `policy-rulebook.md` as a source of truth.
 
 ## Status
 

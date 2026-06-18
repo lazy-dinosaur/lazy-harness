@@ -7927,6 +7927,8 @@ def check_policy_machinery_v2() -> None:
     policy_registry_path = LAZY / "ssot" / "policies.json"
     policy_schema_path = LAZY / "schemas" / "policies.schema.json"
     policy_cli_path = LAZY / "scripts" / "policy.ts"
+    generated_readme_path = LAZY / "generated" / "README.md"
+    generated_rulebook_path = LAZY / "generated" / "policy-rulebook.md"
     policy_warn_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "check-policy-warn-runtime.py"
     response_hook_path = LAZY / "hooks" / "lifecycle" / "on-response-completed.sh"
     lifecycle_check_path = LAZY / "scripts" / "lifecycle-check.py"
@@ -7935,7 +7937,7 @@ def check_policy_machinery_v2() -> None:
     capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
     rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
 
-    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
+    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path, generated_readme_path):
         if not path.exists():
             fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
 
@@ -7945,6 +7947,7 @@ def check_policy_machinery_v2() -> None:
     adr = adr_path.read_text(encoding="utf-8")
     policy_ssot = policy_ssot_path.read_text(encoding="utf-8")
     policy_cli = policy_cli_path.read_text(encoding="utf-8")
+    generated_readme = generated_readme_path.read_text(encoding="utf-8")
     policy_warn_helper = policy_warn_helper_path.read_text(encoding="utf-8")
     response_hook = response_hook_path.read_text(encoding="utf-8")
     lifecycle_check = lifecycle_check_path.read_text(encoding="utf-8")
@@ -7960,6 +7963,9 @@ def check_policy_machinery_v2() -> None:
         "## Warn-only runtime slice",
         "explicit structured `policy_context`",
         "never emits `STOP`",
+        "## Generated rulebook view slice",
+        "GENERATED VIEW, NON-CANONICAL",
+        "lazy policy render-rulebook --write --format=json",
         "canonicalByPacketAlone: false",
         "lazy policy audit --format=json",
         "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
@@ -7978,6 +7984,7 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_policy_resolve_advisory_only",
         "policy_machinery_warn_runtime_explicit_context",
         "policy_machinery_no_block_runtime",
+        "policy_machinery_generated_rulebook_view",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -7989,6 +7996,7 @@ def check_policy_machinery_v2() -> None:
         "User-confirmed storage decision",
         "read-only `lazy policy list/audit/explain`",
         "explicit-context warn-only runtime",
+        "deterministic generated/explain rulebook view",
         "Discovery capture",
     ):
         if expected not in audit:
@@ -8008,16 +8016,24 @@ def check_policy_machinery_v2() -> None:
         "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
         "lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json",
         "Warn runtime is a separate explicit-context mode",
+        "Generated policy rulebook view",
+        "lazy policy render-rulebook --write --format=json",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
             fail("Policy Registry SSOT missing invariant: " + expected)
-    for forbidden in ("execSync", "writeFileSync", "appendJsonlStable"):
+    for forbidden in ("execSync", "appendJsonlStable"):
         if forbidden in policy_cli:
             fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
-    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
+    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
         if expected not in policy_cli:
             fail("policy CLI missing Option B explain boundary: " + expected)
+    for expected in ("writeFileSync(outputPath, content", "requested.startsWith('.lazy-harness/generated/')", "GENERATED VIEW, NON-CANONICAL"):
+        if expected not in policy_cli:
+            fail("policy CLI missing generated rulebook constrained-write invariant: " + expected)
+    for expected in ("policy-rulebook.md", "Canonical behavior policy semantics live in", "lazy policy render-rulebook --write", "Do not edit `policy-rulebook.md` as a source of truth"):
+        if expected not in generated_readme:
+            fail("generated README missing policy rulebook guidance: " + expected)
     for expected in ("never classifies raw user/assistant text", "policy_context", "WARN. Policy Machinery warn-only runtime", "acknowledgedPolicyWarnings"):
         if expected not in policy_warn_helper:
             fail("policy warn helper missing safety invariant: " + expected)
@@ -8180,8 +8196,36 @@ def check_policy_machinery_v2() -> None:
     raw_text_result = subprocess.run([str(policy_warn_helper_path), raw_text_payload], cwd=ROOT, text=True, capture_output=True, check=False)
     if raw_text_result.returncode != 0 or raw_text_result.stdout.strip():
         fail("policy warn helper should stay silent without explicit policy_context:\n" + raw_text_result.stdout + raw_text_result.stderr)
+    render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if render_md_result.returncode != 0:
+        fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "record-first-validation", "validation-evidence-warning"):
+        if expected not in render_md_result.stdout:
+            fail("lazy policy render-rulebook md missing expected text: " + expected)
+    render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if render_json_result.returncode != 0:
+        fail("lazy policy render-rulebook json failed:\n" + render_json_result.stdout + render_json_result.stderr)
+    render_json = json.loads(render_json_result.stdout)
+    if render_json.get("schemaVersion") != "policy-rulebook-render/v1" or render_json.get("nonCanonical") is not True or render_json.get("canonicalSource") != ".lazy-harness/ssot/policies.json":
+        fail("lazy policy render-rulebook json must identify non-canonical generated view: " + render_json_result.stdout)
+    render_write_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--write", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if render_write_result.returncode != 0:
+        fail("lazy policy render-rulebook --write failed:\n" + render_write_result.stdout + render_write_result.stderr)
+    render_write_json = json.loads(render_write_result.stdout)
+    if render_write_json.get("wrote") is not True or render_write_json.get("outputPath") != ".lazy-harness/generated/policy-rulebook.md":
+        fail("lazy policy render-rulebook --write must write default generated path: " + render_write_result.stdout)
+    if not generated_rulebook_path.exists():
+        fail("generated policy rulebook was not written")
+    generated_rulebook = generated_rulebook_path.read_text(encoding="utf-8")
+    if generated_rulebook != render_write_json.get("content"):
+        fail("generated policy rulebook content must match render JSON content")
+    if generated_rulebook != render_md_result.stdout:
+        fail("generated policy rulebook content must match markdown render output")
+    unsafe_output = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--write", "--output", "../bad.md"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if unsafe_output.returncode == 0 or ".lazy-harness/generated/" not in unsafe_output.stderr:
+        fail("lazy policy render-rulebook must reject output outside generated directory")
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
-    if "policy list|audit|explain|resolve" not in help_text:
+    if "policy list|audit|explain|resolve|render-rulebook" not in help_text:
         fail("lazy help must advertise policy command")
     if graph_path.exists() and graph_path.read_bytes() != graph_before:
         fail("lazy policy CLI must not mutate graph.jsonl")
@@ -8192,6 +8236,7 @@ def check_policy_machinery_v2() -> None:
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in (
         "spec/platform/policy-machinery-v2.md",
+        ".gitignore",
         "framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md",
         "ssot/policy-registry.md",
         "ssot/policies.json",

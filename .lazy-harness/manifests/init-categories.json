@@ -25,6 +25,11 @@
           "description": "Framework 소개 + 빠른 시작."
         },
         {
+          "path": ".gitignore",
+          "kind": "file",
+          "description": "Framework-local ignore rules for host .lazy-harness derived artifacts such as generated policy rulebook views."
+        },
+        {
           "path": "framework/framework-contract.md",
           "kind": "file",
           "description": "Framework 본문 spec (v1.4+, 23 principle)."

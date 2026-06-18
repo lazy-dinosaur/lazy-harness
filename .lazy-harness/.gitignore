@@ -3,3 +3,6 @@
 
 # Derived by reference resolver self-tests; regenerated on demand
 /generated/reference-index.json
+
+# Derived by policy registry renderer; regenerated on demand
+/generated/policy-rulebook.md
