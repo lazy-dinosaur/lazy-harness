@@ -20,9 +20,11 @@ Date: 2026-06-18
   - require explicit `--allow-release` before executing `--plan release`
   - support `--dry-run` so agents can inspect expensive plans without starting them
   - emit `JCODE_PROGRESS` lines to stderr during execution so long-running validation has visible progress without corrupting JSON stdout
+  - reuse full-regression evidence only when a conservative workspace fingerprint matches exactly
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
 - Must not:
   - silently replace full regression claims with fast checks
+  - reuse full-regression evidence across changed `HEAD`, working-tree diff/status, untracked files, or `.lazy-harness` body
   - run release-grade readiness validation by default
   - allow unbounded validation workflows
   - scan outside the current host root
@@ -37,6 +39,7 @@ Date: 2026-06-18
 .lazy-harness/bin/lazy validate --plan release --dry-run --format=json
 .lazy-harness/bin/lazy validate --plan release --allow-release --max-seconds=900
 .lazy-harness/bin/lazy validate --plan standard --progress=off --format=json
+.lazy-harness/bin/lazy validate --plan standard --evidence-cache=off --format=json
 ```
 
 Plans:
@@ -57,6 +60,10 @@ Execution rules:
 6. `--plan release` exits non-zero unless `--allow-release` or `--dry-run` is present.
 7. `--max-seconds` over 3600 exits non-zero and tells the caller to split validation into bounded chunks.
 8. Non-dry-run execution emits `JCODE_PROGRESS {json}` lines to stderr at plan start, step start, and step completion. `--progress=off` or `LAZY_VALIDATE_PROGRESS=0` disables these lines.
+9. Full-regression evidence cache is conservative and applies only to full-regression steps. Fast static checks still run every time.
+10. Cache keys include cache version, step command, scope, git `HEAD`, git diff hash, git status hash, untracked-file hash, and canonical `.lazy-harness` content hash. Volatile runtime/derived paths such as `.lazy-harness/state/**`, `.lazy-harness/logs/**`, `.lazy-harness/generated/**`, and `__pycache__` are excluded. Cache miss, cache read/write error, or fingerprint uncertainty falls back to running `lazy test`.
+11. Cache storage is runtime state at `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, defaulting to `.lazy-harness/state/validation-evidence-cache.json`, and is ignored by git.
+12. `--evidence-cache=off` or `LAZY_VALIDATE_EVIDENCE_CACHE=0` disables reuse and storage for full-regression evidence.
 
 ## Output
 
@@ -70,11 +77,14 @@ JSON output includes:
 - `dryRun`
 - `releaseAllowed`
 - `fullRegression`
+- `evidenceReused`
 - `steps[]` with command, status, exit code, elapsed time, tail output, and reason
 - `errors[]`
 - `notes[]`
 
 Progress output is intentionally not included in stdout JSON. It is emitted on stderr so automation can parse stdout as JSON and the Jcode background task UI can still show progress.
+
+When evidence is reused, the full-regression step status is `reused`, `fullRegression` remains true, and `evidenceReused` is true. This is a full-regression evidence reuse, not a fast-check substitution.
 
 Markdown output is a compact human-readable summary of the same plan and step results.
 
@@ -84,6 +94,8 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `.lazy-harness/spec/platform/bounded-validation-governor.md` — this SDD contract.
   - `.lazy-harness/tests/bounded-validation-governor.md` — regression contract.
   - `.lazy-harness/scripts/validation-governor.py` — bounded plan builder/executor.
+  - `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json` — runtime-only validation evidence cache.
+  - `.gitignore` — ignores the default runtime cache path.
   - `.lazy-harness/bin/lazy` — exposes `lazy validate`.
   - `.lazy-harness/scripts/self-test.py` — fixture coverage.
   - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md` — canonical CLI command list.
@@ -95,19 +107,28 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `validation-governor.py#plan_steps`
   - `validation-governor.py#run_step`
   - `validation-governor.py#emit_progress`
+  - `validation-governor.py#workspace_fingerprint`
+  - `validation-governor.py#evidence_key`
+  - `validation-governor.py#cached_step_result`
+  - `validation-governor.py#store_step_result`
   - `self-test.py#check_bounded_validation_governor_cli`
 - Flow:
   1. Agent needs validation.
   2. Agent chooses an explicit plan: fast, standard, or release.
   3. Governor deduplicates commands and enforces a global budget.
-  4. Release-grade validation requires explicit opt-in.
-  5. Result reports whether full regression actually ran.
+  4. Fast static check runs normally.
+  5. If a full-regression step appears and cache is enabled, the governor checks conservative cached evidence.
+  6. Cache hit reuses the full-regression evidence; cache miss or uncertainty runs `lazy test` and stores successful evidence.
+  7. Release-grade validation requires explicit opt-in.
+  8. Result reports whether full regression ran or was reused.
 - Tests:
   - `python3 -m py_compile .lazy-harness/scripts/validation-governor.py`
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan release --format=json` should fail without `--allow-release`.
   - `.lazy-harness/bin/lazy validate --plan release --dry-run --format=json` should list the release plan without executing it.
   - `.lazy-harness/bin/lazy validate --plan fast --format=json` should keep stdout JSON parseable and emit `JCODE_PROGRESS` on stderr.
+  - `.lazy-harness/bin/lazy validate --plan standard --format=json` should store full-regression evidence on a miss, then reuse it on the same conservative fingerprint.
+  - `.lazy-harness/bin/lazy validate --plan standard --evidence-cache=off --format=json` should never reuse evidence.
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 
 ## Cross-layer links
@@ -123,6 +144,6 @@ Markdown output is a compact human-readable summary of the same plan and step re
 - DDD: no domain/business model change.
 - SDD: this record defines the new CLI contract.
 - BDD: user-facing validation behavior changes from ad hoc repeated full matrices to explicit bounded plan selection.
-- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, release opt-in, budget cap, dry-run, progress visibility, and fast execution.
+- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, release opt-in, budget cap, dry-run, progress visibility, evidence cache safety, and fast execution.
 - ADR: no new ADR; this implements an accepted planning correction without changing enforcement philosophy.
 - SSOT: full regression remains `lazy test`; release readiness remains explicit and bounded.

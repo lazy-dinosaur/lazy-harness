@@ -20,6 +20,9 @@ Date: 2026-06-18
 | `validate_deadline_zero` | `lazy validate --plan fast --max-seconds=0 --format=json` | Exits non-zero without running `lazy check`, step status is `skipped` with `deadline-exhausted`. |
 | `validate_progress_json_safe` | `lazy validate --plan fast --format=json` | Stdout remains parseable JSON and stderr contains `JCODE_PROGRESS` rows. |
 | `validate_progress_off` | `lazy validate --plan fast --progress=off --format=json` | Stdout remains parseable JSON and stderr contains no `JCODE_PROGRESS` rows. |
+| `validate_cache_miss_then_hit` | Two `lazy validate --plan standard --format=json` runs with identical conservative fingerprint and isolated `LAZY_RUNTIME_ROOT` | First run stores full-regression evidence, second run reports `evidenceReused: true` and full-regression step status `reused`. |
+| `validate_cache_disabled` | `lazy validate --plan standard --evidence-cache=off --format=json` after cache exists | Full-regression step is not `reused`, and `evidenceReused: false`. |
+| `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and default files are gitignored. |
 
 ## Acceptance assertions
 
@@ -31,6 +34,9 @@ Date: 2026-06-18
 6. Dry-run output must be available for release plans without starting expensive commands.
 7. Full regression claims remain tied to `lazy test` execution or planned full-regression steps, not to fast static checks.
 8. Long-running non-dry-run plans emit progress to stderr, never stdout, so JSON consumers and Jcode background progress can both work.
+9. Cached full-regression evidence can be reused only when the conservative evidence key matches; otherwise validation runs `lazy test`.
+10. Fast static checks still run when full-regression evidence is reused.
+11. Cache disable flags force full-regression execution even when evidence exists.
 
 ## Implementation map
 
@@ -46,12 +52,18 @@ Date: 2026-06-18
   - `validation-governor.py#build_result`
   - `validation-governor.py#plan_steps`
   - `validation-governor.py#emit_progress`
+  - `validation-governor.py#workspace_fingerprint`
+  - `validation-governor.py#evidence_key`
+  - `validation-governor.py#cached_step_result`
+  - `validation-governor.py#store_step_result`
   - `self-test.py#check_bounded_validation_governor_cli`
 - Validation commands:
   - `python3 -m py_compile .lazy-harness/scripts/validation-governor.py`
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan fast --progress=off --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan release --dry-run --format=json`
+  - `.lazy-harness/bin/lazy validate --plan standard --format=json` twice with isolated `LAZY_RUNTIME_ROOT`
+  - `.lazy-harness/bin/lazy validate --plan standard --evidence-cache=off --format=json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 
 ## Layer completeness

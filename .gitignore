@@ -13,6 +13,8 @@ __pycache__/
 .lazy-harness/state/context-delivery-packets.jsonl
 .lazy-harness/state/context-broker-dogfood.jsonl
 .lazy-harness/state/record-decision-packets.jsonl
+.lazy-harness/state/validation-evidence-cache.json
+.lazy-harness/state/validation-evidence-cache.json.tmp
 
 # Editor / OS noise
 .DS_Store

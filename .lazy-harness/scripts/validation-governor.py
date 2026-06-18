@@ -9,6 +9,8 @@ thin governor over existing lazy commands, not a replacement for `lazy check` or
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
@@ -28,6 +30,8 @@ DEFAULT_BUDGET_SECONDS = {
 }
 MAX_BUDGET_SECONDS = 3600.0
 OUTPUT_TAIL_CHARS = 4000
+CACHE_VERSION = 1
+CACHE_MAX_ENTRIES = 50
 
 
 @dataclass
@@ -48,6 +52,8 @@ class StepResult:
     stdoutTail: str = ""
     stderrTail: str = ""
     reason: str = ""
+    evidenceKey: str = ""
+    cachedAt: str = ""
 
 
 @dataclass
@@ -60,6 +66,7 @@ class ValidationResult:
     dryRun: bool
     releaseAllowed: bool
     fullRegression: bool
+    evidenceReused: bool
     steps: list[StepResult]
     errors: list[str]
     notes: list[str]
@@ -83,6 +90,198 @@ def tail(text: str) -> str:
 
 def lazy_command(*args: str) -> list[str]:
     return [str(LAZY_BIN), *args]
+
+
+def utc_now() -> str:
+    return dt.datetime.now(dt.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def run_git(args: list[str]) -> bytes:
+    completed = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout).decode("utf-8", errors="replace"))
+    return completed.stdout
+
+
+def runtime_root() -> pathlib.Path:
+    return pathlib.Path(os.environ.get("LAZY_RUNTIME_ROOT", str(LAZY))).resolve()
+
+
+def cache_path() -> pathlib.Path:
+    return runtime_root() / "state" / "validation-evidence-cache.json"
+
+
+def evidence_cache_enabled(value: str) -> bool:
+    if value == "off" or os.environ.get("LAZY_VALIDATE_EVIDENCE_CACHE") == "0":
+        return False
+    return True
+
+
+def is_volatile_harness_path(name: str) -> bool:
+    normalized = name.strip("/")
+    volatile_prefixes = (
+        ".lazy-harness/state/",
+        ".lazy-harness/logs/",
+        ".lazy-harness/generated/",
+    )
+    return normalized.startswith(volatile_prefixes) or "/__pycache__/" in f"/{normalized}/" or normalized.endswith(".pyc")
+
+
+def should_hash_harness_file(path: pathlib.Path) -> bool:
+    try:
+        rel = path.relative_to(LAZY)
+    except ValueError:
+        return False
+    if not path.is_file():
+        return False
+    rel_name = f".lazy-harness/{rel.as_posix()}"
+    parts = set(rel.parts)
+    if parts & {"state", "logs", "generated", "__pycache__"} or is_volatile_harness_path(rel_name):
+        return False
+    if path.suffix == ".pyc":
+        return False
+    return True
+
+
+def harness_fingerprint() -> str:
+    h = hashlib.sha256()
+    for path in sorted(LAZY.rglob("*")):
+        if not should_hash_harness_file(path):
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        h.update(rel.encode("utf-8") + b"\0")
+        h.update(sha256_bytes(path.read_bytes()).encode("ascii") + b"\0")
+    return h.hexdigest()
+
+
+def untracked_fingerprint() -> str:
+    raw = run_git(["ls-files", "--others", "--exclude-standard", "-z"])
+    h = hashlib.sha256()
+    for name in sorted(item for item in raw.decode("utf-8", errors="surrogateescape").split("\0") if item):
+        if is_volatile_harness_path(name):
+            continue
+        path = ROOT / name
+        h.update(name.encode("utf-8", errors="surrogateescape") + b"\0")
+        if path.is_file():
+            h.update(sha256_bytes(path.read_bytes()).encode("ascii") + b"\0")
+        else:
+            h.update(b"missing-or-non-file\0")
+    return h.hexdigest()
+
+
+def workspace_fingerprint() -> dict[str, str]:
+    """Return conservative content-address inputs for validation evidence reuse.
+
+    The key intentionally includes both project git state and the installed
+    `.lazy-harness` body. Dogfood hosts often keep `.lazy-harness` untracked, so
+    HEAD alone is not enough to prove a prior `lazy test` still covers the
+    current harness copy.
+    """
+    head = run_git(["rev-parse", "HEAD"]).decode("utf-8", errors="replace").strip()
+    diff_hash = sha256_bytes(run_git([
+        "diff",
+        "--binary",
+        "HEAD",
+        "--",
+        ".",
+        ":(exclude).lazy-harness/state/**",
+        ":(exclude).lazy-harness/logs/**",
+        ":(exclude).lazy-harness/generated/**",
+    ]))
+    raw_status = run_git(["status", "--porcelain=v1", "-z"]).decode("utf-8", errors="surrogateescape")
+    status_items = [item for item in raw_status.split("\0") if item]
+    filtered_status = "\0".join(item for item in status_items if not is_volatile_harness_path(item[3:] if len(item) > 3 else item))
+    status_hash = sha256_text(filtered_status)
+    return {
+        "head": head,
+        "diffHash": diff_hash,
+        "statusHash": status_hash,
+        "untrackedHash": untracked_fingerprint(),
+        "harnessHash": harness_fingerprint(),
+    }
+
+
+def evidence_key(step: ValidationStep, scope: str, fingerprint: dict[str, str]) -> str:
+    payload = {
+        "version": CACHE_VERSION,
+        "kind": step.kind,
+        "name": step.name,
+        "command": step.command,
+        "scope": scope,
+        "fingerprint": fingerprint,
+    }
+    return sha256_text(json.dumps(payload, sort_keys=True, ensure_ascii=False))
+
+
+def load_cache() -> dict[str, object]:
+    path = cache_path()
+    if not path.exists():
+        return {"version": CACHE_VERSION, "entries": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": CACHE_VERSION, "entries": {}}
+    if data.get("version") != CACHE_VERSION or not isinstance(data.get("entries"), dict):
+        return {"version": CACHE_VERSION, "entries": {}}
+    return data
+
+
+def save_cache(data: dict[str, object]) -> None:
+    path = cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entries = data.get("entries")
+    if isinstance(entries, dict) and len(entries) > CACHE_MAX_ENTRIES:
+        ordered = sorted(entries.items(), key=lambda item: str(item[1].get("cachedAt", "")), reverse=True)
+        data["entries"] = dict(ordered[:CACHE_MAX_ENTRIES])
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def cached_step_result(step: ValidationStep, key: str, cache: dict[str, object]) -> StepResult | None:
+    entries = cache.get("entries")
+    if not isinstance(entries, dict):
+        return None
+    entry = entries.get(key)
+    if not isinstance(entry, dict) or entry.get("ok") is not True:
+        return None
+    return StepResult(
+        name=step.name,
+        kind=step.kind,
+        command=step.command,
+        status="reused",
+        exitCode=0,
+        elapsedSeconds=0.0,
+        reason="valid cached full-regression evidence",
+        evidenceKey=key,
+        cachedAt=str(entry.get("cachedAt", "")),
+    )
+
+
+def store_step_result(step: ValidationStep, key: str, fingerprint: dict[str, str], result: StepResult) -> None:
+    cache = load_cache()
+    entries = cache.setdefault("entries", {})
+    if not isinstance(entries, dict):
+        cache["entries"] = entries = {}
+    entries[key] = {
+        "ok": True,
+        "cachedAt": utc_now(),
+        "step": step.name,
+        "kind": step.kind,
+        "command": step.command,
+        "fingerprint": fingerprint,
+        "exitCode": result.exitCode,
+        "elapsedSeconds": result.elapsedSeconds,
+    }
+    save_cache(cache)
 
 
 def progress_enabled(value: str, dry_run: bool) -> bool:
@@ -234,6 +433,7 @@ def build_result(args: argparse.Namespace) -> tuple[ValidationResult, int]:
             dryRun=args.dry_run,
             releaseAllowed=args.allow_release,
             fullRegression=False,
+            evidenceReused=False,
             steps=[
                 *[
                     StepResult(step.name, step.kind, step.command, "planned", reason="not executed due validation argument error")
@@ -256,6 +456,7 @@ def build_result(args: argparse.Namespace) -> tuple[ValidationResult, int]:
             dryRun=True,
             releaseAllowed=args.allow_release,
             fullRegression=any(step.kind == "full-regression" for step in steps),
+            evidenceReused=False,
             steps=[*[StepResult(step.name, step.kind, step.command, "planned") for step in steps], *skipped],
             errors=[],
             notes=notes,
@@ -266,16 +467,48 @@ def build_result(args: argparse.Namespace) -> tuple[ValidationResult, int]:
     results: list[StepResult] = []
     ok = True
     full_regression = False
+    evidence_reused = False
+    fingerprint: dict[str, str] | None = None
+    cache: dict[str, object] | None = None
+    cache_enabled = evidence_cache_enabled(args.evidence_cache)
+    if cache_enabled:
+        notes.append("full-regression evidence cache enabled; cache miss or uncertainty falls back to lazy test")
+    else:
+        notes.append("full-regression evidence cache disabled")
     progress = progress_enabled(args.progress, args.dry_run)
     emit_progress(progress, current=0, total=len(steps), message=f"Starting lazy validate plan={args.plan}")
     for index, step in enumerate(steps, start=1):
         emit_progress(progress, current=index - 1, total=len(steps), message=f"Running {step.name}")
-        step_result = run_step(step, deadline)
+        cache_key = ""
+        if cache_enabled and step.kind == "full-regression":
+            try:
+                if fingerprint is None:
+                    fingerprint = workspace_fingerprint()
+                if cache is None:
+                    cache = load_cache()
+                cache_key = evidence_key(step, args.scope, fingerprint)
+                cached_result = cached_step_result(step, cache_key, cache)
+            except Exception as exc:
+                cached_result = None
+                notes.append(f"evidence cache unavailable; running full-regression step: {exc}")
+            if cached_result is not None:
+                step_result = cached_result
+                evidence_reused = True
+            else:
+                step_result = run_step(step, deadline)
+                if step_result.status == "passed" and fingerprint is not None and cache_key:
+                    try:
+                        store_step_result(step, cache_key, fingerprint, step_result)
+                        step_result.evidenceKey = cache_key
+                    except Exception as exc:
+                        notes.append(f"evidence cache store failed after passing full-regression: {exc}")
+        else:
+            step_result = run_step(step, deadline)
         results.append(step_result)
         emit_progress(progress, current=index, total=len(steps), message=f"{step_result.status}: {step.name}")
-        if step_result.status == "passed" and step.kind == "full-regression":
+        if step_result.status in {"passed", "reused"} and step.kind == "full-regression":
             full_regression = True
-        if step_result.status != "passed":
+        if step_result.status not in {"passed", "reused"}:
             ok = False
             break
     results.extend(skipped)
@@ -288,6 +521,7 @@ def build_result(args: argparse.Namespace) -> tuple[ValidationResult, int]:
         dryRun=False,
         releaseAllowed=args.allow_release,
         fullRegression=full_regression,
+        evidenceReused=evidence_reused,
         steps=results,
         errors=[] if ok else ["validation plan failed or exceeded budget"],
         notes=notes,
@@ -320,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-seconds", type=float, default=None, help="Total validation budget. Defaults: fast=60, standard=300, release=900. Maximum 3600.")
     parser.add_argument("--allow-release", action="store_true", help="Required to execute --plan release. Not required for --dry-run.")
     parser.add_argument("--dry-run", action="store_true", help="Print the bounded plan without executing steps.")
+    parser.add_argument("--evidence-cache", choices=["auto", "on", "off"], default="auto", help="Reuse cached full-regression evidence when the conservative workspace fingerprint matches. Use --evidence-cache=off or LAZY_VALIDATE_EVIDENCE_CACHE=0 to disable.")
     parser.add_argument("--progress", choices=["auto", "on", "off"], default="auto", help="Emit JCODE_PROGRESS lines to stderr while executing plans. Use --progress=off or LAZY_VALIDATE_PROGRESS=0 to disable.")
     parser.add_argument("--format", choices=["md", "json"], default="md")
     args = parser.parse_args(argv)

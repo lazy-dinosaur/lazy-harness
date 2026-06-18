@@ -1327,7 +1327,11 @@ def check_bounded_validation_governor_cli() -> None:
     if "validate [--plan=fast|standard|release]" not in help_text:
         fail("lazy help should list validate command")
 
-    env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT))
+    env = env_without_lazy_runtime(
+        LAZY_HOST_ROOT=str(ROOT),
+        LAZY_VALIDATE_PROGRESS="1",
+        LAZY_VALIDATE_EVIDENCE_CACHE="0",
+    )
     fast = subprocess.run(
         [
             str(LAZY / "bin" / "lazy"),
@@ -1459,6 +1463,76 @@ def check_bounded_validation_governor_cli() -> None:
     exhausted_result = json.loads(exhausted.stdout)
     if not any(step.get("status") == "skipped" and step.get("reason") == "deadline-exhausted" for step in exhausted_result.get("steps", [])):
         fail("lazy validate zero budget should skip with deadline-exhausted: " + exhausted.stdout)
+
+    governor = runpy.run_path(str(script), run_name="lazy_validation_governor_import")
+    old_cache_env = os.environ.get("LAZY_VALIDATE_EVIDENCE_CACHE")
+    try:
+        os.environ.pop("LAZY_VALIDATE_EVIDENCE_CACHE", None)
+        if not governor["evidence_cache_enabled"]("auto"):
+            fail("validation evidence cache should be enabled by default")
+        if governor["evidence_cache_enabled"]("off"):
+            fail("validation evidence cache should be disabled by --evidence-cache=off")
+        os.environ["LAZY_VALIDATE_EVIDENCE_CACHE"] = "0"
+        if governor["evidence_cache_enabled"]("auto"):
+            fail("validation evidence cache should be disabled by LAZY_VALIDATE_EVIDENCE_CACHE=0")
+    finally:
+        if old_cache_env is None:
+            os.environ.pop("LAZY_VALIDATE_EVIDENCE_CACHE", None)
+        else:
+            os.environ["LAZY_VALIDATE_EVIDENCE_CACHE"] = old_cache_env
+    fake_step = governor["ValidationStep"]("full-self-test", "full-regression", ["fake-lazy", "test"])
+    fake_result = governor["StepResult"]("full-self-test", "full-regression", ["fake-lazy", "test"], "passed", exitCode=0, elapsedSeconds=1.25)
+    fingerprint_a = {
+        "head": "HEAD-A",
+        "diffHash": "diff-A",
+        "statusHash": "status-A",
+        "untrackedHash": "untracked-A",
+        "harnessHash": "harness-A",
+    }
+    fingerprint_b = {**fingerprint_a, "harnessHash": "harness-B"}
+    cache_runtime = pathlib.Path(tempfile.mkdtemp(prefix="validate-cache-"))
+    old_runtime = os.environ.get("LAZY_RUNTIME_ROOT")
+    try:
+        os.environ["LAZY_RUNTIME_ROOT"] = str(cache_runtime)
+        for volatile in (
+            ".lazy-harness/state/validation-evidence-cache.json",
+            ".lazy-harness/logs/validations.jsonl",
+            ".lazy-harness/generated/implementation-index.json",
+            ".lazy-harness/scripts/__pycache__/validation-governor.pyc",
+        ):
+            if not governor["is_volatile_harness_path"](volatile):
+                fail("validation evidence fingerprint should ignore volatile harness path: " + volatile)
+        for canonical in (
+            ".lazy-harness/scripts/validation-governor.py",
+            ".lazy-harness/spec/platform/bounded-validation-governor.md",
+        ):
+            if governor["is_volatile_harness_path"](canonical):
+                fail("validation evidence fingerprint should keep canonical harness path: " + canonical)
+        key_a = governor["evidence_key"](fake_step, "auto", fingerprint_a)
+        key_b = governor["evidence_key"](fake_step, "auto", fingerprint_b)
+        if key_a == key_b:
+            fail("validation evidence key should change when conservative fingerprint changes")
+        if governor["cached_step_result"](fake_step, key_a, governor["load_cache"]()) is not None:
+            fail("validation evidence cache should miss before store")
+        governor["store_step_result"](fake_step, key_a, fingerprint_a, fake_result)
+        cache_file = cache_runtime / "state" / "validation-evidence-cache.json"
+        if not cache_file.exists():
+            fail("validation evidence cache should be written under LAZY_RUNTIME_ROOT/state")
+        reused = governor["cached_step_result"](fake_step, key_a, governor["load_cache"]())
+        if reused is None or reused.status != "reused" or reused.reason != "valid cached full-regression evidence" or not reused.evidenceKey:
+            fail("validation evidence cache should return reused full-regression evidence")
+        if governor["cached_step_result"](fake_step, key_b, governor["load_cache"]()) is not None:
+            fail("validation evidence cache should not reuse across different conservative fingerprints")
+    finally:
+        if old_runtime is None:
+            os.environ.pop("LAZY_RUNTIME_ROOT", None)
+        else:
+            os.environ["LAZY_RUNTIME_ROOT"] = old_runtime
+        shutil.rmtree(cache_runtime, ignore_errors=True)
+
+    gitignore_text = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    if ".lazy-harness/state/validation-evidence-cache.json" not in gitignore_text:
+        fail("default validation evidence cache path should be gitignored")
 
     print("✓ bounded validation governor CLI ok")
 
