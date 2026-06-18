@@ -90,8 +90,6 @@ Commands:
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
                                 Lint knowledge graph IDs and path hygiene
-  graph-cleanup [--format=json|md] [--apply]
-                                Plan or apply conservative graph.jsonl cleanup with backup
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
   hook-timings [--format=json|md] [--limit=N] [--since=ISO] [--all-sessions]
                                 Summarize response.completed hook timing measurements
@@ -250,9 +248,6 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/graph-hygiene.ts" "$@"
-    ;;
-  graph-cleanup)
-    exec python3 "$SCRIPTS/graph-cleanup.py" "$@"
     ;;
   gate-state)
     if ! command -v bun >/dev/null 2>&1; then
