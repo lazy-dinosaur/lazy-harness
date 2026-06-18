@@ -42,7 +42,7 @@ The command detects:
 
 ## Non-goals
 
-- Not graph repair.
+- Not graph repair. Use explicit `.lazy-harness/bin/lazy graph-cleanup` for dry-run/apply cleanup planning.
 - Not candidate promotion.
 - Not source-vs-host ownership repair. It only classifies source-only paths to avoid false actionable host-missing warnings.
 - Not a replacement for `record-audit`; `record-audit` gives a dashboard, `graph-hygiene` gives issue details.
@@ -60,6 +60,8 @@ The command detects:
   - Related dashboard that summarizes graph hygiene counts.
 - `.lazy-harness/knowledge/graph.jsonl`
   - Stores confirmed implementation/test edges for this CLI.
+- `.lazy-harness/spec/platform/graph-cleanup.md`
+  - Companion SDD for conservative cleanup planning when graph-hygiene exposes duplicate-id, missing-id, or stale path blockers.
 
 ## Discovery capture
 

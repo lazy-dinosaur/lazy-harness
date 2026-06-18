@@ -5934,6 +5934,104 @@ def check_graph_hygiene_cli() -> None:
     print("✓ graph-hygiene cli ok")
 
 
+def check_graph_cleanup_cli() -> None:
+    """Graph cleanup should be dry-run by default and apply only conservative rewrites with backup."""
+    script = LAZY / "scripts" / "graph-cleanup.py"
+    if not script.exists():
+        fail("graph-cleanup script missing")
+    py_compile.compile(str(script), doraise=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp) / "host"
+        source = pathlib.Path(tmp) / "source" / ".lazy-harness"
+        graph_dir = root / ".lazy-harness" / "knowledge"
+        (root / ".lazy-harness" / "domain").mkdir(parents=True)
+        (source / "domain").mkdir(parents=True)
+        graph_dir.mkdir(parents=True)
+        (root / ".lazy-harness" / "domain" / "present.md").write_text("# Present\n", encoding="utf-8")
+        (source / "domain" / "source-only.md").write_text("# Source only\n", encoding="utf-8")
+        graph = graph_dir / "graph.jsonl"
+        graph.write_text(
+            '\n'.join([
+                json.dumps({"path": ".lazy-harness/domain/stale.md", "relation": "mentions"}, ensure_ascii=False),
+                json.dumps({"id": "dup", "path": ".lazy-harness/domain/present.md"}, ensure_ascii=False),
+                json.dumps({"id": "dup", "file": ".lazy-harness/domain/source-only.md"}, ensure_ascii=False),
+                json.dumps({"subject": "missing", "relation": "r"}, ensure_ascii=False),
+                json.dumps({"id": "link", "links": [{"target": ".lazy-harness/domain/link-stale.md"}], "evidence": [{"path": ".lazy-harness/domain/evidence-stale.md"}]}, ensure_ascii=False),
+            ]) + '\n',
+            encoding="utf-8",
+        )
+        before = graph.read_text(encoding="utf-8")
+        dry = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph-cleanup", "--root", str(root), "--source", str(source), "--format=json"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if dry.returncode != 0:
+            fail("graph-cleanup dry-run failed:\n" + dry.stdout + dry.stderr)
+        dry_result = json.loads(dry.stdout)
+        if dry_result.get("mode") != "graph-cleanup.plan" or dry_result.get("dryRun") is not True:
+            fail("graph-cleanup dry-run mode changed: " + dry.stdout)
+        summary = dry_result.get("summary", {})
+        if summary.get("add-id") != 2 or summary.get("rename-duplicate-id") != 1 or summary.get("mark-stale-path") != 2:
+            fail("graph-cleanup dry-run summary changed: " + dry.stdout)
+        if graph.read_text(encoding="utf-8") != before:
+            fail("graph-cleanup dry-run must not mutate graph")
+        applied = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph-cleanup", "--root", str(root), "--source", str(source), "--apply", "--format=json"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if applied.returncode != 0:
+            fail("graph-cleanup apply failed:\n" + applied.stdout + applied.stderr)
+        applied_result = json.loads(applied.stdout)
+        backup = applied_result.get("backupPath")
+        if not backup or not pathlib.Path(backup).exists():
+            fail("graph-cleanup apply should create backup: " + applied.stdout)
+        rows = [json.loads(line) for line in graph.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(rows) != 5:
+            fail("graph-cleanup apply must preserve row count")
+        ids = [row.get("id") for row in rows]
+        if len(ids) != len(set(ids)) or not any(str(rid).startswith("kg_auto_") for rid in ids):
+            fail("graph-cleanup apply should create unique deterministic ids")
+        if not any(row.get("duplicateOf") == "dup" for row in rows):
+            fail("graph-cleanup apply should preserve duplicate lineage")
+        if not any(row.get("stalePaths") for row in rows):
+            fail("graph-cleanup apply should move stale paths into stalePaths")
+        hygiene = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "graph-hygiene.ts"), "--root", str(root), "--source", str(source), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if hygiene.returncode != 0:
+            fail("graph-hygiene after graph-cleanup failed:\n" + hygiene.stdout + hygiene.stderr)
+        hygiene_result = json.loads(hygiene.stdout)
+        hygiene_summary = hygiene_result.get("summary", {})
+        if hygiene_summary.get("missingIds") != 0 or hygiene_summary.get("duplicateIds") != 0 or hygiene_summary.get("missingPaths") != 0 or hygiene_summary.get("sourceOnlyPaths") != 1:
+            fail("graph-cleanup apply should leave only source-only path: " + hygiene.stdout)
+
+        invalid_graph = graph_dir / "invalid.jsonl"
+        invalid_graph.write_text('{"id":"ok"}\nnot-json\n', encoding="utf-8")
+        invalid = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "graph-cleanup", "--root", str(root), "--graph", str(invalid_graph), "--apply", "--format=json"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if invalid.returncode == 0:
+            fail("graph-cleanup invalid JSON apply should fail")
+        invalid_result = json.loads(invalid.stdout)
+        if invalid_result.get("ok") is not False or not invalid_result.get("unsupported") or invalid_result.get("backupPath"):
+            fail("graph-cleanup invalid JSON should be unsupported without backup/apply: " + invalid.stdout)
+    print("✓ graph-cleanup cli ok")
+
+
 def check_real_feature_walkthrough() -> None:
     queue = LAZY / "questions" / f"__tmp_5d6_walkthrough_{os.getpid()}.xml"
     decisions = LAZY / "logs" / f"__tmp_5d6_walkthrough_{os.getpid()}.jsonl"
@@ -9152,6 +9250,7 @@ def main() -> None:
         (check_project_profile_v2_queue_runtime, "FRAMEWORK_ONLY"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
+        (check_graph_cleanup_cli, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),

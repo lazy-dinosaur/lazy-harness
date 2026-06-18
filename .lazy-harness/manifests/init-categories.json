@@ -448,6 +448,16 @@
           "description": "SSOT for implementation map storage paths: layer Markdown, knowledge graph JSONL, generated implementation index."
         },
         {
+          "path": "spec/platform/graph-cleanup.md",
+          "kind": "file",
+          "description": "SDD contract for conservative graph.jsonl cleanup planner/apply helper with dry-run default and backup-on-apply."
+        },
+        {
+          "path": "tests/graph-cleanup.md",
+          "kind": "file",
+          "description": "TDD fixtures for graph-cleanup dry-run/apply, backup creation, id repair, duplicate-id rename, stale path movement, and source-only preservation."
+        },
+        {
           "path": "ssot/rule-sources.md",
           "kind": "file",
           "description": "SSOT for project-specific rule placement priority and canonical storage locations. Synced as a host-editable framework seed/reference."

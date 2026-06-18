@@ -18,6 +18,7 @@ The canonical executable entrypoint for installed hosts is the per-host dispatch
 .lazy-harness/bin/lazy doctor --profile smoke
 .lazy-harness/bin/lazy record-audit --format md
 .lazy-harness/bin/lazy graph-hygiene --format md
+.lazy-harness/bin/lazy graph-cleanup --format md
 .lazy-harness/bin/lazy hook-timings --format md
 .lazy-harness/bin/lazy lifecycle-check --format json
 .lazy-harness/bin/lazy lifecycle-parity --format json
@@ -71,6 +72,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md` — this SDD contract.
   - `.lazy-harness/bin/lazy` — canonical per-host dispatcher.
   - `.lazy-harness/scripts/validation-governor.py` — bounded validation plan runner exposed as `lazy validate`.
+  - `.lazy-harness/scripts/graph-cleanup.py` — conservative graph cleanup planner exposed as `lazy graph-cleanup`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh` — response-completed guard.
   - `.lazy-harness/hooks/pre-push.sh` — git pre-push gate using the canonical CLI, never package script `lazy:test`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the guard.
@@ -86,13 +88,14 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `.lazy-harness/bin/lazy validate` — bounded validation governor for fast/standard/release plans.
   - `.lazy-harness/bin/lazy record-audit` — read-only host record dashboard dispatcher to `.lazy-harness/scripts/record-audit.ts`.
   - `.lazy-harness/bin/lazy graph-hygiene` — read-only knowledge graph lint dispatcher to `.lazy-harness/scripts/graph-hygiene.ts`.
+  - `.lazy-harness/bin/lazy graph-cleanup` — dry-run by default graph cleanup planner/apply dispatcher to `.lazy-harness/scripts/graph-cleanup.py`.
   - `.lazy-harness/bin/lazy hook-timings` — read-only response hook timing summary dispatcher to `.lazy-harness/scripts/hook-timing-summary.py`.
   - `.lazy-harness/bin/lazy lifecycle-check` — shadow response.completed lifecycle orchestrator dispatcher to `.lazy-harness/scripts/lifecycle-check.py`.
   - `.lazy-harness/bin/lazy lifecycle-parity` — batch parity runner dispatcher to `.lazy-harness/scripts/lifecycle-parity-runner.py`.
 - Flow:
   1. Agent needs to reproduce lazy-harness validation or inspect accumulated host records.
   2. Agent runs `.lazy-harness/bin/lazy version` if root is uncertain.
-  3. Agent runs `.lazy-harness/bin/lazy check`, `validate`, `test`, `doctor`, `record-audit`, `graph-hygiene`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs fast static validation, bounded validation plan selection, full regression validation, health diagnosis, record-quality summary, graph lint details, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
+  3. Agent runs `.lazy-harness/bin/lazy check`, `validate`, `test`, `doctor`, `record-audit`, `graph-hygiene`, `graph-cleanup`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs fast static validation, bounded validation plan selection, full regression validation, health diagnosis, record-quality summary, graph lint details, explicit graph cleanup planning, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
   4. Hook blocks stale package-script diagnosis before it becomes final guidance.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
