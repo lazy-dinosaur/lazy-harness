@@ -6,6 +6,7 @@ Scope: framework-global
 Owner: lazy-harness
 Level: discover
 Related capability: project-operating-rulebook
+Related policy: project-operating-rulebook-policy
 Related records:
 - `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - `.lazy-harness/spec/platform/project-operating-rulebook.md`
@@ -70,9 +71,12 @@ Capability fields for action guidance:
   - `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - Capabilities:
   - `project-operating-rulebook`
+- Policies:
+  - `project-operating-rulebook-policy`
 - Validation:
   - `.lazy-harness/bin/lazy rules audit --strict`
   - `.lazy-harness/bin/lazy rules resolve --intent adding_project_operating_policy`
+  - `.lazy-harness/bin/lazy policy retire-readiness --strict --format=json`
 - Tests:
   - `.lazy-harness/tests/project-operating-rulebook.md`
   - `.lazy-harness/scripts/self-test.py`

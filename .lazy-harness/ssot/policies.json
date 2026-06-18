@@ -2,6 +2,69 @@
   "version": 1,
   "policies": [
     {
+      "id": "project-operating-rulebook-policy",
+      "title": "Project operating rulebook policy",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "discover",
+      "appliesTo": [
+        "adding_project_operating_policy",
+        "resolving_project_operating_rule",
+        "inspecting_project_rules",
+        "distinguishing_project_facts_from_operating_rules"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/project-operating-rulebook.md",
+      "capabilityIds": [
+        "project-operating-rulebook"
+      ],
+      "evidence": [
+        {
+          "kind": "record",
+          "path": ".lazy-harness/rules/README.md",
+          "summary": "Active rulebook compatibility surface defines project operating rule storage and capability binding."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/project-operating-rulebook.md",
+          "summary": "SDD defines lazy rules contract, rulebook entry shape, capability binding, and audit behavior."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/tests/project-operating-rulebook.md",
+          "summary": "TDD protects rulebook list/audit/resolve behavior and sync compatibility."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/ssot/policy-registry.md",
+          "summary": "Policy registry SSOT requires rulebook retire-readiness coverage through typed policy links before changing rulebook semantics."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Rulebook compatibility surface no longer represents project/team operating policy storage.",
+          "Capability-policy link causes noisy or incorrect retire-readiness coverage."
+        ],
+        "demotionTarget": "discover"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records.",
+        "nonCanonicalViews": [
+          ".lazy-harness/rules/README.md"
+        ]
+      }
+    },
+    {
       "id": "record-first-validation",
       "title": "Record-first validation evidence",
       "scope": "framework-global",

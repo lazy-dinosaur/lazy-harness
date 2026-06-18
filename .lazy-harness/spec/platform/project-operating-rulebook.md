@@ -70,11 +70,14 @@ Each active entry should include:
 Capability entries may use these optional fields:
 
 - `rulebookRecord`: canonical `.lazy-harness/rules/**` path
+- `policyIds`: canonical typed policy ids from `.lazy-harness/ssot/policies.json` that cover the rulebook compatibility surface
 - `preferredActions`: canonical commands/actions to use
 - `discouragedActions`: commands/actions that should resolve to guidance
 - `requiresReasonForBypass`: boolean marker for bypass-aware default/warn/block rules
 
 Resolution must match exact intent labels and action labels using the same deterministic matching boundary as `lazy capability resolve`.
+
+During Policy Machinery Option B migration, active rulebook entries that are candidates for semantic retirement must also be covered by typed policy links. The framework source entry `.lazy-harness/rules/README.md` is covered by capability `project-operating-rulebook` and policy `project-operating-rulebook-policy`.
 
 ## Audit behavior
 
@@ -99,13 +102,16 @@ Non-strict audit reports the same issues but only exits non-zero for errors.
   - `.lazy-harness/scripts/lazy-sync.ts`
   - `.lazy-harness/manifests/init-categories.json`
   - `.lazy-harness/schemas/capabilities.schema.json`
+  - `.lazy-harness/ssot/policies.json`
   - `.lazy-harness/bin/lazy`
 - Records:
   - `.lazy-harness/rules/README.md`
   - `.lazy-harness/ssot/capability-registry.md`
+  - `.lazy-harness/ssot/policy-registry.md`
   - `.lazy-harness/spec/platform/capability-resolution.md`
 - Tests:
   - `.lazy-harness/tests/project-operating-rulebook.md`
+  - `.lazy-harness/tests/policy-machinery-v2.md`
   - `.lazy-harness/scripts/self-test.py`
 
 ## Response audit missed-action advisory

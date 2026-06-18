@@ -17,6 +17,7 @@ Self-test must prove:
 - `.lazy-harness/rules/**` exists as the canonical human operating rulebook path.
 - `lazy rules list --format=json` parses active entries.
 - `lazy rules audit --strict --format=json` validates required metadata/sections and capability links.
+- Source rulebook compatibility surface is linked to typed policy coverage through `project-operating-rulebook-policy`.
 - `lazy rules resolve --action 'git worktree add feature/x'` can match a discouraged action and return the preferred replacement.
 - `lazy capability resolve --action 'git worktree add feature/x'` also matches `discouragedActions`.
 - Missing rulebook/capability links fail audit deterministically.
@@ -30,6 +31,7 @@ Self-test must prove:
 - SDD: `.lazy-harness/spec/platform/project-operating-rulebook.md` and `.lazy-harness/spec/platform/capability-resolution.md`.
 - BDD: agents should receive deterministic rulebook/capability guidance when resolving project operating actions.
 - SSOT: `.lazy-harness/ssot/rule-sources.md` and `.lazy-harness/ssot/capability-registry.md`.
+- Policy Machinery: `.lazy-harness/ssot/policy-registry.md` and `.lazy-harness/tests/policy-machinery-v2.md` cover typed policy migration readiness.
 - ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`.
 
 ## Implementation map
@@ -42,6 +44,8 @@ Self-test must prove:
   - `.lazy-harness/manifests/init-categories.json`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`
+  - `.lazy-harness/ssot/policies.json`
+  - `.lazy-harness/ssot/capabilities.json`
 - Key symbols:
   - `loadRulebook`
   - `auditRules`
@@ -50,6 +54,7 @@ Self-test must prove:
   - `mergeCapabilitiesSeed`
   - `check_project_operating_rulebook_cli`
   - `check_lazy_sync_prunes_stale_managed_files`
+  - `check_policy_machinery_v2`
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy test`

@@ -89,7 +89,10 @@
         ".jcode/harness/20-project-rules.md project policy body",
         "Jcode memory project/team rule body"
       ],
-      "requiresReasonForBypass": false
+      "requiresReasonForBypass": false,
+      "policyIds": [
+        "project-operating-rulebook-policy"
+      ]
     },
     {
       "id": "retrieval-purpose-architecture",

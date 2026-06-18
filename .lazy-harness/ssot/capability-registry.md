@@ -68,7 +68,7 @@ Each capability entry requires:
 
 `sourceRecord` must point at a canonical `.lazy-harness` record unless the capability is still a draft.
 
-Capabilities may include `policyIds` to link command/action bindings to canonical typed policy records in `.lazy-harness/ssot/policies.json`.
+Capabilities may include `policyIds` to link command/action bindings to canonical typed policy records in `.lazy-harness/ssot/policies.json`. Framework source-host rulebook compatibility is currently covered by `project-operating-rulebook.policyIds = ["project-operating-rulebook-policy"]`.
 
 When framework-owned seed capabilities are synced into downstream hosts, their `sourceRecord` files must be synced as well. The Category A manifest is the source of truth for this dependency so host-owned `capabilities.json` can merge framework capability ids without introducing missing-source audit failures. Host-owned capabilities keep their source records in downstream project records and are not required to appear in the framework Category A manifest.
 
@@ -97,6 +97,7 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
   - `.lazy-harness/tests/capability-registry.md` — regression record.
   - `.lazy-harness/scripts/capability.ts` — CLI implementation for add/list/resolve/candidates/audit, including rulebook action fields.
   - `.lazy-harness/scripts/policy.ts` — read-only typed policy registry CLI linked by `policyIds`.
+  - `.lazy-harness/ssot/policies.json` — canonical typed policy registry linked by capability `policyIds`.
   - `.lazy-harness/scripts/rulebook.ts` — CLI implementation for project operating rulebook list/audit/resolve.
   - `.lazy-harness/bin/lazy` — dispatches `lazy capability`.
   - `.lazy-harness/scripts/self-test.py` — fixtures.

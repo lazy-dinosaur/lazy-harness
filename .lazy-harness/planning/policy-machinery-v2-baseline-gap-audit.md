@@ -101,6 +101,8 @@ User then identified a validation gap: policy writes had not been tested end-to-
 
 User then requested the next step be executed immediately. Record-backed next step is not deletion; it is rulebook retire-readiness preflight. The slice adds `lazy policy retire-readiness`, proves the current host blocks retirement until active rulebook entries have typed policy links, and proves a positive temp-host fixture passes when rulebook → capability → typed policy coverage is complete.
 
+User then confirmed proceeding with the next slice: add typed policy coverage for the active source rulebook compatibility surface. The slice adds `project-operating-rulebook-policy`, links `project-operating-rulebook.policyIds`, regenerates the derived policy rulebook, and makes source-host `lazy policy retire-readiness --strict --format=json` pass.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`
@@ -128,7 +130,7 @@ User then requested the next step be executed immediately. Record-backed next st
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Actual rulebook semantic retirement requires a later migration slice after readiness is true.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is now true, but actual rulebook semantic retirement still requires a later migration slice with host sync and compatibility regression coverage.
 
 ## Rule placement
 

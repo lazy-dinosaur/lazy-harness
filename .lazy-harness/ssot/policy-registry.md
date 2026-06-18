@@ -134,6 +134,14 @@ For a blocking gate, use:
 
 Readiness means every active `.lazy-harness/rules/**/*.md` entry has a capability binding, and that capability is linked to an existing typed policy through `capability.policyIds` or `policy.capabilityIds`.
 
+The source-host active rulebook compatibility surface is covered by:
+
+```text
+.lazy-harness/rules/README.md
+  -> capability project-operating-rulebook
+  -> policy project-operating-rulebook-policy
+```
+
 This preflight is read-only. It does not delete `.lazy-harness/rules/**`, change `lazy rules`, or mutate `policies.json`/`capabilities.json`.
 
 ## Implementation map
@@ -160,6 +168,7 @@ This preflight is read-only. It does not delete `.lazy-harness/rules/**`, change
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
+  - `lazy policy retire-readiness --strict --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

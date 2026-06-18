@@ -158,6 +158,7 @@ Rulebook retirement is not a delete-first migration. Before `.lazy-harness/rules
 - An active rulebook entry is ready only when it has a capability binding and that capability is linked to an existing typed policy through `capability.policyIds` or `policy.capabilityIds`.
 - `--strict` exits non-zero when blockers exist, so retire/deprecation work can be gated in CI/preflight.
 - The current source host may report `ready: false`; that is expected until the active rulebook compatibility surface has typed policy coverage.
+- After `project-operating-rulebook-policy`, the source host reports `ready: true` because `.lazy-harness/rules/README.md` is linked through capability `project-operating-rulebook` to a typed policy.
 - The preflight does not delete `.lazy-harness/rules/**`, mutate `policies.json`, mutate `capabilities.json`, or change `lazy rules` compatibility behavior.
 
 ## Storage posture
@@ -202,6 +203,8 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
   - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
+  - `.lazy-harness/ssot/policies.json` — includes `project-operating-rulebook-policy` for active rulebook compatibility coverage.
+  - `.lazy-harness/ssot/capabilities.json` — links `project-operating-rulebook.policyIds` to `project-operating-rulebook-policy`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py` — explicit-context warn-only response.completed helper.
   - `.lazy-harness/generated/policy-rulebook.md` — non-canonical generated/explain view rendered from typed policies.
   - `.lazy-harness/scripts/rulebook.ts` — current rulebook CLI, unchanged by this slice.
@@ -217,6 +220,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
+  - `lazy policy retire-readiness --strict --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

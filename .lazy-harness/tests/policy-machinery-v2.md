@@ -49,7 +49,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_generated_rulebook_view` | `lazy policy render-rulebook --write --format=json` + `.lazy-harness/generated/policy-rulebook.md` | Generated view contains canonical-source disclaimer, policy sections, deterministic output, and path confinement under `.lazy-harness/generated/**`. |
 | `policy_machinery_policy_write_roundtrip` | temp host + `lazy policy upsert --from-json ... --confirm` | Dry-run does not write; confirmed upsert inserts/replaces id-sorted policies; saved policy audits cleanly and appears in resolve/warn/render outputs. |
 | `policy_machinery_policy_sync_roundtrip` | temp host + `lazy-sync --force --quiet` | Host-local saved policy survives policy seed merge and framework seed policies are merged without overwriting host-local policies. |
-| `policy_machinery_rulebook_retire_readiness_current_host_gate` | source host + `lazy policy retire-readiness --strict --format=json` | Current host reports blockers instead of deleting/demoting rulebook semantics when active rulebook entries lack typed policy links. |
+| `policy_machinery_rulebook_retire_readiness_source_host_ready` | source host + `lazy policy retire-readiness --strict --format=json` | Current host passes strict readiness after `.lazy-harness/rules/README.md` → `project-operating-rulebook` capability → `project-operating-rulebook-policy` typed policy link is complete. |
 | `policy_machinery_rulebook_retire_readiness_positive_fixture` | temp host + `lazy policy retire-readiness --strict --format=json` | Strict readiness passes when active rulebook entry → capability → typed policy links are complete; missing policy ids fail deterministically. |
 
 ## Layer completeness gate
@@ -87,6 +87,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
+  - `lazy policy retire-readiness --strict --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

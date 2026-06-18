@@ -2994,6 +2994,10 @@ def check_project_operating_rulebook_cli() -> None:
     root_audit_json = json.loads(root_audit.stdout)
     if root_audit_json.get("ok") is not True or root_audit_json.get("count", 0) < 1:
         fail("source rulebook audit should pass and see at least README: " + root_audit.stdout)
+    source_capabilities = json.loads((ROOT / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+    project_rulebook_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == "project-operating-rulebook"), None)
+    if not project_rulebook_capability or "project-operating-rulebook-policy" not in project_rulebook_capability.get("policyIds", []):
+        fail("source project-operating-rulebook capability must link typed policy coverage")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-rulebook-cli-"))
     try:
@@ -7987,7 +7991,7 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_warn_runtime_explicit_context",
         "policy_machinery_no_block_runtime",
         "policy_machinery_generated_rulebook_view",
-        "policy_machinery_rulebook_retire_readiness_current_host_gate",
+        "policy_machinery_rulebook_retire_readiness_source_host_ready",
         "policy_machinery_rulebook_retire_readiness_positive_fixture",
         "Layer completeness gate",
     ):
@@ -8205,7 +8209,7 @@ def check_policy_machinery_v2() -> None:
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
-    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "record-first-validation", "validation-evidence-warning"):
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning"):
         if expected not in render_md_result.stdout:
             fail("lazy policy render-rulebook md missing expected text: " + expected)
     render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -8234,16 +8238,18 @@ def check_policy_machinery_v2() -> None:
     if retire_readiness.returncode != 0:
         fail("lazy policy retire-readiness non-strict should report without failing:\n" + retire_readiness.stdout + retire_readiness.stderr)
     retire_readiness_json = json.loads(retire_readiness.stdout)
-    if retire_readiness_json.get("schemaVersion") != "policy-rulebook-retire-readiness/v1" or retire_readiness_json.get("ready") is not False:
-        fail("current source should not be rulebook-retire ready until active rulebook entries have typed policy links: " + retire_readiness.stdout)
-    if "Readiness/preflight only" not in retire_readiness_json.get("boundary", "") or retire_readiness_json.get("counts", {}).get("blockers", 0) < 1:
-        fail("retire-readiness must expose non-destructive boundary and blockers: " + retire_readiness.stdout)
+    if retire_readiness_json.get("schemaVersion") != "policy-rulebook-retire-readiness/v1" or retire_readiness_json.get("ready") is not True:
+        fail("current source should be rulebook-retire ready after active rulebook entries have typed policy links: " + retire_readiness.stdout)
+    if "Readiness/preflight only" not in retire_readiness_json.get("boundary", "") or retire_readiness_json.get("counts", {}).get("blockers", -1) != 0:
+        fail("retire-readiness must expose non-destructive boundary and zero blockers after source link: " + retire_readiness.stdout)
+    if retire_readiness_json.get("counts", {}).get("coveredRulebookEntries") != 1 or not any(finding.get("path") == ".lazy-harness/rules/README.md" and finding.get("capabilityId") == "project-operating-rulebook" and finding.get("severity") == "info" for finding in retire_readiness_json.get("findings", [])):
+        fail("retire-readiness should cover source rulebook README via project-operating-rulebook typed policy link: " + retire_readiness.stdout)
     strict_retire_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if strict_retire_readiness.returncode == 0:
-        fail("lazy policy retire-readiness --strict should block current not-ready source host")
+    if strict_retire_readiness.returncode != 0:
+        fail("lazy policy retire-readiness --strict should pass after source host typed policy link:\n" + strict_retire_readiness.stdout + strict_retire_readiness.stderr)
     strict_retire_json = json.loads(strict_retire_readiness.stdout)
-    if strict_retire_json.get("ready") is not False or not any("typed policy link" in finding.get("message", "") for finding in strict_retire_json.get("findings", [])):
-        fail("strict retire-readiness should explain missing typed policy link: " + strict_retire_readiness.stdout)
+    if strict_retire_json.get("ready") is not True or strict_retire_json.get("counts", {}).get("blockers") != 0:
+        fail("strict retire-readiness should report ready source host with zero blockers: " + strict_retire_readiness.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-retire-readiness-") as tmp:
         temp_root = pathlib.Path(tmp)
         (temp_root / ".lazy-harness/rules").mkdir(parents=True, exist_ok=True)
@@ -8335,9 +8341,13 @@ Fixture implementation map.
         temp_root = pathlib.Path(tmp)
         required_fixture_paths = {
             ".lazy-harness/ssot/policies.json",
+            ".lazy-harness/ssot/capabilities.json",
+            ".lazy-harness/rules/README.md",
             ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            ".lazy-harness/spec/platform/project-operating-rulebook.md",
             ".lazy-harness/ssot/policy-registry.md",
             ".lazy-harness/tests/policy-machinery-v2.md",
+            ".lazy-harness/tests/project-operating-rulebook.md",
             ".lazy-harness/spec/platform/evidence-capsule-standard.md",
             ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
             ".lazy-harness/generated/README.md",
