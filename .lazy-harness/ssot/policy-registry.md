@@ -80,7 +80,7 @@ Warn runtime is a separate explicit-context mode:
 - `check-policy-warn-runtime.py` may emit a response.completed `WARN` only when payload contains structured `policy_context` / `policyContext` with `stage` and/or `appliesTo`.
 - `acknowledgedPolicyWarnings` suppresses already-accepted warning ids.
 - Warn output is not a block and cannot prevent work from continuing.
-- Block output/hook behavior remains unimplemented; `validation-evidence-block` is readiness-only until a later lifecycle integration slice.
+- Block hook behavior remains unimplemented; `validation-evidence-block` is readiness-complete and dry-run review-only until a later lifecycle integration slice.
 
 ## Relationship to capabilities
 
@@ -171,6 +171,14 @@ validation-evidence-block
 
 Strict block-readiness is expected to pass for this readiness-only policy while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`. Lifecycle hard-stop integration remains a separate future slice.
 
+Dry-run runtime review is available through:
+
+```bash
+.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py '<payload-json>'
+```
+
+The dry-run helper requires explicit `policy_context.blockRuntimeDryRun = true`, never classifies raw text, never exits nonzero, and is not installed in `response.completed` hooks.
+
 ## Implementation map
 
 - Status: `option-b-selected-first-slice`
@@ -184,6 +192,7 @@ Strict block-readiness is expected to pass for this readiness-only policy while 
   - `.lazy-harness/schemas/policies.schema.json`
   - `.lazy-harness/scripts/policy.ts`
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py`
   - `.lazy-harness/generated/policy-rulebook.md`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`

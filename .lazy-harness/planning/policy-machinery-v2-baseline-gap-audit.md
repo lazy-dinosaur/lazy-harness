@@ -109,6 +109,8 @@ User then confirmed proceeding with block runtime preparation and deferred backl
 
 User then confirmed proceeding with the first `level=block` policy promotion readiness slice. The slice adds `validation-evidence-block` for the narrow boundary `claiming_validation_complete_without_evidence`, adds a hard-stop promotion section to `.lazy-harness/spec/platform/policy-machinery-v2.md`, adds fixture `.lazy-harness/tests/policy-block-validation-evidence.md`, and makes source-host `lazy policy block-readiness --strict --format=json` pass while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`.
 
+User then confirmed proceeding with dry-run hard-stop integration and review. The slice adds `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py`, verifies DRY-RUN STOP/ALLOW/BYPASS/silent payloads, and keeps the helper uninstalled from `response.completed` / `lifecycle-check`.
+
 ## Rule placement
 
 - Rule: Block runtime must pass readiness/preflight before any lifecycle hard-stop hook installation.
@@ -125,6 +127,15 @@ User then confirmed proceeding with the first `level=block` policy promotion rea
 - Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
 - Why not AGENTS.md: this is a typed Policy Machinery runtime-readiness policy, not general session prompt behavior.
 - Why not `.jcode`: this is shared framework policy machinery, not local/private Jcode wiring.
+- Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: hard-stop runtime must first run as dry-run review-only helper, not installed lifecycle hook.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
+- Why not AGENTS.md: this is an implementation/runtime contract for Policy Machinery, not general prompt guidance.
+- Why not `.jcode`: this is shared framework lifecycle helper behavior, not local/private Jcode preference.
 - Confirmation: user-confirmed
 
 ## Implementation map
@@ -154,7 +165,7 @@ User then confirmed proceeding with the first `level=block` policy promotion rea
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now passes for the first narrow block policy, but lifecycle hard-stop integration remains future work and requires explicit confirmation plus broader host dogfood.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now passes for the first narrow block policy, and dry-run runtime review exists. Lifecycle hard-stop integration remains future work and requires explicit confirmation plus broader host dogfood.
 
 ## Rule placement
 

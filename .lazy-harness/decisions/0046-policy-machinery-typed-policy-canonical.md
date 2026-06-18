@@ -47,6 +47,7 @@ The typed policy registry becomes the canonical source for project/team behavior
 - User-confirmed follow-up retires rulebook canonical semantics non-destructively: `lazy rules` remains compatibility/advisory, but JSON outputs identify typed policies as semantic authority.
 - User-confirmed follow-up adds block runtime readiness as preflight only; it validates promotion evidence and fixtures without installing lifecycle hard-stop hooks.
 - User-confirmed follow-up adds first block-level policy `validation-evidence-block`; readiness passes, but lifecycle hard-stop hook installation is still deferred.
+- User-confirmed follow-up adds dry-run block runtime helper for review-only STOP/ALLOW/BYPASS output; lifecycle hook installation is still deferred.
 - Block enforcement still needs separate promotion evidence, TDD, bypass behavior, and explicit confirmation.
 - Generated/explain views are derived output and must not become canonical truth.
 
@@ -64,6 +65,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
 8. Retire hand-maintained rulebook canonical semantics after readiness proof by marking `lazy rules` as compatibility/advisory and keeping typed policies canonical.
 9. Prepare block runtime only through readiness/preflight first; lifecycle hard-stop installation remains a later explicitly confirmed slice.
 10. Add one narrow readiness-complete block policy before lifecycle integration: `validation-evidence-block`.
+11. Add dry-run hard-stop runtime helper before lifecycle integration; do not install it into hooks yet.
 
 ## Implementation map
 
@@ -92,6 +94,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
   - `lazy rules resolve --intent adding_project_operating_policy --format=json`
   - `lazy policy block-readiness --format=json`
   - `lazy policy block-readiness --strict --format=json`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py <payload-json>`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 

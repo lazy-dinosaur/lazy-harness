@@ -34,6 +34,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - prove rulebook retirement readiness through `lazy policy retire-readiness --format=json` before changing `.lazy-harness/rules/**` semantics
   - expose retired rulebook semantics through `lazy rules` compatibility boundary metadata
   - expose block runtime readiness only as a non-mutating preflight before any hard-stop hook work
+  - keep hard-stop runtime integration in dry-run helper mode until explicit lifecycle hook installation is approved
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -42,6 +43,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - treat generated/explain rulebook text as canonical truth
   - turn advisory policies into blocking hooks from this contract-only slice
   - install lifecycle hard-stop hooks from block-readiness alone
+  - connect dry-run block helper to `response.completed` before a later explicit lifecycle integration slice
   - infer warn/block decisions from raw user text or assistant text
   - treat warn-only output as a block
   - edit `.lazy-harness/generated/policy-rulebook.md` as canonical source
@@ -141,6 +143,27 @@ Source-host status after the first block promotion readiness slice:
 - It is scoped to `claiming_validation_complete_without_evidence` and equivalent non-trivial completion claims without evidence.
 - `lazy policy block-readiness --strict --format=json` passes.
 - `hardStopHookInstalled=false` and `lifecycleMutation=false` remain required until a later lifecycle integration slice.
+
+## Dry-run hard-stop runtime helper slice
+
+User confirmed proceeding with dry-run hard-stop runtime integration and review, but not actual hook installation.
+
+`check-policy-block-runtime.py` is the dry-run helper:
+
+- Reads only explicit structured `policy_context` / `policyContext`.
+- Requires `policy_context.blockRuntimeDryRun = true`; otherwise it stays silent.
+- Never classifies raw user/assistant text.
+- Emits review-only `DRY-RUN STOP`, `DRY-RUN ALLOW`, or `DRY-RUN BYPASS` output.
+- Always exits zero and fails open.
+- Does not install hooks, mutate lifecycle state, or connect itself to `response.completed`.
+- Uses `validation-evidence-block` as the only current source-host block policy.
+
+Allow/block/bypass semantics:
+
+- `DRY-RUN STOP`: explicit block context matches `validation-evidence-block` and no validation evidence or bypass acknowledgement is attached.
+- `DRY-RUN ALLOW`: explicit block context matches and validation evidence is attached.
+- `DRY-RUN BYPASS`: explicit block context matches and `acknowledgedPolicyBlocks` plus `policyBlockBypassReason` are present.
+- Silent: raw user/assistant text, no `policy_context`, no `blockRuntimeDryRun`, or no matching block policy.
 
 ## Hard-stop promotion
 
@@ -261,6 +284,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
   - `.lazy-harness/scripts/policy.ts` — exposes `block-readiness` preflight for block runtime preparation without lifecycle mutation.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py` — dry-run review helper for explicit structured block policy context, not installed in lifecycle hooks.
   - `.lazy-harness/ssot/policies.json` — contains `validation-evidence-block` as the first readiness-complete block policy.
   - `.lazy-harness/tests/policy-block-validation-evidence.md` — fixture record for allow/block cases and no-hook readiness.
   - `.lazy-harness/scripts/rulebook.ts` — exposes `rulebook-compatibility/v1` boundary metadata after semantic retirement.
@@ -287,6 +311,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy rules resolve --intent adding_project_operating_policy --format=json`
   - `lazy policy block-readiness --format=json`
   - `lazy policy block-readiness --strict --format=json`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py <payload-json>`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

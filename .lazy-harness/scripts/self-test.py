@@ -7960,6 +7960,7 @@ def check_policy_machinery_v2() -> None:
     generated_readme_path = LAZY / "generated" / "README.md"
     generated_rulebook_path = LAZY / "generated" / "policy-rulebook.md"
     policy_warn_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "check-policy-warn-runtime.py"
+    policy_block_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "check-policy-block-runtime.py"
     response_hook_path = LAZY / "hooks" / "lifecycle" / "on-response-completed.sh"
     lifecycle_check_path = LAZY / "scripts" / "lifecycle-check.py"
     fixture_path = LAZY / "fixtures" / "policy-machinery-v2" / "example-policy.json"
@@ -7967,7 +7968,7 @@ def check_policy_machinery_v2() -> None:
     capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
     rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
 
-    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path, generated_readme_path):
+    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, policy_block_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path, generated_readme_path):
         if not path.exists():
             fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
 
@@ -7979,6 +7980,7 @@ def check_policy_machinery_v2() -> None:
     policy_cli = policy_cli_path.read_text(encoding="utf-8")
     generated_readme = generated_readme_path.read_text(encoding="utf-8")
     policy_warn_helper = policy_warn_helper_path.read_text(encoding="utf-8")
+    policy_block_helper = policy_block_helper_path.read_text(encoding="utf-8")
     response_hook = response_hook_path.read_text(encoding="utf-8")
     lifecycle_check = lifecycle_check_path.read_text(encoding="utf-8")
     capability_ssot = capability_ssot_path.read_text(encoding="utf-8")
@@ -8021,6 +8023,7 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_rulebook_retire_readiness_positive_fixture",
         "policy_machinery_block_runtime_readiness_preflight",
         "policy_machinery_first_block_policy_readiness",
+        "policy_machinery_block_runtime_dry_run_helper",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -8060,6 +8063,7 @@ def check_policy_machinery_v2() -> None:
         "lazy policy retire-readiness --format=json",
         "lazy policy block-readiness --format=json",
         "lazy policy block-readiness --strict --format=json",
+        "check-policy-block-runtime.py",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
@@ -8083,9 +8087,18 @@ def check_policy_machinery_v2() -> None:
         fail("policy warn helper must never contain STOP output")
     if "last_user_message" in policy_warn_helper or "assistant_response" in policy_warn_helper:
         fail("policy warn helper must not inspect raw user/assistant text")
+    for expected in ("never classifies raw user/assistant text", "blockRuntimeDryRun", "DRY-RUN STOP", "DRY-RUN ALLOW", "DRY-RUN BYPASS", "hard-stop is installed; this is review-only"):
+        if expected not in policy_block_helper:
+            fail("policy block dry-run helper missing safety invariant: " + expected)
+    if "sys.exit(1)" in policy_block_helper or "raise SystemExit(1)" in policy_block_helper:
+        fail("policy block dry-run helper must fail open and never exit nonzero")
+    if "last_user_message" in policy_block_helper or "assistant_response" in policy_block_helper:
+        fail("policy block dry-run helper must not inspect raw user/assistant text")
     for text, label in ((response_hook, "response.completed hook"), (lifecycle_check, "lifecycle-check orchestrator")):
         if "check-policy-warn-runtime.py" not in text:
             fail(label + " must include policy warn runtime helper")
+        if "check-policy-block-runtime.py" in text:
+            fail(label + " must not install policy block dry-run helper before explicit lifecycle integration")
 
     if "Capability kind and enforcement level are independent." not in capability_ssot:
         fail("Policy Machinery V2 depends on capability kind/level SSOT invariant")
@@ -8247,6 +8260,30 @@ def check_policy_machinery_v2() -> None:
     raw_text_result = subprocess.run([str(policy_warn_helper_path), raw_text_payload], cwd=ROOT, text=True, capture_output=True, check=False)
     if raw_text_result.returncode != 0 or raw_text_result.stdout.strip():
         fail("policy warn helper should stay silent without explicit policy_context:\n" + raw_text_result.stdout + raw_text_result.stderr)
+    block_dry_run_payload = json.dumps({"message_id": "policy-block-dry-run", "policy_context": {"blockRuntimeDryRun": True, "stage": "turn", "appliesTo": ["claiming_validation_complete_without_evidence"]}}, ensure_ascii=False)
+    block_dry_run_result = subprocess.run([str(policy_block_helper_path), block_dry_run_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_dry_run_result.returncode != 0:
+        fail("policy block dry-run helper should fail open with exit 0:\n" + block_dry_run_result.stdout + block_dry_run_result.stderr)
+    if "DRY-RUN STOP. Policy Machinery block runtime" not in block_dry_run_result.stdout or "validation-evidence-block" not in block_dry_run_result.stdout:
+        fail("policy block dry-run helper should emit DRY-RUN STOP for explicit no-evidence block context:\n" + block_dry_run_result.stdout)
+    if "No lifecycle hard-stop is installed" not in block_dry_run_result.stdout:
+        fail("policy block dry-run helper must state no lifecycle hard-stop is installed:\n" + block_dry_run_result.stdout)
+    block_allow_payload = json.dumps({"message_id": "policy-block-dry-run-allow", "policy_context": {"blockRuntimeDryRun": True, "stage": "turn", "appliesTo": ["claiming_validation_complete_without_evidence"], "validationEvidence": [".lazy-harness/bin/lazy test green"]}}, ensure_ascii=False)
+    block_allow_result = subprocess.run([str(policy_block_helper_path), block_allow_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_allow_result.returncode != 0 or "DRY-RUN ALLOW. Policy Machinery block runtime" not in block_allow_result.stdout or "validation-evidence-block" not in block_allow_result.stdout:
+        fail("policy block dry-run helper should emit DRY-RUN ALLOW when validation evidence is attached:\n" + block_allow_result.stdout + block_allow_result.stderr)
+    block_bypass_payload = json.dumps({"message_id": "policy-block-dry-run-bypass", "policy_context": {"blockRuntimeDryRun": True, "stage": "turn", "appliesTo": ["claiming_validation_complete_without_evidence"], "acknowledgedPolicyBlocks": ["validation-evidence-block"], "policyBlockBypassReason": "reviewed dry-run bypass"}}, ensure_ascii=False)
+    block_bypass_result = subprocess.run([str(policy_block_helper_path), block_bypass_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_bypass_result.returncode != 0 or "DRY-RUN BYPASS. Policy Machinery block runtime" not in block_bypass_result.stdout or "validation-evidence-block" not in block_bypass_result.stdout:
+        fail("policy block dry-run helper should emit DRY-RUN BYPASS for explicit acknowledgement with reason:\n" + block_bypass_result.stdout + block_bypass_result.stderr)
+    block_raw_text_payload = json.dumps({"message_id": "policy-block-raw", "last_user_message": "검증 완료", "assistant_response": "검증 완료"}, ensure_ascii=False)
+    block_raw_text_result = subprocess.run([str(policy_block_helper_path), block_raw_text_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_raw_text_result.returncode != 0 or block_raw_text_result.stdout.strip():
+        fail("policy block dry-run helper should stay silent without explicit policy_context:\n" + block_raw_text_result.stdout + block_raw_text_result.stderr)
+    block_no_dry_run_payload = json.dumps({"message_id": "policy-block-no-dry", "policy_context": {"stage": "turn", "appliesTo": ["claiming_validation_complete_without_evidence"]}}, ensure_ascii=False)
+    block_no_dry_run_result = subprocess.run([str(policy_block_helper_path), block_no_dry_run_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_no_dry_run_result.returncode != 0 or block_no_dry_run_result.stdout.strip():
+        fail("policy block dry-run helper should stay silent unless blockRuntimeDryRun is explicit:\n" + block_no_dry_run_result.stdout + block_no_dry_run_result.stderr)
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
