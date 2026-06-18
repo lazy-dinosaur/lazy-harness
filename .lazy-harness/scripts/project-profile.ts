@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { appendJsonlStable, type JsonlAppendStatus } from './runtime-paths.ts'
 
 type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue-v2' | 'promote-v2' | 'fill'
 type Format = 'json' | 'md'
@@ -282,7 +283,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -294,6 +295,13 @@ interface ProjectProfileRecordPromotionWrite {
   content: string
   summary: string
   effect: ProjectProfilePromotionTargetEffect
+}
+
+interface ProjectProfileCandidatePromotionWrite {
+  kind: 'candidate-row'
+  path: '.lazy-harness/knowledge/candidates.jsonl'
+  row: Record<string, unknown>
+  summary: string
 }
 
 interface ProjectProfilePromoteV2Preview {
@@ -333,6 +341,7 @@ interface ProjectProfilePromoteV2Result {
   queuePath: '.lazy-harness/project/profile-queue.json'
   item: ProjectProfileQueueItem
   targetEffects: ProjectProfilePromotionTargetEffect[]
+  candidateRow?: Record<string, unknown>
   queueUpdate: {
     id: string
     from: 'accepted'
@@ -341,7 +350,7 @@ interface ProjectProfilePromoteV2Result {
     promotedTo: string[]
     previewOnly: false
   }
-  appliedWrites: Array<{ path: string; action: 'written' | 'skipped'; summary: string }>
+  appliedWrites: Array<{ path: string; action: 'written' | 'skipped' | 'appended' | 'deduped-identical' | 'conflict-recorded'; summary: string }>
   warnings: string[]
 }
 
@@ -1288,6 +1297,59 @@ ${evidence}
   }
 }
 
+function candidateRowId(item: ProjectProfileQueueItem): string {
+  return `cand_project_profile_v2_${createHash('sha256').update(`${item.id}\0${item.source.kind}\0${item.source.id}\0${item.summary}`).digest('hex').slice(0, 16)}`
+}
+
+function buildCandidatePromotionWrite(item: ProjectProfileQueueItem): ProjectProfileCandidatePromotionWrite | null {
+  if (item.promotionTarget.kind !== 'candidate-row') return null
+  const row = {
+    id: candidateRowId(item),
+    kind: 'project-profile-v2-candidate-row',
+    status: 'candidate',
+    source: 'project-profile-v2',
+    candidateType: 'project-profile-v2-promotion',
+    topic: item.source.id,
+    summary: item.summary,
+    candidate: item.summary,
+    primaryRoute: item.primaryRoute,
+    facets: item.facets,
+    relatedRoutes: item.relatedRoutes,
+    promotion: {
+      queueItemId: item.id,
+      source: item.source,
+      targetKind: item.promotionTarget.kind,
+      requiresConfirmation: item.promotionTarget.requiresConfirmation,
+    },
+    evidence: item.evidence,
+    rawMessageStored: false,
+  }
+  return {
+    kind: 'candidate-row',
+    path: '.lazy-harness/knowledge/candidates.jsonl',
+    row,
+    summary: `Append stable candidate row for ${item.id}`,
+  }
+}
+
+function candidateEffectForStatus(item: ProjectProfileQueueItem, write: ProjectProfileCandidatePromotionWrite, status: JsonlAppendStatus): ProjectProfilePromotionTargetEffect {
+  const action = status === 'appended'
+    ? 'append-candidate-row'
+    : status === 'deduped-identical'
+      ? 'dedupe-candidate-row'
+      : 'conflict-candidate-row'
+  return {
+    kind: 'candidate-row',
+    path: write.path,
+    status: status === 'conflict-recorded' ? 'deferred' : 'applied',
+    action,
+    summary: `${status} candidate row for ${item.id}`,
+    reason: status === 'conflict-recorded'
+      ? 'A candidate row with the same id but different content already exists; conflict was recorded for review.'
+      : 'Candidate-row target writer appends only stable candidates.jsonl rows and does not promote them to canonical records.',
+  }
+}
+
 function selectAcceptedPromotionItem(root: string, itemId?: string): { queue: ProjectProfileQueueV1; item: ProjectProfileQueueItem; index: number } {
   if (!itemId) throw new Error('promote-v2 requires --item <queue-item-id>')
   const queue = readProfileQueue(root)
@@ -1344,7 +1406,15 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const { queue, item, index } = selectAcceptedPromotionItem(args.root, args.item)
   const generatedAt = new Date().toISOString()
   const recordWrite = buildRecordPromotionWrite(item, generatedAt, args.root)
-  const targetEffects = [recordWrite?.effect || buildPromotionTargetEffect(item)]
+  const candidateWrite = buildCandidatePromotionWrite(item)
+  const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
+  let candidateAppendStatus: JsonlAppendStatus | null = null
+  if (candidateWrite) {
+    const candidateAbs = join(args.root, candidateWrite.path)
+    candidateAppendStatus = appendJsonlStable(candidateAbs, candidateWrite.row, 'id', args.root)
+    appliedWrites.push({ path: candidateWrite.path, action: candidateAppendStatus, summary: `${candidateWrite.summary} (${candidateAppendStatus})` })
+  }
+  const targetEffects = [recordWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1369,7 +1439,6 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       'Canonical target writers remain deferred by target kind.',
     ],
   }
-  const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
   if (recordWrite) {
     const recordAbs = join(args.root, recordWrite.path)
     if (recordWrite.action === 'create') {
@@ -1383,7 +1452,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
-  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : ' only'}` })
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1394,6 +1463,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     queuePath: nextQueue.queuePath,
     item: promotedItem,
     targetEffects,
+    candidateRow: candidateWrite?.row,
     queueUpdate: {
       id: item.id,
       from: 'accepted',
@@ -1409,6 +1479,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
         'The generated record target is a skeleton and must not be treated as confirmed project truth.',
         'No rulebook, capability, candidate row, or update-loop event was written.',
       ]
+      : candidateWrite
+        ? [
+          'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/candidates.jsonl.',
+          'The generated candidate row is not canonical project truth until promoted separately.',
+          'No rulebook, capability, or update-loop event was written.',
+        ]
       : [
         'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
         'Target-specific canonical writers were separated as deferred effects.',

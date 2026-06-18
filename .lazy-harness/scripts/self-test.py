@@ -4482,6 +4482,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_record_fixture = json.loads(promote_record_fixture_path.read_text(encoding="utf-8"))
     if promote_record_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_record_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote record fixture schema/mode mismatch")
+    promote_candidate_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-candidate-row.json"
+    if not promote_candidate_fixture_path.exists():
+        fail("Project Profile V2 promote candidate-row fixture missing: " + str(promote_candidate_fixture_path.relative_to(ROOT)))
+    promote_candidate_fixture = json.loads(promote_candidate_fixture_path.read_text(encoding="utf-8"))
+    if promote_candidate_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_candidate_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote candidate-row fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4740,6 +4746,84 @@ def check_project_profile_v2_queue_runtime() -> None:
             fail("project-profile promote-v2 non-record target must remain deferred")
         if non_record_result.get("appliedWrites") != promote_confirm_fixture.get("appliedWrites"):
             fail("project-profile promote-v2 non-record target must report only queue-file applied write")
+        candidate_item = json.loads(json.dumps(promote_candidate_fixture["item"]))
+        candidate_item["status"] = "accepted"
+        candidate_item.pop("promotedAt", None)
+        candidate_item.pop("promotedTo", None)
+        candidate_item.pop("promotionEffects", None)
+        latest_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        latest_queue["items"].insert(0, candidate_item)
+        queue_file.write_text(json.dumps(latest_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_candidate_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_candidate = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                candidate_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_candidate.returncode != 0:
+            fail("project-profile promote-v2 candidate-row target --confirm failed:\n" + promote_candidate.stdout + promote_candidate.stderr)
+        candidate_result = json.loads(promote_candidate.stdout)
+        after_candidate_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_candidate_files = sorted(before_candidate_files + [".lazy-harness/knowledge/candidates.jsonl"])
+        if after_candidate_files != expected_candidate_files:
+            fail("project-profile promote-v2 candidate-row target must write only queue plus candidates.jsonl: " + json.dumps(after_candidate_files, ensure_ascii=False))
+        candidates_path = root / ".lazy-harness" / "knowledge" / "candidates.jsonl"
+        candidate_rows = [json.loads(line) for line in candidates_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if candidate_rows != [promote_candidate_fixture.get("candidateRow")]:
+            fail("project-profile promote-v2 candidate-row target must append the stable candidate row")
+        candidate_effects = candidate_result.get("targetEffects", [])
+        if not candidate_effects or candidate_effects[0].get("status") != "applied" or candidate_effects[0].get("action") != "append-candidate-row":
+            fail("project-profile promote-v2 candidate-row target must expose applied candidate effect")
+        if candidate_result.get("candidateRow") != promote_candidate_fixture.get("candidateRow"):
+            fail("project-profile promote-v2 candidate-row target must return the appended candidate row")
+        if candidate_result.get("appliedWrites") != promote_candidate_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 candidate-row target must report candidate and queue writes")
+        dedupe_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        dedupe_queue["items"] = [
+            {k: v for k, v in {**item, "status": "accepted"}.items() if k not in {"promotedAt", "promotedTo", "promotionEffects"}}
+            if item.get("id") == candidate_item["id"] else item
+            for item in dedupe_queue["items"]
+        ]
+        queue_file.write_text(json.dumps(dedupe_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        promote_candidate_again = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                candidate_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_candidate_again.returncode != 0:
+            fail("project-profile promote-v2 candidate-row dedupe run failed:\n" + promote_candidate_again.stdout + promote_candidate_again.stderr)
+        dedupe_result = json.loads(promote_candidate_again.stdout)
+        candidate_rows_after = [json.loads(line) for line in candidates_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if candidate_rows_after != candidate_rows:
+            fail("project-profile promote-v2 candidate-row duplicate run must not append another row")
+        if dedupe_result.get("appliedWrites", [{}])[0].get("action") != "deduped-identical" or dedupe_result.get("targetEffects", [{}])[0].get("action") != "dedupe-candidate-row":
+            fail("project-profile promote-v2 candidate-row duplicate run must report dedupe")
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))

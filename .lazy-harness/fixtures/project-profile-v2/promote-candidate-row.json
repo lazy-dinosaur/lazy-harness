@@ -1,0 +1,122 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-candidate-row-fixture",
+    "status": "promoted",
+    "primaryRoute": "policies",
+    "facets": [
+      "Policy",
+      "SSOT"
+    ],
+    "relatedRoutes": [
+      "ownership"
+    ],
+    "source": {
+      "kind": "policy-candidate",
+      "id": "fixture-candidate-row"
+    },
+    "summary": "Fixture candidate-row promotion from Project Profile V2",
+    "evidence": [
+      {
+        "kind": "policy-candidate",
+        "summary": "Synthetic candidate-row fixture evidence"
+      }
+    ],
+    "promotionTarget": {
+      "kind": "candidate-row",
+      "path": ".lazy-harness/knowledge/candidates.jsonl",
+      "requiresConfirmation": true
+    },
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/knowledge/candidates.jsonl"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "candidate-row",
+        "path": ".lazy-harness/knowledge/candidates.jsonl",
+        "status": "applied",
+        "action": "append-candidate-row",
+        "summary": "appended candidate row for PPQ-candidate-row-fixture",
+        "reason": "Candidate-row target writer appends only stable candidates.jsonl rows and does not promote them to canonical records."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "candidate-row",
+      "path": ".lazy-harness/knowledge/candidates.jsonl",
+      "status": "applied",
+      "action": "append-candidate-row",
+      "summary": "appended candidate row for PPQ-candidate-row-fixture",
+      "reason": "Candidate-row target writer appends only stable candidates.jsonl rows and does not promote them to canonical records."
+    }
+  ],
+  "candidateRow": {
+    "id": "cand_project_profile_v2_f884f97100438e0f",
+    "kind": "project-profile-v2-candidate-row",
+    "status": "candidate",
+    "source": "project-profile-v2",
+    "candidateType": "project-profile-v2-promotion",
+    "topic": "fixture-candidate-row",
+    "summary": "Fixture candidate-row promotion from Project Profile V2",
+    "candidate": "Fixture candidate-row promotion from Project Profile V2",
+    "primaryRoute": "policies",
+    "facets": [
+      "Policy",
+      "SSOT"
+    ],
+    "relatedRoutes": [
+      "ownership"
+    ],
+    "promotion": {
+      "queueItemId": "PPQ-candidate-row-fixture",
+      "source": {
+        "kind": "policy-candidate",
+        "id": "fixture-candidate-row"
+      },
+      "targetKind": "candidate-row",
+      "requiresConfirmation": true
+    },
+    "evidence": [
+      {
+        "kind": "policy-candidate",
+        "summary": "Synthetic candidate-row fixture evidence"
+      }
+    ],
+    "rawMessageStored": false
+  },
+  "queueUpdate": {
+    "id": "PPQ-candidate-row-fixture",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/knowledge/candidates.jsonl"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/knowledge/candidates.jsonl",
+      "action": "appended",
+      "summary": "Append stable candidate row for PPQ-candidate-row-fixture (appended)"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-candidate-row-fixture in Project Profile queue and applied candidate-row writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/candidates.jsonl.",
+    "The generated candidate row is not canonical project truth until promoted separately.",
+    "No rulebook, capability, or update-loop event was written."
+  ]
+}
