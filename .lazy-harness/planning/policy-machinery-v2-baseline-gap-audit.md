@@ -99,6 +99,8 @@ User confirmed the follow-up next step on 2026-06-18: add a deterministic genera
 
 User then identified a validation gap: policy writes had not been tested end-to-end. The next slice adds `lazy policy upsert` and validates save → audit → resolve → warn runtime → generated rulebook render → lazy-sync seed merge before any rulebook retire/deprecation work.
 
+User then requested the next step be executed immediately. Record-backed next step is not deletion; it is rulebook retire-readiness preflight. The slice adds `lazy policy retire-readiness`, proves the current host blocks retirement until active rulebook entries have typed policy links, and proves a positive temp-host fixture passes when rulebook → capability → typed policy coverage is complete.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`
@@ -126,6 +128,7 @@ User then identified a validation gap: policy writes had not been tested end-to-
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
+- Rulebook retire-readiness remains a preflight/gate. Actual rulebook semantic retirement requires a later migration slice after readiness is true.
 
 ## Rule placement
 

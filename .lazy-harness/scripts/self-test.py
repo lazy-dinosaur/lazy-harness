@@ -7966,6 +7966,8 @@ def check_policy_machinery_v2() -> None:
         "## Generated rulebook view slice",
         "GENERATED VIEW, NON-CANONICAL",
         "lazy policy render-rulebook --write --format=json",
+        "## Rulebook retire-readiness preflight slice",
+        "lazy policy retire-readiness --format=json",
         "canonicalByPacketAlone: false",
         "lazy policy audit --format=json",
         "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
@@ -7985,6 +7987,8 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_warn_runtime_explicit_context",
         "policy_machinery_no_block_runtime",
         "policy_machinery_generated_rulebook_view",
+        "policy_machinery_rulebook_retire_readiness_current_host_gate",
+        "policy_machinery_rulebook_retire_readiness_positive_fixture",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -7997,6 +8001,7 @@ def check_policy_machinery_v2() -> None:
         "read-only `lazy policy list/audit/explain`",
         "explicit-context warn-only runtime",
         "deterministic generated/explain rulebook view",
+        "rulebook retire-readiness preflight",
         "Discovery capture",
     ):
         if expected not in audit:
@@ -8018,6 +8023,7 @@ def check_policy_machinery_v2() -> None:
         "Warn runtime is a separate explicit-context mode",
         "Generated policy rulebook view",
         "lazy policy render-rulebook --write --format=json",
+        "lazy policy retire-readiness --format=json",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
@@ -8025,7 +8031,7 @@ def check_policy_machinery_v2() -> None:
     for forbidden in ("execSync", "appendJsonlStable"):
         if forbidden in policy_cli:
             fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
-    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
+    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json", "policy-rulebook-retire-readiness/v1", "Readiness/preflight only"):
         if expected not in policy_cli:
             fail("policy CLI missing Option B explain boundary: " + expected)
     for expected in ("writeFileSync(outputPath, content", "requested.startsWith('.lazy-harness/generated/')", "GENERATED VIEW, NON-CANONICAL"):
@@ -8224,6 +8230,107 @@ def check_policy_machinery_v2() -> None:
     unsafe_output = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--write", "--output", "../bad.md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if unsafe_output.returncode == 0 or ".lazy-harness/generated/" not in unsafe_output.stderr:
         fail("lazy policy render-rulebook must reject output outside generated directory")
+    retire_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if retire_readiness.returncode != 0:
+        fail("lazy policy retire-readiness non-strict should report without failing:\n" + retire_readiness.stdout + retire_readiness.stderr)
+    retire_readiness_json = json.loads(retire_readiness.stdout)
+    if retire_readiness_json.get("schemaVersion") != "policy-rulebook-retire-readiness/v1" or retire_readiness_json.get("ready") is not False:
+        fail("current source should not be rulebook-retire ready until active rulebook entries have typed policy links: " + retire_readiness.stdout)
+    if "Readiness/preflight only" not in retire_readiness_json.get("boundary", "") or retire_readiness_json.get("counts", {}).get("blockers", 0) < 1:
+        fail("retire-readiness must expose non-destructive boundary and blockers: " + retire_readiness.stdout)
+    strict_retire_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if strict_retire_readiness.returncode == 0:
+        fail("lazy policy retire-readiness --strict should block current not-ready source host")
+    strict_retire_json = json.loads(strict_retire_readiness.stdout)
+    if strict_retire_json.get("ready") is not False or not any("typed policy link" in finding.get("message", "") for finding in strict_retire_json.get("findings", [])):
+        fail("strict retire-readiness should explain missing typed policy link: " + strict_retire_readiness.stdout)
+    with tempfile.TemporaryDirectory(prefix="policy-retire-readiness-") as tmp:
+        temp_root = pathlib.Path(tmp)
+        (temp_root / ".lazy-harness/rules").mkdir(parents=True, exist_ok=True)
+        (temp_root / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
+        (temp_root / ".lazy-harness/rules/dev-worktree.md").write_text(
+            """# Dev Worktree Rule
+
+Status: active
+Layer: Rulebook
+Scope: host-project
+Owner: fixture
+Level: warn
+Related capability: dev-worktree-standard-command
+
+## Rule digest
+
+- Applies when:
+  - creating_worktree
+- Prefer:
+  - `bun run wt new`
+- Avoid:
+  - raw `git worktree add`
+- Bypass:
+  - fixture bypass
+
+## Operating rule
+
+Use wrapper commands.
+
+## Capability binding
+
+Capability id: dev-worktree-standard-command
+
+## Implementation map
+
+Fixture implementation map.
+""",
+            encoding="utf-8",
+        )
+        ready_capabilities = {
+            "version": 1,
+            "capabilities": [
+                {
+                    "id": "dev-worktree-standard-command",
+                    "kind": "command",
+                    "level": "warn",
+                    "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "policyIds": ["dev-worktree-policy"],
+                    "appliesWhen": ["creating_worktree"],
+                    "description": "Fixture capability with typed policy coverage.",
+                    "owner": "host-project",
+                }
+            ],
+        }
+        ready_policy = {
+            "id": "dev-worktree-policy",
+            "title": "Dev worktree policy",
+            "scope": "host-project",
+            "stage": "turn",
+            "level": "warn",
+            "appliesTo": ["creating_worktree"],
+            "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            "capabilityIds": ["dev-worktree-standard-command"],
+            "evidence": [{"kind": "record", "path": ".lazy-harness/tests/policy-machinery-v2.md", "summary": "Fixture evidence."}],
+            "promotion": {"requiresConfirmation": True, "allowedTargetLevels": ["warn"]},
+            "rollback": {"criteria": ["Fixture fails."], "demotionTarget": "recommend"},
+            "updateLoop": {"eventType": "policy-promotion", "canonicalByPacketAlone": False},
+            "explain": {"summary": "Fixture typed policy coverage.", "nonCanonicalViews": [".lazy-harness/rules/dev-worktree.md"]},
+        }
+        (temp_root / ".lazy-harness/ssot/capabilities.json").write_text(json.dumps(ready_capabilities, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [ready_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        ready_retire = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if ready_retire.returncode != 0:
+            fail("retire-readiness strict should pass when active rulebook entries have typed policy links:\n" + ready_retire.stdout + ready_retire.stderr)
+        ready_retire_json = json.loads(ready_retire.stdout)
+        if ready_retire_json.get("ready") is not True or ready_retire_json.get("counts", {}).get("coveredRulebookEntries") != 1:
+            fail("retire-readiness positive fixture should be ready and cover one rule: " + ready_retire.stdout)
+        broken_capabilities = json.loads(json.dumps(ready_capabilities))
+        broken_capabilities["capabilities"][0]["policyIds"] = ["missing-policy"]
+        (temp_root / ".lazy-harness/ssot/capabilities.json").write_text(json.dumps(broken_capabilities, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        broken_retire = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if broken_retire.returncode == 0:
+            fail("retire-readiness strict should fail when capability references missing typed policy id")
+        broken_retire_json = json.loads(broken_retire.stdout)
+        if not any("missing typed policy id" in finding.get("message", "") for finding in broken_retire_json.get("findings", [])):
+            fail("retire-readiness missing policy fixture should report missing typed policy id: " + broken_retire.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-write-roundtrip-") as tmp:
         temp_root = pathlib.Path(tmp)
         required_fixture_paths = {
@@ -8314,7 +8421,7 @@ def check_policy_machinery_v2() -> None:
             if expected_id not in merged_ids:
                 fail("lazy-sync policy seed merge must preserve host policy and merge framework seed: " + expected_id)
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
-    if "policy list|audit|explain|resolve|render-rulebook|upsert" not in help_text:
+    if "policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness" not in help_text:
         fail("lazy help must advertise policy command")
     if graph_path.exists() and graph_path.read_bytes() != graph_before:
         fail("lazy policy CLI must not mutate graph.jsonl")

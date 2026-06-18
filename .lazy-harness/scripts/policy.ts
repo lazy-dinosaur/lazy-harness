@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 
 const SCOPES = new Set(['framework-global', 'host-project', 'team-policy', 'adapter'])
@@ -57,6 +57,35 @@ type PolicyRegistry = {
   policies: Policy[]
 }
 
+type Capability = {
+  id: string
+  sourceRecord?: string
+  rulebookRecord?: string
+  policyIds?: string[]
+  [key: string]: unknown
+}
+
+type CapabilityRegistry = {
+  version: number
+  capabilities: Capability[]
+}
+
+type RulebookEntry = {
+  path: string
+  title: string
+  status: string
+  level: string
+  relatedCapability?: string
+}
+
+type ReadinessFinding = {
+  severity: 'blocker' | 'info'
+  path?: string
+  capabilityId?: string
+  policyId?: string
+  message: string
+}
+
 type AuditIssue = {
   severity: Severity
   id?: string
@@ -74,6 +103,7 @@ Commands:
   resolve [--format=json|md] [--stage=STAGE] [--applies-to=A,B] [--max-level=default|recommend|discover|warn] [--runtime=advisory|warn]
   render-rulebook [--format=json|md] [--write] [--output=.lazy-harness/generated/policy-rulebook.md]
   upsert --from-json <policy.json> [--confirm] [--format=json|md]
+  retire-readiness [--format=json|md] [--strict]
 
 Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
 Resolve defaults to advisory-only. Warn runtime requires --runtime=warn and never blocks.
@@ -144,6 +174,59 @@ function writeRegistry(root: string, registry: PolicyRegistry): void {
 
 function printJson(data: unknown): void {
   console.log(JSON.stringify(data, null, 2))
+}
+
+function rel(root: string, path: string): string {
+  return relative(root, path).split('\\').join('/')
+}
+
+function walkMarkdown(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  const out: string[] = []
+  for (const item of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, item.name)
+    if (item.isDirectory()) out.push(...walkMarkdown(p))
+    else if (item.isFile() && item.name.endsWith('.md')) out.push(p)
+  }
+  return out.sort()
+}
+
+function parseMetadata(text: string): Record<string, string> {
+  const metadata: Record<string, string> = {}
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) break
+    const m = line.match(/^([A-Za-z][A-Za-z -]*):\s*(.+?)\s*$/)
+    if (!m) continue
+    metadata[m[1].trim().toLowerCase().replace(/\s+/g, '-')] = m[2].trim()
+  }
+  return metadata
+}
+
+function loadRulebookEntries(root: string): RulebookEntry[] {
+  const dir = join(root, '.lazy-harness', 'rules')
+  return walkMarkdown(dir).map((path) => {
+    const text = readFileSync(path, 'utf8')
+    const metadata = parseMetadata(text)
+    const titleMatch = text.match(/^#\s+(.+)$/m)
+    return {
+      path: rel(root, path),
+      title: titleMatch ? titleMatch[1].trim() : rel(root, path),
+      status: metadata.status || '',
+      level: metadata.level || '',
+      relatedCapability: metadata['related-capability'],
+    }
+  })
+}
+
+function loadCapabilityRegistry(root: string): CapabilityRegistry {
+  const path = join(root, '.lazy-harness', 'ssot', 'capabilities.json')
+  if (!existsSync(path)) return { version: 1, capabilities: [] }
+  const parsed = JSON.parse(readFileSync(path, 'utf8'))
+  return { version: Number(parsed.version || 1), capabilities: Array.isArray(parsed.capabilities) ? parsed.capabilities as Capability[] : [] }
+}
+
+function capabilityForRulebookEntry(rule: RulebookEntry, capabilities: Capability[]): Capability | undefined {
+  return capabilities.find((cap) => cap.id === rule.relatedCapability || cap.rulebookRecord === rule.path || cap.sourceRecord === rule.path)
 }
 
 function isRootRelativeLazyPath(path: unknown): path is string {
@@ -549,6 +632,97 @@ function renderRulebook(root: string, opts: Record<string, string | boolean>, fo
   process.stdout.write(content)
 }
 
+function policyIdsForCapability(policyRegistry: PolicyRegistry, capability: Capability): string[] {
+  const ids = new Set<string>()
+  for (const id of Array.isArray(capability.policyIds) ? capability.policyIds : []) ids.add(String(id))
+  for (const policy of policyRegistry.policies) {
+    if (Array.isArray(policy.capabilityIds) && policy.capabilityIds.includes(capability.id)) ids.add(policy.id)
+  }
+  return [...ids].sort()
+}
+
+function retireReadiness(root: string, opts: Record<string, string | boolean>, format: Format): void {
+  const policyRegistry = loadRegistry(root)
+  const capabilityRegistry = loadCapabilityRegistry(root)
+  const rules = loadRulebookEntries(root)
+  const activeRules = rules.filter((rule) => rule.status === 'active')
+  const policyIds = new Set(policyRegistry.policies.map((policy) => policy.id))
+  const rulePaths = new Set(rules.map((rule) => rule.path))
+  const findings: ReadinessFinding[] = []
+  const coveredRulePaths = new Set<string>()
+
+  for (const rule of activeRules) {
+    const capability = capabilityForRulebookEntry(rule, capabilityRegistry.capabilities)
+    if (!capability) {
+      findings.push({ severity: 'blocker', path: rule.path, message: 'active rulebook entry has no capability binding, so typed policy migration cannot prove compatibility' })
+      continue
+    }
+    const linkedPolicyIds = policyIdsForCapability(policyRegistry, capability)
+    if (linkedPolicyIds.length === 0) {
+      findings.push({ severity: 'blocker', path: rule.path, capabilityId: capability.id, message: 'capability has no typed policy link through capability.policyIds or policy.capabilityIds' })
+      continue
+    }
+    let ruleCovered = true
+    for (const policyId of linkedPolicyIds) {
+      if (!policyIds.has(policyId)) {
+        findings.push({ severity: 'blocker', path: rule.path, capabilityId: capability.id, policyId, message: 'capability references missing typed policy id' })
+        ruleCovered = false
+      }
+    }
+    if (ruleCovered) {
+      coveredRulePaths.add(rule.path)
+      findings.push({ severity: 'info', path: rule.path, capabilityId: capability.id, policyId: linkedPolicyIds.join(','), message: 'active rulebook entry has typed policy coverage' })
+    }
+  }
+
+  for (const capability of capabilityRegistry.capabilities) {
+    const rulebookPath = typeof capability.rulebookRecord === 'string' ? capability.rulebookRecord : ''
+    const sourcePath = typeof capability.sourceRecord === 'string' ? capability.sourceRecord : ''
+    const referencedRule = rulebookPath || (sourcePath.startsWith('.lazy-harness/rules/') ? sourcePath : '')
+    if (referencedRule && !rulePaths.has(referencedRule)) {
+      findings.push({ severity: 'blocker', path: referencedRule, capabilityId: capability.id, message: 'capability references missing rulebook compatibility surface' })
+    }
+  }
+
+  const blockers = findings.filter((finding) => finding.severity === 'blocker')
+  const result = {
+    schemaVersion: 'policy-rulebook-retire-readiness/v1',
+    ok: true,
+    ready: blockers.length === 0,
+    strict: opts.strict === true,
+    canonicalSource: '.lazy-harness/ssot/policies.json',
+    compatibilitySurface: '.lazy-harness/rules/**',
+    boundary: 'Readiness/preflight only; does not delete .lazy-harness/rules/** or change lazy rules compatibility behavior.',
+    counts: {
+      activeRulebookEntries: activeRules.length,
+      coveredRulebookEntries: coveredRulePaths.size,
+      policies: policyRegistry.policies.length,
+      capabilities: capabilityRegistry.capabilities.length,
+      blockers: blockers.length,
+    },
+    findings,
+  }
+  if (format === 'json') printJson(result)
+  else {
+    console.log('# Policy rulebook retire readiness')
+    console.log('')
+    console.log(`- ready: ${result.ready ? 'yes' : 'no'}`)
+    console.log(`- canonical source: ${result.canonicalSource}`)
+    console.log(`- compatibility surface: ${result.compatibilitySurface}`)
+    console.log(`- boundary: ${result.boundary}`)
+    console.log(`- active rulebook entries: ${result.counts.activeRulebookEntries}`)
+    console.log(`- covered rulebook entries: ${result.counts.coveredRulebookEntries}`)
+    console.log(`- blockers: ${result.counts.blockers}`)
+    console.log('')
+    console.log('## Findings')
+    if (!findings.length) console.log('- none')
+    for (const finding of findings) {
+      console.log(`- ${finding.severity}${finding.path ? ` ${finding.path}` : ''}${finding.capabilityId ? ` capability=${finding.capabilityId}` : ''}${finding.policyId ? ` policy=${finding.policyId}` : ''}: ${finding.message}`)
+    }
+  }
+  if (opts.strict === true && blockers.length > 0) process.exitCode = 1
+}
+
 function audit(root: string, format: Format): void {
   const registry = loadRegistry(root)
   const issues = auditRegistry(root, registry)
@@ -577,6 +751,7 @@ function main(): void {
   if (command === 'resolve') return resolvePolicies(root, opts, format)
   if (command === 'render-rulebook') return renderRulebook(root, opts, format)
   if (command === 'upsert') return upsertPolicy(root, opts, format)
+  if (command === 'retire-readiness') return retireReadiness(root, opts, format)
   if (command === 'explain') {
     const id = typeof opts.id === 'string' ? opts.id : ''
     if (!id) {

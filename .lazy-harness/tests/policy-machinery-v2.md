@@ -25,6 +25,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - prove rulebook markdown is compatibility/generated/explain surface during migration
   - prove generated rulebook views are deterministic, non-canonical, and generated from typed policies
   - prove actual policy write round-trips save and apply through audit/resolve/warn/render/sync
+  - prove rulebook retire-readiness is non-destructive and blocks until active rulebook entries have typed policy coverage
   - prove policy packets use update-loop evidence without becoming canonical truth by themselves
 - Must not:
   - add hook enforcement as part of this read-only policy registry slice
@@ -48,6 +49,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_generated_rulebook_view` | `lazy policy render-rulebook --write --format=json` + `.lazy-harness/generated/policy-rulebook.md` | Generated view contains canonical-source disclaimer, policy sections, deterministic output, and path confinement under `.lazy-harness/generated/**`. |
 | `policy_machinery_policy_write_roundtrip` | temp host + `lazy policy upsert --from-json ... --confirm` | Dry-run does not write; confirmed upsert inserts/replaces id-sorted policies; saved policy audits cleanly and appears in resolve/warn/render outputs. |
 | `policy_machinery_policy_sync_roundtrip` | temp host + `lazy-sync --force --quiet` | Host-local saved policy survives policy seed merge and framework seed policies are merged without overwriting host-local policies. |
+| `policy_machinery_rulebook_retire_readiness_current_host_gate` | source host + `lazy policy retire-readiness --strict --format=json` | Current host reports blockers instead of deleting/demoting rulebook semantics when active rulebook entries lack typed policy links. |
+| `policy_machinery_rulebook_retire_readiness_positive_fixture` | temp host + `lazy policy retire-readiness --strict --format=json` | Strict readiness passes when active rulebook entry → capability → typed policy links are complete; missing policy ids fail deterministically. |
 
 ## Layer completeness gate
 
@@ -83,6 +86,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
+  - `lazy policy retire-readiness --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

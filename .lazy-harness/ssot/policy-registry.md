@@ -23,6 +23,7 @@ Registry: `.lazy-harness/ssot/policies.json`
   - keep policy evidence root-relative and source-record backed
   - keep generated/explain views derived and non-canonical
   - use `lazy policy upsert --from-json ... --confirm` for canonical policy write round-trips
+  - use `lazy policy retire-readiness --format=json` before changing rulebook canonical semantics
   - keep `lazy policy resolve` advisory-only by default for `discover`, `recommend`, and `default` levels
   - keep warn runtime explicit-context and warn-only
   - require explicit confirmation and tests before `block` runtime enforcement
@@ -31,6 +32,7 @@ Registry: `.lazy-harness/ssot/policies.json`
   - treat LLM-generated explanation text as canonical truth
   - edit `.lazy-harness/generated/policy-rulebook.md` as policy source
   - write policy changes without explicit confirmation
+  - retire `.lazy-harness/rules/**` hand-maintained semantics without typed policy coverage proof
   - auto-promote policies to warn/block from a registry entry alone
   - classify raw user or assistant text to trigger warn runtime
 - Record completion:
@@ -116,6 +118,24 @@ Without `--confirm`, `upsert` is a dry-run and must not mutate `policies.json`.
 
 The write path must validate the complete next registry, persist id-sorted policies, and be followed by audit/resolve/render validation before rulebook retire/deprecation work.
 
+## Rulebook retire-readiness
+
+Rulebook retirement must be gated by:
+
+```bash
+.lazy-harness/bin/lazy policy retire-readiness --format=json
+```
+
+For a blocking gate, use:
+
+```bash
+.lazy-harness/bin/lazy policy retire-readiness --strict --format=json
+```
+
+Readiness means every active `.lazy-harness/rules/**/*.md` entry has a capability binding, and that capability is linked to an existing typed policy through `capability.policyIds` or `policy.capabilityIds`.
+
+This preflight is read-only. It does not delete `.lazy-harness/rules/**`, change `lazy rules`, or mutate `policies.json`/`capabilities.json`.
+
 ## Implementation map
 
 - Status: `option-b-selected-first-slice`
@@ -139,6 +159,7 @@ The write path must validate the complete next registry, persist id-sorted polic
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
+  - `lazy policy retire-readiness --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement
