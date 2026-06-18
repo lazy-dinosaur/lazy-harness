@@ -113,7 +113,8 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 - Status: `phase-3-record-first-contract`
 - Records:
   - `.lazy-harness/spec/platform/policy-machinery-v2.md` — this contract.
-  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — user-confirmed Option B decision.
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — source canonical ADR for the user-confirmed Option B decision.
+  - `.lazy-harness/framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR so host `.lazy-harness/decisions/` remains host-owned.
   - `.lazy-harness/ssot/policy-registry.md` — typed policy registry SSOT.
   - `.lazy-harness/tests/policy-machinery-v2.md` — regression expectations.
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md` — baseline/gap audit.

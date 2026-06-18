@@ -53,7 +53,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Status: `option-b-selected-first-slice`
 - Records:
   - `.lazy-harness/spec/platform/policy-machinery-v2.md`
-  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md`
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — source canonical ADR.
+  - `.lazy-harness/framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR.
   - `.lazy-harness/ssot/policy-registry.md`
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md`
   - `.lazy-harness/tests/policy-machinery-v2.md`

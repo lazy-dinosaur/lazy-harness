@@ -7920,7 +7920,9 @@ def check_policy_machinery_v2() -> None:
     sdd_path = LAZY / "spec" / "platform" / "policy-machinery-v2.md"
     tdd_path = LAZY / "tests" / "policy-machinery-v2.md"
     audit_path = LAZY / "planning" / "policy-machinery-v2-baseline-gap-audit.md"
-    adr_path = LAZY / "decisions" / "0046-policy-machinery-typed-policy-canonical.md"
+    source_adr_path = LAZY / "decisions" / "0046-policy-machinery-typed-policy-canonical.md"
+    host_operational_adr_path = LAZY / "framework" / "operational-adrs" / "0046-policy-machinery-typed-policy-canonical.md"
+    adr_path = source_adr_path if source_adr_path.exists() else host_operational_adr_path
     policy_ssot_path = LAZY / "ssot" / "policy-registry.md"
     policy_registry_path = LAZY / "ssot" / "policies.json"
     policy_schema_path = LAZY / "schemas" / "policies.schema.json"
