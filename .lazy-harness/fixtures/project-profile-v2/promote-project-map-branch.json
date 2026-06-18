@@ -1,0 +1,132 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-bbb050d82ced",
+    "status": "promoted",
+    "primaryRoute": "source-links",
+    "facets": [
+      "Project",
+      "Evidence"
+    ],
+    "relatedRoutes": [
+      "expectations",
+      "contracts"
+    ],
+    "source": {
+      "kind": "project-map-seed",
+      "id": "project-policy-discovery"
+    },
+    "summary": "Project/team policy discovery: 5 branch(es), 5 edge(s)",
+    "evidence": [
+      {
+        "kind": "project-map-seed",
+        "summary": "Derived from interview-v2 Project Map seed project-policy-discovery"
+      }
+    ],
+    "promotionTarget": {
+      "kind": "project-map-branch",
+      "path": ".lazy-harness/project/feature-navigation.xml",
+      "requiresConfirmation": true
+    },
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/project/feature-navigation.xml"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "project-map-branch",
+        "path": ".lazy-harness/project/feature-navigation.xml",
+        "status": "applied",
+        "action": "append-project-map-branch",
+        "summary": "Appended candidate feature-navigation entry for project-policy-discovery",
+        "reason": "Project-map-branch writer updates only feature-navigation retrieval cues and does not write canonical layer truth by itself."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "project-map-branch",
+      "path": ".lazy-harness/project/feature-navigation.xml",
+      "status": "applied",
+      "action": "append-project-map-branch",
+      "summary": "Appended candidate feature-navigation entry for project-policy-discovery",
+      "reason": "Project-map-branch writer updates only feature-navigation retrieval cues and does not write canonical layer truth by itself."
+    }
+  ],
+  "projectMapBranch": {
+    "id": "project-policy-discovery",
+    "status": "candidate",
+    "label": "Project/team policy discovery",
+    "aliases": [
+      "contracts",
+      "expectations",
+      "project-policy-discovery",
+      "Project/team policy discovery",
+      "source-links"
+    ],
+    "routes": [
+      "primary:source-links",
+      "project-profile:project-map-seed:project-policy-discovery"
+    ],
+    "components": [
+      "Project Map seed project-policy-discovery",
+      "Project Profile V2 queue item"
+    ],
+    "records": [
+      {
+        "layer": "SDD",
+        "path": ".lazy-harness/spec/platform/project-profile-v2.md"
+      },
+      {
+        "layer": "SDD",
+        "path": ".lazy-harness/spec/platform/project-map-v2.md"
+      },
+      {
+        "layer": "TDD",
+        "path": ".lazy-harness/tests/project-profile-v2.md"
+      }
+    ],
+    "sourceFiles": [
+      ".lazy-harness/scripts/project-profile.ts",
+      ".lazy-harness/project/feature-navigation.xml"
+    ],
+    "tests": [
+      ".lazy-harness/scripts/self-test.py",
+      ".lazy-harness/tests/project-profile-v2.md"
+    ],
+    "note": "Candidate retrieval/navigation entry created from an accepted Project Profile V2 project-map-branch queue item. Use it as a cue only until linked canonical records are confirmed."
+  },
+  "queueUpdate": {
+    "id": "PPQ-bbb050d82ced",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/project/feature-navigation.xml"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/project/feature-navigation.xml",
+      "action": "written",
+      "summary": "Append candidate feature-navigation entry for project-policy-discovery"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-bbb050d82ced in Project Profile queue and applied project-map-branch writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/project/feature-navigation.xml.",
+    "The generated feature-navigation entry is a retrieval cue and must not be treated as canonical project truth by itself.",
+    "No canonical record, rulebook, capability, candidate row, or update-loop event was written."
+  ]
+}

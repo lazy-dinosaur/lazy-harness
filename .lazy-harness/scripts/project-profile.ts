@@ -283,7 +283,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'append-update-loop-event' | 'dedupe-update-loop-event' | 'conflict-update-loop-event' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-project-map-branch' | 'skip-existing-project-map-branch' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'append-update-loop-event' | 'dedupe-update-loop-event' | 'conflict-update-loop-event' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -302,6 +302,16 @@ interface ProjectProfileCandidatePromotionWrite {
   path: '.lazy-harness/knowledge/candidates.jsonl'
   row: Record<string, unknown>
   summary: string
+}
+
+interface ProjectProfileProjectMapBranchPromotionWrite {
+  kind: 'project-map-branch'
+  path: '.lazy-harness/project/feature-navigation.xml'
+  action: 'append' | 'skip-existing'
+  feature: Record<string, unknown>
+  content: string
+  summary: string
+  effect: ProjectProfilePromotionTargetEffect
 }
 
 interface ProjectProfileRulebookPromotionWrite {
@@ -367,6 +377,7 @@ interface ProjectProfilePromoteV2Result {
   queuePath: '.lazy-harness/project/profile-queue.json'
   item: ProjectProfileQueueItem
   targetEffects: ProjectProfilePromotionTargetEffect[]
+  projectMapBranch?: Record<string, unknown>
   candidateRow?: Record<string, unknown>
   capability?: Record<string, unknown>
   updateEvent?: Record<string, unknown>
@@ -447,7 +458,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm always writes queue status/promoted metadata and applies only the writer for that item's target kind (record skeleton, candidate row, draft rulebook, discover/checklist capability, or non-canonical update-loop event). Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm always writes queue status/promoted metadata and applies only the writer for that item's target kind (record skeleton, feature-navigation cue, candidate row, draft rulebook, discover/checklist capability, or non-canonical update-loop event). Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -1392,6 +1403,119 @@ function candidateEffectForStatus(item: ProjectProfileQueueItem, write: ProjectP
   }
 }
 
+function uniqueSortedStrings(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+}
+
+function xmlList(tag: string, values: string[], indent = '      '): string {
+  return values.map((value) => `${indent}<${tag}>${xmlEscape(value)}</${tag}>`).join('\n')
+}
+
+function projectMapBranchFeatureId(item: ProjectProfileQueueItem): string {
+  return slugify(item.source.id || item.id)
+}
+
+function projectMapBranchFeatureLabel(item: ProjectProfileQueueItem): string {
+  const [prefix] = item.summary.split(':')
+  return (prefix || titleCase(item.source.id || item.id)).trim()
+}
+
+function buildProjectMapBranchFeature(item: ProjectProfileQueueItem): Record<string, unknown> {
+  const id = projectMapBranchFeatureId(item)
+  const label = projectMapBranchFeatureLabel(item)
+  return {
+    id,
+    status: 'candidate',
+    label,
+    aliases: uniqueSortedStrings([label, item.source.id, item.primaryRoute, ...item.relatedRoutes]),
+    routes: uniqueSortedStrings([`project-profile:${item.source.kind}:${item.source.id}`, `primary:${item.primaryRoute}`]),
+    components: uniqueSortedStrings(['Project Profile V2 queue item', `Project Map seed ${item.source.id}`]),
+    records: [
+      { layer: 'SDD', path: '.lazy-harness/spec/platform/project-profile-v2.md' },
+      { layer: 'SDD', path: '.lazy-harness/spec/platform/project-map-v2.md' },
+      { layer: 'TDD', path: '.lazy-harness/tests/project-profile-v2.md' },
+    ],
+    sourceFiles: ['.lazy-harness/scripts/project-profile.ts', '.lazy-harness/project/feature-navigation.xml'],
+    tests: ['.lazy-harness/scripts/self-test.py', '.lazy-harness/tests/project-profile-v2.md'],
+    note: 'Candidate retrieval/navigation entry created from an accepted Project Profile V2 project-map-branch queue item. Use it as a cue only until linked canonical records are confirmed.',
+  }
+}
+
+function renderProjectMapBranchFeatureXml(feature: Record<string, unknown>): string {
+  const aliases = feature.aliases as string[]
+  const routes = feature.routes as string[]
+  const components = feature.components as string[]
+  const records = feature.records as Array<{ layer: string; path: string }>
+  const sourceFiles = feature.sourceFiles as string[]
+  const tests = feature.tests as string[]
+  const note = String(feature.note || '')
+  return `  <feature id="${xmlEscape(String(feature.id))}" status="${xmlEscape(String(feature.status))}">
+    <label>${xmlEscape(String(feature.label))}</label>
+    <aliases>
+${aliases.map((alias) => `      <alias lang="${alias === feature.id ? 'symbol' : 'en'}">${xmlEscape(alias)}</alias>`).join('\n')}
+    </aliases>
+    <routes>
+${xmlList('route', routes)}
+    </routes>
+    <components>
+${xmlList('component', components)}
+    </components>
+    <records>
+${records.map((record) => `      <record layer="${xmlEscape(record.layer)}">${xmlEscape(record.path)}</record>`).join('\n')}
+    </records>
+    <sourceFiles>
+${xmlList('path', sourceFiles)}
+    </sourceFiles>
+    <tests>
+${xmlList('path', tests)}
+    </tests>
+    <risk>${xmlEscape(note)}</risk>
+  </feature>`
+}
+
+function featureNavigationWithEntry(existing: string | null, featureXml: string): string {
+  if (!existing || !existing.trim()) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<featureNavigation id="project-profile-v2-promotions" status="candidate">
+  <purpose>Project Profile V2 promoted feature navigation candidates.</purpose>
+  <scope>Host-local retrieval/navigation map; candidate entries are cues and not canonical project truth by themselves.</scope>
+
+${featureXml}
+</featureNavigation>
+`
+  }
+  if (!existing.includes('</featureNavigation>')) throw new Error('feature-navigation.xml must contain a closing </featureNavigation> tag before project-map-branch promotion')
+  return existing.replace(/\s*<\/featureNavigation>\s*$/, `\n\n${featureXml}\n</featureNavigation>\n`)
+}
+
+function buildProjectMapBranchPromotionWrite(item: ProjectProfileQueueItem, root: string): ProjectProfileProjectMapBranchPromotionWrite | null {
+  if (item.promotionTarget.kind !== 'project-map-branch') return null
+  const path = '.lazy-harness/project/feature-navigation.xml' as const
+  const abs = join(root, path)
+  const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : null
+  const feature = buildProjectMapBranchFeature(item)
+  const featureId = String(feature.id)
+  const exists = Boolean(existing && new RegExp(`<feature\\b[^>]*\\bid=["']${featureId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`).test(existing))
+  const featureXml = renderProjectMapBranchFeatureXml(feature)
+  const content = exists ? (existing || '') : featureNavigationWithEntry(existing, featureXml)
+  return {
+    kind: 'project-map-branch',
+    path,
+    action: exists ? 'skip-existing' : 'append',
+    feature,
+    content,
+    summary: exists ? `Project Map feature-navigation entry already exists for ${featureId}` : `Append candidate feature-navigation entry for ${featureId}`,
+    effect: {
+      kind: 'project-map-branch',
+      path,
+      status: 'applied',
+      action: exists ? 'skip-existing-project-map-branch' : 'append-project-map-branch',
+      summary: exists ? `Feature-navigation entry already existed for ${featureId}` : `Appended candidate feature-navigation entry for ${featureId}`,
+      reason: 'Project-map-branch writer updates only feature-navigation retrieval cues and does not write canonical layer truth by itself.',
+    },
+  }
+}
+
 function updateLoopEventId(item: ProjectProfileQueueItem, queue: ProjectProfileQueueV1): string {
   const occurredAt = queue.sourcePacket?.generatedAt || queue.createdAt || queue.updatedAt
   return `evt_project_profile_v2_${createHash('sha256').update(`${item.id}\0${item.source.kind}\0${item.source.id}\0${occurredAt}`).digest('hex').slice(0, 16)}`
@@ -1720,6 +1844,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const { queue, item, index } = selectAcceptedPromotionItem(args.root, args.item)
   const generatedAt = new Date().toISOString()
   const recordWrite = buildRecordPromotionWrite(item, generatedAt, args.root)
+  const projectMapBranchWrite = buildProjectMapBranchPromotionWrite(item, args.root)
   const candidateWrite = buildCandidatePromotionWrite(item)
   const rulebookWrite = buildRulebookPromotionWrite(item, generatedAt, args.root)
   const capabilityWrite = buildCapabilityPromotionWrite(item, args.root)
@@ -1737,7 +1862,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     updateLoopAppendStatus = appendJsonlStable(updateLoopAbs, updateLoopWrite.row, 'id', args.root)
     appliedWrites.push({ path: updateLoopWrite.path, action: updateLoopAppendStatus, summary: `${updateLoopWrite.summary} (${updateLoopAppendStatus})` })
   }
-  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || capabilityWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : updateLoopWrite && updateLoopAppendStatus ? updateLoopEffectForStatus(item, updateLoopWrite, updateLoopAppendStatus) : buildPromotionTargetEffect(item))]
+  const targetEffects = [recordWrite?.effect || projectMapBranchWrite?.effect || rulebookWrite?.effect || capabilityWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : updateLoopWrite && updateLoopAppendStatus ? updateLoopEffectForStatus(item, updateLoopWrite, updateLoopAppendStatus) : buildPromotionTargetEffect(item))]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1758,8 +1883,8 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     summary: summarizeProfileQueueItems(items),
     warnings: [
       ...queue.warnings.filter((warning) => !warning.includes('candidates/rules/capabilities/update-loop events require later explicit promotion')),
-      'promote-v2 --confirm wrote only queue status/promoted metadata.',
-      'Canonical target writers remain deferred by target kind.',
+      'promote-v2 --confirm wrote queue status/promoted metadata and applied only the selected target-kind writer when implemented.',
+      'Unimplemented target writers remain deferred by target kind.',
     ],
   }
   if (recordWrite) {
@@ -1770,6 +1895,16 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       appliedWrites.push({ path: recordWrite.path, action: 'written', summary: recordWrite.summary })
     } else {
       appliedWrites.push({ path: recordWrite.path, action: 'skipped', summary: recordWrite.summary })
+    }
+  }
+  if (projectMapBranchWrite) {
+    const featureNavAbs = join(args.root, projectMapBranchWrite.path)
+    if (projectMapBranchWrite.action === 'append') {
+      ensureParent(featureNavAbs)
+      writeFileSync(featureNavAbs, projectMapBranchWrite.content, 'utf8')
+      appliedWrites.push({ path: projectMapBranchWrite.path, action: 'written', summary: projectMapBranchWrite.summary })
+    } else {
+      appliedWrites.push({ path: projectMapBranchWrite.path, action: 'skipped', summary: projectMapBranchWrite.summary })
     }
   }
   if (rulebookWrite) {
@@ -1791,7 +1926,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
-  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : capabilityWrite ? ' and applied capability-binding writer' : candidateWrite ? ' and applied candidate-row writer' : updateLoopWrite ? ' and applied update-loop event writer' : ' only'}` })
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : projectMapBranchWrite ? ' and applied project-map-branch writer' : rulebookWrite ? ' and applied rulebook writer' : capabilityWrite ? ' and applied capability-binding writer' : candidateWrite ? ' and applied candidate-row writer' : updateLoopWrite ? ' and applied update-loop event writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1802,6 +1937,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     queuePath: nextQueue.queuePath,
     item: promotedItem,
     targetEffects,
+    projectMapBranch: projectMapBranchWrite?.feature,
     candidateRow: candidateWrite?.row,
     capability: capabilityWrite?.capability,
     updateEvent: updateLoopWrite?.row,
@@ -1820,6 +1956,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
         'The generated record target is a skeleton and must not be treated as confirmed project truth.',
         'No rulebook, capability, candidate row, or update-loop event was written.',
       ]
+      : projectMapBranchWrite
+        ? [
+          'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/project/feature-navigation.xml.',
+          'The generated feature-navigation entry is a retrieval cue and must not be treated as canonical project truth by itself.',
+          'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
+        ]
       : candidateWrite
         ? [
           'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/candidates.jsonl.',

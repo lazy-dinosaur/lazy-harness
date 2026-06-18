@@ -7,65 +7,58 @@
   "dryRun": false,
   "queuePath": ".lazy-harness/project/profile-queue.json",
   "item": {
-    "id": "PPQ-bbb050d82ced",
+    "id": "PPQ-queue-only-deferred-boundary",
     "status": "promoted",
-    "primaryRoute": "source-links",
+    "primaryRoute": "queue-only",
     "facets": [
-      "Project",
-      "Evidence"
+      "Project"
     ],
-    "relatedRoutes": [
-      "expectations",
-      "contracts"
-    ],
+    "relatedRoutes": [],
     "source": {
-      "kind": "project-map-seed",
-      "id": "project-policy-discovery"
+      "kind": "proposed-write",
+      "id": "queue-only-deferred-boundary"
     },
-    "summary": "Project/team policy discovery: 5 branch(es), 5 edge(s)",
+    "summary": "Synthetic queue-only deferred boundary fixture",
     "evidence": [
       {
-        "kind": "project-map-seed",
-        "summary": "Derived from interview-v2 Project Map seed project-policy-discovery"
+        "kind": "self-test",
+        "summary": "Protect deferred target writer boundary for queue-only items."
       }
     ],
     "promotionTarget": {
-      "kind": "project-map-branch",
-      "path": ".lazy-harness/project/feature-navigation.xml",
+      "kind": "queue-only",
       "requiresConfirmation": true
     },
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/project/feature-navigation.xml"
+      "queue-only"
     ],
     "promotionEffects": [
       {
-        "kind": "project-map-branch",
-        "path": ".lazy-harness/project/feature-navigation.xml",
+        "kind": "queue-only",
         "status": "deferred",
         "action": "defer-target-writer",
-        "summary": "Deferred project-map-branch target writer for PPQ-bbb050d82ced to .lazy-harness/project/feature-navigation.xml",
+        "summary": "Deferred queue-only target writer for PPQ-queue-only-deferred-boundary",
         "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
       }
     ]
   },
   "targetEffects": [
     {
-      "kind": "project-map-branch",
-      "path": ".lazy-harness/project/feature-navigation.xml",
+      "kind": "queue-only",
       "status": "deferred",
       "action": "defer-target-writer",
-      "summary": "Deferred project-map-branch target writer for PPQ-bbb050d82ced to .lazy-harness/project/feature-navigation.xml",
+      "summary": "Deferred queue-only target writer for PPQ-queue-only-deferred-boundary",
       "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
     }
   ],
   "queueUpdate": {
-    "id": "PPQ-bbb050d82ced",
+    "id": "PPQ-queue-only-deferred-boundary",
     "from": "accepted",
     "to": "promoted",
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/project/feature-navigation.xml"
+      "queue-only"
     ],
     "previewOnly": false
   },
@@ -73,7 +66,7 @@
     {
       "path": ".lazy-harness/project/profile-queue.json",
       "action": "written",
-      "summary": "Promoted PPQ-bbb050d82ced in Project Profile queue only"
+      "summary": "Promoted PPQ-queue-only-deferred-boundary in Project Profile queue only"
     }
   ],
   "warnings": [

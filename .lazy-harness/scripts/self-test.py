@@ -4482,6 +4482,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_record_fixture = json.loads(promote_record_fixture_path.read_text(encoding="utf-8"))
     if promote_record_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_record_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote record fixture schema/mode mismatch")
+    promote_branch_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-project-map-branch.json"
+    if not promote_branch_fixture_path.exists():
+        fail("Project Profile V2 promote project-map-branch fixture missing: " + str(promote_branch_fixture_path.relative_to(ROOT)))
+    promote_branch_fixture = json.loads(promote_branch_fixture_path.read_text(encoding="utf-8"))
+    if promote_branch_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_branch_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote project-map-branch fixture schema/mode mismatch")
     promote_candidate_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-candidate-row.json"
     if not promote_candidate_fixture_path.exists():
         fail("Project Profile V2 promote candidate-row fixture missing: " + str(promote_candidate_fixture_path.relative_to(ROOT)))
@@ -4576,7 +4582,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         if applied.get("mode") != "project-profile.queue-v2-apply" or applied.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-queue.json":
             fail("project-profile queue-v2 --confirm should report only profile-queue.json write")
         pending_item_id = written_queue["items"][0]["id"]
-        deferred_item_id = next(item["id"] for item in written_queue["items"] if item.get("promotionTarget", {}).get("kind") not in {"record", "candidate-row", "rulebook"})
+        deferred_item_id = "PPQ-queue-only-deferred-boundary"
         pending_promote = subprocess.run(
             [
                 "bun",
@@ -4729,10 +4735,18 @@ def check_project_profile_v2_queue_runtime() -> None:
         )
         if promote_again.returncode == 0 or "status=promoted" not in promote_again.stderr:
             fail("project-profile promote-v2 --confirm must reject already-promoted items")
-        confirmed_queue["items"] = [
-            {**item, "status": "accepted"} if item.get("id") == deferred_item_id else item
-            for item in confirmed_queue["items"]
-        ]
+        deferred_item = {
+            "id": deferred_item_id,
+            "status": "accepted",
+            "primaryRoute": "queue-only",
+            "facets": ["Project"],
+            "relatedRoutes": [],
+            "source": {"kind": "proposed-write", "id": "queue-only-deferred-boundary"},
+            "summary": "Synthetic queue-only deferred boundary fixture",
+            "evidence": [{"kind": "self-test", "summary": "Protect deferred target writer boundary for queue-only items."}],
+            "promotionTarget": {"kind": "queue-only", "requiresConfirmation": True},
+        }
+        confirmed_queue["items"].insert(0, deferred_item)
         queue_file.write_text(json.dumps(confirmed_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         before_non_record_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
         promote_non_record = subprocess.run(
@@ -4762,8 +4776,105 @@ def check_project_profile_v2_queue_runtime() -> None:
         non_record_effects = non_record_result.get("targetEffects", [])
         if not non_record_effects or non_record_effects[0].get("status") != promote_confirm_fixture.get("targetEffects", [{}])[0].get("status") or non_record_effects[0].get("action") != "defer-target-writer":
             fail("project-profile promote-v2 deferred-only target must remain deferred")
-        if non_record_result.get("appliedWrites") != promote_confirm_fixture.get("appliedWrites"):
+        non_record_writes = non_record_result.get("appliedWrites", [])
+        if len(non_record_writes) != 1 or non_record_writes[0].get("path") != ".lazy-harness/project/profile-queue.json" or non_record_writes[0].get("action") != "written":
             fail("project-profile promote-v2 deferred-only target must report only queue-file applied write")
+        branch_item = json.loads(json.dumps(promote_branch_fixture["item"]))
+        branch_item["status"] = "accepted"
+        branch_item.pop("promotedAt", None)
+        branch_item.pop("promotedTo", None)
+        branch_item.pop("promotionEffects", None)
+        branch_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        branch_queue["items"].insert(0, branch_item)
+        queue_file.write_text(json.dumps(branch_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_branch_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_branch = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                branch_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_branch.returncode != 0:
+            fail("project-profile promote-v2 project-map-branch target --confirm failed:\n" + promote_branch.stdout + promote_branch.stderr)
+        branch_result = json.loads(promote_branch.stdout)
+        after_branch_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_branch_files = sorted(before_branch_files + [".lazy-harness/project/feature-navigation.xml"])
+        if after_branch_files != expected_branch_files:
+            fail("project-profile promote-v2 project-map-branch target must write only queue plus feature-navigation.xml: " + json.dumps(after_branch_files, ensure_ascii=False))
+        feature_nav_path = root / ".lazy-harness" / "project" / "feature-navigation.xml"
+        feature_root = ET.parse(feature_nav_path).getroot()
+        feature_nodes = feature_root.findall("feature")
+        matching_features = [node for node in feature_nodes if node.attrib.get("id") == promote_branch_fixture.get("projectMapBranch", {}).get("id")]
+        if len(matching_features) != 1:
+            fail("project-profile promote-v2 project-map-branch target must append exactly one matching feature entry")
+        feature_node = matching_features[0]
+        if feature_node.attrib.get("status") != "candidate" or (feature_node.findtext("label") or "").strip() != promote_branch_fixture.get("projectMapBranch", {}).get("label"):
+            fail("project-profile promote-v2 project-map-branch feature entry must remain candidate with expected label")
+        if branch_result.get("projectMapBranch") != promote_branch_fixture.get("projectMapBranch"):
+            fail("project-profile promote-v2 project-map-branch target must return the appended feature metadata")
+        branch_effects = branch_result.get("targetEffects", [])
+        if not branch_effects or branch_effects[0].get("status") != "applied" or branch_effects[0].get("action") != "append-project-map-branch":
+            fail("project-profile promote-v2 project-map-branch target must expose applied branch effect")
+        if branch_result.get("appliedWrites") != promote_branch_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 project-map-branch target must report feature navigation and queue writes")
+        _assert_no_project_map_forbidden_fields(branch_result, "projectProfilePromoteV2ProjectMapBranch")
+        record_index = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "record-index.ts"), "--root", str(root), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if record_index.returncode != 0:
+            fail("project-profile promote-v2 project-map-branch output must be parseable by record-index:\n" + record_index.stdout + record_index.stderr)
+        profile_features = json.loads(record_index.stdout).get("projectProfile", {}).get("features", [])
+        if promote_branch_fixture.get("projectMapBranch", {}).get("id") not in {feature.get("id") for feature in profile_features}:
+            fail("record-index must include promoted project-map-branch feature id")
+        branch_nav_before = feature_nav_path.read_text(encoding="utf-8")
+        branch_dedupe_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        branch_dedupe_queue["items"] = [
+            {k: v for k, v in {**item, "status": "accepted"}.items() if k not in {"promotedAt", "promotedTo", "promotionEffects"}}
+            if item.get("id") == branch_item["id"] else item
+            for item in branch_dedupe_queue["items"]
+        ]
+        queue_file.write_text(json.dumps(branch_dedupe_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        promote_branch_again = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                branch_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_branch_again.returncode != 0:
+            fail("project-profile promote-v2 project-map-branch idempotence run failed:\n" + promote_branch_again.stdout + promote_branch_again.stderr)
+        branch_again_result = json.loads(promote_branch_again.stdout)
+        if feature_nav_path.read_text(encoding="utf-8") != branch_nav_before:
+            fail("project-profile promote-v2 project-map-branch duplicate run must not alter feature-navigation.xml")
+        if branch_again_result.get("targetEffects", [{}])[0].get("action") != "skip-existing-project-map-branch" or branch_again_result.get("appliedWrites", [{}])[0].get("action") != "skipped":
+            fail("project-profile promote-v2 project-map-branch duplicate run must report skip-existing")
         candidate_item = json.loads(json.dumps(promote_candidate_fixture["item"]))
         candidate_item["status"] = "accepted"
         candidate_item.pop("promotedAt", None)

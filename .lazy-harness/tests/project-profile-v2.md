@@ -1,6 +1,6 @@
 # TDD — Project Profile V2 / Project Interview Policy Discovery
 
-Status: active-runtime-promote-v2-update-loop-event-writer-implemented
+Status: active-runtime-promote-v2-project-map-branch-writer-implemented
 Date: 2026-06-16
 Updated: 2026-06-18
 Layer: TDD
@@ -10,7 +10,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 
 ## Rule digest
 
-- Status: active-runtime-promote-v2-update-loop-event-writer-implemented
+- Status: active-runtime-promote-v2-project-map-branch-writer-implemented
 - Layer: TDD
 - Scope: framework-global
 - Applies when:
@@ -25,8 +25,10 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - verify dry-run and confirmed-only write semantics
   - verify queue-v2 emits typed queue items and writes only `.lazy-harness/project/profile-queue.json`
   - verify promote-v2 dry-run preview requires `status=accepted` and does not mutate queue/canonical targets
-  - verify promote-v2 non-record targets write only the queue file and record deferred target effects
+  - verify promote-v2 queue-only targets write only the queue file and record deferred target effects
   - verify promote-v2 record writer creates only deterministic `needs-interview` record skeletons for `promotionTarget.kind=record`
+  - verify promote-v2 project-map-branch writer appends only candidate retrieval/navigation entries to `.lazy-harness/project/feature-navigation.xml`
+  - verify duplicate project-map-branch promotions skip an existing feature-navigation entry without altering the file
   - verify promote-v2 candidate-row writer appends stable rows to `.lazy-harness/knowledge/candidates.jsonl` only for `promotionTarget.kind=candidate-row`
   - verify promote-v2 rulebook writer creates only draft/discover rulebook entries for `promotionTarget.kind=rulebook`
   - verify promote-v2 capability-binding writer upserts only discover/checklist capability entries for `promotionTarget.kind=capability-binding`
@@ -42,6 +44,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - permit rulebook writer to create active/default/warn/block rules or capability bindings
   - permit capability-binding writer to create recommend/default/warn/block capabilities or hook enforcement
   - permit non-update-loop target writers to write update-loop event rows
+  - permit project-map-branch feature-navigation entries to become canonical project truth by themselves
   - permit update-loop event rows to become canonical project truth without record-write policy
   - center the model on tests only
   - require write/apply behavior before a separate approval
@@ -77,7 +80,9 @@ The design fixture is:
 | `project_profile_v2_promote_confirm_queue_only` | accepted deferred-only item + `promote-v2 --confirm` | emits `project-profile-promote-result/v1`, writes only profile queue, marks exactly one item promoted, records promoted metadata, and records deferred target effects. |
 | `project_profile_v2_promote_confirm_rejects_reuse` | already promoted item + `promote-v2 --confirm` | command fails because only `status=accepted` items can be promoted. |
 | `project_profile_v2_promote_record_writer` | accepted `promotionTarget.kind=record` item + `promote-v2 --confirm` | writes queue plus one deterministic `needs-interview` record skeleton, reports an applied record effect, and does not write non-record targets. |
-| `project_profile_v2_promote_deferred_only` | accepted non-record/non-candidate/non-rulebook item + `promote-v2 --confirm` | writes only queue status/promoted metadata and persists a deferred effect. |
+| `project_profile_v2_promote_project_map_branch_writer` | accepted `promotionTarget.kind=project-map-branch` item + `promote-v2 --confirm` | writes queue plus one candidate feature-navigation entry, reports an applied branch effect, and does not write canonical records/candidates/rules/capabilities/update-loop events. |
+| `project_profile_v2_promote_project_map_branch_idempotent` | same project-map-branch item promoted again in a fresh accepted queue | skips the existing feature-navigation entry without changing the file and reports skip-existing. |
+| `project_profile_v2_promote_deferred_only` | accepted `promotionTarget.kind=queue-only` item + `promote-v2 --confirm` | writes only queue status/promoted metadata and persists a deferred effect. |
 | `project_profile_v2_promote_candidate_row_writer` | accepted `promotionTarget.kind=candidate-row` item + `promote-v2 --confirm` | writes queue plus one stable candidates JSONL row, reports an applied candidate effect, and does not write rulebook/capability/update-loop targets. |
 | `project_profile_v2_promote_candidate_row_dedupe` | same candidate-row item promoted again in a fresh accepted queue | uses stable id append semantics and does not duplicate an identical candidates JSONL row. |
 | `project_profile_v2_promote_rulebook_writer` | accepted `promotionTarget.kind=rulebook` item + `promote-v2 --confirm` | writes queue plus one deterministic draft/discover rulebook entry, reports an applied rulebook effect, and does not write capability/update-loop targets. |
@@ -110,19 +115,21 @@ The design fixture is:
 17. `promote-v2 --confirm` emits `project-profile-promote-result/v1`, writes only `.lazy-harness/project/profile-queue.json`, and marks exactly one item promoted.
 18. `promote-v2 --confirm` records target-specific effects; non-record/non-candidate targets remain deferred.
 19. `promote-v2 --confirm` for `promotionTarget.kind=record` writes one deterministic `needs-interview` record target and marks the effect applied.
-20. `promote-v2 --confirm` for non-record targets keeps canonical target effects deferred.
+20. `promote-v2 --confirm` for `promotionTarget.kind=queue-only` keeps target effects deferred and writes only queue metadata.
 21. `promote-v2 --confirm` for `promotionTarget.kind=candidate-row` writes one stable candidate row to `.lazy-harness/knowledge/candidates.jsonl` and marks the effect applied.
 22. Re-promoting the same candidate-row content is deduped by stable id semantics.
 23. `promote-v2 --confirm` for `promotionTarget.kind=rulebook` writes one deterministic draft/discover rulebook entry and marks the effect applied.
 24. Generated rulebook entries do not create capability bindings or active default/warn/block behavior.
 25. `promote-v2 --confirm` for `promotionTarget.kind=capability-binding` upserts one deterministic `discover`/`checklist` capability and marks the effect applied.
 26. Generated capability entries do not create warn/block/default enforcement or hooks.
-27. `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one stable non-canonical update event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and marks the effect applied.
-28. Re-promoting the same update-loop event content is deduped by stable id semantics and does not create a conflict file.
+27. `promote-v2 --confirm` for `promotionTarget.kind=project-map-branch` appends one candidate feature-navigation entry, record-index can parse it, and the effect is applied.
+28. Re-promoting the same project-map-branch content skips the existing feature-navigation entry without altering the file.
+29. `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one stable non-canonical update event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and marks the effect applied.
+30. Re-promoting the same update-loop event content is deduped by stable id semantics and does not create a conflict file.
 
 ## Implementation map
 
-- Status: promote-v2 update-loop-event target writer slice implemented.
+- Status: promote-v2 project-map-branch target writer slice implemented.
 - Primary files:
   - `.lazy-harness/tests/project-profile-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD output contract.
@@ -132,12 +139,13 @@ The design fixture is:
   - `.lazy-harness/fixtures/project-profile-v2/promote-preview.json` — promote-v2 preview fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-confirm.json` — promote-v2 confirm queue-status result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-record.json` — promote-v2 record writer result fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-project-map-branch.json` — promote-v2 project-map-branch writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-candidate-row.json` — promote-v2 candidate-row writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-rulebook.json` — promote-v2 rulebook writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-capability-binding.json` — promote-v2 capability-binding writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — promote-v2 update-loop-event writer result fixture.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed update-loop-event promotions.
-  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer.
+  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer.
   - `.lazy-harness/scripts/self-test.py` — protects interview/queue/promote runtime packet shapes, write boundaries, and V1 backward compatibility.
 - Key symbols:
   - `project-profile.ts#ProjectProfileInterviewV2Packet`
@@ -188,7 +196,7 @@ The design fixture is:
 - TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview, category-first queue, promote preview, and confirmed queue-status promotion packets.
 - ADR: future ADR needed before replacing V1 mode semantics.
 - SSOT: policy/capability/taxonomy SSOT inputs are referenced, not changed here.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.
 
 ## Rule placement
 
@@ -207,4 +215,4 @@ The design fixture is:
 - TDD: updated here and in `self-test.py#check_project_profile_v2_runtime` plus `self-test.py#check_project_profile_v2_queue_runtime`.
 - ADR: none yet; ADR required only before replacing V1 behavior.
 - SSOT: no SSOT mutation; uses Project Map ingestion source vocabulary.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.

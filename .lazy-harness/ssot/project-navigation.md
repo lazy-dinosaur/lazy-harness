@@ -22,6 +22,7 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
   - keep generated `record-index.json` optional and derived, never canonical
   - keep downstream host feature-navigation maps host-owned and do not sync this source map as downstream product truth
   - link each high-altitude source feature to records, source files, tests, and risk notes
+  - allow confirmed Project Profile V2 `project-map-branch` promotion to append candidate feature-navigation entries without treating them as canonical layer truth
 - Must not:
   - use source feature aliases as hook-time semantic classification inside `message.received`
   - overwrite downstream host `.lazy-harness/project/feature-navigation.xml` without explicit host confirmation
@@ -83,10 +84,11 @@ Do not treat this source map as Medivance, homepage, or any other downstream app
   - `.lazy-harness/spec/platform/search-read-debt-contract.md` — static search/read-debt contract that keeps direct retrieval evidence LLM-owned.
   - `.lazy-harness/scripts/record-index.ts` — parser/merger for `.lazy-harness/project/feature-navigation.xml` into `projectProfile.features` and record hints.
   - `.lazy-harness/schemas/record-index.schema.json` — output schema for feature entries and project profile metadata.
-  - `.lazy-harness/scripts/self-test.py` — protects source feature ids, path existence, XML parsing, and record-index projectProfile output.
+  - `.lazy-harness/scripts/self-test.py` — protects source feature ids, path existence, XML parsing, record-index projectProfile output, and Project Profile V2 project-map-branch writer output.
   - `.lazy-harness/knowledge/graph.jsonl` — graph rows linking this SSOT, the source map, record-index implementation, and self-test protection.
 - Key symbols:
   - `parseFeatureNavigation` (`record-index.ts`) — reads `.lazy-harness/project/feature-navigation.xml`.
+  - `project-profile.ts#buildProjectMapBranchPromotionWrite` — appends candidate feature-navigation entries for confirmed Project Profile V2 project-map-branch promotions.
   - `mergeProjectProfile` (`record-index.ts`) — merges feature aliases/routes/components/files/tests into referenced record entries.
   - `buildRecordIndex` (`record-index.ts`) — emits the derived record index with `projectProfile` metadata.
   - `check_source_feature_navigation_phase3` (`self-test.py`) — verifies this source map remains complete enough for Phase 3.
@@ -121,7 +123,7 @@ Do not treat this source map as Medivance, homepage, or any other downstream app
 - DDD: none.
 - SDD: existing Project Profile and search/read-debt contracts define feature-navigation and direct retrieval behavior.
 - BDD: no user-visible UI flow change.
-- TDD: self-test gains a source-map completeness fixture.
+- TDD: self-test gains a source-map completeness fixture and protects project-map-branch writer parse/idempotence behavior.
 - ADR: no new decision; implements the prompt runtime compression Phase 3 plan under ADR 0041 direction.
-- SSOT: this record owns source-checkout project navigation boundaries.
+- SSOT: this record owns source-checkout project navigation boundaries and the candidate-entry boundary for Project Profile V2 branch promotion.
 - Planning: Phase 3 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
