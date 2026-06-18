@@ -7916,32 +7916,39 @@ def check_project_map_update_loop_v2() -> None:
 
 
 def check_policy_machinery_v2() -> None:
-    """Phase 3 Policy Machinery V2 contract should stay static/non-enforcing until later confirmation."""
+    """Policy Machinery V2 Option B should use typed policy registry without runtime enforcement."""
     sdd_path = LAZY / "spec" / "platform" / "policy-machinery-v2.md"
     tdd_path = LAZY / "tests" / "policy-machinery-v2.md"
     audit_path = LAZY / "planning" / "policy-machinery-v2-baseline-gap-audit.md"
+    adr_path = LAZY / "decisions" / "0046-policy-machinery-typed-policy-canonical.md"
+    policy_ssot_path = LAZY / "ssot" / "policy-registry.md"
+    policy_registry_path = LAZY / "ssot" / "policies.json"
+    policy_schema_path = LAZY / "schemas" / "policies.schema.json"
+    policy_cli_path = LAZY / "scripts" / "policy.ts"
     fixture_path = LAZY / "fixtures" / "policy-machinery-v2" / "example-policy.json"
     manifest_path = LAZY / "manifests" / "init-categories.json"
     capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
     rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
 
-    for path in (sdd_path, tdd_path, audit_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
+    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
         if not path.exists():
             fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
 
     sdd = sdd_path.read_text(encoding="utf-8")
     tdd = tdd_path.read_text(encoding="utf-8")
     audit = audit_path.read_text(encoding="utf-8")
+    adr = adr_path.read_text(encoding="utf-8")
+    policy_ssot = policy_ssot_path.read_text(encoding="utf-8")
+    policy_cli = policy_cli_path.read_text(encoding="utf-8")
     capability_ssot = capability_ssot_path.read_text(encoding="utf-8")
     rulebook_sdd = rulebook_sdd_path.read_text(encoding="utf-8")
 
     for expected in (
-        "Phase 3 record-first slice",
-        "preserve `.lazy-harness/rules/**` and `.lazy-harness/ssot/capabilities.json`",
-        "Option A: keep rulebook as lightweight human-readable policy docs.",
+        "Option B typed policy canonical slice",
+        "treat `.lazy-harness/ssot/policies.json` as canonical typed behavior policy storage",
+        "Rulebook markdown under `.lazy-harness/rules/**` is compatibility/generated/explain surface during migration.",
         "canonicalByPacketAlone: false",
-        "does not replace existing Phase 0-2 implementations",
-        "turn advisory policies into blocking hooks from this contract-only slice",
+        "lazy policy audit --format=json",
         "self-test.py#check_policy_machinery_v2",
     ):
         if expected not in sdd:
@@ -7951,7 +7958,8 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_contract_files",
         "policy_machinery_fixture_shape",
         "policy_machinery_no_semantic_authority_fields",
-        "policy_machinery_hybrid_storage_preserved",
+        "policy_machinery_option_b_storage",
+        "policy_machinery_policy_cli_read_only",
         "policy_machinery_no_runtime_enforcement",
         "Layer completeness gate",
     ):
@@ -7961,21 +7969,57 @@ def check_policy_machinery_v2() -> None:
     for expected in (
         "Current baseline",
         "Gap matrix",
-        "Open option gate for later",
-        "do not add writer",
+        "User-confirmed storage decision",
+        "read-only `lazy policy list/audit/explain`",
         "Discovery capture",
     ):
         if expected not in audit:
             fail("Policy Machinery V2 audit missing planning section: " + expected)
+
+    for expected in (
+        "Select Policy Machinery V2 option B",
+        ".lazy-harness/ssot/policies.json = canonical typed policy registry",
+        "lazy policy explain <id>",
+        "Confirmation: user-confirmed",
+    ):
+        if expected not in adr:
+            fail("Policy Machinery V2 ADR missing decision invariant: " + expected)
+    for expected in (
+        "canonical typed policy registry",
+        "`.lazy-harness/rules/**` is a compatibility/generated/explain surface",
+        "lazy policy audit --format=json",
+    ):
+        if expected not in policy_ssot:
+            fail("Policy Registry SSOT missing invariant: " + expected)
+    for forbidden in ("execSync", "writeFileSync", "appendJsonlStable", "warn/block runtime behavior"):
+        if forbidden in policy_cli:
+            fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
+    for expected in ("Policy Machinery Option B", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
+        if expected not in policy_cli:
+            fail("policy CLI missing Option B explain boundary: " + expected)
 
     if "Capability kind and enforcement level are independent." not in capability_ssot:
         fail("Policy Machinery V2 depends on capability kind/level SSOT invariant")
     if ".lazy-harness/rules/**/*.md" not in rulebook_sdd or ".lazy-harness/ssot/capabilities.json" not in rulebook_sdd:
         fail("Policy Machinery V2 depends on hybrid rulebook + capability storage")
 
+    policy_registry = json.loads(policy_registry_path.read_text(encoding="utf-8"))
+    if policy_registry.get("version") != 1 or not isinstance(policy_registry.get("policies"), list):
+        fail("Policy Registry must contain version=1 and policies array")
+    policy_ids = [policy.get("id") for policy in policy_registry.get("policies", [])]
+    if "record-first-validation" not in policy_ids:
+        fail("Policy Registry missing record-first-validation seed policy")
+    if policy_ids != sorted(policy_ids):
+        fail("Policy Registry policies must be deterministic id-sorted")
+    policy_schema = json.loads(policy_schema_path.read_text(encoding="utf-8"))
+    if policy_schema.get("title") != "Lazy Harness Policy Registry" or "policies" not in json.dumps(policy_schema, ensure_ascii=False):
+        fail("Policy Registry schema metadata changed")
+
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     if fixture.get("schemaVersion") != "policy-machinery-v2/v1":
         fail("Policy Machinery V2 fixture schema mismatch")
+    if fixture.get("id") != "record-first-validation":
+        fail("Policy Machinery V2 fixture should use canonical policy id")
     if fixture.get("stage") not in {"turn", "edit", "commit", "push", "release", "high-risk-mutation"}:
         fail("Policy Machinery V2 fixture stage invalid: " + repr(fixture.get("stage")))
     if fixture.get("level") not in {"discover", "recommend", "default", "warn", "block"}:
@@ -7985,8 +8029,8 @@ def check_policy_machinery_v2() -> None:
     source_record = fixture.get("sourceRecord")
     if not isinstance(source_record, str) or not source_record.startswith(".lazy-harness/") or ".." in pathlib.PurePosixPath(source_record).parts:
         fail("Policy Machinery V2 fixture sourceRecord must be root-relative .lazy-harness path")
-    if not fixture.get("rulebookRecord") or not fixture.get("capabilityIds"):
-        fail("Policy Machinery V2 fixture must link rulebook and capability stores")
+    if not fixture.get("capabilityIds"):
+        fail("Policy Machinery V2 fixture must link capability store")
     promotion = fixture.get("promotion", {})
     if promotion.get("requiresConfirmation") is not True:
         fail("Policy Machinery V2 fixture promotion must require confirmation")
@@ -7996,8 +8040,8 @@ def check_policy_machinery_v2() -> None:
     if update_loop.get("canonicalByPacketAlone") is not False:
         fail("Policy Machinery V2 fixture must not become canonical by packet alone")
     storage_decision = fixture.get("storageDecision", {})
-    if storage_decision.get("requiresOptionGateBeforeMigration") is not True:
-        fail("Policy Machinery V2 fixture must preserve storage option gate")
+    if storage_decision.get("requiresOptionGateBeforeMigration") is not False or storage_decision.get("current") != "typed-policy-canonical-plus-capability-bindings":
+        fail("Policy Machinery V2 fixture must record user-confirmed Option B storage decision")
 
     allowed_evidence_kinds = {"record", "validation-output", "user-confirmation", "update-event"}
     for evidence in fixture.get("evidence", []):
@@ -8023,10 +8067,58 @@ def check_policy_machinery_v2() -> None:
 
     walk(fixture)
 
+    for policy in policy_registry.get("policies", []):
+        walk(policy, f"policy[{policy.get('id')}]")
+        if policy.get("updateLoop", {}).get("canonicalByPacketAlone") is not False:
+            fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy.get("id")))
+        if policy.get("sourceRecord") and not (ROOT / policy.get("sourceRecord")).exists():
+            fail("Policy Registry policy sourceRecord missing: " + repr(policy.get("sourceRecord")))
+        for evidence in policy.get("evidence", []):
+            path_value = evidence.get("path")
+            if path_value and not (ROOT / path_value).exists():
+                fail("Policy Registry policy evidence path missing: " + repr(path_value))
+
+    graph_path = LAZY / "knowledge" / "graph.jsonl"
+    generated_record_index_path = LAZY / "generated" / "record-index.json"
+    graph_before = graph_path.read_bytes() if graph_path.exists() else b""
+    generated_before = generated_record_index_path.read_bytes() if generated_record_index_path.exists() else b""
+    audit_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "audit", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if audit_result.returncode != 0:
+        fail("lazy policy audit failed:\n" + audit_result.stdout + audit_result.stderr)
+    audit_json = json.loads(audit_result.stdout)
+    if audit_json.get("ok") is not True or audit_json.get("policies", 0) < 1:
+        fail("lazy policy audit should pass and include at least one policy: " + audit_result.stdout)
+    list_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "list", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if list_result.returncode != 0 or "record-first-validation" not in [policy.get("id") for policy in json.loads(list_result.stdout).get("policies", [])]:
+        fail("lazy policy list should include record-first-validation:\n" + list_result.stdout + list_result.stderr)
+    explain_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "explain", "--id", "record-first-validation", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if explain_json_result.returncode != 0:
+        fail("lazy policy explain json failed:\n" + explain_json_result.stdout + explain_json_result.stderr)
+    explain_json = json.loads(explain_json_result.stdout)
+    if explain_json.get("canonicalSource") != ".lazy-harness/ssot/policies.json" or "Generated/explain view only" not in explain_json.get("policyBoundary", ""):
+        fail("lazy policy explain json must identify canonical source and generated boundary: " + explain_json_result.stdout)
+    explain_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "explain", "--id", "record-first-validation", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if explain_md_result.returncode != 0 or "Canonical source" not in explain_md_result.stdout or "Generated/explain view only" not in explain_md_result.stdout:
+        fail("lazy policy explain md must render canonical source and generated boundary:\n" + explain_md_result.stdout + explain_md_result.stderr)
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "policy list|audit|explain" not in help_text:
+        fail("lazy help must advertise policy command")
+    if graph_path.exists() and graph_path.read_bytes() != graph_before:
+        fail("lazy policy CLI must not mutate graph.jsonl")
+    if generated_record_index_path.exists() and generated_record_index_path.read_bytes() != generated_before:
+        fail("lazy policy CLI must not mutate generated record-index cache")
+
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in (
         "spec/platform/policy-machinery-v2.md",
+        "framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md",
+        "ssot/policy-registry.md",
+        "ssot/policies.json",
+        "schemas/",
+        "*.schema.json",
+        "scripts/",
+        "*.ts",
         "tests/policy-machinery-v2.md",
         "planning/policy-machinery-v2-baseline-gap-audit.md",
         "spec/platform/project-operating-rulebook.md",

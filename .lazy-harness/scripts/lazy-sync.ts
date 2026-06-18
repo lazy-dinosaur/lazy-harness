@@ -169,6 +169,10 @@ function isCapabilitiesSeedItem(item: ManifestItem): boolean {
   return item.path === 'ssot/capabilities.json'
 }
 
+function isPoliciesSeedItem(item: ManifestItem): boolean {
+  return item.path === 'ssot/policies.json'
+}
+
 function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchanged' {
   if (!existsSync(dest)) {
     copyFile(src, dest)
@@ -211,6 +215,51 @@ function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchange
   ensureDir(dirname(dest))
   writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`, 'utf8')
   log(`  merged ${missing.length} seed capabilities into: ${dest}`)
+  return 'updated'
+}
+
+function mergePoliciesSeed(src: string, dest: string): 'updated' | 'unchanged' {
+  if (!existsSync(dest)) {
+    copyFile(src, dest)
+    return 'updated'
+  }
+
+  let srcData: Record<string, unknown>
+  let destData: Record<string, unknown>
+  try {
+    srcData = JSON.parse(readFileSync(src, 'utf8')) as Record<string, unknown>
+    destData = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
+  } catch (err) {
+    log(`  ⚠ could not merge policies seed: ${(err as Error).message}`)
+    return 'unchanged'
+  }
+
+  const srcPolicies = Array.isArray(srcData.policies) ? srcData.policies : []
+  const destPolicies = Array.isArray(destData.policies) ? destData.policies : []
+  const existingIds = new Set(
+    destPolicies
+      .map((policy) => (policy && typeof policy === 'object' ? (policy as Record<string, unknown>).id : undefined))
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  )
+  const missing = srcPolicies.filter((policy) => {
+    if (!policy || typeof policy !== 'object') return false
+    const id = (policy as Record<string, unknown>).id
+    return typeof id === 'string' && id.length > 0 && !existingIds.has(id)
+  })
+
+  if (missing.length === 0) return 'unchanged'
+  if (DRY) {
+    log(`  [dry] would merge ${missing.length} seed policies into: ${dest}`)
+    return 'updated'
+  }
+
+  const merged: Record<string, unknown> = { ...destData }
+  if (!('$schema' in merged) && '$schema' in srcData) merged.$schema = srcData.$schema
+  if (!('version' in merged) && 'version' in srcData) merged.version = srcData.version
+  merged.policies = [...destPolicies, ...missing]
+  ensureDir(dirname(dest))
+  writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`, 'utf8')
+  log(`  merged ${missing.length} seed policies into: ${dest}`)
   return 'updated'
 }
 
@@ -452,6 +501,12 @@ function syncCategoryA(
       }
       if (isCapabilitiesSeedItem(item)) {
         const result = mergeCapabilitiesSeed(src, dest)
+        if (result === 'updated') updated++
+        else unchanged++
+        continue
+      }
+      if (isPoliciesSeedItem(item)) {
+        const result = mergePoliciesSeed(src, dest)
         if (result === 'updated') updated++
         else unchanged++
         continue

@@ -1,6 +1,6 @@
 # ADR 0044 — Project Operating Rulebook
 
-Status: accepted
+Status: superseded-by-0046
 Date: 2026-06-10
 Layer: ADR
 Related planning: `.lazy-harness/planning/project-operating-rulebook-implementation-plan.md`
@@ -30,6 +30,8 @@ The framework adopts the hybrid model:
 ```text
 rules/*.md -> capabilities.json -> lazy rules/capability resolve -> advisory/default/warn/block ladder
 ```
+
+Superseded note: ADR 0046 selects Policy Machinery V2 Option B. Typed policy records are the canonical source for new behavior policy semantics; `.lazy-harness/rules/**` remains compatibility/generated/explain surface during migration.
 
 ## Consequences
 

@@ -1,0 +1,300 @@
+#!/usr/bin/env bun
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+
+const SCOPES = new Set(['framework-global', 'host-project', 'team-policy', 'adapter'])
+const STAGES = new Set(['turn', 'edit', 'commit', 'push', 'release', 'high-risk-mutation'])
+const LEVELS = new Set(['discover', 'recommend', 'default', 'warn', 'block'])
+const LEVEL_ORDER = ['block', 'warn', 'default', 'recommend', 'discover']
+const EVIDENCE_KINDS = new Set(['record', 'validation-output', 'user-confirmation', 'update-event'])
+const EVENT_TYPES = new Set(['policy-candidate', 'policy-promotion', 'policy-demotion'])
+const FORBIDDEN_KEYS = new Set(['confidence', 'intent', 'risk', 'requiredRead', 'optionalRead', 'gate', 'nextAction', 'candidateMeaning'])
+
+type Format = 'json' | 'md'
+type Severity = 'error' | 'warn'
+
+type PolicyEvidence = {
+  kind: string
+  path?: string
+  summary: string
+}
+
+type Policy = {
+  id: string
+  title: string
+  scope: string
+  stage: string
+  level: string
+  appliesTo: string[]
+  sourceRecord: string
+  capabilityIds?: string[]
+  evidence: PolicyEvidence[]
+  promotion: {
+    requiresConfirmation: boolean
+    allowedTargetLevels: string[]
+  }
+  rollback: {
+    criteria: string[]
+    demotionTarget: string
+  }
+  updateLoop: {
+    eventType: string
+    canonicalByPacketAlone: boolean
+  }
+  explain?: {
+    summary?: string
+    nonCanonicalViews?: string[]
+  }
+  [key: string]: unknown
+}
+
+type PolicyRegistry = {
+  version: number
+  policies: Policy[]
+}
+
+type AuditIssue = {
+  severity: Severity
+  id?: string
+  message: string
+}
+
+function usage(exitCode = 0): never {
+  const out = exitCode === 0 ? console.log : console.error
+  out(`Usage: lazy policy <command> [options]
+
+Commands:
+  list [--format=json|md] [--stage=STAGE] [--level=LEVEL]
+  audit [--format=json|md]
+  explain --id <policy-id> [--format=json|md]
+
+Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
+This CLI is read-only and does not perform runtime enforcement.
+`)
+  process.exit(exitCode)
+}
+
+function value(argv: string[], index: number, flag: string): string {
+  const v = argv[index + 1]
+  if (!v || v.startsWith('--')) {
+    console.error(`Missing value for ${flag}`)
+    process.exit(2)
+  }
+  return v
+}
+
+function parseOptions(argv: string[]): Record<string, string | boolean> {
+  const opts: Record<string, string | boolean> = {}
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '-h' || a === '--help') usage(0)
+    if (a.startsWith('--') && a.includes('=')) {
+      const [k, ...rest] = a.slice(2).split('=')
+      opts[k] = rest.join('=')
+    } else if (a.startsWith('--')) {
+      const k = a.slice(2)
+      if (['format', 'id', 'stage', 'level', 'target'].includes(k)) opts[k] = value(argv, i++, a)
+      else opts[k] = true
+    } else {
+      console.error(`Unknown argument: ${a}`)
+      usage(2)
+    }
+  }
+  return opts
+}
+
+function fmt(opts: Record<string, string | boolean>): Format {
+  const format = String(opts.format || 'md')
+  if (format !== 'md' && format !== 'json') {
+    console.error(`Unsupported format: ${format}`)
+    process.exit(2)
+  }
+  return format
+}
+
+function hostRoot(opts: Record<string, string | boolean>): string {
+  const explicit = typeof opts.target === 'string' ? opts.target : process.env.LAZY_HOST_ROOT
+  return resolve(explicit || process.cwd())
+}
+
+function registryPath(root: string): string {
+  return join(root, '.lazy-harness', 'ssot', 'policies.json')
+}
+
+function loadRegistry(root: string): PolicyRegistry {
+  const path = registryPath(root)
+  if (!existsSync(path)) return { version: 1, policies: [] }
+  const parsed = JSON.parse(readFileSync(path, 'utf8'))
+  if (!parsed || typeof parsed !== 'object') throw new Error(`Policy registry is not an object: ${path}`)
+  return { version: Number(parsed.version || 1), policies: Array.isArray(parsed.policies) ? parsed.policies as Policy[] : [] }
+}
+
+function printJson(data: unknown): void {
+  console.log(JSON.stringify(data, null, 2))
+}
+
+function isRootRelativeLazyPath(path: unknown): path is string {
+  return typeof path === 'string' && path.startsWith('.lazy-harness/') && !path.split('/').includes('..') && !path.startsWith('/')
+}
+
+function walkForbidden(value: unknown, issues: AuditIssue[], id: string, path = '$'): void {
+  if (Array.isArray(value)) {
+    value.forEach((child, idx) => walkForbidden(child, issues, id, `${path}[${idx}]`))
+    return
+  }
+  if (!value || typeof value !== 'object') return
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FORBIDDEN_KEYS.has(key)) issues.push({ severity: 'error', id, message: `forbidden semantic-authority key at ${path}.${key}` })
+    walkForbidden(child, issues, id, `${path}.${key}`)
+  }
+}
+
+function auditPolicy(root: string, policy: Policy): AuditIssue[] {
+  const issues: AuditIssue[] = []
+  const id = typeof policy.id === 'string' ? policy.id : '<missing-id>'
+  if (!/^[a-z][a-z0-9._-]{1,127}$/.test(String(policy.id || ''))) issues.push({ severity: 'error', id, message: 'invalid or missing id' })
+  if (typeof policy.title !== 'string' || !policy.title.trim()) issues.push({ severity: 'error', id, message: 'missing title' })
+  if (!SCOPES.has(policy.scope)) issues.push({ severity: 'error', id, message: `invalid scope: ${policy.scope}` })
+  if (!STAGES.has(policy.stage)) issues.push({ severity: 'error', id, message: `invalid stage: ${policy.stage}` })
+  if (!LEVELS.has(policy.level)) issues.push({ severity: 'error', id, message: `invalid level: ${policy.level}` })
+  if (!Array.isArray(policy.appliesTo) || policy.appliesTo.length === 0) issues.push({ severity: 'error', id, message: 'appliesTo must be non-empty' })
+  if (!isRootRelativeLazyPath(policy.sourceRecord)) issues.push({ severity: 'error', id, message: 'sourceRecord must be root-relative .lazy-harness path' })
+  else if (!existsSync(join(root, policy.sourceRecord))) issues.push({ severity: 'error', id, message: `sourceRecord missing: ${policy.sourceRecord}` })
+
+  if (!Array.isArray(policy.evidence) || policy.evidence.length === 0) issues.push({ severity: 'error', id, message: 'evidence must be non-empty' })
+  else {
+    for (const evidence of policy.evidence) {
+      if (!EVIDENCE_KINDS.has(evidence.kind)) issues.push({ severity: 'error', id, message: `invalid evidence kind: ${evidence.kind}` })
+      if (typeof evidence.summary !== 'string' || !evidence.summary.trim()) issues.push({ severity: 'error', id, message: 'evidence summary required' })
+      if (evidence.path && (!isRootRelativeLazyPath(evidence.path) || !existsSync(join(root, evidence.path)))) issues.push({ severity: 'error', id, message: `evidence path invalid or missing: ${evidence.path}` })
+    }
+  }
+
+  if (!policy.promotion || policy.promotion.requiresConfirmation !== true) issues.push({ severity: 'error', id, message: 'promotion.requiresConfirmation must be true' })
+  if (!policy.rollback || !Array.isArray(policy.rollback.criteria) || policy.rollback.criteria.length === 0) issues.push({ severity: 'error', id, message: 'rollback.criteria must be non-empty' })
+  if (!policy.updateLoop || !EVENT_TYPES.has(policy.updateLoop.eventType)) issues.push({ severity: 'error', id, message: 'updateLoop.eventType invalid' })
+  if (!policy.updateLoop || policy.updateLoop.canonicalByPacketAlone !== false) issues.push({ severity: 'error', id, message: 'updateLoop.canonicalByPacketAlone must be false' })
+  if ((policy.level === 'warn' || policy.level === 'block') && policy.promotion?.requiresConfirmation !== true) issues.push({ severity: 'error', id, message: 'warn/block policies require explicit confirmation' })
+  walkForbidden(policy, issues, id)
+  return issues
+}
+
+function auditRegistry(root: string, registry: PolicyRegistry): AuditIssue[] {
+  const issues: AuditIssue[] = []
+  const seen = new Set<string>()
+  for (const policy of registry.policies) {
+    if (seen.has(policy.id)) issues.push({ severity: 'error', id: policy.id, message: 'duplicate policy id' })
+    seen.add(policy.id)
+    issues.push(...auditPolicy(root, policy))
+  }
+  return issues
+}
+
+function listPolicies(root: string, opts: Record<string, string | boolean>, format: Format): void {
+  const registry = loadRegistry(root)
+  const stage = typeof opts.stage === 'string' ? opts.stage : ''
+  const level = typeof opts.level === 'string' ? opts.level : ''
+  const policies = registry.policies
+    .filter((p) => !stage || p.stage === stage)
+    .filter((p) => !level || p.level === level)
+    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level) || a.id.localeCompare(b.id))
+  if (format === 'json') return printJson({ schemaVersion: 'policy-registry/v1', ok: true, policies })
+  console.log('# Policy registry')
+  console.log('')
+  if (!policies.length) {
+    console.log('_No policies matched._')
+    return
+  }
+  for (const policy of policies) {
+    console.log(`- **${policy.id}** (${policy.level}, ${policy.stage}) — ${policy.title}`)
+  }
+}
+
+function explainPolicy(policy: Policy, format: Format): void {
+  const explanation = {
+    schemaVersion: 'policy-explain/v1',
+    id: policy.id,
+    title: policy.title,
+    canonicalSource: '.lazy-harness/ssot/policies.json',
+    sourceRecord: policy.sourceRecord,
+    summary: policy.explain?.summary || policy.title,
+    scope: policy.scope,
+    stage: policy.stage,
+    level: policy.level,
+    appliesTo: policy.appliesTo,
+    capabilities: policy.capabilityIds || [],
+    evidence: policy.evidence,
+    promotion: policy.promotion,
+    rollback: policy.rollback,
+    updateLoop: policy.updateLoop,
+    nonCanonicalViews: policy.explain?.nonCanonicalViews || [],
+    policyBoundary: 'Generated/explain view only; canonical policy semantics live in .lazy-harness/ssot/policies.json.',
+  }
+  if (format === 'json') return printJson(explanation)
+  console.log(`# Policy: ${policy.id}`)
+  console.log('')
+  console.log(`- Title: ${policy.title}`)
+  console.log(`- Canonical source: \`.lazy-harness/ssot/policies.json\``)
+  console.log(`- Source record: \`${policy.sourceRecord}\``)
+  console.log(`- Scope/stage/level: ${policy.scope} / ${policy.stage} / ${policy.level}`)
+  console.log(`- Summary: ${explanation.summary}`)
+  console.log(`- Boundary: ${explanation.policyBoundary}`)
+  if (policy.capabilityIds?.length) console.log(`- Capabilities: ${policy.capabilityIds.join(', ')}`)
+  console.log('')
+  console.log('## Applies to')
+  for (const item of policy.appliesTo) console.log(`- ${item}`)
+  console.log('')
+  console.log('## Evidence')
+  for (const item of policy.evidence) console.log(`- ${item.kind}${item.path ? ` \`${item.path}\`` : ''}: ${item.summary}`)
+  console.log('')
+  console.log('## Promotion / rollback')
+  console.log(`- Requires confirmation: ${policy.promotion.requiresConfirmation}`)
+  console.log(`- Allowed target levels: ${policy.promotion.allowedTargetLevels.join(', ')}`)
+  console.log(`- Rollback target: ${policy.rollback.demotionTarget}`)
+  for (const criterion of policy.rollback.criteria) console.log(`  - ${criterion}`)
+}
+
+function audit(root: string, format: Format): void {
+  const registry = loadRegistry(root)
+  const issues = auditRegistry(root, registry)
+  const ok = !issues.some((issue) => issue.severity === 'error')
+  if (format === 'json') return printJson({ schemaVersion: 'policy-audit/v1', ok, issues, policies: registry.policies.length })
+  console.log('# Policy audit')
+  console.log('')
+  console.log(`- ok: ${ok}`)
+  console.log(`- policies: ${registry.policies.length}`)
+  if (issues.length) {
+    console.log('')
+    console.log('## Issues')
+    for (const issue of issues) console.log(`- ${issue.severity}${issue.id ? ` ${issue.id}` : ''}: ${issue.message}`)
+  }
+  if (!ok) process.exitCode = 1
+}
+
+function main(): void {
+  const [command = 'help', ...rest] = process.argv.slice(2)
+  if (command === 'help' || command === '--help' || command === '-h') usage(0)
+  const opts = parseOptions(rest)
+  const root = hostRoot(opts)
+  const format = fmt(opts)
+  if (command === 'list') return listPolicies(root, opts, format)
+  if (command === 'audit') return audit(root, format)
+  if (command === 'explain') {
+    const id = typeof opts.id === 'string' ? opts.id : ''
+    if (!id) {
+      console.error('policy explain requires --id <policy-id>')
+      process.exit(2)
+    }
+    const registry = loadRegistry(root)
+    const policy = registry.policies.find((item) => item.id === id)
+    if (!policy) {
+      console.error(`policy not found: ${id}`)
+      process.exit(1)
+    }
+    return explainPolicy(policy, format)
+  }
+  console.error(`Unknown policy command: ${command}`)
+  usage(2)
+}
+
+main()

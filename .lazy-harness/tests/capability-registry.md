@@ -30,6 +30,7 @@ Phase 2 add must:
 - append/upsert knowledge graph capability rows
 - preserve repeated multi-value flags for `--applies-when`, `--action`, and `--tag`
 - preserve rulebook-specific fields: `preferredActions`, `discouragedActions`, `rulebookRecord`, and `requiresReasonForBypass`
+- allow Option B `policyIds` links from capabilities to typed policy registry records
 - resolve capabilities by `discouragedActions` so raw commands can surface preferred replacements
 - keep framework-owned seed capability `sourceRecord` files in the Category A sync manifest so host `lazy capability audit` remains green after lazy-sync merges missing framework capability ids, while excluding host-owned capability source records from this framework manifest rule
 
@@ -45,7 +46,7 @@ Candidate detection must:
 - DDD: no domain/business rule.
 - SDD: `.lazy-harness/spec/platform/capability-resolution.md`.
 - BDD: agents should discover/default capabilities without surprising hard enforcement.
-- SSOT: `.lazy-harness/ssot/capability-registry.md` and `.lazy-harness/ssot/capabilities.json`.
+- SSOT: `.lazy-harness/ssot/capability-registry.md`, `.lazy-harness/ssot/capabilities.json`, and Option B links to `.lazy-harness/ssot/policies.json`.
 - Sync: `.lazy-harness/manifests/init-categories.json` must include framework capability sourceRecord files.
 - ADR: `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`.
 

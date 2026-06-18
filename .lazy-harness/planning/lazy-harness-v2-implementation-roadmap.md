@@ -308,6 +308,8 @@ Make project/team rules practical, flexible, and stage-aware without keeping a h
 
 Record-first baseline/contract slice completed on 2026-06-18: `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md`, `.lazy-harness/spec/platform/policy-machinery-v2.md`, `.lazy-harness/tests/policy-machinery-v2.md`, and `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json`.
 
+User-confirmed Option B implementation slice completed on 2026-06-18: typed behavior policies are canonical in `.lazy-harness/ssot/policies.json`, `lazy policy list/audit/explain` provides a read-only generated/explain view, and `.lazy-harness/rules/**` is compatibility/generated surface during migration.
+
 This slice is static and does not add runtime enforcement, capability schema migration, or rulebook deprecation.
 
 ### Current baseline

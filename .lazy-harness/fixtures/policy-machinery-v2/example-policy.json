@@ -1,6 +1,6 @@
 {
   "schemaVersion": "policy-machinery-v2/v1",
-  "id": "policy-record-first-validation",
+  "id": "record-first-validation",
   "title": "Record-first validation evidence",
   "scope": "framework-global",
   "stage": "turn",
@@ -10,7 +10,6 @@
     "making_validation_claims"
   ],
   "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
-  "rulebookRecord": ".lazy-harness/rules/README.md",
   "capabilityIds": [
     "lazy-evidence-capsule"
   ],
@@ -44,8 +43,16 @@
     "eventType": "policy-candidate",
     "canonicalByPacketAlone": false
   },
+  "explain": {
+    "summary": "Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests.",
+    "nonCanonicalViews": [
+      ".lazy-harness/rules/README.md"
+    ]
+  },
   "storageDecision": {
-    "current": "hybrid-rulebook-plus-capability-registry",
-    "requiresOptionGateBeforeMigration": true
+    "current": "typed-policy-canonical-plus-capability-bindings",
+    "rulebookMarkdown": "compatibility-generated-explain-view",
+    "requiresOptionGateBeforeMigration": false,
+    "selectedBy": "user-confirmed-option-b"
   }
 }

@@ -468,6 +468,16 @@
           "description": "Framework seed Capability Registry. lazy-sync merges missing source capability ids into host-owned registries without overwriting host-local entries."
         },
         {
+          "path": "ssot/policy-registry.md",
+          "kind": "file",
+          "description": "SSOT for Policy Machinery Option B typed behavior policy registry. Hosts need this sourceRecord for typed policies.json audit."
+        },
+        {
+          "path": "ssot/policies.json",
+          "kind": "file",
+          "description": "Framework seed typed Policy Registry. lazy-sync merges missing source policy ids into host-owned registries without overwriting host-local entries."
+        },
+        {
           "path": "spec/platform/purpose-scoped-retrieval.md",
           "kind": "file",
           "description": "SDD sourceRecord for framework retrieval-purpose capabilities seeded into host capabilities.json. Hosts need it so lazy capability audit passes after capability seed merge."
@@ -586,6 +596,12 @@
           "kind": "file",
           "description": "Operational framework ADR canonical record referenced by Project Map update-loop adr-decision fixture. Synced under framework/operational-adrs so host decisions/ remains host-owned and ADR numbering stays contiguous.",
           "targetPath": "framework/operational-adrs/0041-organic-hybrid-rule-guidance.md"
+        },
+        {
+          "path": "decisions/0046-policy-machinery-typed-policy-canonical.md",
+          "kind": "file",
+          "description": "Operational framework ADR for Policy Machinery Option B typed policy canonical storage. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md"
         },
         {
           "path": "spec/platform/policy-machinery-v2.md",

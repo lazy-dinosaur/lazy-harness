@@ -134,6 +134,13 @@
             "type": "string",
             "minLength": 1
           },
+          "policyIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "requiresReasonForBypass": {
             "type": "boolean"
           }

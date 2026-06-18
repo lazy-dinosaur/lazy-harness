@@ -18,12 +18,12 @@ Related SSOT: `.lazy-harness/ssot/capability-registry.md`
   - deciding whether to change rulebook or capability registry storage
   - promoting project operating policies beyond discover/recommend
 - Must:
-  - preserve existing Phase 0-2 rulebook and capability CLIs
-  - keep rulebook storage decision open until an explicit option gate
+- preserve existing Phase 0-2 rulebook/capability CLIs during migration
+- implement user-confirmed Option B: typed policy registry is canonical
   - align policy candidate/promotion/demotion with Project Map update-loop semantics
   - keep runtime enforcement out of the first Phase 3 slice
 - Must not:
-  - silently replace `.lazy-harness/rules/**`
+- keep adding new canonical policy semantics only to `.lazy-harness/rules/**`
   - silently rewrite `.lazy-harness/ssot/capabilities.json` schema
   - promote warn/block policies without confirmation and regression tests
 - Record completion:
@@ -72,7 +72,7 @@ This slice implements only:
 3. Static fixture for a discover-level policy packet.
 4. Self-test/manifest/graph coverage.
 
-It intentionally does not implement:
+It intentionally did not implement:
 
 - new runtime writer,
 - new hook enforcement,
@@ -80,14 +80,16 @@ It intentionally does not implement:
 - rulebook deprecation,
 - automatic warn/block promotion.
 
-## Open option gate for later
+## User-confirmed storage decision
 
-Before a later storage migration, ask:
+User selected Option B on 2026-06-18:
 
-1. (Recommended) Keep rulebook as lightweight human-readable docs and capabilities as machine bindings.
-2. Absorb rulebook content into typed policy/capability records.
-3. Deprecate rulebook after migration.
-4. Type your own storage architecture.
+1. Typed policy records are canonical.
+2. Capability registry remains machine binding for commands/actions/tools.
+3. Rulebook markdown becomes compatibility/generated/explain surface during migration.
+4. Runtime warn/block enforcement remains a later promoted slice.
+
+First implementation slice adds `.lazy-harness/ssot/policies.json`, `.lazy-harness/schemas/policies.schema.json`, and read-only `lazy policy list/audit/explain`.
 
 ## Implementation map
 
@@ -96,9 +98,14 @@ Before a later storage migration, ask:
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md`
   - `.lazy-harness/spec/platform/policy-machinery-v2.md`
   - `.lazy-harness/tests/policy-machinery-v2.md`
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md`
+  - `.lazy-harness/ssot/policy-registry.md`
 - Fixture:
   - `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json`
 - Source/test:
+  - `.lazy-harness/scripts/policy.ts`
+  - `.lazy-harness/ssot/policies.json`
+  - `.lazy-harness/schemas/policies.schema.json`
   - `.lazy-harness/scripts/self-test.py#check_policy_machinery_v2`
   - `.lazy-harness/manifests/init-categories.json`
 - Cross-layer links:
@@ -108,8 +115,8 @@ Before a later storage migration, ask:
 
 ## Discovery capture
 
-- Captured because Phase 3 introduced a storage architecture decision and a future runtime/schema backlog.
-- No candidate row is added because this planning record itself carries the backlog and open option gate.
+- Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
+- User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
 
 ## Rule placement
 

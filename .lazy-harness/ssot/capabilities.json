@@ -49,6 +49,9 @@
         "validation",
         "checklist",
         "phase5"
+      ],
+      "policyIds": [
+        "record-first-validation"
       ]
     },
     {
