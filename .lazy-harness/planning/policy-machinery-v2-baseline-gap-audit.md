@@ -105,7 +105,9 @@ User then confirmed proceeding with the next slice: add typed policy coverage fo
 
 User then confirmed proceeding with rulebook semantic retirement. The slice keeps `.lazy-harness/rules/**` and `lazy rules` for compatibility, but redefines `lazy rules` JSON/Markdown output to state that canonical behavior policy semantics live in `.lazy-harness/ssot/policies.json` and that rulebook canonical semantics are retired.
 
-User then confirmed proceeding with block runtime preparation and deferred backlog capture. The slice adds `lazy policy block-readiness` as a preflight-only check. Current source is intentionally not ready because no `level=block` policy exists. A temp fixture proves a complete block policy can pass readiness without installing lifecycle hooks, and missing runtime fixture evidence fails.
+User then confirmed proceeding with block runtime preparation and deferred backlog capture. The slice adds `lazy policy block-readiness` as a preflight-only check. A temp fixture proves a complete block policy can pass readiness without installing lifecycle hooks, and missing runtime fixture evidence fails.
+
+User then confirmed proceeding with the first `level=block` policy promotion readiness slice. The slice adds `validation-evidence-block` for the narrow boundary `claiming_validation_complete_without_evidence`, adds a hard-stop promotion section to `.lazy-harness/spec/platform/policy-machinery-v2.md`, adds fixture `.lazy-harness/tests/policy-block-validation-evidence.md`, and makes source-host `lazy policy block-readiness --strict --format=json` pass while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`.
 
 ## Rule placement
 
@@ -114,6 +116,15 @@ User then confirmed proceeding with block runtime preparation and deferred backl
 - Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
 - Why not AGENTS.md: this is a Policy Machinery implementation contract, not a general session instruction.
 - Why not `.jcode`: this behavior is shared framework policy machinery, not local/private Jcode wiring.
+- Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: `validation-evidence-block` is the first approved block-level policy, but lifecycle hard-stop hook installation remains a separate future slice.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
+- Why not AGENTS.md: this is a typed Policy Machinery runtime-readiness policy, not general session prompt behavior.
+- Why not `.jcode`: this is shared framework policy machinery, not local/private Jcode wiring.
 - Confirmation: user-confirmed
 
 ## Implementation map
@@ -143,7 +154,7 @@ User then confirmed proceeding with block runtime preparation and deferred backl
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now exists as preflight-only; remaining future work is an explicitly confirmed block policy promotion plus lifecycle hard-stop integration and broader host dogfood.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now passes for the first narrow block policy, but lifecycle hard-stop integration remains future work and requires explicit confirmation plus broader host dogfood.
 
 ## Rule placement
 

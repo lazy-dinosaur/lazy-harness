@@ -616,7 +616,12 @@
         {
           "path": "tests/policy-machinery-v2.md",
           "kind": "file",
-          "description": "TDD record for Policy Machinery V2 static packet fixture, hybrid storage preservation, and no-runtime-enforcement boundary."
+          "description": "TDD record for Policy Machinery V2 static packet fixture, policy registry, warn/block readiness, rulebook compatibility, and no-hook-enforcement boundary."
+        },
+        {
+          "path": "tests/policy-block-validation-evidence.md",
+          "kind": "file",
+          "description": "TDD fixture record for first validation-evidence level=block policy readiness without lifecycle hook installation."
         },
         {
           "path": "planning/policy-machinery-v2-baseline-gap-audit.md",

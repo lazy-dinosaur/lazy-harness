@@ -8015,11 +8015,12 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_policy_cli_read_only",
         "policy_machinery_policy_resolve_advisory_only",
         "policy_machinery_warn_runtime_explicit_context",
-        "policy_machinery_no_block_runtime",
+        "policy_machinery_no_block_hook_runtime",
         "policy_machinery_generated_rulebook_view",
         "policy_machinery_rulebook_retire_readiness_source_host_ready",
         "policy_machinery_rulebook_retire_readiness_positive_fixture",
         "policy_machinery_block_runtime_readiness_preflight",
+        "policy_machinery_first_block_policy_readiness",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -8034,6 +8035,7 @@ def check_policy_machinery_v2() -> None:
         "deterministic generated/explain rulebook view",
         "rulebook retire-readiness preflight",
         "block runtime preparation",
+        "first `level=block` policy promotion readiness",
         "Discovery capture",
     ):
         if expected not in audit:
@@ -8057,6 +8059,7 @@ def check_policy_machinery_v2() -> None:
         "lazy policy render-rulebook --write --format=json",
         "lazy policy retire-readiness --format=json",
         "lazy policy block-readiness --format=json",
+        "lazy policy block-readiness --strict --format=json",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
@@ -8159,8 +8162,17 @@ def check_policy_machinery_v2() -> None:
         walk(policy, f"policy[{policy.get('id')}]")
         if policy.get("updateLoop", {}).get("canonicalByPacketAlone") is not False:
             fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy.get("id")))
-        if policy.get("level") == "block":
-            fail("Policy Registry first warn runtime slice must not include block policies: " + repr(policy.get("id")))
+        if policy.get("level") == "block" and policy.get("id") != "validation-evidence-block":
+            fail("Policy Registry may only include the first approved validation-evidence block policy in this slice: " + repr(policy.get("id")))
+        if policy.get("id") == "validation-evidence-block":
+            runtime = policy.get("runtime", {})
+            if runtime.get("blocks") is not True or runtime.get("requiresExplicitContext") is not True or runtime.get("fixture") != ".lazy-harness/tests/policy-block-validation-evidence.md":
+                fail("validation-evidence-block must carry explicit block-readiness runtime metadata")
+            if "block" not in policy.get("promotion", {}).get("allowedTargetLevels", []):
+                fail("validation-evidence-block must be explicitly allowed to target block")
+            evidence_kinds = {evidence.get("kind") for evidence in policy.get("evidence", [])}
+            if not {"user-confirmation", "validation-output"}.issubset(evidence_kinds):
+                fail("validation-evidence-block must include user-confirmation and validation-output evidence")
         if policy.get("sourceRecord") and not (ROOT / policy.get("sourceRecord")).exists():
             fail("Policy Registry policy sourceRecord missing: " + repr(policy.get("sourceRecord")))
         for evidence in policy.get("evidence", []):
@@ -8238,7 +8250,7 @@ def check_policy_machinery_v2() -> None:
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
-    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning"):
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
         if expected not in render_md_result.stdout:
             fail("lazy policy render-rulebook md missing expected text: " + expected)
     render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -8283,18 +8295,20 @@ def check_policy_machinery_v2() -> None:
     if block_readiness.returncode != 0:
         fail("lazy policy block-readiness non-strict should report without failing:\n" + block_readiness.stdout + block_readiness.stderr)
     block_readiness_json = json.loads(block_readiness.stdout)
-    if block_readiness_json.get("schemaVersion") != "policy-block-readiness/v1" or block_readiness_json.get("ready") is not False:
-        fail("current source should not be block-runtime ready before promoted block policy exists: " + block_readiness.stdout)
+    if block_readiness_json.get("schemaVersion") != "policy-block-readiness/v1" or block_readiness_json.get("ready") is not True:
+        fail("current source should be block-runtime ready after validation-evidence-block promotion evidence exists: " + block_readiness.stdout)
     if block_readiness_json.get("hardStopHookInstalled") is not False or block_readiness_json.get("lifecycleMutation") is not False:
         fail("block-readiness must not install lifecycle hard-stop hooks: " + block_readiness.stdout)
-    if block_readiness_json.get("counts", {}).get("blockPolicies") != 0 or not any("no block-level policies" in finding.get("message", "") for finding in block_readiness_json.get("findings", [])):
-        fail("block-readiness should explain current source has no block-level policies: " + block_readiness.stdout)
+    if block_readiness_json.get("counts", {}).get("blockPolicies") != 1 or block_readiness_json.get("counts", {}).get("readyBlockPolicies") != 1 or block_readiness_json.get("counts", {}).get("blockers") != 0:
+        fail("block-readiness should report exactly one ready source block policy and zero blockers: " + block_readiness.stdout)
+    if not any(finding.get("policyId") == "validation-evidence-block" and finding.get("severity") == "info" for finding in block_readiness_json.get("findings", [])):
+        fail("block-readiness should identify validation-evidence-block as ready: " + block_readiness.stdout)
     strict_block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if strict_block_readiness.returncode == 0:
-        fail("lazy policy block-readiness --strict should fail before promoted block policy exists")
+    if strict_block_readiness.returncode != 0:
+        fail("lazy policy block-readiness --strict should pass after validation-evidence-block promotion evidence exists:\n" + strict_block_readiness.stdout + strict_block_readiness.stderr)
     strict_block_json = json.loads(strict_block_readiness.stdout)
-    if strict_block_json.get("ready") is not False or strict_block_json.get("counts", {}).get("blockers", 0) < 1:
-        fail("strict block-readiness should report blockers in current source: " + strict_block_readiness.stdout)
+    if strict_block_json.get("ready") is not True or strict_block_json.get("counts", {}).get("blockers") != 0:
+        fail("strict block-readiness should report source ready with zero blockers: " + strict_block_readiness.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-block-readiness-") as tmp:
         temp_root = pathlib.Path(tmp)
         (temp_root / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
@@ -8455,9 +8469,11 @@ Fixture implementation map.
             ".lazy-harness/ssot/capabilities.json",
             ".lazy-harness/rules/README.md",
             ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            ".lazy-harness/spec/platform/guidance-ladder.md",
             ".lazy-harness/spec/platform/project-operating-rulebook.md",
             ".lazy-harness/ssot/policy-registry.md",
             ".lazy-harness/tests/policy-machinery-v2.md",
+            ".lazy-harness/tests/policy-block-validation-evidence.md",
             ".lazy-harness/tests/project-operating-rulebook.md",
             ".lazy-harness/spec/platform/evidence-capsule-standard.md",
             ".lazy-harness/spec/platform/project-map-update-loop-v2.md",

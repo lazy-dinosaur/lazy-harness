@@ -135,6 +135,25 @@ User confirmed the next step after rulebook semantic retirement: prepare block r
   - rollback criteria.
 - This slice does not call lifecycle helpers, emit STOP output, mutate hooks, or install a hard-stop.
 
+Source-host status after the first block promotion readiness slice:
+
+- `validation-evidence-block` is the first `level=block` policy.
+- It is scoped to `claiming_validation_complete_without_evidence` and equivalent non-trivial completion claims without evidence.
+- `lazy policy block-readiness --strict --format=json` passes.
+- `hardStopHookInstalled=false` and `lifecycleMutation=false` remain required until a later lifecycle integration slice.
+
+## Hard-stop promotion
+
+- Status: proposed
+- Boundary: `validation-evidence-block` only covers explicit validation-complete claims without attached record/test evidence.
+- Scope: framework-global
+- User confirmation: user confirmed proceeding with the first `level=block` policy promotion readiness slice on 2026-06-18, after block-readiness preflight existed and before lifecycle hook installation.
+- Evidence: repeated work-unit completion flows need concrete validation evidence before claiming completion; Policy Machinery TDD protects source-host readiness and negative missing-fixture cases.
+- Existing softer coverage: `record-first-validation` discover policy and `validation-evidence-warning` warn-only runtime exist, but the block policy is prepared for the narrower boundary where a final validation-complete claim lacks evidence.
+- Fixture: .lazy-harness/tests/policy-block-validation-evidence.md
+- Narrowness: only `claiming_validation_complete_without_evidence` and equivalent non-trivial completion claims without evidence are in scope; generic user text, raw assistant text, and advisory/warn flows remain out of scope.
+- Rollback: demote `validation-evidence-block` to `warn` or `recommend`, remove block runtime metadata, or retire the policy before any lifecycle hook integration.
+
 ## Warn-only runtime slice
 
 User confirmed the next step after advisory resolution: warn-only runtime.
@@ -242,6 +261,8 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
   - `.lazy-harness/scripts/policy.ts` — exposes `block-readiness` preflight for block runtime preparation without lifecycle mutation.
+  - `.lazy-harness/ssot/policies.json` — contains `validation-evidence-block` as the first readiness-complete block policy.
+  - `.lazy-harness/tests/policy-block-validation-evidence.md` — fixture record for allow/block cases and no-hook readiness.
   - `.lazy-harness/scripts/rulebook.ts` — exposes `rulebook-compatibility/v1` boundary metadata after semantic retirement.
   - `.lazy-harness/ssot/policies.json` — includes `project-operating-rulebook-policy` for active rulebook compatibility coverage.
   - `.lazy-harness/ssot/capabilities.json` — links `project-operating-rulebook.policyIds` to `project-operating-rulebook-policy`.
@@ -265,6 +286,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy rules audit --strict --format=json`
   - `lazy rules resolve --intent adding_project_operating_policy --format=json`
   - `lazy policy block-readiness --format=json`
+  - `lazy policy block-readiness --strict --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

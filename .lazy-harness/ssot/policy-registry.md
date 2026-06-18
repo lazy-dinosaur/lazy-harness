@@ -80,7 +80,7 @@ Warn runtime is a separate explicit-context mode:
 - `check-policy-warn-runtime.py` may emit a response.completed `WARN` only when payload contains structured `policy_context` / `policyContext` with `stage` and/or `appliesTo`.
 - `acknowledgedPolicyWarnings` suppresses already-accepted warning ids.
 - Warn output is not a block and cannot prevent work from continuing.
-- Block output remains unimplemented.
+- Block output/hook behavior remains unimplemented; `validation-evidence-block` is readiness-only until a later lifecycle integration slice.
 
 ## Relationship to capabilities
 
@@ -163,7 +163,13 @@ The preflight is non-mutating and must report:
 
 A block policy is ready only with user confirmation evidence, validation-output evidence, active/proposed hard-stop promotion metadata, explicit-context runtime metadata, documented bypass behavior, an existing runtime fixture, and rollback criteria.
 
-The source host currently has no `level=block` policies, so strict block-readiness is expected to fail until a later user-confirmed promotion slice adds one.
+The source host currently has one `level=block` readiness policy:
+
+```text
+validation-evidence-block
+```
+
+Strict block-readiness is expected to pass for this readiness-only policy while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`. Lifecycle hard-stop integration remains a separate future slice.
 
 ## Implementation map
 

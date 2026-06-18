@@ -116,6 +116,72 @@
       }
     },
     {
+      "id": "validation-evidence-block",
+      "title": "Block validation-complete claims without evidence",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "block",
+      "appliesTo": [
+        "claiming_validation_complete_without_evidence",
+        "closing_non_trivial_work_unit_without_record_or_test_evidence"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
+      "capabilityIds": [
+        "lazy-evidence-capsule"
+      ],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User confirmed proceeding with the first level=block policy promotion readiness slice on 2026-06-18."
+        },
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/policy-block-validation-evidence.md",
+          "summary": "TDD fixture documents allow/block cases and protects block-readiness without lifecycle hook installation."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/guidance-ladder.md",
+          "summary": "Guidance Ladder requires hard stops to be narrow, reversible, fixture-protected, and user-confirmed."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/ssot/policy-registry.md",
+          "summary": "Policy Registry SSOT requires block-readiness before lifecycle hard-stop integration."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "block"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "The block boundary is too broad or noisy in dogfood use.",
+          "The runtime fixture fails to cover both allow and block cases.",
+          "A lifecycle integration slice cannot preserve explicit-context and bypass behavior."
+        ],
+        "demotionTarget": "recommend"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "runtime": {
+        "blocks": true,
+        "requiresExplicitContext": true,
+        "bypass": "Bypass requires explicit acknowledgement plus concrete validation evidence or a rollback/demotion decision.",
+        "fixture": ".lazy-harness/tests/policy-block-validation-evidence.md"
+      },
+      "explain": {
+        "summary": "Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice.",
+        "nonCanonicalViews": [
+          ".lazy-harness/generated/policy-rulebook.md"
+        ]
+      }
+    },
+    {
       "id": "validation-evidence-warning",
       "title": "Warn when validation evidence is missing",
       "scope": "framework-global",
