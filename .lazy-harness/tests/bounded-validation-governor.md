@@ -22,7 +22,7 @@ Date: 2026-06-18
 | `validate_progress_off` | `lazy validate --plan fast --progress=off --format=json` | Stdout remains parseable JSON and stderr contains no `JCODE_PROGRESS` rows. |
 | `validate_cache_miss_then_hit` | Two `lazy validate --plan standard --format=json` runs with identical conservative fingerprint and isolated `LAZY_RUNTIME_ROOT` | First run stores full-regression evidence, second run reports `evidenceReused: true` and full-regression step status `reused`. |
 | `validate_cache_disabled` | `lazy validate --plan standard --evidence-cache=off --format=json` after cache exists | Full-regression step is not `reused`, and `evidenceReused: false`. |
-| `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and default files are gitignored. |
+| `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and the default path is ignored by the active git ignore rules in both source and installed hosts. |
 
 ## Acceptance assertions
 

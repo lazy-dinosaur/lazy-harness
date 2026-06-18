@@ -1530,9 +1530,15 @@ def check_bounded_validation_governor_cli() -> None:
             os.environ["LAZY_RUNTIME_ROOT"] = old_runtime
         shutil.rmtree(cache_runtime, ignore_errors=True)
 
-    gitignore_text = (ROOT / ".gitignore").read_text(encoding="utf-8")
-    if ".lazy-harness/state/validation-evidence-cache.json" not in gitignore_text:
-        fail("default validation evidence cache path should be gitignored")
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-q", ".lazy-harness/state/validation-evidence-cache.json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if ignored.returncode != 0:
+        fail("default validation evidence cache path should be ignored by active git ignore rules")
 
     print("✓ bounded validation governor CLI ok")
 
