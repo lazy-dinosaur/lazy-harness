@@ -7927,12 +7927,15 @@ def check_policy_machinery_v2() -> None:
     policy_registry_path = LAZY / "ssot" / "policies.json"
     policy_schema_path = LAZY / "schemas" / "policies.schema.json"
     policy_cli_path = LAZY / "scripts" / "policy.ts"
+    policy_warn_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "check-policy-warn-runtime.py"
+    response_hook_path = LAZY / "hooks" / "lifecycle" / "on-response-completed.sh"
+    lifecycle_check_path = LAZY / "scripts" / "lifecycle-check.py"
     fixture_path = LAZY / "fixtures" / "policy-machinery-v2" / "example-policy.json"
     manifest_path = LAZY / "manifests" / "init-categories.json"
     capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
     rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
 
-    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
+    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
         if not path.exists():
             fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
 
@@ -7942,6 +7945,9 @@ def check_policy_machinery_v2() -> None:
     adr = adr_path.read_text(encoding="utf-8")
     policy_ssot = policy_ssot_path.read_text(encoding="utf-8")
     policy_cli = policy_cli_path.read_text(encoding="utf-8")
+    policy_warn_helper = policy_warn_helper_path.read_text(encoding="utf-8")
+    response_hook = response_hook_path.read_text(encoding="utf-8")
+    lifecycle_check = lifecycle_check_path.read_text(encoding="utf-8")
     capability_ssot = capability_ssot_path.read_text(encoding="utf-8")
     rulebook_sdd = rulebook_sdd_path.read_text(encoding="utf-8")
 
@@ -7951,9 +7957,13 @@ def check_policy_machinery_v2() -> None:
         "Rulebook markdown under `.lazy-harness/rules/**` is compatibility/generated/explain surface during migration.",
         "`lazy policy resolve` is the first resolver slice",
         "enforcement = advisory-only",
+        "## Warn-only runtime slice",
+        "explicit structured `policy_context`",
+        "never emits `STOP`",
         "canonicalByPacketAlone: false",
         "lazy policy audit --format=json",
         "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
+        "lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json",
         "self-test.py#check_policy_machinery_v2",
     ):
         if expected not in sdd:
@@ -7966,7 +7976,8 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_option_b_storage",
         "policy_machinery_policy_cli_read_only",
         "policy_machinery_policy_resolve_advisory_only",
-        "policy_machinery_no_runtime_enforcement",
+        "policy_machinery_warn_runtime_explicit_context",
+        "policy_machinery_no_block_runtime",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -7977,6 +7988,7 @@ def check_policy_machinery_v2() -> None:
         "Gap matrix",
         "User-confirmed storage decision",
         "read-only `lazy policy list/audit/explain`",
+        "explicit-context warn-only runtime",
         "Discovery capture",
     ):
         if expected not in audit:
@@ -7994,16 +8006,28 @@ def check_policy_machinery_v2() -> None:
         "canonical typed policy registry",
         "`.lazy-harness/rules/**` is a compatibility/generated/explain surface",
         "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
+        "lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json",
+        "Warn runtime is a separate explicit-context mode",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
             fail("Policy Registry SSOT missing invariant: " + expected)
-    for forbidden in ("execSync", "writeFileSync", "appendJsonlStable", "warn/block runtime behavior"):
+    for forbidden in ("execSync", "writeFileSync", "appendJsonlStable"):
         if forbidden in policy_cli:
             fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
-    for expected in ("Policy Machinery Option B", "Resolve is advisory-only", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
+    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
         if expected not in policy_cli:
             fail("policy CLI missing Option B explain boundary: " + expected)
+    for expected in ("never classifies raw user/assistant text", "policy_context", "WARN. Policy Machinery warn-only runtime", "acknowledgedPolicyWarnings"):
+        if expected not in policy_warn_helper:
+            fail("policy warn helper missing safety invariant: " + expected)
+    if "STOP" in policy_warn_helper:
+        fail("policy warn helper must never contain STOP output")
+    if "last_user_message" in policy_warn_helper or "assistant_response" in policy_warn_helper:
+        fail("policy warn helper must not inspect raw user/assistant text")
+    for text, label in ((response_hook, "response.completed hook"), (lifecycle_check, "lifecycle-check orchestrator")):
+        if "check-policy-warn-runtime.py" not in text:
+            fail(label + " must include policy warn runtime helper")
 
     if "Capability kind and enforcement level are independent." not in capability_ssot:
         fail("Policy Machinery V2 depends on capability kind/level SSOT invariant")
@@ -8016,6 +8040,8 @@ def check_policy_machinery_v2() -> None:
     policy_ids = [policy.get("id") for policy in policy_registry.get("policies", [])]
     if "record-first-validation" not in policy_ids:
         fail("Policy Registry missing record-first-validation seed policy")
+    if "validation-evidence-warning" not in policy_ids:
+        fail("Policy Registry missing validation-evidence-warning warn policy")
     if policy_ids != sorted(policy_ids):
         fail("Policy Registry policies must be deterministic id-sorted")
     policy_schema = json.loads(policy_schema_path.read_text(encoding="utf-8"))
@@ -8078,6 +8104,8 @@ def check_policy_machinery_v2() -> None:
         walk(policy, f"policy[{policy.get('id')}]")
         if policy.get("updateLoop", {}).get("canonicalByPacketAlone") is not False:
             fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy.get("id")))
+        if policy.get("level") == "block":
+            fail("Policy Registry first warn runtime slice must not include block policies: " + repr(policy.get("id")))
         if policy.get("sourceRecord") and not (ROOT / policy.get("sourceRecord")).exists():
             fail("Policy Registry policy sourceRecord missing: " + repr(policy.get("sourceRecord")))
         for evidence in policy.get("evidence", []):
@@ -8124,6 +8152,34 @@ def check_policy_machinery_v2() -> None:
     invalid_max_level = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--max-level", "warn", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if invalid_max_level.returncode == 0:
         fail("lazy policy resolve must reject warn/block max-level in advisory slice")
+    warn_resolve_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--runtime", "warn", "--stage", "turn", "--applies-to", "making_validation_claims", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if warn_resolve_result.returncode != 0:
+        fail("lazy policy resolve --runtime warn failed:\n" + warn_resolve_result.stdout + warn_resolve_result.stderr)
+    warn_resolve = json.loads(warn_resolve_result.stdout)
+    if warn_resolve.get("enforcement") != "warn-only" or warn_resolve.get("runtime") != "warn":
+        fail("warn runtime resolver must be warn-only: " + warn_resolve_result.stdout)
+    warn_matches = warn_resolve.get("matches", [])
+    if "validation-evidence-warning" not in [match.get("id") for match in warn_matches]:
+        fail("warn runtime resolver should surface validation-evidence-warning: " + warn_resolve_result.stdout)
+    for match in warn_matches:
+        if match.get("level") == "block" or match.get("enforcement") == "block":
+            fail("warn runtime resolver must not surface block enforcement: " + warn_resolve_result.stdout)
+    warn_helper_payload = json.dumps({"message_id": "policy-warn-fixture", "policy_context": {"stage": "turn", "appliesTo": ["making_validation_claims"]}}, ensure_ascii=False)
+    warn_helper_result = subprocess.run([str(policy_warn_helper_path), warn_helper_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if warn_helper_result.returncode != 0:
+        fail("policy warn helper should fail open with exit 0:\n" + warn_helper_result.stdout + warn_helper_result.stderr)
+    if "WARN. Policy Machinery warn-only runtime" not in warn_helper_result.stdout or "validation-evidence-warning" not in warn_helper_result.stdout:
+        fail("policy warn helper should emit warn-only output for explicit context:\n" + warn_helper_result.stdout)
+    if "STOP" in warn_helper_result.stdout or "block" in warn_helper_result.stdout.lower().replace("not a block", ""):
+        fail("policy warn helper must not emit blocking output:\n" + warn_helper_result.stdout)
+    ack_payload = json.dumps({"message_id": "policy-warn-ack", "policy_context": {"stage": "turn", "appliesTo": ["making_validation_claims"], "acknowledgedPolicyWarnings": ["validation-evidence-warning"]}}, ensure_ascii=False)
+    ack_result = subprocess.run([str(policy_warn_helper_path), ack_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if ack_result.returncode != 0 or ack_result.stdout.strip():
+        fail("policy warn helper should stay silent for acknowledged warnings:\n" + ack_result.stdout + ack_result.stderr)
+    raw_text_payload = json.dumps({"message_id": "policy-warn-raw", "last_user_message": "검증 완료라고 해", "assistant_response": "검증 완료"}, ensure_ascii=False)
+    raw_text_result = subprocess.run([str(policy_warn_helper_path), raw_text_payload], cwd=ROOT, text=True, capture_output=True, check=False)
+    if raw_text_result.returncode != 0 or raw_text_result.stdout.strip():
+        fail("policy warn helper should stay silent without explicit policy_context:\n" + raw_text_result.stdout + raw_text_result.stderr)
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "policy list|audit|explain|resolve" not in help_text:
         fail("lazy help must advertise policy command")

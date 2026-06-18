@@ -22,12 +22,14 @@ Registry: `.lazy-harness/ssot/policies.json`
   - keep policy `stage` and `level` explicit
   - keep policy evidence root-relative and source-record backed
   - keep generated/explain views derived and non-canonical
-  - keep `lazy policy resolve` advisory-only for `discover`, `recommend`, and `default` levels
-  - require explicit confirmation and tests before `warn`/`block` runtime enforcement
+  - keep `lazy policy resolve` advisory-only by default for `discover`, `recommend`, and `default` levels
+  - keep warn runtime explicit-context and warn-only
+  - require explicit confirmation and tests before `block` runtime enforcement
 - Must not:
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat LLM-generated explanation text as canonical truth
   - auto-promote policies to warn/block from a registry entry alone
+  - classify raw user or assistant text to trigger warn runtime
 - Record completion:
   - update ADR/SDD/TDD/schema/self-test/manifest together when registry shape changes.
 
@@ -65,6 +67,16 @@ Each policy requires:
 - `warn` and `block` are not enforced or emitted as runtime decisions by this slice.
 - Resolver output is derived from `policies.json` and is not canonical truth by itself.
 
+## Warn-only runtime
+
+Warn runtime is a separate explicit-context mode:
+
+- `lazy policy resolve --runtime warn` may surface warn-level policies as `warn-only`.
+- `check-policy-warn-runtime.py` may emit a response.completed `WARN` only when payload contains structured `policy_context` / `policyContext` with `stage` and/or `appliesTo`.
+- `acknowledgedPolicyWarnings` suppresses already-accepted warning ids.
+- Warn output is not a block and cannot prevent work from continuing.
+- Block output remains unimplemented.
+
 ## Relationship to capabilities
 
 Capabilities bind policies to commands/actions/tools. Policies define behavior semantics. A capability can reference policy ids through `policyIds`, `sourceRecord`, or migration compatibility fields.
@@ -85,12 +97,14 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
   - `.lazy-harness/ssot/policies.json`
   - `.lazy-harness/schemas/policies.schema.json`
   - `.lazy-harness/scripts/policy.ts`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`
 - Validation:
   - `lazy policy audit --format=json`
   - `lazy policy list --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

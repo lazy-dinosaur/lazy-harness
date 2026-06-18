@@ -51,6 +51,61 @@
           ".lazy-harness/rules/README.md"
         ]
       }
+    },
+    {
+      "id": "validation-evidence-warning",
+      "title": "Warn when validation evidence is missing",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "warn",
+      "appliesTo": [
+        "making_validation_claims"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
+      "capabilityIds": [
+        "lazy-evidence-capsule"
+      ],
+      "evidence": [
+        {
+          "kind": "record",
+          "path": ".lazy-harness/ssot/policy-registry.md",
+          "summary": "Warn-only runtime requires explicit structured policy context and never blocks."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/tests/policy-machinery-v2.md",
+          "summary": "TDD protects warn-only runtime output, bypass guidance, and no block behavior."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "warn"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Warn-only runtime emits noisy warnings for explicit structured policy context.",
+          "A warning output suppresses a more important blocking helper in response.completed."
+        ],
+        "demotionTarget": "recommend"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "When structured policy context says the agent is making validation claims, warn if concrete validation evidence should be attached or summarized.",
+        "nonCanonicalViews": [
+          ".lazy-harness/rules/README.md"
+        ]
+      },
+      "runtime": {
+        "mode": "warn-only",
+        "requiresExplicitContext": true,
+        "bypass": "Continue is allowed; include a short reason when bypassing the warning.",
+        "blocks": false
+      }
     }
   ]
 }

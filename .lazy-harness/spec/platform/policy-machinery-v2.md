@@ -28,6 +28,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - keep `.lazy-harness/ssot/capabilities.json` as command/action/capability binding storage
   - keep `.lazy-harness/rules/**` as compatibility/generated/explain surface during migration, not canonical source for new policy semantics
   - expose `lazy policy resolve` as advisory-only guidance for `discover`, `recommend`, and `default` levels
+  - expose warn-level policies only through explicit structured `policy_context` and `warn-only` output
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -35,7 +36,8 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat generated/explain rulebook text as canonical truth
   - turn advisory policies into blocking hooks from this contract-only slice
-  - treat `lazy policy resolve` output as a warning/blocking runtime decision
+  - infer warn/block decisions from raw user text or assistant text
+  - treat warn-only output as a block
   - allow generated policy packets to become canonical truth without record-write policy or explicit confirmation
   - add semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning
 - Record completion:
@@ -98,7 +100,21 @@ User confirmed the next step after Option B: start with advisory resolution befo
 - Emits `enforcement = advisory-only` and `recommendedAction = surface-guidance`.
 - Does not emit warn/block decisions, write state, mutate graph rows, or hook into lifecycle enforcement.
 
-Warn/block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
+Block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
+
+## Warn-only runtime slice
+
+User confirmed the next step after advisory resolution: warn-only runtime.
+
+Warn-only runtime is intentionally narrow:
+
+- `lazy policy resolve --runtime warn` may surface `warn`, `default`, `recommend`, and `discover` levels.
+- `check-policy-warn-runtime.py` runs in `response.completed` after existing blocking helpers.
+- The helper only reads explicit structured `policy_context` / `policyContext` payload fields.
+- The helper never classifies raw user text or raw assistant text.
+- The helper emits `WARN. Policy Machinery warn-only runtime` and never emits `STOP`.
+- Warnings are bypassable by adding `policy_context.acknowledgedPolicyWarnings` with the policy id.
+- Block runtime remains out of scope.
 
 ## Storage posture
 
@@ -141,6 +157,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 - Source files:
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
   - `.lazy-harness/scripts/policy.ts` — read-only typed policy list/audit/explain CLI.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py` — explicit-context warn-only response.completed helper.
   - `.lazy-harness/scripts/rulebook.ts` — current rulebook CLI, unchanged by this slice.
   - `.lazy-harness/ssot/policies.json` — canonical typed policy registry.
   - `.lazy-harness/schemas/policies.schema.json` — policy registry schema.
@@ -150,6 +167,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `self-test.py#check_policy_machinery_v2`
   - `lazy policy audit --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
@@ -158,7 +176,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 
 - DDD: no business-domain vocabulary impact.
 - SDD: this record defines the Phase 3 policy contract and links to rulebook/capability/update-loop contracts.
-- BDD: agent behavior remains advisory through `lazy policy resolve`; future confirmed policy levels may introduce warn/block behavior.
+- BDD: agent behavior may now surface explicit-context warn-only guidance; block behavior remains future work.
 - TDD: `.lazy-harness/tests/policy-machinery-v2.md` and `self-test.py#check_policy_machinery_v2` protect this slice.
 - ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` selects Option B.
 - SSOT: `.lazy-harness/ssot/policy-registry.md` is canonical for behavior policy semantics; `.lazy-harness/ssot/capability-registry.md` remains kind/level binding source of truth.

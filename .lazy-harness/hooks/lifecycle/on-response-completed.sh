@@ -282,7 +282,8 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-aftershock-reanalysis.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-fix-regression.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-adr-sync.sh \
-  .lazy-harness/hooks/lifecycle/helpers/check-handoff-stale.sh
+  .lazy-harness/hooks/lifecycle/helpers/check-handoff-stale.sh \
+  .lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py
  do
   [ -x "$helper" ] || continue
   if should_skip_helper "$helper"; then

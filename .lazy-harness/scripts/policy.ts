@@ -8,6 +8,8 @@ const LEVELS = new Set(['discover', 'recommend', 'default', 'warn', 'block'])
 const LEVEL_ORDER = ['block', 'warn', 'default', 'recommend', 'discover']
 const ADVISORY_LEVEL_ORDER = ['default', 'recommend', 'discover']
 const ADVISORY_LEVELS = new Set(ADVISORY_LEVEL_ORDER)
+const WARN_LEVEL_ORDER = ['warn', 'default', 'recommend', 'discover']
+const WARN_LEVELS = new Set(WARN_LEVEL_ORDER)
 const EVIDENCE_KINDS = new Set(['record', 'validation-output', 'user-confirmation', 'update-event'])
 const EVENT_TYPES = new Set(['policy-candidate', 'policy-promotion', 'policy-demotion'])
 const FORBIDDEN_KEYS = new Set(['confidence', 'intent', 'risk', 'requiredRead', 'optionalRead', 'gate', 'nextAction', 'candidateMeaning'])
@@ -69,10 +71,10 @@ Commands:
   list [--format=json|md] [--stage=STAGE] [--level=LEVEL]
   audit [--format=json|md]
   explain --id <policy-id> [--format=json|md]
-  resolve [--format=json|md] [--stage=STAGE] [--applies-to=A,B] [--max-level=default|recommend|discover]
+  resolve [--format=json|md] [--stage=STAGE] [--applies-to=A,B] [--max-level=default|recommend|discover|warn] [--runtime=advisory|warn]
 
 Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
-Resolve is advisory-only: it surfaces discover/recommend/default policies and never warns or blocks.
+Resolve defaults to advisory-only. Warn runtime requires --runtime=warn and never blocks.
 `)
   process.exit(exitCode)
 }
@@ -96,7 +98,7 @@ function parseOptions(argv: string[]): Record<string, string | boolean> {
       opts[k] = rest.join('=')
     } else if (a.startsWith('--')) {
       const k = a.slice(2)
-      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level'].includes(k)) opts[k] = value(argv, i++, a)
+      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level', 'runtime'].includes(k)) opts[k] = value(argv, i++, a)
       else opts[k] = true
     } else {
       console.error(`Unknown argument: ${a}`)
@@ -226,16 +228,29 @@ function advisoryRank(level: string): number {
   return idx === -1 ? Number.POSITIVE_INFINITY : idx
 }
 
+function runtimeRank(level: string, runtime: 'advisory' | 'warn'): number {
+  const order = runtime === 'warn' ? WARN_LEVEL_ORDER : ADVISORY_LEVEL_ORDER
+  const idx = order.indexOf(level)
+  return idx === -1 ? Number.POSITIVE_INFINITY : idx
+}
+
 function resolvePolicies(root: string, opts: Record<string, string | boolean>, format: Format): void {
   const registry = loadRegistry(root)
   const stage = typeof opts.stage === 'string' ? opts.stage : ''
   const appliesTo = parseList(opts['applies-to'])
-  const maxLevel = typeof opts['max-level'] === 'string' ? opts['max-level'] : 'default'
-  if (!ADVISORY_LEVELS.has(maxLevel)) {
-    console.error(`policy resolve --max-level must be one of: ${ADVISORY_LEVEL_ORDER.join(', ')}`)
+  const runtime = (typeof opts.runtime === 'string' ? opts.runtime : 'advisory') as string
+  if (runtime !== 'advisory' && runtime !== 'warn') {
+    console.error('policy resolve --runtime must be one of: advisory, warn')
     process.exit(2)
   }
-  const allowedLevels = new Set(ADVISORY_LEVEL_ORDER.slice(advisoryRank(maxLevel)))
+  const levelOrder = runtime === 'warn' ? WARN_LEVEL_ORDER : ADVISORY_LEVEL_ORDER
+  const levelSet = runtime === 'warn' ? WARN_LEVELS : ADVISORY_LEVELS
+  const maxLevel = typeof opts['max-level'] === 'string' ? opts['max-level'] : (runtime === 'warn' ? 'warn' : 'default')
+  if (!levelSet.has(maxLevel)) {
+    console.error(`policy resolve --max-level must be one of: ${levelOrder.join(', ')} for runtime=${runtime}`)
+    process.exit(2)
+  }
+  const allowedLevels = new Set(levelOrder.slice(runtimeRank(maxLevel, runtime)))
   const skipped = {
     nonAdvisoryLevel: 0,
     stageMismatch: 0,
@@ -243,7 +258,7 @@ function resolvePolicies(root: string, opts: Record<string, string | boolean>, f
   }
   const matches = registry.policies
     .filter((policy) => {
-      if (!ADVISORY_LEVELS.has(policy.level)) {
+      if (!levelSet.has(policy.level)) {
         skipped.nonAdvisoryLevel++
         return false
       }
@@ -261,7 +276,7 @@ function resolvePolicies(root: string, opts: Record<string, string | boolean>, f
       }
       return true
     })
-    .sort((a, b) => advisoryRank(a.level) - advisoryRank(b.level) || a.id.localeCompare(b.id))
+    .sort((a, b) => runtimeRank(a.level, runtime) - runtimeRank(b.level, runtime) || a.id.localeCompare(b.id))
     .map((policy) => ({
       id: policy.id,
       title: policy.title,
@@ -271,20 +286,23 @@ function resolvePolicies(root: string, opts: Record<string, string | boolean>, f
       sourceRecord: policy.sourceRecord,
       capabilities: policy.capabilityIds || [],
       summary: policy.explain?.summary || policy.title,
-      recommendedAction: 'surface-guidance',
-      enforcement: 'advisory-only',
+      recommendedAction: runtime === 'warn' && policy.level === 'warn' ? 'emit-warning' : 'surface-guidance',
+      enforcement: runtime === 'warn' && policy.level === 'warn' ? 'warn-only' : 'advisory-only',
     }))
 
   const result = {
     schemaVersion: 'policy-resolve/v1',
     ok: true,
-    enforcement: 'advisory-only',
+    runtime,
+    enforcement: runtime === 'warn' ? 'warn-only' : 'advisory-only',
     stage: stage || null,
     appliesTo,
     maxLevel,
     matches,
     skipped,
-    policyBoundary: 'Advisory resolver only; warn/block runtime enforcement remains a future promoted slice.',
+    policyBoundary: runtime === 'warn'
+      ? 'Warn-only resolver; block runtime enforcement remains a future promoted slice.'
+      : 'Advisory resolver only; warn/block runtime enforcement remains a future promoted slice.',
   }
   if (format === 'json') return printJson(result)
   console.log('# Policy resolve')

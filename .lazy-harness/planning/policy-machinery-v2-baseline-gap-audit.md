@@ -93,6 +93,8 @@ First implementation slice adds `.lazy-harness/ssot/policies.json`, `.lazy-harne
 
 User confirmed the recommended next step (A) on 2026-06-18: add advisory-only `lazy policy resolve` for `discover`/`recommend`/`default` levels and keep warn/block runtime enforcement deferred.
 
+User confirmed the follow-up next step (B) on 2026-06-18: add explicit-context warn-only runtime. The slice must stay non-blocking, must not classify raw user/assistant text, and must keep block runtime deferred.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`

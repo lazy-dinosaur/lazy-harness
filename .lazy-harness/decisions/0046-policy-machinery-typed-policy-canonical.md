@@ -39,7 +39,8 @@ The typed policy registry becomes the canonical source for project/team behavior
 - `lazy rules` remains compatibility/audit tooling until a migration removes or redefines it.
 - `lazy policy list/audit/explain` is read-only in the first Option B slice.
 - User-confirmed next slice A adds `lazy policy resolve` as an advisory-only resolver for `discover`/`recommend`/`default` policies.
-- Warn/block enforcement still needs separate promotion evidence, TDD, and explicit confirmation.
+- User-confirmed next slice B adds explicit-context `warn-only` runtime for warn-level policies.
+- Block enforcement still needs separate promotion evidence, TDD, bypass behavior, and explicit confirmation.
 - Generated/explain views are derived output and must not become canonical truth.
 
 ## Migration posture
@@ -49,8 +50,9 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
 1. Add typed policy registry, schema, read-only CLI, and tests.
 2. Link capabilities to policy ids.
 3. Add advisory-only resolver for `discover`/`recommend`/`default` policy levels.
-4. Generate or explain rulebook views from typed policy records.
-5. Retire hand-maintained rulebook canonical semantics only after host sync and regression coverage prove compatibility.
+4. Add explicit-context warn-only runtime for warn-level policy records.
+5. Generate or explain rulebook views from typed policy records.
+6. Retire hand-maintained rulebook canonical semantics only after host sync and regression coverage prove compatibility.
 
 ## Implementation map
 
@@ -69,6 +71,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
 - Validation:
   - `lazy policy audit --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

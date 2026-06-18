@@ -312,7 +312,7 @@
       <component>rulebook parser</component>
       <component>rulebook audit</component>
       <component>rulebook resolver</component>
-      <component>typed policy advisory resolver</component>
+      <component>typed policy advisory/warn resolver</component>
       <component>capability preferred/discouraged action binding</component>
     </components>
     <records>
