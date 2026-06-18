@@ -62,6 +62,16 @@ Status: resolved by removal of automatic task-router route telemetry.
 
 Performance work is allowed only if it preserves or improves harness protection. Faster but less protective is a regression.
 
+## 2026-06-18 correction capture — unbounded validation overrun
+
+User correction: even when validation is slow, validation runs exceeding about an hour are not acceptable and indicate a framework/process bug, not normal expected cost.
+
+Implications:
+
+- Do not run release/readiness matrices as a default post-fix habit after focused checks and full self-test evidence already exist.
+- Long validation workflows need bounded execution, progress visibility, cancellation safety, and a clear reason before launch.
+- Add or prioritize a bounded validation tier/runner so agents can choose fast check, affected/full regression, or explicit release readiness without accidentally multiplying them.
+
 Non-negotiables:
 
 - No existing STOP/gate may disappear without an explicit test and canonical record change.
