@@ -13,6 +13,7 @@ The canonical executable entrypoint for installed hosts is the per-host dispatch
 
 ```bash
 .lazy-harness/bin/lazy test
+.lazy-harness/bin/lazy check
 .lazy-harness/bin/lazy doctor --profile smoke
 .lazy-harness/bin/lazy record-audit --format md
 .lazy-harness/bin/lazy graph-hygiene --format md
@@ -31,11 +32,13 @@ Dogfooding showed agents could read stale handoff or ADR text, look for `package
 ## Contract
 
 1. Use `.lazy-harness/bin/lazy version` to confirm the host root and lazy root.
-2. Use `.lazy-harness/bin/lazy test` as the primary host/framework self-test wrapper.
-3. Use `.lazy-harness/bin/lazy doctor --profile smoke` for the smoke doctor.
+2. Use `.lazy-harness/bin/lazy check` for fast changed-file static validation during edit loops.
+3. Use `.lazy-harness/bin/lazy test` as the primary host/framework full-regression self-test wrapper.
+4. Use `.lazy-harness/bin/lazy doctor --profile smoke` for the smoke doctor.
 4. If package health fails because generated artifacts are stale, the doctor may run one safe generate remediation and retry before reporting failure.
 5. Do not diagnose missing `package.json` `lazy:test` scripts as a lazy-harness failure.
 6. If historical docs mention `bun run lazy:test`, prefer this SDD, README current sections, and `.lazy-harness/bin/lazy` usage.
+7. Do not describe `.lazy-harness/bin/lazy check` as equivalent to `.lazy-harness/bin/lazy test`; it is a fast static tier only.
 
 ## Historical references
 
@@ -69,12 +72,14 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `.lazy-harness/hooks/pre-push.sh` — git pre-push gate using the canonical CLI, never package script `lazy:test`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the guard.
   - `.lazy-harness/scripts/self-test.py` — regression fixtures.
+  - `.lazy-harness/scripts/lazy-check.py` — fast changed-file static validator.
   - `.lazy-harness/scripts/doctor.py` — package health generate remediation and retry.
   - `README.md`, `.lazy-harness/framework/framework-contract.md`, `.lazy-harness/handoff/00-current-state.md` — current docs using canonical command.
 - Key symbols:
   - `check_lazy_cli_entrypoint_helper` (`.lazy-harness/scripts/self-test.py`) — verifies stale CLI block/canonical pass.
   - `check_pre_push_uses_canonical_lazy_cli` (`.lazy-harness/scripts/self-test.py`) — verifies pre-push does not call stale package scripts.
   - `.lazy-harness/bin/lazy version` — root diagnostic command.
+  - `.lazy-harness/bin/lazy check` — fast static changed-file validation command.
   - `.lazy-harness/bin/lazy record-audit` — read-only host record dashboard dispatcher to `.lazy-harness/scripts/record-audit.ts`.
   - `.lazy-harness/bin/lazy graph-hygiene` — read-only knowledge graph lint dispatcher to `.lazy-harness/scripts/graph-hygiene.ts`.
   - `.lazy-harness/bin/lazy hook-timings` — read-only response hook timing summary dispatcher to `.lazy-harness/scripts/hook-timing-summary.py`.
@@ -83,7 +88,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
 - Flow:
   1. Agent needs to reproduce lazy-harness validation or inspect accumulated host records.
   2. Agent runs `.lazy-harness/bin/lazy version` if root is uncertain.
-  3. Agent runs `.lazy-harness/bin/lazy test`, `doctor`, `record-audit`, `graph-hygiene`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs validation, health diagnosis, record-quality summary, graph lint details, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
+  3. Agent runs `.lazy-harness/bin/lazy check`, `test`, `doctor`, `record-audit`, `graph-hygiene`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs fast static validation, full regression validation, health diagnosis, record-quality summary, graph lint details, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
   4. Hook blocks stale package-script diagnosis before it becomes final guidance.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

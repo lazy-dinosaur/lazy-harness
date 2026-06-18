@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import pathlib
+import py_compile
 import re
 import runpy
 import subprocess
@@ -1201,6 +1202,106 @@ def check_lazy_cli_entrypoint_helper() -> None:
         fail("lazy CLI entrypoint helper should pass corrective stale-command explanation:\n" + corrective)
 
     print("✓ lazy CLI entrypoint helper ok")
+
+
+def check_fast_validation_tier_cli() -> None:
+    """`lazy check` is a fast static tier and must not replace full regression."""
+    sdd = LAZY / "spec" / "platform" / "fast-validation-tier.md"
+    tdd = LAZY / "tests" / "fast-validation-tier.md"
+    script = LAZY / "scripts" / "lazy-check.py"
+    for path in (sdd, tdd, script):
+        if not path.exists():
+            fail(f"fast validation tier missing file: {path.relative_to(ROOT)}")
+    sdd_text = sdd.read_text(encoding="utf-8")
+    tdd_text = tdd.read_text(encoding="utf-8")
+    lazy_cli = (LAZY / "bin" / "lazy").read_text(encoding="utf-8")
+    for expected in (
+        "lazy check",
+        "not full regression",
+        "does not replace `.lazy-harness/bin/lazy test`",
+        "fullRegression: false",
+    ):
+        if expected not in sdd_text and expected not in tdd_text:
+            fail("fast validation tier records missing invariant: " + expected)
+    if 'check)' not in lazy_cli or 'lazy-check.py' not in lazy_cli or 'check [--files F1,F2,...]' not in lazy_cli:
+        fail("lazy CLI missing check dispatcher/help contract")
+    manifest_text = (LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8")
+    for expected in ("spec/platform/fast-validation-tier.md", "tests/fast-validation-tier.md"):
+        if expected not in manifest_text:
+            fail("init categories missing fast validation tier sync record: " + expected)
+    py_compile.compile(str(script), doraise=True)
+
+    positive = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "check",
+            "--files",
+            ".lazy-harness/fixtures/project-map-v2/example-node.json",
+            "--format=json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if positive.returncode != 0:
+        fail("lazy check positive fixture failed:\n" + positive.stdout + positive.stderr)
+    positive_result = json.loads(positive.stdout)
+    if not positive_result.get("ok") or positive_result.get("fullRegression") is not False:
+        fail("lazy check positive fixture must report ok and fullRegression=false: " + positive.stdout)
+    if ".lazy-harness/fixtures/project-map-v2/example-node.json" not in positive_result.get("files", []):
+        fail("lazy check positive fixture did not include explicit file: " + positive.stdout)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-check-fixture-", dir=ROOT))
+    try:
+        bad_json = temp / "bad.json"
+        bad_json.write_text("{ bad json\n", encoding="utf-8")
+        negative = subprocess.run(
+            [
+                str(LAZY / "bin" / "lazy"),
+                "check",
+                "--files",
+                str(bad_json.relative_to(ROOT)),
+                "--format=json",
+                "--no-diff-check",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+        )
+        if negative.returncode == 0:
+            fail("lazy check malformed JSON should fail")
+        negative_result = json.loads(negative.stdout)
+        if negative_result.get("ok") is not False or not any(item.get("check") == "json-parse" for item in negative_result.get("errors", [])):
+            fail("lazy check malformed JSON should report json-parse: " + negative.stdout)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    outside = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "check",
+            "--files",
+            "/tmp/lazy-check-outside.json",
+            "--format=json",
+            "--no-diff-check",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if outside.returncode == 0:
+        fail("lazy check outside-root file should fail")
+    outside_result = json.loads(outside.stdout)
+    if not any(item.get("check") == "root-bound" for item in outside_result.get("errors", [])):
+        fail("lazy check outside-root file should report root-bound: " + outside.stdout)
+
+    print("✓ fast validation tier CLI ok")
 
 
 def check_skill_create_cli() -> None:
@@ -8654,6 +8755,7 @@ def main() -> None:
         (check_record_before_session_history_helper, "BOTH"),
         (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
+        (check_fast_validation_tier_cli, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),

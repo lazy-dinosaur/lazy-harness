@@ -248,6 +248,16 @@
           "description": "SDD standard for the canonical per-host lazy CLI entrypoint and stale package-script lazy:test guard."
         },
         {
+          "path": "spec/platform/fast-validation-tier.md",
+          "kind": "file",
+          "description": "SDD contract for lazy check: fast changed-file static validation that complements but does not replace lazy test."
+        },
+        {
+          "path": "tests/fast-validation-tier.md",
+          "kind": "file",
+          "description": "TDD fixtures for lazy check CLI behavior, root-bound validation, malformed JSON failure, and full-regression boundary."
+        },
+        {
           "path": "spec/platform/package-health-generate-remediation.md",
           "kind": "file",
           "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."

@@ -7,6 +7,7 @@ Jcode may wrap these commands, but operational validation lives here.
 ## Commands
 
 ```bash
+.lazy-harness/bin/lazy check
 bun run lazy:test
 bun run lazy:doctor
 python3 .lazy-harness/scripts/doctor.py --profile smoke
@@ -32,6 +33,7 @@ python3 .lazy-harness/scripts/doctor.py --profile full
 - `lazy-sync.ts` — update Category A framework body on an already-initialized host while preserving host memory.
 - `lazy-update.ts` — public-safe updater. Refreshes the persistent source checkout, then delegates to `lazy-sync.ts`.
 - `contract-diff.ts` — existing contract diff helper.
+- `lazy-check.py` — fast changed-file static validation tier used by `.lazy-harness/bin/lazy check`; not a replacement for `self-test.py` / `lazy test`.
 - `../triggers/lint-output.ts` — 5c-6 tsc/eslint output classifier, exposed as `bun run lazy:lint-drift`.
 
 ## Status
