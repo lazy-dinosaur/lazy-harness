@@ -581,6 +581,29 @@
           "kind": "file",
           "description": "Operational framework ADR canonical record referenced by Project Map update-loop adr-decision fixture. Synced under framework/operational-adrs so host decisions/ remains host-owned and ADR numbering stays contiguous.",
           "targetPath": "framework/operational-adrs/0041-organic-hybrid-rule-guidance.md"
+        },
+        {
+          "path": "spec/platform/policy-machinery-v2.md",
+          "kind": "file",
+          "description": "SDD contract for Phase 3 Policy Machinery V2: stage-aware policy packets connecting rulebook, capability registry, and Project Map update-loop evidence without new runtime enforcement."
+        },
+        {
+          "path": "tests/policy-machinery-v2.md",
+          "kind": "file",
+          "description": "TDD record for Policy Machinery V2 static packet fixture, hybrid storage preservation, and no-runtime-enforcement boundary."
+        },
+        {
+          "path": "planning/policy-machinery-v2-baseline-gap-audit.md",
+          "kind": "file",
+          "description": "Planning audit for Policy Machinery V2 current rulebook/capability baseline, gaps, and storage option gate before runtime/schema work."
+        },
+        {
+          "path": "fixtures/policy-machinery-v2/",
+          "kind": "directory",
+          "glob": [
+            "*.json"
+          ],
+          "description": "Static Policy Machinery V2 policy packet fixtures used by BOTH-scope self-test."
         }
       ]
     },

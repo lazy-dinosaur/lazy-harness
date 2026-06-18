@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "policy-machinery-v2/v1",
+  "id": "policy-record-first-validation",
+  "title": "Record-first validation evidence",
+  "scope": "framework-global",
+  "stage": "turn",
+  "level": "discover",
+  "appliesTo": [
+    "closing_non_trivial_work_unit",
+    "making_validation_claims"
+  ],
+  "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
+  "rulebookRecord": ".lazy-harness/rules/README.md",
+  "capabilityIds": [
+    "lazy-evidence-capsule"
+  ],
+  "evidence": [
+    {
+      "kind": "record",
+      "path": ".lazy-harness/spec/platform/evidence-capsule-standard.md",
+      "summary": "Existing evidence capsule capability is recommend-level and manual."
+    },
+    {
+      "kind": "update-event",
+      "path": ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
+      "summary": "Policy changes must use update-loop candidate/canonical transition semantics."
+    }
+  ],
+  "promotion": {
+    "requiresConfirmation": true,
+    "allowedTargetLevels": [
+      "discover",
+      "recommend"
+    ]
+  },
+  "rollback": {
+    "criteria": [
+      "Evidence capsule recommendation becomes noisy or not useful in dogfood validation.",
+      "A stronger level is requested without user/team confirmation."
+    ],
+    "demotionTarget": "discover"
+  },
+  "updateLoop": {
+    "eventType": "policy-candidate",
+    "canonicalByPacketAlone": false
+  },
+  "storageDecision": {
+    "current": "hybrid-rulebook-plus-capability-registry",
+    "requiresOptionGateBeforeMigration": true
+  }
+}

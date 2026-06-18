@@ -7915,6 +7915,129 @@ def check_project_map_update_loop_v2() -> None:
     print("✓ Project Map update-loop V2 ok")
 
 
+def check_policy_machinery_v2() -> None:
+    """Phase 3 Policy Machinery V2 contract should stay static/non-enforcing until later confirmation."""
+    sdd_path = LAZY / "spec" / "platform" / "policy-machinery-v2.md"
+    tdd_path = LAZY / "tests" / "policy-machinery-v2.md"
+    audit_path = LAZY / "planning" / "policy-machinery-v2-baseline-gap-audit.md"
+    fixture_path = LAZY / "fixtures" / "policy-machinery-v2" / "example-policy.json"
+    manifest_path = LAZY / "manifests" / "init-categories.json"
+    capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
+    rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
+
+    for path in (sdd_path, tdd_path, audit_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
+        if not path.exists():
+            fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    tdd = tdd_path.read_text(encoding="utf-8")
+    audit = audit_path.read_text(encoding="utf-8")
+    capability_ssot = capability_ssot_path.read_text(encoding="utf-8")
+    rulebook_sdd = rulebook_sdd_path.read_text(encoding="utf-8")
+
+    for expected in (
+        "Phase 3 record-first slice",
+        "preserve `.lazy-harness/rules/**` and `.lazy-harness/ssot/capabilities.json`",
+        "Option A: keep rulebook as lightweight human-readable policy docs.",
+        "canonicalByPacketAlone: false",
+        "does not replace existing Phase 0-2 implementations",
+        "turn advisory policies into blocking hooks from this contract-only slice",
+        "self-test.py#check_policy_machinery_v2",
+    ):
+        if expected not in sdd:
+            fail("Policy Machinery V2 SDD missing invariant: " + expected)
+
+    for expected in (
+        "policy_machinery_contract_files",
+        "policy_machinery_fixture_shape",
+        "policy_machinery_no_semantic_authority_fields",
+        "policy_machinery_hybrid_storage_preserved",
+        "policy_machinery_no_runtime_enforcement",
+        "Layer completeness gate",
+    ):
+        if expected not in tdd:
+            fail("Policy Machinery V2 TDD missing regression case: " + expected)
+
+    for expected in (
+        "Current baseline",
+        "Gap matrix",
+        "Open option gate for later",
+        "do not add writer",
+        "Discovery capture",
+    ):
+        if expected not in audit:
+            fail("Policy Machinery V2 audit missing planning section: " + expected)
+
+    if "Capability kind and enforcement level are independent." not in capability_ssot:
+        fail("Policy Machinery V2 depends on capability kind/level SSOT invariant")
+    if ".lazy-harness/rules/**/*.md" not in rulebook_sdd or ".lazy-harness/ssot/capabilities.json" not in rulebook_sdd:
+        fail("Policy Machinery V2 depends on hybrid rulebook + capability storage")
+
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    if fixture.get("schemaVersion") != "policy-machinery-v2/v1":
+        fail("Policy Machinery V2 fixture schema mismatch")
+    if fixture.get("stage") not in {"turn", "edit", "commit", "push", "release", "high-risk-mutation"}:
+        fail("Policy Machinery V2 fixture stage invalid: " + repr(fixture.get("stage")))
+    if fixture.get("level") not in {"discover", "recommend", "default", "warn", "block"}:
+        fail("Policy Machinery V2 fixture level invalid: " + repr(fixture.get("level")))
+    if fixture.get("level") == "block":
+        fail("Policy Machinery V2 static fixture must not use block level")
+    source_record = fixture.get("sourceRecord")
+    if not isinstance(source_record, str) or not source_record.startswith(".lazy-harness/") or ".." in pathlib.PurePosixPath(source_record).parts:
+        fail("Policy Machinery V2 fixture sourceRecord must be root-relative .lazy-harness path")
+    if not fixture.get("rulebookRecord") or not fixture.get("capabilityIds"):
+        fail("Policy Machinery V2 fixture must link rulebook and capability stores")
+    promotion = fixture.get("promotion", {})
+    if promotion.get("requiresConfirmation") is not True:
+        fail("Policy Machinery V2 fixture promotion must require confirmation")
+    update_loop = fixture.get("updateLoop", {})
+    if update_loop.get("eventType") not in {"policy-candidate", "policy-promotion", "policy-demotion"}:
+        fail("Policy Machinery V2 fixture updateLoop eventType invalid")
+    if update_loop.get("canonicalByPacketAlone") is not False:
+        fail("Policy Machinery V2 fixture must not become canonical by packet alone")
+    storage_decision = fixture.get("storageDecision", {})
+    if storage_decision.get("requiresOptionGateBeforeMigration") is not True:
+        fail("Policy Machinery V2 fixture must preserve storage option gate")
+
+    allowed_evidence_kinds = {"record", "validation-output", "user-confirmation", "update-event"}
+    for evidence in fixture.get("evidence", []):
+        if evidence.get("kind") not in allowed_evidence_kinds:
+            fail("Policy Machinery V2 fixture evidence kind invalid: " + json.dumps(evidence, ensure_ascii=False))
+        path_value = evidence.get("path")
+        if path_value:
+            path_obj = pathlib.PurePosixPath(path_value)
+            if path_obj.is_absolute() or ".." in path_obj.parts or not path_value.startswith(".lazy-harness/"):
+                fail("Policy Machinery V2 fixture evidence path must stay root-relative .lazy-harness path: " + path_value)
+
+    forbidden_fields = {"confidence", "intent", "risk", "requiredRead", "optionalRead", "nextAction", "candidateMeaning"}
+
+    def walk(value: object, path: str = "fixture") -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in forbidden_fields:
+                    fail("Policy Machinery V2 fixture contains forbidden semantic-authority field: " + path + "." + key)
+                walk(child, path + "." + str(key))
+        elif isinstance(value, list):
+            for idx, child in enumerate(value):
+                walk(child, f"{path}[{idx}]")
+
+    walk(fixture)
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
+    for expected in (
+        "spec/platform/policy-machinery-v2.md",
+        "tests/policy-machinery-v2.md",
+        "planning/policy-machinery-v2-baseline-gap-audit.md",
+        "fixtures/policy-machinery-v2/",
+        "*.json",
+    ):
+        if expected not in category_a:
+            fail("init categories missing Policy Machinery V2 sync asset: " + expected)
+
+    print("✓ Policy Machinery V2 static contract ok")
+
+
 def check_evidence_capsule_standard_phase5() -> None:
     """Phase 5 should provide a manual evidence capsule checklist without auto-writing."""
     sdd_path = LAZY / "spec" / "platform" / "evidence-capsule-standard.md"
@@ -9193,6 +9316,7 @@ def main() -> None:
         (check_context_tier_manifest_phase4, "BOTH"),
         (check_project_map_v2_schema, "BOTH"),
         (check_project_map_update_loop_v2, "BOTH"),
+        (check_policy_machinery_v2, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
         (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),

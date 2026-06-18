@@ -304,6 +304,12 @@ Project Interview should be one ingestion channel among many and should discover
 
 Make project/team rules practical, flexible, and stage-aware without keeping a heavy separate rulebook surface if it does not help. This phase depends on Phase 1.5 because policy promotion/demotion is a Project Map update event.
 
+### Audit status
+
+Record-first baseline/contract slice completed on 2026-06-18: `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md`, `.lazy-harness/spec/platform/policy-machinery-v2.md`, `.lazy-harness/tests/policy-machinery-v2.md`, and `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json`.
+
+This slice is static and does not add runtime enforcement, capability schema migration, or rulebook deprecation.
+
 ### Current baseline
 
 - `capabilities.json` supports kinds and levels.
