@@ -258,6 +258,16 @@
           "description": "TDD fixtures for lazy check CLI behavior, root-bound validation, malformed JSON failure, and full-regression boundary."
         },
         {
+          "path": "spec/platform/bounded-validation-governor.md",
+          "kind": "file",
+          "description": "SDD contract for lazy validate: bounded validation plan selection, release opt-in, dry-run, and global max-seconds budget."
+        },
+        {
+          "path": "tests/bounded-validation-governor.md",
+          "kind": "file",
+          "description": "TDD fixtures for lazy validate CLI behavior, fast plan, release opt-in, budget cap, dry-run, and deadline exhaustion."
+        },
+        {
           "path": "spec/platform/package-health-generate-remediation.md",
           "kind": "file",
           "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."

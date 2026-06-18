@@ -14,6 +14,7 @@ The canonical executable entrypoint for installed hosts is the per-host dispatch
 ```bash
 .lazy-harness/bin/lazy test
 .lazy-harness/bin/lazy check
+.lazy-harness/bin/lazy validate
 .lazy-harness/bin/lazy doctor --profile smoke
 .lazy-harness/bin/lazy record-audit --format md
 .lazy-harness/bin/lazy graph-hygiene --format md
@@ -33,12 +34,13 @@ Dogfooding showed agents could read stale handoff or ADR text, look for `package
 
 1. Use `.lazy-harness/bin/lazy version` to confirm the host root and lazy root.
 2. Use `.lazy-harness/bin/lazy check` for fast changed-file static validation during edit loops.
-3. Use `.lazy-harness/bin/lazy test` as the primary host/framework full-regression self-test wrapper.
-4. Use `.lazy-harness/bin/lazy doctor --profile smoke` for the smoke doctor.
-4. If package health fails because generated artifacts are stale, the doctor may run one safe generate remediation and retry before reporting failure.
-5. Do not diagnose missing `package.json` `lazy:test` scripts as a lazy-harness failure.
-6. If historical docs mention `bun run lazy:test`, prefer this SDD, README current sections, and `.lazy-harness/bin/lazy` usage.
-7. Do not describe `.lazy-harness/bin/lazy check` as equivalent to `.lazy-harness/bin/lazy test`; it is a fast static tier only.
+3. Use `.lazy-harness/bin/lazy validate` to choose bounded fast/standard/release validation plans without accidentally multiplying full or release-grade checks.
+4. Use `.lazy-harness/bin/lazy test` as the primary host/framework full-regression self-test wrapper.
+5. Use `.lazy-harness/bin/lazy doctor --profile smoke` for the smoke doctor.
+6. If package health fails because generated artifacts are stale, the doctor may run one safe generate remediation and retry before reporting failure.
+7. Do not diagnose missing `package.json` `lazy:test` scripts as a lazy-harness failure.
+8. If historical docs mention `bun run lazy:test`, prefer this SDD, README current sections, and `.lazy-harness/bin/lazy` usage.
+9. Do not describe `.lazy-harness/bin/lazy check` as equivalent to `.lazy-harness/bin/lazy test`; it is a fast static tier only.
 
 ## Historical references
 
@@ -68,6 +70,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
 - Primary files:
   - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md` — this SDD contract.
   - `.lazy-harness/bin/lazy` — canonical per-host dispatcher.
+  - `.lazy-harness/scripts/validation-governor.py` — bounded validation plan runner exposed as `lazy validate`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-lazy-cli-entrypoint.sh` — response-completed guard.
   - `.lazy-harness/hooks/pre-push.sh` — git pre-push gate using the canonical CLI, never package script `lazy:test`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the guard.
@@ -80,6 +83,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
   - `check_pre_push_uses_canonical_lazy_cli` (`.lazy-harness/scripts/self-test.py`) — verifies pre-push does not call stale package scripts.
   - `.lazy-harness/bin/lazy version` — root diagnostic command.
   - `.lazy-harness/bin/lazy check` — fast static changed-file validation command.
+  - `.lazy-harness/bin/lazy validate` — bounded validation governor for fast/standard/release plans.
   - `.lazy-harness/bin/lazy record-audit` — read-only host record dashboard dispatcher to `.lazy-harness/scripts/record-audit.ts`.
   - `.lazy-harness/bin/lazy graph-hygiene` — read-only knowledge graph lint dispatcher to `.lazy-harness/scripts/graph-hygiene.ts`.
   - `.lazy-harness/bin/lazy hook-timings` — read-only response hook timing summary dispatcher to `.lazy-harness/scripts/hook-timing-summary.py`.
@@ -88,7 +92,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
 - Flow:
   1. Agent needs to reproduce lazy-harness validation or inspect accumulated host records.
   2. Agent runs `.lazy-harness/bin/lazy version` if root is uncertain.
-  3. Agent runs `.lazy-harness/bin/lazy check`, `test`, `doctor`, `record-audit`, `graph-hygiene`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs fast static validation, full regression validation, health diagnosis, record-quality summary, graph lint details, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
+  3. Agent runs `.lazy-harness/bin/lazy check`, `validate`, `test`, `doctor`, `record-audit`, `graph-hygiene`, `hook-timings`, `lifecycle-check`, or `lifecycle-parity` depending on whether it needs fast static validation, bounded validation plan selection, full regression validation, health diagnosis, record-quality summary, graph lint details, performance measurement summary, response-hook shadow data, or batch shadow-vs-legacy parity.
   4. Hook blocks stale package-script diagnosis before it becomes final guidance.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
@@ -96,6 +100,7 @@ It allows corrective explanations that explicitly call the old form stale/deprec
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
   - SDD: `.lazy-harness/spec/platform/package-health-generate-remediation.md`
+  - SDD: `.lazy-harness/spec/platform/bounded-validation-governor.md`
   - ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
 - Machine index:
   - graph ids: `kg_sdd_lazy_cli_entrypoint`

@@ -53,6 +53,8 @@ Usage: lazy <command> [options]
 Commands:
   check [--files F1,F2,...] [--all] [--format=md|json]
                                 Fast changed-file static validation, not full regression
+  validate [--plan=fast|standard|release] [--max-seconds=N] [--dry-run]
+                                Run a bounded validation plan with release opt-in guard
   test [--scope=auto|framework|host]
                                 Run framework self-test (default: auto)
   doctor [--profile=smoke|full] Run framework health check (default: smoke)
@@ -113,6 +115,9 @@ shift || true
 case "$cmd" in
   check)
     exec python3 "$SCRIPTS/lazy-check.py" "$@"
+    ;;
+  validate)
+    exec python3 "$SCRIPTS/validation-governor.py" "$@"
     ;;
   test)
     exec python3 "$SCRIPTS/self-test.py" "$@"

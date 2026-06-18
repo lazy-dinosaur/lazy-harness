@@ -1304,6 +1304,131 @@ def check_fast_validation_tier_cli() -> None:
     print("✓ fast validation tier CLI ok")
 
 
+def check_bounded_validation_governor_cli() -> None:
+    """`lazy validate` keeps validation explicit, bounded, and release-gated."""
+    sdd = LAZY / "spec" / "platform" / "bounded-validation-governor.md"
+    tdd = LAZY / "tests" / "bounded-validation-governor.md"
+    script = LAZY / "scripts" / "validation-governor.py"
+    for path in (sdd, tdd, script):
+        if not path.exists():
+            fail(f"bounded validation governor missing file: {path.relative_to(ROOT)}")
+    py_compile.compile(str(script), doraise=True)
+
+    lazy_cli = (LAZY / "bin" / "lazy").read_text(encoding="utf-8")
+    if "validate [--plan=fast|standard|release]" not in lazy_cli or "validation-governor.py" not in lazy_cli:
+        fail("lazy CLI missing validate dispatcher/help contract")
+
+    manifest_text = (LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8")
+    for expected in ("spec/platform/bounded-validation-governor.md", "tests/bounded-validation-governor.md"):
+        if expected not in manifest_text:
+            fail("init categories missing bounded validation sync record: " + expected)
+
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "validate [--plan=fast|standard|release]" not in help_text:
+        fail("lazy help should list validate command")
+
+    env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT))
+    fast = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "validate",
+            "--plan",
+            "fast",
+            "--files",
+            ".lazy-harness/fixtures/project-map-v2/example-node.json",
+            "--format=json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if fast.returncode != 0:
+        fail("lazy validate fast plan failed:\n" + fast.stdout + fast.stderr)
+    fast_result = json.loads(fast.stdout)
+    if fast_result.get("plan") != "fast" or fast_result.get("bounded") is not True or fast_result.get("fullRegression") is not False:
+        fail("lazy validate fast output changed: " + fast.stdout)
+    fast_steps = fast_result.get("steps", [])
+    if len(fast_steps) != 1 or fast_steps[0].get("status") != "passed" or fast_steps[0].get("kind") != "fast-static":
+        fail("lazy validate fast should run exactly one fast-static step: " + fast.stdout)
+
+    release_blocked = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "validate", "--plan", "release", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if release_blocked.returncode == 0:
+        fail("lazy validate release should require --allow-release")
+    release_blocked_result = json.loads(release_blocked.stdout)
+    if not any("release plan requires --allow-release" in error for error in release_blocked_result.get("errors", [])):
+        fail("lazy validate release block missing opt-in error: " + release_blocked.stdout)
+
+    release_dry = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "validate", "--plan", "release", "--dry-run", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if release_dry.returncode != 0:
+        fail("lazy validate release dry-run failed:\n" + release_dry.stdout + release_dry.stderr)
+    release_dry_result = json.loads(release_dry.stdout)
+    if release_dry_result.get("dryRun") is not True or release_dry_result.get("fullRegression") is not True:
+        fail("lazy validate release dry-run should plan full regression without executing: " + release_dry.stdout)
+    if not any(step.get("status") == "planned" and step.get("kind") == "full-regression" for step in release_dry_result.get("steps", [])):
+        fail("lazy validate release dry-run missing planned full-regression step: " + release_dry.stdout)
+
+    standard_dry = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "validate", "--plan", "standard", "--dry-run", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if standard_dry.returncode != 0:
+        fail("lazy validate standard dry-run failed:\n" + standard_dry.stdout + standard_dry.stderr)
+    standard_dry_result = json.loads(standard_dry.stdout)
+    standard_full_steps = [step for step in standard_dry_result.get("steps", []) if step.get("kind") == "full-regression"]
+    if len(standard_full_steps) != 1 or standard_dry_result.get("fullRegression") is not True:
+        fail("lazy validate standard dry-run should contain exactly one full-regression step: " + standard_dry.stdout)
+
+    too_long = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "validate", "--plan", "fast", "--max-seconds=3601", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if too_long.returncode == 0:
+        fail("lazy validate should reject over-hour budgets")
+    too_long_result = json.loads(too_long.stdout)
+    if not any("cannot exceed 3600" in error for error in too_long_result.get("errors", [])):
+        fail("lazy validate over-hour budget error changed: " + too_long.stdout)
+
+    exhausted = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "validate", "--plan", "fast", "--max-seconds=0", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if exhausted.returncode == 0:
+        fail("lazy validate zero budget should fail without running steps")
+    exhausted_result = json.loads(exhausted.stdout)
+    if not any(step.get("status") == "skipped" and step.get("reason") == "deadline-exhausted" for step in exhausted_result.get("steps", [])):
+        fail("lazy validate zero budget should skip with deadline-exhausted: " + exhausted.stdout)
+
+    print("✓ bounded validation governor CLI ok")
+
+
 def check_skill_create_cli() -> None:
     """Custom project skill generator creates wrappers, optional scripts, and metadata."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_skill_create_"))
@@ -8871,6 +8996,7 @@ def main() -> None:
         (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_fast_validation_tier_cli, "BOTH"),
+        (check_bounded_validation_governor_cli, "BOTH"),
         (check_jcode_wiring_pointer_only, "BOTH"),
         (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
         (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),

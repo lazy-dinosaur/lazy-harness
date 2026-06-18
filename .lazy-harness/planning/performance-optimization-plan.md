@@ -72,6 +72,13 @@ Implications:
 - Long validation workflows need bounded execution, progress visibility, cancellation safety, and a clear reason before launch.
 - Add or prioritize a bounded validation tier/runner so agents can choose fast check, affected/full regression, or explicit release readiness without accidentally multiplying them.
 
+Implementation link:
+
+- `.lazy-harness/bin/lazy validate` is the bounded validation governor.
+- `.lazy-harness/spec/platform/bounded-validation-governor.md` defines fast/standard/release plans, release opt-in, dry-run, duplicate-command skip, and max budget behavior.
+- `.lazy-harness/tests/bounded-validation-governor.md` protects the no-accidental-release and no-over-hour-budget regressions.
+- `.lazy-harness/scripts/validation-governor.py` implements the bounded runner.
+
 Non-negotiables:
 
 - No existing STOP/gate may disappear without an explicit test and canonical record change.
