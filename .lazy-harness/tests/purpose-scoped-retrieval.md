@@ -24,6 +24,7 @@ Self-test must prove:
 - purpose-scoped find evidence for `architecture`/`full` must not satisfy search-debt by itself.
 - response audit stays silent when correlated search-debt has safe purpose-scoped find evidence.
 - required-read debt still requires concrete read evidence; purpose-scoped find is not read evidence.
+- core `lazy find` assertions use a temporary fixture host, not whatever framework records happen to be synced into the current host.
 - downstream dogfood worktree/dev-instance fixture proves `rulebook`, `test`, `fact`, and `capability` purposes search different first surfaces.
 
 ## Layer completeness gate
@@ -42,11 +43,24 @@ Self-test must prove:
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
   - `.lazy-harness/scripts/self-test.py`
+  - temporary core fixture in `check_purpose_scoped_retrieval_cli`
   - temporary downstream dogfood fixture in `check_purpose_scoped_retrieval_cli`
 - Test symbol:
   - `check_purpose_scoped_retrieval_cli`
 - Validation:
   - `.lazy-harness/bin/lazy test`
+
+## Core fixture host safety
+
+Self-test creates a temporary core fixture for the generic `lazy find` assertions:
+
+- `.lazy-harness/rules/project-policy-storage.md` — proves `rulebook` purpose returns rules without broad records.
+- `.lazy-harness/tests/purpose-scoped-retrieval.md` — proves `test` purpose returns TDD records.
+- `.lazy-harness/decisions/purpose-scoped-retrieval.md` — negative fixture proving `test` purpose does not default to ADR/fact sweeps.
+- `.lazy-harness/spec/platform/capability-resolution.md` — proves `fact` purpose returns fact/contract records.
+- `.lazy-harness/ssot/capabilities.json` — proves `retrieval_test` capability resolution works.
+
+This fixture is required because host memory is host-owned. A downstream host may not contain framework TDD records such as `.lazy-harness/tests/purpose-scoped-retrieval.md`, and self-test must still validate framework CLI behavior there.
 
 ## Phase 4 downstream dogfood fixture
 

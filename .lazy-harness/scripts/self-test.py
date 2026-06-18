@@ -2898,48 +2898,126 @@ def check_purpose_scoped_retrieval_cli() -> None:
     if leaked:
         fail("purpose-find must not reintroduce route/raw-prompt/required-read semantics: " + json.dumps(leaked, ensure_ascii=False))
 
-    missing = subprocess.run([".lazy-harness/bin/lazy", "find", "project policy", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if missing.returncode == 0 or "requires --purpose" not in (missing.stderr + missing.stdout):
-        fail("lazy find should require explicit --purpose")
+    core = pathlib.Path(tempfile.mkdtemp(prefix="lazy-purpose-core-"))
+    try:
+        (core / ".lazy-harness" / "rules").mkdir(parents=True)
+        (core / ".lazy-harness" / "tests").mkdir(parents=True)
+        (core / ".lazy-harness" / "spec" / "platform").mkdir(parents=True)
+        (core / ".lazy-harness" / "decisions").mkdir(parents=True)
+        (core / ".lazy-harness" / "ssot").mkdir(parents=True)
+        (core / ".lazy-harness" / "rules" / "project-policy-storage.md").write_text(
+            """# Project Policy Storage Rule
 
-    rulebook = subprocess.run([".lazy-harness/bin/lazy", "find", "--purpose", "rulebook", "project policy storage", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if rulebook.returncode != 0:
-        fail("lazy find --purpose rulebook failed:\n" + rulebook.stdout + rulebook.stderr)
-    rulebook_json = json.loads(rulebook.stdout)
-    if rulebook_json.get("purpose") != "rulebook" or "rules" not in rulebook_json.get("searchSpaces", []):
-        fail("rulebook purpose should report rules search space: " + rulebook.stdout)
-    if rulebook_json.get("candidates", {}).get("records"):
-        fail("rulebook purpose should not default to broad record candidates: " + rulebook.stdout)
-    if not rulebook_json.get("candidates", {}).get("rules"):
-        fail("rulebook purpose should return rule candidates: " + rulebook.stdout)
+Status: active
+Layer: Rulebook
 
-    test = subprocess.run([".lazy-harness/bin/lazy", "find", "--purpose", "test", "purpose scoped retrieval", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if test.returncode != 0:
-        fail("lazy find --purpose test failed:\n" + test.stdout + test.stderr)
-    test_json = json.loads(test.stdout)
-    test_records = [entry.get("path") for entry in test_json.get("candidates", {}).get("records", [])]
-    if ".lazy-harness/tests/purpose-scoped-retrieval.md" not in test_records:
-        fail("test purpose should surface purpose-scoped TDD record first: " + test.stdout)
-    if any(str(path).startswith(".lazy-harness/decisions/") for path in test_records):
-        fail("test purpose should not default to ADR/fact record sweep: " + test.stdout)
+## Rule digest
 
-    fact = subprocess.run([".lazy-harness/bin/lazy", "find", "--purpose", "fact", "capability resolution", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if fact.returncode != 0:
-        fail("lazy find --purpose fact failed:\n" + fact.stdout + fact.stderr)
-    fact_records = [entry.get("path") for entry in json.loads(fact.stdout).get("candidates", {}).get("records", [])]
-    if ".lazy-harness/spec/platform/capability-resolution.md" not in fact_records:
-        fail("fact purpose should surface capability resolution record: " + fact.stdout)
+- Applies when: project policy storage
+- Prefer: `.lazy-harness/rules/**` for operating policies
 
-    arch = subprocess.run([".lazy-harness/bin/lazy", "find", "--purpose", "architecture", "purpose scoped retrieval", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if arch.returncode != 0:
-        fail("lazy find --purpose architecture failed:\n" + arch.stdout + arch.stderr)
-    spaces = set(json.loads(arch.stdout).get("searchSpaces", []))
-    if not {"overview", "records", "rules", "capabilities", "source", "tests", "graph"}.issubset(spaces):
-        fail("architecture purpose should include broad search spaces: " + arch.stdout)
+## Operating rule
 
-    cap = subprocess.run([".lazy-harness/bin/lazy", "capability", "resolve", "--intent", "retrieval_test", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if cap.returncode != 0:
-        fail("retrieval purpose capability resolve failed:\n" + cap.stdout + cap.stderr)
+Project policy storage belongs in the rulebook surface for purpose-scoped retrieval tests.
+""",
+            encoding="utf-8",
+        )
+        (core / ".lazy-harness" / "tests" / "purpose-scoped-retrieval.md").write_text(
+            """# Purpose-Scoped Retrieval Regression
+
+Status: accepted
+Layer: TDD
+
+## Regression
+
+Purpose scoped retrieval must find TDD records for test purpose before widening to fact or decision records.
+""",
+            encoding="utf-8",
+        )
+        (core / ".lazy-harness" / "decisions" / "purpose-scoped-retrieval.md").write_text(
+            """# Purpose Scoped Retrieval Decision
+
+Status: accepted
+Layer: ADR
+
+This broad decision intentionally mentions purpose scoped retrieval but must not appear in test-purpose records.
+""",
+            encoding="utf-8",
+        )
+        (core / ".lazy-harness" / "spec" / "platform" / "capability-resolution.md").write_text(
+            """# Capability Resolution
+
+Status: accepted
+Layer: SDD
+
+Capability resolution fact records are returned for fact purpose retrieval.
+""",
+            encoding="utf-8",
+        )
+        (core / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
+            json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "retrieval-purpose-test",
+                    "kind": "command",
+                    "level": "recommend",
+                    "sourceRecord": ".lazy-harness/spec/platform/purpose-scoped-retrieval.md",
+                    "appliesWhen": ["retrieval_test"],
+                    "preferredActions": ["lazy find --purpose test"],
+                    "description": "Use test purpose retrieval for validation and TDD surfaces.",
+                    "owner": "framework-fixture",
+                    "tags": ["purpose", "retrieval", "test", "validation"],
+                }],
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(core))
+        lazy_cmd = str(LAZY / "bin" / "lazy")
+
+        missing = subprocess.run([lazy_cmd, "find", "project policy", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if missing.returncode == 0 or "requires --purpose" not in (missing.stderr + missing.stdout):
+            fail("lazy find should require explicit --purpose")
+
+        rulebook = subprocess.run([lazy_cmd, "find", "--purpose", "rulebook", "project policy storage", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if rulebook.returncode != 0:
+            fail("lazy find --purpose rulebook failed:\n" + rulebook.stdout + rulebook.stderr)
+        rulebook_json = json.loads(rulebook.stdout)
+        if rulebook_json.get("purpose") != "rulebook" or "rules" not in rulebook_json.get("searchSpaces", []):
+            fail("rulebook purpose should report rules search space: " + rulebook.stdout)
+        if rulebook_json.get("candidates", {}).get("records"):
+            fail("rulebook purpose should not default to broad record candidates: " + rulebook.stdout)
+        if not rulebook_json.get("candidates", {}).get("rules"):
+            fail("rulebook purpose should return rule candidates: " + rulebook.stdout)
+
+        test = subprocess.run([lazy_cmd, "find", "--purpose", "test", "purpose scoped retrieval", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if test.returncode != 0:
+            fail("lazy find --purpose test failed:\n" + test.stdout + test.stderr)
+        test_json = json.loads(test.stdout)
+        test_records = [entry.get("path") for entry in test_json.get("candidates", {}).get("records", [])]
+        if ".lazy-harness/tests/purpose-scoped-retrieval.md" not in test_records:
+            fail("test purpose should surface purpose-scoped TDD record: " + test.stdout)
+        if any(str(path).startswith(".lazy-harness/decisions/") for path in test_records):
+            fail("test purpose should not default to ADR/fact record sweep: " + test.stdout)
+
+        fact = subprocess.run([lazy_cmd, "find", "--purpose", "fact", "capability resolution", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if fact.returncode != 0:
+            fail("lazy find --purpose fact failed:\n" + fact.stdout + fact.stderr)
+        fact_records = [entry.get("path") for entry in json.loads(fact.stdout).get("candidates", {}).get("records", [])]
+        if ".lazy-harness/spec/platform/capability-resolution.md" not in fact_records:
+            fail("fact purpose should surface capability resolution record: " + fact.stdout)
+
+        arch = subprocess.run([lazy_cmd, "find", "--purpose", "architecture", "purpose scoped retrieval", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if arch.returncode != 0:
+            fail("lazy find --purpose architecture failed:\n" + arch.stdout + arch.stderr)
+        spaces = set(json.loads(arch.stdout).get("searchSpaces", []))
+        if not {"overview", "records", "rules", "capabilities", "source", "tests", "graph"}.issubset(spaces):
+            fail("architecture purpose should include broad search spaces: " + arch.stdout)
+
+        cap = subprocess.run([lazy_cmd, "capability", "resolve", "--intent", "retrieval_test", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
+        if cap.returncode != 0:
+            fail("retrieval purpose capability resolve failed:\n" + cap.stdout + cap.stderr)
+    finally:
+        shutil.rmtree(core, ignore_errors=True)
 
 
     dogfood = pathlib.Path(tempfile.mkdtemp(prefix="lazy-purpose-dogfood-"))

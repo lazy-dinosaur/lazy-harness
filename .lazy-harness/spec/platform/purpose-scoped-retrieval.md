@@ -99,6 +99,7 @@ Markdown output must communicate the same cue-only sections.
   - `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
   - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action`
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
+  - core temporary fixture in `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli` for host-safe generic purpose assertions
   - downstream worktree/dev-instance fixture in `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
 
 ## Phase 3 evidence integration
@@ -127,6 +128,8 @@ Lifecycle helpers may count this as **search evidence only** when the explicit p
 They must not count `architecture`, `design`, or `full` purpose output as satisfying search-debt by itself. Required-read debt still requires actual read/search evidence for concrete paths; purpose-scoped find evidence is not read evidence.
 
 ## Phase 4 downstream dogfood fixture
+
+Before the downstream dogfood fixture, `check_purpose_scoped_retrieval_cli` creates a minimal core fixture host for generic assertions. This avoids depending on host-owned record memory, because synced hosts do not have to contain framework TDD records such as `.lazy-harness/tests/purpose-scoped-retrieval.md`.
 
 The implementation is protected by a temporary downstream-like host fixture in `check_purpose_scoped_retrieval_cli`. The fixture models a host with a worktree/dev-instance operating rule, a capability binding, an SDD fact record, a TDD record, and a source test file.
 
