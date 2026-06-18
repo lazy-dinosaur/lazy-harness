@@ -55,7 +55,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json`
 - Source/test:
   - `.lazy-harness/scripts/self-test.py#check_policy_machinery_v2`
-  - `.lazy-harness/manifests/init-categories.json`
+  - `.lazy-harness/manifests/init-categories.json` — includes Policy Machinery V2 records plus `spec/platform/project-operating-rulebook.md` dependency for host validation.
 - Validation:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

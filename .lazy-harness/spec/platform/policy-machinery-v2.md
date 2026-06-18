@@ -118,7 +118,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
   - `.lazy-harness/scripts/rulebook.ts` — current rulebook CLI, unchanged by this slice.
   - `.lazy-harness/scripts/self-test.py` — static fixture/manifest validation.
-  - `.lazy-harness/manifests/init-categories.json` — host sync package.
+  - `.lazy-harness/manifests/init-categories.json` — host sync package, including the rulebook SDD dependency required by this static contract.
 - Protected by:
   - `self-test.py#check_policy_machinery_v2`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`

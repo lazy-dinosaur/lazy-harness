@@ -8029,6 +8029,7 @@ def check_policy_machinery_v2() -> None:
         "spec/platform/policy-machinery-v2.md",
         "tests/policy-machinery-v2.md",
         "planning/policy-machinery-v2-baseline-gap-audit.md",
+        "spec/platform/project-operating-rulebook.md",
         "fixtures/policy-machinery-v2/",
         "*.json",
     ):
