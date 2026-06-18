@@ -28,7 +28,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - prove rulebook retire-readiness is non-destructive and blocks until active rulebook entries have typed policy coverage
   - prove `lazy rules` remains only compatibility/advisory after rulebook semantic retirement
   - prove block runtime readiness is a preflight only and does not install hard-stop hooks
-  - prove dry-run block runtime helper only reacts to explicit structured dry-run context and never installs hooks
+  - prove dry-run block runtime helper only reacts to explicit structured dry-run context and never installs blocking hooks
   - prove policy packets use update-loop evidence without becoming canonical truth by themselves
 - Must not:
   - add hook enforcement as part of this read-only policy registry slice
@@ -57,7 +57,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_rulebook_semantic_retirement_boundary` | `lazy rules list|audit|resolve --format=json` | Rulebook outputs expose `rulebook-compatibility/v1`, `retiredCanonicalSemantics=true`, `canonicalPolicySource=.lazy-harness/ssot/policies.json`, and resolve is `compatibility-advisory`. |
 | `policy_machinery_block_runtime_readiness_preflight` | source host + temp hosts + `lazy policy block-readiness --strict --format=json` | Current source reports ready for `validation-evidence-block` with no hook mutation; positive fixture with promotion evidence passes; missing runtime fixture fails. |
 | `policy_machinery_first_block_policy_readiness` | `.lazy-harness/ssot/policies.json`, `.lazy-harness/tests/policy-block-validation-evidence.md`, hard-stop audit | `validation-evidence-block` has user confirmation, validation-output evidence, hard-stop promotion metadata, runtime fixture, bypass, rollback, and passes readiness without installing hooks. |
-| `policy_machinery_block_runtime_dry_run_helper` | `check-policy-block-runtime.py` payload fixtures | Helper emits DRY-RUN STOP/ALLOW/BYPASS for explicit structured `policy_context.blockRuntimeDryRun=true`, stays silent for raw/no-dry-run payloads, and is not installed in lifecycle hooks. |
+| `policy_machinery_block_runtime_dry_run_helper` | `check-policy-block-runtime.py` payload fixtures + response.completed/lifecycle-check parity | Helper emits DRY-RUN STOP/ALLOW/BYPASS for explicit structured `policy_context.blockRuntimeDryRun=true`, stays silent for raw/no-dry-run payloads, is wired into lifecycle as dry-run/fail-open only, and does not install a blocking hook. |
 
 ## Layer completeness gate
 
@@ -98,6 +98,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `lazy policy block-readiness --format=json`
   - `lazy policy block-readiness --strict --format=json`
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py <payload-json>`
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` with explicit dry-run payload
+  - `.lazy-harness/scripts/lifecycle-check.py --format=json` with explicit dry-run payload
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

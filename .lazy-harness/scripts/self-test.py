@@ -4259,6 +4259,37 @@ def check_lifecycle_hook_integration() -> None:
         read_only_shadow = run_lifecycle_check_shadow(read_only_payload, generic_queue)
         if read_only_hook_out.strip() or read_only_shadow.get("outputEmitted") is not False or read_only_shadow.get("firstOutput"):
             fail("read-only no-output parity fixture should stay silent")
+
+        block_dry_payload = {
+            "message_id": "shadow-policy-block-dry-run",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/tests/policy-block-validation-evidence.md"}],
+            "policy_context": {
+                "blockRuntimeDryRun": True,
+                "stage": "turn",
+                "appliesTo": ["claiming_validation_complete_without_evidence"],
+            },
+        }
+        block_hook_body = hook_inject_body(run_response_completed_hook(block_dry_payload, generic_queue))
+        block_shadow = run_lifecycle_check_shadow(block_dry_payload, generic_queue)
+        if "DRY-RUN STOP. Policy Machinery block runtime" not in block_hook_body or "validation-evidence-block" not in block_hook_body:
+            fail("response.completed should surface dry-run block helper output for explicit structured dry-run context:\n" + block_hook_body)
+        if "No lifecycle hard-stop is installed" not in block_hook_body:
+            fail("response.completed dry-run block output must state no lifecycle hard-stop is installed")
+        if block_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py":
+            fail("lifecycle-check shadow should match block dry-run first output helper: " + json.dumps(block_shadow, ensure_ascii=False)[:800])
+        if "DRY-RUN STOP. Policy Machinery block runtime" not in block_shadow.get("firstOutput", ""):
+            fail("lifecycle-check shadow should surface dry-run block helper output")
+
+        block_raw_payload = {
+            "message_id": "shadow-policy-block-raw-text",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/tests/policy-block-validation-evidence.md"}],
+            "last_user_message": "검증 완료",
+            "assistant_response": "검증 완료",
+        }
+        block_raw_hook_out = run_response_completed_hook(block_raw_payload, generic_queue)
+        block_raw_shadow = run_lifecycle_check_shadow(block_raw_payload, generic_queue)
+        if block_raw_hook_out.strip() or "DRY-RUN STOP" in block_raw_shadow.get("firstOutput", ""):
+            fail("dry-run block lifecycle integration must stay silent for raw text payloads")
     finally:
         for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
             path.unlink(missing_ok=True)
@@ -8097,8 +8128,8 @@ def check_policy_machinery_v2() -> None:
     for text, label in ((response_hook, "response.completed hook"), (lifecycle_check, "lifecycle-check orchestrator")):
         if "check-policy-warn-runtime.py" not in text:
             fail(label + " must include policy warn runtime helper")
-        if "check-policy-block-runtime.py" in text:
-            fail(label + " must not install policy block dry-run helper before explicit lifecycle integration")
+        if "check-policy-block-runtime.py" not in text:
+            fail(label + " must include policy block dry-run helper after explicit lifecycle dry-run integration")
 
     if "Capability kind and enforcement level are independent." not in capability_ssot:
         fail("Policy Machinery V2 depends on capability kind/level SSOT invariant")

@@ -15,7 +15,7 @@ Related policy: `validation-evidence-block`
   - promoting the validation-evidence boundary to `level=block`
   - checking `lazy policy block-readiness --strict`
   - checking `check-policy-block-runtime.py` dry-run STOP/ALLOW/BYPASS behavior
-  - ensuring no lifecycle hook is installed by readiness alone
+  - ensuring no blocking lifecycle hook is installed by readiness or dry-run review alone
 - Must:
   - prove the block policy has user confirmation, validation output, runtime fixture, bypass, and rollback evidence
   - prove the block policy is narrow: validation-complete claims without evidence only
@@ -51,7 +51,7 @@ claiming_validation_complete_without_evidence
 closing_non_trivial_work_unit_without_record_or_test_evidence
 ```
 
-The readiness slice only proves readiness. The dry-run helper slice proves review output. Neither slice connects the policy to a lifecycle hook.
+The readiness slice only proves readiness. The dry-run helper slice proves review output. The dry-run lifecycle integration slice connects review-only output to the helper chain, but it still does not install a blocking lifecycle hook.
 
 ## Regression assertions
 
@@ -61,6 +61,7 @@ The readiness slice only proves readiness. The dry-run helper slice proves revie
 - `check-policy-block-runtime.py` emits `DRY-RUN ALLOW` when validation evidence is attached.
 - `check-policy-block-runtime.py` emits `DRY-RUN BYPASS` when acknowledged block id and bypass reason are present.
 - `check-policy-block-runtime.py` stays silent for raw user/assistant text and for structured context without `blockRuntimeDryRun`.
+- `response.completed` and `lifecycle-check.py` surface DRY-RUN STOP only for explicit structured dry-run payloads.
 - Removing `runtime.fixture` or the hard-stop promotion section makes strict readiness fail.
 - `lazy policy resolve` remains advisory/warn behavior only unless a later explicit lifecycle-integration slice is approved.
 
@@ -71,6 +72,8 @@ The readiness slice only proves readiness. The dry-run helper slice proves revie
   - `.lazy-harness/spec/platform/policy-machinery-v2.md` — contains the `## Hard-stop promotion` section for the validation-evidence boundary.
   - `.lazy-harness/scripts/policy.ts` — implements `lazy policy block-readiness`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py` — implements dry-run block runtime review output only.
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the dry-run helper in response.completed helper order.
+  - `.lazy-harness/scripts/lifecycle-check.py` — mirrors the dry-run helper in shadow/sandbox helper order.
   - `.lazy-harness/scripts/self-test.py` — protects the source-host ready case and negative fixture cases.
 - Protection:
   - `.lazy-harness/bin/lazy policy block-readiness --strict --format=json`

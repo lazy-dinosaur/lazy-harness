@@ -109,7 +109,9 @@ User then confirmed proceeding with block runtime preparation and deferred backl
 
 User then confirmed proceeding with the first `level=block` policy promotion readiness slice. The slice adds `validation-evidence-block` for the narrow boundary `claiming_validation_complete_without_evidence`, adds a hard-stop promotion section to `.lazy-harness/spec/platform/policy-machinery-v2.md`, adds fixture `.lazy-harness/tests/policy-block-validation-evidence.md`, and makes source-host `lazy policy block-readiness --strict --format=json` pass while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`.
 
-User then confirmed proceeding with dry-run hard-stop integration and review. The slice adds `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py`, verifies DRY-RUN STOP/ALLOW/BYPASS/silent payloads, and keeps the helper uninstalled from `response.completed` / `lifecycle-check`.
+User then confirmed proceeding with dry-run hard-stop integration and review. The slice adds `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py`, verifies DRY-RUN STOP/ALLOW/BYPASS/silent payloads, and initially keeps the helper uninstalled from `response.completed` / `lifecycle-check`.
+
+User then confirmed proceeding with dry-run lifecycle integration and review. The slice wires `check-policy-block-runtime.py` into `response.completed` and `lifecycle-check.py` only as fail-open dry-run output, verifies explicit dry-run payloads through both lifecycle paths, and keeps actual blocking hard-stop behavior deferred.
 
 ## Rule placement
 
@@ -136,6 +138,15 @@ User then confirmed proceeding with dry-run hard-stop integration and review. Th
 - Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
 - Why not AGENTS.md: this is an implementation/runtime contract for Policy Machinery, not general prompt guidance.
 - Why not `.jcode`: this is shared framework lifecycle helper behavior, not local/private Jcode preference.
+- Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: dry-run block runtime may be wired into lifecycle helpers only as fail-open review output; blocking behavior remains deferred.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
+- Why not AGENTS.md: this is a Policy Machinery lifecycle implementation contract, not a general chat instruction.
+- Why not `.jcode`: this is framework lifecycle behavior shared by hosts, not private local Jcode preference.
 - Confirmation: user-confirmed
 
 ## Implementation map
@@ -165,7 +176,7 @@ User then confirmed proceeding with dry-run hard-stop integration and review. Th
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now passes for the first narrow block policy, and dry-run runtime review exists. Lifecycle hard-stop integration remains future work and requires explicit confirmation plus broader host dogfood.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now passes for the first narrow block policy, and dry-run runtime review is wired into lifecycle as fail-open review output. Blocking lifecycle hard-stop integration remains future work and requires explicit confirmation plus broader host dogfood.
 
 ## Rule placement
 

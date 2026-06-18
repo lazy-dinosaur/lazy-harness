@@ -80,7 +80,7 @@ Warn runtime is a separate explicit-context mode:
 - `check-policy-warn-runtime.py` may emit a response.completed `WARN` only when payload contains structured `policy_context` / `policyContext` with `stage` and/or `appliesTo`.
 - `acknowledgedPolicyWarnings` suppresses already-accepted warning ids.
 - Warn output is not a block and cannot prevent work from continuing.
-- Block hook behavior remains unimplemented; `validation-evidence-block` is readiness-complete and dry-run review-only until a later lifecycle integration slice.
+- Blocking hook behavior remains unimplemented; `validation-evidence-block` is readiness-complete and dry-run review-only until a later explicit blocking integration slice.
 
 ## Relationship to capabilities
 
@@ -169,7 +169,7 @@ The source host currently has one `level=block` readiness policy:
 validation-evidence-block
 ```
 
-Strict block-readiness is expected to pass for this readiness-only policy while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`. Lifecycle hard-stop integration remains a separate future slice.
+Strict block-readiness is expected to pass for this readiness-only policy while still reporting `hardStopHookInstalled=false` and `lifecycleMutation=false`. Blocking lifecycle hard-stop integration remains a separate future slice.
 
 Dry-run runtime review is available through:
 
@@ -177,7 +177,9 @@ Dry-run runtime review is available through:
 .lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py '<payload-json>'
 ```
 
-The dry-run helper requires explicit `policy_context.blockRuntimeDryRun = true`, never classifies raw text, never exits nonzero, and is not installed in `response.completed` hooks.
+The dry-run helper requires explicit `policy_context.blockRuntimeDryRun = true`, never classifies raw text, never exits nonzero, and is connected to `response.completed` / `lifecycle-check.py` only as fail-open review output.
+
+Actual blocking behavior remains uninstalled. Any future change from `DRY-RUN STOP` to a blocking STOP requires a separate user-confirmed lifecycle integration slice, dogfood evidence, bypass behavior validation, and rollback plan.
 
 ## Implementation map
 
@@ -193,6 +195,8 @@ The dry-run helper requires explicit `policy_context.blockRuntimeDryRun = true`,
   - `.lazy-harness/scripts/policy.ts`
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py`
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py`
+  - `.lazy-harness/hooks/lifecycle/on-response-completed.sh`
+  - `.lazy-harness/scripts/lifecycle-check.py`
   - `.lazy-harness/generated/policy-rulebook.md`
   - `.lazy-harness/bin/lazy`
   - `.lazy-harness/scripts/self-test.py`

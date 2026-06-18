@@ -47,6 +47,7 @@ HELPERS = [
     ".lazy-harness/hooks/lifecycle/helpers/check-adr-sync.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-handoff-stale.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py",
+    ".lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py",
 ]
 
 READ_ONLY_TOOLS = {
