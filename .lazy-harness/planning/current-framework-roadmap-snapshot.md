@@ -216,6 +216,25 @@ Not urgent unless session interruption or throughput becomes the bottleneck. If 
    - Model-quality finding review
 5. Only after evidence review choose the next implementation slice.
 
+## 2026-06-18 priority correction — finish core harness first
+
+Status: active-priority
+Confirmation: user confirmed to defer oh-my-pi scope correction and any further lazy-test/validation-tier changes until the core harness completion path is addressed first.
+
+Priority order:
+
+1. Finish/validate the core lazy-harness roadmap before renaming or repositioning the Pi package as an oh-my-pi extension.
+2. Keep the already-committed `lazy check` fast validation tier, but do not continue changing `lazy test`/validation-tier semantics until core harness completion work is reviewed.
+3. Treat the Pi/oh-my-pi wording correction as a later adapter-scope cleanup, not the current task.
+
+Rule placement:
+
+- Rule: oh-my-pi adapter wording and further validation-tier/lazy-test changes are deferred until core harness completion work is evaluated.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/current-framework-roadmap-snapshot.md`
+- Why not AGENTS.md: this is current roadmap sequencing, not permanent agent grammar.
+- Confirmation: user-confirmed priority correction on 2026-06-18.
+
 ## Rule placement
 
 - Rule: Current lazy-harness work should pause new hard guard implementation and proceed through dogfood/evidence evaluation; the framework should provide configurable policy machinery rather than hardcoding universal enforcement decisions.
