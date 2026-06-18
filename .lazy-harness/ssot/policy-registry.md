@@ -22,6 +22,7 @@ Registry: `.lazy-harness/ssot/policies.json`
   - keep policy `stage` and `level` explicit
   - keep policy evidence root-relative and source-record backed
   - keep generated/explain views derived and non-canonical
+  - keep `lazy policy resolve` advisory-only for `discover`, `recommend`, and `default` levels
   - require explicit confirmation and tests before `warn`/`block` runtime enforcement
 - Must not:
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
@@ -56,6 +57,14 @@ Each policy requires:
 - `rollback.criteria`
 - `updateLoop.canonicalByPacketAlone = false`
 
+## Advisory resolver
+
+`lazy policy resolve` is the first runtime-facing registry reader. It is still read-only and advisory-only:
+
+- `discover`, `recommend`, and `default` may be surfaced as guidance.
+- `warn` and `block` are not enforced or emitted as runtime decisions by this slice.
+- Resolver output is derived from `policies.json` and is not canonical truth by itself.
+
 ## Relationship to capabilities
 
 Capabilities bind policies to commands/actions/tools. Policies define behavior semantics. A capability can reference policy ids through `policyIds`, `sourceRecord`, or migration compatibility fields.
@@ -81,6 +90,7 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
 - Validation:
   - `lazy policy audit --format=json`
   - `lazy policy list --format=json`
+  - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

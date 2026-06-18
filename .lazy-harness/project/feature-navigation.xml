@@ -305,12 +305,14 @@
     </aliases>
     <routes>
       <route>lazy rules</route>
+      <route>lazy policy</route>
       <route>lazy capability</route>
     </routes>
     <components>
       <component>rulebook parser</component>
       <component>rulebook audit</component>
       <component>rulebook resolver</component>
+      <component>typed policy advisory resolver</component>
       <component>capability preferred/discouraged action binding</component>
     </components>
     <records>
@@ -319,13 +321,16 @@
       <record layer="TDD">.lazy-harness/tests/project-operating-rulebook.md</record>
       <record layer="SSOT">.lazy-harness/ssot/rule-sources.md</record>
       <record layer="SSOT">.lazy-harness/ssot/capability-registry.md</record>
+      <record layer="SSOT">.lazy-harness/ssot/policy-registry.md</record>
     </records>
     <sourceFiles>
       <path>.lazy-harness/rules/README.md</path>
       <path>.lazy-harness/scripts/rulebook.ts</path>
+      <path>.lazy-harness/scripts/policy.ts</path>
       <path>.lazy-harness/scripts/capability.ts</path>
       <path>.lazy-harness/schemas/capabilities.schema.json</path>
       <path>.lazy-harness/ssot/capabilities.json</path>
+      <path>.lazy-harness/ssot/policies.json</path>
       <path>.lazy-harness/bin/lazy</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </sourceFiles>

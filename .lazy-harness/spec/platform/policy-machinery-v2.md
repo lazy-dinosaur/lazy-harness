@@ -27,6 +27,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - treat `.lazy-harness/ssot/policies.json` as canonical typed behavior policy storage
   - keep `.lazy-harness/ssot/capabilities.json` as command/action/capability binding storage
   - keep `.lazy-harness/rules/**` as compatibility/generated/explain surface during migration, not canonical source for new policy semantics
+  - expose `lazy policy resolve` as advisory-only guidance for `discover`, `recommend`, and `default` levels
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -34,6 +35,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat generated/explain rulebook text as canonical truth
   - turn advisory policies into blocking hooks from this contract-only slice
+  - treat `lazy policy resolve` output as a warning/blocking runtime decision
   - allow generated policy packets to become canonical truth without record-write policy or explicit confirmation
   - add semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning
 - Record completion:
@@ -84,6 +86,20 @@ The fixture uses JSON, not TypeScript, as the static contract sample.
 - `block` requires explicit confirmation or a high-risk mutation boundary.
 - `warn` and `block` require documented bypass behavior and tests before runtime enforcement.
 
+## Advisory resolver slice
+
+User confirmed the next step after Option B: start with advisory resolution before warn/block behavior.
+
+`lazy policy resolve` is the first resolver slice:
+
+- Reads `.lazy-harness/ssot/policies.json`.
+- Filters by `stage` and `appliesTo` when provided.
+- Surfaces only `discover`, `recommend`, and `default` policy levels.
+- Emits `enforcement = advisory-only` and `recommendedAction = surface-guidance`.
+- Does not emit warn/block decisions, write state, mutate graph rows, or hook into lifecycle enforcement.
+
+Warn/block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
+
 ## Storage posture
 
 Phase 3 selected Option B:
@@ -133,6 +149,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 - Protected by:
   - `self-test.py#check_policy_machinery_v2`
   - `lazy policy audit --format=json`
+  - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
@@ -141,7 +158,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 
 - DDD: no business-domain vocabulary impact.
 - SDD: this record defines the Phase 3 policy contract and links to rulebook/capability/update-loop contracts.
-- BDD: agent behavior remains advisory unless future confirmed policy levels introduce warn/block behavior.
+- BDD: agent behavior remains advisory through `lazy policy resolve`; future confirmed policy levels may introduce warn/block behavior.
 - TDD: `.lazy-harness/tests/policy-machinery-v2.md` and `self-test.py#check_policy_machinery_v2` protect this slice.
 - ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` selects Option B.
 - SSOT: `.lazy-harness/ssot/policy-registry.md` is canonical for behavior policy semantics; `.lazy-harness/ssot/capability-registry.md` remains kind/level binding source of truth.

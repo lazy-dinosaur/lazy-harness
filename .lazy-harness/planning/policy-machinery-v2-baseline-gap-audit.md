@@ -91,6 +91,8 @@ User selected Option B on 2026-06-18:
 
 First implementation slice adds `.lazy-harness/ssot/policies.json`, `.lazy-harness/schemas/policies.schema.json`, and read-only `lazy policy list/audit/explain`.
 
+User confirmed the recommended next step (A) on 2026-06-18: add advisory-only `lazy policy resolve` for `discover`/`recommend`/`default` levels and keep warn/block runtime enforcement deferred.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`

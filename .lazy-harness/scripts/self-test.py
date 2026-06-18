@@ -7949,8 +7949,11 @@ def check_policy_machinery_v2() -> None:
         "Option B typed policy canonical slice",
         "treat `.lazy-harness/ssot/policies.json` as canonical typed behavior policy storage",
         "Rulebook markdown under `.lazy-harness/rules/**` is compatibility/generated/explain surface during migration.",
+        "`lazy policy resolve` is the first resolver slice",
+        "enforcement = advisory-only",
         "canonicalByPacketAlone: false",
         "lazy policy audit --format=json",
+        "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
         "self-test.py#check_policy_machinery_v2",
     ):
         if expected not in sdd:
@@ -7962,6 +7965,7 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_no_semantic_authority_fields",
         "policy_machinery_option_b_storage",
         "policy_machinery_policy_cli_read_only",
+        "policy_machinery_policy_resolve_advisory_only",
         "policy_machinery_no_runtime_enforcement",
         "Layer completeness gate",
     ):
@@ -7989,6 +7993,7 @@ def check_policy_machinery_v2() -> None:
     for expected in (
         "canonical typed policy registry",
         "`.lazy-harness/rules/**` is a compatibility/generated/explain surface",
+        "lazy policy resolve --stage turn --applies-to making_validation_claims --format=json",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
@@ -7996,7 +8001,7 @@ def check_policy_machinery_v2() -> None:
     for forbidden in ("execSync", "writeFileSync", "appendJsonlStable", "warn/block runtime behavior"):
         if forbidden in policy_cli:
             fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
-    for expected in ("Policy Machinery Option B", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
+    for expected in ("Policy Machinery Option B", "Resolve is advisory-only", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json"):
         if expected not in policy_cli:
             fail("policy CLI missing Option B explain boundary: " + expected)
 
@@ -8102,8 +8107,25 @@ def check_policy_machinery_v2() -> None:
     explain_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "explain", "--id", "record-first-validation", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if explain_md_result.returncode != 0 or "Canonical source" not in explain_md_result.stdout or "Generated/explain view only" not in explain_md_result.stdout:
         fail("lazy policy explain md must render canonical source and generated boundary:\n" + explain_md_result.stdout + explain_md_result.stderr)
+    resolve_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--stage", "turn", "--applies-to", "making_validation_claims", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if resolve_result.returncode != 0:
+        fail("lazy policy resolve failed:\n" + resolve_result.stdout + resolve_result.stderr)
+    resolve_json = json.loads(resolve_result.stdout)
+    if resolve_json.get("schemaVersion") != "policy-resolve/v1" or resolve_json.get("enforcement") != "advisory-only":
+        fail("lazy policy resolve must be advisory-only policy-resolve/v1: " + resolve_result.stdout)
+    resolve_matches = resolve_json.get("matches", [])
+    if "record-first-validation" not in [match.get("id") for match in resolve_matches]:
+        fail("lazy policy resolve should match record-first-validation for making_validation_claims: " + resolve_result.stdout)
+    for match in resolve_matches:
+        if match.get("level") in {"warn", "block"}:
+            fail("lazy policy resolve must not surface warn/block levels in advisory slice: " + resolve_result.stdout)
+        if match.get("enforcement") != "advisory-only" or match.get("recommendedAction") != "surface-guidance":
+            fail("lazy policy resolve match must be advisory-only surface-guidance: " + resolve_result.stdout)
+    invalid_max_level = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--max-level", "warn", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if invalid_max_level.returncode == 0:
+        fail("lazy policy resolve must reject warn/block max-level in advisory slice")
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
-    if "policy list|audit|explain" not in help_text:
+    if "policy list|audit|explain|resolve" not in help_text:
         fail("lazy help must advertise policy command")
     if graph_path.exists() and graph_path.read_bytes() != graph_before:
         fail("lazy policy CLI must not mutate graph.jsonl")

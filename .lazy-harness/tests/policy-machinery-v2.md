@@ -20,6 +20,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - validate the Phase 3 typed policy packet fixture
   - prove Policy Machinery V2 uses typed policy registry as canonical behavior policy storage
   - prove `lazy policy list/audit/explain` is read-only and deterministic
+  - prove `lazy policy resolve` is advisory-only for discover/recommend/default and does not warn/block
   - prove rulebook markdown is compatibility/generated/explain surface during migration
   - prove policy packets use update-loop evidence without becoming canonical truth by themselves
 - Must not:
@@ -37,7 +38,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_fixture_shape` | `example-policy.json` | Fixture schema is `policy-machinery-v2/v1`, stage/level are controlled vocabulary, sourceRecord is root-relative, and updateLoop cannot canonicalize by packet alone. |
 | `policy_machinery_no_semantic_authority_fields` | recursive fixture scan | Fixture contains no confidence/intent/risk/requiredRead/nextAction/candidateMeaning fields. |
 | `policy_machinery_option_b_storage` | SDD + ADR + SSOT + fixture | Typed policy registry is canonical; rulebook markdown is compatibility/generated/explain surface during migration. |
-| `policy_machinery_policy_cli_read_only` | `lazy policy list/audit/explain` | CLI reads typed policy registry, emits deterministic JSON/Markdown, and does not mutate registry/graph/generated caches. |
+| `policy_machinery_policy_cli_read_only` | `lazy policy list/audit/explain/resolve` | CLI reads typed policy registry, emits deterministic JSON/Markdown, and does not mutate registry/graph/generated caches. |
+| `policy_machinery_policy_resolve_advisory_only` | `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json` | Resolver returns matching policies with `enforcement=advisory-only`, `recommendedAction=surface-guidance`, and no warn/block runtime decision. |
 | `policy_machinery_no_runtime_enforcement` | SDD/TDD text | Option B first slice does not add hook enforcement or warn/block runtime. |
 
 ## Layer completeness gate
@@ -68,6 +70,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `.lazy-harness/manifests/init-categories.json` — includes Policy Machinery V2 records plus `spec/platform/project-operating-rulebook.md` dependency for host validation.
 - Validation:
   - `lazy policy audit --format=json`
+  - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
