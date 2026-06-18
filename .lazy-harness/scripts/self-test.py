@@ -4500,6 +4500,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_capability_fixture = json.loads(promote_capability_fixture_path.read_text(encoding="utf-8"))
     if promote_capability_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_capability_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote capability-binding fixture schema/mode mismatch")
+    promote_update_loop_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-update-loop-event.json"
+    if not promote_update_loop_fixture_path.exists():
+        fail("Project Profile V2 promote update-loop-event fixture missing: " + str(promote_update_loop_fixture_path.relative_to(ROOT)))
+    promote_update_loop_fixture = json.loads(promote_update_loop_fixture_path.read_text(encoding="utf-8"))
+    if promote_update_loop_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_update_loop_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote update-loop-event fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4990,6 +4996,91 @@ def check_project_profile_v2_queue_runtime() -> None:
             fail("project-profile promote-v2 capability-binding unchanged run must not alter registry")
         if capability_again_result.get("appliedWrites", [{}])[0].get("action") != "unchanged":
             fail("project-profile promote-v2 capability-binding unchanged run must report unchanged upsert")
+        update_item = json.loads(json.dumps(promote_update_loop_fixture["item"]))
+        update_item["status"] = "accepted"
+        update_item.pop("promotedAt", None)
+        update_item.pop("promotedTo", None)
+        update_item.pop("promotionEffects", None)
+        update_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        update_queue.setdefault("sourcePacket", {})["generatedAt"] = promote_update_loop_fixture.get("updateEvent", {}).get("occurredAt")
+        update_queue["items"].insert(0, update_item)
+        queue_file.write_text(json.dumps(update_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_update_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        before_candidates_text = candidates_path.read_text(encoding="utf-8") if candidates_path.exists() else ""
+        promote_update_loop = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                update_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_update_loop.returncode != 0:
+            fail("project-profile promote-v2 update-loop-event target --confirm failed:\n" + promote_update_loop.stdout + promote_update_loop.stderr)
+        update_result = json.loads(promote_update_loop.stdout)
+        after_update_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_update_files = sorted(before_update_files + [".lazy-harness/knowledge/project-map-update-events.jsonl"])
+        if after_update_files != expected_update_files:
+            fail("project-profile promote-v2 update-loop-event target must write only queue plus update event log: " + json.dumps(after_update_files, ensure_ascii=False))
+        if candidates_path.exists() and candidates_path.read_text(encoding="utf-8") != before_candidates_text:
+            fail("project-profile promote-v2 update-loop-event target must not mutate candidates.jsonl")
+        update_events_path = root / ".lazy-harness" / "knowledge" / "project-map-update-events.jsonl"
+        update_rows = [json.loads(line) for line in update_events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if update_rows != [promote_update_loop_fixture.get("updateEvent")]:
+            fail("project-profile promote-v2 update-loop-event target must append the expected non-canonical update event")
+        update_effects = update_result.get("targetEffects", [])
+        if not update_effects or update_effects[0].get("status") != "applied" or update_effects[0].get("action") != "append-update-loop-event":
+            fail("project-profile promote-v2 update-loop-event target must expose applied update-loop effect")
+        if update_result.get("updateEvent") != promote_update_loop_fixture.get("updateEvent"):
+            fail("project-profile promote-v2 update-loop-event target must return the appended update event")
+        if update_result.get("appliedWrites") != promote_update_loop_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 update-loop-event target must report update event and queue writes")
+        _assert_no_project_map_forbidden_fields(update_result, "projectProfilePromoteV2UpdateLoop")
+        update_dedupe_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        update_dedupe_queue["items"] = [
+            {k: v for k, v in {**item, "status": "accepted"}.items() if k not in {"promotedAt", "promotedTo", "promotionEffects"}}
+            if item.get("id") == update_item["id"] else item
+            for item in update_dedupe_queue["items"]
+        ]
+        queue_file.write_text(json.dumps(update_dedupe_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        promote_update_loop_again = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                update_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_update_loop_again.returncode != 0:
+            fail("project-profile promote-v2 update-loop-event dedupe run failed:\n" + promote_update_loop_again.stdout + promote_update_loop_again.stderr)
+        update_again_result = json.loads(promote_update_loop_again.stdout)
+        update_rows_after = [json.loads(line) for line in update_events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if update_rows_after != update_rows:
+            fail("project-profile promote-v2 update-loop-event duplicate run must not append another event")
+        if update_again_result.get("appliedWrites", [{}])[0].get("action") != "deduped-identical" or update_again_result.get("targetEffects", [{}])[0].get("action") != "dedupe-update-loop-event":
+            fail("project-profile promote-v2 update-loop-event duplicate run must report dedupe")
+        if (root / ".lazy-harness" / "knowledge" / "project-map-update-events.jsonl.conflicts.jsonl").exists():
+            fail("project-profile promote-v2 update-loop-event duplicate run must not record a conflict for identical event")
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))
@@ -7001,7 +7092,7 @@ def check_project_map_v2_schema() -> None:
 
 
 def check_project_map_update_loop_v2() -> None:
-    """Project Map Phase 1.5 must define adapter-neutral update events without runtime mutation."""
+    """Project Map Phase 1.5 must define adapter-neutral update events with a limited confirmed writer boundary."""
     sdd_path = LAZY / "spec" / "platform" / "project-map-update-loop-v2.md"
     ssot_path = LAZY / "ssot" / "project-map-ingestion-sources.md"
     tdd_path = LAZY / "tests" / "project-map-update-loop-v2.md"
@@ -7021,7 +7112,8 @@ def check_project_map_update_loop_v2() -> None:
         "Candidate/canonical transition model",
         "Forbidden fields anywhere in update event output",
         "Core update-loop semantics decide candidate/canonical transitions.",
-        "Runtime implementation remains future work after Phase 1.5 review.",
+        "General adapter/runtime ingestion remains future work.",
+        ".lazy-harness/knowledge/project-map-update-events.jsonl",
     ):
         if expected not in sdd:
             fail("Project Map update-loop SDD missing invariant: " + expected)
@@ -7040,7 +7132,7 @@ def check_project_map_update_loop_v2() -> None:
         "project_map_update_sources",
         "project_map_update_transitions",
         "project_map_update_forbidden_fields",
-        "project_map_update_no_runtime",
+        "project_map_update_limited_runtime_boundary",
     ):
         if expected not in tdd:
             fail("Project Map update-loop TDD missing regression case: " + expected)

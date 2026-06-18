@@ -1,6 +1,6 @@
 # Planning — Project Profile V2 Queue Router Implementation Plan
 
-Status: implemented-promote-v2-capability-binding-writer
+Status: implemented-promote-v2-update-loop-event-writer
 Date: 2026-06-17
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/project-profile-v2.md`
@@ -11,7 +11,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 
 ## Rule digest
 
-- Status: implemented queue-v2 runtime, promote-v2 dry-run preview, confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer slices
+- Status: implemented queue-v2 runtime, promote-v2 dry-run preview, confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer slices
 - Layer: Planning
 - Scope: framework-global
 - Applies when:
@@ -29,6 +29,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - let the candidate-row target writer append stable rows to `.lazy-harness/knowledge/candidates.jsonl` only for `promotionTarget.kind=candidate-row`
   - let the rulebook target writer create deterministic `Status: draft` / `Level: discover` entries under `.lazy-harness/rules/**` only for `promotionTarget.kind=rulebook`
   - let the capability-binding target writer upsert deterministic `discover` checklist capabilities into `.lazy-harness/ssot/capabilities.json` only for `promotionTarget.kind=capability-binding`
+  - let the update-loop-event target writer append stable non-canonical Project Map update event rows to `.lazy-harness/knowledge/project-map-update-events.jsonl` only for `promotionTarget.kind=update-loop-event`
   - separate target-specific canonical writers as explicit deferred effects for `record`, `project-map-branch`, `rulebook`, `capability-binding`, `candidate-row`, `update-loop-event`, and `queue-only`
 - Must not:
   - make policy candidate the universal path for project knowledge
@@ -37,7 +38,8 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - promote queue items without explicit confirmation or accepted evidence
   - let dry-run promotion mutate `.lazy-harness/project/profile-queue.json` or canonical targets
   - let the capability-binding writer create recommend/default/warn/block capabilities or hook enforcement
-  - let non-capability target writers create/update update-loop events in the capability-binding writer slice
+  - let non-update-loop target writers create/update update-loop event rows
+  - let update-loop event rows become canonical truth without record-write policy
   - write confirmed project facts into record targets; generated record targets must remain `needs-interview` skeletons until answered
 
 ## Recommended implementation shape

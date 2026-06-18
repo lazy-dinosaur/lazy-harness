@@ -24,6 +24,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-v2/record-branch-block.md`
   - add or maintain a `## Project Map branch` block in canonical records that participate in a cluster
   - keep generated Project Map views derived from canonical records and cue-only
   - keep `knowledge/graph.jsonl` as confirmed edge storage, not canonical prose
+  - keep `.lazy-harness/knowledge/project-map-update-events.jsonl` as non-canonical update event storage, not canonical prose
   - keep V1 folders as canonical storage until a separate migration is approved
 - Must not:
   - store canonical facts only in generated Project Map JSON
@@ -103,6 +104,7 @@ Phase 1.5 defines the update-loop event model in `.lazy-harness/spec/platform/pr
 
 - user-confirmed facts can be written to canonical records using existing record-write policy,
 - unconfirmed discoveries should remain candidates or `needs-confirmation` update events,
+- non-canonical update events are stored in `.lazy-harness/knowledge/project-map-update-events.jsonl`,
 - Project Map generated views remain derived,
 - cluster/branch metadata can be added to canonical records when the anchor/branch relationship is confirmed,
 - adapters may submit events but do not become semantic authority.
@@ -117,6 +119,7 @@ Phase 1.5 defines the update-loop event model in `.lazy-harness/spec/platform/pr
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — write/update policy integration.
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — candidate/canonical update-loop event contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — ingestion source vocabulary.
+  - `.lazy-harness/knowledge/project-map-update-events.jsonl` — append-only non-canonical update event rows.
   - `.lazy-harness/tests/project-map-record-storage.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-v2/record-branch-block.md` — canonical record branch-block fixture.
   - `.lazy-harness/scripts/self-test.py` — static validation.
@@ -135,7 +138,7 @@ Phase 1.5 defines the update-loop event model in `.lazy-harness/spec/platform/pr
 - TDD: `.lazy-harness/tests/project-map-record-storage.md` and self-test protect the storage pattern.
 - ADR: future ADR required before physical folder migration or generated map canonicalization.
 - SSOT: this record is the canonical storage SSOT.
-- Planning: Phase 1.5 update loop will define candidate/canonical lifecycle in detail.
+- Planning: Phase 1.5 update loop defines candidate/canonical lifecycle and now has a limited Project Profile event-store writer.
 
 ## Rule placement
 

@@ -1,0 +1,138 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-c02eaae3d4a8",
+    "status": "promoted",
+    "primaryRoute": "event-ready-metadata",
+    "facets": [
+      "Project",
+      "Evidence"
+    ],
+    "relatedRoutes": [
+      "source-links"
+    ],
+    "source": {
+      "kind": "update-loop",
+      "id": "project-profile-refresh-candidate"
+    },
+    "summary": "project-profile-refresh event-ready metadata for project-profile-v2",
+    "evidence": [
+      {
+        "kind": "project-profile",
+        "path": ".lazy-harness/project/profile.xml",
+        "summary": "Project Profile V2 dry-run output is candidate/event-ready metadata only."
+      }
+    ],
+    "promotionTarget": {
+      "kind": "update-loop-event",
+      "requiresConfirmation": true
+    },
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/knowledge/project-map-update-events.jsonl"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "update-loop-event",
+        "path": ".lazy-harness/knowledge/project-map-update-events.jsonl",
+        "status": "applied",
+        "action": "append-update-loop-event",
+        "summary": "appended update-loop event for PPQ-c02eaae3d4a8",
+        "reason": "Update-loop target writer appends only non-canonical Project Map update-event rows and does not write canonical records by itself."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "update-loop-event",
+      "path": ".lazy-harness/knowledge/project-map-update-events.jsonl",
+      "status": "applied",
+      "action": "append-update-loop-event",
+      "summary": "appended update-loop event for PPQ-c02eaae3d4a8",
+      "reason": "Update-loop target writer appends only non-canonical Project Map update-event rows and does not write canonical records by itself."
+    }
+  ],
+  "updateEvent": {
+    "schemaVersion": "project-map-update-event/v1",
+    "id": "evt_project_profile_v2_868fcade7481befc",
+    "eventType": "project-profile-refresh",
+    "source": "project-profile",
+    "occurredAt": "2026-06-17T08:51:00.338Z",
+    "scope": "framework-global",
+    "summary": "project-profile-refresh event-ready metadata for project-profile-v2",
+    "target": {
+      "anchorId": "project-profile-v2",
+      "branch": "ownership",
+      "nodeId": "project-profile-refresh-candidate",
+      "primary": "ownership",
+      "facets": [
+        "SSOT",
+        "Project"
+      ]
+    },
+    "transition": {
+      "from": "observation",
+      "to": "candidate",
+      "requiresConfirmation": true,
+      "canonicalRecords": [],
+      "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+    },
+    "evidence": [
+      {
+        "kind": "project-profile",
+        "path": ".lazy-harness/project/profile.xml",
+        "summary": "Project Profile V2 dry-run output is candidate/event-ready metadata only.",
+        "redaction": "compact"
+      }
+    ],
+    "effects": [
+      {
+        "action": "append-candidate",
+        "path": ".lazy-harness/knowledge/candidates.jsonl"
+      }
+    ],
+    "promotion": {
+      "queueItemId": "PPQ-c02eaae3d4a8",
+      "source": {
+        "kind": "update-loop",
+        "id": "project-profile-refresh-candidate"
+      },
+      "targetKind": "update-loop-event",
+      "targetStore": ".lazy-harness/knowledge/project-map-update-events.jsonl",
+      "requiresConfirmation": true
+    }
+  },
+  "queueUpdate": {
+    "id": "PPQ-c02eaae3d4a8",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/knowledge/project-map-update-events.jsonl"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/knowledge/project-map-update-events.jsonl",
+      "action": "appended",
+      "summary": "Append stable Project Map update event for PPQ-c02eaae3d4a8 (appended)"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-c02eaae3d4a8 in Project Profile queue and applied update-loop event writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/project-map-update-events.jsonl.",
+    "The generated update-loop event is non-canonical and must not be treated as confirmed project truth by itself.",
+    "No canonical record, rulebook, capability, or candidate row was written."
+  ]
+}

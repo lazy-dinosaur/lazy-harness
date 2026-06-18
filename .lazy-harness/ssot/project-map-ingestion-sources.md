@@ -1,6 +1,6 @@
 # SSOT — Project Map Ingestion Sources
 
-Status: draft
+Status: active-limited-runtime
 Date: 2026-06-17
 Layer: SSOT
 Related SDD: `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
@@ -11,7 +11,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Rule digest
 
-- Status: draft
+- Status: active-limited-runtime
 - Layer: SSOT
 - Scope: framework-global
 - Applies when:
@@ -24,6 +24,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - map each event to one or more Project Map branch categories
   - require confirmation before canonical promotion unless the event already includes changed canonical records
   - keep adapters as event sources, not authorities
+  - route confirmed Project Profile update-loop promotions to `.lazy-harness/knowledge/project-map-update-events.jsonl` as non-canonical event rows
 - Must not:
   - treat generated views, adapter events, or candidate rows as canonical records by themselves
   - skip record-write-update policy when promoting to canonical
@@ -90,19 +91,23 @@ Canonical promotion requires all of these:
 - Jcode compatibility source: `jcode-adapter`.
 - Both may submit events with evidence and target metadata.
 - Neither may set canonical truth without the core record-write/update path.
-- Runtime implementation remains future work after Phase 1.5 review.
+- General adapter runtime implementation remains future work after Phase 1.5 review.
+- The reviewed runtime exception is Project Profile `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event`, which appends a non-canonical event row to `.lazy-harness/knowledge/project-map-update-events.jsonl`.
 
 ## Implementation map
 
-- Status: draft
+- Status: active-limited-runtime
 - Primary files:
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — this SSOT.
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — event packet contract.
   - `.lazy-harness/tests/project-map-update-loop-v2.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — source/event fixture.
+  - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event store.
+  - `.lazy-harness/scripts/project-profile.ts` — Project Profile limited update-loop-event writer.
   - `.lazy-harness/scripts/self-test.py` — static validation.
 - Key symbols:
   - `self-test.py#check_project_map_update_loop_v2`
+  - `project-profile.ts#buildUpdateLoopPromotionWrite`
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 - Machine index:
@@ -116,7 +121,7 @@ Canonical promotion requires all of these:
 - TDD: validation events map to validation branches and tests.
 - ADR: ADR decision events require ADR records before canonical state.
 - SSOT: this is the source vocabulary SSOT.
-- Planning: Phase 1.5 design-only deliverable.
+- Planning: Phase 1.5 design deliverable plus limited Project Profile event writer slice.
 
 ## Rule placement
 
@@ -126,6 +131,7 @@ Canonical promotion requires all of these:
 - Why not AGENTS.md: this is source-of-truth vocabulary, not prompt grammar.
 - Why not `.jcode`: ingestion semantics are adapter-neutral.
 - Confirmation: user-approved move to Phase 1.5 on 2026-06-17.
+- Confirmation: user-approved Option A event store `.lazy-harness/knowledge/project-map-update-events.jsonl` on 2026-06-18.
 
 ## Discovery capture
 
@@ -135,4 +141,4 @@ Canonical promotion requires all of these:
 - TDD: validation event classes mapped.
 - ADR: ADR event class mapped.
 - SSOT: updated here.
-- Planning: Phase 1.5 source vocabulary clarified.
+- Planning: Phase 1.5 source vocabulary clarified; limited Project Profile update-loop append writer implemented.

@@ -283,7 +283,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'append-update-loop-event' | 'dedupe-update-loop-event' | 'conflict-update-loop-event' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -321,6 +321,13 @@ interface ProjectProfileCapabilityPromotionWrite {
   registry: { version: number; capabilities: Record<string, unknown>[] }
   summary: string
   effect: ProjectProfilePromotionTargetEffect
+}
+
+interface ProjectProfileUpdateLoopPromotionWrite {
+  kind: 'update-loop-event'
+  path: '.lazy-harness/knowledge/project-map-update-events.jsonl'
+  row: Record<string, unknown>
+  summary: string
 }
 
 interface ProjectProfilePromoteV2Preview {
@@ -362,6 +369,7 @@ interface ProjectProfilePromoteV2Result {
   targetEffects: ProjectProfilePromotionTargetEffect[]
   candidateRow?: Record<string, unknown>
   capability?: Record<string, unknown>
+  updateEvent?: Record<string, unknown>
   queueUpdate: {
     id: string
     from: 'accepted'
@@ -439,7 +447,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm writes only queue status/promoted metadata and defers canonical target writers. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm always writes queue status/promoted metadata and applies only the writer for that item's target kind (record skeleton, candidate row, draft rulebook, discover/checklist capability, or non-canonical update-loop event). Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -1199,15 +1207,22 @@ function actionForPromotionKind(kind: QueuePromotionKind): 'create-or-update' | 
   return 'create-or-update'
 }
 
+function pathForPromotionTarget(target: ProjectProfileQueueItem['promotionTarget']): string | undefined {
+  if (target.path) return target.path
+  if (target.kind === 'update-loop-event') return '.lazy-harness/knowledge/project-map-update-events.jsonl'
+  return undefined
+}
+
 function buildPromotionTargetEffect(item: ProjectProfileQueueItem): ProjectProfilePromotionTargetEffect {
   const target = item.promotionTarget
+  const path = pathForPromotionTarget(target)
   return {
     kind: target.kind,
-    path: target.path,
+    path,
     status: 'deferred',
     action: 'defer-target-writer',
-    summary: target.path
-      ? `Deferred ${target.kind} target writer for ${item.id} to ${target.path}`
+    summary: path
+      ? `Deferred ${target.kind} target writer for ${item.id} to ${path}`
       : `Deferred ${target.kind} target writer for ${item.id}`,
     reason: 'This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind.',
   }
@@ -1374,6 +1389,80 @@ function candidateEffectForStatus(item: ProjectProfileQueueItem, write: ProjectP
     reason: status === 'conflict-recorded'
       ? 'A candidate row with the same id but different content already exists; conflict was recorded for review.'
       : 'Candidate-row target writer appends only stable candidates.jsonl rows and does not promote them to canonical records.',
+  }
+}
+
+function updateLoopEventId(item: ProjectProfileQueueItem, queue: ProjectProfileQueueV1): string {
+  const occurredAt = queue.sourcePacket?.generatedAt || queue.createdAt || queue.updatedAt
+  return `evt_project_profile_v2_${createHash('sha256').update(`${item.id}\0${item.source.kind}\0${item.source.id}\0${occurredAt}`).digest('hex').slice(0, 16)}`
+}
+
+function buildUpdateLoopPromotionWrite(item: ProjectProfileQueueItem, queue: ProjectProfileQueueV1): ProjectProfileUpdateLoopPromotionWrite | null {
+  if (item.promotionTarget.kind !== 'update-loop-event') return null
+  const path = '.lazy-harness/knowledge/project-map-update-events.jsonl' as const
+  const occurredAt = queue.sourcePacket?.generatedAt || queue.createdAt || queue.updatedAt
+  const row = {
+    schemaVersion: 'project-map-update-event/v1',
+    id: updateLoopEventId(item, queue),
+    eventType: 'project-profile-refresh',
+    source: 'project-profile',
+    occurredAt,
+    scope: 'framework-global',
+    summary: item.summary,
+    target: {
+      anchorId: 'project-profile-v2',
+      branch: 'ownership',
+      nodeId: item.source.id || item.id,
+      primary: 'ownership',
+      facets: ['SSOT', 'Project'],
+    },
+    transition: {
+      from: 'observation',
+      to: 'candidate',
+      requiresConfirmation: true,
+      canonicalRecords: [],
+      candidateStore: '.lazy-harness/knowledge/candidates.jsonl',
+    },
+    evidence: item.evidence.map((entry) => ({
+      kind: entry.kind,
+      ...(entry.path ? { path: entry.path } : {}),
+      summary: entry.summary,
+      redaction: 'compact',
+    })),
+    effects: [
+      { action: 'append-candidate', path: '.lazy-harness/knowledge/candidates.jsonl' },
+    ],
+    promotion: {
+      queueItemId: item.id,
+      source: item.source,
+      targetKind: item.promotionTarget.kind,
+      targetStore: path,
+      requiresConfirmation: item.promotionTarget.requiresConfirmation,
+    },
+  }
+  return {
+    kind: 'update-loop-event',
+    path,
+    row,
+    summary: `Append stable Project Map update event for ${item.id}`,
+  }
+}
+
+function updateLoopEffectForStatus(item: ProjectProfileQueueItem, write: ProjectProfileUpdateLoopPromotionWrite, status: JsonlAppendStatus): ProjectProfilePromotionTargetEffect {
+  const action = status === 'appended'
+    ? 'append-update-loop-event'
+    : status === 'deduped-identical'
+      ? 'dedupe-update-loop-event'
+      : 'conflict-update-loop-event'
+  return {
+    kind: 'update-loop-event',
+    path: write.path,
+    status: status === 'conflict-recorded' ? 'deferred' : 'applied',
+    action,
+    summary: `${status} update-loop event for ${item.id}`,
+    reason: status === 'conflict-recorded'
+      ? 'An update-loop event with the same id but different content already exists; conflict was recorded for review.'
+      : 'Update-loop target writer appends only non-canonical Project Map update-event rows and does not write canonical records by itself.',
   }
 }
 
@@ -1589,13 +1678,14 @@ function buildPromoteV2Preview(args: Args): ProjectProfilePromoteV2Preview {
   const { item } = selectAcceptedPromotionItem(args.root, args.item)
   const generatedAt = new Date().toISOString()
   const target = item.promotionTarget
+  const targetPath = pathForPromotionTarget(target)
   const plannedWrites = [{
     kind: target.kind,
-    path: target.path,
+    path: targetPath,
     action: actionForPromotionKind(target.kind),
     requiresConfirmation: true as const,
-    summary: target.path
-      ? `Preview ${target.kind} promotion for ${item.id} to ${target.path}`
+    summary: targetPath
+      ? `Preview ${target.kind} promotion for ${item.id} to ${targetPath}`
       : `Preview ${target.kind} promotion for ${item.id}`,
   }]
   const promotedTo = plannedWrites.map((write) => write.path || write.kind)
@@ -1633,14 +1723,21 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const candidateWrite = buildCandidatePromotionWrite(item)
   const rulebookWrite = buildRulebookPromotionWrite(item, generatedAt, args.root)
   const capabilityWrite = buildCapabilityPromotionWrite(item, args.root)
+  const updateLoopWrite = buildUpdateLoopPromotionWrite(item, queue)
   const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
   let candidateAppendStatus: JsonlAppendStatus | null = null
+  let updateLoopAppendStatus: JsonlAppendStatus | null = null
   if (candidateWrite) {
     const candidateAbs = join(args.root, candidateWrite.path)
     candidateAppendStatus = appendJsonlStable(candidateAbs, candidateWrite.row, 'id', args.root)
     appliedWrites.push({ path: candidateWrite.path, action: candidateAppendStatus, summary: `${candidateWrite.summary} (${candidateAppendStatus})` })
   }
-  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || capabilityWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
+  if (updateLoopWrite) {
+    const updateLoopAbs = join(args.root, updateLoopWrite.path)
+    updateLoopAppendStatus = appendJsonlStable(updateLoopAbs, updateLoopWrite.row, 'id', args.root)
+    appliedWrites.push({ path: updateLoopWrite.path, action: updateLoopAppendStatus, summary: `${updateLoopWrite.summary} (${updateLoopAppendStatus})` })
+  }
+  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || capabilityWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : updateLoopWrite && updateLoopAppendStatus ? updateLoopEffectForStatus(item, updateLoopWrite, updateLoopAppendStatus) : buildPromotionTargetEffect(item))]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1694,7 +1791,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
-  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : capabilityWrite ? ' and applied capability-binding writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : capabilityWrite ? ' and applied capability-binding writer' : candidateWrite ? ' and applied candidate-row writer' : updateLoopWrite ? ' and applied update-loop event writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1707,6 +1804,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     targetEffects,
     candidateRow: candidateWrite?.row,
     capability: capabilityWrite?.capability,
+    updateEvent: updateLoopWrite?.row,
     queueUpdate: {
       id: item.id,
       from: 'accepted',
@@ -1739,6 +1837,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
           'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/ssot/capabilities.json.',
           'The generated capability is discover/checklist only and must not be treated as default/warn/block enforcement.',
           'No update-loop event was written.',
+        ]
+      : updateLoopWrite
+        ? [
+          'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/project-map-update-events.jsonl.',
+          'The generated update-loop event is non-canonical and must not be treated as confirmed project truth by itself.',
+          'No canonical record, rulebook, capability, or candidate row was written.',
         ]
       : [
         'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',

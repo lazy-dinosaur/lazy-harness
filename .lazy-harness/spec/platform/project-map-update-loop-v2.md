@@ -1,6 +1,6 @@
 # SDD — Project Map Update Loop V2
 
-Status: draft
+Status: active-limited-runtime
 Date: 2026-06-17
 Layer: SDD
 Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md`
@@ -12,13 +12,14 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Rule digest
 
-- Status: draft
+- Status: active-limited-runtime
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
   - defining Project Map V2 cluster create/update/promotion semantics
   - modeling candidate-to-canonical transitions for Project Map branches
   - designing Project Interview, Policy Machinery, generated map views, Pi events, or Jcode compatibility events that update project knowledge
+  - appending confirmed Project Profile `promote-v2` update-loop events to the non-canonical update event store
 - Must:
   - define update events as adapter-neutral observations plus explicit target cluster/branch metadata
   - keep unconfirmed discoveries as `candidate` or `needs-confirmation`
@@ -26,11 +27,13 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - attach compact evidence without raw transcripts, secrets, or generated semantic-authority claims
   - let core update-loop semantics own candidate/canonical transitions for Pi and Jcode adapters
   - keep generated Project Map views derived/cue-only
+  - store non-canonical update event rows in `.lazy-harness/knowledge/project-map-update-events.jsonl`
+  - use stable JSONL append semantics for the event store: append, dedupe-identical, or conflict-recorded
 - Must not:
   - let adapters, generated views, or event packets become canonical truth by themselves
   - auto-write canonical records from event packets alone
   - include forbidden semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning
-  - implement runtime behavior in Phase 1.5 before this design contract is reviewed
+  - allow unconfirmed or adapter-owned runtime writes to bypass Project Profile `promote-v2 --confirm` or future explicit update-loop confirmation gates
 - Record completion:
   - changes update this SDD, ingestion-source SSOT, TDD, fixture, Project Map storage SSOT, self-test, manifest sync entries, and graph rows together.
 
@@ -38,9 +41,25 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 Project Map V2 has anchors, branches, and edges. Phase 1.5 defines how those clusters change over time.
 
-The update loop is design-only in this phase. It describes the packet shape and transition rules so Project Interview, source/document ingestion, Policy Machinery, generated map views, Pi, and Jcode do not invent separate semantics.
+The update loop began as design-only in Phase 1.5. It now also has one reviewed, limited runtime writer: Project Profile `promote-v2 --confirm` may append an accepted `promotionTarget.kind = update-loop-event` item to the non-canonical event store. The packet shape and transition rules still ensure Project Interview, source/document ingestion, Policy Machinery, generated map views, Pi, and Jcode do not invent separate semantics.
 
-Runtime implementation remains future work after Phase 1.5 review.
+General adapter/runtime ingestion remains future work. The implemented runtime boundary is limited to confirmed Project Profile promotion and never writes canonical records from the event packet alone.
+
+## Event store
+
+Confirmed non-canonical update event rows live in:
+
+```text
+.lazy-harness/knowledge/project-map-update-events.jsonl
+```
+
+Store rules:
+
+1. The store is append-only JSONL and is not canonical truth.
+2. Rows use the same event packet shape defined in this SDD.
+3. Stable JSONL append must return one visible outcome: `appended`, `deduped-identical`, or `conflict-recorded`.
+4. Same-id/different-payload conflicts are recorded in `.lazy-harness/knowledge/project-map-update-events.jsonl.conflicts.jsonl`.
+5. Canonical promotion still requires record-write policy and root-bound canonical record paths.
 
 ## Update event packet shape
 
@@ -88,7 +107,7 @@ Required top-level fields:
 | `target` | yes | Target Project Map anchor/branch/node metadata. | Not proof the target record was read this turn. |
 | `transition` | yes | Candidate/canonical lifecycle intent. | Not a canonical write by itself. |
 | `evidence` | yes | Compact evidence references. | Not raw transcript storage. |
-| `effects` | yes | Expected record/graph/view effects. | Not executed in design-only Phase 1.5. |
+| `effects` | yes | Expected record/graph/view effects. | Not proof those effects executed; event rows remain non-canonical. |
 
 Recommended optional fields:
 
@@ -191,15 +210,19 @@ Generated Project Map views may render update event history, current branch stat
 
 ## Implementation map
 
-- Status: draft
+- Status: active-limited-runtime
 - Primary files:
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — this SDD.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — controlled source/event mapping.
   - `.lazy-harness/tests/project-map-update-loop-v2.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event packet fixture.
+  - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
+  - `.lazy-harness/scripts/project-profile.ts` — limited Project Profile `promote-v2` update-loop-event writer.
   - `.lazy-harness/scripts/self-test.py` — static validation.
 - Key symbols:
   - `self-test.py#check_project_map_update_loop_v2`
+  - `project-profile.ts#buildUpdateLoopPromotionWrite`
+  - `project-profile.ts#applyPromoteV2`
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
@@ -210,11 +233,11 @@ Generated Project Map views may render update event history, current branch stat
 
 - DDD: facts/domain terms can be target branches for update events.
 - BDD: expectations/user behavior can be target branches for update events.
-- SDD: this record defines the event contract.
-- TDD: update-loop fixture/self-test protect event vocabulary and transitions.
-- ADR: ADR decisions become `adr-decision` events; no new ADR is required until semantics change or runtime is approved.
-- SSOT: ingestion-source mapping is defined in `.lazy-harness/ssot/project-map-ingestion-sources.md`.
-- Planning: implements Phase 1.5 design-only roadmap deliverables.
+- SDD: this record defines the event contract and limited confirmed Project Profile event writer boundary.
+- TDD: update-loop fixture/self-test protect event vocabulary, transitions, and Project Profile append-only writer behavior.
+- ADR: ADR decisions become `adr-decision` events; no new ADR is required for the confirmed limited writer because it does not change canonical promotion semantics.
+- SSOT: ingestion-source mapping is defined in `.lazy-harness/ssot/project-map-ingestion-sources.md`; event store placement is defined here and in `.lazy-harness/ssot/project-map-record-storage.md`.
+- Planning: Phase 1.5 design deliverables remain complete; limited Project Profile runtime append slice is implemented.
 
 ## Rule placement
 
@@ -224,13 +247,14 @@ Generated Project Map views may render update event history, current branch stat
 - Why not AGENTS.md: this is an information-model contract, not prompt grammar.
 - Why not `.jcode`: update-loop semantics are Pi-primary and adapter-neutral; Jcode remains compatibility.
 - Confirmation: user-approved move to next Phase 1.5 slice on 2026-06-17.
+- Confirmation: user-approved Option A event store `.lazy-harness/knowledge/project-map-update-events.jsonl` on 2026-06-18.
 
 ## Discovery capture
 
 - DDD: candidate/canonical domain fact transitions modeled.
 - BDD: behavior expectation transitions modeled.
-- SDD: event packet contract added.
-- TDD: fixture/self-test planned and added.
+- SDD: event packet contract and limited Project Profile writer boundary added.
+- TDD: fixture/self-test planned and added, including update event store append/dedupe coverage.
 - ADR: no new ADR yet.
 - SSOT: ingestion source vocabulary added.
-- Planning: Phase 1.5 roadmap deliverables implemented as design-only records.
+- Planning: Phase 1.5 roadmap deliverables implemented; Project Profile promote-v2 update-loop event writer implemented as a limited confirmed runtime slice.

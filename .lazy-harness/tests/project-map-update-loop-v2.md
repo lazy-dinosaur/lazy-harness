@@ -1,6 +1,6 @@
 # TDD — Project Map Update Loop V2
 
-Status: draft
+Status: active-limited-runtime
 Date: 2026-06-17
 Layer: TDD
 Related SDD: `.lazy-harness/spec/platform/project-map-update-loop-v2.md`
@@ -10,7 +10,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Rule digest
 
-- Status: draft
+- Status: active-limited-runtime
 - Layer: TDD
 - Scope: framework-global
 - Applies when:
@@ -18,6 +18,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - changing candidate/canonical transition states
   - changing ingestion source/event vocabularies
   - designing adapters or runtime ingestion that submit Project Map update events
+  - validating the limited Project Profile `promote-v2 --confirm` update-loop-event writer
 - Must:
   - verify required Phase 1.5 event types are represented
   - verify event packets use required fields and controlled source vocabulary
@@ -25,9 +26,11 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - verify canonical events include root-bound canonical records
   - verify forbidden semantic-authority fields are absent recursively
   - verify Pi/Jcode adapter events remain non-authoritative unless core confirmation rules are satisfied
+  - verify Project Profile update-loop promotion appends only `.lazy-harness/knowledge/project-map-update-events.jsonl` plus queue status metadata
+  - verify duplicate Project Profile update-loop promotion dedupes identical event rows without conflicts
 - Must not:
   - allow generated Project Map views or adapter events to become canonical truth by themselves
-  - add runtime mutation in Phase 1.5
+  - allow unconfirmed or adapter-owned runtime mutation outside explicit promotion/confirmation gates
   - allow event packets to auto-write records without record-write policy
 - Record completion:
   - update-loop changes update this TDD, SDD, ingestion SSOT, fixture, storage SSOT, self-test, manifest, and graph rows together.
@@ -43,7 +46,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 | `project_map_update_transitions` | `events.json` | Candidate, needs-confirmation, canonical, superseded/rejected or observation states are explicit. |
 | `project_map_update_canonical_records` | canonical transitions | Canonical target states include root-bound canonicalRecords. |
 | `project_map_update_forbidden_fields` | recursive event walk | No confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
-| `project_map_update_no_runtime` | SDD/TDD text | Phase 1.5 remains design-only and adds no runtime implementation. |
+| `project_map_update_limited_runtime_boundary` | SDD/TDD text + Project Profile fixture | Only confirmed Project Profile `promote-v2` writes append non-canonical update event rows; general adapter runtime remains future work. |
 
 ## Acceptance assertions
 
@@ -61,18 +64,24 @@ Self-test should verify:
 10. Forbidden semantic-authority fields are absent recursively.
 11. SDD/SSOT say adapters are event sources, not authorities.
 12. Manifest includes update-loop SDD/SSOT/TDD and fixture glob.
+13. Project Profile `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one non-canonical event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and writes only queue status metadata otherwise.
+14. Duplicate Project Profile update-loop promotion dedupes identical event rows and does not create a conflict file.
 
 ## Implementation map
 
-- Status: draft
+- Status: active-limited-runtime
 - Primary files:
   - `.lazy-harness/tests/project-map-update-loop-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — event packet contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — source vocabulary SSOT.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — Project Profile promote writer fixture.
+  - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
   - `.lazy-harness/scripts/self-test.py` — static validation.
 - Key symbols:
   - `self-test.py#check_project_map_update_loop_v2`
+  - `self-test.py#check_project_profile_v2_queue_runtime`
+  - `project-profile.ts#buildUpdateLoopPromotionWrite`
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
@@ -83,15 +92,15 @@ Self-test should verify:
 
 - DDD: facts branch transitions are covered by user-correction/source-discovery/project-profile/document-ingestion events.
 - BDD: expectation branch transitions are covered by implementation/source/profile events.
-- SDD: update-loop event contract is covered.
-- TDD: validation failure/success events are covered.
+- SDD: update-loop event contract and limited runtime boundary are covered.
+- TDD: validation failure/success events and update-loop writer append/dedupe behavior are covered.
 - ADR: ADR decision events are covered.
 - SSOT: ingestion source vocabulary is covered.
-- Planning: Phase 1.5 roadmap exit criteria are covered.
+- Planning: Phase 1.5 roadmap exit criteria and the limited Project Profile writer slice are covered.
 
 ## Rule placement
 
-- Rule: Project Map update-loop fixtures must protect event vocabulary, source boundaries, candidate/canonical transitions, and forbidden semantic-authority fields before runtime implementation proceeds.
+- Rule: Project Map update-loop fixtures and Project Profile promotion tests must protect event vocabulary, source boundaries, candidate/canonical transitions, forbidden semantic-authority fields, and the limited non-canonical event store append boundary.
 - Scope: framework-global
 - Primary record: `.lazy-harness/tests/project-map-update-loop-v2.md`
 - Why not AGENTS.md: this is regression/validation for an information model, not prompt grammar.
