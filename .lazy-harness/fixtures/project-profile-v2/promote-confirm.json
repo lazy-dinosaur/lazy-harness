@@ -7,64 +7,65 @@
   "dryRun": false,
   "queuePath": ".lazy-harness/project/profile-queue.json",
   "item": {
-    "id": "PPQ-19177e9733fd",
+    "id": "PPQ-bbb050d82ced",
     "status": "promoted",
-    "primaryRoute": "policies",
+    "primaryRoute": "source-links",
     "facets": [
-      "Policy",
-      "SSOT"
+      "Project",
+      "Evidence"
     ],
     "relatedRoutes": [
-      "ownership"
+      "expectations",
+      "contracts"
     ],
-    "promotionTarget": {
-      "kind": "rulebook",
-      "path": ".lazy-harness/rules/",
-      "requiresConfirmation": true
-    },
     "source": {
-      "kind": "question-group",
-      "id": "workflow-policy"
+      "kind": "project-map-seed",
+      "id": "project-policy-discovery"
     },
-    "summary": "Commit, push, PR, review, and release workflow: policies, expectations",
+    "summary": "Project/team policy discovery: 5 branch(es), 5 edge(s)",
     "evidence": [
       {
-        "kind": "project-profile-question-group",
-        "summary": "Derived from interview-v2 question group workflow-policy"
+        "kind": "project-map-seed",
+        "summary": "Derived from interview-v2 Project Map seed project-policy-discovery"
       }
     ],
+    "promotionTarget": {
+      "kind": "project-map-branch",
+      "path": ".lazy-harness/project/feature-navigation.xml",
+      "requiresConfirmation": true
+    },
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/rules/"
+      ".lazy-harness/project/feature-navigation.xml"
     ],
     "promotionEffects": [
       {
-        "kind": "rulebook",
-        "path": ".lazy-harness/rules/",
+        "kind": "project-map-branch",
+        "path": ".lazy-harness/project/feature-navigation.xml",
         "status": "deferred",
         "action": "defer-target-writer",
-        "summary": "Deferred rulebook target writer for PPQ-19177e9733fd to .lazy-harness/rules/",
+        "summary": "Deferred project-map-branch target writer for PPQ-bbb050d82ced to .lazy-harness/project/feature-navigation.xml",
         "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
       }
     ]
   },
   "targetEffects": [
     {
-      "kind": "rulebook",
-      "path": ".lazy-harness/rules/",
+      "kind": "project-map-branch",
+      "path": ".lazy-harness/project/feature-navigation.xml",
       "status": "deferred",
       "action": "defer-target-writer",
-      "summary": "Deferred rulebook target writer for PPQ-19177e9733fd to .lazy-harness/rules/",
+      "summary": "Deferred project-map-branch target writer for PPQ-bbb050d82ced to .lazy-harness/project/feature-navigation.xml",
       "reason": "This promote-v2 --confirm slice writes only queue status/promoted metadata; canonical target writers are implemented separately by target kind."
     }
   ],
   "queueUpdate": {
-    "id": "PPQ-19177e9733fd",
+    "id": "PPQ-bbb050d82ced",
     "from": "accepted",
     "to": "promoted",
     "promotedAt": "2026-06-17T00:00:00.000Z",
     "promotedTo": [
-      ".lazy-harness/rules/"
+      ".lazy-harness/project/feature-navigation.xml"
     ],
     "previewOnly": false
   },
@@ -72,7 +73,7 @@
     {
       "path": ".lazy-harness/project/profile-queue.json",
       "action": "written",
-      "summary": "Promoted PPQ-19177e9733fd in Project Profile queue only"
+      "summary": "Promoted PPQ-bbb050d82ced in Project Profile queue only"
     }
   ],
   "warnings": [

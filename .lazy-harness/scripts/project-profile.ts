@@ -283,7 +283,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -302,6 +302,15 @@ interface ProjectProfileCandidatePromotionWrite {
   path: '.lazy-harness/knowledge/candidates.jsonl'
   row: Record<string, unknown>
   summary: string
+}
+
+interface ProjectProfileRulebookPromotionWrite {
+  kind: 'rulebook'
+  path: string
+  action: 'create' | 'skip-existing'
+  content: string
+  summary: string
+  effect: ProjectProfilePromotionTargetEffect
 }
 
 interface ProjectProfilePromoteV2Preview {
@@ -702,6 +711,13 @@ function recordPathForPromotion(item: ProjectProfileQueueItem): string {
   const normalizedBase = base.endsWith('/') ? base : `${base}/`
   const sourceId = item.source.id || item.id
   return `${normalizedBase}${slugify(sourceId)}.md`
+}
+
+function rulebookPathForPromotion(item: ProjectProfileQueueItem): string {
+  const base = item.promotionTarget.path || '.lazy-harness/rules/'
+  if (base.endsWith('.md')) return base
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`
+  return `${normalizedBase}${slugify(item.source.id || item.id)}.md`
 }
 
 function labelForTarget(path: string, elementName: string, attrs: string): string {
@@ -1350,6 +1366,122 @@ function candidateEffectForStatus(item: ProjectProfileQueueItem, write: ProjectP
   }
 }
 
+function buildRulebookPromotionWrite(item: ProjectProfileQueueItem, generatedAt: string, root: string): ProjectProfileRulebookPromotionWrite | null {
+  if (item.promotionTarget.kind !== 'rulebook') return null
+  const path = rulebookPathForPromotion(item)
+  const abs = join(root, path)
+  const exists = existsSync(abs)
+  const sourceId = item.source.id || item.id
+  const title = `Project Profile Rule Candidate: ${titleCase(sourceId)}`
+  const facets = item.facets.join(', ')
+  const relatedRoutes = item.relatedRoutes.length ? item.relatedRoutes.join(', ') : 'none'
+  const evidence = item.evidence.length
+    ? item.evidence.map((entry) => `- ${entry.path ? `\`${entry.path}\` — ` : ''}${entry.summary}`).join('\n')
+    : '- none'
+  const content = `# ${title}
+
+Status: draft
+Layer: Rulebook
+Scope: host-project
+Owner: project-profile-v2
+Level: discover
+Related records:
+- \`.lazy-harness/spec/platform/project-profile-v2.md\`
+- \`.lazy-harness/tests/project-profile-v2.md\`
+- \`.lazy-harness/decisions/0044-project-operating-rulebook.md\`
+
+## Rule digest
+
+- Applies when:
+  - reviewing_project_profile_rulebook_candidate
+  - completing Project Profile V2 queue item \`${item.id}\`
+- Prefer:
+  - review and edit this draft rule before relying on it
+  - add an explicit capability binding only after human confirmation
+- Avoid:
+  - treating this generated draft as active project policy
+  - promoting it directly to default, warn, or block behavior
+- Requires:
+  - explicit human confirmation before changing Status to active
+  - explicit capability design before adding Related capability or machine-readable action guidance
+- Bypass:
+  - no bypass needed; draft/discover entries are advisory only
+- Record completion:
+  - update Project Profile V2 records, capability binding records, and tests if this generated draft becomes an active operating rule
+
+## Operating rule
+
+This is a generated Project Profile V2 rulebook draft. It captures a possible project operating policy discovered from queue item \`${item.id}\`.
+
+- Source: ${item.source.kind} / \`${sourceId}\`
+- Primary route: ${item.primaryRoute}
+- Facets: ${facets}
+- Related routes: ${relatedRoutes}
+- Summary: ${item.summary}
+- Promoted at: ${generatedAt}
+
+Do not treat this entry as confirmed project operating policy until a human reviews and updates it.
+
+## Examples
+
+- Good: review this draft, decide whether it should become an active rule, then add explicit capability binding if it should steer actions.
+- Bad: treat this generated draft as a default/warn/block rule without confirmation.
+- Bad: this generated draft must not be treated as active default/warn/block behavior.
+
+## Capability binding
+
+- Capability id: none yet
+- Enforcement level: discover
+- Preferred actions: none yet
+- Discouraged actions: none yet
+- Intent labels: reviewing_project_profile_rulebook_candidate
+
+## Evidence
+
+${evidence}
+
+## Implementation map
+
+- Source records:
+  - \`.lazy-harness/spec/platform/project-profile-v2.md\`
+  - \`.lazy-harness/decisions/0044-project-operating-rulebook.md\`
+- Source queue:
+  - \`.lazy-harness/project/profile-queue.json\`
+- Key symbols:
+  - \`project-profile.ts#buildRulebookPromotionWrite\`
+  - \`project-profile.ts#applyPromoteV2\`
+- Validation:
+  - \`.lazy-harness/bin/lazy rules audit --strict\`
+- Tests:
+  - \`self-test.py#check_project_profile_v2_queue_runtime\`
+
+## Discovery capture
+
+- DDD: none.
+- BDD: candidate operating behavior captured as draft rulebook, not a confirmed scenario.
+- SDD: updated by Project Profile V2 rulebook writer contract.
+- TDD: protected by Project Profile V2 queue runtime self-test.
+- ADR: follows ADR 0044 project operating rulebook storage.
+- SSOT: rule placement follows \`.lazy-harness/ssot/rule-sources.md\`; no capability binding added yet.
+- Planning: Project Profile V2 queue item promoted to a draft/discover rulebook entry.
+`
+  return {
+    kind: 'rulebook',
+    path,
+    action: exists ? 'skip-existing' : 'create',
+    content,
+    summary: exists ? `Rulebook target already exists for ${item.id}` : `Create draft/discover rulebook target for ${item.id}`,
+    effect: {
+      kind: 'rulebook',
+      path,
+      status: 'applied',
+      action: exists ? 'skip-existing-rulebook' : 'create-rulebook',
+      summary: exists ? `Rulebook target already existed for ${item.id}` : `Created draft/discover rulebook target for ${item.id}`,
+      reason: 'Rulebook target writer creates only draft/discover entries and does not add capability bindings or active enforcement levels.',
+    },
+  }
+}
+
 function selectAcceptedPromotionItem(root: string, itemId?: string): { queue: ProjectProfileQueueV1; item: ProjectProfileQueueItem; index: number } {
   if (!itemId) throw new Error('promote-v2 requires --item <queue-item-id>')
   const queue = readProfileQueue(root)
@@ -1407,6 +1539,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const generatedAt = new Date().toISOString()
   const recordWrite = buildRecordPromotionWrite(item, generatedAt, args.root)
   const candidateWrite = buildCandidatePromotionWrite(item)
+  const rulebookWrite = buildRulebookPromotionWrite(item, generatedAt, args.root)
   const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
   let candidateAppendStatus: JsonlAppendStatus | null = null
   if (candidateWrite) {
@@ -1414,7 +1547,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     candidateAppendStatus = appendJsonlStable(candidateAbs, candidateWrite.row, 'id', args.root)
     appliedWrites.push({ path: candidateWrite.path, action: candidateAppendStatus, summary: `${candidateWrite.summary} (${candidateAppendStatus})` })
   }
-  const targetEffects = [recordWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
+  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1449,10 +1582,20 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       appliedWrites.push({ path: recordWrite.path, action: 'skipped', summary: recordWrite.summary })
     }
   }
+  if (rulebookWrite) {
+    const rulebookAbs = join(args.root, rulebookWrite.path)
+    if (rulebookWrite.action === 'create') {
+      ensureParent(rulebookAbs)
+      writeFileSync(rulebookAbs, rulebookWrite.content, 'utf8')
+      appliedWrites.push({ path: rulebookWrite.path, action: 'written', summary: rulebookWrite.summary })
+    } else {
+      appliedWrites.push({ path: rulebookWrite.path, action: 'skipped', summary: rulebookWrite.summary })
+    }
+  }
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
-  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1484,6 +1627,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
           'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/knowledge/candidates.jsonl.',
           'The generated candidate row is not canonical project truth until promoted separately.',
           'No rulebook, capability, or update-loop event was written.',
+        ]
+      : rulebookWrite
+        ? [
+          'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and a draft/discover rulebook entry.',
+          'The generated rulebook entry is draft/discover and must not be treated as active default/warn/block behavior.',
+          'No capability binding or update-loop event was written.',
         ]
       : [
         'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',

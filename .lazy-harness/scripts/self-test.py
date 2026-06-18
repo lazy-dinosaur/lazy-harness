@@ -4488,6 +4488,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_candidate_fixture = json.loads(promote_candidate_fixture_path.read_text(encoding="utf-8"))
     if promote_candidate_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_candidate_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote candidate-row fixture schema/mode mismatch")
+    promote_rulebook_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-rulebook.json"
+    if not promote_rulebook_fixture_path.exists():
+        fail("Project Profile V2 promote rulebook fixture missing: " + str(promote_rulebook_fixture_path.relative_to(ROOT)))
+    promote_rulebook_fixture = json.loads(promote_rulebook_fixture_path.read_text(encoding="utf-8"))
+    if promote_rulebook_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_rulebook_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote rulebook fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4558,7 +4564,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         if applied.get("mode") != "project-profile.queue-v2-apply" or applied.get("appliedWrites", [{}])[0].get("path") != ".lazy-harness/project/profile-queue.json":
             fail("project-profile queue-v2 --confirm should report only profile-queue.json write")
         pending_item_id = written_queue["items"][0]["id"]
-        non_record_item_id = next(item["id"] for item in written_queue["items"] if item.get("promotionTarget", {}).get("kind") != "record")
+        deferred_item_id = next(item["id"] for item in written_queue["items"] if item.get("promotionTarget", {}).get("kind") not in {"record", "candidate-row", "rulebook"})
         pending_promote = subprocess.run(
             [
                 "bun",
@@ -4712,7 +4718,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         if promote_again.returncode == 0 or "status=promoted" not in promote_again.stderr:
             fail("project-profile promote-v2 --confirm must reject already-promoted items")
         confirmed_queue["items"] = [
-            {**item, "status": "accepted"} if item.get("id") == non_record_item_id else item
+            {**item, "status": "accepted"} if item.get("id") == deferred_item_id else item
             for item in confirmed_queue["items"]
         ]
         queue_file.write_text(json.dumps(confirmed_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -4724,7 +4730,7 @@ def check_project_profile_v2_queue_runtime() -> None:
                 "--mode",
                 "promote-v2",
                 "--item",
-                non_record_item_id,
+                deferred_item_id,
                 "--confirm",
                 "--format=json",
                 "--root",
@@ -4736,16 +4742,16 @@ def check_project_profile_v2_queue_runtime() -> None:
             check=False,
         )
         if promote_non_record.returncode != 0:
-            fail("project-profile promote-v2 non-record target --confirm failed:\n" + promote_non_record.stdout + promote_non_record.stderr)
+            fail("project-profile promote-v2 deferred-only target --confirm failed:\n" + promote_non_record.stdout + promote_non_record.stderr)
         non_record_result = json.loads(promote_non_record.stdout)
         after_non_record_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
         if after_non_record_files != before_non_record_files:
-            fail("project-profile promote-v2 non-record target must not write additional canonical files")
+            fail("project-profile promote-v2 deferred-only target must not write additional canonical files")
         non_record_effects = non_record_result.get("targetEffects", [])
         if not non_record_effects or non_record_effects[0].get("status") != promote_confirm_fixture.get("targetEffects", [{}])[0].get("status") or non_record_effects[0].get("action") != "defer-target-writer":
-            fail("project-profile promote-v2 non-record target must remain deferred")
+            fail("project-profile promote-v2 deferred-only target must remain deferred")
         if non_record_result.get("appliedWrites") != promote_confirm_fixture.get("appliedWrites"):
-            fail("project-profile promote-v2 non-record target must report only queue-file applied write")
+            fail("project-profile promote-v2 deferred-only target must report only queue-file applied write")
         candidate_item = json.loads(json.dumps(promote_candidate_fixture["item"]))
         candidate_item["status"] = "accepted"
         candidate_item.pop("promotedAt", None)
@@ -4824,6 +4830,65 @@ def check_project_profile_v2_queue_runtime() -> None:
             fail("project-profile promote-v2 candidate-row duplicate run must not append another row")
         if dedupe_result.get("appliedWrites", [{}])[0].get("action") != "deduped-identical" or dedupe_result.get("targetEffects", [{}])[0].get("action") != "dedupe-candidate-row":
             fail("project-profile promote-v2 candidate-row duplicate run must report dedupe")
+        rulebook_item = json.loads(json.dumps(promote_rulebook_fixture["item"]))
+        rulebook_item["status"] = "accepted"
+        rulebook_item.pop("promotedAt", None)
+        rulebook_item.pop("promotedTo", None)
+        rulebook_item.pop("promotionEffects", None)
+        rulebook_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        rulebook_queue["items"].insert(0, rulebook_item)
+        queue_file.write_text(json.dumps(rulebook_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_rulebook_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_rulebook = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                rulebook_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_rulebook.returncode != 0:
+            fail("project-profile promote-v2 rulebook target --confirm failed:\n" + promote_rulebook.stdout + promote_rulebook.stderr)
+        rulebook_result = json.loads(promote_rulebook.stdout)
+        after_rulebook_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_rulebook_files = sorted(before_rulebook_files + [".lazy-harness/rules/workflow-policy.md"])
+        if after_rulebook_files != expected_rulebook_files:
+            fail("project-profile promote-v2 rulebook target must write only queue plus rulebook draft: " + json.dumps(after_rulebook_files, ensure_ascii=False))
+        rulebook_path = root / ".lazy-harness" / "rules" / "workflow-policy.md"
+        rulebook_text = rulebook_path.read_text(encoding="utf-8")
+        required_rulebook_snippets = ["Status: draft", "Layer: Rulebook", "Level: discover", "Capability id: none yet", "must not be treated as active default/warn/block behavior"]
+        missing_rulebook_snippets = [snippet for snippet in required_rulebook_snippets if snippet not in rulebook_text]
+        if missing_rulebook_snippets:
+            fail("project-profile promote-v2 rulebook target missing draft/discover safeguards: " + json.dumps(missing_rulebook_snippets, ensure_ascii=False))
+        if (root / ".lazy-harness" / "ssot" / "capabilities.json").exists():
+            fail("project-profile promote-v2 rulebook target must not create capabilities.json")
+        rulebook_effects = rulebook_result.get("targetEffects", [])
+        if not rulebook_effects or rulebook_effects[0].get("status") != "applied" or rulebook_effects[0].get("action") != "create-rulebook":
+            fail("project-profile promote-v2 rulebook target must expose applied rulebook effect")
+        if rulebook_result.get("appliedWrites") != promote_rulebook_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 rulebook target must report rulebook and queue writes")
+        audit_rulebook = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "rules", "audit", "--strict", "--format=json", "--target", str(root)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if audit_rulebook.returncode != 0:
+            fail("project-profile promote-v2 generated rulebook entry must pass strict rule audit:\n" + audit_rulebook.stdout + audit_rulebook.stderr)
+        audit_json = json.loads(audit_rulebook.stdout)
+        if audit_json.get("ok") is not True or audit_json.get("count") != 1:
+            fail("project-profile promote-v2 generated rulebook audit result unexpected: " + audit_rulebook.stdout)
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))

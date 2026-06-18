@@ -1,0 +1,88 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-19177e9733fd",
+    "status": "promoted",
+    "primaryRoute": "policies",
+    "facets": [
+      "Policy",
+      "SSOT"
+    ],
+    "relatedRoutes": [
+      "ownership"
+    ],
+    "promotionTarget": {
+      "kind": "rulebook",
+      "path": ".lazy-harness/rules/",
+      "requiresConfirmation": true
+    },
+    "source": {
+      "kind": "question-group",
+      "id": "workflow-policy"
+    },
+    "summary": "Commit, push, PR, review, and release workflow: policies, expectations",
+    "evidence": [
+      {
+        "kind": "project-profile-question-group",
+        "summary": "Derived from interview-v2 question group workflow-policy"
+      }
+    ],
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/rules/workflow-policy.md"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "rulebook",
+        "path": ".lazy-harness/rules/workflow-policy.md",
+        "status": "applied",
+        "action": "create-rulebook",
+        "summary": "Created draft/discover rulebook target for PPQ-19177e9733fd",
+        "reason": "Rulebook target writer creates only draft/discover entries and does not add capability bindings or active enforcement levels."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "rulebook",
+      "path": ".lazy-harness/rules/workflow-policy.md",
+      "status": "applied",
+      "action": "create-rulebook",
+      "summary": "Created draft/discover rulebook target for PPQ-19177e9733fd",
+      "reason": "Rulebook target writer creates only draft/discover entries and does not add capability bindings or active enforcement levels."
+    }
+  ],
+  "queueUpdate": {
+    "id": "PPQ-19177e9733fd",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/rules/workflow-policy.md"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/rules/workflow-policy.md",
+      "action": "written",
+      "summary": "Create draft/discover rulebook target for PPQ-19177e9733fd"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-19177e9733fd in Project Profile queue and applied rulebook writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and a draft/discover rulebook entry.",
+    "The generated rulebook entry is draft/discover and must not be treated as active default/warn/block behavior.",
+    "No capability binding or update-loop event was written."
+  ]
+}
