@@ -38,6 +38,8 @@ Exception: `knowledge/` JSONL files are host-local append-only stores. They are 
 
 `ssot/capabilities.json` is also host-owned. When the manifest includes the framework seed registry, `lazy-sync` merges missing source capability ids into the host registry without deleting or overwriting host-local capability entries. This lets downstream hosts receive new framework capability surfaces such as retrieval-purpose and rulebook capabilities while preserving project-specific capabilities.
 
+Every framework capability `sourceRecord` that is seeded into host `ssot/capabilities.json` must also be present in the Category A manifest, or have a host-safe `targetPath` mirror. Otherwise host `lazy capability audit` can fail immediately after a successful capability seed merge.
+
 After file sync, `installJcodeWiring` must refresh lazy-harness managed blocks in `.jcode/config.toml` when their marker comments are present. User-owned config content remains preserved, but managed hook blocks should receive updated framework wording/commands instead of staying stale forever.
 
 ## Implementation map

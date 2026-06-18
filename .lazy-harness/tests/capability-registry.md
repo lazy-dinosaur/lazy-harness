@@ -31,6 +31,7 @@ Phase 2 add must:
 - preserve repeated multi-value flags for `--applies-when`, `--action`, and `--tag`
 - preserve rulebook-specific fields: `preferredActions`, `discouragedActions`, `rulebookRecord`, and `requiresReasonForBypass`
 - resolve capabilities by `discouragedActions` so raw commands can surface preferred replacements
+- keep framework seed capability `sourceRecord` files in the Category A sync manifest so host `lazy capability audit` remains green after lazy-sync merges missing framework capability ids
 
 Candidate detection must:
 
@@ -45,6 +46,7 @@ Candidate detection must:
 - SDD: `.lazy-harness/spec/platform/capability-resolution.md`.
 - BDD: agents should discover/default capabilities without surprising hard enforcement.
 - SSOT: `.lazy-harness/ssot/capability-registry.md` and `.lazy-harness/ssot/capabilities.json`.
+- Sync: `.lazy-harness/manifests/init-categories.json` must include framework capability sourceRecord files.
 - ADR: `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`.
 
 ## Implementation map
@@ -54,6 +56,7 @@ Candidate detection must:
   - `.lazy-harness/scripts/capability.ts`
   - `.lazy-harness/scripts/rulebook.ts`
   - `.lazy-harness/bin/lazy`
+  - `.lazy-harness/manifests/init-categories.json`
   - `.lazy-harness/scripts/self-test.py`
 - Key symbols:
   - `check_capability_registry_cli_phase1`

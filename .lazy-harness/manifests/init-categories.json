@@ -453,6 +453,11 @@
           "description": "Framework seed Capability Registry. lazy-sync merges missing source capability ids into host-owned registries without overwriting host-local entries."
         },
         {
+          "path": "spec/platform/purpose-scoped-retrieval.md",
+          "kind": "file",
+          "description": "SDD sourceRecord for framework retrieval-purpose capabilities seeded into host capabilities.json. Hosts need it so lazy capability audit passes after capability seed merge."
+        },
+        {
           "path": "rules/README.md",
           "kind": "file",
           "description": "Framework-global project operating rulebook seed. Host-specific rules live in additional .lazy-harness/rules/**/*.md files."

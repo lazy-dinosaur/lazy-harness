@@ -2513,6 +2513,32 @@ def check_capability_registry_cli_phase1() -> None:
     if audit.get("ok") is not True:
         fail("capability audit should pass for current host registry, including empty host-owned registries: " + json.dumps(audit, ensure_ascii=False))
 
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    manifest_paths = set()
+    manifest_target_paths = set()
+    for category in manifest.get("categories", {}).values():
+        if not isinstance(category, dict):
+            continue
+        for item in category.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            if isinstance(item.get("path"), str):
+                manifest_paths.add(f".lazy-harness/{item['path']}")
+            if isinstance(item.get("targetPath"), str):
+                manifest_target_paths.add(f".lazy-harness/{item['targetPath']}")
+    registry = json.loads((LAZY / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+    missing_manifest_source_records = []
+    for capability in registry.get("capabilities", []):
+        source_record = capability.get("sourceRecord")
+        if not isinstance(source_record, str) or not source_record.startswith(".lazy-harness/"):
+            continue
+        if not (ROOT / source_record).exists():
+            fail("framework capability sourceRecord missing in source: " + source_record)
+        if source_record not in manifest_paths and source_record not in manifest_target_paths:
+            missing_manifest_source_records.append({"id": capability.get("id"), "sourceRecord": source_record})
+    if missing_manifest_source_records:
+        fail("framework capability sourceRecords missing from Category A sync manifest: " + json.dumps(missing_manifest_source_records, ensure_ascii=False))
+
     listed = subprocess.run([".lazy-harness/bin/lazy", "capability", "list", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if listed.returncode != 0:
         fail("lazy capability list failed:\n" + listed.stdout + listed.stderr)

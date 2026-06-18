@@ -68,6 +68,8 @@ Each capability entry requires:
 
 `sourceRecord` must point at a canonical `.lazy-harness` record unless the capability is still a draft.
 
+When framework seed capabilities are synced into downstream hosts, their `sourceRecord` files must be synced as well. The Category A manifest is the source of truth for this dependency so host-owned `capabilities.json` can merge framework capability ids without introducing missing-source audit failures.
+
 ## Phase 1/2 behavior
 
 Phase 1/2 remains intentionally non-blocking:
