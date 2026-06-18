@@ -20,6 +20,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - modeling candidate-to-canonical transitions for Project Map branches
   - designing Project Interview, Policy Machinery, generated map views, Pi events, or Jcode compatibility events that update project knowledge
   - appending confirmed Project Profile `promote-v2` update-loop events to the non-canonical update event store
+  - modeling hook-originated validation output as Project Map update events without treating hooks as canonical writers
 - Must:
   - define update events as adapter-neutral observations plus explicit target cluster/branch metadata
   - keep unconfirmed discoveries as `candidate` or `needs-confirmation`
@@ -29,6 +30,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - keep generated Project Map views derived/cue-only
   - store non-canonical update event rows in `.lazy-harness/knowledge/project-map-update-events.jsonl`
   - use stable JSONL append semantics for the event store: append, dedupe-identical, or conflict-recorded
+  - keep hook-originated validation-output packets non-canonical until record-write policy or an explicit confirmation gate updates canonical records
 - Must not:
   - let adapters, generated views, or event packets become canonical truth by themselves
   - auto-write canonical records from event packets alone
@@ -44,6 +46,8 @@ Project Map V2 has anchors, branches, and edges. Phase 1.5 defines how those clu
 The update loop began as design-only in Phase 1.5. It now also has one reviewed, limited runtime writer: Project Profile `promote-v2 --confirm` may append an accepted `promotionTarget.kind = update-loop-event` item to the non-canonical event store. The packet shape and transition rules still ensure Project Interview, source/document ingestion, Policy Machinery, generated map views, Pi, and Jcode do not invent separate semantics.
 
 General adapter/runtime ingestion remains future work. The implemented runtime boundary is limited to confirmed Project Profile promotion and never writes canonical records from the event packet alone.
+
+Hook-originated validation output may be represented as a Project Map update event packet for fixtures, tests, and future structured evidence forwarding. In Phase 1 this is contract-only: lifecycle hooks do not gain a new runtime writer, and `jcode-adapter` validation packets remain `candidate` or `needs-confirmation` unless a canonical record is updated through the normal record-write path.
 
 ## Event store
 
@@ -116,6 +120,14 @@ Recommended optional fields:
 - `relatedRecordDecisionPacket`
 - `openQuestions`
 - `stageApplicability`
+
+Hook-originated validation packets should use the existing vocabulary rather than adding hook-specific authority fields:
+
+- `source`: `jcode-adapter` for Jcode lifecycle hook output.
+- `eventType`: `validation-success` or `validation-failure`.
+- `evidence.kind`: `validation-output`.
+- `adapter`: `jcode` when the packet originates from Jcode compatibility wiring.
+- `transition.to`: non-canonical (`candidate` or `needs-confirmation`) unless a canonical record path was updated outside the packet.
 
 Forbidden fields anywhere in update event output unless a future ADR explicitly changes this:
 
@@ -193,6 +205,7 @@ Evidence must stay root-bound for local paths. External documents require docume
 
 - Pi can submit observations/evidence/update events.
 - Jcode can submit compatibility events through existing hooks and tools.
+- Hook-originated Jcode validation events are structured evidence packets only; they do not create a second confirmation or canonical-write path.
 - Project Interview can submit `project-profile-refresh` events.
 - Document ingestion can submit `document-ingestion` events.
 - None of these sources becomes semantic authority.
@@ -216,9 +229,11 @@ Generated Project Map views may render update event history, current branch stat
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — controlled source/event mapping.
   - `.lazy-harness/tests/project-map-update-loop-v2.md` — regression expectations.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event packet fixture.
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md` — lifecycle hook contract that points structured validation evidence at update-loop packets without adding runtime writes.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — source canonical ADR record referenced by the `adr-decision` fixture event.
   - `.lazy-harness/framework/operational-adrs/0041-organic-hybrid-rule-guidance.md` — host sync target for the same framework ADR so host `.lazy-harness/decisions/` remains host-owned.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
+  - `.lazy-harness/manifests/init-categories.json` — host sync package that carries the hook SDD dependency used by the new fixture/static checks.
   - `.lazy-harness/scripts/project-profile.ts` — limited Project Profile `promote-v2` update-loop-event writer.
   - `.lazy-harness/scripts/self-test.py` — static validation.
 - Key symbols:
@@ -229,14 +244,14 @@ Generated Project Map views may render update event history, current branch stat
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 - Machine index:
-  - graph ids: `kg_project_map_update_loop_v2_sdd`, `kg_project_map_ingestion_sources_ssot`, `kg_project_map_update_loop_v2_tdd`, `kg_project_map_update_loop_v2_fixture`
+  - graph ids: `kg_project_map_update_loop_v2_sdd`, `kg_project_map_ingestion_sources_ssot`, `kg_project_map_update_loop_v2_tdd`, `kg_project_map_update_loop_v2_fixture`, `kg_project_map_update_loop_hook_validation_fixture`, `kg_hook_performance_project_map_update_loop_forwarder`, `kg_project_map_update_loop_hook_manifest`
 
 ## Layer completeness impact
 
 - DDD: facts/domain terms can be target branches for update events.
 - BDD: expectations/user behavior can be target branches for update events.
-- SDD: this record defines the event contract and limited confirmed Project Profile event writer boundary.
-- TDD: update-loop fixture/self-test protect event vocabulary, transitions, host sync dependencies, and Project Profile append-only writer behavior.
+- SDD: this record defines the event contract, limited confirmed Project Profile event writer boundary, and hook-originated validation packet shape.
+- TDD: update-loop fixture/self-test protect event vocabulary, transitions, host sync dependencies, Project Profile append-only writer behavior, and hook-originated validation packet non-authority.
 - ADR: ADR decisions become `adr-decision` events; ADR 0041 is synced as fixture canonical evidence via `framework/operational-adrs/` in hosts. No new ADR is required for the confirmed limited writer because it does not change canonical promotion semantics.
 - SSOT: ingestion-source mapping is defined in `.lazy-harness/ssot/project-map-ingestion-sources.md`; event store placement is defined here and in `.lazy-harness/ssot/project-map-record-storage.md`.
 - Planning: Phase 1.5 design deliverables remain complete; limited Project Profile runtime append slice is implemented.

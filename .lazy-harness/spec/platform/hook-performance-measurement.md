@@ -108,6 +108,18 @@ Allowed resolutions:
 
 This gate is intentionally not skipped by read-only fast-path because corrections can happen without file writes.
 
+## Structured validation evidence forwarding
+
+Future lifecycle hook evidence forwarding, including Jcode `response.completed` validation output, must use the Project Map update-loop event packet contract instead of inventing hook-specific semantic authority.
+
+Contract:
+
+- The packet shape is defined by `.lazy-harness/spec/platform/project-map-update-loop-v2.md`.
+- Hook-originated validation output uses existing controlled vocabulary: `source = jcode-adapter`, `eventType = validation-success|validation-failure`, and `evidence.kind = validation-output`.
+- Hook-originated packets are compact evidence only. They must not include raw user text, raw assistant text, secrets, credentials, or semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning.
+- Hook-originated packets must not become canonical truth by themselves. They remain `candidate` or `needs-confirmation` until record-write policy or an explicit confirmation gate updates canonical records.
+- Phase 1 is contract/fixture/static-test only. It does not add a production hook writer, new CLI, or automatic event-store append path.
+
 ## Phase 2 shadow orchestrator
 
 CLI:

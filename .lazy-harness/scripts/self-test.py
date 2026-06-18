@@ -7657,8 +7657,9 @@ def check_project_map_update_loop_v2() -> None:
     tdd_path = LAZY / "tests" / "project-map-update-loop-v2.md"
     fixture_path = LAZY / "fixtures" / "project-map-update-loop-v2" / "events.json"
     storage_ssot_path = LAZY / "ssot" / "project-map-record-storage.md"
+    hook_sdd_path = LAZY / "spec" / "platform" / "hook-performance-measurement.md"
 
-    for path in (sdd_path, ssot_path, tdd_path, fixture_path, storage_ssot_path):
+    for path in (sdd_path, ssot_path, tdd_path, fixture_path, storage_ssot_path, hook_sdd_path):
         if not path.exists():
             fail(f"Project Map update-loop V2 missing file: {path.relative_to(ROOT)}")
 
@@ -7666,6 +7667,7 @@ def check_project_map_update_loop_v2() -> None:
     ssot = ssot_path.read_text(encoding="utf-8")
     tdd = tdd_path.read_text(encoding="utf-8")
     storage_ssot = storage_ssot_path.read_text(encoding="utf-8")
+    hook_sdd = hook_sdd_path.read_text(encoding="utf-8")
     for expected in (
         "Project Map update events are JSON-compatible and adapter-neutral.",
         "Candidate/canonical transition model",
@@ -7673,6 +7675,8 @@ def check_project_map_update_loop_v2() -> None:
         "Core update-loop semantics decide candidate/canonical transitions.",
         "General adapter/runtime ingestion remains future work.",
         ".lazy-harness/knowledge/project-map-update-events.jsonl",
+        "Hook-originated validation output may be represented as a Project Map update event packet",
+        "Phase 1 this is contract-only",
     ):
         if expected not in sdd:
             fail("Project Map update-loop SDD missing invariant: " + expected)
@@ -7692,9 +7696,19 @@ def check_project_map_update_loop_v2() -> None:
         "project_map_update_transitions",
         "project_map_update_forbidden_fields",
         "project_map_update_limited_runtime_boundary",
+        "project_map_update_hook_validation_events",
     ):
         if expected not in tdd:
             fail("Project Map update-loop TDD missing regression case: " + expected)
+    for expected in (
+        "Structured validation evidence forwarding",
+        "source = jcode-adapter",
+        "eventType = validation-success|validation-failure",
+        "evidence.kind = validation-output",
+        "Phase 1 is contract/fixture/static-test only",
+    ):
+        if expected not in hook_sdd:
+            fail("hook performance SDD missing structured validation evidence forwarding invariant: " + expected)
     for expected in (
         "project-map-update-loop-v2.md",
         "project-map-ingestion-sources.md",
@@ -7776,6 +7790,7 @@ def check_project_map_update_loop_v2() -> None:
     seen_sources = set()
     seen_to_states = set()
     seen_adapter_sources = set()
+    seen_hook_validation_events = set()
     required_fields = {"schemaVersion", "id", "eventType", "source", "occurredAt", "scope", "target", "transition", "evidence", "effects"}
     for event in events:
         if not isinstance(event, dict):
@@ -7848,6 +7863,16 @@ def check_project_map_update_loop_v2() -> None:
                 path_obj = pathlib.Path(path_value)
                 if path_obj.is_absolute() or ".." in path_obj.parts:
                     fail("Project Map update-loop evidence path must stay root-relative: " + path_value)
+        if source == "jcode-adapter" and event_type in {"validation-success", "validation-failure"}:
+            if event.get("adapter") != "jcode":
+                fail("hook-originated validation event must identify jcode adapter: " + repr(event.get("id")))
+            if transition.get("to") == "canonical" or canonical_records:
+                fail("hook-originated validation event must stay non-canonical in Phase 1: " + repr(event.get("id")))
+            if not any(item.get("kind") == "validation-output" for item in evidence):
+                fail("hook-originated validation event must include validation-output evidence: " + repr(event.get("id")))
+            if not any(item.get("path") == ".lazy-harness/spec/platform/hook-performance-measurement.md" for item in evidence):
+                fail("hook-originated validation event must point to hook SDD evidence path: " + repr(event.get("id")))
+            seen_hook_validation_events.add(event_type)
         effects = event.get("effects")
         if not isinstance(effects, list):
             fail("Project Map update-loop effects must be list: " + repr(event.get("id")))
@@ -7872,6 +7897,8 @@ def check_project_map_update_loop_v2() -> None:
         fail("Project Map update-loop fixture missing transition states: " + json.dumps(sorted(required_states - seen_to_states), ensure_ascii=False))
     if seen_adapter_sources != {"pi-adapter", "jcode-adapter"}:
         fail("Project Map update-loop fixture must include Pi and Jcode adapter events")
+    if seen_hook_validation_events != {"validation-success", "validation-failure"}:
+        fail("Project Map update-loop fixture missing hook-originated validation events: " + json.dumps(sorted({"validation-success", "validation-failure"} - seen_hook_validation_events), ensure_ascii=False))
 
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in (
@@ -7879,6 +7906,7 @@ def check_project_map_update_loop_v2() -> None:
         "ssot/project-map-ingestion-sources.md",
         "tests/project-map-update-loop-v2.md",
         "decisions/0041-organic-hybrid-rule-guidance.md",
+        "spec/platform/hook-performance-measurement.md",
         "project-map-update-loop-v2/*.json",
     ):
         if expected not in category_a:

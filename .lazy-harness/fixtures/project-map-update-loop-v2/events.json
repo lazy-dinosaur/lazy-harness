@@ -379,6 +379,78 @@
     },
     {
       "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-hook-validation-failure-jcode",
+      "eventType": "validation-failure",
+      "source": "jcode-adapter",
+      "adapter": "jcode",
+      "occurredAt": "2026-06-18T00:00:00Z",
+      "scope": "framework-global",
+      "summary": "Jcode lifecycle hook validation failure is represented as compact update-loop evidence, not canonical truth.",
+      "target": {
+        "anchorId": "lifecycle-hook-validation-evidence",
+        "branch": "validation",
+        "nodeId": "hook-validation-failure-candidate",
+        "primary": "validation",
+        "facets": ["TDD", "Evidence"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "needs-confirmation",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+          "summary": "Hook-originated validation output must be compact evidence and cannot bypass record-write policy.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ],
+      "stageApplicability": ["response.completed", "validation"]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
+      "id": "evt-hook-validation-success-jcode",
+      "eventType": "validation-success",
+      "source": "jcode-adapter",
+      "adapter": "jcode",
+      "occurredAt": "2026-06-18T00:01:00Z",
+      "scope": "framework-global",
+      "summary": "Jcode lifecycle hook validation success may attach compact evidence as a candidate until a canonical record is updated separately.",
+      "target": {
+        "anchorId": "lifecycle-hook-validation-evidence",
+        "branch": "validation",
+        "nodeId": "hook-validation-success-candidate",
+        "primary": "validation",
+        "facets": ["TDD", "Evidence"]
+      },
+      "transition": {
+        "from": "observation",
+        "to": "candidate",
+        "requiresConfirmation": true,
+        "canonicalRecords": [],
+        "candidateStore": ".lazy-harness/knowledge/candidates.jsonl"
+      },
+      "evidence": [
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/spec/platform/hook-performance-measurement.md",
+          "summary": "Successful hook validation remains non-canonical unless record-write policy updates a canonical record.",
+          "redaction": "compact"
+        }
+      ],
+      "effects": [
+        { "action": "append-candidate", "path": ".lazy-harness/knowledge/candidates.jsonl" }
+      ],
+      "stageApplicability": ["response.completed", "validation"]
+    },
+    {
+      "schemaVersion": "project-map-update-event/v1",
       "id": "evt-jcode-adapter-observation-rejected",
       "eventType": "adapter-event",
       "source": "jcode-adapter",

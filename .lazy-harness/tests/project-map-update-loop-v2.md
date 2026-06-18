@@ -19,6 +19,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - changing ingestion source/event vocabularies
   - designing adapters or runtime ingestion that submit Project Map update events
   - validating the limited Project Profile `promote-v2 --confirm` update-loop-event writer
+  - validating hook-originated validation-output packets as non-canonical Project Map update events
 - Must:
   - verify required Phase 1.5 event types are represented
   - verify event packets use required fields and controlled source vocabulary
@@ -29,6 +30,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
   - verify Pi/Jcode adapter events remain non-authoritative unless core confirmation rules are satisfied
   - verify Project Profile update-loop promotion appends only `.lazy-harness/knowledge/project-map-update-events.jsonl` plus queue status metadata
   - verify duplicate Project Profile update-loop promotion dedupes identical event rows without conflicts
+  - verify Jcode hook-originated validation success/failure packets use existing vocabulary and remain non-canonical without record-write policy
 - Must not:
   - allow generated Project Map views or adapter events to become canonical truth by themselves
   - allow unconfirmed or adapter-owned runtime mutation outside explicit promotion/confirmation gates
@@ -49,6 +51,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 | `project_map_update_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes the ADR 0041 canonical record used by the `adr-decision` fixture and routes it to `framework/operational-adrs/` in hosts. |
 | `project_map_update_forbidden_fields` | recursive event walk | No confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
 | `project_map_update_limited_runtime_boundary` | SDD/TDD text + Project Profile fixture | Only confirmed Project Profile `promote-v2` writes append non-canonical update event rows; general adapter runtime remains future work. |
+| `project_map_update_hook_validation_events` | `events.json` + SDD/TDD text | Fixture includes Jcode hook-originated validation-success and validation-failure packets using `jcode-adapter` + `validation-output`; both remain non-canonical and contain no semantic-authority fields. |
 
 ## Acceptance assertions
 
@@ -65,10 +68,11 @@ Self-test should verify:
 9. Canonical transitions have at least one root-bound canonical record path.
 10. Forbidden semantic-authority fields are absent recursively.
 11. SDD/SSOT say adapters are event sources, not authorities.
-12. Manifest includes update-loop SDD/SSOT/TDD and fixture glob.
+12. Manifest includes update-loop SDD/SSOT/TDD, the hook SDD dependency used by hook-originated validation packets, and fixture glob.
 12a. Manifest includes ADR 0041 because the `adr-decision` fixture uses it as a canonical record, and it uses `targetPath=framework/operational-adrs/...` so host ADR numbering is not polluted.
 13. Project Profile `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one non-canonical event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and writes only queue status metadata otherwise.
 14. Duplicate Project Profile update-loop promotion dedupes identical event rows and does not create a conflict file.
+15. Hook-originated Jcode validation output fixture events exist for success and failure, use existing controlled vocabulary, and do not transition directly to canonical.
 
 ## Implementation map
 
@@ -78,6 +82,7 @@ Self-test should verify:
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — event packet contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — source vocabulary SSOT.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event fixture.
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md` — lifecycle hook SDD linked to future structured validation evidence forwarding.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — source canonical ADR backing the `adr-decision` fixture event.
   - `.lazy-harness/framework/operational-adrs/0041-organic-hybrid-rule-guidance.md` — host sync target for the framework ADR.
   - `.lazy-harness/manifests/init-categories.json` — Category A host sync package.
@@ -92,14 +97,14 @@ Self-test should verify:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 - Machine index:
-  - graph ids: `kg_project_map_update_loop_v2_sdd`, `kg_project_map_ingestion_sources_ssot`, `kg_project_map_update_loop_v2_tdd`, `kg_project_map_update_loop_v2_fixture`
+  - graph ids: `kg_project_map_update_loop_v2_sdd`, `kg_project_map_ingestion_sources_ssot`, `kg_project_map_update_loop_v2_tdd`, `kg_project_map_update_loop_v2_fixture`, `kg_project_map_update_loop_hook_validation_fixture`, `kg_hook_performance_project_map_update_loop_forwarder`, `kg_project_map_update_loop_hook_manifest`
 
 ## Layer completeness impact
 
 - DDD: facts branch transitions are covered by user-correction/source-discovery/project-profile/document-ingestion events.
 - BDD: expectation branch transitions are covered by implementation/source/profile events.
-- SDD: update-loop event contract and limited runtime boundary are covered.
-- TDD: validation failure/success events and update-loop writer append/dedupe behavior are covered.
+- SDD: update-loop event contract, limited runtime boundary, and hook-originated validation packet shape are covered.
+- TDD: validation failure/success events, hook-originated validation packets, and update-loop writer append/dedupe behavior are covered.
 - ADR: ADR decision events are covered.
 - SSOT: ingestion source vocabulary is covered.
 - Planning: Phase 1.5 roadmap exit criteria and the limited Project Profile writer slice are covered.
@@ -119,6 +124,7 @@ Self-test should verify:
 - BDD: behavior transition coverage recorded.
 - SDD: event contract coverage recorded.
 - TDD: validation event coverage recorded.
+- SDD/TDD: hook-originated validation packet contract captured as fixture/static-test scope only; production hook runtime behavior is unchanged.
 - ADR: decision event coverage and host sync dependency recorded.
 - SSOT: ingestion source coverage recorded.
 - Planning: Phase 1.5 exit criteria captured.
