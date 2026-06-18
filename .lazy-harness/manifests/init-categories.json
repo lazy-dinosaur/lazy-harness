@@ -559,7 +559,8 @@
         {
           "path": "decisions/0041-organic-hybrid-rule-guidance.md",
           "kind": "file",
-          "description": "ADR canonical record referenced by Project Map update-loop adr-decision fixture. Hosts need it so BOTH-scope update-loop canonical record checks pass after sync."
+          "description": "Operational framework ADR canonical record referenced by Project Map update-loop adr-decision fixture. Synced under framework/operational-adrs so host decisions/ remains host-owned and ADR numbering stays contiguous.",
+          "targetPath": "framework/operational-adrs/0041-organic-hybrid-rule-guidance.md"
         }
       ]
     },

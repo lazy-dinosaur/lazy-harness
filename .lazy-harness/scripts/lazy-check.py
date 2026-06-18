@@ -208,6 +208,26 @@ def check_manifest_paths(errors: list[CheckIssue], warnings: list[CheckIssue]) -
                         warnings.append(CheckIssue(rel(manifest), "manifest-glob", f"no matches for {item_path}/{pattern}"))
 
 
+def manifest_target_path_for(root_bound_path: str) -> pathlib.Path | None:
+    manifest = LAZY / "manifests" / "init-categories.json"
+    if not manifest.exists() or not root_bound_path.startswith(".lazy-harness/"):
+        return None
+    try:
+        data = load_json_file(manifest)
+    except Exception:
+        return None
+    source_rel = root_bound_path.removeprefix(".lazy-harness/")
+    for category in data.get("categories", {}).values():
+        if not isinstance(category, dict):
+            continue
+        for item in category.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            if item.get("path") == source_rel and isinstance(item.get("targetPath"), str):
+                return LAZY / item["targetPath"]
+    return None
+
+
 def check_fixture_canonical_records(path: pathlib.Path, errors: list[CheckIssue]) -> None:
     if ".lazy-harness/fixtures" not in rel(path).replace("\\", "/") or path.suffix != ".json":
         return
@@ -223,7 +243,8 @@ def check_fixture_canonical_records(path: pathlib.Path, errors: list[CheckIssue]
             errors.append(CheckIssue(rel(path), "fixture-canonical-record", f"invalid root-bound path: {value!r}"))
             continue
         record_path = ROOT / value
-        if not record_path.exists():
+        target_path = manifest_target_path_for(value)
+        if not record_path.exists() and not (target_path and target_path.exists()):
             errors.append(CheckIssue(rel(path), "fixture-canonical-record", f"missing canonical record: {value}"))
 
 

@@ -7418,6 +7418,14 @@ def check_project_map_update_loop_v2() -> None:
         "mark-candidate-rejected",
         "none",
     }
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    manifest_target_paths = {}
+    for category in manifest.get("categories", {}).values():
+        if not isinstance(category, dict):
+            continue
+        for item in category.get("items", []):
+            if isinstance(item, dict) and isinstance(item.get("path"), str) and isinstance(item.get("targetPath"), str):
+                manifest_target_paths[f".lazy-harness/{item['path']}"] = f".lazy-harness/{item['targetPath']}"
 
     seen_event_types = set()
     seen_sources = set()
@@ -7477,7 +7485,8 @@ def check_project_map_update_loop_v2() -> None:
         for record_path in canonical_records:
             if not isinstance(record_path, str) or not record_path.startswith(".lazy-harness/") or ".." in pathlib.Path(record_path).parts:
                 fail("Project Map update-loop canonical record path must stay root-bound: " + repr(record_path))
-            if not (ROOT / record_path).exists():
+            mapped_record_path = manifest_target_paths.get(record_path)
+            if not (ROOT / record_path).exists() and not (mapped_record_path and (ROOT / mapped_record_path).exists()):
                 fail("Project Map update-loop canonical record path missing: " + record_path)
         candidate_store = transition.get("candidateStore")
         if candidate_store != ".lazy-harness/knowledge/candidates.jsonl":
@@ -7519,7 +7528,6 @@ def check_project_map_update_loop_v2() -> None:
     if seen_adapter_sources != {"pi-adapter", "jcode-adapter"}:
         fail("Project Map update-loop fixture must include Pi and Jcode adapter events")
 
-    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in (
         "spec/platform/project-map-update-loop-v2.md",

@@ -46,7 +46,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 | `project_map_update_sources` | `events.json` + SSOT | Sources are controlled and include pi-adapter/jcode-adapter boundaries. |
 | `project_map_update_transitions` | `events.json` | Candidate, needs-confirmation, canonical, superseded/rejected or observation states are explicit. |
 | `project_map_update_canonical_records` | canonical transitions | Canonical target states include root-bound canonicalRecords. |
-| `project_map_update_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes the ADR 0041 canonical record used by the `adr-decision` fixture. |
+| `project_map_update_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes the ADR 0041 canonical record used by the `adr-decision` fixture and routes it to `framework/operational-adrs/` in hosts. |
 | `project_map_update_forbidden_fields` | recursive event walk | No confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
 | `project_map_update_limited_runtime_boundary` | SDD/TDD text + Project Profile fixture | Only confirmed Project Profile `promote-v2` writes append non-canonical update event rows; general adapter runtime remains future work. |
 
@@ -66,7 +66,7 @@ Self-test should verify:
 10. Forbidden semantic-authority fields are absent recursively.
 11. SDD/SSOT say adapters are event sources, not authorities.
 12. Manifest includes update-loop SDD/SSOT/TDD and fixture glob.
-12a. Manifest includes ADR 0041 because the `adr-decision` fixture uses it as a canonical record.
+12a. Manifest includes ADR 0041 because the `adr-decision` fixture uses it as a canonical record, and it uses `targetPath=framework/operational-adrs/...` so host ADR numbering is not polluted.
 13. Project Profile `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one non-canonical event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and writes only queue status metadata otherwise.
 14. Duplicate Project Profile update-loop promotion dedupes identical event rows and does not create a conflict file.
 
@@ -78,7 +78,8 @@ Self-test should verify:
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — event packet contract.
   - `.lazy-harness/ssot/project-map-ingestion-sources.md` — source vocabulary SSOT.
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event fixture.
-  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — canonical ADR backing the `adr-decision` fixture event.
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — source canonical ADR backing the `adr-decision` fixture event.
+  - `.lazy-harness/framework/operational-adrs/0041-organic-hybrid-rule-guidance.md` — host sync target for the framework ADR.
   - `.lazy-harness/manifests/init-categories.json` — Category A host sync package.
   - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — Project Profile promote writer fixture.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.
