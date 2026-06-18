@@ -45,6 +45,7 @@ The typed policy registry becomes the canonical source for project/team behavior
 - User-requested next-step execution adds a non-destructive `lazy policy retire-readiness` preflight before any hand-maintained rulebook canonical-semantics retirement.
 - User-confirmed follow-up links `project-operating-rulebook` capability to new typed policy `project-operating-rulebook-policy`, closing the source-host retire-readiness blocker.
 - User-confirmed follow-up retires rulebook canonical semantics non-destructively: `lazy rules` remains compatibility/advisory, but JSON outputs identify typed policies as semantic authority.
+- User-confirmed follow-up adds block runtime readiness as preflight only; it validates promotion evidence and fixtures without installing lifecycle hard-stop hooks.
 - Block enforcement still needs separate promotion evidence, TDD, bypass behavior, and explicit confirmation.
 - Generated/explain views are derived output and must not become canonical truth.
 
@@ -60,6 +61,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
 6. Validate policy write/save round-trip: upsert → audit → resolve → warn/render → sync merge.
 7. Add retire-readiness preflight for active rulebook entries: rulebook entry → capability → typed policy coverage.
 8. Retire hand-maintained rulebook canonical semantics after readiness proof by marking `lazy rules` as compatibility/advisory and keeping typed policies canonical.
+9. Prepare block runtime only through readiness/preflight first; lifecycle hard-stop installation remains a later explicitly confirmed slice.
 
 ## Implementation map
 
@@ -86,6 +88,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
   - `lazy policy explain --id record-first-validation --format=md`
   - `lazy rules list --format=json`
   - `lazy rules resolve --intent adding_project_operating_policy --format=json`
+  - `lazy policy block-readiness --format=json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 

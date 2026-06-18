@@ -146,6 +146,25 @@ The source-host active rulebook compatibility surface is covered by:
 
 This preflight is read-only. It does not delete `.lazy-harness/rules/**` or mutate `policies.json`/`capabilities.json`. After source-host readiness passed, `lazy rules` was redefined as a compatibility/explain surface with retired canonical semantics.
 
+## Block runtime readiness
+
+Block runtime is not installed by policy records alone. Before any lifecycle hard-stop hook can be connected, run:
+
+```bash
+.lazy-harness/bin/lazy policy block-readiness --strict --format=json
+```
+
+The preflight is non-mutating and must report:
+
+- `schemaVersion = policy-block-readiness/v1`
+- `runtime = block-preflight-only`
+- `hardStopHookInstalled = false`
+- `lifecycleMutation = false`
+
+A block policy is ready only with user confirmation evidence, validation-output evidence, active/proposed hard-stop promotion metadata, explicit-context runtime metadata, documented bypass behavior, an existing runtime fixture, and rollback criteria.
+
+The source host currently has no `level=block` policies, so strict block-readiness is expected to fail until a later user-confirmed promotion slice adds one.
+
 ## Implementation map
 
 - Status: `option-b-selected-first-slice`
@@ -171,6 +190,7 @@ This preflight is read-only. It does not delete `.lazy-harness/rules/**` or muta
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
   - `lazy policy retire-readiness --strict --format=json`
+  - `lazy policy block-readiness --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

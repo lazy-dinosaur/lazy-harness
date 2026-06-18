@@ -86,6 +86,13 @@ type ReadinessFinding = {
   message: string
 }
 
+type HardStopPromotion = {
+  recordPath: string
+  startLine: number
+  fields: Record<string, string>
+  problems: string[]
+}
+
 type AuditIssue = {
   severity: Severity
   id?: string
@@ -104,9 +111,11 @@ Commands:
   render-rulebook [--format=json|md] [--write] [--output=.lazy-harness/generated/policy-rulebook.md]
   upsert --from-json <policy.json> [--confirm] [--format=json|md]
   retire-readiness [--format=json|md] [--strict]
+  block-readiness [--format=json|md] [--strict]
 
 Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
 Resolve defaults to advisory-only. Warn runtime requires --runtime=warn and never blocks.
+Block runtime requires block-readiness evidence first and is not installed by this CLI.
 `)
   process.exit(exitCode)
 }
@@ -227,6 +236,74 @@ function loadCapabilityRegistry(root: string): CapabilityRegistry {
 
 function capabilityForRulebookEntry(rule: RulebookEntry, capabilities: Capability[]): Capability | undefined {
   return capabilities.find((cap) => cap.id === rule.relatedCapability || cap.rulebookRecord === rule.path || cap.sourceRecord === rule.path)
+}
+
+const HARD_STOP_REQUIRED_FIELDS = ['Status', 'Boundary', 'Scope', 'User confirmation', 'Evidence', 'Existing softer coverage', 'Fixture', 'Narrowness', 'Rollback']
+const HARD_STOP_ACTIVE_STATUSES = new Set(['active', 'proposed'])
+const HARD_STOP_ALLOWED_SCOPES = new Set(['framework-global', 'host-project', 'team-policy'])
+
+function extractHardStopPromotions(text: string, recordPath: string, root: string): HardStopPromotion[] {
+  const lines = text.split('\n')
+  const sections: Array<{ startLine: number, lines: string[] }> = []
+  let inFence = false
+  let currentStart = -1
+  let current: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (line.trim().startsWith('```')) inFence = !inFence
+    if (!inFence && /^##\s+Hard-stop promotion\s*$/i.test(line.trim())) {
+      if (currentStart !== -1) sections.push({ startLine: currentStart, lines: current })
+      currentStart = i + 1
+      current = []
+      continue
+    }
+    if (currentStart !== -1) {
+      if (!inFence && /^##\s+/.test(line.trim())) {
+        sections.push({ startLine: currentStart, lines: current })
+        currentStart = -1
+        current = []
+      } else {
+        current.push(line)
+      }
+    }
+  }
+  if (currentStart !== -1) sections.push({ startLine: currentStart, lines: current })
+  return sections.map((section) => {
+    const fields: Record<string, string> = {}
+    for (const line of section.lines) {
+      const m = line.trim().match(/^-\s+([A-Za-z][A-Za-z\s]+):\s*(.*)$/)
+      if (!m) continue
+      fields[m[1].trim().replace(/\s+/g, ' ')] = m[2].trim()
+    }
+    return { recordPath, startLine: section.startLine, fields, problems: validateHardStopPromotion(root, fields) }
+  })
+}
+
+function validateHardStopPromotion(root: string, fields: Record<string, string>): string[] {
+  const problems: string[] = []
+  const status = String(fields.Status || '').trim().toLowerCase()
+  if (status && !new Set(['active', 'proposed', 'retired']).has(status)) problems.push(`invalid Status ${fields.Status}`)
+  if (status === 'retired') return problems
+  for (const field of HARD_STOP_REQUIRED_FIELDS) {
+    const value = String(fields[field] || '').trim()
+    if (!value || ['<todo>', 'TODO', 'todo', 'n/a', 'N/A'].includes(value)) problems.push(`missing ${field}`)
+  }
+  const scope = String(fields.Scope || '').trim()
+  if (scope && !HARD_STOP_ALLOWED_SCOPES.has(scope)) problems.push(`invalid Scope ${scope}`)
+  const fixture = String(fields.Fixture || '').trim().replace(/^`|`$/g, '')
+  if (fixture) {
+    if (!isRootRelativeLazyPath(fixture)) problems.push(`Fixture must be root-relative .lazy-harness path ${fixture}`)
+    else if (!existsSync(join(root, fixture))) problems.push(`Fixture does not exist ${fixture}`)
+  }
+  return problems
+}
+
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 function isRootRelativeLazyPath(path: unknown): path is string {
@@ -723,6 +800,108 @@ function retireReadiness(root: string, opts: Record<string, string | boolean>, f
   if (opts.strict === true && blockers.length > 0) process.exitCode = 1
 }
 
+function blockReadiness(root: string, opts: Record<string, string | boolean>, format: Format): void {
+  const registry = loadRegistry(root)
+  const auditIssues = auditRegistry(root, registry).filter((issue) => issue.severity === 'error')
+  const blockPolicies = registry.policies.filter((policy) => policy.level === 'block')
+  const findings: ReadinessFinding[] = []
+  const readyPolicyIds = new Set<string>()
+
+  if (auditIssues.length) {
+    for (const issue of auditIssues) findings.push({ severity: 'blocker', policyId: issue.id, message: `policy registry audit error: ${issue.message}` })
+  }
+  if (!blockPolicies.length) {
+    findings.push({ severity: 'blocker', message: 'no block-level policies exist; block runtime has no promoted boundary to install' })
+  }
+
+  for (const policy of blockPolicies) {
+    let policyReady = true
+    const addBlocker = (message: string, path?: string): void => {
+      policyReady = false
+      findings.push({ severity: 'blocker', policyId: policy.id, path, message })
+    }
+    if (!policy.promotion?.allowedTargetLevels?.includes('block')) addBlocker('block policy promotion.allowedTargetLevels must include block')
+    if (!policy.evidence?.some((item) => item.kind === 'user-confirmation')) addBlocker('block policy requires user-confirmation evidence')
+    if (!policy.evidence?.some((item) => item.kind === 'validation-output')) addBlocker('block policy requires validation-output evidence proving block and allow cases')
+    if (!policy.rollback?.criteria?.length) addBlocker('block policy requires rollback criteria')
+
+    const runtime = objectValue(policy.runtime)
+    if (!runtime) addBlocker('block policy requires runtime metadata')
+    else {
+      if (runtime.blocks !== true) addBlocker('runtime.blocks must be true for block readiness')
+      if (runtime.requiresExplicitContext !== true) addBlocker('runtime.requiresExplicitContext must be true for block readiness')
+      if (!nonEmptyString(runtime.bypass)) addBlocker('runtime.bypass must document bypass or acknowledgement behavior')
+      if (!nonEmptyString(runtime.fixture)) addBlocker('runtime.fixture must point to a block/allow regression fixture')
+      else if (!isRootRelativeLazyPath(runtime.fixture) || !existsSync(join(root, runtime.fixture))) addBlocker(`runtime.fixture missing or invalid: ${runtime.fixture}`, String(runtime.fixture))
+    }
+
+    if (!isRootRelativeLazyPath(policy.sourceRecord) || !existsSync(join(root, policy.sourceRecord))) {
+      addBlocker(`sourceRecord missing or invalid: ${policy.sourceRecord}`, policy.sourceRecord)
+    } else {
+      const sourceText = readFileSync(join(root, policy.sourceRecord), 'utf8')
+      const promotions = extractHardStopPromotions(sourceText, policy.sourceRecord, root)
+      const activePromotions = promotions.filter((promotion) => HARD_STOP_ACTIVE_STATUSES.has(String(promotion.fields.Status || '').trim().toLowerCase()))
+      if (!activePromotions.length) addBlocker('sourceRecord must include active/proposed ## Hard-stop promotion section', policy.sourceRecord)
+      for (const promotion of activePromotions) {
+        if (promotion.problems.length) {
+          for (const problem of promotion.problems) addBlocker(`hard-stop promotion problem at line ${promotion.startLine}: ${problem}`, policy.sourceRecord)
+        }
+      }
+    }
+
+    if (policyReady) {
+      readyPolicyIds.add(policy.id)
+      findings.push({ severity: 'info', policyId: policy.id, path: policy.sourceRecord, message: 'block policy has promotion evidence, fixture, explicit-context runtime, bypass behavior, and rollback path' })
+    }
+  }
+
+  const blockers = findings.filter((finding) => finding.severity === 'blocker')
+  const result = {
+    schemaVersion: 'policy-block-readiness/v1',
+    ok: true,
+    ready: blockers.length === 0 && blockPolicies.length > 0,
+    strict: opts.strict === true,
+    runtime: 'block-preflight-only',
+    hardStopHookInstalled: false,
+    lifecycleMutation: false,
+    boundary: 'Readiness/preflight only; does not install or enable lifecycle hard-stop hooks.',
+    criteria: [
+      'block policy level',
+      'user-confirmation evidence',
+      'validation-output evidence proving block and allow cases',
+      'active/proposed hard-stop promotion section in sourceRecord',
+      'runtime.blocks=true',
+      'runtime.requiresExplicitContext=true',
+      'runtime.bypass documented',
+      'runtime.fixture exists',
+      'rollback criteria documented',
+    ],
+    counts: {
+      policies: registry.policies.length,
+      blockPolicies: blockPolicies.length,
+      readyBlockPolicies: readyPolicyIds.size,
+      blockers: blockers.length,
+    },
+    findings,
+  }
+  if (format === 'json') printJson(result)
+  else {
+    console.log('# Policy block readiness')
+    console.log('')
+    console.log(`- ready: ${result.ready ? 'yes' : 'no'}`)
+    console.log(`- runtime: ${result.runtime}`)
+    console.log(`- hard-stop hook installed: ${result.hardStopHookInstalled ? 'yes' : 'no'}`)
+    console.log(`- boundary: ${result.boundary}`)
+    console.log(`- block policies: ${result.counts.blockPolicies}`)
+    console.log(`- ready block policies: ${result.counts.readyBlockPolicies}`)
+    console.log(`- blockers: ${result.counts.blockers}`)
+    console.log('')
+    console.log('## Findings')
+    for (const finding of findings) console.log(`- ${finding.severity}${finding.policyId ? ` policy=${finding.policyId}` : ''}${finding.path ? ` path=${finding.path}` : ''}: ${finding.message}`)
+  }
+  if (opts.strict === true && blockers.length > 0) process.exitCode = 1
+}
+
 function audit(root: string, format: Format): void {
   const registry = loadRegistry(root)
   const issues = auditRegistry(root, registry)
@@ -752,6 +931,7 @@ function main(): void {
   if (command === 'render-rulebook') return renderRulebook(root, opts, format)
   if (command === 'upsert') return upsertPolicy(root, opts, format)
   if (command === 'retire-readiness') return retireReadiness(root, opts, format)
+  if (command === 'block-readiness') return blockReadiness(root, opts, format)
   if (command === 'explain') {
     const id = typeof opts.id === 'string' ? opts.id : ''
     if (!id) {

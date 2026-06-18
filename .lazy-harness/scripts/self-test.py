@@ -8019,6 +8019,7 @@ def check_policy_machinery_v2() -> None:
         "policy_machinery_generated_rulebook_view",
         "policy_machinery_rulebook_retire_readiness_source_host_ready",
         "policy_machinery_rulebook_retire_readiness_positive_fixture",
+        "policy_machinery_block_runtime_readiness_preflight",
         "Layer completeness gate",
     ):
         if expected not in tdd:
@@ -8032,6 +8033,7 @@ def check_policy_machinery_v2() -> None:
         "explicit-context warn-only runtime",
         "deterministic generated/explain rulebook view",
         "rulebook retire-readiness preflight",
+        "block runtime preparation",
         "Discovery capture",
     ):
         if expected not in audit:
@@ -8054,6 +8056,7 @@ def check_policy_machinery_v2() -> None:
         "Generated policy rulebook view",
         "lazy policy render-rulebook --write --format=json",
         "lazy policy retire-readiness --format=json",
+        "lazy policy block-readiness --format=json",
         "lazy policy audit --format=json",
     ):
         if expected not in policy_ssot:
@@ -8061,7 +8064,7 @@ def check_policy_machinery_v2() -> None:
     for forbidden in ("execSync", "appendJsonlStable"):
         if forbidden in policy_cli:
             fail("policy CLI first slice must stay read-only and non-enforcing; forbidden phrase: " + forbidden)
-    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json", "policy-rulebook-retire-readiness/v1", "Readiness/preflight only"):
+    for expected in ("Policy Machinery Option B", "Warn runtime requires --runtime=warn and never blocks", "Block runtime requires block-readiness evidence first", "policy render-rulebook --output must be a root-relative .lazy-harness/generated/ path", "Generated/explain view only", "canonical policy semantics live in .lazy-harness/ssot/policies.json", "policy-rulebook-retire-readiness/v1", "policy-block-readiness/v1", "Readiness/preflight only", "does not install or enable lifecycle hard-stop hooks"):
         if expected not in policy_cli:
             fail("policy CLI missing Option B explain boundary: " + expected)
     for expected in ("writeFileSync(outputPath, content", "requested.startsWith('.lazy-harness/generated/')", "GENERATED VIEW, NON-CANONICAL"):
@@ -8276,6 +8279,88 @@ def check_policy_machinery_v2() -> None:
     strict_retire_json = json.loads(strict_retire_readiness.stdout)
     if strict_retire_json.get("ready") is not True or strict_retire_json.get("counts", {}).get("blockers") != 0:
         fail("strict retire-readiness should report ready source host with zero blockers: " + strict_retire_readiness.stdout)
+    block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if block_readiness.returncode != 0:
+        fail("lazy policy block-readiness non-strict should report without failing:\n" + block_readiness.stdout + block_readiness.stderr)
+    block_readiness_json = json.loads(block_readiness.stdout)
+    if block_readiness_json.get("schemaVersion") != "policy-block-readiness/v1" or block_readiness_json.get("ready") is not False:
+        fail("current source should not be block-runtime ready before promoted block policy exists: " + block_readiness.stdout)
+    if block_readiness_json.get("hardStopHookInstalled") is not False or block_readiness_json.get("lifecycleMutation") is not False:
+        fail("block-readiness must not install lifecycle hard-stop hooks: " + block_readiness.stdout)
+    if block_readiness_json.get("counts", {}).get("blockPolicies") != 0 or not any("no block-level policies" in finding.get("message", "") for finding in block_readiness_json.get("findings", [])):
+        fail("block-readiness should explain current source has no block-level policies: " + block_readiness.stdout)
+    strict_block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if strict_block_readiness.returncode == 0:
+        fail("lazy policy block-readiness --strict should fail before promoted block policy exists")
+    strict_block_json = json.loads(strict_block_readiness.stdout)
+    if strict_block_json.get("ready") is not False or strict_block_json.get("counts", {}).get("blockers", 0) < 1:
+        fail("strict block-readiness should report blockers in current source: " + strict_block_readiness.stdout)
+    with tempfile.TemporaryDirectory(prefix="policy-block-readiness-") as tmp:
+        temp_root = pathlib.Path(tmp)
+        (temp_root / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
+        (temp_root / ".lazy-harness/spec/platform").mkdir(parents=True, exist_ok=True)
+        (temp_root / ".lazy-harness/tests").mkdir(parents=True, exist_ok=True)
+        (temp_root / ".lazy-harness/tests/block-policy.md").write_text("# Block policy fixture\n\nProves block and allow cases.\n", encoding="utf-8")
+        (temp_root / ".lazy-harness/spec/platform/block-policy.md").write_text(
+            """# Block Policy Fixture
+
+Status: active
+Layer: SDD
+
+## Rule digest
+
+- Status: active
+- Scope: framework-global
+
+## Hard-stop promotion
+
+- Status: proposed
+- Boundary: block fixture boundary only
+- Scope: framework-global
+- User confirmation: fixture user confirmed block boundary
+- Evidence: high-risk fixture boundary with explicit validation
+- Existing softer coverage: warn/runtime coverage existed and is insufficient for fixture
+- Fixture: .lazy-harness/tests/block-policy.md
+- Narrowness: only fixture applies_to token is covered
+- Rollback: demote policy to warn or recommend
+""",
+            encoding="utf-8",
+        )
+        block_policy = {
+            "id": "fixture-block-policy",
+            "title": "Fixture block policy",
+            "scope": "framework-global",
+            "stage": "turn",
+            "level": "block",
+            "appliesTo": ["fixture_block_boundary"],
+            "sourceRecord": ".lazy-harness/spec/platform/block-policy.md",
+            "capabilityIds": [],
+            "evidence": [
+                {"kind": "user-confirmation", "summary": "Fixture user explicitly confirmed block boundary."},
+                {"kind": "validation-output", "path": ".lazy-harness/tests/block-policy.md", "summary": "Fixture protects block and allow cases."},
+            ],
+            "promotion": {"requiresConfirmation": True, "allowedTargetLevels": ["block"]},
+            "rollback": {"criteria": ["Fixture block policy becomes noisy."], "demotionTarget": "recommend"},
+            "updateLoop": {"eventType": "policy-promotion", "canonicalByPacketAlone": False},
+            "runtime": {"blocks": True, "requiresExplicitContext": True, "bypass": "Bypass only with explicit fixture acknowledgement.", "fixture": ".lazy-harness/tests/block-policy.md"},
+            "explain": {"summary": "Fixture proves block readiness without installing hooks."},
+        }
+        (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [block_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        ready_block = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if ready_block.returncode != 0:
+            fail("block-readiness strict should pass for complete promoted block fixture:\n" + ready_block.stdout + ready_block.stderr)
+        ready_block_json = json.loads(ready_block.stdout)
+        if ready_block_json.get("ready") is not True or ready_block_json.get("counts", {}).get("readyBlockPolicies") != 1 or ready_block_json.get("hardStopHookInstalled") is not False:
+            fail("block-readiness positive fixture should be ready but non-mutating: " + ready_block.stdout)
+        broken_block_policy = json.loads(json.dumps(block_policy))
+        del broken_block_policy["runtime"]["fixture"]
+        (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [broken_block_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        broken_block = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if broken_block.returncode == 0:
+            fail("block-readiness strict should fail when block runtime fixture is missing")
+        broken_block_json = json.loads(broken_block.stdout)
+        if not any("runtime.fixture" in finding.get("message", "") for finding in broken_block_json.get("findings", [])):
+            fail("block-readiness missing fixture case should report runtime.fixture blocker: " + broken_block.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-retire-readiness-") as tmp:
         temp_root = pathlib.Path(tmp)
         (temp_root / ".lazy-harness/rules").mkdir(parents=True, exist_ok=True)
@@ -8457,7 +8542,7 @@ Fixture implementation map.
             if expected_id not in merged_ids:
                 fail("lazy-sync policy seed merge must preserve host policy and merge framework seed: " + expected_id)
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
-    if "policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness" not in help_text:
+    if "policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness" not in help_text:
         fail("lazy help must advertise policy command")
     if graph_path.exists() and graph_path.read_bytes() != graph_before:
         fail("lazy policy CLI must not mutate graph.jsonl")

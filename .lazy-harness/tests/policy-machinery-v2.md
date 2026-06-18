@@ -27,6 +27,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - prove actual policy write round-trips save and apply through audit/resolve/warn/render/sync
   - prove rulebook retire-readiness is non-destructive and blocks until active rulebook entries have typed policy coverage
   - prove `lazy rules` remains only compatibility/advisory after rulebook semantic retirement
+  - prove block runtime readiness is a preflight only and does not install hard-stop hooks
   - prove policy packets use update-loop evidence without becoming canonical truth by themselves
 - Must not:
   - add hook enforcement as part of this read-only policy registry slice
@@ -53,6 +54,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_rulebook_retire_readiness_source_host_ready` | source host + `lazy policy retire-readiness --strict --format=json` | Current host passes strict readiness after `.lazy-harness/rules/README.md` → `project-operating-rulebook` capability → `project-operating-rulebook-policy` typed policy link is complete. |
 | `policy_machinery_rulebook_retire_readiness_positive_fixture` | temp host + `lazy policy retire-readiness --strict --format=json` | Strict readiness passes when active rulebook entry → capability → typed policy links are complete; missing policy ids fail deterministically. |
 | `policy_machinery_rulebook_semantic_retirement_boundary` | `lazy rules list|audit|resolve --format=json` | Rulebook outputs expose `rulebook-compatibility/v1`, `retiredCanonicalSemantics=true`, `canonicalPolicySource=.lazy-harness/ssot/policies.json`, and resolve is `compatibility-advisory`. |
+| `policy_machinery_block_runtime_readiness_preflight` | source host + temp hosts + `lazy policy block-readiness --strict --format=json` | Current source reports not-ready with no block policies and no hook mutation; positive fixture with promotion evidence passes; missing runtime fixture fails. |
 
 ## Layer completeness gate
 
@@ -90,6 +92,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
   - `lazy policy retire-readiness --strict --format=json`
+  - `lazy policy block-readiness --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

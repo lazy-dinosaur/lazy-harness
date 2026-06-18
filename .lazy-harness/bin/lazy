@@ -67,8 +67,8 @@ Commands:
   skill create <name> [options] Create project-local custom Jcode skill
   capability add|list|resolve|candidates|audit
                                 Add, list, resolve, suggest, or audit registered capabilities
-  policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness
-                                List, audit, explain, resolve, render generated views, upsert typed behavior policies, or preflight rulebook retirement readiness
+  policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness
+                                List, audit, explain, resolve, render generated views, upsert typed behavior policies, or preflight rulebook/block readiness
   rules list|resolve|audit
                                 Compatibility/explain view over rulebook entries; policy semantics live in policies.json
   find --purpose <purpose> <query>

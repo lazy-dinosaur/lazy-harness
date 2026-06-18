@@ -105,6 +105,17 @@ User then confirmed proceeding with the next slice: add typed policy coverage fo
 
 User then confirmed proceeding with rulebook semantic retirement. The slice keeps `.lazy-harness/rules/**` and `lazy rules` for compatibility, but redefines `lazy rules` JSON/Markdown output to state that canonical behavior policy semantics live in `.lazy-harness/ssot/policies.json` and that rulebook canonical semantics are retired.
 
+User then confirmed proceeding with block runtime preparation and deferred backlog capture. The slice adds `lazy policy block-readiness` as a preflight-only check. Current source is intentionally not ready because no `level=block` policy exists. A temp fixture proves a complete block policy can pass readiness without installing lifecycle hooks, and missing runtime fixture evidence fails.
+
+## Rule placement
+
+- Rule: Block runtime must pass readiness/preflight before any lifecycle hard-stop hook installation.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
+- Why not AGENTS.md: this is a Policy Machinery implementation contract, not a general session instruction.
+- Why not `.jcode`: this behavior is shared framework policy machinery, not local/private Jcode wiring.
+- Confirmation: user-confirmed
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`
@@ -132,7 +143,7 @@ User then confirmed proceeding with rulebook semantic retirement. The slice keep
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Remaining future work is block runtime enforcement and broader host dogfood, not rulebook canonical semantics.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Block runtime readiness now exists as preflight-only; remaining future work is an explicitly confirmed block policy promotion plus lifecycle hard-stop integration and broader host dogfood.
 
 ## Rule placement
 

@@ -33,6 +33,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - validate actual policy writes through `lazy policy upsert --from-json ... --confirm` before retiring rulebook semantics
   - prove rulebook retirement readiness through `lazy policy retire-readiness --format=json` before changing `.lazy-harness/rules/**` semantics
   - expose retired rulebook semantics through `lazy rules` compatibility boundary metadata
+  - expose block runtime readiness only as a non-mutating preflight before any hard-stop hook work
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -40,6 +41,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat generated/explain rulebook text as canonical truth
   - turn advisory policies into blocking hooks from this contract-only slice
+  - install lifecycle hard-stop hooks from block-readiness alone
   - infer warn/block decisions from raw user text or assistant text
   - treat warn-only output as a block
   - edit `.lazy-harness/generated/policy-rulebook.md` as canonical source
@@ -108,6 +110,30 @@ User confirmed the next step after Option B: start with advisory resolution befo
 - Does not emit warn/block decisions, write state, mutate graph rows, or hook into lifecycle enforcement.
 
 Block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
+
+## Block runtime readiness preflight slice
+
+User confirmed the next step after rulebook semantic retirement: prepare block runtime, but do not install hard-stop hooks.
+
+`lazy policy block-readiness` is the preflight slice:
+
+- Reads `.lazy-harness/ssot/policies.json`.
+- Reports `schemaVersion = policy-block-readiness/v1`.
+- Reports `runtime = block-preflight-only`.
+- Reports `hardStopHookInstalled = false` and `lifecycleMutation = false`.
+- Returns `ready: false` on the source host until a promoted `level=block` policy exists.
+- `--strict` exits nonzero while blockers exist.
+- A block policy is ready only when it has:
+  - `level = block`,
+  - user-confirmation evidence,
+  - validation-output evidence proving block and allow cases,
+  - an active/proposed `## Hard-stop promotion` section in `sourceRecord`,
+  - `runtime.blocks = true`,
+  - `runtime.requiresExplicitContext = true`,
+  - documented `runtime.bypass`,
+  - an existing `runtime.fixture`,
+  - rollback criteria.
+- This slice does not call lifecycle helpers, emit STOP output, mutate hooks, or install a hard-stop.
 
 ## Warn-only runtime slice
 
@@ -215,6 +241,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
   - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
+  - `.lazy-harness/scripts/policy.ts` — exposes `block-readiness` preflight for block runtime preparation without lifecycle mutation.
   - `.lazy-harness/scripts/rulebook.ts` — exposes `rulebook-compatibility/v1` boundary metadata after semantic retirement.
   - `.lazy-harness/ssot/policies.json` — includes `project-operating-rulebook-policy` for active rulebook compatibility coverage.
   - `.lazy-harness/ssot/capabilities.json` — links `project-operating-rulebook.policyIds` to `project-operating-rulebook-policy`.
@@ -237,6 +264,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy rules list --format=json`
   - `lazy rules audit --strict --format=json`
   - `lazy rules resolve --intent adding_project_operating_policy --format=json`
+  - `lazy policy block-readiness --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
