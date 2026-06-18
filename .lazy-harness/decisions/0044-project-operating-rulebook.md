@@ -23,7 +23,7 @@ Introduce a first-class project operating rulebook category:
 .lazy-harness/rules/**
 ```
 
-Rulebook entries are human-readable canonical operating policies. Machine-readable command/action/default/warn/block steering stays in `.lazy-harness/ssot/capabilities.json` and links back to rulebook entries through `sourceRecord` or `rulebookRecord`.
+Rulebook entries were originally introduced as human-readable operating policies. ADR 0046 supersedes that semantic authority: typed policy records now carry canonical behavior policy semantics, while `.lazy-harness/rules/**` remains a compatibility/explain surface linked through `sourceRecord` or `rulebookRecord`.
 
 The framework adopts the hybrid model:
 
@@ -31,7 +31,7 @@ The framework adopts the hybrid model:
 rules/*.md -> capabilities.json -> lazy rules/capability resolve -> advisory/default/warn/block ladder
 ```
 
-Superseded note: ADR 0046 selects Policy Machinery V2 Option B. Typed policy records are the canonical source for new behavior policy semantics; `.lazy-harness/rules/**` remains compatibility/generated/explain surface during migration.
+Superseded note: ADR 0046 selects Policy Machinery V2 Option B. Typed policy records are the canonical source for behavior policy semantics; `.lazy-harness/rules/**` remains compatibility/generated/explain surface. `lazy rules` JSON output now advertises `rulebook-compatibility/v1` and `retiredCanonicalSemantics=true`.
 
 ## Consequences
 
@@ -64,7 +64,7 @@ Superseded note: ADR 0046 selects Policy Machinery V2 Option B. Typed policy rec
 
 ## Rule placement
 
-- Rule: project operating policies belong in `.lazy-harness/rules/**` plus capability bindings, not only in fact records, `.jcode`, or memory.
+- Rule: project operating policies belong in `.lazy-harness/ssot/policies.json` plus capability bindings, not only in fact records, `.jcode`, memory, or rulebook markdown.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - Why not AGENTS.md: this is an architectural storage/routing decision; AGENTS grammar can later point to it but should not be the canonical rulebook store.

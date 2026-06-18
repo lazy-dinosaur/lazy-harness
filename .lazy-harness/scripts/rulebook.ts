@@ -21,6 +21,7 @@ type Capability = {
   discouragedActions?: string[]
   entrypoint?: string
   rulebookRecord?: string
+  policyIds?: string[]
   requiresReasonForBypass?: boolean
   description: string
   owner: string
@@ -51,6 +52,7 @@ type RuleEntry = {
   owner: string
   level: string
   relatedCapability?: string
+  relatedPolicy?: string
   relatedRecords: string[]
   digest: RuleDigest
   sections: string[]
@@ -71,6 +73,17 @@ type RuleMatch = {
   matchedValue: string
 }
 
+const RULEBOOK_BOUNDARY = {
+  schemaVersion: 'rulebook-compatibility/v1',
+  compatibilitySurface: '.lazy-harness/rules/**',
+  canonicalPolicySource: '.lazy-harness/ssot/policies.json',
+  capabilityBindingSource: '.lazy-harness/ssot/capabilities.json',
+  semanticAuthority: 'typed-policy-registry',
+  retiredCanonicalSemantics: true,
+  generatedOrExplainSurface: true,
+  boundary: 'lazy rules is a compatibility/explain surface; canonical behavior policy semantics live in .lazy-harness/ssot/policies.json.',
+}
+
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error
   out(`Usage: lazy rules <command> [options]
@@ -81,8 +94,9 @@ Commands:
   resolve --action <command-or-action> [--format=json|md]
   audit [--format=json|md] [--strict]
 
-Project operating rules live in .lazy-harness/rules/** and may link to
-.lazy-harness/ssot/capabilities.json for preferred/discouraged actions.
+Project operating rules are now read through a compatibility/explain surface.
+Canonical behavior policy semantics live in .lazy-harness/ssot/policies.json;
+.lazy-harness/rules/** remains for host compatibility and human review.
 `)
   process.exit(exitCode)
 }
@@ -235,6 +249,7 @@ function loadRulebook(root: string): RuleEntry[] {
       owner: metadata.owner || '',
       level: metadata.level || '',
       relatedCapability: metadata['related-capability'],
+      relatedPolicy: metadata['related-policy'],
       relatedRecords: parseRelatedRecords(text),
       digest,
       sections: [...sections.keys()],
@@ -353,8 +368,12 @@ function auditRules(root: string, rules: RuleEntry[], registry: Registry, strict
 }
 
 function printList(rules: RuleEntry[], format: Format): void {
-  if (format === 'json') return printJson({ rules })
+  if (format === 'json') return printJson({ ...RULEBOOK_BOUNDARY, rules })
   console.log('# Project operating rules')
+  console.log('')
+  console.log('> Compatibility/explain surface, not canonical policy source.')
+  console.log(`> Canonical behavior policy source: \`${RULEBOOK_BOUNDARY.canonicalPolicySource}\`.`)
+  console.log(`> Capability bindings: \`${RULEBOOK_BOUNDARY.capabilityBindingSource}\`.`)
   if (rules.length === 0) {
     console.log('\nNo rulebook entries found.')
     return
@@ -366,12 +385,15 @@ function printList(rules: RuleEntry[], format: Format): void {
     console.log(`- level: ${rule.level}`)
     console.log(`- scope: ${rule.scope}`)
     if (rule.relatedCapability) console.log(`- relatedCapability: ${rule.relatedCapability}`)
+    if (rule.relatedPolicy) console.log(`- relatedPolicy: ${rule.relatedPolicy}`)
   }
 }
 
 function printResolve(matches: RuleMatch[], intent: string | undefined, action: string | undefined, format: Format): void {
-  if (format === 'json') return printJson({ intent, action, matches })
+  if (format === 'json') return printJson({ ...RULEBOOK_BOUNDARY, intent, action, enforcement: 'compatibility-advisory', matches })
   console.log('# Project operating rule resolution')
+  console.log('')
+  console.log('> Compatibility/advisory view. Canonical behavior policy semantics live in `.lazy-harness/ssot/policies.json`.')
   if (intent) console.log(`- intent: ${intent}`)
   if (action) console.log(`- action: ${action}`)
   if (matches.length === 0) {
@@ -387,13 +409,16 @@ function printResolve(matches: RuleMatch[], intent: string | undefined, action: 
     if (cap?.discouragedActions?.length) console.log(`- avoid: ${cap.discouragedActions.join(', ')}`)
     if (cap?.entrypoint) console.log(`- use: ${cap.entrypoint}`)
     if (cap?.id) console.log(`- capability: ${cap.id}`)
+    if (cap?.policyIds?.length) console.log(`- policies: ${cap.policyIds.join(', ')}`)
   }
 }
 
 function printAudit(issues: RuleIssue[], rules: RuleEntry[], format: Format): void {
   const ok = !issues.some((issue) => issue.severity === 'error')
-  if (format === 'json') return printJson({ ok, count: rules.length, issues })
+  if (format === 'json') return printJson({ ...RULEBOOK_BOUNDARY, ok, count: rules.length, issues })
   console.log('# Project operating rulebook audit')
+  console.log('')
+  console.log('> Compatibility audit only. Canonical behavior policy semantics live in `.lazy-harness/ssot/policies.json`.')
   console.log(`- ok: ${ok ? 'yes' : 'no'}`)
   console.log(`- rules: ${rules.length}`)
   console.log(`- issues: ${issues.length}`)

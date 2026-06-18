@@ -18,7 +18,8 @@ Related TDD: `.lazy-harness/tests/project-operating-rulebook.md`
   - deciding whether information is a project fact or an agent behavior rule
   - resolving canonical commands, discouraged commands, validation workflows, or bypass rules
 - Must:
-  - store human-readable operating rules under `.lazy-harness/rules/**`
+  - keep human-readable operating rulebook markdown under `.lazy-harness/rules/**` as a compatibility/explain surface
+  - store canonical behavior policy semantics under `.lazy-harness/ssot/policies.json`
   - link machine-readable action surfaces through `.lazy-harness/ssot/capabilities.json`
   - keep default/warn/block behavior explicit and bypass-aware
   - keep `.jcode/**` pointer/local-only
@@ -31,12 +32,15 @@ Related TDD: `.lazy-harness/tests/project-operating-rulebook.md`
 
 ## Contract
 
-`lazy rules` provides a rulebook-oriented view over:
+`lazy rules` provides a compatibility/explain view over:
 
 ```text
-.lazy-harness/rules/**/*.md
-.lazy-harness/ssot/capabilities.json
+.lazy-harness/rules/**/*.md              # compatibility/explain surface
+.lazy-harness/ssot/capabilities.json     # action/capability bindings
+.lazy-harness/ssot/policies.json         # canonical behavior policy semantics
 ```
+
+`lazy rules` output must identify this boundary with `schemaVersion = rulebook-compatibility/v1`, `retiredCanonicalSemantics = true`, and `canonicalPolicySource = .lazy-harness/ssot/policies.json`.
 
 Commands:
 
@@ -69,7 +73,7 @@ Each active entry should include:
 
 Capability entries may use these optional fields:
 
-- `rulebookRecord`: canonical `.lazy-harness/rules/**` path
+- `rulebookRecord`: compatibility/explain `.lazy-harness/rules/**` path
 - `policyIds`: canonical typed policy ids from `.lazy-harness/ssot/policies.json` that cover the rulebook compatibility surface
 - `preferredActions`: canonical commands/actions to use
 - `discouragedActions`: commands/actions that should resolve to guidance
@@ -77,7 +81,7 @@ Capability entries may use these optional fields:
 
 Resolution must match exact intent labels and action labels using the same deterministic matching boundary as `lazy capability resolve`.
 
-During Policy Machinery Option B migration, active rulebook entries that are candidates for semantic retirement must also be covered by typed policy links. The framework source entry `.lazy-harness/rules/README.md` is covered by capability `project-operating-rulebook` and policy `project-operating-rulebook-policy`.
+During Policy Machinery Option B migration, active rulebook entries that are candidates for semantic retirement must also be covered by typed policy links. The framework source entry `.lazy-harness/rules/README.md` is covered by capability `project-operating-rulebook` and policy `project-operating-rulebook-policy`. Semantic authority is retired from `.lazy-harness/rules/**`; typed policies are the source of truth.
 
 ## Audit behavior
 
@@ -96,6 +100,7 @@ Non-strict audit reports the same issues but only exits non-zero for errors.
 ## Implementation map
 
 - Status: `phase-0-2-implemented`
+- Semantic-retirement status: `rules-compatibility-surface-policy-canonical`
 - Source files:
   - `.lazy-harness/scripts/rulebook.ts`
   - `.lazy-harness/scripts/capability.ts`

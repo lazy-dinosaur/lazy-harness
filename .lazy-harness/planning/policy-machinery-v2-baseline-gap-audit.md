@@ -103,6 +103,8 @@ User then requested the next step be executed immediately. Record-backed next st
 
 User then confirmed proceeding with the next slice: add typed policy coverage for the active source rulebook compatibility surface. The slice adds `project-operating-rulebook-policy`, links `project-operating-rulebook.policyIds`, regenerates the derived policy rulebook, and makes source-host `lazy policy retire-readiness --strict --format=json` pass.
 
+User then confirmed proceeding with rulebook semantic retirement. The slice keeps `.lazy-harness/rules/**` and `lazy rules` for compatibility, but redefines `lazy rules` JSON/Markdown output to state that canonical behavior policy semantics live in `.lazy-harness/ssot/policies.json` and that rulebook canonical semantics are retired.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`
@@ -130,7 +132,7 @@ User then confirmed proceeding with the next slice: add typed policy coverage fo
 
 - Captured because Phase 3 introduced a storage architecture decision and a future runtime/enforcement backlog.
 - User-confirmed Option B closes the storage option gate; runtime warn/block enforcement remains future backlog.
-- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is now true, but actual rulebook semantic retirement still requires a later migration slice with host sync and compatibility regression coverage.
+- Rulebook retire-readiness remains a preflight/gate. Source-host readiness is true, and `lazy rules` has been migrated to compatibility/advisory output. Remaining future work is block runtime enforcement and broader host dogfood, not rulebook canonical semantics.
 
 ## Rule placement
 

@@ -32,6 +32,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - render rulebook explanations from typed policy records through `lazy policy render-rulebook`
   - validate actual policy writes through `lazy policy upsert --from-json ... --confirm` before retiring rulebook semantics
   - prove rulebook retirement readiness through `lazy policy retire-readiness --format=json` before changing `.lazy-harness/rules/**` semantics
+  - expose retired rulebook semantics through `lazy rules` compatibility boundary metadata
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -161,6 +162,17 @@ Rulebook retirement is not a delete-first migration. Before `.lazy-harness/rules
 - After `project-operating-rulebook-policy`, the source host reports `ready: true` because `.lazy-harness/rules/README.md` is linked through capability `project-operating-rulebook` to a typed policy.
 - The preflight does not delete `.lazy-harness/rules/**`, mutate `policies.json`, mutate `capabilities.json`, or change `lazy rules` compatibility behavior.
 
+## Rulebook semantic retirement slice
+
+After source-host retire-readiness became true, `lazy rules` was redefined as compatibility/explain tooling rather than canonical policy tooling:
+
+- It still lists, audits, and resolves `.lazy-harness/rules/**` entries for compatibility and human review.
+- JSON output includes `schemaVersion = rulebook-compatibility/v1`.
+- JSON output includes `retiredCanonicalSemantics = true`.
+- JSON output includes `canonicalPolicySource = .lazy-harness/ssot/policies.json` and `semanticAuthority = typed-policy-registry`.
+- Resolve output uses `enforcement = compatibility-advisory`.
+- This slice does not delete `.lazy-harness/rules/**`, remove host sync seeds, or introduce block runtime enforcement.
+
 ## Storage posture
 
 Phase 3 selected Option B:
@@ -203,6 +215,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
   - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
+  - `.lazy-harness/scripts/rulebook.ts` — exposes `rulebook-compatibility/v1` boundary metadata after semantic retirement.
   - `.lazy-harness/ssot/policies.json` — includes `project-operating-rulebook-policy` for active rulebook compatibility coverage.
   - `.lazy-harness/ssot/capabilities.json` — links `project-operating-rulebook.policyIds` to `project-operating-rulebook-policy`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py` — explicit-context warn-only response.completed helper.
@@ -221,6 +234,9 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy retire-readiness --format=json`
   - `lazy policy retire-readiness --strict --format=json`
+  - `lazy rules list --format=json`
+  - `lazy rules audit --strict --format=json`
+  - `lazy rules resolve --intent adding_project_operating_policy --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

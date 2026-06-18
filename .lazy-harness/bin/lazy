@@ -70,7 +70,7 @@ Commands:
   policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness
                                 List, audit, explain, resolve, render generated views, upsert typed behavior policies, or preflight rulebook retirement readiness
   rules list|resolve|audit
-                                List, resolve, or audit project operating rulebook entries
+                                Compatibility/explain view over rulebook entries; policy semantics live in policies.json
   find --purpose <purpose> <query>
                                 Purpose-scoped cue retrieval across fact/rulebook/test/capability/source spaces
   affected [--files F1,F2,...]  Run affected tests for given files

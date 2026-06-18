@@ -2994,6 +2994,26 @@ def check_project_operating_rulebook_cli() -> None:
     root_audit_json = json.loads(root_audit.stdout)
     if root_audit_json.get("ok") is not True or root_audit_json.get("count", 0) < 1:
         fail("source rulebook audit should pass and see at least README: " + root_audit.stdout)
+
+    def assert_rulebook_compat_boundary(payload: dict, label: str) -> None:
+        if payload.get("schemaVersion") != "rulebook-compatibility/v1":
+            fail(f"{label} must expose rulebook compatibility schema boundary: " + json.dumps(payload, ensure_ascii=False))
+        if payload.get("retiredCanonicalSemantics") is not True:
+            fail(f"{label} must mark rulebook canonical semantics retired: " + json.dumps(payload, ensure_ascii=False))
+        if payload.get("canonicalPolicySource") != ".lazy-harness/ssot/policies.json":
+            fail(f"{label} must point to typed policy canonical source: " + json.dumps(payload, ensure_ascii=False))
+        if payload.get("semanticAuthority") != "typed-policy-registry":
+            fail(f"{label} must keep semantic authority on typed policy registry: " + json.dumps(payload, ensure_ascii=False))
+
+    assert_rulebook_compat_boundary(root_audit_json, "source lazy rules audit")
+    root_list = subprocess.run([".lazy-harness/bin/lazy", "rules", "list", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+    if root_list.returncode != 0:
+        fail("source lazy rules list failed:\n" + root_list.stdout + root_list.stderr)
+    root_list_json = json.loads(root_list.stdout)
+    assert_rulebook_compat_boundary(root_list_json, "source lazy rules list")
+    source_rules = {rule.get("path"): rule for rule in root_list_json.get("rules", [])}
+    if source_rules.get(".lazy-harness/rules/README.md", {}).get("relatedPolicy") != "project-operating-rulebook-policy":
+        fail("source rulebook README must surface related typed policy in list output: " + root_list.stdout)
     source_capabilities = json.loads((ROOT / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
     project_rulebook_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == "project-operating-rulebook"), None)
     if not project_rulebook_capability or "project-operating-rulebook-policy" not in project_rulebook_capability.get("policyIds", []):
@@ -3087,6 +3107,7 @@ Use the host worktree and dev-instance wrappers instead of raw git worktree or r
         if listed.returncode != 0:
             fail("lazy rules list fixture failed:\n" + listed.stdout + listed.stderr)
         listed_json = json.loads(listed.stdout)
+        assert_rulebook_compat_boundary(listed_json, "fixture lazy rules list")
         if [rule.get("path") for rule in listed_json.get("rules", [])] != [".lazy-harness/rules/dev-worktree.md"]:
             fail("lazy rules list should parse fixture rulebook entry: " + listed.stdout)
 
@@ -3094,6 +3115,7 @@ Use the host worktree and dev-instance wrappers instead of raw git worktree or r
         if audit.returncode != 0:
             fail("lazy rules audit --strict fixture failed:\n" + audit.stdout + audit.stderr)
         audit_json = json.loads(audit.stdout)
+        assert_rulebook_compat_boundary(audit_json, "fixture lazy rules audit")
         if audit_json.get("ok") is not True or audit_json.get("count") != 1:
             fail("lazy rules audit fixture should pass exactly one rule: " + audit.stdout)
 
@@ -3101,6 +3123,9 @@ Use the host worktree and dev-instance wrappers instead of raw git worktree or r
         if resolved_rule.returncode != 0:
             fail("lazy rules resolve discouraged action failed:\n" + resolved_rule.stdout + resolved_rule.stderr)
         rule_json = json.loads(resolved_rule.stdout)
+        assert_rulebook_compat_boundary(rule_json, "fixture lazy rules resolve")
+        if rule_json.get("enforcement") != "compatibility-advisory":
+            fail("lazy rules resolve should be compatibility-advisory after semantic retirement: " + resolved_rule.stdout)
         matches = rule_json.get("matches", [])
         if not matches or matches[0].get("matchType") != "discouraged-action":
             fail("lazy rules resolve should match discouraged raw worktree command: " + resolved_rule.stdout)
@@ -3122,6 +3147,7 @@ Use the host worktree and dev-instance wrappers instead of raw git worktree or r
         if bad.returncode == 0:
             fail("lazy rules audit should fail missing rulebookRecord")
         bad_json = json.loads(bad.stdout)
+        assert_rulebook_compat_boundary(bad_json, "fixture broken lazy rules audit")
         if not any("missing rulebookRecord" in issue.get("message", "") for issue in bad_json.get("issues", [])):
             fail("lazy rules audit missing rulebookRecord error not reported: " + bad.stdout)
     finally:

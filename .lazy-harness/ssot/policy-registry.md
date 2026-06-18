@@ -88,7 +88,9 @@ Capabilities bind policies to commands/actions/tools. Policies define behavior s
 
 ## Relationship to rulebook markdown
 
-`.lazy-harness/rules/**` is a compatibility/generated/explain surface during Option B migration. It may remain for readability and host compatibility, but new semantic policy changes should land in `policies.json`.
+`.lazy-harness/rules/**` is a compatibility/generated/explain surface. It may remain for readability and host compatibility, but semantic authority is retired from rulebook markdown; new semantic policy changes must land in `policies.json`.
+
+`lazy rules list|audit|resolve --format=json` must expose `schemaVersion = rulebook-compatibility/v1`, `retiredCanonicalSemantics = true`, and `canonicalPolicySource = .lazy-harness/ssot/policies.json`.
 
 ## Generated policy rulebook view
 
@@ -142,7 +144,7 @@ The source-host active rulebook compatibility surface is covered by:
   -> policy project-operating-rulebook-policy
 ```
 
-This preflight is read-only. It does not delete `.lazy-harness/rules/**`, change `lazy rules`, or mutate `policies.json`/`capabilities.json`.
+This preflight is read-only. It does not delete `.lazy-harness/rules/**` or mutate `policies.json`/`capabilities.json`. After source-host readiness passed, `lazy rules` was redefined as a compatibility/explain surface with retired canonical semantics.
 
 ## Implementation map
 

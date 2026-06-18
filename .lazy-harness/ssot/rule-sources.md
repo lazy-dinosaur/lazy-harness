@@ -33,7 +33,7 @@ When instructions conflict, use this order:
 |---|---|
 | Framework-common agent behavior that applies to every host | `.lazy-harness/AGENTS.md` |
 | Host identity, source-of-truth, ownership, forbidden mutation | `.lazy-harness/ssot/project-identity.md` or dedicated SSOT |
-| Team/project operating policy shared by all agents | `.lazy-harness/rules/**` plus `.lazy-harness/ssot/capabilities.json` when it should steer actions |
+| Team/project operating policy shared by all agents | `.lazy-harness/ssot/policies.json` plus `.lazy-harness/ssot/capabilities.json` when it should steer actions; `.lazy-harness/rules/**` is a compatibility/explain surface |
 | Domain/business language or invariant | `.lazy-harness/domain/**` |
 | API/component/data/IPC contract | `.lazy-harness/spec/**` |
 | User-visible workflow or expected behavior | `.lazy-harness/behavior/**` |
@@ -72,8 +72,8 @@ F. 직접 입력
 
 ## Examples
 
-- PR/worktree tracker policy used by future agents: `.lazy-harness/rules/**` plus capability binding when it should steer commands; planning may track rollout/backlog.
-- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/rules/**` plus `.lazy-harness/ssot/capabilities.json`, not `.jcode` by default.
+- PR/worktree tracker policy used by future agents: `.lazy-harness/ssot/policies.json` plus capability binding when it should steer commands; `.lazy-harness/rules/**` may explain the policy for compatibility; planning may track rollout/backlog.
+- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/policies.json` plus `.lazy-harness/ssot/capabilities.json`, not `.jcode` by default.
 - Personal shortcut, preferred shell alias, or Jcode-only UI workflow: `.jcode/harness/20-project-rules.md` with `Scope: jcode-local`.
 - Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record; Jcode memory must not be used as durable policy storage.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
@@ -122,8 +122,8 @@ Required standard:
 
 ## Project operating rulebook
 
-Project facts and project operating rules are distinct. Facts, contracts, regressions, and decisions remain in DDD/SDD/BDD/TDD/ADR/SSOT. Development behavior rules that tell agents how to work inside a host belong in `.lazy-harness/rules/**` and, when they should influence command/tool choice, in `.lazy-harness/ssot/capabilities.json`.
+Project facts and project operating rules are distinct. Facts, contracts, regressions, and decisions remain in DDD/SDD/BDD/TDD/ADR/SSOT. Development behavior rules that tell agents how to work inside a host belong canonically in `.lazy-harness/ssot/policies.json` and, when they should influence command/tool choice, in `.lazy-harness/ssot/capabilities.json`. `.lazy-harness/rules/**` remains a compatibility/explain surface for human review and host sync.
 
 Examples include canonical worktree commands, discouraged raw dev-server commands, validation workflows, bypass rules, and team operating policy.
 
-Rulebook entries still need `## Rule placement` when created from a user correction or new project policy.
+Rulebook entries still need `## Rule placement` when created as compatibility/explain surfaces from a user correction or new project policy, but the policy semantics must also be represented in `.lazy-harness/ssot/policies.json`.

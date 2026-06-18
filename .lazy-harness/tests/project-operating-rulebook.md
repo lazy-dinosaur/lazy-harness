@@ -14,7 +14,8 @@ Project-specific development operating rules must not be reduced to project fact
 
 Self-test must prove:
 
-- `.lazy-harness/rules/**` exists as the canonical human operating rulebook path.
+- `.lazy-harness/rules/**` exists as a compatibility/explain surface, not the canonical behavior policy source.
+- `lazy rules list|audit|resolve --format=json` expose `rulebook-compatibility/v1`, `retiredCanonicalSemantics=true`, and canonical policy source `.lazy-harness/ssot/policies.json`.
 - `lazy rules list --format=json` parses active entries.
 - `lazy rules audit --strict --format=json` validates required metadata/sections and capability links.
 - Source rulebook compatibility surface is linked to typed policy coverage through `project-operating-rulebook-policy`.
@@ -30,7 +31,7 @@ Self-test must prove:
 - DDD: no domain/business rule impact.
 - SDD: `.lazy-harness/spec/platform/project-operating-rulebook.md` and `.lazy-harness/spec/platform/capability-resolution.md`.
 - BDD: agents should receive deterministic rulebook/capability guidance when resolving project operating actions.
-- SSOT: `.lazy-harness/ssot/rule-sources.md` and `.lazy-harness/ssot/capability-registry.md`.
+- SSOT: `.lazy-harness/ssot/rule-sources.md`, `.lazy-harness/ssot/policy-registry.md`, and `.lazy-harness/ssot/capability-registry.md`.
 - Policy Machinery: `.lazy-harness/ssot/policy-registry.md` and `.lazy-harness/tests/policy-machinery-v2.md` cover typed policy migration readiness.
 - ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`.
 
