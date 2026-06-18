@@ -19,6 +19,7 @@ Date: 2026-06-18
   - enforce a total `--max-seconds` budget and reject budgets over 3600 seconds
   - require explicit `--allow-release` before executing `--plan release`
   - support `--dry-run` so agents can inspect expensive plans without starting them
+  - emit `JCODE_PROGRESS` lines to stderr during execution so long-running validation has visible progress without corrupting JSON stdout
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
 - Must not:
   - silently replace full regression claims with fast checks
@@ -35,6 +36,7 @@ Date: 2026-06-18
 .lazy-harness/bin/lazy validate --plan standard --max-seconds=300
 .lazy-harness/bin/lazy validate --plan release --dry-run --format=json
 .lazy-harness/bin/lazy validate --plan release --allow-release --max-seconds=900
+.lazy-harness/bin/lazy validate --plan standard --progress=off --format=json
 ```
 
 Plans:
@@ -54,6 +56,7 @@ Execution rules:
 5. A failed step stops later steps.
 6. `--plan release` exits non-zero unless `--allow-release` or `--dry-run` is present.
 7. `--max-seconds` over 3600 exits non-zero and tells the caller to split validation into bounded chunks.
+8. Non-dry-run execution emits `JCODE_PROGRESS {json}` lines to stderr at plan start, step start, and step completion. `--progress=off` or `LAZY_VALIDATE_PROGRESS=0` disables these lines.
 
 ## Output
 
@@ -70,6 +73,8 @@ JSON output includes:
 - `steps[]` with command, status, exit code, elapsed time, tail output, and reason
 - `errors[]`
 - `notes[]`
+
+Progress output is intentionally not included in stdout JSON. It is emitted on stderr so automation can parse stdout as JSON and the Jcode background task UI can still show progress.
 
 Markdown output is a compact human-readable summary of the same plan and step results.
 
@@ -89,6 +94,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `validation-governor.py#build_result`
   - `validation-governor.py#plan_steps`
   - `validation-governor.py#run_step`
+  - `validation-governor.py#emit_progress`
   - `self-test.py#check_bounded_validation_governor_cli`
 - Flow:
   1. Agent needs validation.
@@ -101,6 +107,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan release --format=json` should fail without `--allow-release`.
   - `.lazy-harness/bin/lazy validate --plan release --dry-run --format=json` should list the release plan without executing it.
+  - `.lazy-harness/bin/lazy validate --plan fast --format=json` should keep stdout JSON parseable and emit `JCODE_PROGRESS` on stderr.
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 
 ## Cross-layer links
@@ -116,6 +123,6 @@ Markdown output is a compact human-readable summary of the same plan and step re
 - DDD: no domain/business model change.
 - SDD: this record defines the new CLI contract.
 - BDD: user-facing validation behavior changes from ad hoc repeated full matrices to explicit bounded plan selection.
-- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, release opt-in, budget cap, dry-run, and fast execution.
+- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, release opt-in, budget cap, dry-run, progress visibility, and fast execution.
 - ADR: no new ADR; this implements an accepted planning correction without changing enforcement philosophy.
 - SSOT: full regression remains `lazy test`; release readiness remains explicit and bounded.

@@ -18,6 +18,8 @@ Date: 2026-06-18
 | `validate_release_dry_run` | `lazy validate --plan release --dry-run --format=json` | Exits 0, lists planned release steps, does not execute them, and shows `fullRegression: true` because the plan includes one full test. |
 | `validate_budget_cap` | `lazy validate --plan fast --max-seconds=3601 --format=json` | Exits non-zero and reports that budgets over 3600 must be split. |
 | `validate_deadline_zero` | `lazy validate --plan fast --max-seconds=0 --format=json` | Exits non-zero without running `lazy check`, step status is `skipped` with `deadline-exhausted`. |
+| `validate_progress_json_safe` | `lazy validate --plan fast --format=json` | Stdout remains parseable JSON and stderr contains `JCODE_PROGRESS` rows. |
+| `validate_progress_off` | `lazy validate --plan fast --progress=off --format=json` | Stdout remains parseable JSON and stderr contains no `JCODE_PROGRESS` rows. |
 
 ## Acceptance assertions
 
@@ -28,6 +30,7 @@ Date: 2026-06-18
 5. All plans include a total budget and reject `--max-seconds > 3600`.
 6. Dry-run output must be available for release plans without starting expensive commands.
 7. Full regression claims remain tied to `lazy test` execution or planned full-regression steps, not to fast static checks.
+8. Long-running non-dry-run plans emit progress to stderr, never stdout, so JSON consumers and Jcode background progress can both work.
 
 ## Implementation map
 
@@ -42,10 +45,12 @@ Date: 2026-06-18
   - `validation-governor.py#main`
   - `validation-governor.py#build_result`
   - `validation-governor.py#plan_steps`
+  - `validation-governor.py#emit_progress`
   - `self-test.py#check_bounded_validation_governor_cli`
 - Validation commands:
   - `python3 -m py_compile .lazy-harness/scripts/validation-governor.py`
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
+  - `.lazy-harness/bin/lazy validate --plan fast --progress=off --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan release --dry-run --format=json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 

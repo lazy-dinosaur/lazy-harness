@@ -13,6 +13,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 import time
 from dataclasses import asdict, dataclass
 
@@ -82,6 +83,28 @@ def tail(text: str) -> str:
 
 def lazy_command(*args: str) -> list[str]:
     return [str(LAZY_BIN), *args]
+
+
+def progress_enabled(value: str, dry_run: bool) -> bool:
+    if dry_run:
+        return False
+    if value == "off" or os.environ.get("LAZY_VALIDATE_PROGRESS") == "0":
+        return False
+    return True
+
+
+def emit_progress(enabled: bool, *, current: int, total: int, message: str) -> None:
+    if not enabled:
+        return
+    percent = 100 if total <= 0 else min(100, max(0, round((current / total) * 100)))
+    payload = {
+        "current": current,
+        "total": total,
+        "unit": "steps",
+        "percent": percent,
+        "message": message,
+    }
+    print("JCODE_PROGRESS " + json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
 
 
 def check_step(files: list[str]) -> ValidationStep:
@@ -243,9 +266,13 @@ def build_result(args: argparse.Namespace) -> tuple[ValidationResult, int]:
     results: list[StepResult] = []
     ok = True
     full_regression = False
-    for step in steps:
+    progress = progress_enabled(args.progress, args.dry_run)
+    emit_progress(progress, current=0, total=len(steps), message=f"Starting lazy validate plan={args.plan}")
+    for index, step in enumerate(steps, start=1):
+        emit_progress(progress, current=index - 1, total=len(steps), message=f"Running {step.name}")
         step_result = run_step(step, deadline)
         results.append(step_result)
+        emit_progress(progress, current=index, total=len(steps), message=f"{step_result.status}: {step.name}")
         if step_result.status == "passed" and step.kind == "full-regression":
             full_regression = True
         if step_result.status != "passed":
@@ -293,6 +320,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-seconds", type=float, default=None, help="Total validation budget. Defaults: fast=60, standard=300, release=900. Maximum 3600.")
     parser.add_argument("--allow-release", action="store_true", help="Required to execute --plan release. Not required for --dry-run.")
     parser.add_argument("--dry-run", action="store_true", help="Print the bounded plan without executing steps.")
+    parser.add_argument("--progress", choices=["auto", "on", "off"], default="auto", help="Emit JCODE_PROGRESS lines to stderr while executing plans. Use --progress=off or LAZY_VALIDATE_PROGRESS=0 to disable.")
     parser.add_argument("--format", choices=["md", "json"], default="md")
     args = parser.parse_args(argv)
 
