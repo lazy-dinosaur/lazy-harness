@@ -214,6 +214,28 @@ E. Direct input.
 
 Recommended: A.
 
+## 2026-06-18 correction capture — V2 should stay hook/runtime-centered and CLI-as-tool
+
+User correction: V2 should not drift into CLI output as the context source or semantic authority. This does not mean removing CLI usage completely. CLI helpers are allowed as deterministic tools, test harnesses, debug surfaces, compatibility shims, validation/hygiene helpers, or cue/evidence providers under `.lazy-harness/ssot/cli-tool-boundary.md`. The LLM/searcher must read the tool result as evidence and make the judgment from real records/source/tests. `response.completed` / lifecycle hooks remain required runtime surfaces for V2 event capture, while Project Map / Update Loop remain the core model.
+
+Implications for the next V2 slice:
+
+- Treat `response.completed` / lifecycle hook as a required runtime surface for V2 event capture, not as an optional side path.
+- Keep Project Map / Update Loop as the core model and keep hook adapters thin.
+- Prefer hook/runtime integration and shared library helpers for production flow; use CLI wrappers only when they are useful as tools, fixtures, debug/validation surfaces, or compatibility adapters.
+- If a CLI helper is used, its result is evidence/cue for the LLM/searcher. It must not become context authority, required-read authority, risk/gate authority, or semantic authority under `.lazy-harness/ssot/cli-tool-boundary.md`.
+- Distinguish "foundation/readiness work is complete" from "V2 product is complete" in status reports.
+
+Rule placement:
+
+- Rule: V2 implementation should be hook/runtime-centered; CLI remains a deterministic tool/evidence surface, not context or semantic authority.
+- Scope: framework-global V2 architecture/planning.
+- Primary record: `.lazy-harness/planning/lazy-harness-v2-roadmap-detailed-review.md`.
+- Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`.
+- Why not AGENTS.md: this is durable V2 architecture/planning guidance tied to specific roadmap and CLI-boundary records, not only prompt grammar.
+- Why not `.jcode`: V2 is framework-global and Pi/Jcode adapter-neutral; `.jcode` is local/private Jcode wiring only.
+- Confirmation: user-corrected during V2 roadmap reset discussion.
+
 ## Rule placement
 
 - Rule: The V2 roadmap should insert a Project Map Update Loop / Knowledge Ingestion Model phase before Project Interview runtime, Policy Machinery runtime, generated map views, or adapter implementation.
