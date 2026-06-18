@@ -31,7 +31,7 @@ Phase 2 add must:
 - preserve repeated multi-value flags for `--applies-when`, `--action`, and `--tag`
 - preserve rulebook-specific fields: `preferredActions`, `discouragedActions`, `rulebookRecord`, and `requiresReasonForBypass`
 - resolve capabilities by `discouragedActions` so raw commands can surface preferred replacements
-- keep framework seed capability `sourceRecord` files in the Category A sync manifest so host `lazy capability audit` remains green after lazy-sync merges missing framework capability ids
+- keep framework-owned seed capability `sourceRecord` files in the Category A sync manifest so host `lazy capability audit` remains green after lazy-sync merges missing framework capability ids, while excluding host-owned capability source records from this framework manifest rule
 
 Candidate detection must:
 

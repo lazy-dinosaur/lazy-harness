@@ -2529,6 +2529,8 @@ def check_capability_registry_cli_phase1() -> None:
     registry = json.loads((LAZY / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
     missing_manifest_source_records = []
     for capability in registry.get("capabilities", []):
+        if capability.get("owner") != "framework-global":
+            continue
         source_record = capability.get("sourceRecord")
         if not isinstance(source_record, str) or not source_record.startswith(".lazy-harness/"):
             continue
