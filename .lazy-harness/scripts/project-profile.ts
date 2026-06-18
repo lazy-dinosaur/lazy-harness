@@ -283,7 +283,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -309,6 +309,16 @@ interface ProjectProfileRulebookPromotionWrite {
   path: string
   action: 'create' | 'skip-existing'
   content: string
+  summary: string
+  effect: ProjectProfilePromotionTargetEffect
+}
+
+interface ProjectProfileCapabilityPromotionWrite {
+  kind: 'capability-binding'
+  path: '.lazy-harness/ssot/capabilities.json'
+  status: 'created' | 'updated' | 'unchanged'
+  capability: Record<string, unknown>
+  registry: { version: number; capabilities: Record<string, unknown>[] }
   summary: string
   effect: ProjectProfilePromotionTargetEffect
 }
@@ -351,6 +361,7 @@ interface ProjectProfilePromoteV2Result {
   item: ProjectProfileQueueItem
   targetEffects: ProjectProfilePromotionTargetEffect[]
   candidateRow?: Record<string, unknown>
+  capability?: Record<string, unknown>
   queueUpdate: {
     id: string
     from: 'accepted'
@@ -359,7 +370,7 @@ interface ProjectProfilePromoteV2Result {
     promotedTo: string[]
     previewOnly: false
   }
-  appliedWrites: Array<{ path: string; action: 'written' | 'skipped' | 'appended' | 'deduped-identical' | 'conflict-recorded'; summary: string }>
+  appliedWrites: Array<{ path: string; action: 'written' | 'skipped' | 'appended' | 'deduped-identical' | 'conflict-recorded' | 'created' | 'updated' | 'unchanged'; summary: string }>
   warnings: string[]
 }
 
@@ -1482,6 +1493,87 @@ ${evidence}
   }
 }
 
+function loadCapabilityRegistryForPromotion(root: string, path: string): { version: number; capabilities: Record<string, unknown>[] } {
+  const abs = join(root, path)
+  if (!existsSync(abs)) return { version: 1, capabilities: [] }
+  const parsed = JSON.parse(readFileSync(abs, 'utf8'))
+  return {
+    version: Number(parsed?.version || 1),
+    capabilities: Array.isArray(parsed?.capabilities) ? parsed.capabilities : [],
+  }
+}
+
+function capabilityIdForPromotion(item: ProjectProfileQueueItem): string {
+  return `project-profile-v2-${slugify(item.source.id || item.id)}`.slice(0, 128)
+}
+
+function buildCapabilityForPromotion(item: ProjectProfileQueueItem): Record<string, unknown> {
+  const sourceId = item.source.id || item.id
+  return {
+    id: capabilityIdForPromotion(item),
+    kind: 'checklist',
+    level: 'discover',
+    sourceRecord: '.lazy-harness/project/profile-queue.json',
+    appliesWhen: [
+      'reviewing_project_profile_capability_candidate',
+      'completing_project_profile_v2_queue_item',
+    ],
+    actions: [
+      'Review Project Profile V2 capability binding candidate',
+      'lazy capability audit',
+    ],
+    checklistPath: '.lazy-harness/project/profile-queue.json',
+    description: `Discover Project Profile V2 capability binding candidate from ${sourceId}.`,
+    owner: 'host-project',
+    tags: ['project-profile-v2', 'capability-binding', 'discover'],
+    preferredActions: ['lazy capability audit', '.lazy-harness/ssot/capabilities.json'],
+    requiresReasonForBypass: false,
+    projectProfileQueueItemId: item.id,
+    projectProfileSource: item.source,
+  }
+}
+
+function upsertCapabilityForPromotion(registry: { version: number; capabilities: Record<string, unknown>[] }, capability: Record<string, unknown>): { status: 'created' | 'updated' | 'unchanged'; registry: { version: number; capabilities: Record<string, unknown>[] } } {
+  const id = String(capability.id)
+  const capabilities = registry.capabilities.slice()
+  const index = capabilities.findIndex((candidate) => candidate?.id === id)
+  let status: 'created' | 'updated' | 'unchanged' = 'created'
+  if (index >= 0) {
+    if (JSON.stringify(capabilities[index]) === JSON.stringify(capability)) status = 'unchanged'
+    else {
+      capabilities[index] = capability
+      status = 'updated'
+    }
+  } else {
+    capabilities.push(capability)
+  }
+  capabilities.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+  return { status, registry: { version: registry.version || 1, capabilities } }
+}
+
+function buildCapabilityPromotionWrite(item: ProjectProfileQueueItem, root: string): ProjectProfileCapabilityPromotionWrite | null {
+  if (item.promotionTarget.kind !== 'capability-binding') return null
+  const path = '.lazy-harness/ssot/capabilities.json' as const
+  const capability = buildCapabilityForPromotion(item)
+  const { status, registry } = upsertCapabilityForPromotion(loadCapabilityRegistryForPromotion(root, path), capability)
+  return {
+    kind: 'capability-binding',
+    path,
+    status,
+    capability,
+    registry,
+    summary: `${status} discover/checklist capability for ${item.id}`,
+    effect: {
+      kind: 'capability-binding',
+      path,
+      status: 'applied',
+      action: 'upsert-capability',
+      summary: `${status} discover/checklist capability for ${item.id}`,
+      reason: 'Capability-binding writer creates only discover/checklist registry entries and does not create hooks or warn/block/default enforcement.',
+    },
+  }
+}
+
 function selectAcceptedPromotionItem(root: string, itemId?: string): { queue: ProjectProfileQueueV1; item: ProjectProfileQueueItem; index: number } {
   if (!itemId) throw new Error('promote-v2 requires --item <queue-item-id>')
   const queue = readProfileQueue(root)
@@ -1540,6 +1632,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const recordWrite = buildRecordPromotionWrite(item, generatedAt, args.root)
   const candidateWrite = buildCandidatePromotionWrite(item)
   const rulebookWrite = buildRulebookPromotionWrite(item, generatedAt, args.root)
+  const capabilityWrite = buildCapabilityPromotionWrite(item, args.root)
   const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
   let candidateAppendStatus: JsonlAppendStatus | null = null
   if (candidateWrite) {
@@ -1547,7 +1640,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     candidateAppendStatus = appendJsonlStable(candidateAbs, candidateWrite.row, 'id', args.root)
     appliedWrites.push({ path: candidateWrite.path, action: candidateAppendStatus, summary: `${candidateWrite.summary} (${candidateAppendStatus})` })
   }
-  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
+  const targetEffects = [recordWrite?.effect || rulebookWrite?.effect || capabilityWrite?.effect || (candidateWrite && candidateAppendStatus ? candidateEffectForStatus(item, candidateWrite, candidateAppendStatus) : buildPromotionTargetEffect(item))]
   const promotedTo = targetEffects.map((effect) => effect.path || effect.kind)
   const promotedItem: ProjectProfileQueueItem = {
     ...item,
@@ -1592,10 +1685,16 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
       appliedWrites.push({ path: rulebookWrite.path, action: 'skipped', summary: rulebookWrite.summary })
     }
   }
+  if (capabilityWrite) {
+    const capabilityAbs = join(args.root, capabilityWrite.path)
+    ensureParent(capabilityAbs)
+    writeFileSync(capabilityAbs, JSON.stringify(capabilityWrite.registry, null, 2) + '\n', 'utf8')
+    appliedWrites.push({ path: capabilityWrite.path, action: capabilityWrite.status, summary: capabilityWrite.summary })
+  }
   const abs = join(args.root, nextQueue.queuePath)
   ensureParent(abs)
   writeFileSync(abs, JSON.stringify({ ...nextQueue, appliedWrites: undefined }, null, 2) + '\n', 'utf8')
-  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
+  appliedWrites.push({ path: nextQueue.queuePath, action: 'written', summary: `Promoted ${item.id} in Project Profile queue${recordWrite ? ' and applied record target writer' : rulebookWrite ? ' and applied rulebook writer' : capabilityWrite ? ' and applied capability-binding writer' : candidateWrite ? ' and applied candidate-row writer' : ' only'}` })
   return {
     ok: true,
     mode: 'project-profile.promote-v2-apply',
@@ -1607,6 +1706,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     item: promotedItem,
     targetEffects,
     candidateRow: candidateWrite?.row,
+    capability: capabilityWrite?.capability,
     queueUpdate: {
       id: item.id,
       from: 'accepted',
@@ -1633,6 +1733,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
           'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and a draft/discover rulebook entry.',
           'The generated rulebook entry is draft/discover and must not be treated as active default/warn/block behavior.',
           'No capability binding or update-loop event was written.',
+        ]
+      : capabilityWrite
+        ? [
+          'promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/ssot/capabilities.json.',
+          'The generated capability is discover/checklist only and must not be treated as default/warn/block enforcement.',
+          'No update-loop event was written.',
         ]
       : [
         'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',

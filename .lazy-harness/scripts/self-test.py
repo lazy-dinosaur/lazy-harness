@@ -4494,6 +4494,12 @@ def check_project_profile_v2_queue_runtime() -> None:
     promote_rulebook_fixture = json.loads(promote_rulebook_fixture_path.read_text(encoding="utf-8"))
     if promote_rulebook_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_rulebook_fixture.get("mode") != "project-profile.promote-v2-apply":
         fail("Project Profile V2 promote rulebook fixture schema/mode mismatch")
+    promote_capability_fixture_path = LAZY / "fixtures" / "project-profile-v2" / "promote-capability-binding.json"
+    if not promote_capability_fixture_path.exists():
+        fail("Project Profile V2 promote capability-binding fixture missing: " + str(promote_capability_fixture_path.relative_to(ROOT)))
+    promote_capability_fixture = json.loads(promote_capability_fixture_path.read_text(encoding="utf-8"))
+    if promote_capability_fixture.get("schemaVersion") != "project-profile-promote-result/v1" or promote_capability_fixture.get("mode") != "project-profile.promote-v2-apply":
+        fail("Project Profile V2 promote capability-binding fixture schema/mode mismatch")
     with tempfile.TemporaryDirectory() as tmp:
         root = pathlib.Path(tmp)
         blocked = subprocess.run(
@@ -4889,6 +4895,101 @@ def check_project_profile_v2_queue_runtime() -> None:
         audit_json = json.loads(audit_rulebook.stdout)
         if audit_json.get("ok") is not True or audit_json.get("count") != 1:
             fail("project-profile promote-v2 generated rulebook audit result unexpected: " + audit_rulebook.stdout)
+        capability_item = json.loads(json.dumps(promote_capability_fixture["item"]))
+        capability_item["status"] = "accepted"
+        capability_item.pop("promotedAt", None)
+        capability_item.pop("promotedTo", None)
+        capability_item.pop("promotionEffects", None)
+        capability_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        capability_queue["items"].insert(0, capability_item)
+        queue_file.write_text(json.dumps(capability_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        before_capability_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        promote_capability = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                capability_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_capability.returncode != 0:
+            fail("project-profile promote-v2 capability-binding target --confirm failed:\n" + promote_capability.stdout + promote_capability.stderr)
+        capability_result = json.loads(promote_capability.stdout)
+        after_capability_files = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+        expected_capability_files = sorted(before_capability_files + [".lazy-harness/ssot/capabilities.json"])
+        if after_capability_files != expected_capability_files:
+            fail("project-profile promote-v2 capability-binding target must write only queue plus capabilities.json: " + json.dumps(after_capability_files, ensure_ascii=False))
+        capabilities_path = root / ".lazy-harness" / "ssot" / "capabilities.json"
+        registry = json.loads(capabilities_path.read_text(encoding="utf-8"))
+        if registry.get("capabilities") != [promote_capability_fixture.get("capability")]:
+            fail("project-profile promote-v2 capability-binding target must write the expected discover/checklist capability")
+        cap = registry["capabilities"][0]
+        if cap.get("level") != "discover" or cap.get("kind") != "checklist" or cap.get("sourceRecord") != ".lazy-harness/project/profile-queue.json":
+            fail("project-profile promote-v2 capability-binding target must remain discover/checklist with queue sourceRecord")
+        if cap.get("level") in {"default", "warn", "block"} or cap.get("kind") == "hook":
+            fail("project-profile promote-v2 capability-binding target must not create enforcement capability")
+        capability_effects = capability_result.get("targetEffects", [])
+        if not capability_effects or capability_effects[0].get("status") != "applied" or capability_effects[0].get("action") != "upsert-capability":
+            fail("project-profile promote-v2 capability-binding target must expose applied capability effect")
+        if capability_result.get("capability") != promote_capability_fixture.get("capability"):
+            fail("project-profile promote-v2 capability-binding target must return the upserted capability")
+        if capability_result.get("appliedWrites") != promote_capability_fixture.get("appliedWrites"):
+            fail("project-profile promote-v2 capability-binding target must report capability and queue writes")
+        audit_capability = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "capability.ts"), "audit", "--format=json", "--target", str(root)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if audit_capability.returncode != 0:
+            fail("project-profile promote-v2 generated capability registry must pass audit:\n" + audit_capability.stdout + audit_capability.stderr)
+        audit_capability_json = json.loads(audit_capability.stdout)
+        if audit_capability_json.get("ok") is not True or audit_capability_json.get("count") != 1:
+            fail("project-profile promote-v2 generated capability audit result unexpected: " + audit_capability.stdout)
+        capability_dedupe_queue = json.loads(queue_file.read_text(encoding="utf-8"))
+        capability_dedupe_queue["items"] = [
+            {k: v for k, v in {**item, "status": "accepted"}.items() if k not in {"promotedAt", "promotedTo", "promotionEffects"}}
+            if item.get("id") == capability_item["id"] else item
+            for item in capability_dedupe_queue["items"]
+        ]
+        queue_file.write_text(json.dumps(capability_dedupe_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        promote_capability_again = subprocess.run(
+            [
+                "bun",
+                str(LAZY / "scripts" / "project-profile.ts"),
+                "--mode",
+                "promote-v2",
+                "--item",
+                capability_item["id"],
+                "--confirm",
+                "--format=json",
+                "--root",
+                str(root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if promote_capability_again.returncode != 0:
+            fail("project-profile promote-v2 capability-binding unchanged run failed:\n" + promote_capability_again.stdout + promote_capability_again.stderr)
+        capability_again_result = json.loads(promote_capability_again.stdout)
+        registry_after = json.loads(capabilities_path.read_text(encoding="utf-8"))
+        if registry_after != registry:
+            fail("project-profile promote-v2 capability-binding unchanged run must not alter registry")
+        if capability_again_result.get("appliedWrites", [{}])[0].get("action") != "unchanged":
+            fail("project-profile promote-v2 capability-binding unchanged run must report unchanged upsert")
 
     required_top = {"schemaVersion", "mode", "queuePath", "sourcePacket", "items", "summary", "dryRunSource"}
     missing = sorted(required_top - set(queue))

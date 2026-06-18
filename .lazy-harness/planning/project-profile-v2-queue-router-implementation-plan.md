@@ -1,6 +1,6 @@
 # Planning — Project Profile V2 Queue Router Implementation Plan
 
-Status: implemented-promote-v2-rulebook-writer
+Status: implemented-promote-v2-capability-binding-writer
 Date: 2026-06-17
 Layer: Planning
 Related SDD: `.lazy-harness/spec/platform/project-profile-v2.md`
@@ -11,7 +11,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
 
 ## Rule digest
 
-- Status: implemented queue-v2 runtime, promote-v2 dry-run preview, confirmed queue-status writer, record target writer, candidate-row writer, and rulebook writer slices
+- Status: implemented queue-v2 runtime, promote-v2 dry-run preview, confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer slices
 - Layer: Planning
 - Scope: framework-global
 - Applies when:
@@ -28,6 +28,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - let the record target writer create deterministic `needs-interview` canonical records only for `promotionTarget.kind=record`
   - let the candidate-row target writer append stable rows to `.lazy-harness/knowledge/candidates.jsonl` only for `promotionTarget.kind=candidate-row`
   - let the rulebook target writer create deterministic `Status: draft` / `Level: discover` entries under `.lazy-harness/rules/**` only for `promotionTarget.kind=rulebook`
+  - let the capability-binding target writer upsert deterministic `discover` checklist capabilities into `.lazy-harness/ssot/capabilities.json` only for `promotionTarget.kind=capability-binding`
   - separate target-specific canonical writers as explicit deferred effects for `record`, `project-map-branch`, `rulebook`, `capability-binding`, `candidate-row`, `update-loop-event`, and `queue-only`
 - Must not:
   - make policy candidate the universal path for project knowledge
@@ -35,8 +36,8 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - silently drop pending policy candidates or unresolved routed items
   - promote queue items without explicit confirmation or accepted evidence
   - let dry-run promotion mutate `.lazy-harness/project/profile-queue.json` or canonical targets
-  - let the rulebook writer create active/default/warn/block rules or capability bindings
-  - let non-rulebook target writers create/update capability bindings or update-loop events in the rulebook writer slice
+  - let the capability-binding writer create recommend/default/warn/block capabilities or hook enforcement
+  - let non-capability target writers create/update update-loop events in the capability-binding writer slice
   - write confirmed project facts into record targets; generated record targets must remain `needs-interview` skeletons until answered
 
 ## Recommended implementation shape
@@ -250,11 +251,12 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 8. Implement the `record` target writer first. It may create deterministic `needs-interview` canonical records from accepted queue items with `promotionTarget.kind=record`; it must not assert confirmed project facts.
 9. Implement the `candidate-row` target writer. It may append stable, id-deduped rows to `.lazy-harness/knowledge/candidates.jsonl`; it must not promote those rows to canonical layer docs.
 10. Implement the `rulebook` target writer. It may create deterministic draft/discover rulebook entries under `.lazy-harness/rules/**`; it must not create capability bindings or active warn/block rules.
-11. Later, implement target-specific canonical writers in order: `capability-binding`, `update-loop-event`.
+11. Implement the `capability-binding` target writer. It may upsert deterministic `discover`/`checklist` capability entries to `.lazy-harness/ssot/capabilities.json`; it must not create enforcement, hooks, or warn/block/default levels.
+12. Later, implement the `update-loop-event` target writer.
 
 ## Implementation map
 
-- Status: promote-v2 rulebook target writer slice implemented.
+- Status: promote-v2 capability-binding target writer slice implemented.
 - Primary files:
   - `.lazy-harness/planning/project-profile-v2-queue-router-implementation-plan.md` — this plan.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD to update with queue schema.
@@ -267,6 +269,7 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
   - `.lazy-harness/fixtures/project-profile-v2/promote-record.json` — promote-v2 record writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-candidate-row.json` — promote-v2 candidate-row writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-rulebook.json` — promote-v2 rulebook writer result fixture.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-capability-binding.json` — promote-v2 capability-binding writer result fixture.
 - Implemented symbols:
   - `ProjectProfileQueueV1`
   - `ProjectProfileQueueItem`
@@ -281,10 +284,12 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
   - `ProjectProfileRecordPromotionWrite`
   - `ProjectProfileCandidatePromotionWrite`
   - `ProjectProfileRulebookPromotionWrite`
+  - `ProjectProfileCapabilityPromotionWrite`
   - `buildPromoteV2Preview`
   - `buildRecordPromotionWrite`
   - `buildCandidatePromotionWrite`
   - `buildRulebookPromotionWrite`
+  - `buildCapabilityPromotionWrite`
   - `applyPromoteV2`
   - `renderPromoteV2Md`
   - `renderProfileQueueMd`
@@ -302,10 +307,11 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 - `promote-v2 --confirm` records applied record/candidate-row effects and deferred rulebook/capability/update-loop effects.
 - `promote-v2 --confirm` for `promotionTarget.kind=candidate-row` appends a stable row to `.lazy-harness/knowledge/candidates.jsonl` via `appendJsonlStable`.
 - `promote-v2 --confirm` for `promotionTarget.kind=rulebook` creates a deterministic draft/discover rulebook entry under `.lazy-harness/rules/**`.
+- `promote-v2 --confirm` for `promotionTarget.kind=capability-binding` upserts a deterministic discover/checklist capability in `.lazy-harness/ssot/capabilities.json`.
 - The output includes at least one non-policy category-routed item and one policy-candidate source item under `primaryRoute=policies`.
 - At least one item demonstrates a category-first `primaryRoute` with multiple `facets`/`relatedRoutes`.
 - All `promotionTarget.requiresConfirmation` values are true.
-- No direct write occurs to capability bindings or update-loop events.
+- No direct write occurs to update-loop events.
 - V1 commands still pass existing tests.
 - `interview-v2 --confirm` remains blocked.
 - Full `lazy test` remains green.
@@ -327,4 +333,4 @@ So knowledge can still accumulate naturally in the correct layer records. Policy
 - TDD: future queue route for validation/regression defined.
 - ADR: future route for trade-off decisions defined.
 - SSOT: future route for ownership/source-of-truth and event-ready metadata defined.
-- Planning: queue-v2 implementation, promote-v2 dry-run preview, promote-v2 confirmed queue-status writer, record target writer, candidate-row writer, and rulebook writer completed; capability/update-loop writers remain deferred.
+- Planning: queue-v2 implementation, promote-v2 dry-run preview, promote-v2 confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer completed; update-loop writer remains deferred.

@@ -1,6 +1,6 @@
 # TDD — Project Profile V2 / Project Interview Policy Discovery
 
-Status: active-runtime-promote-v2-rulebook-writer-implemented
+Status: active-runtime-promote-v2-capability-binding-writer-implemented
 Date: 2026-06-16
 Updated: 2026-06-17
 Layer: TDD
@@ -10,7 +10,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 
 ## Rule digest
 
-- Status: active-runtime-promote-v2-rulebook-writer-implemented
+- Status: active-runtime-promote-v2-capability-binding-writer-implemented
 - Layer: TDD
 - Scope: framework-global
 - Applies when:
@@ -29,6 +29,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - verify promote-v2 record writer creates only deterministic `needs-interview` record skeletons for `promotionTarget.kind=record`
   - verify promote-v2 candidate-row writer appends stable rows to `.lazy-harness/knowledge/candidates.jsonl` only for `promotionTarget.kind=candidate-row`
   - verify promote-v2 rulebook writer creates only draft/discover rulebook entries for `promotionTarget.kind=rulebook`
+  - verify promote-v2 capability-binding writer upserts only discover/checklist capability entries for `promotionTarget.kind=capability-binding`
   - verify forbidden semantic-authority fields are absent
 - Must not:
   - permit silent defaults
@@ -37,7 +38,8 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - permit promote-v2 record writer to assert confirmed project facts without explicit answers
   - permit candidate-row writer to promote candidate rows to canonical layer docs
   - permit rulebook writer to create active/default/warn/block rules or capability bindings
-  - permit capability/update-loop target writers to write capabilities/update-loop events in the rulebook writer slice
+  - permit capability-binding writer to create recommend/default/warn/block capabilities or hook enforcement
+  - permit update-loop target writer to write update-loop events in the capability-binding writer slice
   - center the model on tests only
   - require write/apply behavior before a separate approval
 - Record completion:
@@ -77,6 +79,8 @@ The design fixture is:
 | `project_profile_v2_promote_candidate_row_dedupe` | same candidate-row item promoted again in a fresh accepted queue | uses stable id append semantics and does not duplicate an identical candidates JSONL row. |
 | `project_profile_v2_promote_rulebook_writer` | accepted `promotionTarget.kind=rulebook` item + `promote-v2 --confirm` | writes queue plus one deterministic draft/discover rulebook entry, reports an applied rulebook effect, and does not write capability/update-loop targets. |
 | `project_profile_v2_promote_rulebook_audit` | generated rulebook entry | passes `lazy rules audit --strict --format=json` without requiring capability binding because it is draft/discover. |
+| `project_profile_v2_promote_capability_binding_writer` | accepted `promotionTarget.kind=capability-binding` item + `promote-v2 --confirm` | writes queue plus deterministic discover/checklist capability entry, reports applied capability effect, and does not write update-loop targets. |
+| `project_profile_v2_promote_capability_audit` | generated capability registry | passes `lazy capability audit --format=json` with sourceRecord pointing to the queue source. |
 
 ## Acceptance assertions for implemented runtime
 
@@ -106,10 +110,12 @@ The design fixture is:
 22. Re-promoting the same candidate-row content is deduped by stable id semantics.
 23. `promote-v2 --confirm` for `promotionTarget.kind=rulebook` writes one deterministic draft/discover rulebook entry and marks the effect applied.
 24. Generated rulebook entries do not create capability bindings or active default/warn/block behavior.
+25. `promote-v2 --confirm` for `promotionTarget.kind=capability-binding` upserts one deterministic `discover`/`checklist` capability and marks the effect applied.
+26. Generated capability entries do not create warn/block/default enforcement or hooks.
 
 ## Implementation map
 
-- Status: promote-v2 rulebook target writer slice implemented.
+- Status: promote-v2 capability-binding target writer slice implemented.
 - Primary files:
   - `.lazy-harness/tests/project-profile-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD output contract.
@@ -121,7 +127,8 @@ The design fixture is:
   - `.lazy-harness/fixtures/project-profile-v2/promote-record.json` — promote-v2 record writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-candidate-row.json` — promote-v2 candidate-row writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-rulebook.json` — promote-v2 rulebook writer result fixture.
-  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, record target writer, candidate-row writer, and rulebook writer.
+  - `.lazy-harness/fixtures/project-profile-v2/promote-capability-binding.json` — promote-v2 capability-binding writer result fixture.
+  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer.
   - `.lazy-harness/scripts/self-test.py` — protects interview/queue/promote runtime packet shapes, write boundaries, and V1 backward compatibility.
 - Key symbols:
   - `project-profile.ts#ProjectProfileInterviewV2Packet`
@@ -138,10 +145,12 @@ The design fixture is:
   - `project-profile.ts#ProjectProfileRecordPromotionWrite`
   - `project-profile.ts#ProjectProfileCandidatePromotionWrite`
   - `project-profile.ts#ProjectProfileRulebookPromotionWrite`
+  - `project-profile.ts#ProjectProfileCapabilityPromotionWrite`
   - `project-profile.ts#buildPromoteV2Preview`
   - `project-profile.ts#buildRecordPromotionWrite`
   - `project-profile.ts#buildCandidatePromotionWrite`
   - `project-profile.ts#buildRulebookPromotionWrite`
+  - `project-profile.ts#buildCapabilityPromotionWrite`
   - `project-profile.ts#applyPromoteV2`
   - `project-profile.ts#renderPromoteV2Md`
   - `self-test.py#check_project_profile_v2_runtime`
@@ -159,8 +168,8 @@ The design fixture is:
   - `interview-v2 --confirm` is blocked.
   - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
   - `promote-v2 --dry-run` requires `status=accepted` and previews only, with no queue/canonical mutation.
-  - `promote-v2 --confirm` writes queue status/promoted metadata, only for record targets a deterministic `needs-interview` record skeleton, only for candidate-row targets a stable candidates JSONL row, and only for rulebook targets a draft/discover rulebook entry.
-  - no capabilities/update-loop event append happens in this slice.
+  - `promote-v2 --confirm` writes queue status/promoted metadata, only for record targets a deterministic `needs-interview` record skeleton, only for candidate-row targets a stable candidates JSONL row, only for rulebook targets a draft/discover rulebook entry, and only for capability-binding targets a discover/checklist capability entry.
+  - no update-loop event append happens in this slice.
 
 ## Layer completeness impact
 
@@ -170,7 +179,7 @@ The design fixture is:
 - TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview, category-first queue, promote preview, and confirmed queue-status promotion packets.
 - ADR: future ADR needed before replacing V1 mode semantics.
 - SSOT: policy/capability/taxonomy SSOT inputs are referenced, not changed here.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, and rulebook writer implemented; capability/update-loop target writers remain future work.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer implemented; update-loop target writer remains future work.
 
 ## Rule placement
 
@@ -185,8 +194,8 @@ The design fixture is:
 
 - DDD: future domain branch coverage.
 - BDD: future behavior/policy coverage.
-- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result`, category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`, `project-profile.ts#buildPromoteV2Preview`, `project-profile.ts#buildRecordPromotionWrite`, `project-profile.ts#buildCandidatePromotionWrite`, `project-profile.ts#buildRulebookPromotionWrite`, and `project-profile.ts#applyPromoteV2`.
+- SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result`, category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`, `project-profile.ts#buildPromoteV2Preview`, `project-profile.ts#buildRecordPromotionWrite`, `project-profile.ts#buildCandidatePromotionWrite`, `project-profile.ts#buildRulebookPromotionWrite`, `project-profile.ts#buildCapabilityPromotionWrite`, and `project-profile.ts#applyPromoteV2`.
 - TDD: updated here and in `self-test.py#check_project_profile_v2_runtime` plus `self-test.py#check_project_profile_v2_queue_runtime`.
 - ADR: none yet; ADR required only before replacing V1 behavior.
 - SSOT: no SSOT mutation; uses Project Map ingestion source vocabulary.
-- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, and rulebook writer implemented; capability/update-loop target writers deferred.
+- Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, candidate-row writer, rulebook writer, and capability-binding writer implemented; update-loop target writer deferred.

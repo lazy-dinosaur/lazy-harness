@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "mode": "project-profile.promote-v2-apply",
+  "schemaVersion": "project-profile-promote-result/v1",
+  "root": ".",
+  "generatedAt": "2026-06-17T00:00:00.000Z",
+  "dryRun": false,
+  "queuePath": ".lazy-harness/project/profile-queue.json",
+  "item": {
+    "id": "PPQ-44bb947aee0f",
+    "status": "promoted",
+    "primaryRoute": "policies",
+    "facets": [
+      "Policy",
+      "SSOT"
+    ],
+    "relatedRoutes": [
+      "ownership"
+    ],
+    "promotionTarget": {
+      "kind": "capability-binding",
+      "path": ".lazy-harness/ssot/capabilities.json",
+      "requiresConfirmation": true
+    },
+    "source": {
+      "kind": "proposed-write",
+      "id": ".lazy-harness/ssot/capabilities.json"
+    },
+    "summary": "Future confirmed write target: .lazy-harness/ssot/capabilities.json",
+    "evidence": [
+      {
+        "kind": "proposed-write",
+        "path": ".lazy-harness/ssot/capabilities.json",
+        "summary": "Interview V2 proposed write target requiring confirmation"
+      }
+    ],
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/ssot/capabilities.json"
+    ],
+    "promotionEffects": [
+      {
+        "kind": "capability-binding",
+        "path": ".lazy-harness/ssot/capabilities.json",
+        "status": "applied",
+        "action": "upsert-capability",
+        "summary": "created discover/checklist capability for PPQ-44bb947aee0f",
+        "reason": "Capability-binding writer creates only discover/checklist registry entries and does not create hooks or warn/block/default enforcement."
+      }
+    ]
+  },
+  "targetEffects": [
+    {
+      "kind": "capability-binding",
+      "path": ".lazy-harness/ssot/capabilities.json",
+      "status": "applied",
+      "action": "upsert-capability",
+      "summary": "created discover/checklist capability for PPQ-44bb947aee0f",
+      "reason": "Capability-binding writer creates only discover/checklist registry entries and does not create hooks or warn/block/default enforcement."
+    }
+  ],
+  "capability": {
+    "id": "project-profile-v2-lazy-harness-ssot-capabilities-json",
+    "kind": "checklist",
+    "level": "discover",
+    "sourceRecord": ".lazy-harness/project/profile-queue.json",
+    "appliesWhen": [
+      "reviewing_project_profile_capability_candidate",
+      "completing_project_profile_v2_queue_item"
+    ],
+    "actions": [
+      "Review Project Profile V2 capability binding candidate",
+      "lazy capability audit"
+    ],
+    "checklistPath": ".lazy-harness/project/profile-queue.json",
+    "description": "Discover Project Profile V2 capability binding candidate from .lazy-harness/ssot/capabilities.json.",
+    "owner": "host-project",
+    "tags": [
+      "project-profile-v2",
+      "capability-binding",
+      "discover"
+    ],
+    "preferredActions": [
+      "lazy capability audit",
+      ".lazy-harness/ssot/capabilities.json"
+    ],
+    "requiresReasonForBypass": false,
+    "projectProfileQueueItemId": "PPQ-44bb947aee0f",
+    "projectProfileSource": {
+      "kind": "proposed-write",
+      "id": ".lazy-harness/ssot/capabilities.json"
+    }
+  },
+  "queueUpdate": {
+    "id": "PPQ-44bb947aee0f",
+    "from": "accepted",
+    "to": "promoted",
+    "promotedAt": "2026-06-17T00:00:00.000Z",
+    "promotedTo": [
+      ".lazy-harness/ssot/capabilities.json"
+    ],
+    "previewOnly": false
+  },
+  "appliedWrites": [
+    {
+      "path": ".lazy-harness/ssot/capabilities.json",
+      "action": "created",
+      "summary": "created discover/checklist capability for PPQ-44bb947aee0f"
+    },
+    {
+      "path": ".lazy-harness/project/profile-queue.json",
+      "action": "written",
+      "summary": "Promoted PPQ-44bb947aee0f in Project Profile queue and applied capability-binding writer"
+    }
+  ],
+  "warnings": [
+    "promote-v2 --confirm updated .lazy-harness/project/profile-queue.json and .lazy-harness/ssot/capabilities.json.",
+    "The generated capability is discover/checklist only and must not be treated as default/warn/block enforcement.",
+    "No update-loop event was written."
+  ]
+}
