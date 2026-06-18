@@ -73,6 +73,7 @@ Commands:
   explain --id <policy-id> [--format=json|md]
   resolve [--format=json|md] [--stage=STAGE] [--applies-to=A,B] [--max-level=default|recommend|discover|warn] [--runtime=advisory|warn]
   render-rulebook [--format=json|md] [--write] [--output=.lazy-harness/generated/policy-rulebook.md]
+  upsert --from-json <policy.json> [--confirm] [--format=json|md]
 
 Policy Machinery Option B: .lazy-harness/ssot/policies.json is canonical.
 Resolve defaults to advisory-only. Warn runtime requires --runtime=warn and never blocks.
@@ -99,7 +100,7 @@ function parseOptions(argv: string[]): Record<string, string | boolean> {
       opts[k] = rest.join('=')
     } else if (a.startsWith('--')) {
       const k = a.slice(2)
-      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level', 'runtime', 'output'].includes(k)) opts[k] = value(argv, i++, a)
+      if (['format', 'id', 'stage', 'level', 'target', 'applies-to', 'max-level', 'runtime', 'output', 'from-json'].includes(k)) opts[k] = value(argv, i++, a)
       else opts[k] = true
     } else {
       console.error(`Unknown argument: ${a}`)
@@ -133,6 +134,12 @@ function loadRegistry(root: string): PolicyRegistry {
   const parsed = JSON.parse(readFileSync(path, 'utf8'))
   if (!parsed || typeof parsed !== 'object') throw new Error(`Policy registry is not an object: ${path}`)
   return { version: Number(parsed.version || 1), policies: Array.isArray(parsed.policies) ? parsed.policies as Policy[] : [] }
+}
+
+function writeRegistry(root: string, registry: PolicyRegistry): void {
+  const path = registryPath(root)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`, 'utf8')
 }
 
 function printJson(data: unknown): void {
@@ -203,6 +210,82 @@ function auditRegistry(root: string, registry: PolicyRegistry): AuditIssue[] {
     issues.push(...auditPolicy(root, policy))
   }
   return issues
+}
+
+function sortedPolicies(policies: Policy[]): Policy[] {
+  return [...policies].sort((a, b) => a.id.localeCompare(b.id))
+}
+
+function loadPolicyInput(pathValue: unknown): Policy {
+  if (typeof pathValue !== 'string' || !pathValue) {
+    console.error('policy upsert requires --from-json <policy.json>')
+    process.exit(2)
+  }
+  const path = resolve(pathValue)
+  const parsed = JSON.parse(readFileSync(path, 'utf8'))
+  const policy = parsed && typeof parsed === 'object' && 'policy' in parsed ? (parsed as Record<string, unknown>).policy : parsed
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    console.error('policy upsert --from-json must contain a policy object or { policy: object }')
+    process.exit(2)
+  }
+  return policy as Policy
+}
+
+function upsertPolicy(root: string, opts: Record<string, string | boolean>, format: Format): void {
+  const registry = loadRegistry(root)
+  const policy = loadPolicyInput(opts['from-json'])
+  const existingIndex = registry.policies.findIndex((item) => item.id === policy.id)
+  const action = existingIndex === -1 ? 'insert' : 'replace'
+  const policies = [...registry.policies]
+  if (existingIndex === -1) policies.push(policy)
+  else policies[existingIndex] = policy
+  const nextRegistry: PolicyRegistry = {
+    ...registry,
+    version: registry.version || 1,
+    policies: sortedPolicies(policies),
+  }
+  const issues = auditRegistry(root, nextRegistry)
+  const ok = !issues.some((issue) => issue.severity === 'error')
+  const confirmed = opts.confirm === true
+  if (!ok) {
+    const result = {
+      schemaVersion: 'policy-upsert/v1',
+      ok: false,
+      action,
+      wrote: false,
+      confirmed,
+      policyId: policy.id,
+      issues,
+    }
+    if (format === 'json') printJson(result)
+    else {
+      console.log('# Policy upsert failed')
+      console.log('')
+      for (const issue of issues) console.log(`- ${issue.severity}${issue.id ? ` ${issue.id}` : ''}: ${issue.message}`)
+    }
+    process.exit(1)
+  }
+  if (confirmed) writeRegistry(root, nextRegistry)
+  const result = {
+    schemaVersion: 'policy-upsert/v1',
+    ok: true,
+    action,
+    wrote: confirmed,
+    dryRun: !confirmed,
+    confirmRequiredToWrite: !confirmed,
+    canonicalTarget: '.lazy-harness/ssot/policies.json',
+    policyId: policy.id,
+    policies: nextRegistry.policies.length,
+  }
+  if (format === 'json') return printJson(result)
+  console.log('# Policy upsert')
+  console.log('')
+  console.log(`- ok: ${result.ok}`)
+  console.log(`- action: ${action}`)
+  console.log(`- policy: ${policy.id}`)
+  console.log(`- wrote: ${confirmed}`)
+  console.log(`- canonical target: ${result.canonicalTarget}`)
+  if (!confirmed) console.log('- dry-run: pass `--confirm` to write')
 }
 
 function listPolicies(root: string, opts: Record<string, string | boolean>, format: Format): void {
@@ -493,6 +576,7 @@ function main(): void {
   if (command === 'audit') return audit(root, format)
   if (command === 'resolve') return resolvePolicies(root, opts, format)
   if (command === 'render-rulebook') return renderRulebook(root, opts, format)
+  if (command === 'upsert') return upsertPolicy(root, opts, format)
   if (command === 'explain') {
     const id = typeof opts.id === 'string' ? opts.id : ''
     if (!id) {

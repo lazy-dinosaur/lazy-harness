@@ -22,6 +22,7 @@ Registry: `.lazy-harness/ssot/policies.json`
   - keep policy `stage` and `level` explicit
   - keep policy evidence root-relative and source-record backed
   - keep generated/explain views derived and non-canonical
+  - use `lazy policy upsert --from-json ... --confirm` for canonical policy write round-trips
   - keep `lazy policy resolve` advisory-only by default for `discover`, `recommend`, and `default` levels
   - keep warn runtime explicit-context and warn-only
   - require explicit confirmation and tests before `block` runtime enforcement
@@ -29,6 +30,7 @@ Registry: `.lazy-harness/ssot/policies.json`
   - add new canonical policy semantics only to `.lazy-harness/rules/**`
   - treat LLM-generated explanation text as canonical truth
   - edit `.lazy-harness/generated/policy-rulebook.md` as policy source
+  - write policy changes without explicit confirmation
   - auto-promote policies to warn/block from a registry entry alone
   - classify raw user or assistant text to trigger warn runtime
 - Record completion:
@@ -102,6 +104,18 @@ Regenerate with:
 
 The generated view is useful for human/LLM explanation, review, and compatibility, but it is non-canonical. If it disagrees with `policies.json`, regenerate it or fix `policies.json`.
 
+## Policy writes
+
+Canonical policy writes should go through:
+
+```bash
+.lazy-harness/bin/lazy policy upsert --from-json <policy.json> --confirm
+```
+
+Without `--confirm`, `upsert` is a dry-run and must not mutate `policies.json`.
+
+The write path must validate the complete next registry, persist id-sorted policies, and be followed by audit/resolve/render validation before rulebook retire/deprecation work.
+
 ## Implementation map
 
 - Status: `option-b-selected-first-slice`
@@ -124,6 +138,7 @@ The generated view is useful for human/LLM explanation, review, and compatibilit
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
+  - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
 
 ## Rule placement

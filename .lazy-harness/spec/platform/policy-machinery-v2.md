@@ -30,6 +30,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - expose `lazy policy resolve` as advisory-only guidance for `discover`, `recommend`, and `default` levels
   - expose warn-level policies only through explicit structured `policy_context` and `warn-only` output
   - render rulebook explanations from typed policy records through `lazy policy render-rulebook`
+  - validate actual policy writes through `lazy policy upsert --from-json ... --confirm` before retiring rulebook semantics
   - represent policy creation/promotion/demotion as Project Map update-loop evidence, not as hidden hook state
   - keep new policies at `discover` or `recommend` unless user/team confirmation explicitly grants stronger levels
   - require source records and rollback/demotion criteria for `default`, `warn`, and `block` policies
@@ -40,6 +41,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
   - infer warn/block decisions from raw user text or assistant text
   - treat warn-only output as a block
   - edit `.lazy-harness/generated/policy-rulebook.md` as canonical source
+  - write policies without `--confirm`
   - allow generated policy packets to become canonical truth without record-write policy or explicit confirmation
   - add semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning
 - Record completion:
@@ -131,6 +133,20 @@ User confirmed the next step after warn-only runtime: generate/explain rulebook 
 - Does not replace `policies.json` or create policy semantics.
 - Host sync does not need to copy generated cache contents; each host can regenerate locally.
 
+## Policy write round-trip slice
+
+User identified a validation gap: seeded policies and read-only commands were tested, but adding a new policy had not been exercised.
+
+`lazy policy upsert` closes that gap:
+
+- Reads a policy object from `--from-json`.
+- Validates the full next registry with the same audit rules as `lazy policy audit`.
+- Defaults to dry-run and writes only with `--confirm`.
+- Writes only the canonical `.lazy-harness/ssot/policies.json` registry.
+- Replaces an existing policy with the same id deterministically.
+- Keeps policies id-sorted for stable diffs.
+- The regression suite validates save → audit → resolve → warn runtime → generated rulebook render → lazy-sync seed merge.
+
 ## Storage posture
 
 Phase 3 selected Option B:
@@ -171,7 +187,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/spec/platform/project-map-update-loop-v2.md` — update-loop evidence/transition model.
 - Source files:
   - `.lazy-harness/scripts/capability.ts` — current capability CLI, unchanged by this slice.
-  - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook CLI.
+  - `.lazy-harness/scripts/policy.ts` — typed policy list/audit/explain/resolve/render-rulebook/upsert CLI.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-warn-runtime.py` — explicit-context warn-only response.completed helper.
   - `.lazy-harness/generated/policy-rulebook.md` — non-canonical generated/explain view rendered from typed policies.
   - `.lazy-harness/scripts/rulebook.ts` — current rulebook CLI, unchanged by this slice.
@@ -185,6 +201,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
+  - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

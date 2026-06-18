@@ -8224,8 +8224,97 @@ def check_policy_machinery_v2() -> None:
     unsafe_output = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--write", "--output", "../bad.md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if unsafe_output.returncode == 0 or ".lazy-harness/generated/" not in unsafe_output.stderr:
         fail("lazy policy render-rulebook must reject output outside generated directory")
+    with tempfile.TemporaryDirectory(prefix="policy-write-roundtrip-") as tmp:
+        temp_root = pathlib.Path(tmp)
+        required_fixture_paths = {
+            ".lazy-harness/ssot/policies.json",
+            ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            ".lazy-harness/ssot/policy-registry.md",
+            ".lazy-harness/tests/policy-machinery-v2.md",
+            ".lazy-harness/spec/platform/evidence-capsule-standard.md",
+            ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
+            ".lazy-harness/generated/README.md",
+        }
+        for rel in required_fixture_paths:
+            src = ROOT / rel
+            dst = temp_root / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+        policy_payload = {
+            "id": "temp-write-roundtrip-policy",
+            "title": "Temp write roundtrip policy",
+            "scope": "framework-global",
+            "stage": "turn",
+            "level": "warn",
+            "appliesTo": ["policy_write_roundtrip_fixture"],
+            "sourceRecord": ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            "capabilityIds": [],
+            "evidence": [
+                {
+                    "kind": "record",
+                    "path": ".lazy-harness/tests/policy-machinery-v2.md",
+                    "summary": "Temp fixture validates policy write roundtrip.",
+                }
+            ],
+            "promotion": {"requiresConfirmation": True, "allowedTargetLevels": ["warn"]},
+            "rollback": {"criteria": ["Temp fixture fails."], "demotionTarget": "recommend"},
+            "updateLoop": {"eventType": "policy-candidate", "canonicalByPacketAlone": False},
+            "explain": {"summary": "Temp write roundtrip summary."},
+        }
+        policy_input = temp_root / "policy.json"
+        policy_input.write_text(json.dumps(policy_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        dry_upsert = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "upsert", "--target", str(temp_root), "--from-json", str(policy_input), "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if dry_upsert.returncode != 0:
+            fail("lazy policy upsert dry-run failed:\n" + dry_upsert.stdout + dry_upsert.stderr)
+        dry_upsert_json = json.loads(dry_upsert.stdout)
+        if dry_upsert_json.get("wrote") is not False or dry_upsert_json.get("dryRun") is not True or dry_upsert_json.get("confirmRequiredToWrite") is not True:
+            fail("lazy policy upsert without --confirm must be dry-run only: " + dry_upsert.stdout)
+        if "temp-write-roundtrip-policy" in (temp_root / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"):
+            fail("lazy policy upsert dry-run must not write policies.json")
+        saved_upsert = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "upsert", "--target", str(temp_root), "--from-json", str(policy_input), "--confirm", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if saved_upsert.returncode != 0:
+            fail("lazy policy upsert --confirm failed:\n" + saved_upsert.stdout + saved_upsert.stderr)
+        saved_upsert_json = json.loads(saved_upsert.stdout)
+        if saved_upsert_json.get("wrote") is not True or saved_upsert_json.get("action") != "insert" or saved_upsert_json.get("canonicalTarget") != ".lazy-harness/ssot/policies.json":
+            fail("lazy policy upsert --confirm must insert and write canonical registry: " + saved_upsert.stdout)
+        saved_registry = json.loads((temp_root / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"))
+        saved_ids = [policy.get("id") for policy in saved_registry.get("policies", [])]
+        if "temp-write-roundtrip-policy" not in saved_ids or saved_ids != sorted(saved_ids):
+            fail("lazy policy upsert must persist deterministic id-sorted policy registry")
+        replaced_payload = {**policy_payload, "title": "Temp write roundtrip policy replaced"}
+        policy_input.write_text(json.dumps(replaced_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        replaced_upsert = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "upsert", "--target", str(temp_root), "--from-json", str(policy_input), "--confirm", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if replaced_upsert.returncode != 0 or json.loads(replaced_upsert.stdout).get("action") != "replace":
+            fail("lazy policy upsert should replace existing id on second confirmed save:\n" + replaced_upsert.stdout + replaced_upsert.stderr)
+        audit_temp = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "audit", "--target", str(temp_root), "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if audit_temp.returncode != 0 or json.loads(audit_temp.stdout).get("ok") is not True:
+            fail("saved policy registry should audit cleanly:\n" + audit_temp.stdout + audit_temp.stderr)
+        resolve_temp = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--target", str(temp_root), "--runtime", "warn", "--stage", "turn", "--applies-to", "policy_write_roundtrip_fixture", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if resolve_temp.returncode != 0:
+            fail("saved policy should resolve in warn runtime:\n" + resolve_temp.stdout + resolve_temp.stderr)
+        resolve_temp_json = json.loads(resolve_temp.stdout)
+        if "temp-write-roundtrip-policy" not in [match.get("id") for match in resolve_temp_json.get("matches", [])]:
+            fail("saved policy was not returned by warn resolver: " + resolve_temp.stdout)
+        render_temp = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--target", str(temp_root), "--write", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if render_temp.returncode != 0:
+            fail("saved policy should render into generated rulebook:\n" + render_temp.stdout + render_temp.stderr)
+        render_temp_json = json.loads(render_temp.stdout)
+        if "temp-write-roundtrip-policy" not in render_temp_json.get("content", "") or not (temp_root / ".lazy-harness/generated/policy-rulebook.md").exists():
+            fail("rendered generated rulebook must include saved policy")
+
+        sync_host = temp_root / "sync-host"
+        (sync_host / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
+        (sync_host / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [policy_payload]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        sync_result = subprocess.run(["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(ROOT), "--target", str(sync_host), "--force", "--quiet"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if sync_result.returncode != 0:
+            fail("lazy-sync policy seed merge roundtrip failed:\n" + sync_result.stdout + sync_result.stderr)
+        merged_registry = json.loads((sync_host / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"))
+        merged_ids = {policy.get("id") for policy in merged_registry.get("policies", [])}
+        for expected_id in ("temp-write-roundtrip-policy", "record-first-validation", "validation-evidence-warning"):
+            if expected_id not in merged_ids:
+                fail("lazy-sync policy seed merge must preserve host policy and merge framework seed: " + expected_id)
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
-    if "policy list|audit|explain|resolve|render-rulebook" not in help_text:
+    if "policy list|audit|explain|resolve|render-rulebook|upsert" not in help_text:
         fail("lazy help must advertise policy command")
     if graph_path.exists() and graph_path.read_bytes() != graph_before:
         fail("lazy policy CLI must not mutate graph.jsonl")

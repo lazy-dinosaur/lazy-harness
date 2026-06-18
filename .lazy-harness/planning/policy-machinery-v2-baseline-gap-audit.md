@@ -97,6 +97,8 @@ User confirmed the follow-up next step (B) on 2026-06-18: add explicit-context w
 
 User confirmed the follow-up next step on 2026-06-18: add a deterministic generated/explain rulebook view from typed policy records. The slice must keep `.lazy-harness/ssot/policies.json` canonical and keep generated Markdown non-canonical.
 
+User then identified a validation gap: policy writes had not been tested end-to-end. The next slice adds `lazy policy upsert` and validates save → audit → resolve → warn runtime → generated rulebook render → lazy-sync seed merge before any rulebook retire/deprecation work.
+
 ## Implementation map
 
 - Status: `phase-3-baseline-audit-static-slice`

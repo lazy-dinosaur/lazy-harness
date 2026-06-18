@@ -41,6 +41,7 @@ The typed policy registry becomes the canonical source for project/team behavior
 - User-confirmed next slice A adds `lazy policy resolve` as an advisory-only resolver for `discover`/`recommend`/`default` policies.
 - User-confirmed next slice B adds explicit-context `warn-only` runtime for warn-level policies.
 - User-confirmed next slice adds `lazy policy render-rulebook` and `.lazy-harness/generated/policy-rulebook.md` as a deterministic generated/explain view.
+- User-requested validation gap fix adds `lazy policy upsert --from-json ... --confirm` and temp-host save round-trip tests before rulebook retire/deprecation.
 - Block enforcement still needs separate promotion evidence, TDD, bypass behavior, and explicit confirmation.
 - Generated/explain views are derived output and must not become canonical truth.
 
@@ -53,7 +54,8 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
 3. Add advisory-only resolver for `discover`/`recommend`/`default` policy levels.
 4. Add explicit-context warn-only runtime for warn-level policy records.
 5. Generate or explain rulebook views from typed policy records.
-6. Retire hand-maintained rulebook canonical semantics only after host sync and regression coverage prove compatibility.
+6. Validate policy write/save round-trip: upsert → audit → resolve → warn/render → sync merge.
+7. Retire hand-maintained rulebook canonical semantics only after host sync and regression coverage prove compatibility.
 
 ## Implementation map
 
@@ -74,6 +76,7 @@ This ADR does not delete `.lazy-harness/rules/**`. Migration should happen in sl
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
+  - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`

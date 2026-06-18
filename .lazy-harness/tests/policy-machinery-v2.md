@@ -24,6 +24,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - prove warn-only runtime requires explicit structured policy context and does not block
   - prove rulebook markdown is compatibility/generated/explain surface during migration
   - prove generated rulebook views are deterministic, non-canonical, and generated from typed policies
+  - prove actual policy write round-trips save and apply through audit/resolve/warn/render/sync
   - prove policy packets use update-loop evidence without becoming canonical truth by themselves
 - Must not:
   - add hook enforcement as part of this read-only policy registry slice
@@ -45,6 +46,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_warn_runtime_explicit_context` | `check-policy-warn-runtime.py` fixture payloads | Warn runtime emits `WARN` only for explicit structured `policy_context`, stays silent for raw text, supports acknowledgement, and never emits `STOP`. |
 | `policy_machinery_no_block_runtime` | SDD/TDD text + helper output | Warn-only slice does not add block runtime or blocking output. |
 | `policy_machinery_generated_rulebook_view` | `lazy policy render-rulebook --write --format=json` + `.lazy-harness/generated/policy-rulebook.md` | Generated view contains canonical-source disclaimer, policy sections, deterministic output, and path confinement under `.lazy-harness/generated/**`. |
+| `policy_machinery_policy_write_roundtrip` | temp host + `lazy policy upsert --from-json ... --confirm` | Dry-run does not write; confirmed upsert inserts/replaces id-sorted policies; saved policy audits cleanly and appears in resolve/warn/render outputs. |
+| `policy_machinery_policy_sync_roundtrip` | temp host + `lazy-sync --force --quiet` | Host-local saved policy survives policy seed merge and framework seed policies are merged without overwriting host-local policies. |
 
 ## Layer completeness gate
 
@@ -79,6 +82,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
+  - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
   - `lazy policy explain --id record-first-validation --format=md`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
