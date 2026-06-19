@@ -378,3 +378,38 @@ Discovery capture:
 - Why not AGENTS.md: this is adapter investigation workflow, not global prompt grammar.
 - Why not `.jcode`: this is shared Pi/OMP package behavior, not local/private Jcode wiring.
 - Confirmation: user-confirmed
+
+## User-confirmed Pi/OMP install UX split (2026-06-19)
+
+Status: implementing
+
+User confirmation:
+
+- Users may use Pi only, OMP only, or both.
+- Therefore install/operation UX must be separated instead of assuming one shared Pi install path covers both runtimes.
+- The chosen direction is shared package/core plus separate `lazy pi ...` and `lazy omp ...` wrapper commands.
+
+Implementation direction:
+
+- Keep `packages/lazy-harness-pi` as the shared source package for now.
+- Add explicit `package.json#omp` alongside `package.json#pi` to avoid relying on OMP's fallback to Pi manifests.
+- Keep `lazy pi install/remove/list/smoke/doctor` mapped to official Pi commands.
+- Add `lazy omp install/remove/list/smoke/doctor` mapped to official OMP plugin semantics: `omp plugin install`, `omp plugin uninstall`, `omp plugin list`, and `omp -e` one-run smoke.
+- Keep package split/extraction as a later option only if OMP runtime smoke proves larger adapter divergence.
+
+Discovery capture:
+
+- ADR: `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md` records why shared core + separate wrapper UX was chosen over a single fallback path or immediate package split.
+- SDD: `.lazy-harness/spec/platform/pi-agent-package.md` updated with explicit Pi/OMP manifest and wrapper contract.
+- TDD: `.lazy-harness/tests/pi-agent-package.md` updated with OMP wrapper dry-run/doctor coverage.
+- Planning: this section.
+- DDD/BDD/SSOT: no domain, user-flow, or source-of-truth schema change beyond package installer behavior.
+
+## Rule placement
+
+- Rule: Pi/OMP install UX must be separate because users can install Pi only, OMP only, or both; shared core remains acceptable only while smoke tests show adapter divergence is manageable.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is adapter packaging rollout planning, not global prompt grammar.
+- Why not `.jcode`: this is shared lazy-harness package behavior, not local/private Jcode preference.
+- Confirmation: user-confirmed

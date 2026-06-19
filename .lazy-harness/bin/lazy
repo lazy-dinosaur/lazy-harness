@@ -69,6 +69,8 @@ Commands:
   skill create <name> [options] Create project-local custom Jcode skill
   pi install|remove|list|smoke|doctor
                                 Manage lazy-harness-pi install/list/smoke wrappers for official Pi
+  omp install|remove|list|smoke|doctor
+                                Manage lazy-harness-pi plugin wrappers for Oh My Pi / OMP
   capability add|list|resolve|candidates|audit
                                 Add, list, resolve, suggest, or audit registered capabilities
   policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness
@@ -176,7 +178,14 @@ case "$cmd" in
       echo "lazy pi: bun not found on PATH. Install bun first: https://bun.sh" >&2
       exit 127
     fi
-    LAZY_PI_TARGET_REPO="$LAZY_INVOCATION_CWD" exec bun "$SCRIPTS/pi-package.ts" "$@"
+    LAZY_AGENT_RUNTIME="pi" LAZY_PI_TARGET_REPO="$LAZY_INVOCATION_CWD" exec bun "$SCRIPTS/pi-package.ts" "$@"
+    ;;
+  omp)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy omp: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    LAZY_AGENT_RUNTIME="omp" LAZY_OMP_TARGET_REPO="$LAZY_INVOCATION_CWD" exec bun "$SCRIPTS/pi-package.ts" "$@"
     ;;
   capability)
     if ! command -v bun >/dev/null 2>&1; then

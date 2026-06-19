@@ -1,12 +1,14 @@
-# Lazy-Harness Pi Package
+# Lazy-Harness Pi / OMP Package
 
-Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.
+Pi Coding Agent and Oh My Pi / OMP package for lazy-harness prompt/runtime lifecycle integration.
 
-The package is not installed by default after a clean reset. Install it only when you want Pi to load lazy-harness behavior.
+The package is not installed by default after a clean reset. Install it only when you want Pi or OMP to load lazy-harness behavior.
 
 ## Recommended wrapper commands
 
-Use the lazy-harness wrapper first. It keeps the package path consistent and makes install/remove scope explicit.
+Use the lazy-harness wrapper first. It keeps the package path consistent, separates Pi from OMP install UX, and avoids relying on OMP's legacy `pi` manifest fallback.
+
+### Official Pi
 
 Project-local install for the current host:
 
@@ -57,10 +59,47 @@ Remove the package:
 
 For preview-only safety, add `--dry-run` to `install`, `remove`, or `smoke`.
 
+### Oh My Pi / OMP
+
+Persistent OMP plugin link:
+
+```bash
+.lazy-harness/bin/lazy omp install
+```
+
+List current OMP plugins:
+
+```bash
+.lazy-harness/bin/lazy omp list
+```
+
+One-run OMP load smoke without persisting plugin settings:
+
+```bash
+.lazy-harness/bin/lazy omp smoke
+```
+
+Diagnostics without mutating OMP plugin settings:
+
+```bash
+.lazy-harness/bin/lazy omp doctor
+```
+
+Remove the OMP plugin link:
+
+```bash
+.lazy-harness/bin/lazy omp remove
+```
+
+For preview-only safety, add `--dry-run` to `install`, `remove`, or `smoke`.
+
+OMP local path installs use official OMP plugin link semantics and persist in OMP's plugin registry. Use `lazy omp smoke` when you only want a one-run, non-persistent package load.
+
 Isolation behavior:
 
 - `--local` writes the target repo's `.pi/settings.json`; the wrapper also ensures `.pi/` is listed in that repo's `.git/info/exclude` to avoid teammate contamination.
 - `--global` writes user-global Pi settings so every Pi project can load the package. Runtime hooks still resolve the active repo via Pi `ctx.cwd` and run that repo's `.lazy-harness` hooks only.
+- OMP persistent installs run through `omp plugin install <path>` and are independent of Pi `.pi/settings.json`.
 - Recent tool-call evidence is scoped by lazy root, so a Pi process that touches multiple repos does not mix `recent_tool_calls` between roots.
 - Use `--target-repo /path/to/repo` for explicit install/list/smoke diagnostics without relying on the caller cwd.
 
@@ -68,7 +107,7 @@ Publishing this package to npm or moving it to a standalone repo is intentionall
 
 ## Install locally into a project
 
-Raw Pi commands are still supported when debugging Pi itself.
+Raw Pi and OMP commands are still supported when debugging the agent runtime itself.
 
 Global install for all projects:
 
@@ -82,10 +121,28 @@ Project-local install for this repo only:
 pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
 ```
 
+OMP persistent plugin link:
+
+```bash
+omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+```
+
+OMP remove:
+
+```bash
+omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
+```
+
 ## One-run smoke
 
 ```bash
 pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+```
+
+OMP:
+
+```bash
+omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 ```
 
 ## What it wires
@@ -125,4 +182,4 @@ export ANTIGRAVITY_MCP_EXAMPLE_ACCESS_TOKEN="$(gcloud auth application-default p
 
 ## Trust boundary
 
-Pi extensions run with project extension permissions. Install only in projects where you trust the checked-out lazy-harness source and the host `.lazy-harness` directory.
+Pi/OMP extensions run with project extension permissions. Install only in projects where you trust the checked-out lazy-harness source and the host `.lazy-harness` directory.

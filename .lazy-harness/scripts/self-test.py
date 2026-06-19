@@ -1816,11 +1816,14 @@ def check_pi_package_layout_and_contract() -> None:
         fail("Pi package manifest has unexpected name")
     if "pi-package" not in data.get("keywords", []):
         fail("Pi package manifest missing pi-package keyword")
-    pi_manifest = data.get("pi") if isinstance(data.get("pi"), dict) else {}
-    for key, expected in {"extensions": "./extensions", "skills": "./skills", "prompts": "./prompts"}.items():
-        values = pi_manifest.get(key)
-        if not isinstance(values, list) or expected not in values:
-            fail(f"Pi package manifest missing pi.{key} entry {expected!r}")
+    if "omp-plugin" not in data.get("keywords", []):
+        fail("Pi package manifest missing omp-plugin keyword")
+    for manifest_key in ["pi", "omp"]:
+        agent_manifest = data.get(manifest_key) if isinstance(data.get(manifest_key), dict) else {}
+        for key, expected in {"extensions": "./extensions", "skills": "./skills", "prompts": "./prompts"}.items():
+            values = agent_manifest.get(key)
+            if not isinstance(values, list) or expected not in values:
+                fail(f"Pi package manifest missing {manifest_key}.{key} entry {expected!r}")
 
     pi_settings = ROOT / ".pi" / "settings.json"
     if pi_settings.exists():
@@ -1866,6 +1869,11 @@ def check_pi_package_layout_and_contract() -> None:
         ".lazy-harness/bin/lazy pi install --local",
         ".lazy-harness/bin/lazy pi install --global",
         ".lazy-harness/bin/lazy pi smoke",
+        ".lazy-harness/bin/lazy omp install",
+        ".lazy-harness/bin/lazy omp smoke",
+        "OMP local path installs use official OMP plugin link semantics",
+        "omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi",
+        "omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help",
         "The package is not installed by default after a clean reset",
         "pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve",
         "pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve",
@@ -1876,6 +1884,9 @@ def check_pi_package_layout_and_contract() -> None:
     lazy_text = lazy_entrypoint.read_text(encoding="utf-8")
     for phrase in [
         "pi install|remove|list|smoke|doctor",
+        "omp install|remove|list|smoke|doctor",
+        "LAZY_AGENT_RUNTIME=\"omp\"",
+        "LAZY_OMP_TARGET_REPO",
         "pi-package.ts",
     ]:
         if phrase not in lazy_text:
@@ -1884,6 +1895,7 @@ def check_pi_package_layout_and_contract() -> None:
     wrapper_text = wrapper.read_text(encoding="utf-8")
     for phrase in [
         "Usage: lazy pi <command>",
+        "Usage: lazy omp <command>",
         "install --local|--global",
         "remove --local|--global",
         "smoke [--dry-run]",
@@ -1892,15 +1904,23 @@ def check_pi_package_layout_and_contract() -> None:
         "The source package path and target repo are intentionally separate",
         "LAZY_PI_TARGET_REPO",
         "LAZY_PI_SOURCE_ROOT",
+        "LAZY_OMP_TARGET_REPO",
+        "LAZY_OMP_SOURCE_ROOT",
         "--target-repo",
         "sourceRoot",
         "targetRepo",
+        "runtimeInfo",
         "ensureLocalPiIgnored",
         "localPiGitExclude",
         "pi install",
         "pi remove",
         "pi list",
         "pi -e",
+        "omp plugin install",
+        "omp plugin uninstall",
+        "omp plugin list",
+        "omp -e",
+        "package.json missing ${key}.extensions",
         "--no-approve",
         "--approve",
         "packages/lazy-harness-pi",
@@ -1932,6 +1952,29 @@ def check_pi_package_layout_and_contract() -> None:
         if args[0] == "install" and "targetRepo" not in payload:
             fail("Pi wrapper install dry-run must report targetRepo: " + completed.stdout)
 
+    for args, expected_command in [
+        (["install", "--dry-run", "--format=json"], ["omp", "plugin", "install", str(pkg_root)]),
+        (["remove", "--dry-run", "--format=json"], ["omp", "plugin", "uninstall", "@lazy-dinosaur/lazy-harness-pi"]),
+        (["smoke", "--dry-run", "--format=json"], ["omp", "-e", str(pkg_root), "--help"]),
+    ]:
+        env = env_without_lazy_runtime()
+        env["LAZY_AGENT_RUNTIME"] = "omp"
+        completed = subprocess.run(
+            ["bun", ".lazy-harness/scripts/pi-package.ts", *args],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+        if completed.returncode != 0:
+            fail("OMP wrapper dry-run command failed: " + " ".join(args) + "\n" + completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        if payload.get("runtime") != "omp" or payload.get("result", {}).get("command") != expected_command:
+            fail("OMP wrapper dry-run command mismatch: " + completed.stdout)
+        if payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root):
+            fail("OMP wrapper source/package path mismatch: " + completed.stdout)
+
     doctor_completed = subprocess.run(
         ["bun", ".lazy-harness/scripts/pi-package.ts", "doctor", "--no-smoke", "--format=json"],
         cwd=ROOT,
@@ -1946,11 +1989,26 @@ def check_pi_package_layout_and_contract() -> None:
     if doctor_payload.get("smoke") is not None or "doctor/smoke never mutate Pi settings" not in doctor_payload.get("note", ""):
         fail("Pi wrapper doctor --no-smoke contract changed: " + doctor_completed.stdout)
 
+    omp_doctor_completed = subprocess.run(
+        ["bun", ".lazy-harness/scripts/pi-package.ts", "doctor", "--no-smoke", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**env_without_lazy_runtime(), "LAZY_AGENT_RUNTIME": "omp"},
+    )
+    if omp_doctor_completed.returncode != 0:
+        fail("OMP wrapper doctor --no-smoke should not fail in non-strict mode:\n" + omp_doctor_completed.stdout + omp_doctor_completed.stderr)
+    omp_doctor_payload = json.loads(omp_doctor_completed.stdout)
+    if omp_doctor_payload.get("runtime") != "omp" or omp_doctor_payload.get("smoke") is not None or "doctor/smoke never mutate OMP plugin settings" not in omp_doctor_payload.get("note", ""):
+        fail("OMP wrapper doctor --no-smoke contract changed: " + omp_doctor_completed.stdout)
+
     temp_cwd = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-wrapper-cwd-"))
     try:
-        for command in [
-            [str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--format=json"],
-            ["bun", str(wrapper), "install", "--local", "--dry-run", "--format=json"],
+        for command, expected_runtime, expected_command in [
+            ([str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--format=json"], "pi", ["pi", "install", str(pkg_root), "-l", "--approve"]),
+            (["bun", str(wrapper), "install", "--local", "--dry-run", "--format=json"], "pi", ["pi", "install", str(pkg_root), "-l", "--approve"]),
+            ([str(ROOT / ".lazy-harness" / "bin" / "lazy"), "omp", "install", "--dry-run", "--format=json"], "omp", ["omp", "plugin", "install", str(pkg_root)]),
         ]:
             env = env_without_lazy_runtime()
             # Pre-commit runs lazy test from an already-lazy environment. A
@@ -1969,8 +2027,8 @@ def check_pi_package_layout_and_contract() -> None:
             if completed.returncode != 0:
                 fail("Pi wrapper cwd-independent dry-run failed: " + " ".join(command) + "\n" + completed.stdout + completed.stderr)
             payload = json.loads(completed.stdout)
-            if payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root) or payload.get("targetRepo") != str(temp_cwd) or payload.get("result", {}).get("command") != ["pi", "install", str(pkg_root), "-l", "--approve"]:
-                fail("Pi wrapper cwd-independent package path mismatch: " + completed.stdout)
+            if payload.get("runtime") != expected_runtime or payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root) or payload.get("targetRepo") != str(temp_cwd) or payload.get("result", {}).get("command") != expected_command:
+                fail("Pi/OMP wrapper cwd-independent package path mismatch: " + completed.stdout)
     finally:
         shutil.rmtree(temp_cwd, ignore_errors=True)
 

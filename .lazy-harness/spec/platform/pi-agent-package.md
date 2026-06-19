@@ -1,11 +1,11 @@
-# Pi Agent Package Contract
+# Pi / OMP Agent Package Contract
 
 Status: active
 Layer: SDD
 
 ## Purpose
 
-Provide a Pi Coding Agent package that installs lazy-harness behavior into Pi without a separate repository.
+Provide a shared Pi Coding Agent / Oh My Pi (OMP) package that installs lazy-harness behavior without a separate repository, while keeping Pi and OMP install UX separate.
 
 ## Package root
 
@@ -13,7 +13,7 @@ Provide a Pi Coding Agent package that installs lazy-harness behavior into Pi wi
 packages/lazy-harness-pi/
 ```
 
-This package is framework-source owned. It is installed into Pi by local path and locates the active host root at runtime.
+This package is framework-source owned. It is installed into Pi or linked into OMP by local path and locates the active host root at runtime.
 
 ## Manifest contract
 
@@ -22,14 +22,21 @@ This package is framework-source owned. It is installed into Pi by local path an
 ```json
 {
   "name": "@lazy-dinosaur/lazy-harness-pi",
-  "keywords": ["pi-package"],
+  "keywords": ["pi-package", "omp-plugin"],
   "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  },
+  "omp": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"]
   }
 }
 ```
+
+OMP official source supports `package.json#omp` first and falls back to `package.json#pi`. The package must declare both so OMP does not depend on legacy Pi fallback behavior.
 
 ## Extension contract
 
@@ -61,9 +68,16 @@ Recommended wrapper commands:
 .lazy-harness/bin/lazy pi doctor
 .lazy-harness/bin/lazy pi remove --local
 .lazy-harness/bin/lazy pi remove --global
+.lazy-harness/bin/lazy omp install
+.lazy-harness/bin/lazy omp list
+.lazy-harness/bin/lazy omp smoke
+.lazy-harness/bin/lazy omp doctor
+.lazy-harness/bin/lazy omp remove
 ```
 
-The wrapper keeps the package path consistent, requires explicit `--local` or `--global` for persistent install/remove, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
+The wrapper keeps the package path consistent, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
+
+Pi persistent install/remove requires explicit `--local` or `--global` because official Pi has project-local and user-global settings surfaces. OMP persistent local-path install uses official OMP plugin link semantics through `omp plugin install <path>`; it is independent of Pi `.pi/settings.json`. Use `lazy omp smoke` for one-run, non-persistent OMP loading.
 
 The wrapper separates two roots:
 
@@ -121,6 +135,14 @@ One-run smoke:
 
 ```bash
 pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+```
+
+OMP persistent plugin link:
+
+```bash
+omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 ```
 
 ## Boundaries
@@ -130,25 +152,26 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Pi `tool_call` is a hard-block surface; the extension must preserve the recent relaxed policy by blocking only actual mutation/evidence guard denials.
 - Read-only overview batch/parallel behavior must not be blocked by this package.
 - Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must not bypass the guard.
-- Because Pi extensions run with project extension permissions, package README must document the trust boundary.
+- Because Pi/OMP extensions run with project extension permissions, package README must document the trust boundary.
 - Global install must avoid cross-repo evidence contamination: runtime state such as `recent_tool_calls` and active packet IDs is scoped by detected lazy root.
 - OMP Phase 2 compatibility: `before_agent_start` must preserve both official Pi string `systemPrompt` values and OMP string-array `systemPrompt` blocks. When OMP sends `systemPrompt: string[]`, append the lazy reminder as a new prompt block instead of coercing the array to a comma-joined string.
 
 ## Implementation map
 
-- `packages/lazy-harness-pi/package.json` — Pi package manifest.
+- `packages/lazy-harness-pi/package.json` — shared Pi/OMP package manifest with explicit `pi` and `omp` resource declarations.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation.
   - `systemPromptIncludesBody` / `appendSystemPromptBody` preserve official Pi string prompts and OMP string-array prompt blocks during `before_agent_start` reminder injection.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
-- `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
-- `.lazy-harness/scripts/pi-package.ts` — `lazy pi` install/list/remove/smoke/doctor wrapper around official Pi commands; separates source package path from target repo and ensures `.pi/` local git exclude for project-local install.
-- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` to `pi-package.ts`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
+- `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.
+- `.lazy-harness/scripts/pi-package.ts` — runtime-aware `lazy pi` and `lazy omp` install/list/remove/smoke/doctor wrapper; Pi maps to official `pi install/remove/list/-e`, OMP maps to official `omp plugin install/uninstall/list` and `omp -e`.
+- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` and `lazy omp ...` to `pi-package.ts`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` or `LAZY_OMP_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
 - `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
   - Fake runtime smoke covers official Pi string `systemPrompt` and OMP string-array `systemPrompt` before-agent-start paths.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
+- `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md` — shared package with separate install UX decision.
 
 ## Rule placement
 
@@ -157,6 +180,15 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
 - Why not AGENTS.md: this is a Pi package installer contract, not general prompt grammar.
 - Why not `.jcode`: this is shared lazy-harness Pi adapter behavior, not private Jcode preference.
+- Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: Pi and OMP must use separate wrapper UX (`lazy pi ...` / `lazy omp ...`) while sharing the package core and explicit `pi`/`omp` manifest sections; OMP must not rely on `pi` fallback for normal operation.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Why not AGENTS.md: this is package installer/runtime contract, not general prompt grammar.
+- Why not `.jcode`: this is shared lazy-harness Pi/OMP package behavior, not private Jcode preference.
 - Confirmation: user-confirmed
 
 ## Rule placement

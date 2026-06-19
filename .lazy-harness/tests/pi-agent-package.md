@@ -1,22 +1,25 @@
-# Pi Agent Package Regression
+# Pi / OMP Agent Package Regression
 
 Status: active
 Layer: TDD
 
 ## Regression target
 
-The in-repo Pi package must remain installable and must bridge Pi extension events to canonical lazy-harness lifecycle hooks without inventing a second policy engine.
+The in-repo Pi/OMP package must remain installable through separate Pi and OMP wrapper UX and must bridge agent extension events to canonical lazy-harness lifecycle hooks without inventing a second policy engine.
 
 ## Protected fixtures
 
 | Case | Trigger | Expected |
 |---|---|---|
-| `pi_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keyword includes `pi-package`; `pi.extensions`, `pi.skills`, and `pi.prompts` point to package-local resource directories |
+| `pi_omp_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keywords include `pi-package` and `omp-plugin`; both `pi.*` and `omp.*` resource sections point to package-local extensions, skills, and prompts |
 | `pi_clean_default_no_project_settings` | Inspect source checkout | `.pi/settings.json` is absent by default after factory reset; project-local Pi attachment is generated only by an intentional install command |
 | `pi_install_guidance` | Inspect package README and SDD | Global and project-local install commands are documented, including that the package is not installed by default after a clean reset |
 | `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install/remove require explicit scope and support dry-run |
 | `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Local/global install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
+| `lazy_omp_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy omp install/list/remove/smoke/doctor` is documented and dispatched separately from `lazy pi` |
+| `lazy_omp_wrapper_dry_run` | Run `pi-package.ts` with `LAZY_AGENT_RUNTIME=omp` and lazy CLI OMP dispatch fixtures | OMP install/remove/smoke dry-runs produce exact `omp plugin install`, `omp plugin uninstall`, and `omp -e` command arrays without mutating plugin settings |
+| `lazy_omp_wrapper_doctor_no_smoke` | Run OMP doctor no-smoke in non-strict mode | Doctor is safe in environments without persistent OMP plugin settings and reports that smoke is skipped/non-mutating |
 | `lazy_pi_source_target_isolation` | Run `lazy pi install --local --dry-run` and direct `pi-package.ts` from another cwd with stale parent `LAZY_INVOCATION_CWD`, plus explicit `--target-repo` | Source package path stays in the lazy-harness source checkout while target repo resolves to caller/explicit repo; direct wrapper ignores stale parent invocation cwd unless `LAZY_PI_TARGET_REPO` or `--target-repo` is set |
 | `lazy_pi_local_settings_git_exclude` | Inspect `.pi/settings.json` and target repo exclude behavior | Generated `.pi/settings.json` is allowed only when untracked and `.pi/` is present in `.git/info/exclude`; local install dry-run reports the exclude path |
 | `pi_extension_before_agent_start_bridge` | Inspect extension source | Source contains `before_agent_start`, calls `on-message-received.sh`, and injects `REMINDER. Harness-first search/read debt before response.` fallback |
@@ -48,6 +51,10 @@ bun packages/lazy-harness-pi/extensions/lazy-harness/index.ts
 .lazy-harness/bin/lazy pi remove --local --dry-run
 .lazy-harness/bin/lazy pi smoke --dry-run
 .lazy-harness/bin/lazy pi doctor --no-smoke
+.lazy-harness/bin/lazy omp install --dry-run
+.lazy-harness/bin/lazy omp remove --dry-run
+.lazy-harness/bin/lazy omp smoke --dry-run
+.lazy-harness/bin/lazy omp doctor --no-smoke
 .lazy-harness/bin/lazy pi smoke
 /home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local --dry-run
 .lazy-harness/bin/lazy pi install --local --dry-run --target-repo /path/to/other/repo
@@ -55,6 +62,9 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
 pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
 pi list --approve
+omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+omp plugin list
 ```
 
 ## Layer completeness
@@ -62,14 +72,14 @@ pi list --approve
 - SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
 - BDD: Pi behavior mirrors `.lazy-harness/behavior/llm-owned-record-retrieval.md` for reminder and mutation guard behavior.
 - SSOT: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` is the placement decision for now.
-- ADR: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
+- ADR: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`, `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
 - DDD: no domain/business term impact.
 
 ## Implementation map
 
-- `packages/lazy-harness-pi/package.json` — fixture for package manifest resource paths.
-- `.lazy-harness/scripts/pi-package.ts` — fixture for `lazy pi` wrapper command construction and safe dry-run behavior.
-- `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` handoff.
+- `packages/lazy-harness-pi/package.json` — fixture for explicit `pi` and `omp` package manifest resource paths.
+- `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
+- `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state.
 - `.pi/settings.json` — optional generated project-local package install path; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
@@ -86,3 +96,12 @@ pi list --approve
 - Why not AGENTS.md: this is adapter regression coverage, not global prompt grammar.
 - Why not `.jcode`: this protects shared Pi/OMP package behavior, not private Jcode wiring.
 - Confirmation: inferred-from-runtime-evidence
+
+## Rule placement
+
+- Rule: Regression coverage must protect separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp`, so OMP does not silently fall back to Pi-only packaging.
+- Scope: framework-global
+- Primary record: `.lazy-harness/tests/pi-agent-package.md`
+- Why not AGENTS.md: this is package installer regression coverage, not global prompt grammar.
+- Why not `.jcode`: this protects shared Pi/OMP package behavior, not private Jcode wiring.
+- Confirmation: user-confirmed

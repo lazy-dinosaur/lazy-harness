@@ -7,9 +7,14 @@
   "scripts": {
     "import:antigravity-mcp": "bun scripts/import-antigravity-mcp.ts"
   },
-  "keywords": ["pi-package", "lazy-harness", "agent", "extension"],
+  "keywords": ["pi-package", "omp-plugin", "lazy-harness", "agent", "extension"],
   "license": "MIT",
   "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  },
+  "omp": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"]

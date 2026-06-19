@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process'
 
 type Format = 'md' | 'json'
 type Scope = 'local' | 'global'
+type Runtime = 'pi' | 'omp'
 
 type Options = {
   format: Format
@@ -24,8 +25,73 @@ type CommandResult = {
   stderr: string
 }
 
+const RUNTIME: Runtime = process.env.LAZY_AGENT_RUNTIME === 'omp' ? 'omp' : 'pi'
+
+type RuntimeInfo = {
+  id: Runtime
+  label: string
+  binary: string
+  sourceEnv: string
+  targetEnv: string
+}
+
+function runtimeInfo(runtime: Runtime = RUNTIME): RuntimeInfo {
+  if (runtime === 'omp') {
+    return {
+      id: 'omp',
+      label: 'OMP',
+      binary: 'omp',
+      sourceEnv: 'LAZY_OMP_SOURCE_ROOT',
+      targetEnv: 'LAZY_OMP_TARGET_REPO',
+    }
+  }
+  return {
+    id: 'pi',
+    label: 'Pi',
+    binary: 'pi',
+    sourceEnv: 'LAZY_PI_SOURCE_ROOT',
+    targetEnv: 'LAZY_PI_TARGET_REPO',
+  }
+}
+
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error
+  const info = runtimeInfo()
+  if (info.id === 'omp') {
+    out(`Usage: lazy omp <command> [options]
+
+Commands:
+  install [--dry-run] [--package <path>]
+      Link packages/lazy-harness-pi into OMP via: omp plugin install <package>.
+  remove [--dry-run] [--package <path>]
+      Remove the shared package from OMP via: omp plugin uninstall <package-name>.
+  list [--format=md|json]
+      Show OMP plugin settings through omp plugin list.
+  smoke [--dry-run] [--format=md|json]
+      One-run load smoke: omp -e <package> --help. Never persists settings.
+  doctor [--no-smoke] [--strict] [--format=md|json]
+      Inspect omp binary, package layout, plugin list, and optional one-run smoke.
+
+Options:
+  --dry-run     Print the omp command without executing install/remove/smoke
+  --package P   Override source package path. Default: <source-root>/packages/lazy-harness-pi
+  --source-root DIR
+                Lazy-harness source root. Default: this script's host root
+  --target-repo DIR
+                Repo/cwd for list/smoke diagnostics. Default: $LAZY_OMP_TARGET_REPO or cwd
+  --target DIR  Deprecated alias for --source-root
+  --format F    md or json. Default: md
+
+Safety:
+  OMP local path installs use official OMP plugin link semantics and persist in OMP's plugin registry.
+  Use smoke for one-run non-persistent OMP loading.
+  The source package path and target repo are intentionally separate to avoid cross-repo contamination.
+  Under the hood: install maps to omp plugin install; remove maps to omp plugin uninstall; list maps to omp plugin list; smoke maps to omp -e.
+  npm/standalone publishing is intentionally out of scope until Pi/OMP smoke is stable.
+`)
+    process.exit(exitCode)
+  }
+
   out(`Usage: lazy pi <command> [options]
 
 Commands:
@@ -107,7 +173,8 @@ function parseFormat(raw: string): Format {
 }
 
 function sourceRoot(opts: Options): string {
-  return resolve(opts.sourceRoot || process.env.LAZY_PI_SOURCE_ROOT || scriptHostRoot())
+  const info = runtimeInfo()
+  return resolve(opts.sourceRoot || process.env[info.sourceEnv] || process.env.LAZY_PI_SOURCE_ROOT || scriptHostRoot())
 }
 
 function scriptHostRoot(): string {
@@ -119,7 +186,8 @@ function packagePath(root: string, opts: Options): string {
 }
 
 function targetRepo(opts: Options): string {
-  return resolveGitRoot(opts.targetRepo || process.env.LAZY_PI_TARGET_REPO || process.cwd())
+  const info = runtimeInfo()
+  return resolveGitRoot(opts.targetRepo || process.env[info.targetEnv] || process.env.LAZY_PI_TARGET_REPO || process.cwd())
 }
 
 function resolveGitRoot(dir: string): string {
@@ -131,7 +199,7 @@ function resolveGitRoot(dir: string): string {
 
 function requireScope(opts: Options, command: string): Scope {
   if (!opts.scope) {
-    console.error(`lazy pi ${command} requires explicit --local or --global`)
+    console.error(`lazy ${runtimeInfo().id} ${command} requires explicit --local or --global`)
     process.exit(2)
   }
   return opts.scope
@@ -141,19 +209,27 @@ function printJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2))
 }
 
-function commandForInstallLike(action: 'install' | 'remove', pkg: string, scope: Scope): string[] {
-  const args = ['pi', action, pkg]
+function commandForInstallLike(action: 'install' | 'remove', pkg: string, scope: Scope | undefined, manifestName?: string): string[] {
+  const info = runtimeInfo()
+  if (info.id === 'omp') {
+    if (action === 'install') return [info.binary, 'plugin', 'install', pkg]
+    return [info.binary, 'plugin', 'uninstall', manifestName || '@lazy-dinosaur/lazy-harness-pi']
+  }
+  if (!scope) throw new Error('internal error: Pi install/remove requires scope')
+  const args = [info.binary, action, pkg]
   if (scope === 'local') args.push('-l', '--approve')
   else args.push('--no-approve')
   return args
 }
 
 function commandForList(scope: Scope | undefined): string[] {
-  return ['pi', 'list', scope === 'global' ? '--no-approve' : '--approve']
+  const info = runtimeInfo()
+  if (info.id === 'omp') return [info.binary, 'plugin', 'list']
+  return [info.binary, 'list', scope === 'global' ? '--no-approve' : '--approve']
 }
 
 function commandForSmoke(pkg: string): string[] {
-  return ['pi', '-e', pkg, '--help']
+  return [runtimeInfo().binary, '-e', pkg, '--help']
 }
 
 function run(command: string[], dryRun = false, cwd?: string): CommandResult {
@@ -225,10 +301,12 @@ function ensurePackageLayout(pkg: string): { ok: boolean; errors: string[]; mani
     try {
       const parsed = JSON.parse(readFileSync(manifest, 'utf8'))
       manifestName = typeof parsed?.name === 'string' ? parsed.name : undefined
-      const pi = parsed?.pi
-      if (!pi || !Array.isArray(pi.extensions) || !pi.extensions.includes('./extensions')) errors.push('package.json missing pi.extensions ./extensions')
-      if (!pi || !Array.isArray(pi.skills) || !pi.skills.includes('./skills')) errors.push('package.json missing pi.skills ./skills')
-      if (!pi || !Array.isArray(pi.prompts) || !pi.prompts.includes('./prompts')) errors.push('package.json missing pi.prompts ./prompts')
+      for (const key of ['pi', 'omp']) {
+        const manifest = parsed?.[key]
+        if (!manifest || !Array.isArray(manifest.extensions) || !manifest.extensions.includes('./extensions')) errors.push(`package.json missing ${key}.extensions ./extensions`)
+        if (!manifest || !Array.isArray(manifest.skills) || !manifest.skills.includes('./skills')) errors.push(`package.json missing ${key}.skills ./skills`)
+        if (!manifest || !Array.isArray(manifest.prompts) || !manifest.prompts.includes('./prompts')) errors.push(`package.json missing ${key}.prompts ./prompts`)
+      }
     } catch (error) {
       errors.push(`package.json parse failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -242,42 +320,45 @@ function printDryRun(title: string, command: string[], fmt: Format, extra: Recor
 }
 
 function installOrRemove(action: 'install' | 'remove', opts: Options): void {
+  const info = runtimeInfo()
   const root = sourceRoot(opts)
   const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
-  const scope = requireScope(opts, action)
+  const scope = info.id === 'pi' ? requireScope(opts, action) : opts.scope
   const layout = ensurePackageLayout(pkg)
   if (!layout.ok) {
     if (opts.format === 'json') printJson({ ok: false, packagePath: pkg, layout })
     else {
-      console.error(`lazy pi ${action}: invalid package path ${pkg}`)
+      console.error(`lazy ${info.id} ${action}: invalid package path ${pkg}`)
       for (const err of layout.errors) console.error(`- ${err}`)
     }
     process.exit(1)
   }
-  const command = commandForInstallLike(action, pkg, scope)
-  const localIgnore = scope === 'local' && action === 'install'
+  const command = commandForInstallLike(action, pkg, scope, layout.manifestName)
+  const localIgnore = info.id === 'pi' && scope === 'local' && action === 'install'
     ? ensureLocalPiIgnored(repo, opts.dryRun)
     : undefined
-  const extra = { scope, sourceRoot: root, targetRepo: repo, packagePath: pkg, localPiGitExclude: localIgnore }
+  const extra = { runtime: info.id, scope, sourceRoot: root, targetRepo: repo, packagePath: pkg, localPiGitExclude: localIgnore }
   if (opts.dryRun) {
-    printDryRun(`Pi ${action}`, command, opts.format, extra)
+    printDryRun(`${info.label} ${action}`, command, opts.format, extra)
     return
   }
   const result = run(command, false, repo)
-  printCommandResult(`Pi ${action}`, result, opts.format, extra)
+  printCommandResult(`${info.label} ${action}`, result, opts.format, extra)
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function list(opts: Options): void {
+  const info = runtimeInfo()
   const repo = targetRepo(opts)
   const command = commandForList(opts.scope)
   const result = run(command, false, repo)
-  printCommandResult('Pi package list', result, opts.format, { scope: opts.scope || 'local', targetRepo: repo })
+  printCommandResult(`${info.label} package list`, result, opts.format, { runtime: info.id, scope: opts.scope || (info.id === 'pi' ? 'local' : undefined), targetRepo: repo })
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function smoke(opts: Options): void {
+  const info = runtimeInfo()
   const root = sourceRoot(opts)
   const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
@@ -286,59 +367,64 @@ function smoke(opts: Options): void {
   if (!layout.ok) {
     if (opts.format === 'json') printJson({ ok: false, packagePath: pkg, layout, command })
     else {
-      console.error(`lazy pi smoke: invalid package path ${pkg}`)
+      console.error(`lazy ${info.id} smoke: invalid package path ${pkg}`)
       for (const err of layout.errors) console.error(`- ${err}`)
     }
     process.exit(1)
   }
   if (opts.dryRun) {
-    printDryRun('Pi one-run smoke', command, opts.format, { sourceRoot: root, targetRepo: repo, packagePath: pkg })
+    printDryRun(`${info.label} one-run smoke`, command, opts.format, { runtime: info.id, sourceRoot: root, targetRepo: repo, packagePath: pkg })
     return
   }
   const result = run(command, false, repo)
-  printCommandResult('Pi one-run smoke', result, opts.format, { sourceRoot: root, targetRepo: repo, packagePath: pkg })
+  printCommandResult(`${info.label} one-run smoke`, result, opts.format, { runtime: info.id, sourceRoot: root, targetRepo: repo, packagePath: pkg })
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function doctor(opts: Options): void {
+  const info = runtimeInfo()
   const root = sourceRoot(opts)
   const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
   const layout = ensurePackageLayout(pkg)
-  const piVersion = run(['pi', '--version'])
+  const agentVersion = run([info.binary, '--version'])
   const listResult = run(commandForList(opts.scope), false, repo)
   const smokeResult = opts.noSmoke ? null : run(commandForSmoke(pkg), false, repo)
-  const localPiGitExclude = ensureLocalPiIgnored(repo, true)
-  const ok = layout.ok && piVersion.exitCode === 0 && listResult.exitCode === 0 && (!smokeResult || smokeResult.exitCode === 0)
+  const localPiGitExclude = info.id === 'pi' ? ensureLocalPiIgnored(repo, true) : undefined
+  const ok = layout.ok && agentVersion.exitCode === 0 && listResult.exitCode === 0 && (!smokeResult || smokeResult.exitCode === 0)
   const payload = {
     ok,
+    runtime: info.id,
     strict: opts.strict,
     sourceRoot: root,
     targetRepo: repo,
     packagePath: pkg,
     packageLayout: layout,
     localPiGitExclude,
-    piVersion,
+    agentVersion,
     list: listResult,
     smoke: smokeResult,
-    note: 'doctor/smoke never mutate Pi settings; install/remove require explicit commands',
+    note: info.id === 'pi'
+      ? 'doctor/smoke never mutate Pi settings; install/remove require explicit commands'
+      : 'doctor/smoke never mutate OMP plugin settings; install/remove require explicit commands',
   }
   if (opts.format === 'json') printJson(payload)
   else {
-    console.log('# Lazy Pi doctor')
+    console.log(`# Lazy ${info.label} doctor`)
     console.log(`- ok: ${ok}`)
+    console.log(`- runtime: ${info.id}`)
     console.log(`- source_root: ${root}`)
     console.log(`- target_repo: ${repo}`)
     console.log(`- package_path: ${pkg}`)
-    console.log(`- local_pi_git_exclude: ${localPiGitExclude.path || localPiGitExclude.skipped || 'unknown'}`)
+    if (localPiGitExclude) console.log(`- local_pi_git_exclude: ${localPiGitExclude.path || localPiGitExclude.skipped || 'unknown'}`)
     console.log(`- package_layout: ${layout.ok ? 'ok' : 'failed'}`)
     if (layout.manifestName) console.log(`- package_name: ${layout.manifestName}`)
     for (const err of layout.errors) console.log(`  - layout_error: ${err}`)
-    console.log(`- pi_version_exit: ${piVersion.exitCode}`)
-    if (piVersion.stdout.trim()) console.log(`- pi_version: ${piVersion.stdout.trim()}`)
+    console.log(`- ${info.id}_version_exit: ${agentVersion.exitCode}`)
+    if (agentVersion.stdout.trim()) console.log(`- ${info.id}_version: ${agentVersion.stdout.trim()}`)
     console.log(`- list_exit: ${listResult.exitCode}`)
     console.log(`- smoke_exit: ${smokeResult ? smokeResult.exitCode : 'skipped'}`)
-    console.log('- note: doctor/smoke never mutate Pi settings; install/remove require explicit commands')
+    console.log(`- note: doctor/smoke never mutate ${info.label} settings; install/remove require explicit commands`)
   }
   if (opts.strict && !ok) process.exit(1)
 }
@@ -352,7 +438,7 @@ function main(): void {
   if (cmd === 'list') return list(opts)
   if (cmd === 'smoke') return smoke(opts)
   if (cmd === 'doctor') return doctor(opts)
-  console.error(`Unknown lazy pi command: ${cmd}`)
+  console.error(`Unknown lazy ${runtimeInfo().id} command: ${cmd}`)
   usage(2)
 }
 
