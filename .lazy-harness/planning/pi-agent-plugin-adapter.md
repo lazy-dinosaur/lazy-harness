@@ -288,3 +288,53 @@ Discovery capture:
 - Why not AGENTS.md: this is rollout and runtime-smoke planning, not prompt grammar.
 - Why not `.jcode`: this is shared Pi/OMP adapter work, not local/private Jcode preference.
 - Confirmation: inferred-from-runtime-evidence
+
+## OMP doc-read / same-experience hook surface investigation (2026-06-19)
+
+Status: candidate-next
+
+User observation:
+
+- Pi appears to inject and honor the lazy-harness reminder correctly.
+- OMP can load the extension, but user-observed behavior suggests it may still answer without doing the desired lazy-harness document/read step.
+
+Read-only OMP runtime evidence from installed `@oh-my-pi/pi-coding-agent` 16.1.1:
+
+- CLI supports `--hook=<value>` and `-e, --extension=<value>`.
+- OMP extension events include `before_agent_start`, `context`, `before_provider_request`, `after_provider_response`, `tool_call`, `tool_result`, `turn_start`, `turn_end`, `message_start/update/end`, `agent_start/end`, and `session_stop`.
+- `before_agent_start` extension result can inject a custom message and can replace/append system prompt blocks. Current lazy-harness extension uses system prompt injection only.
+- `context` event fires before each LLM call and can return modified model messages. This is a strong candidate for ensuring read-debt context is actually in the provider payload.
+- OMP hook subsystem exists separately from extensions. Hook modules are discovered via the `hooks` capability and can subscribe to `before_agent_start`, `context`, `tool_call`, `tool_result`, `turn_start`, `turn_end`, and more.
+- Hook `before_agent_start` can inject a persisted, visible custom message into the session.
+- `session_stop` event result supports `{ continue: true, additionalContext }` or `{ decision: "block", reason }`, which OMP converts into a hidden next-turn continuation. This is the closest equivalent to Jcode `response.completed` hard-stop/continuation behavior.
+- Tool hard block remains available through `tool_call` returning `{ block: true, reason }`.
+
+Implication:
+
+- The red OMP command block in the UI is not by itself proof of failure. It appears to be a command/hook output block. Failure should be determined from exit code/error, not block color.
+- The existing extension reminder is not enough to guarantee identical experience if the model ignores it.
+- The likely next implementation should add an OMP-specific enforcement layer using `context` and/or `before_agent_start` custom message injection, plus optional `session_stop` continuation for post-response rule debt.
+
+Recommended implementation order:
+
+1. Add OMP-compatible read-debt context injection to the lazy-harness package using `context` or `before_agent_start` custom messages, so the provider sees concrete lazy-harness evidence rather than only a reminder.
+2. Preserve the current `tool_call` mutation/evidence hard block.
+3. Add `session_stop` continuation only if OMP needs post-response parity with Jcode's response-completed gate.
+4. Add fake runtime/self-test coverage for OMP `context` and `session_stop` handlers before relying on direct interactive OMP behavior.
+
+Discovery capture:
+
+- SDD: candidate, Pi/OMP adapter contract should expand beyond reminder-only injection to OMP read-debt context injection.
+- BDD: candidate, OMP user-visible behavior should match Pi/Jcode: host-specific answers must be preceded by lazy-harness evidence read/context.
+- TDD: candidate, add fake OMP runtime tests for `context` message injection and optionally `session_stop` continuation.
+- Planning: this section.
+- DDD/ADR/SSOT: none yet.
+
+## Rule placement
+
+- Rule: OMP parity should use OMP-native hooks/events to provide the same lazy-harness read-debt experience as Pi/Jcode; reminder-only injection is insufficient if the model can ignore it.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is OMP adapter implementation planning, not general prompt grammar.
+- Why not `.jcode`: this is shared Pi/OMP package behavior, not local/private Jcode wiring.
+- Confirmation: user-confirmed goal, implementation pending
