@@ -65,6 +65,8 @@ Commands:
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   skill create <name> [options] Create project-local custom Jcode skill
+  pi install|remove|list|smoke|doctor
+                                Manage lazy-harness-pi install/list/smoke wrappers for official Pi
   capability add|list|resolve|candidates|audit
                                 Add, list, resolve, suggest, or audit registered capabilities
   policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness
@@ -166,6 +168,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/skill-create.ts" "$@"
+    ;;
+  pi)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy pi: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/pi-package.ts" "$@"
     ;;
   capability)
     if ! command -v bun >/dev/null 2>&1; then

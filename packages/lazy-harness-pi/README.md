@@ -4,7 +4,55 @@ Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.
 
 The package is not installed by default after a clean reset. Install it only when you want Pi to load lazy-harness behavior.
 
+## Recommended wrapper commands
+
+Use the lazy-harness wrapper first. It keeps the package path consistent and makes install/remove scope explicit.
+
+Project-local install for the current host:
+
+```bash
+.lazy-harness/bin/lazy pi install --local
+```
+
+Global install for all Pi projects:
+
+```bash
+.lazy-harness/bin/lazy pi install --global
+```
+
+List current Pi package settings:
+
+```bash
+.lazy-harness/bin/lazy pi list
+.lazy-harness/bin/lazy pi list --global
+```
+
+One-run load smoke without persisting settings:
+
+```bash
+.lazy-harness/bin/lazy pi smoke
+```
+
+Diagnostics without mutating Pi settings:
+
+```bash
+.lazy-harness/bin/lazy pi doctor
+```
+
+Remove the package:
+
+```bash
+.lazy-harness/bin/lazy pi remove --local
+.lazy-harness/bin/lazy pi remove --global
+```
+
+For preview-only safety, add `--dry-run` to `install`, `remove`, or `smoke`.
+
+Publishing this package to npm or moving it to a standalone repo is intentionally deferred until official Pi and OMP runtime smoke are stable.
+
 ## Install locally into a project
+
+Raw Pi commands are still supported when debugging Pi itself.
 
 Global install for all projects:
 

@@ -1805,7 +1805,9 @@ def check_pi_package_layout_and_contract() -> None:
     extension = pkg_root / "extensions" / "lazy-harness" / "index.ts"
     prompt = pkg_root / "prompts" / "lazy-harness.md"
     readme = pkg_root / "README.md"
-    for path in [manifest, extension, prompt, readme]:
+    wrapper = LAZY / "scripts" / "pi-package.ts"
+    lazy_entrypoint = LAZY / "bin" / "lazy"
+    for path in [manifest, extension, prompt, readme, wrapper, lazy_entrypoint]:
         if not path.exists():
             fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
 
@@ -1851,12 +1853,99 @@ def check_pi_package_layout_and_contract() -> None:
     for phrase in [
         "Global install for all projects",
         "Project-local install for this repo only",
+        "Recommended wrapper commands",
+        ".lazy-harness/bin/lazy pi install --local",
+        ".lazy-harness/bin/lazy pi install --global",
+        ".lazy-harness/bin/lazy pi smoke",
         "The package is not installed by default after a clean reset",
         "pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve",
         "pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve",
     ]:
         if phrase not in readme_text:
             fail("Pi package README missing clean install guidance: " + phrase)
+
+    lazy_text = lazy_entrypoint.read_text(encoding="utf-8")
+    for phrase in [
+        "pi install|remove|list|smoke|doctor",
+        "pi-package.ts",
+    ]:
+        if phrase not in lazy_text:
+            fail("lazy CLI entrypoint missing Pi wrapper dispatch phrase: " + phrase)
+
+    wrapper_text = wrapper.read_text(encoding="utf-8")
+    for phrase in [
+        "Usage: lazy pi <command>",
+        "install --local|--global",
+        "remove --local|--global",
+        "smoke [--dry-run]",
+        "doctor [--no-smoke]",
+        "npm/standalone publishing is intentionally out of scope",
+        "pi install",
+        "pi remove",
+        "pi list",
+        "pi -e",
+        "--no-approve",
+        "--approve",
+        "packages/lazy-harness-pi",
+    ]:
+        if phrase not in wrapper_text:
+            fail("Pi wrapper script missing contract phrase: " + phrase)
+
+    for args, expected_command in [
+        (["install", "--local", "--dry-run", "--format=json"], ["pi", "install", str(pkg_root), "-l", "--approve"]),
+        (["install", "--global", "--dry-run", "--format=json"], ["pi", "install", str(pkg_root), "--no-approve"]),
+        (["remove", "--local", "--dry-run", "--format=json"], ["pi", "remove", str(pkg_root), "-l", "--approve"]),
+        (["smoke", "--dry-run", "--format=json"], ["pi", "-e", str(pkg_root), "--help"]),
+    ]:
+        completed = subprocess.run(
+            ["bun", ".lazy-harness/scripts/pi-package.ts", *args],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("Pi wrapper dry-run command failed: " + " ".join(args) + "\n" + completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        if payload.get("result", {}).get("command") != expected_command:
+            fail("Pi wrapper dry-run command mismatch: " + completed.stdout)
+
+    doctor_completed = subprocess.run(
+        ["bun", ".lazy-harness/scripts/pi-package.ts", "doctor", "--no-smoke", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(),
+    )
+    if doctor_completed.returncode != 0:
+        fail("Pi wrapper doctor --no-smoke should not fail in environments without Pi:\n" + doctor_completed.stdout + doctor_completed.stderr)
+    doctor_payload = json.loads(doctor_completed.stdout)
+    if doctor_payload.get("smoke") is not None or "doctor/smoke never mutate Pi settings" not in doctor_payload.get("note", ""):
+        fail("Pi wrapper doctor --no-smoke contract changed: " + doctor_completed.stdout)
+
+    temp_cwd = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-wrapper-cwd-"))
+    try:
+        for command in [
+            [str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--format=json"],
+            ["bun", str(wrapper), "install", "--local", "--dry-run", "--format=json"],
+        ]:
+            completed = subprocess.run(
+                command,
+                cwd=temp_cwd,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env_without_lazy_runtime(),
+            )
+            if completed.returncode != 0:
+                fail("Pi wrapper cwd-independent dry-run failed: " + " ".join(command) + "\n" + completed.stdout + completed.stderr)
+            payload = json.loads(completed.stdout)
+            if payload.get("packagePath") != str(pkg_root) or payload.get("result", {}).get("command") != ["pi", "install", str(pkg_root), "-l", "--approve"]:
+                fail("Pi wrapper cwd-independent package path mismatch: " + completed.stdout)
+    finally:
+        shutil.rmtree(temp_cwd, ignore_errors=True)
 
     expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test"]
     for skill in expected_skills:

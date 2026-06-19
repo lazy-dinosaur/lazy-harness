@@ -51,6 +51,20 @@ Clean default:
 
 The source checkout must not require active Pi installation settings. After a factory reset, `~/.pi/agent/` and project-local `.pi/settings.json` may be absent. The package remains installable from source, but it is not installed by default.
 
+Recommended wrapper commands:
+
+```bash
+.lazy-harness/bin/lazy pi install --local
+.lazy-harness/bin/lazy pi install --global
+.lazy-harness/bin/lazy pi list
+.lazy-harness/bin/lazy pi smoke
+.lazy-harness/bin/lazy pi doctor
+.lazy-harness/bin/lazy pi remove --local
+.lazy-harness/bin/lazy pi remove --global
+```
+
+The wrapper keeps the package path consistent, requires explicit `--local` or `--global` for persistent install/remove, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
+
 Global install for all Pi projects:
 
 ```bash
@@ -105,7 +119,18 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
+- `.lazy-harness/scripts/pi-package.ts` — `lazy pi` install/list/remove/smoke/doctor wrapper around official Pi commands.
+- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` to `pi-package.ts`.
 - `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
+
+## Rule placement
+
+- Rule: Pi install UX should use `lazy pi` wrapper commands first; npm/standalone publishing remains deferred until official Pi and OMP runtime smoke are stable.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Why not AGENTS.md: this is a Pi package installer contract, not general prompt grammar.
+- Why not `.jcode`: this is shared lazy-harness Pi adapter behavior, not private Jcode preference.
+- Confirmation: user-confirmed

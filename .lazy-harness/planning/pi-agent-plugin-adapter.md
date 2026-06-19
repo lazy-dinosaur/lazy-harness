@@ -126,6 +126,7 @@ Rationale:
 Phase 1 implementation checklist:
 
 - Confirm package manifest and resource loading under official Pi.
+- Provide `lazy pi` wrapper commands for install/list/remove/smoke/doctor before relying on raw `pi install` commands.
 - Verify `before_agent_start` prompt/reminder injection.
 - Verify `tool_call` mutation guard normalization, including shell aliases `cmd`, `command`, `shell`, and `terminal`.
 - Verify `tool_result` evidence retention and recent-tool payload shape.
@@ -139,6 +140,32 @@ Phase 2 implementation checklist:
 - Verify OMP event payloads for `before_agent_start`, `tool_call`, and `tool_result` match what the bridge expects.
 - Verify OMP command registration, `ctx.ui.notify`, and `pi.exec` behavior.
 - Add OMP-specific manifest/docs/tests only after a failing smoke identifies a real incompatibility.
+
+## Confirmed installer wrapper staging (2026-06-19)
+
+The user confirmed Option A for Pi install UX:
+
+- Implement `lazy pi install/list/remove/smoke/doctor` first.
+- Keep `packages/lazy-harness-pi` source-local for now.
+- Defer npm package publication or standalone repo extraction until official Pi Phase 1 and OMP Phase 2 runtime smoke are stable.
+
+Wrapper contract:
+
+- `lazy pi install --local|--global [--dry-run]` maps to official `pi install` with the source package path.
+- `lazy pi remove --local|--global [--dry-run]` maps to official `pi remove` with the source package path.
+- `lazy pi list [--local|--global]` runs official `pi list` without mutating settings.
+- `lazy pi smoke [--dry-run]` runs one-run load smoke via `pi -e <package> --help`; it never persists settings.
+- `lazy pi doctor [--no-smoke] [--strict]` checks package layout, `pi --version`, `pi list`, and optional one-run smoke without mutating settings.
+- Persistent install/remove require explicit `--local` or `--global`.
+
+## Rule placement
+
+- Rule: Pi install UX should be stabilized through `lazy pi` wrapper commands first; npm/standalone publish remains deferred until official Pi and OMP runtime smoke are stable.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is installer/distribution rollout planning, not prompt grammar.
+- Why not `.jcode`: this is lazy-harness Pi package distribution strategy, not local/private Jcode preference.
+- Confirmation: user-confirmed
 
 ## Rule placement
 
@@ -164,6 +191,8 @@ Phase 2 implementation checklist:
   - `/home/lazydino/dev/pi-agent-research/agent-pi/package.json` — real package manifest example.
 - Lazy-harness source to adapt later:
   - `.lazy-harness/scripts/jcode-wiring.ts` — current generated Jcode wiring source.
+  - `.lazy-harness/scripts/pi-package.ts` — `lazy pi` wrapper implementation for official Pi install/list/remove/smoke/doctor.
+  - `.lazy-harness/bin/lazy` — dispatch surface for `lazy pi`.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — current reminder hook semantics.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — mutation evidence guard to bridge from Pi `tool_call`.
   - `.jcode/skills/**/SKILL.md` — skill content to adapt to Pi package skills.
@@ -172,6 +201,7 @@ Phase 2 implementation checklist:
   - Pi payload normalizer unit tests
   - local 0.74.0 extension smoke
   - lazy self-test coverage for `pi-wiring.ts`
+  - lazy self-test coverage for `pi-package.ts` wrapper dry-runs and doctor no-smoke
   - official Pi Phase 1 runtime smoke covering startup, guard, evidence, and package commands
   - OMP Phase 2 runtime smoke covering legacy `pi.extensions`, import shim, events, commands, notify, and exec behavior
 

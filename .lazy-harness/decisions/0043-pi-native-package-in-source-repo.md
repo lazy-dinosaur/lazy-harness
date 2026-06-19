@@ -31,6 +31,7 @@ The extension must locate the active host root from Pi's current working directo
 - Keeping the package in source keeps lazy lifecycle hook semantics, skills, prompts, and tests close to their canonical implementation.
 - Pi supports local package paths, so no npm/git publication is needed for the first usable version.
 - Later extraction to a standalone repo or npm package remains possible once the adapter is stable.
+- A `lazy pi` wrapper is preferred for source-local install UX while the adapter stabilizes; npm publication remains deferred until official Pi and OMP runtime smoke pass.
 
 ## Consequences
 
@@ -50,6 +51,9 @@ The extension must locate the active host root from Pi's current working directo
   - `packages/lazy-harness-pi/README.md` — install, smoke, trust boundary, and command documentation.
 - Tests:
   - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static manifest/resource/bridge contract coverage.
+- Installer wrapper:
+  - `.lazy-harness/scripts/pi-package.ts` — safe source-local `lazy pi` wrapper for install/list/remove/smoke/doctor.
+  - `.lazy-harness/bin/lazy` — dispatches `lazy pi ...`.
 - Related records:
   - `.lazy-harness/spec/platform/pi-agent-package.md`
   - `.lazy-harness/tests/pi-agent-package.md`
