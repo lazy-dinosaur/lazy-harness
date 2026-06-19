@@ -1995,7 +1995,7 @@ def check_pi_package_layout_and_contract() -> None:
     finally:
         shutil.rmtree(target_repo, ignore_errors=True)
 
-    expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test"]
+    expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test", "lazy-impl-map-migrate"]
     for skill in expected_skills:
         skill_file = pkg_root / "skills" / skill / "SKILL.md"
         if not skill_file.exists():
@@ -2003,6 +2003,18 @@ def check_pi_package_layout_and_contract() -> None:
         content = skill_file.read_text(encoding="utf-8")
         if "name:" not in content or skill not in content:
             fail(f"Pi package skill wrapper lacks expected frontmatter/content: {skill}")
+        if skill == "lazy-impl-map-migrate":
+            for phrase in [
+                "Guided LLM-assisted implementation-map migration",
+                ".lazy-harness/bin/lazy impl-map --format=json",
+                ".lazy-harness/bin/lazy graph-hygiene --format=json",
+                "Stop for user choice before editing records",
+                "Do not bulk rewrite host records blindly",
+                "Do not rewrite `knowledge/graph.jsonl` wholesale",
+                "OMP compatibility work is intentionally after this guided migration skill exists",
+            ]:
+                if phrase not in content:
+                    fail("Pi package lazy-impl-map-migrate skill missing phrase: " + phrase)
 
     importer = pkg_root / "scripts" / "import-antigravity-mcp.ts"
     fixture = pkg_root / "fixtures" / "antigravity-mcp-config.jsonc"
@@ -2746,6 +2758,62 @@ def check_jcode_doc_ingest_skill_wrapper() -> None:
     if import_check.returncode != 0:
         fail("jcode wiring must import cleanly after skill wrapper edits:\n" + import_check.stdout + import_check.stderr)
     print("✓ jcode document ingestion skill wrapper ok")
+
+
+def check_jcode_impl_map_migrate_skill_wrapper() -> None:
+    """Generated Jcode/Pi wiring must expose the guided implementation-map migration skill."""
+    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
+    required = [
+        "lazy-impl-map-migrate",
+        "Guided LLM-assisted implementation-map migration",
+        "implementation-map-migration.md",
+        "implementation-map-standard.md",
+        "implementation-map-storage.md",
+        "graph-hygiene.md",
+        "lazy impl-map --format=json",
+        "lazy graph-hygiene --format=json",
+        "3-5 option gate",
+        "Stop for user choice before editing records",
+        "Do not rewrite graph.jsonl wholesale",
+        "OMP compatibility work is intentionally after this guided migration skill exists",
+    ]
+    missing = [phrase for phrase in required if phrase not in source]
+    if missing:
+        fail("jcode wiring missing lazy-impl-map-migrate wrapper contract: " + json.dumps(missing, ensure_ascii=False))
+    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
+    if '<skill id="lazy-impl-map-migrate" status="beta"' not in manifest or ".jcode/skills/lazy-impl-map-migrate/" not in manifest or "packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md" not in manifest:
+        fail("skills manifest must declare lazy-impl-map-migrate beta framework-owned wrapper")
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-impl-map-skill-"))
+    try:
+        install_check = subprocess.run(
+            [
+                "bun",
+                "-e",
+                "import('./.lazy-harness/scripts/jcode-wiring.ts').then(m => m.installJcodeWiring({ targetRoot: " + json.dumps(str(temp)) + ", quiet: true }))",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if install_check.returncode != 0:
+            fail("jcode wiring must generate lazy-impl-map-migrate skill wrapper in temp target:\n" + install_check.stdout + install_check.stderr)
+        paths = [
+            temp / ".jcode" / "skills" / "lazy-impl-map-migrate" / "SKILL.md",
+            ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-impl-map-migrate" / "SKILL.md",
+        ]
+        for path in paths:
+            if not path.exists():
+                label = str(path) if temp in path.parents else str(path.relative_to(ROOT))
+                fail(f"lazy-impl-map-migrate skill wrapper missing: {label}")
+            content = path.read_text(encoding="utf-8")
+            for phrase in required:
+                if phrase not in content and phrase not in {"3-5 option gate"}:
+                    label = str(path) if temp in path.parents else str(path.relative_to(ROOT))
+                    fail(f"lazy-impl-map-migrate skill wrapper {label} missing phrase: {phrase}")
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ jcode implementation-map migration skill wrapper ok")
 
 
 def check_pre_commit_runs_lazy_test() -> None:
@@ -10070,6 +10138,7 @@ def main() -> None:
         (check_guidance_ladder_hard_stop_promotion, "BOTH"),
         (check_jcode_project_profile_skill_wrapper, "BOTH"),
         (check_jcode_doc_ingest_skill_wrapper, "BOTH"),
+        (check_jcode_impl_map_migrate_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),

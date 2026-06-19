@@ -39,6 +39,35 @@ const SKILLS = [
     usage: '.lazy-harness/bin/lazy skill create <name> [--description <text>] [--script <file>]'
   },
   {
+    name: 'lazy-impl-map-migrate',
+    description: 'Guided LLM-assisted implementation-map migration using read-only CLI audit evidence; never bulk rewrites records automatically.',
+    usage: '.lazy-harness/bin/lazy impl-map --format=json && .lazy-harness/bin/lazy graph-hygiene --format=json',
+    details: `## When to use
+
+Use this skill when records need \`## Implementation map\` sections and verified \`knowledge/graph.jsonl\` facts. This skill is not a fully automatic migration command. It wraps read-only CLI audit evidence and makes the LLM perform reviewed, batch-scoped edits only after user confirmation.
+
+## Required record sources
+
+- .lazy-harness/spec/platform/implementation-map-migration.md
+- .lazy-harness/spec/platform/implementation-map-standard.md
+- .lazy-harness/ssot/implementation-map-storage.md
+- .lazy-harness/decisions/0030-implementation-map-three-layer-storage.md
+- .lazy-harness/spec/platform/graph-hygiene.md
+
+## Flow
+
+1. Run read-only audit: .lazy-harness/bin/lazy impl-map --format=json and .lazy-harness/bin/lazy graph-hygiene --format=json
+2. Summarize candidates by layer/feature and present a 3-5 option gate.
+3. Stop for user choice before editing records.
+4. For the selected batch only, read record bodies, inspect source/tests, update concise Implementation map sections, and append graph facts only for verified relationships.
+5. Use Status: needs-review when symbols or ownership cannot be verified quickly.
+6. Do not rewrite graph.jsonl wholesale. Do not rewrite \`knowledge/graph.jsonl\` wholesale; append or supersede confirmed facts. Do not edit generated implementation-index as source of truth.
+7. Run validation: lazy impl-map, lazy graph-hygiene, and lazy test --scope framework.
+8. Record validation evidence and commit only the reviewed batch.
+
+OMP compatibility work is intentionally after this guided migration skill exists.`
+  },
+  {
     name: 'lazy-project-profile',
     description: 'Create or update the host Project Profile through an interview-first architecture flow.',
     usage: 'bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md',

@@ -97,6 +97,20 @@
     <ownsArtifacts>.lazy-harness/knowledge/skills.jsonl</ownsArtifacts>
   </skill>
 
+  <skill id="lazy-impl-map-migrate" status="beta" phase="implementation-map">
+    <location>.jcode/skills/lazy-impl-map-migrate/</location>
+    <description>Guided LLM-assisted implementation-map migration. Uses read-only lazy impl-map and graph-hygiene audit evidence, then migrates only reviewed batches after user option-gate confirmation.</description>
+    <command>Use /lazy-impl-map-migrate in Jcode or Pi.</command>
+    <command>.lazy-harness/bin/lazy impl-map --format=json</command>
+    <command>.lazy-harness/bin/lazy graph-hygiene --format=json</command>
+    <command>.lazy-harness/bin/lazy impl-map --format=jcode-prompt</command>
+    <emitsLogs>true</emitsLogs>
+    <dependsOn>lazy-skill-create</dependsOn>
+    <ownsArtifacts>.jcode/skills/lazy-impl-map-migrate/SKILL.md</ownsArtifacts>
+    <ownsArtifacts>packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/spec/platform/implementation-map-migration.md</ownsArtifacts>
+  </skill>
+
   <!-- DDD/SDD/BDD/TDD/ADR are core record layers, not automatically separate skills.
        Promote a layer-specific skill only when repeated real host-project use proves
        a concrete workflow, command, and artifact contract. -->

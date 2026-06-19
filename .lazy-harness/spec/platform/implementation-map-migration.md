@@ -140,6 +140,7 @@ Automation is allowed, but it must be staged by risk.
 | Audit | `lazy impl-map --format=markdown` | No | Yes |
 | Machine report | `lazy impl-map --format=json` | No | Yes |
 | Jcode prompt | `lazy impl-map --format=jcode-prompt` | No | Yes |
+| Guided skill | `/lazy-impl-map-migrate` | Only after option-gate confirmation | Yes, when batch-scoped |
 | Jcode-assisted migration | Start Jcode with the generated prompt and let it inspect source + edit records | Yes | Requires user/session intent |
 | Fully automatic apply | Script edits records and graph without review | Yes | No |
 
@@ -158,6 +159,25 @@ Then run Jcode with that prompt in the host root. The agent must still follow AD
 - preserve existing host records,
 - ask if the layer/meaning is ambiguous.
 
+Preferred interactive workflow:
+
+```text
+/lazy-impl-map-migrate
+```
+
+The skill is a wrapper around the read-only audit CLIs, not an automatic migration tool. It must:
+
+1. run `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`,
+2. summarize candidate batches,
+3. present a 3-5 option gate,
+4. stop until the user chooses a batch,
+5. inspect source/tests before naming symbols,
+6. update only the selected batch,
+7. append/supersede graph facts only when verified,
+8. run validation before claiming completion.
+
+OMP compatibility work is intentionally sequenced after this guided migration skill exists, so future OMP adapter work can use the same safe record/graph migration workflow.
+
 ## 7. Migration done criteria
 
 A migrated area is done when:
@@ -167,3 +187,12 @@ A migrated area is done when:
 - graph facts exist for verified implementation relationships or are explicitly marked pending,
 - stale/generated index status is clear,
 - tests/protection are linked where they exist.
+
+## Rule placement
+
+- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/implementation-map-migration.md`
+- Why not AGENTS.md: this is the migration workflow contract, not general prompt grammar.
+- Why not `.jcode`: skill files may live in `.jcode`, but canonical migration policy belongs in `.lazy-harness`.
+- Confirmation: user-confirmed
