@@ -57,21 +57,19 @@ Use this skill when records need \`## Implementation map\` sections and verified
 ## Flow
 
 1. Run read-only audit: .lazy-harness/bin/lazy impl-map --format=json and .lazy-harness/bin/lazy graph-hygiene --format=json
-2. Summarize candidates by layer/feature and present a 3-5 option gate.
-3. Stop for user choice before editing records.
-4. For the selected batch only, read record bodies, inspect source/tests, update concise Implementation map sections, and append graph facts only for verified relationships.
-5. Use Status: needs-review when symbols or ownership cannot be verified quickly.
-6. Do not rewrite graph.jsonl wholesale. Do not rewrite \`knowledge/graph.jsonl\` wholesale; append or supersede confirmed facts. Do not edit generated implementation-index as source of truth.
-7. Run validation: lazy impl-map, lazy graph-hygiene, and lazy test --scope framework.
-8. Record validation evidence and commit only the reviewed batch.
-9. After each selected batch is completed and validated, rerun lazy impl-map and lazy graph-hygiene, then present the next 3-5 option gate automatically.
-10. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
-11. Default remains manual option-gate mode.
-12. Bounded autopilot mode is allowed only when the user explicitly opts in.
-13. In bounded autopilot mode, automatically select the next Recommended batch only after successful validation and only until the max batch limit.
-14. If no limit is specified, use a default max batch limit of 3 batches for the current run.
-15. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or max batch limit reached.
-16. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
+2. Summarize candidates by layer/feature.
+3. Default mode is bounded autopilot mode: choose the next clear Recommended batch automatically.
+4. Manual option-gate mode remains available when the user explicitly requests manual, prompt-only, or custom batching; present a 3-5 option gate and stop in that mode.
+5. For the current batch only, read record bodies, inspect source/tests, update concise Implementation map sections, and append graph facts only for verified relationships.
+6. Use Status: needs-review when symbols or ownership cannot be verified quickly.
+7. Do not rewrite graph.jsonl wholesale. Do not rewrite \`knowledge/graph.jsonl\` wholesale; append or supersede confirmed facts. Do not edit generated implementation-index as source of truth.
+8. Run validation: lazy impl-map, lazy graph-hygiene, and lazy test --scope framework.
+9. Record validation evidence and commit only the reviewed batch.
+10. After each selected batch is completed and validated, rerun lazy impl-map and lazy graph-hygiene, then automatically continue with the next clear Recommended batch.
+11. Bounded autopilot has no default numeric batch limit; continue until needs-map is complete, no clear Recommended batch remains, or a stop-risk signal appears.
+12. If the user specifies a max batch limit, stop before exceeding that user-specified limit and ask before continuing.
+13. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or user-specified max batch limit reached.
+14. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
 
 OMP compatibility work is intentionally after this guided migration skill exists.`
   },

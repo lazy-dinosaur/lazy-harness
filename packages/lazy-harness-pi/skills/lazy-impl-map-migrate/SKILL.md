@@ -30,7 +30,11 @@ Read these before planning or editing:
    .lazy-harness/bin/lazy graph-hygiene --format=json
    ```
 
-2. Summarize candidates by layer/feature and propose a 3-5 option gate:
+2. Summarize candidates by layer/feature.
+
+3. Default mode is bounded autopilot mode: choose the next clear Recommended batch automatically.
+
+4. Manual option-gate mode remains available when the user explicitly requests manual, prompt-only, or custom batching. In manual mode, present a 3-5 option gate and stop:
 
    - A. migrate one focused feature/domain batch
    - B. migrate one layer batch
@@ -38,9 +42,7 @@ Read these before planning or editing:
    - D. defer migration and continue touch-on-change
    - E. custom batch
 
-3. Stop for user choice before editing records.
-
-4. For the selected batch only:
+5. For the current batch only:
 
    - read each target record body
    - inspect referenced source/tests with direct file reads, LSP/outline/AST, or equivalent verified evidence
@@ -50,7 +52,7 @@ Read these before planning or editing:
    - append graph facts only for confirmed implementation/test relationships
    - never hand-author generated index cache as canonical truth
 
-5. Run validation:
+6. Run validation:
 
    ```bash
    .lazy-harness/bin/lazy impl-map --format=json
@@ -58,15 +60,12 @@ Read these before planning or editing:
    .lazy-harness/bin/lazy test --scope framework
    ```
 
-6. Record validation evidence and commit only the reviewed batch.
-7. After each selected batch is completed and validated, rerun `lazy impl-map` and `lazy graph-hygiene`, then present the next 3-5 option gate automatically.
-8. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
-9. Default remains manual option-gate mode.
-10. Bounded autopilot mode is allowed only when the user explicitly opts in.
-11. In bounded autopilot mode, automatically select the next Recommended batch only after successful validation and only until the max batch limit.
-12. If no limit is specified, use a default max batch limit of 3 batches for the current run.
-13. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or max batch limit reached.
-14. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
+7. Record validation evidence and commit only the reviewed batch.
+8. After each selected batch is completed and validated, rerun `lazy impl-map` and `lazy graph-hygiene`, then automatically continue with the next clear Recommended batch.
+9. Bounded autopilot has no default numeric batch limit; continue until needs-map is complete, no clear Recommended batch remains, or a stop-risk signal appears.
+10. If the user specifies a max batch limit, stop before exceeding that user-specified limit and ask before continuing.
+11. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or user-specified max batch limit reached.
+12. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
 
 ## Safety rules
 

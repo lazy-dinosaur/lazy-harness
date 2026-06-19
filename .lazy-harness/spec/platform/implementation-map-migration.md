@@ -165,19 +165,19 @@ Preferred interactive workflow:
 /lazy-impl-map-migrate
 ```
 
-The skill is a wrapper around the read-only audit CLIs, not an automatic migration tool by default. It must:
+The skill is a wrapper around the read-only audit CLIs and defaults to bounded autopilot. It is not a bulk rewrite tool. It must:
 
 1. run `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`,
 2. summarize candidate batches,
-3. present a 3-5 option gate,
-4. stop until the user chooses a batch,
+3. choose the next clear `Recommended` batch automatically,
+4. present a 3-5 option gate and stop only when manual mode is requested, no clear `Recommended` batch exists, or any stop-risk signal appears,
 5. inspect source/tests before naming symbols,
-6. update only the selected batch,
+6. update only the current batch,
 7. append/supersede graph facts only when verified,
 8. run validation before claiming completion,
-9. after each selected batch is completed and validated, rerun `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`, then present the next 3-5 option gate automatically.
+9. after each selected batch is completed and validated, rerun `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`, then continue with the next clear `Recommended` batch until done or stopped.
 
-The post-batch loop is a navigation loop, not an edit loop. It must stop before editing the next batch. Do not edit the next batch until the user chooses it.
+The post-batch loop is bounded by clear recommendations and stop-risk signals. It must not edit custom, ambiguous, all-layer, or graph-hygiene cleanup batches automatically.
 
 OMP compatibility work is intentionally sequenced after this guided migration skill exists, so future OMP adapter work can use the same safe record/graph migration workflow.
 
@@ -188,18 +188,18 @@ When a selected batch reaches validation, the skill should not require the user 
 1. rerun `lazy impl-map --format=json`,
 2. rerun `lazy graph-hygiene --format=json`,
 3. summarize remaining `needs-map` and graph hygiene status,
-4. present a fresh 3-5 option gate for the next batch,
-5. stop before editing anything else.
+4. either continue with the next clear `Recommended` batch in default bounded autopilot mode, or present a fresh 3-5 option gate in manual mode,
+5. stop before editing anything else when no clear `Recommended` batch exists or any stop-risk signal appears.
 
-The agent may continue only after the user chooses the next batch. This keeps migration momentum while preserving the no-automatic-bulk-rewrite safety rule.
+Manual mode may continue only after the user chooses the next batch. Default bounded autopilot mode may continue automatically with the next clear `Recommended` batch. Both modes preserve the no-automatic-bulk-rewrite safety rule.
 
 ### Bounded autopilot mode
 
-Default mode remains manual option-gate mode. The skill may enter bounded autopilot mode only when the user explicitly opts in, for example by choosing `bounded autopilot`, `auto mode`, or an equivalent explicit instruction.
+Default mode is bounded autopilot mode. `/lazy-impl-map-migrate` should run read-only audits, select the next clear `Recommended` batch automatically, migrate only that batch, validate it, rerun audits, and repeat until migration is complete or a stop-risk signal appears. The user may explicitly request manual option-gate mode, prompt-only mode, or a custom max-batch limit.
 
-In bounded autopilot mode, after each successful selected batch validation, the agent may automatically select the next `Recommended` batch from the refreshed option gate and continue. It must not select a custom batch, ambiguous batch, all-layer batch, or graph-hygiene cleanup batch automatically.
+In bounded autopilot mode, after each successful selected batch validation, the agent may automatically select the next `Recommended` batch from the refreshed audit and continue. It must not select a custom batch, ambiguous batch, all-layer batch, or graph-hygiene cleanup batch automatically.
 
-Bounded autopilot must use a max batch limit. If the user does not specify one, use a default max batch limit of 3 batches for the current run and stop before exceeding it. The agent may ask for renewed confirmation to continue past the limit.
+Bounded autopilot has no default numeric batch limit. It should continue until `needs-map` is complete, no clear `Recommended` batch remains, or a stop-risk signal appears. If the user specifies a max batch limit, stop before exceeding that user-specified limit and ask for renewed confirmation to continue.
 
 Bounded autopilot must stop and report before any further edits when any risk signal appears:
 
@@ -211,7 +211,7 @@ Bounded autopilot must stop and report before any further edits when any risk si
 - dirty unrelated worktree changes,
 - graph wholesale cleanup pressure or graph issue that cannot be isolated to verified appended/superseded facts,
 - no clear `Recommended` next batch,
-- max batch limit reached.
+- user-specified max batch limit reached.
 
 When bounded autopilot stops, it must summarize completed batches, remaining `needs-map`, graph hygiene status, validation commands, and the exact reason for stopping. It must then present a fresh option gate rather than silently continuing.
 
@@ -227,7 +227,7 @@ A migrated area is done when:
 
 ## Rule placement
 
-- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed. After a selected batch is completed and validated, the skill should rerun audits and present the next option gate automatically, but it must not edit the next batch until the user chooses it. If the user explicitly opts into bounded autopilot mode, the skill may automatically select the next `Recommended` batch until the max batch limit or a stop-risk signal is reached.
+- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed. Default mode is bounded autopilot: the skill may automatically select each clear `Recommended` batch after successful validation and continue until `needs-map` is complete, no clear `Recommended` batch remains, or a stop-risk signal is reached. Manual option-gate mode remains available by explicit request.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/implementation-map-migration.md`
 - Why not AGENTS.md: this is the migration workflow contract, not general prompt grammar.
