@@ -338,3 +338,43 @@ Discovery capture:
 - Why not AGENTS.md: this is OMP adapter implementation planning, not general prompt grammar.
 - Why not `.jcode`: this is shared Pi/OMP package behavior, not local/private Jcode wiring.
 - Confirmation: user-confirmed goal, implementation pending
+
+## OMP official source-of-truth reset (2026-06-19)
+
+Status: user-confirmed direction
+
+User correction:
+
+- OMP is a fork of Pi, but OMP must not be treated as a transparent Pi package/runtime clone.
+- Pi already worked with the earlier package behavior; the later `0e78c0c` same-experience/context-visible-message change was not required for Pi and caused visible-message side effects.
+- OMP compatibility must be re-derived from OMP official docs and OMP official repository/source, with official Pi used only as a comparison baseline.
+
+Current repository state after correction:
+
+- Reset to `origin/feature/map-first-record-navigation` / `b7b0f3b`.
+- Removed unpushed `0e78c0c Inject OMP read-debt context in Pi adapter` and dirty OMP manifest/doc/test changes.
+- Kept prior validated commits up to `b7b0f3b`, including OMP hook-surface investigation and OMP string-array systemPrompt compatibility.
+
+Next investigation contract:
+
+1. Clone or inspect official OMP repo/docs from package metadata (`https://github.com/can1357/oh-my-pi`, package directory `packages/coding-agent`) before changing the lazy-harness adapter.
+2. Clone or inspect official Pi repo/docs from package metadata (`https://github.com/earendil-works/pi`, package directory `packages/coding-agent`) only as a comparison baseline.
+3. Identify OMP package loading, extension discovery, hook/event payloads, and install semantics from official OMP evidence rather than from Pi assumptions.
+4. Only after that evidence exists, make the minimum OMP-specific adapter/setup change.
+5. Preserve Pi's current working behavior unless a Pi-specific regression is proven.
+
+Discovery capture:
+
+- SDD: candidate, Pi/OMP adapter contract needs an OMP official-source-first source-of-truth clause.
+- TDD: candidate, add regression that Pi does not receive visible OMP-only read-debt custom messages unless a Pi runtime explicitly supports/needs them.
+- Planning: this section.
+- DDD/BDD/ADR/SSOT: none yet.
+
+## Rule placement
+
+- Rule: OMP compatibility work must be based on OMP official docs/repository/source first, with official Pi used only as a comparison baseline; do not infer OMP package loading or hook behavior from Pi fallback behavior.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is adapter investigation workflow, not global prompt grammar.
+- Why not `.jcode`: this is shared Pi/OMP package behavior, not local/private Jcode wiring.
+- Confirmation: user-confirmed
