@@ -66,6 +66,12 @@ Use this skill when records need \`## Implementation map\` sections and verified
 8. Record validation evidence and commit only the reviewed batch.
 9. After each selected batch is completed and validated, rerun lazy impl-map and lazy graph-hygiene, then present the next 3-5 option gate automatically.
 10. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
+11. Default remains manual option-gate mode.
+12. Bounded autopilot mode is allowed only when the user explicitly opts in.
+13. In bounded autopilot mode, automatically select the next Recommended batch only after successful validation and only until the max batch limit.
+14. If no limit is specified, use a default max batch limit of 3 batches for the current run.
+15. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or max batch limit reached.
+16. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
 
 OMP compatibility work is intentionally after this guided migration skill exists.`
   },

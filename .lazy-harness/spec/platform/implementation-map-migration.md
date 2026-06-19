@@ -165,7 +165,7 @@ Preferred interactive workflow:
 /lazy-impl-map-migrate
 ```
 
-The skill is a wrapper around the read-only audit CLIs, not an automatic migration tool. It must:
+The skill is a wrapper around the read-only audit CLIs, not an automatic migration tool by default. It must:
 
 1. run `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`,
 2. summarize candidate batches,
@@ -193,6 +193,28 @@ When a selected batch reaches validation, the skill should not require the user 
 
 The agent may continue only after the user chooses the next batch. This keeps migration momentum while preserving the no-automatic-bulk-rewrite safety rule.
 
+### Bounded autopilot mode
+
+Default mode remains manual option-gate mode. The skill may enter bounded autopilot mode only when the user explicitly opts in, for example by choosing `bounded autopilot`, `auto mode`, or an equivalent explicit instruction.
+
+In bounded autopilot mode, after each successful selected batch validation, the agent may automatically select the next `Recommended` batch from the refreshed option gate and continue. It must not select a custom batch, ambiguous batch, all-layer batch, or graph-hygiene cleanup batch automatically.
+
+Bounded autopilot must use a max batch limit. If the user does not specify one, use a default max batch limit of 3 batches for the current run and stop before exceeding it. The agent may ask for renewed confirmation to continue past the limit.
+
+Bounded autopilot must stop and report before any further edits when any risk signal appears:
+
+- validation failure,
+- `needs-review` result in the selected batch,
+- ignored/tracked file uncertainty,
+- missing source/test evidence,
+- ambiguous ownership, layer, or symbol mapping,
+- dirty unrelated worktree changes,
+- graph wholesale cleanup pressure or graph issue that cannot be isolated to verified appended/superseded facts,
+- no clear `Recommended` next batch,
+- max batch limit reached.
+
+When bounded autopilot stops, it must summarize completed batches, remaining `needs-map`, graph hygiene status, validation commands, and the exact reason for stopping. It must then present a fresh option gate rather than silently continuing.
+
 ## 7. Migration done criteria
 
 A migrated area is done when:
@@ -205,7 +227,7 @@ A migrated area is done when:
 
 ## Rule placement
 
-- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed. After a selected batch is completed and validated, the skill should rerun audits and present the next option gate automatically, but it must not edit the next batch until the user chooses it.
+- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed. After a selected batch is completed and validated, the skill should rerun audits and present the next option gate automatically, but it must not edit the next batch until the user chooses it. If the user explicitly opts into bounded autopilot mode, the skill may automatically select the next `Recommended` batch until the max batch limit or a stop-risk signal is reached.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/implementation-map-migration.md`
 - Why not AGENTS.md: this is the migration workflow contract, not general prompt grammar.

@@ -2011,6 +2011,13 @@ def check_pi_package_layout_and_contract() -> None:
                 "Stop for user choice before editing records",
                 "Do not bulk rewrite host records blindly",
                 "Do not rewrite `knowledge/graph.jsonl` wholesale",
+                "Default remains manual option-gate mode",
+                "Bounded autopilot mode is allowed only when the user explicitly opts in",
+                "automatically select the next Recommended batch",
+                "default max batch limit of 3 batches",
+                "Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence",
+                "graph wholesale cleanup pressure",
+                "exact stop reason",
                 "OMP compatibility work is intentionally after this guided migration skill exists",
             ]:
                 if phrase not in content:
@@ -2778,6 +2785,13 @@ def check_jcode_impl_map_migrate_skill_wrapper() -> None:
         "After each selected batch is completed and validated",
         "present the next 3-5 option gate automatically",
         "Do not edit the next batch until the user chooses it",
+        "Default remains manual option-gate mode",
+        "Bounded autopilot mode is allowed only when the user explicitly opts in",
+        "automatically select the next Recommended batch",
+        "default max batch limit of 3 batches",
+        "Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence",
+        "graph wholesale cleanup pressure",
+        "exact stop reason",
         "OMP compatibility work is intentionally after this guided migration skill exists",
     ]
     missing = [phrase for phrase in required if phrase not in source]

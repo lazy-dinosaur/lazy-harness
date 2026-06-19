@@ -61,6 +61,12 @@ Read these before planning or editing:
 6. Record validation evidence and commit only the reviewed batch.
 7. After each selected batch is completed and validated, rerun `lazy impl-map` and `lazy graph-hygiene`, then present the next 3-5 option gate automatically.
 8. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
+9. Default remains manual option-gate mode.
+10. Bounded autopilot mode is allowed only when the user explicitly opts in.
+11. In bounded autopilot mode, automatically select the next Recommended batch only after successful validation and only until the max batch limit.
+12. If no limit is specified, use a default max batch limit of 3 batches for the current run.
+13. Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence, ambiguous ownership/layer/symbol mapping, dirty unrelated worktree changes, graph wholesale cleanup pressure, no clear Recommended batch, or max batch limit reached.
+14. When bounded autopilot stops, summarize completed batches, remaining needs-map, graph hygiene status, validation commands, and the exact stop reason, then present a fresh option gate.
 
 ## Safety rules
 
