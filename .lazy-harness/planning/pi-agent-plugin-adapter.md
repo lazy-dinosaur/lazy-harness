@@ -167,6 +167,30 @@ Isolation hardening added after user review:
 - Local install ensures the target repo's `.git/info/exclude` includes `.pi/` before writing project-local Pi settings.
 - The Pi extension scopes recent tool evidence and active packet IDs by detected lazy root.
 
+## Official Pi Phase 1 smoke closeout (2026-06-19)
+
+Status: user-confirmed-pass
+Confirmation: user reported that the previously listed official Pi wrapper/runtime checks all succeeded.
+
+Closed Phase 1 scope:
+
+- `lazy pi` wrapper diagnostics/install surface validated for the official Pi baseline.
+- Official Pi package load/runtime path validated enough to move to Phase 2.
+- Startup reminder injection, tool-call mutation guard normalization, tool-result evidence retention, source/target repo separation, root/session-scoped state, and package command surface are treated as Phase 1 pass by user confirmation.
+
+Next active scope:
+
+- Begin **Phase 2: Oh My Pi / OMP compatibility**.
+- Verify OMP can load the existing `packages/lazy-harness-pi` package before adding OMP-specific code.
+- Add OMP-specific manifest/docs/tests only if smoke tests prove a real incompatibility.
+- Keep npm publication / standalone repo extraction deferred until OMP Phase 2 runtime smoke is stable.
+
+Discovery capture:
+
+- Planning: official Pi Phase 1 is closed by user-reported smoke success; OMP Phase 2 is the next active adapter work.
+- SDD/TDD: no new contract or regression added in this closeout; future OMP failures should create/update adapter contract and smoke regression records.
+- SSOT/ADR/DDD/BDD: no change.
+
 ## Rule placement
 
 - Rule: Pi install UX should be stabilized through `lazy pi` wrapper commands first; npm/standalone publish remains deferred until official Pi and OMP runtime smoke are stable.
