@@ -65,6 +65,26 @@ Recommended wrapper commands:
 
 The wrapper keeps the package path consistent, requires explicit `--local` or `--global` for persistent install/remove, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
 
+The wrapper separates two roots:
+
+- **source root** — the lazy-harness checkout containing `packages/lazy-harness-pi`; default is the wrapper's own source checkout.
+- **target repo** — the repository whose Pi settings are affected by `--local`; default is the original invocation cwd, even if the wrapper later changes directory internally.
+
+For another repo, call the wrapper by full path from that repo:
+
+```bash
+cd /path/to/other/repo
+/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local
+```
+
+This maps to a target-repo-local Pi install using the source package path:
+
+```bash
+pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
+```
+
+`--local` also ensures the target repo's `.git/info/exclude` contains `.pi/` before persistent install, so generated project-local Pi settings are not accidentally committed to teammate repos. `--global` writes user-global Pi settings only.
+
 Global install for all Pi projects:
 
 ```bash
@@ -111,6 +131,7 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Read-only overview batch/parallel behavior must not be blocked by this package.
 - Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must not bypass the guard.
 - Because Pi extensions run with project extension permissions, package README must document the trust boundary.
+- Global install must avoid cross-repo evidence contamination: runtime state such as `recent_tool_calls` and active packet IDs is scoped by detected lazy root.
 
 ## Implementation map
 
@@ -119,8 +140,8 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
-- `.lazy-harness/scripts/pi-package.ts` — `lazy pi` install/list/remove/smoke/doctor wrapper around official Pi commands.
-- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` to `pi-package.ts`.
+- `.lazy-harness/scripts/pi-package.ts` — `lazy pi` install/list/remove/smoke/doctor wrapper around official Pi commands; separates source package path from target repo and ensures `.pi/` local git exclude for project-local install.
+- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` to `pi-package.ts`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
 - `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
@@ -133,4 +154,13 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
 - Why not AGENTS.md: this is a Pi package installer contract, not general prompt grammar.
 - Why not `.jcode`: this is shared lazy-harness Pi adapter behavior, not private Jcode preference.
+- Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: Pi adapter must keep source package path and target repo separate, protect generated `.pi/` settings from team commits, and scope runtime evidence by lazy root before recommending global install.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Why not AGENTS.md: this is a Pi adapter install/runtime isolation contract, not general prompt grammar.
+- Why not `.jcode`: this is shared lazy-harness Pi package behavior, not private Jcode preference.
 - Confirmation: user-confirmed

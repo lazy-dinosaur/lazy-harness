@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 type Format = 'md' | 'json'
@@ -8,7 +8,8 @@ type Scope = 'local' | 'global'
 
 type Options = {
   format: Format
-  target?: string
+  sourceRoot?: string
+  targetRepo?: string
   packagePath?: string
   dryRun: boolean
   scope?: Scope
@@ -43,12 +44,18 @@ Options:
   --local       Use project-local Pi settings: pi install/remove -l ... --approve
   --global      Use user-global Pi settings: pi install/remove ... --no-approve
   --dry-run     Print the pi command without executing install/remove/smoke
-  --package P   Override package path. Default: <host>/packages/lazy-harness-pi
-  --target DIR  Host root. Default: $LAZY_HOST_ROOT or this script's host root
+  --package P   Override source package path. Default: <source-root>/packages/lazy-harness-pi
+  --source-root DIR
+                Lazy-harness source root. Default: this script's host root
+  --target-repo DIR
+                Repo/settings target for --local/list. Default: $LAZY_PI_TARGET_REPO or cwd
+  --target DIR  Deprecated alias for --source-root
   --format F    md or json. Default: md
 
 Safety:
   install/remove require explicit --local or --global.
+  --local writes target repo .pi/settings.json; --global writes user-global Pi settings.
+  The source package path and target repo are intentionally separate to avoid cross-repo contamination.
   smoke and doctor never mutate Pi settings.
   Under the hood: install maps to pi install; remove maps to pi remove; list maps to pi list; smoke maps to pi -e.
   npm/standalone publishing is intentionally out of scope until Pi/OMP smoke is stable.
@@ -75,8 +82,12 @@ function parseOptions(argv: string[]): Options {
     else if (a === '--dry-run') opts.dryRun = true
     else if (a === '--no-smoke') opts.noSmoke = true
     else if (a === '--strict') opts.strict = true
-    else if (a === '--target') opts.target = value(argv, i++, a)
-    else if (a.startsWith('--target=')) opts.target = a.slice('--target='.length)
+    else if (a === '--source-root') opts.sourceRoot = value(argv, i++, a)
+    else if (a.startsWith('--source-root=')) opts.sourceRoot = a.slice('--source-root='.length)
+    else if (a === '--target-repo') opts.targetRepo = value(argv, i++, a)
+    else if (a.startsWith('--target-repo=')) opts.targetRepo = a.slice('--target-repo='.length)
+    else if (a === '--target') opts.sourceRoot = value(argv, i++, a)
+    else if (a.startsWith('--target=')) opts.sourceRoot = a.slice('--target='.length)
     else if (a === '--package') opts.packagePath = value(argv, i++, a)
     else if (a.startsWith('--package=')) opts.packagePath = a.slice('--package='.length)
     else if (a === '--format') opts.format = parseFormat(value(argv, i++, a))
@@ -95,8 +106,8 @@ function parseFormat(raw: string): Format {
   process.exit(2)
 }
 
-function hostRoot(opts: Options): string {
-  return resolve(opts.target || process.env.LAZY_HOST_ROOT || scriptHostRoot())
+function sourceRoot(opts: Options): string {
+  return resolve(opts.sourceRoot || process.env.LAZY_PI_SOURCE_ROOT || scriptHostRoot())
 }
 
 function scriptHostRoot(): string {
@@ -105,6 +116,17 @@ function scriptHostRoot(): string {
 
 function packagePath(root: string, opts: Options): string {
   return resolve(opts.packagePath || join(root, 'packages', 'lazy-harness-pi'))
+}
+
+function targetRepo(opts: Options): string {
+  return resolveGitRoot(opts.targetRepo || process.env.LAZY_PI_TARGET_REPO || process.cwd())
+}
+
+function resolveGitRoot(dir: string): string {
+  const abs = resolve(dir)
+  const result = spawnSync('git', ['-C', abs, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' })
+  if (result.status === 0 && result.stdout.trim()) return resolve(result.stdout.trim())
+  return abs
 }
 
 function requireScope(opts: Options, command: string): Scope {
@@ -134,15 +156,34 @@ function commandForSmoke(pkg: string): string[] {
   return ['pi', '-e', pkg, '--help']
 }
 
-function run(command: string[], dryRun = false): CommandResult {
+function run(command: string[], dryRun = false, cwd?: string): CommandResult {
   if (dryRun) return { command, exitCode: 0, stdout: '', stderr: '' }
-  const result = spawnSync(command[0], command.slice(1), { encoding: 'utf8' })
+  const result = spawnSync(command[0], command.slice(1), { cwd, encoding: 'utf8' })
   return {
     command,
     exitCode: result.status,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
   }
+}
+
+function gitExcludePath(repo: string): string | undefined {
+  const result = spawnSync('git', ['-C', repo, 'rev-parse', '--git-path', 'info/exclude'], { encoding: 'utf8' })
+  if (result.status !== 0 || !result.stdout.trim()) return undefined
+  const raw = result.stdout.trim()
+  return resolve(repo, raw)
+}
+
+function ensureLocalPiIgnored(repo: string, dryRun = false): { path?: string; changed: boolean; skipped?: string } {
+  const exclude = gitExcludePath(repo)
+  if (!exclude) return { changed: false, skipped: 'target repo is not a git worktree' }
+  if (dryRun) return { path: exclude, changed: false }
+  mkdirSync(dirname(exclude), { recursive: true })
+  const current = existsSync(exclude) ? readFileSync(exclude, 'utf8') : ''
+  if (/^\.pi\/\s*$/m.test(current) || /^\.pi\s*$/m.test(current)) return { path: exclude, changed: false }
+  const prefix = current && !current.endsWith('\n') ? '\n' : ''
+  appendFileSync(exclude, `${prefix}.pi/\n`, 'utf8')
+  return { path: exclude, changed: true }
 }
 
 function printCommandResult(title: string, result: CommandResult, fmt: Format, extra: Record<string, unknown> = {}): void {
@@ -201,7 +242,8 @@ function printDryRun(title: string, command: string[], fmt: Format, extra: Recor
 }
 
 function installOrRemove(action: 'install' | 'remove', opts: Options): void {
-  const root = hostRoot(opts)
+  const root = sourceRoot(opts)
+  const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
   const scope = requireScope(opts, action)
   const layout = ensurePackageLayout(pkg)
@@ -214,24 +256,30 @@ function installOrRemove(action: 'install' | 'remove', opts: Options): void {
     process.exit(1)
   }
   const command = commandForInstallLike(action, pkg, scope)
+  const localIgnore = scope === 'local' && action === 'install'
+    ? ensureLocalPiIgnored(repo, opts.dryRun)
+    : undefined
+  const extra = { scope, sourceRoot: root, targetRepo: repo, packagePath: pkg, localPiGitExclude: localIgnore }
   if (opts.dryRun) {
-    printDryRun(`Pi ${action}`, command, opts.format, { scope, packagePath: pkg })
+    printDryRun(`Pi ${action}`, command, opts.format, extra)
     return
   }
-  const result = run(command)
-  printCommandResult(`Pi ${action}`, result, opts.format, { scope, packagePath: pkg })
+  const result = run(command, false, repo)
+  printCommandResult(`Pi ${action}`, result, opts.format, extra)
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function list(opts: Options): void {
+  const repo = targetRepo(opts)
   const command = commandForList(opts.scope)
-  const result = run(command)
-  printCommandResult('Pi package list', result, opts.format, { scope: opts.scope || 'local' })
+  const result = run(command, false, repo)
+  printCommandResult('Pi package list', result, opts.format, { scope: opts.scope || 'local', targetRepo: repo })
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function smoke(opts: Options): void {
-  const root = hostRoot(opts)
+  const root = sourceRoot(opts)
+  const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
   const layout = ensurePackageLayout(pkg)
   const command = commandForSmoke(pkg)
@@ -244,28 +292,32 @@ function smoke(opts: Options): void {
     process.exit(1)
   }
   if (opts.dryRun) {
-    printDryRun('Pi one-run smoke', command, opts.format, { packagePath: pkg })
+    printDryRun('Pi one-run smoke', command, opts.format, { sourceRoot: root, targetRepo: repo, packagePath: pkg })
     return
   }
-  const result = run(command)
-  printCommandResult('Pi one-run smoke', result, opts.format, { packagePath: pkg })
+  const result = run(command, false, repo)
+  printCommandResult('Pi one-run smoke', result, opts.format, { sourceRoot: root, targetRepo: repo, packagePath: pkg })
   process.exit(result.exitCode === 0 ? 0 : 1)
 }
 
 function doctor(opts: Options): void {
-  const root = hostRoot(opts)
+  const root = sourceRoot(opts)
+  const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
   const layout = ensurePackageLayout(pkg)
   const piVersion = run(['pi', '--version'])
-  const listResult = run(commandForList(opts.scope))
-  const smokeResult = opts.noSmoke ? null : run(commandForSmoke(pkg))
+  const listResult = run(commandForList(opts.scope), false, repo)
+  const smokeResult = opts.noSmoke ? null : run(commandForSmoke(pkg), false, repo)
+  const localPiGitExclude = ensureLocalPiIgnored(repo, true)
   const ok = layout.ok && piVersion.exitCode === 0 && listResult.exitCode === 0 && (!smokeResult || smokeResult.exitCode === 0)
   const payload = {
     ok,
     strict: opts.strict,
-    hostRoot: root,
+    sourceRoot: root,
+    targetRepo: repo,
     packagePath: pkg,
     packageLayout: layout,
+    localPiGitExclude,
     piVersion,
     list: listResult,
     smoke: smokeResult,
@@ -275,8 +327,10 @@ function doctor(opts: Options): void {
   else {
     console.log('# Lazy Pi doctor')
     console.log(`- ok: ${ok}`)
-    console.log(`- host_root: ${root}`)
+    console.log(`- source_root: ${root}`)
+    console.log(`- target_repo: ${repo}`)
     console.log(`- package_path: ${pkg}`)
+    console.log(`- local_pi_git_exclude: ${localPiGitExclude.path || localPiGitExclude.skipped || 'unknown'}`)
     console.log(`- package_layout: ${layout.ok ? 'ok' : 'failed'}`)
     if (layout.manifestName) console.log(`- package_name: ${layout.manifestName}`)
     for (const err of layout.errors) console.log(`  - layout_error: ${err}`)

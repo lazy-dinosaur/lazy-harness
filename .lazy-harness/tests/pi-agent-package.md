@@ -17,10 +17,13 @@ The in-repo Pi package must remain installable and must bridge Pi extension even
 | `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install/remove require explicit scope and support dry-run |
 | `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Local/global install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
+| `lazy_pi_source_target_isolation` | Run `lazy pi install --local --dry-run` and direct `pi-package.ts` from another cwd with stale parent `LAZY_INVOCATION_CWD`, plus explicit `--target-repo` | Source package path stays in the lazy-harness source checkout while target repo resolves to caller/explicit repo; direct wrapper ignores stale parent invocation cwd unless `LAZY_PI_TARGET_REPO` or `--target-repo` is set |
+| `lazy_pi_local_settings_git_exclude` | Inspect `.pi/settings.json` and target repo exclude behavior | Generated `.pi/settings.json` is allowed only when untracked and `.pi/` is present in `.git/info/exclude`; local install dry-run reports the exclude path |
 | `pi_extension_before_agent_start_bridge` | Inspect extension source | Source contains `before_agent_start`, calls `on-message-received.sh`, and injects `REMINDER. Harness-first search/read debt before response.` fallback |
 | `pi_extension_tool_call_bridge` | Inspect extension source | Source contains `tool_call`, calls `on-tool-execute-before.sh`, and returns `{ block: true, reason }` only when hook output supplies a reason |
 | `pi_extension_shell_alias_guard` | Fake Pi runtime calls `tool_call` with `cmd`, `terminal`, `bash`, and `batch` shell actions after `before_agent_start` | All action shell variants block until root-bound read/search evidence exists |
 | `pi_extension_tool_result_evidence` | Inspect extension source | Source contains `tool_result` and records recent tool calls for evidence guard payloads |
+| `pi_extension_root_scoped_recent_tools` | Fake Pi runtime touches repo A and repo B in one process | Repo B does not see repo A's `recent_tool_calls`; repo A retains its own recent tool evidence |
 | `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
 
 ## Automated coverage
@@ -45,6 +48,8 @@ bun packages/lazy-harness-pi/extensions/lazy-harness/index.ts
 .lazy-harness/bin/lazy pi smoke --dry-run
 .lazy-harness/bin/lazy pi doctor --no-smoke
 .lazy-harness/bin/lazy pi smoke
+/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local --dry-run
+.lazy-harness/bin/lazy pi install --local --dry-run --target-repo /path/to/other/repo
 pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
 pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
@@ -63,7 +68,8 @@ pi list --approve
 
 - `packages/lazy-harness-pi/package.json` — fixture for package manifest resource paths.
 - `.lazy-harness/scripts/pi-package.ts` — fixture for `lazy pi` wrapper command construction and safe dry-run behavior.
-- `.lazy-harness/bin/lazy` — fixture for wrapper dispatch.
+- `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` handoff.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state.
 - `.pi/settings.json` — optional generated project-local package install path; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.

@@ -20,6 +20,8 @@ set -euo pipefail
 # Resolve the .lazy-harness/ root from this script's location.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAZY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+LAZY_INVOCATION_CWD="$(pwd)"
+export LAZY_INVOCATION_CWD
 
 # Resolve the host root from an explicit harness boundary first. Hooks set
 # LAZY_HOST_ROOT before clearing Git's hook environment so downstream validators
@@ -174,7 +176,7 @@ case "$cmd" in
       echo "lazy pi: bun not found on PATH. Install bun first: https://bun.sh" >&2
       exit 127
     fi
-    exec bun "$SCRIPTS/pi-package.ts" "$@"
+    LAZY_PI_TARGET_REPO="$LAZY_INVOCATION_CWD" exec bun "$SCRIPTS/pi-package.ts" "$@"
     ;;
   capability)
     if ! command -v bun >/dev/null 2>&1; then

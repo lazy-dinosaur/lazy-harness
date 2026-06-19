@@ -1822,8 +1822,17 @@ def check_pi_package_layout_and_contract() -> None:
         if not isinstance(values, list) or expected not in values:
             fail(f"Pi package manifest missing pi.{key} entry {expected!r}")
 
-    if (ROOT / ".pi" / "settings.json").exists():
-        fail("Pi project-local settings should not be committed by default; run `pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve` only when intentionally attaching this checkout")
+    pi_settings = ROOT / ".pi" / "settings.json"
+    if pi_settings.exists():
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", ".pi/settings.json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if tracked.returncode == 0:
+            fail("Pi project-local settings must never be committed; .pi/settings.json is tracked")
+        settings_text = pi_settings.read_text(encoding="utf-8")
+        if "../packages/lazy-harness-pi" not in settings_text:
+            fail("Existing untracked .pi/settings.json must only attach the source-local lazy-harness-pi package")
+        exclude = ROOT / ".git" / "info" / "exclude"
+        if exclude.exists() and ".pi/" not in exclude.read_text(encoding="utf-8"):
+            fail("Existing untracked .pi/settings.json requires .pi/ in .git/info/exclude to avoid teammate contamination")
 
     extension_text = extension.read_text(encoding="utf-8")
     required_phrases = [
@@ -1880,6 +1889,14 @@ def check_pi_package_layout_and_contract() -> None:
         "smoke [--dry-run]",
         "doctor [--no-smoke]",
         "npm/standalone publishing is intentionally out of scope",
+        "The source package path and target repo are intentionally separate",
+        "LAZY_PI_TARGET_REPO",
+        "LAZY_PI_SOURCE_ROOT",
+        "--target-repo",
+        "sourceRoot",
+        "targetRepo",
+        "ensureLocalPiIgnored",
+        "localPiGitExclude",
         "pi install",
         "pi remove",
         "pi list",
@@ -1910,6 +1927,10 @@ def check_pi_package_layout_and_contract() -> None:
         payload = json.loads(completed.stdout)
         if payload.get("result", {}).get("command") != expected_command:
             fail("Pi wrapper dry-run command mismatch: " + completed.stdout)
+        if payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root):
+            fail("Pi wrapper source/package path mismatch: " + completed.stdout)
+        if args[0] == "install" and "targetRepo" not in payload:
+            fail("Pi wrapper install dry-run must report targetRepo: " + completed.stdout)
 
     doctor_completed = subprocess.run(
         ["bun", ".lazy-harness/scripts/pi-package.ts", "doctor", "--no-smoke", "--format=json"],
@@ -1931,21 +1952,48 @@ def check_pi_package_layout_and_contract() -> None:
             [str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--format=json"],
             ["bun", str(wrapper), "install", "--local", "--dry-run", "--format=json"],
         ]:
+            env = env_without_lazy_runtime()
+            # Pre-commit runs lazy test from an already-lazy environment. A
+            # nested absolute lazy invocation and a direct pi-package.ts run must
+            # still target their own cwd, not a stale parent invocation cwd.
+            env["LAZY_INVOCATION_CWD"] = str(ROOT)
+            env.pop("LAZY_PI_TARGET_REPO", None)
             completed = subprocess.run(
                 command,
                 cwd=temp_cwd,
                 text=True,
                 capture_output=True,
                 check=False,
-                env=env_without_lazy_runtime(),
+                env=env,
             )
             if completed.returncode != 0:
                 fail("Pi wrapper cwd-independent dry-run failed: " + " ".join(command) + "\n" + completed.stdout + completed.stderr)
             payload = json.loads(completed.stdout)
-            if payload.get("packagePath") != str(pkg_root) or payload.get("result", {}).get("command") != ["pi", "install", str(pkg_root), "-l", "--approve"]:
+            if payload.get("sourceRoot") != str(ROOT) or payload.get("packagePath") != str(pkg_root) or payload.get("targetRepo") != str(temp_cwd) or payload.get("result", {}).get("command") != ["pi", "install", str(pkg_root), "-l", "--approve"]:
                 fail("Pi wrapper cwd-independent package path mismatch: " + completed.stdout)
     finally:
         shutil.rmtree(temp_cwd, ignore_errors=True)
+
+    target_repo = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-target-repo-"))
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=target_repo, text=True, capture_output=True, check=True)
+        completed = subprocess.run(
+            [str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--target-repo", str(target_repo), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("Pi wrapper explicit target-repo dry-run failed:\n" + completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        exclude_path = subprocess.run(["git", "-C", str(target_repo), "rev-parse", "--git-path", "info/exclude"], text=True, capture_output=True, check=True).stdout.strip()
+        expected_exclude = str((target_repo / exclude_path).resolve())
+        if payload.get("sourceRoot") != str(ROOT) or payload.get("targetRepo") != str(target_repo.resolve()) or payload.get("localPiGitExclude", {}).get("path") != expected_exclude:
+            fail("Pi wrapper explicit target-repo/source-root isolation mismatch: " + completed.stdout)
+    finally:
+        shutil.rmtree(target_repo, ignore_errors=True)
 
     expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test"]
     for skill in expected_skills:
@@ -2033,6 +2081,42 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi shell alias read-debt smoke failed:\n" + completed.stdout + completed.stderr)
     finally:
         shutil.rmtree(runtime_smoke, ignore_errors=True)
+
+    isolation_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-root-isolation-"))
+    try:
+        root_a = isolation_smoke / "repo-a"
+        root_b = isolation_smoke / "repo-b"
+        for root in [root_a, root_b]:
+            (root / ".lazy-harness" / "bin").mkdir(parents=True)
+            (root / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
+            (root / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            hook = root / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
+            hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-tool-payload.json\n", encoding="utf-8")
+            hook.chmod(0o755)
+        smoke = isolation_smoke / "root-isolation.ts"
+        smoke.write_text(
+            "import { readFileSync } from 'node:fs';\n"
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers = new Map();\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
+            "lazyHarnessPi(pi);\n"
+            "const rootA=" + json.dumps(str(root_a)) + ";\n"
+            "const rootB=" + json.dumps(str(root_b)) + ";\n"
+            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'a.txt'}, toolCallId:'a-read', content:'aaa'}, {cwd:rootA});\n"
+            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'b.txt', content:'b'}}, {cwd:rootB});\n"
+            "const b=JSON.parse(readFileSync(rootB+'/.lazy-harness/last-tool-payload.json','utf8'));\n"
+            "if (b.recent_tool_calls.length !== 0) throw new Error('repo B saw repo A tool calls');\n"
+            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'a2.txt', content:'a'}}, {cwd:rootA});\n"
+            "const a=JSON.parse(readFileSync(rootA+'/.lazy-harness/last-tool-payload.json','utf8'));\n"
+            "if (a.recent_tool_calls.length !== 1 || a.recent_tool_calls[0].toolCallId !== 'a-read') throw new Error('repo A lost own tool call evidence');\n"
+            "console.log('pi root-scoped recent tool isolation ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(["bun", str(smoke)], cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime())
+        if completed.returncode != 0:
+            fail("Pi root-scoped recent tool isolation smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(isolation_smoke, ignore_errors=True)
 
     print("✓ Pi package layout and extension contract ok")
 

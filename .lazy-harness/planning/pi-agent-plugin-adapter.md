@@ -130,6 +130,8 @@ Phase 1 implementation checklist:
 - Verify `before_agent_start` prompt/reminder injection.
 - Verify `tool_call` mutation guard normalization, including shell aliases `cmd`, `command`, `shell`, and `terminal`.
 - Verify `tool_result` evidence retention and recent-tool payload shape.
+- Verify source package path and target repo are separated for local install into other repos.
+- Verify global install runtime state is root/session scoped so evidence from repo A does not leak into repo B.
 - Verify package commands `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
 - Keep clean default behavior: no committed `.pi/settings.json`; install is explicit.
 
@@ -157,6 +159,13 @@ Wrapper contract:
 - `lazy pi smoke [--dry-run]` runs one-run load smoke via `pi -e <package> --help`; it never persists settings.
 - `lazy pi doctor [--no-smoke] [--strict]` checks package layout, `pi --version`, `pi list`, and optional one-run smoke without mutating settings.
 - Persistent install/remove require explicit `--local` or `--global`.
+
+Isolation hardening added after user review:
+
+- `lazy` captures a fresh invocation cwd and passes it as `LAZY_PI_TARGET_REPO` before changing to its own host root, so full-path wrapper calls from other repos or nested pre-commit lazy runs install into the caller repo. Direct `pi-package.ts` ignores stale parent `LAZY_INVOCATION_CWD` unless an explicit `--target-repo`/`LAZY_PI_TARGET_REPO` is supplied.
+- `pi-package.ts` separates source root (`packages/lazy-harness-pi`) from target repo (`--target-repo`, `LAZY_PI_TARGET_REPO`, `LAZY_INVOCATION_CWD`, or cwd).
+- Local install ensures the target repo's `.git/info/exclude` includes `.pi/` before writing project-local Pi settings.
+- The Pi extension scopes recent tool evidence and active packet IDs by detected lazy root.
 
 ## Rule placement
 
@@ -192,7 +201,8 @@ Wrapper contract:
 - Lazy-harness source to adapt later:
   - `.lazy-harness/scripts/jcode-wiring.ts` — current generated Jcode wiring source.
   - `.lazy-harness/scripts/pi-package.ts` — `lazy pi` wrapper implementation for official Pi install/list/remove/smoke/doctor.
-  - `.lazy-harness/bin/lazy` — dispatch surface for `lazy pi`.
+  - `.lazy-harness/bin/lazy` — dispatch surface for `lazy pi`; passes fresh `LAZY_PI_TARGET_REPO` for cross-repo and nested pre-commit local install.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — root-scoped Pi event bridge runtime state.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — current reminder hook semantics.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — mutation evidence guard to bridge from Pi `tool_call`.
   - `.jcode/skills/**/SKILL.md` — skill content to adapt to Pi package skills.
@@ -202,6 +212,7 @@ Wrapper contract:
   - local 0.74.0 extension smoke
   - lazy self-test coverage for `pi-wiring.ts`
   - lazy self-test coverage for `pi-package.ts` wrapper dry-runs and doctor no-smoke
+  - lazy self-test coverage for source/target repo separation, `.pi/` git exclude, and root-scoped recent-tool evidence isolation
   - official Pi Phase 1 runtime smoke covering startup, guard, evidence, and package commands
   - OMP Phase 2 runtime smoke covering legacy `pi.extensions`, import shim, events, commands, notify, and exec behavior
 

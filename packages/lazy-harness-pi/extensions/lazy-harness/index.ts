@@ -19,8 +19,8 @@ type RecentToolCall = {
   result_preview?: unknown;
 };
 
-const recentToolCalls: RecentToolCall[] = [];
-let activePacket: { root: string; sessionId: string; messageId: string } | undefined;
+const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
+const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
@@ -118,9 +118,23 @@ function normalizePiTool(toolName: unknown, input: unknown): { name: string; arg
   return { name: rawName, args };
 }
 
-function rememberToolCall(call: RecentToolCall): void {
-  recentToolCalls.push(call);
-  while (recentToolCalls.length > MAX_RECENT_TOOL_CALLS) recentToolCalls.shift();
+function recentToolCallsForRoot(root: string): RecentToolCall[] {
+  let calls = recentToolCallsByRoot.get(root);
+  if (!calls) {
+    calls = [];
+    recentToolCallsByRoot.set(root, calls);
+  }
+  return calls;
+}
+
+function rememberToolCall(root: string, call: RecentToolCall): void {
+  const calls = recentToolCallsForRoot(root);
+  calls.push(call);
+  while (calls.length > MAX_RECENT_TOOL_CALLS) calls.shift();
+}
+
+function findLazyRootFromEvent(event: any, ctx: any): string | undefined {
+  return findLazyRoot(String(ctx?.cwd || event?.cwd || event?.workingDirectory || process.cwd()));
 }
 
 async function runLazyCommand(pi: ExtensionAPI, ctx: any, args: string, lazyArgs: string[]): Promise<void> {
@@ -162,7 +176,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const sessionId = `pi:${stableHash(ctx.cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
-    activePacket = { root, sessionId, messageId };
+    activePacketsByRoot.set(root, { root, sessionId, messageId });
 
     const payload: JsonObject = {
       event: "message.received",
@@ -171,7 +185,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       message_id: messageId,
       working_dir: root,
       last_user_message: String(event.prompt || ""),
-      recent_tool_calls: recentToolCalls.slice(-40),
+      recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-message-received.sh");
@@ -190,8 +204,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const root = findLazyRoot(ctx.cwd);
     if (!root) return undefined;
 
-    const packet = activePacket && activePacket.root === root
-      ? activePacket
+    const packet = activePacketsByRoot.get(root)
+      ? activePacketsByRoot.get(root)!
       : { root, sessionId: `pi:${stableHash(ctx.cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
 
     const payload: JsonObject = {
@@ -201,7 +215,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       message_id: packet.messageId,
       working_dir: root,
       tool: normalizePiTool(event.toolName, event.input || {}),
-      recent_tool_calls: recentToolCalls.slice(-40),
+      recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-tool-execute-before.sh");
@@ -212,8 +226,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     return undefined;
   });
 
-  pi.on("tool_result", async (event: any) => {
-    rememberToolCall({
+  pi.on("tool_result", async (event: any, ctx: any) => {
+    const root = findLazyRootFromEvent(event, ctx);
+    if (!root) return undefined;
+    rememberToolCall(root, {
       ...normalizePiTool(event.toolName, event.input || {}),
       toolCallId: String(event.toolCallId || ""),
       is_error: Boolean(event.isError),

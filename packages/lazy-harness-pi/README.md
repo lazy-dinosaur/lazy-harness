@@ -14,6 +14,15 @@ Project-local install for the current host:
 .lazy-harness/bin/lazy pi install --local
 ```
 
+Project-local install into another repo from that repo:
+
+```bash
+cd /path/to/other/repo
+/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local
+```
+
+The install target is the current repo, but the source package path remains `/home/lazydino/dev/lazy-harness/packages/lazy-harness-pi`.
+
 Global install for all Pi projects:
 
 ```bash
@@ -47,6 +56,13 @@ Remove the package:
 ```
 
 For preview-only safety, add `--dry-run` to `install`, `remove`, or `smoke`.
+
+Isolation behavior:
+
+- `--local` writes the target repo's `.pi/settings.json`; the wrapper also ensures `.pi/` is listed in that repo's `.git/info/exclude` to avoid teammate contamination.
+- `--global` writes user-global Pi settings so every Pi project can load the package. Runtime hooks still resolve the active repo via Pi `ctx.cwd` and run that repo's `.lazy-harness` hooks only.
+- Recent tool-call evidence is scoped by lazy root, so a Pi process that touches multiple repos does not mix `recent_tool_calls` between roots.
+- Use `--target-repo /path/to/repo` for explicit install/list/smoke diagnostics without relying on the caller cwd.
 
 Publishing this package to npm or moving it to a standalone repo is intentionally deferred until official Pi and OMP runtime smoke are stable.
 
