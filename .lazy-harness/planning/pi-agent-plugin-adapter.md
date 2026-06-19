@@ -110,6 +110,45 @@ Validated/covered surfaces:
 - Extensions run with full system permission. Package README must make trust boundary explicit.
 - Native TypeScript extension is preferred. `Pi-YAML-Hooks` can be considered later as optional compatibility layer, not the primary implementation.
 
+## Confirmed dual-support rollout (2026-06-19)
+
+The user confirmed a dual-support rollout order:
+
+1. **Phase 1: official Pi compatibility first.** Make `packages/lazy-harness-pi` accurately compatible with official Pi and validate the canonical Pi install/runtime path before relying on other forks.
+2. **Phase 2: Oh My Pi / OMP compatibility second.** After Pi baseline is correct, verify the same lazy-harness package under OMP and add OMP-specific adapter fixes only if smoke tests prove they are needed.
+
+Rationale:
+
+- Official Pi remains the canonical baseline/fallback because ADR 0043, SDD, TDD, and current static self-test coverage are Pi-native.
+- OMP is still a preferred daily-driver candidate because it has stronger built-in coding features, but it must not replace the Pi baseline until compatibility smoke passes.
+- Dual support reduces risk: Pi proves core adapter correctness; OMP proves richer workflow compatibility.
+
+Phase 1 implementation checklist:
+
+- Confirm package manifest and resource loading under official Pi.
+- Verify `before_agent_start` prompt/reminder injection.
+- Verify `tool_call` mutation guard normalization, including shell aliases `cmd`, `command`, `shell`, and `terminal`.
+- Verify `tool_result` evidence retention and recent-tool payload shape.
+- Verify package commands `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
+- Keep clean default behavior: no committed `.pi/settings.json`; install is explicit.
+
+Phase 2 implementation checklist:
+
+- Verify OMP can load legacy `pi.extensions` from `packages/lazy-harness-pi/package.json`.
+- Verify OMP's `@earendil-works/pi-coding-agent` compatibility shim is enough for the current import.
+- Verify OMP event payloads for `before_agent_start`, `tool_call`, and `tool_result` match what the bridge expects.
+- Verify OMP command registration, `ctx.ui.notify`, and `pi.exec` behavior.
+- Add OMP-specific manifest/docs/tests only after a failing smoke identifies a real incompatibility.
+
+## Rule placement
+
+- Rule: Pi/OMP support should be developed in two phases: official Pi compatibility first as canonical baseline/fallback, then OMP compatibility as daily-driver candidate.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is a tooling rollout/evaluation sequence, not general agent prompt grammar.
+- Why not `.jcode`: this is lazy-harness adapter strategy shared by hosts, not local/private Jcode preference.
+- Confirmation: user-confirmed
+
 ## Implementation map
 
 - Research bundle:
@@ -133,6 +172,8 @@ Validated/covered surfaces:
   - Pi payload normalizer unit tests
   - local 0.74.0 extension smoke
   - lazy self-test coverage for `pi-wiring.ts`
+  - official Pi Phase 1 runtime smoke covering startup, guard, evidence, and package commands
+  - OMP Phase 2 runtime smoke covering legacy `pi.extensions`, import shim, events, commands, notify, and exec behavior
 
 ## Discovery capture
 
