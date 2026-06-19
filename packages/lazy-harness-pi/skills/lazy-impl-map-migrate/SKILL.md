@@ -59,6 +59,8 @@ Read these before planning or editing:
    ```
 
 6. Record validation evidence and commit only the reviewed batch.
+7. After each selected batch is completed and validated, rerun `lazy impl-map` and `lazy graph-hygiene`, then present the next 3-5 option gate automatically.
+8. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
 
 ## Safety rules
 

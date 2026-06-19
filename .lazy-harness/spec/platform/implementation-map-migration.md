@@ -174,9 +174,24 @@ The skill is a wrapper around the read-only audit CLIs, not an automatic migrati
 5. inspect source/tests before naming symbols,
 6. update only the selected batch,
 7. append/supersede graph facts only when verified,
-8. run validation before claiming completion.
+8. run validation before claiming completion,
+9. after each selected batch is completed and validated, rerun `lazy impl-map --format=json` and `lazy graph-hygiene --format=json`, then present the next 3-5 option gate automatically.
+
+The post-batch loop is a navigation loop, not an edit loop. It must stop before editing the next batch. Do not edit the next batch until the user chooses it.
 
 OMP compatibility work is intentionally sequenced after this guided migration skill exists, so future OMP adapter work can use the same safe record/graph migration workflow.
+
+### Post-batch loop
+
+When a selected batch reaches validation, the skill should not require the user to invoke `/lazy-impl-map-migrate` again just to discover the next safe batch. Instead, after validation and either committing the reviewed batch or explicitly reporting why commit is blocked, the agent must:
+
+1. rerun `lazy impl-map --format=json`,
+2. rerun `lazy graph-hygiene --format=json`,
+3. summarize remaining `needs-map` and graph hygiene status,
+4. present a fresh 3-5 option gate for the next batch,
+5. stop before editing anything else.
+
+The agent may continue only after the user chooses the next batch. This keeps migration momentum while preserving the no-automatic-bulk-rewrite safety rule.
 
 ## 7. Migration done criteria
 
@@ -190,7 +205,7 @@ A migrated area is done when:
 
 ## Rule placement
 
-- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed.
+- Rule: Implementation-map migration should use read-only CLI audit as source evidence and `/lazy-impl-map-migrate` only as a guided LLM orchestration wrapper; fully automatic bulk rewrite remains disallowed. After a selected batch is completed and validated, the skill should rerun audits and present the next option gate automatically, but it must not edit the next batch until the user chooses it.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/implementation-map-migration.md`
 - Why not AGENTS.md: this is the migration workflow contract, not general prompt grammar.

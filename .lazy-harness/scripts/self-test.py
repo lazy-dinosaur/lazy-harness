@@ -2775,6 +2775,9 @@ def check_jcode_impl_map_migrate_skill_wrapper() -> None:
         "3-5 option gate",
         "Stop for user choice before editing records",
         "Do not rewrite graph.jsonl wholesale",
+        "After each selected batch is completed and validated",
+        "present the next 3-5 option gate automatically",
+        "Do not edit the next batch until the user chooses it",
         "OMP compatibility work is intentionally after this guided migration skill exists",
     ]
     missing = [phrase for phrase in required if phrase not in source]

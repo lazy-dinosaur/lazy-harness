@@ -64,6 +64,8 @@ Use this skill when records need \`## Implementation map\` sections and verified
 6. Do not rewrite graph.jsonl wholesale. Do not rewrite \`knowledge/graph.jsonl\` wholesale; append or supersede confirmed facts. Do not edit generated implementation-index as source of truth.
 7. Run validation: lazy impl-map, lazy graph-hygiene, and lazy test --scope framework.
 8. Record validation evidence and commit only the reviewed batch.
+9. After each selected batch is completed and validated, rerun lazy impl-map and lazy graph-hygiene, then present the next 3-5 option gate automatically.
+10. The post-batch loop is navigation only. Do not edit the next batch until the user chooses it.
 
 OMP compatibility work is intentionally after this guided migration skill exists.`
   },
