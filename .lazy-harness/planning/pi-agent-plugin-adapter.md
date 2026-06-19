@@ -249,3 +249,42 @@ Discovery capture:
 - ADR: candidate, if implementation is accepted, record a decision for native Pi package over YAML hooks.
 - SSOT: candidate, Pi package install/update locations and trust model may need an SSOT.
 - Planning: this record.
+
+## OMP Phase 2 initial compatibility smoke (2026-06-19)
+
+Status: implemented-initial
+
+Read-only/runtime evidence:
+
+- Installed official Pi binary: `pi 0.79.7` at `~/.bun/bin/pi`.
+- Installed OMP binary: `omp/16.0.11` at `~/.bun/bin/omp`.
+- `omp -e <packages/lazy-harness-pi> --help` accepts the package path without rejecting the legacy `pi.extensions` package layout.
+- `omp -e <packages/lazy-harness-pi/extensions/lazy-harness/index.ts> --help` accepts the direct extension file path.
+- OMP installed types show `before_agent_start` receives `systemPrompt: string[]` and returns `systemPrompt?: string[]`, while official Pi baseline remains compatible with string prompt handling.
+
+Compatibility fix:
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` now preserves both official Pi string `systemPrompt` values and OMP string-array prompt blocks.
+- When OMP sends `systemPrompt: string[]`, the lazy reminder is appended as a new block instead of coercing the prompt array into a comma-joined string.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` now includes a fake OMP `before_agent_start` string-array smoke in addition to the official Pi string smoke.
+
+Remaining OMP Phase 2 risk:
+
+- The current non-mutating smoke covers package/extension path acceptance and event shape compatibility through local source/type evidence plus fake runtime tests.
+- A full interactive/non-interactive OMP model run can still be performed later if needed, but should be treated as an environment/cost-bearing runtime smoke rather than a prerequisite for this code fix.
+
+Discovery capture:
+
+- SDD: `.lazy-harness/spec/platform/pi-agent-package.md` updated with OMP string-array system prompt compatibility contract.
+- TDD: `.lazy-harness/tests/pi-agent-package.md` updated with `omp_before_agent_start_system_prompt_array` regression.
+- Planning: this OMP Phase 2 initial smoke section records the runtime evidence and remaining risk.
+- DDD/BDD/ADR/SSOT: no new domain, behavior, decision, or source-of-truth change beyond the SDD/TDD contract.
+
+## Rule placement
+
+- Rule: OMP Phase 2 compatibility should add OMP-specific adapter fixes only after runtime/source evidence proves a real mismatch; the current proven mismatch is string-array `systemPrompt` preservation during `before_agent_start`.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+- Why not AGENTS.md: this is rollout and runtime-smoke planning, not prompt grammar.
+- Why not `.jcode`: this is shared Pi/OMP adapter work, not local/private Jcode preference.
+- Confirmation: inferred-from-runtime-evidence

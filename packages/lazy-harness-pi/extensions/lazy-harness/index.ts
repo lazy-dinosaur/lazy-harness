@@ -100,6 +100,22 @@ function previewContent(content: unknown): unknown {
   return content;
 }
 
+function systemPromptIncludesBody(systemPrompt: unknown, body: string): boolean {
+  if (Array.isArray(systemPrompt)) {
+    return systemPrompt.some((part) => typeof part === "string" && part.includes(body));
+  }
+  return String(systemPrompt || "").includes(body);
+}
+
+function appendSystemPromptBody(systemPrompt: unknown, body: string): string | string[] {
+  if (Array.isArray(systemPrompt)) {
+    const parts = systemPrompt.filter((part): part is string => typeof part === "string");
+    return [...parts, body];
+  }
+  const current = String(systemPrompt || "").trimEnd();
+  return current ? `${current}\n\n${body}` : body;
+}
+
 
 function normalizePiTool(toolName: unknown, input: unknown): { name: string; args: JsonObject } {
   const rawName = String(toolName || "");
@@ -196,8 +212,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       "- Mutation remains guarded by the generic search/read evidence guard.",
     ].join("\n");
 
-    if (String(event.systemPrompt || "").includes(body)) return undefined;
-    return { systemPrompt: `${event.systemPrompt || ""}\n\n${body}` };
+    if (systemPromptIncludesBody(event.systemPrompt, body)) return undefined;
+    return { systemPrompt: appendSystemPromptBody(event.systemPrompt, body) };
   });
 
   pi.on("tool_call", async (event: any, ctx: any) => {

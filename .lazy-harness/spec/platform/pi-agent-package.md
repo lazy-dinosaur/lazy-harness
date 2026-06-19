@@ -132,11 +132,13 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must not bypass the guard.
 - Because Pi extensions run with project extension permissions, package README must document the trust boundary.
 - Global install must avoid cross-repo evidence contamination: runtime state such as `recent_tool_calls` and active packet IDs is scoped by detected lazy root.
+- OMP Phase 2 compatibility: `before_agent_start` must preserve both official Pi string `systemPrompt` values and OMP string-array `systemPrompt` blocks. When OMP sends `systemPrompt: string[]`, append the lazy reminder as a new prompt block instead of coercing the array to a comma-joined string.
 
 ## Implementation map
 
 - `packages/lazy-harness-pi/package.json` — Pi package manifest.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation.
+  - `systemPromptIncludesBody` / `appendSystemPromptBody` preserve official Pi string prompts and OMP string-array prompt blocks during `before_agent_start` reminder injection.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — install/smoke/trust docs.
@@ -145,6 +147,7 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
+  - Fake runtime smoke covers official Pi string `systemPrompt` and OMP string-array `systemPrompt` before-agent-start paths.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
 
 ## Rule placement
@@ -155,6 +158,15 @@ pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 - Why not AGENTS.md: this is a Pi package installer contract, not general prompt grammar.
 - Why not `.jcode`: this is shared lazy-harness Pi adapter behavior, not private Jcode preference.
 - Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: Pi/OMP adapter reminder injection must preserve OMP string-array system prompt blocks while keeping official Pi string prompt compatibility.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Why not AGENTS.md: this is package adapter runtime compatibility, not general prompt grammar.
+- Why not `.jcode`: this is shared Pi/OMP package behavior, not private Jcode wiring.
+- Confirmation: inferred-from-runtime-evidence
 
 ## Rule placement
 
