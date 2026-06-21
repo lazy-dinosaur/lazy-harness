@@ -1817,9 +1817,11 @@ def check_pi_package_layout_and_contract() -> None:
     extension = pkg_root / "extensions" / "lazy-harness" / "index.ts"
     prompt = pkg_root / "prompts" / "lazy-harness.md"
     readme = pkg_root / "README.md"
+    root_readme = ROOT / "README.md"
+    installer = ROOT / "install.sh"
     wrapper = LAZY / "scripts" / "pi-package.ts"
     lazy_entrypoint = LAZY / "bin" / "lazy"
-    for path in [manifest, extension, prompt, readme, wrapper, lazy_entrypoint]:
+    for path in [manifest, extension, prompt, readme, root_readme, installer, wrapper, lazy_entrypoint]:
         if not path.exists():
             fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
 
@@ -1884,14 +1886,49 @@ def check_pi_package_layout_and_contract() -> None:
         ".lazy-harness/bin/lazy omp install",
         ".lazy-harness/bin/lazy omp smoke",
         "OMP local path installs use official OMP plugin link semantics",
-        "omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi",
-        "omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help",
+        "LAZY_HARNESS_PI_PACKAGE=/path/to/lazy-harness/packages/lazy-harness-pi",
+        'omp plugin install "$LAZY_HARNESS_PI_PACKAGE"',
+        'omp -e "$LAZY_HARNESS_PI_PACKAGE" --help',
         "The package is not installed by default after a clean reset",
-        "pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve",
-        "pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve",
+        'pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve',
+        'pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve',
+        "Cross-platform prerequisites",
+        "Official Pi commands require `pi` on `PATH`",
+        "Oh My Pi / OMP commands require `omp` on `PATH`",
+        "gcloud",
     ]:
         if phrase not in readme_text:
             fail("Pi package README missing clean install guidance: " + phrase)
+
+    installer_text = installer.read_text(encoding="utf-8")
+    for phrase in [
+        "Requirements:",
+        "- git",
+        "- bun",
+        "- python3",
+        "Dependency install hints:",
+        "macOS:",
+        "Debian/Ubuntu:",
+        "Fedora:",
+        "Arch:",
+        "require_command git",
+        "require_command bun",
+        "require_command python3",
+    ]:
+        if phrase not in installer_text:
+            fail("installer missing cross-platform dependency guidance: " + phrase)
+
+    root_readme_text = root_readme.read_text(encoding="utf-8")
+    for phrase in [
+        "Cross-platform prerequisites",
+        "brew install git python@3",
+        "sudo apt-get update && sudo apt-get install -y git python3 curl unzip",
+        "sudo dnf install -y git python3 curl unzip",
+        "sudo pacman -S git python curl unzip",
+        "Pi/OMP integration additionally requires the chosen agent binary",
+    ]:
+        if phrase not in root_readme_text:
+            fail("root README missing cross-platform dependency guidance: " + phrase)
 
     lazy_text = lazy_entrypoint.read_text(encoding="utf-8")
     for phrase in [

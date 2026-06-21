@@ -58,6 +58,13 @@ Clean default:
 
 The source checkout must not require active Pi installation settings. After a factory reset, `~/.pi/agent/` and project-local `.pi/settings.json` may be absent. The package remains installable from source, but it is not installed by default.
 
+Cross-platform dependency contract:
+
+- Base lazy-harness installation requires `bash`, `git`, `bun`, `python3`, and a git repository target. The public installer must fail before mutation with macOS/Linux install hints when `git`, `bun`, or `python3` is missing.
+- `curl` is required only for the remote `curl ... | bash` installer form and Bun's official install command.
+- Pi wrapper commands require the official `pi` binary on `PATH`; OMP wrapper commands require `omp` on `PATH`. `lazy pi/omp doctor` reports missing binaries without mutating settings unless `--strict` is requested.
+- Antigravity MCP Google ADC bridge export commands require `gcloud` only for servers using `authProviderType: "google_credentials"`.
+
 Recommended wrapper commands:
 
 ```bash
@@ -88,13 +95,13 @@ For another repo, call the wrapper by full path from that repo:
 
 ```bash
 cd /path/to/other/repo
-/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local
+/path/to/lazy-harness/.lazy-harness/bin/lazy pi install --local
 ```
 
 This maps to a target-repo-local Pi install using the source package path:
 
 ```bash
-pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
+pi install -l /path/to/lazy-harness/packages/lazy-harness-pi --approve
 ```
 
 `--local` also ensures the target repo's `.git/info/exclude` contains `.pi/` before persistent install, so generated project-local Pi settings are not accidentally committed to teammate repos. `--global` writes user-global Pi settings only.
@@ -102,10 +109,10 @@ pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
 Global install for all Pi projects:
 
 ```bash
-pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
+pi install /path/to/lazy-harness/packages/lazy-harness-pi --no-approve
 ```
 
-This creates/writes user-global Pi settings:
+This creates/writes user-global Pi settings with a path relative to the user's global Pi settings directory. The exact relative path is machine-specific, for example:
 
 ```json
 {
@@ -118,10 +125,10 @@ Global install is required when Pi is used from multiple existing projects. Proj
 Project-local install:
 
 ```bash
-pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
+pi install -l /path/to/lazy-harness/packages/lazy-harness-pi --approve
 ```
 
-This creates/writes source-repo project-local Pi settings:
+This creates/writes source-repo project-local Pi settings with a path relative to that repo's `.pi/settings.json`, for example:
 
 ```json
 {
@@ -134,14 +141,14 @@ Project-local `.pi/settings.json` is generated only when intentionally attaching
 One-run smoke:
 
 ```bash
-pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
-omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+pi -e /path/to/lazy-harness/packages/lazy-harness-pi --help
+omp -e /path/to/lazy-harness/packages/lazy-harness-pi --help
 ```
 
 OMP persistent plugin link:
 
 ```bash
-omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+omp plugin install /path/to/lazy-harness/packages/lazy-harness-pi
 omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 ```
 

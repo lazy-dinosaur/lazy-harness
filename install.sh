@@ -42,9 +42,27 @@ Options:
   -h, --help         Show this help.
 
 Requirements:
+  - bash
   - git
   - bun
+  - python3
   - target must already be a git repository
+  - optional for remote install command: curl
+
+Dependency install hints:
+  macOS:
+    xcode-select --install  # if git is missing
+    brew install git python@3
+    curl -fsSL https://bun.sh/install | bash
+  Debian/Ubuntu:
+    sudo apt-get update && sudo apt-get install -y git python3 curl unzip
+    curl -fsSL https://bun.sh/install | bash
+  Fedora:
+    sudo dnf install -y git python3 curl unzip
+    curl -fsSL https://bun.sh/install | bash
+  Arch:
+    sudo pacman -S git python curl unzip
+    curl -fsSL https://bun.sh/install | bash
 
 Examples:
   # Install into current git repo
@@ -54,7 +72,7 @@ Examples:
   ./install.sh --target ../my-app --dry-run
 
   # Dogfood from a local framework checkout
-  ./install.sh --target /path/to/host --source /home/lazydino/dev/lazy-harness --force
+  ./install.sh --target /path/to/host --source /path/to/lazy-harness --force
 EOF
 }
 
@@ -67,6 +85,48 @@ log() {
 fail() {
   printf 'lazy-harness install error: %s\n' "$*" >&2
   exit 1
+}
+
+dependency_help() {
+  case "$(uname -s 2>/dev/null || printf unknown)" in
+    Darwin)
+      cat >&2 <<'EOF'
+
+Install dependencies on macOS:
+  xcode-select --install  # if git is missing
+  brew install git python@3
+  curl -fsSL https://bun.sh/install | bash
+Then open a new shell or ensure Bun's bin directory is on PATH.
+EOF
+      ;;
+    Linux)
+      cat >&2 <<'EOF'
+
+Install dependencies on Linux:
+  Debian/Ubuntu: sudo apt-get update && sudo apt-get install -y git python3 curl unzip
+  Fedora:        sudo dnf install -y git python3 curl unzip
+  Arch:          sudo pacman -S git python curl unzip
+  Bun:           curl -fsSL https://bun.sh/install | bash
+Then open a new shell or ensure Bun's bin directory is on PATH.
+EOF
+      ;;
+    *)
+      cat >&2 <<'EOF'
+
+Install dependencies:
+  - git
+  - python3
+  - bun: https://bun.sh/docs/installation
+EOF
+      ;;
+  esac
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 && return 0
+  printf 'lazy-harness install error: %s is required\n' "$1" >&2
+  dependency_help
+  exit 127
 }
 
 while [[ $# -gt 0 ]]; do
@@ -130,8 +190,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-command -v git >/dev/null 2>&1 || fail "git is required"
-command -v bun >/dev/null 2>&1 || fail "bun is required"
+require_command git
+require_command bun
+require_command python3
 
 TARGET="$(cd "$TARGET" 2>/dev/null && pwd -P)" || fail "target does not exist: $TARGET"
 [[ -e "$TARGET/.git" ]] || fail "target must be a git repository: $TARGET"

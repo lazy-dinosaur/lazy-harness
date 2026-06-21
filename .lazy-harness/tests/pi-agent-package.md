@@ -14,6 +14,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_omp_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keywords include `pi-package` and `omp-plugin`; both `pi.*` and `omp.*` resource sections point to package-local extensions, skills, and prompts |
 | `pi_clean_default_no_project_settings` | Inspect source checkout | `.pi/settings.json` is absent by default after factory reset; project-local Pi attachment is generated only by an intentional install command |
 | `pi_install_guidance` | Inspect package README and SDD | Global and project-local install commands are documented, including that the package is not installed by default after a clean reset |
+| `cross_platform_dependency_guidance` | Inspect installer, README, package README, and SDD | macOS/Linux prerequisites are documented; installer requires `git`, `bun`, and `python3` before mutation and prints OS-specific install hints |
 | `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install/remove require explicit scope and support dry-run |
 | `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Local/global install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
@@ -56,14 +57,14 @@ bun packages/lazy-harness-pi/extensions/lazy-harness/index.ts
 .lazy-harness/bin/lazy omp smoke --dry-run
 .lazy-harness/bin/lazy omp doctor --no-smoke
 .lazy-harness/bin/lazy pi smoke
-/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local --dry-run
+/path/to/lazy-harness/.lazy-harness/bin/lazy pi install --local --dry-run
 .lazy-harness/bin/lazy pi install --local --dry-run --target-repo /path/to/other/repo
-pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
-pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
-pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
-pi list --approve
-omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
-omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+LAZY_HARNESS_PI_PACKAGE=/path/to/lazy-harness/packages/lazy-harness-pi
+pi -e "$LAZY_HARNESS_PI_PACKAGE" --help
+pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve
+pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve
+omp -e "$LAZY_HARNESS_PI_PACKAGE" --help
+omp plugin install "$LAZY_HARNESS_PI_PACKAGE"
 omp plugin list
 ```
 

@@ -4,6 +4,14 @@ Pi Coding Agent and Oh My Pi / OMP package for lazy-harness prompt/runtime lifec
 
 The package is not installed by default after a clean reset. Install it only when you want Pi or OMP to load lazy-harness behavior.
 
+## Cross-platform prerequisites
+
+- Lazy-harness base install: `git`, `bun`, `python3`, and a git repository target. The public installer prints macOS/Linux install hints if any required command is missing.
+- Official Pi commands require `pi` on `PATH`.
+- Oh My Pi / OMP commands require `omp` on `PATH`.
+- Antigravity Google ADC MCP bridge commands require `gcloud` only when importing `authProviderType: "google_credentials"` servers.
+- The wrapper commands do not install system dependencies automatically; install them with the OS package manager first, then run `lazy pi doctor` or `lazy omp doctor`.
+
 ## Recommended wrapper commands
 
 Use the lazy-harness wrapper first. It keeps the package path consistent, separates Pi from OMP install UX, and avoids relying on OMP's legacy `pi` manifest fallback.
@@ -20,10 +28,10 @@ Project-local install into another repo from that repo:
 
 ```bash
 cd /path/to/other/repo
-/home/lazydino/dev/lazy-harness/.lazy-harness/bin/lazy pi install --local
+/path/to/lazy-harness/.lazy-harness/bin/lazy pi install --local
 ```
 
-The install target is the current repo, but the source package path remains `/home/lazydino/dev/lazy-harness/packages/lazy-harness-pi`.
+The install target is the current repo, but the source package path remains `/path/to/lazy-harness/packages/lazy-harness-pi`. Replace `/path/to/lazy-harness` with the checkout path on the current computer, for example `$HOME/dev/lazy-harness`.
 
 Global install for all Pi projects:
 
@@ -109,23 +117,30 @@ Publishing this package to npm or moving it to a standalone repo is intentionall
 
 Raw Pi and OMP commands are still supported when debugging the agent runtime itself.
 
+Define the source package path once before using raw Pi/OMP commands:
+
+```bash
+LAZY_HARNESS_PI_PACKAGE=/path/to/lazy-harness/packages/lazy-harness-pi
+```
+
 Global install for all projects:
 
 ```bash
-pi install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --no-approve
+pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve
 ```
 
 Project-local install for this repo only:
 
 ```bash
-pi install -l /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --approve
+pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve
 ```
 
 OMP persistent plugin link:
 
 ```bash
-omp plugin install /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi
+omp plugin install "$LAZY_HARNESS_PI_PACKAGE"
 ```
+
 
 OMP remove:
 
@@ -136,13 +151,13 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 ## One-run smoke
 
 ```bash
-pi -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+pi -e "$LAZY_HARNESS_PI_PACKAGE" --help
 ```
 
 OMP:
 
 ```bash
-omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
+omp -e "$LAZY_HARNESS_PI_PACKAGE" --help
 ```
 
 ## What it wires
@@ -158,13 +173,13 @@ omp -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi --help
 Dry-run Antigravity MCP config conversion:
 
 ```bash
-bun /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi/scripts/import-antigravity-mcp.ts --dry-run
+bun "$LAZY_HARNESS_PI_PACKAGE/scripts/import-antigravity-mcp.ts" --dry-run
 ```
 
 Apply conversion into Pi MCP adapter config:
 
 ```bash
-bun /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi/scripts/import-antigravity-mcp.ts --apply
+bun "$LAZY_HARNESS_PI_PACKAGE/scripts/import-antigravity-mcp.ts" --apply
 ```
 
 Or from Pi:

@@ -46,18 +46,42 @@ Core goals:
 
 ## Source-of-truth rule
 
-Framework development happens in this repository:
+Framework development happens in a source checkout of this repository. The checkout can live anywhere on each computer.
 
-```text
-/home/lazydino/dev/lazy-harness
-```
-
-Dogfooding hosts, for example `/home/lazydino/dev/medivance/.lazy-harness`, are installed copies.
-Do not treat host copies as source. Update them via `lazy-sync` from this repo.
+Dogfooding hosts, for example `/path/to/host/.lazy-harness`, are installed copies.
+Do not treat host copies as source. Update them via `lazy-sync` from the source checkout or `lazy update`.
 
 ## Install into a host project
 
 This repository is public and the installer is intentionally generic and secret-free.
+
+## Cross-platform prerequisites
+
+Install these before running the installer on a new computer:
+
+- macOS: Bash is already available; install Git and Python 3 with Xcode Command Line Tools/Homebrew, then install Bun.
+  ```bash
+  xcode-select --install  # if git is missing
+  brew install git python@3
+  curl -fsSL https://bun.sh/install | bash
+  ```
+- Debian/Ubuntu:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y git python3 curl unzip
+  curl -fsSL https://bun.sh/install | bash
+  ```
+- Fedora:
+  ```bash
+  sudo dnf install -y git python3 curl unzip
+  curl -fsSL https://bun.sh/install | bash
+  ```
+- Arch:
+  ```bash
+  sudo pacman -S git python curl unzip
+  curl -fsSL https://bun.sh/install | bash
+  ```
+
+The installer checks `git`, `bun`, and `python3` before mutating the target. Pi/OMP integration additionally requires the chosen agent binary (`pi` or `omp`) on `PATH`; Google ADC MCP imports require `gcloud` only for `authProviderType: "google_credentials"` bridges.
 
 From the target project's git root:
 
@@ -77,7 +101,7 @@ Useful options:
 ./install.sh --target /path/to/host --dry-run
 ./install.sh --target /path/to/host --force
 ./install.sh --target /path/to/host --skip-hooks
-./install.sh --target /path/to/host --source /home/lazydino/dev/lazy-harness --force
+./install.sh --target /path/to/host --source /path/to/lazy-harness --force
 ```
 
 The installer keeps a persistent framework source clone at `~/.cache/lazy-harness/source` by default. That lets future `lazy-sync` operations know which source checkout the host was installed from.
@@ -125,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 Local dogfooding from a checkout:
 
 ```bash
-/home/lazydino/dev/lazy-harness/install.sh --target /path/to/host --source /home/lazydino/dev/lazy-harness --force
+/path/to/lazy-harness/install.sh --target /path/to/host --source /path/to/lazy-harness --force
 ```
 
 ## Quick validation
@@ -145,13 +169,13 @@ lazy-harness doctor ok (smoke, scope=framework)
 
 ## Sync into a host project
 
-Example dogfooding sync into Medivance:
+Example dogfooding sync into another host:
 
 ```bash
-cd /home/lazydino/dev/medivance
-bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
-  --from ~/dev/lazy-harness \
-  --target ~/dev/medivance \
+cd /path/to/host
+bun /path/to/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from /path/to/lazy-harness \
+  --target /path/to/host \
   --force
 .lazy-harness/bin/lazy test
 ```
