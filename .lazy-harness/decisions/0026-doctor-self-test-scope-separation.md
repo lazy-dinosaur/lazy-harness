@@ -119,6 +119,10 @@ Implementation map addendum:
 - `.lazy-harness/scripts/self-test.py` — `ACTIVE_SCOPE` and `doctor_scope_args()` propagate the resolved self-test scope to doctor smoke/full/json subprocesses.
 - Protection: run `.lazy-harness/bin/lazy test --scope host` in installed hosts that may retain framework markers.
 
+## Host package-source fixture skip update (2026-06-22)
+
+Host-scope self-test must not require framework source-only package fixtures such as `packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md`. It may validate generated host-local Jcode wrappers, but source package wrapper parity remains `framework` scope only. This preserves ADR 0026's rule that host validation does not depend on framework-own files that are not synced into hosts.
+
 ## Notes
 
 이 ADR 은 lazy-init MVP dogfooding 의 *0 번째* finding 이다. 실제로 host 박기 직전에 발견됐기 때문에 lazy-init MVP 의 일부로 통합된다. 정상적인 dogfooding finding 이라면 host 박은 후에 발견되어 다음 cycle 로 미뤄질 수도 있었지만, 이 issue 는 lazy-init 의 첫 사용자 경험을 직접 깨뜨리므로 MVP 안에서 해결한다.

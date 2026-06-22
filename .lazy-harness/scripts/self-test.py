@@ -2883,7 +2883,7 @@ def check_jcode_doc_ingest_skill_wrapper() -> None:
 
 
 def check_jcode_impl_map_migrate_skill_wrapper() -> None:
-    """Generated Jcode/Pi wiring must expose the guided implementation-map migration skill."""
+    """Generated Jcode wiring must expose the guided implementation-map migration skill; Pi package wrapper is framework-source only."""
     source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
     required = [
         "lazy-impl-map-migrate",
@@ -2933,8 +2933,9 @@ def check_jcode_impl_map_migrate_skill_wrapper() -> None:
             fail("jcode wiring must generate lazy-impl-map-migrate skill wrapper in temp target:\n" + install_check.stdout + install_check.stderr)
         paths = [
             temp / ".jcode" / "skills" / "lazy-impl-map-migrate" / "SKILL.md",
-            ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-impl-map-migrate" / "SKILL.md",
         ]
+        if ACTIVE_SCOPE == "framework":
+            paths.append(ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-impl-map-migrate" / "SKILL.md")
         for path in paths:
             if not path.exists():
                 label = str(path) if temp in path.parents else str(path.relative_to(ROOT))
