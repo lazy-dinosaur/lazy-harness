@@ -493,6 +493,11 @@
           "description": "SDD contract for the human-readable project operating rulebook. Hosts need it because Policy Machinery V2 static checks link rulebook policy docs to capability bindings."
         },
         {
+          "path": "tests/project-operating-rulebook.md",
+          "kind": "file",
+          "description": "TDD record referenced by the framework project-operating-rulebook seed policy evidence. Hosts need it because ssot/policies.json is seed-merged into host-owned policy registries."
+        },
+        {
           "path": "rules/README.md",
           "kind": "file",
           "description": "Framework-global project operating rulebook seed. Host-specific rules live in additional .lazy-harness/rules/**/*.md files."

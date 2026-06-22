@@ -8284,7 +8284,7 @@ def check_policy_machinery_v2() -> None:
         fail("Policy Registry missing record-first-validation seed policy")
     if "validation-evidence-warning" not in policy_ids:
         fail("Policy Registry missing validation-evidence-warning warn policy")
-    if policy_ids != sorted(policy_ids):
+    if ACTIVE_SCOPE == "framework" and policy_ids != sorted(policy_ids):
         fail("Policy Registry policies must be deterministic id-sorted")
     policy_schema = json.loads(policy_schema_path.read_text(encoding="utf-8"))
     if policy_schema.get("title") != "Lazy Harness Policy Registry" or "policies" not in json.dumps(policy_schema, ensure_ascii=False):
