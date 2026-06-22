@@ -48,7 +48,7 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
 - DDD: none.
 - SDD: this contract governs CLI/script root resolution and pre-push validation environment boundaries.
 - BDD: user-visible behavior is that PR worktree validation checks the PR worktree, not the primary checkout, and commit/push does not fail or mutate the outer repo from leaked git fixture env.
-- TDD: `check_lazy_host_root_resolution` protects symlink/worktree root handling and inherited git-env isolation including self-test child env cleanup; `check_pre_push_uses_canonical_lazy_cli` protects pre-push env clearing; `check_tool_execute_before_hook` protects hook deny behavior through `LAZY_HOST_ROOT`.
+- TDD: `check_lazy_host_root_resolution` protects symlink/worktree root handling and inherited git-env isolation including self-test child env cleanup; `check_pre_push_uses_canonical_lazy_cli` protects pre-push env clearing; `check_tool_execute_before_hook` protects hook deny behavior through `LAZY_HOST_ROOT`; `check_guidance_ladder_hard_stop_promotion` protects symlinked `.lazy-harness` fixture paths in hard-stop promotion audits.
 - ADR: no separate trade-off needed unless root resolution expands beyond git worktrees.
 - SSOT: project identity still forbids treating downstream installed copies as source of truth.
 - Planning: none.
@@ -65,6 +65,8 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
   - `.lazy-harness/scripts/self-test.py` — uses `LAZY_HOST_ROOT` before script physical path, clears inherited lazy/git hook env, and includes regression coverage.
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — uses `LAZY_HOST_ROOT` before git root discovery.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — uses `LAZY_HOST_ROOT` before git root discovery.
+  - `.lazy-harness/scripts/hard-stop-promotion-audit.py` — treats relative fixture paths as logically root-bound before resolving symlinked `.lazy-harness` targets for existence.
+  - `.lazy-harness/scripts/lazy-check.py` — validates explicit file paths against the logical host root so symlinked harness fixtures do not appear outside the caller worktree.
 - Key symbols:
   - `LAZY_HOST_ROOT` — environment variable carrying caller host root.
   - `GIT_DIR` / `GIT_WORK_TREE` — git hook variables that must not leak into lazy-harness nested fixture subprocesses.

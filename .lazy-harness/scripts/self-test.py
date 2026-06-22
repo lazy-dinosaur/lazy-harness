@@ -1550,7 +1550,15 @@ def check_bounded_validation_governor_cli() -> None:
         check=False,
     )
     if ignored.returncode != 0:
-        fail("default validation evidence cache path should be ignored by active git ignore rules")
+        ignored_harness = subprocess.run(
+            ["git", "check-ignore", "-q", ".lazy-harness"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if ignored_harness.returncode != 0:
+            fail("default validation evidence cache path should be ignored by active git ignore rules")
 
     print("✓ bounded validation governor CLI ok")
 
@@ -2831,6 +2839,16 @@ def check_guidance_ladder_hard_stop_promotion() -> None:
         valid_result = json.loads(valid_run.stdout)
         if valid_result.get("summary", {}).get("promotions") != 1 or valid_result.get("violations"):
             fail("valid hard-stop promotion audit returned wrong summary:\n" + valid_run.stdout)
+        symlink_host = temp / "symlink-host"
+        symlink_host.mkdir()
+        os.symlink(temp / ".lazy-harness", symlink_host / ".lazy-harness", target_is_directory=True)
+        symlink_run = run_hard_stop_promotion_audit(symlink_host, strict=True)
+        if symlink_run.returncode != 0:
+            fail("symlinked host hard-stop promotion audit should keep fixture root-bound:\n" + symlink_run.stdout + symlink_run.stderr)
+        symlink_result = json.loads(symlink_run.stdout)
+        if symlink_result.get("summary", {}).get("promotions") != 1 or symlink_result.get("violations"):
+            fail("symlinked host hard-stop promotion audit returned wrong summary:\n" + symlink_run.stdout)
+
 
         source_run = run_hard_stop_promotion_audit(ROOT, strict=True)
         if source_run.returncode != 0:

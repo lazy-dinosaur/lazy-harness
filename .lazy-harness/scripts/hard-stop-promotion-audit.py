@@ -93,6 +93,27 @@ def parse_fields(lines: list[str]) -> dict[str, str]:
     return fields
 
 
+def root_bound_path(root: Path, value: str) -> tuple[Path | None, str | None]:
+    """Resolve a fixture path while preserving symlinked host-root boundaries.
+
+    `Path.resolve()` follows a symlinked `.lazy-harness` directory to the
+    primary checkout. That is correct for existence checks, but wrong for the
+    root-bound guard: a worktree-local `.lazy-harness/foo` path must remain
+    valid even when `.lazy-harness` itself is a symlink.
+    """
+    raw = Path(value)
+    if raw.is_absolute():
+        return None, f"Fixture escapes root `{value}`"
+    if any(part == ".." for part in raw.parts):
+        return None, f"Fixture escapes root `{value}`"
+    logical_path = root / raw
+    try:
+        logical_path.absolute().relative_to(root.absolute())
+    except ValueError:
+        return None, f"Fixture escapes root `{value}`"
+    return logical_path, None
+
+
 def validate_section(root: Path, record: Path, start_line: int, fields: dict[str, str]) -> list[str]:
     problems: list[str] = []
     status = fields.get("Status", "").strip().lower()
@@ -110,14 +131,11 @@ def validate_section(root: Path, record: Path, start_line: int, fields: dict[str
         problems.append(f"invalid Scope `{scope}`")
     fixture = fields.get("Fixture", "").strip().strip("`")
     if fixture:
-        fixture_path = (root / fixture).resolve()
-        try:
-            fixture_path.relative_to(root.resolve())
-        except ValueError:
-            problems.append(f"Fixture escapes root `{fixture}`")
-        else:
-            if not fixture_path.exists():
-                problems.append(f"Fixture does not exist `{fixture}`")
+        fixture_path, fixture_error = root_bound_path(root, fixture)
+        if fixture_error:
+            problems.append(fixture_error)
+        elif fixture_path is not None and not fixture_path.exists():
+            problems.append(f"Fixture does not exist `{fixture}`")
     return problems
 
 

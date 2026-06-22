@@ -42,9 +42,12 @@ class CheckResult:
 
 def rel(path: pathlib.Path) -> str:
     try:
-        return str(path.resolve().relative_to(ROOT))
+        return str(path.absolute().relative_to(ROOT.absolute()))
     except Exception:
-        return str(path)
+        try:
+            return str(path.resolve().relative_to(ROOT.resolve()))
+        except Exception:
+            return str(path)
 
 
 def run(cmd: list[str], *, cwd: pathlib.Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -89,9 +92,10 @@ def parse_files_arg(values: list[str]) -> list[str]:
 
 
 def resolve_root_path(path_str: str) -> pathlib.Path | None:
-    path = (ROOT / path_str).resolve() if not pathlib.Path(path_str).is_absolute() else pathlib.Path(path_str).resolve()
+    raw = pathlib.Path(path_str)
+    path = raw if raw.is_absolute() else ROOT / raw
     try:
-        path.relative_to(ROOT)
+        path.absolute().relative_to(ROOT.absolute())
     except ValueError:
         return None
     return path

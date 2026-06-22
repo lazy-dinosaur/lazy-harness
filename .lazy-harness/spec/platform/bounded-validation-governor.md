@@ -63,7 +63,7 @@ Execution rules:
 8. Non-dry-run execution emits `JCODE_PROGRESS {json}` lines to stderr at plan start, step start, and step completion. `--progress=off` or `LAZY_VALIDATE_PROGRESS=0` disables these lines.
 9. Full-regression evidence cache is conservative and applies only to full-regression steps. Fast static checks still run every time.
 10. Cache keys include cache version, step command, scope, git `HEAD`, git diff hash, git status hash, untracked-file hash, and canonical `.lazy-harness` content hash. Volatile runtime/derived paths such as `.lazy-harness/state/**`, `.lazy-harness/logs/**`, `.lazy-harness/generated/**`, and `__pycache__` are excluded. Cache miss, cache read/write error, or fingerprint uncertainty falls back to running `lazy test`.
-11. Cache storage is runtime state at `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, defaulting to `.lazy-harness/state/validation-evidence-cache.json`, and is ignored by git.
+11. Cache storage is runtime state at `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, defaulting to `.lazy-harness/state/validation-evidence-cache.json`, and is ignored by git. In worktrees where `.lazy-harness` is a symlink, the cache path is considered protected when the `.lazy-harness` boundary itself is ignored, even if `git check-ignore` refuses nested symlink pathspecs.
 12. `--evidence-cache=off` or `LAZY_VALIDATE_EVIDENCE_CACHE=0` disables reuse and storage for full-regression evidence.
 
 ## Output
