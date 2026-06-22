@@ -8342,13 +8342,24 @@ def check_policy_machinery_v2() -> None:
 
     walk(fixture)
 
+    framework_policy_ids = {
+        "project-operating-rulebook-policy",
+        "record-first-validation",
+        "validation-evidence-block",
+        "validation-evidence-warning",
+    }
+
     for policy in policy_registry.get("policies", []):
-        walk(policy, f"policy[{policy.get('id')}]")
+        policy_id = policy.get("id")
+        is_framework_policy = ACTIVE_SCOPE == "framework" or policy_id in framework_policy_ids
+        if not is_framework_policy:
+            continue
+        walk(policy, f"policy[{policy_id}]")
         if policy.get("updateLoop", {}).get("canonicalByPacketAlone") is not False:
-            fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy.get("id")))
-        if policy.get("level") == "block" and policy.get("id") != "validation-evidence-block":
-            fail("Policy Registry may only include the first approved validation-evidence block policy in this slice: " + repr(policy.get("id")))
-        if policy.get("id") == "validation-evidence-block":
+            fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy_id))
+        if policy.get("level") == "block" and policy_id != "validation-evidence-block":
+            fail("Policy Registry may only include the first approved validation-evidence block policy in this slice: " + repr(policy_id))
+        if policy_id == "validation-evidence-block":
             runtime = policy.get("runtime", {})
             if runtime.get("blocks") is not True or runtime.get("requiresExplicitContext") is not True or runtime.get("fixture") != ".lazy-harness/tests/policy-block-validation-evidence.md":
                 fail("validation-evidence-block must carry explicit block-readiness runtime metadata")
@@ -8487,36 +8498,44 @@ def check_policy_machinery_v2() -> None:
     if retire_readiness.returncode != 0:
         fail("lazy policy retire-readiness non-strict should report without failing:\n" + retire_readiness.stdout + retire_readiness.stderr)
     retire_readiness_json = json.loads(retire_readiness.stdout)
-    if retire_readiness_json.get("schemaVersion") != "policy-rulebook-retire-readiness/v1" or retire_readiness_json.get("ready") is not True:
-        fail("current source should be rulebook-retire ready after active rulebook entries have typed policy links: " + retire_readiness.stdout)
-    if "Readiness/preflight only" not in retire_readiness_json.get("boundary", "") or retire_readiness_json.get("counts", {}).get("blockers", -1) != 0:
-        fail("retire-readiness must expose non-destructive boundary and zero blockers after source link: " + retire_readiness.stdout)
-    if retire_readiness_json.get("counts", {}).get("coveredRulebookEntries") != 1 or not any(finding.get("path") == ".lazy-harness/rules/README.md" and finding.get("capabilityId") == "project-operating-rulebook" and finding.get("severity") == "info" for finding in retire_readiness_json.get("findings", [])):
-        fail("retire-readiness should cover source rulebook README via project-operating-rulebook typed policy link: " + retire_readiness.stdout)
-    strict_retire_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if strict_retire_readiness.returncode != 0:
-        fail("lazy policy retire-readiness --strict should pass after source host typed policy link:\n" + strict_retire_readiness.stdout + strict_retire_readiness.stderr)
-    strict_retire_json = json.loads(strict_retire_readiness.stdout)
-    if strict_retire_json.get("ready") is not True or strict_retire_json.get("counts", {}).get("blockers") != 0:
-        fail("strict retire-readiness should report ready source host with zero blockers: " + strict_retire_readiness.stdout)
+    if retire_readiness_json.get("schemaVersion") != "policy-rulebook-retire-readiness/v1":
+        fail("retire-readiness must expose policy-rulebook-retire-readiness/v1 schema: " + retire_readiness.stdout)
+    if "Readiness/preflight only" not in retire_readiness_json.get("boundary", ""):
+        fail("retire-readiness must expose non-destructive boundary: " + retire_readiness.stdout)
+    if ACTIVE_SCOPE == "framework":
+        if retire_readiness_json.get("ready") is not True:
+            fail("current source should be rulebook-retire ready after active rulebook entries have typed policy links: " + retire_readiness.stdout)
+        if retire_readiness_json.get("counts", {}).get("blockers", -1) != 0:
+            fail("retire-readiness must expose zero blockers after source link: " + retire_readiness.stdout)
+        if retire_readiness_json.get("counts", {}).get("coveredRulebookEntries") != 1 or not any(finding.get("path") == ".lazy-harness/rules/README.md" and finding.get("capabilityId") == "project-operating-rulebook" and finding.get("severity") == "info" for finding in retire_readiness_json.get("findings", [])):
+            fail("retire-readiness should cover source rulebook README via project-operating-rulebook typed policy link: " + retire_readiness.stdout)
+        strict_retire_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "retire-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if strict_retire_readiness.returncode != 0:
+            fail("lazy policy retire-readiness --strict should pass after source host typed policy link:\n" + strict_retire_readiness.stdout + strict_retire_readiness.stderr)
+        strict_retire_json = json.loads(strict_retire_readiness.stdout)
+        if strict_retire_json.get("ready") is not True or strict_retire_json.get("counts", {}).get("blockers") != 0:
+            fail("strict retire-readiness should report ready source host with zero blockers: " + strict_retire_readiness.stdout)
     block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if block_readiness.returncode != 0:
         fail("lazy policy block-readiness non-strict should report without failing:\n" + block_readiness.stdout + block_readiness.stderr)
     block_readiness_json = json.loads(block_readiness.stdout)
-    if block_readiness_json.get("schemaVersion") != "policy-block-readiness/v1" or block_readiness_json.get("ready") is not True:
-        fail("current source should be block-runtime ready after validation-evidence-block promotion evidence exists: " + block_readiness.stdout)
+    if block_readiness_json.get("schemaVersion") != "policy-block-readiness/v1":
+        fail("block-readiness must expose policy-block-readiness/v1 schema: " + block_readiness.stdout)
     if block_readiness_json.get("hardStopHookInstalled") is not False or block_readiness_json.get("lifecycleMutation") is not False:
         fail("block-readiness must not install lifecycle hard-stop hooks: " + block_readiness.stdout)
-    if block_readiness_json.get("counts", {}).get("blockPolicies") != 1 or block_readiness_json.get("counts", {}).get("readyBlockPolicies") != 1 or block_readiness_json.get("counts", {}).get("blockers") != 0:
-        fail("block-readiness should report exactly one ready source block policy and zero blockers: " + block_readiness.stdout)
-    if not any(finding.get("policyId") == "validation-evidence-block" and finding.get("severity") == "info" for finding in block_readiness_json.get("findings", [])):
-        fail("block-readiness should identify validation-evidence-block as ready: " + block_readiness.stdout)
-    strict_block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if strict_block_readiness.returncode != 0:
-        fail("lazy policy block-readiness --strict should pass after validation-evidence-block promotion evidence exists:\n" + strict_block_readiness.stdout + strict_block_readiness.stderr)
-    strict_block_json = json.loads(strict_block_readiness.stdout)
-    if strict_block_json.get("ready") is not True or strict_block_json.get("counts", {}).get("blockers") != 0:
-        fail("strict block-readiness should report source ready with zero blockers: " + strict_block_readiness.stdout)
+    if ACTIVE_SCOPE == "framework":
+        if block_readiness_json.get("ready") is not True:
+            fail("current source should be block-runtime ready after validation-evidence-block promotion evidence exists: " + block_readiness.stdout)
+        if block_readiness_json.get("counts", {}).get("blockPolicies") != 1 or block_readiness_json.get("counts", {}).get("readyBlockPolicies") != 1 or block_readiness_json.get("counts", {}).get("blockers") != 0:
+            fail("block-readiness should report exactly one ready source block policy and zero blockers: " + block_readiness.stdout)
+        if not any(finding.get("policyId") == "validation-evidence-block" and finding.get("severity") == "info" for finding in block_readiness_json.get("findings", [])):
+            fail("block-readiness should identify validation-evidence-block as ready: " + block_readiness.stdout)
+        strict_block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if strict_block_readiness.returncode != 0:
+            fail("lazy policy block-readiness --strict should pass after validation-evidence-block promotion evidence exists:\n" + strict_block_readiness.stdout + strict_block_readiness.stderr)
+        strict_block_json = json.loads(strict_block_readiness.stdout)
+        if strict_block_json.get("ready") is not True or strict_block_json.get("counts", {}).get("blockers") != 0:
+            fail("strict block-readiness should report source ready with zero blockers: " + strict_block_readiness.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-block-readiness-") as tmp:
         temp_root = pathlib.Path(tmp)
         (temp_root / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
