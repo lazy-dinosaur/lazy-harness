@@ -22,7 +22,7 @@ Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
   - use safe message/session hashes and bounded counters, never raw prompts or transcripts
   - let the LLM/searcher satisfy debt by root-bound record/source/test search and reads
   - let `check-read-debt-permit.py` measure whether evidence exists before action
-  - allow explicit safe-purpose `lazy find` evidence to satisfy search-debt, but never required-read debt
+  - allow map-first `lazy map --overview` evidence to satisfy search-debt, but never required-read debt
   - keep response audit advisory/backstop, not semantic routing
 - Must not:
   - generate required-read lists, confidence scores, intent/risk/gate, or next-action from raw user text
@@ -90,14 +90,8 @@ message.received
 - Why not `.jcode`: shared framework behavior, not local/private wiring.
 - Confirmation: user-confirmed correction on 2026-06-06.
 
-## Purpose-scoped find evidence
+## Map-first search evidence
 
-`lazy find --purpose ...` is a cue-only retrieval command. The guard may count a tool event or command/output blob containing `mode: "purpose-scoped-find"` or `lazy find --purpose <safe-purpose>` as **search evidence** for search-debt rows when the purpose is:
+`lazy map --overview` and concrete `lazy map <feature-id|record-path|graph-id|source-path>` calls are cue-only traversal commands. The guard may count those tool events or command/output blobs as **search evidence** for search-debt rows because they inspect project-map inventory, but they are never read evidence for concrete `requiredRead` paths.
 
-- `fact`, `record`, `information`,
-- `rulebook`, `rules`, `operating-rule`, `operating-rules`,
-- `test`, `tests`, `validation`,
-- `capability`, `capabilities`,
-- `source`, `implementation`.
-
-The guard must not count `architecture`, `design`, or `full` purpose output as satisfying search-debt by itself. Purpose-scoped find evidence is never read evidence for concrete `requiredRead` paths.
+`lazy find --purpose ...` is retired and must not satisfy search/read debt. Long free-form `lazy map` input and invented `--query` syntax are invalid retrieval evidence because they imply CLI-owned semantic search.

@@ -16,7 +16,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Applies when:
   - an agent/searcher uses searchable record memory before answering, planning, or editing
   - an agent/searcher starts a retrieval flow with `lazy map --overview`
-  - an agent/searcher runs `lazy map <term-or-file>` to find candidate records/source/tests
+  - an agent/searcher runs `lazy map <feature-id|record-path|graph-id|source-path>` to inspect a concrete map node
   - `## Index header` or other metadata suggests records/source/tests
   - retrieved metadata conflicts, is incomplete, or could be mistaken for semantic authority
 - Must:
@@ -50,10 +50,10 @@ And only then answers, plans, or edits.
 
 Given a user request touches a host detail
 When the agent runs `lazy map --overview` first
-Then the output shows whole record/feature/graph structure for choosing search terms
-And when the agent repeatedly runs `lazy map <term-or-file>` for multiple candidate tokens/files/layers
+Then the output shows whole record/feature/graph structure for choosing concrete feature ids, record paths, graph ids, source paths, or test paths
+And when the agent repeatedly runs `lazy map <feature-id|record-path|graph-id|source-path>` for nodes copied from the map
 Then the outputs may suggest dispersed feature, record, graph, source, and test candidates
-And long composite cues may be matched by aggregate token fallback across record-authored fields when no single field contains the whole cue
+And free-form natural-language query text is rejected because `lazy map` is traversal, not semantic search
 But those candidates are cue-only
 And the agent must still read all relevant actual record bodies, Implementation maps, source, and tests before answering or mutating.
 
@@ -96,7 +96,7 @@ And the agent checks whether any impacted DDD/BDD/SDD/TDD/ADR/SSOT records are m
 
 Given `lazy map --overview` is the required first inventory step
 When an agent/searcher has not yet inspected the overview output
-Then the agent/searcher should prefer a standalone sequential overview before choosing dependent `lazy map <term>`, grep, source reads, or record reads
+Then the agent/searcher should prefer a standalone sequential overview before choosing dependent `lazy map <node>`, grep, source reads, or record reads
 But `batch` or `multi_tool_use.parallel` tool shapes containing `lazy map --overview` are not hard-blocked
 And the generic search/read evidence guard still blocks mutation until root-bound record/source/test evidence exists.
 
@@ -136,13 +136,13 @@ And must not treat generated graph state as fresher than the canonical files.
   - `check-overview-batch-order.py` — compatibility helper that intentionally emits no deny output; batching policy is advisory while mutation safety stays in `check-read-debt-permit.py`.
 - Flow:
   1. Static reminder tells the agent to inspect real records/source/tests.
-  2. `lazy map --overview` shows whole structure before term selection.
+  2. `lazy map --overview` shows whole structure before concrete node selection.
   3. Standalone sequential overview remains preferred, but read-only batch/parallel tool shapes are allowed and must not be treated as evidence reads by themselves.
-  4. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers may suggest dispersed candidate records or files.
+  4. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls on copied concrete nodes may suggest dispersed candidate records or files.
   5. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
   6. Confirmed missing knowledge is persisted into records.
   7. Search-time and final verification-time checks include related layer records so “SDD/TDD only” does not silently pass when DDD/BDD/SSOT are linked.
-  8. In dynamic write/read loops, graph/query/explain cues may narrow candidate paths, but canonical records/source/tests and validation remain the source of truth after mutation.
+  8. In dynamic write/read loops, map/index/graph cues may narrow candidate paths, but canonical records/source/tests and validation remain the source of truth after mutation.
 - Tests / protection:
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.

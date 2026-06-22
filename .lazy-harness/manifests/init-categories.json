@@ -485,7 +485,7 @@
         {
           "path": "spec/platform/purpose-scoped-retrieval.md",
           "kind": "file",
-          "description": "SDD sourceRecord for framework retrieval-purpose capabilities seeded into host capabilities.json. Hosts need it so lazy capability audit passes after capability seed merge."
+          "description": "SDD contract for map-first retrieval; hosts need it so prompt, map traversal, and search/read debt behavior share the same CLI boundary."
         },
         {
           "path": "spec/platform/project-operating-rulebook.md",

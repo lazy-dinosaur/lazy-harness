@@ -171,15 +171,16 @@ Implementation constraints:
   3. Agent/searcher reads real record/source/test evidence.
   4. Deterministic `record-index` cache lists metadata only and remains non-canonical.
   4a. Top-level `Related <Layer>:` links are normalized into `digest.relatedRecords` as cue-only cross-layer navigation paths.
-  5. `lazy map` uses fresh generated `record-index.json` for repeated query speed, or rebuilds from source if the cache is absent/stale/invalid.
+  5. `lazy map` uses fresh generated `record-index.json` for concrete node traversal speed, or rebuilds from source if the cache is absent/stale/invalid.
   6. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
-  7. `lazy map --overview` must be a standalone sequential call. It must not be batched with dependent `lazy map <term>`, grep, read, or retrieval-audit calls because those choices depend on overview evidence.
-  8. Repeated `lazy map <term-or-file>` calls across candidate tokens/files/layers narrow that structure into dispersed drill-down candidates only.
-  8a. If a long composite cue has no strict single-field match, `lazy map` may use aggregate token fallback across indexed fields to recover likely drill-down candidates without declaring confidence or required reads.
+  7. `lazy map --overview` must be a standalone sequential call. It must not be batched with dependent `lazy map <node>`, grep, read, or retrieval-audit calls because those choices depend on overview evidence.
+  8. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls across concrete nodes copied from the map narrow that structure into dispersed drill-down candidates only.
+  8a. Exact concrete node matches (feature id, record path, graph id, source path, or test path) must outrank aggregate token matches so copied map nodes self-recall within bounded limits.
+  8b. Long composite natural-language input is rejected; the LLM/searcher must choose concrete nodes or use root-bound search.
   9. Independent reads or searches chosen after the overview may be batched when they no longer depend on unavailable overview output.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` maps fixtures to every BDD scenario.
-  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, advisory `lazy map --overview` ordering, foundation record sync manifest entries, repeated `lazy map` drill-down output guidance, aggregate token fallback for long composite cues, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, compatibility helper no-op behavior, and search/read debt.
+  - `python3 .lazy-harness/scripts/self-test.py` protects record-index generation, top-level Related path parsing, advisory `lazy map --overview` ordering, foundation record sync manifest entries, concrete `lazy map` drill-down output guidance, exact-node priority, free-form map query rejection, generated-cache use, `--fresh` rebuild, exact reminder CLI, old command absence, compatibility helper no-op behavior, and search/read debt.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md`

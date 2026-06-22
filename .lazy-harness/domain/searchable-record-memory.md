@@ -36,7 +36,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | Searchable Record Memory | The durable `.lazy-harness` record system made easier for an LLM/searcher to rediscover through stable terms, implementation maps, graph links, and optional deterministic caches. | A RAG service, classifier, or lifecycle query backend. |
 | Record-authored metadata | Metadata written inside canonical records, such as aliases, surface terms, source/test hints, graph ids, and future `## Index header` fields. | Generated judgement about the current user request. |
 | Record Index Header | A planned record section that stores compact record-authored metadata for searchability. | A command, ranking system, or required-read selector. |
-| Record Map | A read-only CLI overview/drill-down helper (`lazy map --overview`, then repeated `lazy map <term-or-file>` for multiple candidate tokens/files/layers) that surfaces whole record/feature/graph structure before query-term selection and then lists matching drill-down file candidates from record-authored metadata. For long composite cues, it may use aggregate token fallback across fields only as a last-mile findability cue. | Proof that evidence was read, a semantic query engine, ranking authority, or a lifecycle classifier. |
+| Record Map | A read-only CLI overview/drill-down helper (`lazy map --overview`, then repeated `lazy map <feature-id|record-path|graph-id|source-path>` on concrete nodes copied from the map) that surfaces whole record/feature/graph structure before node selection and then lists nearby record/source/test/graph candidates. | Proof that evidence was read, a semantic query engine, ranking authority, or a lifecycle classifier. |
 | LLM-owned retrieval | The process where the LLM/searcher performs root-bound search/read, inspects records/source/tests, then decides relevance and ambiguity. | Code-owned candidate selection from raw user text. |
 | Semantic authority | The authority to decide intent, meaning, priority, required reads, risk, gate, or next action. In this framework, that authority belongs to the LLM/searcher plus canonical evidence, not deterministic helper code. | Deterministic parsing, validation, cache generation, or evidence bookkeeping. |
 | Deterministic cache | A rebuildable cache derived from already-authored records/source/graph data. | Canonical memory or proof of read evidence. |
@@ -66,8 +66,8 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Flow:
   1. DDD defines what “searchable record memory” and “semantic authority” mean.
   2. BDD describes how agents behave when metadata exists or conflicts.
-  3. `lazy map --overview` shows the whole structure before search-term selection.
-  4. Repeated `lazy map <term-or-file>` calls list candidate records/source/tests/graph ids as navigation cues only.
+  3. `lazy map --overview` shows the whole structure before concrete node selection.
+  4. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls list candidate records/source/tests/graph ids as navigation cues only.
   5. The agent reads all relevant actual records/source/tests and option-gates unresolved ambiguity.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` protects the no-semantic-query invariant and map drill-down output.

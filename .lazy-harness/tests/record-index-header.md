@@ -39,13 +39,13 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | `record_index_header_missing` | BDD Scenario 5 | Historical record missing `## Index header` | `record-audit.recordQuality.counts["missing-index-header"]` and sample path report advisory warning only; no hard block | implemented via `check_record_audit_cli` |
 | `record_index_header_legacy_rule_digest_fallback` | Migration compatibility | Record has Rule digest aliases/hints but no Index Header | Existing Rule digest remains searchable fallback until migration | planned |
 | `record_index_header_no_raw_message_query` | DDD/SSOT semantic boundary | Future `record-index` CLI/cache command definitions | No `--message`, no raw user-text query interface, no lifecycle invocation | planned |
-| `record_index_map_overview_first` | BDD Scenario 1a | `lazy map --overview` against records, feature navigation, and graph rows | Output includes whole record/layer/feature/graph structure before search-term selection and no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
+| `record_index_map_overview_first` | BDD Scenario 1a | `lazy map --overview` against records, feature navigation, and graph rows | Output includes whole record/layer/feature/graph structure before concrete node selection and no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
 | `record_index_overview_batch_advisory` | BDD Scenario 7 | Current tool call is `batch` or `multi_tool_use.parallel` and one child contains `lazy map --overview` | Pre-action hook allows the read-only batch/parallel shape; generic mutation evidence guard still denies source mutation without root-bound evidence | implemented via `check_tool_execute_before_hook` |
 | `record_index_foundation_records_synced` | Downstream sync discoverability | Category A manifest entries for DDD/BDD/SDD/TDD retrieval/index foundation records | Downstream hosts receive `searchable-record-memory`, `llm-owned-record-retrieval`, `record-index-header` SDD, and `record-index-header` TDD records so `lazy map` can discover the guard/contracts | implemented via `check_manifest_syncs_python_lifecycle_helpers` |
-| `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <term-or-file>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
-| `record_index_map_aggregate_token_fallback` | BDD Scenario 1a | Long composite `lazy map <term-or-file>` where tokens are spread across alias, component, test, source, or graph fields | Output returns cue-only feature/record/graph candidates with `aggregateTokenFallback` matched fields, while still emitting no semantic-authority fields | implemented via `check_record_index_generator_phase3` |
-| `record_index_top_level_related_paths` | BDD Scenario 6 | Record declares top-level `Related <Layer>:` links near the title | `digest.relatedRecords` includes those record-authored paths and downstream map/audit drill-down can surface them as cue-only candidates | implemented via `check_record_index_generator_phase3` and `check_retrieval_coverage_audit_cli` |
-| `record_index_map_cache_fast_path` | Query speed / cache policy | `lazy map <term-or-file>` after `lazy record-index --write` | Output reports `recordIndexCache.used=true`; `--fresh` reports cache bypass and rebuild | implemented via `check_record_index_generator_phase3` |
+| `record_index_map_drilldown_cue_only` | BDD Scenario 1a | `lazy map <feature-id|record-path|graph-id|source-path>` against records, feature navigation, and graph rows | Output includes record/source/test/graph drill-down candidates and no requiredRead/confidence/risk/gate/nextAction fields | implemented via `check_record_index_generator_phase3` |
+| `record_index_map_exact_node_priority` | BDD Scenario 1a | Exact feature id, record path, graph id, source path, or test path copied from map output | Exact node self-recalls within bounded result limits and outranks aggregate token fallback | manual accuracy run 2026-06-22; implementation in `record-map.ts` |
+| `record_index_map_freeform_rejected` | BDD Scenario 1a | Long composite natural-language `lazy map` input or invented `--query` | Command fails because `lazy map` is traversal, not semantic search | implemented via `check_purpose_scoped_retrieval_cli` |
+| `record_index_map_cache_fast_path` | Query speed / cache policy | `lazy map <feature-id|record-path|graph-id|source-path>` after `lazy record-index --write` | Output reports `recordIndexCache.used=true`; `--fresh` reports cache bypass and rebuild | implemented via `check_record_index_generator_phase3` |
 | `record_index_header_canonical_name` | ADR 0042 | Current cache/listing command docs | Canonical name is `record-index`; old command/source/schema/cache paths are absent after Option A migration | implemented |
 | `record_index_header_cache_hit_not_evidence` | BDD Scenario 3 | Generated cache/list contains record/source path | Search/read debt remains unsatisfied until real read/search evidence exists | planned / partially covered by pre-action guard |
 | `record_index_header_conflict_option_gate` | BDD Scenario 2 | Two records share plausible aliases/surface terms | Agent must option-gate after evidence remains ambiguous; no automatic ranking | planned |
@@ -149,13 +149,13 @@ Expected:
 
 ### Record Map drill-down fixture
 
-Given repeated `lazy map <term-or-file>` calls run against a host with record-authored aliases, project feature navigation, and graph rows:
+Given repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls run against concrete nodes copied from overview:
 
 Expected:
 
 - output mode is `record-map.inspect`
 - output includes `drilldown.recordPaths`, `drilldown.sourceFiles`, `drilldown.testFiles`, and `drilldown.graphIds`
-- output notes say the result is cue-only and still requires repeated query-map exploration plus real record/source/test reads
+- output notes say the result is cue-only and still requires real record/source/test reads
 - output does not include field names `requiredRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings`
 
 ### Cache hit not evidence fixture

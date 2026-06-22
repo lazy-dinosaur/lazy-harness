@@ -1,8 +1,8 @@
-# Purpose-Scoped Retrieval
+# Map-First Retrieval
 
 Status: accepted
 Layer: SDD
-Date: 2026-06-10
+Date: 2026-06-22
 Related ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`
 Related DDD: `.lazy-harness/domain/purpose-scoped-retrieval.md`
 Related BDD: `.lazy-harness/behavior/purpose-scoped-retrieval.md`
@@ -15,129 +15,87 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
-  - adding or changing `lazy find`
-  - changing purpose retrieval taxonomy
-  - changing search/read debt evidence semantics later
+  - changing retrieval prompt guidance
+  - changing `lazy map`, record-index, graph/index navigation, or search/read evidence semantics
+  - reviewing whether a CLI should locate context for the agent
 - Must:
-  - require explicit `--purpose`
-  - keep output cue-only
-  - include a cue-only evidence capsule that can satisfy search-debt only for non-broad purposes
-  - avoid raw prompt classifiers and `lazy route` semantics
-  - separate fact, rulebook, test, capability, source, architecture, and full retrieval spaces
+  - make the LLM/searcher the semantic search and judgement owner
+  - start from `lazy map --overview` as a project map/inventory
+  - use `lazy map <feature-id|record-path|graph-id|source-path>` only for concrete nodes copied from the map/index
+  - require real record/source/test reads before relying on map candidates
+  - preserve rulebook/capability resolution as action-policy helpers, not fact search
 - Must not:
-  - decide risk, required reads, gates, or next actions
-  - mark candidates as proof that files were read
-  - let `architecture` or `full` purpose output satisfy search-debt by itself
-  - classify raw user text from lifecycle hooks
+  - expose or recommend `lazy find --purpose ...`
+  - accept raw user text, long natural-language strings, or invented `--query` syntax as `lazy map` traversal input
+  - treat generated map/index/graph output as semantic authority or read evidence
+  - decide risk, required reads, gates, intent, confidence, or next action
 - Record completion:
-  - CLI changes update ADR/DDD/BDD/TDD/SSOT and self-test fixtures.
+  - retrieval changes update ADR/DDD/BDD/TDD/SSOT, prompt hook, self-test, feature navigation, and graph/candidate rows together.
 
 ## CLI contract
 
+Canonical retrieval entrypoints:
+
 ```bash
-lazy find --purpose <fact|record|rulebook|test|capability|source|architecture|full> <query> [--format=json|md] [--limit=N]
+.lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]
+.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]
+.lazy-harness/bin/lazy rules resolve ...
+.lazy-harness/bin/lazy capability resolve ...
 ```
 
-Aliases:
+Removed entrypoint:
 
-- `record` and `information` normalize to `fact`.
-- `rules`, `operating-rule`, and `operating-rules` normalize to `rulebook`.
-- `tests` and `validation` normalize to `test`.
-- `implementation` normalizes to `source`.
-- `design` normalizes to `architecture`.
+```bash
+.lazy-harness/bin/lazy find --purpose ...
+```
 
-## Output contract
+`lazy map` is not a search box. It is a map traversal helper. The agent must inspect the overview, choose concrete nodes, read the linked records/source/tests, and only then answer or mutate.
 
-JSON output must include:
+## Map traversal flow
 
-- `mode: "purpose-scoped-find"`
-- `purpose`
-- `query`
-- `searchSpaces`
-- `commands`
-- `candidates.records`
-- `candidates.rules`
-- `candidates.capabilities`
-- `candidates.sourceFiles`
-- `candidates.testFiles`
-- `candidates.graphRows`
-- `escalation`
-- `notes`
+1. Run `lazy map --overview` to inspect layer counts, feature anchors, graph relation inventory, generated indexes, and drill-down candidates.
+2. LLM chooses concrete nodes from the returned map: feature id, canonical record path, graph id, source path, or test path.
+3. Run `lazy map <node>` for nearby records/source/tests/graph ids.
+4. Read record bodies, Rule digest, Implementation map, graph links, source files, and tests.
+5. If the map is empty or ambiguous, use root-bound search over `.lazy-harness`, source, and tests; if meaning still conflicts, ask an option gate.
 
-Markdown output must communicate the same cue-only sections.
+## Retired purpose-scoped find
 
-## Purpose spaces
+`lazy find` was removed after dogfood on 2026-06-22 showed agents delegated semantic search to exact-token CLI output, overused `--purpose fact`, and fabricated query-style `lazy map --query` commands. Cross-project validation also showed weak source recall:
 
-| Purpose | First search spaces |
-|---|---|
-| `fact` | records, graph, implementation-map/source cues |
-| `rulebook` | `.lazy-harness/rules/**`, capabilities |
-| `test` | `.lazy-harness/tests/**`, source test files, validation capabilities |
-| `capability` | `.lazy-harness/ssot/capabilities.json`, linked rulebook records |
-| `source` | source/test files and graph/source cues |
-| `architecture` | overview, records, rules, capabilities, source, tests, graph |
-| `full` | explicit broad mode across all supported spaces |
+- lazy-harness feature-navigation mapped path recall: 63/137.
+- Medivance implementation-index source recall: 14/81.
+- Medivance PWA implementation-index source recall: 39/94.
+
+This evidence supports map/index traversal plus LLM-owned search/read judgement, not CLI-owned candidate retrieval.
 
 ## Implementation map
 
-- Status: `phase-4-dogfood-fixture-implemented`
-- Source files:
-  - `.lazy-harness/scripts/purpose-find.ts`
-  - `.lazy-harness/bin/lazy`
-  - `.lazy-harness/ssot/capabilities.json`
-  - `.lazy-harness/project/feature-navigation.xml`
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
+- Status: `map-first-retrieval-implemented`
+- Primary files:
+  - `.lazy-harness/scripts/record-map.ts` — overview and concrete node traversal helper; rejects free-form map input.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — static prompt now teaches map-first traversal and forbids raw user text/query flags for `lazy map`.
+  - `.lazy-harness/bin/lazy` — no longer exposes `find` dispatch/help.
+  - `.lazy-harness/ssot/capabilities.json` — no longer registers retrieval-purpose capabilities.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — no longer treats `lazy find` as search evidence.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — no longer treats `lazy find` as search evidence.
+  - `.lazy-harness/project/feature-navigation.xml` — indexes `map-first-retrieval` rather than `lazy find`.
 - Key symbols:
-  - `parseArgs`
-  - `normalizePurpose`
-  - `buildResult`
-  - `fileCandidates`
-  - `capabilityCandidates`
-  - `graphCandidates`
+  - `record-map.ts:parseArgs`
+  - `record-map.ts:validateTraversalKey`
+  - `record-map.ts:buildRecordMapOverview`
+  - `self-test.py:check_purpose_scoped_retrieval_cli` — retained name for compatibility, now protects map-first removal of `lazy find`.
 - Tests:
   - `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
+  - `.lazy-harness/scripts/self-test.py#check_record_index_generator_phase3`
+  - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`
   - `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action`
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest`
-  - core temporary fixture in `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli` for host-safe generic purpose assertions
-  - downstream worktree/dev-instance fixture in `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
 
-## Phase 3 evidence integration
+## Layer completeness impact
 
-`lazy find` JSON output includes an `evidence` object:
-
-```json
-{
-  "event": "purpose-scoped-retrieval.evidence",
-  "purpose": "test",
-  "searchEvidence": true,
-  "readEvidence": false,
-  "qualifiesSearchDebt": true,
-  "caveat": "cue-only search evidence; not proof that candidate files were read"
-}
-```
-
-Lifecycle helpers may count this as **search evidence only** when the explicit purpose is one of:
-
-- `fact` / `record` / `information`,
-- `rulebook` / `rules` / `operating-rule`,
-- `test` / `tests` / `validation`,
-- `capability` / `capabilities`,
-- `source` / `implementation`.
-
-They must not count `architecture`, `design`, or `full` purpose output as satisfying search-debt by itself. Required-read debt still requires actual read/search evidence for concrete paths; purpose-scoped find evidence is not read evidence.
-
-## Phase 4 downstream dogfood fixture
-
-Before the downstream dogfood fixture, `check_purpose_scoped_retrieval_cli` creates a minimal core fixture host for generic assertions. This avoids depending on host-owned record memory, because synced hosts do not have to contain framework TDD records such as `.lazy-harness/tests/purpose-scoped-retrieval.md`.
-
-The implementation is protected by a temporary downstream-like host fixture in `check_purpose_scoped_retrieval_cli`. The fixture models a host with a worktree/dev-instance operating rule, a capability binding, an SDD fact record, a TDD record, and a source test file.
-
-Purpose behavior under this fixture:
-
-- `rulebook` returns `.lazy-harness/rules/dev-worktree.md` and `dev-worktree-standard-command`, without broad fact records.
-- `test` returns `.lazy-harness/tests/dev-worktree-instances.md` and `tests/dev-worktree.spec.ts`, without defaulting to `.lazy-harness/spec/infra/dev-worktree-instances.md`.
-- `fact` returns `.lazy-harness/spec/infra/dev-worktree-instances.md`.
-- `capability` returns `dev-worktree-standard-command` for discouraged raw `git worktree add`.
-
-This fixture exists because downstream dogfood originally showed that worktree/dev-instance policy could be present but not applied by retrieval/action guidance.
+- DDD: `.lazy-harness/domain/purpose-scoped-retrieval.md` redefines retrieval vocabulary around map-first traversal.
+- BDD: `.lazy-harness/behavior/purpose-scoped-retrieval.md` defines the expected agent behavior.
+- TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md` protects removed `find`, map input rejection, and map-first prompts.
+- SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains the semantic-authority boundary.
+- ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md` records the superseding decision.

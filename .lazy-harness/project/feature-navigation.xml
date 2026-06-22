@@ -343,29 +343,25 @@
     <risk>Medium: operating rules guide agent behavior across hosts; keep hard stops behind Guidance Ladder promotion and avoid tool-specific adapter sprawl.</risk>
   </feature>
 
-  <feature id="purpose-scoped-retrieval" status="confirmed">
-    <label>Purpose-scoped retrieval</label>
+  <feature id="map-first-retrieval" status="confirmed">
+    <label>Map-first retrieval</label>
     <aliases>
-      <alias lang="en">purpose scoped retrieval</alias>
-      <alias lang="en">lazy find</alias>
-      <alias lang="en">fact retrieval</alias>
-      <alias lang="en">rulebook retrieval</alias>
-      <alias lang="en">test retrieval</alias>
-      <alias lang="ko">목적별 검색</alias>
-      <alias lang="ko">정보 검색</alias>
-      <alias lang="ko">행동 규약 검색</alias>
-      <alias lang="symbol">purpose-find.ts</alias>
+      <alias lang="en">map first retrieval</alias>
+      <alias lang="en">lazy map</alias>
+      <alias lang="en">record map</alias>
+      <alias lang="en">project map traversal</alias>
+      <alias lang="ko">지도 우선 검색</alias>
+      <alias lang="ko">프로젝트 지도</alias>
     </aliases>
     <routes>
-      <route>lazy find</route>
       <route>lazy map</route>
       <route>lazy rules</route>
       <route>lazy capability</route>
     </routes>
     <components>
-      <component>explicit purpose parser</component>
-      <component>purpose search space selector</component>
-      <component>fact/rulebook/test/source/capability candidate finder</component>
+      <component>project map overview</component>
+      <component>concrete node drill-down</component>
+      <component>LLM-owned record/source/test selection</component>
       <component>cue-only retrieval packet</component>
     </components>
     <records>
@@ -378,9 +374,8 @@
       <record layer="SSOT">.lazy-harness/ssot/capability-registry.md</record>
     </records>
     <sourceFiles>
-      <path>.lazy-harness/scripts/purpose-find.ts</path>
+      <path>.lazy-harness/scripts/record-map.ts</path>
       <path>.lazy-harness/bin/lazy</path>
-      <path>.lazy-harness/ssot/capabilities.json</path>
       <path>.lazy-harness/project/feature-navigation.xml</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </sourceFiles>
@@ -388,7 +383,7 @@
       <path>.lazy-harness/tests/purpose-scoped-retrieval.md</path>
       <path>.lazy-harness/scripts/self-test.py</path>
     </tests>
-    <risk>Medium: retrieval narrowing saves tokens but must not become semantic authority or skip broad evidence for architecture/fact-sensitive work.</risk>
+    <risk>Medium: retrieval helpers must stay map/index traversal aids; LLM owns semantic search and must read real records/source/tests before relying on candidates.</risk>
   </feature>
 
   <feature id="test-doctor" status="confirmed">

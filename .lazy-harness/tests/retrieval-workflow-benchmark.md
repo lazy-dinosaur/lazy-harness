@@ -57,7 +57,7 @@ Self-test must verify:
 3. `.lazy-harness/scripts/retrieval-workflow-benchmark.ts` exists.
 4. `.lazy-harness/bin/lazy retrieval-workflow-benchmark --format=json --limit=8` returns valid JSON.
 5. `schemaVersion == "1.0"` and `mode == "retrieval-workflow-benchmark"`.
-6. Default query set includes at least `retrieval coverage audit` and `workflow compression not safety reduction`.
+6. Default node set includes at least `map-first-retrieval` and `record-source-indexing`.
 7. Every query contains surfaces `map` and `map_plus_retrieval_audit` only.
 8. Recursive forbidden-key check passes.
 9. `map_plus_retrieval_audit.helperCalls == 2`.

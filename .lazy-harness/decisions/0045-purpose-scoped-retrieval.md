@@ -1,66 +1,71 @@
-# ADR 0045 — Purpose-Scoped Retrieval
+# ADR 0045 — Map-First Retrieval Supersedes Purpose Find
 
 Status: accepted
-Date: 2026-06-10
+Date: 2026-06-22
 Layer: ADR
 Related DDD: `.lazy-harness/domain/purpose-scoped-retrieval.md`
 Related BDD: `.lazy-harness/behavior/purpose-scoped-retrieval.md`
 Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 Related TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md`
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
-Related planning: `.lazy-harness/planning/purpose-scoped-retrieval-implementation-plan.md`
 
 ## Context
 
-Lazy-harness previously optimized for record-first safety. Dogfood showed a cost: when the agent is choosing how to act, testing, or selecting a command, broad DDD/SDD/ADR/SSOT record sweeps waste tokens and can distract from the relevant operating-rule/test/capability surfaces.
+Lazy-harness stores project understanding as project/topic anchors with DDD facts, BDD expectations, SDD contracts, TDD validation, ADR decisions, SSOT ownership, and source/test links. The retrieval helper must let the LLM follow that map and decide what to read.
+
+`lazy find --purpose ...` violated that product shape in practice. Dogfood showed agents delegated semantic search to the CLI, overused `--purpose fact`, passed raw natural-language strings, and even invented `lazy map --query` syntax. Cross-project validation on 2026-06-22 showed source recall was weak enough that `lazy find` could not be trusted as an implementation locator.
 
 ## Decision
 
-Adopt explicit purpose-scoped retrieval through:
+Remove `lazy find` from the active CLI and default retrieval workflow.
 
-```bash
-lazy find --purpose <fact|rulebook|test|capability|source|architecture|full> <query>
-```
+Canonical flow:
 
-The LLM/user chooses `--purpose`. The CLI does not infer purpose from raw user text and does not decide gates, risk, required reads, or next action. Output is cue-only.
+1. `lazy map --overview` prints the project map/inventory.
+2. The LLM/searcher chooses concrete feature ids, record paths, graph ids, source paths, or test paths.
+3. `lazy map <node>` expands a chosen node.
+4. The agent reads canonical records, Implementation maps, graph links, source, and tests.
+5. Root-bound search is fallback when the map/index is incomplete or ambiguous.
 
-## Why not `lazy route`
-
-`lazy route` and route telemetry were superseded because route classifiers over raw user text became semantic authority. This ADR keeps the name `find` to emphasize deterministic candidate retrieval under explicit purpose.
+`lazy map` is a map traversal helper, not a free-form search box. It must reject raw user text, long natural-language strings, and invented `--query` arguments.
 
 ## Consequences
 
-- Fact/contract/implementation questions still use record/source/test evidence.
-- Operating-rule/action questions start with rulebook/capability surfaces.
-- Test/validation questions start with TDD/test/source-test/capability surfaces.
-- Architecture/full purposes remain broad and safe.
-- Lifecycle hooks may mention purpose-scoped retrieval later, but must not classify raw prompts into a purpose automatically.
+- The LLM/searcher remains semantic authority.
+- Generated map/index/graph outputs stay cue-only.
+- Rule/action lookup still uses `lazy rules resolve` and `lazy capability resolve`.
+- Removed `lazy find` evidence no longer satisfies search-debt.
+- Prompt guidance must teach map-first traversal, not purpose-scoped CLI search.
 
 ## Implementation map
 
-- Status: `phase-0-2-implemented`
+- Status: `map-first-retrieval-implemented`
 - Primary records:
   - `.lazy-harness/domain/purpose-scoped-retrieval.md`
   - `.lazy-harness/behavior/purpose-scoped-retrieval.md`
   - `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
   - `.lazy-harness/tests/purpose-scoped-retrieval.md`
 - Primary source:
-  - `.lazy-harness/scripts/purpose-find.ts`
+  - `.lazy-harness/scripts/record-map.ts`
   - `.lazy-harness/bin/lazy`
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py`
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py`
   - `.lazy-harness/ssot/capabilities.json`
   - `.lazy-harness/project/feature-navigation.xml`
   - `.lazy-harness/scripts/self-test.py`
 - Validation:
-  - `.lazy-harness/bin/lazy find --purpose test <query>`
-  - `.lazy-harness/bin/lazy find --purpose rulebook <query>`
-  - `.lazy-harness/bin/lazy find --purpose fact <query>`
+  - `.lazy-harness/bin/lazy map --overview --format=md --limit=20`
+  - `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=json`
+  - `.lazy-harness/bin/lazy map 'long natural language string' --format=json` must fail
+  - `.lazy-harness/bin/lazy find --purpose fact foo` must fail
   - `.lazy-harness/bin/lazy test`
 
 ## Rule placement
 
-- Rule: Retrieval must be purpose-scoped; use record search for facts, rulebook/capability search for behavior/action policy, and test surfaces for validation before widening only when needed.
+- Rule: Retrieval is map-first and LLM-owned; CLIs may expose project-map/index nodes but must not own semantic search.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`
-- Why not AGENTS.md: this is an architecture/runtime retrieval decision with source/tests and implementation maps; AGENTS may later point to it.
+- Why not AGENTS.md: this is a retrieval architecture/runtime decision with source/tests and implementation maps; prompt grammar only points to the record behavior.
 - Why not `.jcode`: this changes shared lazy-harness framework behavior, not local/private Jcode wiring.
 - Confirmation: user-confirmed

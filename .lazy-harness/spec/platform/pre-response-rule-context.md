@@ -227,21 +227,21 @@ message.received
 - SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
 - Planning: searchable record memory cleanup plan Phase 3.
 
-## Phase 5 purpose-scoped prompt guidance
+## Map-first retrieval prompt guidance
 
-The static `message.received` reminder now teaches explicit purpose selection without classifying the user message:
+The static `message.received` reminder now teaches map-first traversal without classifying the user message:
 
-- fact/contract → `lazy find --purpose fact` or `lazy map`
-- rule/action → `lazy find --purpose rulebook` plus `lazy rules` / `lazy capability`
-- validation/test → `lazy find --purpose test`
-- implementation/source → `lazy find --purpose source`
-- architecture/ambiguous/high-risk → `lazy find --purpose architecture` plus overview/map
+- start with `lazy map --overview`
+- choose concrete feature ids, record paths, graph ids, source paths, or test paths from the map
+- drill down with `lazy map <feature-id|record-path|graph-id|source-path>`
+- never pass raw user text, long natural-language strings, or invented `--query` flags to `lazy map`
+- fallback to root-bound search only when the map/index is empty, ambiguous, or missing a concrete node
 
-The hook remains static: it must render the same body for all non-empty messages, avoid raw user-text classifiers, and journal the same sanitized `harness-first-static` search debt. Purpose selection is done by the LLM/searcher or user, not the hook.
+The hook remains static: it must render the same body for all non-empty messages, avoid raw user-text classifiers, and journal the same sanitized `harness-first-static` search debt. Node selection is done by the LLM/searcher or user, not the hook.
 
 ## Rule placement
 
-- Rule: `message.received` prompt guidance should point agents to explicit purpose-scoped retrieval while remaining static/non-semantic and preserving broad overview for architecture/ambiguous/high-risk work.
+- Rule: `message.received` prompt guidance should point agents to map-first traversal while remaining static/non-semantic and preserving fallback search for ambiguous or incomplete map coverage.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - Why not AGENTS.md: this is hook output contract and regression behavior.

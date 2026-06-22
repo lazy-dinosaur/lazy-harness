@@ -87,6 +87,11 @@ LAZY_MAP_COMMAND_RE = re.compile(
     r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+map(?:\s|$)",
     re.IGNORECASE,
 )
+LAZY_FIND_COMMAND_RE = re.compile(
+    r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+find(?:\s|$)",
+    re.IGNORECASE,
+)
+
 
 READ_ONLY_SHELL_RE = re.compile(
     r"^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?"
@@ -108,56 +113,6 @@ DETERMINISTIC_PACKET_RE = re.compile(
     r"\.lazy-harness/scripts/record-index\.ts",
     re.IGNORECASE,
 )
-
-SAFE_PURPOSE_FIND_PURPOSES = {"fact", "record", "information", "rulebook", "rules", "operating-rule", "operating-rules", "test", "tests", "validation", "capability", "capabilities", "source", "implementation"}
-BROAD_PURPOSE_FIND_PURPOSES = {"architecture", "design", "full"}
-PURPOSE_FIND_COMMAND_RE = re.compile(
-    r"(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy|purpose-find\.ts)\s+find\b[^\n;&|]*--purpose(?:=|\s+)([A-Za-z-]+)",
-    re.IGNORECASE,
-)
-PURPOSE_FIND_JSON_RE = re.compile(
-    r'"mode"\s*:\s*"purpose-scoped-find"(?:(?!\n\n).){0,1200}?"purpose"\s*:\s*"([^"]+)"',
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-def normalize_find_purpose(value: str) -> str:
-    purpose = str(value or "").strip().lower()
-    aliases = {
-        "record": "fact",
-        "information": "fact",
-        "rules": "rulebook",
-        "operating-rule": "rulebook",
-        "operating-rules": "rulebook",
-        "tests": "test",
-        "validation": "test",
-        "capabilities": "capability",
-        "implementation": "source",
-        "design": "architecture",
-    }
-    return aliases.get(purpose, purpose)
-
-
-def purpose_scoped_find_purposes(blob: str) -> list[str]:
-    text = str(blob or "")
-    purposes: list[str] = []
-    for regex in (PURPOSE_FIND_COMMAND_RE, PURPOSE_FIND_JSON_RE):
-        for match in regex.finditer(text):
-            purposes.append(normalize_find_purpose(match.group(1)))
-    return purposes
-
-
-def blob_has_any_purpose_scoped_find(blob: str) -> bool:
-    return bool(purpose_scoped_find_purposes(blob))
-
-
-def blob_has_purpose_scoped_find_evidence(blob: str) -> bool:
-    purposes = purpose_scoped_find_purposes(blob)
-    if not purposes:
-        return False
-    if any(purpose in {"architecture", "full"} for purpose in purposes):
-        return False
-    return any(purpose in {"fact", "rulebook", "test", "capability", "source"} for purpose in purposes)
 
 
 
@@ -216,8 +171,6 @@ def bash_is_read_only(args: dict[str, Any]) -> bool:
     forbidden = re.search(r"\b(rm|mv|cp|mkdir|touch|tee|python3?\s+-|node\s+-|bun\s+(?:run|x|test)|npm|pnpm|yarn|gh\s+(?:pr\s+(?:create|edit|merge)|issue\s+create))\b", command, re.IGNORECASE)
     if forbidden:
         return False
-    if blob_has_purpose_scoped_find_evidence(command):
-        return True
     return bool(READ_ONLY_SHELL_RE.search(command))
 
 
@@ -421,12 +374,10 @@ def evidence_blob(packet_row: dict[str, Any] | None = None) -> str:
 
 
 def shell_has_search_evidence(command: str) -> bool:
-    if DETERMINISTIC_PACKET_RE.search(command):
+    if DETERMINISTIC_PACKET_RE.search(command) or LAZY_FIND_COMMAND_RE.search(command):
         return False
     if LAZY_MAP_COMMAND_RE.search(command):
         return True
-    if blob_has_any_purpose_scoped_find(command):
-        return blob_has_purpose_scoped_find_evidence(command)
     return bool(re.search(
         r"\b(rg|grep|find|tree|ls|git\s+grep|git\s+ls-files)\b",
         command,
@@ -437,10 +388,8 @@ def shell_has_search_evidence(command: str) -> bool:
 def call_has_search_evidence(call: dict[str, Any]) -> bool:
     name = str(call.get("name") or call.get("tool") or "")
     blob = call_blob(call)
-    if DETERMINISTIC_PACKET_RE.search(blob):
+    if DETERMINISTIC_PACKET_RE.search(blob) or LAZY_FIND_COMMAND_RE.search(blob):
         return False
-    if blob_has_any_purpose_scoped_find(blob):
-        return blob_has_purpose_scoped_find_evidence(blob)
     if name in DIRECT_SEARCH_EVIDENCE_TOOLS:
         return True
     if name in INVENTORY_EVIDENCE_TOOLS and ROOT_BOUND_EVIDENCE_RE.search(blob):
@@ -454,8 +403,6 @@ def call_has_search_evidence(call: dict[str, Any]) -> bool:
     # read/search/list-style signal, count it without hardcoding that tool name.
     if ROOT_BOUND_EVIDENCE_RE.search(blob) and (GENERIC_READ_SEARCH_NAME_RE.search(name) or GENERIC_READ_SEARCH_NAME_RE.search(blob)):
         return True
-    if blob_has_any_purpose_scoped_find(blob):
-        return False
     if any(marker in blob for marker in (
         "agentgrep", "mcp__filesystem__search_files", "git grep", "git ls-files", " rg ", " grep ", " find ",
     )):

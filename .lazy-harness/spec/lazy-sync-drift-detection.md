@@ -36,7 +36,7 @@ For Category A manifest directory entries, `lazy-sync` must remove stale destina
 
 Exception: `knowledge/` JSONL files are host-local append-only stores. They are seed-merged, not overwritten or pruned: missing source seed rows are appended to the host file, while host-local graph/candidate rows are preserved.
 
-`ssot/capabilities.json` is also host-owned. When the manifest includes the framework seed registry, `lazy-sync` merges missing source capability ids into the host registry without deleting or overwriting host-local capability entries. This lets downstream hosts receive new framework capability surfaces such as retrieval-purpose and rulebook capabilities while preserving project-specific capabilities.
+`ssot/capabilities.json` is also host-owned. When the manifest includes the framework seed registry, `lazy-sync` merges missing source capability ids into the host registry without deleting or overwriting host-local capability entries. This lets downstream hosts receive new framework capability surfaces such as rulebook capabilities while preserving project-specific capabilities. Retired retrieval-purpose capabilities must not be reintroduced.
 
 Every framework-owned seed capability (`owner=framework-global`) `sourceRecord` that is synced into host `ssot/capabilities.json` must also be present in the Category A manifest, or have a host-safe `targetPath` mirror. Host-owned capabilities are deliberately excluded from this framework manifest rule because their records are owned by the downstream project. Otherwise host `lazy capability audit` or framework self-tests can fail immediately after a successful capability seed merge.
 

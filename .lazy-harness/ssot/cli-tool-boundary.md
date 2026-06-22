@@ -60,7 +60,7 @@ User-confirmed direction: lazy-harness agents routinely search, write, modify, v
 
 Boundary:
 
-- `lazy map`, `record-index`, `lazy find`, `retrieval-audit`, and benchmark packets may route the LLM/searcher toward likely records/source/tests. Removed graph query/path/explain CLI packets must not be treated as active retrieval surfaces.
+- `lazy map`, `record-index`, `retrieval-audit`, and benchmark packets may route the LLM/searcher toward likely records/source/tests. `lazy find` and removed graph query/path/explain CLI packets must not be treated as active retrieval surfaces.
 - Generated graph/index/cache state may be stale relative to just-edited canonical files.
 - After mutation, the LLM/searcher must read the changed canonical records/source/tests and run validation instead of trusting generated graph state.
 - Any future Graphify-style watch, MCP, daemon, or graph export integration must keep generated graph output as cue-only and must not become lifecycle semantic authority.
@@ -109,7 +109,7 @@ Boundary for SCR-401/SCR-402:
 - Decision: canonical future cache/listing name is `record-index`.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records the naming trade-off.
 - Scope: deterministic record-authored metadata listing/cache generation only.
-- `lazy map --overview` and `lazy map <term-or-file>` are read-only overview/drill-down helpers that use record-authored metadata, feature navigation, and graph rows as cues only.
+- `lazy map --overview` and `lazy map <feature-id|record-path|graph-id|source-path>` are read-only overview/drill-down helpers that use record-authored metadata, feature navigation, and graph rows as cues only.
 - SCR-402 Option A removes active `context-index` command/source/schema/cache paths rather than keeping a compatibility alias.
 - New docs/contracts must not describe `context-index` as the canonical name for searchable record memory.
 - The implemented `record-index` command preserves no raw-message query input, no semantic authority outputs, and no cache-hit evidence satisfaction.
@@ -126,14 +126,13 @@ Discovery capture:
 - SSOT: this section records SCR-305 and the cue-only `lazy map` boundary.
 - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` records SCR-402 completion.
 
-## Purpose-scoped retrieval boundary — 2026-06-10
+## Map-first retrieval boundary — 2026-06-22
 
-`lazy find --purpose ...` is allowed because purpose is explicit LLM/user input and output is cue-only. The command must not infer user intent from raw prompts, assign risk/gates, generate required-read lists, or choose next actions. It may narrow deterministic search spaces for fact, rulebook, test, capability, source, architecture, or full retrieval.
+`lazy find --purpose ...` is retired. Retrieval starts with `lazy map --overview`; the LLM/searcher chooses concrete feature ids, record paths, graph ids, source paths, or test paths and drills down with `lazy map <node>`. `lazy map` must not infer user intent from raw prompts, accept long natural-language query text, assign risk/gates, generate required-read lists, or choose next actions.
 
 Rule placement:
 
-- Rule: Purpose-scoped retrieval is a deterministic cue tool only; explicit `--purpose` is required and lifecycle hooks must not classify raw prompts into purposes.
-- Scope: framework-global
+- Rule: Map-first retrieval is deterministic cue traversal only; semantic search and purpose selection remain LLM/searcher-owned.
 - Primary record: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Why not AGENTS.md: this boundary needs source/test implementation maps.
 - Why not `.jcode`: shared lazy-harness framework behavior.

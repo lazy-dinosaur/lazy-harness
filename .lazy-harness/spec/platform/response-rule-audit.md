@@ -168,16 +168,16 @@ It emits output only for strong evidence cases:
    - There is no same-turn `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}` or knowledge graph capture in recent write tool evidence.
 3. **Generic search-debt evidence may be missing**
    - A correlated static search/read-debt row exists.
-   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`) or an explicit read-only searcher handoff.
+   - Recent tool evidence does not show root-bound search (`agentgrep`, `grep`/`rg`/`find`), `lazy map --overview`, concrete `lazy map <node>` traversal, or an explicit read-only searcher handoff.
    - Running a deterministic CLI such as `context-delivery` or `relevant-record-query` is not sufficient search evidence by itself.
-   - Exception: explicit safe-purpose `lazy find` evidence may satisfy search-debt as cue-only search evidence, but not required-read debt and not `architecture`/`full` purpose.
+   - Retired `lazy find --purpose ...` evidence must not satisfy search-debt.
    - Output starts with `ADVISORY`, never `STOP`.
 
 Legacy/manual packet rows with concrete `requiredRead` paths may still be audited for backward compatibility, but current framework CLIs must not generate those paths from raw user text.
 
 Everything else stays silent.
 
-Purpose-scoped retrieval evidence from `lazy find` is accepted only as search evidence for safe explicit purposes. It is not read evidence and does not weaken required-read or architecture/full evidence obligations.
+Map-first `lazy map` evidence is accepted only as search evidence. It is not read evidence and does not weaken required-read obligations.
 
 ## Output contract
 

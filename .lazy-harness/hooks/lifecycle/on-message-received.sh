@@ -184,13 +184,13 @@ def harness_inventory_lines() -> list[str]:
 body = '\n'.join([
     'REMINDER. Harness-first search/read debt before response.',
     f'- Instruction: {level}; static transport; no user-text classification; no CLI/index semantic authority.',
-    '- Before answer/plan/edit: choose an explicit retrieval purpose, inspect real `.lazy-harness`/source/test evidence in this host root, and stay read-only until debt is satisfied.',
+    '- Before answer/plan/edit: inspect the map/index inventory, let the LLM choose record/source/test nodes, read real evidence in this host root, and stay read-only until debt is satisfied.',
     f'- Search scope: `{search_hint}`',
     *harness_inventory_lines(),
-    "- Purpose guide (LLM/user chooses; hook does not classify): fact/contract→`lazy find --purpose fact` or `lazy map`; rule/action→`lazy find --purpose rulebook` + `lazy rules`/`lazy capability`; validation/test→`lazy find --purpose test`; implementation→`lazy find --purpose source`; architecture/ambiguous/high-risk→`lazy find --purpose architecture` + overview/map.",
-    "- Broad overview for architecture/ambiguous/high-risk or unclear purpose: `.lazy-harness/bin/lazy map --overview --format=md --limit=20`, then repeat `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8` until dispersed records/source/tests are covered.",
-    "- fallback only if empty/ambiguous/incomplete: `grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/`, then read real files.",
-    '- Protocol: read Rule digest/full body/Implementation map/graph links or purpose-specific candidates → inspect source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
+    "- Map-first protocol: run `.lazy-harness/bin/lazy map --overview --format=md --limit=20`; from the returned feature ids, record paths, graph ids, source paths, and test paths, choose the next concrete node yourself.",
+    "- Drill-down: run `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8` only with a node/key copied from the map. Do not pass raw user text, long natural-language strings, or invented `--query` flags.",
+    "- Fallback only when the map/index is empty, ambiguous, or missing a concrete node: use root-bound search over `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/`, source, and tests; then read real files.",
+    '- Protocol: read Rule digest/full body/Implementation map/graph links → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
     '- Missing record: search current host code/docs/package/config; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until root-bound harness-following search/read evidence exists.',
 ]).strip() + '\n'

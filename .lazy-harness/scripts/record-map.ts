@@ -184,7 +184,7 @@ const RECORD_INDEX_INPUTS = [
 
 function usage(exitCode = 2): never {
   const out = exitCode === 0 ? console.log : console.error
-  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]\n  .lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N] [--fresh]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only overview/drill-down helper. Start with --overview to see the whole record/feature/graph structure before choosing search terms. Uses fresh generated record-index cache when available; --fresh forces source rebuild. It does not decide intent, confidence, required reads, risk, gates, or next actions.`)
+  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]\n  .lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only project map traversal helper. Start with --overview, let the LLM choose a concrete node/key from the map, then drill into that node. This is not a free-form search box and it does not decide intent, confidence, required reads, risk, gates, or next actions.`)
   process.exit(exitCode)
 }
 
@@ -220,6 +220,7 @@ function parseArgs(argv: string[]): Args {
   }
   args.query = queryParts.join(' ').trim()
   if (!args.query && !args.overview) usage()
+  if (args.query) validateTraversalKey(args.query)
   args.root = path.resolve(args.root)
   return args
 }
@@ -234,6 +235,13 @@ function normalizeLimit(value: string): number {
   const n = Number(value)
   if (!Number.isInteger(n) || n < 1 || n > 100) throw new Error(`Unsupported --limit: ${value}`)
   return n
+}
+
+function validateTraversalKey(value: string): void {
+  const text = value.trim()
+  if (/\s/.test(text)) {
+    throw new Error('lazy map expects a concrete map node/key, not free-form search text. Start with `lazy map --overview`, then pass a feature id, record path, graph id, source path, or test path copied from the map.')
+  }
 }
 
 function newestMtimeMs(targetPath: string): number {
@@ -330,6 +338,20 @@ function matches(query: string, value: string): boolean {
   return needles.some((needle) => needle && (hay.includes(needle) || compactHay.includes(compact(needle))))
 }
 
+function sameTraversalKey(query: string, value: string): boolean {
+  const q = query.replace(/^\.\//, '').trim()
+  const v = value.replace(/^\.\//, '').trim()
+  return Boolean(q && v && q === v)
+}
+
+function addExactMatches(out: MatchDetail[], query: string, field: string, values: string[] | string | undefined): void {
+  const list = Array.isArray(values) ? values : values ? [values] : []
+  for (const value of list) {
+    if (sameTraversalKey(query, value)) out.push({ field, value })
+  }
+}
+
+
 function addMatches(out: MatchDetail[], query: string, field: string, values: string[] | string | undefined): void {
   const list = Array.isArray(values) ? values : values ? [values] : []
   for (const value of list) {
@@ -389,6 +411,10 @@ function addPath(value: string, target: Drilldown, root?: string): void {
 function featureMatch(query: string, feature: FeatureEntry): FeatureMatch | null {
   const matched: MatchDetail[] = []
   const aliases = feature.aliases.map((alias) => alias.value)
+  addExactMatches(matched, query, 'feature.idExact', feature.id)
+  addExactMatches(matched, query, 'feature.recordsExact', feature.records.map((record) => record.path))
+  addExactMatches(matched, query, 'feature.sourceFilesExact', feature.sourceFiles)
+  addExactMatches(matched, query, 'feature.testsExact', feature.tests)
   addMatches(matched, query, 'feature.id', feature.id)
   addMatches(matched, query, 'feature.label', feature.label)
   addMatches(matched, query, 'feature.aliases', aliases)
@@ -427,6 +453,10 @@ function featureMatch(query: string, feature: FeatureEntry): FeatureMatch | null
 function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
   const matched: MatchDetail[] = []
   const hints = record.implementationHints
+  addExactMatches(matched, query, 'record.pathExact', record.recordPath)
+  addExactMatches(matched, query, 'record.sourceFilesExact', hints.fileHints)
+  addExactMatches(matched, query, 'record.testFilesExact', hints.testHints)
+  addExactMatches(matched, query, 'record.graphIdsExact', record.graphIds)
   addMatches(matched, query, 'record.path', record.recordPath)
   addMatches(matched, query, 'record.title', record.title)
   addMatches(matched, query, 'record.layer', record.layer)
@@ -500,6 +530,10 @@ function graphRows(root: string): GraphRow[] {
 
 function graphMatch(query: string, row: GraphRow): GraphMatch | null {
   const matched: MatchDetail[] = []
+  if (typeof row.id === 'string') addExactMatches(matched, query, 'graph.idExact', row.id)
+  if (typeof row.path === 'string') addExactMatches(matched, query, 'graph.pathExact', row.path)
+  if (typeof row.source === 'string') addExactMatches(matched, query, 'graph.sourceExact', row.source)
+  if (typeof row.target === 'string') addExactMatches(matched, query, 'graph.targetExact', row.target)
   for (const [key, value] of Object.entries(row)) {
     for (const text of rowStrings(value)) addMatches(matched, query, `graph.${key}`, text)
   }
@@ -517,8 +551,12 @@ function graphMatch(query: string, row: GraphRow): GraphMatch | null {
   }
 }
 
-function sortMatches<T extends { matchCount: number }>(items: T[], label: (item: T) => string): T[] {
-  return [...items].sort((a, b) => b.matchCount - a.matchCount || label(a).localeCompare(label(b)))
+function exactMatchWeight(item: { matched: MatchDetail[] }): number {
+  return item.matched.some((match) => match.field.endsWith('Exact')) ? 1 : 0
+}
+
+function sortMatches<T extends { matchCount: number; matched: MatchDetail[] }>(items: T[], label: (item: T) => string): T[] {
+  return [...items].sort((a, b) => exactMatchWeight(b) - exactMatchWeight(a) || b.matchCount - a.matchCount || label(a).localeCompare(label(b)))
 }
 
 function buildDrilldown(root: string, features: FeatureMatch[], records: RecordMatch[], graphRows: GraphMatch[]): Drilldown {
@@ -642,9 +680,9 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false):
       recordIndexCache: cache,
     },
     notes: [
-      'Overview first: inspect this whole structure before choosing search terms.',
-      "Then repeat `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8` for multiple candidate tokens/files/layers until dispersed records/source/tests are covered; read real evidence, and only then answer or mutate.",
-      'Cues only: overview and drill-down candidates do not satisfy search/read debt by themselves.',
+      'Overview first: inspect this project map before choosing concrete map nodes.',
+      'Then use `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8` with feature ids, record paths, graph ids, source paths, and test paths copied from the map; read real evidence, and only then answer or mutate.',
+      'Cues only: overview and drill-down candidates do not satisfy read debt by themselves.',
     ],
     inventory: {
       totalRecords: index.records.length,
@@ -738,8 +776,8 @@ function renderOverviewMarkdown(result: RecordMapOverview): string {
   lines.push(`- graph rows: ${result.inventory.totalGraphRows}`)
   lines.push(`- record-index cache: ${result.source.recordIndexCache.used ? 'used' : 'rebuilt'} (${result.source.recordIndexCache.reason})`)
   lines.push(`- generated indexes: record-index=${result.inventory.generatedIndexes.recordIndex ? 'present' : 'missing'}, implementation-index=${result.inventory.generatedIndexes.implementationIndex ? 'present' : 'missing'}, reference-index=${result.inventory.generatedIndexes.referenceIndex ? 'present' : 'missing'}`)
-  lines.push('- first step: use this overview to choose multiple candidate tokens/files/layers, then repeat the exact query CLI below until dispersed records/source/tests are covered.')
-  lines.push("- repeat query CLI: `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`")
+  lines.push('- first step: use this overview as the project map; the LLM chooses concrete feature ids, record paths, graph ids, source paths, or test paths from this output.')
+  lines.push('- drill-down CLI: `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8`')
   lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
   lines.push('', '## Layers')
   for (const layer of result.inventory.layers) {

@@ -41,12 +41,12 @@ Command:
 .lazy-harness/bin/lazy retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
 ```
 
-Default query set should include representative framework retrieval cases:
+Default node set should include representative concrete framework map nodes:
 
-- `retrieval coverage audit`
-- `workflow compression not safety reduction`
-- `capability registry`
-- `lazy sync drift detection`
+- `map-first-retrieval`
+- `record-source-indexing`
+- `capability-registry`
+- `sync-install-update`
 
 Output shape:
 

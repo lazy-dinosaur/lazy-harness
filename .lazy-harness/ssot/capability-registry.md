@@ -113,14 +113,14 @@ No hook is added by Phase 1/2. Warn/block boundary enforcement is a later phase.
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
 
-## Purpose-scoped retrieval capabilities
+## Map-first retrieval boundary
 
-Purpose retrieval affordances are registered as `recommend` command capabilities:
+Purpose-scoped retrieval capabilities were retired on 2026-06-22 after dogfood showed agents delegated semantic search to `lazy find`.
 
-- `retrieval-purpose-fact`
-- `retrieval-purpose-rulebook`
-- `retrieval-purpose-test`
-- `retrieval-purpose-source`
-- `retrieval-purpose-architecture`
+Retrieval capabilities must point to map/index traversal or rulebook/capability resolution only:
 
-These capabilities point to `lazy find --purpose ...` and must not escalate to warn/block without a separate Guidance Ladder decision.
+- project map/inventory: `lazy map --overview`
+- concrete node drill-down: `lazy map <feature-id|record-path|graph-id|source-path>`
+- operating rules: `lazy rules resolve` / `lazy capability resolve`
+
+Do not register `lazy find --purpose ...` capabilities; CLI-owned search must not become semantic authority.

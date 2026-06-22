@@ -2638,7 +2638,6 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         for required_capability in [
             "host-local-capability",
             "project-operating-rulebook",
-            "retrieval-purpose-test",
         ]:
             if required_capability not in capability_ids:
                 fail("lazy-sync must preserve host capabilities and merge framework seeds: " + required_capability)
@@ -3532,303 +3531,73 @@ Use the host worktree and dev-instance wrappers instead of raw git worktree or r
 
 
 def check_purpose_scoped_retrieval_cli() -> None:
-    """lazy find keeps retrieval spaces purpose-scoped and cue-only."""
+    """Removed lazy find; retrieval must be map-first and LLM-owned."""
     script = LAZY / "scripts" / "purpose-find.ts"
-    if not script.exists():
-        fail("purpose-scoped retrieval CLI script missing")
-    source = script.read_text(encoding="utf-8")
-    forbidden = ["lazy route", "route-summary", "raw prompt classifier", "requiredRead", "next-action"]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("purpose-find must not reintroduce route/raw-prompt/required-read semantics: " + json.dumps(leaked, ensure_ascii=False))
+    if script.exists():
+        fail("purpose-find.ts should be removed; CLI search must not own retrieval semantics")
 
-    core = pathlib.Path(tempfile.mkdtemp(prefix="lazy-purpose-core-"))
-    try:
-        (core / ".lazy-harness" / "rules").mkdir(parents=True)
-        (core / ".lazy-harness" / "tests").mkdir(parents=True)
-        (core / ".lazy-harness" / "spec" / "platform").mkdir(parents=True)
-        (core / ".lazy-harness" / "decisions").mkdir(parents=True)
-        (core / ".lazy-harness" / "ssot").mkdir(parents=True)
-        (core / ".lazy-harness" / "rules" / "project-policy-storage.md").write_text(
-            """# Project Policy Storage Rule
+    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    if "find --purpose" in help_text or "purpose-find" in help_text:
+        fail("lazy help must not advertise removed purpose-scoped find command")
 
-Status: active
-Layer: Rulebook
+    removed = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "find", "--purpose", "fact", "capability resolution", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if removed.returncode == 0:
+        fail("removed lazy find command should fail")
 
-## Rule digest
+    freeform_map = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "dev branch PR rollback preserve current dev state", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if freeform_map.returncode == 0 or "not free-form search text" not in (freeform_map.stderr + freeform_map.stdout):
+        fail("lazy map must reject free-form natural-language search text:\n" + freeform_map.stdout + freeform_map.stderr)
 
-- Applies when: project policy storage
-- Prefer: `.lazy-harness/rules/**` for operating policies
+    invented_query = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "--query", "dev branch", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if invented_query.returncode == 0 or "Unknown argument: --query" not in (invented_query.stderr + invented_query.stdout):
+        fail("lazy map must reject invented --query search-box syntax:\n" + invented_query.stdout + invented_query.stderr)
 
-## Operating rule
+    node_map = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "record-source-indexing", "--format=json", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if node_map.returncode != 0:
+        fail("lazy map should accept concrete feature ids copied from overview:\n" + node_map.stdout + node_map.stderr)
+    node_json = json.loads(node_map.stdout)
+    if node_json.get("mode") != "record-map.inspect":
+        fail("lazy map concrete node output missing inspect mode")
+    if "record-source-indexing" not in [feature.get("id") for feature in node_json.get("features", [])]:
+        fail("lazy map should traverse the concrete record-source-indexing feature id")
 
-Project policy storage belongs in the rulebook surface for purpose-scoped retrieval tests.
-""",
-            encoding="utf-8",
-        )
-        (core / ".lazy-harness" / "tests" / "purpose-scoped-retrieval.md").write_text(
-            """# Purpose-Scoped Retrieval Regression
+    overview = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=md", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if overview.returncode != 0:
+        fail("lazy map overview should work after removing find:\n" + overview.stdout + overview.stderr)
+    if "LLM chooses concrete feature ids" not in overview.stdout or "drill-down CLI" not in overview.stdout:
+        fail("lazy map overview must teach map traversal, not CLI-owned search:\n" + overview.stdout)
 
-Status: accepted
-Layer: TDD
-
-## Regression
-
-Purpose scoped retrieval must find TDD records for test purpose before widening to fact or decision records.
-""",
-            encoding="utf-8",
-        )
-        (core / ".lazy-harness" / "decisions" / "purpose-scoped-retrieval.md").write_text(
-            """# Purpose Scoped Retrieval Decision
-
-Status: accepted
-Layer: ADR
-
-This broad decision intentionally mentions purpose scoped retrieval but must not appear in test-purpose records.
-""",
-            encoding="utf-8",
-        )
-        (core / ".lazy-harness" / "spec" / "platform" / "capability-resolution.md").write_text(
-            """# Capability Resolution
-
-Status: accepted
-Layer: SDD
-
-Capability resolution fact records are returned for fact purpose retrieval.
-""",
-            encoding="utf-8",
-        )
-        (core / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
-            json.dumps({
-                "version": 1,
-                "capabilities": [{
-                    "id": "retrieval-purpose-test",
-                    "kind": "command",
-                    "level": "recommend",
-                    "sourceRecord": ".lazy-harness/spec/platform/purpose-scoped-retrieval.md",
-                    "appliesWhen": ["retrieval_test"],
-                    "preferredActions": ["lazy find --purpose test"],
-                    "description": "Use test purpose retrieval for validation and TDD surfaces.",
-                    "owner": "framework-fixture",
-                    "tags": ["purpose", "retrieval", "test", "validation"],
-                }],
-            }, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(core))
-        lazy_cmd = str(LAZY / "bin" / "lazy")
-
-        missing = subprocess.run([lazy_cmd, "find", "project policy", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if missing.returncode == 0 or "requires --purpose" not in (missing.stderr + missing.stdout):
-            fail("lazy find should require explicit --purpose")
-
-        rulebook = subprocess.run([lazy_cmd, "find", "--purpose", "rulebook", "project policy storage", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if rulebook.returncode != 0:
-            fail("lazy find --purpose rulebook failed:\n" + rulebook.stdout + rulebook.stderr)
-        rulebook_json = json.loads(rulebook.stdout)
-        if rulebook_json.get("purpose") != "rulebook" or "rules" not in rulebook_json.get("searchSpaces", []):
-            fail("rulebook purpose should report rules search space: " + rulebook.stdout)
-        if rulebook_json.get("candidates", {}).get("records"):
-            fail("rulebook purpose should not default to broad record candidates: " + rulebook.stdout)
-        if not rulebook_json.get("candidates", {}).get("rules"):
-            fail("rulebook purpose should return rule candidates: " + rulebook.stdout)
-
-        test = subprocess.run([lazy_cmd, "find", "--purpose", "test", "purpose scoped retrieval", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if test.returncode != 0:
-            fail("lazy find --purpose test failed:\n" + test.stdout + test.stderr)
-        test_json = json.loads(test.stdout)
-        test_records = [entry.get("path") for entry in test_json.get("candidates", {}).get("records", [])]
-        if ".lazy-harness/tests/purpose-scoped-retrieval.md" not in test_records:
-            fail("test purpose should surface purpose-scoped TDD record: " + test.stdout)
-        if any(str(path).startswith(".lazy-harness/decisions/") for path in test_records):
-            fail("test purpose should not default to ADR/fact record sweep: " + test.stdout)
-
-        fact = subprocess.run([lazy_cmd, "find", "--purpose", "fact", "capability resolution", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if fact.returncode != 0:
-            fail("lazy find --purpose fact failed:\n" + fact.stdout + fact.stderr)
-        fact_records = [entry.get("path") for entry in json.loads(fact.stdout).get("candidates", {}).get("records", [])]
-        if ".lazy-harness/spec/platform/capability-resolution.md" not in fact_records:
-            fail("fact purpose should surface capability resolution record: " + fact.stdout)
-
-        arch = subprocess.run([lazy_cmd, "find", "--purpose", "architecture", "purpose scoped retrieval", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if arch.returncode != 0:
-            fail("lazy find --purpose architecture failed:\n" + arch.stdout + arch.stderr)
-        spaces = set(json.loads(arch.stdout).get("searchSpaces", []))
-        if not {"overview", "records", "rules", "capabilities", "source", "tests", "graph"}.issubset(spaces):
-            fail("architecture purpose should include broad search spaces: " + arch.stdout)
-
-        cap = subprocess.run([lazy_cmd, "capability", "resolve", "--intent", "retrieval_test", "--format=json"], cwd=core, env=env, text=True, capture_output=True, check=False)
-        if cap.returncode != 0:
-            fail("retrieval purpose capability resolve failed:\n" + cap.stdout + cap.stderr)
-    finally:
-        shutil.rmtree(core, ignore_errors=True)
-
-
-    dogfood = pathlib.Path(tempfile.mkdtemp(prefix="lazy-purpose-dogfood-"))
-    try:
-        (dogfood / ".lazy-harness" / "rules").mkdir(parents=True)
-        (dogfood / ".lazy-harness" / "ssot").mkdir(parents=True)
-        (dogfood / ".lazy-harness" / "spec" / "infra").mkdir(parents=True)
-        (dogfood / ".lazy-harness" / "tests").mkdir(parents=True)
-        (dogfood / "tests").mkdir(parents=True)
-        (dogfood / ".lazy-harness" / "rules" / "dev-worktree.md").write_text(
-            """# Dev Worktree Operating Rule
-
-Status: active
-Layer: Rulebook
-Scope: host-project
-Owner: fixture
-Level: warn
-Related capability: dev-worktree-standard-command
-Related records:
-- `.lazy-harness/spec/infra/dev-worktree-instances.md`
-
-## Rule digest
-
-- Applies when:
-  - creating_worktree
-  - starting_dev_instance
-- Prefer:
-  - `bun run wt new`
-  - `bun run dev:instance`
-- Avoid:
-  - raw `git worktree add`
-  - raw `bun run dev`
-- Requires:
-  - use project wrappers for dogfood worktree/dev-instance sessions
-- Bypass:
-  - explicit user confirmation and reason required
-- Record completion:
-  - update capability binding when wrappers change
-
-## Operating rule
-
-Use the host worktree and dev-instance wrappers instead of raw git worktree or raw dev-server commands.
-
-## Capability binding
-
-- Capability id: dev-worktree-standard-command
-- Preferred actions: `bun run wt new`, `bun run dev:instance`
-- Discouraged actions: `git worktree add`, `bun run dev`
-- Intent labels: creating_worktree, starting_dev_instance
-- Enforcement level: warn
-
-## Implementation map
-
-- Source records: `.lazy-harness/spec/infra/dev-worktree-instances.md`
-- Capabilities: `dev-worktree-standard-command`
-- Tests: `.lazy-harness/tests/dev-worktree-instances.md`
-""",
-            encoding="utf-8",
-        )
-        (dogfood / ".lazy-harness" / "spec" / "infra" / "dev-worktree-instances.md").write_text(
-            """# Dev Worktree Instances
-
-Status: accepted
-Layer: SDD
-
-## Rule digest
-
-- Worktree wrapper: `bun run wt new <branch> --base develop`
-- Dev instance wrapper: `bun run dev:instance -- --instance <name|auto>`
-- Inspect URL: `bun run dev:inspect <name>`
-
-## Implementation map
-
-- Commands: `bun run wt new`, `bun run dev:instance`, `bun run dev:inspect`
-""",
-            encoding="utf-8",
-        )
-        (dogfood / ".lazy-harness" / "tests" / "dev-worktree-instances.md").write_text(
-            """# Dev Worktree Instance Regression
-
-Status: accepted
-Layer: TDD
-
-## Regression
-
-Purpose-scoped retrieval must find worktree/dev-instance validation surfaces without broad fact record sweeps.
-
-## Implementation map
-
-- Protected command wrapper: `bun run wt new`
-- Protected dev instance wrapper: `bun run dev:instance`
-""",
-            encoding="utf-8",
-        )
-        (dogfood / "tests" / "dev-worktree.spec.ts").write_text(
-            """describe('dev worktree instance wrappers', () => {
-  it('documents bun run wt new and bun run dev:instance dogfood validation', () => {})
-})
-""",
-            encoding="utf-8",
-        )
-        (dogfood / ".lazy-harness" / "ssot" / "capabilities.json").write_text(
-            json.dumps({
-                "version": 1,
-                "capabilities": [{
-                    "id": "dev-worktree-standard-command",
-                    "kind": "command",
-                    "level": "warn",
-                    "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
-                    "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
-                    "appliesWhen": ["creating_worktree", "starting_dev_instance"],
-                    "preferredActions": ["bun run wt new", "bun run dev:instance", "bun run dev:inspect"],
-                    "discouragedActions": ["git worktree add", "bun run dev"],
-                    "entrypoint": "bun run wt new / bun run dev:instance",
-                    "requiresReasonForBypass": True,
-                    "description": "Dogfood fixture for project worktree/dev-instance wrapper retrieval.",
-                    "owner": "host-project",
-                    "tags": ["rulebook", "worktree", "dev-instance"],
-                }],
-            }, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(dogfood))
-        dog_rulebook = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "rulebook", "git worktree add", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
-        if dog_rulebook.returncode != 0:
-            fail("dogfood rulebook purpose search failed:\n" + dog_rulebook.stdout + dog_rulebook.stderr)
-        dog_rulebook_json = json.loads(dog_rulebook.stdout)
-        if dog_rulebook_json.get("candidates", {}).get("records"):
-            fail("dogfood rulebook purpose must not default to fact records: " + dog_rulebook.stdout)
-        if ".lazy-harness/rules/dev-worktree.md" not in [entry.get("path") for entry in dog_rulebook_json.get("candidates", {}).get("rules", [])]:
-            fail("dogfood rulebook purpose should find worktree operating rule: " + dog_rulebook.stdout)
-        if "dev-worktree-standard-command" not in [entry.get("id") for entry in dog_rulebook_json.get("candidates", {}).get("capabilities", [])]:
-            fail("dogfood rulebook purpose should find worktree capability: " + dog_rulebook.stdout)
-
-        dog_test = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "test", "worktree dev instance", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
-        if dog_test.returncode != 0:
-            fail("dogfood test purpose search failed:\n" + dog_test.stdout + dog_test.stderr)
-        dog_test_json = json.loads(dog_test.stdout)
-        dog_test_records = [entry.get("path") for entry in dog_test_json.get("candidates", {}).get("records", [])]
-        dog_test_files = [entry.get("path") for entry in dog_test_json.get("candidates", {}).get("testFiles", [])]
-        if ".lazy-harness/tests/dev-worktree-instances.md" not in dog_test_records:
-            fail("dogfood test purpose should find TDD worktree record: " + dog_test.stdout)
-        if "tests/dev-worktree.spec.ts" not in dog_test_files:
-            fail("dogfood test purpose should find source test file: " + dog_test.stdout)
-        if any(str(path).startswith(".lazy-harness/spec/") for path in dog_test_records):
-            fail("dogfood test purpose should not default to SDD fact records: " + dog_test.stdout)
-
-        dog_fact = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "fact", "dev worktree instances", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
-        if dog_fact.returncode != 0:
-            fail("dogfood fact purpose search failed:\n" + dog_fact.stdout + dog_fact.stderr)
-        dog_fact_records = [entry.get("path") for entry in json.loads(dog_fact.stdout).get("candidates", {}).get("records", [])]
-        if ".lazy-harness/spec/infra/dev-worktree-instances.md" not in dog_fact_records:
-            fail("dogfood fact purpose should find dev-worktree SDD fact record: " + dog_fact.stdout)
-
-        dog_capability = subprocess.run([str(LAZY / "bin" / "lazy"), "find", "--purpose", "capability", "git worktree add", "--format=json"], cwd=dogfood, env=env, text=True, capture_output=True, check=False)
-        if dog_capability.returncode != 0:
-            fail("dogfood capability purpose search failed:\n" + dog_capability.stdout + dog_capability.stderr)
-        if "dev-worktree-standard-command" not in [entry.get("id") for entry in json.loads(dog_capability.stdout).get("candidates", {}).get("capabilities", [])]:
-            fail("dogfood capability purpose should find discouraged raw worktree capability: " + dog_capability.stdout)
-    finally:
-        shutil.rmtree(dogfood, ignore_errors=True)
-
-    cap_ids = [entry.get("id") for entry in json.loads(cap.stdout).get("matches", [])]
-    if "retrieval-purpose-test" not in cap_ids:
-        fail("retrieval_test capability should resolve to retrieval-purpose-test: " + cap.stdout)
-
-    print("✓ purpose-scoped retrieval CLI ok")
+    print("✓ map-first retrieval contract ok")
 
 
 def check_response_completed_no_auto_route_telemetry() -> None:
@@ -6853,8 +6622,8 @@ def check_record_index_generator_phase3() -> None:
         fail("lazy help must not advertise old context-index command after Option A")
     if "map --overview" not in help_text:
         fail("lazy help must advertise map overview command")
-    if "map <term-or-file>" not in help_text:
-        fail("lazy help must advertise map drill-down command")
+    if "map <feature-id|record-path|graph-id|source-path>" not in help_text:
+        fail("lazy help must advertise map node traversal command")
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     if schema.get("title") != "RecordIndex":
@@ -6977,7 +6746,7 @@ def check_record_index_generator_phase3() -> None:
             fail("record-index missing feature navigation path")
 
         map_cmd = subprocess.run(
-            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json"],
+            [str(LAZY / "bin" / "lazy"), "map", "example-feature", "--format=json"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -7030,19 +6799,8 @@ def check_record_index_generator_phase3() -> None:
             check=False,
             env={**os.environ, "LAZY_HOST_ROOT": str(temp)},
         )
-        if aggregate_map_cmd.returncode != 0:
-            fail("lazy map aggregate fallback command failed:\n" + aggregate_map_cmd.stdout + aggregate_map_cmd.stderr)
-        aggregate_map = json.loads(aggregate_map_cmd.stdout)
-        aggregate_records = aggregate_map.get("records", [])
-        if not aggregate_records or aggregate_records[0].get("recordPath") != ".lazy-harness/behavior/feature-surface.md":
-            fail("lazy map aggregate token fallback should return the feature-surface record")
-        aggregate_matched = aggregate_records[0].get("matched", [])
-        if not any(item.get("field") == "record.aggregateTokenFallback" for item in aggregate_matched):
-            fail("lazy map aggregate token fallback should expose cue-only aggregate matched fields")
-        aggregate_drilldown = aggregate_map.get("drilldown", {})
-        if "tests/example-feature/feature-panel.test.tsx" not in aggregate_drilldown.get("testFiles", []):
-            fail("lazy map aggregate fallback drilldown missing test file")
-        assert_no_forbidden_map_fields(aggregate_map)
+        if aggregate_map_cmd.returncode == 0 or "not free-form search text" not in (aggregate_map_cmd.stderr + aggregate_map_cmd.stdout):
+            fail("lazy map must reject aggregate/free-form query text:\n" + aggregate_map_cmd.stdout + aggregate_map_cmd.stderr)
 
         overview_cmd = subprocess.run(
             [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=json", "--limit=3"],
@@ -7058,10 +6816,10 @@ def check_record_index_generator_phase3() -> None:
         if overview.get("mode") != "record-map.overview":
             fail("lazy map --overview output missing overview mode")
         overview_notes = "\n".join(str(note) for note in overview.get("notes", []))
-        if "Overview first" not in overview_notes or "before choosing search terms" not in overview_notes:
-            fail("lazy map overview notes must require overview-first search term selection")
-        if "multiple candidate tokens/files/layers" not in overview_notes or "dispersed records/source/tests" not in overview_notes:
-            fail("lazy map overview notes must require repeated query-map coverage across dispersed evidence")
+        if "Overview first" not in overview_notes or "concrete map nodes" not in overview_notes:
+            fail("lazy map overview notes must require overview-first concrete node selection")
+        if "feature ids, record paths, graph ids, source paths, and test paths" not in overview_notes:
+            fail("lazy map overview notes must describe map node traversal keys")
         inventory = overview.get("inventory", {})
         if not inventory.get("totalRecords") or not inventory.get("layers"):
             fail("lazy map overview must include whole record/layer inventory")
@@ -7077,7 +6835,7 @@ def check_record_index_generator_phase3() -> None:
         if not (temp / ".lazy-harness" / "generated" / "record-index.json").exists():
             fail("record-index --write did not create generated cache")
         cached_map_cmd = subprocess.run(
-            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json"],
+            [str(LAZY / "bin" / "lazy"), "map", "example-feature", "--format=json"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -7091,7 +6849,7 @@ def check_record_index_generator_phase3() -> None:
         if cached_info.get("used") is not True or cached_info.get("reason") != "fresh generated cache":
             fail("lazy map should use fresh generated record-index cache after record-index --write")
         fresh_map_cmd = subprocess.run(
-            [str(LAZY / "bin" / "lazy"), "map", "feature panel", "--format=json", "--fresh"],
+            [str(LAZY / "bin" / "lazy"), "map", "example-feature", "--format=json", "--fresh"],
             cwd=ROOT,
             text=True,
             capture_output=True,
@@ -7449,7 +7207,7 @@ def check_retrieval_workflow_benchmark_cli() -> None:
     if payload.get("schemaVersion") != "1.0" or payload.get("mode") != "retrieval-workflow-benchmark":
         fail("retrieval-workflow-benchmark schema/mode mismatch")
     queries = payload.get("querySet", [])
-    for required_query in ["retrieval coverage audit", "workflow compression not safety reduction"]:
+    for required_query in ["map-first-retrieval", "record-source-indexing"]:
         if required_query not in queries:
             fail("retrieval-workflow-benchmark missing default query: " + required_query)
     if "measurement-only" not in payload.get("policyBoundary", ""):
@@ -7615,15 +7373,15 @@ def check_source_feature_navigation_phase3() -> None:
                 ".lazy-harness/bin/lazy",
             },
         },
-        "purpose-scoped-retrieval": {
-            "aliases": {"purpose scoped retrieval", "lazy find", "목적별 검색", "행동 규약 검색"},
+        "map-first-retrieval": {
+            "aliases": {"map first retrieval", "lazy map", "record map", "프로젝트 지도"},
             "paths": {
                 ".lazy-harness/decisions/0045-purpose-scoped-retrieval.md",
                 ".lazy-harness/domain/purpose-scoped-retrieval.md",
                 ".lazy-harness/behavior/purpose-scoped-retrieval.md",
                 ".lazy-harness/spec/platform/purpose-scoped-retrieval.md",
                 ".lazy-harness/tests/purpose-scoped-retrieval.md",
-                ".lazy-harness/scripts/purpose-find.ts",
+                ".lazy-harness/scripts/record-map.ts",
                 ".lazy-harness/bin/lazy",
             },
         },
@@ -9600,8 +9358,8 @@ def check_message_received_hook_context_injection() -> None:
             "REMINDER. Harness-first search/read debt before response.",
             "harness-first-static",
             "static transport; no user-text classification; no CLI/index semantic authority",
-            "choose an explicit retrieval purpose",
-            "inspect real `.lazy-harness`/source/test evidence in this host root",
+            "inspect the map/index inventory",
+            "let the LLM choose record/source/test nodes",
             "Inventory counts:",
             "DDD=",
             "SDD=",
@@ -9615,17 +9373,13 @@ def check_message_received_hook_context_injection() -> None:
             "Pointers:",
             "feature-navigation.xml=",
             "Source/test/doc dirs:",
-            "Purpose guide (LLM/user chooses; hook does not classify)",
-            "fact/contract→`lazy find --purpose fact` or `lazy map`",
-            "rule/action→`lazy find --purpose rulebook` + `lazy rules`/`lazy capability`",
-            "validation/test→`lazy find --purpose test`",
-            "implementation→`lazy find --purpose source`",
-            "architecture/ambiguous/high-risk→`lazy find --purpose architecture` + overview/map",
-            "Broad overview for architecture/ambiguous/high-risk or unclear purpose",
-            "`.lazy-harness/bin/lazy map --overview --format=md --limit=20`",
-            "then repeat `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`",
-            "purpose-specific candidates",
-            "fallback only if empty/ambiguous/incomplete",
+            "Map-first protocol:",
+            "choose the next concrete node yourself",
+            "Drill-down:",
+            "map <feature-id|record-path|graph-id|source-path>",
+            "Do not pass raw user text",
+            "invented `--query` flags",
+            "Fallback only when the map/index is empty, ambiguous, or missing a concrete node",
             "Rule digest/full body/Implementation map/graph links",
             "3-5 option gate",
             "Missing record: search current host code/docs/package/config",
@@ -9647,6 +9401,7 @@ def check_message_received_hook_context_injection() -> None:
             "grep -rli <token>",
             "agentgrep",
             "self-resolve-before-answer",
+            "lazy find",
         ]:
             if forbidden in body:
                 fail("direct-search prompt should not render deterministic digest/packet paths: " + forbidden + "\n" + output)
@@ -9905,18 +9660,18 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
                 "fallbackSearchCount": 2,
             }, ensure_ascii=False) + "\n",
         ]), encoding="utf-8")
-        safe_find_audit = run_helper({
+        map_audit = run_helper({
             "message_id": safe_find_message_id,
-            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose test 'purpose scoped retrieval' --format=json"}],
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}],
         })
-        if safe_find_audit.strip():
-            fail("response audit should accept safe-purpose lazy find as search evidence:\n" + safe_find_audit)
-        architecture_find_audit = run_helper({
+        if map_audit.strip():
+            fail("response audit should accept lazy map overview as search evidence:\n" + map_audit)
+        removed_find_audit = run_helper({
             "message_id": arch_find_message_id,
             "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose architecture 'purpose scoped retrieval' --format=json"}],
         })
-        if "Search/read debt audit" not in architecture_find_audit:
-            fail("response audit should not accept architecture-purpose lazy find alone as search evidence:\n" + architecture_find_audit)
+        if "Search/read debt audit" not in removed_find_audit:
+            fail("response audit should not accept removed lazy find evidence:\n" + removed_find_audit)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response rule audit from surfaced digest ok")
@@ -9980,12 +9735,12 @@ def check_tool_execute_before_hook() -> None:
                 ]}}
             ],
         }, 0, ""),
-        ("batch-overview-with-query-allow", {
+        ("batch-overview-with-node-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_batch_overview",
             "tool": {"name": "batch", "args": {"tool_calls": [
                 {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}},
-                {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map 'retrieval coverage audit' --format=md --limit=8"}},
+                {"tool": "bash", "parameters": {"command": ".lazy-harness/bin/lazy map map-first-retrieval --format=md --limit=8"}},
             ]}},
             "recent_tool_calls": [],
         }, 0, ""),
@@ -10114,7 +9869,18 @@ def check_read_debt_permit_generic_external_action() -> None:
             fail("root-bound search evidence should satisfy generic search-debt guard:\n" + with_search.stdout + with_search.stderr)
 
 
-        with_purpose_find = subprocess.run(
+        with_map = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}]}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if with_map.stdout.strip():
+            fail("lazy map overview evidence should satisfy search-debt guard:\n" + with_map.stdout + with_map.stderr)
+
+        with_removed_find = subprocess.run(
             ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose rulebook 'project policy storage' --format=json"}]}, ensure_ascii=False)],
             cwd=ROOT,
             env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
@@ -10122,19 +9888,8 @@ def check_read_debt_permit_generic_external_action() -> None:
             capture_output=True,
             check=False,
         )
-        if with_purpose_find.stdout.strip():
-            fail("safe-purpose lazy find evidence should satisfy search-debt guard:\n" + with_purpose_find.stdout + with_purpose_find.stderr)
-
-        with_architecture_find = subprocess.run(
-            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose architecture 'project policy storage' --format=json"}]}, ensure_ascii=False)],
-            cwd=ROOT,
-            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if "search-debt gate" not in with_architecture_find.stdout:
-            fail("architecture-purpose lazy find alone must not satisfy search-debt guard:\n" + with_architecture_find.stdout + with_architecture_find.stderr)
+        if "search-debt gate" not in with_removed_find.stdout:
+            fail("removed lazy find evidence must not satisfy search-debt guard:\n" + with_removed_find.stdout + with_removed_find.stderr)
 
         required_message_id = "generic-message-required-read"
         required_row = {
@@ -10151,7 +9906,7 @@ def check_read_debt_permit_generic_external_action() -> None:
         required_payload = {
             "message_id": required_message_id,
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
-            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy find --purpose fact 'purpose scoped retrieval' --format=json"}],
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --format=md --limit=20"}],
         }
         required_result = subprocess.run(
             ["python3", str(helper), json.dumps(required_payload, ensure_ascii=False)],
@@ -10162,7 +9917,7 @@ def check_read_debt_permit_generic_external_action() -> None:
             check=False,
         )
         if "read-debt gate" not in required_result.stdout:
-            fail("purpose-scoped find is search evidence, not requiredRead evidence:\n" + required_result.stdout + required_result.stderr)
+            fail("lazy map overview is search evidence, not requiredRead evidence:\n" + required_result.stdout + required_result.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ read-debt generic external action guard ok")

@@ -43,13 +43,12 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
    - `Inventory counts:`
    - `Derived indexes:`
    - `Pointers:`
-   - `Purpose guide (LLM/user chooses; hook does not classify)`
-   - `lazy find --purpose fact`
-   - `lazy find --purpose rulebook`
-   - `lazy find --purpose test`
-   - `lazy find --purpose source`
-   - `lazy find --purpose architecture`
-   - `Broad overview for architecture/ambiguous/high-risk or unclear purpose`
+   - `Map-first protocol:`
+   - `lazy map --overview`
+   - `choose the next concrete node yourself`
+   - `map <feature-id|record-path|graph-id|source-path>`
+   - `Do not pass raw user text`
+   - `invented --query`
    - `3-5 option gate`
    - `generic evidence guard`
 4. Rendered body does not contain older verbose prompt fragments:
@@ -57,8 +56,8 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
    - `sample:`
    - `Evidence examples`
    - `find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f`
-5. Rendered token estimate is at or below 600 in framework source self-test after adding purpose-scoped retrieval guidance.
-6. Journal row has `event = message.received.direct-search-debt`, `fallbackSearchCount = 1`, `instructionLevel = harness-first-static`, and no raw user text.
+5. Rendered token estimate is at or below 600 in framework source self-test after adding map-first retrieval guidance.
+6. Journal row has `event = message.received.search-read-debt`, `fallbackSearchCount = 1`, `instructionLevel = harness-first-static`, and no raw user text.
 7. Generic read-debt permit still blocks action before root-bound harness/source evidence and allows action after such evidence.
 
 ## Implementation map
@@ -96,18 +95,18 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 
 - DDD: none.
 - SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md` updated.
-- BDD: compact prompt changes visible agent guidance by teaching explicit retrieval-purpose selection, but not user-facing product UI.
+- BDD: compact prompt changes visible agent guidance by teaching map-first traversal, but not user-facing product UI.
 - TDD: this record covers the regression.
 - ADR: no new ADR; implements ADR 0041 without changing its model.
 - SSOT: no capability level or hard-stop policy change.
 - Planning: Phase 2 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
 
-## Phase 5 purpose-scoped prompt guidance
+## Phase 5 map-first prompt guidance
 
 Additional regression assertions:
 
 - non-empty messages still render identical bodies regardless of message text;
-- rendered body includes purpose-scoped retrieval examples for fact, rulebook, test, source, and architecture purposes;
-- rendered body says the LLM/user chooses purpose and the hook does not classify;
-- rendered body preserves broad overview for architecture/ambiguous/high-risk or unclear purpose;
+- rendered body teaches map-first traversal instead of purpose-scoped CLI search;
+- rendered body says the LLM chooses concrete nodes from map output;
+- rendered body forbids raw user text, long natural-language query strings, and invented `--query` flags for `lazy map`;
 - prompt budget remains under the 600 token source-dogfood threshold.

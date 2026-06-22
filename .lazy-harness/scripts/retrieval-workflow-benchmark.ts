@@ -12,10 +12,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 
 const DEFAULT_QUERIES = [
-  'retrieval coverage audit',
-  'workflow compression not safety reduction',
-  'capability registry',
-  'lazy sync drift detection',
+  'map-first-retrieval',
+  'record-source-indexing',
+  'capability-registry',
+  'sync-install-update',
 ]
 
 const FORBIDDEN_FIELDS = new Set(['requiredRead', 'optionalRead', 'confidence', 'intent', 'risk', 'gate', 'nextAction', 'candidateMeanings'])

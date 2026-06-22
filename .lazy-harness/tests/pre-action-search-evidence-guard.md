@@ -25,7 +25,7 @@ Observed failure modes:
 
 - a code edit without prior harness/root-bound record search evidence is denied,
 - a direct grep/agentgrep over `.lazy-harness` record dirs allows the edit,
-- safe-purpose `lazy find` evidence can satisfy search-debt as search evidence, while `architecture`/`full` purpose-only evidence cannot,
+- `lazy map --overview` can satisfy search-debt as search evidence, while map output never satisfies required-read debt and retired `lazy find` evidence is ignored,
 - a bash grep using brace syntax such as `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/` allows the edit,
 - a prior `batch` containing nested `read` calls for `.lazy-harness` records allows the edit,
 - record file edits remain exempt so record capture is not blocked,

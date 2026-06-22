@@ -124,9 +124,9 @@ Runtime hook behavior is unchanged, so rollback should not require runtime journ
 - SSOT: no new source-of-truth beyond budgets in SDD.
 - Planning: Phase 1 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
 
-## Phase 5 purpose-scoped prompt guidance
+## Map-first prompt guidance
 
-The `message.received` prompt may include explicit `lazy find --purpose ...` examples as long as:
+The `message.received` prompt may include map-first traversal examples as long as:
 
 - static equality remains true for all non-empty messages;
 - no raw user-text classifier is introduced;

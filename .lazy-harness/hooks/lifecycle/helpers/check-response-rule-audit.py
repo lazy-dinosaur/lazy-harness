@@ -74,55 +74,10 @@ FRAMEWORK_SOURCE_RE = re.compile(r"\.lazy-harness/(?:hooks|scripts|bin|schemas|m
 PR_ARTIFACT_RE = re.compile(r"\b(?:pull request|PR|gh\s+pr\s+(?:create|edit)|create_pull_request|update_pull_request)\b", re.IGNORECASE)
 PR_HEADINGS = [re.compile(r"(?im)^\s*(?:#+\s*)?%s\s*:" % h) for h in ("Why", "What", "Task")]
 
-SAFE_PURPOSE_FIND_PURPOSES = {"fact", "record", "information", "rulebook", "rules", "operating-rule", "operating-rules", "test", "tests", "validation", "capability", "capabilities", "source", "implementation"}
-BROAD_PURPOSE_FIND_PURPOSES = {"architecture", "design", "full"}
-PURPOSE_FIND_COMMAND_RE = re.compile(
-    r"(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy|purpose-find\.ts)\s+find\b[^\n;&|]*--purpose(?:=|\s+)([A-Za-z-]+)",
+LAZY_FIND_COMMAND_RE = re.compile(
+    r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+find(?:\s|$)",
     re.IGNORECASE,
 )
-PURPOSE_FIND_JSON_RE = re.compile(
-    r'"mode"\s*:\s*"purpose-scoped-find"(?:(?!\n\n).){0,1200}?"purpose"\s*:\s*"([^"]+)"',
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-def normalize_find_purpose(value: str) -> str:
-    purpose = str(value or "").strip().lower()
-    aliases = {
-        "record": "fact",
-        "information": "fact",
-        "rules": "rulebook",
-        "operating-rule": "rulebook",
-        "operating-rules": "rulebook",
-        "tests": "test",
-        "validation": "test",
-        "capabilities": "capability",
-        "implementation": "source",
-        "design": "architecture",
-    }
-    return aliases.get(purpose, purpose)
-
-
-def purpose_scoped_find_purposes(blob: str) -> list[str]:
-    text = str(blob or "")
-    purposes: list[str] = []
-    for regex in (PURPOSE_FIND_COMMAND_RE, PURPOSE_FIND_JSON_RE):
-        for match in regex.finditer(text):
-            purposes.append(normalize_find_purpose(match.group(1)))
-    return purposes
-
-
-def blob_has_any_purpose_scoped_find(blob: str) -> bool:
-    return bool(purpose_scoped_find_purposes(blob))
-
-
-def blob_has_purpose_scoped_find_evidence(blob: str) -> bool:
-    purposes = purpose_scoped_find_purposes(blob)
-    if not purposes:
-        return False
-    if any(purpose in {"architecture", "full"} for purpose in purposes):
-        return False
-    return any(purpose in {"fact", "rulebook", "test", "capability", "source"} for purpose in purposes)
 
 
 
@@ -416,10 +371,10 @@ def has_required_read_evidence(required_paths: list[str], packet_row: dict[str, 
 
 
 def shell_has_search_evidence(command: str) -> bool:
-    if blob_has_any_purpose_scoped_find(command):
-        return blob_has_purpose_scoped_find_evidence(command)
+    if LAZY_FIND_COMMAND_RE.search(command):
+        return False
     return bool(re.search(
-        r"\b(rg|grep|find|git\s+grep|git\s+ls-files)\b",
+        r"(?:\b(?:rg|grep|find|git\s+grep|git\s+ls-files)\b|(?:^|\s)(?:\.lazy-harness/bin/lazy|lazy)\s+map\b)",
         command,
         re.IGNORECASE,
     ))
@@ -429,8 +384,8 @@ def call_has_search_evidence(call: dict[str, Any]) -> bool:
     name = str(call.get("name") or call.get("tool") or "")
     blob = call_blob(call)
     lower = blob.lower()
-    if blob_has_any_purpose_scoped_find(blob):
-        return blob_has_purpose_scoped_find_evidence(blob)
+    if LAZY_FIND_COMMAND_RE.search(blob):
+        return False
     if name in SEARCH_EVIDENCE_TOOLS:
         return True
     if name in {"bash", "Bash"} and shell_has_search_evidence(blob):
@@ -504,8 +459,8 @@ def missed_discouraged_action(packet_row: dict[str, Any] | None = None) -> dict[
         for call in calls:
             blob = call_blob(call)
             lower = blob.lower()
-            # Resolver/find calls are evidence, not missed actions.
-            if "lazy rules resolve" in lower or "lazy capability resolve" in lower or "lazy find" in lower:
+            # Resolver calls are evidence, not missed actions.
+            if "lazy rules resolve" in lower or "lazy capability resolve" in lower:
                 continue
             for action in discouraged:
                 action_text = str(action or "").strip()
@@ -544,7 +499,6 @@ def completion_cues_present(blob: str) -> bool:
         "확정", "정정", "소스오브트루스", "규칙", "룰", "결정", "회귀", "계약", "기록",
     ]
     return any(cue in lower for cue in cues)
-
 
 def mandatory_record_completion_missing(entries: list[dict[str, Any]], blob: str) -> bool:
     if has_lazy_capture():
