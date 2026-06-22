@@ -16,7 +16,7 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
 - Applies when:
   - implementing or changing `lazy retrieval-audit`
   - changing `lazy map` or `record-index` output that retrieval audit consumes
-  - evaluating whether a query-map gap has adequate fallback/read coverage
+  - evaluating whether a concrete map traversal gap has adequate fallback/read coverage
 - Must:
   - protect `mapped`, `partial`, and `gap` coverage states
   - protect fallback command output for empty/partial coverage
@@ -34,10 +34,10 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
 
 | Fixture id | Scenario | Expected |
 |---|---|---|
-| `retrieval_audit_mapped` | Query matches feature/record/graph and has record/source/test candidates | `coverage.state=mapped`, no gaps, candidates populated |
+| `retrieval_audit_mapped` | Query matches feature/record/graph and has record/source/test candidates | `coverage.state=mapped`, no gaps, candidates populated, concrete map-node commands use surfaced ids/paths |
 | `retrieval_audit_cross_layer_related_records` | Query matches an SDD that declares top-level Related DDD/BDD/SSOT/TDD links | related DDD/BDD/SDD/SSOT/TDD record paths all appear in `candidates.recordPaths` |
 | `retrieval_audit_partial` | Query matches a record but has no source/test hints | `coverage.state=partial`, structural gap labels include source/test gaps, fallback commands present |
-| `retrieval_audit_gap` | Query has no matches | `coverage.state=gap`, `no-map-matches` and fallback grep command present |
+| `retrieval_audit_gap` | Query has no matches | `coverage.state=gap`, `no-map-matches` and fallback grep command present; no raw-query `lazy map` command is emitted |
 | `retrieval_audit_no_semantic_fields` | Any audit output | Forbidden semantic-authority fields are absent recursively |
 | `retrieval_audit_help_wiring` | `lazy help` | command is advertised and routes through `.lazy-harness/bin/lazy` |
 

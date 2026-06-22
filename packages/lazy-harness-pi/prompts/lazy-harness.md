@@ -8,6 +8,7 @@ summary: Lazy-harness record-first operating reminder for Pi Coding Agent.
 Use the host-local `.lazy-harness` records as the source of truth before host-specific claims or mutations.
 
 1. Run `.lazy-harness/bin/lazy map --overview --format=md --limit=20` first.
-2. Drill into relevant records with `.lazy-harness/bin/lazy map '<token>' --format=md --limit=8`.
-3. Read real record/source/test files before editing.
-4. Mutations are guarded by the lazy-harness Pi extension through the generic search/read evidence guard.
+2. Pick a concrete feature id, record path, graph id, source path, or test path from that output.
+3. Drill into that copied node with `.lazy-harness/bin/lazy map <copied-node> --format=md --limit=8`; never pass raw user text, long natural-language strings, or invented `--query` flags.
+4. Read real record/source/test files before editing.
+5. Mutations are guarded by the lazy-harness Pi extension through the generic search/read evidence guard.

@@ -41,7 +41,7 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ```bash
 .lazy-harness/bin/lazy map --overview --format=md --limit=20
-.lazy-harness/bin/lazy map '<feature-id|record-path|graph-id|source-path>' --format=md --limit=8
+.lazy-harness/bin/lazy map <copied-feature-id-or-record-path-or-graph-id-or-source-path-or-test-path> --format=md --limit=8
 grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/
 ```
 **Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.

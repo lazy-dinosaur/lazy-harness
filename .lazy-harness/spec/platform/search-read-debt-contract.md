@@ -53,8 +53,8 @@ Allowed fields are transport/evidence bookkeeping only. They are not semantic ju
 ```text
 message.received
 → append sanitized static search/read-debt row
-→ inject compact harness-first reminder with mandatory `lazy map --overview` and repeated exact query/fallback CLI
-→ LLM/searcher inspects whole record/feature/graph structure, repeats query-map over multiple candidate tokens/files/layers, then performs root-bound record/source/test search/read
+→ inject compact harness-first reminder with mandatory `lazy map --overview`, concrete map-node drilldown, and root-bound fallback search
+→ LLM/searcher inspects whole record/feature/graph structure, chooses concrete feature/record/graph/source/test nodes from map output, then performs root-bound record/source/test search/read
 → generic pre-action guard allows mutation only after evidence exists
 → response.completed audits misses as a backstop
 ```
@@ -62,7 +62,7 @@ message.received
 ## Implementation map
 
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes static `message.received.search-read-debt` rows and injects the compact reminder with mandatory overview-first and repeated query-map CLI.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes static `message.received.search-read-debt` rows and injects the compact reminder with mandatory overview-first, concrete node drilldown, and fallback search guidance.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — blocks action before root-bound evidence exists.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — audits unsatisfied debt after response.
   - `.lazy-harness/scripts/lifecycle-check.py` — mirrors `search-read-debt.jsonl` in sandbox fidelity checks.

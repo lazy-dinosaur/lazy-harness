@@ -1875,6 +1875,20 @@ def check_pi_package_layout_and_contract() -> None:
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
         fail("Pi package extension missing bridge contract phrases: " + json.dumps(missing, ensure_ascii=False))
+    prompt_text = prompt.read_text(encoding="utf-8")
+    for phrase in [
+        "map --overview",
+        "concrete feature id, record path, graph id, source path, or test path",
+        "map <copied-node>",
+        "never pass raw user text",
+        "invented `--query` flags",
+    ]:
+        if phrase not in prompt_text:
+            fail("Pi package prompt missing map-first guidance: " + phrase)
+    for forbidden in ["map '<token>'", "map <token>", "Drill into relevant records with `.lazy-harness/bin/lazy map '<token>'"]:
+        if forbidden in prompt_text:
+            fail("Pi package prompt must not teach token/free-form lazy map usage: " + forbidden)
+
     readme_text = readme.read_text(encoding="utf-8")
     for phrase in [
         "Global install for all projects",
@@ -6898,6 +6912,8 @@ def check_retrieval_coverage_audit_cli() -> None:
         "coverage.state",
         "mapped | partial | gap",
         "no-map-matches",
+        "concrete-map-node",
+        "concrete map-node commands",
         "LLM/searcher remains the semantic search engine",
         "Forbidden fields",
         "`.lazy-harness/scripts/retrieval-coverage-audit.ts`",
@@ -7089,6 +7105,12 @@ def check_retrieval_coverage_audit_cli() -> None:
             fail("mapped audit missing test candidate")
         if "kg_feature_surface_behavior_impl" not in candidates.get("graphIds", []):
             fail("mapped audit missing graph candidate")
+        mapped_commands = mapped.get("commands", {})
+        concrete_commands = mapped_commands.get("concreteMapNodes", [])
+        if not any("example-feature" in command or ".lazy-harness/behavior/feature-surface.md" in command for command in concrete_commands):
+            fail("mapped audit missing concrete map-node commands: " + json.dumps(mapped_commands, ensure_ascii=False))
+        if "feature panel" in json.dumps(concrete_commands, ensure_ascii=False):
+            fail("mapped audit must not emit raw-query lazy map commands: " + json.dumps(mapped_commands, ensure_ascii=False))
 
         cross_layer = run_audit("retrieval coverage audit")
         if cross_layer.get("coverage", {}).get("state") != "mapped":
@@ -7128,6 +7150,11 @@ def check_retrieval_coverage_audit_cli() -> None:
             fail("gap audit missing no-map-matches label")
         if "grep -Rli" not in gap.get("commands", {}).get("fallbackGrep", ""):
             fail("gap audit missing fallback grep command")
+        gap_commands = gap.get("commands", {})
+        if gap_commands.get("concreteMapNodes"):
+            fail("gap audit must not invent concrete map-node commands: " + json.dumps(gap_commands, ensure_ascii=False))
+        if "zzzz-missing-token" in json.dumps(gap_commands.get("concreteMapNodes", []), ensure_ascii=False):
+            fail("gap audit must not emit raw-query lazy map command")
 
         forbidden = {"requiredRead", "optionalRead", "confidence", "intent", "risk", "gate", "nextAction", "candidateMeanings"}
 

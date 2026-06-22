@@ -58,12 +58,11 @@ interface RetrievalCoverageAudit {
     sourceFiles: string[]
     testFiles: string[]
     graphIds: string[]
-    repeatedQueryTerms: string[]
+    fallbackSearchTerms: string[]
   }
   commands: {
     overview: string
-    queryMap: string
-    repeatedQueryMaps: string[]
+    concreteMapNodes: string[]
     fallbackGrep: string
   }
 }
@@ -223,7 +222,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     sourceFiles: uniq(sourceFiles).slice(0, args.limit),
     testFiles: uniq(testFiles).slice(0, args.limit),
     graphIds: uniq(graphIds).slice(0, args.limit),
-    repeatedQueryTerms: queryTerms(args.query).filter((term) => term !== normalized(args.query)).slice(0, args.limit),
+    fallbackSearchTerms: queryTerms(args.query).filter((term) => term !== normalized(args.query)).slice(0, args.limit),
   }
   const gaps: string[] = []
   if (!matchesOut.length) gaps.push('no-map-matches')
@@ -232,7 +231,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
   if (!candidates.testFiles.length) gaps.push('no-test-candidates')
   if (!candidates.graphIds.length) gaps.push('no-graph-candidates')
   const state: CoverageState = !matchesOut.length ? 'gap' : gaps.length ? 'partial' : 'mapped'
-  const repeatedQueryMaps = candidates.repeatedQueryTerms.map((term) => `.lazy-harness/bin/lazy map ${shellQuote(term)} --format=md --limit=${args.limit}`)
+  const concreteNodes = Array.from(new Set([...limitedMatches.map((item) => item.id), ...candidates.recordPaths, ...candidates.sourceFiles, ...candidates.testFiles, ...candidates.graphIds])).filter((node) => node && !/\s/.test(node))
   return {
     schemaVersion: '1.0',
     mode: 'retrieval-coverage-audit',
@@ -246,7 +245,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     notes: [
       'Coverage audit is map/index coverage only; it is not semantic authority.',
       'The LLM/searcher must read real records/source/tests and decide whether evidence is sufficient.',
-      'If coverage is gap or partial, run repeated query-map terms and fallback grep before relying on absence.',
+      'If coverage is gap or partial, inspect concrete map nodes surfaced by the audit and use fallback grep before relying on absence.',
     ],
     counts: {
       features: matchesOut.filter((item) => item.kind === 'feature').length,
@@ -261,8 +260,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     candidates,
     commands: {
       overview: '.lazy-harness/bin/lazy map --overview --format=md --limit=20',
-      queryMap: `.lazy-harness/bin/lazy map ${shellQuote(args.query)} --format=md --limit=${args.limit}`,
-      repeatedQueryMaps,
+      concreteMapNodes: concreteNodes.map((node) => `.lazy-harness/bin/lazy map ${shellQuote(node)} --format=md --limit=${args.limit}`),
       fallbackGrep: `grep -Rli ${shellQuote(args.query)} .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/`,
     },
   }
@@ -307,12 +305,11 @@ function renderMd(result: RetrievalCoverageAudit): string {
   lines.push(`- Graph ids: ${result.candidates.graphIds.length ? result.candidates.graphIds.map((value) => `\`${value}\``).join(', ') : '-'}`)
   lines.push('', '## Commands')
   lines.push(`- Overview: \`${result.commands.overview}\``)
-  lines.push(`- Query map: \`${result.commands.queryMap}\``)
-  if (result.commands.repeatedQueryMaps.length) {
-    lines.push('- Repeated query maps:')
-    for (const command of result.commands.repeatedQueryMaps) lines.push(`  - \`${command}\``)
+  if (result.commands.concreteMapNodes.length) {
+    lines.push('- Concrete map nodes:')
+    for (const command of result.commands.concreteMapNodes) lines.push(`  - \`${command}\``)
   } else {
-    lines.push('- Repeated query maps: -')
+    lines.push('- Concrete map nodes: -')
   }
   lines.push(`- Fallback grep: \`${result.commands.fallbackGrep}\``)
   return `${lines.join('\n')}\n`
