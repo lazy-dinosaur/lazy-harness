@@ -52,7 +52,7 @@ Meaning:
 - `lazy map`, `record-index`, generated indexes, graph joins, and helper packets expose structured index/cue/evidence surfaces.
 - The LLM/searcher chooses candidate terms, reads actual records/source/tests, follows graph/Implementation map links, notices gaps, and decides whether the evidence is sufficient.
 - A CLI may say “this index has these paths/rows/matches”; it must not say “this is the user’s meaning” or “this is the complete semantic answer.”
-- Empty or partial CLI output is not proof that no relevant knowledge exists. The LLM/searcher must use overview, multiple candidate tokens, fallback grep/source reads, and option gates when evidence is incomplete.
+- Empty or partial CLI output is not proof that no relevant knowledge exists. The LLM/searcher must use overview, concrete map nodes, direct record/source/test reads, and option gates when evidence is incomplete; keyword grep/rg/find fallback is not part of the default retrieval flow.
 
 ## Dynamic write/read generated graph boundary — 2026-06-09
 

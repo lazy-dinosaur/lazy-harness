@@ -25,9 +25,9 @@ Canonical flow:
 2. The LLM/searcher chooses concrete feature ids, record paths, graph ids, source paths, or test paths.
 3. `lazy map <node>` expands a chosen node.
 4. The agent reads canonical records, Implementation maps, graph links, source, and tests.
-5. Root-bound search is fallback when the map/index is incomplete or ambiguous.
+5. If the map/index is incomplete or ambiguous, the agent asks a 3-5 option gate or states the missing prerequisite instead of running keyword grep/rg/find fallback.
 
-`lazy map` is a map traversal helper, not a free-form search box. It must reject raw user text, long natural-language strings, and invented `--query` arguments.
+`lazy map` is a map traversal helper, not a free-form search box. It must reject raw user text, long natural-language strings, invented `--query` arguments, and keyword-search fallback semantics.
 
 ## Consequences
 

@@ -210,17 +210,13 @@ Verifier notes:
 - The second verifier run was rejected because Python `fnmatch` treated `*.ts` as matching nested `fixtures/*.ts`, while `lazy-sync.ts` intentionally compiles `*` as `[^/]*`; the final v3 verifier mirrors `lazy-sync.ts` `matchGlob` semantics.
 - Therefore the final `14/14 ok` result is the authoritative verifier result for Category A managed-file presence/content, stale managed-file pruning, marker storage, and knowledge seed accounting.
 
-Iterative query-map sync + all-host validation follow-up (2026-06-07 11:52-12:04 UTC):
+Historical iterative query-map sync + all-host validation follow-up (2026-06-07 11:52-12:04 UTC; superseded by 2026-06-22 no-keyword-fallback retrieval):
 
 - Source commit synced: `979104d1f55cb3a17d314589d47c576d8f81ca46` (`Require iterative record map exploration`)
 - Full validation artifact: `/tmp/lazy-harness-iterative-sync-full-verify/20260607T115217Z/summary.json`
 - Full validation smoke result: `14/14 ok`
   - Checks per host: `syncOk`, `markerOk`, `helpOk`, `overviewOk`, `queryMapOk`, `messageReminderOk`, `hookGateOk`, `manifestOk`
-  - `messageReminderOk` specifically requires:
-    - `.lazy-harness/bin/lazy map --overview --format=md --limit=20`
-    - `.lazy-harness/bin/lazy map '<핵심 토큰>' --format=md --limit=8`
-    - `Then repeat query map for multiple candidate tokens/files/layers until dispersed records/source/tests are covered`
-    - `choose multiple candidate records`
+  - Historical `messageReminderOk` required overview plus repeated query-map wording. That wording is now obsolete and must not be reintroduced.
   - Manifest-managed entries checked per host: `171`
   - Managed copy hashes checked per host: `168`
   - Knowledge JSONL seed/merge checks per host: `3`
@@ -235,20 +231,20 @@ Iterative query-map sync + all-host validation follow-up (2026-06-07 11:52-12:04
 
 Interpretation of this follow-up:
 
-- Framework update propagation for `979104d` is confirmed across all 14 downstream hosts.
-- The repeated query-map reminder wording and overview/query CLI are present in all 14 downstream hosts.
+- Framework update propagation for `979104d` was confirmed across all 14 downstream hosts.
+- The repeated query-map reminder wording was present in all 14 downstream hosts at that time; it is now superseded by no-keyword-fallback map-first retrieval.
 - Category A managed files are present, non-knowledge content matches the source, stale managed files are absent, and knowledge seed rows are accounted for under append/merge/conflict semantics.
 - The two all-host lazy-test failures were state-sensitive/transient in parallel validation, because the same synced host files passed targeted sequential reruns without code changes.
 
 ## Interpretation
 
-The initial Record Map sync reached every initialized downstream host discovered under `/home/lazydino/dev` at `f560375aeb11cf6d0c38de05c947e8a9e0175803`. The overview-first sync superseded that marker at `6c792728d09f3e6dc4d8c50a134b4db645ceb7f4`. The latest iterative query-map sync supersedes both and updates every downstream marker to `979104d1f55cb3a17d314589d47c576d8f81ca46`.
+The initial Record Map sync reached every initialized downstream host discovered under `/home/lazydino/dev` at `f560375aeb11cf6d0c38de05c947e8a9e0175803`. The overview-first sync superseded that marker at `6c792728d09f3e6dc4d8c50a134b4db645ceb7f4`; the later iterative query-map sync superseded both at `979104d1f55cb3a17d314589d47c576d8f81ca46` and is itself superseded for prompt wording by the 2026-06-22 no-keyword-fallback retrieval correction.
 
-The latest smoke and missing-file checks prove:
+The latest smoke and missing-file checks at that time proved:
 
-- `lazy map --overview` is available in all synced hosts.
-- `lazy map record map --format=json --limit=1` runs in all synced hosts.
-- The message.received reminder in all synced hosts includes mandatory overview-first CLI, exact query-map CLI, and repeated multi-token/file/layer exploration wording.
+- `lazy map --overview` was available in all synced hosts.
+- `lazy map record map --format=json --limit=1` ran in all synced hosts.
+- Historical message.received reminder wording included repeated multi-token/file/layer exploration; this is obsolete and must not be used as active guidance.
 - The managed pre-commit/pre-push hook files in all synced hosts contain the `lazy test all green` gate wording.
 - `lazy-sync` marker storage and managed Jcode/hook refresh behavior matched `.lazy-harness/spec/lazy-sync-drift-detection.md`.
 - Category A manifest-managed files are present in all synced hosts, non-knowledge managed copies match source content, stale managed files are absent, and `knowledge/*.jsonl` seed rows are accounted for by append/merge/conflict semantics.

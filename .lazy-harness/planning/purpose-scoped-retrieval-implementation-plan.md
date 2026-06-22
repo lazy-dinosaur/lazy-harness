@@ -49,13 +49,14 @@ Verified on 2026-06-10 before writing this plan:
 
 ## Problem
 
-The current search/read debt language still nudges agents toward broad record/source/test sweeps:
+The previous search/read debt language nudged agents toward broad record/source/test sweeps; the active 2026-06-22 correction removes keyword fallback:
 
 ```text
 message.received
 → mandatory lazy map --overview
-→ repeated query-map
-→ root-bound record/source/test search/read
+→ concrete node drill-down only
+→ direct record/source/test reads
+→ option gate or missing-prerequisite statement when no concrete node exists
 ```
 
 This is safe against guessing, but now over-broad for several common purposes:

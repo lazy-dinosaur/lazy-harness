@@ -61,12 +61,7 @@ READ_EVIDENCE_TOOLS = {
     "glob", "ls", "lsp", "mcp__github__get_file_contents",
 }
 SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
-SEARCH_EVIDENCE_TOOLS = {
-    "agentgrep", "grep", "Grep", "glob", "Glob", "lsp",
-    "mcp__filesystem__search_files", "mcp__github__search_code",
-    "mcp__github__search_issues", "mcp__github__search_pull_requests",
-    "websearch", "mcp__exa__web_search_exa", "mcp__websearch__web_search_exa",
-}
+SEARCH_EVIDENCE_TOOLS = set()
 CAPTURE_RE = re.compile(
     r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph|graph-drafts|corrections)\.jsonl|logs/corrections\.jsonl)"
 )
@@ -374,7 +369,7 @@ def shell_has_search_evidence(command: str) -> bool:
     if LAZY_FIND_COMMAND_RE.search(command):
         return False
     return bool(re.search(
-        r"(?:\b(?:rg|grep|find|git\s+grep|git\s+ls-files)\b|(?:^|\s)(?:\.lazy-harness/bin/lazy|lazy)\s+map\b)",
+        r"(?:^|\s)(?:\.lazy-harness/bin/lazy|lazy)\s+map\b",
         command,
         re.IGNORECASE,
     ))

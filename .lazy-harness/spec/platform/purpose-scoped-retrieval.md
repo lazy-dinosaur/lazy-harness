@@ -19,16 +19,16 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - changing `lazy map`, record-index, graph/index navigation, or search/read evidence semantics
   - reviewing whether a CLI should locate context for the agent
 - Must:
-  - make the LLM/searcher the semantic search and judgement owner
+  - make the LLM/searcher the semantic judgement owner
   - start from `lazy map --overview` as a project map/inventory
   - use `lazy map <feature-id|record-path|graph-id|source-path>` only for concrete nodes copied from the map/index
   - require real record/source/test reads before relying on map candidates
+  - ask a 3-5 option gate or state the missing prerequisite when no concrete node exists
   - preserve rulebook/capability resolution as action-policy helpers, not fact search
 - Must not:
+  - use keyword grep/rg/find fallback after map traversal
   - expose or recommend `lazy find --purpose ...`
   - accept raw user text, long natural-language strings, or invented `--query` syntax as `lazy map` traversal input
-  - treat generated map/index/graph output as semantic authority or read evidence
-  - decide risk, required reads, gates, intent, confidence, or next action
 - Record completion:
   - retrieval changes update ADR/DDD/BDD/TDD/SSOT, prompt hook, self-test, feature navigation, and graph/candidate rows together.
 
@@ -57,7 +57,7 @@ Removed entrypoint:
 2. LLM chooses concrete nodes from the returned map: feature id, canonical record path, graph id, source path, or test path.
 3. Run `lazy map <node>` for nearby records/source/tests/graph ids.
 4. Read record bodies, Rule digest, Implementation map, graph links, source files, and tests.
-5. If the map is empty or ambiguous, use root-bound search over `.lazy-harness`, source, and tests; if meaning still conflicts, ask an option gate.
+5. If the map is empty or ambiguous, ask a 3-5 option gate or state the missing prerequisite; do not run keyword grep/rg/find fallback.
 
 ## Retired purpose-scoped find
 

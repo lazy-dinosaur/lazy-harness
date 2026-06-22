@@ -58,12 +58,12 @@ interface RetrievalCoverageAudit {
     sourceFiles: string[]
     testFiles: string[]
     graphIds: string[]
-    fallbackSearchTerms: string[]
+    unresolvedTerms: string[]
   }
   commands: {
     overview: string
     concreteMapNodes: string[]
-    fallbackGrep: string
+    missingPrerequisite: string
   }
 }
 
@@ -222,7 +222,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     sourceFiles: uniq(sourceFiles).slice(0, args.limit),
     testFiles: uniq(testFiles).slice(0, args.limit),
     graphIds: uniq(graphIds).slice(0, args.limit),
-    fallbackSearchTerms: queryTerms(args.query).filter((term) => term !== normalized(args.query)).slice(0, args.limit),
+    unresolvedTerms: queryTerms(args.query).filter((term) => term !== normalized(args.query)).slice(0, args.limit),
   }
   const gaps: string[] = []
   if (!matchesOut.length) gaps.push('no-map-matches')
@@ -245,7 +245,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     notes: [
       'Coverage audit is map/index coverage only; it is not semantic authority.',
       'The LLM/searcher must read real records/source/tests and decide whether evidence is sufficient.',
-      'If coverage is gap or partial, inspect concrete map nodes surfaced by the audit and use fallback grep before relying on absence.',
+      'If coverage is gap or partial, inspect concrete map nodes surfaced by the audit; if none exist, ask an option gate or state the missing prerequisite.',
     ],
     counts: {
       features: matchesOut.filter((item) => item.kind === 'feature').length,
@@ -261,7 +261,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     commands: {
       overview: '.lazy-harness/bin/lazy map --overview --format=md --limit=20',
       concreteMapNodes: concreteNodes.map((node) => `.lazy-harness/bin/lazy map ${shellQuote(node)} --format=md --limit=${args.limit}`),
-      fallbackGrep: `grep -Rli ${shellQuote(args.query)} .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/`,
+      missingPrerequisite: 'No concrete map node surfaced; ask a 3-5 option gate or state the missing prerequisite instead of running keyword fallback.',
     },
   }
 }
@@ -311,7 +311,7 @@ function renderMd(result: RetrievalCoverageAudit): string {
   } else {
     lines.push('- Concrete map nodes: -')
   }
-  lines.push(`- Fallback grep: \`${result.commands.fallbackGrep}\``)
+  lines.push(`- Missing prerequisite: ${result.commands.missingPrerequisite}`)
   return `${lines.join('\n')}\n`
 }
 

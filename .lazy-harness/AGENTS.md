@@ -37,12 +37,11 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 ### 2.1 요청 받자마자 검색 (필수)
 
 발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 디테일이 등장하면 즉시 `lazy map --overview` 로 전체 구조를 본 뒤, map 에 나온 feature id / record path / graph id / source path / test path 같은 concrete node 를 골라 `lazy map <node>` 로 drill-down 한다.
-결과는 cue-only/read proof 아님. raw user text / 긴 자연어 / invented `--query` 를 `lazy map` 에 넘기지 않는다. 빈 결과 / 애매함 / 누락이면 grep fallback, 후보 record 의 Rule digest / 본문 / Implementation map 과 분산된 source/tests 를 끝까지 읽는다.
+결과는 cue-only/read proof 아님. raw user text / 긴 자연어 / invented `--query` 를 `lazy map` 에 넘기지 않는다. 빈 결과 / 애매함 / 누락이면 옵션 게이트나 missing-prerequisite 로 멈춘 뒤, 후보 record 의 Rule digest / 본문 / Implementation map 과 분산된 source/tests 를 끝까지 읽는다.
 
 ```bash
 .lazy-harness/bin/lazy map --overview --format=md --limit=20
 .lazy-harness/bin/lazy map <copied-feature-id-or-record-path-or-graph-id-or-source-path-or-test-path> --format=md --limit=8
-grep -rli '<핵심 토큰>' .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,project,knowledge}/
 ```
 **Root-bound 원칙**: 검색 / 문서 발견은 현재 host root 내부에서만 한다.
 `find ..`, `grep ../`, sibling repo 참조로 host 지식을 가져오는 것은 금지다.

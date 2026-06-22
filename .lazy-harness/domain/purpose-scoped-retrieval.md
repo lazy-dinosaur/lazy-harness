@@ -14,7 +14,7 @@ Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 
 **Map node** means a concrete feature id, record path, graph id, source path, or test path surfaced by `lazy map --overview` or a canonical record.
 
-**LLM-owned search** means the model/searcher chooses meanings, candidate records, and next reads from map evidence, record bodies, source, tests, and root-bound search. The CLI does not own semantic search.
+**LLM-owned retrieval** means the model/searcher chooses meanings, candidate records, and next reads from map evidence, record bodies, source, and tests. The CLI does not own semantic search, and keyword grep/rg/find fallback is not part of the default retrieval flow.
 
 **Purpose-scoped find** was the retired idea that a CLI could search a small purpose-specific space from a query. Dogfood showed this encouraged CLI-owned search and is no longer active.
 

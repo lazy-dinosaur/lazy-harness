@@ -7151,8 +7151,8 @@ def check_retrieval_coverage_audit_cli() -> None:
             fail("missing query should be a retrieval gap")
         if "no-map-matches" not in gap.get("coverage", {}).get("gaps", []):
             fail("gap audit missing no-map-matches label")
-        if "grep -Rli" not in gap.get("commands", {}).get("fallbackGrep", ""):
-            fail("gap audit missing fallback grep command")
+        if "grep" in json.dumps(gap.get("commands", {}), ensure_ascii=False).lower():
+            fail("gap audit must not emit keyword fallback command")
         gap_commands = gap.get("commands", {})
         if gap_commands.get("concreteMapNodes"):
             fail("gap audit must not invent concrete map-node commands: " + json.dumps(gap_commands, ensure_ascii=False))
@@ -9417,7 +9417,7 @@ def check_message_received_hook_context_injection() -> None:
             "harness-first-static",
             "static transport; no user-text classification; no CLI/index semantic authority",
             "inspect the map/index inventory",
-            "let the LLM choose record/source/test nodes",
+            "let the LLM choose concrete record/source/test nodes",
             "Inventory counts:",
             "DDD=",
             "SDD=",
@@ -9437,10 +9437,11 @@ def check_message_received_hook_context_injection() -> None:
             "map <feature-id|record-path|graph-id|source-path>",
             "Do not pass raw user text",
             "invented `--query` flags",
-            "Fallback only when the map/index is empty, ambiguous, or missing a concrete node",
+            "fallback discovery commands",
+            "do not run fallback discovery commands",
             "Rule digest/full body/Implementation map/graph links",
             "3-5 option gate",
-            "Missing record: search current host code/docs/package/config",
+            "Missing record: read current host docs/package/config only when reached through concrete map/source paths",
             "generic evidence guard",
         ]:
             if phrase not in body:
@@ -9474,7 +9475,7 @@ def check_message_received_hook_context_injection() -> None:
         rows = [json.loads(line) for line in packet_text.splitlines() if line.strip()]
         row = rows[-1]
         if row.get("event") != "message.received.search-read-debt" or row.get("fallbackSearchCount") != 1:
-            fail("search/read-debt journal row should be static transport, not deterministic packet:\n" + json.dumps(row, ensure_ascii=False, indent=2))
+            fail("search/read-debt journal row should be static transport with map-first debt, not keyword fallback:\n" + json.dumps(row, ensure_ascii=False, indent=2))
         if row.get("instructionLevel") != "harness-first-static":
             fail("direct-search journal row should use static instruction level, not message-derived levels:\n" + json.dumps(row, ensure_ascii=False, indent=2))
         if "noSemanticBackend=true" not in row.get("notes", []):
@@ -9511,8 +9512,8 @@ def check_message_received_hook_context_injection() -> None:
         no_search = run_permit([])
         if (
             "search-debt gate" not in no_search
-            or "inventory/search evidence" not in no_search
-            or "actual stored structure" not in no_search
+            or "map-first traversal/read evidence" not in no_search
+            or "keyword grep/rg/find search is not enough" not in no_search
             or "not a project/tool allowlist" not in no_search
         ):
             fail("direct-search debt should block action before real search evidence:\n" + no_search)
@@ -9526,8 +9527,8 @@ def check_message_received_hook_context_injection() -> None:
         if directory_tree.strip():
             fail("filesystem directory_tree inventory evidence should satisfy direct-search debt:\n" + directory_tree)
         future_query = run_permit([{"name": "future_code_query_tool", "arguments": {"query": "list actual .lazy-harness records", "path": ".lazy-harness/spec"}}])
-        if future_query.strip():
-            fail("generic root-bound read/search/query evidence should satisfy direct-search debt without a hardcoded tool allowlist:\n" + future_query)
+        if "search-debt gate" not in future_query:
+            fail("generic query/search tool evidence must not satisfy map-first debt:\n" + future_query)
         unrelated_read = run_permit([{"name": "read", "arguments": {"file_path": "/tmp/unrelated.txt"}}])
         if "search-debt gate" not in unrelated_read:
             fail("read tool name alone must not satisfy search-debt without root-bound harness/source evidence:\n" + unrelated_read)
@@ -9535,8 +9536,8 @@ def check_message_received_hook_context_injection() -> None:
         if "search-debt gate" not in unrooted_future_query:
             fail("future query tool name alone must not satisfy search-debt without root-bound harness/source evidence:\n" + unrooted_future_query)
         searched = run_permit([{"name": "bash", "args_preview": "rg -n '기능패널|feature panel' .lazy-harness src tests"}])
-        if searched.strip():
-            fail("direct rg/grep search evidence should satisfy direct-search debt:\n" + searched)
+        if "search-debt gate" not in searched:
+            fail("direct rg/grep keyword search evidence must not satisfy map-first debt:\n" + searched)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ message.received hook inventory-first search-debt injection ok")
@@ -9913,8 +9914,8 @@ def check_read_debt_permit_generic_external_action() -> None:
             capture_output=True,
             check=False,
         )
-        if "search-debt gate" not in no_search.stdout or "root-bound search" not in no_search.stdout:
-            fail("generic external action should be guarded until root-bound search evidence exists:\n" + no_search.stdout + no_search.stderr)
+        if "search-debt gate" not in no_search.stdout or "map-first traversal/read evidence" not in no_search.stdout:
+            fail("generic external action should be guarded until map-first traversal/read evidence exists:\n" + no_search.stdout + no_search.stderr)
         with_search = subprocess.run(
             ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "agentgrep", "query": "feature"}]}, ensure_ascii=False)],
             cwd=ROOT,
@@ -9923,8 +9924,8 @@ def check_read_debt_permit_generic_external_action() -> None:
             capture_output=True,
             check=False,
         )
-        if with_search.stdout.strip():
-            fail("root-bound search evidence should satisfy generic search-debt guard:\n" + with_search.stdout + with_search.stderr)
+        if "search-debt gate" not in with_search.stdout:
+            fail("keyword search evidence must not satisfy map-first debt:\n" + with_search.stdout + with_search.stderr)
 
 
         with_map = subprocess.run(

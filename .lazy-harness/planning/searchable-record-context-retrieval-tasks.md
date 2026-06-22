@@ -264,15 +264,15 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Status: done
 - Type: source/test/record update
 - Decision:
-  - Add `lazy map --overview` as the mandatory whole-structure first pass before token search.
-  - Add repeated `lazy map <term-or-file>` calls as read-only drill-down helpers over record-index, feature navigation, and graph rows.
-  - User-confirmed correction (2026-06-07): search must not stop after one “core token”; related records/source/tests can be dispersed, so the agent must repeat query-map across candidate tokens/files/layers until coverage is sufficient.
-  - Add generated `record-index.json` fast path for repeated query speed, with `--fresh` source-rebuild escape hatch.
-  - Output remains cue-only and cannot satisfy search/read debt by itself.
+  - Add `lazy map --overview` as the mandatory whole-structure first pass before any concrete drill-down.
+  - Add `lazy map <feature-id|record-path|graph-id|source-path>` as read-only drill-down over record-index, feature navigation, and graph rows.
+  - User-confirmed correction (2026-06-22): do not run repeated token-map exploration or keyword fallback after map traversal.
+  - Add generated `record-index.json` fast path for overview/concrete-node speed, with `--fresh` source-rebuild escape hatch.
+  - Output remains cue-only and cannot satisfy read debt by itself.
 - Result:
-  - CLI commands: `.lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N]`, then repeated `.lazy-harness/bin/lazy map <term-or-file> [--format=json|md] [--limit=N]`
+  - CLI commands: `.lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N]`, then `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N]`
   - Source: `.lazy-harness/scripts/record-map.ts`
-  - AGENTS/search reminder routine is overview-first, then token map, then grep fallback when empty/ambiguous/incomplete.
+  - AGENTS/search reminder routine is overview-first, concrete-node drill-down, direct read, then option gate/missing-prerequisite when incomplete.
   - Cache behavior: fresh generated `.lazy-harness/generated/record-index.json` is used when available; missing/stale/invalid cache or `--fresh` triggers source rebuild.
   - DDD/BDD/SDD/TDD/SSOT records updated for Record Map terminology, behavior, contract, fixture, and boundary.
 - Acceptance:

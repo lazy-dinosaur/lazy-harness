@@ -147,7 +147,7 @@ Self-test coverage added:
 
 ## Interpretation
 
-The optimization is useful because the user-confirmed retrieval flow requires repeated query-map calls across multiple candidate tokens/files/layers. With a fresh generated cache, repeated `lazy map <term-or-file>` calls avoid rebuilding the record index each time and are substantially faster in this host.
+User correction on 2026-06-22 supersedes the earlier repeated token-map workflow. The cache remains useful for overview and concrete-node drill-down, but agents must not run repeated token exploration.
 
 The optimization does not change semantic boundaries:
 

@@ -20,8 +20,8 @@ Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
   - store only sanitized search/read debt rows in `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`
   - keep debt rows static/protocol-level, not selected by a raw user-text classifier
   - use safe message/session hashes and bounded counters, never raw prompts or transcripts
-  - let the LLM/searcher satisfy debt by root-bound record/source/test search and reads
-  - let `check-read-debt-permit.py` measure whether evidence exists before action
+  - let the LLM/searcher satisfy debt by map-first traversal and root-bound record/source/test reads
+  - let `check-read-debt-permit.py` measure whether map/read evidence exists before action
   - allow map-first `lazy map --overview` evidence to satisfy search-debt, but never required-read debt
   - keep response audit advisory/backstop, not semantic routing
 - Must not:
@@ -53,9 +53,9 @@ Allowed fields are transport/evidence bookkeeping only. They are not semantic ju
 ```text
 message.received
 → append sanitized static search/read-debt row
-→ inject compact harness-first reminder with mandatory `lazy map --overview`, concrete map-node drilldown, and root-bound fallback search
-→ LLM/searcher inspects whole record/feature/graph structure, chooses concrete feature/record/graph/source/test nodes from map output, then performs root-bound record/source/test search/read
-→ generic pre-action guard allows mutation only after evidence exists
+→ inject compact harness-first reminder with mandatory `lazy map --overview`, concrete map-node drilldown, and no keyword fallback
+→ LLM/searcher inspects whole record/feature/graph structure, chooses concrete feature/record/graph/source/test nodes from map output, then reads canonical record/source/test evidence
+→ generic pre-action guard allows mutation only after map/read evidence exists
 → response.completed audits misses as a backstop
 ```
 
@@ -94,4 +94,4 @@ message.received
 
 `lazy map --overview` and concrete `lazy map <feature-id|record-path|graph-id|source-path>` calls are cue-only traversal commands. The guard may count those tool events or command/output blobs as **search evidence** for search-debt rows because they inspect project-map inventory, but they are never read evidence for concrete `requiredRead` paths.
 
-`lazy find --purpose ...` is retired and must not satisfy search/read debt. Long free-form `lazy map` input and invented `--query` syntax are invalid retrieval evidence because they imply CLI-owned semantic search.
+`lazy find --purpose ...`, long free-form `lazy map` input, invented `--query` syntax, and keyword grep/rg/find fallback are invalid retrieval evidence because they imply CLI/tool-owned semantic search.

@@ -85,7 +85,7 @@ Commands:
   map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]
                                 Show drill-down candidates for a concrete map node copied from overview
   retrieval-audit <term-or-file> [--format=json|md] [--limit=N]
-                                Audit lazy map/record-index coverage gaps and fallback grep/read candidates
+                                Audit lazy map/record-index coverage gaps and concrete map/read candidates
   retrieval-workflow-benchmark [--format=json|md] [--limit=N] [--queries=q1,q2]
                                 Measure post-overview map/retrieval-audit workflow costs
   record-index [--write] [--format=json|md]

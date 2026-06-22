@@ -16,12 +16,12 @@ Related TDD: `.lazy-harness/tests/retrieval-coverage-audit.md`
 - Scope: framework-global
 - Applies when:
   - `lazy map` output is empty, ambiguous, or too narrow
-  - an agent needs to prove it considered fallback grep/read coverage before relying on absence
+  - an agent needs to prove it considered concrete map/read coverage before relying on absence
   - adding generated navigation/query surfaces such as Graphify-style indexes
 - Must:
   - provide a read-only coverage audit over record-index, feature navigation, and graph surfaces
   - report structural gaps such as no record/source/test/graph candidates
-  - emit overview/concrete-map-node/fallback-grep commands as evidence cues
+  - emit overview/concrete-map-node/missing-prerequisite cues as evidence cues
   - state that the LLM/searcher remains the semantic search engine and must read real records/source/tests
   - keep output deterministic, compact, and capped by `--limit`
 - Must not:
@@ -45,8 +45,8 @@ Output shape:
 - `coverage.state`: `mapped | partial | gap`
 - `coverage.gaps`: structural gap labels only, e.g. `no-map-matches`, `no-record-candidates`, `no-source-candidates`, `no-test-candidates`, `no-graph-candidates`
 - `matches`: feature/record/graph matches and matched fields
-- `candidates`: record/source/test/graph candidates and fallback search terms, including top-level Related layer record paths surfaced from matched records
-- `commands`: overview, concrete map-node commands copied from structural candidates, and fallback grep command
+- `candidates`: record/source/test/graph candidates and unresolved terms, including top-level Related layer record paths surfaced from matched records
+- `commands`: overview, concrete map-node commands copied from structural candidates, and missing-prerequisite cue
 - `notes`: cue-only/LLM-owned semantic authority reminder
 
 Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, `candidateMeanings`.
@@ -57,7 +57,7 @@ Forbidden fields: `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`
 2. If concrete map traversal is empty or suspiciously narrow, LLM/searcher may call `lazy retrieval-audit <query>` as a read-only coverage backstop.
 3. Audit reports whether map/index/graph surfaces yielded structural entrypoints.
 4. When matched records declare top-level Related DDD/BDD/SDD/TDD/ADR/SSOT links, audit includes those paths as cue-only record candidates so search and final verification can check for missing impacted layers.
-5. For `gap` or `partial`, LLM/searcher follows concrete map-node candidates and fallback grep, then reads real record/source/test files.
+5. For `gap` or `partial`, LLM/searcher follows concrete map-node candidates; if none exist, it uses an option gate or missing-prerequisite statement instead of keyword fallback.
 6. If evidence remains missing or ambiguous, LLM/searcher uses an option gate or MultiCandidate record-decision packet. The audit itself never becomes the answer.
 
 ## Implementation map

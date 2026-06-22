@@ -20,12 +20,12 @@ Related TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md`
   - let the LLM choose concrete map nodes from returned feature ids, record paths, graph ids, source paths, and test paths
   - use `lazy map <node>` only to expand a copied concrete node
   - read real record/source/test files before relying on any candidate
+  - ask a 3-5 option gate or state the missing prerequisite when no concrete node exists
   - use `lazy rules resolve` / `lazy capability resolve` for operating-rule/action policy lookup
 - Must not:
+  - use keyword grep/rg/find fallback after map traversal
   - use `lazy find --purpose ...`
   - pass raw user text or long natural-language strings to `lazy map`
-  - invent `--query` for `lazy map`
-  - classify raw user text in lifecycle hooks
 - Record completion:
   - behavior changes update SDD/TDD/DDD/ADR together
 
@@ -45,11 +45,11 @@ When the agent runs `lazy map record-source-indexing`
 Then the CLI expands nearby records/source/tests/graph ids
 And the agent reads actual files before answering.
 
-### Scenario 3 — Free-form query rejected
+### Scenario 3 — Free-form query and keyword fallback rejected
 
 Given the user says a long natural-language request
-When the agent passes that whole request to `lazy map`
-Then `lazy map` fails with a message to start from overview and use concrete map nodes.
+When the agent passes that whole request to `lazy map` or reaches for grep/rg/find fallback after the overview
+Then the flow rejects the query/fallback path and requires a concrete map node, option gate, or missing-prerequisite statement.
 
 ### Scenario 4 — Rule lookup remains separate
 

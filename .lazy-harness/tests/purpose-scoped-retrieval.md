@@ -20,8 +20,8 @@ Self-test must prove:
 - `lazy map 'long natural-language string'` fails with a map-node error.
 - `lazy map <feature-id>` succeeds for a concrete feature id copied from overview.
 - `lazy map --overview` teaches concrete map traversal, not free-form query search.
-- message.received prompt teaches map-first retrieval and forbids raw user text / invented `--query` for `lazy map`.
-- search/read debt helpers no longer treat `lazy find` as search evidence.
+- message.received prompt teaches map-first retrieval, forbids raw user text / invented `--query` for `lazy map`, and forbids keyword grep/rg/find fallback.
+- search/read debt helpers no longer treat `lazy find`, grep, rg, find, agentgrep, or generic query tools as search evidence.
 - required-read debt still requires concrete read evidence; map overview is search evidence only.
 
 ## Layer completeness gate
