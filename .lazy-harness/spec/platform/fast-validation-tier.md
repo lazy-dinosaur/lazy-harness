@@ -19,6 +19,7 @@ Date: 2026-06-18
   - keep JSON/XML/JSONL parse, Python compile, shell syntax, graph-id, manifest-path, fixture canonical-record, root-bound path, and `git diff --check` coverage lightweight
   - state clearly that `lazy check` is not full regression and does not replace `.lazy-harness/bin/lazy test`
   - keep `.lazy-harness/bin/lazy test` as the full framework/host regression gate
+  - keep harness integrity validation separate from downstream product validation; product-wide `typecheck`, lint, build, or E2E must be justified by user request, host test strategy, or product-code impact, not by a generic "cover all bases" impulse
 - Must not:
   - weaken pre-push/full release validation
   - silently skip unknown static parse failures

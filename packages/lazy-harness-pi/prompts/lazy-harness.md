@@ -11,4 +11,5 @@ Use the host-local `.lazy-harness` records as the source of truth before host-sp
 2. Pick a concrete feature id, record path, graph id, source path, or test path from that output.
 3. Drill into that copied node with `.lazy-harness/bin/lazy map <copied-node> --format=md --limit=8`; never pass raw user text, long natural-language strings, or invented `--query` flags.
 4. Read real record/source/test files before editing.
-5. Mutations are guarded by the lazy-harness Pi extension through the generic search/read evidence guard.
+5. Verify harness integrity with bounded lazy-harness commands (`lazy check`, `lazy validate`, or `lazy test`). Do not run product-wide typecheck/lint/build just to "cover all bases"; only do that when the user asked, the host test-strategy record requires it, or product code changed.
+6. Mutations are guarded by the lazy-harness Pi extension through the generic search/read evidence guard.

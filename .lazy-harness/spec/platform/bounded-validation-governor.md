@@ -22,6 +22,7 @@ Date: 2026-06-18
   - emit `JCODE_PROGRESS` lines to stderr during execution so long-running validation has visible progress without corrupting JSON stdout
   - reuse full-regression evidence only when a conservative workspace fingerprint matches exactly
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
+  - keep harness-integrity plans bounded to lazy-harness commands unless a user request, host test strategy, or product-code impact explicitly calls for downstream app typecheck/lint/build/E2E
 - Must not:
   - silently replace full regression claims with fast checks
   - reuse full-regression evidence across changed `HEAD`, working-tree diff/status, untracked files, or `.lazy-harness` body

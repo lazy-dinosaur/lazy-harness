@@ -1882,6 +1882,9 @@ def check_pi_package_layout_and_contract() -> None:
         "map <copied-node>",
         "never pass raw user text",
         "invented `--query` flags",
+        "bounded lazy-harness commands",
+        "Do not run product-wide typecheck/lint/build just to \"cover all bases\"",
+        "host test-strategy record requires it",
     ]:
         if phrase not in prompt_text:
             fail("Pi package prompt missing map-first guidance: " + phrase)
