@@ -3389,10 +3389,11 @@ def check_project_operating_rulebook_cli() -> None:
     source_rules = {rule.get("path"): rule for rule in root_list_json.get("rules", [])}
     if source_rules.get(".lazy-harness/rules/README.md", {}).get("relatedPolicy") != "project-operating-rulebook-policy":
         fail("source rulebook README must surface related typed policy in list output: " + root_list.stdout)
-    source_capabilities = json.loads((ROOT / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
-    project_rulebook_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == "project-operating-rulebook"), None)
-    if not project_rulebook_capability or "project-operating-rulebook-policy" not in project_rulebook_capability.get("policyIds", []):
-        fail("source project-operating-rulebook capability must link typed policy coverage")
+    if ACTIVE_SCOPE == "framework":
+        source_capabilities = json.loads((ROOT / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+        project_rulebook_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == "project-operating-rulebook"), None)
+        if not project_rulebook_capability or "project-operating-rulebook-policy" not in project_rulebook_capability.get("policyIds", []):
+            fail("source project-operating-rulebook capability must link typed policy coverage")
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-rulebook-cli-"))
     try:
@@ -3571,20 +3572,21 @@ def check_purpose_scoped_retrieval_cli() -> None:
     if invented_query.returncode == 0 or "Unknown argument: --query" not in (invented_query.stderr + invented_query.stdout):
         fail("lazy map must reject invented --query search-box syntax:\n" + invented_query.stdout + invented_query.stderr)
 
+    concrete_record = ".lazy-harness/spec/platform/purpose-scoped-retrieval.md"
     node_map = subprocess.run(
-        [str(LAZY / "bin" / "lazy"), "map", "record-source-indexing", "--format=json", "--limit=8"],
+        [str(LAZY / "bin" / "lazy"), "map", concrete_record, "--format=json", "--limit=8"],
         cwd=ROOT,
         text=True,
         capture_output=True,
         check=False,
     )
     if node_map.returncode != 0:
-        fail("lazy map should accept concrete feature ids copied from overview:\n" + node_map.stdout + node_map.stderr)
+        fail("lazy map should accept concrete record paths copied from overview:\n" + node_map.stdout + node_map.stderr)
     node_json = json.loads(node_map.stdout)
     if node_json.get("mode") != "record-map.inspect":
         fail("lazy map concrete node output missing inspect mode")
-    if "record-source-indexing" not in [feature.get("id") for feature in node_json.get("features", [])]:
-        fail("lazy map should traverse the concrete record-source-indexing feature id")
+    if concrete_record not in [record.get("recordPath") for record in node_json.get("records", [])]:
+        fail("lazy map should traverse concrete synced record paths")
 
     overview = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=md", "--limit=8"],

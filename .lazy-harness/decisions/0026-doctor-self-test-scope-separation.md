@@ -121,7 +121,7 @@ Implementation map addendum:
 
 ## Host package-source fixture skip update (2026-06-22)
 
-Host-scope self-test must not require framework source-only package fixtures such as `packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md`. It may validate generated host-local Jcode wrappers, but source package wrapper parity remains `framework` scope only. This preserves ADR 0026's rule that host validation does not depend on framework-own files that are not synced into hosts.
+Host-scope self-test must not require framework source-only package fixtures such as `packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md`, framework source registry parity such as source capability `policyIds`, or source-only feature ids from `project/feature-navigation.xml`. It may validate generated host-local Jcode wrappers and synced concrete record traversal, but source package/registry/feature parity remains `framework` scope only. This preserves ADR 0026's rule that host validation does not depend on framework-own files that are not synced into hosts.
 
 ## Notes
 
