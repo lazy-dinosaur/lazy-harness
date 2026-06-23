@@ -13,15 +13,17 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 |---|---|---|
 | `pi_omp_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keywords include `pi-package` and `omp-plugin`; both `pi.*` and `omp.*` resource sections point to package-local extensions, skills, and prompts |
 | `pi_clean_default_no_project_settings` | Inspect source checkout | `.pi/settings.json` is absent by default after factory reset; project-local Pi attachment is generated only by an intentional install command |
-| `pi_install_guidance` | Inspect package README and SDD | Global and project-local install commands are documented, including that the package is not installed by default after a clean reset |
+| `pi_install_guidance` | Inspect package README and SDD | Global bootstrap and project-local activation commands are documented, including that the package is not installed by default after a clean reset |
 | `cross_platform_dependency_guidance` | Inspect installer, README, package README, and SDD | macOS/Linux prerequisites are documented; installer requires `git`, `bun`, and `python3` before mutation and prints OS-specific install hints |
-| `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install/remove require explicit scope and support dry-run |
-| `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Local/global install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
+| `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install defaults to global bootstrap; remove requires explicit scope; dry-run is supported |
+| `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Default/global install, explicit local install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
 | `lazy_omp_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy omp install/list/remove/smoke/doctor` is documented and dispatched separately from `lazy pi` |
 | `lazy_omp_wrapper_dry_run` | Run `pi-package.ts` with `LAZY_AGENT_RUNTIME=omp` and lazy CLI OMP dispatch fixtures | OMP install/remove/smoke dry-runs produce exact `omp plugin install`, `omp plugin uninstall`, and `omp -e` command arrays without mutating plugin settings |
 | `lazy_omp_wrapper_doctor_no_smoke` | Run OMP doctor no-smoke in non-strict mode | Doctor is safe in environments without persistent OMP plugin settings and reports that smoke is skipped/non-mutating |
 | `lazy_pi_source_target_isolation` | Run `lazy pi install --local --dry-run` and direct `pi-package.ts` from another cwd with stale parent `LAZY_INVOCATION_CWD`, plus explicit `--target-repo` | Source package path stays in the lazy-harness source checkout while target repo resolves to caller/explicit repo; direct wrapper ignores stale parent invocation cwd unless `LAZY_PI_TARGET_REPO` or `--target-repo` is set |
+| `lazy_pi_global_bootstrap_no_harness_noop` | Fake runtime calls `before_agent_start` from a temp directory without `.lazy-harness/bin/lazy` | The globally loaded extension returns `undefined` and injects no lazy-harness reminder |
+| `lazy_agent_activation_prompts` | Run `lazy agent activate` against a temp initialized git repo | `.pi/APPEND_SYSTEM.md` and `.omp/APPEND_SYSTEM.md` contain managed pointer prompts, and `.git/info/exclude` contains `.pi/` and `.omp/` |
 | `lazy_pi_local_settings_git_exclude` | Inspect `.pi/settings.json` and target repo exclude behavior | Generated `.pi/settings.json` is allowed only when untracked and `.pi/` is present in `.git/info/exclude`; local install dry-run reports the exclude path |
 | `pi_extension_before_agent_start_bridge` | Inspect extension source | Source contains `before_agent_start`, calls `on-message-received.sh`, and injects `REMINDER. Harness-first search/read debt before response.` fallback |
 | `omp_before_agent_start_system_prompt_array` | Fake OMP runtime calls `before_agent_start` with `systemPrompt: string[]` | The original prompt block remains an array element and the lazy reminder is appended as a new block, not comma-joined into one string |
@@ -47,9 +49,11 @@ After implementation, run:
 
 ```bash
 bun packages/lazy-harness-pi/extensions/lazy-harness/index.ts
+.lazy-harness/bin/lazy pi install --dry-run
 .lazy-harness/bin/lazy pi install --local --dry-run
 .lazy-harness/bin/lazy pi install --global --dry-run
 .lazy-harness/bin/lazy pi remove --local --dry-run
+.lazy-harness/bin/lazy agent activate --target /path/to/project --dry-run
 .lazy-harness/bin/lazy pi smoke --dry-run
 .lazy-harness/bin/lazy pi doctor --no-smoke
 .lazy-harness/bin/lazy omp install --dry-run
@@ -81,6 +85,7 @@ omp plugin list
 - `packages/lazy-harness-pi/package.json` — fixture for explicit `pi` and `omp` package manifest resource paths.
 - `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
 - `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
+- `.lazy-harness/scripts/agent-activate.ts` — fixture for project-local Pi/OMP activation prompt files and `.git/info/exclude` entries.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state.
 - `.pi/settings.json` — optional generated project-local package install path; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.

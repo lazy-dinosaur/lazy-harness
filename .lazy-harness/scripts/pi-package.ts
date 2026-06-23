@@ -95,8 +95,8 @@ Safety:
   out(`Usage: lazy pi <command> [options]
 
 Commands:
-  install --local|--global [--dry-run] [--package <path>]
-      Attach packages/lazy-harness-pi to official Pi settings.
+  install [--local|--global] [--dry-run] [--package <path>]
+      Attach packages/lazy-harness-pi to official Pi settings. Default: --global bootstrap.
   remove --local|--global [--dry-run] [--package <path>]
       Remove the lazy-harness Pi package from official Pi settings.
   list [--local|--global] [--format=md|json]
@@ -119,8 +119,9 @@ Options:
   --format F    md or json. Default: md
 
 Safety:
-  install/remove require explicit --local or --global.
+  install defaults to --global bootstrap; remove still requires explicit --local or --global.
   --local writes target repo .pi/settings.json; --global writes user-global Pi settings.
+  Project activation remains local: use lazy agent activate or lazy init to create .pi/.omp APPEND_SYSTEM.md pointers.
   The source package path and target repo are intentionally separate to avoid cross-repo contamination.
   smoke and doctor never mutate Pi settings.
   Under the hood: install maps to pi install; remove maps to pi remove; list maps to pi list; smoke maps to pi -e.
@@ -324,7 +325,9 @@ function installOrRemove(action: 'install' | 'remove', opts: Options): void {
   const root = sourceRoot(opts)
   const repo = targetRepo(opts)
   const pkg = packagePath(root, opts)
-  const scope = info.id === 'pi' ? requireScope(opts, action) : opts.scope
+  const scope = info.id === 'pi'
+    ? (action === 'install' ? opts.scope || 'global' : requireScope(opts, action))
+    : opts.scope
   const layout = ensurePackageLayout(pkg)
   if (!layout.ok) {
     if (opts.format === 'json') printJson({ ok: false, packagePath: pkg, layout })

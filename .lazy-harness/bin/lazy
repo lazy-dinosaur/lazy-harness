@@ -63,7 +63,9 @@ Commands:
   prompt-budget [--format=json|md]
                                 Measure prompt surface line/token budgets
   init [--target=DIR] [--dry-run]
-                                Bootstrap .lazy-harness/ in a new host
+                                Bootstrap .lazy-harness/ in a new host; prints Pi/OMP activation command
+  agent activate [--target=DIR] [--dry-run]
+                                Create project-local Pi/OMP activation prompt files
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   skill create <name> [options] Create project-local custom Jcode skill
@@ -170,6 +172,28 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/skill-create.ts" "$@"
+    ;;
+  agent)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy agent: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    subcmd="${1:-help}"
+    shift || true
+    case "$subcmd" in
+      activate)
+        exec bun "$SCRIPTS/agent-activate.ts" "$@"
+        ;;
+      help|-h|--help)
+        echo "Usage: lazy agent activate [--target=DIR] [--dry-run] [--format=md|json]"
+        exit 0
+        ;;
+      *)
+        echo "Unknown lazy agent command: $subcmd" >&2
+        echo "Usage: lazy agent activate [--target=DIR] [--dry-run] [--format=md|json]" >&2
+        exit 2
+        ;;
+    esac
     ;;
   pi)
     if ! command -v bun >/dev/null 2>&1; then

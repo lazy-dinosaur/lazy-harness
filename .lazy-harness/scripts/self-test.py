@@ -1828,8 +1828,9 @@ def check_pi_package_layout_and_contract() -> None:
     root_readme = ROOT / "README.md"
     installer = ROOT / "install.sh"
     wrapper = LAZY / "scripts" / "pi-package.ts"
+    activation = LAZY / "scripts" / "agent-activate.ts"
     lazy_entrypoint = LAZY / "bin" / "lazy"
-    for path in [manifest, extension, prompt, readme, root_readme, installer, wrapper, lazy_entrypoint]:
+    for path in [manifest, extension, prompt, readme, root_readme, installer, wrapper, activation, lazy_entrypoint]:
         if not path.exists():
             fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
 
@@ -1907,9 +1908,14 @@ def check_pi_package_layout_and_contract() -> None:
         "Recommended wrapper commands",
         ".lazy-harness/bin/lazy pi install --local",
         ".lazy-harness/bin/lazy pi install --global",
+        ".lazy-harness/bin/lazy pi install",
         ".lazy-harness/bin/lazy pi smoke",
         ".lazy-harness/bin/lazy omp install",
         ".lazy-harness/bin/lazy omp smoke",
+        ".lazy-harness/bin/lazy agent activate",
+        ".pi/APPEND_SYSTEM.md",
+        ".omp/APPEND_SYSTEM.md",
+        "no-ops outside projects where `.lazy-harness/bin/lazy` is present",
         "OMP local path installs use official OMP plugin link semantics",
         "LAZY_HARNESS_PI_PACKAGE=/path/to/lazy-harness/packages/lazy-harness-pi",
         'omp plugin install "$LAZY_HARNESS_PI_PACKAGE"',
@@ -1962,6 +1968,8 @@ def check_pi_package_layout_and_contract() -> None:
         "LAZY_AGENT_RUNTIME=\"omp\"",
         "LAZY_OMP_TARGET_REPO",
         "pi-package.ts",
+        "agent activate",
+        "agent-activate.ts",
     ]:
         if phrase not in lazy_text:
             fail("lazy CLI entrypoint missing Pi wrapper dispatch phrase: " + phrase)
@@ -1970,10 +1978,12 @@ def check_pi_package_layout_and_contract() -> None:
     for phrase in [
         "Usage: lazy pi <command>",
         "Usage: lazy omp <command>",
-        "install --local|--global",
+        "install [--local|--global]",
         "remove --local|--global",
         "smoke [--dry-run]",
         "doctor [--no-smoke]",
+        "install defaults to --global bootstrap",
+        "lazy agent activate",
         "npm/standalone publishing is intentionally out of scope",
         "The source package path and target repo are intentionally separate",
         "LAZY_PI_TARGET_REPO",
@@ -2003,6 +2013,7 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi wrapper script missing contract phrase: " + phrase)
 
     for args, expected_command in [
+        (["install", "--dry-run", "--format=json"], ["pi", "install", str(pkg_root), "--no-approve"]),
         (["install", "--local", "--dry-run", "--format=json"], ["pi", "install", str(pkg_root), "-l", "--approve"]),
         (["install", "--global", "--dry-run", "--format=json"], ["pi", "install", str(pkg_root), "--no-approve"]),
         (["remove", "--local", "--dry-run", "--format=json"], ["pi", "remove", str(pkg_root), "-l", "--approve"]),
@@ -2127,6 +2138,34 @@ def check_pi_package_layout_and_contract() -> None:
     finally:
         shutil.rmtree(target_repo, ignore_errors=True)
 
+    activation_repo = pathlib.Path(tempfile.mkdtemp(prefix="lazy-agent-activate-"))
+    try:
+        subprocess.run(["git", "init", "-q"], cwd=activation_repo, text=True, capture_output=True, check=True)
+        (activation_repo / ".lazy-harness" / "bin").mkdir(parents=True)
+        (activation_repo / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        completed = subprocess.run(
+            [str(ROOT / ".lazy-harness" / "bin" / "lazy"), "agent", "activate", "--target", str(activation_repo), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("lazy agent activate fixture failed:\n" + completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        if not payload.get("ok") or payload.get("target") != str(activation_repo.resolve()):
+            fail("lazy agent activate payload mismatch: " + completed.stdout)
+        for rel in [(".pi", "APPEND_SYSTEM.md"), (".omp", "APPEND_SYSTEM.md")]:
+            content = (activation_repo / rel[0] / rel[1]).read_text(encoding="utf-8")
+            if "lazy-harness-agent-activation:start" not in content or "map --overview" not in content or ".lazy-harness/AGENTS.md" not in content:
+                fail(f"lazy agent activate prompt missing pointer content for {rel[0]}")
+        exclude_text = (activation_repo / ".git" / "info" / "exclude").read_text(encoding="utf-8")
+        if ".pi/" not in exclude_text or ".omp/" not in exclude_text:
+            fail("lazy agent activate must exclude .pi/ and .omp/")
+    finally:
+        shutil.rmtree(activation_repo, ignore_errors=True)
+
     expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test", "lazy-impl-map-migrate"]
     for skill in expected_skills:
         skill_file = pkg_root / "skills" / skill / "SKILL.md"
@@ -2210,6 +2249,8 @@ def check_pi_package_layout_and_contract() -> None:
             "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(n,o){commands.set(n,o)}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
             "lazyHarnessPi(pi);\n"
             "const ctx={cwd:" + json.dumps(str(ROOT)) + ", signal:undefined, ui:{notify(){}}};\n"
+            "const noHarness=await handlers.get('before_agent_start')({prompt:'outside', systemPrompt:'base'}, {cwd:" + json.dumps(str(runtime_smoke)) + ", signal:undefined, ui:{notify(){}}});\n"
+            "if(noHarness !== undefined) throw new Error('non-harness cwd should not receive lazy reminder');\n"
             "const before=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:'base'},ctx);\n"
             "if(!before?.systemPrompt?.includes('REMINDER. Harness-first')) throw new Error('no reminder');\n"
             "const beforeOmp=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:['base-block']},ctx);\n"

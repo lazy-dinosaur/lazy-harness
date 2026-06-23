@@ -11,7 +11,7 @@
  *   - .git/info/exclude 에 /.jcode/, /.lazy-harness/ 추가
  *   - Host 의 .git/hooks/pre-commit 에 delegate
  *   - state/synced-from-commit 박음
- *   - .jcode/skills/lazy-{init,doctor,sync,test}/ 박음
+ *   - prints project-local Pi/OMP activation command
  *
  * Source: 본 worktree (lazy-harness dev repo) 자체. host-pilot.ts 처럼
  * `--from` 으로 명시하거나, 본 script 가 있는 worktree root 를 auto-detect.
@@ -113,8 +113,10 @@ Options:
   --skip-hooks      Don't wire git pre-commit hook
   --quiet           Suppress per-file logs
 
-Exit:
-  0 success | 1 validation | 2 conflict | 3 io`)
+  0 success | 1 validation | 2 conflict | 3 io
+
+After success, run:
+  .lazy-harness/bin/lazy agent activate --target <dir>`)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -686,9 +688,11 @@ function main(): void {
   log('')
   if (DRY) {
     log('Dry run complete. Re-run without --dry-run to apply.')
+    log(`Activation preview: ${join(targetRoot, '.lazy-harness', 'bin', 'lazy')} agent activate --target ${targetRoot} --dry-run`)
   } else {
     log(`✓ lazy-harness installed at ${join(targetRoot, '.lazy-harness')}`)
-    log(`  Next: cd ${targetRoot} && python3 .lazy-harness/scripts/self-test.py`)
+    log(`  Next: cd ${targetRoot} && .lazy-harness/bin/lazy agent activate --target ${targetRoot}`)
+    log(`  Then: cd ${targetRoot} && python3 .lazy-harness/scripts/self-test.py`)
   }
 }
 

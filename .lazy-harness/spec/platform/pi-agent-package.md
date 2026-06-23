@@ -68,6 +68,7 @@ Cross-platform dependency contract:
 Recommended wrapper commands:
 
 ```bash
+.lazy-harness/bin/lazy pi install
 .lazy-harness/bin/lazy pi install --local
 .lazy-harness/bin/lazy pi install --global
 .lazy-harness/bin/lazy pi list
@@ -80,11 +81,12 @@ Recommended wrapper commands:
 .lazy-harness/bin/lazy omp smoke
 .lazy-harness/bin/lazy omp doctor
 .lazy-harness/bin/lazy omp remove
+.lazy-harness/bin/lazy agent activate --target /path/to/project
 ```
 
 The wrapper keeps the package path consistent, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
 
-Pi persistent install/remove requires explicit `--local` or `--global` because official Pi has project-local and user-global settings surfaces. OMP persistent local-path install uses official OMP plugin link semantics through `omp plugin install <path>`; it is independent of Pi `.pi/settings.json`. Use `lazy omp smoke` for one-run, non-persistent OMP loading.
+Pi persistent install defaults to the user-global runtime bootstrap: `lazy pi install` maps to `pi install <package> --no-approve`. `--global` remains accepted as explicit spelling, and `--local` remains available for advanced project-local package attachment. Pi persistent remove still requires explicit `--local` or `--global` because it is destructive. OMP persistent local-path install uses official OMP plugin link semantics through `omp plugin install <path>`; it is independent of Pi `.pi/settings.json`. Use `lazy omp smoke` for one-run, non-persistent OMP loading.
 
 The wrapper separates two roots:
 
@@ -105,6 +107,8 @@ pi install -l /path/to/lazy-harness/packages/lazy-harness-pi --approve
 ```
 
 `--local` also ensures the target repo's `.git/info/exclude` contains `.pi/` before persistent install, so generated project-local Pi settings are not accidentally committed to teammate repos. `--global` writes user-global Pi settings only.
+
+Project activation is separate from package installation. An activated project is identified by `.lazy-harness/bin/lazy`; the globally loaded extension must no-op when `ctx.cwd` cannot resolve that file. `lazy agent activate --target <repo>` creates project-local `.pi/APPEND_SYSTEM.md` and `.omp/APPEND_SYSTEM.md` pointer prompts and adds `.pi/` / `.omp/` to that repo's `.git/info/exclude`. `lazy init` keeps bootstrapping focused and prints the activation command after a successful install.
 
 Global install for all Pi projects:
 
@@ -171,8 +175,9 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.
+- `.lazy-harness/scripts/agent-activate.ts` — project-local activation writer for `.pi/APPEND_SYSTEM.md`, `.omp/APPEND_SYSTEM.md`, and `.git/info/exclude` entries; used after `lazy init` or directly via `lazy agent activate`.
 - `.lazy-harness/scripts/pi-package.ts` — runtime-aware `lazy pi` and `lazy omp` install/list/remove/smoke/doctor wrapper; Pi maps to official `pi install/remove/list/-e`, OMP maps to official `omp plugin install/uninstall/list` and `omp -e`.
-- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` and `lazy omp ...` to `pi-package.ts`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` or `LAZY_OMP_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
+- `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` and `lazy omp ...` to `pi-package.ts`, exposes `lazy agent activate`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` or `LAZY_OMP_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
 - `.pi/settings.json` — optional source-repo Pi local package attachment created by `pi install -l`; not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
