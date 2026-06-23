@@ -1880,6 +1880,8 @@ def check_pi_package_layout_and_contract() -> None:
         "normalizePiTool",
         "cmd",
         "terminal",
+        "resolveInvocationCwd",
+        "sessionManager?.getCwd",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2292,22 +2294,33 @@ def check_pi_package_layout_and_contract() -> None:
             (root / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
             (root / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
             hook = root / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
-            hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-tool-payload.json\n", encoding="utf-8")
+            hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-tool-payload.json\nprintf '%s' \"$LAZY_HOST_ROOT\" > .lazy-harness/last-host-root.txt\n", encoding="utf-8")
             hook.chmod(0o755)
         smoke = isolation_smoke / "root-isolation.ts"
         smoke.write_text(
             "import { readFileSync } from 'node:fs';\n"
             "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
             "const handlers = new Map();\n"
-            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
+            "const commands = new Map();\n"
+            "let lastExec;\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(n,o){commands.set(n,o)}, async exec(cmd,args,opts){lastExec={cmd,args,opts}; return {stdout:'',stderr:'',exitCode:0}} };\n"
             "lazyHarnessPi(pi);\n"
             "const rootA=" + json.dumps(str(root_a)) + ";\n"
             "const rootB=" + json.dumps(str(root_b)) + ";\n"
-            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'a.txt'}, toolCallId:'a-read', content:'aaa'}, {cwd:rootA});\n"
-            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'b.txt', content:'b'}}, {cwd:rootB});\n"
+            "let liveCwd=rootA;\n"
+            "const ctx={cwd:rootA, signal:undefined, ui:{notify(){}}, sessionManager:{getCwd(){return liveCwd}}};\n"
+            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'a.txt'}, toolCallId:'a-read', content:'aaa'}, ctx);\n"
+            "liveCwd=rootB;\n"
+            "await handlers.get('before_agent_start')({prompt:'moved to b', systemPrompt:'base'}, ctx);\n"
+            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'b.txt', content:'b'}}, ctx);\n"
             "const b=JSON.parse(readFileSync(rootB+'/.lazy-harness/last-tool-payload.json','utf8'));\n"
+            "if (b.working_dir !== rootB) throw new Error('repo B hook did not use live session cwd');\n"
             "if (b.recent_tool_calls.length !== 0) throw new Error('repo B saw repo A tool calls');\n"
-            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'a2.txt', content:'a'}}, {cwd:rootA});\n"
+            "if (readFileSync(rootB+'/.lazy-harness/last-host-root.txt','utf8') !== rootB) throw new Error('repo B hook received wrong LAZY_HOST_ROOT');\n"
+            "await commands.get('lazy-map').handler('--overview --format=md --limit=1', ctx);\n"
+            "if (lastExec?.opts?.cwd !== rootB || lastExec?.cmd !== rootB+'/.lazy-harness/bin/lazy') throw new Error('lazy command did not use live session cwd');\n"
+            "liveCwd=rootA;\n"
+            "await handlers.get('tool_call')({toolName:'write', input:{file_path:'a2.txt', content:'a'}}, ctx);\n"
             "const a=JSON.parse(readFileSync(rootA+'/.lazy-harness/last-tool-payload.json','utf8'));\n"
             "if (a.recent_tool_calls.length !== 1 || a.recent_tool_calls[0].toolCallId !== 'a-read') throw new Error('repo A lost own tool call evidence');\n"
             "console.log('pi root-scoped recent tool isolation ok');\n",

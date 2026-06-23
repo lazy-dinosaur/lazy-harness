@@ -43,7 +43,7 @@ OMP official source supports `package.json#omp` first and falls back to `package
 `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` must:
 
 1. export a default Pi extension function,
-2. walk upward from `ctx.cwd` to find `.lazy-harness/bin/lazy`,
+2. resolve the active project cwd from live runtime state (`ctx.sessionManager.getCwd()` when present), then event cwd, then `ctx.cwd`, and walk upward to find `.lazy-harness/bin/lazy`,
 3. handle `before_agent_start` by invoking `.lazy-harness/hooks/lifecycle/on-message-received.sh` through stdin JSON and appending the returned reminder body to the system prompt,
 4. handle `tool_call` by normalizing Pi tool payload into lazy lifecycle JSON and invoking `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh`,
 5. return `{ block: true, reason }` only when the lazy hook emits a deny reason,
@@ -171,6 +171,7 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 
 - `packages/lazy-harness-pi/package.json` — shared Pi/OMP package manifest with explicit `pi` and `omp` resource declarations.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation.
+  - `resolveInvocationCwd` keeps hook and `/lazy-*` command root selection aligned with the live Pi/OMP session cwd after runtime `/move` re-scopes the session.
   - `systemPromptIncludesBody` / `appendSystemPromptBody` preserve official Pi string prompts and OMP string-array prompt blocks during `before_agent_start` reminder injection.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
@@ -182,6 +183,7 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — static contract validation.
   - Fake runtime smoke covers official Pi string `systemPrompt` and OMP string-array `systemPrompt` before-agent-start paths.
+  - Fake runtime root isolation covers live `sessionManager.getCwd()` re-scope after `/move`, root-scoped recent tool evidence, and `/lazy-*` command cwd selection.
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
 - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md` — shared package with separate install UX decision.
 
@@ -220,3 +222,12 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - Why not AGENTS.md: this is a Pi adapter install/runtime isolation contract, not general prompt grammar.
 - Why not `.jcode`: this is shared lazy-harness Pi package behavior, not private Jcode preference.
 - Confirmation: user-confirmed
+
+## Rule placement
+
+- Rule: Pi/OMP adapter root selection must follow the live session manager cwd after runtime `/move`; stale `ctx.cwd` is only a fallback.
+- Scope: framework-global
+- Primary record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Why not AGENTS.md: this is package adapter runtime compatibility, not general prompt grammar.
+- Why not `.jcode`: this is shared Pi/OMP package behavior, not private Jcode wiring.
+- Confirmation: confirmed-from-OMP-runtime-source

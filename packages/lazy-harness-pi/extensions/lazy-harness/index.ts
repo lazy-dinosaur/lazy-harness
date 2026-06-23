@@ -36,6 +36,15 @@ function findLazyRoot(cwd: string): string | undefined {
   }
 }
 
+function resolveInvocationCwd(event: any, ctx: any): string {
+  const sessionCwd = ctx?.sessionManager?.getCwd?.();
+  return String(sessionCwd || event?.cwd || event?.workingDirectory || ctx?.cwd || process.cwd());
+}
+
+function findLazyRootForInvocation(event: any, ctx: any): string | undefined {
+  return findLazyRoot(resolveInvocationCwd(event, ctx));
+}
+
 function runHook(scriptPath: string, payload: JsonObject, root: string): { stdout: string; stderr: string; status: number | null; error?: string } {
   const completed = spawnSync("bash", [scriptPath], {
     cwd: root,
@@ -150,11 +159,11 @@ function rememberToolCall(root: string, call: RecentToolCall): void {
 }
 
 function findLazyRootFromEvent(event: any, ctx: any): string | undefined {
-  return findLazyRoot(String(ctx?.cwd || event?.cwd || event?.workingDirectory || process.cwd()));
+  return findLazyRootForInvocation(event, ctx);
 }
 
 async function runLazyCommand(pi: ExtensionAPI, ctx: any, args: string, lazyArgs: string[]): Promise<void> {
-  const root = findLazyRoot(ctx.cwd);
+  const root = findLazyRootForInvocation(undefined, ctx);
   if (!root) {
     ctx.ui?.notify?.("lazy-harness: .lazy-harness/bin/lazy not found from current cwd", "warning");
     return;
@@ -170,7 +179,7 @@ async function runLazyCommand(pi: ExtensionAPI, ctx: any, args: string, lazyArgs
 }
 
 async function runPackageScript(pi: ExtensionAPI, ctx: any, args: string, scriptRelativeToExtension: string): Promise<void> {
-  const root = findLazyRoot(ctx.cwd);
+  const root = findLazyRootForInvocation(undefined, ctx);
   if (!root) {
     ctx.ui?.notify?.("lazy-harness: .lazy-harness/bin/lazy not found from current cwd", "warning");
     return;
@@ -187,10 +196,11 @@ async function runPackageScript(pi: ExtensionAPI, ctx: any, args: string, script
 
 export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event: any, ctx: any) => {
-    const root = findLazyRoot(ctx.cwd);
+    const cwd = resolveInvocationCwd(event, ctx);
+    const root = findLazyRoot(cwd);
     if (!root) return undefined;
 
-    const sessionId = `pi:${stableHash(ctx.cwd)}`;
+    const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
     activePacketsByRoot.set(root, { root, sessionId, messageId });
 
@@ -217,12 +227,13 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   });
 
   pi.on("tool_call", async (event: any, ctx: any) => {
-    const root = findLazyRoot(ctx.cwd);
+    const cwd = resolveInvocationCwd(event, ctx);
+    const root = findLazyRoot(cwd);
     if (!root) return undefined;
 
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
-      : { root, sessionId: `pi:${stableHash(ctx.cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
 
     const payload: JsonObject = {
       event: "tool.execute.before",
