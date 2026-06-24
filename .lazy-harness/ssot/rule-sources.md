@@ -127,3 +127,17 @@ Project facts and project operating rules are distinct. Facts, contracts, regres
 Examples include canonical worktree commands, discouraged raw dev-server commands, validation workflows, bypass rules, and team operating policy.
 
 Rulebook entries still need `## Rule placement` when created as compatibility/explain surfaces from a user correction or new project policy, but the policy semantics must also be represented in `.lazy-harness/ssot/policies.json`.
+
+## Operating rule resolve-before-add and storage guard (2026-06-24)
+
+Adding or applying an operating rule must start by resolving existing rules, so a new rule does not duplicate one already stored:
+
+- Before adding: run `lazy policy resolve` / `lazy capability resolve` / `lazy rules resolve` for the same intent/action.
+- Canonical store: behavior semantics in `.lazy-harness/ssot/policies.json`, action binding in `.lazy-harness/ssot/capabilities.json`; `.lazy-harness/rules/**` is the compatibility/explain surface. Do not author operating-rule semantics as prose in an unrelated `.lazy-harness/ssot/*.md`.
+
+Two advisory backstops run at `response.completed` (no hard gate, ADR 0041):
+
+- `check-operating-rule-storage.py` — flags rule-store writes without prior resolve evidence (duplication) and operating-rule prose written to a non-canonical `.lazy-harness/ssot/*.md`.
+- `check-response-rule-audit.py` — at apply time, flags a discouraged action of a `default`/`warn`/`block` capability used without prior resolve evidence (`discover`/`recommend` stay silent).
+
+See `.lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md` and `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md`.

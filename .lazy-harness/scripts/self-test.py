@@ -9803,9 +9803,118 @@ def check_response_rule_audit_from_surfaced_digest() -> None:
         })
         if "Search/read debt audit" not in removed_find_audit:
             fail("response audit should not accept removed lazy find evidence:\n" + removed_find_audit)
+
+        # R1 (2026-06-24): default-level operating rules must also raise the
+        # discouraged-action advisory (previously warn/block only); recommend stays silent.
+        def write_worktree_cap(cap_level: str) -> None:
+            (cap_dir / "capabilities.json").write_text(json.dumps({
+                "version": 1,
+                "capabilities": [{
+                    "id": "dev-worktree-standard-command",
+                    "kind": "command",
+                    "level": cap_level,
+                    "sourceRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "rulebookRecord": ".lazy-harness/rules/dev-worktree.md",
+                    "appliesWhen": ["creating_worktree"],
+                    "preferredActions": ["bun run wt new"],
+                    "discouragedActions": ["git worktree add"],
+                    "entrypoint": "bun run wt new",
+                    "description": "Fixture for level-based discouraged-action advisory.",
+                    "owner": "host-project",
+                }],
+            }, ensure_ascii=False), encoding="utf-8")
+
+        write_worktree_cap("default")
+        default_missed = run_helper({
+            "message_id": "phase-default-discouraged-action",
+            "recent_tool_calls": [{"name": "bash", "args_preview": "git worktree add ../x feature/y"}],
+        })
+        if "Operating rule audit" not in default_missed or "dev-worktree-standard-command" not in default_missed:
+            fail("response audit should advise for default-level discouragedAction without resolve:\n" + default_missed)
+
+        write_worktree_cap("recommend")
+        recommend_quiet = run_helper({
+            "message_id": "phase-recommend-discouraged-action",
+            "recent_tool_calls": [{"name": "bash", "args_preview": "git worktree add ../x feature/y"}],
+        })
+        if recommend_quiet.strip():
+            fail("response audit should stay silent for recommend-level discouragedAction:\n" + recommend_quiet)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ response rule audit from surfaced digest ok")
+
+
+def check_operating_rule_storage_helper() -> None:
+    """R2 (2026-06-24): operating-rule STORAGE correctness advisory.
+
+    Flags (a) writing to an operating-rule store without prior resolve evidence
+    (duplication risk) and (b) operating-rule semantics written into a non-canonical
+    SSOT markdown surface; stays silent for resolve evidence, plain fact writes,
+    allowlisted meta records, and read-only turns.
+    """
+    helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-operating-rule-storage.py"
+    if not helper.exists() or not os.access(helper, os.X_OK):
+        fail("operating-rule storage helper missing or not executable: check-operating-rule-storage.py")
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-operating-rule-storage-"))
+    try:
+        def run_helper(payload: dict) -> str:
+            completed = subprocess.run(
+                [str(helper), json.dumps(payload, ensure_ascii=False)],
+                cwd=temp, text=True, capture_output=True, check=False,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            )
+            if completed.returncode != 0:
+                fail("operating-rule storage helper exit changed:\n" + completed.stdout + completed.stderr)
+            return completed.stdout
+
+        dedup = run_helper({
+            "message_id": "storage-dedup",
+            "recent_tool_calls": [{"name": "edit", "args_preview": "path=.lazy-harness/ssot/capabilities.json content=new"}],
+        })
+        if "Operating rule storage" not in dedup:
+            fail("storage helper should advise on rule-store write without resolve:\n" + dedup)
+
+        resolved = run_helper({
+            "message_id": "storage-resolved",
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy capability resolve --action pr-body --format=json"},
+                {"name": "edit", "args_preview": "path=.lazy-harness/ssot/capabilities.json content=new"},
+            ],
+        })
+        if resolved.strip():
+            fail("storage helper should stay silent when resolve evidence is present:\n" + resolved)
+
+        wrong = run_helper({
+            "message_id": "storage-wrong-surface",
+            "recent_tool_calls": [{"name": "Write", "args_preview": "path=.lazy-harness/ssot/pr-worktree-first-workflow.md content=## PR body mandatory sections ## Why ## What ## Task"}],
+        })
+        if "Operating rule storage" not in wrong or "non-canonical" not in wrong:
+            fail("storage helper should advise on operating-rule prose in non-canonical SSOT md:\n" + wrong)
+
+        fact = run_helper({
+            "message_id": "storage-fact",
+            "recent_tool_calls": [{"name": "Write", "args_preview": "path=.lazy-harness/ssot/domain-fact.md content=The system stores invoices in table X."}],
+        })
+        if fact.strip():
+            fail("storage helper should stay silent on plain fact SSOT write:\n" + fact)
+
+        meta = run_helper({
+            "message_id": "storage-meta",
+            "recent_tool_calls": [{"name": "edit", "args_preview": "path=.lazy-harness/ssot/rule-sources.md content=preferred command discouraged command level: warn"}],
+        })
+        if meta.strip():
+            fail("storage helper should stay silent on allowlisted meta record:\n" + meta)
+
+        readonly = run_helper({
+            "message_id": "storage-readonly",
+            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/ssot/policies.json"}],
+        })
+        if readonly.strip():
+            fail("storage helper should stay silent on read-only turn:\n" + readonly)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    print("✓ operating-rule storage helper ok")
 
 
 def check_tool_execute_before_hook() -> None:
@@ -10215,6 +10324,7 @@ def main() -> None:
         (check_record_decision_shadow_response_completed, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
+        (check_operating_rule_storage_helper, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
     ]

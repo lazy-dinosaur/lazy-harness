@@ -1,8 +1,10 @@
 # Project Rule Adaptation Regression Audit — 2026-06-10
 
-Status: active-audit
+Status: superseded-by-20260624-repair (diagnosis retained as history)
 Layer: Planning
 Date: 2026-06-10
+Superseded-by: `.lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md`
+Supersession note: the 6-phase repair direction below pre-dates ADR 0044/0046. The current-structure repair (apply-audit default-level firing + storage-correctness helper, no hard gate, R3 excluded) lives in the 2026-06-24 plan. This record is kept for its diagnosis and history.
 Related SSOT: `.lazy-harness/ssot/rule-lifecycle.md`
 Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`

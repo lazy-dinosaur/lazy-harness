@@ -614,6 +614,12 @@
           "targetPath": "framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md"
         },
         {
+          "path": "decisions/0048-operating-rule-storage-apply-repair.md",
+          "kind": "file",
+          "description": "Operational framework ADR for the operating-rule storage+apply repair (default-level missed-action advisory + intra-harness storage helper; organic, no new hard gate). Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0048-operating-rule-storage-apply-repair.md"
+        },
+        {
           "path": "spec/platform/policy-machinery-v2.md",
           "kind": "file",
           "description": "SDD contract for Phase 3 Policy Machinery V2: stage-aware policy packets connecting rulebook, capability registry, and Project Map update-loop evidence without new runtime enforcement."

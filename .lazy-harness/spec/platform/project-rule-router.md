@@ -103,6 +103,8 @@ Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by
 
 Existing user-owned `.jcode/harness/20-project-rules.md` files that predate pointer-only behavior are migrated by Jcode wiring: the active file becomes the generated pointer-only note, and the previous content is archived under `.jcode/archive/20-project-rules.pre-pointer-only-migration.md` so it is not loaded as active harness instructions.
 
+The placement helper's scope is `.jcode`/Jcode-memory over-routing only. Intra-`.lazy-harness` storage correctness — operating-rule semantics written to a non-canonical `.lazy-harness/ssot/*.md`, or a rule added without prior `lazy (policy|capability|rules) resolve` (duplication) — is covered by the sibling helper `.lazy-harness/hooks/lifecycle/helpers/check-operating-rule-storage.py` (advisory; see `.lazy-harness/spec/platform/response-rule-audit.md` and `.lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md`).
+
 ## Implementation map
 
 - Status: `verified`

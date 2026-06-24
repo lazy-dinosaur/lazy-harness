@@ -60,6 +60,13 @@ READ_EVIDENCE_TOOLS = {
     "mcp__filesystem__read_multiple_files", "agentgrep", "grep", "bash",
     "glob", "ls", "lsp", "mcp__github__get_file_contents",
 }
+# NOTE: 'harness-first-static' is intentionally excluded here (unlike
+# check-read-debt-permit.py:SEARCH_DEBT_LEVELS, which includes it). The static
+# message.received transport writes a 'harness-first-static' row every turn, and
+# the search-evidence advisory branch below is NOT mutation-gated, so including
+# this level would emit on every read-only turn. The action-gated pre-action
+# permit owns 'harness-first-static'; this post-response backstop covers only the
+# explicit self-resolve/delegate levels. See planning/operating-rule-storage-apply-repair-20260624.md.
 SEARCH_DEBT_LEVELS = {"self-resolve-before-answer", "self-resolve-before-change", "delegate-search"}
 SEARCH_EVIDENCE_TOOLS = set()
 CAPTURE_RE = re.compile(
@@ -446,7 +453,7 @@ def missed_discouraged_action(packet_row: dict[str, Any] | None = None) -> dict[
     calls = evidence_calls(packet_row)
     for cap in capabilities:
         level = str(cap.get("level") or "").strip().lower()
-        if level not in {"warn", "block"}:
+        if level not in {"default", "warn", "block"}:
             continue
         discouraged = cap.get("discouragedActions")
         if not isinstance(discouraged, list) or not discouraged:

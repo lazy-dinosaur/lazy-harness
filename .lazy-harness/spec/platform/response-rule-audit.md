@@ -275,10 +275,23 @@ exit = 0
 
 `response.completed` audit may inspect `.lazy-harness/ssot/capabilities.json` for project operating capabilities with:
 
-- `level`: `warn` or `block`;
+- `level`: `default`, `warn`, or `block` (2026-06-24: `default` added so host operating rules surfaced at the canonical default level also raise the advisory; `discover`/`recommend` stay silent);
 - non-empty `discouragedActions`;
 - optional `preferredActions`, `sourceRecord`, and `rulebookRecord`.
 
 If recent tool evidence contains a discouraged action and no prior `lazy rules resolve` / `lazy capability resolve` evidence for that action/capability exists, the helper emits advisory-only guidance. It must not hard block. `block` level is still advisory here unless a separate Guidance Ladder hard-stop promotion exists.
 
 The advisory should include capability id, level, matched discouraged action, preferred actions, and source/rulebook record paths when present.
+
+## Operating rule storage advisory (2026-06-24)
+
+A sibling response.completed helper, `.lazy-harness/hooks/lifecycle/helpers/check-operating-rule-storage.py`, audits operating-rule STORAGE correctness (the missed-action advisory above covers APPLICATION). It is advisory-only, exits 0, fail-open, and emits at most one advisory per turn (deduped via `open-gates.json`).
+
+It emits when, in the same turn:
+
+- a write targets an operating-rule store (`.lazy-harness/ssot/capabilities.json`, `.lazy-harness/ssot/policies.json`, or `.lazy-harness/rules/*.md`) without prior `lazy (policy|capability|rules) resolve` evidence (duplication risk), or
+- operating-rule semantics (preferred/discouraged command, `warn`/`block`, workflow-gating before commit/push/merge/yield/PR/mutation) are written as prose into a non-canonical `.lazy-harness/ssot/*.md` that is not an allowlisted meta record.
+
+It stays silent for: resolve evidence present, writes to the canonical store with resolve, plain fact SSOT writes, allowlisted meta records (`rule-sources`, `rule-lifecycle`, `capability-registry`, `policy-registry`, `project-identity`, ...), and read-only turns. Canonical store remains `.lazy-harness/ssot/policies.json` + `.lazy-harness/ssot/capabilities.json` (`rules/**` compat). This closes the gap where `check-project-rule-placement.sh` treats any `.lazy-harness/<layer>` write as satisfying placement and cannot see intra-harness wrong-surface or duplicate writes.
+
+See `.lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md` and `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md`. Protected by `.lazy-harness/scripts/self-test.py#check_operating_rule_storage_helper`.
