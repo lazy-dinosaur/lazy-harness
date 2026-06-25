@@ -21,6 +21,8 @@ type RecentToolCall = {
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
+const lastAdvisoryByRoot = new Map<string, { hash: string; count: number }>();
+const MAX_ADVISORY_CONTINUATIONS = 2;
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
@@ -287,10 +289,20 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     if (!existsSync(script)) return undefined;
     const hook = runHook(script, payload, root);
     const body = hookInjectBody(hook.stdout);
-    // agent_end is side-effect only; surface advisory as a non-steering display message.
-    // Default sendMessage (no deliverAs/triggerTurn) appends to the transcript without
-    // queuing a continuation, so this cannot loop.
-    if (body && typeof (pi as any).sendMessage === "function") {
+    if (!body) {
+      lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
+      return undefined;
+    }
+    // Drive a continuation so the agent addresses the gate (Jcode response.completed M11 parity).
+    // Loop-safe: the SAME unresolved advisory drives at most MAX_ADVISORY_CONTINUATIONS turns,
+    // then falls back to a non-steering display message so it can never run away.
+    const advisoryHash = stableHash(body);
+    const prevAdvisory = lastAdvisoryByRoot.get(root);
+    const advisoryCount = prevAdvisory && prevAdvisory.hash === advisoryHash ? prevAdvisory.count + 1 : 1;
+    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount });
+    if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
+      (pi as any).sendUserMessage(body);
+    } else if (typeof (pi as any).sendMessage === "function") {
       (pi as any).sendMessage({ customType: "lazy-harness-advisory", content: body, display: true });
     }
     return undefined;

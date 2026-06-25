@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Legacy action-boundary compatibility shim.
+"""Legacy action-boundary compatibility shim (no-op).
 
-Phase 5 migrated project/team policy away from concrete tool branches.
-
-This helper intentionally emits no policy output by default. Existing generated or
-user-owned `.jcode/hooks/check-bash.sh` wrappers may still call this file after a
-lazy-harness sync; keeping the shim avoids broken hook references while ensuring
-PR/runtime/release guidance is handled by:
+Phase 5 migrated project/team policy away from concrete tool branches, and ADR 0050
+removed the jcode runtime. This helper intentionally emits no policy output; it is
+kept as a no-op so the response.completed helper chain and historical references
+stay valid. PR/runtime/release guidance is handled by:
 
     message.received direct-search prompt/debt journal
     + response.completed response-rule-audit backstop
 
-Destructive shell safety remains in `.jcode/hooks/check-bash.sh` itself.
+Destructive shell safety is now runtime-agnostic in check-destructive-command.py
+(chained first in on-tool-execute-before.sh for Pi/OMP tool_call).
 """
 from __future__ import annotations
 
