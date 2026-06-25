@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 | [`plans/north-star-accuracy-and-no-regression.md`](plans/north-star-accuracy-and-no-regression.md) | **목표 그림 (north-star)** — 왜 lazy-harness 를 만드는가, 막으려는 실패 9 종, 핵심 개발 루프, 필수 게이트 |
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 50 ADR (의사결정 영구 기록) — # 50 ADRs |
+| [`decisions/`](decisions/) | 51 ADR (의사결정 영구 기록) — # 51 ADRs |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -94,7 +94,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 50 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 51 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태
