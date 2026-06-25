@@ -62,7 +62,7 @@
     },
     "scope": {
       "type": "string",
-      "enum": ["framework-global", "host-project", "team-policy", "layer-fact", "transient-plan", "jcode-local", "ambiguous"]
+      "enum": ["framework-global", "host-project", "team-policy", "layer-fact", "transient-plan", "local-only", "ambiguous"]
     },
     "digestSource": {
       "type": "string",

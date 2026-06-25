@@ -10,7 +10,7 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 
 ## Rule digest
 
-- Status: active-runtime-promote-v2-project-map-branch-writer-implemented
+- Status: active
 - Layer: TDD
 - Scope: framework-global
 - Applies when:

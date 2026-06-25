@@ -5,6 +5,25 @@
 **Deciders**: Lazydino
 **Trigger**: Conflict Resolution Protocol fired — AI used "lazy" as synonym for "minimal" in option D recommendation while user clarified that "lazy" refers to **developer** laziness, not framework laziness.
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - interpreting "lazy" during design or scope/size decisions
+  - choosing between a minimal and a more complete framework option
+- Must:
+  - treat "lazy" as developer effort minimization, never framework minimalism
+  - evaluate size choices by priority: completeness, consistency, user-laziness, automation, then initial cost
+- Must not:
+  - pick a minimal option on low initial cost alone
+- Record completion:
+  - changes to the lazy definition or size heuristic update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/decisions/0001-core-philosophy.md`
+  - `.lazy-harness/framework/framework-contract.md`
+
 ## Context
 
 `lazy-harness` 라는 이름이 framework-contract 에 1 줄 정의 없이 박혀있었음. 이 세션에서 AI 가 옵션 D ("3 개 placeholder 만") 를 추천하며 "lazy 답게 시작하고 필요할 때 자라게" 라고 표현 → 사용자 (Lazydino) 즉시 정정:

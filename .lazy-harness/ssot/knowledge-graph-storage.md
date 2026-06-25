@@ -5,6 +5,29 @@ Layer: SSOT
 Related spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 Related plan: `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - capturing, drafting, confirming, or superseding progressive knowledge-graph facts
+  - deciding the storage path/owner for candidates, drafts, or canonical graph records
+- Must:
+  - treat `knowledge/graph.jsonl` as the canonical machine-readable backbone; layer docs are human projections
+  - capture conversation knowledge as candidate/draft only until explicit (or future auditable) confirmation
+  - represent conflicts as graph state and preserve superseded records with `status=superseded` and a `supersedes` link
+  - treat `generated/implementation-index.json` as derived/non-canonical; empty JSONL containers are valid
+- Must not:
+  - rely on blocking source-search hooks or the removed graph query/path/explain CLI as the primary path
+- Record completion:
+  - storage-path/mutability or confirmation-rule changes update this SSOT plus `spec/platform/progressive-knowledge-graph.md`
+- Related records:
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+  - `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+
 ## Source of truth paths
 
 These paths are the single source of truth for progressive knowledge graph storage:

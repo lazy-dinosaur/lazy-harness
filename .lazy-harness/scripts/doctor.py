@@ -202,7 +202,7 @@ def check_branch_policy() -> CheckResult:
     # repair can leave that host-install marker behind even in the source repo.
     is_standalone_source = (LAZY / "framework" / "framework-contract.md").exists() and (LAZY / "planning" / "phase-5-plan.xml").exists()
     if not is_standalone_source and branch != "experimental/lazy-harness":
-        status = subprocess.check_output(["git", "status", "--short", "--", ".lazy-harness", ".jcode"], cwd=ROOT, text=True)
+        status = subprocess.check_output(["git", "status", "--short", "--", ".lazy-harness"], cwd=ROOT, text=True)
         if status.strip():
             details.append(f"private harness files modified on non-framework branch {branch}: {status.strip()}")
     for path in [LAZY / "hooks" / "pre-commit-guard.sh", LAZY / "hooks" / "pre-push.sh"]:

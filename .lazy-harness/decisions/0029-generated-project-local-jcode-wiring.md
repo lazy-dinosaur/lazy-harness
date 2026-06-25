@@ -1,11 +1,38 @@
 # ADR 0029 — Generated Project-Local Jcode Wiring
 
-- **Status**: Accepted
+- **Status**: superseded
+- **Superseded on**: 2026-06-24
+- **Superseded by**: .lazy-harness/decisions/0050-pi-omp-only-runtime.md
 - **Date**: 2026-05-13
 - **Related**: ADR 0024 (AI-first framework redesign), ADR 0027 (standalone source-of-truth repository), ADR 0028 (progressive knowledge graph backbone)
 - **Docs**: `.lazy-harness/JCODE-INTEGRATION.md`, root `README.md`
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - bootstrapping or syncing a host's `.jcode` / Jcode wiring
+  - deciding whether a generated config file may be refreshed or is user-owned
+  - ensuring `.lazy-harness/AGENTS.md` loads early without duplicate grammar
+- Must:
+  - generate project-local Jcode wiring from generic public templates during lazy-init/lazy-sync
+  - mark generated files; refresh marked files and preserve markerless user-owned files
+  - keep `.jcode/harness/05-lazy-harness.md` pointer-only so grammar is not loaded twice
+  - generate Jcode wiring by default; `--skip-jcode` is the opt-out
+- Must not:
+  - ship Lazydino's private `.jcode/` verbatim or overwrite user-owned host customization
+- Record completion:
+  - Jcode template/marker or sync-repair changes update this ADR and the Jcode wiring self-test
+- Related records:
+  - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+  - `.lazy-harness/decisions/0025-portability-single-entry-point.md`
+  - `.lazy-harness/JCODE-INTEGRATION.md`
+
 ## Context
+
+> Superseded by ADR 0050 (Pi/OMP-only runtime, 2026-06-24): jcode wiring is decommissioned. This record is preserved as decision history.
 
 Dogfooding showed that relying on a public framework body without project-local Jcode wiring leaves important behavior dormant:
 

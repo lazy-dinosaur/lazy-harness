@@ -6,6 +6,25 @@ Related ADR: `.lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.
 Related plan: `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
 Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - a non-trivial analysis/planning turn surfaces multiple layer concepts or multi-step plans
+  - reviewing whether discovered facts stayed only in chat history
+- Must:
+  - capture discovered DDD/SDD/BDD/TDD/ADR/SSOT facts or plans the same turn into a record, candidate/draft store, planning artifact, or explicit `Discovery capture` judgement
+  - stay silent when the turn already shows record/candidate/planning capture
+- Must not:
+  - leave substantial analysis or multi-step plans only in chat history
+- Record completion:
+  - trigger cues or completion conditions change → update this SDD, ADR 0034, and the capture helper
+- Related records:
+  - `.lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md`
+  - `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
+
 ## Purpose
 
 Prevent substantial analysis/planning turns from leaving discovered DDD/SDD/BDD/TDD/ADR/SSOT facts or multi-step implementation plans only in chat history.
@@ -109,7 +128,7 @@ A response says: "I analyzed the appointment redesign and found DDD/SDD/BDD/TDD/
 
 ### Complete with planning
 
-The same analysis also creates `.lazy-harness/planning/appointment-redesign-backlog.md` with layer candidates and implementation map.
+The same analysis also creates a planning/backlog record with layer candidates and implementation map.
 
 ### Complete with judgement
 

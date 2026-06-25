@@ -23,6 +23,7 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
   - measure helper output bytes, approximate tokens, elapsed milliseconds, candidate counts, layer coverage, and simulated follow-up read counts/bytes
   - keep the LLM/searcher as semantic authority; output is measurement only
   - compare post-overview helper paths because `lazy map --overview` remains mandatory/common
+  - additionally measure the `no_map` root-bound grep fallback path and the otherwise-excluded `overview` cost so map can be compared against skipping map
   - include no `requiredRead`, `optionalRead`, `confidence`, `intent`, `risk`, `gate`, `nextAction`, or `candidateMeanings` fields
   - preserve privacy by storing only command metrics, paths/counts, aggregate byte counts, and no raw user text/transcripts
 - Must not:
@@ -58,7 +59,9 @@ Output shape:
 - `surfaces`: per-query metrics for:
   - `map`
   - `map_plus_retrieval_audit`
-- `summary`: aggregate metrics and deltas
+  - `no_map`
+- `overview`: the otherwise-excluded mandatory `lazy map --overview` cost (command, helperBytes, helperEstimatedTokens, elapsedMs)
+- `summary`: aggregate metrics per surface, `mapInclusive` (overview added back per task), and deltas (`mapPlusRetrievalAuditVsMap`, `noMapVsMap`, `noMapVsMapInclusive`)
 - `policyBoundary`: stable text stating this is measurement-only and does not change lifecycle/prompt/overview policy
 
 Per-surface metrics:
@@ -81,12 +84,17 @@ requiredRead optionalRead confidence intent risk gate nextAction candidateMeanin
 
 ## Measurement semantics
 
-The benchmark measures **post-overview retrieval helper cost**. This is the canonical `post-overview helper cost` benchmark for comparing retrieval helper paths. The mandatory overview step is common and remains unchanged, so it is not counted in the compared helper paths.
+The benchmark measures **post-overview retrieval helper cost** plus, since this revision, the otherwise-excluded `overview` cost and a `no_map` path that skips `lazy map` entirely. `map` and `map_plus_retrieval_audit` remain the canonical `post-overview helper cost` comparison; `overview` is reported separately and added back as `mapInclusive` so the map workflow can be compared honestly against `no_map`.
 
 Measured paths:
 
 1. `map`: run `lazy map <query> --format=json --limit=N --fresh` so the benchmark rebuilds from source in-process without refreshing generated record-index cache.
 2. `map_plus_retrieval_audit`: run map plus `lazy retrieval-audit <query> --format=json --limit=N` and merge candidates.
+3. `no_map`: run `grep -rliE <term-alternation> .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}`, the AGENTS.md root-bound fallback that skips `lazy map`. The grep pattern is a deterministic alternation of the query's split terms.
+
+Overview cost:
+
+- The overview reports the otherwise-excluded mandatory `lazy map --overview` cost once (command, bytes, tokens, elapsed); `mapInclusive` adds the overview tokens back per task.
 
 Follow-up read simulation:
 
@@ -94,6 +102,7 @@ Follow-up read simulation:
 - Walks candidate order until DDD/BDD/SDD/TDD/SSOT are covered or candidates are exhausted.
 - Counts bytes from files that exist inside the current host root.
 - This is **not** semantic proof that those are the correct reads; it is a deterministic cost proxy.
+- The `no_map` candidate set is unranked and the alternation grep is intentionally broad, so its follow-up read total is a conservative upper bound that is sensitive to candidate ordering (record paths are sorted for determinism). Trust the `no_map` helper cost and candidate counts as the primary signal; the read-until-covered total overstates a real targeted agent read.
 
 ## Implementation map
 

@@ -5,6 +5,27 @@
 **Deciders**: Lazydino
 **Trigger**: 사용자 발언 "계획 실행할때마다 검증하고 체크하고 부족한거 있으면 보완하고 하는 로직 다 들어간거 맞지???" + "사람에게 물어보는것도 하는건가??"
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - verifying work after implementing, especially hook/framework/infra/doctor changes
+  - closing a phase or interpreting a doctor warning
+- Must:
+  - match verification level to risk; use L2 marker experiments for hook/framework/infra changes
+  - run negative tests when adding or changing doctor checks
+  - ask the user with structured options at phase close and on doctor warnings
+- Must not:
+  - silently ignore a doctor warning or self-report verification without real evidence
+- Record completion:
+  - changes to verification discipline update this ADR and `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+- Related records:
+  - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+  - `.lazy-harness/decisions/0009-husky-integration.md`
+  - `.lazy-harness/decisions/0010-plan-status-hygiene.md`
+
 ## Discovery
 
 객관적 점검:

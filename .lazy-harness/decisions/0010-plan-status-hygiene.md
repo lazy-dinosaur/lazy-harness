@@ -5,6 +5,26 @@
 **Deciders**: Lazydino
 **Trigger**: 사용자 발언 "우리 모든 phase 나 이런것도 계획 다 기록하고 하나씩 진행하면서 체크하면서 가고있는거 맞지?? 그리고 프레임워크에도 그런식으로 설정된거 맞지??"
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - closing a phase, or planning and tracking phase progress
+  - recording emergent decisions or daily progress against a plan
+- Must:
+  - stamp status and closing notes on every criterion when a phase closes
+  - record emergent ADRs/tasks in the plan and update the handoff at phase close
+  - drive execution from the plan and log progress, never creating empty files
+- Must not:
+  - declare a phase finished without stamping criterion status
+- Record completion:
+  - changes to plan-status hygiene update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+  - `.lazy-harness/framework/framework-contract.md`
+
 ## Discovery
 
 객관적 점검 결과 **부분 yes / 부분 no**:

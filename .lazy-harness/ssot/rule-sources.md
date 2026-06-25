@@ -7,21 +7,46 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
 Related ADR: `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
+Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
+
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - deciding where a newly discovered or corrected project/team rule belongs
+  - routing a rule among `.lazy-harness` records or Pi/OMP local notes (`.pi/`/`.omp/`)
+  - resolving conflicting instructions by priority, or adding/applying an operating rule
+- Must:
+  - put durable host/team rule bodies in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`, not Pi/OMP local notes
+  - store operating-rule semantics in `ssot/policies.json` (+`capabilities.json` to steer actions); `rules/**` is compatibility/explain only
+  - resolve existing rules (`lazy policy/capability/rules resolve`) before adding a new operating rule
+  - fix lifecycle/hook loops at the structural payload/source boundary with a regression test, not broad string filters
+- Must not:
+  - store host/team policy only in Pi/OMP local notes, or self-select the Recommended placement while an option gate is pending
+- Record completion:
+  - rule-placement or operating-rule storage/resolve changes update this SSOT plus `spec/platform/project-rule-router.md`
+- Related records:
+  - `.lazy-harness/ssot/project-identity.md`
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+  - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
 
 ## Purpose
 
 This record is the source of truth for deciding where newly discovered project-specific rules belong.
 
-Agents must not default to `.jcode/harness/20-project-rules.md` or Jcode `memory.remember` for project/team policy. `.jcode` is only for generated/private Jcode wiring and pointer-only reminders unless a rule placement judgement explicitly says the rule is local-only; Jcode memory is not a canonical store for host/team rules.
+Agents must not default to `.pi/APPEND_SYSTEM.md` (Pi/OMP local notes) for project/team policy. Pi/OMP local notes (`.pi/` or `.omp/`) are only for generated/private local wiring and pointer-only reminders unless a rule placement judgement explicitly says the rule is `local-only`; local notes are not a canonical store for host/team rules. See `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`.
 
-`.jcode/harness/20-project-rules.md` and Jcode memory must not accumulate host/team rule bodies as a mirror of `.lazy-harness` records. When a rule is discovered, corrected, or customized for a host, the durable content belongs in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`; `.jcode` may only point to those canonical records or store truly local/private execution preferences. If an agent mistakenly writes a project rule to Jcode memory, it must forget that memory and write/update the canonical record in the same turn.
+`.pi/APPEND_SYSTEM.md` and other Pi/OMP local notes must not accumulate host/team rule bodies as a mirror of `.lazy-harness` records. When a rule is discovered, corrected, or customized for a host, the durable content belongs in `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}/**`; Pi/OMP local notes (`.pi/` or `.omp/`) may only point to those canonical records or store truly local/private execution preferences. If an agent mistakenly writes a project rule into a local note, it must remove it and write/update the canonical record in the same turn.
 
 ## Priority order
 
 When instructions conflict, use this order:
 
 1. Current explicit user request.
-2. Nearest nested/private `.jcode` instruction for local Jcode workflow.
+2. Nearest nested/private Pi/OMP local note (`.pi/`/`.omp/`) for local workflow.
 3. `.lazy-harness/ssot/project-identity.md` for host role, ownership, and source-of-truth.
 4. This `.lazy-harness/ssot/rule-sources.md` record for rule placement.
 5. Layer records under `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/`.
@@ -39,7 +64,7 @@ When instructions conflict, use this order:
 | User-visible workflow or expected behavior | `.lazy-harness/behavior/**` |
 | Regression/protection expectation | `.lazy-harness/tests/**` |
 | Trade-off or why decision | `.lazy-harness/decisions/**` |
-| Local/private Jcode preference or workflow | `.jcode/harness/20-project-rules.md` as pointer-only or explicit `jcode-local`; Jcode memory only for personal/user preferences, never project/team policy |
+| Local/private Pi/OMP preference or workflow | `.pi/APPEND_SYSTEM.md` as pointer-only or explicit `local-only`; Pi/OMP local notes only for personal/user preferences, never project/team policy |
 | Multi-step work plan/backlog | `.lazy-harness/planning/**` |
 
 ## Required judgement
@@ -50,22 +75,22 @@ When a new rule is discussed, corrected, or routed, use this compact judgement u
 ## Rule placement
 
 - Rule: ...
-- Scope: framework-global | host-project | team-policy | layer-fact | jcode-local | transient-plan | ambiguous
+- Scope: framework-global | host-project | team-policy | layer-fact | local-only | transient-plan | ambiguous
 - Primary record: ...
 - Why not AGENTS.md: ...
-- Why not `.jcode`: ...
+- Why not local notes: ...
 - Confirmation: user-confirmed | inferred-from-record | needs-option-gate
 ```
 
 ## Ambiguous placement option gate
 
-If the rule could belong to both `.lazy-harness` and `.jcode`, stop and ask exactly once:
+If the rule could belong to both `.lazy-harness` and a Pi/OMP local note, stop and ask exactly once:
 
 A. `.lazy-harness/ssot/...` shared project rule (Recommended for team/project policy)
 B. `.lazy-harness/decisions/...` trade-off/why decision
 C. `.lazy-harness/planning/...` transient plan/backlog
-D. `.jcode/harness/20-project-rules.md` local/private Jcode-only workflow
-E. `memory forget` mistaken Jcode memory then record canonical `.lazy-harness` source
+D. `.pi/APPEND_SYSTEM.md` local/private Pi/OMP-only workflow
+E. Remove a mistaken local-note rule, then record the canonical `.lazy-harness` source
 F. 직접 입력
 
 `Confirmation: needs-option-gate` is a waiting state, not a completed judgement. The agent must not run tools, write records, dispatch releases, or self-select the Recommended option until the user chooses. Once the user chooses, record the result as `Confirmation: user-confirmed` and do not ask the same gate again.
@@ -73,9 +98,9 @@ F. 직접 입력
 ## Examples
 
 - PR/worktree tracker policy used by future agents: `.lazy-harness/ssot/policies.json` plus capability binding when it should steer commands; `.lazy-harness/rules/**` may explain the policy for compatibility; planning may track rollout/backlog.
-- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/policies.json` plus `.lazy-harness/ssot/capabilities.json`, not `.jcode` by default.
-- Personal shortcut, preferred shell alias, or Jcode-only UI workflow: `.jcode/harness/20-project-rules.md` with `Scope: jcode-local`.
-- Host/team rule customization: record the rule body in `.lazy-harness/**`; `.jcode/harness/20-project-rules.md` may only link to that record; Jcode memory must not be used as durable policy storage.
+- “Always check local tracker first before PR work”: project operating policy, prefer `.lazy-harness/ssot/policies.json` plus `.lazy-harness/ssot/capabilities.json`, not Pi/OMP local notes by default.
+- Personal shortcut, preferred shell alias, or Pi/OMP-only local workflow: `.pi/APPEND_SYSTEM.md` with `Scope: local-only`.
+- Host/team rule customization: record the rule body in `.lazy-harness/**`; `.pi/APPEND_SYSTEM.md` may only link to that record; Pi/OMP local notes must not be used as durable policy storage.
 - Host source ownership or downstream/upstream boundary: `.lazy-harness/ssot/project-identity.md` or dedicated ownership SSOT.
 
 ## Harness fix quality rule
@@ -105,7 +130,7 @@ Required standard:
 - Flow:
   1. User or analysis introduces a rule/correction/workflow policy.
   2. Agent reads this registry and project identity.
-  3. Agent writes the correct `.lazy-harness` record; `.jcode` receives only a pointer unless the rule is explicitly `jcode-local`.
+  3. Agent writes the correct `.lazy-harness` record; the Pi/OMP local note receives only a pointer unless the rule is explicitly `local-only`.
   4. If the rule was placed in Jcode memory, agent forgets that memory and records the canonical `.lazy-harness` source.
   5. Ambiguity triggers the option gate.
 - Tests / protection:

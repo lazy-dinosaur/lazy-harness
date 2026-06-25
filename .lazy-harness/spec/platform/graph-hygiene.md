@@ -5,6 +5,25 @@ Date: 2026-05-21
 Layer: SDD
 Related: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`, `.lazy-harness/ssot/implementation-map-storage.md`, `.lazy-harness/spec/platform/record-audit.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - linting `knowledge/graph.jsonl` for id/path hygiene, or before relying on graph paths for navigation
+- Must:
+  - stay read-only and report issues (invalid rows, missing/duplicate id, comma-joined paths, missing/source-only paths)
+  - support `--fail-on-issues` (exit 2) and classify source-only vs actionable host-missing paths
+- Must not:
+  - repair, delete, rewrite, supersede, or promote graph rows
+- Record completion:
+  - check or output changes update this SDD and the graph-hygiene self-test
+- Related records:
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+  - `.lazy-harness/spec/platform/record-audit.md`
+
 ## Contract
 
 `graph-hygiene` is a read-only lint command for `.lazy-harness/knowledge/graph.jsonl`.

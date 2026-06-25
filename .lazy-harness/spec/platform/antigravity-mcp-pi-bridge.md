@@ -3,6 +3,24 @@
 Status: active
 Layer: SDD
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - importing Antigravity MCP server definitions into Pi MCP adapter config
+- Must:
+  - read only `mcpServers` and convert server keys/stdio fields into Pi `~/.pi/agent/mcp.json`
+  - support a dry-run before apply
+- Must not:
+  - read or copy Antigravity OAuth token stores
+  - write secret-looking keys/values into `.lazy-harness` records or command summaries (redact)
+- Record completion:
+  - conversion or security-boundary changes update this SDD and the Pi package regression test
+- Related records:
+  - `.lazy-harness/tests/antigravity-mcp-pi-bridge.md`
+
 ## Purpose
 
 Import Antigravity MCP server definitions into Pi MCP adapter config without copying Antigravity OAuth token stores.

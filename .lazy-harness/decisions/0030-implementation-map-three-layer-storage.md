@@ -3,6 +3,29 @@
 Status: accepted
 Date: 2026-05-13
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - writing or updating an implemented DDD/SDD/BDD/TDD/ADR/SSOT record
+  - recording how an implementation works and which files/symbols matter
+  - designing machine-readable knowledge or generated retrieval caches
+- Must:
+  - include a concise `Implementation map` (files, key symbols, flow, tests, cross-layer links) in implemented records
+  - store confirmed file/symbol/edge facts in `knowledge/graph.jsonl` as the canonical machine backbone
+  - treat `generated/implementation-index.json` as a derived, rebuildable cache, not canonical truth
+  - take symbol names from verified source inspection, not loose regex inference
+- Must not:
+  - replace human-readable records with JSON
+- Record completion:
+  - implementation-map structure changes update this ADR plus the implementation-map SDD and storage SSOT
+- Related records:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+  - `.lazy-harness/planning/scr-601-implementation-map-needs-map.md`
+
 ## Context
 
 User feedback identified a gap in record-as-output behavior: records said what was decided or meant, but did not consistently preserve how the implementation works, which files exist, and which functions/classes/components matter.

@@ -4,7 +4,7 @@ import { join, relative, resolve } from 'node:path'
 
 const LEVELS = new Set(['discover', 'recommend', 'default', 'warn', 'block'])
 const LEVEL_ORDER = ['block', 'warn', 'default', 'recommend', 'discover']
-const SCOPES = new Set(['framework-global', 'host-project', 'team-policy', 'jcode-local'])
+const SCOPES = new Set(['framework-global', 'host-project', 'team-policy', 'local-only'])
 const STATUSES = new Set(['active', 'draft', 'retired'])
 
 type Format = 'json' | 'md'

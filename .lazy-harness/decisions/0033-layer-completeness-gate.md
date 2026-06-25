@@ -3,6 +3,29 @@
 Status: accepted
 Date: 2026-05-14
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - creating or updating a TDD/regression record for a bug fix
+  - judging whether a change also affects SDD/BDD/SSOT/DDD layers
+  - a turn risks a "TDD-only done" false completion
+- Must:
+  - on every TDD/regression update, in the same turn either update affected SDD/BDD/SSOT/DDD records
+  - or add a `Layer completeness` section marking SDD/BDD/SSOT/DDD each impacted or not, with reasons
+  - prefer updating the impacted layer's primary record and cross-linking over burying facts in TDD prose
+  - stop and ask an option-gated question when the impacted layer is ambiguous
+- Must not:
+  - complete a turn with a TDD/regression record only, leaving impacted layers unrecorded
+- Record completion:
+  - bug fixes add/update the TDD record plus impacted SDD/BDD/SSOT/DDD records or an explicit Layer completeness judgement
+- Related records:
+  - `.lazy-harness/spec/platform/layer-completeness-gate.md`
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+
 ## Context
 
 A host session can correctly add a TDD/regression record for a bug fix, then stop before checking whether the same change also changed a contract, user-visible behavior, SSOT invariant, or domain rule.

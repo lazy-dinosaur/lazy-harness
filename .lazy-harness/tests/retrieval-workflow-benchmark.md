@@ -20,9 +20,10 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
   - protect JSON and Markdown output shapes
   - verify output is read-only, deterministic enough for self-test, and privacy-safe
   - verify forbidden semantic-authority fields are absent recursively
-  - verify benchmark compares `map` and `map_plus_retrieval_audit`
+  - verify benchmark compares `map`, `map_plus_retrieval_audit`, and `no_map`
   - verify `map_plus_retrieval_audit` is measured as two post-overview helper calls
   - verify candidate counts, layer coverage, follow-up read simulation, and aggregate totals exist
+  - verify `no_map` is measured as one grep-fallback helper call and the `overview` cost, `mapInclusive`, `noMapVsMap`, and `noMapVsMapInclusive` are present
   - verify dispatcher help exposes `retrieval-workflow-benchmark`
 - Must not:
   - require or call removed `lazy graph query/path/explain` commands
@@ -36,11 +37,13 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
 | Fixture | Input | Expected |
 |---|---|---|
 | `retrieval_workflow_benchmark_shape` | default benchmark JSON | mode/schema/querySet/surfaces/summary/policyBoundary present |
-| `retrieval_workflow_benchmark_surfaces` | default query set | each query has `map` and `map_plus_retrieval_audit` surfaces |
+| `retrieval_workflow_benchmark_surfaces` | default query set | each query has `map`, `map_plus_retrieval_audit`, and `no_map` surfaces |
 | `retrieval_workflow_benchmark_counts` | default query set | helper bytes/tokens, candidate counts, layer coverage, follow-up read count/bytes, and total estimated tokens are numeric |
 | `retrieval_workflow_benchmark_no_semantic_fields` | recursive JSON walk | no forbidden semantic-authority fields appear |
 | `retrieval_workflow_benchmark_read_only` | temp host fixture | benchmark does not mutate canonical graph, generated caches, or runtime files |
 | `retrieval_workflow_benchmark_dispatcher` | `lazy help` and `lazy retrieval-workflow-benchmark --format=md` | help advertises command and markdown report prints measurement-only warning |
+| `retrieval_workflow_benchmark_no_map` | default query set | each query has a `no_map` grep-fallback surface with `helperCalls == 1` and numeric helper/follow-up metrics |
+| `retrieval_workflow_benchmark_overview_inclusive` | default benchmark JSON | top-level `overview` and `summary.mapInclusive` carry numeric tokens; `summary.deltas` include `noMapVsMap` and `noMapVsMapInclusive` |
 
 Forbidden keys anywhere in output:
 
@@ -58,12 +61,16 @@ Self-test must verify:
 4. `.lazy-harness/bin/lazy retrieval-workflow-benchmark --format=json --limit=8` returns valid JSON.
 5. `schemaVersion == "1.0"` and `mode == "retrieval-workflow-benchmark"`.
 6. Default node set includes at least `map-first-retrieval` and `record-source-indexing`.
-7. Every query contains surfaces `map` and `map_plus_retrieval_audit` only.
+7. Every query contains surfaces `map`, `map_plus_retrieval_audit`, and `no_map`.
 8. Recursive forbidden-key check passes.
 9. `map_plus_retrieval_audit.helperCalls == 2`.
 10. Follow-up read simulation reports `recordPaths`, `readCount`, `bytes`, `estimatedTokens`, and `coveredLayers`.
 11. Markdown output contains `measurement-only` and `does not change lifecycle/prompt/overview policy`.
 12. Source validation can run the benchmark without mutating `.lazy-harness/knowledge/graph.jsonl` or `.lazy-harness/generated/record-index.json`; benchmark invokes `lazy map --fresh` for the measured map surface.
+13. `no_map.helperCalls == 1` for every query.
+14. Top-level `overview` carries numeric `helperBytes`, `helperEstimatedTokens`, and `elapsedMs`.
+15. `summary.mapInclusive` carries numeric `helperEstimatedTokens`, `followupEstimatedTokens`, and `totalEstimatedTokens`.
+16. `summary.deltas` include `mapPlusRetrievalAuditVsMap`, `noMapVsMap`, and `noMapVsMapInclusive` with numeric token deltas.
 
 ## Validation commands
 

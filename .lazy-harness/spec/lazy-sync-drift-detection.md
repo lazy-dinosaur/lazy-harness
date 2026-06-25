@@ -4,6 +4,26 @@
 - Date: 2026-05-17
 - Related: scripts/lazy-sync.ts, ADR 0035 (queue-close mandate), tests/tdd-cross-verify-forcegate-loop.md
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - running or debugging `lazy sync`, or deciding whether a host is in sync with the framework source
+  - the source `.lazy-harness` tree is dirty, or managed files were renamed/deleted
+- Must:
+  - report `ahead` (error/exit 2) when the source `.lazy-harness` working tree is dirty, even if marker SHA equals source HEAD
+  - auto-sync only on `behind`; everything else exits 2 without `--force`
+  - prune stale Category A managed files; seed-merge (never overwrite) host `knowledge/*.jsonl` and `ssot/capabilities.json`
+- Must not:
+  - reintroduce retired retrieval-purpose capabilities or overwrite host-owned capability/knowledge rows
+- Record completion:
+  - drift-status, merge, or prune rule changes update this SDD and the lazy-sync regression tests
+- Related records:
+  - `.lazy-harness/tests/lazy-sync-dirty-false-positive.md`
+  - `.lazy-harness/decisions/0035-interview-queue-close-mandate.md`
+
 ## Purpose
 
 `lazy-sync` copies framework files (`scripts/`, `hooks/`, `schemas/`, `triggers/`, `manifests/`) from a canonical source repo (`/home/lazydino/dev/lazy-harness`) to host copies (e.g. `/path/to/host-project-a/.lazy-harness/`). Its drift detector must answer one question: "is the host out of date relative to the source?"

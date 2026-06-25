@@ -8,6 +8,29 @@ Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 Related TDD: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
 Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - implementing or debugging lifecycle option-gate / STOP reminders that need same-turn duplicate suppression
+  - reasoning about turn-boundary state for loop-prone helpers (BDD trigger, project-rule-placement)
+- Must:
+  - treat `open-gates.json` as regenerable runtime state, not a canonical record
+  - clear `open_fingerprints` whenever `message_id` (the turn boundary) changes
+  - emit a gate reminder only if `(helper, fingerprint)` is not already open for the current `message_id`, then record it
+  - keep state read/write best-effort so a failure never crashes the lifecycle hook
+- Must not:
+  - depend on `payload.assistant_response`, which jcode `response.completed` omits in production
+- Record completion:
+  - state-schema, turn-boundary, or suppression-behavior changes update this SSOT plus the option-gate SDD and gate-loop TDD records
+- Related records:
+  - `.lazy-harness/spec/platform/option-gate-discipline.md`
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+  - `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
+  - `.lazy-harness/tests/project-rule-placement-gate-loop.md`
+
 ## Source of truth
 
 Lifecycle option-gate helpers that need same-turn duplicate suppression use:

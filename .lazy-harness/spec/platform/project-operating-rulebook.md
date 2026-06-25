@@ -22,9 +22,9 @@ Related TDD: `.lazy-harness/tests/project-operating-rulebook.md`
   - store canonical behavior policy semantics under `.lazy-harness/ssot/policies.json`
   - link machine-readable action surfaces through `.lazy-harness/ssot/capabilities.json`
   - keep default/warn/block behavior explicit and bypass-aware
-  - keep `.jcode/**` pointer/local-only
+  - keep Pi/OMP local notes (`.pi/`/`.omp/`) pointer/local-only
 - Must not:
-  - store shared project/team operating rules only in `.jcode` or Jcode memory
+  - store shared project/team operating rules only in Pi/OMP local notes
   - treat factual records alone as sufficient to change agent behavior
   - promote a rule to hard-stop only because it exists
 - Record completion:
@@ -58,7 +58,7 @@ Each active entry should include:
 - top-level metadata:
   - `Status: active|draft|retired`
   - `Layer: Rulebook`
-  - `Scope: framework-global|host-project|team-policy|jcode-local`
+  - `Scope: framework-global|host-project|team-policy|local-only`
   - `Level: discover|recommend|default|warn|block`
   - `Related capability: <id>` when a capability binding exists
 - `## Rule digest`

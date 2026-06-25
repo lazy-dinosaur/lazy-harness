@@ -5,6 +5,30 @@ Layer: SDD
 Related plan: `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
 Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - capturing, confirming, querying, or promoting reusable knowledge facts
+  - designing how candidates, graph drafts, and the canonical graph are stored or projected
+- Must:
+  - keep candidate/draft/canonical stores append-only; supersede confirmed graph records, never overwrite
+  - require explicit confirmation to promote graph records into layer docs (promotion dry-run by default)
+  - on subject+predicate conflicts, record conflict metadata and ask structured options
+  - verify file/symbol facts via LSP/AST/source read, not guesses
+- Must not:
+  - silently promote unconfirmed conversation into canonical truth, or rely on blocking tool hooks as the main mechanism
+- Record completion:
+  - changes to store schemas, CLI behavior, or conflict handling update this SDD, the schemas, and self-test
+- Related records:
+  - `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
+  - `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - `.lazy-harness/ssot/knowledge-graph-storage.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+
 ## 1. Purpose
 
 The progressive knowledge graph is the machine-readable backbone for lazy-harness knowledge.

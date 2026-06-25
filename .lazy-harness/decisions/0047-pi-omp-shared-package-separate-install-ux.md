@@ -3,6 +3,27 @@
 Status: accepted
 Date: 2026-06-19
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - installing or packaging lazy-harness for Pi and/or OMP runtimes
+  - deciding install UX for Pi-only, OMP-only, or both
+- Must:
+  - keep one shared source package (`packages/lazy-harness-pi/`) with both `pi` and `omp` manifest sections
+  - expose separate wrapper UX (`lazy pi install`, `lazy omp install`); default Pi install to global bootstrap
+  - no-op the globally loaded extension when cwd does not resolve to a `.lazy-harness/bin/lazy` host root
+- Must not:
+  - depend on legacy `pi` manifest fallback for normal OMP operation
+- Record completion:
+  - changes to package manifest, install UX, or project activation update this ADR and `.lazy-harness/spec/platform/pi-agent-package.md`
+- Related records:
+  - `.lazy-harness/spec/platform/pi-agent-package.md`
+  - `.lazy-harness/tests/pi-agent-package.md`
+  - `.lazy-harness/planning/pi-omp-global-bootstrap-project-activation-plan.md`
+
 ## Context
 
 The lazy-harness package originally targeted official Pi first. OMP can load Pi-style package manifests through fallback behavior, but OMP is a distinct fork/runtime with its own plugin install semantics. The user clarified that some users may install Pi only, OMP only, or both, so one implicit shared install path is not enough.

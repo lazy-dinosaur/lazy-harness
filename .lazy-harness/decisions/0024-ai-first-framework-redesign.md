@@ -5,6 +5,28 @@
 - **Supersedes (partially)**: ADR 0023 (N2 host-pilot validation) — N2 의 검증된 결과는 유지하되, 그 구현 70% (IDF/burst/stopwords/ADR-keyword/path-stem partial) 는 본 ADR 의 N2.5 작업으로 단순화·교체된다.
 - **Related**: ADR 0007 (AGENTS.md injection), ADR 0017 (user-input trigger), ADR 0018 (cross-layer cascade), ADR 0019 (ambiguous detection force gate), ADR 0022 (framework-owned doctor)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - deciding how the framework performs record/semantic search (AI-led vs algorithmic)
+  - authoring AGENTS.md content or host-portable bootstrap behavior
+  - tempted to add a keyword/IDF/stopword search algorithm to framework tooling
+- Must:
+  - let AI do semantic search in-context; keep the deterministic resolver to exact matches (cross-layer/test-stem/path-stem)
+  - keep AGENTS.md a thin framework-common grammar; host rules live in records as vocabulary
+  - enforce via 3 layers: pre-work search, tool.execute.before force-gate, response.completed verification
+- Must not:
+  - implement search algorithms (IDF/burst/stopwords/ADR-keyword) in framework tooling
+  - embed host-specific rules in a thick AGENTS.md
+- Record completion:
+  - changes to search architecture or AGENTS.md grammar update this ADR and the SearchProvider/resolver self-test
+- Related records:
+  - `.lazy-harness/decisions/0023-n2-reference-resolver-host-pilot-validation.md`
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+
 ## Context
 
 N2 (Map-aware Reference Resolver) host-pilot 5-pass 검증이 precision/recall = 1.0 으로 통과했으나 (ADR 0023), 그 과정에서 다음 문제가 드러났다:

@@ -37,7 +37,7 @@ MEMORY_TOOLS = {"memory", "functions.memory"}
 LAZY_CAPTURE_RE = re.compile(
     r"\.lazy-harness/(?:(?:domain|spec|behavior|tests|decisions|ssot|planning)/[^\s\"'`,)}]+|knowledge/(?:candidates|graph-drafts)\.jsonl)"
 )
-JCODE_RULES = ".jcode/harness/20-project-rules.md"
+LOCAL_NOTE_RULES = (".pi/APPEND_SYSTEM.md", ".omp/APPEND_SYSTEM.md")
 
 strings: list[str] = []
 
@@ -109,7 +109,7 @@ def has_rule_placement_judgement(text: str) -> bool:
         r"scope\s*:",
         r"primary\s+record\s*:",
         r"why\s+not\s+agents\.md\s*:",
-        r"why\s+not\s+\.?jcode\s*:",
+        r"why\s+not\s+(?:\.?jcode|local)[\w\s.\-]*:",
         r"confirmation\s*:",
     ]
     return all(re.search(pattern, normalized, re.IGNORECASE) for pattern in required_patterns)
@@ -188,16 +188,16 @@ for call in payload.get("recent_tool_calls", []) or []:
     if str(call.get("name", "")) not in WRITE_TOOLS:
         continue
     args_blob = call_blob(call)
-    if JCODE_RULES in args_blob:
+    if any(p in args_blob for p in LOCAL_NOTE_RULES):
         jcode_touched = True
-        if "jcode-local" in lower or "local-only" in lower or "local only" in lower:
+        if "local-only" in lower or "local only" in lower:
             sys.exit(0)
 
 rule_cues = [
     "프로젝트 규칙", "프로젝트마다 규칙", "규칙 추가", "룰 추가", "rule", "rules differ", "project-specific",
     "어디에 기록", "어디에 저장", "문서화", "source of truth", "ssot",
 ]
-placement_cues = [".jcode", "20-project-rules", "agents.md", "agENTS.md".lower(), ".lazy-harness", "rule-sources"]
+placement_cues = [".pi/", ".omp/", "append_system", "agents.md", "agENTS.md".lower(), ".lazy-harness", "rule-sources"]
 workflow_cues = ["workflow", "ownership", "source-of-truth", "forbidden", "운영", "정책", "소유권", "수정 금지"]
 action_cues = [
     "추가", "기록", "저장", "옮", "이동", "마이그레이션", "바꾸", "변경", "정정", "고정",
@@ -298,16 +298,16 @@ print("해야 할 일:")
 print("  A. .lazy-harness/ssot/... shared project rule 로 기록 (Recommended for team/project policy)")
 print("  B. .lazy-harness/decisions/... trade-off/why decision 으로 기록")
 print("  C. .lazy-harness/planning/... transient plan/backlog 로 기록")
-print("  D. .jcode/harness/20-project-rules.md local/private Jcode-only 로 기록하고 `Rule placement` 에 jcode-local 명시")
-print("  E. Jcode memory 에 잘못 저장했다면 memory forget 후 canonical .lazy-harness record 로 재기록")
+print("  D. .pi/APPEND_SYSTEM.md (또는 .omp/) Pi/OMP local/private 노트로 기록하고 `Rule placement` 에 local-only 명시")
+print("  E. Pi/OMP memory 에 잘못 저장했다면 memory forget 후 canonical .lazy-harness record 로 재기록")
 print("  F. 직접 입력 / ambiguous 면 옵션 게이트로 사용자 확인")
 print("\n필수 판단:")
 print("  ## Rule placement")
 print("  - Rule: ...")
-print("  - Scope: framework-global | host-project | team-policy | layer-fact | jcode-local | transient-plan | ambiguous")
+print("  - Scope: framework-global | host-project | team-policy | layer-fact | local-only | transient-plan | ambiguous")
 print("  - Primary record: ...")
 print("  - Why not AGENTS.md: ...")
-print("  - Why not `.jcode`: ...")
+print("  - Why not local notes: ...")
 print("  - Confirmation: user-confirmed | inferred-from-record | needs-option-gate")
 print("\n규칙: .lazy-harness/ssot/rule-sources.md + SDD project-rule-router.")
 PY

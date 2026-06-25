@@ -5,6 +5,25 @@
 **Deciders**: Lazydino
 **Trigger**: 사용자 질문 "sdd 랑 bdd 그리고 tdd 도 맵이 필요하겠지??" — DDD 컨테이너 (Section 6.1) 에는 4 종 map 명시되어 있지만 SDD / BDD / TDD 에는 대응 map 없음 → gap.
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - adding or auditing cross-layer landscape/coverage/relation maps for SDD/BDD/TDD
+  - deciding map coverage breadth, full mirror versus minimal
+- Must:
+  - give SDD/BDD/TDD the same map coverage as DDD (landscape, language, boundaries/coverage, relations)
+  - create maps as empty XML skeletons at init, filled on trigger; an empty container is valid
+- Must not:
+  - choose minimal map coverage on low initial cost alone, violating completeness/consistency priority
+- Record completion:
+  - changes to layer map containers update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+  - `.lazy-harness/framework/framework-contract.md`
+
 ## Context
 
 framework-contract Section 6.1 는 DDD 컨테이너로 다음 4 종을 명시:

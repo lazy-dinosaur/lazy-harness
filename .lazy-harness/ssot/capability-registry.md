@@ -7,6 +7,28 @@ Related SDD: `.lazy-harness/spec/platform/capability-resolution.md`
 Related ADR: `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`
 Related TDD: `.lazy-harness/tests/capability-registry.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - registering, discovering, recommending, or enforcing a project/framework affordance (script, skill, prompt, hook, command, validation, checklist, audit)
+  - deciding a capability's enforcement level (discover/recommend/default/warn/block)
+- Must:
+  - keep capability kind (what it is) and enforcement level (how strongly steered) independent
+  - treat `.lazy-harness/ssot/capabilities.json` as the canonical registry; generated indexes are derived cache only
+  - require each entry to carry id, kind, level, sourceRecord, appliesWhen, description, owner
+  - default new capabilities to `discover`/`recommend`; reserve `block` for confirmed high-risk mutation boundaries
+- Must not:
+  - register `lazy find --purpose ...` retrieval capabilities or let CLI search become semantic authority
+- Record completion:
+  - capability kind/level/store changes update this SSOT plus `spec/platform/capability-resolution.md` and `tests/capability-registry.md`
+- Related records:
+  - `.lazy-harness/spec/platform/capability-resolution.md`
+  - `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`
+  - `.lazy-harness/tests/capability-registry.md`
+
 ## Purpose
 
 The Capability Registry records project/framework affordances that agents should discover, recommend, prefer, warn about, or enforce at the right moment.

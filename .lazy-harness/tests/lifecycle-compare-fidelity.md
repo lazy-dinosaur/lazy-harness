@@ -7,6 +7,26 @@ Related SDD: `.lazy-harness/spec/platform/hook-performance-measurement.md`
 Related Planning: `.lazy-harness/planning/lifecycle-compare-mismatch-triage-20260604.md`
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - comparing legacy vs orchestrator lifecycle hooks (`response.completed.compare`) or diagnosing compare mismatches
+  - running sandbox-mode lifecycle checks or deciding production orchestrator replacement
+- Must:
+  - distinguish real lifecycle mismatches from sandbox/instrumentation fidelity gaps before any production orchestrator replacement
+  - normalize compare hashes with trailing-newline equivalence (keeping raw byte lengths); run sandbox in isolated runtime/shared roots with minimal read-only git facts and bounded state mirror
+- Must not:
+  - store `legacyBody`/`orchestratorBody`, raw payload, user messages, or raw hook bodies in compare logs
+- Record completion:
+  - changes to compare fidelity or summary tooling update this TDD plus the hook-performance-measurement SDD
+- Related records:
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md`
+  - `.lazy-harness/planning/lifecycle-compare-mismatch-triage-20260604.md`
+  - `.lazy-harness/ssot/project-identity.md`
+
 ## Regression
 
 Dogfood compare logs showed non-zero `response.completed.compare` mismatches after enough real rows accumulated:
@@ -69,7 +89,6 @@ The root causes were framework-general compare/sandbox fidelity gaps, not Mediva
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/hook-performance-measurement.md`
   - Planning: `.lazy-harness/planning/lifecycle-compare-mismatch-triage-20260604.md`
-  - Planning: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`
 - Machine index:
   - graph ids: `kg_tdd_lifecycle_compare_fidelity`, `kg_impl_lifecycle_compare_summary_cli`, `kg_impl_lifecycle_sandbox_context_mirror`, `kg_impl_lifecycle_compare_newline_normalization`

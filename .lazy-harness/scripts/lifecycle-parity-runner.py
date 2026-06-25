@@ -75,8 +75,8 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
         {
             "name": "project-rule-placement-stop",
             "payload": {
-                "assistant_response": "프로젝트 규칙을 .jcode/harness/20-project-rules.md에 추가하겠습니다.",
-                "recent_tool_calls": [{"name": "Write", "args_preview": ".jcode/harness/20-project-rules.md"}],
+                "assistant_response": "프로젝트 규칙을 .pi/APPEND_SYSTEM.md에 추가하겠습니다.",
+                "recent_tool_calls": [{"name": "Write", "args_preview": ".pi/APPEND_SYSTEM.md"}],
             },
             "expectOutput": True,
             "expectHelperSuffix": "check-project-rule-placement.sh",

@@ -5,6 +5,27 @@
 - **Related**: ADR 0022 (framework-owned doctor and lazy-test), ADR 0025 (portability single entry point), ADR 0024 (AI-first redesign)
 - **Author**: framework dev session (lazy-init MVP dogfooding 직전 발견)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - running or modifying doctor / self-test checks
+  - adding a validation check and deciding framework-only, host-only, or both
+  - debugging host validation failures caused by framework-only files
+- Must:
+  - separate validation into framework vs host scope; auto-detect via framework-only markers
+  - classify every check as BOTH, FRAMEWORK_ONLY, or HOST_ONLY; skip framework-only checks on host scope
+  - propagate the chosen scope into nested doctor subprocesses
+- Must not:
+  - make host validation depend on framework-only files (handoff/phase plans, source-only fixtures/registries)
+- Record completion:
+  - new or moved checks update this ADR with an explicit scope classification and self-test coverage
+- Related records:
+  - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+  - `.lazy-harness/decisions/0025-portability-single-entry-point.md`
+
 ## Context
 
 ADR 0022 가 `doctor.py` 와 `self-test.py` 를 framework-owned 검증 도구로 정의했다. ADR 0025 가 `lazy-init` 으로 framework 를 host 에 복사하는 단일 진입점을 정했다. 두 ADR 사이의 가정이 충돌하는 지점이 lazy-init MVP 검증 중에 노출됐다:

@@ -8,6 +8,27 @@ Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 Related SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
 Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_apply_patch_gap_20260604`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - editing the pre-action source-edit guard or its legacy search-performed compatibility helper
+  - an edit is blocked despite prior harness-first record search/read, or patch-style mutation must be gated
+- Must:
+  - unblock source edits once valid root-bound `.lazy-harness` search/read evidence exists, including nested batch reads
+  - recognize brace-syntax record scopes and treat `apply_patch`/namespaced patch as the same source-edit action
+  - keep record-file and non-code-docs edits exempt; parse hook payloads safely via argv
+- Must not:
+  - false-deny edits after evidence exists, or let patch-style source mutation bypass the search gate
+- Record completion:
+  - changes to the guard semantics update this TDD plus the search-read-debt and pre-response SDDs
+- Related records:
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
+  - `.lazy-harness/spec/platform/pre-response-rule-context.md`
+  - `.lazy-harness/ssot/harness-enforcement-policy.md`
+
 ## Regression
 
 A dogfood transcript showed the pre-action edit guard repeatedly blocking code edits even after the agent had performed harness-first record search/read work. The stale legacy `check-search-performed.sh` helper only inspected `recent_tool_calls` in a narrow shape and did not align with the newer generic search/read-debt evidence model.

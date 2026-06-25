@@ -11,27 +11,27 @@ Related Pi: `.lazy-harness/spec/platform/pi-agent-package.md`
 
 ## Rule digest
 
-- Status: draft
+- Status: needs-review
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
   - defining V2 Project Map / Project Atlas knowledge node shape
   - adding metadata that lets records participate in project map generation
   - designing Project Interview output for project understanding or project/team policy discovery
-  - designing Pi-first or Jcode-compat adapter behavior that consumes project map data
+  - designing Pi-first or OMP-compat adapter behavior that consumes project map data
 - Must:
   - define Project Map nodes as canonical-record-backed knowledge nodes, not generated semantic judgments
   - support one primary category and multiple facets
   - support source/test/decision/ownership/policy/evidence links
   - support stage-aware project/team policy metadata without making testing the center of the model
-  - keep Pi as the primary future adapter direction and Jcode as compatibility adapter
+  - keep Pi as the primary future adapter direction and OMP as compatibility adapter
   - preserve V1 record folders as compatible canonical storage until a separate migration is approved
   - sync framework Project Map V2 planning records referenced by fixtures to hosts so canonical evidence paths remain root-bound and present
 - Must not:
   - physically move DDD/SDD/BDD/TDD/ADR/SSOT records in Phase 1
   - treat generated project-map output as canonical truth
   - define intent/risk/confidence/required-read/next-action semantic-authority fields
-  - make Jcode-specific wiring part of the V2 core model
+  - make OMP-specific wiring part of the V2 core model
 - Record completion:
   - changes update this SDD, taxonomy SSOT, TDD, example fixture, self-test, manifest sync entries, and graph rows together.
 
@@ -293,7 +293,7 @@ Testing is only one possible policy dimension. Other project policies may cover 
 Project Map V2 is agent-neutral core data.
 
 - Pi is the primary future adapter direction.
-- Jcode remains a compatibility adapter for the current harness.
+- OMP remains a compatibility adapter for the current harness.
 - Adapters may read Project Map nodes and policy registry data, but they must not redefine project map semantics.
 - Adapter output must keep generated map data as navigation aid, not semantic authority.
 
@@ -320,7 +320,7 @@ The canonical Phase 1 fixture is:
 .lazy-harness/fixtures/project-map-v2/example-node.json
 ```
 
-It demonstrates a policy-oriented anchor node with multiple facets, cluster branches, typed edges, stage-aware policy levels, Pi-primary adapter direction, Jcode compatibility, and source/test/record links.
+It demonstrates a policy-oriented anchor node with multiple facets, cluster branches, typed edges, stage-aware policy levels, Pi-primary adapter direction, OMP compatibility, and source/test/record links.
 
 ## Implementation map
 
@@ -359,7 +359,7 @@ It demonstrates a policy-oriented anchor node with multiple facets, cluster bran
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/project-map-v2.md`
 - Why not AGENTS.md: this is schema/contract design, not immediate prompt grammar.
-- Why not `.jcode`: V2 is agent-neutral and Pi-primary; Jcode is compatibility adapter only.
+- Why not `.jcode`: V2 is agent-neutral and Pi-primary; OMP is compatibility adapter only.
 - Confirmation: user-approved Phase 1 execution; still draft schema subject to review.
 
 ## Discovery capture

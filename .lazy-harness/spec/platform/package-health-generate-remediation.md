@@ -6,6 +6,27 @@ Date: 2026-05-16
 Related SDD: `.lazy-harness/spec/platform/lazy-cli-entrypoint.md`
 Related ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - `lazy test` / `lazy doctor --profile full` package-health typecheck fails on suspected generated-artifact drift
+  - a schema/source branch changed but generated client/artifacts are stale
+- Must:
+  - run one safe generate command (documented precedence) and rerun typecheck once before reporting failure
+  - report `ok after generate remediation` on retry pass, else report the attempted remediation and retry diagnostics
+- Must not:
+  - repair arbitrary app code, run migrations/seed/destructive DB ops, or commit generated files
+  - modify downstream project policy records from this framework validation behavior
+- Record completion:
+  - changes to D07 remediation precedence or the drift heuristic update this SDD and doctor self-test
+- Related records:
+  - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md`
+  - `.lazy-harness/spec/platform/host-root-resolution.md`
+  - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+
 ## Purpose
 
 `lazy test` / `lazy doctor --profile full` must not stop at the first app typecheck failure when the failure looks like generated-artifact drift. If the host exposes a safe generate command, the framework should run it once and retest before reporting failure.

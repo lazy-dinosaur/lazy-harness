@@ -5,6 +5,26 @@ Layer: TDD
 Date: 2026-05-17
 Related: `.lazy-harness/tests/bdd-trigger-option-gate-loop.md`, `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - a BDD natural-language trigger repeats the same option gate across turns
+  - suppression depends on assistant response text or the production payload lacks `assistant_response`
+- Must:
+  - compute BDD candidate identity from detector output and capture each pending scenario once in candidates.jsonl, silent across turns
+- Must not:
+  - depend on `assistant_response`, which is absent from the production `response.completed` payload
+  - re-fire the same BDD prompt on a new `message_id` or open a STOP gate for raw scenario discovery
+- Record completion:
+  - changes to BDD candidate capture or dedupe update this TDD plus option-gate-discipline SDD and self-test
+- Related records:
+  - `.lazy-harness/tests/bdd-trigger-option-gate-loop.md`
+  - `.lazy-harness/spec/platform/option-gate-discipline.md`
+  - `.lazy-harness/ssot/gate-fingerprint-state.md`
+
 ## Observation (medivance host, KST 2026-05-17 23:02)
 
 같은 BDD trigger 가 같은 turn 안에서 **3번 연속** system-reminder 로 들어옴.

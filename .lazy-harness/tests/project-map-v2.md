@@ -9,7 +9,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 
 ## Rule digest
 
-- Status: draft
+- Status: needs-review
 - Layer: TDD
 - Scope: framework-global
 - Applies when:

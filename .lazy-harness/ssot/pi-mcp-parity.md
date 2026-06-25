@@ -1,9 +1,31 @@
 # Pi MCP Parity
 
-Status: active
+Status: superseded
+Superseded on: 2026-06-24
+Superseded by: .lazy-harness/decisions/0050-pi-omp-only-runtime.md
 Layer: SSOT
 
+## Rule digest
+
+- Status: deprecated
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - syncing or validating Pi Coding Agent MCP servers to match this host's Jcode harness set
+  - converting Jcode MCP server config into Pi adapter `mcpServers` format
+- Must:
+  - keep Pi's MCP set in parity with `~/.jcode/mcp.json` (`servers`) in `~/.pi/agent/mcp.json` (`mcpServers`)
+  - preserve existing Pi imports (e.g. `claude-code`) and back up the prior Pi config before writing
+  - drop Jcode-only `shared`/`transport` flags and convert Figma OAuth to Pi adapter format
+  - keep proxy/lazy mode (no `directTools` by default) to avoid context bloat
+- Must not:
+  - copy secret values into `.lazy-harness` records; keep secrets only in user-local config files
+- Record completion:
+  - server-set or conversion-rule changes update this SSOT with refreshed parity validation counts
+
 ## Purpose
+
+> Superseded by ADR 0050 (Pi/OMP-only): jcode is removed; the ~/.jcode/mcp.json MCP parity source no longer exists. Preserved as history.
 
 Pi Coding Agent should have the same MCP server set as the Jcode harness on this host.
 

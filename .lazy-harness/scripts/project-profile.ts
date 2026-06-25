@@ -158,7 +158,7 @@ interface ProjectProfileInterviewV2Packet {
   generatedAt: string
   adapterBoundary: {
     primary: 'pi'
-    compatibility: ['jcode']
+    compatibility: ['omp']
     core: string
   }
   writes: {
@@ -888,7 +888,7 @@ function buildInterviewV2Result(args: Args): ProjectProfileInterviewV2Packet {
     generatedAt: new Date().toISOString(),
     adapterBoundary: {
       primary: 'pi',
-      compatibility: ['jcode'],
+      compatibility: ['omp'],
       core: 'Project Profile V2 output is agent-neutral project map and policy discovery data',
     },
     writes: { dryRun: true, confirmedOnly: true, noSilentDefaults: true },

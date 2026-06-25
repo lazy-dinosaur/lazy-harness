@@ -4,6 +4,26 @@
 
 Accepted (2026-05-10)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - the framework or its hooks are damaged or malfunctioning, or trust is lost
+  - planning backups or recovery for `.lazy-harness`
+- Must:
+  - follow the matching recovery level R1–R4 (container damage, hook malfunction, trust loss, catastrophic)
+  - keep backups gitignored and freeze immediately on R3 trust loss
+  - manually record unreflected work on R4 catastrophic damage
+- Must not:
+  - push backups to git, since a leaked backup is a security breach
+- Record completion:
+  - changes to recovery levels or backup strategy update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/framework/framework-contract.md`
+  - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+
 ## Context
 
 lazy-harness 가 시간 갈수록 medivance 작업의 핵심 의존성이 됨.

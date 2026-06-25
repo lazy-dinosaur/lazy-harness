@@ -6,6 +6,7 @@ Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related backlog: `.lazy-harness/planning/project-rule-discovery-router-backlog.md`
 Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
+Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
 
 ## Rule digest
 
@@ -14,11 +15,11 @@ Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 - Scope: framework-global
 - Applies when:
   - user confirms or corrects a project rule, workflow rule, ownership, or source-of-truth fact
-  - 사용자가 프로젝트 규칙, 룰, 기록 위치, AGENTS, `.jcode`, memory, SSOT를 언급한다
-  - deciding where to record AGENTS, `.jcode`, memory, SSOT, ADR, layer facts, or planning knowledge
+  - 사용자가 프로젝트 규칙, 룰, 기록 위치, AGENTS, Pi/OMP 로컬 노트(`.pi/`/`.omp/`), SSOT를 언급한다
+  - deciding where to record AGENTS, Pi/OMP local notes (`.pi/`/`.omp/`), SSOT, ADR, layer facts, or planning knowledge
   - response.completed reports project rule placement or canonical record completion problems
 - Must:
-  - route durable project/team rules into canonical `.lazy-harness` records, not `.jcode` or memory alone
+  - route durable project/team rules into canonical `.lazy-harness` records, not Pi/OMP local notes alone
   - include a complete Rule placement judgement when recording or reporting placement
   - stop with an option gate when placement is ambiguous
 - Must not:
@@ -33,7 +34,7 @@ Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 
 Route newly discovered project-specific rules to the right durable source of truth.
 
-This prevents agents from treating `.jcode/harness/20-project-rules.md` or Jcode `memory.remember` as a catch-all when a rule should be visible through `.lazy-harness` records across sessions and hosts.
+This prevents agents from treating Pi/OMP local notes (`.pi/APPEND_SYSTEM.md`) as a catch-all when a rule should be visible through `.lazy-harness` records across sessions and hosts.
 
 ## Trigger cues
 
@@ -51,7 +52,7 @@ A triggered turn is complete only if one condition is true:
 
 1. A `.lazy-harness` record/planning artifact is updated for the rule.
 2. The response includes a complete `Rule placement` judgement with `Confirmation: user-confirmed` or `Confirmation: inferred-from-record`.
-3. `.jcode/harness/20-project-rules.md` is updated only as a pointer to canonical `.lazy-harness` records, or the response/file content includes `jcode-local` or `local-only` judgement.
+3. `.pi/APPEND_SYSTEM.md` is updated only as a pointer to canonical `.lazy-harness` records, or the response/file content includes a `local-only` judgement.
 4. A mistaken Jcode `memory.remember` project-rule write is removed with `memory forget` and the rule is re-recorded in canonical `.lazy-harness` records.
 5. The agent stops with an option gate because placement is ambiguous. `Confirmation: needs-option-gate` is not complete and must not be followed by tool calls or self-selected Recommended execution.
 
@@ -61,10 +62,10 @@ A triggered turn is complete only if one condition is true:
 ## Rule placement
 
 - Rule: ...
-- Scope: framework-global | host-project | team-policy | layer-fact | jcode-local | transient-plan | ambiguous
+- Scope: framework-global | host-project | team-policy | layer-fact | local-only | transient-plan | ambiguous
 - Primary record: ...
 - Why not AGENTS.md: ...
-- Why not `.jcode`: ...
+- Why not local notes: ...
 - Confirmation: user-confirmed | inferred-from-record | needs-option-gate
 ```
 
@@ -76,7 +77,7 @@ A triggered turn is complete only if one condition is true:
 | `host-project` | `.lazy-harness/ssot/project-identity.md` or dedicated SSOT |
 | `team-policy` | `.lazy-harness/ssot/rule-sources.md` or dedicated SSOT/ADR |
 | `layer-fact` | DDD/SDD/BDD/TDD/ADR/SSOT based on the fact type |
-| `jcode-local` | `.jcode/harness/20-project-rules.md` as local-only note |
+| `local-only` | `.pi/APPEND_SYSTEM.md` as a Pi/OMP local note |
 | `transient-plan` | `.lazy-harness/planning/**` |
 | `ambiguous` | option gate before writing |
 
@@ -99,9 +100,9 @@ The helper must also avoid same-turn repeated STOP reminders. Production Jcode `
 
 Self-test runners for this helper must clear inherited lazy runtime/session environment before invoking `check-project-rule-placement.sh`, so fixture duplicate-suppression state is read from the deterministic default runtime path rather than an outer Jcode session path.
 
-Generated `.jcode/harness/20-project-rules.md` templates must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into `.jcode`.
+Generated `.pi/APPEND_SYSTEM.md` local notes must be pointer-only by default. They should tell agents to read `.lazy-harness/ssot/rule-sources.md` and layer records for custom host/team rules rather than inviting new project-specific rule bodies into local notes.
 
-Existing user-owned `.jcode/harness/20-project-rules.md` files that predate pointer-only behavior are migrated by Jcode wiring: the active file becomes the generated pointer-only note, and the previous content is archived under `.jcode/archive/20-project-rules.pre-pointer-only-migration.md` so it is not loaded as active harness instructions.
+Existing user-owned Pi/OMP local notes (`.pi/APPEND_SYSTEM.md`) that predate pointer-only behavior are migrated so the active note becomes the generated pointer-only note, and the previous content is archived so it is not loaded as active harness instructions.
 
 The placement helper's scope is `.jcode`/Jcode-memory over-routing only. Intra-`.lazy-harness` storage correctness — operating-rule semantics written to a non-canonical `.lazy-harness/ssot/*.md`, or a rule added without prior `lazy (policy|capability|rules) resolve` (duplication) — is covered by the sibling helper `.lazy-harness/hooks/lifecycle/helpers/check-operating-rule-storage.py` (advisory; see `.lazy-harness/spec/platform/response-rule-audit.md` and `.lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md`).
 

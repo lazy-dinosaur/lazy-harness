@@ -6,6 +6,28 @@ Related AGENTS: `.lazy-harness/AGENTS.md` §2.1, §2.5
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related SDD: `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - user asks about recorded, planned, or intended work (기록/계획/handoff, SSOT/ADR/spec/behavior)
+  - choosing between searching `.lazy-harness` records and searching previous chat sessions
+- Must:
+  - search `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,plans,knowledge}` first
+  - use `session_search`/`conversation_search` only as fallback when durable records are missing/insufficient
+  - converge reusable session-history discoveries back into records, candidates, or planning
+- Must not:
+  - treat previous session transcripts as the source of truth for project plans, rules, or recorded work
+- Record completion:
+  - when history reveals reusable knowledge, converge it into the right `.lazy-harness` record or candidate
+- Related records:
+  - `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
+  - `.lazy-harness/ssot/project-identity.md`
+  - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - `.lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md`
+
 ## Purpose
 
 When a user asks for something that should have been recorded, planned, or left as intended work, agents must search durable lazy-harness records before searching previous chat sessions.

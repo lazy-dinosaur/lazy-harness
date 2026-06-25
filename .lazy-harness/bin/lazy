@@ -82,8 +82,8 @@ Commands:
   affected [--files F1,F2,...]  Run affected tests for given files
   impl-map [--format=markdown|json|jcode-prompt]
                                 Audit records for ADR 0030 Implementation map migration
-  map --overview [--format=json|md] [--limit=N] [--fresh]
-                                Show whole record/feature/graph structure before choosing concrete nodes
+  map --overview [--complete] [--format=json|md] [--limit=N] [--fresh]
+                                Show project map; --complete lists every record (untruncated lean discovery index)
   map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]
                                 Show drill-down candidates for a concrete map node copied from overview
   retrieval-audit <term-or-file> [--format=json|md] [--limit=N]
@@ -98,6 +98,8 @@ Commands:
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues]
                                 Lint knowledge graph IDs and path hygiene
+  record-lint [--format=json|md] [--fail-on-issues]
+                                Validate canonical records: Rule digest format + broken record refs
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
   hook-timings [--format=json|md] [--limit=N] [--since=ISO] [--all-sessions]
                                 Summarize response.completed hook timing measurements
@@ -292,6 +294,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/graph-hygiene.ts" "$@"
+    ;;
+  record-lint)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy record-lint: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/record-lint.ts" "$@"
     ;;
   gate-state)
     if ! command -v bun >/dev/null 2>&1; then

@@ -11,14 +11,14 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Rule digest
 
-- Status: active-limited-runtime
+- Status: active
 - Layer: SSOT
 - Scope: framework-global
 - Applies when:
   - classifying Project Map update event sources
   - mapping ingestion/update events to Project Map branches
   - deciding confirmation requirements for candidate-to-canonical promotion
-  - designing Pi/Jcode/Project Interview/document ingestion update submissions
+  - designing Pi/OMP/Project Interview/document ingestion update submissions
 - Must:
   - use the controlled source and event vocabulary in this SSOT
   - map each event to one or more Project Map branch categories
@@ -43,7 +43,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 - `document-resource`
 - `policy-machinery`
 - `pi-adapter`
-- `jcode-adapter`
+- `omp-adapter`
 
 ## Controlled event vocabulary
 
@@ -88,7 +88,7 @@ Canonical promotion requires all of these:
 ## Adapter boundary
 
 - Pi adapter source: `pi-adapter`.
-- Jcode compatibility source: `jcode-adapter`.
+- OMP compatibility source: `omp-adapter`.
 - Both may submit events with evidence and target metadata.
 - Neither may set canonical truth without the core record-write/update path.
 - General adapter runtime implementation remains future work after Phase 1.5 review.

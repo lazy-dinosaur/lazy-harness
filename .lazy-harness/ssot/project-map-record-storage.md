@@ -146,7 +146,7 @@ Phase 1.5 defines the update-loop event model in `.lazy-harness/spec/platform/pr
 - Scope: framework-global
 - Primary record: `.lazy-harness/ssot/project-map-record-storage.md`
 - Why not AGENTS.md: this is storage architecture, not prompt grammar.
-- Why not `.jcode`: V2 is Pi-primary and agent-neutral; Jcode is compatibility only.
+- Why not `.jcode`: V2 is Pi-primary and agent-neutral; OMP is compatibility only.
 - Confirmation: user-confirmed preferred storage approach on 2026-06-17.
 
 ## Discovery capture

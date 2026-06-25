@@ -5,6 +5,29 @@
 - Trigger: 사용자 catch — "이게 좀 되게 유기적으로 유동적으로 같이 들어가야해 중요한건 어떤걸 요구할때 ddd 와 sdd 맵이 만들어지는거겠지?? 긜고 그 스펙과 ddd 를 통해서 bdd 시나리오도 알수있고 그러면 이거로 빠진걸 알수도 있고 tdd 도 알수도 있고 아닌가??"
 - Related: ADR 0013 (Code-First Trigger), ADR 0016 (Lifecycle Hook Strategy), ADR 0017 (User Input as Universal Trigger)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - designing detectors or analysis that should surface gaps across DDD/SDD/BDD/SSOT
+  - a user requirement implies a new domain term, contract, scenario, or registry entry
+  - deciding whether discovered candidates should block the turn or be captured
+- Must:
+  - cross-reference detector results so one layer catches another layer's missing record
+  - treat user natural-language flow as the primary BDD scenario source, code heuristic secondary
+  - dedupe-capture raw cross-layer/BDD candidates to candidates.jsonl; promote to canonical only with user confirmation
+- Must not:
+  - block the turn with repeated STOP/option gates for raw, unconfirmed candidates
+- Record completion:
+  - canonical DDD/SDD/BDD/SSOT promotion is a separate user-confirmed action recorded in the relevant layer
+- Related records:
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+  - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+  - `.lazy-harness/decisions/0017-user-input-as-universal-trigger.md`
+  - `.lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md`
+
 ## Context
 
 5c-1 (DDD detector) 완성 후 4 detector (DDD/SDD/BDD/SSOT) 의 관계를 어떻게 설계할지 논의 중 사용자 통찰:

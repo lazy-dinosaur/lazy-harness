@@ -6,6 +6,27 @@ Date: 2026-05-18
 Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 Related SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - editing the project-rule-placement gate helper or its same-turn duplicate suppression
+  - a `Project rule placement gate` STOP reminder repeats in a turn or re-triggers from echoed/Korean no-record text
+- Must:
+  - fire the placement gate at most once per `(message_id, fingerprint)` via `open-gates.json`; allow new-message re-fire
+  - derive the gate from stable fields (`last_user_message`, `recent_tool_calls`) when `assistant_response` is absent
+  - treat completed no-op/non-applicable and `기록하지 않음` judgements as terminal non-actions
+- Must not:
+  - re-trigger on the helper's own echoed STOP reminder, or let inherited runtime env break fixture isolation
+- Record completion:
+  - changes to fingerprint suppression update this TDD plus project-rule-router SDD and gate-fingerprint-state SSOT
+- Related records:
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+  - `.lazy-harness/ssot/gate-fingerprint-state.md`
+  - `.lazy-harness/spec/platform/option-gate-discipline.md`
+
 ## Regression
 
 A `Project rule placement gate` STOP reminder can loop visibly when production Jcode `response.completed` payloads omit `assistant_response`. The helper can derive the same missing-Rule-placement condition from stable fields such as `last_user_message` and `recent_tool_calls`, then inject the same A/B/C/D/E/F reminder again in the same turn.

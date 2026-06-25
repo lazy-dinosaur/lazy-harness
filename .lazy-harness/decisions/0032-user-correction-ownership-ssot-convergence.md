@@ -4,6 +4,29 @@
 - Date: 2026-05-14
 - Trigger: User observed an agent trying to perform Supabase DB correction work from a PWA host and clarified that the upstream app/DB work belongs in `dev/medivance`, while `dev/medivance-pwa` should maintain compatibility.
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - a user corrects host role, ownership, source-of-truth, or forbidden work
+  - deciding which layer records an ownership/boundary fact (default SSOT)
+  - a downstream host might wrongly assume it owns upstream DB/API/schema
+- Must:
+  - treat explicit user corrections about role/ownership/source-of-truth as a confirmed override
+  - search `.lazy-harness` first, then update/create the host record (default SSOT for ownership facts)
+  - include an Implementation map even when the fact is an ownership boundary, not a function
+  - ask the standard option gate when the primary layer is ambiguous
+- Must not:
+  - leave a correction as chat-only, or infer ownership from a local folder/query
+- Record completion:
+  - confirmed ownership/source-of-truth corrections update the host SSOT (or cross-linked layer) record
+- Related records:
+  - `.lazy-harness/decisions/0031-root-bound-record-convergence.md`
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+
 ## Context
 
 Lazy-harness already required record-first search and root-bound convergence, but a practical gap remained: when the user corrected an agent's host understanding, the correction could be acknowledged in chat without being converted into a durable host record.

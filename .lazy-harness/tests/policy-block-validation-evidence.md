@@ -9,7 +9,8 @@ Related policy: `validation-evidence-block`
 
 ## Rule digest
 
-- Status: active-regression
+- Status: active
+- Layer: TDD
 - Scope: framework-global
 - Applies when:
   - promoting the validation-evidence boundary to `level=block`

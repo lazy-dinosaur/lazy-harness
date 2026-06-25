@@ -5,6 +5,27 @@
 **Deciders**: Lazydino
 **Trigger**: 사용자 발언 "지금까지 내용중에 외부내용이 필요한게 있으면 안되 husky 는 커밋을 통해 로그를 남기고 할 수 있으니까 그렇다 쳐도 말야 아 lint 까지는 가능하겠다 근데 뭐 figma 나 다른것들은 상황에 맞게 하는거지 강제가 아니잔아"
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - deciding whether framework core may depend on an external service, API, or SaaS
+  - adding a trigger, adapter, or integration to framework core
+  - a feature assumes a specific input channel (Figma, Slack, voice) as required
+- Must:
+  - keep framework core working with only git plus project toolchain, no required external SaaS
+  - treat external API/DB/SaaS integrations as opt-in, project-specific plugins
+  - derive triggers from code/commit/lint changes and user utterances, not channel-specific adapters
+- Must not:
+  - make framework core depend on or hardcode an external SaaS/network service
+- Record completion:
+  - new dependency or trigger decisions update this ADR and the external-dependency (C17) invariant guard
+- Related records:
+  - `.lazy-harness/decisions/0017-user-input-as-universal-trigger.md`
+  - `.lazy-harness/decisions/0008-ast-contract-diff-deferred.md`
+
 ## Discovery
 
 이전 plan 의 5c (Figma adapter) 가 **AI 의 가설 기반**이었음:

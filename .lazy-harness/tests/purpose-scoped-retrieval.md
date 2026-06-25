@@ -5,6 +5,29 @@ Layer: TDD
 Related ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`
 Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - changing retrieval helpers, map traversal, or search/read-debt evidence rules
+  - validating that agents follow the project map instead of delegating semantic search to a CLI
+- Must:
+  - keep `lazy map` map-traversal only: reject `--query`, raw user text, and long natural-language strings
+  - require concrete record/source/test reads; map overview is search evidence only, not required-read
+  - teach map-first retrieval in message.received and forbid keyword grep/rg/find fallback
+- Must not:
+  - advertise or accept `lazy find`/`purpose-find.ts`, or treat grep/rg/find/agentgrep as search evidence
+- Record completion:
+  - changes to map-first retrieval update this TDD plus ADR 0045 and the purpose-scoped-retrieval SDD/DDD/BDD
+- Related records:
+  - `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`
+  - `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
+  - `.lazy-harness/domain/purpose-scoped-retrieval.md`
+  - `.lazy-harness/behavior/purpose-scoped-retrieval.md`
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+
 ## Regression
 
 Retrieval helpers must not become semantic search engines. Agents should follow the project map, pick concrete nodes, and read actual record/source/test evidence. `lazy find` and query-like `lazy map` usage caused agents to delegate search to CLI output.

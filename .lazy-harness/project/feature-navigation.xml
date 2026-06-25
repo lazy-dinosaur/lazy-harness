@@ -252,11 +252,9 @@
       <alias lang="en">lazy init</alias>
       <alias lang="en">lazy sync</alias>
       <alias lang="en">lazy update</alias>
-      <alias lang="en">jcode wiring</alias>
       <alias lang="en">host pilot</alias>
       <alias lang="symbol">lazy-init.ts</alias>
       <alias lang="symbol">lazy-sync.ts</alias>
-      <alias lang="symbol">jcode-wiring.ts</alias>
     </aliases>
     <routes>
       <route>lazy init</route>
@@ -268,7 +266,6 @@
       <component>install script</component>
       <component>lazy-init CLI</component>
       <component>lazy-sync CLI</component>
-      <component>Jcode wiring generator</component>
     </components>
     <records>
       <record layer="SDD">.lazy-harness/spec/lazy-sync-drift-detection.md</record>
@@ -281,7 +278,6 @@
       <path>.lazy-harness/scripts/lazy-init.ts</path>
       <path>.lazy-harness/scripts/lazy-sync.ts</path>
       <path>.lazy-harness/scripts/lazy-update.ts</path>
-      <path>.lazy-harness/scripts/jcode-wiring.ts</path>
       <path>.lazy-harness/scripts/host-pilot.ts</path>
       <path>.lazy-harness/bin/lazy</path>
       <path>.lazy-harness/scripts/self-test.py</path>

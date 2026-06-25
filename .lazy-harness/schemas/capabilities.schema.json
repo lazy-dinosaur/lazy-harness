@@ -86,7 +86,7 @@
               "framework-global",
               "host-project",
               "team-policy",
-              "jcode-local"
+              "local-only"
             ]
           },
           "tags": {

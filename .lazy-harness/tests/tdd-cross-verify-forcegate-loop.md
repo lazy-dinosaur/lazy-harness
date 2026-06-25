@@ -4,6 +4,23 @@ Status: protected
 Date: 2026-05-17
 Layer: TDD (regression case for interview gate dedup)
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - editing the TDD cross-verify or affected-test-runner interview/forceGate gate logic
+  - a `5d-3` Cross-Verify/Affected Test gate STOP re-fires every response for the same source or question
+- Must:
+  - gate on new unseen question fingerprints only (`forceGate = questions.length > 0`); ask once per fingerprint
+  - derive `needsInterview` from newly-pushed questions, not merely a question defined on the plan
+  - still report `failed` accurately and re-fire the gate for a brand-new fingerprint
+- Must not:
+  - re-ask the same fingerprint every turn while the source path stays in `recent_tool_calls`
+- Record completion:
+  - formalizing `forceGate`/return-contract semantics updates this TDD and a follow-up SDD
+
 ## Bug
 
 Symptoms observed on host `medivance` while editing `src/renderer/src/screens/Appointment/context/AppointmentProvider.tsx`:

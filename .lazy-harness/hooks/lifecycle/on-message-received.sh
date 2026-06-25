@@ -187,10 +187,10 @@ body = '\n'.join([
     '- Before answer/plan/edit: inspect the map/index inventory, let the LLM choose concrete record/source/test nodes, read real evidence in this host root, and stay read-only until debt is satisfied.',
     f'- Evidence scope: `{search_hint}`',
     *harness_inventory_lines(),
-    "- Map-first protocol: run `.lazy-harness/bin/lazy map --overview --format=md --limit=20`; from the returned feature ids, record paths, graph ids, source paths, and test paths, choose the next concrete node yourself.",
+    "- Map-first protocol: run `.lazy-harness/bin/lazy map --overview --complete --format=md` (complete lean discovery index of every record, untruncated); from the returned feature ids, record paths, graph ids, source paths, and test paths, choose the next concrete node yourself.",
     "- Drill-down: run `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8` only with a node/key copied from the map. Do not pass raw user text, long natural-language strings, invented `--query` flags, or fallback discovery commands.",
     "- If the map/index is empty, ambiguous, or missing a concrete node: ask a 3-5 option gate or state the missing prerequisite; do not run fallback discovery commands.",
-    '- Protocol: read Rule digest/full body/Implementation map/graph links → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
+    '- Loading is targeted: read Rule digest/full body/Implementation map/graph links only for records the task implicates (read the Rule digest first where present; do not read-to-cover-all-layers) → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
     '- Missing record: read current host docs/package/config only when reached through concrete map/source paths; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until map-first traversal/read evidence exists.',
 ]).strip() + '\n'

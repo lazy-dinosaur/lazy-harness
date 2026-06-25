@@ -4,6 +4,24 @@
 - Date: 2026-05-17
 - Related: spec/lazy-sync-drift-detection.md, ADR 0035, tests/tdd-cross-verify-forcegate-loop.md
 
+## Rule digest
+
+- Status: needs-review
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - running `lazy-sync` from a source repo with uncommitted `.lazy-harness` changes
+  - drift detection wrongly reports "Already in sync", or editing lazy-sync drift logic
+- Must:
+  - detect a dirty source working tree before the SHA-equality fast path and return `ahead` (dirty), letting `--force` proceed
+- Must not:
+  - report `equal: Already in sync` and skip sync when the source has uncommitted `.lazy-harness` changes
+- Record completion:
+  - add a sandboxed automated dirty-source fixture, then update this record's status from `needs-review`
+- Related records:
+  - `.lazy-harness/spec/lazy-sync-drift-detection.md`
+  - `.lazy-harness/tests/tdd-cross-verify-forcegate-loop.md`
+
 ## Failure observed
 
 Workflow:

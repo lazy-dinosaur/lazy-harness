@@ -1,11 +1,35 @@
 # Jcode Skill Creation Contract
 
-Status: accepted
+Status: superseded
+Superseded on: 2026-06-24
+Superseded by: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
 Layer: SDD
 Date: 2026-05-15
 Related manifest: `.lazy-harness/manifests/skills.xml`
 Related CLI: `.lazy-harness/bin/lazy`
 Related script: `.lazy-harness/scripts/skill-create.ts`
+
+## Rule digest
+
+- Status: deprecated
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - creating or updating a project-local custom Jcode skill for a host
+  - a custom skill encodes a team/project workflow or policy helper
+- Must:
+  - keep the durable skill-generator contract in `.lazy-harness`, not `.jcode`
+  - log each creation/update to host-owned `.lazy-harness/knowledge/skills.jsonl` (not overwritten by lazy-sync)
+  - record durable team/project policy in `.lazy-harness/{ssot,decisions,spec,...}` first
+  - validate skill/script names against the safe patterns before writing
+- Must not:
+  - overwrite user-owned `.jcode/skills/**/SKILL.md` without explicit `--force`
+- Record completion:
+  - changes to the generator contract, audit fields, or safety rules update this SDD and self-test
+- Related records:
+  - `.lazy-harness/manifests/skills.xml`
+  - `.lazy-harness/ssot/rule-sources.md`
+  - `.lazy-harness/spec/platform/project-rule-router.md`
 
 ## Purpose
 

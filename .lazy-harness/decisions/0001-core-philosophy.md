@@ -4,6 +4,24 @@
 
 Accepted (2026-05-10)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - reasoning about why a framework principle or safety rule exists
+  - adding or justifying a new framework principle
+- Must:
+  - treat Principle 0 (humans and AI are both imperfect, so they complement each other) as the meta-principle behind all principles
+  - justify and align every new principle against Principle 0
+- Record completion:
+  - changes to Principle 0 or the principle set update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/framework/framework-contract.md`
+  - `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+  - `.lazy-harness/ssot/rule-sources.md`
+
 ## Context
 
 lazy-harness 의 존재 이유를 명확히 박아두지 않으면 framework 가 시간 갈수록

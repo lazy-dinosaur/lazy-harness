@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:run": "sh -c 'bun test \"$@\" && echo \"1 passed\"' --"
+    "test:run": "sh -c 'bun test \"$@\" && echo \"1 passed\"' --",
+    "typecheck:node": "bun build .lazy-harness/scripts/*.ts --target=bun --outdir \"$(mktemp -d)\" > /dev/null"
   }
 }

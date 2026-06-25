@@ -97,7 +97,7 @@ This project is activated for the lazy-harness Pi/OMP runtime bootstrap.
 
 Before host-specific claims or mutations:
 
-1. Run \`.lazy-harness/bin/lazy map --overview --format=md --limit=20\`.
+1. Run \`.lazy-harness/bin/lazy map --overview --complete --format=md\`.
 2. Drill into a concrete feature id, record path, graph id, source path, or test path with \`.lazy-harness/bin/lazy map <copied-node> --format=md --limit=8\`.
 3. Read real \`.lazy-harness\` records/source/tests before editing.
 4. Treat \`.lazy-harness/AGENTS.md\` and linked records as the project rule entrypoint.

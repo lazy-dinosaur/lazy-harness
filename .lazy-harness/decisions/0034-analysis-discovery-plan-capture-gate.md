@@ -3,6 +3,27 @@
 Status: proposed
 Date: 2026-05-14
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - performing non-trivial analysis or planning for a project change before implementing
+  - discovering domain terms, contracts, behaviors, regressions, ownership, or multi-step plans
+- Must:
+  - before claiming completion, capture discovered layer facts as records, candidates, or planning artifacts
+  - emit a `Discovery capture` judgement marking DDD/SDD/BDD/TDD/ADR/SSOT/Planning as updated/candidate/none
+  - persist unconfirmed discoveries to `.lazy-harness/knowledge/candidates.jsonl` or a planning backlog
+- Must not:
+  - leave analysis-discovered facts or multi-step plans only in chat history
+- Record completion:
+  - when analysis discovers layer facts or plans, update the affected layer record, candidate queue, or planning backlog
+- Related records:
+  - `.lazy-harness/decisions/0033-layer-completeness-gate.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
+
 ## Context
 
 A host session can do substantial analysis, split work into headings, inspect code, and produce a plan, while discovering many facts that belong in DDD, SDD, BDD, TDD, ADR, or SSOT records.

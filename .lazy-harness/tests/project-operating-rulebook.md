@@ -6,6 +6,28 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 Related SDD: `.lazy-harness/spec/platform/project-operating-rulebook.md`
 Related SSOT: `.lazy-harness/ssot/capability-registry.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - storing or resolving project/team operating rules bound to preferred/discouraged actions
+  - auditing rulebook compatibility surface, capability links, or syncing capabilities to a host
+- Must:
+  - keep `.lazy-harness/rules/**` a compat/explain surface; canonical policy is `.lazy-harness/ssot/policies.json`
+  - let `lazy rules`/`lazy capability resolve` match discouraged actions and return preferred replacements
+  - fail audit deterministically on missing rulebook/capability links; lazy-sync merges seed capabilities preserving host ones
+- Must not:
+  - reduce project operating rules to plain fact records, or install a blocking hook in Phase 0-2
+- Record completion:
+  - changes to rulebook/capability resolution or sync update this TDD plus the rulebook ADR/SDD and capability registry
+- Related records:
+  - `.lazy-harness/decisions/0044-project-operating-rulebook.md`
+  - `.lazy-harness/spec/platform/project-operating-rulebook.md`
+  - `.lazy-harness/spec/platform/capability-resolution.md`
+  - `.lazy-harness/ssot/capability-registry.md`
+
 ## Regression
 
 Project-specific development operating rules must not be reduced to project fact records. A host must be able to store a rulebook entry and bind it to machine-readable preferred/discouraged actions so future agents can resolve the right behavior.

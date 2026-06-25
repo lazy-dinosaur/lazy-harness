@@ -4,6 +4,26 @@ Status: active
 Layer: TDD
 Date: 2026-06-18
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - running or implementing `lazy validate` and choosing a fast/standard/release plan
+  - bounding validation time/budget or caching full-regression evidence
+- Must:
+  - make validation plans explicit, bounded, and release-gated; the default fast plan skips full regression
+  - reject budgets over 3600 seconds and require `--allow-release` or `--dry-run` for release plans
+  - reuse cached full-regression evidence only when the conservative evidence key matches
+- Must not:
+  - claim full regression from fast static checks instead of `lazy test` execution
+  - emit progress to stdout; progress goes to stderr so JSON output stays parseable
+- Record completion:
+  - changes to plans, budgets, or evidence caching update this TDD plus the bounded-validation-governor SDD
+- Related records:
+  - `.lazy-harness/spec/platform/bounded-validation-governor.md`
+
 ## Regression target
 
 `lazy validate` must prevent accidental long-running validation multiplication by making validation plans explicit, bounded, and release-gated.

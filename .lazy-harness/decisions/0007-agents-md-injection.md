@@ -1,11 +1,34 @@
 # ADR 0007 — AGENTS.md Auto-Injection Policy
 
 **Date**: 2026-05-10
-**Status**: Accepted
+**Status**: superseded
+**Superseded on**: 2026-06-24
+**Superseded by**: .lazy-harness/decisions/0050-pi-omp-only-runtime.md
 **Deciders**: Lazydino
 **Trigger**: 사용자 발언 "AGENTS.md 에 잘 들어가게 해야하는것도 맞지?? 처음 init 하거나할때 중요한거로 박아놔야하잔아 그지 않아??" — `.jcode/AGENTS.md` 가 lazy-harness 의 존재를 언급하지 않음 → 새 세션 AI 가 framework 인지 못 함 (gap).
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - ensuring new agent sessions discover the lazy-harness framework on startup
+  - changing how framework awareness is injected into prompt/AGENTS surfaces
+- Must:
+  - inject lazy-harness awareness into the session prompt so new agents find the framework entry point
+  - keep the injection idempotent and verify its presence via doctor
+- Must not:
+  - overwrite an existing injected section; keep it idempotent
+- Record completion:
+  - changes to prompt injection update this ADR and `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+- Related records:
+  - `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+  - `.lazy-harness/AGENTS.md`
+
 ## Context
+
+> Superseded by ADR 0050 (Pi/OMP-only runtime, 2026-06-24): jcode wiring is decommissioned. This record is preserved as decision history.
 
 `.jcode/AGENTS.md` 는 jcode 가 **새 세션 시작 시 자동 머지하는 prompt overlay** 의 일부.
 - 새 jcode 세션 → AI 가 system prompt 에 자동 머지된 `.jcode/AGENTS.md` 내용 보유

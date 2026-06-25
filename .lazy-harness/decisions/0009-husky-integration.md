@@ -6,6 +6,26 @@
 **Trigger**: 사용자 발언 "husky 도 우선 추가해둬야하는게 맞지?? 근데 프로젝트에서 사용하고 있는게 있어서 그런거잔아 그지?? 이거 고민이 되네"
 **Discovery**: `git config core.hooksPath = .husky/_` → `.git/hooks/` 가 가로채여서 호출 안 됨. 5a/5b 의 git-native hook 들 모두 dead code 였음.
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - wiring git hooks in a project that uses husky or a custom core.hooksPath
+  - adding or debugging lazy-harness hook integration and confirming hooks fire
+- Must:
+  - route git hooks through husky chain-entry delegators when husky owns core.hooksPath
+  - guard hook delegators so non-lazy environments skip silently
+  - verify new hooks actually fire via a marker experiment
+- Must not:
+  - assume `.git/hooks/*` run when husky has redirected core.hooksPath
+- Record completion:
+  - changes to git-hook wiring update this ADR and `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+- Related records:
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+  - `.lazy-harness/decisions/0006-directory-bridge-architecture.md`
+
 ## Context
 
 medivance 본체는 husky v9 사용중:

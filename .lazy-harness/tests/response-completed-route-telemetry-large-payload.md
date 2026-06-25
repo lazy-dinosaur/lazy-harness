@@ -4,6 +4,26 @@ Status: superseded
 Layer: TDD
 Superseded by: `.lazy-harness/ssot/cli-tool-boundary.md` and `.lazy-harness/scripts/self-test.py#check_response_completed_no_auto_route_telemetry`
 
+## Rule digest
+
+- Status: deprecated
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - working on `response.completed` lifecycle, route telemetry, or user-text classification
+  - asking why automatic route telemetry / a static route classifier was removed
+- Must:
+  - keep `response.completed` free of any static route/user-text classifier
+  - create no automatic route telemetry from raw user messages
+  - preserve hook timing telemetry, tolerating large payloads
+- Must not:
+  - revive the removed task-router or automatic route-decision logging
+- Record completion:
+  - superseded by `.lazy-harness/ssot/cli-tool-boundary.md` and the no-auto-route-telemetry self-test
+- Related records:
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md`
+
 ## Supersession
 
 This regression originally protected automatic route telemetry for large `response.completed` payloads. The task-router and automatic route telemetry have been removed.

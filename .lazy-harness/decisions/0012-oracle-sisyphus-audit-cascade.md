@@ -5,6 +5,27 @@
 **Deciders**: Lazydino
 **Trigger**: 사용자 발언 "이거 우리가 목표로하는게 지금 잘 진행되고 있는지 한번 전수조사 하고갈까??"
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - auditing whether framework state and "done" claims actually match reality
+  - a phase or decision is declared closed and silent failures or stale living-docs may remain
+  - adding or evaluating doctor checks for false-pass detection
+- Must:
+  - treat AI self-report as untrusted; verify framework truth by independent audit, not doctor-green alone
+  - run periodic intent-gap plus mechanical silent-failure audits at phase boundaries
+  - backfill audit findings into doctor checks and decision/action logs
+- Must not:
+  - treat a passing doctor or self-declared "closed" as proof of framework correctness
+- Record completion:
+  - new audit findings update doctor checks and this ADR; the named Oracle/Sisyphus process is historical
+- Related records:
+  - `.lazy-harness/decisions/0011-verification-discipline.md`
+  - `.lazy-harness/decisions/0009-husky-integration.md`
+
 ## Discovery
 
 Oracle (claude-opus 의도-실현 gap 점검) + Sisyphus (mechanical silent-failure 검출) 병렬 audit.

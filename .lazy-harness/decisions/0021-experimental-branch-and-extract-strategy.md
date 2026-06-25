@@ -5,6 +5,27 @@
 - Trigger: 사용자 catch — git rm 사고 위험, `.lazy-harness/`가 medivance 본 작업 branch에 섞이는 문제, 미래 별도 repo extract 필요
 - Related: ADR 0009 (Husky Integration), ADR 0013 (Framework External Dependency Invariant), ADR 0010 (Plan Status Hygiene)
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - isolating framework `.lazy-harness/` work from product code at the branch level
+  - a framework file is wrongly staged or tracked on a product branch
+  - considering extracting the framework to its own repository
+- Must:
+  - use `git rm --cached` (never `git rm`) to unstage wrongly-tracked framework files
+  - keep branch-aware hooks so framework work is not blocked while product branches stay clean
+- Must not:
+  - commit or push `.lazy-harness/` on product branches (model superseded; framework now lives in a standalone repo)
+- Record completion:
+  - the branch/extract model is superseded by ADR 0027; consult it for the current source-of-truth model
+- Related records:
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+  - `.lazy-harness/decisions/0009-husky-integration.md`
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+
 ## Context
 
 Lazy-Harness는 medivance 제품 코드와 같은 repository 안에서 자라고 있지만 성격은 다르다.

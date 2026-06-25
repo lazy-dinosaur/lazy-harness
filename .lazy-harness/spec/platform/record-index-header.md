@@ -26,6 +26,7 @@ Related SDD: `.lazy-harness/spec/platform/record-digest-format.md`
   - require real record body, Rule digest, Implementation map, source, and test reads before an agent relies on a record
   - cite DDD terms and BDD behavior scenarios when changing the header contract
   - preserve `lazy map --overview` as the recommended first inventory step before dependent follow-up queries/reads
+  - provide `lazy map --overview --complete` as a complete lean discovery index (every record listed untruncated; drill-down/graph-sample dumps omitted) so default-limit truncation cannot silently hide records (ADR 0049)
   - keep generated cache output non-canonical and rebuildable
   - allow `lazy map` aggregate token fallback for long composite cues only as a cue-only drill-down aid when terms are spread across indexed fields
   - keep parser/cache implementation blocked until SCR-401 naming/scope approval
@@ -173,6 +174,7 @@ Implementation constraints:
   4a. Top-level `Related <Layer>:` links are normalized into `digest.relatedRecords` as cue-only cross-layer navigation paths.
   5. `lazy map` uses fresh generated `record-index.json` for concrete node traversal speed, or rebuilds from source if the cache is absent/stale/invalid.
   6. `lazy map --overview` fuses record-index, feature navigation, and graph rows into whole-structure navigation cues.
+  6a. `lazy map --overview --complete` lists every record untruncated (paths/titles/status) and omits drill-down/graph-sample dumps, so discovery stays complete even when layers exceed `--limit`; body loading remains just-in-time and targeted (ADR 0049).
   7. `lazy map --overview` must be a standalone sequential call. It must not be batched with dependent `lazy map <node>`, grep, read, or retrieval-audit calls because those choices depend on overview evidence.
   8. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls across concrete nodes copied from the map narrow that structure into dispersed drill-down candidates only.
   8a. Exact concrete node matches (feature id, record path, graph id, source path, or test path) must outrank aggregate token matches so copied map nodes self-recall within bounded limits.
@@ -200,6 +202,7 @@ Implementation constraints:
 - Sync: `init-categories.json` must seed the DDD/BDD/SDD/TDD foundation record package to downstream hosts.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` records SCR-402 record-index-only boundary.
 - ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401 canonical `record-index` naming.
+- ADR: `.lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md` adds the complete lean discovery mode and discovery-vs-loading boundary.
 - Planning: tasks and implementation plan updated for SCR-402 completion.
 
 ## Rule placement

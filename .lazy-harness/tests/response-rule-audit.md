@@ -6,6 +6,29 @@ Date: 2026-06-01
 Related SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - editing pre-response digest journaling, response.completed audit, or the pre-action read/search-debt permit
+  - validating that surfaced rules connect to post-response audit without noising successful turns
+- Must:
+  - write sanitized journal/debt rows (paths/titles/bullets/hashes), never raw user text or raw record bullets
+  - emit advisory (not STOP) when a correlated search/read-debt packet lacks root-bound evidence; stay silent once evidenced
+  - keep packet/tool-events matching message- and session-scoped and respect epoch ordering
+  - sync this TDD fixture via `init-categories.json` and keep runtime surfaces host-agnostic
+- Must not:
+  - require concrete tool/Figma adapter names or downstream host/product aliases in runtime/generator/fixtures
+- Record completion:
+  - changes to audit/permit behavior update this TDD plus the response-rule-audit and pre-response SDDs
+- Related records:
+  - `.lazy-harness/spec/platform/response-rule-audit.md`
+  - `.lazy-harness/spec/platform/pre-response-rule-context.md`
+  - `.lazy-harness/ssot/harness-enforcement-policy.md`
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+
 ## Protected behavior
 
 Phase 4 must connect surfaced pre-response records to post-response audit without turning successful turns into noise.

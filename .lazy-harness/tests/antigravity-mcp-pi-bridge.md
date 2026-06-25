@@ -3,6 +3,25 @@
 Status: active
 Layer: TDD
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - importing or converting an Antigravity MCP config into a Pi MCP adapter config
+  - working on the Pi package importer, server field mapping, or OAuth handling
+- Must:
+  - convert Antigravity MCP servers to Pi adapter configs, preserving stdio, url, auth, and excludeTools
+  - bridge `google_credentials` to bearer auth with `bearerTokenEnv` and skip disabled servers by default
+- Must not:
+  - read or copy the Antigravity `mcp_oauth_tokens.json` token store
+  - overwrite an existing same-named Pi server without `--overwrite` or `--prefix`
+- Record completion:
+  - changes to importer behavior or fixtures update this TDD plus the SDD contract
+- Related records:
+  - `.lazy-harness/spec/platform/antigravity-mcp-pi-bridge.md`
+
 ## Regression target
 
 The Pi package importer must safely convert Antigravity MCP configs to Pi MCP adapter configs without copying Antigravity OAuth token stores.

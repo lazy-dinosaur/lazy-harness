@@ -259,7 +259,7 @@ function buildAudit(args: Args): RetrievalCoverageAudit {
     matches: limitedMatches,
     candidates,
     commands: {
-      overview: '.lazy-harness/bin/lazy map --overview --format=md --limit=20',
+      overview: '.lazy-harness/bin/lazy map --overview --complete --format=md',
       concreteMapNodes: concreteNodes.map((node) => `.lazy-harness/bin/lazy map ${shellQuote(node)} --format=md --limit=${args.limit}`),
       missingPrerequisite: 'No concrete map node surfaced; ask a 3-5 option gate or state the missing prerequisite instead of running keyword fallback.',
     },

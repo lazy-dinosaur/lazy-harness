@@ -4,6 +4,25 @@
 - Date: 2026-05-17
 - Triggers: §2.1 silent-skip on "조회/탐색/질문/출처 확인" intents (observed in medivance GPT-5.5 session, 2026-05-17)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user mentions any host detail, name, path, behavior, or rule (implement, fix, debug, look up, locate, ask, verify source)
+  - e.g. "where is X?", "where does AGENTS.md load from?", "find feature Y"
+- Must:
+  - trigger §2.1 record-search by utterance intent, not keyword match, on any host-detail-dependent request
+  - treat the keyword list as examples, not an enumeration
+- Must not:
+  - skip record-search because an utterance is a question, lookup, or location request
+- Record completion:
+  - changes to the §2.1 trigger definition update this ADR and `.lazy-harness/AGENTS.md`
+- Related records:
+  - `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+  - `.lazy-harness/decisions/0035-interview-queue-close-mandate.md`
+
 ## Context
 
 §2.1 "요청 받자마자 검색" 룰의 원래 트리거 정의는:

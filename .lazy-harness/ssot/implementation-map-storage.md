@@ -5,6 +5,27 @@ Layer: SSOT
 Related spec: `.lazy-harness/spec/platform/implementation-map-standard.md`
 Related ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: framework-global
+- Applies when:
+  - storing or updating implementation maps across Markdown records, graph facts, and the generated index
+  - deciding which layer owns an implementation fact or whether the generated index is canonical
+- Must:
+  - keep Markdown layer docs as the human report with an `Implementation map` section when implementation exists or is planned
+  - treat `knowledge/graph.jsonl` as canonical machine-readable facts; prefer supersession over overwrite
+  - treat `generated/implementation-index.json` as derived cache, deletable/regenerable, never canonical
+  - source function/class/component names from verified inspection (LSP/AST/outline/read), not loose regex
+- Must not:
+  - let framework sync overwrite host implementation maps or generated index data
+- Record completion:
+  - storage-path or mutability changes update this SSOT plus `spec/platform/implementation-map-standard.md` and ADR 0030
+- Related records:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+
 ## Source of truth paths
 
 | Purpose | Path | Owner | Mutability |

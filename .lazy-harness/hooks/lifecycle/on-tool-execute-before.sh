@@ -43,6 +43,7 @@ fi
 
 # Chain through helpers — read-debt permit first, then legacy Layer 2 checks.
 for helper in \
+  .lazy-harness/hooks/lifecycle/helpers/check-destructive-command.py \
   .lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py \
   .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py \
   .lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh

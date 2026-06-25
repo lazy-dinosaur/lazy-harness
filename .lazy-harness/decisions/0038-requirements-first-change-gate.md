@@ -3,6 +3,27 @@
 Status: accepted
 Date: 2026-05-21
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user describes a problem or still-forming requirement, or adds a constraint/correction after a plan
+  - before mutating code, records, config, schema, or git state
+- Must:
+  - separate requirement gathering, plan proposal, execution approval, and implementation stages
+  - mutate only for the latest explicitly approved plan
+  - on any new constraint after approval, stop, summarize revised requirements, and request fresh approval
+- Must not:
+  - treat confirmation phrases ("맞지?", "이해하지?", "그지?") as execution approval
+- Record completion:
+  - changes to the change-gate stages or stale-approval triggers update this ADR and `.lazy-harness/AGENTS.md`
+- Related records:
+  - `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+  - `.lazy-harness/decisions/0035-interview-queue-close-mandate.md`
+  - `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
+
 ## Context
 
 Lazy-harness already has option-gate discipline: when multiple choices exist, the agent must ask the user to choose and must not self-select.

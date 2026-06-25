@@ -6,6 +6,25 @@ Date: 2026-05-16
 Related SSOT: `.lazy-harness/ssot/project-identity.md`
 Related SDD: `.lazy-harness/spec/platform/record-before-session-history.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - resolving the host worktree for lazy CLI/validators, especially PR/worktree flows where `.lazy-harness` resolves through symlinks
+  - wiring commit/push hook validation environments
+- Must:
+  - prefer a valid `LAZY_HOST_ROOT`, else `git rev-parse --show-toplevel`, and export it for delegated scripts
+  - make Python validators prefer `LAZY_HOST_ROOT` over `__file__` parent; pre-commit/push set it and clear `GIT_DIR`/`GIT_WORK_TREE`
+- Must not:
+  - treat the symlink-target checkout as validation root when a caller worktree exists, or follow sibling repos for host knowledge
+- Record completion:
+  - root-resolution or git-env-isolation changes update this SDD and the host-root/git-env regression tests
+- Related records:
+  - `.lazy-harness/ssot/project-identity.md`
+  - `.lazy-harness/spec/platform/record-before-session-history.md`
+
 ## Purpose
 
 Lazy-harness commands must validate the host worktree where the user invoked the command, not the physical checkout that owns a symlinked `.lazy-harness` script file.

@@ -4,6 +4,25 @@
 - **Date**: 2026-05-12
 - **Related**: ADR 0017 (user-input trigger), ADR 0018 (cross-layer cascade), ADR 0019 (ambiguous detection force gate), N1 layer-impact-gate, N2 reference-resolver
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - investigating reference-resolver / layer-impact-gate scoring history or why keyword/IDF tuning was removed
+  - debugging ADR-keyword false positives or host-pilot precision/recall validation
+- Must:
+  - preserve the five host-pilot artifacts as the ground-truth regression ledger
+  - treat "corpus-thin / n/a" gate outcomes as corpus gaps, not resolver defects
+- Must not:
+  - read this ADR as the current resolver algorithm contract (superseded by ADR 0024's simplification)
+- Record completion:
+  - resolver-scoring or pilot-ledger changes update ADR 0024 and the reference-resolver self-test, not this historical record
+- Related records:
+  - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - `.lazy-harness/scripts/reference-resolver.ts`
+
 ## Context
 
 N2 (Map-aware Reference Resolver) shipped four strategies — `cross-layer-link`, `test-stem`, `path-stem`, and `adr-keyword` — wired into N1's `layer-impact-gate` so the gate can both detect "this layer needs updating" and propose **which specific record** to update. N1 criterion 6 and N2 criterion 4 both require host-pilot evidence that FP rate is acceptable before lifting the gate out of observation mode.

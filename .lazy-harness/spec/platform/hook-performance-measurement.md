@@ -5,6 +5,24 @@ Date: 2026-05-21
 Layer: SDD
 Related: `.lazy-harness/planning/performance-optimization-plan.md`, `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`, `.lazy-harness/tests/response-completed-route-telemetry-large-payload.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - measuring or optimizing `response.completed` hook performance, or adding a fast-path / lifecycle engine mode
+- Must:
+  - keep `response.completed` behavior identical except append-only timing telemetry
+  - gate any gate-skipping fast-path behind a read-only tool allowlist plus golden parity tests; keep `legacy` engine default, orchestrator/compare opt-in
+- Must not:
+  - let timing failure block or alter hook decisions, change helper order, or store raw user messages/payload bodies in timing rows
+- Record completion:
+  - timing, engine, or fast-path changes update this SDD and the lifecycle parity tests
+- Related records:
+  - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+  - `.lazy-harness/planning/performance-optimization-plan.md`
+
 ## Contract
 
 Phase 0 performance optimization is measurement-only.
@@ -115,7 +133,7 @@ Future lifecycle hook evidence forwarding, including Jcode `response.completed` 
 Contract:
 
 - The packet shape is defined by `.lazy-harness/spec/platform/project-map-update-loop-v2.md`.
-- Hook-originated validation output uses existing controlled vocabulary: `source = jcode-adapter`, `eventType = validation-success|validation-failure`, and `evidence.kind = validation-output`.
+- Hook-originated validation output uses existing controlled vocabulary: `source = omp-adapter`, `eventType = validation-success|validation-failure`, and `evidence.kind = validation-output`.
 - Hook-originated packets are compact evidence only. They must not include raw user text, raw assistant text, secrets, credentials, or semantic-authority fields such as confidence/intent/risk/requiredRead/nextAction/candidateMeaning.
 - Hook-originated packets must not become canonical truth by themselves. They remain `candidate` or `needs-confirmation` until record-write policy or an explicit confirmation gate updates canonical records.
 - Phase 1 is contract/fixture/static-test only. It does not add a production hook writer, new CLI, or automatic event-store append path.
@@ -258,7 +276,7 @@ Contract additions:
 - `lifecycle-check.py --sandbox` must run helpers with sandbox-local `LAZY_RUNTIME_ROOT` and `LAZY_SHARED_ROOT` so debug compare runs do not write duplicate state to the real host runtime.
 - Sandbox mode may provide read-only git facts through env variables (`LAZY_LIFECYCLE_GIT_LAST_SUBJECT`, `LAZY_LIFECYCLE_GIT_HEAD`) so git-dependent helpers can match real-host behavior without copying the real `.git` directory.
 - Sandbox mode may mirror bounded runtime state tails for helper fidelity: `open-gates.json`, `surfaced-rule-digests.jsonl`, and `search-read-debt.jsonl`.
-- Sandbox mode may mirror `.jcode/hooks/tool-events.jsonl` only after filtering to current message/session id. Wholesale raw tool-event history copying is forbidden.
+- Sandbox mode may mirror tool-event journals only after filtering to current message/session id. Wholesale raw tool-event history copying is forbidden.
 - Production replacement remains forbidden until compare summary readiness is zero mismatch, no privacy issues, no orchestrator failures, and user approval is recorded.
 
 Implementation map update:

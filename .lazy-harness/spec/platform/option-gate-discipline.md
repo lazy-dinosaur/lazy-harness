@@ -6,6 +6,29 @@ Related AGENTS: `.lazy-harness/AGENTS.md` §2.3
 Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - a response opens an option gate (`needs-option-gate`, `선택해주세요`, `진행 선택 필요`)
+  - deciding whether to proceed, write, or execute while a choice is still pending
+- Must:
+  - ask once with 3-5 options plus a type-your-own, then stop the turn
+  - converge a user's choice to `user-confirmed`; use `inferred-from-record` when records already decide
+  - summarize an already-open gate instead of reprinting or repeating it
+- Must not:
+  - write records, run dispatch/release, mutate files, or self-select `(Recommended)` while the gate is unresolved
+  - re-ask the same gate unless scope, options, or a record/confirmation changed
+- Record completion:
+  - changes to gate-discipline triggers or loop suppression update this SDD, rule-sources, and self-test
+- Related records:
+  - `.lazy-harness/ssot/rule-sources.md`
+  - `.lazy-harness/ssot/gate-fingerprint-state.md`
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+  - `.lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md`
+
 ## Purpose
 
 Prevent option gates from becoming loops or implicit approval.

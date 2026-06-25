@@ -6,6 +6,25 @@ Related standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
 Related ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
 Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - migrating existing host records to the ADR 0030 Implementation map, or auditing records for implementation links
+- Must:
+  - migrate incrementally only: touch-on-change, focused audit, or an explicit user-requested pass
+  - mark `needs-review`/`planned` and create a graph conflict candidate when source cannot be verified
+- Must not:
+  - bulk-rewrite host records blindly, invent symbols, or overwrite host institutional memory
+- Record completion:
+  - migration-rule changes update this SDD and the implementation-map standard/storage records
+- Related records:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+
 ## 1. Goal
 
 Migrate existing host records to ADR 0030 without overwriting host institutional memory.

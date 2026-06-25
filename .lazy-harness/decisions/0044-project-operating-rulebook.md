@@ -9,6 +9,26 @@ Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 Related SSOT: `.lazy-harness/ssot/capability-registry.md`
 Related TDD: `.lazy-harness/tests/project-operating-rulebook.md`
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - storing project operating rules (how agents should act while developing in a host)
+  - discussing `.lazy-harness/rules/**` rulebook vs typed policy as canonical source
+- Must:
+  - store project operating policies in `.lazy-harness/ssot/policies.json` plus capability bindings (per superseding ADR 0046)
+  - treat `.lazy-harness/rules/**` as compatibility/explain surface, not canonical policy semantics
+- Must not:
+  - keep canonical project/team operating rules only in `.jcode`, memory, fact records, or rulebook markdown
+- Record completion:
+  - new operating-policy decisions update `.lazy-harness/ssot/policies.json` and ADR 0046 (this ADR superseded)
+- Related records:
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md`
+  - `.lazy-harness/spec/platform/project-operating-rulebook.md`
+  - `.lazy-harness/ssot/rule-sources.md`
+
 ## Context
 
 Lazy-harness already stores project facts and contracts in DDD/SDD/BDD/TDD/ADR/SSOT records. Dogfood showed that this is not enough for project-specific development behavior: agents also need a durable operating rulebook that says how to work inside a host project.

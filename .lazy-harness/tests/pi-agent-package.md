@@ -3,6 +3,28 @@
 Status: active
 Layer: TDD
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - working on the in-repo Pi/OMP agent package install or wrapper UX
+  - bridging agent extension events to lazy-harness lifecycle hooks or changing reminder/mutation-guard behavior
+- Must:
+  - keep separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp` resources
+  - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit with non-steering advisory surfacing); preserve OMP string-array `systemPrompt` blocks
+  - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
+- Must not:
+  - invent a second policy engine or let OMP silently fall back to Pi-only packaging
+- Record completion:
+  - changes to package wrappers, extension bridge, or activation prompts update this TDD plus its SDD/ADR
+- Related records:
+  - `.lazy-harness/spec/platform/pi-agent-package.md`
+  - `.lazy-harness/behavior/llm-owned-record-retrieval.md`
+  - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
+  - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
+
 ## Regression target
 
 The in-repo Pi/OMP package must remain installable through separate Pi and OMP wrapper UX and must bridge agent extension events to canonical lazy-harness lifecycle hooks without inventing a second policy engine.

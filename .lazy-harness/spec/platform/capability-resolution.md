@@ -6,6 +6,27 @@ Related SSOT: `.lazy-harness/ssot/capability-registry.md`
 Related ADR: `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`
 Related TDD: `.lazy-harness/tests/capability-registry.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - registering or resolving a capability via `lazy capability`
+  - deciding how strongly to consider a registered capability for an intent/action
+- Must:
+  - keep enforcement level explicit; the resolver never turns a soft capability into a hard block
+  - make `lazy capability add` deterministic, idempotent, id-sorted, and source-record-backed
+  - keep `lazy capability candidates` read-only
+- Must not:
+  - mutate `capabilities.json` during candidate detection or auto-promote candidates to `warn`/`block`
+- Record completion:
+  - matching/registration/candidate rule changes update this SDD plus capability-registry SSOT/TDD
+- Related records:
+  - `.lazy-harness/ssot/capability-registry.md`
+  - `.lazy-harness/decisions/0040-capability-registry-kind-level-separation.md`
+  - `.lazy-harness/tests/capability-registry.md`
+
 ## Contract
 
 Capability resolution and registration answer:
@@ -38,7 +59,7 @@ Candidate detection must not mutate `.lazy-harness/ssot/capabilities.json` and m
 Current evidence detectors:
 
 - package-script validation: if `package.json` exposes baseline validation scripts such as `lint`, `typecheck`, `test:run`, or `test:unit`, but no registered capability covers `validating_app_changes` with those actions, emit a `validation/recommend` candidate.
-- release action coverage: if a release workflow capability resolves by intent but lacks concrete release action labels and `.lazy-harness/ssot/release-branch-policy.md` exists, emit a partial candidate with the suggested action coverage.
+- release action coverage: if a release workflow capability resolves by intent but lacks concrete release action labels and a release branch policy SSOT exists, emit a partial candidate with the suggested action coverage.
 
 ## Inputs
 

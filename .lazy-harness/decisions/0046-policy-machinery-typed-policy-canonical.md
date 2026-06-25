@@ -9,6 +9,27 @@ Related SSOT: `.lazy-harness/ssot/capability-registry.md`
 Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 Related TDD: `.lazy-harness/tests/policy-machinery-v2.md`
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - adding or changing project/team behavior policy semantics
+  - choosing the canonical store for operating policy vs rulebook markdown
+- Must:
+  - treat `.lazy-harness/ssot/policies.json` as the canonical typed policy registry; bind commands/actions via `capabilities.json`
+  - add new policy semantics to typed policy records, using `lazy policy explain` for views
+  - keep block enforcement gated on separate promotion evidence, TDD, and explicit confirmation
+- Must not:
+  - treat `.lazy-harness/rules/**` or generated/explain views as canonical policy source
+- Record completion:
+  - new policy semantics update `.lazy-harness/ssot/policies.json` and this ADR plus `.lazy-harness/spec/platform/policy-machinery-v2.md`
+- Related records:
+  - `.lazy-harness/spec/platform/policy-machinery-v2.md`
+  - `.lazy-harness/ssot/policy-registry.md`
+  - `.lazy-harness/decisions/0044-project-operating-rulebook.md`
+
 ## Context
 
 ADR 0044 introduced the Phase 0-2 hybrid model:

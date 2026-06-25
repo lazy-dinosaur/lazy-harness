@@ -449,7 +449,7 @@ def main() -> int:
         print("The guard checks for evidence that the harness was followed; it is not a project/tool allowlist.")
         print("")
         print("Do this first:")
-        print("  - run `.lazy-harness/bin/lazy map --overview --format=md --limit=20`")
+        print("  - run `.lazy-harness/bin/lazy map --overview --complete --format=md`")
         print("  - drill into a concrete feature id, record path, graph id, source path, or test path copied from the map")
         print("  - read canonical records/files before rerunning the action")
         print("")

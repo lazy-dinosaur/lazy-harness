@@ -5,6 +5,27 @@
 - Layer: ADR (cross-cutting: AGENTS.md §2.3, interview-loop, tdd-cross-verify)
 - Related: ADR 0019 (option-gate), Principle 21, tests/tdd-cross-verify-forcegate-loop.md
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user answers or picks an option for a queued question (e.g. "Q1=A", "go with C", "A")
+  - working with `.lazy-harness/questions/open.xml`, interview-loop, or tdd-cross-verify gates
+- Must:
+  - close the queue entry the same turn via `interview-loop.ts --mode answer --question-id <id> --answer <A-D> --apply`
+  - close each open question before generating new ones
+  - count only newly created questions for `forceGate`, never the persisted queue
+- Must not:
+  - treat preview-mode (no `--apply`) invocations as satisfying the close obligation
+- Record completion:
+  - changes to queue-close flow or forceGate counting update this ADR and `.lazy-harness/tests/tdd-cross-verify-forcegate-loop.md`
+- Related records:
+  - `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+  - `.lazy-harness/tests/tdd-cross-verify-forcegate-loop.md`
+  - `.lazy-harness/ssot/rule-sources.md`
+
 ## Context
 
 `.lazy-harness/questions/open.xml` is the single source of truth for outstanding option-gate questions raised by triggers like `tdd-cross-verify`, `affected-test-runner`, and `interview-loop` itself. Questions only leave the queue when `interview-loop.ts --mode answer ... --apply` runs and writes:

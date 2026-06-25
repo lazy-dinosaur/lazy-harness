@@ -15,11 +15,6 @@
           "description": "Framework grammar (57 줄, ADR 0024). Layer ↔ Trigger 매핑 + 4 단계 흐름 + Silent Skip 금지."
         },
         {
-          "path": "JCODE-INTEGRATION.md",
-          "kind": "file",
-          "description": "Host 가 jcode wiring 시 참고할 통합 가이드."
-        },
-        {
           "path": "README.md",
           "kind": "file",
           "description": "Framework 소개 + 빠른 시작."
@@ -276,11 +271,6 @@
           "path": "spec/platform/package-health-generate-remediation.md",
           "kind": "file",
           "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."
-        },
-        {
-          "path": "spec/platform/jcode-skill-creation.md",
-          "kind": "file",
-          "description": "SDD contract for lazy skill create: generated .jcode skill wrappers, optional scripts, safety rules, and skills.jsonl metadata."
         },
         {
           "path": "spec/platform/capability-resolution.md",
@@ -904,9 +894,8 @@
     "actions": [
       {
         "kind": "git-info-exclude",
-        "description": ".git/info/exclude 에 /.jcode/, /.lazy-harness/, /.lazy-harness-backup/ 추가 (host 의 git 이 ignore 하도록).",
+        "description": ".git/info/exclude 에 /.lazy-harness/, /.lazy-harness-backup/ 추가 (host 의 git 이 ignore 하도록).",
         "lines": [
-          "/.jcode/",
           "/.lazy-harness/",
           "/.lazy-harness-backup/"
         ]
@@ -919,20 +908,6 @@
         "kind": "version-marker",
         "description": ".lazy-harness/state/synced-from-commit 파일에 sync source commit sha 박음. 다음 lazy-sync 가 drift 검출 가능.",
         "path": "state/synced-from-commit"
-      },
-      {
-        "kind": "jcode-skill-install",
-        "description": ".jcode/skills/lazy-{init,sync,update,doctor,test,skill-create,project-profile}/ 박음. wrapper SKILL.md + scripts/ delegation.",
-        "skills": [
-          "lazy-init",
-          "lazy-doctor",
-          "lazy-sync",
-          "lazy-update",
-          "lazy-test",
-          "lazy-skill-create",
-          "lazy-doc-ingest",
-          "lazy-project-profile"
-        ]
       }
     ]
   }

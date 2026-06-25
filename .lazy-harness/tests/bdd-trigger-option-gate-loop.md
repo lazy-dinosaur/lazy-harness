@@ -6,6 +6,27 @@ Date: 2026-05-17
 Related SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
 Related helper: `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - a BDD natural-language trigger could repeat A-B-C-D option gates while waiting for the user
+  - capturing scenario discoveries or running BDD detection in installed hosts
+- Must:
+  - capture raw BDD scenario discoveries as deduped candidates in candidates.jsonl, appending every distinct one
+  - keep a pending BDD candidate silent across turns; require explicit user confirmation before canonical registration
+- Must not:
+  - emit STOP or A-B-C-D option prompts for raw BDD scenario discovery
+  - require host projects to install `ts-morph` for BDD natural-language detection
+- Record completion:
+  - changes to BDD candidate capture or dedupe update this TDD plus option-gate-discipline SDD and self-test
+- Related records:
+  - `.lazy-harness/spec/platform/option-gate-discipline.md`
+  - `.lazy-harness/ssot/gate-fingerprint-state.md`
+  - `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
+
 ## Regression
 
 A BDD natural-language trigger can open a structured option gate from `last_user_message`. If the assistant then repeats the same BDD options while waiting for the user, `response.completed` still sees the unchanged `last_user_message` and can inject the same BDD gate again. The visible symptom is an infinite-looking loop of:

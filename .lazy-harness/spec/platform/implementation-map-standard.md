@@ -6,6 +6,25 @@ Related ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storag
 Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - writing or updating a record that refers to implemented behavior, or deciding where implementation facts live
+- Must:
+  - add an `## Implementation map` (files, key symbols, flow, tests, ownership, cross-layer links) when implementation exists or is verifiable
+  - store confirmed file/symbol/edge facts in `knowledge/graph.jsonl`; keep the generated index derived-only
+- Must not:
+  - treat the generated implementation-index as canonical, or mark `verified` without confirmable source
+- Record completion:
+  - standard changes update this SDD, ADR 0030, and the implementation-map storage SSOT
+- Related records:
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+
 ## 1. Purpose
 
 Every reusable lazy-harness record should make the implementation discoverable for both humans and AI tools.

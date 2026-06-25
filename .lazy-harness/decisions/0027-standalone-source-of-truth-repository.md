@@ -4,6 +4,28 @@
 - **Date**: 2026-05-13
 - **Related**: ADR 0021 (experimental branch and extract strategy), ADR 0024 (AI-first redesign), ADR 0025 (portability single entry point), ADR 0026 (doctor/self-test scope separation)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - editing framework source or deciding where canonical framework changes belong
+  - syncing the framework into hosts, or resolving git-ignore / leak conflicts
+  - pushing `.lazy-harness` changes from the standalone repo vs a host
+- Must:
+  - treat `~/dev/lazy-harness` as the canonical framework source of truth and develop there
+  - promote direct host-side framework edits back to source or discard them
+  - propagate to hosts via lazy-sync / lazy-init installed copies, never making hosts source-of-truth
+  - allow tracked `.lazy-harness/` on main only where framework markers exist; block leakage in product hosts
+- Must not:
+  - treat edits in a host's `.lazy-harness` (e.g. medivance) as source-of-truth changes
+- Record completion:
+  - source-of-truth or leak-guard changes update this ADR and the pre-push / host-root-resolution records
+- Related records:
+  - `.lazy-harness/spec/platform/host-root-resolution.md`
+  - `.lazy-harness/tests/git-env-isolation.md`
+
 ## Context
 
 `lazy-harness` started inside the Medivance repository as `.lazy-harness/` on the `experimental/lazy-harness` worktree. That worked for dogfooding, but it created a structural conflict:

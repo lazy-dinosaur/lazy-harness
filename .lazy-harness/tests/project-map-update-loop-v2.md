@@ -10,7 +10,7 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 
 ## Rule digest
 
-- Status: active-limited-runtime
+- Status: active
 - Layer: TDD
 - Scope: framework-global
 - Applies when:
@@ -45,13 +45,13 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 | `project_map_update_loop_files_exist` | SDD/SSOT/TDD/fixture | All Phase 1.5 deliverables exist. |
 | `project_map_update_event_required_fields` | `events.json` | Each event has schemaVersion/id/eventType/source/occurredAt/scope/target/transition/evidence/effects. |
 | `project_map_update_event_vocabulary` | `events.json` | Fixture covers user-correction, implementation-change, source-discovery, validation-failure, validation-success, adr-decision, project-profile-refresh, policy-promotion, policy-demotion, document-ingestion, adapter-event. |
-| `project_map_update_sources` | `events.json` + SSOT | Sources are controlled and include pi-adapter/jcode-adapter boundaries. |
+| `project_map_update_sources` | `events.json` + SSOT | Sources are controlled and include pi-adapter/omp-adapter boundaries. |
 | `project_map_update_transitions` | `events.json` | Candidate, needs-confirmation, canonical, superseded/rejected or observation states are explicit. |
 | `project_map_update_canonical_records` | canonical transitions | Canonical target states include root-bound canonicalRecords. |
 | `project_map_update_sync_package_complete` | `.lazy-harness/manifests/init-categories.json` | Category A sync includes the ADR 0041 canonical record used by the `adr-decision` fixture and routes it to `framework/operational-adrs/` in hosts. |
 | `project_map_update_forbidden_fields` | recursive event walk | No confidence/intent/risk/requiredRead/optionalRead/gate/nextAction/candidateMeaning keys. |
 | `project_map_update_limited_runtime_boundary` | SDD/TDD text + Project Profile fixture | Only confirmed Project Profile `promote-v2` writes append non-canonical update event rows; general adapter runtime remains future work. |
-| `project_map_update_hook_validation_events` | `events.json` + SDD/TDD text | Fixture includes Jcode hook-originated validation-success and validation-failure packets using `jcode-adapter` + `validation-output`; both remain non-canonical and contain no semantic-authority fields. |
+| `project_map_update_hook_validation_events` | `events.json` + SDD/TDD text | Fixture includes OMP hook-originated validation-success and validation-failure packets using `omp-adapter` + `validation-output`; both remain non-canonical and contain no semantic-authority fields. |
 
 ## Acceptance assertions
 
@@ -84,7 +84,7 @@ Self-test should verify:
   - `.lazy-harness/fixtures/project-map-update-loop-v2/events.json` — event fixture.
   - `.lazy-harness/spec/platform/hook-performance-measurement.md` — lifecycle hook SDD linked to future structured validation evidence forwarding.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — source canonical ADR backing the `adr-decision` fixture event.
-  - `.lazy-harness/framework/operational-adrs/0041-organic-hybrid-rule-guidance.md` — host sync target for the framework ADR.
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — host sync target for the framework ADR.
   - `.lazy-harness/manifests/init-categories.json` — Category A host sync package.
   - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — Project Profile promote writer fixture.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed runtime writers.

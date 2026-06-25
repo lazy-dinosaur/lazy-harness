@@ -3,6 +3,27 @@
 Status: active
 Layer: SDD
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - installing, smoke-testing, or debugging the Pi/OMP lazy-harness package or its extension bridge
+  - wiring `before_agent_start`/`tool_call` events or `lazy pi`/`lazy omp` wrapper commands
+- Must:
+  - declare both `pi` and `omp` manifest sections; OMP must not depend on Pi fallback
+  - keep separate `lazy pi`/`lazy omp` wrapper UX over one shared package core
+  - normalize Pi shell aliases to `bash` before the guard, and resolve root from the live session cwd
+  - preserve both Pi string and OMP string-array system prompts; scope runtime evidence by lazy root
+- Must not:
+  - duplicate canonical policy in the extension, block read-only overview/parallel, or commit generated `.pi/`/`.omp/` by default
+- Record completion:
+  - changes to the package manifest, wrapper UX, or adapter bridge update this SDD and `check_pi_package_layout_and_contract`
+- Related records:
+  - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
+  - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
+
 ## Purpose
 
 Provide a shared Pi Coding Agent / Oh My Pi (OMP) package that installs lazy-harness behavior without a separate repository, while keeping Pi and OMP install UX separate.
@@ -49,6 +70,7 @@ OMP official source supports `package.json#omp` first and falls back to `package
 5. return `{ block: true, reason }` only when the lazy hook emits a deny reason,
 6. handle `tool_result` by retaining recent tool evidence for later guard invocations,
 7. register convenience commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
+8. handle `agent_end` (Pi/OMP turn-end; the `response.completed` analogue, fired once per user prompt) by invoking `.lazy-harness/hooks/lifecycle/on-response-completed.sh` with lifecycle JSON, and surface any advisory inject body via a non-steering `pi.sendMessage({ display: true })` (default `sendMessage` appends to the transcript without queuing a continuation, so the post-turn audit cannot loop).
 
 Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must normalize to lazy `bash` before the guard runs. Otherwise shell actions can bypass read-debt enforcement because the canonical helper classifies `bash` as an action tool.
 

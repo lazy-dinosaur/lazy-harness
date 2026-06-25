@@ -7,7 +7,7 @@ Related ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduc
 
 ## Rule digest
 
-- Status: superseded
+- Status: deprecated
 - Layer: SDD
 - Scope: framework-global
 - Applies when:

@@ -265,6 +265,37 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     return undefined;
   });
 
+  pi.on("agent_end", async (event: any, ctx: any) => {
+    const cwd = resolveInvocationCwd(event, ctx);
+    const root = findLazyRoot(cwd);
+    if (!root) return undefined;
+
+    const packet = activePacketsByRoot.get(root)
+      ? activePacketsByRoot.get(root)!
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
+
+    const payload: JsonObject = {
+      event: "response.completed",
+      source: EXTENSION_NAME,
+      session_id: packet.sessionId,
+      message_id: packet.messageId,
+      working_dir: root,
+      recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
+    };
+
+    const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-response-completed.sh");
+    if (!existsSync(script)) return undefined;
+    const hook = runHook(script, payload, root);
+    const body = hookInjectBody(hook.stdout);
+    // agent_end is side-effect only; surface advisory as a non-steering display message.
+    // Default sendMessage (no deliverAs/triggerTurn) appends to the transcript without
+    // queuing a continuation, so this cannot loop.
+    if (body && typeof (pi as any).sendMessage === "function") {
+      (pi as any).sendMessage({ customType: "lazy-harness-advisory", content: body, display: true });
+    }
+    return undefined;
+  });
+
   pi.registerCommand("lazy-map", {
     description: "Run lazy map from the current project root. Usage: /lazy-map --overview --format=md --limit=20",
     handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args || "--overview --format=md --limit=20", ["map"]),

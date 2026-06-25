@@ -4,6 +4,27 @@ Status: accepted
 Layer: SDD
 Date: 2026-05-14
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - a change introduces or modifies exported component props, window controls, or IPC-facing UI control contracts
+  - scroll/window-mode behavior contracts change on an exported React-style component
+- Must:
+  - treat UI component/interface contract changes as SDD candidates, not just backend Zod/tRPC contracts
+  - produce an SDD trigger and update `.lazy-harness/spec` before claiming the work complete
+- Must not:
+  - treat TDD/regression records as a replacement for the SDD update
+  - auto-write host SDD records from the detector without the normal record update flow
+- Record completion:
+  - new component-contract trigger cases update this SDD, the SDD detector, and self-test fixtures
+- Related records:
+  - `.lazy-harness/decisions/0018-cross-layer-cascade.md`
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/plans/timsquad-level-product-maturity-gap-closure.md`
+
 ## Purpose
 
 SDD is triggered not only by backend contracts such as Zod schemas and tRPC procedures, but also by UI component/interface contracts.

@@ -5,6 +5,28 @@
 - Trigger: 사용자 catch — "이거 다시한번 계획들이랑 모든걸 정리해보자... 5c-6 이런건 내가 분명히 빼자고 했었는데?? 문서가 제대로 업데이트 안됬나?? 이게 요구사항의 내용이 중요한거지 피그마가 아니고 말로서 대화하면서 설명할수도 있잔아"
 - Related: ADR 0013 (External Dependency Invariant + Code-First Trigger), ADR 0016 (Lifecycle Hook Strategy)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - a feature proposes a channel-specific input adapter (Figma, Slack, etc.) inside framework core
+  - deciding how user requirements enter framework triggers
+  - handling a Figma URL or natural-language requirement
+- Must:
+  - treat user conversation in any channel as the universal trigger source
+  - read user input from lifecycle payload plus git/AST/lint diff, never by calling external APIs
+- Must not:
+  - create channel-specific external adapter directories in framework core
+  - auto-call external SaaS APIs (e.g. fetch a Figma URL) on detecting input
+- Record completion:
+  - trigger-source decisions update this ADR; remove stale `triggers/external/*` wording from the framework contract
+- Related records:
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+  - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
+  - `.lazy-harness/decisions/0018-cross-layer-cascade.md`
+
 ## Context
 
 ADR 0013 작성 시 사용자 통찰:

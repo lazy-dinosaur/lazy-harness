@@ -5,6 +5,23 @@ Date: 2026-05-20
 Layer: SDD
 Related: `.lazy-harness/spec/platform/project-profile.md`, `.lazy-harness/scripts/knowledge-intake.ts`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - ingesting project documents outside `.lazy-harness` (README, docs, onboarding, briefs) into durable records
+- Must:
+  - stay root-bound unless the user points elsewhere
+  - score freshness/authority/contamination, cluster duplicates, quarantine uncertain facts to `candidates.jsonl` with provenance, and keep an intake ledger
+- Must not:
+  - promote facts to DDD/SDD/BDD/TDD/ADR/SSOT until confirmed by code, tests, records, or the user
+- Record completion:
+  - ingestion contract or trust-policy changes update this SDD and the knowledge-intake implementation
+- Related records:
+  - `.lazy-harness/spec/platform/project-profile.md`
+
 ## Contract
 
 Document Resource Ingestion is a separate framework capability from Project Profile.

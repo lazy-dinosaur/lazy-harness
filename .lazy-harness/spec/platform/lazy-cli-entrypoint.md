@@ -7,6 +7,29 @@ Related SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
 Related SDD: `.lazy-harness/spec/platform/package-health-generate-remediation.md`
 Related ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - reproducing, diagnosing, or recommending lazy-harness validation/self-test for a host
+  - a doc or handoff mentions `bun run lazy:test`/`lazy:doctor` package scripts
+- Must:
+  - use the `.lazy-harness/bin/lazy` dispatcher (version/check/validate/test/doctor) as the current entrypoint
+  - prefer this SDD and current docs over historical `lazy:test`/`lazy:doctor` references
+  - treat `lazy check` as fast static validation only, not equivalent to `lazy test`
+- Must not:
+  - run, recommend, or diagnose with stale `lazy:test`/`lazy:doctor` package-script names
+  - diagnose a missing `package.json` `lazy:test` script as a lazy-harness failure
+- Record completion:
+  - changes to the canonical CLI surface or the stale-name guard update this SDD and self-test
+- Related records:
+  - `.lazy-harness/spec/platform/host-root-resolution.md`
+  - `.lazy-harness/spec/platform/package-health-generate-remediation.md`
+  - `.lazy-harness/spec/platform/bounded-validation-governor.md`
+  - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+
 ## Purpose
 
 The canonical executable entrypoint for installed hosts is the per-host dispatcher:

@@ -22,7 +22,7 @@ const FORBIDDEN_FIELDS = new Set(['requiredRead', 'optionalRead', 'confidence', 
 const LAYERS = ['DDD', 'BDD', 'SDD', 'TDD', 'SSOT'] as const
 
 type Format = 'json' | 'md'
-type SurfaceName = 'map' | 'map_plus_retrieval_audit'
+type SurfaceName = 'map' | 'map_plus_retrieval_audit' | 'no_map'
 type LayerName = typeof LAYERS[number]
 
 interface Args {
@@ -71,6 +71,13 @@ interface QueryBenchmark {
   surfaces: Record<SurfaceName, SurfaceMetric>
 }
 
+interface OverviewCost {
+  command: string
+  helperBytes: number
+  helperEstimatedTokens: number
+  elapsedMs: number
+}
+
 interface RetrievalWorkflowBenchmark {
   schemaVersion: '1.0'
   mode: 'retrieval-workflow-benchmark'
@@ -80,6 +87,7 @@ interface RetrievalWorkflowBenchmark {
   notes: string[]
   policyBoundary: string
   surfaces: QueryBenchmark[]
+  overview: OverviewCost
   summary: {
     queryCount: number
     aggregate: Record<SurfaceName, {
@@ -92,9 +100,22 @@ interface RetrievalWorkflowBenchmark {
       totalEstimatedTokens: number
       fullLayerCoverageCount: number
     }>
+    mapInclusive: {
+      helperEstimatedTokens: number
+      followupEstimatedTokens: number
+      totalEstimatedTokens: number
+    }
     deltas: {
       mapPlusRetrievalAuditVsMap: {
         helperCallDelta: number
+        helperTokenDelta: number
+        totalTokenDelta: number
+      }
+      noMapVsMap: {
+        helperTokenDelta: number
+        totalTokenDelta: number
+      }
+      noMapVsMapInclusive: {
         helperTokenDelta: number
         totalTokenDelta: number
       }
@@ -150,6 +171,40 @@ function parseQueries(value: string): string[] {
 
 function estimateTokensFromBytes(bytes: number): number {
   return Math.ceil(bytes / 4)
+}
+
+const NO_MAP_DIRS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot', 'planning']
+
+function runGrepNoMap(root: string, query: string): { recordPaths: string[]; bytes: number; elapsedMs: number } {
+  const terms = unique(query.split(/[-\s]+/).filter((term) => term.length > 1))
+  const pattern = terms.length ? terms.join('|') : query
+  const dirs = NO_MAP_DIRS
+    .map((dir) => `.lazy-harness/${dir}`)
+    .filter((dir) => existsSync(path.join(root, dir)))
+  const start = performance.now()
+  const completed = spawnSync('grep', ['-rliE', pattern, ...dirs], {
+    cwd: root,
+    env: { ...process.env },
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const elapsedMs = Math.round((performance.now() - start) * 100) / 100
+  if (completed.status !== 0 && completed.status !== 1) {
+    throw new Error(`grep no-map failed with exit ${completed.status}:\n${completed.stdout || ''}${completed.stderr || ''}`)
+  }
+  const stdout = completed.stdout || ''
+  const recordPaths = unique(stdout.split('\n').map((line) => line.trim()).filter(Boolean)).sort()
+  return { recordPaths, bytes: Buffer.byteLength(stdout, 'utf8'), elapsedMs }
+}
+
+function measureOverview(root: string, limit: number): OverviewCost {
+  const overview = runLazyJson(root, ['map', '--overview', '--format=json', `--limit=${limit}`, '--fresh'])
+  return {
+    command: `lazy map --overview --format=json --limit=${limit} --fresh`,
+    helperBytes: overview.bytes,
+    helperEstimatedTokens: estimateTokensFromBytes(overview.bytes),
+    elapsedMs: overview.elapsedMs,
+  }
 }
 
 function unique(values: Array<string | undefined | null>): string[] {
@@ -289,12 +344,15 @@ function measureQuery(root: string, query: string, limit: number): QueryBenchmar
   const mapCandidates = candidatesFromMap(map.payload)
   const retrievalCandidates = candidatesFromStandard(retrieval.payload)
   const merged = mergeCandidates(mapCandidates, retrievalCandidates)
+  const noMap = runGrepNoMap(root, query)
+  const noMapCandidates: Candidates = { recordPaths: noMap.recordPaths, sourceFiles: [], testFiles: [], graphIds: [] }
 
   return {
     query,
     surfaces: {
       map: metric('map', 1, map.bytes, map.elapsedMs, resultState(map.payload), mapCandidates, root),
       map_plus_retrieval_audit: metric('map_plus_retrieval_audit', 2, map.bytes + retrieval.bytes, map.elapsedMs + retrieval.elapsedMs, resultState(retrieval.payload), merged, root),
+      no_map: metric('no_map', 1, noMap.bytes, noMap.elapsedMs, 'grep-fallback', noMapCandidates, root),
     },
   }
 }
@@ -315,8 +373,16 @@ function aggregate(surfaces: QueryBenchmark[], name: SurfaceName): RetrievalWork
 
 function buildBenchmark(root: string, queries: string[], limit: number): RetrievalWorkflowBenchmark {
   const surfaces = queries.map((query) => measureQuery(root, query, limit))
+  const overview = measureOverview(root, limit)
   const aggregateMap = aggregate(surfaces, 'map')
   const aggregateMapRetrieval = aggregate(surfaces, 'map_plus_retrieval_audit')
+  const aggregateNoMap = aggregate(surfaces, 'no_map')
+  const overviewTokensPerTask = overview.helperEstimatedTokens * surfaces.length
+  const mapInclusive = {
+    helperEstimatedTokens: aggregateMap.helperEstimatedTokens + overviewTokensPerTask,
+    followupEstimatedTokens: aggregateMap.followupEstimatedTokens,
+    totalEstimatedTokens: aggregateMap.totalEstimatedTokens + overviewTokensPerTask,
+  }
   return {
     schemaVersion: '1.0',
     mode: 'retrieval-workflow-benchmark',
@@ -325,24 +391,37 @@ function buildBenchmark(root: string, queries: string[], limit: number): Retriev
     limit,
     notes: [
       'measurement-only; cues are not semantic authority',
-      'post-overview helper comparison only; lazy map --overview remains mandatory/common',
+      'map and map_plus_retrieval_audit are post-overview helper paths; no_map is the AGENTS.md root-bound grep fallback that skips lazy map entirely',
+      'overview reports the otherwise-excluded mandatory lazy map --overview cost; mapInclusive adds it back per task so map is compared against no_map honestly',
+      'no_map uses a deterministic term-alternation grep proxy over record dirs; conservative cost proxy, not optimal agent behavior or proof that skipping map is permitted',
       'follow-up reads are deterministic cost proxies, not proof of sufficient evidence',
       'graph query/path/explain CLI has been removed from the default retrieval workflow',
-      'does not change lifecycle/prompt/overview policy',
+      'does not change lifecycle/prompt/overview policy; message.received still mandates map-first',
     ],
     policyBoundary: 'measurement-only; does not change lifecycle/prompt/overview policy or replace real record/source/test reads',
     surfaces,
+    overview,
     summary: {
       queryCount: surfaces.length,
       aggregate: {
         map: aggregateMap,
         map_plus_retrieval_audit: aggregateMapRetrieval,
+        no_map: aggregateNoMap,
       },
+      mapInclusive,
       deltas: {
         mapPlusRetrievalAuditVsMap: {
           helperCallDelta: aggregateMapRetrieval.helperCalls - aggregateMap.helperCalls,
           helperTokenDelta: aggregateMapRetrieval.helperEstimatedTokens - aggregateMap.helperEstimatedTokens,
           totalTokenDelta: aggregateMapRetrieval.totalEstimatedTokens - aggregateMap.totalEstimatedTokens,
+        },
+        noMapVsMap: {
+          helperTokenDelta: aggregateNoMap.helperEstimatedTokens - aggregateMap.helperEstimatedTokens,
+          totalTokenDelta: aggregateNoMap.totalEstimatedTokens - aggregateMap.totalEstimatedTokens,
+        },
+        noMapVsMapInclusive: {
+          helperTokenDelta: aggregateNoMap.helperEstimatedTokens - mapInclusive.helperEstimatedTokens,
+          totalTokenDelta: aggregateNoMap.totalEstimatedTokens - mapInclusive.totalEstimatedTokens,
         },
       },
     },
@@ -357,20 +436,27 @@ function renderMarkdown(benchmark: RetrievalWorkflowBenchmark): string {
   lines.push(`- queries: ${benchmark.querySet.length}`)
   lines.push(`- limit: ${benchmark.limit}`)
   lines.push(`- policy: ${benchmark.policyBoundary}`)
+  lines.push(`- overview (mandatory per task): ${benchmark.overview.helperEstimatedTokens} tokens (${benchmark.overview.helperBytes} bytes, ${benchmark.overview.elapsedMs}ms)`)
   lines.push('')
   lines.push('## Aggregate')
   lines.push('')
   lines.push('| Surface | Helper calls | Helper tokens | Follow-up reads | Follow-up tokens | Total tokens | Full layer coverage |')
   lines.push('|---|---:|---:|---:|---:|---:|---:|')
-  for (const name of ['map', 'map_plus_retrieval_audit'] as SurfaceName[]) {
+  for (const name of ['map', 'map_plus_retrieval_audit', 'no_map'] as SurfaceName[]) {
     const item = benchmark.summary.aggregate[name]
     lines.push(`| ${name} | ${item.helperCalls} | ${item.helperEstimatedTokens} | ${item.followupReadCount} | ${item.followupEstimatedTokens} | ${item.totalEstimatedTokens} | ${item.fullLayerCoverageCount}/${benchmark.summary.queryCount} |`)
   }
+  const inclusive = benchmark.summary.mapInclusive
+  lines.push(`| map+overview (per task) | - | ${inclusive.helperEstimatedTokens} | - | ${inclusive.followupEstimatedTokens} | ${inclusive.totalEstimatedTokens} | - |`)
   lines.push('')
   lines.push('## Deltas')
   lines.push('')
   lines.push(`- map_plus_retrieval_audit vs map helper call delta: ${benchmark.summary.deltas.mapPlusRetrievalAuditVsMap.helperCallDelta}`)
   lines.push(`- map_plus_retrieval_audit vs map total token delta: ${benchmark.summary.deltas.mapPlusRetrievalAuditVsMap.totalTokenDelta}`)
+  lines.push(`- no_map vs map helper token delta: ${benchmark.summary.deltas.noMapVsMap.helperTokenDelta}`)
+  lines.push(`- no_map vs map total token delta: ${benchmark.summary.deltas.noMapVsMap.totalTokenDelta}`)
+  lines.push(`- no_map vs map+overview helper token delta: ${benchmark.summary.deltas.noMapVsMapInclusive.helperTokenDelta}`)
+  lines.push(`- no_map vs map+overview total token delta: ${benchmark.summary.deltas.noMapVsMapInclusive.totalTokenDelta}`)
   lines.push('')
   lines.push('## Per query')
   for (const query of benchmark.surfaces) {
@@ -378,7 +464,7 @@ function renderMarkdown(benchmark: RetrievalWorkflowBenchmark): string {
     lines.push(`### ${query.query}`)
     lines.push('| Surface | State | Helper tokens | Follow-up reads | Total tokens | Missing layers |')
     lines.push('|---|---|---:|---:|---:|---|')
-    for (const name of ['map', 'map_plus_retrieval_audit'] as SurfaceName[]) {
+    for (const name of ['map', 'map_plus_retrieval_audit', 'no_map'] as SurfaceName[]) {
       const item = query.surfaces[name]
       lines.push(`| ${name} | ${item.resultState} | ${item.helperEstimatedTokens} | ${item.followupRead.readCount} | ${item.totalEstimatedTokens} | ${item.followupRead.missingLayers.join(', ') || '-'} |`)
     }

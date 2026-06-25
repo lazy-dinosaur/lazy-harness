@@ -68,7 +68,7 @@ Minimal shape:
 
 - Status: active | advisory | deprecated | reverted | needs-review
 - Layer: DDD | SDD | BDD | TDD | ADR | SSOT | Planning
-- Scope: framework-global | host-project | team-policy | layer-fact | transient-plan | jcode-local
+- Scope: framework-global | host-project | team-policy | layer-fact | transient-plan | local-only
 - Applies when:
   - natural-language trigger or intent cue
   - artifact/action/context cue
@@ -98,7 +98,7 @@ Recommended compact example:
   - consult this SSOT before deciding or implementing
   - update this SSOT when the user confirms an ownership/source-of-truth correction
 - Must not:
-  - store project/team policy only in `.jcode` or Jcode memory
+  - store project/team policy only in Pi/OMP local notes
 - Record completion:
   - confirmed corrections update this record or a more specific SSOT
 - Related records:
@@ -138,7 +138,7 @@ Use the same scope vocabulary as Project Rule Router:
 - `team-policy`
 - `layer-fact`
 - `transient-plan`
-- `jcode-local`
+- `local-only`
 
 If ambiguous, do not guess. Use an option gate before committing canonical scope.
 
@@ -243,7 +243,7 @@ Explicit relevant-record helper output should render digest entries like this:
 Explicit relevant-record helper output
 - Helper only: do not treat this digest as semantic authority; perform direct root-bound search/read when host detail or ambiguity remains.
 - `.lazy-harness/spec/platform/project-rule-router.md` — Project Rule Router
-  - Route confirmed project/team rules to canonical `.lazy-harness` records, not `.jcode` or memory.
+  - Route confirmed project/team rules to canonical `.lazy-harness` records, not Pi/OMP local notes.
   - If placement is ambiguous, stop with an option gate.
 - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — Organic Hybrid Rule Guidance
   - Use pre-response direct-search prompting and response audit, not hidden semantic backends or tool-specific project-policy branches.
@@ -327,7 +327,7 @@ A response audit implementation SHOULD:
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/record-digest-format.md`
 - Why not AGENTS.md: this is a platform contract for record format, not operational grammar for all turns.
-- Why not `.jcode`: digest format is shared lazy-harness framework behavior, not local/private Jcode policy.
+- Why not local notes: digest format is shared lazy-harness framework behavior, not local/private Pi/OMP policy.
 - Confirmation: user-confirmed direction via ADR 0041 and active transition plan.
 
 ## Discovery capture

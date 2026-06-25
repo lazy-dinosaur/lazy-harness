@@ -11,6 +11,7 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 ## Rule digest
 
 - Status: active
+- Layer: SDD
 - Scope: framework-global
 - Applies when:
   - `.lazy-harness` is symlinked across git worktrees

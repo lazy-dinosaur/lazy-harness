@@ -8,6 +8,28 @@ Replacement SDD: `.lazy-harness/spec/platform/response-rule-audit.md`
 Related ADR: `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md`
 Superseded by: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 
+## Rule digest
+
+- Status: deprecated
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - working on PR-body rule enforcement or the legacy rule-action-boundary helper
+  - asking why tool-attached `gh pr` PR-body denial was replaced by digest + response audit
+- Must:
+  - surface PR description guidance via relevant-record digest before response; audit catches ignored PR rules
+  - keep `check-rule-action-boundary.py` a no-op shim and the generated Jcode bash hook safety-only
+- Must not:
+  - encode project policy as bash/GH-specific tool adapters or block `gh pr create/edit` from the legacy helper
+- Record completion:
+  - PR-body rule protection now lives in the response-rule-audit TDD/SDD; update those on change
+- Related records:
+  - `.lazy-harness/spec/platform/response-rule-audit.md`
+  - `.lazy-harness/spec/platform/rule-binding-action-boundary.md`
+  - `.lazy-harness/ssot/rule-lifecycle.md`
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+  - `.lazy-harness/decisions/0039-rule-lifecycle-bindings.md`
+
 ## Regression
 
 A stored PR body rule can be missed if the agent does not recall the host record before creating or editing a PR.
@@ -16,7 +38,7 @@ This original regression remains important. Phase 5 changes the protection mecha
 
 ## Superseded protection
 
-Before Phase 5, a host with `.lazy-harness/ssot/pr-description-format.md` caused `gh pr create` / `gh pr edit` bash commands with malformed bodies to be denied by `check-rule-action-boundary.py`.
+Before Phase 5, a host with a stored PR description format rule caused `gh pr create` / `gh pr edit` bash commands with malformed bodies to be denied by `check-rule-action-boundary.py`.
 
 That tool-attached protection is now superseded because project policy should not be encoded as bash/GH-specific adapters.
 

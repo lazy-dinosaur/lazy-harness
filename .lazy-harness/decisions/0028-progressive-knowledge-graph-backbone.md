@@ -7,6 +7,29 @@
 - **Spec**: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 - **SSOT**: `.lazy-harness/ssot/knowledge-graph-storage.md`
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - capturing, querying, correcting, or validating reusable project knowledge
+  - designing knowledge-graph storage, candidate capture, or confirmation flow
+  - representing DDD/SDD/BDD/TDD/ADR/SSOT facts as machine-readable records
+- Must:
+  - store knowledge as graph records (layer/subject/predicate/object/evidence/links/status/provenance); human docs are projections
+  - require explicit confirmation before candidates become canonical graph facts
+  - correct wrong knowledge via conflict/supersession records, not silent overwrite
+  - rely on M45 private instructions for record-first behavior, not blocking source-search hooks
+- Must not:
+  - let `--plan` or `--capture` write the canonical graph, or overwrite confirmed records
+- Record completion:
+  - graph schema/CLI or storage changes update this ADR plus the knowledge-graph SDD and SSOT records
+- Related records:
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - `.lazy-harness/ssot/knowledge-graph-storage.md`
+  - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+
 ## Context
 
 Dogfooding showed two gaps:

@@ -727,7 +727,7 @@ def check_analysis_discovery_capture_helper() -> None:
 
 
 def check_project_rule_placement_helper() -> None:
-    """Project-specific rules must route to .lazy-harness or explicit jcode-local judgement."""
+    """Project-specific rules must route to .lazy-harness or explicit local-only judgement."""
     state_file = runtime_open_gates_file(ROOT)
     state_file.parent.mkdir(parents=True, exist_ok=True)
     backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None
@@ -747,21 +747,21 @@ def check_project_rule_placement_helper() -> None:
 def _check_project_rule_placement_helper_cases() -> None:
     blocked_payload = {
         "assistant_response": (
-            "프로젝트마다 규칙이 다르니까 이 프로젝트 규칙은 .jcode/harness/20-project-rules.md 에 추가하겠습니다."
+            "프로젝트마다 규칙이 다르니까 이 프로젝트 규칙은 .pi/APPEND_SYSTEM.md 에 추가하겠습니다."
         ),
         "message_id": "project-rule-test-blocked",
         "recent_tool_calls": [{
             "name": "Edit",
-            "args_preview": ".jcode/harness/20-project-rules.md",
+            "args_preview": ".pi/APPEND_SYSTEM.md",
         }],
     }
     blocked = run_project_rule_placement_helper(blocked_payload)
     if "Project rule placement gate" not in blocked or "Rule placement" not in blocked:
-        fail("project rule placement helper did not block uncategorized .jcode project rule:\n" + blocked)
+        fail("project rule placement helper did not block uncategorized local-private project rule:\n" + blocked)
 
     memory_blocked_payload = {
         "assistant_response": (
-            "알겠어. 프로젝트 메모리에 저장해뒀어. 앞으로 bun wt new 후 Jcode cwd 를 새 worktree 로 옮길게."
+            "알겠어. 프로젝트 메모리에 저장해뒀어. 앞으로 bun wt new 후 Pi/OMP cwd 를 새 worktree 로 옮길게."
         ),
         "message_id": "project-rule-test-memory",
         "recent_tool_calls": [{
@@ -769,21 +769,21 @@ def _check_project_rule_placement_helper_cases() -> None:
             "args": {
                 "action": "remember",
                 "category": "preference",
-                "content": "HostApp worktree workflow: after creating a worktree with bun wt new, immediately switch Jcode cwd to the new worktree.",
+                "content": "HostApp worktree workflow: after creating a worktree with bun wt new, immediately switch Pi/OMP cwd to the new worktree.",
                 "scope": "project",
             },
         }],
     }
     memory_blocked = run_project_rule_placement_helper(memory_blocked_payload)
     if "Project rule placement gate" not in memory_blocked or "memory forget" not in memory_blocked:
-        fail("project rule placement helper did not block project rule stored in Jcode memory:\n" + memory_blocked)
+        fail("project rule placement helper did not block project rule stored in Pi/OMP memory:\n" + memory_blocked)
 
     loop_payload = {
-        "last_user_message": "이 프로젝트 규칙은 .jcode가 아니라 SSOT에 기록해야 해.",
+        "last_user_message": "이 프로젝트 규칙은 .pi/APPEND_SYSTEM.md가 아니라 SSOT에 기록해야 해.",
         "message_id": "project-rule-test-loop",
         "recent_tool_calls": [{
             "name": "Edit",
-            "args_preview": ".jcode/harness/20-project-rules.md",
+            "args_preview": ".pi/APPEND_SYSTEM.md",
         }],
     }
     first_loop = run_project_rule_placement_helper(loop_payload)
@@ -808,10 +808,10 @@ def _check_project_rule_placement_helper_cases() -> None:
         fail("project rule placement helper should ignore its own STOP reminder echoed as user input:\n" + self_reminder_echo)
     assistant_discussion_payload = {
         "assistant_response": (
-            "STOP. Project rule placement gate 문구를 분석했지만, 실제로는 .jcode에 프로젝트 규칙을 기록하려고 합니다."
+            "STOP. Project rule placement gate 문구를 분석했지만, 실제로는 .pi/APPEND_SYSTEM.md에 프로젝트 규칙을 기록하려고 합니다."
         ),
         "message_id": "project-rule-assistant-discussion-not-echo",
-        "recent_tool_calls": [{"name": "Edit", "args_preview": ".jcode/harness/20-project-rules.md"}],
+        "recent_tool_calls": [{"name": "Edit", "args_preview": ".pi/APPEND_SYSTEM.md"}],
     }
     assistant_discussion = run_project_rule_placement_helper(assistant_discussion_payload)
     if "Project rule placement gate" not in assistant_discussion:
@@ -836,21 +836,21 @@ def _check_project_rule_placement_helper_cases() -> None:
     local_payload = {
         "assistant_response": (
             "## Rule placement\n"
-            "- Rule: local Jcode workflow preference.\n"
-            "- Scope: jcode-local\n"
-            "- Primary record: .jcode/harness/20-project-rules.md\n"
+            "- Rule: local-only workflow preference.\n"
+            "- Scope: local-only\n"
+            "- Primary record: .pi/APPEND_SYSTEM.md\n"
             "- Why not AGENTS.md: not framework-global.\n"
             "- Why not `.jcode`: it is intentionally local-only.\n"
             "- Confirmation: user-confirmed\n"
         ),
         "recent_tool_calls": [{
             "name": "Edit",
-            "args_preview": ".jcode/harness/20-project-rules.md",
+            "args_preview": ".pi/APPEND_SYSTEM.md",
         }],
     }
     local = run_project_rule_placement_helper(local_payload)
     if local.strip():
-        fail("project rule placement helper should pass with jcode-local judgement:\n" + local)
+        fail("project rule placement helper should pass with local-only judgement:\n" + local)
 
     planning_payload = {
         "assistant_response": "이 프로젝트 규칙 개선은 backlog 로 남겼습니다.",
@@ -1563,261 +1563,6 @@ def check_bounded_validation_governor_cli() -> None:
     print("✓ bounded validation governor CLI ok")
 
 
-def check_skill_create_cli() -> None:
-    """Custom project skill generator creates wrappers, optional scripts, and metadata."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy_skill_create_"))
-    try:
-        (temp / ".lazy-harness" / "knowledge").mkdir(parents=True)
-        command = [
-            "bun",
-            ".lazy-harness/scripts/skill-create.ts",
-            "create",
-            "release-workflow",
-            "--target",
-            str(temp),
-            "--description",
-            "Release workflow helper",
-            "--usage",
-            "bun release test",
-            "--script",
-            "run.sh",
-        ]
-        completed = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("skill-create command failed:\nSTDOUT:\n" + completed.stdout + "\nSTDERR:\n" + completed.stderr)
-
-        skill = temp / ".jcode" / "skills" / "release-workflow" / "SKILL.md"
-        script = temp / ".jcode" / "skills" / "release-workflow" / "scripts" / "run.sh"
-        log = temp / ".lazy-harness" / "knowledge" / "skills.jsonl"
-        if not skill.exists() or not script.exists() or not log.exists():
-            fail("skill-create did not create expected files")
-        skill_text = skill.read_text(encoding="utf-8")
-        if not skill_text.startswith("---\nname: release-workflow") or "Generated by lazy-harness" not in skill_text:
-            fail("generated SKILL.md frontmatter/marker changed:\n" + skill_text)
-        script_text = script.read_text(encoding="utf-8")
-        if not script_text.startswith("#!/usr/bin/env bash") or "Generated by lazy-harness" not in script_text:
-            fail("generated script shebang/marker changed:\n" + script_text)
-        entries = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
-        if len(entries) != 1 or entries[0].get("skillName") != "release-workflow" or entries[0].get("scriptPath") != ".jcode/skills/release-workflow/scripts/run.sh":
-            fail("skills.jsonl metadata changed: " + json.dumps(entries, ensure_ascii=False))
-
-        user_owned = temp / ".jcode" / "skills" / "manual-skill" / "SKILL.md"
-        user_owned.parent.mkdir(parents=True)
-        user_owned.write_text("# user owned\n", encoding="utf-8")
-        blocked = subprocess.run(
-            ["bun", ".lazy-harness/scripts/skill-create.ts", "create", "manual-skill", "--target", str(temp)],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if blocked.returncode != 3 or "Refusing to overwrite user-owned file" not in blocked.stderr:
-            fail("skill-create should refuse user-owned skill overwrite:\n" + blocked.stdout + blocked.stderr)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ custom skill create CLI ok")
-
-def check_jcode_wiring_pointer_only() -> None:
-    """Generated .jcode project-rules file must not invite host-rule bodies."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        "pointer-only by default",
-        "Do not store host/team rule bodies here",
-        ".lazy-harness/ssot/rule-sources.md",
-        "Scope: jcode-local",
-        "migrateProjectRulesPointerOnly",
-        "20-project-rules.pre-pointer-only-migration.md",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring template missing pointer-only guard phrases: " + json.dumps(missing, ensure_ascii=False))
-    forbidden = [
-        "Add project-specific workflow notes here",
-        "Add project-specific discoveries in `.jcode/harness/20-project-rules.md`",
-    ]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("jcode wiring template still invites rule-body pollution: " + json.dumps(leaked, ensure_ascii=False))
-    print("✓ jcode wiring pointer-only template ok")
-
-
-def check_jcode_wiring_repairs_stale_defaults() -> None:
-    """Markerless old generated .jcode defaults must be archived and refreshed."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-wiring-"))
-    try:
-        (temp / ".lazy-harness").mkdir(parents=True)
-        shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
-        (temp / ".jcode" / "harness").mkdir(parents=True)
-        (temp / ".jcode" / "hooks").mkdir(parents=True)
-
-        (temp / ".jcode" / "AGENTS.md").write_text(
-            "# Private Jcode Harness\n\n"
-            "This directory is Lazydino's private project-local harness for Jcode.\n"
-            "experimental-lazy-harness /harness-doctor Phase 5 ADR 0007 C1~C16\n",
-            encoding="utf-8",
-        )
-        (temp / ".jcode" / "config.toml").write_text(
-            "# Project-local Jcode harness config.\n"
-            "[prompt]\nignore_project_agents = true\n"
-            "private_instructions = [\"rules/*.md\", \"monorepo/*/AGENTS.md\", \"missing/*.md\",\"AGENTS.md\"]\n"
-            "[[hooks.commands]]\nevent = \"session.stop\"\ncommand = \".jcode/hooks/test-session-stop.sh\"\n",
-            encoding="utf-8",
-        )
-        (temp / ".jcode" / "harness" / "05-lazy-harness.md").write_text(
-            "# Lazy-Harness AI 행동 양식\n\n## 2. 4 단계 흐름 (작업 시작 ~ 종료)\n",
-            encoding="utf-8",
-        )
-        (temp / ".jcode" / "harness" / "10-routing-policy.md").write_text(
-            "# Jcode Agent Routing Policy\n\nUse the configured Jcode agent profiles intentionally.\n"
-            "## Model/persona guidance\nConcrete implementation, backend edits, command execution, and validation loops\n",
-            encoding="utf-8",
-        )
-        (temp / ".jcode" / "hooks" / "check-bash.sh").write_text(
-            "#!/usr/bin/env bash\necho custom-user-owned-hook\n",
-            encoding="utf-8",
-        )
-        for skill_name in ["lazy-init", "lazy-sync"]:
-            skill_dir = temp / ".jcode" / "skills" / skill_name
-            skill_dir.mkdir(parents=True)
-            skill_dir.joinpath("SKILL.md").write_text(
-                f"---\nname: {skill_name}\n---\n\n# {skill_name}\n\n"
-                "Do not edit generated framework files directly in the host; use lazy update/sync.\n"
-                "See framework-contract.md and /harness-update.\n",
-                encoding="utf-8",
-            )
-
-        code = (
-            "import { installJcodeWiring } from './.lazy-harness/scripts/jcode-wiring.ts';"
-            f"installJcodeWiring({{ targetRoot: {json.dumps(str(temp))}, quiet: true }});"
-        )
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode wiring repair import/run failed:\n" + completed.stdout + completed.stderr)
-
-        generated_marker = "Generated by lazy-harness. Local edits below this line make the file user-owned."
-        refreshed = [
-            temp / ".jcode" / "AGENTS.md",
-            temp / ".jcode" / "config.toml",
-            temp / ".jcode" / "harness" / "10-routing-policy.md",
-        ]
-        for path in refreshed:
-            content = path.read_text(encoding="utf-8")
-            if generated_marker not in content:
-                fail(f"stale markerless generated default was not refreshed with marker: {path}")
-
-        instruction = temp / ".jcode" / "harness" / "05-lazy-harness.md"
-        if instruction.is_symlink():
-            fail("05-lazy-harness should be pointer-only regular file, not symlink")
-        content = instruction.read_text(encoding="utf-8")
-        if generated_marker not in content:
-            fail("05-lazy-harness pointer-only file missing generated marker")
-        if "Lazy-Harness Pointer" not in content or "pointer-only" not in content:
-            fail("05-lazy-harness did not refresh to pointer-only instruction")
-        if "4 단계 흐름" in content or "Default = 모름" in content:
-            fail("05-lazy-harness pointer-only file duplicated full lazy-harness grammar")
-
-        archive = temp / ".jcode" / "archive"
-        archived_names = {p.name for p in archive.iterdir()} if archive.exists() else set()
-        required_archives = {
-            "AGENTS.md.pre-generated-marker",
-            "config.toml.pre-generated-marker",
-            "05-lazy-harness.md.pre-pointer-only",
-            "10-routing-policy.md.pre-generated-marker",
-        }
-        missing_archives = sorted(required_archives - archived_names)
-        if missing_archives:
-            fail("jcode stale repair did not archive old defaults: " + json.dumps(missing_archives, ensure_ascii=False))
-        skill_archives = sorted(p.name for p in archive.iterdir() if p.name.startswith("SKILL.md.pre-generated-marker"))
-        if len(skill_archives) < 2:
-            fail("jcode stale repair overwrote colliding SKILL.md archives: " + json.dumps(skill_archives, ensure_ascii=False))
-
-        custom_hook = (temp / ".jcode" / "hooks" / "check-bash.sh").read_text(encoding="utf-8")
-        if "custom-user-owned-hook" not in custom_hook:
-            fail("jcode repair overwrote a markerless custom user-owned hook")
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode stale default repair ok")
-
-
-def check_jcode_wiring_repairs_markerless_bash_hook_default() -> None:
-    """Markerless generated bash hook defaults must be refreshed, not treated as user-owned."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-bash-hook-"))
-    try:
-        (temp / ".lazy-harness").mkdir(parents=True)
-        shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
-        (temp / ".jcode" / "hooks").mkdir(parents=True)
-        (temp / ".jcode" / "hooks" / "check-bash.sh").write_text(
-            "#!/usr/bin/env bash\n"
-            "set -euo pipefail\n"
-            "payload=$(cat || true)\n"
-            "python3 - <<'PY'\n"
-            "print('Refusing rm -rf /')\n"
-            "print('Refusing filesystem creation on block device')\n"
-            "PY\n",
-            encoding="utf-8",
-        )
-
-        code = (
-            "import { installJcodeWiring } from './.lazy-harness/scripts/jcode-wiring.ts';"
-            f"installJcodeWiring({{ targetRoot: {json.dumps(str(temp))}, quiet: true }});"
-        )
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode wiring bash hook repair import/run failed:\n" + completed.stdout + completed.stderr)
-
-        hook = (temp / ".jcode" / "hooks" / "check-bash.sh").read_text(encoding="utf-8")
-        if "Generated by lazy-harness" not in hook or "Refusing raw disk overwrite" not in hook or "check-rule-action-boundary.py" in hook:
-            fail("markerless generated bash hook was not refreshed with safety-only wiring:\n" + hook)
-        archive = temp / ".jcode" / "archive"
-        archived_names = {p.name for p in archive.iterdir()} if archive.exists() else set()
-        if "check-bash.sh.pre-generated-marker" not in archived_names:
-            fail("markerless generated bash hook repair did not archive previous hook: " + json.dumps(sorted(archived_names), ensure_ascii=False))
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode markerless bash hook repair ok")
-
-
-def check_jcode_wiring_removes_rejected_layer2_block() -> None:
-    """Rejected hard-gate experiment block must be removed from user-owned configs."""
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-rejected-layer2-"))
-    try:
-        (temp / ".lazy-harness").mkdir(parents=True)
-        shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
-        (temp / ".jcode").mkdir(parents=True)
-        config = temp / ".jcode" / "config.toml"
-        config.write_text(
-            "# user-owned config\n"
-            "[prompt]\n"
-            "custom_local_flag = true\n\n"
-            "# BEGIN lazy-harness mandatory Layer 2 force-gates\n"
-            "[[hooks.commands]]\n"
-            "event = \"tool.execute.before\"\n"
-            "tool = \"edit\"\n"
-            "command = \".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh\"\n"
-            "blocking = true\n"
-            "timeout_ms = 3000\n"
-            "# END lazy-harness mandatory Layer 2 force-gates\n\n"
-            "[hooks]\n"
-            "enabled = true\n",
-            encoding="utf-8",
-        )
-        code = (
-            "import { installJcodeWiring } from './.lazy-harness/scripts/jcode-wiring.ts';"
-            f"installJcodeWiring({{ targetRoot: {json.dumps(str(temp))}, quiet: true }});"
-        )
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode rejected Layer 2 cleanup import/run failed:\n" + completed.stdout + completed.stderr)
-        updated = config.read_text(encoding="utf-8")
-        if "custom_local_flag = true" not in updated:
-            fail("rejected Layer 2 cleanup overwrote user-owned config content:\n" + updated)
-        if "mandatory Layer 2 force-gates" in updated or 'tool = "edit"' in updated:
-            fail("rejected Layer 2 cleanup left hard-gate block behind:\n" + updated)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode rejected Layer 2 block cleanup ok")
-
-
 def check_pi_package_layout_and_contract() -> None:
     """Pi package must expose native package resources and bridge lazy lifecycle hooks."""
     pkg_root = ROOT / "packages" / "lazy-harness-pi"
@@ -1865,8 +1610,10 @@ def check_pi_package_layout_and_contract() -> None:
         "before_agent_start",
         "tool_call",
         "tool_result",
+        "agent_end",
         "on-message-received.sh",
         "on-tool-execute-before.sh",
+        "on-response-completed.sh",
         "recent_tool_calls",
         "rememberToolCall",
         "block: true",
@@ -2335,116 +2082,22 @@ def check_pi_package_layout_and_contract() -> None:
     print("✓ Pi package layout and extension contract ok")
 
 
-def check_jcode_wiring_message_received_hook() -> None:
-    """Generated and user-owned Jcode configs must wire static harness prompt plus generic search/read evidence guard."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        'event = \\"message.received\\"',
-        'command = \\".lazy-harness/hooks/lifecycle/on-message-received.sh\\"',
-        'blocking = true',
-        'timeout_ms = 800',
-        'ensureMessageReceivedHook',
-        'ensureReadDebtPermitHook',
-        'not a user-text classifier',
-        'Generic pre-action search/read evidence guard',
-        'It does not perform semantic',
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing message.received hook contract: " + json.dumps(missing, ensure_ascii=False))
-    forbidden = [
-        'cleanupReadDebt' + 'PermitHook',
-        'tool-specific policy adapter',
-        'Aliases and implementation ' + 'hints from',
-    ]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("jcode wiring must not install tool-specific adapters or framework search implementation: " + json.dumps(leaked, ensure_ascii=False))
-
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-message-received-"))
-    try:
-        (temp / ".lazy-harness").mkdir(parents=True)
-        shutil.copy2(LAZY / "AGENTS.md", temp / ".lazy-harness" / "AGENTS.md")
-        (temp / ".jcode").mkdir(parents=True)
-        config = temp / ".jcode" / "config.toml"
-        config.write_text(
-            "# user-owned config\n"
-            "[prompt]\n"
-            "custom_local_flag = true\n\n"
-            "[hooks]\n"
-            "enabled = true\n",
-            encoding="utf-8",
-        )
-        code = (
-            "import { installJcodeWiring } from './.lazy-harness/scripts/jcode-wiring.ts';"
-            f"installJcodeWiring({{ targetRoot: {json.dumps(str(temp))}, quiet: true }});"
-        )
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode message.received wiring import/run failed:\n" + completed.stdout + completed.stderr)
-        updated = config.read_text(encoding="utf-8")
-        if "custom_local_flag = true" not in updated:
-            fail("message.received hook patch overwrote user-owned config content:\n" + updated)
-        for phrase in [
-            'event = "message.received"', 'on-message-received.sh', 'blocking = true', 'timeout_ms = 800',
-            'event = "tool.execute.before"', 'tool = "*"', 'on-tool-execute-before.sh', 'timeout_ms = 1200',
-        ]:
-            if phrase not in updated:
-                fail("jcode direct-search/read guard patch missing phrase " + phrase + ":\n" + updated)
-
-        legacy_message = temp / ".jcode" / "config.toml"
-        legacy_message.write_text(updated.replace(
-            "# BEGIN lazy-harness message.received static-harness hook\n"
-            "# Bounded pre-turn static harness inventory/search prompt and search-debt journal.\n"
-            "# This is not a semantic search backend, not a user-text classifier, not a tool\n"
-            "# allowlist, and not a broad edit gate; timeout/failure is fail-open.\n",
-            "# BEGIN lazy-harness message.received context hook\n"
-            "# Bounded pre-turn relevant-record context injection. This is not a broad edit\n"
-            "# gate; timeout/failure is handled fail-open by Jcode and the hook.\n",
-        ).replace(
-            "# END lazy-harness message.received static-harness hook",
-            "# END lazy-harness message.received context hook",
-        ), encoding="utf-8")
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode legacy message.received refresh import/run failed:\n" + completed.stdout + completed.stderr)
-        refreshed_message = legacy_message.read_text(encoding="utf-8")
-        if "message.received context hook" in refreshed_message or "relevant-record context injection" in refreshed_message:
-            fail("jcode wiring failed to refresh stale message.received context hook marker:\n" + refreshed_message)
-        if refreshed_message.count("on-message-received.sh") != 1 or "message.received static-harness hook" not in refreshed_message:
-            fail("jcode legacy message.received refresh duplicated or lost hook:\n" + refreshed_message)
-
-        legacy = temp / ".jcode" / "config.toml"
-        legacy.write_text(
-            updated,
-            encoding="utf-8",
-        )
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode read-debt idempotence import/run failed:\n" + completed.stdout + completed.stderr)
-        cleaned = legacy.read_text(encoding="utf-8")
-        if cleaned.count("on-tool-execute-before.sh") != 1:
-            fail("jcode wiring duplicated generic search/read evidence guard:\n" + cleaned)
-        stale = cleaned.replace(
-            "# Generic pre-action search/read evidence guard. It does not perform semantic\n"
-            "# search and it is not a concrete-tool policy adapter or allowlist. It only checks\n"
-            "# whether message.received produced direct-search/read-debt and whether\n"
-            "# the LLM/searcher already left root-bound harness-following search/read evidence\n"
-            "# before action.\n",
-            "# Narrow pre-action permit gate. It is silent unless a deterministic producer\n"
-            "# created concrete requiredRead debt for this turn and the next action would run\n"
-            "# before read/search evidence exists. This is not a broad edit/write hard stop.\n",
-        )
-        legacy.write_text(stale, encoding="utf-8")
-        completed = subprocess.run(["bun", "-e", code], cwd=ROOT, text=True, capture_output=True, check=False)
-        if completed.returncode != 0:
-            fail("jcode read-debt refresh import/run failed:\n" + completed.stdout + completed.stderr)
-        refreshed = legacy.read_text(encoding="utf-8")
-        if "Narrow pre-action permit gate" in refreshed or "Generic pre-action search/read evidence guard" not in refreshed:
-            fail("jcode wiring failed to refresh stale managed search/read guard block:\n" + refreshed)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode message.received hook wiring/static harness guard ok")
+def check_destructive_command_block() -> None:
+    """Shared guard denies destructive shell commands for Pi/OMP tool_call (ADR 0050)."""
+    helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-destructive-command.py"
+    if not helper.exists():
+        fail("check-destructive-command.py missing")
+    blocked = [("rm -rf /", "refusing"), ("dd if=/dev/zero of=/dev/sda", "raw disk"), ("mkfs.ext4 /dev/nvme0n1", "filesystem")]
+    for cmd, needle in blocked:
+        payload = json.dumps({"tool": {"name": "bash", "args": {"command": cmd}}})
+        out = subprocess.run(["python3", str(helper), payload], capture_output=True, text=True).stdout
+        if needle not in out.lower():
+            fail(f"destructive command not blocked: {cmd} -> {out!r}")
+    for payload in [json.dumps({"tool": {"name": "bash", "args": {"command": "rm -rf ./build/cache"}}}), json.dumps({"tool": {"name": "Edit", "args": {"content": "rm -rf / in docs"}}})]:
+        out = subprocess.run(["python3", str(helper), payload], capture_output=True, text=True).stdout
+        if out.strip():
+            fail(f"benign/non-shell wrongly blocked: {payload} -> {out!r}")
+    print("\u2713 destructive command block ok")
 
 
 def check_prompt_budget_measurement() -> None:
@@ -2725,28 +2378,6 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
     print("✓ lazy-sync stale managed file prune ok")
 
 
-def check_jcode_dev_hooks_are_nonblocking() -> None:
-    """Generated Jcode wiring must keep edit/write/multiedit fast and non-blocking."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    forbidden = [
-        'tool = "edit"',
-        'tool = "write"',
-        'tool = "multiedit"',
-    ]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("jcode wiring must not register blocking edit/write hooks: " + json.dumps(leaked, ensure_ascii=False))
-    required = [
-        "development fast",
-        "pre-commit/pre-push",
-        "commit-time gates",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing commit-time gate explanation: " + json.dumps(missing, ensure_ascii=False))
-    print("✓ jcode development hooks non-blocking policy ok")
-
-
 def run_rule_action_boundary_helper(payload: dict, root: pathlib.Path | None = None) -> str:
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/helpers/check-rule-action-boundary.py", json.dumps(payload)],
@@ -2806,25 +2437,6 @@ def check_rule_action_boundary_legacy_no_project_policy() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ rule action boundary legacy no project policy ok")
-
-
-def check_jcode_wiring_bash_safety_only_hook() -> None:
-    """Generated bash hook must keep only destructive shell safety, not project policy adapters."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        '\\"action\\": \\"deny\\"',
-        'tool = \\"bash\\"',
-        "Refusing raw disk overwrite",
-        "Refusing filesystem creation on block device",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing bash safety-only hook phrases: " + json.dumps(missing, ensure_ascii=False))
-    forbidden = ["check-rule-action-boundary.py", "BOUNDARY_OUT", "gh pr create", "gh pr edit"]
-    leaked = [phrase for phrase in forbidden if phrase in source]
-    if leaked:
-        fail("jcode bash hook template must not include project-policy boundary adapters: " + json.dumps(leaked, ensure_ascii=False))
-    print("✓ jcode wiring bash safety-only hook ok")
 
 
 def run_hard_stop_promotion_audit(root: pathlib.Path, strict: bool = True) -> subprocess.CompletedProcess:
@@ -2910,133 +2522,6 @@ def check_guidance_ladder_hard_stop_promotion() -> None:
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ guidance ladder hard-stop promotion ok")
-
-
-def check_jcode_project_profile_skill_wrapper() -> None:
-    """Generated Jcode wiring must install the framework-owned Project Profile skill."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        "lazy-project-profile",
-        "project-profile.ts --mode inspect",
-        "project-profile.ts --mode plan",
-        "project-profile.ts --mode apply --confirm",
-        "interview-first architecture flow",
-        ".lazy-harness/spec/platform/project-profile.md",
-        ".lazy-harness/plans/project-init-interview-spec.md",
-        "Do not silently invent architecture defaults",
-        "Document Resource Ingestion",
-        "separate ingestion flow",
-        "Ask 3-5 option gates",
-        "project-profile.ts --mode interview --dry-run",
-        "project-profile.ts --mode interview --confirm",
-        "profile-interview.xml",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing lazy-project-profile wrapper contract: " + json.dumps(missing, ensure_ascii=False))
-    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
-    if '<skill id="lazy-project-profile" status="beta"' not in manifest or ".jcode/skills/lazy-project-profile/" not in manifest:
-        fail("skills manifest must promote lazy-project-profile to beta framework-owned wrapper")
-    print("✓ jcode project profile skill wrapper ok")
-
-
-def check_jcode_doc_ingest_skill_wrapper() -> None:
-    """Generated Jcode wiring must install the document ingestion skill separately from Project Profile."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        "lazy-doc-ingest",
-        "document-resource-ingestion.ts --mode inspect",
-        "document-resource-ingestion.ts --mode plan",
-        "document-resource-ingestion.ts --mode apply --dry-run",
-        "document-resource-ingestion.ts --mode apply --confirm",
-        ".lazy-harness/spec/platform/document-resource-ingestion.md",
-        "separate capability from /lazy-project-profile",
-        "Never auto-promote external facts",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing lazy-doc-ingest wrapper contract: " + json.dumps(missing, ensure_ascii=False))
-    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
-    if '<skill id="lazy-doc-ingest" status="beta"' not in manifest or ".jcode/skills/lazy-doc-ingest/" not in manifest:
-        fail("skills manifest must declare lazy-doc-ingest beta framework-owned wrapper")
-    import_check = subprocess.run(
-        ["bun", "-e", "import('./.lazy-harness/scripts/jcode-wiring.ts').then(m => { if (typeof m.installJcodeWiring !== 'function') process.exit(2) })"],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if import_check.returncode != 0:
-        fail("jcode wiring must import cleanly after skill wrapper edits:\n" + import_check.stdout + import_check.stderr)
-    print("✓ jcode document ingestion skill wrapper ok")
-
-
-def check_jcode_impl_map_migrate_skill_wrapper() -> None:
-    """Generated Jcode wiring must expose the guided implementation-map migration skill; Pi package wrapper is framework-source only."""
-    source = (LAZY / "scripts" / "jcode-wiring.ts").read_text(encoding="utf-8")
-    required = [
-        "lazy-impl-map-migrate",
-        "Guided LLM-assisted implementation-map migration",
-        "implementation-map-migration.md",
-        "implementation-map-standard.md",
-        "implementation-map-storage.md",
-        "graph-hygiene.md",
-        "lazy impl-map --format=json",
-        "lazy graph-hygiene --format=json",
-        "3-5 option gate",
-        "Do not rewrite graph.jsonl wholesale",
-        "choose the next clear Recommended batch automatically",
-        "present a 3-5 option gate and stop",
-        "After each selected batch is completed and validated",
-        "Default mode is bounded autopilot mode",
-        "Manual option-gate mode remains available",
-        "automatically continue with the next clear Recommended batch",
-        "no default numeric batch limit",
-        "until needs-map is complete",
-        "Stop on validation failure, needs-review, ignored/tracked file uncertainty, missing source/test evidence",
-        "graph wholesale cleanup pressure",
-        "user-specified max batch limit reached",
-        "exact stop reason",
-        "OMP compatibility work is intentionally after this guided migration skill exists",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("jcode wiring missing lazy-impl-map-migrate wrapper contract: " + json.dumps(missing, ensure_ascii=False))
-    manifest = (LAZY / "manifests" / "skills.xml").read_text(encoding="utf-8")
-    if '<skill id="lazy-impl-map-migrate" status="beta"' not in manifest or ".jcode/skills/lazy-impl-map-migrate/" not in manifest or "packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md" not in manifest:
-        fail("skills manifest must declare lazy-impl-map-migrate beta framework-owned wrapper")
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-jcode-impl-map-skill-"))
-    try:
-        install_check = subprocess.run(
-            [
-                "bun",
-                "-e",
-                "import('./.lazy-harness/scripts/jcode-wiring.ts').then(m => m.installJcodeWiring({ targetRoot: " + json.dumps(str(temp)) + ", quiet: true }))",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if install_check.returncode != 0:
-            fail("jcode wiring must generate lazy-impl-map-migrate skill wrapper in temp target:\n" + install_check.stdout + install_check.stderr)
-        paths = [
-            temp / ".jcode" / "skills" / "lazy-impl-map-migrate" / "SKILL.md",
-        ]
-        if ACTIVE_SCOPE == "framework":
-            paths.append(ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-impl-map-migrate" / "SKILL.md")
-        for path in paths:
-            if not path.exists():
-                label = str(path) if temp in path.parents else str(path.relative_to(ROOT))
-                fail(f"lazy-impl-map-migrate skill wrapper missing: {label}")
-            content = path.read_text(encoding="utf-8")
-            for phrase in required:
-                if phrase not in content and phrase not in {"3-5 option gate"}:
-                    label = str(path) if temp in path.parents else str(path.relative_to(ROOT))
-                    fail(f"lazy-impl-map-migrate skill wrapper {label} missing phrase: {phrase}")
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
-    print("✓ jcode implementation-map migration skill wrapper ok")
 
 
 def check_pre_commit_runs_lazy_test() -> None:
@@ -3689,6 +3174,41 @@ def check_purpose_scoped_retrieval_cli() -> None:
     if "LLM chooses concrete feature ids" not in overview.stdout or "drill-down CLI" not in overview.stdout:
         fail("lazy map overview must teach map traversal, not CLI-owned search:\n" + overview.stdout)
 
+    complete_json = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "--overview", "--complete", "--format=json", "--limit=20"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if complete_json.returncode != 0:
+        fail("lazy map --overview --complete should work:\n" + complete_json.stdout + complete_json.stderr)
+    complete_data = json.loads(complete_json.stdout)
+    if complete_data.get("complete") is not True:
+        fail("complete overview must set complete=true")
+    total = complete_data.get("inventory", {}).get("totalRecords", 0)
+    listed = sum(len(layer.get("records", [])) for layer in complete_data.get("inventory", {}).get("layers", []))
+    if total == 0 or listed != total:
+        fail(f"complete overview must list every record untruncated: total={total} listed={listed}")
+    drill = complete_data.get("drilldown", {})
+    if any(drill.get(key) for key in ["recordPaths", "sourceFiles", "testFiles", "graphIds"]):
+        fail("complete overview must omit drill-down candidate dumps (lean discovery)")
+    if complete_data.get("graph", {}).get("sampleRows"):
+        fail("complete overview must omit graph sample-row dumps (lean discovery)")
+    complete_md = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "--overview", "--complete", "--format=md"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if complete_md.returncode != 0:
+        fail("lazy map --overview --complete --format=md should work:\n" + complete_md.stdout + complete_md.stderr)
+    if "complete lean discovery index" not in complete_md.stdout:
+        fail("complete overview md must mark itself as the complete lean discovery index")
+    if "## Drill-down candidates" in complete_md.stdout:
+        fail("complete overview md must omit the drill-down candidates section")
+
     print("✓ map-first retrieval contract ok")
 
 
@@ -3935,8 +3455,8 @@ def check_response_completed_no_auto_route_telemetry() -> None:
 
         project_rule_payload = {
             "message_id": "compare-open-gate-suppression",
-            "assistant_response": "프로젝트 규칙을 .jcode/harness/20-project-rules.md에 추가하겠습니다.",
-            "recent_tool_calls": [{"name": "Write", "args_preview": ".jcode/harness/20-project-rules.md"}],
+            "assistant_response": "프로젝트 규칙을 .pi/APPEND_SYSTEM.md에 추가하겠습니다.",
+            "recent_tool_calls": [{"name": "Write", "args_preview": ".pi/APPEND_SYSTEM.md"}],
         }
         first_gate = run_compare_payload(project_rule_payload, "lifecycle-compare-open-gates.jsonl")
         if first_gate.get("bodyHashMatch") is not True or first_gate.get("helperMatch") is not True:
@@ -5160,8 +4680,8 @@ def check_project_profile_v2_runtime() -> None:
     if packet.get("schemaVersion") != "project-profile-interview-v2/v1" or packet.get("mode") != "interview-v2":
         fail("project-profile interview-v2 packet schema/mode mismatch: " + completed.stdout[:500])
     boundary = packet.get("adapterBoundary", {})
-    if boundary.get("primary") != "pi" or "jcode" not in boundary.get("compatibility", []):
-        fail("project-profile interview-v2 must keep Pi primary/Jcode compatibility")
+    if boundary.get("primary") != "pi" or "omp" not in boundary.get("compatibility", []):
+        fail("project-profile interview-v2 must keep Pi primary/OMP compatibility")
     writes = packet.get("writes", {})
     if writes.get("dryRun") is not True or writes.get("confirmedOnly") is not True or writes.get("noSilentDefaults") is not True:
         fail("project-profile interview-v2 writes declaration must remain dry-run/confirmed-only/no-silent-defaults")
@@ -6029,6 +5549,14 @@ def check_record_audit_cli() -> None:
         (host / ".lazy-harness" / "domain" / "host.md").write_text("host only TODO\n", encoding="utf-8")
         (host / ".lazy-harness" / "spec" / "complete.md").write_text(
             "# Complete Record\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SDD\n"
+            "- Scope: framework-global\n"
+            "- Applies when:\n"
+            "  - fixture record quality audit\n"
+            "- Must:\n"
+            "  - keep the complete fixture complete\n\n"
             "## Index header\n\n"
             "- Record id: record_complete\n"
             "- Layer: SDD\n"
@@ -6104,6 +5632,7 @@ def check_record_audit_cli() -> None:
             "missing-alias-or-search-key": 3,
             "missing-source-test-hints": 3,
             "missing-graph-link": 2,
+            "missing-rule-digest": 3,
         }
         if record_quality.get("advisoryOnly") is not True or record_quality.get("inspectedRecords") != 4 or record_quality.get("completeRecords") != 1:
             fail("record-audit should summarize advisory record quality counts: " + json.dumps(record_quality, ensure_ascii=False))
@@ -6136,6 +5665,45 @@ def check_record_audit_cli() -> None:
         if cli_result.get("mode") != "record-audit.inspect" or len(cli_result.get("recentFiles", [])) > 1:
             fail("lazy record-audit dispatcher should pass through args")
     print("✓ record-audit cli ok")
+
+
+def check_record_lint_cli() -> None:
+    """record-lint validates canonical digest format + references; framework must be clean (commit gate)."""
+    for rel in ["spec/platform/record-lint.md", "tests/record-lint.md", "scripts/record-lint.ts"]:
+        if not (LAZY / rel).exists():
+            fail("record-lint artifact missing: " + rel)
+    framework = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "record-lint", "--fail-on-issues", "--format=json"],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    if framework.returncode != 0:
+        fail("record-lint --fail-on-issues must pass on framework canonical records:\n" + framework.stdout[-2000:] + framework.stderr)
+    payload = json.loads(framework.stdout)
+    if payload.get("mode") != "record-lint" or payload.get("issueCount") != 0:
+        fail("record-lint framework should be clean: " + json.dumps(payload.get("counts"), ensure_ascii=False))
+    with tempfile.TemporaryDirectory() as tmp:
+        host = pathlib.Path(tmp)
+        (host / ".lazy-harness" / "spec" / "platform").mkdir(parents=True)
+        (host / ".lazy-harness" / "spec" / "bad.md").write_text(
+            "# Bad\n\nNo digest. See `.lazy-harness/decisions/9999-nope.md`.\n", encoding="utf-8",
+        )
+        (host / ".lazy-harness" / "spec" / "fenced.md").write_text(
+            "# Fenced\n\n## Rule digest\n\n- Status: active\n- Layer: SDD\n- Scope: framework-global\n- Applies when:\n  - x\n- Must:\n  - y\n\n```md\n.lazy-harness/spec/platform/example-only.md\n```\n",
+            encoding="utf-8",
+        )
+        res = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "record-lint.ts"), "--root", str(host), "--fail-on-issues", "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False,
+        )
+        if res.returncode == 0:
+            fail("record-lint --fail-on-issues should exit non-zero on a malformed fixture")
+        data = json.loads(res.stdout)
+        codes = {issue.get("code") for issue in data.get("issues", [])}
+        if "missing-rule-digest" not in codes or "broken-record-ref" not in codes:
+            fail("record-lint should flag missing-rule-digest and broken-record-ref: " + json.dumps(data.get("issues"), ensure_ascii=False))
+        if any(issue.get("recordPath", "").endswith("fenced.md") for issue in data.get("issues", [])):
+            fail("record-lint must not flag .md paths inside fenced code blocks: " + json.dumps(data.get("issues"), ensure_ascii=False))
+    print("✓ record-lint cli ok")
 
 
 def check_graph_hygiene_cli() -> None:
@@ -7271,6 +6839,8 @@ def check_retrieval_workflow_benchmark_cli() -> None:
         "Forbidden fields anywhere in output",
         "measurement-only",
         "Implementation map",
+        "no_map",
+        "overview reports the otherwise-excluded mandatory",
     ]:
         if phrase not in sdd_text:
             fail("Retrieval workflow benchmark SDD missing phrase: " + phrase)
@@ -7282,6 +6852,8 @@ def check_retrieval_workflow_benchmark_cli() -> None:
         "retrieval_workflow_benchmark_read_only",
         "map_plus_retrieval_audit.helperCalls == 2",
         "does not change lifecycle/prompt/overview policy",
+        "no_map",
+        "mapInclusive",
     ]:
         if phrase not in tdd_text:
             fail("Retrieval workflow benchmark TDD missing phrase: " + phrase)
@@ -7337,7 +6909,7 @@ def check_retrieval_workflow_benchmark_cli() -> None:
         fail("retrieval-workflow-benchmark missing per-query surfaces")
     for query_result in surfaces:
         per_surface = query_result.get("surfaces", {})
-        for name in ["map", "map_plus_retrieval_audit"]:
+        for name in ["map", "map_plus_retrieval_audit", "no_map"]:
             if name not in per_surface:
                 fail("retrieval-workflow-benchmark missing surface " + name)
             item = per_surface[name]
@@ -7365,10 +6937,29 @@ def check_retrieval_workflow_benchmark_cli() -> None:
                     fail("retrieval-workflow-benchmark missing covered layer: " + layer)
         if per_surface["map_plus_retrieval_audit"].get("helperCalls") != 2:
             fail("map_plus_retrieval_audit helperCalls should be 2")
+        if per_surface["no_map"].get("helperCalls") != 1:
+            fail("no_map helperCalls should be 1")
 
-    for surface_name in ["map", "map_plus_retrieval_audit"]:
+    for surface_name in ["map", "map_plus_retrieval_audit", "no_map"]:
         if surface_name not in payload.get("summary", {}).get("aggregate", {}):
             fail("retrieval-workflow-benchmark missing aggregate surface: " + surface_name)
+
+    overview = payload.get("overview", {})
+    for key in ["helperBytes", "helperEstimatedTokens", "elapsedMs"]:
+        if not isinstance(overview.get(key), (int, float)):
+            fail("retrieval-workflow-benchmark overview missing numeric field: " + key)
+    map_inclusive = payload.get("summary", {}).get("mapInclusive", {})
+    for key in ["helperEstimatedTokens", "followupEstimatedTokens", "totalEstimatedTokens"]:
+        if not isinstance(map_inclusive.get(key), (int, float)):
+            fail("retrieval-workflow-benchmark summary.mapInclusive missing numeric field: " + key)
+    deltas = payload.get("summary", {}).get("deltas", {})
+    for delta_name in ["mapPlusRetrievalAuditVsMap", "noMapVsMap", "noMapVsMapInclusive"]:
+        if delta_name not in deltas:
+            fail("retrieval-workflow-benchmark missing delta: " + delta_name)
+    for delta_name in ["noMapVsMap", "noMapVsMapInclusive"]:
+        for key in ["helperTokenDelta", "totalTokenDelta"]:
+            if not isinstance(deltas[delta_name].get(key), (int, float)):
+                fail("retrieval-workflow-benchmark delta numeric field missing: " + delta_name + "." + key)
 
     md = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=md", "--limit=8"],
@@ -7455,14 +7046,13 @@ def check_source_feature_navigation_phase3() -> None:
             },
         },
         "sync-install-update": {
-            "aliases": {"lazy init", "lazy sync", "jcode wiring"},
+            "aliases": {"lazy init", "lazy sync"},
             "paths": {
                 "install.sh",
                 ".lazy-harness/spec/lazy-sync-drift-detection.md",
                 ".lazy-harness/tests/lazy-sync-dirty-false-positive.md",
                 ".lazy-harness/scripts/lazy-init.ts",
                 ".lazy-harness/scripts/lazy-sync.ts",
-                ".lazy-harness/scripts/jcode-wiring.ts",
             },
         },
         "project-operating-rulebook": {
@@ -7754,7 +7344,7 @@ def check_project_map_v2_schema() -> None:
         "Anchor / branch / edge model",
         "what project-map cluster does this information belong to",
         "Pi is the primary future adapter direction",
-        "Jcode remains a compatibility adapter",
+        "OMP remains a compatibility adapter",
         "Phase 1 must not move them",
         "Canonical storage pattern",
         "Project Map branch blocks inside those records",
@@ -7771,7 +7361,7 @@ def check_project_map_v2_schema() -> None:
         "generated views are never the source of truth",
         "Tests are one example.",
         "pi`: primary future adapter",
-        "jcode`: compatibility adapter",
+        "omp`: compatibility adapter",
     ):
         if expected not in ssot:
             fail("Project Map V2 taxonomy missing invariant: " + expected)
@@ -7931,8 +7521,8 @@ def check_project_map_v2_schema() -> None:
     if not has_non_test_policy:
         fail("Project Map V2 fixture must include at least one non-test policy example")
     adapter = fixture.get("adapterBoundary", {})
-    if adapter.get("primary") != "pi" or "jcode" not in adapter.get("compatibility", []):
-        fail("Project Map V2 adapter boundary must be Pi-primary with Jcode compatibility")
+    if adapter.get("primary") != "pi" or "omp" not in adapter.get("compatibility", []):
+        fail("Project Map V2 adapter boundary must be Pi-primary with OMP compatibility")
     _assert_no_project_map_forbidden_fields(fixture)
 
     manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
@@ -8005,7 +7595,7 @@ def check_project_map_update_loop_v2() -> None:
             fail("Project Map update-loop TDD missing regression case: " + expected)
     for expected in (
         "Structured validation evidence forwarding",
-        "source = jcode-adapter",
+        "source = omp-adapter",
         "eventType = validation-success|validation-failure",
         "evidence.kind = validation-output",
         "Phase 1 is contract/fixture/static-test only",
@@ -8051,7 +7641,7 @@ def check_project_map_update_loop_v2() -> None:
         "document-resource",
         "policy-machinery",
         "pi-adapter",
-        "jcode-adapter",
+        "omp-adapter",
     }
     allowed_primary = {"facts", "expectations", "contracts", "decisions", "validation", "ownership", "source-links", "policies"}
     allowed_facets = {"DDD", "BDD", "SDD", "TDD", "ADR", "SSOT", "Planning", "Policy", "Evidence", "Project", "Source"}
@@ -8111,7 +7701,7 @@ def check_project_map_update_loop_v2() -> None:
         if source not in allowed_sources:
             fail("Project Map update-loop source invalid: " + json.dumps(event, ensure_ascii=False))
         seen_sources.add(source)
-        if source in {"pi-adapter", "jcode-adapter"}:
+        if source in {"pi-adapter", "omp-adapter"}:
             seen_adapter_sources.add(source)
             transition_to = event.get("transition", {}).get("to")
             if transition_to == "canonical":
@@ -8166,9 +7756,9 @@ def check_project_map_update_loop_v2() -> None:
                 path_obj = pathlib.Path(path_value)
                 if path_obj.is_absolute() or ".." in path_obj.parts:
                     fail("Project Map update-loop evidence path must stay root-relative: " + path_value)
-        if source == "jcode-adapter" and event_type in {"validation-success", "validation-failure"}:
-            if event.get("adapter") != "jcode":
-                fail("hook-originated validation event must identify jcode adapter: " + repr(event.get("id")))
+        if source == "omp-adapter" and event_type in {"validation-success", "validation-failure"}:
+            if event.get("adapter") != "omp":
+                fail("hook-originated validation event must identify omp adapter: " + repr(event.get("id")))
             if transition.get("to") == "canonical" or canonical_records:
                 fail("hook-originated validation event must stay non-canonical in Phase 1: " + repr(event.get("id")))
             if not any(item.get("kind") == "validation-output" for item in evidence):
@@ -8192,14 +7782,14 @@ def check_project_map_update_loop_v2() -> None:
     missing_event_types = sorted(allowed_event_types - seen_event_types)
     if missing_event_types:
         fail("Project Map update-loop fixture missing event types: " + json.dumps(missing_event_types, ensure_ascii=False))
-    required_sources = {"pi-adapter", "jcode-adapter", "project-profile", "document-resource", "policy-machinery"}
+    required_sources = {"pi-adapter", "omp-adapter", "project-profile", "document-resource", "policy-machinery"}
     if not required_sources.issubset(seen_sources):
         fail("Project Map update-loop fixture missing required sources: " + json.dumps(sorted(required_sources - seen_sources), ensure_ascii=False))
     required_states = {"candidate", "needs-confirmation", "canonical", "superseded", "rejected"}
     if not required_states.issubset(seen_to_states):
         fail("Project Map update-loop fixture missing transition states: " + json.dumps(sorted(required_states - seen_to_states), ensure_ascii=False))
-    if seen_adapter_sources != {"pi-adapter", "jcode-adapter"}:
-        fail("Project Map update-loop fixture must include Pi and Jcode adapter events")
+    if seen_adapter_sources != {"pi-adapter", "omp-adapter"}:
+        fail("Project Map update-loop fixture must include Pi and OMP adapter events")
     if seen_hook_validation_events != {"validation-success", "validation-failure"}:
         fail("Project Map update-loop fixture missing hook-originated validation events: " + json.dumps(sorted({"validation-success", "validation-failure"} - seen_hook_validation_events), ensure_ascii=False))
 
@@ -10262,23 +9852,14 @@ def main() -> None:
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
-        (check_jcode_wiring_pointer_only, "BOTH"),
-        (check_jcode_wiring_repairs_stale_defaults, "BOTH"),
-        (check_jcode_wiring_repairs_markerless_bash_hook_default, "BOTH"),
-        (check_jcode_wiring_removes_rejected_layer2_block, "BOTH"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
-        (check_jcode_wiring_message_received_hook, "BOTH"),
+        (check_destructive_command_block, "FRAMEWORK_ONLY"),
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
         (check_lazy_sync_prunes_stale_managed_files, "BOTH"),
-        (check_jcode_dev_hooks_are_nonblocking, "BOTH"),
         (check_rule_action_boundary_legacy_no_project_policy, "BOTH"),
-        (check_jcode_wiring_bash_safety_only_hook, "BOTH"),
         (check_guidance_ladder_hard_stop_promotion, "BOTH"),
-        (check_jcode_project_profile_skill_wrapper, "BOTH"),
-        (check_jcode_doc_ingest_skill_wrapper, "BOTH"),
-        (check_jcode_impl_map_migrate_skill_wrapper, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),
@@ -10291,7 +9872,6 @@ def main() -> None:
         (check_lazy_host_root_resolution, "BOTH"),
         (check_parallel_runtime_state_isolation, "BOTH"),
         (check_shared_jsonl_conflict_visible, "BOTH"),
-        (check_skill_create_cli, "BOTH"),
         (check_tdd_cross_verify, "FRAMEWORK_ONLY"),
         (check_affected_test_runner, "FRAMEWORK_ONLY"),
         (check_aftershock_reanalysis, "FRAMEWORK_ONLY"),
@@ -10327,6 +9907,7 @@ def main() -> None:
         (check_operating_rule_storage_helper, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
+        (check_record_lint_cli, "BOTH"),
     ]
 
     ran = 0

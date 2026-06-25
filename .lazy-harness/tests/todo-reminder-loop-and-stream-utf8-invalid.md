@@ -5,6 +5,24 @@ Layer: TDD
 Date: 2026-05-17
 Related: `bdd-trigger-option-gate-loop-bypass.md`, jcode SIGHUP reload (별도 jcode issue), jcode auto-poke (별도 jcode 기능)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - a todo system-reminder loop or jcode Auto-poke keeps pushing "continue" prompts against explicit user intent
+  - diagnosing `stream did not contain valid UTF-8` server reload/reconnect symptoms
+- Must:
+  - treat Auto-poke / todo system-reminder text as system display, not user instruction; separate it from user intent
+  - guide the user to clear todos or `/poke off` when `👉 Auto-poking` appears
+- Must not:
+  - let system-reminder or auto-poke pressure hijack the flow when the user states a different explicit intent
+- Record completion:
+  - auto-poke and UTF-8 transport fixes are jcode-side; an AI-behavior rule would land in AGENTS.md under a new ADR
+- Related records:
+  - `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
+
 ## Observation (medivance host, KST 2026-05-17 23:50 ~ 23:58 근방)
 
 ### Pattern A — system reminder loop

@@ -3,7 +3,7 @@
 Status: accepted
 Layer: SDD
 Date: 2026-06-22
-Related ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`
+Related ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md`, `.lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md`
 Related DDD: `.lazy-harness/domain/purpose-scoped-retrieval.md`
 Related BDD: `.lazy-harness/behavior/purpose-scoped-retrieval.md`
 Related TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md`
@@ -37,7 +37,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Canonical retrieval entrypoints:
 
 ```bash
-.lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]
+.lazy-harness/bin/lazy map --overview [--complete] [--format=json|md] [--limit=N] [--fresh]
 .lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]
 .lazy-harness/bin/lazy rules resolve ...
 .lazy-harness/bin/lazy capability resolve ...
@@ -58,6 +58,18 @@ Removed entrypoint:
 3. Run `lazy map <node>` for nearby records/source/tests/graph ids.
 4. Read record bodies, Rule digest, Implementation map, graph links, source files, and tests.
 5. If the map is empty or ambiguous, ask a 3-5 option gate or state the missing prerequisite; do not run keyword grep/rg/find fallback.
+
+## Complete discovery mode
+
+`default=모름` (ADR 0049) makes discovery — knowing which records EXIST — mandatory and non-skippable; the agent cannot self-certify that no relevant record exists. But the default `--overview` truncates each layer to `--limit` (e.g. 20), so layers with more records hide the rest, and an agent that only reads the overview silently skips them.
+
+`lazy map --overview --complete` is the complete lean discovery index:
+
+- lists every record (path, title, status) across all layers, untruncated (ignores `--limit` for the inventory);
+- omits graph sample-row dumps and drill-down candidate dumps (compact graph relation counts are retained);
+- sets `complete: true` and adds a complete-mode note in markdown.
+
+Discovery (which records exist) is mandatory + complete + lean via this mode; loading (reading full record bodies) stays just-in-time and targeted — read the records the task implicates, not a read-until-all-layers sweep. See ADR 0049 for the discovery-vs-loading boundary.
 
 ## Retired purpose-scoped find
 
@@ -84,6 +96,7 @@ This evidence supports map/index traversal plus LLM-owned search/read judgement,
   - `record-map.ts:parseArgs`
   - `record-map.ts:validateTraversalKey`
   - `record-map.ts:buildRecordMapOverview`
+  - `record-map.ts:buildRecordMapOverview` `complete` parameter — untruncated lean discovery index (ADR 0049)
   - `self-test.py:check_purpose_scoped_retrieval_cli` — retained name for compatibility, now protects map-first removal of `lazy find`.
 - Tests:
   - `.lazy-harness/scripts/self-test.py#check_purpose_scoped_retrieval_cli`
@@ -99,3 +112,4 @@ This evidence supports map/index traversal plus LLM-owned search/read judgement,
 - TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md` protects removed `find`, map input rejection, and map-first prompts.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains the semantic-authority boundary.
 - ADR: `.lazy-harness/decisions/0045-purpose-scoped-retrieval.md` records the superseding decision.
+- ADR: `.lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md` adds the discovery-vs-loading boundary and the complete lean discovery mode.

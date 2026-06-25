@@ -3,7 +3,7 @@
   "mode": "interview-v2",
   "adapterBoundary": {
     "primary": "pi",
-    "compatibility": ["jcode"],
+    "compatibility": ["omp"],
     "core": "Project Profile V2 output is agent-neutral project map and policy discovery data"
   },
   "writes": {

@@ -8,7 +8,7 @@
  *   Category C: skip (framework own memory)
  *
  * Post-init actions:
- *   - .git/info/exclude 에 /.jcode/, /.lazy-harness/ 추가
+ *   - .git/info/exclude 에 /.lazy-harness/ 추가
  *   - Host 의 .git/hooks/pre-commit 에 delegate
  *   - state/synced-from-commit 박음
  *   - prints project-local Pi/OMP activation command
@@ -22,11 +22,10 @@
  *   bun .lazy-harness/scripts/lazy-init.ts --target ./ --force
  *
  * Flags:
- *   --target <dir>   Required. Host project root where .lazy-harness/ + .jcode/ get written.
+ *   --target <dir>   Required. Host project root where .lazy-harness/ gets written.
  *   --from <dir>     Optional. Framework source worktree. Defaults to script's resolved worktree.
  *   --dry-run        Print planned actions, don't modify filesystem.
  *   --force          Overwrite existing .lazy-harness/ (default: refuse if non-empty).
- *   --skip-jcode     Don't generate project-local .jcode/ wiring. (Use when host doesn't use jcode.)
  *   --skip-hooks     Don't wire git pre-commit hook.
  *   --quiet          Suppress per-file logs.
  *
@@ -50,7 +49,6 @@ import {
 } from 'node:fs'
 import { join, dirname, basename, resolve, relative } from 'node:path'
 import { execSync } from 'node:child_process'
-import { installJcodeWiring } from './jcode-wiring'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -61,7 +59,6 @@ interface Args {
   from: string
   dryRun: boolean
   force: boolean
-  skipJcode: boolean
   skipHooks: boolean
   quiet: boolean
 }
@@ -72,7 +69,6 @@ function parseArgs(argv: string[]): Args {
     from: '',
     dryRun: false,
     force: false,
-    skipJcode: false,
     skipHooks: false,
     quiet: false
   }
@@ -82,7 +78,6 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--from') args.from = argv[++i]
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--force') args.force = true
-    else if (a === '--skip-jcode') args.skipJcode = true
     else if (a === '--skip-hooks') args.skipHooks = true
     else if (a === '--quiet') args.quiet = true
     else if (a === '--help' || a === '-h') {
@@ -109,7 +104,6 @@ Options:
   --from <dir>      Framework source (defaults to script's worktree)
   --dry-run         Show planned actions only
   --force           Overwrite existing .lazy-harness/
-  --skip-jcode      Don't generate project-local .jcode/ wiring
   --skip-hooks      Don't wire git pre-commit hook
   --quiet           Suppress per-file logs
 
@@ -619,10 +613,6 @@ function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPat
   log(`  ✓ version marker: ${markerPath} → ${sha.slice(0, 12)}`)
 }
 
-function postInitJcodeWiring(targetRoot: string): void {
-  installJcodeWiring({ targetRoot, dryRun: DRY, quiet: QUIET })
-}
-
 // ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
@@ -667,13 +657,6 @@ function main(): void {
         break
       case 'version-marker':
         if (action.path) postInitVersionMarker(sourceRoot, targetRoot, action.path)
-        break
-      case 'jcode-skill-install':
-        if (!args.skipJcode) {
-          postInitJcodeWiring(targetRoot)
-        } else if (args.skipJcode) {
-          log(`  ⊘ skipped: jcode wiring (--skip-jcode)`)
-        }
         break
       default:
         log(`  ⚠ unknown action kind: ${action.kind}`)

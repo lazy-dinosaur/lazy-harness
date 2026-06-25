@@ -11,7 +11,8 @@ Registry: `.lazy-harness/ssot/policies.json`
 
 ## Rule digest
 
-- Status: active SSOT
+- Status: active
+- Layer: SSOT
 - Scope: framework-global
 - Applies when:
   - adding or changing project/team behavior policy

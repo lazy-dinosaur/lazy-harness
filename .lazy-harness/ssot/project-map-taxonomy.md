@@ -9,19 +9,19 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 
 ## Rule digest
 
-- Status: draft
+- Status: needs-review
 - Layer: SSOT
 - Scope: framework-global
 - Applies when:
   - assigning Project Map V2 primary categories, facets, stages, or policy levels
   - translating V1 DDD/SDD/BDD/TDD/ADR/SSOT records into V2 map nodes
-  - designing Project Interview output or Pi/Jcode adapter policy consumption
+  - designing Project Interview output or Pi/OMP adapter policy consumption
 - Must:
   - keep exactly one primary category per Project Map node in Phase 1
   - allow multiple facets per node
   - keep existing V1 layer folders as canonical storage until a migration is approved
   - keep generated map views cue-only and non-canonical
-  - treat Pi as the primary future adapter and Jcode as compatibility adapter
+  - treat Pi as the primary future adapter and OMP as compatibility adapter
 - Must not:
   - collapse DDD/BDD/SDD/TDD/ADR/SSOT into one undifferentiated bucket
   - treat primary category as enforcement level
@@ -198,7 +198,7 @@ This example is illustrative only; host-specific facts still require user/source
 
 - `core`: lazy-harness agent-neutral records, project map, policy machinery, validation contracts.
 - `pi`: primary future adapter consuming the core.
-- `jcode`: compatibility adapter for the current harness.
+- `omp`: compatibility adapter for the current harness.
 
 Adapters must not own taxonomy semantics.
 
@@ -234,7 +234,7 @@ Adapters must not own taxonomy semantics.
 - Scope: framework-global
 - Primary record: `.lazy-harness/ssot/project-map-taxonomy.md`
 - Why not AGENTS.md: taxonomy/schema belongs in SSOT/SDD, not always-loaded prompt grammar.
-- Why not `.jcode`: taxonomy is agent-neutral and Pi-primary; Jcode remains compatibility adapter.
+- Why not `.jcode`: taxonomy is agent-neutral and Pi-primary; OMP remains compatibility adapter.
 - Confirmation: user-approved Phase 1 execution; still draft taxonomy subject to review.
 
 ## Discovery capture

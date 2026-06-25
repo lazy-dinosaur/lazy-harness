@@ -5,6 +5,27 @@ Layer: SDD
 Related ADR: `.lazy-harness/decisions/0033-layer-completeness-gate.md`
 Related standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - a turn creates or updates a TDD/regression record (bug fix or regression protection)
+  - judging whether a fix also touched contracts, behavior, source-of-truth, or domain rules
+- Must:
+  - in the same turn, update affected SDD/BDD/SSOT/DDD records, or
+  - add a `Layer completeness` judgement explicitly naming SDD, BDD, SSOT, DDD, or
+  - stop with an option gate when the primary layer is ambiguous
+- Must not:
+  - complete a TDD/regression turn on regression evidence alone with no cross-layer check
+- Record completion:
+  - when a fix touches a layer, update that layer's primary record instead of only noting it in TDD
+- Related records:
+  - `.lazy-harness/decisions/0033-layer-completeness-gate.md`
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+
 ## Purpose
 
 Prevent a bug-fix session from recording only TDD/regression evidence while omitting changed contracts, visible behavior, source-of-truth invariants, or domain rules.
@@ -50,7 +71,7 @@ If any item is impacted, update that layer's primary record instead of only sayi
 
 ### TDD-only is incomplete
 
-A record like `.lazy-harness/tests/chat-reminder-click-scroll-regression.md` is incomplete if it documents reproduction/protection but does not also check:
+A TDD regression record is incomplete if it documents reproduction/protection but does not also check:
 
 - SDD: did the ChatWindow/open routing contract change?
 - BDD: did reminder-click user flow change?
@@ -61,10 +82,10 @@ A record like `.lazy-harness/tests/chat-reminder-click-scroll-regression.md` is 
 
 A fix is complete when it updates, for example:
 
-- `.lazy-harness/tests/chat-reminder-click-scroll-regression.md`
-- `.lazy-harness/spec/frontend/chat-window-contract.md`
-- `.lazy-harness/behavior/chat-reminder-notification-routing.md`
-- `.lazy-harness/ssot/chat-reminder-routing.md`
+- the TDD regression record (reproduction/protection)
+- the SDD contract for the affected component or route
+- the BDD record for the affected user flow
+- the SSOT record for the affected routing or ownership invariant
 
 DDD may be explicitly marked as no impact if no new domain language exists.
 

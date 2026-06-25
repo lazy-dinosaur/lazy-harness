@@ -5,6 +5,26 @@ Date: 2026-05-19
 Superseded on: 2026-06-06
 Superseded by: `.lazy-harness/ssot/cli-tool-boundary.md`, `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - considering a CLI or static lifecycle hook that classifies raw user text into intent/risk/gate/required-read
+  - discussing workflow compression or route classification
+- Must:
+  - keep workflow compression from reducing record-first search, default-unknown epistemics, option gates, queue closure, layer completeness, or commit-time validation
+- Must not:
+  - use static CLI/user-text classifiers as semantic authority (CLI is a tool only)
+  - revive `lazy route`/`route-summary`/`route-audit` or automatic route telemetry from raw user messages
+- Record completion:
+  - new workflow-compression decisions update `.lazy-harness/ssot/cli-tool-boundary.md` and ADR 0041 (this ADR superseded)
+- Related records:
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+  - `.lazy-harness/spec/platform/search-read-debt-contract.md`
+
 ## Context
 
 This ADR originally introduced a read-only `lazy route` workflow-compression router and later allowed `response.completed` to automatically collect route telemetry from raw user messages.

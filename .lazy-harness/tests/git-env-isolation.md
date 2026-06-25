@@ -5,6 +5,27 @@ Layer: TDD
 Date: 2026-05-16
 Related SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - a git hook or wrapper runs lazy validation with `GIT_DIR`/`GIT_WORK_TREE` in the environment
+  - self-test builds temp git fixtures or host-root resolution must ignore inherited git env
+- Must:
+  - pre-commit/pre-push set `LAZY_HOST_ROOT` and clear `GIT_DIR`/`GIT_WORK_TREE` for validation subprocesses
+  - lazy CLI prefers valid `LAZY_HOST_ROOT` over git discovery; self-test strips inherited git/runtime env from its process and children
+- Must not:
+  - let temp git fixtures inherit outer git hook env and resolve or mutate the caller repository
+- Record completion:
+  - changes to host-root/env boundary update this TDD plus the host-root-resolution SDD
+- Related records:
+  - `.lazy-harness/spec/platform/host-root-resolution.md`
+  - `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.md`
+  - `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+
 ## Regression
 
 A git hook or wrapper can execute validation with `GIT_DIR` and `GIT_WORK_TREE` in the environment. If lazy-harness validation inherits those variables, `self-test.py` temporary git fixtures resolve the outer repository instead of their temp repository. Observed failures include `check_lazy_host_root_resolution` reporting the real worktree as `host_root` while the fixture expected `/tmp/lazy_host_root_*`, and nested self-test git fixtures mutating or reading the outer repository configuration such as `core.bare` when hook env leaks into temp repos.

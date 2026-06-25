@@ -12,7 +12,7 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 
 - Status: active
 - Layer: SSOT
-- Scope: framework-source
+- Scope: framework-global
 - Applies when:
   - working in the lazy-harness source checkout and needing a compact project feature map
   - generating or inspecting `record-index.json` projectProfile metadata

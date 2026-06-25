@@ -71,7 +71,7 @@ interface RecentFile {
   mtime: string
 }
 
-type RecordQualityCode = 'missing-index-header' | 'missing-alias-or-search-key' | 'missing-source-test-hints' | 'missing-graph-link'
+type RecordQualityCode = 'missing-index-header' | 'missing-alias-or-search-key' | 'missing-source-test-hints' | 'missing-graph-link' | 'missing-rule-digest'
 
 interface RecordQualityIssue {
   code: RecordQualityCode
@@ -119,7 +119,7 @@ const COMPARE_LAYERS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'sso
 const MARKERS = ['needs-interview', 'TODO', 'FIXME', 'stale', 'conflict', 'ambiguous', 'needs-option-gate']
 const SKIP_RECENT_PARTS = new Set(['scripts', 'bin', 'schemas', 'fixtures', 'node_modules', 'generated', 'hooks', 'manifests'])
 const QUALITY_RECORD_LAYERS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot', 'planning', 'plans', 'handoff', 'questions']
-const RECORD_QUALITY_CODES: RecordQualityCode[] = ['missing-index-header', 'missing-alias-or-search-key', 'missing-source-test-hints', 'missing-graph-link']
+const RECORD_QUALITY_CODES: RecordQualityCode[] = ['missing-index-header', 'missing-alias-or-search-key', 'missing-source-test-hints', 'missing-graph-link', 'missing-rule-digest']
 const PROJECT_ARTIFACTS = [
   '.lazy-harness/project/profile.xml',
   '.lazy-harness/project/stack.xml',
@@ -368,12 +368,14 @@ function recordQualitySummary(root: string): RecordQualitySummary {
     'missing-alias-or-search-key': 0,
     'missing-source-test-hints': 0,
     'missing-graph-link': 0,
+    'missing-rule-digest': 0,
   }
   const samples: Record<RecordQualityCode, string[]> = {
     'missing-index-header': [],
     'missing-alias-or-search-key': [],
     'missing-source-test-hints': [],
     'missing-graph-link': [],
+    'missing-rule-digest': [],
   }
   const rows = graphRows(root)
   let completeRecords = 0
@@ -411,6 +413,8 @@ function recordQualitySummary(root: string): RecordQualitySummary {
     if (aliasesOrSearchKeys.length === 0) missing.push('missing-alias-or-search-key')
     if (sourceHints.length === 0 || testHints.length === 0) missing.push('missing-source-test-hints')
     if (!hasGraphLink) missing.push('missing-graph-link')
+    const isCanonicalReusable = /^\.lazy-harness\/(domain|spec|behavior|tests|decisions|ssot)\//.test(recordPath) && !recordPath.toLowerCase().endsWith('/readme.md')
+    if (isCanonicalReusable && !ruleDigest) missing.push('missing-rule-digest')
     if (missing.length === 0) completeRecords += 1
     else for (const code of missing) add(code, recordPath)
   }

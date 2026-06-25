@@ -5,6 +5,26 @@
 - Trigger: ADR 0018 의 약속 — "TDD detector 는 5c 안 아닌 5d Interview Loop 의 cross-verify gate"
 - Related: ADR 0018 (Cross-Layer Cascade), ADR 0019 (Ambiguous → Force Gate)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - source code changes and you check test coverage/consistency before finishing
+  - deciding whether to stop, warn, or force a gate based on test-to-layer alignment
+  - verifying tests against DDD/SDD/BDD/SSOT
+- Must:
+  - run TDD as a post-development cross-verify gate aligning tests with DDD/SDD/BDD/SSOT
+  - force a structured gate (deny plus missing-list ask) when matching tests are missing for changed source
+- Must not:
+  - treat TDD as a 5c input detector or let missing tests pass silently
+- Record completion:
+  - cross-verify scope changes update this ADR; current gate covers source-to-test existence, full five-dimension check pending
+- Related records:
+  - `.lazy-harness/decisions/0018-cross-layer-cascade.md`
+  - `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+
 ## Context
 
 ADR 0018 에서 TDD 의 위치를 명확화:

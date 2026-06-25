@@ -4,10 +4,28 @@ Status: accepted
 Date: 2026-05-20
 Layer: SSOT
 Scope: lazy-harness source repo dogfooding against `/home/lazydino/dev/medivance`
-Source records in downstream host:
-- `/home/lazydino/dev/medivance/.lazy-harness/ssot/named-dev-instance-workflow.md`
-- `/home/lazydino/dev/medivance/.lazy-harness/ssot/dev-runtime-restart-policy.md`
-- `/home/lazydino/dev/medivance/.lazy-harness/ssot/dev-instance-pr-workaround.md`
+Source records in downstream host: the Medivance install (`/home/lazydino/dev/medivance`) owns its named dev instance workflow, dev runtime restart, and dev instance PR workaround policy records.
+
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: host-project
+- Applies when:
+  - dogfooding lazy-harness framework changes from this source repo against the Medivance downstream host
+  - deciding whether a check is document-only or needs runtime/UI validation
+  - judging Medivance UI persistence or runtime behavior as ready
+- Must:
+  - run document-only checks (e.g. ingestion `--mode inspect`) without launching the Electron app or a database
+  - use the Medivance named `--test` instance workflow and confirm inspect shows the test environment before judging runtime/UI
+  - run framework sync first, wait for success, then run host validation; never the same parallel batch
+- Must not:
+  - launch an unnamed/default dev app, reuse a running original instance, or use local/prod DB for runtime dogfood
+  - parallelize source-to-Medivance sync with the command that validates the synced feature
+- Record completion:
+  - dogfood runtime-boundary changes update this SSOT and the downstream host's named-instance/restart policy records
+- Related records:
+  - `.lazy-harness/planning/document-resource-ingestion-implementation-plan.md`
 
 ## Rule
 
@@ -38,10 +56,7 @@ Framework sync and host execution must be sequential. Do not run `lazy-sync` and
 
 ## Implementation map
 
-- `/home/lazydino/dev/medivance/.lazy-harness/ssot/named-dev-instance-workflow.md`
-  - Downstream canonical policy for named dev instances and `--test` launcher.
-- `/home/lazydino/dev/medivance/.lazy-harness/ssot/dev-runtime-restart-policy.md`
-  - Downstream canonical policy for restart before judging backend/main-side runtime behavior.
+- Downstream Medivance install (`/home/lazydino/dev/medivance`) — host-owned canonical policy for named dev instances / `--test` launcher and runtime restart before judging backend/main-side behavior.
 - `.lazy-harness/planning/document-resource-ingestion-implementation-plan.md`
   - Marks the first Medivance dogfood as document-only and not a runtime validation.
 

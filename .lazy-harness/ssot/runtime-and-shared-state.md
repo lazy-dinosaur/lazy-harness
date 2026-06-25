@@ -9,7 +9,11 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 ## Rule digest
 
 - Status: active
+- Layer: SSOT
 - Scope: framework-global
+- Applies when:
+  - choosing where to write runtime, shared, or canonical lazy-harness state
+  - deciding LAZY_HOST_ROOT / LAZY_RUNTIME_ROOT / LAZY_SHARED_ROOT placement for hooks or session state
 - Source of truth:
   - `LAZY_HOST_ROOT`: caller workspace/worktree root
   - `LAZY_RUNTIME_ROOT`: runtime-only per worktree/session mutable state

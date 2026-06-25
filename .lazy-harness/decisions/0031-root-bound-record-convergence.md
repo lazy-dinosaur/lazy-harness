@@ -4,6 +4,29 @@
 - Date: 2026-05-14
 - Trigger: User confirmed option A for keeping host knowledge inside `.lazy-harness` / `.jcode` and asked whether missing `.lazy-harness` content should be pulled from current host evidence and mapped.
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - searching or discovering host knowledge, or a `.lazy-harness` record is missing
+  - an agent considers parent/sibling-directory discovery
+  - a test-strategy / validation-gate / "Vitest required?" question arises
+- Must:
+  - keep search and discovery inside the current host root
+  - when a record is missing, gather current-host evidence only and converge it into `.lazy-harness/<layer>` with an implementation map
+  - read `.lazy-harness/tests/test-strategy.xml` first for any test-strategy or validation-gate question
+  - store Jcode-local workflow notes only in `.jcode/harness/20-project-rules.md`
+- Must not:
+  - use parent/sibling discovery (`find ..`, `grep ../`, sibling-repo references) for host knowledge
+- Record completion:
+  - confirmed host facts converge into the appropriate `.lazy-harness/<layer>` record with an implementation map
+- Related records:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - `.lazy-harness/ssot/implementation-map-storage.md`
+  - `.lazy-harness/tests/test-strategy.xml`
+
 ## Context
 
 Agents were discovering `AGENTS.md` and docs with parent-directory commands such as `find ..`, which leaks sibling repositories into the current host's knowledge search. This breaks lazy-harness's record-as-SSOT model because host knowledge should converge into the current host's `.lazy-harness` records, not drift into parent or sibling directories.

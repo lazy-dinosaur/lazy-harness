@@ -20,6 +20,7 @@ interface Args {
   limit: number
   overview: boolean
   fresh: boolean
+  complete: boolean
 }
 
 interface CacheInfo {
@@ -117,6 +118,7 @@ interface RecordMapOverview {
   schemaVersion: '1.0'
   mode: 'record-map.overview'
   root: string
+  complete: boolean
   source: {
     method: 'record-map-v1'
     tool: '.lazy-harness/scripts/record-map.ts'
@@ -184,7 +186,7 @@ const RECORD_INDEX_INPUTS = [
 
 function usage(exitCode = 2): never {
   const out = exitCode === 0 ? console.log : console.error
-  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--format=json|md] [--limit=N] [--fresh]\n  .lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only project map traversal helper. Start with --overview, let the LLM choose a concrete node/key from the map, then drill into that node. This is not a free-form search box and it does not decide intent, confidence, required reads, risk, gates, or next actions.`)
+  out(`Record Map\n\nUsage:\n  .lazy-harness/bin/lazy map --overview [--complete] [--format=json|md] [--limit=N] [--fresh]\n  .lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]\n  bun .lazy-harness/scripts/record-map.ts --root . --overview --format=md\n\nRead-only project map traversal helper. Start with --overview (add --complete for the full lean discovery index of every record), let the LLM choose a concrete node/key from the map, then drill into that node. This is not a free-form search box and it does not decide intent, confidence, required reads, risk, gates, or next actions.`)
   process.exit(exitCode)
 }
 
@@ -196,6 +198,7 @@ function parseArgs(argv: string[]): Args {
     limit: 8,
     overview: false,
     fresh: false,
+    complete: false,
   }
   const queryParts: string[] = []
   for (let i = 0; i < argv.length; i += 1) {
@@ -203,6 +206,7 @@ function parseArgs(argv: string[]): Args {
     const next = argv[i + 1]
     if (arg === '--help' || arg === '-h') usage(0)
     else if (arg === '--overview') args.overview = true
+    else if (arg === '--complete') { args.complete = true; args.overview = true }
     else if (arg === '--fresh' || arg === '--no-cache') args.fresh = true
     else if ((arg === '--root' || arg === '--host') && next) { args.root = next; i += 1 }
     else if (arg.startsWith('--root=')) args.root = arg.slice('--root='.length)
@@ -613,7 +617,7 @@ export function buildRecordMap(root: string, query: string, limit = 8, fresh = f
   }
 }
 
-export function buildRecordMapOverview(root: string, limit = 20, fresh = false): RecordMapOverview {
+export function buildRecordMapOverview(root: string, limit = 20, fresh = false, complete = false): RecordMapOverview {
   const { index, cache } = loadRecordIndex(root, fresh)
   const graphSourceRows = graphRows(root)
   const graphMatches = graphSourceRows.map((row) => ({
@@ -637,42 +641,46 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false):
     .map(([layer, records]) => ({
       layer,
       count: records.length,
-      records: records.slice(0, limit).map((record) => ({ recordPath: record.recordPath, title: record.title, status: record.status })),
+      records: (complete ? records : records.slice(0, limit)).map((record) => ({ recordPath: record.recordPath, title: record.title, status: record.status })),
     }))
   const relationCounts = new Map<string, number>()
   for (const row of graphMatches) {
     const relation = row.relation || row.kind || 'row'
     relationCounts.set(relation, (relationCounts.get(relation) || 0) + 1)
   }
-  const features = index.projectProfile.features.slice(0, limit).map((feature) => ({
+  const featureSource = complete ? index.projectProfile.features : index.projectProfile.features.slice(0, limit)
+  const features = featureSource.map((feature) => ({
     id: feature.id,
     label: feature.label,
     status: feature.status,
-    aliases: feature.aliases.map((alias) => alias.value),
-    routes: feature.routes,
-    components: feature.components,
+    aliases: complete ? [] : feature.aliases.map((alias) => alias.value),
+    routes: complete ? [] : feature.routes,
+    components: complete ? [] : feature.components,
     records: feature.records.map((record) => record.path),
   }))
   const drilldown: Drilldown = { recordPaths: [], sourceFiles: [], testFiles: [], graphIds: [] }
-  for (const record of index.records) {
-    addPath(record.recordPath, drilldown, root)
-    for (const file of record.implementationHints.fileHints) addPath(file, drilldown, root)
-    for (const file of record.implementationHints.testHints) addPath(file, drilldown, root)
-    for (const id of record.graphIds) drilldown.graphIds.push(id)
-  }
-  for (const feature of index.projectProfile.features) {
-    for (const record of feature.records) addPath(record.path, drilldown, root)
-    for (const file of feature.sourceFiles) addPath(file, drilldown, root)
-    for (const file of feature.tests) addPath(file, drilldown, root)
-  }
-  for (const row of graphMatches) {
-    if (row.id) drilldown.graphIds.push(row.id)
-    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown, root)
+  if (!complete) {
+    for (const record of index.records) {
+      addPath(record.recordPath, drilldown, root)
+      for (const file of record.implementationHints.fileHints) addPath(file, drilldown, root)
+      for (const file of record.implementationHints.testHints) addPath(file, drilldown, root)
+      for (const id of record.graphIds) drilldown.graphIds.push(id)
+    }
+    for (const feature of index.projectProfile.features) {
+      for (const record of feature.records) addPath(record.path, drilldown, root)
+      for (const file of feature.sourceFiles) addPath(file, drilldown, root)
+      for (const file of feature.tests) addPath(file, drilldown, root)
+    }
+    for (const row of graphMatches) {
+      if (row.id) drilldown.graphIds.push(row.id)
+      for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown, root)
+    }
   }
   return {
     schemaVersion: '1.0',
     mode: 'record-map.overview',
     root,
+    complete,
     source: {
       method: 'record-map-v1',
       tool: '.lazy-harness/scripts/record-map.ts',
@@ -698,7 +706,7 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false):
     features,
     graph: {
       relations: Array.from(relationCounts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([relation, count]) => ({ relation, count })),
-      sampleRows: graphMatches.slice(0, limit),
+      sampleRows: complete ? [] : graphMatches.slice(0, limit),
     },
     drilldown: {
       recordPaths: uniq(drilldown.recordPaths).slice(0, limit * 3),
@@ -779,10 +787,11 @@ function renderOverviewMarkdown(result: RecordMapOverview): string {
   lines.push('- first step: use this overview as the project map; the LLM chooses concrete feature ids, record paths, graph ids, source paths, or test paths from this output.')
   lines.push('- drill-down CLI: `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8`')
   lines.push('- caveat: cues only; read real records/source/tests before relying on a match.')
+  if (result.complete) lines.push('- mode: complete lean discovery index (every record listed, untruncated; drill-down candidates omitted — drill per node).')
   lines.push('', '## Layers')
   for (const layer of result.inventory.layers) {
     lines.push(`- ${layer.layer}: ${layer.count}`)
-    for (const record of layer.records.slice(0, 5)) lines.push(`  - \`${record.recordPath}\` — ${record.title} (${record.status})`)
+    for (const record of (result.complete ? layer.records : layer.records.slice(0, 5))) lines.push(`  - \`${record.recordPath}\` — ${record.title} (${record.status})`)
   }
   lines.push('', '## Features')
   if (!result.features.length) lines.push('- -')
@@ -795,15 +804,17 @@ function renderOverviewMarkdown(result: RecordMapOverview): string {
   lines.push('', '## Graph relations')
   if (!result.graph.relations.length) lines.push('- -')
   for (const relation of result.graph.relations.slice(0, 20)) lines.push(`- ${relation.relation}: ${relation.count}`)
-  lines.push('', '## Drill-down candidates')
-  lines.push('- Records:')
-  lines.push(...renderList(result.drilldown.recordPaths, '  '))
-  lines.push('- Source files:')
-  lines.push(...renderList(result.drilldown.sourceFiles, '  '))
-  lines.push('- Test files:')
-  lines.push(...renderList(result.drilldown.testFiles, '  '))
-  lines.push('- Graph ids:')
-  lines.push(...renderList(result.drilldown.graphIds, '  '))
+  if (!result.complete) {
+    lines.push('', '## Drill-down candidates')
+    lines.push('- Records:')
+    lines.push(...renderList(result.drilldown.recordPaths, '  '))
+    lines.push('- Source files:')
+    lines.push(...renderList(result.drilldown.sourceFiles, '  '))
+    lines.push('- Test files:')
+    lines.push(...renderList(result.drilldown.testFiles, '  '))
+    lines.push('- Graph ids:')
+    lines.push(...renderList(result.drilldown.graphIds, '  '))
+  }
   return `${lines.join('\n')}\n`
 }
 
@@ -811,7 +822,7 @@ function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
     if (args.overview) {
-      const result = buildRecordMapOverview(args.root, args.limit, args.fresh)
+      const result = buildRecordMapOverview(args.root, args.limit, args.fresh, args.complete)
       if (args.format === 'json') console.log(JSON.stringify(result, null, 2))
       else process.stdout.write(renderOverviewMarkdown(result))
     } else {

@@ -11,7 +11,7 @@ import { join, relative, resolve } from 'node:path'
 
 interface Args {
   root: string
-  format: 'json' | 'markdown' | 'jcode-prompt'
+  format: 'json' | 'markdown' | 'agent-prompt'
   includeReadme: boolean
 }
 
@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): Args {
     else if (a.startsWith('--root=')) args.root = a.slice('--root='.length)
     else if (a === '--format' || a.startsWith('--format=')) {
       const value = a.startsWith('--format=') ? a.slice('--format='.length) : argv[++i]
-      if (!['json', 'markdown', 'jcode-prompt'].includes(value)) throw new Error(`Invalid --format: ${value}`)
+      if (!['json', 'markdown', 'agent-prompt'].includes(value)) throw new Error(`Invalid --format: ${value}`)
       args.format = value as Args['format']
     } else if (a === '--include-readme') args.includeReadme = true
     else if (a === '--help' || a === '-h') {
@@ -70,7 +70,7 @@ Usage:
 
 Options:
   --root <dir>                 Host root (default: cwd)
-  --format json|markdown|jcode-prompt
+  --format json|markdown|agent-prompt
                                Output format (default: markdown)
   --include-readme             Include README.md files
   --help                       Show help
@@ -149,7 +149,7 @@ function printMarkdown(records: RecordAudit[]): void {
   }
 }
 
-function printJcodePrompt(records: RecordAudit[]): void {
+function printAgentPrompt(records: RecordAudit[]): void {
   const needs = records.filter((record) => record.status === 'needs-map' || record.status === 'needs-review')
   console.log('Migrate these lazy-harness records to ADR 0030 implementation maps. Follow `.lazy-harness/spec/platform/implementation-map-migration.md`. Do not invent symbols. Inspect source with file reads/LSP/outline before marking verified. Update Markdown Implementation map sections and add graph facts only when confirmed or clearly code-evidenced.\n')
   if (needs.length === 0) {
@@ -168,8 +168,8 @@ function main(): void {
     const records = audit(root, args.includeReadme)
     if (args.format === 'json') {
       console.log(JSON.stringify({ root, summary: summarize(records), records }, null, 2))
-    } else if (args.format === 'jcode-prompt') {
-      printJcodePrompt(records)
+    } else if (args.format === 'agent-prompt') {
+      printAgentPrompt(records)
     } else {
       printMarkdown(records)
     }

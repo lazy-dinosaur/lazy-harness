@@ -5,6 +5,26 @@
 **Deciders**: Lazydino
 **Trigger**: Sisyphus audit bug-4 — `validations.jsonl` 무한 누적 (push 1회 = +17 lines, retention 정책 없음)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - a log or JSONL file grows unbounded and needs a retention/rotation policy
+  - deciding which audit logs are permanent versus ephemeral snapshots
+  - diagnosing slow grep or heavy doctor runs caused by log bloat
+- Must:
+  - keep permanent audit in actions.jsonl plus decisions.jsonl; treat validations.jsonl as a short-term snapshot
+  - bound ephemeral snapshot logs with rotation (cap roughly 1000 lines, keep recent ~500)
+- Must not:
+  - rely on validations.jsonl for long-term audit history
+- Record completion:
+  - retention/rotation changes update this ADR; current rotation behavior is superseded and needs review
+- Related records:
+  - `.lazy-harness/decisions/0012-oracle-sisyphus-audit-cascade.md`
+  - `.lazy-harness/decisions/0011-verification-discipline.md`
+
 ## Discovery
 
 doctor 가 16 check 출력 → 매 호출 시 16 entry append. pre-push hook 이 매 push 마다 doctor 호출 + 자체 1 entry. 즉:

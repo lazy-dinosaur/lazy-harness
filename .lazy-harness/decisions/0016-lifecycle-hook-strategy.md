@@ -5,6 +5,29 @@
 - Trigger: 사용자가 jcode 코어에 M11 lifecycle hook decision parsing patch 완료 → framework 의 응답 종료 시점 강제 게이트 처음 가능
 - Related: ADR 0010 (Plan Status Hygiene), ADR 0011 (Verification Discipline), ADR 0013 (External Dep Invariant + Code-First), ADR 0015 (Doctor C16 확장)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - deciding whether a check should block during development edits or only at commit/push
+  - designing response-completion or lifecycle verification gates
+  - wiring framework consistency enforcement into hooks
+- Must:
+  - keep development edit/write hooks advisory; enforce consistency as blocking at pre-commit/pre-push via `lazy test`
+  - run response.completed as a best-effort per-response verification gate with a loop guard
+  - keep destructive-bash safety the only blocking tool.execute.before gate
+- Must not:
+  - add blocking force-gates on edit/write/multiedit during development
+- Record completion:
+  - lifecycle/hook policy changes update this ADR plus the hooks README and self-test
+- Related records:
+  - `.lazy-harness/decisions/0011-verification-discipline.md`
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+  - `.lazy-harness/decisions/0015-doctor-c16-extend-plan-progress-freshness.md`
+  - `.lazy-harness/spec/platform/hook-performance-measurement.md`
+
 ## Context
 
 이번 세션 6시간 동안 발견된 framework 한계:

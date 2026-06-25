@@ -5,6 +5,27 @@
 - Trigger: 사용자 catch — "지금 진행상황이나 이런거 전부 체크하면서 하고 있는거지??"
 - Related: ADR 0010 (Principle #20 Plan Status Hygiene), ADR 0011 (Verification), ADR 0012 (Audit Cascade)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - a session or phase ends and plan/handoff/progress records may be stale or unsynced
+  - extending doctor or freshness checks to catch missed record updates
+  - user asks whether progress and project state are being tracked
+- Must:
+  - keep handoff, closed-phase addedDuringPhase, and progress/<today>.md in sync with ADRs and the actions log
+  - absorb user-catchable freshness gaps into automated doctor freshness checks
+- Must not:
+  - rely on AI self-report that records are updated without an automated freshness gate
+- Record completion:
+  - freshness-check changes update this ADR; the C16 expansion is partially superseded by current doctor freshness checks
+- Related records:
+  - `.lazy-harness/decisions/0010-plan-status-hygiene.md`
+  - `.lazy-harness/decisions/0011-verification-discipline.md`
+  - `.lazy-harness/decisions/0012-oracle-sisyphus-audit-cascade.md`
+
 ## Context
 
 ADR 0011~0014 작성 + audit cascade fix + AGENTS.md 갱신 + framework 21.8 추가까지 모두 완료된 후, 사용자가 "전부 체크하면서 하고 있는거지??" 질문.

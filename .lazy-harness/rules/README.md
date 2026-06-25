@@ -23,7 +23,7 @@ Related records:
   - keep `.lazy-harness/rules/**` as a compatibility/explain surface for human review and host sync
   - bind machine-readable action surfaces in `.lazy-harness/ssot/capabilities.json`
 - Avoid:
-  - storing shared project/team operating policy only in `.jcode/**` or Jcode memory
+  - storing shared project/team operating policy only in Pi/OMP local notes
   - relying on fact records alone to steer commands
 - Requires:
   - typed policy coverage in `.lazy-harness/ssot/policies.json` before treating a rulebook entry as behavior policy authority
@@ -31,7 +31,7 @@ Related records:
   - capability binding for active `default|warn|block` rules
   - bypass explanation for `warn|block` rules
 - Bypass:
-  - local/private Jcode-only preferences may use `.jcode/**` only with explicit `Scope: jcode-local`
+  - local/private Pi/OMP-only preferences may use Pi/OMP local notes (`.pi/`/`.omp/`) only with explicit `Scope: local-only`
 - Record completion:
   - update related ADR/SDD/TDD/SSOT when rulebook schema or action level behavior changes
 
@@ -53,7 +53,7 @@ Good examples:
 
 Bad examples:
 
-- Putting shared team policy only in `.jcode/harness/20-project-rules.md`.
+- Putting shared team policy only in `.pi/APPEND_SYSTEM.md`.
 - Storing command policy as a vague note in memory without typed policy and capability bindings.
 - Jumping directly from a rulebook entry to a hard-stop hook without Guidance Ladder promotion evidence.
 

@@ -4,6 +4,30 @@ Status: accepted
 Layer: SSOT
 Date: 2026-05-14
 
+## Rule digest
+
+- Status: active
+- Layer: SSOT
+- Scope: host-project
+- Applies when:
+  - user asks about this checkout's project identity, goal, source-of-truth, or ownership boundary
+  - interpreting ambiguous screenshots/transcripts shown during harness tuning
+  - deciding whether work belongs to the framework source vs a downstream host (Medivance/PWA/homepage)
+  - choosing commit/release conventions in this repo
+- Must:
+  - treat this checkout as the standalone lazy-harness framework source-of-truth repo
+  - interpret ambiguous evidence as lazy-harness/Jcode behavior, not an unrelated product UI bug, unless redirected
+  - classify Medivance dogfood findings (framework-general vs host-specific vs needs cross-host vs no action) before generalizing
+- Must not:
+  - apply downstream Medivance commit/release-note or hospital-user-facing conventions to commits here
+  - commit manual downstream host registry edits, or push/release/delete worktrees, without explicit confirmation
+- Record completion:
+  - user-confirmed ownership/source-of-truth corrections converge into this SSOT or a more specific SSOT
+- Related records:
+  - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`
+  - `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md`
+  - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
+
 ## User-confirmed statement
 
 This checkout is the standalone `lazy-harness` framework source-of-truth repo.
@@ -146,7 +170,6 @@ Operational rule:
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/ssot/project-identity.md` — framework-vs-downstream ownership boundary and this correction.
-  - `.lazy-harness/planning/dogfood-auto-recording-status-report.md` — mutable dogfood metrics and host evidence snapshots.
   - `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md` — lifecycle compare inspection workflow that requires both Medivance and PWA checks while keeping Medivance primary.
   - `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md` — standalone framework source-of-truth extraction decision.
 - Flow:
@@ -158,7 +181,6 @@ Operational rule:
   - `.lazy-harness/bin/lazy lifecycle-parity --format=md --fail-on-mismatch`
   - downstream host smoke checks after sync/public install.
 - Cross-layer links:
-  - Planning: `.lazy-harness/planning/dogfood-auto-recording-status-report.md`
   - Planning: `.lazy-harness/planning/lifecycle-compare-dogfood-handoff.md`
   - ADR: `.lazy-harness/decisions/0027-standalone-source-of-truth-repository.md`
 

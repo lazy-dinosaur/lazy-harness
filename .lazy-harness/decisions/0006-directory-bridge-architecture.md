@@ -1,11 +1,34 @@
 # ADR 0006 — Directory Bridge Architecture (.jcode ↔ .lazy-harness)
 
 **Date**: 2026-05-10
-**Status**: Accepted
+**Status**: superseded
+**Superseded on**: 2026-06-24
+**Superseded by**: .lazy-harness/decisions/0050-pi-omp-only-runtime.md
 **Deciders**: Lazydino
 **Trigger**: 사용자 질문 ".jcode 랑 .lazy-harness 랑 어떻게 연결되는게 가능해??" → framework-contract 에 connection 메커니즘이 명시 안 되어 있음 발견 (gap).
 
+## Rule digest
+
+- Status: deprecated
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - questioning how `.jcode` and `.lazy-harness` connect, or whether to merge/relocate them
+  - documenting the directory bridge between private wiring and framework body
+- Must:
+  - keep `.jcode` (private wiring) and `.lazy-harness` (framework body) separate at their bound locations
+  - rely on the defined bridge mechanisms (positional binding, doctor lookup, canonical source, safety guard)
+- Must not:
+  - merge the two directories or move them to non-bound paths
+- Record completion:
+  - changes to the directory bridge or its wiring update this ADR and `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+- Related records:
+  - `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+  - `.lazy-harness/framework/framework-contract.md`
+
 ## Context
+
+> Superseded by ADR 0050 (Pi/OMP-only runtime, 2026-06-24): jcode wiring is decommissioned. This record is preserved as decision history.
 
 framework 가 두 디렉토리로 분리되어 있음:
 - `.jcode/` — jcode harness 영역 (skill, hook, config)

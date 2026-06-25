@@ -6,6 +6,26 @@ Date: 2026-05-17
 Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - a user corrects that something is a project/team rule, not personal memory
+  - an agent is about to store workflow/ownership/source-of-truth/forbidden-mutation policy via Jcode memory.remember
+- Must:
+  - STOP when project/team-policy-like content is written to Jcode `memory.remember`
+  - forget the mistaken memory entry and create or update the canonical `.lazy-harness` record
+- Must not:
+  - treat a same-turn `.lazy-harness` write as excusing the mistaken memory write
+  - store project/team policy in Jcode memory; personal/local preferences stay allowed
+- Record completion:
+  - changes to memory-misrouting detection update this TDD plus project-rule-router SDD and rule-sources SSOT
+- Related records:
+  - `.lazy-harness/spec/platform/project-rule-router.md`
+  - `.lazy-harness/ssot/rule-sources.md`
+
 ## Regression
 
 A project/team workflow rule can be mistakenly stored through Jcode `memory.remember` as a preference. That makes the rule invisible to lazy-harness root-bound record search, bypasses implementation maps/graph edges, and repeats the same failure in future sessions or other hosts.

@@ -12,7 +12,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 
 ## Rule digest
 
-- Status: active-runtime-promote-v2-project-map-branch-writer-implemented
+- Status: active
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
@@ -28,7 +28,7 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
   - emit policy/capability seed candidates with stage-aware levels
   - keep initial policy levels at `discover` or `recommend` unless user/team explicitly confirms stronger enforcement
   - preserve no-silent-defaults behavior
-  - keep Pi as primary future adapter and Jcode as compatibility adapter
+  - keep Pi as primary future adapter and OMP as compatibility adapter
   - keep existing Project Profile V1 behavior compatible until a migration is explicitly approved
   - keep `interview-v2` read-only and dry-run only
   - keep `queue-v2 --confirm` limited to `.lazy-harness/project/profile-queue.json`
@@ -66,7 +66,7 @@ Project Profile V2 treats Project Interview as an installation/adoption/refresh 
 4. stage-aware capability candidates,
 5. unresolved ambiguity capture.
 
-The output should help a Pi-first or Jcode-compatible agent bootstrap or repair the project profile: identify missing parts, capture system design and folder/source structure, record tech stack and ownership, define basic project/team conventions, and start future work from the project map instead of guessing file edits or applying universal workflow defaults.
+The output should help a Pi-first or OMP-compatible agent bootstrap or repair the project profile: identify missing parts, capture system design and folder/source structure, record tech stack and ownership, define basic project/team conventions, and start future work from the project map instead of guessing file edits or applying universal workflow defaults.
 
 Project Interview is not the V2 core engine. The core remains Project Map, policy machinery, evidence/validation loop, and adapter-neutral update paths. Interview is one structured channel for creating or refreshing the profile when lazy-harness is installed on a new project, introduced into an existing project midstream, or asked to audit/profile missing project context.
 
@@ -93,7 +93,7 @@ The desired dry-run/interview output packet is JSON-compatible:
 {
   "schemaVersion": "project-profile-interview-v2/v1",
   "mode": "interview-v2",
-  "adapterBoundary": { "primary": "pi", "compatibility": ["jcode"] },
+  "adapterBoundary": { "primary": "pi", "compatibility": ["omp"] },
   "projectMapSeeds": [],
   "policyCandidates": [],
   "questionGroups": [],
@@ -108,7 +108,7 @@ The desired dry-run/interview output packet is JSON-compatible:
 |---|---|
 | `schemaVersion` | `project-profile-interview-v2/v1`. |
 | `mode` | `interview-v2`, `plan-v2`, or future compatible mode. |
-| `adapterBoundary` | Pi primary, Jcode compatibility, core semantics adapter-neutral. |
+| `adapterBoundary` | Pi primary, OMP compatibility, core semantics adapter-neutral. |
 | `projectMapSeeds` | Draft Project Map V2 anchor/branch/edge seed candidates. |
 | `policyCandidates` | Draft project/team policy or capability candidates. |
 | `questionGroups` | Interview question groups by project dimension. |
@@ -265,9 +265,9 @@ Possible output targets:
 Project Profile V2 is core framework data.
 
 - Pi is the primary future adapter.
-- Jcode remains compatibility adapter.
+- OMP remains compatibility adapter.
 - Adapter-specific wrappers must not own policy semantics.
-- The same interview packet should be consumable by Pi and Jcode adapter surfaces.
+- The same interview packet should be consumable by Pi and OMP adapter surfaces.
 
 ## Implementation map
 
@@ -353,7 +353,7 @@ Project Profile V2 is core framework data.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/project-profile-v2.md`
 - Why not AGENTS.md: this is an SDD output contract, not immediate prompt grammar.
-- Why not `.jcode`: V2 is Pi-primary and agent-neutral; Jcode is only compatibility adapter.
+- Why not `.jcode`: V2 is Pi-primary and agent-neutral; OMP is only compatibility adapter.
 - Confirmation: user-approved Phase 2 design draft, first read-only runtime slice, queue-v2 writer slice, promote-v2 dry-run preview, and A→B→C confirmed-writer sequence on 2026-06-17.
 
 ## Discovery capture

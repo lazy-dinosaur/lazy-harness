@@ -7,6 +7,24 @@
 
 > **Reverse 이유**: ADR 0013 에서 사용자 통찰로 5c 재정의 — Figma adapter 가 아니라 Code-Trigger Adapter. AST 가 5c 의 prerequisite 이라 1주 측정 안 기다리고 즉시 채택. 옛 5b-2a → 새 5c-2 로 elevate.
 
+## Rule digest
+
+- Status: reverted
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user asks why ts-morph/AST contract-diff adoption was deferred then reversed
+  - deciding whether to defer an external dependency pending measured need
+- Must:
+  - (historical, reverted) the original decision deferred ts-morph until measured contract-drift demand justified the cost
+- Must not:
+  - apply this deferral now; ADR 0013 reversed it and adopted ts-morph immediately
+- Record completion:
+  - superseding contract-diff/external-dependency decisions update `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+- Related records:
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+  - `.lazy-harness/decisions/0005-meaning-of-lazy.md`
+
 ## Context
 
 Phase 5b 의 7 criteria 중 5b-2 만 외부 의존성 (ts-morph) 필요. 나머지 (5b-1/3/4/5/7) 는 sh 만으로 구현 완료.

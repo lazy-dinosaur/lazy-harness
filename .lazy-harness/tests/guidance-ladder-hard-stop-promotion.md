@@ -7,6 +7,27 @@ Related SDD: `.lazy-harness/spec/platform/guidance-ladder.md`
 Related SSOT: `.lazy-harness/ssot/rule-lifecycle.md`
 Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - promoting a rule to a hard-stop or blocking hook, or auditing hard-stop promotion records
+  - deciding whether softer guidance layers were insufficient before blocking
+- Must:
+  - treat hard stops as last-rung behavior; promoted hard stops carry a complete `## Hard-stop promotion` section (status, boundary, scope, confirmation, evidence, softer coverage, fixture, narrowness, rollback)
+  - strict audit must fail invalid promotion records and pass valid ones only when the fixture path exists
+- Must not:
+  - add a blocking hook the moment a rule exists, without proof softer layers were insufficient
+  - conflate generic destructive-shell safety with project/team hard-stop promotion
+- Record completion:
+  - changes to promotion criteria or the audit checker update this TDD plus the guidance-ladder SDD and rule-lifecycle SSOT
+- Related records:
+  - `.lazy-harness/spec/platform/guidance-ladder.md`
+  - `.lazy-harness/ssot/rule-lifecycle.md`
+  - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+
 ## Regression class
 
 Lazy-harness must not regress from organic guidance back into broad or tool-attached hard blocks.

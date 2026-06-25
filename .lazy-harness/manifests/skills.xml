@@ -12,17 +12,17 @@
   <!-- ADR 0025: lazy-init / lazy-sync 로 portability single entry point 구현. -->
 
   <skill id="lazy-init" status="stable" phase="dogfooding">
-    <location>.jcode/skills/lazy-init/</location>
-    <description>Bootstrap lazy-harness on a host project. Category A (framework 본체 rsync) + Category B (institutional memory 빈 골격) + post-init wiring (.git/info/exclude, pre-commit hook, jcode skills, version marker).</description>
+    <location>packages/lazy-harness-pi/skills/lazy-init/</location>
+    <description>Bootstrap lazy-harness on a host project. Category A (framework 본체 rsync) + Category B (institutional memory 빈 골격) + post-init wiring (.git/info/exclude, pre-commit hook, version marker).</description>
     <command>bun run lazy:init --target &lt;dir&gt;</command>
-    <command>bun .lazy-harness/scripts/lazy-init.ts --target &lt;dir&gt; [--dry-run|--force|--skip-jcode|--skip-hooks]</command>
+    <command>bun .lazy-harness/scripts/lazy-init.ts --target &lt;dir&gt; [--dry-run|--force|--skip-hooks]</command>
     <emitsLogs>true</emitsLogs>
     <ownsArtifacts>.lazy-harness/manifests/init-categories.json</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/scripts/lazy-init.ts</ownsArtifacts>
   </skill>
 
   <skill id="lazy-sync" status="stable" phase="dogfooding">
-    <location>.jcode/skills/lazy-sync/</location>
+    <location>packages/lazy-harness-pi/skills/lazy-sync/</location>
     <description>Update framework 본체 (Category A only) on an already-initialized host. Drift detection via state/synced-from-commit. Preserves Category B institutional memory.</description>
     <command>bun run lazy:sync [--from &lt;dir&gt;] [--target &lt;dir&gt;]</command>
     <command>bun .lazy-harness/scripts/lazy-sync.ts [--dry-run|--force]</command>
@@ -87,26 +87,22 @@
   </skill>
 
 
-  <skill id="lazy-skill-create" status="stable" phase="custom-skills">
-    <location>.lazy-harness/scripts/skill-create.ts</location>
-    <description>Create host-local custom Jcode skill wrappers under .jcode/skills while logging generated skill metadata to .lazy-harness/knowledge/skills.jsonl.</description>
+  <skill id="lazy-skill-create" status="retired" phase="custom-skills" replacedBy="pi-omp-package-skill">
+    <location>packages/lazy-harness-pi/skills/lazy-skill-create/</location>
+    <description>Retired (ADR 0050): generated .jcode/skills wrappers; jcode runtime removed. Pi/OMP custom skills are authored in packages/lazy-harness-pi/skills/.</description>
     <command>.lazy-harness/bin/lazy skill create &lt;name&gt; [--description &lt;text&gt;] [--script &lt;file&gt;]</command>
     <emitsLogs>true</emitsLogs>
-    <ownsArtifacts>.lazy-harness/scripts/skill-create.ts</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/spec/platform/jcode-skill-creation.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/knowledge/skills.jsonl</ownsArtifacts>
   </skill>
 
   <skill id="lazy-impl-map-migrate" status="beta" phase="implementation-map">
-    <location>.jcode/skills/lazy-impl-map-migrate/</location>
+    <location>packages/lazy-harness-pi/skills/lazy-impl-map-migrate/</location>
     <description>Guided LLM-assisted implementation-map migration. Uses read-only lazy impl-map and graph-hygiene audit evidence, then migrates only reviewed batches after user option-gate confirmation.</description>
-    <command>Use /lazy-impl-map-migrate in Jcode or Pi.</command>
+    <command>Use /lazy-impl-map-migrate in Pi/OMP.</command>
     <command>.lazy-harness/bin/lazy impl-map --format=json</command>
     <command>.lazy-harness/bin/lazy graph-hygiene --format=json</command>
-    <command>.lazy-harness/bin/lazy impl-map --format=jcode-prompt</command>
     <emitsLogs>true</emitsLogs>
-    <dependsOn>lazy-skill-create</dependsOn>
-    <ownsArtifacts>.jcode/skills/lazy-impl-map-migrate/SKILL.md</ownsArtifacts>
     <ownsArtifacts>packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/spec/platform/implementation-map-migration.md</ownsArtifacts>
   </skill>
@@ -134,9 +130,9 @@
   </skill>
 
   <skill id="lazy-project-profile" status="beta" phase="5e">
-    <location>.jcode/skills/lazy-project-profile/</location>
+    <location>packages/lazy-harness-pi/skills/lazy-project-profile/</location>
     <description>Framework-owned interview-first Project Profile skill: capture or update host project purpose, folder structure, architecture theory, system design patterns, design system, backend boundaries, test strategy, validation commands, and agent rules before feature work.</description>
-    <command>Use /lazy-project-profile in Jcode; wrapper reads .lazy-harness/spec/platform/project-profile.md and .lazy-harness/plans/project-init-interview-spec.md</command>
+    <command>Use /lazy-project-profile in Pi/OMP; wrapper reads .lazy-harness/spec/platform/project-profile.md and .lazy-harness/plans/project-init-interview-spec.md</command>
     <command>bun .lazy-harness/scripts/project-profile.ts --mode inspect --format=md</command>
     <command>bun .lazy-harness/scripts/project-profile.ts --mode plan --format=md</command>
     <command>bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm --format=md</command>
@@ -147,13 +143,12 @@
     <ownsArtifacts>.lazy-harness/spec/platform/project-profile.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/scripts/project-profile.ts</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/plans/project-init-interview-spec.md</ownsArtifacts>
-    <ownsArtifacts>.jcode/skills/lazy-project-profile/SKILL.md</ownsArtifacts>
   </skill>
 
   <skill id="lazy-doc-ingest" status="beta" phase="5e">
-    <location>.jcode/skills/lazy-doc-ingest/</location>
+    <location>packages/lazy-harness-pi/skills/lazy-doc-ingest/</location>
     <description>Framework-owned document resource ingestion wrapper: inspect non-harness host docs, score freshness/authority/duplication/contamination, and prepare/apply document-intake/candidate evidence before any canonical record promotion.</description>
-    <command>Use /lazy-doc-ingest in Jcode; wrapper runs document-resource-ingestion inspect first</command>
+    <command>Use /lazy-doc-ingest in Pi/OMP; wrapper runs document-resource-ingestion inspect first</command>
     <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode inspect --format=md</command>
     <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode plan --format=md</command>
     <command>bun .lazy-harness/scripts/document-resource-ingestion.ts --mode apply --dry-run --format=md</command>
@@ -161,7 +156,6 @@
     <emitsLogs>false</emitsLogs>
     <ownsArtifacts>.lazy-harness/spec/platform/document-resource-ingestion.md</ownsArtifacts>
     <ownsArtifacts>.lazy-harness/scripts/document-resource-ingestion.ts</ownsArtifacts>
-    <ownsArtifacts>.jcode/skills/lazy-doc-ingest/SKILL.md</ownsArtifacts>
   </skill>
 
   <skill id="lazy-report" status="planned" phase="post-5e">

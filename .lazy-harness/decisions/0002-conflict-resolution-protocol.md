@@ -4,6 +4,27 @@
 
 Accepted (2026-05-10)
 
+## Rule digest
+
+- Status: needs-review
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - user provides new information that may conflict with existing records
+  - detecting or resolving a conflict across DDD/SDD/BDD/TDD/SSOT records
+- Must:
+  - scan existing records for conflicts before persisting new information
+  - cite sources by file:line with direct quotes and present structured A–E choices plus impact range
+  - persist the human-chosen decision, then re-run the aftershock conflict check (max depth 3)
+- Must not:
+  - auto-resolve or update silently; always require a human decision gate
+- Record completion:
+  - changes to the conflict-resolution protocol update this ADR and `.lazy-harness/framework/framework-contract.md`
+- Related records:
+  - `.lazy-harness/framework/framework-contract.md`
+  - `.lazy-harness/decisions/0001-core-philosophy.md`
+  - `.lazy-harness/decisions/0019-ambiguous-detection-force-gate.md`
+
 ## Context
 
 framework-contract 의 Principle #2 (Drafting and Auditing) 에 5-finding 분류

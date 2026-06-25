@@ -36,7 +36,7 @@ Lazy-harness already routed newly discovered rules into canonical records and pr
 Correct storage does not guarantee future action-time recall.
 ```
 
-A Medivance PR body rule existed in `.lazy-harness/ssot/pr-description-format.md`, but a PR was still written with `Summary / Validation / Context` instead of the required `Why / What / Task` structure.
+A Medivance PR body rule existed in host SSOT, but a PR was still written with `Summary / Validation / Context` instead of the required `Why / What / Task` structure.
 
 ## Original decision
 

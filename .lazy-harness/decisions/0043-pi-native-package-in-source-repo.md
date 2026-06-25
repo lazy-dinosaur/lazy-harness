@@ -3,6 +3,27 @@
 Status: accepted
 Date: 2026-06-09
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - building, installing, or locating the Pi-native lazy-harness integration package
+  - deciding where the Pi adapter package lives relative to the source repo
+- Must:
+  - keep the first Pi package in-repo at `packages/lazy-harness-pi/`, installed by local package path
+  - have the extension locate the host root by walking up to `.lazy-harness/bin/lazy`
+  - document the trust boundary because Pi extensions run with project extension permissions
+- Must not:
+  - publish to npm or split a standalone repo before the adapter stabilizes and runtime smoke passes
+- Record completion:
+  - changes to package location, install UX, or trust boundary update this ADR and `.lazy-harness/spec/platform/pi-agent-package.md`
+- Related records:
+  - `.lazy-harness/spec/platform/pi-agent-package.md`
+  - `.lazy-harness/tests/pi-agent-package.md`
+  - `.lazy-harness/planning/pi-agent-plugin-adapter.md`
+
 ## Context
 
 The user wants to use Pi Coding Agent and confirmed option A: build a Pi-native lazy-harness package inside the current lazy-harness repository, then install it into Pi by local package path.

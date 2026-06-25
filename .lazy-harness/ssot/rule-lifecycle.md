@@ -74,7 +74,7 @@ Preferred metadata lives in:
 
 ## PR body rule after Phase 5
 
-If a host contains `.lazy-harness/ssot/pr-description-format.md`, lazy-harness should not default to `gh pr create/edit` hard blocking.
+If a host defines a PR description format SSOT, lazy-harness should not default to `gh pr create/edit` hard blocking.
 
 Instead:
 
@@ -108,7 +108,6 @@ Phase 6 implementation lives in `.lazy-harness/spec/platform/guidance-ladder.md`
   - `.lazy-harness/spec/platform/guidance-ladder.md` — Phase 6 guidance ladder and hard-stop promotion criteria.
   - `.lazy-harness/spec/platform/response-rule-audit.md` — active response audit SDD.
   - `.lazy-harness/spec/platform/record-decision-broker.md` — Phase 8 post-turn record decision contract.
-  - `.lazy-harness/spec/platform/context-broker-dogfood.md` — explicit dogfood collection contract before lifecycle integration.
   - `.lazy-harness/scripts/record-decision-broker.ts` — explicit post-turn Record Decision Packet generator.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — default direct-search prompt and sanitized search-debt journal producer.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — packet-scoped post-response search/read debt audit helper.

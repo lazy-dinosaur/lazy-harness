@@ -22,7 +22,7 @@ const LAYER_DIRS = {
 
 type Layer = keyof typeof LAYER_DIRS
 type DigestStatus = 'active' | 'advisory' | 'deprecated' | 'reverted' | 'needs-review'
-type Scope = 'framework-global' | 'host-project' | 'team-policy' | 'layer-fact' | 'transient-plan' | 'jcode-local' | 'ambiguous'
+type Scope = 'framework-global' | 'host-project' | 'team-policy' | 'layer-fact' | 'transient-plan' | 'local-only' | 'ambiguous'
 type DigestSource = 'rule-digest' | 'fallback'
 type Format = 'json' | 'md'
 
@@ -265,7 +265,7 @@ function normalizeLayer(value: string | undefined, fallback: Layer): Layer {
 
 function normalizeScope(value: string | undefined, fallback: Scope): Scope {
   const v = (value || '').trim()
-  const allowed: Scope[] = ['framework-global', 'host-project', 'team-policy', 'layer-fact', 'transient-plan', 'jcode-local', 'ambiguous']
+  const allowed: Scope[] = ['framework-global', 'host-project', 'team-policy', 'layer-fact', 'transient-plan', 'local-only', 'ambiguous']
   return allowed.includes(v as Scope) ? v as Scope : fallback
 }
 

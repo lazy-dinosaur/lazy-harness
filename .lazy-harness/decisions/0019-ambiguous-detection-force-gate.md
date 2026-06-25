@@ -6,6 +6,29 @@
 - Discovered case: 5c-2 SDD detector 의 `Emr` 3글자 약어 — short noise filter 로 제외하면 false negative
 - Related: ADR 0010 (Plan Status Hygiene), ADR 0011 (Verification Discipline), ADR 0018 (Cross-Layer Cascade)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - a detector or classifier hits an ambiguous or low-confidence case
+  - deciding whether to auto-apply, recommend, or stop for human confirmation
+  - a term, length, layer, or alias classification is uncertain
+- Must:
+  - escalate ambiguous/low-confidence cases to a force gate with structured 3-5 options, a Recommended, and type-your-own
+  - persist the user's decision so the same case is not re-asked
+- Must not:
+  - auto-decide or silently skip an ambiguous case via a simple length or whitelist filter
+- Record completion:
+  - ambiguous-case answers persist to ubiquitous-language, a forbidden list, or the decision log so detectors stop re-asking
+- Related records:
+  - `.lazy-harness/decisions/0010-plan-status-hygiene.md`
+  - `.lazy-harness/decisions/0011-verification-discipline.md`
+  - `.lazy-harness/decisions/0018-cross-layer-cascade.md`
+  - `.lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md`
+  - `.lazy-harness/ssot/rule-sources.md`
+
 ## Context
 
 5c-2 SDD detector tuning 작업에서 발견:

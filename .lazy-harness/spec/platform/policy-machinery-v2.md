@@ -1,6 +1,6 @@
 # SDD — Policy Machinery V2
 
-Status: active-contract
+Status: active-contract — Option B typed policy canonical slice
 Layer: SDD
 Date: 2026-06-18
 Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md#phase-3--unify-rulebook--capability-registry-into-policy-machinery`
@@ -14,7 +14,7 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
 
 ## Rule digest
 
-- Status: active-contract / Option B typed policy canonical slice
+- Status: active
 - Layer: SDD
 - Scope: framework-global
 - Applies when:
@@ -273,7 +273,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 - Records:
   - `.lazy-harness/spec/platform/policy-machinery-v2.md` — this contract.
   - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — source canonical ADR for the user-confirmed Option B decision.
-  - `.lazy-harness/framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR so host `.lazy-harness/decisions/` remains host-owned.
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR so host `.lazy-harness/decisions/` remains host-owned.
   - `.lazy-harness/ssot/policy-registry.md` — typed policy registry SSOT.
   - `.lazy-harness/tests/policy-machinery-v2.md` — regression expectations.
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md` — baseline/gap audit.

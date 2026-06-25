@@ -5,6 +5,29 @@
 - Trigger: 사용자 결정 — "lazy:test 로 가야지 jcode 의 역할은 그냥 하네스 사용을 위한 툴인거고 나머지 모든건 우리 프레임워크가 흡수해야해"
 - Related: ADR 0006 (Directory Bridge), ADR 0013 (External Dependency Invariant), ADR 0021 (Experimental Branch + Extract Strategy)
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - deciding where framework validation, doctor, or self-test logic should live
+  - wiring a hook to a validation gate
+  - a check depends on `.jcode` existing
+- Must:
+  - keep framework validation/doctor/self-test/registry logic owned by `.lazy-harness`, runnable without `.jcode`
+  - make hooks call framework-owned validation (`lazy test` / self-test) as the primary gate
+- Must not:
+  - make framework operational validation depend on Jcode or `.jcode`
+- Record completion:
+  - doctor/self-test boundary changes update this ADR plus the CLI tool boundary SSOT
+- Related records:
+  - `.lazy-harness/decisions/0006-directory-bridge-architecture.md`
+  - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
+  - `.lazy-harness/decisions/0021-experimental-branch-and-extract-strategy.md`
+  - `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+
 ## Context
 
 초기 lazy-harness 설계에서는 `.jcode/skills/harness-doctor/`가 framework 검증의 중심이었다.

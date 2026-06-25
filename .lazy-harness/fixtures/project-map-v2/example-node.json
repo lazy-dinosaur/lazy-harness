@@ -68,7 +68,7 @@
   "adapterBoundary": {
     "primary": "pi",
     "compatibility": [
-      "jcode"
+      "omp"
     ],
     "core": "lazy-harness project map and policy machinery remain adapter-neutral"
   },

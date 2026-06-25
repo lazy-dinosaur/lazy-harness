@@ -9,6 +9,29 @@ Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 Related TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md`
 Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - retrieving project understanding or locating records, source, or tests in a host
+  - choosing how to discover implementation evidence before answering or planning
+- Must:
+  - use map-first traversal: `lazy map --overview`, pick concrete nodes, expand, then read records/source/tests
+  - keep the LLM/searcher as semantic authority; treat generated map/index/graph output as cue-only
+  - on incomplete/ambiguous map, ask a 3-5 option gate or state the missing prerequisite
+- Must not:
+  - run `lazy find --purpose`, pass raw natural-language strings to `lazy map`, or fall back to keyword grep/rg/find
+- Record completion:
+  - changes to retrieval flow or map semantics update this ADR plus the purpose-scoped-retrieval DDD/BDD/SDD/TDD records
+- Related records:
+  - `.lazy-harness/domain/purpose-scoped-retrieval.md`
+  - `.lazy-harness/behavior/purpose-scoped-retrieval.md`
+  - `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
+  - `.lazy-harness/tests/purpose-scoped-retrieval.md`
+  - `.lazy-harness/ssot/cli-tool-boundary.md`
+
 ## Context
 
 Lazy-harness stores project understanding as project/topic anchors with DDD facts, BDD expectations, SDD contracts, TDD validation, ADR decisions, SSOT ownership, and source/test links. The retrieval helper must let the LLM follow that map and decide what to read.

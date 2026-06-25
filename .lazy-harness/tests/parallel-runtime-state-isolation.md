@@ -7,6 +7,26 @@ Related SDD: `.lazy-harness/spec/platform/runtime-and-shared-state.md`
 Related SSOT: `.lazy-harness/ssot/runtime-and-shared-state.md`
 Related ADR: `.lazy-harness/decisions/0002-conflict-resolution-protocol.md`
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - parallel agents/sessions or a secondary worktree symlink `.lazy-harness` to a primary checkout
+  - concurrent commit/validation in the same worktree, or routing runtime journals/caches/logs
+- Must:
+  - write packet journals, read-debt checks, timing/compare/shadow logs, and `open-gates.json` to the caller's session runtime root
+  - dedupe identical canonical JSONL payloads (including idless rows) and record same-id conflicts in `*.conflicts.jsonl`; use a worktree-local git-action lock for pre-commit/pre-push
+- Must not:
+  - write runtime state under the symlink target `.lazy-harness/state`, causing false cross-session contamination
+- Record completion:
+  - changes to runtime-root routing or conflict handling update this TDD plus the runtime-and-shared-state SDD and SSOT
+- Related records:
+  - `.lazy-harness/spec/platform/runtime-and-shared-state.md`
+  - `.lazy-harness/ssot/runtime-and-shared-state.md`
+  - `.lazy-harness/decisions/0002-conflict-resolution-protocol.md`
+
 ## Regression
 
 When a secondary git worktree symlinks `.lazy-harness` to a primary checkout, lifecycle hooks used to write these runtime file classes under the symlink target's legacy state/log directories:

@@ -4,6 +4,23 @@ Status: active
 Layer: TDD
 Date: 2026-06-18
 
+## Rule digest
+
+- Status: active
+- Layer: TDD
+- Scope: framework-global
+- Applies when:
+  - running or implementing `lazy check` for fast changed-file static validation before full regression
+- Must:
+  - provide fast changed-file static validation that reports `fullRegression: false`
+  - fail quickly on malformed changed JSON and reject explicit files outside the host root
+- Must not:
+  - treat `lazy check` as a full-regression replacement; full regression still requires `lazy test`
+- Record completion:
+  - changes to `lazy check` scope or output update this TDD plus the fast-validation-tier SDD
+- Related records:
+  - `.lazy-harness/spec/platform/fast-validation-tier.md`
+
 ## Regression target
 
 `lazy check` must provide fast changed-file static validation without replacing the full `lazy test` regression gate.

@@ -5,6 +5,28 @@ Date: 2026-05-21
 Layer: SDD
 Related: `.lazy-harness/spec/platform/project-profile.md`, `.lazy-harness/spec/platform/progressive-knowledge-graph.md`, `.lazy-harness/planning/document-resource-ingestion-implementation-plan.md`
 
+## Rule digest
+
+- Status: active
+- Layer: SDD
+- Scope: framework-global
+- Applies when:
+  - auditing whether a host accumulated reusable lazy-harness record memory and what needs cleanup
+  - running or extending the `record-audit` dashboard for dogfooding or host maintenance
+- Must:
+  - keep `record-audit` read-only, reporting actionable signals only
+  - emit the required signals (layers, host comparison, JSONL, markers, project profile, graph, recordQuality, warnings/nextActions)
+  - keep `recordQuality` advisory, summarizing counts without failing historical records
+- Must not:
+  - write records, mutate logs, resolve questions, fill Project Profile answers, or repair graph entries
+  - be treated as a replacement for `.lazy-harness/bin/lazy test` or `doctor.py`
+- Record completion:
+  - changes to the required output signals or read-only boundary update this SDD and `check_record_audit_cli` self-test
+- Related records:
+  - `.lazy-harness/spec/platform/project-profile.md`
+  - `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+  - `.lazy-harness/planning/document-resource-ingestion-implementation-plan.md`
+
 ## Contract
 
 `record-audit` is a read-only host record quality dashboard for lazy-harness dogfooding and normal host maintenance.

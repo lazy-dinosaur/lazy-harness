@@ -4,6 +4,29 @@
 - **Date**: 2026-05-12
 - **Related**: ADR 0024 (AI-first redesign), ADR 0022 (framework-owned doctor), ADR 0007 (AGENTS.md injection), trails/02-north-star-milestones.xml
 
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - onboarding the framework onto a new host or bootstrapping a project
+  - deciding where portability responsibility lives (single entry vs scattered milestones)
+  - designing lazy init inspect/interview/apply or cold-start behavior
+- Must:
+  - route all portability through one entry point (lazy init: inspect → interview → apply)
+  - copy a single framework-common AGENTS.md template with no host variants
+  - ask interview questions as 3-5 options with a Recommended marker, never free-form
+  - target lazy init → lazy doctor pass within a ~30-minute cold-start budget
+- Must not:
+  - spread portability across every milestone so no single milestone owns it
+- Record completion:
+  - bootstrap/portability behavior changes update this ADR plus the project-profile SDD and lazy-init self-test
+- Related records:
+  - `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`
+  - `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
+  - `.lazy-harness/spec/platform/project-profile.md`
+
 ## Context
 
 Framework portability (다른 host 에 옮겨도 동작하는가) 를 별도 milestone N9 로 분리할지, 또는 N4 (Project Profile + Bootstrap) 에 흡수할지가 미결정 상태였다.

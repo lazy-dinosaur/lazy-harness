@@ -34,7 +34,7 @@ Lazy-harness enforcement layers must not be weakened into optional memory or bes
 
 The harness is mandatory infrastructure for agents that operate inside a lazy-harness host:
 
-- Jcode wiring must reliably load the current lazy-harness grammar and project-local harness overlays.
+- The Pi/OMP extension (`packages/lazy-harness-pi`) plus the shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably load the current lazy-harness grammar and project-local harness overlays, and destructive-command blocking is performed by `check-destructive-command.py` chained in `on-tool-execute-before.sh` (ADR 0050: Pi/OMP-only runtime).
 - Agents must retain and apply the core rules during a session: record-first lookup, default-unknown, option gates, requirements-first execution, rule placement, and record-as-output.
 - DDD/SDD/BDD/TDD/ADR/SSOT records are not optional notes. They are the canonical institutional memory and must continue accumulating when confirmed facts, rules, contracts, behavior, tests, or decisions are discovered.
 - Advisory routing, telemetry, workflow compression, and non-blocking lifecycle hooks may improve throughput, but must not reduce the effective enforcement of canonical layer obligations.
@@ -177,7 +177,7 @@ Result:
 
 Future fixes should restore mandatory behavior without turning the framework into a brittle or slow blocker:
 
-1. Preserve current lazy-harness grammar injection through generated Jcode wiring and verify it continuously.
+1. Preserve current lazy-harness grammar injection through the Pi/OMP extension (`packages/lazy-harness-pi`) and shared `.lazy-harness/hooks/lifecycle/*` scripts, and verify it continuously (ADR 0050: Pi/OMP-only runtime).
 2. Improve rule recall before action, but prefer organic surfacing over broad edit/write blocking.
 3. Keep `response.completed` as a backstop for missed record/capture work.
 4. Add regression fixtures for concrete dogfood failures, but do not encode the final architecture as one-off tool-specific patches.
@@ -188,11 +188,11 @@ Future fixes should restore mandatory behavior without turning the framework int
 
 - Primary files:
   - `.lazy-harness/AGENTS.md` — shared framework grammar that defines mandatory record-first and record-as-output behavior.
-  - `.lazy-harness/JCODE-INTEGRATION.md` — generated Jcode wiring guidance and hook expectations.
-  - `.lazy-harness/scripts/jcode-wiring.ts` — generated `.jcode/config.toml` and harness file installation logic.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP extension runtime surface that delivers lazy-harness grammar, skills, commands, and lifecycle hooks (ADR 0050: Pi/OMP-only runtime).
+  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — chains `check-destructive-command.py` first for runtime-agnostic destructive-command blocking.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — completion backstop hook.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — project-rule placement gate.
-  - `.lazy-harness/ssot/host-project-a-dogfood-runtime-policy.md` — concrete runtime/test-instance policy skipped by the observed agent.
+  - `.lazy-harness/ssot/medivance-dogfood-runtime-policy.md` — concrete runtime/test-instance policy skipped by the observed agent.
   - `.lazy-harness/planning/organic-hybrid-rule-guidance-plan.md` — current plan for C+ v2 organic hybrid exploration.
 - Flow:
   1. User observes agents skipping mandatory lazy-harness rules.
