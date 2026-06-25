@@ -12,32 +12,39 @@ try:
 except Exception:
     sys.exit(0)
 
-strings=[]
-def walk(v):
-    if isinstance(v, str): strings.append(v)
-    elif isinstance(v, dict):
-        for c in v.values(): walk(c)
-    elif isinstance(v, list):
-        for c in v: walk(c)
-walk(payload)
-blob='\n'.join(strings)
-lower=blob.lower()
-if not blob.strip(): sys.exit(0)
+recent = payload.get('recent_tool_calls', []) or []
+
+# Using the runtime `ask`/`select` tool IS the sanctioned option-gate mechanism: it blocks the
+# turn for the user, so the agent cannot bypass it, and its args (question/option text) must not
+# be read as gate markers. Its presence is never a discipline violation.
+ASK_TOOLS = {'ask', 'select'}
+if any(str(c.get('name', '')).lower() in ASK_TOOLS for c in recent):
+    sys.exit(0)
+
+# A text option gate is detected from the agent's OWN current response only (assistant_response),
+# never from tool args or quoted/discussed payload strings — scanning the whole payload made the
+# helper fire on conversations that merely mention gate markers (false positives).
+assistant = str(payload.get('assistant_response') or '')
+lower = assistant.lower()
+if not assistant.strip():
+    sys.exit(0)
 
 has_gate = (
     'needs-option-gate' in lower
-    or '선택해주세요' in blob
-    or '진행 선택 필요' in blob
-    or '진행 선택:' in blob
+    or '선택해주세요' in assistant
+    or '진행 선택 필요' in assistant
+    or '진행 선택:' in assistant
 )
 if not has_gate:
     sys.exit(0)
 
-# If any tool call happened in the same turn as an unresolved option gate, the
-# agent did not actually stop for the user.
+# A same-payload mutating/executing tool call (excluding the ask/select gate tools) means the
+# agent did not actually stop for the user after presenting a text gate.
 write_or_exec = False
-for call in payload.get('recent_tool_calls', []) or []:
+for call in recent:
     name = str(call.get('name', '')).lower()
+    if name in ASK_TOOLS:
+        continue
     if name in {'write','edit','multiedit','bash','apply_patch','patch'} or 'write_file' in name or 'edit_file' in name:
         write_or_exec = True
         break

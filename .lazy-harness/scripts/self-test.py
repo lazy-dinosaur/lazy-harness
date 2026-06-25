@@ -1025,6 +1025,31 @@ def check_option_gate_discipline_helper() -> None:
     if inferred.strip():
         fail("option gate discipline helper should pass non-gated inferred judgement:\n" + inferred)
 
+    # Using the runtime `ask`/`select` tool is the sanctioned gate (it blocks the turn); its
+    # presence must never trigger the discipline STOP, even with a same-window mutating call.
+    ask_tool_payload = {
+        "assistant_response": "진행하겠습니다. 완료했습니다.",
+        "recent_tool_calls": [
+            {"name": "ask", "args_preview": "needs-option-gate 선택해주세요 진행 선택 필요"},
+            {"name": "bash", "args_preview": "git push origin main"},
+        ],
+    }
+    ask_tool = run_option_gate_discipline_helper(ask_tool_payload)
+    if ask_tool.strip():
+        fail("option gate discipline helper must not fire when the runtime ask/select tool was used:\n" + ask_tool)
+
+    # Gate markers only in tool args (not the agent's own response) must not trigger a STOP.
+    args_only_payload = {
+        "assistant_response": "Completed the sync and reported status; nothing pending.",
+        "recent_tool_calls": [
+            {"name": "bash", "args_preview": "echo needs-option-gate 선택해주세요"},
+            {"name": "write", "args_preview": ".lazy-harness/x.md"},
+        ],
+    }
+    args_only = run_option_gate_discipline_helper(args_only_payload)
+    if args_only.strip():
+        fail("option gate discipline helper must key on assistant_response, not tool args:\n" + args_only)
+
     print("✓ option gate discipline helper ok")
 
 

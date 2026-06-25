@@ -65,7 +65,7 @@ A repeated gate is a bug unless one of these changed since the previous gate:
 - a record was found that converts the gate to `inferred-from-record`,
 - a record/write happened after a user-confirmed selection.
 
-Agents should summarize the already-open gate rather than reprinting the full option block multiple times. Trigger helpers that derive gates from stable context such as `last_user_message` must not rely on `payload.assistant_response`: jcode `response.completed` production payload does not include assistant text.
+Agents should summarize the already-open gate rather than reprinting the full option block multiple times. Gate detection keys on the agent's own current response (`assistant_response`) only — never on tool-call args or other quoted/discussed payload strings, which previously made the helper fire on turns that merely mention gate markers. The runtime `ask`/`select` tool is the sanctioned, self-enforcing gate mechanism (it blocks the turn for the user), so its use is never a discipline violation and its args are not gate markers. Under jcode (no assistant text in the production payload) the text-gate path is inert; under Pi/OMP the `agent_end` bridge projects `assistant_response` (pi-agent-package payload parity).
 
 BDD scenario detection is a special case: raw BDD discoveries are institutional-memory intake, not execution approval for product code or canonical record mutation. Therefore the BDD lifecycle helper must not emit repeated STOP/option-gate prompts. It silently appends a deduped `bdd-scenario` candidate to `.lazy-harness/knowledge/candidates.jsonl`; promotion into `behavior/`, `domain/`, or `spec/` still requires explicit user-confirmed action later.
 
@@ -73,9 +73,9 @@ BDD scenario detection is a special case: raw BDD discoveries are institutional-
 
 `check-option-gate-discipline.sh` runs from `on-response-completed.sh` after project-rule placement.
 
-It emits STOP text when an unresolved option gate appears together with either:
+It first exits silently when the agent used the runtime `ask`/`select` tool (the sanctioned gate that blocks the turn for the user — never a violation). Otherwise it detects a text gate from `assistant_response` only and emits STOP when that gate appears together with either:
 
-- mutating/executing tool calls in the same response payload, or
+- a same-payload mutating/executing tool call (excluding the `ask`/`select` gate tools), or
 - self-selection/completion language such as `user-confirmed`, `inferred-from-record`, `기록 완료`, `dispatch 했`, `실행했습니다`, or `진행하겠습니다` without a user choice.
 
 Plainly asking a gate once is allowed for true decision/execution gates. Helpers that derive gates from stable payload fields are loop-prone and must suppress repeats. BDD trigger candidates use candidate-id dedupe in `.lazy-harness/knowledge/candidates.jsonl` and produce no hook output. Project rule placement gates use compatible `project-rule-placement:<fingerprint>` entries via `gate-fingerprint.sh`; if the same helper-prefixed fingerprint is already open for the current `message_id`, the helper exits silently even when stable payload fields still match the candidate.
