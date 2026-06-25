@@ -43,7 +43,7 @@ body = '\n'.join([
     '- Ground in the RELEVANT records for what you just touched: reading code/tests is NOT record-grounding. Before any action, run `.lazy-harness/bin/lazy map` for the feature/path you touched and read the governing `.lazy-harness/<layer>` record (ssot/spec/decisions/...) — host rules (config/runtime/ownership/DB/workflow) live in records, not in the code you just read (AGENTS §2.1/§2.5).',
     '- record↔code conflict: record=intent, code=reality → ask the user which is the truth; never silently pick (AGENTS §0).',
     '- ambiguous / new design decision: stop and ask a 3-5 option gate + Recommended, RENDERED via the runtime interactive `ask` tool (native choices, not plain A/B/C text); never self-select or jump to implementation before approval (AGENTS §2.3, ADR 0019/0038).',
-    '- confirmed facts / source-of-truth corrections / decisions → accumulate into the right .lazy-harness layer (AGENTS §2.4).',
+    '- Capture before you finish the turn: new decisions, user corrections, repeated-mistake fixes, or host learnings (policy/workflow/ownership/runtime/DB) → record them in the right `.lazy-harness/<layer>` record NOW, not just in chat. The keyword-gated capture advisories will NOT catch natural-language learnings, so this is on you (AGENTS §2.4, ADR 0032/0034).',
     '- stay read-only until search/read evidence covers the RELEVANT records (not just any file read) this work touches; mutation is guarded.',
 ]).strip() + '\n'
 
