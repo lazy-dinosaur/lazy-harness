@@ -14,6 +14,7 @@ type JsonObject = Record<string, unknown>;
 type RecentToolCall = {
   name: string;
   args: JsonObject;
+  args_preview?: string;
   toolCallId?: string;
   is_error?: boolean;
   result_preview?: unknown;
@@ -113,6 +114,43 @@ function previewContent(content: unknown): unknown {
     }
   }
   return content;
+}
+
+// jcode-shape payload parity: on-response-completed helpers (17 of them) read a
+// string `args_preview` per tool call and the agent's `assistant_response` prose
+// to decide gate satisfaction. The Pi/OMP events expose `args` objects and
+// `event.messages`, so we project them into the shape the canonical helpers expect.
+function argsPreview(args: JsonObject): string {
+  const parts: string[] = [];
+  for (const k of ["file_path", "path", "filePath", "command", "cmd", "text", "pattern", "old_string", "new_string"]) {
+    const v = (args as Record<string, unknown>)[k];
+    if (typeof v === "string") parts.push(v);
+  }
+  let blob = parts.join(" ");
+  if (!blob) {
+    try { blob = JSON.stringify(args); } catch { blob = String(args); }
+  }
+  return blob.slice(0, 2000);
+}
+
+function messageText(message: unknown): string {
+  const content = (message as { content?: unknown } | undefined)?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part: any) => (part && typeof part.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
+}
+
+function lastMessageTextByRole(messages: unknown, role: string): string {
+  if (!Array.isArray(messages)) return "";
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if ((messages[i] as { role?: string } | undefined)?.role === role) return messageText(messages[i]);
+  }
+  return "";
 }
 
 function systemPromptIncludesBody(systemPrompt: unknown, body: string): boolean {
@@ -267,6 +305,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const normalized = normalizePiTool(event.toolName, event.input || {});
     rememberToolCall(root, {
       ...normalized,
+      args_preview: argsPreview(normalized.args),
       toolCallId: String(event.toolCallId || ""),
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
@@ -322,6 +361,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       ? activePacketsByRoot.get(root)!
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
 
+    const messages = Array.isArray(event.messages) ? event.messages : [];
     const payload: JsonObject = {
       event: "response.completed",
       source: EXTENSION_NAME,
@@ -329,6 +369,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       message_id: packet.messageId,
       working_dir: root,
       recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
+      // jcode-shape parity: on-response-completed helpers walk the assistant response
+      // prose and last user message (e.g. discovery-capture satisfaction #2).
+      assistant_response: lastMessageTextByRole(messages, "assistant"),
+      last_user_message: lastMessageTextByRole(messages, "user"),
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-response-completed.sh");

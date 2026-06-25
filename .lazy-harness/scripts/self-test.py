@@ -1636,6 +1636,9 @@ def check_pi_package_layout_and_contract() -> None:
         "pendingRegroundByRoot",
         "FILE_OP_TOOLS",
         "on-context.sh",
+        "assistant_response",
+        "args_preview",
+        "lastMessageTextByRole",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2094,6 +2097,41 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi root-scoped recent tool isolation smoke failed:\n" + completed.stdout + completed.stderr)
     finally:
         shutil.rmtree(isolation_smoke, ignore_errors=True)
+
+    payload_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-agent-end-payload-"))
+    try:
+        proot = payload_smoke / "repo"
+        (proot / ".lazy-harness" / "bin").mkdir(parents=True)
+        (proot / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
+        (proot / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        rc_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
+        rc_hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-response-payload.json\n", encoding="utf-8")
+        rc_hook.chmod(0o755)
+        smoke = payload_smoke / "agent-end-payload.ts"
+        smoke.write_text(
+            "import { readFileSync } from 'node:fs';\n"
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers = new Map();\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}}, sendUserMessage(){}, sendMessage(){} };\n"
+            "lazyHarnessPi(pi);\n"
+            "const proot=" + json.dumps(str(proot)) + ";\n"
+            "const ctx={cwd:proot, signal:undefined, ui:{notify(){}}};\n"
+            "await handlers.get('tool_result')({toolName:'write', input:{file_path:'.lazy-harness/knowledge/candidates.jsonl', content:'{}'}, toolCallId:'w1', content:'ok'}, ctx);\n"
+            "const msgs=[{role:'user',content:'analyze the redesign',timestamp:1},{role:'assistant',content:[{type:'text',text:'## Discovery capture done'}],timestamp:2}];\n"
+            "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "const p=JSON.parse(readFileSync(proot+'/.lazy-harness/last-response-payload.json','utf8'));\n"
+            "if(!String(p.assistant_response||'').includes('Discovery capture done')) throw new Error('agent_end payload missing assistant_response prose');\n"
+            "if(String(p.last_user_message||'').indexOf('analyze the redesign')<0) throw new Error('agent_end payload missing last_user_message');\n"
+            "const tc=(p.recent_tool_calls||[]).find((c)=>String(c.args_preview||'').includes('candidates.jsonl'));\n"
+            "if(!tc) throw new Error('agent_end recent_tool_calls missing args_preview with the written path');\n"
+            "console.log('pi agent_end jcode-shape payload ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(["bun", str(smoke)], cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime())
+        if completed.returncode != 0:
+            fail("Pi agent_end jcode-shape payload smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(payload_smoke, ignore_errors=True)
 
     print("✓ Pi package layout and extension contract ok")
 
