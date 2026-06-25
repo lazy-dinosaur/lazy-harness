@@ -2061,6 +2061,7 @@ def check_pi_package_layout_and_contract() -> None:
             "if(!Array.isArray(reground?.messages)) throw new Error('context should inject messages after a file op');\n"
             "const injected=reground.messages[reground.messages.length-1];\n"
             "if(!String(injected?.content).includes('system-reminder') || !String(injected?.content).includes('re-grounding')) throw new Error('context injection missing re-grounding body');\n"
+            "if(!String(injected?.content).includes('NOT record-grounding') || !String(injected?.content).includes('Capture before you finish')) throw new Error('context injection missing relevant-record search / turn-end capture mandate');\n"
             "if(injected?.role !== 'user' || typeof injected?.timestamp !== 'number') throw new Error('context injected message must be a UserMessage');\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should not re-inject until a new file op');\n"
             "console.log('pi shell alias read-debt smoke ok');\n",

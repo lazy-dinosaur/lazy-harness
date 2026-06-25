@@ -16,7 +16,7 @@ Layer: SDD
   - keep separate `lazy pi`/`lazy omp` wrapper UX over one shared package core
   - normalize Pi shell aliases to `bash` before the guard, and resolve root from the live session cwd
   - preserve both Pi string and OMP string-array system prompts; scope runtime evidence by lazy root
-  - keep the harness interactive grammar (record↔code conflict→ask, option gate, requirements-first) live across the turn: carry it in the `before_agent_start` reminder AND re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity)
+  - keep the harness interactive grammar (record↔code conflict→ask, option gate, requirements-first) live across the turn: carry it in the `before_agent_start` reminder AND re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity). The re-grounding body MUST also force relevant-record search (reading code/tests is NOT record-grounding; run `lazy map` + read the governing `.lazy-harness/<layer>` record before action, §2.1/§2.5) and turn-end capture (decisions/user-corrections/repeated-mistake-fixes/host-learnings → record into the right `.lazy-harness/<layer>`, §2.4) — replicating jcode's `load_harness_dir` full-grammar drive that OMP/Pi otherwise lack
   - project the jcode-shape payload the `on-response-completed.sh` helpers expect: every `recent_tool_calls` entry carries a string `args_preview`, and the `agent_end` payload carries `assistant_response` + `last_user_message` from `event.messages` — without these, satisfaction checks (e.g. analysis-discovery-capture #1/#2) can never pass under Pi/OMP and the gate loops until the continuation cap
   - keep OMP's native interactive `ask` selector active under tool discovery mode so harness option gates (AGENTS §2.3) render as native selectable choices, not plain A/B/C text
 - Must not:
@@ -204,7 +204,7 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
   - the `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot`/`FILE_OP_TOOLS` state re-inject the harness grammar mid-turn after file-touching tool results, sourced from `on-context.sh` and reset each `before_agent_start`.
   - `ensureAskToolActive` (called on `before_agent_start`) adds OMP's native `ask` selector to the active tool set so tool discovery mode does not hide it; add-only, interactive-only, fail-open.
 - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — per-turn reminder body; carries the interactive grammar (AGENTS §0/§2.3/§2.5) plus the search/read-debt protocol.
-- `.lazy-harness/hooks/lifecycle/on-context.sh` — compact mid-turn re-grounding body for the `context` event (jcode "relevant to files just read/edited" parity).
+- `.lazy-harness/hooks/lifecycle/on-context.sh` — compact mid-turn re-grounding body for the `context` event (jcode "relevant to files just read/edited" parity); leads with the relevant-record search (§2.1/§2.5) and turn-end capture (§2.4) mandates plus the interactive grammar.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.
