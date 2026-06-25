@@ -448,7 +448,9 @@ const KNOWN_REMOVED_MANAGED_FILES = [
   '.lazy-harness/tests/operational-state-packet.md',
   `.lazy-harness/tests/${removedName('context', '-broker-dogfood.md')}`,
   `.lazy-harness/tests/${removedName('relevant', '-record-query-cli-equals-flags.md')}`,
-  '.lazy-harness/fixtures/task-router/cases.json'
+  '.lazy-harness/fixtures/task-router/cases.json',
+  `.lazy-harness/scripts/${removedName('jcode', '-wiring.ts')}`,
+  `.lazy-harness/scripts/${removedName('skill', '-create.ts')}`
 ]
 
 const KNOWN_REMOVED_MANAGED_DIRS = [
