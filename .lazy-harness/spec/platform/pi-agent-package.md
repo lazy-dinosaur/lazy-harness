@@ -16,6 +16,7 @@ Layer: SDD
   - keep separate `lazy pi`/`lazy omp` wrapper UX over one shared package core
   - normalize Pi shell aliases to `bash` before the guard, and resolve root from the live session cwd
   - preserve both Pi string and OMP string-array system prompts; scope runtime evidence by lazy root
+  - keep the harness interactive grammar (record↔code conflict→ask, option gate, requirements-first) live across the turn: carry it in the `before_agent_start` reminder AND re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity)
 - Must not:
   - duplicate canonical policy in the extension, block read-only overview/parallel, or commit generated `.pi/`/`.omp/` by default
 - Record completion:
@@ -65,12 +66,13 @@ OMP official source supports `package.json#omp` first and falls back to `package
 
 1. export a default Pi extension function,
 2. resolve the active project cwd from live runtime state (`ctx.sessionManager.getCwd()` when present), then event cwd, then `ctx.cwd`, and walk upward to find `.lazy-harness/bin/lazy`,
-3. handle `before_agent_start` by invoking `.lazy-harness/hooks/lifecycle/on-message-received.sh` through stdin JSON and appending the returned reminder body to the system prompt,
+3. handle `before_agent_start` by invoking `.lazy-harness/hooks/lifecycle/on-message-received.sh` through stdin JSON and appending the returned reminder body — which carries the harness interactive grammar (record↔code conflict, option gate, requirements-first; AGENTS §0/§2.3/§2.5) plus the search/read-debt protocol — to the system prompt,
 4. handle `tool_call` by normalizing Pi tool payload into lazy lifecycle JSON and invoking `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh`,
 5. return `{ block: true, reason }` only when the lazy hook emits a deny reason,
-6. handle `tool_result` by retaining recent tool evidence for later guard invocations,
+6. handle `tool_result` by retaining recent tool evidence for later guard invocations, and flagging the root for mid-turn re-grounding when a file-touching tool (`read`/`edit`/`write`/`grep`/`find`/`ls`) succeeds,
 7. register convenience commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`.
 8. handle `agent_end` (Pi/OMP turn-end; the `response.completed` analogue, fired once per user prompt) by invoking `.lazy-harness/hooks/lifecycle/on-response-completed.sh` with lifecycle JSON, and drive a bounded continuation for any advisory inject body via `pi.sendUserMessage(body, { deliverAs: "followUp" })` so the agent addresses the gate after the current turn completes. `sendUserMessage` always triggers a turn, and `agent_end` fires while the agent is still `processing`; a bare call therefore throws `Agent is already processing. Use steer() or followUp()...`, so `deliverAs: "followUp"` is required to queue the continuation instead of starting one immediately. Loop safety is bounded, not structural: the SAME unresolved advisory drives at most `MAX_ADVISORY_CONTINUATIONS` (2) turns, then falls back to a non-steering `pi.sendMessage({ display: true })`; an empty advisory body (gate resolved) resets the per-lazy-root continuation counter.
+9. handle `context` (fired before each LLM call) by injecting a compact re-grounding reminder message into `messages` — sourced from `.lazy-harness/hooks/lifecycle/on-context.sh`, computed once per turn and cached — only when a file-touching tool ran since the last injection. Bounded to one inject per new file-op batch, reset per turn, fail-open. This replicates jcode's native "AGENTS/.jcode instructions relevant to files just read/searched/edited this turn — read and follow them for the next steps" re-injection, which Pi/OMP otherwise lack because they load AGENTS.md only once at session start. The injected message is a `UserMessage` (`role`/`content`/`timestamp`) wrapping the body in a `<system-reminder>` tag,
 
 Pi shell aliases `cmd`, `command`, `shell`, and `terminal` must normalize to lazy `bash` before the guard runs. Otherwise shell actions can bypass read-debt enforcement because the canonical helper classifies `bash` as an action tool.
 
@@ -195,6 +197,9 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation.
   - `resolveInvocationCwd` keeps hook and `/lazy-*` command root selection aligned with the live Pi/OMP session cwd after runtime `/move` re-scopes the session.
   - `systemPromptIncludesBody` / `appendSystemPromptBody` preserve official Pi string prompts and OMP string-array prompt blocks during `before_agent_start` reminder injection.
+  - the `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot`/`FILE_OP_TOOLS` state re-inject the harness grammar mid-turn after file-touching tool results, sourced from `on-context.sh` and reset each `before_agent_start`.
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — per-turn reminder body; carries the interactive grammar (AGENTS §0/§2.3/§2.5) plus the search/read-debt protocol.
+- `.lazy-harness/hooks/lifecycle/on-context.sh` — compact mid-turn re-grounding body for the `context` event (jcode "relevant to files just read/edited" parity).
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.

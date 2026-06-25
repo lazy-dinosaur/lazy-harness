@@ -15,6 +15,7 @@ Layer: TDD
   - keep separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp` resources
   - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit driven as a bounded continuation: `pi.sendUserMessage(body, { deliverAs: "followUp" })`, loop-capped by `MAX_ADVISORY_CONTINUATIONS`, falling back to non-steering display); preserve OMP string-array `systemPrompt` blocks
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
+  - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity)
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
 - Record completion:
@@ -55,6 +56,9 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_root_scoped_recent_tools` | Fake Pi runtime touches repo A and repo B in one process | Repo B does not see repo A's `recent_tool_calls`; repo A retains its own recent tool evidence |
 | `pi_extension_move_rescopes_root_state` | Fake OMP/Pi runtime keeps stale `ctx.cwd` but changes `ctx.sessionManager.getCwd()` after `/move` | Hook payloads, `LAZY_HOST_ROOT`, recent tool evidence, and `/lazy-*` command execution re-scope to the live session cwd |
 | `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns, then falls back to non-steering `sendMessage({ display: true })`, and an empty body resets the per-root counter |
+| `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root | Reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
+| `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh` |
+| `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
 | `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
 
 ## Automated coverage
@@ -115,6 +119,9 @@ omp plugin list
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#appendSystemPromptBody` — fixture for official Pi string prompt and OMP string-array prompt compatibility.
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — fixture for the per-turn reminder carrying the interactive grammar.
+- `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for the mid-turn `context` re-grounding body.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for skill availability.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation, including fake live-session `/move` root re-scope.
 

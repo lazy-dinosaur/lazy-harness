@@ -193,6 +193,10 @@ body = '\n'.join([
     '- Loading is targeted: read Rule digest/full body/Implementation map/graph links only for records the task implicates (read the Rule digest first where present; do not read-to-cover-all-layers) → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
     '- Missing record: read current host docs/package/config only when reached through concrete map/source paths; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until map-first traversal/read evidence exists.',
+    '- Interactive grammar (apply THIS turn, not only at session start; AGENTS \u00a70/\u00a72.3/\u00a72.5):',
+    '  - record\u2194code conflict: record=intent, code=reality \u2192 ask the user which is the truth; never silently pick (AGENTS \u00a70).',
+    '  - ambiguous / multi-interpretation / new design decision: stop and ask a 3-5 option gate + Recommended; never self-select (AGENTS \u00a72.3, ADR 0019).',
+    '  - on an implement request: read records first, surface why + options, get execution approval before mutating (Requirement \u2192 Plan \u2192 Approval \u2192 Implement; ADR 0038); confirmed facts/decisions accumulate into the right .lazy-harness layer (AGENTS \u00a72.4).',
 ]).strip() + '\n'
 
 print(json.dumps({

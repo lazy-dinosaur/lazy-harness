@@ -23,6 +23,10 @@ const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number }>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
+// Jcode-parity mid-turn re-grounding state (see the "context" handler).
+const pendingRegroundByRoot = new Map<string, boolean>();
+const regroundBodyByRoot = new Map<string, string>();
+const FILE_OP_TOOLS = new Set(["read", "edit", "write", "grep", "find", "ls"]);
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
@@ -205,6 +209,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
     activePacketsByRoot.set(root, { root, sessionId, messageId });
+    pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
+    regroundBodyByRoot.delete(root);
 
     const payload: JsonObject = {
       event: "message.received",
@@ -258,13 +264,53 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.on("tool_result", async (event: any, ctx: any) => {
     const root = findLazyRootFromEvent(event, ctx);
     if (!root) return undefined;
+    const normalized = normalizePiTool(event.toolName, event.input || {});
     rememberToolCall(root, {
-      ...normalizePiTool(event.toolName, event.input || {}),
+      ...normalized,
       toolCallId: String(event.toolCallId || ""),
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
     });
+    // Jcode parity: after the agent reads/searches/edits files, mark the next LLM
+    // call for harness-grammar re-grounding (handled by the "context" handler).
+    if (FILE_OP_TOOLS.has(normalized.name.toLowerCase()) && !event.isError) {
+      pendingRegroundByRoot.set(root, true);
+    }
     return undefined;
+  });
+
+  // "context" fires before each LLM call and can modify the messages sent to the model.
+  // Jcode natively re-injected relevant AGENTS/.jcode instructions after file operations
+  // ("read and follow them for the next steps"). Pi/OMP load AGENTS.md only once at session
+  // start, so we replicate that mid-turn re-grounding here: one inject per new file-op batch,
+  // body computed once per turn via on-context.sh, fail-open so a bug never breaks the turn.
+  pi.on("context", async (event: any, ctx: any) => {
+    try {
+      const root = findLazyRoot(resolveInvocationCwd(event, ctx));
+      if (!root) return undefined;
+      if (!pendingRegroundByRoot.get(root)) return undefined;
+      pendingRegroundByRoot.delete(root);
+
+      let body = regroundBodyByRoot.get(root);
+      if (body === undefined) {
+        const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-context.sh");
+        const payload: JsonObject = { event: "context", source: EXTENSION_NAME, working_dir: root };
+        const hook = existsSync(script) ? runHook(script, payload, root) : { stdout: "", stderr: "", status: 0 };
+        body = hookInjectBody(hook.stdout) ?? [
+          "REMINDER (mid-turn re-grounding). Re-apply the lazy-harness grammar before the next step:",
+          "- record\u2194code conflict \u2192 ask the user which is the truth (AGENTS \u00a70).",
+          "- ambiguous / new decision \u2192 3-5 option gate + Recommended, never self-select (AGENTS \u00a72.3).",
+          "- confirmed facts/decisions \u2192 accumulate into the right .lazy-harness layer (AGENTS \u00a72.4).",
+        ].join("\n");
+        regroundBodyByRoot.set(root, body);
+      }
+
+      const messages = Array.isArray(event.messages) ? event.messages : [];
+      const reminder = { role: "user", content: `<system-reminder>\n${body}\n</system-reminder>`, timestamp: Date.now() };
+      return { messages: [...messages, reminder] };
+    } catch {
+      return undefined;
+    }
   });
 
   pi.on("agent_end", async (event: any, ctx: any) => {

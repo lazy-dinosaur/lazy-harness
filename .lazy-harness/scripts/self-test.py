@@ -1632,6 +1632,10 @@ def check_pi_package_layout_and_contract() -> None:
         "sendUserMessage",
         "deliverAs: \"followUp\"",
         "MAX_ADVISORY_CONTINUATIONS",
+        "pi.on(\"context\"",
+        "pendingRegroundByRoot",
+        "FILE_OP_TOOLS",
+        "on-context.sh",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2005,6 +2009,7 @@ def check_pi_package_layout_and_contract() -> None:
             "if(noHarness !== undefined) throw new Error('non-harness cwd should not receive lazy reminder');\n"
             "const before=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:'base'},ctx);\n"
             "if(!before?.systemPrompt?.includes('REMINDER. Harness-first')) throw new Error('no reminder');\n"
+            "if(!before.systemPrompt.includes('Interactive grammar') || !before.systemPrompt.includes('option gate')) throw new Error('reminder missing interactive grammar');\n"
             "const beforeOmp=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:['base-block']},ctx);\n"
             "if(!Array.isArray(beforeOmp?.systemPrompt)) throw new Error('OMP systemPrompt array not preserved');\n"
             "if(!beforeOmp.systemPrompt.some((part)=>part.includes('REMINDER. Harness-first'))) throw new Error('OMP array missing reminder');\n"
@@ -2019,6 +2024,14 @@ def check_pi_package_layout_and_contract() -> None:
             "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(!r?.block) throw new Error(name+' not blocked'); }\n"
             "const allowed=await handlers.get('tool_call')({toolCallId:'lazy-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'}},ctx);\n"
             "if(allowed?.block) throw new Error('lazy map read-only bash should not be blocked: '+allowed.reason);\n"
+            "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should no-op without a file op');\n"
+            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'x.md'}, toolCallId:'ctx-read', content:'data'}, ctx);\n"
+            "const reground=await handlers.get('context')({messages:[{role:'user',content:'hi',timestamp:1}]},ctx);\n"
+            "if(!Array.isArray(reground?.messages)) throw new Error('context should inject messages after a file op');\n"
+            "const injected=reground.messages[reground.messages.length-1];\n"
+            "if(!String(injected?.content).includes('system-reminder') || !String(injected?.content).includes('re-grounding')) throw new Error('context injection missing re-grounding body');\n"
+            "if(injected?.role !== 'user' || typeof injected?.timestamp !== 'number') throw new Error('context injected message must be a UserMessage');\n"
+            "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should not re-inject until a new file op');\n"
             "console.log('pi shell alias read-debt smoke ok');\n",
             encoding="utf-8",
         )
