@@ -9907,7 +9907,7 @@ def main() -> None:
         (check_operating_rule_storage_helper, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
-        (check_record_lint_cli, "BOTH"),
+        (check_record_lint_cli, "FRAMEWORK_ONLY"),
     ]
 
     ran = 0

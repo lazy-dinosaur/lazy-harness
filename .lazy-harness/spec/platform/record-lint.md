@@ -19,7 +19,7 @@ Related TDD: `.lazy-harness/tests/record-lint.md`
 - Must:
   - validate every canonical record (domain/spec/behavior/tests/decisions/ssot, excluding README) for digest presence, valid Status/Layer/Scope enums, Layer-matches-path, Applies-when/Must bullets, and broken `.lazy-harness/...md` references outside code fences
   - stay read-only and deterministic; `--fail-on-issues` exits non-zero for the commit/push gate
-  - be enforced via `lazy test`/self-test (commit/push blocking), not a dev-time `tool.execute.before` hard gate
+  - be enforced via `lazy test`/self-test on the framework source (commit/push blocking, FRAMEWORK_ONLY scope); on hosts it is advisory (`lazy record-lint`) since host-authored records are host-owned and may not yet carry digests
 - Must not:
   - add a dev-time blocking hook (ADR 0016/0041/0048: dev edits stay non-blocking)
   - mutate records, indexes, graph, or runtime state
