@@ -13,7 +13,7 @@ Layer: TDD
   - bridging agent extension events to lazy-harness lifecycle hooks or changing reminder/mutation-guard behavior
 - Must:
   - keep separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp` resources
-  - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit with non-steering advisory surfacing); preserve OMP string-array `systemPrompt` blocks
+  - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit driven as a bounded continuation: `pi.sendUserMessage(body, { deliverAs: "followUp" })`, loop-capped by `MAX_ADVISORY_CONTINUATIONS`, falling back to non-steering display); preserve OMP string-array `systemPrompt` blocks
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
@@ -54,6 +54,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_tool_result_evidence` | Inspect extension source | Source contains `tool_result` and records recent tool calls for evidence guard payloads |
 | `pi_extension_root_scoped_recent_tools` | Fake Pi runtime touches repo A and repo B in one process | Repo B does not see repo A's `recent_tool_calls`; repo A retains its own recent tool evidence |
 | `pi_extension_move_rescopes_root_state` | Fake OMP/Pi runtime keeps stale `ctx.cwd` but changes `ctx.sessionManager.getCwd()` after `/move` | Hook payloads, `LAZY_HOST_ROOT`, recent tool evidence, and `/lazy-*` command execution re-scope to the live session cwd |
+| `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns, then falls back to non-steering `sendMessage({ display: true })`, and an empty body resets the per-root counter |
 | `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
 
 ## Automated coverage

@@ -301,7 +301,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const advisoryCount = prevAdvisory && prevAdvisory.hash === advisoryHash ? prevAdvisory.count + 1 : 1;
     lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount });
     if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
-      (pi as any).sendUserMessage(body);
+      (pi as any).sendUserMessage(body, { deliverAs: "followUp" });
     } else if (typeof (pi as any).sendMessage === "function") {
       (pi as any).sendMessage({ customType: "lazy-harness-advisory", content: body, display: true });
     }

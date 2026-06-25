@@ -1629,6 +1629,9 @@ def check_pi_package_layout_and_contract() -> None:
         "terminal",
         "resolveInvocationCwd",
         "sessionManager?.getCwd",
+        "sendUserMessage",
+        "deliverAs: \"followUp\"",
+        "MAX_ADVISORY_CONTINUATIONS",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
