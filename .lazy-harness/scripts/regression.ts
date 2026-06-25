@@ -23,7 +23,8 @@ import path from 'node:path'
 
 const REGISTRY_REL = '.lazy-harness/regression/registry.jsonl'
 const SHA_RE = /^[0-9a-f]{40}$/
-const PLACEHOLDER_RE = /<[^<>]+>/
+const PLACEHOLDER_RE = /<[^<>]+>/ // path fields: any embedded <...> is a placeholder (real test paths have no angle brackets)
+const PROSE_PLACEHOLDER_RE = /^<[^<>]*>$/ // prose fields: only a whole-field <...> token is garbage (allows embedded metavars like <roomId>, <Toaster/>)
 const PENDING_RE = /^pending(:|$)/i
 
 type Format = 'json' | 'md'
@@ -79,7 +80,7 @@ function readEntries(file: string): { line: number; raw: string; parsed: Registr
 
 function validateField(name: string, value: string): string | null {
   if (!value.trim()) return `${name} is empty`
-  if (PLACEHOLDER_RE.test(value)) return `${name} contains a literal placeholder (\`<...>\`)`
+  if (PROSE_PLACEHOLDER_RE.test(value.trim())) return `${name} is a literal placeholder (\`<...>\`)`
   return null
 }
 

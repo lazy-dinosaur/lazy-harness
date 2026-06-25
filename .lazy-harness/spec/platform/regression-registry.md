@@ -15,7 +15,7 @@ Layer: SDD
 - Must:
   - read the registry as JSONL — parse each line and compare the `sha` field, so matching is whitespace/encoding agnostic (a `"sha": "x"` entry and a `"sha":"x"` entry are identical)
   - check only `.lazy-harness/regression/registry.jsonl` for gate satisfaction; `candidates.jsonl` auto-stubs (written by `post-commit.sh`) never satisfy the gate
-  - write entries only through `lazy regression add` (validated, canonical serialize): enforce a 40-hex `sha`, reject literal `<...>` placeholders and `pending` stubs, require ≥1 `protectedBy` path and non-empty `description`/`reproSteps`, and dedup by sha
+  - write entries only through `lazy regression add` (validated, canonical serialize): enforce a 40-hex `sha`, reject whole-field `<...>` placeholder tokens in prose (`description`/`reproSteps`) and any embedded `<...>` in `protectedBy` paths, reject `pending` stubs, require ≥1 `protectedBy` path and non-empty `description`/`reproSteps`, and dedup by sha
   - expose `lazy regression lint` to flag invalid/garbage entries (bad sha, placeholder/pending fields, empty required fields, invalid JSON)
 - Must not:
   - match the registry with a whitespace-sensitive substring grep (`"sha":"$SHA"`)
@@ -53,13 +53,13 @@ JSON key order and intra-line whitespace are not significant; readers MUST parse
 .lazy-harness/bin/lazy regression add --sha <40-hex> --description <text> --test <path> [--test <path>...] --repro <text>
 ```
 
-- Validates: `sha` matches `^[0-9a-f]{40}$`; `description`/`reproSteps` non-empty and free of `<...>` placeholders; ≥1 `--test`, each non-placeholder, non-`pending`. Warns (does not block) when a `protectedBy` path is absent (it may be created by the same fix commit).
+- Validates: `sha` matches `^[0-9a-f]{40}$`; `description`/`reproSteps` non-empty and not a bare `<...>` placeholder token (embedded metavariables like `<roomId>` or `<Toaster/>` inside real prose are allowed); ≥1 `--test`, each free of any `<...>` placeholder and non-`pending`. Warns (does not block) when a `protectedBy` path is absent (it may be created by the same fix commit).
 - Idempotent: a duplicate sha is a no-op.
 - Canonical serialization (`{sha, description, protectedBy, reproSteps}`), appended to `registry.jsonl`. This is the only sanctioned write path — it makes placeholder garbage and malformed shas impossible to introduce.
 
 ## Lint contract (`lazy regression lint`)
 
-`lazy regression lint [--format=json|md] [--fail-on-issues]` reports entries failing validation: `invalid-json`, `bad-sha`, `bad-description`, `bad-repro`, `missing-protected-by`, `placeholder-protected-by`, `pending-protected-by`. Read-only; supports host migration and the self-test.
+`lazy regression lint [--format=json|md] [--fail-on-issues]` reports entries failing validation: `invalid-json`, `bad-sha`, `bad-description`, `bad-repro`, `missing-protected-by`, `placeholder-protected-by`, `pending-protected-by`. `bad-description`/`bad-repro` fire only when the prose field is empty or a bare `<...>` placeholder token — embedded metavariables (`<roomId>`, `<Toaster/>`), CLI args, and key/tag formats inside real prose are NOT flagged; `placeholder-protected-by` still fires on any `<...>` inside a `protectedBy` path. Read-only; supports host migration and the self-test.
 
 ## Enforcement boundary
 

@@ -5814,6 +5814,21 @@ def check_fix_regression_registry() -> None:
         codes = {issue.get("code") for issue in json.loads(lint.stdout).get("issues", [])}
         if "bad-sha" not in codes or "placeholder-protected-by" not in codes:
             fail("regression lint must flag bad-sha and placeholder-protected-by: " + lint.stdout)
+
+        # Prose fields: embedded metavariables inside real prose must NOT be flagged.
+        ok_sha = "e" * 40
+        registry.write_text(json.dumps({"sha": ok_sha, "description": "chat-room-<roomId> tag broken", "protectedBy": ["tests/x.md"], "reproSteps": "render <Toaster/> then open <name>"}) + "\n", encoding="utf-8")
+        lint2 = run_cli(["lint", "--format=json"])
+        codes2 = {issue.get("code") for issue in json.loads(lint2.stdout).get("issues", [])}
+        if "bad-description" in codes2 or "bad-repro" in codes2:
+            fail("regression lint must not flag embedded metavariables in prose: " + lint2.stdout)
+
+        # Prose fields: a bare <...> placeholder token IS still garbage.
+        registry.write_text(json.dumps({"sha": ok_sha, "description": "<bug \uc124\uba85>", "protectedBy": ["tests/x.md"], "reproSteps": "open"}) + "\n", encoding="utf-8")
+        lint3 = run_cli(["lint", "--format=json"])
+        codes3 = {issue.get("code") for issue in json.loads(lint3.stdout).get("issues", [])}
+        if "bad-description" not in codes3:
+            fail("regression lint must still flag a bare <...> prose placeholder: " + lint3.stdout)
     print("✓ fix-regression registry reader + CLI ok")
 
 

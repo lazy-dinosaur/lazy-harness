@@ -39,6 +39,8 @@ The Fix-commit regression gate must recognize an existing registry entry regardl
 | `regression_add_rejects_placeholder` | `regression add --test "<test_path>" ...` | exit 2, nothing appended |
 | `regression_add_writes_and_dedups` | valid `regression add`, then re-run same sha | first appends canonical JSON; second is a no-op |
 | `regression_lint_flags_garbage` | registry with placeholder/pending/bad-sha/empty entries | lint reports the matching codes; `--fail-on-issues` exits 2 |
+| `regression_lint_allows_embedded_metavar` | registry entry whose `description`/`reproSteps` is real prose containing an embedded metavariable (`tag <roomId> broken`, `render <Toaster/>`) | lint emits NO `bad-description`/`bad-repro` for that entry |
+| `regression_lint_flags_bare_prose_placeholder` | registry entry whose `description` is a bare `<bug 설명>` placeholder token | lint emits `bad-description` |
 
 ## Acceptance assertions
 
@@ -50,6 +52,8 @@ Self-test must verify:
 4. `lazy regression add` rejects `pending`/short sha and `<...>`/`pending:` test placeholders (exit 2, no write).
 5. A valid `lazy regression add` appends one canonical line and a duplicate sha is a no-op.
 6. `lazy regression lint --fail-on-issues` flags garbage entries and exits non-zero.
+7. `lazy regression lint` does NOT flag an entry whose `description`/`reproSteps` contains an embedded metavariable (`<roomId>`, `<Toaster/>`) inside real prose.
+8. `lazy regression lint` still flags an entry whose `description` is a bare `<...>` placeholder token (`bad-description`).
 
 ## Validation commands
 
