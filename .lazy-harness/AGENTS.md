@@ -97,7 +97,7 @@ Pi/OMP `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. �
 
 **Rule digest + Implementation map 의무 (ADR 0030)**:
 
-재사용 guidance record 엔 `## Rule digest`(Status/Layer/Scope/Applies when/Must — `.lazy-harness/spec/platform/record-digest-format.md` / `record-write-update-policy.md` 참조) 를 생성 시 즉시 작성·유지한다. 구현이 있거나 구현을 바꾸는 record 는 설명만 저장하지 말고 3층으로 매핑한다.
+재사용 guidance record 엔 `## Rule digest`(Status/Layer/Scope/Applies when/Must — `.lazy-harness/spec/platform/record-digest-format.md` / `record-write-update-policy.md` 참조, record 내용에서 도출·enum 준수·날조 금지) 를 생성 시 즉시 작성·유지한다. **누락/malformed digest·broken-ref 는 `lazy record-lint` 로 찾고**(framework=commit gate, host=advisory), 호스트 record 대량 보완은 `lazy-record-quality` 스킬(guided·검수·확인 기반, host 소유·자체 일정)로 한다. 구현이 있거나 구현을 바꾸는 record 는 설명만 저장하지 말고 3층으로 매핑한다.
 
 1. **MD 보고서**: DDD/SDD/BDD/TDD/ADR/SSOT 문서에 `Implementation map` 섹션 추가
    - 관련 파일, 파일 역할, 핵심 함수/클래스/컴포넌트, 흐름, 보호 테스트, cross-layer 링크

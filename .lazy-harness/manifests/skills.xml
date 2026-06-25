@@ -158,6 +158,17 @@
     <ownsArtifacts>.lazy-harness/scripts/document-resource-ingestion.ts</ownsArtifacts>
   </skill>
 
+  <skill id="lazy-record-quality" status="beta" phase="record-quality">
+    <location>packages/lazy-harness-pi/skills/lazy-record-quality/</location>
+    <description>Guided LLM-assisted record-quality migration: backfill missing/malformed `## Rule digest` and fix broken record references using read-only lazy record-lint evidence; reviewed batches after confirmation; never bulk auto-rewrite. Hosts run after lazy sync (host-owned, own schedule).</description>
+    <command>Use /lazy-record-quality in Pi/OMP after lazy sync</command>
+    <command>.lazy-harness/bin/lazy record-lint --format=json</command>
+    <command>.lazy-harness/bin/lazy record-lint --fail-on-issues</command>
+    <emitsLogs>false</emitsLogs>
+    <ownsArtifacts>packages/lazy-harness-pi/skills/lazy-record-quality/SKILL.md</ownsArtifacts>
+    <ownsArtifacts>.lazy-harness/spec/platform/record-lint.md</ownsArtifacts>
+  </skill>
+
   <skill id="lazy-report" status="planned" phase="post-5e">
     <location>.lazy-harness/plans/report-and-knowledge-roadmap.md</location>
     <description>Export host-project usage evidence as copy/pasteable Markdown plus future-ingestable JSON for framework improvement</description>
