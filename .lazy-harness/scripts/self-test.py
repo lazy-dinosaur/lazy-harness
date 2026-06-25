@@ -5754,6 +5754,69 @@ def check_record_lint_cli() -> None:
     print("✓ record-lint cli ok")
 
 
+def check_fix_regression_registry() -> None:
+    """Fix-commit regression gate: JSON-parse reader (whitespace-agnostic) + validated lazy regression add CLI."""
+    hook = LAZY / "hooks" / "lifecycle" / "helpers" / "check-fix-regression.sh"
+    cli = LAZY / "scripts" / "regression.ts"
+    for p in (hook, cli):
+        if not p.exists():
+            fail(f"regression: missing {p.relative_to(ROOT)}")
+    with tempfile.TemporaryDirectory() as tmp:
+        host = pathlib.Path(tmp)
+        reg_dir = host / ".lazy-harness" / "regression"
+        reg_dir.mkdir(parents=True)
+        registry = reg_dir / "registry.jsonl"
+        candidates = reg_dir / "candidates.jsonl"
+
+        def run_hook(head: str, subject: str = "Fix: x") -> str:
+            env = {**os.environ, "LAZY_LIFECYCLE_GIT_LAST_SUBJECT": subject, "LAZY_LIFECYCLE_GIT_HEAD": head}
+            return subprocess.run(["bash", str(hook), ""], cwd=str(host), text=True, capture_output=True, check=False, env=env).stdout
+
+        def run_cli(args: list) -> "subprocess.CompletedProcess":
+            return subprocess.run(["bun", str(cli), *args, "--root", str(host)], cwd=str(ROOT), text=True, capture_output=True, check=False)
+
+        sha_a = "a" * 40
+        # Spaced JSON (json.dumps default) must satisfy the gate — the original bug grepped "sha":"x" (no space).
+        registry.write_text(json.dumps({"sha": sha_a, "description": "bug", "protectedBy": ["tests/x.md"], "reproSteps": "do"}) + "\n", encoding="utf-8")
+        if "STOP" in run_hook(sha_a):
+            fail("regression reader must accept a spaced JSON registry entry")
+        if "STOP" not in run_hook("b" * 40):
+            fail("regression reader must STOP when the Fix sha is absent")
+
+        registry.write_text("", encoding="utf-8")
+        candidates.write_text(json.dumps({"sha": sha_a, "status": "candidate"}) + "\n", encoding="utf-8")
+        if "STOP" not in run_hook(sha_a):
+            fail("regression reader must not be satisfied by a candidates.jsonl auto-stub")
+        if run_hook(sha_a, subject="feat: x").strip():
+            fail("regression reader must stay silent on non-Fix commits")
+
+        if run_cli(["add", "--sha", "pending", "--description", "x", "--test", "tests/x.md", "--repro", "y"]).returncode == 0:
+            fail("regression add must reject a non-40-hex sha")
+        if run_cli(["add", "--sha", "c" * 40, "--description", "x", "--test", "<test_path>", "--repro", "y"]).returncode == 0:
+            fail("regression add must reject a placeholder protectedBy")
+
+        registry.write_text("", encoding="utf-8")
+        good = "d" * 40
+        if run_cli(["add", "--sha", good, "--description", "real bug", "--test", "tests/x.md", "--repro", "open"]).returncode != 0:
+            fail("regression add must accept a valid entry")
+        rows = [json.loads(line) for line in registry.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if not any(row.get("sha") == good for row in rows):
+            fail("regression add must append the canonical entry")
+        run_cli(["add", "--sha", good, "--description", "dup", "--test", "tests/x.md", "--repro", "z"])
+        rows = [line for line in registry.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(rows) != 1:
+            fail("regression add must dedup by sha")
+
+        registry.write_text(json.dumps({"sha": "pending", "description": "x", "protectedBy": ["<t>"], "reproSteps": "y"}) + "\n", encoding="utf-8")
+        lint = run_cli(["lint", "--fail-on-issues", "--format=json"])
+        if lint.returncode == 0:
+            fail("regression lint --fail-on-issues must exit non-zero on garbage")
+        codes = {issue.get("code") for issue in json.loads(lint.stdout).get("issues", [])}
+        if "bad-sha" not in codes or "placeholder-protected-by" not in codes:
+            fail("regression lint must flag bad-sha and placeholder-protected-by: " + lint.stdout)
+    print("✓ fix-regression registry reader + CLI ok")
+
+
 def check_graph_hygiene_cli() -> None:
     """Graph hygiene must report graph JSONL path/id issues without mutating the graph."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -9956,6 +10019,7 @@ def main() -> None:
         (check_tool_execute_before_hook, "BOTH"),
         (check_agents_md_invariants, "BOTH"),
         (check_record_lint_cli, "FRAMEWORK_ONLY"),
+        (check_fix_regression_registry, "BOTH"),
     ]
 
     ran = 0

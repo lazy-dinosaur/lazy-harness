@@ -100,6 +100,8 @@ Commands:
                                 Lint knowledge graph IDs and path hygiene
   record-lint [--format=json|md] [--fail-on-issues]
                                 Validate canonical records: Rule digest format + broken record refs
+  regression add|lint        Register (validated, canonical) or lint Fix-commit regression entries
+                                add --sha <40hex> --description <t> --test <path> --repro <t> | lint [--fail-on-issues]
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
   hook-timings [--format=json|md] [--limit=N] [--since=ISO] [--all-sessions]
                                 Summarize response.completed hook timing measurements
@@ -301,6 +303,13 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/record-lint.ts" "$@"
+    ;;
+  regression)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy regression: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/regression.ts" "$@"
     ;;
   gate-state)
     if ! command -v bun >/dev/null 2>&1; then

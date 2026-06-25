@@ -661,6 +661,16 @@
           "path": "spec/platform/jcode-skill-creation.md",
           "kind": "file",
           "description": "Superseded (ADR 0050) Jcode skill-creation SDD, retained as deprecated decision history; synced so hosts carry the digested deprecated record instead of a stale pre-digest copy."
+        },
+        {
+          "path": "spec/platform/regression-registry.md",
+          "kind": "file",
+          "description": "SDD contract for the Fix-commit regression registry: JSON-parse reader (whitespace-agnostic sha match), validated lazy regression add writer, lint, and candidates-not-satisfying gate."
+        },
+        {
+          "path": "tests/regression-registry.md",
+          "kind": "file",
+          "description": "TDD fixtures for the regression gate reader (spaced entry satisfies; candidates do not) and lazy regression add/lint validation."
         }
       ]
     },

@@ -23,19 +23,38 @@ if [ -z "$LAST_SHA" ]; then
   LAST_SHA=$(git rev-parse HEAD 2>/dev/null)
 fi
 
-# regression/registry.jsonl 또는 candidates.jsonl 에 이 SHA 가 있나
-REG_FILES=".lazy-harness/regression/registry.jsonl .lazy-harness/regression/candidates.jsonl"
+# registry.jsonl 에 이 SHA 의 promoted regression entry 가 있나.
+# JSON 파싱으로 sha 필드를 비교 — 공백/표기/인코딩 무관 (post-commit json.dumps 든 CLI 든 동일 인식).
+# candidates.jsonl 의 auto-stub 은 만족 조건이 아님: 반드시 registry 로 승격해야 한다.
+REG=".lazy-harness/regression/registry.jsonl"
 FOUND=0
-for f in $REG_FILES; do
-  if [ -f "$f" ] && grep -q "\"sha\":\"$LAST_SHA\"" "$f" 2>/dev/null; then
-    FOUND=1
-    break
-  fi
-done
+if [ -f "$REG" ] && LAZY_REG_SHA="$LAST_SHA" python3 - "$REG" <<'PY' 2>/dev/null
+import os, sys, json
+sha = os.environ.get("LAZY_REG_SHA", "")
+try:
+    fh = open(sys.argv[1], encoding="utf-8")
+except OSError:
+    sys.exit(1)
+with fh:
+    for line in fh:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        if str(row.get("sha", "")) == sha:
+            sys.exit(0)
+sys.exit(1)
+PY
+then
+  FOUND=1
+fi
 
 if [ "$FOUND" = "0" ]; then
   SHORT_SHA=$(echo "$LAST_SHA" | cut -c1-8)
-  echo "STOP. .lazy-harness/regression/registry.jsonl 파일에 즉시 regression entry 등록하시오. 마지막 commit ($SHORT_SHA) 이 Fix: 타입. Edit tool 로 다음 JSON 줄을 registry.jsonl 끝에 append: {\"sha\":\"$LAST_SHA\",\"description\":\"<bug 설명>\",\"protectedBy\":[\"<test_path>\"],\"reproSteps\":\"<재현>\"}. 갱신 안 하면 다음 응답에서 동일 deny 반복됨."
+  echo "STOP. 마지막 commit ($SHORT_SHA) 이 Fix: 타입인데 .lazy-harness/regression/registry.jsonl 에 regression entry 가 없음. 검증된 CLI 로 등록하시오 (raw JSON 수동 append 금지): .lazy-harness/bin/lazy regression add --sha $LAST_SHA --description \"버그 설명\" --test 보호테스트경로 --repro \"재현 절차\". 등록 전까지 동일 STOP 반복."
 fi
 
 exit 0
