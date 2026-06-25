@@ -293,9 +293,19 @@
           "description": "SDD contract for record-index/lazy map cue-only metadata, top-level Related path parsing, and overview-first advisory behavior."
         },
         {
+          "path": "spec/platform/record-lint.md",
+          "kind": "file",
+          "description": "SDD contract for record-lint: canonical record digest-format + broken-reference validation, commit-gated via self-test."
+        },
+        {
           "path": "tests/record-index-header.md",
           "kind": "file",
           "description": "TDD fixtures for record-index/lazy map, related-record parsing, cache behavior, and overview-batch advisory/no-op compatibility coverage."
+        },
+        {
+          "path": "tests/record-lint.md",
+          "kind": "file",
+          "description": "TDD fixtures for record-lint digest-format and reference checks."
         },
         {
           "path": "spec/platform/search-read-debt-contract.md",
