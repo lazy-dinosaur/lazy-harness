@@ -450,7 +450,15 @@ const KNOWN_REMOVED_MANAGED_FILES = [
   `.lazy-harness/tests/${removedName('relevant', '-record-query-cli-equals-flags.md')}`,
   '.lazy-harness/fixtures/task-router/cases.json',
   `.lazy-harness/scripts/${removedName('jcode', '-wiring.ts')}`,
-  `.lazy-harness/scripts/${removedName('skill', '-create.ts')}`
+  `.lazy-harness/scripts/${removedName('skill', '-create.ts')}`,
+  '.lazy-harness/spec/platform/graph-explain.md',
+  '.lazy-harness/spec/platform/graph-path.md',
+  '.lazy-harness/spec/platform/graph-query.md',
+  '.lazy-harness/spec/platform/graph-cleanup.md',
+  '.lazy-harness/tests/graph-explain.md',
+  '.lazy-harness/tests/graph-path.md',
+  '.lazy-harness/tests/graph-query.md',
+  '.lazy-harness/tests/graph-cleanup.md'
 ]
 
 const KNOWN_REMOVED_MANAGED_DIRS = [

@@ -108,14 +108,61 @@ function digestField(block: string, name: string): string | null {
   return match ? match[1].trim() : null
 }
 
-function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords: number } {
+// ADR 0026 markers (same signal as self-test _detect_scope / doctor standalone detection):
+// the framework dev repo carries BOTH; hosts carry neither. Do NOT use
+// state/synced-from-commit absence (see check_standalone_source_detection_uses_markers).
+function isFrameworkSourceRoot(root: string): boolean {
+  const lazy = path.join(root, '.lazy-harness')
+  return (
+    existsSync(path.join(lazy, 'framework', 'framework-contract.md')) &&
+    existsSync(path.join(lazy, 'planning', 'phase-5-plan.xml'))
+  )
+}
+
+// Category-A canonical records are framework-owned: synced from source and enforced at the
+// framework commit gate. On a host the full record graph is a superset of the synced subset,
+// so a synced framework record legitimately cross-references records the host never carries —
+// those structural dangling refs are not host defects. Host-context lint therefore skips
+// framework-owned records; host-authored records (outside Category A) stay fully strict so
+// genuine host typos are still caught.
+function loadFrameworkOwnedRecords(root: string): Set<string> {
+  const owned = new Set<string>()
+  const manifestPath = path.join(root, '.lazy-harness', 'manifests', 'init-categories.json')
+  if (!existsSync(manifestPath)) return owned
+  let manifest: unknown
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return owned
+  }
+  const items = (manifest as { categories?: { A?: { items?: unknown[] } } })?.categories?.A?.items
+  if (!Array.isArray(items)) return owned
+  for (const item of items) {
+    const entry = item as { path?: string; targetPath?: string; kind?: string }
+    if (entry?.kind !== 'file') continue
+    const rel = entry.targetPath || entry.path
+    if (typeof rel !== 'string') continue
+    if (!(rel.split('/')[0] in CANONICAL_LAYER)) continue
+    owned.add(`.lazy-harness/${rel}`)
+  }
+  return owned
+}
+
+function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords: number; frameworkOwned: number } {
   const issues: Issue[] = []
   let inspected = 0
   let cleanRecords = 0
+  let frameworkOwned = 0
+  const hostContext = !isFrameworkSourceRoot(root)
+  const ownedRecords = hostContext ? loadFrameworkOwnedRecords(root) : new Set<string>()
   for (const [dir, expectedLayer] of Object.entries(CANONICAL_LAYER)) {
     for (const file of walkRecords(path.join(root, '.lazy-harness', dir))) {
       inspected += 1
       const recordPath = `.lazy-harness/${path.relative(path.join(root, '.lazy-harness'), file).split(path.sep).join('/')}`
+      if (hostContext && ownedRecords.has(recordPath)) {
+        frameworkOwned += 1
+        continue
+      }
       const body = readFileSync(file, 'utf8')
       const before = issues.length
 
@@ -153,7 +200,7 @@ function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords:
       if (issues.length === before) cleanRecords += 1
     }
   }
-  return { issues, inspected, cleanRecords }
+  return { issues, inspected, cleanRecords, frameworkOwned }
 }
 
 function renderMarkdown(payload: Record<string, unknown>): string {
@@ -163,6 +210,7 @@ function renderMarkdown(payload: Record<string, unknown>): string {
   lines.push('- mode: `record-lint`')
   lines.push(`- inspected canonical records: ${payload.inspected}`)
   lines.push(`- clean records: ${payload.cleanRecords}`)
+  lines.push(`- framework-owned (host-skipped): ${payload.frameworkOwned ?? 0}`)
   lines.push(`- issues: ${payload.issueCount}`)
   const counts = payload.counts as Record<string, number>
   if (Object.keys(counts).length) {
@@ -182,7 +230,7 @@ function renderMarkdown(payload: Record<string, unknown>): string {
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
-    const { issues, inspected, cleanRecords } = lint(args.root)
+    const { issues, inspected, cleanRecords, frameworkOwned } = lint(args.root)
     const counts: Record<string, number> = {}
     for (const issue of issues) counts[issue.code] = (counts[issue.code] || 0) + 1
     const payload = {
@@ -191,6 +239,7 @@ function main(): void {
       root: args.root,
       inspected,
       cleanRecords,
+      frameworkOwned,
       issueCount: issues.length,
       counts,
       issues,

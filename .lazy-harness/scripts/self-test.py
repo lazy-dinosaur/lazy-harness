@@ -5706,6 +5706,51 @@ def check_record_lint_cli() -> None:
             fail("record-lint should flag missing-rule-digest and broken-record-ref: " + json.dumps(data.get("issues"), ensure_ascii=False))
         if any(issue.get("recordPath", "").endswith("fenced.md") for issue in data.get("issues", [])):
             fail("record-lint must not flag .md paths inside fenced code blocks: " + json.dumps(data.get("issues"), ensure_ascii=False))
+    with tempfile.TemporaryDirectory() as tmp:
+        host = pathlib.Path(tmp)
+        lazy = host / ".lazy-harness"
+        (lazy / "spec" / "platform").mkdir(parents=True)
+        (lazy / "spec" / "frontend").mkdir(parents=True)
+        (lazy / "manifests").mkdir(parents=True)
+        (lazy / "manifests" / "init-categories.json").write_text(
+            json.dumps({"categories": {"A": {"items": [{"path": "spec/platform/owned.md", "kind": "file"}]}}}),
+            encoding="utf-8",
+        )
+        digest = "## Rule digest\n\n- Status: active\n- Layer: SDD\n- Scope: framework-global\n- Applies when:\n  - x\n- Must:\n  - y\n"
+        (lazy / "spec" / "platform" / "owned.md").write_text(
+            f"# Owned\n\n{digest}\nSee `.lazy-harness/decisions/8888-absent.md`.\n", encoding="utf-8",
+        )
+        (lazy / "spec" / "frontend" / "hosttypo.md").write_text(
+            f"# Host typo\n\n{digest}\nSee `.lazy-harness/spec/frontend/9999-typo.md`.\n", encoding="utf-8",
+        )
+
+        def run_host_lint() -> dict:
+            res = subprocess.run(
+                ["bun", str(LAZY / "scripts" / "record-lint.ts"), "--root", str(host), "--format=json"],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            return json.loads(res.stdout)
+
+        host_data = run_host_lint()
+        host_paths = {issue.get("recordPath") for issue in host_data.get("issues", [])}
+        if any(p.endswith("owned.md") for p in host_paths):
+            fail("record-lint host context must skip Category-A framework-owned records: " + json.dumps(sorted(host_paths), ensure_ascii=False))
+        if not any(p.endswith("hosttypo.md") for p in host_paths):
+            fail("record-lint host context must still flag host-authored broken refs: " + json.dumps(sorted(host_paths), ensure_ascii=False))
+        if host_data.get("frameworkOwned", 0) < 1:
+            fail("record-lint host context must count framework-owned skips: " + json.dumps(host_data, ensure_ascii=False))
+
+        # ADR 0026 markers present → framework context → no ownership suppression (full strictness).
+        (lazy / "framework").mkdir(parents=True)
+        (lazy / "framework" / "framework-contract.md").write_text("# marker\n", encoding="utf-8")
+        (lazy / "planning").mkdir(parents=True)
+        (lazy / "planning" / "phase-5-plan.xml").write_text("<plan/>\n", encoding="utf-8")
+        fw_data = run_host_lint()
+        fw_paths = {issue.get("recordPath") for issue in fw_data.get("issues", [])}
+        if not any(p.endswith("owned.md") for p in fw_paths):
+            fail("record-lint framework context must not suppress Category-A records: " + json.dumps(sorted(fw_paths), ensure_ascii=False))
+        if fw_data.get("frameworkOwned", 0) != 0:
+            fail("record-lint framework context must not skip records as framework-owned: " + json.dumps(fw_data, ensure_ascii=False))
     print("✓ record-lint cli ok")
 
 

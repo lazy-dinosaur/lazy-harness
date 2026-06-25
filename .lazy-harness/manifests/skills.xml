@@ -160,7 +160,7 @@
 
   <skill id="lazy-record-quality" status="beta" phase="record-quality">
     <location>packages/lazy-harness-pi/skills/lazy-record-quality/</location>
-    <description>Guided LLM-assisted record-quality migration: backfill missing/malformed `## Rule digest` and fix broken record references using read-only lazy record-lint evidence; reviewed batches after confirmation; never bulk auto-rewrite. Hosts run after lazy sync (host-owned, own schedule).</description>
+    <description>Drift-aware guided record-quality migration: sync-reconcile the framework layer first, then backfill missing/malformed `## Rule digest` and fix broken references in host-authored records using read-only lazy record-lint evidence; classifies host-owned vs framework-owned and hands framework-source defects off instead of editing synced records; reviewed batches after confirmation; never bulk auto-rewrite. Hosts run after lazy sync (host-owned, own schedule).</description>
     <command>Use /lazy-record-quality in Pi/OMP after lazy sync</command>
     <command>.lazy-harness/bin/lazy record-lint --format=json</command>
     <command>.lazy-harness/bin/lazy record-lint --fail-on-issues</command>

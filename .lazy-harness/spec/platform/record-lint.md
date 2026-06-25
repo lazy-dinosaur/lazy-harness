@@ -20,6 +20,7 @@ Related TDD: `.lazy-harness/tests/record-lint.md`
   - validate every canonical record (domain/spec/behavior/tests/decisions/ssot, excluding README) for digest presence, valid Status/Layer/Scope enums, Layer-matches-path, Applies-when/Must bullets, and broken `.lazy-harness/...md` references outside code fences
   - stay read-only and deterministic; `--fail-on-issues` exits non-zero for the commit/push gate
   - be enforced via `lazy test`/self-test on the framework source (commit/push blocking, FRAMEWORK_ONLY scope); on hosts it is advisory (`lazy record-lint`) since host-authored records are host-owned and may not yet carry digests
+  - in host context (detected via ADR 0026 markers, not `synced-from-commit`), skip Category-A framework-owned records so their cross-references into the un-synced record graph are not false `broken-record-ref`s; host-authored records stay fully strict
 - Must not:
   - add a dev-time blocking hook (ADR 0016/0041/0048: dev edits stay non-blocking)
   - mutate records, indexes, graph, or runtime state
@@ -52,13 +53,22 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 ```
 
 - `--fail-on-issues` exits `2` when any issue is found (commit/push gate). Default is report-only.
-- JSON shape: `schemaVersion`, `mode: "record-lint"`, `root`, `inspected`, `cleanRecords`, `issueCount`, `counts`, `issues[]` (`recordPath`, `code`, `detail`), `note`.
+- JSON shape: `schemaVersion`, `mode: "record-lint"`, `root`, `inspected`, `cleanRecords`, `frameworkOwned`, `issueCount`, `counts`, `issues[]` (`recordPath`, `code`, `detail`), `note`.
 
 ## Enforcement boundary
 
 - Enforced at the commit/push gate through `lazy test`/self-test (blocking). A malformed record fails commit, forcing the author to add/fix the digest or reference.
 - NOT a dev-time `tool.execute.before` hard gate: per ADR 0016/0041/0048, dev edits stay non-blocking for iteration speed; the commit/push gate is the blocking layer.
 - Downstream hosts run the same `lazy record-lint` after `lazy sync` (runtime-agnostic CLI). The `lazy-record-quality` skill installed with `lazy pi install` / `lazy omp install` (`packages/lazy-harness-pi/skills/`) guides host-record digest backfill and reference cleanup. This is not wired through Jcode.
+
+## Host vs framework scope (ownership suppression)
+
+`record-lint` runs identical logic in the framework source and on hosts, but the **record graph differs**: hosts sync only the Category-A subset (`manifests/init-categories.json`), while synced framework records cross-reference the full framework graph. References into records the host never carries are structural, not defects.
+
+- Context detection uses the ADR 0026 markers (`framework/framework-contract.md` + `planning/phase-5-plan.xml`), the same signal as `self-test._detect_scope` and doctor standalone detection. It MUST NOT use `state/synced-from-commit` absence (see `check_standalone_source_detection_uses_markers`).
+- Framework source (both markers present): no suppression — every canonical record is checked; the commit gate requires 0 issues.
+- Host (markers absent): records whose path is a Category-A `targetPath` (framework-owned) are skipped and counted in `frameworkOwned`. Host-authored records (outside Category A) keep full digest + broken-ref checking, so genuine host typos are still caught.
+- Orphaned framework records left by earlier syncs (renamed/rolled-back) are pruned by `lazy-sync` (`KNOWN_REMOVED_MANAGED_FILES`), not tolerated by the linter.
 
 ## Implementation map
 
@@ -72,6 +82,7 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 - Key symbols:
   - `lint` (`.lazy-harness/scripts/record-lint.ts`) — per-record digest + reference validation.
   - `digestField` — `- Name: value` extraction for Status/Layer/Scope.
+  - `isFrameworkSourceRoot` / `loadFrameworkOwnedRecords` (`.lazy-harness/scripts/record-lint.ts`) — ADR 0026 marker detection + Category-A ownership set for host-context suppression.
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py#check_record_lint_cli`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`

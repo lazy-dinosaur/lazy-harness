@@ -18,6 +18,7 @@ Related SDD: `.lazy-harness/spec/platform/record-lint.md`
   - verify a malformed fixture record produces the expected issue codes and `--fail-on-issues` exits non-zero
   - verify the framework's own canonical records pass `record-lint --fail-on-issues` (commit-gate enforcement)
   - verify example paths inside fenced code blocks are NOT flagged as broken references
+  - verify host context (ADR 0026 markers absent) skips Category-A framework-owned records while keeping host-authored records strict, and that framework context disables suppression
 - Must not:
   - require network, mutate records, or assert a dev-time hard gate
 - Record completion:
@@ -33,6 +34,8 @@ Related SDD: `.lazy-harness/spec/platform/record-lint.md`
 | `record_lint_detects_malformed` | temp host with a spec record lacking `## Rule digest` and one citing a missing `.md` | issues include `missing-rule-digest` and `broken-record-ref`; `--fail-on-issues` exits 2 |
 | `record_lint_fenced_examples_ok` | temp record whose only missing `.md` paths are inside a ``` fence | no `broken-record-ref` for fenced paths |
 | `record_lint_framework_clean` | framework source `lazy record-lint --fail-on-issues` | exits 0 (all canonical records pass) |
+| `record_lint_host_skips_framework_owned` | temp host (markers absent) + manifest Category-A `spec/platform/owned.md` citing a missing `.md` + host-authored `spec/frontend/hosttypo.md` citing a missing `.md` | `owned.md` suppressed (counted in `frameworkOwned`); `hosttypo.md` `broken-record-ref` still flagged |
+| `record_lint_framework_no_suppression` | same fixture with ADR 0026 markers added | `owned.md` flagged again; `frameworkOwned == 0` |
 
 ## Acceptance assertions
 
@@ -43,6 +46,8 @@ Self-test must verify:
 3. A temp fixture with a missing digest + a broken `.md` ref yields `missing-rule-digest` and `broken-record-ref`, and `--fail-on-issues` exits non-zero.
 4. A `.md` path that exists only inside a fenced code block is NOT flagged.
 5. The framework's own canonical records pass `lazy record-lint --fail-on-issues` (exit 0) — commit-gate enforcement.
+6. In host context (ADR 0026 markers absent), a Category-A framework-owned record's broken ref is suppressed and counted in `frameworkOwned`, while a host-authored record's broken ref is still flagged.
+7. With markers present (framework context), suppression is disabled (`frameworkOwned == 0`) and the same record is flagged.
 
 ## Validation commands
 

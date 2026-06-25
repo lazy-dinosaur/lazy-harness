@@ -646,6 +646,21 @@
             "*.json"
           ],
           "description": "Static Policy Machinery V2 policy packet fixtures used by BOTH-scope self-test."
+        },
+        {
+          "path": "domain/purpose-scoped-retrieval.md",
+          "kind": "file",
+          "description": "DDD foundation record for map-first / purpose-scoped retrieval terms; sibling of the Category-A spec/platform/purpose-scoped-retrieval contract."
+        },
+        {
+          "path": "tests/purpose-scoped-retrieval.md",
+          "kind": "file",
+          "description": "TDD regression for map-first retrieval (removed lazy find; LLM-owned overview-first); paired with spec/platform/purpose-scoped-retrieval."
+        },
+        {
+          "path": "spec/platform/jcode-skill-creation.md",
+          "kind": "file",
+          "description": "Superseded (ADR 0050) Jcode skill-creation SDD, retained as deprecated decision history; synced so hosts carry the digested deprecated record instead of a stale pre-digest copy."
         }
       ]
     },
