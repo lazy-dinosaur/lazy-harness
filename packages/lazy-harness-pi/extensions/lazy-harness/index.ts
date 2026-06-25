@@ -153,6 +153,25 @@ function lastMessageTextByRole(messages: unknown, role: string): string {
   return "";
 }
 
+// OMP/Pi expose a native interactive `ask` selector (loadMode "discoverable"), which tool
+// discovery mode hides once the session has many tools (>40). Keep it active so harness
+// option gates (AGENTS §2.3) render as native selectable choices instead of plain A/B/C
+// text. Add-only, interactive-only (the `ask` tool only exists when the session has a UI),
+// fail-open so a runtime without these APIs simply falls back to text option gates.
+async function ensureAskToolActive(pi: ExtensionAPI): Promise<void> {
+  try {
+    const p = pi as any;
+    if (typeof p.getAllTools !== "function" || typeof p.getActiveTools !== "function" || typeof p.setActiveTools !== "function") return;
+    const allNames = (p.getAllTools() as any[]).map((t) => (typeof t === "string" ? t : t?.name)).filter(Boolean);
+    if (!allNames.includes("ask")) return; // non-interactive session: no native ask selector to surface
+    const active = (p.getActiveTools() as string[]) ?? [];
+    if (active.includes("ask")) return;
+    await p.setActiveTools([...active, "ask"]);
+  } catch {
+    /* unsupported runtime / non-interactive: option gates fall back to text */
+  }
+}
+
 function systemPromptIncludesBody(systemPrompt: unknown, body: string): boolean {
   if (Array.isArray(systemPrompt)) {
     return systemPrompt.some((part) => typeof part === "string" && part.includes(body));
@@ -249,6 +268,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     activePacketsByRoot.set(root, { root, sessionId, messageId });
     pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
     regroundBodyByRoot.delete(root);
+    await ensureAskToolActive(pi); // keep OMP's native `ask` selector available for §2.3 option gates
 
     const payload: JsonObject = {
       event: "message.received",

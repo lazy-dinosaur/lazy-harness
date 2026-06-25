@@ -16,6 +16,7 @@ Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
   - deciding whether to proceed, write, or execute while a choice is still pending
 - Must:
   - ask once with 3-5 options plus a type-your-own, then stop the turn
+  - render the gate through the runtime's interactive ask/select tool (OMP `ask`: `{questions:[{question, options:[{label,description}], recommended}]}`, type-your-own automatic) when available — native selectable choices, not plain A/B/C text
   - converge a user's choice to `user-confirmed`; use `inferred-from-record` when records already decide
   - summarize an already-open gate instead of reprinting or repeating it
 - Must not:
@@ -49,7 +50,7 @@ The discipline applies when a response includes any of:
 
 When a gate is opened:
 
-1. Ask once with 3-5 options plus a type-your-own option.
+1. Ask once with 3-5 options plus a type-your-own option, rendered via the runtime's interactive `ask` tool (native selectable choices) when the runtime exposes one; fall back to plain text only when no such tool is available (e.g. non-interactive/subagent sessions).
 2. Stop the turn. Do not write records, run dispatch/release commands, mutate files, or execute follow-up plans in the same unresolved gate state.
 3. Do not self-select `(Recommended)`.
 4. If the user chooses an option, converge that choice to `Confirmation: user-confirmed` and do not ask the same gate again.
@@ -95,6 +96,8 @@ Plainly asking a gate once is allowed for true decision/execution gates. Helpers
   - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated project rule placement reminders.
   - `.lazy-harness/triggers/code-change.ts` — lazy-loads non-BDD parser dependencies so BDD natural-language gates work in installed hosts without `ts-morph`.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the helper.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#ensureAskToolActive` — keeps OMP's native `ask` selector active under tool discovery mode so option gates render as selectable choices.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` / `on-context.sh` — reminder grammar instructing agents to render option gates via the `ask` tool.
   - `.lazy-harness/scripts/self-test.py` — regression fixtures.
 - Key symbols:
   - `check_option_gate_discipline_helper` (`.lazy-harness/scripts/self-test.py`) — validates ask/pass/block cases.

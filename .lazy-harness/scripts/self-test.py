@@ -1639,6 +1639,9 @@ def check_pi_package_layout_and_contract() -> None:
         "assistant_response",
         "args_preview",
         "lastMessageTextByRole",
+        "ensureAskToolActive",
+        "setActiveTools",
+        "getAllTools",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2132,6 +2135,41 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi agent_end jcode-shape payload smoke failed:\n" + completed.stdout + completed.stderr)
     finally:
         shutil.rmtree(payload_smoke, ignore_errors=True)
+
+    ask_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-ask-active-"))
+    try:
+        aroot = ask_smoke / "repo"
+        (aroot / ".lazy-harness" / "bin").mkdir(parents=True)
+        (aroot / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        smoke = ask_smoke / "ask-active.ts"
+        smoke.write_text(
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers=new Map();\n"
+            "let activeTools=['read','bash'];\n"
+            "let setCalls=0;\n"
+            "const pi={on(e,h){handlers.set(e,h)},registerCommand(){},async exec(){return {stdout:'',stderr:'',exitCode:0}},getAllTools(){return [{name:'ask'},{name:'read'},{name:'bash'}]},getActiveTools(){return activeTools},async setActiveTools(t){setCalls++;activeTools=t}};\n"
+            "lazyHarnessPi(pi);\n"
+            "const aroot=" + json.dumps(str(aroot)) + ";\n"
+            "const ctx={cwd:aroot,signal:undefined,ui:{notify(){}}};\n"
+            "await handlers.get('before_agent_start')({prompt:'hi',systemPrompt:'base'},ctx);\n"
+            "if(!activeTools.includes('ask')) throw new Error('ask not activated');\n"
+            "if(!activeTools.includes('read')||!activeTools.includes('bash')) throw new Error('ensureAskToolActive dropped existing tools');\n"
+            "const after=setCalls;\n"
+            "await handlers.get('before_agent_start')({prompt:'hi2',systemPrompt:'base'},ctx);\n"
+            "if(setCalls!==after) throw new Error('ask re-activated when already active (not idempotent)');\n"
+            "const h2=new Map();let active2=['read'];\n"
+            "const pi2={on(e,h){h2.set(e,h)},registerCommand(){},async exec(){return {stdout:'',stderr:'',exitCode:0}},getAllTools(){return [{name:'read'}]},getActiveTools(){return active2},async setActiveTools(t){active2=t}};\n"
+            "lazyHarnessPi(pi2);\n"
+            "await h2.get('before_agent_start')({prompt:'hi',systemPrompt:'base'},ctx);\n"
+            "if(active2.includes('ask')) throw new Error('ask must not be added when absent from getAllTools');\n"
+            "console.log('pi ensureAskToolActive ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(["bun", str(smoke)], cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime())
+        if completed.returncode != 0:
+            fail("Pi ensureAskToolActive smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(ask_smoke, ignore_errors=True)
 
     print("✓ Pi package layout and extension contract ok")
 

@@ -41,7 +41,7 @@ import json
 body = '\n'.join([
     'REMINDER (mid-turn re-grounding — you just read/searched/edited files this turn). Re-apply the harness grammar before the next step:',
     '- record↔code conflict: record=intent, code=reality → ask the user which is the truth; never silently pick (AGENTS §0).',
-    '- ambiguous / new design decision: stop and ask a 3-5 option gate + Recommended; never self-select or jump to implementation before approval (AGENTS §2.3, ADR 0019/0038).',
+    '- ambiguous / new design decision: stop and ask a 3-5 option gate + Recommended, RENDERED via the runtime interactive `ask` tool (native choices, not plain A/B/C text); never self-select or jump to implementation before approval (AGENTS §2.3, ADR 0019/0038).',
     '- confirmed facts / source-of-truth corrections / decisions → accumulate into the right .lazy-harness layer (AGENTS §2.4).',
     '- stay read-only until search/read evidence covers the records/source/tests this work touches; mutation is guarded.',
 ]).strip() + '\n'

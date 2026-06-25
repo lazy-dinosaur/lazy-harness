@@ -17,6 +17,7 @@ Layer: TDD
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
   - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity)
   - project the jcode-shape `agent_end` payload (`assistant_response` + `last_user_message` from `event.messages`, string `args_preview` per `recent_tool_calls` entry) so `on-response-completed.sh` helper satisfaction works under Pi/OMP and does not loop
+  - keep OMP's native `ask` selector active (`ensureAskToolActive` on `before_agent_start`) so option gates render as selectable choices under tool discovery mode; add-only, interactive-only, fail-open
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
 - Record completion:
@@ -61,6 +62,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh` |
 | `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
 | `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response` (assistant prose), `last_user_message`, and a `recent_tool_calls[].args_preview` containing the written path |
+| `pi_extension_ensure_ask_tool_active` | Fake runtime with `ask` present in `getAllTools` but not in `getActiveTools` calls `before_agent_start` | Extension calls `setActiveTools` with the existing active set plus `ask` (add-only); a runtime missing the `ask` tool or the tool APIs is a graceful no-op (no throw) |
 | `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
 
 ## Automated coverage
