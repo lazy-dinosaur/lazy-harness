@@ -353,7 +353,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
         const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-context.sh");
-        const payload: JsonObject = { event: "context", source: EXTENSION_NAME, working_dir: root };
+        const payload: JsonObject = { event: "context", source: EXTENSION_NAME, working_dir: root, recent_tool_calls: recentToolCallsForRoot(root).slice(-40) };
         const hook = existsSync(script) ? runHook(script, payload, root) : { stdout: "", stderr: "", status: 0 };
         body = hookInjectBody(hook.stdout) ?? [
           "REMINDER (mid-turn re-grounding). Re-apply the lazy-harness grammar before the next step:",
