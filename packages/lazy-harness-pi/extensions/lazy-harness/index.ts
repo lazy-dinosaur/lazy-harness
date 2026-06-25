@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -288,8 +288,20 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       "- Mutation remains guarded by the generic search/read evidence guard.",
     ].join("\n");
 
-    if (systemPromptIncludesBody(event.systemPrompt, body)) return undefined;
-    return { systemPrompt: appendSystemPromptBody(event.systemPrompt, body) };
+    // jcode load_harness_dir parity: force-load the FULL .lazy-harness/AGENTS.md grammar into the
+    // system prompt every session (OMP/Pi otherwise only load a compact pointer). Deduped by the
+    // grammar title marker so it lands once and persists; fail-open to reminder-only on any error.
+    let inject = body;
+    const agentsPath = join(root, ".lazy-harness", "AGENTS.md");
+    if (existsSync(agentsPath) && !systemPromptIncludesBody(event.systemPrompt, "Lazy-Harness AI")) {
+      try {
+        const grammar = readFileSync(agentsPath, "utf8").trim();
+        if (grammar) inject = `${grammar}\n\n${body}`;
+      } catch { /* fail-open: reminder only */ }
+    }
+
+    if (systemPromptIncludesBody(event.systemPrompt, inject)) return undefined;
+    return { systemPrompt: appendSystemPromptBody(event.systemPrompt, inject) };
   });
 
   pi.on("tool_call", async (event: any, ctx: any) => {
