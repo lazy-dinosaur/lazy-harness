@@ -620,6 +620,30 @@
           "targetPath": "framework/operational-adrs/0048-operating-rule-storage-apply-repair.md"
         },
         {
+          "path": "decisions/0035-interview-queue-close-mandate.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS §2.3 interview queue-close mandate. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0035-interview-queue-close-mandate.md"
+        },
+        {
+          "path": "decisions/0038-requirements-first-change-gate.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by AGENTS §2.3 and the on-context/on-message-received hooks: requirements-first change gate and stale-approval rule. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0038-requirements-first-change-gate.md"
+        },
+        {
+          "path": "decisions/0050-pi-omp-only-runtime.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced hooks (check-destructive-command, check-rule-action-boundary) and specs (jcode-skill-creation, pi-mcp-parity, rule-sources): Pi/OMP-only runtime, jcode decommissioned. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0050-pi-omp-only-runtime.md"
+        },
+        {
+          "path": "decisions/0051-jcode-parity-grammar-regrounding.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by the pi-agent-package SDD: jcode-parity grammar re-grounding (load_harness_dir replacement). Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0051-jcode-parity-grammar-regrounding.md"
+        },
+        {
           "path": "spec/platform/policy-machinery-v2.md",
           "kind": "file",
           "description": "SDD contract for Phase 3 Policy Machinery V2: stage-aware policy packets connecting rulebook, capability registry, and Project Map update-loop evidence without new runtime enforcement."

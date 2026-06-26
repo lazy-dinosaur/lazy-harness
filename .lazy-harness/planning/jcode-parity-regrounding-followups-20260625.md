@@ -38,11 +38,20 @@ shipped + synced them (commits `1ccfd05`/`62fc284`/`791d659`/`069d603`/`3617769`
    records-first (reads governing record before action), correct dev-cli usage,
    turn-end capture, selectable option gates, no advisory loop.
 
-2. **M11 hard-block decision (user decision).** jcode's `response.completed`
-   hard-block (M11) was intentionally not ported — OMP/Pi enforcement stays
-   advisory + bounded continuation per ADR 0041 (user-confirmed organic). records-first
-   reliability comes from grammar force-load + re-injection, not M11. If a hard
-   guarantee is wanted, it requires revisiting ADR 0041; otherwise this stays as-is.
+2. **dev-DB hard-stop decision — RESOLVED (user-confirmed 2026-06-25).** Git
+   archaeology confirmed jcode NEVER had a dev-instance/DB hard-stop hook
+   (`electron-vite`/`dev-cli`/`bun db` were never blocked in medivance or
+   lazy-harness history). jcode's reliability for the dev-DB boundary came purely
+   from `load_harness_dir` force-loading the grammar, which made the agent read
+   the `named-dev-instance-workflow` + `db-environment-safety` records (organic),
+   NOT from a hard-stop. The only hard blocks in either era are destructive-shell
+   (`safe-guard.sh` → `check-destructive-command.py`) + commit-time `lazy test`.
+   The 2026-06-01 hard-enforcement experiment (search/read-debt BLOCKING gates,
+   commit `9411cbd`) was reverted the same day (ADR 0041). **Decision: no new
+   dev-DB hard-stop.** grammar force-load (32c8986) is the true jcode-parity
+   mechanism; verify it in a fresh session (item 1) first. A narrow L5 hard-stop
+   remains an ADR 0041-sanctioned OPTION only if grammar-parity proves
+   insufficient live — it would be NEW (beyond jcode), not a restoration.
 
 ## Discovery capture
 
