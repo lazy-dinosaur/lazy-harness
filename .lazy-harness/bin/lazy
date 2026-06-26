@@ -68,7 +68,6 @@ Commands:
                                 Create project-local Pi/OMP activation prompt files
   sync [--dry-run]              Refresh framework body (Category A) from canonical source
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
-  skill create <name> [options] Create project-local custom Jcode skill
   pi install|remove|list|smoke|doctor
                                 Manage lazy-harness-pi install/list/smoke wrappers for official Pi
   omp install|remove|list|smoke|doctor
@@ -169,13 +168,6 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/lazy-update.ts" "$@"
-    ;;
-  skill)
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "lazy skill: bun not found on PATH. Install bun first: https://bun.sh" >&2
-      exit 127
-    fi
-    exec bun "$SCRIPTS/skill-create.ts" "$@"
     ;;
   agent)
     if ! command -v bun >/dev/null 2>&1; then

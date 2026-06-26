@@ -43,12 +43,25 @@ for `0050-pi-omp-only-runtime.md`, did not find it, and reported a broken refere
 - Marked the retired `lazy-skill-create` skill source (`packages/lazy-harness-pi/skills/lazy-skill-create/SKILL.md`) as RETIRED so the Pi/OMP runtime stops exposing the stale "Create a project-local custom Jcode skill wrapper" description.
 - Re-synced all hosts so `framework/operational-adrs/0050…0051` land and the refs resolve.
 
+## 2026-06-25 completion — full allowlist audit + preventive self-test
+
+A path-form audit of every synced canonical record found **nine more** framework ADRs
+referenced but missing from the allowlist: 0028, 0029, 0039, 0042, 0043, 0044, 0045,
+0047, 0049. The original fix patched only the four the medivance agent reported; these
+nine would also dangle on hosts. `record-lint` did not surface them (host-side it skips
+Category-A framework records and only flags non-existent `.lazy-harness/...md` paths).
+
+- Added all nine to the operational-adrs allowlist in `init-categories.json`.
+- Added `check_operational_adr_allowlist_complete` (self-test, FRAMEWORK_ONLY) + TDD record
+  `.lazy-harness/tests/operational-adr-allowlist-completeness.md` (path-form refs in synced
+  canonical records, >= 0026, fences stripped; closes follow-up 1).
+
 ## Open follow-ups (backlog)
 
-1. **Preventive self-test (framework scope).** Add a check that every framework ADR
-   referenced by AGENTS.md or a synced hook/spec is present in the operational-adrs
-   allowlist (excluding the host-own `0001-0025` range). This would have caught the
-   0050 gap at commit time instead of via host-side discovery.
+1. **Preventive self-test (framework scope). — DONE 2026-06-25.** `check_operational_adr_allowlist_complete`
+   enforces that every framework ADR (>= 0026) path-referenced by a synced canonical record is in the
+   operational-adrs allowlist, at the commit/push gate. See the 2026-06-25 completion section above and
+   `.lazy-harness/tests/operational-adr-allowlist-completeness.md`.
 
 2. **`.jcode` artifact cleanup on hosts (host mutation — needs user confirm).** Hosts
    still carry `.jcode/skills/` and wt-cli `.jcode` symlinks despite ADR 0050 removing

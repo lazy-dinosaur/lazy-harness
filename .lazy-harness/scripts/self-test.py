@@ -2218,6 +2218,60 @@ def check_destructive_command_block() -> None:
     print("\u2713 destructive command block ok")
 
 
+def check_operational_adr_allowlist_complete() -> None:
+    """Every framework ADR (>=0026) referenced by a `decisions/NNNN-slug.md` path from a
+    SYNCED canonical record must be in the init-categories operational-adrs allowlist, so
+    the reference resolves on hosts (host decisions/ is host-owned — ADR 0027/0050; framework
+    ADRs reach hosts only via framework/operational-adrs). Guards the ADR-distribution drift
+    that left ADR 0050 unresolvable on a downstream host worktree. Path-form only (not bare 'ADR NNNN'),
+    fenced code stripped, mirroring record-lint reference semantics."""
+    import re as _re
+    cats = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    allow: set[int] = set()
+    synced: set[str] = set()
+
+    def _walk(node) -> None:
+        if isinstance(node, dict):
+            tp = node.get("targetPath") or ""
+            m = _re.search(r"framework/operational-adrs/(\d{4})-", tp)
+            if m:
+                allow.add(int(m.group(1)))
+            p = node.get("path")
+            if isinstance(p, str):
+                synced.add(p)
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+
+    _walk(cats)
+    if not allow:
+        fail("operational-adrs allowlist parsed empty from init-categories.json")
+    canonical = ("domain/", "spec/", "behavior/", "tests/", "decisions/", "ssot/")
+    path_re = _re.compile(r"(?:\.lazy-harness/)?decisions/(\d{4})-[a-z0-9][a-z0-9-]*\.md")
+    fence_re = _re.compile(r"```.*?```", _re.S)
+    gaps: dict[int, set[str]] = {}
+    for rel in sorted(synced):
+        if not rel.endswith(".md") or rel.endswith("README.md") or not rel.startswith(canonical):
+            continue
+        f = LAZY / rel
+        if not f.exists():
+            continue
+        body = fence_re.sub("", f.read_text(encoding="utf-8"))
+        for m in path_re.finditer(body):
+            n = int(m.group(1))
+            if n >= 26 and n not in allow:
+                gaps.setdefault(n, set()).add(rel)
+    if gaps:
+        detail = "; ".join(f"{n:04d} <- {sorted(fs)}" for n, fs in sorted(gaps.items()))
+        fail(
+            "operational-adrs allowlist missing framework ADRs referenced by synced canonical "
+            "records (refs dangle on hosts; add each to init-categories.json operational-adrs): " + detail
+        )
+    print(f"\u2713 operational-adr allowlist complete ok ({len(allow)} allowlisted)")
+
+
 def check_prompt_budget_measurement() -> None:
     """Phase 1 prompt/runtime compression should measure prompt budget without runtime behavior changes."""
     spec_path = LAZY / "spec" / "platform" / "prompt-budget.md"
@@ -10095,6 +10149,7 @@ def main() -> None:
         (check_bounded_validation_governor_cli, "BOTH"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
+        (check_operational_adr_allowlist_complete, "FRAMEWORK_ONLY"),
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),

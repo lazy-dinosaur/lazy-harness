@@ -58,17 +58,19 @@ Phase 1 (done):
 - 10 `check_jcode_*` framework self-tests removed; `check_destructive_command_block` added,
 - ADR 0006/0007/0029 superseded (meta `superseded`, digest status `deprecated`) with a pointer here.
 
-Phase 2 (pending user decision — jcode is still referenced in semantic models, not just wiring):
+Phase 2 (executed 2026-06-25 — user-confirmed clean cutover):
 
-- delete the now-orphaned generator `.lazy-harness/scripts/jcode-wiring.ts`,
-- decouple the `jcode-local` Scope enum (`record-index.ts`) and project-rule-placement `.jcode-local` routing + self-test fixtures,
-- decide `pi` `compatibility: jcode` in `.lazy-harness/ssot/pi-mcp-parity.md`,
-- retire or port `lazy-skill-create` / `skill-create.ts` (writes `.jcode/skills/`) and `.lazy-harness/spec/platform/jcode-skill-creation.md`,
-- update AGENTS.md local-notes guidance and `skills.xml` `.jcode/skills` locations to Pi/OMP equivalents.
+- `.lazy-harness/scripts/jcode-wiring.ts` deleted (orphaned generator, no longer imported),
+- the `jcode-local` Scope enum is renamed `local-only` in `record-index.ts`; project-rule-placement routing no longer uses `.jcode-local`,
+- `pi compatibility: jcode` resolved by superseding `.lazy-harness/ssot/pi-mcp-parity.md` (the `~/.jcode/mcp.json` parity source no longer exists),
+- `lazy-skill-create` retired: `.lazy-harness/scripts/skill-create.ts` deleted, the broken `lazy skill create` dispatcher removed from `.lazy-harness/bin/lazy`, `skills.xml` marks the skill retired,
+- **Pi/OMP skill-authoring decision (no generator CLI)**: framework skills are hand-authored in the source package `packages/lazy-harness-pi/skills/<name>/SKILL.md` (framework-owned, ADR 0027 — source repo only). Host-local custom skills use Pi/OMP package loading: a host creates its own package `skills/` dir and attaches it via `.pi/settings.json` `packages: [...]` (Pi) or `omp plugin install <path>` (OMP). There is intentionally no host-side `lazy skill create` scaffolder; durable team/project policy stays in `.lazy-harness` records (AGENTS §2.4),
+- `.lazy-harness/AGENTS.md` carries no `.jcode` local-notes guidance; `skills.xml` `.jcode/skills` strings remain only on retired-skill descriptions,
+- stale `knowledge/graph.jsonl` edges to the deleted `jcode-wiring.ts` / `skill-create.ts` are superseded (`status: superseded`, pointer here); `generated/implementation-index.json` is a derived cache that rebuilds from the canonical graph.
 
-Preserved as history:
+Preserved as history (deprecate, do not delete):
 
-- ADR 0006/0007/0029 (superseded); `jcode-skill-creation.md`, `JCODE-INTEGRATION.md`, and historical jcode mentions in planning/retrospective records are left intact pending Phase 2.
+- ADR 0006/0007/0029 (superseded); `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), `.lazy-harness/JCODE-INTEGRATION.md`, and historical jcode mentions in planning/retrospective records describe the former jcode wiring and are left intact as decision history.
 
 ## Consequences
 
@@ -79,7 +81,7 @@ Preserved as history:
 
 ## Implementation map
 
-- Status: phase-1-implemented (phase 2 pending decision)
+- Status: phase-2-implemented (clean cutover 2026-06-25)
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-destructive-command.py` - destructive-command block (Pi/OMP via shared guard)
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` - chains the destructive check first
@@ -87,8 +89,9 @@ Preserved as history:
   - `.lazy-harness/scripts/lazy-init.ts`, `.lazy-harness/scripts/lazy-sync.ts` - jcode wiring step removed
 - Removed:
   - `.jcode/**` (deleted); `jcode-skill-install` post-init action; `--skip-jcode` flag; 10 `check_jcode_*` self-tests
-- Retained pending Phase 2:
-  - `.lazy-harness/scripts/jcode-wiring.ts` (orphaned, no longer imported), `.lazy-harness/spec/platform/jcode-skill-creation.md`, `.lazy-harness/JCODE-INTEGRATION.md`
+  - Phase 2 (2026-06-25): `.lazy-harness/scripts/jcode-wiring.ts` and `.lazy-harness/scripts/skill-create.ts` deleted; `lazy skill create` dispatcher removed from `.lazy-harness/bin/lazy`; `jcode-local` Scope enum renamed `local-only`
+- Retained as deprecated history:
+  - `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), `.lazy-harness/JCODE-INTEGRATION.md`, ADR 0006/0007/0029, and historical planning jcode mentions
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py` - `check_destructive_command_block` plus Pi package contract; jcode checks removed
 - Cross-layer links:

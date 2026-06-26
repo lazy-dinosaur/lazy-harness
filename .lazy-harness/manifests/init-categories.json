@@ -644,6 +644,60 @@
           "targetPath": "framework/operational-adrs/0051-jcode-parity-grammar-regrounding.md"
         },
         {
+          "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec/ssot (progressive-knowledge-graph, knowledge-graph-storage): progressive knowledge graph backbone. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0028-progressive-knowledge-graph-backbone.md"
+        },
+        {
+          "path": "decisions/0029-generated-project-local-jcode-wiring.md",
+          "kind": "file",
+          "description": "Operational framework ADR (deprecated jcode wiring) cited by ADR 0050 Supersedes header; synced so the historical supersession reference resolves on hosts. Host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0029-generated-project-local-jcode-wiring.md"
+        },
+        {
+          "path": "decisions/0039-rule-lifecycle-bindings.md",
+          "kind": "file",
+          "description": "Operational framework ADR (deprecated rule lifecycle bindings) referenced by synced spec (rule-binding-action-boundary) and ADR 0040/0041; synced so the reference resolves on hosts. Host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0039-rule-lifecycle-bindings.md"
+        },
+        {
+          "path": "decisions/0042-record-index-cache-naming.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec/ssot/tests (record-index-header, cli-tool-boundary): record-index cache naming. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0042-record-index-cache-naming.md"
+        },
+        {
+          "path": "decisions/0043-pi-native-package-in-source-repo.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec/tests (pi-agent-package) and ADR 0050: Pi-native package in source repo. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0043-pi-native-package-in-source-repo.md"
+        },
+        {
+          "path": "decisions/0044-project-operating-rulebook.md",
+          "kind": "file",
+          "description": "Operational framework ADR (deprecated project operating rulebook) referenced by synced spec/tests (project-operating-rulebook, project-profile-v2) and ADR 0046/0048. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0044-project-operating-rulebook.md"
+        },
+        {
+          "path": "decisions/0045-purpose-scoped-retrieval.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced domain/spec/tests (purpose-scoped-retrieval): map-first retrieval. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0045-purpose-scoped-retrieval.md"
+        },
+        {
+          "path": "decisions/0047-pi-omp-shared-package-separate-install-ux.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec/tests (pi-agent-package) and ADR 0050: Pi/OMP shared package with separate install UX. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0047-pi-omp-shared-package-separate-install-ux.md"
+        },
+        {
+          "path": "decisions/0049-discovery-vs-loading-complete-lean-discovery.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec (purpose-scoped-retrieval, record-index-header): discovery vs loading. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0049-discovery-vs-loading-complete-lean-discovery.md"
+        },
+        {
           "path": "spec/platform/policy-machinery-v2.md",
           "kind": "file",
           "description": "SDD contract for Phase 3 Policy Machinery V2: stage-aware policy packets connecting rulebook, capability registry, and Project Map update-loop evidence without new runtime enforcement."
