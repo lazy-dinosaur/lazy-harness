@@ -16,6 +16,7 @@ Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 - Must:
   - add an `## Implementation map` (files, key symbols, flow, tests, ownership, cross-layer links) when implementation exists or is verifiable
   - store confirmed file/symbol/edge facts in `knowledge/graph.jsonl`; keep the generated index derived-only
+  - heed advisory `lazy impl-map` status drift (planned-but-files-present, verified-but-files-missing) when reviewing map `Status`
 - Must not:
   - treat the generated implementation-index as canonical, or mark `verified` without confirmable source
 - Record completion:
@@ -174,3 +175,46 @@ When adding or updating TDD/regression records, do not stop at the protection ca
 3. or add a local `Layer completeness` judgement that explicitly mentions SDD, BDD, SSOT, and DDD.
 
 The `Implementation map` should then link to the affected cross-layer records and protection tests.
+
+## 8. Implementation status drift (advisory)
+
+`lazy impl-map` (`.lazy-harness/scripts/implementation-map-audit.ts`) also reports **advisory** status-drift candidates so a record's `## Implementation map` `Status:` does not silently diverge from reality. It is read-only and never a blocking gate (ADR 0016/0041/0048).
+
+It parses each record's `## Implementation map` block and reports:
+
+- `planned-status-files-present` — `Status: planned` or `none`, yet a referenced code file under `Primary files:`/`Future files:` exists (review for promotion).
+- `verified-status-files-missing` — `Status: verified`, yet a referenced `Primary files:`/`Future files:` path is gone (review for demotion/fix).
+
+To stay low-noise, detection:
+
+1. reads only the `Primary files:` / `Future files:` subsections (Tests/validation/cross-layer noise excluded);
+2. counts only clean path tokens (a slash + file extension; whitespace, `$env`, globs, `#anchors`, and `path/to/` placeholders are ignored — so command strings like `python3 …/self-test.py` never count);
+3. resolves a ref against the host root with a `.lazy-harness/`-relative fallback (so shorthand like `knowledge/graph.jsonl` resolves);
+4. skips records whose `## Rule digest` `Status` is `deprecated` or `reverted`.
+
+File existence is a heuristic, not proof of completion, so the report is a review list, not a verdict. Promote/demote `Status` only after confirming source.
+
+### Automatic surface (response.completed)
+
+A turn-scoped advisory also runs at `response.completed` via `.lazy-harness/hooks/lifecycle/helpers/check-impl-map-status-drift.py`. When a turn writes to a `.lazy-harness/**/*.md` record or touches/removes a referenced source file, it reuses the same detector and surfaces drift **only for records this turn touched** (record path or a drifted file path appears in the turn's tool-call evidence), so unrelated accumulated drift is not re-nagged every turn. It is organic/advisory (ADR 0041/0048, guidance-ladder L3): one advisory per turn, fail-open (exit 0), no new hard gate, no user-text classification. Full-corpus review stays manual via `lazy impl-map`.
+
+## Implementation map
+
+- Status: `verified`
+- Primary files:
+  - `.lazy-harness/spec/platform/implementation-map-standard.md` — this contract (map format, `Status` enum, advisory drift).
+  - `.lazy-harness/scripts/implementation-map-audit.ts` — `lazy impl-map` audit + advisory status-drift detection.
+  - `.lazy-harness/bin/lazy` — dispatches `lazy impl-map`.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-impl-map-status-drift.py` — response.completed turn-scoped drift advisory (reuses the audit detector).
+- Key symbols:
+  - `auditRecord` (`.lazy-harness/scripts/implementation-map-audit.ts`) — per-record migration status + drift computation.
+  - `extractPrimaryFutureRefs` / `isCleanPath` / `refExists` (`.lazy-harness/scripts/implementation-map-audit.ts`) — low-noise ref extraction and `.lazy-harness/`-fallback resolution.
+- Tests / protection:
+  - `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift` — synthetic-fixture detection test; never gates on real-corpus drift.
+  - `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift_helper` — helper advisory fixture (silent / relevant-emit / fail-open).
+- Cross-layer links:
+  - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
+  - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
+  - SDD: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
+- Machine index:
+  - graph ids: `kg_impl_map_status_drift_cli_20260626`, `kg_impl_map_status_drift_self_test_20260626`, `kg_impl_map_status_drift_helper_20260626`

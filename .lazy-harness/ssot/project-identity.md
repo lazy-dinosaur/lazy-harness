@@ -76,7 +76,6 @@ Project-specific rules should normally be records, not hardcoded into the shared
 
 - Status: `verified`
 - Primary files:
-  - `.jcode/harness/20-project-rules.md` — private local Jcode note already states this checkout is the standalone lazy-harness source-of-truth repo.
   - `.lazy-harness/AGENTS.md` — shared framework grammar that requires record-first search and user-correction convergence.
   - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md` — defines `AGENTS.md = grammar, record = vocabulary`.
   - `.lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md` — requires user corrections about host role/source-of-truth to converge into records.

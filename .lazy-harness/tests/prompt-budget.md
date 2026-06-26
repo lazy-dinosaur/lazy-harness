@@ -93,18 +93,16 @@ Runtime hook behavior is unchanged, so rollback should not require runtime journ
   - `.lazy-harness/scripts/prompt-budget.py` — measured script under test.
   - `.lazy-harness/scripts/self-test.py` — test harness.
   - `.lazy-harness/bin/lazy` — command dispatch.
-  - `.lazy-harness/scripts/jcode-wiring.ts` — generated 05-lazy-harness pointer-only repair path.
-- Key symbols planned:
+- Key symbols:
   - `estimate_tokens` (`prompt-budget.py`) — deterministic tokenizer-free estimate.
   - `render_message_received` (`prompt-budget.py`) — isolated hook render.
   - `find_duplicate_blocks` (`prompt-budget.py`) — duplicate grammar heuristic.
   - `check_prompt_budget_measurement` (`self-test.py`) — regression fixture.
-  - `check_jcode_wiring_repairs_stale_defaults` (`self-test.py`) — stale `.jcode/harness/05-lazy-harness.md` repair regression fixture.
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
 - Machine index:
-  - graph ids: `kg_prompt_budget_pointer_only_self_test`
-  - generated index key: `implementationIndex.records[*].id == kg_prompt_budget_pointer_only_self_test`
+  - graph ids: `pending`
+  - generated index key: `pending until implementation-index generator exists`
 
 ## Rule placement
 

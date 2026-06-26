@@ -111,31 +111,32 @@ If any item is `candidate`, it should be persisted in a safe queue such as `.laz
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md` — this ADR.
-  - `.lazy-harness/AGENTS.md` — planned concise grammar update.
-  - `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md` — planned operating standard.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh` — planned lifecycle helper.
-  - `.lazy-harness/scripts/self-test.py` — planned protection tests.
-  - `.lazy-harness/planning/analysis-discovery-capture-backlog.md` — planned implementation backlog.
-  - `.lazy-harness/knowledge/candidates.jsonl` — planned/candidate storage for unconfirmed discovered facts.
+  - `.lazy-harness/AGENTS.md` — §2.4 concise grammar (Analysis discovery capture).
+  - `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md` — operating standard (Status: accepted).
+  - `.lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh` — response.completed lifecycle helper.
+  - `.lazy-harness/scripts/self-test.py` — protection tests.
+  - `.lazy-harness/planning/analysis-discovery-capture-backlog.md` — implementation backlog.
+  - `.lazy-harness/knowledge/candidates.jsonl` — candidate storage for unconfirmed discovered facts.
 - Key symbols:
-  - `check_analysis_discovery_capture_helper` (`.lazy-harness/scripts/self-test.py`) — planned test helper.
-  - `Discovery capture` judgement — planned Markdown completion signal.
+  - `check_analysis_discovery_capture_helper` (`.lazy-harness/scripts/self-test.py`) — protects helper block/pass behavior.
+  - `Discovery capture` judgement — Markdown completion signal.
 - Flow:
   1. Agent analyzes a non-trivial change and discovers layer facts or creates a multi-step plan.
   2. Agent writes affected records, candidate queue entries, or planning backlog.
   3. Lifecycle hook checks response/output and touched files.
   4. If analysis/planning facts were likely discovered but no capture happened, hook warns/stops.
 - Tests / protection:
+  - `.lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper`
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0033-layer-completeness-gate.md`
   - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
   - Plan: `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
-  - SDD: planned `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
+  - SDD: `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
 - Machine index:
-  - graph ids: `kg_adr0034_decides_analysis_discovery_capture_gate`
+  - graph ids: `kg_adr0034_decides_analysis_discovery_capture_gate`, `kg_sdd_analysis_discovery_capture_gate`, `kg_helper_analysis_discovery_capture_self_test`
   - generated index key: `pending until implementation-index generator exists`

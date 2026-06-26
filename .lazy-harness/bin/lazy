@@ -79,8 +79,8 @@ Commands:
   rules list|resolve|audit
                                 Compatibility/explain view over rulebook entries; policy semantics live in policies.json
   affected [--files F1,F2,...]  Run affected tests for given files
-  impl-map [--format=markdown|json|jcode-prompt]
-                                Audit records for ADR 0030 Implementation map migration
+  impl-map [--format=markdown|json|agent-prompt]
+                                Audit ADR 0030 Implementation maps; reports advisory status drift (planned-but-files-present, verified-but-files-missing)
   map --overview [--complete] [--format=json|md] [--limit=N] [--fresh]
                                 Show project map; --complete lists every record (untruncated lean discovery index)
   map <feature-id|record-path|graph-id|source-path> [--format=json|md] [--limit=N] [--fresh]

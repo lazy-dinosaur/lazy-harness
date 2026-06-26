@@ -68,7 +68,7 @@ For any test strategy / validation gate / "Vitest required?" question, agents mu
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/AGENTS.md` — adds root-bound search and missing-record convergence rules.
-  - `.lazy-harness/manifests/init-categories.json` — seeds host `tests/test-strategy.xml` during init.
+  - `.lazy-harness/manifests/init-categories.json` — seeds the canonical host test-strategy record during init.
   - `.lazy-harness/scripts/lazy-init.ts` — renders the `test-strategy.xml` seed template.
   - `.lazy-harness/tests/README.md` — documents canonical test strategy storage.
   - `.lazy-harness/decisions/0031-root-bound-record-convergence.md` — this ADR.
@@ -87,7 +87,7 @@ For any test strategy / validation gate / "Vitest required?" question, agents mu
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
-  - TDD: `.lazy-harness/tests/test-strategy.xml`
+  - TDD: `tests/test-strategy.xml` (host-seeded by init; not a source-repo file).
 - Machine index:
   - graph ids: `pending`
   - generated index key: `pending until implementation-index generator exists`

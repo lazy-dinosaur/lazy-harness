@@ -36,6 +36,7 @@ HELPERS = [
     ".lazy-harness/hooks/lifecycle/helpers/check-user-correction-capture.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-operating-rule-storage.py",
+    ".lazy-harness/hooks/lifecycle/helpers/check-impl-map-status-drift.py",
     ".lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py",
     ".lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py",
     ".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh",

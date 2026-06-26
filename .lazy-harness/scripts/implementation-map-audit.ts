@@ -22,6 +22,10 @@ interface RecordAudit {
   hasImplementationHints: boolean
   status: 'ok' | 'needs-map' | 'no-implementation-hints' | 'needs-review'
   hints: string[]
+  mapStatus: string | null
+  drift: string[]
+  driftDetail: string[]
+  driftFiles: string[]
 }
 
 const LAYER_DIRS: Array<[string, string]> = [
@@ -75,7 +79,8 @@ Options:
   --include-readme             Include README.md files
   --help                       Show help
 
-This script is read-only. It never edits host records.`)
+This script is read-only. It never edits host records.
+It also reports advisory Implementation-map status drift (planned-but-files-present, verified-but-files-missing).`)
 }
 
 function walkMarkdown(dir: string): string[] {
@@ -90,6 +95,73 @@ function walkMarkdown(dir: string): string[] {
   return out
 }
 
+const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|py|sh|bash|sql|prisma|rs|go|rb|java|kt|swift)$/i
+
+/** Body of a `## <heading>` section (until the next h2 or EOF), fenced code blocks stripped. */
+function extractSection(text: string, headingRe: RegExp): string | null {
+  const lines = text.split('\n')
+  let start = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (headingRe.test(lines[i])) {
+      start = i + 1
+      break
+    }
+  }
+  if (start === -1) return null
+  let end = lines.length
+  for (let i = start; i < lines.length; i++) {
+    if (/^##\s+/.test(lines[i])) {
+      end = i
+      break
+    }
+  }
+  return lines.slice(start, end).join('\n').replace(/```[\s\S]*?```/g, '')
+}
+
+/** First `- Status:` value inside a section block, lowercased with backticks stripped; null for template placeholders. */
+function parseStatus(block: string): string | null {
+  const match = block.match(/^\s*-\s*Status:\s*(.+?)\s*$/im)
+  if (!match) return null
+  const value = match[1].replace(/`/g, '').trim().toLowerCase()
+  if (!value || value.includes('|')) return null
+  return value.split(/\s+/)[0]
+}
+
+/** A backtick token is a checkable path: slash + file extension, no spaces, env vars, globs, anchors, or placeholders. */
+function isCleanPath(token: string): boolean {
+  if (!token.includes('/')) return false
+  if (/[\s$*<>"\[\]#]/.test(token)) return false
+  if (token.startsWith('path/to/')) return false
+  return /\.[a-z0-9]{1,5}$/i.test(token)
+}
+
+/** Resolve a ref against the host root, with a `.lazy-harness/`-relative fallback for shorthand like `knowledge/graph.jsonl`. */
+function refExists(root: string, ref: string): boolean {
+  if (existsSync(resolve(root, ref))) return true
+  if (!ref.startsWith('.lazy-harness/') && existsSync(resolve(root, '.lazy-harness', ref))) return true
+  return false
+}
+
+/** Clean path refs listed under `Primary files:` / `Future files:` only (excludes Tests/validation/cross-layer noise). */
+function extractPrimaryFutureRefs(block: string): string[] {
+  const refs = new Set<string>()
+  let inside = false
+  for (const line of block.split('\n')) {
+    const keyMatch = line.match(/^\s*-\s*([A-Za-z][\w /]*?):\s*$/)
+    if (keyMatch) {
+      const key = keyMatch[1].trim().toLowerCase()
+      inside = key === 'primary files' || key === 'future files'
+      continue
+    }
+    if (!inside) continue
+    for (const match of line.matchAll(/`([^`]+)`/g)) {
+      const token = match[1].trim()
+      if (isCleanPath(token)) refs.add(token)
+    }
+  }
+  return [...refs]
+}
+
 function auditRecord(root: string, layer: string, absPath: string, includeReadme: boolean): RecordAudit | null {
   const relPath = relative(root, absPath)
   if (!includeReadme && relPath.endsWith('/README.md')) return null
@@ -102,7 +174,34 @@ function auditRecord(root: string, layer: string, absPath: string, includeReadme
   else if (hasImplementationMap && !hasImplementationHints) status = 'needs-review'
   else if (!hasImplementationMap && hasImplementationHints) status = 'needs-map'
   else status = 'no-implementation-hints'
-  return { path: relPath, layer, hasImplementationMap, hasImplementationHints, status, hints }
+
+  let mapStatus: string | null = null
+  const drift: string[] = []
+  const driftDetail: string[] = []
+  const driftFiles: string[] = []
+  const mapBlock = extractSection(text, /^##\s+Implementation map\b/i)
+  if (mapBlock !== null) {
+    mapStatus = parseStatus(mapBlock)
+    const digestBlock = extractSection(text, /^##\s+Rule digest\b/i)
+    const digestStatus = digestBlock ? parseStatus(digestBlock) : null
+    const dead = digestStatus === 'deprecated' || digestStatus === 'reverted'
+    if (!dead) {
+      const refs = extractPrimaryFutureRefs(mapBlock)
+      const presentCode = refs.filter((ref) => CODE_EXT.test(ref) && refExists(root, ref))
+      const missing = refs.filter((ref) => !refExists(root, ref))
+      if ((mapStatus === 'planned' || mapStatus === 'none') && presentCode.length > 0) {
+        drift.push('planned-status-files-present')
+        driftDetail.push(`Status='${mapStatus}' but implementing files exist: ${presentCode.join(', ')}`)
+        driftFiles.push(...presentCode)
+      }
+      if (mapStatus === 'verified' && missing.length > 0) {
+        drift.push('verified-status-files-missing')
+        driftDetail.push(`Status='verified' but Primary/Future files missing: ${missing.join(', ')}`)
+        driftFiles.push(...missing)
+      }
+    }
+  }
+  return { path: relPath, layer, hasImplementationMap, hasImplementationHints, status, hints, mapStatus, drift, driftDetail, driftFiles }
 }
 
 function audit(root: string, includeReadme: boolean): RecordAudit[] {
@@ -140,12 +239,24 @@ function printMarkdown(records: RecordAudit[]): void {
   const needs = records.filter((record) => record.status === 'needs-map' || record.status === 'needs-review')
   if (needs.length === 0) {
     console.log('No records need implementation-map migration based on current heuristics.')
-    return
+  } else {
+    console.log('| Status | Layer | Path | Hints |')
+    console.log('|---|---|---|---|')
+    for (const record of needs) {
+      console.log(`| ${record.status} | ${record.layer} | \`${record.path}\` | ${record.hints.join(', ') || '-'} |`)
+    }
   }
-  console.log('| Status | Layer | Path | Hints |')
-  console.log('|---|---|---|---|')
-  for (const record of needs) {
-    console.log(`| ${record.status} | ${record.layer} | \`${record.path}\` | ${record.hints.join(', ') || '-'} |`)
+  console.log('\n## Implementation status drift\n')
+  console.log('Advisory only: file existence is a heuristic, not proof of completion.\n')
+  const drifted = records.filter((record) => record.drift.length > 0)
+  if (drifted.length === 0) {
+    console.log('No implementation-map status drift candidates.')
+  } else {
+    console.log('| Drift | Layer | Path | Detail |')
+    console.log('|---|---|---|---|')
+    for (const record of drifted) {
+      console.log(`| ${record.drift.join(', ')} | ${record.layer} | \`${record.path}\` | ${record.driftDetail.join('; ')} |`)
+    }
   }
 }
 
@@ -154,10 +265,17 @@ function printAgentPrompt(records: RecordAudit[]): void {
   console.log('Migrate these lazy-harness records to ADR 0030 implementation maps. Follow `.lazy-harness/spec/platform/implementation-map-migration.md`. Do not invent symbols. Inspect source with file reads/LSP/outline before marking verified. Update Markdown Implementation map sections and add graph facts only when confirmed or clearly code-evidenced.\n')
   if (needs.length === 0) {
     console.log('No candidate records found by audit.')
-    return
+  } else {
+    for (const record of needs) {
+      console.log(`- ${record.status} ${record.layer} ${record.path} (hints: ${record.hints.join(', ') || 'none'})`)
+    }
   }
-  for (const record of needs) {
-    console.log(`- ${record.status} ${record.layer} ${record.path} (hints: ${record.hints.join(', ') || 'none'})`)
+  const drifted = records.filter((record) => record.drift.length > 0)
+  if (drifted.length > 0) {
+    console.log('\nReview these implementation-map status drift candidates (advisory; file existence is a heuristic, not proof of completion):')
+    for (const record of drifted) {
+      console.log(`- ${record.drift.join(', ')} ${record.layer} ${record.path} — ${record.driftDetail.join('; ')}`)
+    }
   }
 }
 
@@ -167,7 +285,8 @@ function main(): void {
     const root = resolve(args.root)
     const records = audit(root, args.includeReadme)
     if (args.format === 'json') {
-      console.log(JSON.stringify({ root, summary: summarize(records), records }, null, 2))
+      const driftCandidates = records.filter((record) => record.drift.length > 0).map((record) => ({ path: record.path, layer: record.layer, mapStatus: record.mapStatus, drift: record.drift, driftDetail: record.driftDetail, driftFiles: record.driftFiles }))
+      console.log(JSON.stringify({ root, summary: summarize(records), driftCandidates, records }, null, 2))
     } else if (args.format === 'agent-prompt') {
       printAgentPrompt(records)
     } else {

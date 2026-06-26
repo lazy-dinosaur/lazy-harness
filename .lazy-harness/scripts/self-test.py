@@ -5839,6 +5839,94 @@ def check_record_audit_cli() -> None:
     print("✓ record-audit cli ok")
 
 
+def check_impl_map_status_drift() -> None:
+    """impl-map reports advisory status drift from Primary/Future files only (.lazy-harness fallback, deprecated/reverted skipped, command/env noise ignored)."""
+    script = LAZY / "scripts" / "implementation-map-audit.ts"
+    if not script.exists():
+        fail("impl-map: missing " + str(script.relative_to(ROOT)))
+    digest = "## Rule digest\n\n- Status: active\n- Layer: SDD\n- Scope: framework-global\n- Applies when:\n  - x\n- Must:\n  - y\n"
+    dead_digest = digest.replace("- Status: active", "- Status: deprecated", 1)
+    with tempfile.TemporaryDirectory() as tmp:
+        host = pathlib.Path(tmp)
+        lazy = host / ".lazy-harness"
+        (lazy / "spec" / "platform").mkdir(parents=True)
+        (lazy / "scripts").mkdir(parents=True)
+        (lazy / "scripts" / "real.ts").write_text("export const x = 1\n", encoding="utf-8")
+
+        def write_record(name: str, body: str) -> None:
+            (lazy / "spec" / "platform" / name).write_text(body, encoding="utf-8")
+
+        write_record("planned-done.md", f"# Planned done\n\n{digest}\n## Implementation map\n\n- Status: `planned`\n- Primary files:\n  - `.lazy-harness/scripts/real.ts` — impl\n")
+        write_record("verified-gone.md", f"# Verified gone\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/gone.ts` — impl\n")
+        write_record("verified-clean.md", f"# Verified clean\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `scripts/real.ts` — relative shorthand\n- Tests / protection:\n  - `python3 .lazy-harness/scripts/missing-runner.py`\n  - `$LAZY_RUNTIME_ROOT/state/none.json`\n")
+        write_record("dead.md", f"# Dead\n\n{dead_digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/gone.ts` — impl\n")
+
+        res = subprocess.run(
+            ["bun", str(script), "--root", str(host), "--format=json"],
+            cwd=str(ROOT), text=True, capture_output=True, check=False,
+        )
+        if res.returncode != 0:
+            fail("impl-map drift fixture run failed: " + res.stdout[-1000:] + res.stderr)
+        data = json.loads(res.stdout)
+        by_path = {c["path"]: c for c in data.get("driftCandidates", [])}
+
+        def drift_of(name: str) -> list:
+            for path, candidate in by_path.items():
+                if path.endswith(name):
+                    return candidate.get("drift", [])
+            return []
+
+        if "planned-status-files-present" not in drift_of("planned-done.md"):
+            fail("impl-map must flag planned record whose Primary file exists: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
+        if "verified-status-files-missing" not in drift_of("verified-gone.md"):
+            fail("impl-map must flag verified record with a missing Primary file: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
+        if any(p.endswith("verified-clean.md") for p in by_path):
+            fail("impl-map must not flag relative shorthand or command/env-var noise: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
+        if any(p.endswith("dead.md") for p in by_path):
+            fail("impl-map must skip deprecated/reverted records: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
+    print("✓ impl-map status drift ok")
+
+
+def check_impl_map_status_drift_helper() -> None:
+    """response.completed advisory: turn-scoped impl-map status drift; silent on read-only/clean/no-touch turns, fail-open, reuses the TS detector."""
+    helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-impl-map-status-drift.py"
+    audit_src = LAZY / "scripts" / "implementation-map-audit.ts"
+    for p in (helper, audit_src):
+        if not p.exists():
+            fail("impl-map drift helper: missing " + str(p.relative_to(ROOT)))
+    with tempfile.TemporaryDirectory() as tmp:
+        host = pathlib.Path(tmp)
+        lazy = host / ".lazy-harness"
+        (lazy / "spec" / "platform").mkdir(parents=True)
+        (lazy / "scripts").mkdir(parents=True)
+        shutil.copy(audit_src, lazy / "scripts" / "implementation-map-audit.ts")
+        (lazy / "scripts" / "real.ts").write_text("export const x = 1\n", encoding="utf-8")
+        digest = "## Rule digest\n\n- Status: active\n- Layer: SDD\n- Scope: framework-global\n- Applies when:\n  - x\n- Must:\n  - y\n"
+        (lazy / "spec" / "platform" / "planned-done.md").write_text(
+            f"# Planned\n\n{digest}\n## Implementation map\n\n- Status: `planned`\n- Primary files:\n  - `.lazy-harness/scripts/real.ts` — impl\n", encoding="utf-8")
+        (lazy / "spec" / "platform" / "clean.md").write_text(
+            f"# Clean\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/real.ts` — impl\n", encoding="utf-8")
+        env = {**os.environ, "LAZY_HOST_ROOT": str(host)}
+
+        def run_helper(payload: dict) -> "subprocess.CompletedProcess":
+            return subprocess.run([str(helper), json.dumps(payload)], cwd=str(ROOT), text=True, capture_output=True, check=False, env=env)
+
+        rel = ".lazy-harness/spec/platform/planned-done.md"
+        ro = run_helper({"message_id": "ro", "recent_tool_calls": [{"name": "Read", "input": {"file_path": rel}}]})
+        if ro.stdout.strip():
+            fail("impl-map drift helper must stay silent on read-only turns: " + ro.stdout)
+        ed = run_helper({"message_id": "ed", "recent_tool_calls": [{"name": "Edit", "input": {"file_path": rel}}]})
+        if "planned-status-files-present" not in ed.stdout or "planned-done.md" not in ed.stdout:
+            fail("impl-map drift helper must flag edited planned record whose impl file exists: " + ed.stdout)
+        cl = run_helper({"message_id": "cl", "recent_tool_calls": [{"name": "Edit", "input": {"file_path": ".lazy-harness/spec/platform/clean.md"}}]})
+        if cl.stdout.strip():
+            fail("impl-map drift helper must stay silent when the edited record has no drift: " + cl.stdout)
+        mf = run_helper({})
+        if mf.returncode != 0:
+            fail("impl-map drift helper must fail open (exit 0) on empty payload: " + mf.stderr)
+    print("✓ impl-map status drift helper ok")
+
+
 def check_record_lint_cli() -> None:
     """record-lint validates canonical digest format + references; framework must be clean (commit gate)."""
     for rel in ["spec/platform/record-lint.md", "tests/record-lint.md", "scripts/record-lint.ts"]:
@@ -10180,6 +10268,8 @@ def main() -> None:
         (check_project_profile_v2_queue_runtime, "FRAMEWORK_ONLY"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
+        (check_impl_map_status_drift, "FRAMEWORK_ONLY"),
+        (check_impl_map_status_drift_helper, "FRAMEWORK_ONLY"),
         (check_real_feature_walkthrough, "FRAMEWORK_ONLY"),
         (check_e2e_demo, "FRAMEWORK_ONLY"),
         (check_triggers, "FRAMEWORK_ONLY"),
