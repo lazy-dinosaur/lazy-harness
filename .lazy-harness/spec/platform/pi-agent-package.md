@@ -115,7 +115,7 @@ Recommended wrapper commands:
 
 The wrapper keeps the package path consistent, supports `--dry-run` for install/remove/smoke, and intentionally defers npm/standalone publishing until official Pi and OMP runtime smoke are stable.
 
-Pi persistent install defaults to the user-global runtime bootstrap: `lazy pi install` maps to `pi install <package> --no-approve`. `--global` remains accepted as explicit spelling, and `--local` remains available for advanced project-local package attachment. Pi persistent remove still requires explicit `--local` or `--global` because it is destructive. OMP persistent local-path install uses official OMP plugin link semantics through `omp plugin install <path>`; it is independent of Pi `.pi/settings.json`. Use `lazy omp smoke` for one-run, non-persistent OMP loading.
+Pi persistent install defaults to the user-global runtime bootstrap: `lazy pi install` maps to `pi install <package> --no-approve`. `--global` remains accepted as explicit spelling, and `--local` remains available for advanced project-local package attachment. Pi persistent remove still requires explicit `--local` or `--global` because it is destructive. OMP persistent install uses **live dev-link** via `omp plugin link <path>` (NOT `omp plugin install`, which snapshots a stale copy into `~/.omp/plugins/node_modules` and does not track source) — this gives OMP the same live-source tracking Pi gets from its `.pi/settings.json` package path, so a framework source change propagates to all OMP hosts with no reinstall. It is independent of Pi `.pi/settings.json`. Use `lazy omp smoke` for one-run, non-persistent OMP loading.
 
 The wrapper separates two roots:
 
@@ -181,7 +181,7 @@ omp -e /path/to/lazy-harness/packages/lazy-harness-pi --help
 OMP persistent plugin link:
 
 ```bash
-omp plugin install /path/to/lazy-harness/packages/lazy-harness-pi
+omp plugin link /path/to/lazy-harness/packages/lazy-harness-pi
 omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 ```
 

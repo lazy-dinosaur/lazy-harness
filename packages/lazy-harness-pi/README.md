@@ -122,7 +122,7 @@ Isolation behavior:
 - `lazy pi install` writes user-global Pi settings so every Pi project can load the package bootstrap; runtime hooks still resolve the active repo via Pi `ctx.cwd` and run that repo's `.lazy-harness` hooks only.
 - `lazy pi install --local` writes the target repo's `.pi/settings.json`; the wrapper also ensures `.pi/` is listed in that repo's `.git/info/exclude` to avoid teammate contamination.
 - `lazy agent activate` writes project-local `.pi/APPEND_SYSTEM.md` and `.omp/APPEND_SYSTEM.md` pointer prompts and ensures `.pi/` / `.omp/` are listed in that repo's `.git/info/exclude`.
-- OMP persistent installs run through `omp plugin install <path>` and are independent of Pi `.pi/settings.json`.
+- OMP persistent installs run through `omp plugin link <path>` (live dev-link that tracks the source checkout — source change = instant update, no stale snapshot) and are independent of Pi `.pi/settings.json`.
 - Recent tool-call evidence is scoped by lazy root, so a Pi process that touches multiple repos does not mix `recent_tool_calls` between roots.
 - Use `--target-repo /path/to/repo` for explicit install/list/smoke diagnostics without relying on the caller cwd.
 
@@ -153,7 +153,7 @@ pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve
 OMP persistent plugin link:
 
 ```bash
-omp plugin install "$LAZY_HARNESS_PI_PACKAGE"
+omp plugin link "$LAZY_HARNESS_PI_PACKAGE"
 ```
 
 

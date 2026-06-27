@@ -1705,7 +1705,7 @@ def check_pi_package_layout_and_contract() -> None:
         "no-ops outside projects where `.lazy-harness/bin/lazy` is present",
         "OMP local path installs use official OMP plugin link semantics",
         "LAZY_HARNESS_PI_PACKAGE=/path/to/lazy-harness/packages/lazy-harness-pi",
-        'omp plugin install "$LAZY_HARNESS_PI_PACKAGE"',
+        'omp plugin link "$LAZY_HARNESS_PI_PACKAGE"',
         'omp -e "$LAZY_HARNESS_PI_PACKAGE" --help',
         "The package is not installed by default after a clean reset",
         'pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve',
@@ -1787,7 +1787,7 @@ def check_pi_package_layout_and_contract() -> None:
         "pi remove",
         "pi list",
         "pi -e",
-        "omp plugin install",
+        "omp plugin link",
         "omp plugin uninstall",
         "omp plugin list",
         "omp -e",
@@ -1825,7 +1825,7 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi wrapper install dry-run must report targetRepo: " + completed.stdout)
 
     for args, expected_command in [
-        (["install", "--dry-run", "--format=json"], ["omp", "plugin", "install", str(pkg_root)]),
+        (["install", "--dry-run", "--format=json"], ["omp", "plugin", "link", str(pkg_root)]),
         (["remove", "--dry-run", "--format=json"], ["omp", "plugin", "uninstall", "@lazy-dinosaur/lazy-harness-pi"]),
         (["smoke", "--dry-run", "--format=json"], ["omp", "-e", str(pkg_root), "--help"]),
     ]:
@@ -1880,7 +1880,7 @@ def check_pi_package_layout_and_contract() -> None:
         for command, expected_runtime, expected_command in [
             ([str(ROOT / ".lazy-harness" / "bin" / "lazy"), "pi", "install", "--local", "--dry-run", "--format=json"], "pi", ["pi", "install", str(pkg_root), "-l", "--approve"]),
             (["bun", str(wrapper), "install", "--local", "--dry-run", "--format=json"], "pi", ["pi", "install", str(pkg_root), "-l", "--approve"]),
-            ([str(ROOT / ".lazy-harness" / "bin" / "lazy"), "omp", "install", "--dry-run", "--format=json"], "omp", ["omp", "plugin", "install", str(pkg_root)]),
+            ([str(ROOT / ".lazy-harness" / "bin" / "lazy"), "omp", "install", "--dry-run", "--format=json"], "omp", ["omp", "plugin", "link", str(pkg_root)]),
         ]:
             env = env_without_lazy_runtime()
             # Pre-commit runs lazy test from an already-lazy environment. A

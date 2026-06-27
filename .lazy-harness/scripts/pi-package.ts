@@ -62,7 +62,7 @@ function usage(exitCode = 0): never {
 
 Commands:
   install [--dry-run] [--package <path>]
-      Link packages/lazy-harness-pi into OMP via: omp plugin install <package>.
+      Link packages/lazy-harness-pi into OMP (live) via: omp plugin link <package>.
   remove [--dry-run] [--package <path>]
       Remove the shared package from OMP via: omp plugin uninstall <package-name>.
   list [--format=md|json]
@@ -86,7 +86,7 @@ Safety:
   OMP local path installs use official OMP plugin link semantics and persist in OMP's plugin registry.
   Use smoke for one-run non-persistent OMP loading.
   The source package path and target repo are intentionally separate to avoid cross-repo contamination.
-  Under the hood: install maps to omp plugin install; remove maps to omp plugin uninstall; list maps to omp plugin list; smoke maps to omp -e.
+  Under the hood: install maps to omp plugin link (live dev-link, tracks source); remove maps to omp plugin uninstall; list maps to omp plugin list; smoke maps to omp -e.
   npm/standalone publishing is intentionally out of scope until Pi/OMP smoke is stable.
 `)
     process.exit(exitCode)
@@ -213,7 +213,9 @@ function printJson(value: unknown): void {
 function commandForInstallLike(action: 'install' | 'remove', pkg: string, scope: Scope | undefined, manifestName?: string): string[] {
   const info = runtimeInfo()
   if (info.id === 'omp') {
-    if (action === 'install') return [info.binary, 'plugin', 'install', pkg]
+    // OMP uses live dev-link (omp plugin link) so the plugin tracks the source checkout
+    // like Pi's settings.json package path — no stale snapshot, source change = instant update.
+    if (action === 'install') return [info.binary, 'plugin', 'link', pkg]
     return [info.binary, 'plugin', 'uninstall', manifestName || '@lazy-dinosaur/lazy-harness-pi']
   }
   if (!scope) throw new Error('internal error: Pi install/remove requires scope')
