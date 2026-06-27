@@ -72,3 +72,8 @@ Even live-linked, record-first stays advisory (ADR 0041): the grammar force-load
 - ADR: ADR 0051 (grammar drive) + ADR 0050 (Pi/OMP-only runtime) remain governing; no new ADR — this is a delivery-channel fix within the existing decision.
 - SSOT: none.
 - Planning: this record.
+
+## Decision log (2026-06-27)
+
+- M11-style hard completion gate (response.completed `blocking=true`) restoration was offered. User chose to **stay advisory** (keep ADR 0041) and **verify record-first in a fresh OMP session first** before considering any hard-gate restoration.
+- Rationale: live-link restores the exact mechanism jcode used for record-first (always-loaded grammar + on-context re-injection — both advisory nudges, never a per-action hard block). jcode's only hard component was the M11 turn-end completion gate, which was deliberately dropped in ADR 0041 (user rejected hard gates as too slow). So advisory-first parity is the expected baseline; escalate to M11/L4 only if a fresh-session test still shows record-first misses.
