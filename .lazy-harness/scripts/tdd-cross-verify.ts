@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { candidateTestPaths, matchingTests } from './test-match';
 
 interface CliOptions {
   files: string[];
@@ -107,34 +108,6 @@ function uniqueFiles(files: string[]): string[] {
   return [...new Set(files.map(normalizePath))];
 }
 
-function candidateTestPaths(file: string): string[] {
-  const parsed = path.parse(file);
-  const dir = parsed.dir;
-  const ext = parsed.ext;
-  const base = parsed.name;
-  return [
-    path.join(dir, `${base}.test${ext}`),
-    path.join(dir, `${base}.spec${ext}`),
-    path.join(dir, '__tests__', `${base}.test${ext}`),
-    path.join(dir, '__tests__', `${base}.spec${ext}`),
-  ].map(normalizePath);
-}
-
-function siblingTestFiles(file: string): string[] {
-  const parsed = path.parse(file);
-  const dir = parsed.dir || '.';
-  if (!existsSync(dir)) return [];
-  const stem = parsed.name.toLowerCase();
-  return readdirSync(dir)
-    .filter((entry) => TEST_FILE_RE.test(entry) && entry.toLowerCase().includes(stem))
-    .map((entry) => normalizePath(path.join(dir, entry)));
-}
-
-function matchingTests(file: string): string[] {
-  const direct = candidateTestPaths(file).filter((candidate) => existsSync(candidate));
-  const siblings = siblingTestFiles(file).filter((candidate) => existsSync(candidate));
-  return uniqueFiles([...direct, ...siblings]);
-}
 
 function escapeXml(value: unknown): string {
   return String(value ?? '')

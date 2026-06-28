@@ -628,6 +628,11 @@ def check_tdd_cross_verify() -> None:
         ])
         if covered.get("ok") is not True or covered.get("forceGate") is not False or covered.get("passed") != 1:
             fail("tdd-cross-verify covered fixture changed: " + json.dumps(covered, ensure_ascii=False))
+        kebab = run_tdd_cross_verify([
+            ".lazy-harness/triggers/fixtures/tdd-cross-verify/KebabContractView.tsx",
+        ])
+        if kebab.get("ok") is not True or kebab.get("forceGate") is not False or kebab.get("passed") != 1:
+            fail("tdd-cross-verify PascalCase->kebab .contract __tests__ layout not recognized (matcher regression): " + json.dumps(kebab, ensure_ascii=False))
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 TDD cross-verify ok")

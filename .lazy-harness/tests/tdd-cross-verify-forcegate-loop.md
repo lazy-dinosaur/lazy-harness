@@ -16,6 +16,7 @@ Layer: TDD (regression case for interview gate dedup)
   - gate on new unseen question fingerprints only (`forceGate = questions.length > 0`); ask once per fingerprint
   - derive `needsInterview` from newly-pushed questions, not merely a question defined on the plan
   - still report `failed` accurately and re-fire the gate for a brand-new fingerprint
+  - recognize a source file's tests across co-located/`__tests__`/`tests` dirs with separator-insensitive (PascalCase↔kebab↔snake) and infix (`.contract`, `.unit`) matching via the shared `scripts/test-match.ts`, so files that DO have tests never false-positive either 5d-3 gate
 - Must not:
   - re-ask the same fingerprint every turn while the source path stays in `recent_tool_calls`
 - Record completion:
@@ -71,17 +72,27 @@ Ask-once policy:
 - Neither ADR mandates that the same fingerprint be re-asked every turn. The ask-loop was an unintended emergent behavior.
 - Persistence into `open.xml` is the canonical record that the question is open. Closing/answering it should happen through the interview-loop CLI (`scripts/interview-loop.ts`) or by deleting the entry from `open.xml`. The hook is for surfacing **new** items only.
 
+## 2026-06-28 — matcher false-positive on kebab-case / infix tests (second facet)
+
+A second cause of the same-file double-STOP surfaced on host `medivance-homepage`: both 5d-3 gates (`tdd-cross-verify` + `affected-test-runner`) fired for `src/features/billing/SubscribedDownloadView.tsx` even though `src/features/billing/__tests__/subscribed-download-view.contract.test.tsx` existed and passed (6 tests). Each gate asked separately (distinct fingerprint schemes), so the user saw "the same gate firing twice".
+
+Root cause: both gates carried byte-identical, too-narrow matchers — `candidateTestPaths` checked only co-located/`__tests__` with the EXACT PascalCase stem, and `siblingTestFiles` matched by lowercased-stem `includes()` in the source's own dir. A kebab-case `.contract` test matched neither (`"subscribed-download-view…".includes("subscribeddownloadview")` is false), so both gates false-positived even though the test existed.
+
+Fix: extracted a single shared matcher `scripts/test-match.ts` (imported by both gates) that scans co-located + `__tests__/` + `tests/` dirs and matches separator-insensitively (PascalCase↔kebab↔snake) using leading dot-segment-prefix comparison, so infixes (`.contract`, `.unit`) are recognized while unrelated files (`OtherView.test.tsx`) are not. Files that genuinely lack a test still fire (true positive); the ask-once dedup above is unchanged. Note: consolidating the two gates' user-facing ask (so a genuinely test-less file is asked once, not twice) was scoped out — option A (matcher) only.
+
 ## Implementation map
 
 - Affected scripts:
   - `.lazy-harness/scripts/tdd-cross-verify.ts` — `verifyTddCrossReferences` return shape
   - `.lazy-harness/scripts/affected-test-runner.ts` — `needsInterview` derivation
+  - `.lazy-harness/scripts/test-match.ts` — shared `matchingTests`/`candidateTestPaths` (separator-insensitive + `__tests__`/`tests` + infix); single source for both gates
 - Affected lifecycle helpers (unchanged in code, but rely on the new contract):
   - `.lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh`
   - `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh`
 - Protection:
   - `.lazy-harness/scripts/self-test.py` — `check_tdd_cross_verify`, `check_affected_test_runner`
   - Fresh-fingerprint sanity test added so the dedup never silently swallows a brand-new ask.
+  - `.lazy-harness/triggers/fixtures/tdd-cross-verify/KebabContractView.tsx` + `__tests__/kebab-contract-view.contract.test.tsx` — regression fixture; `check_tdd_cross_verify` asserts the PascalCase→kebab `.contract` layout is recognized (forceGate=false)
 
 ## Manual reproduction proof
 
