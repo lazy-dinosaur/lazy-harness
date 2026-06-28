@@ -100,19 +100,6 @@ for line in run(['policy', 'list', '--format=md']).splitlines():
     if len(policies) >= 10:
         break
 
-# Operating capabilities (intent-keyed conventions — resolve the matching one before acting).
-capabilities = []
-try:
-    cap_data = json.loads(run(['capability', 'list', '--format=json']) or '{}')
-except Exception:
-    cap_data = {}
-for cap in (cap_data.get('capabilities') or [])[:12]:
-    cid = str(cap.get('id') or '').strip()
-    if not cid:
-        continue
-    lvl = str(cap.get('level') or '').strip()
-    intents = ', '.join(str(x) for x in (cap.get('appliesWhen') or []))
-    capabilities.append('  - %s (%s): %s' % (cid, lvl, intents))
 lines = list(MANDATE)
 if records:
     lines.append('- Relevant records for the files you just touched (read/follow before acting):')
@@ -122,9 +109,6 @@ elif paths:
 if policies:
     lines.append('- Operating policies in effect (audit your work against each — `lazy policy list` / `lazy capability list`):')
     lines.extend(policies)
-if capabilities:
-    lines.append('- Operating capabilities — if your current task matches an intent below, resolve it FIRST via `lazy capability resolve --intent <intent>` and follow its convention; do not improvise (e.g. PR body, release, validation):')
-    lines.extend(capabilities)
 
 body = '\n'.join(lines).strip() + '\n'
 print(json.dumps({'action': 'allow', 'inject': {'body': body, 'format': 'system_reminder'}}, ensure_ascii=False))

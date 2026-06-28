@@ -2272,27 +2272,6 @@ def check_operational_adr_allowlist_complete() -> None:
     print(f"\u2713 operational-adr allowlist complete ok ({len(allow)} allowlisted)")
 
 
-def check_on_context_surfaces_capability_catalog() -> None:
-    """on-context.sh mid-turn re-grounding must surface the intent-keyed capability catalog
-    (`lazy capability list`), not only `lazy policy list` — so intent conventions (PR body,
-    release, validation) are visible mid-turn without touching a related file (ADR 0051 gap-2
-    narrowing). Framework source always carries >=1 capability."""
-    hook = LAZY / "hooks" / "lifecycle" / "on-context.sh"
-    if not hook.exists():
-        fail("on-context.sh missing")
-    payload = json.dumps({"recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/record-lint.md"}]})
-    env = {**os.environ, "LAZY_HOST_ROOT": str(ROOT)}
-    completed = subprocess.run(["bash", str(hook)], input=payload, capture_output=True, text=True, env=env)
-    try:
-        body = json.loads(completed.stdout)["inject"]["body"]
-    except Exception:
-        fail("on-context.sh did not emit valid inject JSON: " + (completed.stdout or completed.stderr)[:300])
-    for phrase in ("Operating capabilities", "lazy capability resolve --intent"):
-        if phrase not in body:
-            fail("on-context.sh must surface the intent-keyed capability catalog (ADR 0051 gap-2): missing " + repr(phrase))
-    print("\u2713 on-context capability catalog surfacing ok")
-
-
 def check_prompt_budget_measurement() -> None:
     """Phase 1 prompt/runtime compression should measure prompt budget without runtime behavior changes."""
     spec_path = LAZY / "spec" / "platform" / "prompt-budget.md"
@@ -10259,7 +10238,6 @@ def main() -> None:
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
         (check_operational_adr_allowlist_complete, "FRAMEWORK_ONLY"),
-        (check_on_context_surfaces_capability_catalog, "FRAMEWORK_ONLY"),
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
