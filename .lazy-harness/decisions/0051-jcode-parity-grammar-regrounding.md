@@ -97,3 +97,13 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - TDD: `pi-agent-package.md` context-injection self-test assertion extended for the search+capture mandate phrases.
 - SSOT: none changed; `cli-tool-boundary.md`/`harness-enforcement-policy.md` remain authoritative (no tool-specific policy added).
 - Planning: none (decision recorded here; live fresh-session verification pending).
+
+## 2026-06-25 amendment — intent-keyed capability surfacing (gap-2 narrowing)
+
+The "honest remaining gap" above noted the `context` re-grounding is **path-triggered**: it surfaces records for the files touched, so an **intent-keyed** convention (a capability with `appliesWhen: <intent>`, e.g. `creating_pull_request → <host>-pr-body-template`) was not surfaced when the agent had not touched a related file — the observed failure where an OMP/Pi agent opened a PR by searching `.github/` templates and improvising instead of resolving the host PR-body capability.
+
+Narrowed (still organic, not a hard guarantee): `on-context.sh` now also injects a compact **`lazy capability list`** catalog (`id (level): appliesWhen` per capability, capped) alongside `lazy policy list`, with the instruction to resolve the matching intent first (`lazy capability resolve --intent <intent>`). Deterministic catalog only — no user-text intent classification (cli-tool-boundary), no hard gate (ADR 0041), host-agnostic (lists whatever capabilities the host registry holds). Records-first reliability still depends on the agent acting on the surfaced catalog; this raises the salience of intent conventions, it does not force them.
+
+- Code: `.lazy-harness/hooks/lifecycle/on-context.sh` (capability catalog block).
+- SDD: `.lazy-harness/spec/platform/pi-agent-package.md` (Must bullet + impl map).
+- TDD: `check_on_context_surfaces_capability_catalog` (`.lazy-harness/scripts/self-test.py`, FRAMEWORK_ONLY).
