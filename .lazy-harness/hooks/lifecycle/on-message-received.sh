@@ -7,6 +7,12 @@
 # compact harness inventory/search protocol for the LLM/searcher and journal
 # sanitized search-debt so the generic evidence guard/audit can verify that
 # harness-following search happened before action.
+#
+# It also surfaces the deterministic operating-rule/capability catalog
+# (`lazy policy list` + `lazy capability list`) at turn-start so stored project
+# rules are visible before action (jcode full-grammar parity / R3, ADR 0048).
+# This enumerates the registry deterministically; it is not a semantic backend
+# and does not classify user text.
 
 set +e
 
@@ -46,6 +52,12 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(sys.argv[1]) / '.lazy-harness' / 'hooks' / 'lifecycle' / 'helpers'))
+try:
+    from operating_rule_catalog import catalog_lines as _catalog_lines
+except Exception:  # pragma: no cover - lifecycle helper must fail open
+    _catalog_lines = None
 
 root = Path(sys.argv[1])
 payload_raw = sys.argv[2] if len(sys.argv) > 2 else '{}'
@@ -193,7 +205,8 @@ body = '\n'.join([
     '- Loading is targeted: read Rule digest/full body/Implementation map/graph links only for records the task implicates (read the Rule digest first where present; do not read-to-cover-all-layers) → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
     '- Missing record: read current host docs/package/config only when reached through concrete map/source paths; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until map-first traversal/read evidence exists.',
-    '- Review / audit / gap-analysis request ("what is missing / undecided / incomplete"): FIRST enumerate the defined operating policies (`.lazy-harness/bin/lazy policy list` + `.lazy-harness/bin/lazy capability list`) and map the governing records (decisions/ssot/behavior/domain per §1) for the feature/files in scope, THEN read code to audit compliance against each policy/record. Do NOT read code first and infer the answer — the canonical answer lives in the policy registry + records, not the code (AGENTS §1/§2.1).',
+    *(_catalog_lines(str(root / '.lazy-harness' / 'bin' / 'lazy'), str(root)) if _catalog_lines else []),
+    '- Review / audit / gap-analysis request ("what is missing / undecided / incomplete"): FIRST consult the operating-rule catalog above (full detail: `.lazy-harness/bin/lazy policy list` + `.lazy-harness/bin/lazy capability list`) and map the governing records (decisions/ssot/behavior/domain per §1) for the feature/files in scope, THEN read code to audit compliance against each policy/record. Do NOT read code first and infer the answer — the canonical answer lives in the policy registry + records, not the code (AGENTS §1/§2.1).',
     '- Interactive grammar (apply THIS turn, not only at session start; AGENTS \u00a70/\u00a72.3/\u00a72.5):',
     '  - record\u2194code conflict: record=intent, code=reality \u2192 ask the user which is the truth; never silently pick (AGENTS \u00a70).',
     '  - ambiguous / multi-interpretation / new design decision: stop and ask a 3-5 option gate + Recommended, then RENDER it via the runtime interactive `ask` tool (native selectable choices; type-your-own automatic), NOT plain A/B/C text; never self-select (AGENTS \u00a72.3, ADR 0019).',

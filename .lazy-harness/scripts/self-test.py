@@ -9588,6 +9588,82 @@ def check_message_received_hook_context_injection() -> None:
     print("✓ message.received hook inventory-first search-debt injection ok")
 
 
+def check_message_received_surfaces_operating_rule_catalog() -> None:
+    """R3 (ADR 0048): message.received turn-start surfaces the deterministic operating-rule/capability catalog so stored project rules are visible before action."""
+    runtime_root = pathlib.Path(tempfile.mkdtemp(prefix="lazy-r3-catalog-"))
+    hook = LAZY / "hooks" / "lifecycle" / "on-message-received.sh"
+
+    def render(message: str, message_id: str) -> str:
+        payload = {
+            "event": "message.received",
+            "session_id": "s-r3",
+            "message_id": message_id,
+            "working_dir": str(ROOT),
+            "last_user_message": message,
+            "recent_tool_calls": [],
+            "turn_count": 1,
+        }
+        completed = subprocess.run(
+            [str(hook)],
+            cwd=str(ROOT),
+            input=json.dumps(payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT), LAZY_RUNTIME_ROOT=str(runtime_root)),
+        )
+        if completed.returncode != 0 or not completed.stdout.strip():
+            fail("R3 catalog: message.received hook should emit inject on the real repo:\n" + completed.stdout + completed.stderr)
+        return json.loads(completed.stdout).get("inject", {}).get("body", "")
+
+    try:
+        body = render("PR 올려줘", "m-r3a")
+        for phrase in [
+            "Operating rules/capabilities registered for THIS project",
+            "lazy capability resolve --intent",
+            "capability-registry-phase1",
+        ]:
+            if phrase not in body:
+                fail("R3 catalog: turn-start body missing operating-rule surfacing phrase: " + phrase + "\n" + body)
+        # Deterministic catalog: identical regardless of user text (no user-text classification, cli-tool-boundary).
+        body2 = render("기능 고쳐줘", "m-r3b")
+        if body2 != body:
+            fail("R3 catalog: turn-start body must be static and not vary by user text:\n--- a ---\n" + body + "\n--- b ---\n" + body2)
+    finally:
+        shutil.rmtree(runtime_root, ignore_errors=True)
+    print("✓ message.received operating-rule catalog (R3) ok")
+
+
+def check_on_context_surfaces_operating_rule_catalog() -> None:
+    """R3 (ADR 0048): on-context.sh mid-turn re-grounding surfaces the operating-rule/capability catalog (incl. capabilities), not just policy titles."""
+    hook = LAZY / "hooks" / "lifecycle" / "on-context.sh"
+    payload = {
+        "event": "context",
+        "source": "lazy-harness-pi",
+        "working_dir": str(ROOT),
+        "recent_tool_calls": [],
+    }
+    completed = subprocess.run(
+        [str(hook)],
+        cwd=str(ROOT),
+        input=json.dumps(payload, ensure_ascii=False),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if completed.returncode != 0 or not completed.stdout.strip():
+        fail("R3 catalog: on-context.sh should emit a mid-turn re-grounding inject:\n" + completed.stdout + completed.stderr)
+    body = json.loads(completed.stdout).get("inject", {}).get("body", "")
+    for phrase in [
+        "Operating rules/capabilities registered for THIS project",
+        "capability-registry-phase1",
+    ]:
+        if phrase not in body:
+            fail("R3 catalog: on-context mid-turn body missing catalog phrase: " + phrase + "\n" + body)
+    print("✓ on-context operating-rule catalog (R3) ok")
+
+
 def check_response_rule_audit_from_surfaced_digest() -> None:
     """Phase 4: response.completed should audit surfaced digest rows and stay silent on clean turns."""
     tdd_path = LAZY / "tests" / "response-rule-audit.md"
@@ -10289,6 +10365,8 @@ def main() -> None:
         (check_record_decision_broker_phase8, "BOTH"),
         (check_record_decision_shadow_response_completed, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),
+        (check_message_received_surfaces_operating_rule_catalog, "BOTH"),
+        (check_on_context_surfaces_operating_rule_catalog, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_operating_rule_storage_helper, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

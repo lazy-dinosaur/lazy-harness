@@ -37,6 +37,13 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 PAYLOAD_JSON="$PAYLOAD" python3 <<'PY'
 import json, os, re, subprocess
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path('.lazy-harness/hooks/lifecycle/helpers').resolve()))
+try:
+    from operating_rule_catalog import catalog_lines as _catalog_lines
+except Exception:
+    _catalog_lines = None
 
 try:
     payload = json.loads(os.environ.get('PAYLOAD_JSON') or '{}')
@@ -91,14 +98,8 @@ for p in paths:
         if len(records) >= 6:
             break
 
-# Operating policies in effect (audit work against these).
-policies = []
-for line in run(['policy', 'list', '--format=md']).splitlines():
-    line = line.strip()
-    if line.startswith('- **'):
-        policies.append('  ' + line)
-    if len(policies) >= 10:
-        break
+# Operating rules/capabilities in effect — jcode parity: surface stored rules before action (R3, ADR 0048).
+catalog = _catalog_lines(LAZY, os.getcwd()) if _catalog_lines else []
 
 lines = list(MANDATE)
 if records:
@@ -106,9 +107,8 @@ if records:
     lines.extend(records)
 elif paths:
     lines.append('- No mapped record for the touched paths — run `.lazy-harness/bin/lazy map <path>` yourself, or create/converge the missing record (AGENTS §2.5).')
-if policies:
-    lines.append('- Operating policies in effect (audit your work against each — `lazy policy list` / `lazy capability list`):')
-    lines.extend(policies)
+if catalog:
+    lines.extend(catalog)
 
 body = '\n'.join(lines).strip() + '\n'
 print(json.dumps({'action': 'allow', 'inject': {'body': body, 'format': 'system_reminder'}}, ensure_ascii=False))
