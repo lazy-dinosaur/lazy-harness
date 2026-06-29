@@ -115,3 +115,11 @@ Before the fix, all three runs reported `forceGate=true` (the loop).
 - TDD: updated — this record + new dedup/fresh-fingerprint assertions in `self-test.py`.
 - ADR: none — ADR 0019 / 0020 intent unchanged; this is a defect fix that brings code back in line with intent.
 - SSOT: none — no config/schema/ownership change.
+
+## Layer completeness
+
+2026-06-28 matcher fix (shared `test-match.ts`) cross-layer judgement:
+- SDD: none required — the test-matching heuristic is internal 5d-3 gate logic, documented in this record's Implementation map (`scripts/test-match.ts`); no separate component/contract record consumes it. A formal "test-match contract" SDD stays the non-blocking candidate noted in Discovery capture.
+- BDD: none required — no product/user flow changed; the only visible effect is fewer false-positive 5d-3 STOPs, which is internal harness lifecycle, not an app behavior record.
+- SSOT: none — no config/schema/ownership/source-of-truth changed; matching is heuristic, not driven by a stored glob/config.
+- DDD: none — no new domain term; "matching test" is existing ADR 0019/0020 vocabulary.
