@@ -383,6 +383,10 @@ export function runAffectedTests(files: string[], options: { queue?: string; run
       filePlans.push({ file, kind: 'ignored', matchingTests: [], reason: 'not-source' });
       continue;
     }
+    if (!existsSync(file)) {
+      filePlans.push({ file, kind: 'ignored', matchingTests: [], reason: 'not-found' });
+      continue;
+    }
     const tests = matchingTests(file);
     if (!framework.detected) {
       const question = testStrategyQuestion(file, 'missing-framework', now);

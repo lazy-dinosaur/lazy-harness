@@ -633,6 +633,11 @@ def check_tdd_cross_verify() -> None:
         ])
         if kebab.get("ok") is not True or kebab.get("forceGate") is not False or kebab.get("passed") != 1:
             fail("tdd-cross-verify PascalCase->kebab .contract __tests__ layout not recognized (matcher regression): " + json.dumps(kebab, ensure_ascii=False))
+        ghost = run_tdd_cross_verify([
+            "src/does/not/exist/GhostView.tsx",
+        ])
+        if ghost.get("forceGate") is not False or ghost.get("questions"):
+            fail("tdd-cross-verify must ignore non-existent source paths (quoted-path false positive): " + json.dumps(ghost, ensure_ascii=False))
     finally:
         queue.unlink(missing_ok=True)
     print("✓ 5d-3 TDD cross-verify ok")

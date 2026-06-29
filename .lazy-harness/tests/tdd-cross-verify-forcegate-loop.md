@@ -80,12 +80,19 @@ Root cause: both gates carried byte-identical, too-narrow matchers — `candidat
 
 Fix: extracted a single shared matcher `scripts/test-match.ts` (imported by both gates) that scans co-located + `__tests__/` + `tests/` dirs and matches separator-insensitively (PascalCase↔kebab↔snake) using leading dot-segment-prefix comparison, so infixes (`.contract`, `.unit`) are recognized while unrelated files (`OtherView.test.tsx`) are not. Files that genuinely lack a test still fire (true positive); the ask-once dedup above is unchanged. Note: consolidating the two gates' user-facing ask (so a genuinely test-less file is asked once, not twice) was scoped out — option A (matcher) only.
 
+## 2026-06-28 — quoted-path / non-existent source false-positive (third facet)
+
+A third false-positive: editing a RECORD that *quotes* a source path (e.g. this TDD record / ADR 0048 / `candidates.jsonl` mentioning `src/features/billing/SubscribedDownloadView.tsx`) made `check-tdd-cross-verify.sh` extract that path from the Edit `args_preview` (the regex scans the edit BODY, not just the edit target) and fire 5d-3 for a file that is not even in this repo. `tdd-cross-verify.ts` / `affected-test-runner.ts` never checked the source file exists.
+
+Fix (option A — existence guard): both gates skip a source file when `!existsSync(file)` (kind `ignored`, reason `not-found`) before generating a question. Real edits always exist on disk, so no false negatives; quoted / cross-repo non-existent paths no longer fire. Residual (scoped out): a record quoting a source path that DOES exist in the same repo still fires — that needs edit-target-only extraction.
+
 ## Implementation map
 
 - Affected scripts:
   - `.lazy-harness/scripts/tdd-cross-verify.ts` — `verifyTddCrossReferences` return shape
   - `.lazy-harness/scripts/affected-test-runner.ts` — `needsInterview` derivation
   - `.lazy-harness/scripts/test-match.ts` — shared `matchingTests`/`candidateTestPaths` (separator-insensitive + `__tests__`/`tests` + infix); single source for both gates
+  - both gates: `existsSync` existence guard skips non-existent (quoted / cross-repo) source paths (`reason: not-found`) before asking
 - Affected lifecycle helpers (unchanged in code, but rely on the new contract):
   - `.lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh`
   - `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh`
@@ -93,6 +100,7 @@ Fix: extracted a single shared matcher `scripts/test-match.ts` (imported by both
   - `.lazy-harness/scripts/self-test.py` — `check_tdd_cross_verify`, `check_affected_test_runner`
   - Fresh-fingerprint sanity test added so the dedup never silently swallows a brand-new ask.
   - `.lazy-harness/triggers/fixtures/tdd-cross-verify/KebabContractView.tsx` + `__tests__/kebab-contract-view.contract.test.tsx` — regression fixture; `check_tdd_cross_verify` asserts the PascalCase→kebab `.contract` layout is recognized (forceGate=false)
+  - `check_tdd_cross_verify` asserts a non-existent source path is ignored (no question, forceGate=false) — quoted-path false-positive guard
 
 ## Manual reproduction proof
 

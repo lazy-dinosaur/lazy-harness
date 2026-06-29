@@ -232,6 +232,10 @@ export function verifyTddCrossReferences(files: string[], queue?: string): Verif
       checks.push({ file, kind: 'ignored', ok: true, matchingTests: [], reason: 'not-source' });
       continue;
     }
+    if (!existsSync(file)) {
+      checks.push({ file, kind: 'ignored', ok: true, matchingTests: [], reason: 'not-found' });
+      continue;
+    }
     const tests = matchingTests(file);
     if (tests.length > 0) {
       checks.push({ file, kind: 'source', ok: true, matchingTests: tests });
