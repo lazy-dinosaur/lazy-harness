@@ -61,6 +61,13 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Hooks and the extension load at session start, so these fixes take effect only in a **fresh session**; a running session keeps the pre-fix behavior.
 - Capture is driven by reminder, not by the STOP gates, so natural-language learnings still depend on the agent recording them.
 
+
+## 2026-06-28 amendment — proactive map-first in mid-turn re-grounding
+
+- Trigger: dogfood — on a later-turn audit the agent read a known spec then dove into code without running `lazy map --overview` first. Root cause: the proactive map-first protocol AND the review/audit driver ("map governing records FIRST, then read code") lived only in the turn-start `on-message-received` reminder, which is **once-per-session** (`before_agent_start` dedup). The `context` mid-turn body was **reactive** (records for files already touched) and never re-asserted proactive map-first — so on later turns the record-first push faded and agents leaned code-first.
+- Change: `on-context.sh` MANDATE gains a proactive **"Map-first BEFORE reading/editing more"** bullet — run `lazy map --overview` + drill into governing records (decisions/ssot/behavior/domain) FIRST; for a review/audit, enumerate governing records + operating policies first, THEN read code to check compliance. This re-asserts record-first **every file-op turn** via the transient `context` messages path (no systemPrompt accumulation) — the same mechanism R3 (ADR 0048) uses for the operating-rule catalog.
+- Protection: `check_on_context_surfaces_operating_rule_catalog` asserts the `Map-first BEFORE reading/editing more` phrase in the on-context body.
+- Still organic/advisory (ADR 0041), not a hard block; takes effect in a fresh session.
 ## Implementation map
 
 - Status: implemented

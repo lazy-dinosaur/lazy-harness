@@ -9668,6 +9668,7 @@ def check_on_context_surfaces_operating_rule_catalog() -> None:
     for phrase in [
         "Operating rules/capabilities registered for THIS project",
         "capability-registry-phase1",
+        "Map-first BEFORE reading/editing more",
     ]:
         if phrase not in body:
             fail("R3 catalog: on-context mid-turn body missing catalog phrase: " + phrase + "\n" + body)
