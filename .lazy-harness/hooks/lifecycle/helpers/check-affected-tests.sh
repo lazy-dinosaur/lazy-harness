@@ -29,7 +29,7 @@ paths = []
 for call in payload.get("recent_tool_calls", []):
     if str(call.get("name", "")) not in allowed:
         continue
-    for match in pattern.finditer(str(call.get("args_preview", ""))):
+    for match in pattern.finditer(str(call.get("edit_target", ""))):
         paths.append(match.group(0))
 Path(os.environ["FILES_FILE"]).write_text(",".join(dict.fromkeys(paths)), encoding="utf-8")
 PY

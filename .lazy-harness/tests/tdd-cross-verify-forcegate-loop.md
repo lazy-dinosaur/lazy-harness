@@ -84,7 +84,7 @@ Fix: extracted a single shared matcher `scripts/test-match.ts` (imported by both
 
 A third false-positive: editing a RECORD that *quotes* a source path (e.g. this TDD record / ADR 0048 / `candidates.jsonl` mentioning `src/features/billing/SubscribedDownloadView.tsx`) made `check-tdd-cross-verify.sh` extract that path from the Edit `args_preview` (the regex scans the edit BODY, not just the edit target) and fire 5d-3 for a file that is not even in this repo. `tdd-cross-verify.ts` / `affected-test-runner.ts` never checked the source file exists.
 
-Fix (option A — existence guard): both gates skip a source file when `!existsSync(file)` (kind `ignored`, reason `not-found`) before generating a question. Real edits always exist on disk, so no false negatives; quoted / cross-repo non-existent paths no longer fire. Residual (scoped out): a record quoting a source path that DOES exist in the same repo still fires — that needs edit-target-only extraction.
+Fix (two layers): (1) existence guard — both gates skip a source file when `!existsSync(file)` (kind `ignored`, reason `not-found`). (2) **edit-target-only extraction (fundamental, user-chosen)** — the extension (`index.ts`) computes `edit_target` (the file actually written/edited: `file_path`/`path`/`filePath`, or `[PATH#TAG]` patch headers) and both gate hooks scan `call.edit_target`, NOT the `args_preview` body. So editing a record that merely *quotes* `src/foo.tsx` yields `edit_target` = the record `.md` → no source extracted → no fire. Real source edits still fire; quoted / cross-repo / non-existent paths never do.
 
 ## Implementation map
 
@@ -93,6 +93,7 @@ Fix (option A — existence guard): both gates skip a source file when `!existsS
   - `.lazy-harness/scripts/affected-test-runner.ts` — `needsInterview` derivation
   - `.lazy-harness/scripts/test-match.ts` — shared `matchingTests`/`candidateTestPaths` (separator-insensitive + `__tests__`/`tests` + infix); single source for both gates
   - both gates: `existsSync` existence guard skips non-existent (quoted / cross-repo) source paths (`reason: not-found`) before asking
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `editTargetPaths` + `edit_target` field; both gate hooks scan `call.edit_target` (not `args_preview` body) — edit-target-only extraction
 - Affected lifecycle helpers (unchanged in code, but rely on the new contract):
   - `.lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh`
   - `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh`
@@ -101,6 +102,7 @@ Fix (option A — existence guard): both gates skip a source file when `!existsS
   - Fresh-fingerprint sanity test added so the dedup never silently swallows a brand-new ask.
   - `.lazy-harness/triggers/fixtures/tdd-cross-verify/KebabContractView.tsx` + `__tests__/kebab-contract-view.contract.test.tsx` — regression fixture; `check_tdd_cross_verify` asserts the PascalCase→kebab `.contract` layout is recognized (forceGate=false)
   - `check_tdd_cross_verify` asserts a non-existent source path is ignored (no question, forceGate=false) — quoted-path false-positive guard
+  - lifecycle-shadow self-test asserts a `.md` edit that quotes a source path does NOT fire 5d-3 (`quoted_payload`); `tdd-cross-verify-stop` parity fixture + `tdd_payload` carry `edit_target`
 
 ## Manual reproduction proof
 

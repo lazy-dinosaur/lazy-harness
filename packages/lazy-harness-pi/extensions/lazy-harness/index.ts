@@ -15,6 +15,7 @@ type RecentToolCall = {
   name: string;
   args: JsonObject;
   args_preview?: string;
+  edit_target?: string;
   toolCallId?: string;
   is_error?: boolean;
   result_preview?: unknown;
@@ -131,6 +132,25 @@ function argsPreview(args: JsonObject): string {
     try { blob = JSON.stringify(args); } catch { blob = String(args); }
   }
   return blob.slice(0, 2000);
+}
+
+// Edit-target-only path extraction for the 5d-3 gates: the file(s) actually
+// written/edited, NOT every path quoted in the args body (which made records that
+// merely mention `src/foo.tsx` false-fire the gate). Clean tools carry
+// file_path/path; patch tools (`_edit`) embed the target in `[PATH#TAG]` headers.
+function editTargetPaths(args: JsonObject): string {
+  const targets: string[] = [];
+  for (const k of ["file_path", "path", "filePath"]) {
+    const v = (args as Record<string, unknown>)[k];
+    if (typeof v === "string" && v.trim()) targets.push(v.trim());
+  }
+  for (const k of ["input", "patch"]) {
+    const v = (args as Record<string, unknown>)[k];
+    if (typeof v === "string") {
+      for (const m of v.matchAll(/\[([^\]\s#]+)#[0-9A-Fa-f]{4}\]/g)) targets.push(m[1]);
+    }
+  }
+  return [...new Set(targets)].join(" ");
 }
 
 function messageText(message: unknown): string {
@@ -338,6 +358,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     rememberToolCall(root, {
       ...normalized,
       args_preview: argsPreview(normalized.args),
+      edit_target: editTargetPaths(normalized.args),
       toolCallId: String(event.toolCallId || ""),
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),

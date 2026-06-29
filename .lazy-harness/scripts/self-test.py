@@ -4025,12 +4025,12 @@ def check_affected_test_runner() -> None:
         if not any("프로젝트 테스트 전략" in label for label in labels) or not any("skip/defer" in label for label in labels):
             fail("affected-test-runner interview options changed: " + json.dumps(labels, ensure_ascii=False))
 
-        pass_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/covered.ts"}]}
+        pass_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/covered.ts", "edit_target": "tests/lazy-harness/affected/covered.ts"}]}
         pass_out = run_response_completed_hook(pass_payload, queue)
         if pass_out.strip():
             fail("affected test hook should stay silent when vitest passes:\n" + pass_out)
 
-        fail_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing.ts"}]}
+        fail_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing.ts", "edit_target": "tests/lazy-harness/affected/missing.ts"}]}
         fail_out = run_response_completed_hook(fail_payload, queue)
         # Ask-once policy: the missing-test question was already persisted by the
         # first run_affected_tests call above. The hook must NOT re-surface it on
@@ -4041,7 +4041,7 @@ def check_affected_test_runner() -> None:
             fail("affected test hook must stay silent when question fingerprint already queued:\n" + fail_out)
 
         # Sanity: a brand-new missing source path must still trigger the gate exactly once.
-        fresh_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing-fresh.ts"}]}
+        fresh_payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": "tests/lazy-harness/affected/missing-fresh.ts", "edit_target": "tests/lazy-harness/affected/missing-fresh.ts"}]}
         try:
             (ROOT / "tests/lazy-harness/affected").mkdir(parents=True, exist_ok=True)
             fresh_source = ROOT / "tests/lazy-harness/affected/missing-fresh.ts"
@@ -4098,7 +4098,7 @@ def check_lifecycle_hook_integration() -> None:
     try:
         tdd_payload = {
             "recent_tool_calls": [
-                {"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"},
+                {"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts", "edit_target": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"},
             ],
         }
         tdd_out = run_response_completed_hook(tdd_payload, tdd_queue)
@@ -4115,6 +4115,19 @@ def check_lifecycle_hook_integration() -> None:
             fail("lifecycle-check shadow did not surface TDD gate output")
         if json.loads(tdd_shadow.get("injectJson") or "{}").get("inject", {}).get("body") != tdd_shadow.get("firstOutput"):
             fail("lifecycle-check shadow injectJson should match firstOutput body")
+
+        # edit-target-only (ADR 0051 amendment): editing a RECORD that merely QUOTES a
+        # source path must not fire 5d-3 — the hook extracts paths from edit_target (the
+        # file actually edited), not the args_preview body.
+        quoted_payload = {
+            "recent_tool_calls": [
+                {"name": "Edit", "edit_target": ".lazy-harness/tests/some-record.md",
+                 "args_preview": "fired for src/features/billing/SubscribedDownloadView.tsx and app/Widget.tsx"},
+            ],
+        }
+        quoted_out = run_response_completed_hook(quoted_payload, generic_queue)
+        if "5d-3 TDD Cross-Verify Gate" in quoted_out:
+            fail("edit-target-only: quoting a source path in a record edit must not fire 5d-3:\n" + quoted_out)
 
         decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
         shadow_decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
@@ -6234,7 +6247,7 @@ def check_real_feature_walkthrough() -> None:
             tdd_probe_queue.unlink(missing_ok=True)
         hook_payload = {
             "recent_tool_calls": [
-                {"name": "Edit", "args_preview": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"},
+                {"name": "Edit", "args_preview": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts", "edit_target": ".lazy-harness/triggers/walkthrough-fixtures/referral-priority-feature.ts"},
             ],
         }
         hook_out = run_response_completed_hook(hook_payload, queue)

@@ -94,7 +94,7 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
         },
         {
             "name": "tdd-cross-verify-stop",
-            "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"}]},
+            "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts", "edit_target": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"}]},
             "expectOutput": True,
             "expectHelperSuffix": "check-tdd-cross-verify.sh",
             "expectContains": "5d-3 TDD Cross-Verify Gate",
