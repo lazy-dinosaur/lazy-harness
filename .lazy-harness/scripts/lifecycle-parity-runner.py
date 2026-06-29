@@ -95,6 +95,7 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
         {
             "name": "tdd-cross-verify-stop",
             "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts", "edit_target": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"}]},
+            "sourceFiles": {".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts": "export const missingTestStub = 1\n"},
             "expectOutput": True,
             "expectHelperSuffix": "check-tdd-cross-verify.sh",
             "expectContains": "5d-3 TDD Cross-Verify Gate",
@@ -196,6 +197,10 @@ def prepare_env(host: Path, fixture: dict[str, Any], queue_name: str) -> dict[st
             decisions_text = str(fixture.get("decisionsFallback") or "")
         decisions.write_text(decisions_text, encoding="utf-8")
         env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(host))
+    for rel_path, content in (fixture.get("sourceFiles") or {}).items():
+        target = host / str(rel_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(str(content), encoding="utf-8")
     return env
 
 

@@ -86,6 +86,8 @@ A third false-positive: editing a RECORD that *quotes* a source path (e.g. this 
 
 Fix (two layers): (1) existence guard — both gates skip a source file when `!existsSync(file)` (kind `ignored`, reason `not-found`). (2) **edit-target-only extraction (fundamental, user-chosen)** — the extension (`index.ts`) computes `edit_target` (the file actually written/edited: `file_path`/`path`/`filePath`, or `[PATH#TAG]` patch headers) and both gate hooks scan `call.edit_target`, NOT the `args_preview` body. So editing a record that merely *quotes* `src/foo.tsx` yields `edit_target` = the record `.md` → no source extracted → no fire. Real source edits still fire; quoted / cross-repo / non-existent paths never do.
 
+Host-parity follow-up: the existence guard (1) interacted with the static `tdd-cross-verify-stop` lifecycle-parity fixture, which edits `.lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts` — a framework self-test fixture NOT synced to hosts. Before the guard the gate fired regardless of existence; after it, the gate stays silent on hosts (file absent) → `lifecycle-parity --fail-on-mismatch` → `check_lifecycle_fixture_intake_cli` flips green→fail on hosts (the mid-session flip seen in dogfood). Fix: the parity fixture is now self-contained via a `sourceFiles` map — `prepare_env` writes the stub source into the copied host before replay (mirrors `decisionsFixture`/`decisionsFallback`), so `existsSync` passes and the gate fires on source AND hosts.
+
 ## Implementation map
 
 - Affected scripts:
@@ -94,6 +96,7 @@ Fix (two layers): (1) existence guard — both gates skip a source file when `!e
   - `.lazy-harness/scripts/test-match.ts` — shared `matchingTests`/`candidateTestPaths` (separator-insensitive + `__tests__`/`tests` + infix); single source for both gates
   - both gates: `existsSync` existence guard skips non-existent (quoted / cross-repo) source paths (`reason: not-found`) before asking
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `editTargetPaths` + `edit_target` field; both gate hooks scan `call.edit_target` (not `args_preview` body) — edit-target-only extraction
+  - `.lazy-harness/scripts/lifecycle-parity-runner.py` — `sourceFiles` fixture support; `tdd-cross-verify-stop` writes its stub source so the existence guard passes on hosts (parity green→fail flip fix)
 - Affected lifecycle helpers (unchanged in code, but rely on the new contract):
   - `.lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh`
   - `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh`
