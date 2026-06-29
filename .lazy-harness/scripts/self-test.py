@@ -1248,6 +1248,17 @@ def check_lazy_cli_entrypoint_helper() -> None:
     if corrective.strip():
         fail("lazy CLI entrypoint helper should pass corrective stale-command explanation:\n" + corrective)
 
+    read_result_payload = {
+        "assistant_response": "fixture를 읽었습니다.",
+        "recent_tool_calls": [
+            {"name": "read", "args_preview": "lifecycle-parity-runner.py",
+             "result_preview": "검증은 bun run lazy:test 명령으로 실행하겠습니다."},
+        ],
+    }
+    read_result = run_lazy_cli_entrypoint_helper(read_result_payload)
+    if read_result.strip():
+        fail("lazy CLI entrypoint helper must not fire on lazy:test inside a file READ result_preview:\n" + read_result)
+
     print("✓ lazy CLI entrypoint helper ok")
 
 

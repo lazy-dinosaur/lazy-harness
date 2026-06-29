@@ -75,6 +75,8 @@ Historical ADRs may still mention `bun run lazy:test` because that was the old e
 
 It emits STOP when an assistant response/tool trace appears to execute, recommend, or diagnose with stale `lazy:test`/`lazy:doctor` package-script names instead of the canonical `.lazy-harness/bin/lazy` dispatcher.
 
+It scans only the agent's own actions — the `assistant_response` and command-tool `args_preview` — NOT file READ `result_preview`s or edit bodies, so reading a file/fixture (including this gate's own parity fixture) that merely contains `lazy:test` does not false-fire (2026-06-28 scope fix; previously it walked the whole payload and fired on read results).
+
 It allows corrective explanations that explicitly call the old form stale/deprecated or say not to use it.
 
 ## Discovery capture

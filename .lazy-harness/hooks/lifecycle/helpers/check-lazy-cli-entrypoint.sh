@@ -13,15 +13,20 @@ try:
 except Exception:
     sys.exit(0)
 
-strings=[]
-def walk(v):
-    if isinstance(v, str): strings.append(v)
-    elif isinstance(v, dict):
-        for c in v.values(): walk(c)
-    elif isinstance(v, list):
-        for c in v: walk(c)
-walk(payload)
-blob='\n'.join(strings)
+# Scope: only the agent's own actions — assistant prose + command-tool args.
+# NOT file READ result_previews (reading a file that contains `lazy:test`, e.g. this
+# gate's own parity fixture, must not false-fire) nor edit bodies.
+strings = []
+ar = payload.get('assistant_response')
+if isinstance(ar, str):
+    strings.append(ar)
+command_tools = {'bash', 'cmd', 'command', 'shell', 'terminal'}
+for call in (payload.get('recent_tool_calls') or []):
+    if isinstance(call, dict) and str(call.get('name', '')).lower() in command_tools:
+        ap = call.get('args_preview')
+        if isinstance(ap, str):
+            strings.append(ap)
+blob = '\n'.join(strings)
 lower=blob.lower()
 
 stale_patterns = [
