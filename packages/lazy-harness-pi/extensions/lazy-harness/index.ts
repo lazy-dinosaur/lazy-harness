@@ -23,7 +23,7 @@ type RecentToolCall = {
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
-const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number }>();
+const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
 const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Jcode-parity mid-turn re-grounding state (see the "context" handler).
@@ -289,6 +289,14 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     activePacketsByRoot.set(root, { root, sessionId, messageId });
     pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
     regroundBodyByRoot.delete(root);
+    // A queued lazy-harness follow-up starts a new runtime turn too. Keep the
+    // advisory cap for that synthetic turn, but reset it when a real user prompt
+    // differs from the last advisory body so the next human request can get one
+    // fresh follow-up if it hits a new gate.
+    const prevAdvisory = lastAdvisoryByRoot.get(root);
+    if (prevAdvisory && String(event.prompt || "") !== prevAdvisory.body) {
+      lastAdvisoryByRoot.delete(root);
+    }
     await ensureAskToolActive(pi); // keep OMP's native `ask` selector available for §2.3 option gates
 
     const payload: JsonObject = {
@@ -445,8 +453,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const advisoryHash = stableHash(body);
     const prevAdvisory = lastAdvisoryByRoot.get(root);
     const advisoryCount = prevAdvisory && prevAdvisory.hash === advisoryHash ? prevAdvisory.count + 1 : 1;
-    const advisoryChainCount = prevAdvisory ? prevAdvisory.chainCount + 1 : 1;
-    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount, chainCount: advisoryChainCount });
+    const advisoryChainCount = prevAdvisory && prevAdvisory.hash !== advisoryHash ? prevAdvisory.chainCount + 1 : 1;
+    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount, chainCount: advisoryChainCount, body });
     if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && advisoryChainCount <= MAX_ADVISORY_CHAIN_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
       (pi as any).sendUserMessage(body, { deliverAs: "followUp" });
     } else {
