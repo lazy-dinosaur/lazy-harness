@@ -23,8 +23,9 @@ type RecentToolCall = {
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
-const lastAdvisoryByRoot = new Map<string, { hash: string; count: number }>();
+const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number }>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
+const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Jcode-parity mid-turn re-grounding state (see the "context" handler).
 const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
@@ -375,7 +376,9 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   // Jcode natively re-injected relevant AGENTS/.jcode instructions after file operations
   // ("read and follow them for the next steps"). Pi/OMP load AGENTS.md only once at session
   // start, so we replicate that mid-turn re-grounding here: one inject per new file-op batch,
-  // body computed once per turn via on-context.sh, fail-open so a bug never breaks the turn.
+  // body computed once per turn via on-context.sh. If the hook cannot produce a real body,
+  // fail open silently; do NOT inject a generic fallback reminder, because it can loop without
+  // surfacing the relevant records that make the reminder actionable.
   pi.on("context", async (event: any, ctx: any) => {
     try {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));
@@ -386,14 +389,11 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
         const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-context.sh");
+        if (!existsSync(script)) return undefined;
         const payload: JsonObject = { event: "context", source: EXTENSION_NAME, working_dir: root, recent_tool_calls: recentToolCallsForRoot(root).slice(-40) };
-        const hook = existsSync(script) ? runHook(script, payload, root) : { stdout: "", stderr: "", status: 0 };
-        body = hookInjectBody(hook.stdout) ?? [
-          "REMINDER (mid-turn re-grounding). Re-apply the lazy-harness grammar before the next step:",
-          "- record\u2194code conflict \u2192 ask the user which is the truth (AGENTS \u00a70).",
-          "- ambiguous / new decision \u2192 3-5 option gate + Recommended, never self-select (AGENTS \u00a72.3).",
-          "- confirmed facts/decisions \u2192 accumulate into the right .lazy-harness layer (AGENTS \u00a72.4).",
-        ].join("\n");
+        const hook = runHook(script, payload, root);
+        body = hookInjectBody(hook.stdout);
+        if (!body) return undefined;
         regroundBodyByRoot.set(root, body);
       }
 
@@ -437,16 +437,20 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       return undefined;
     }
     // Drive a continuation so the agent addresses the gate (Jcode response.completed M11 parity).
-    // Loop-safe: the SAME unresolved advisory drives at most MAX_ADVISORY_CONTINUATIONS turns,
-    // then falls back to a non-steering display message so it can never run away.
+    // Loop-safe on two axes: the SAME unresolved advisory drives at most
+    // MAX_ADVISORY_CONTINUATIONS turns, and an alternating sequence of different
+    // STOP advisories drives at most MAX_ADVISORY_CHAIN_CONTINUATIONS follow-up
+    // turns before degrading to non-steering display. This prevents capture-gate
+    // and rule-placement helpers from ping-ponging indefinitely.
     const advisoryHash = stableHash(body);
     const prevAdvisory = lastAdvisoryByRoot.get(root);
     const advisoryCount = prevAdvisory && prevAdvisory.hash === advisoryHash ? prevAdvisory.count + 1 : 1;
-    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount });
-    if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
+    const advisoryChainCount = prevAdvisory ? prevAdvisory.chainCount + 1 : 1;
+    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount, chainCount: advisoryChainCount });
+    if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && advisoryChainCount <= MAX_ADVISORY_CHAIN_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
       (pi as any).sendUserMessage(body, { deliverAs: "followUp" });
     } else if (typeof (pi as any).sendMessage === "function") {
-      (pi as any).sendMessage({ customType: "lazy-harness-advisory", content: body, display: true });
+      (pi as any).sendMessage({ content: body, display: true });
     }
     return undefined;
   });
