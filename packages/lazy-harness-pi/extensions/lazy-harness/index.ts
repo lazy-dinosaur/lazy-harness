@@ -449,8 +449,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount, chainCount: advisoryChainCount });
     if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && advisoryChainCount <= MAX_ADVISORY_CHAIN_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
       (pi as any).sendUserMessage(body, { deliverAs: "followUp" });
-    } else if (typeof (pi as any).sendMessage === "function") {
-      (pi as any).sendMessage({ content: body, display: true });
+    } else {
+      ctx.ui?.notify?.(`lazy-harness advisory suppressed after follow-up cap\n${body}`.slice(0, 1800), "warning");
     }
     return undefined;
   });
