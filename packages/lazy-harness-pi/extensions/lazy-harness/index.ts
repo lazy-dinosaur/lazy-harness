@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXTENSION_NAME = "lazy-harness";
+const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-visual-20260701";
 const MAX_RECENT_TOOL_CALLS = 80;
 const DEFAULT_TIMEOUT_MS = Number(process.env.LAZY_HARNESS_PI_HOOK_TIMEOUT_MS || 15000);
 
@@ -22,7 +23,7 @@ type RecentToolCall = {
 };
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
-const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string }>();
+const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtArmed: boolean }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
 const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
@@ -30,6 +31,9 @@ const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
 const FILE_OP_TOOLS = new Set(["read", "edit", "write", "grep", "find", "ls"]);
+const MUTATION_TOOL_NAMES = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
+const READ_ONLY_SHELL_RE = /^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?(?:(?:\.lazy-harness\/bin\/lazy|lazy)\s+map|pwd|ls|tree|cat|grep|rg|find|git\s+(?:status|diff|show|log|rev-parse))\b/is;
+const ACTION_NAME_RE = /(?:^|[_:.\-])(write|edit|patch|apply_patch|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])/i;
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
@@ -210,6 +214,47 @@ function appendSystemPromptBody(systemPrompt: unknown, body: string): string | s
 }
 
 
+function shellCommand(args: JsonObject): string {
+  return String(args.command || args.cmd || args.text || "");
+}
+
+function isReadOnlyShell(args: JsonObject): boolean {
+  const command = shellCommand(args);
+  if (!command.trim()) return false;
+  if (/\b(rm|mv|cp|mkdir|touch|tee|python3?\s+-|node\s+-|bun\s+(?:run|x|test)|npm|pnpm|yarn|gh\s+(?:pr\s+(?:create|edit|merge)|issue\s+create))\b/i.test(command)) return false;
+  return READ_ONLY_SHELL_RE.test(command);
+}
+
+function isActionTool(name: string, args: JsonObject): boolean {
+  const lower = name.toLowerCase();
+  if (["read", "grep", "find", "ls"].includes(lower)) return false;
+  if (MUTATION_TOOL_NAMES.has(lower)) return true;
+  if (lower === "bash") return !isReadOnlyShell(args);
+  if (ACTION_NAME_RE.test(name)) return true;
+  if (lower.startsWith("mcp__")) return true;
+  return false;
+}
+
+function armStatusMessage(root: string, readDebtArmed: boolean): string {
+  return `lazy-harness armed: ${EXTENSION_RUNTIME_MARKER} root=${root} read-debt=${readDebtArmed ? "armed" : "NOT-ARMED"} tool-guard=ready`;
+}
+
+function readDebtNotArmedReason(root: string, name: string): string {
+  return [
+    "[lazy-harness read-debt not armed] action blocked before map/read evidence.",
+    "",
+    `Runtime marker: ${EXTENSION_RUNTIME_MARKER}`,
+    `Root: ${root}`,
+    `Tool: ${name}`,
+    "",
+    "This means before_agent_start did not arm the per-turn search/read debt row, or the hook failed before producing the turn-start reminder.",
+    "Do this first:",
+    "  - run `.lazy-harness/bin/lazy map --overview --complete --format=md`",
+    "  - drill into a concrete feature id, record path, graph id, source path, or test path copied from the map",
+    "  - read canonical records/files before rerunning the action",
+  ].join("\n");
+}
+
 function normalizePiTool(toolName: unknown, input: unknown): { name: string; args: JsonObject } {
   const rawName = String(toolName || "");
   const args = (input && typeof input === "object" ? input : {}) as JsonObject;
@@ -286,7 +331,6 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
-    activePacketsByRoot.set(root, { root, sessionId, messageId });
     pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
     regroundBodyByRoot.delete(root);
     // A queued lazy-harness follow-up starts a new runtime turn too. Keep the
@@ -311,7 +355,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-message-received.sh");
     const hook = existsSync(script) ? runHook(script, payload, root) : { stdout: "", stderr: "", status: 0 };
-    const body = hookInjectBody(hook.stdout) ?? [
+    const hookBody = hookInjectBody(hook.stdout);
+    const readDebtArmed = Boolean(hookBody);
+    activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtArmed });
+    const body = hookBody ?? [
       "REMINDER. Harness-first search/read debt before response.",
       "- Pi lazy-harness package loaded; inspect real .lazy-harness records/source/tests before host-specific claims or mutation.",
       "- Mutation remains guarded by the generic search/read evidence guard.",
@@ -329,8 +376,9 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       } catch { /* fail-open: reminder only */ }
     }
 
-    if (systemPromptIncludesBody(event.systemPrompt, inject)) return undefined;
-    return { systemPrompt: appendSystemPromptBody(event.systemPrompt, inject) };
+    const message = { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtArmed), display: true };
+    if (systemPromptIncludesBody(event.systemPrompt, inject)) return { message };
+    return { message, systemPrompt: appendSystemPromptBody(event.systemPrompt, inject) };
   });
 
   pi.on("tool_call", async (event: any, ctx: any) => {
@@ -340,7 +388,12 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
-      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtArmed: false };
+
+    const normalized = normalizePiTool(event.toolName, event.input || {});
+    if (!packet.readDebtArmed && isActionTool(normalized.name, normalized.args)) {
+      return { block: true, reason: readDebtNotArmedReason(root, normalized.name) };
+    }
 
     const payload: JsonObject = {
       event: "tool.execute.before",
@@ -348,7 +401,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       session_id: packet.sessionId,
       message_id: packet.messageId,
       working_dir: root,
-      tool: normalizePiTool(event.toolName, event.input || {}),
+      tool: normalized,
       recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
     };
 
@@ -420,7 +473,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
-      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}` };
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtArmed: false };
 
     const messages = Array.isArray(event.messages) ? event.messages : [];
     const payload: JsonObject = {

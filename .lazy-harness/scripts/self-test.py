@@ -1664,6 +1664,9 @@ def check_pi_package_layout_and_contract() -> None:
         "rememberToolCall",
         "block: true",
         "REMINDER. Harness-first search/read debt before response.",
+        "lazy-harness armed:",
+        "read-debt not armed",
+        "EXTENSION_RUNTIME_MARKER",
         "LAZY_HARNESS_INVOKER",
         "pi.registerCommand(\"lazy-map\"",
         "pi.registerCommand(\"lazy-doctor\"",
@@ -2109,6 +2112,9 @@ def check_pi_package_layout_and_contract() -> None:
             (root / ".lazy-harness" / "bin").mkdir(parents=True)
             (root / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
             (root / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            msg_hook = root / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+            msg_hook.write_text("#!/usr/bin/env bash\nprintf '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n", encoding="utf-8")
+            msg_hook.chmod(0o755)
             hook = root / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
             hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-tool-payload.json\nprintf '%s' \"$LAZY_HOST_ROOT\" > .lazy-harness/last-host-root.txt\n", encoding="utf-8")
             hook.chmod(0o755)
@@ -2136,6 +2142,7 @@ def check_pi_package_layout_and_contract() -> None:
             "await commands.get('lazy-map').handler('--overview --format=md --limit=1', ctx);\n"
             "if (lastExec?.opts?.cwd !== rootB || lastExec?.cmd !== rootB+'/.lazy-harness/bin/lazy') throw new Error('lazy command did not use live session cwd');\n"
             "liveCwd=rootA;\n"
+            "await handlers.get('before_agent_start')({prompt:'back to a', systemPrompt:'base'}, ctx);\n"
             "await handlers.get('tool_call')({toolName:'write', input:{file_path:'a2.txt', content:'a'}}, ctx);\n"
             "const a=JSON.parse(readFileSync(rootA+'/.lazy-harness/last-tool-payload.json','utf8'));\n"
             "if (a.recent_tool_calls.length !== 1 || a.recent_tool_calls[0].toolCallId !== 'a-read') throw new Error('repo A lost own tool call evidence');\n"
