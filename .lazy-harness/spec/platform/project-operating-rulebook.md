@@ -13,6 +13,11 @@ Related TDD: `.lazy-harness/tests/project-operating-rulebook.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 룰북
+  - rulebook
+  - 운영 룰북
+  - 프로젝트 규칙집
 - Applies when:
   - adding project/team development operating policy
   - deciding whether information is a project fact or an agent behavior rule

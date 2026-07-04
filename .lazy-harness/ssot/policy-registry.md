@@ -14,6 +14,11 @@ Registry: `.lazy-harness/ssot/policies.json`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 정책 목록
+  - policy list
+  - 정책 레지스트리
+  - 프로젝트 정책
 - Applies when:
   - adding or changing project/team behavior policy
   - linking policy semantics to capability bindings

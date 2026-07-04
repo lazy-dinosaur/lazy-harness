@@ -11,6 +11,9 @@ Related ADR: `.lazy-harness/decisions/0040-capability-registry-kind-level-separa
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - capability 회귀
+  - 레지스트리 테스트
 - Applies when:
   - implementing capability registry tooling (`lazy capability add/list/resolve/candidates/audit`)
   - registering project customization that need not be a hard rule, or detecting candidate capabilities

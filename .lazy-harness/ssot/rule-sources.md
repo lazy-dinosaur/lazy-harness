@@ -14,6 +14,11 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 규칙 출처
+  - rule sources
+  - 어느 규칙이 어디
+  - 규칙 위치 판정
 - Applies when:
   - deciding where a newly discovered or corrected project/team rule belongs
   - routing a rule among `.lazy-harness` records or Pi/OMP local notes (`.pi/`/`.omp/`)

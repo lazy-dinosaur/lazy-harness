@@ -11,6 +11,9 @@ Related SSOT: `.lazy-harness/ssot/capability-registry.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 룰북 테스트
+  - rulebook 회귀
 - Applies when:
   - storing or resolving project/team operating rules bound to preferred/discouraged actions
   - auditing rulebook compatibility surface, capability links, or syncing capabilities to a host

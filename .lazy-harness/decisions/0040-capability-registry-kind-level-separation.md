@@ -9,6 +9,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 능력 레지스트리
+  - capability 레벨
+  - discover warn block
+  - 강제 수준
+  - enforcement level
 - Applies when:
   - registering project customizations (scripts, skills, prompts, hooks, commands, validations)
   - deciding how strongly a capability should be steered or enforced

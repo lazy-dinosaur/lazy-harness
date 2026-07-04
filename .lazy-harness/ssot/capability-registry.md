@@ -12,6 +12,11 @@ Related TDD: `.lazy-harness/tests/capability-registry.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 능력 목록
+  - capability 목록
+  - capabilities.json
+  - 프로젝트 능력
 - Applies when:
   - registering, discovering, recommending, or enforcing a project/framework affordance (script, skill, prompt, hook, command, validation, checklist, audit)
   - deciding a capability's enforcement level (discover/recommend/default/warn/block)

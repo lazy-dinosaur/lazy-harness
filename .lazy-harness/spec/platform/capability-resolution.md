@@ -11,6 +11,11 @@ Related TDD: `.lazy-harness/tests/capability-registry.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - capability resolve
+  - 인텐트 해소
+  - intent 매칭
+  - 능력 조회
 - Applies when:
   - registering or resolving a capability via `lazy capability`
   - deciding how strongly to consider a registered capability for an intent/action

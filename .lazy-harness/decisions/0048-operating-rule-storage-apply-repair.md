@@ -9,6 +9,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 운영 규칙 저장
+  - operating rule
+  - 규칙 어디에
+  - rule storage
+  - apply repair
 - Applies when:
   - implementing or debugging how operating rules are stored and applied
   - deciding whether an operating-rule guard should be advisory or a hard gate

@@ -14,6 +14,11 @@ Related TDD: `.lazy-harness/tests/policy-machinery-v2.md`
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 정책 기계
+  - typed policy
+  - 정책 canonical
+  - policies.json
 - Applies when:
   - adding or changing project/team behavior policy semantics
   - choosing the canonical store for operating policy vs rulebook markdown
