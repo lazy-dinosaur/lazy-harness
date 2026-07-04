@@ -54,6 +54,22 @@ Also observed: tool-guard message "Action/mutation tools stay blocked until
 evidence exists" (read-debt guard active), and full grammar-driven §2.3
 discipline (agent declined to self-promote digest status without asking).
 
+### Addendum — mid-turn steer re-ground live verification (2026-07-03, same day)
+
+After the steer re-ground fix (ADR 0051 amendment 2, commit `4ba8c92`), a second
+live check in a fresh Pi session confirmed:
+
+- direct extension simulation: 5/5 (steer transform + forced context re-injection;
+  idle/followUp/extension-source inputs untouched);
+- live: a mid-turn steered instruction ("잠깐, evidence capsule 규약이 뭐였지?")
+  displayed WITH the appended steer re-ground `<system-reminder>`, and the agent's
+  first actions for the NEW topic were `lazy capability resolve --intent
+  recording_reproducible_evidence` followed by reading
+  `spec/platform/evidence-capsule-standard.md` — record-first, not stale-evidence
+  continuation.
+
+Steer delivery-parity gap is closed live; no open parity items remain.
+
 ## Interpretation
 
 All six checklist items passed in a live fresh Pi session. Combined with the
