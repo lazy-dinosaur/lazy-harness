@@ -1644,9 +1644,12 @@ def check_pi_package_layout_and_contract() -> None:
         tracked = subprocess.run(["git", "ls-files", "--error-unmatch", ".pi/settings.json"], cwd=ROOT, text=True, capture_output=True, check=False)
         if tracked.returncode == 0:
             fail("Pi project-local settings must never be committed; .pi/settings.json is tracked")
-        settings_text = pi_settings.read_text(encoding="utf-8")
+        settings = json.loads(pi_settings.read_text(encoding="utf-8"))
+        settings_text = json.dumps(settings, ensure_ascii=False)
         if "../packages/lazy-harness-pi" not in settings_text:
-            fail("Existing untracked .pi/settings.json must only attach the source-local lazy-harness-pi package")
+            for skill_path in ["../.claude/skills", "../.codex/skills", "../.agents/skills"]:
+                if skill_path not in settings.get("skills", []):
+                    fail("Existing untracked .pi/settings.json must attach the source-local package or include project skill path: " + skill_path)
         exclude = ROOT / ".git" / "info" / "exclude"
         if exclude.exists() and ".pi/" not in exclude.read_text(encoding="utf-8"):
             fail("Existing untracked .pi/settings.json requires .pi/ in .git/info/exclude to avoid teammate contamination")
@@ -1664,8 +1667,10 @@ def check_pi_package_layout_and_contract() -> None:
         "rememberToolCall",
         "block: true",
         "REMINDER. Harness-first search/read debt before response.",
-        "lazy-harness armed:",
+        "lazy-harness read-debt:",
         "read-debt not armed",
+        "steer re-ground",
+        "streamingBehavior",
         "EXTENSION_RUNTIME_MARKER",
         "LAZY_HARNESS_INVOKER",
         "pi.registerCommand(\"lazy-map\"",
@@ -1691,10 +1696,35 @@ def check_pi_package_layout_and_contract() -> None:
         "ensureAskToolActive",
         "setActiveTools",
         "getAllTools",
+        "ReadDebtStatus",
+        "not-armed(synthetic-turn)",
+        "not-armed(hook-empty)",
+        "not-armed(hook-error)",
+        "not-armed(hook-timeout)",
+        "hookErrorDetail",
+        "hook=",
+        "lazy-harness read-debt:",
+        "phase=debug",
+        "steeringReminder",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
         fail("Pi package extension missing bridge contract phrases: " + json.dumps(missing, ensure_ascii=False))
+
+    hook_text = (LAZY / "hooks" / "lifecycle" / "on-message-received.sh").read_text(encoding="utf-8")
+    for phrase in ["PAYLOAD_FILE", "PAYLOAD_REF=\"@file:$PAYLOAD_FILE\"", "payload_ref.startswith('@file:')"]:
+        if phrase not in hook_text:
+            fail("on-message-received hook must pass large payloads by temp-file/ref, not argv/env: " + phrase)
+
+    runtime_paths_text = (LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py").read_text(encoding="utf-8")
+    if "payload_raw.startswith(\"@file:\")" not in runtime_paths_text:
+        fail("runtime_paths.py must accept @file: payload refs to avoid argv/env ARG_MAX failures")
+
+    catalog_text = (LAZY / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py").read_text(encoding="utf-8")
+    for phrase in ["CATALOG_COMMAND_TIMEOUT_SECONDS", "LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS", "timeout=CATALOG_COMMAND_TIMEOUT_SECONDS"]:
+        if phrase not in catalog_text:
+            fail("operating rule catalog missing bounded timeout phrase: " + phrase)
+
     prompt_text = prompt.read_text(encoding="utf-8")
     for phrase in [
         "map --overview",
@@ -1738,6 +1768,14 @@ def check_pi_package_layout_and_contract() -> None:
         "Official Pi commands require `pi` on `PATH`",
         "Oh My Pi / OMP commands require `omp` on `PATH`",
         "gcloud",
+        "../.claude/skills",
+        "../.codex/skills",
+        "../.agents/skills",
+        "enableSkillCommands",
+        "not-armed(hook-timeout)",
+        "lazy-harness read-debt",
+        "phase=armed|debug",
+        "hook=<detail>",
     ]:
         if phrase not in readme_text:
             fail("Pi package README missing clean install guidance: " + phrase)
@@ -1784,6 +1822,18 @@ def check_pi_package_layout_and_contract() -> None:
     ]:
         if phrase not in lazy_text:
             fail("lazy CLI entrypoint missing Pi wrapper dispatch phrase: " + phrase)
+
+    activation_text = activation.read_text(encoding="utf-8")
+    for phrase in [
+        "PROJECT_SKILL_PATHS",
+        "../.claude/skills",
+        "../.codex/skills",
+        "../.agents/skills",
+        "enableSkillCommands",
+        "mergePiSettings",
+    ]:
+        if phrase not in activation_text:
+            fail("lazy agent activate missing project-local skill settings phrase: " + phrase)
 
     wrapper_text = wrapper.read_text(encoding="utf-8")
     for phrase in [
@@ -1971,6 +2021,13 @@ def check_pi_package_layout_and_contract() -> None:
             content = (activation_repo / rel[0] / rel[1]).read_text(encoding="utf-8")
             if "lazy-harness-agent-activation:start" not in content or "map --overview" not in content or ".lazy-harness/AGENTS.md" not in content:
                 fail(f"lazy agent activate prompt missing pointer content for {rel[0]}")
+        settings_path = activation_repo / ".pi" / "settings.json"
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        for skill_path in ["../.claude/skills", "../.codex/skills", "../.agents/skills"]:
+            if skill_path not in settings.get("skills", []):
+                fail("lazy agent activate settings missing project skill path: " + skill_path)
+        if settings.get("enableSkillCommands") is not True:
+            fail("lazy agent activate settings must enable skill commands")
         exclude_text = (activation_repo / ".git" / "info" / "exclude").read_text(encoding="utf-8")
         if ".pi/" not in exclude_text or ".omp/" not in exclude_text:
             fail("lazy agent activate must exclude .pi/ and .omp/")
@@ -2064,11 +2121,19 @@ def check_pi_package_layout_and_contract() -> None:
             "if(noHarness !== undefined) throw new Error('non-harness cwd should not receive lazy reminder');\n"
             "const before=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:'base'},ctx);\n"
             "if(!before?.systemPrompt?.includes('REMINDER. Harness-first')) throw new Error('no reminder');\n"
+            "if(!before?.message?.content?.includes('status=armed') || !before.message.content.includes('phase=armed')) throw new Error('human turn should mark read-debt armed');\n"
             "if(!before.systemPrompt.includes('Interactive grammar') || !before.systemPrompt.includes('option gate')) throw new Error('reminder missing interactive grammar');\n"
             "const beforeOmp=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:['base-block']},ctx);\n"
             "if(!Array.isArray(beforeOmp?.systemPrompt)) throw new Error('OMP systemPrompt array not preserved');\n"
             "if(!beforeOmp.systemPrompt.some((part)=>part.includes('REMINDER. Harness-first'))) throw new Error('OMP array missing reminder');\n"
             "if(!beforeOmp.systemPrompt.includes('base-block')) throw new Error('OMP array lost original prompt block');\n"
+            "const synthetic=await handlers.get('before_agent_start')({prompt:'', systemPrompt:'base'},ctx);\n"
+            "if(!synthetic?.message?.content?.includes('status=not-armed(synthetic-turn)') || !synthetic.message.content.includes('phase=debug')) throw new Error('synthetic turn marker should distinguish not-armed debug status');\n"
+            "if(!synthetic?.systemPrompt?.includes('Synthetic/steering turn') || !synthetic.systemPrompt.includes('Do not make host-specific claims')) throw new Error('synthetic turn missing steering reminder');\n"
+            "const syntheticWrite=await handlers.get('tool_call')({toolCallId:'synthetic-write',toolName:'write', input:{file_path:'tmp.txt',content:'x'}},ctx);\n"
+            "if(!syntheticWrite?.block || !String(syntheticWrite.reason).includes('Status: not-armed(synthetic-turn)')) throw new Error('synthetic action should block with status');\n"
+            "const beforeAgain=await handlers.get('before_agent_start')({prompt:'testdb instance start again', systemPrompt:'base'},ctx);\n"
+            "if(!beforeAgain?.message?.content?.includes('status=armed') || !beforeAgain.message.content.includes('phase=armed')) throw new Error('human turn after synthetic should re-arm read-debt');\n"
             "const cases=[\n"
             " ['write',{toolName:'write', input:{file_path:'tmp.txt',content:'x'}}],\n"
             " ['bash',{toolName:'bash', input:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}],\n"

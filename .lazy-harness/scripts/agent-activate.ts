@@ -26,6 +26,7 @@ type ExcludeAction = {
 const START = '<!-- lazy-harness-agent-activation:start -->'
 const END = '<!-- lazy-harness-agent-activation:end -->'
 const EXCLUDE_LINES = ['.pi/', '.omp/']
+const PROJECT_SKILL_PATHS = ['../.claude/skills', '../.codex/skills', '../.agents/skills']
 
 function parseArgs(argv: string[]): Args {
   const args: Args = { target: process.cwd(), dryRun: false, quiet: false, format: 'md' }
@@ -132,6 +133,40 @@ function ensurePromptFile(target: string, relPath: string, body: string, dryRun:
   return { path, action }
 }
 
+function mergePiSettings(existing: string): string {
+  const data = existing.trim() ? JSON.parse(existing) : {}
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('project .pi/settings.json must be a JSON object')
+  }
+  const settings = data as Record<string, unknown>
+  const existingSkills = Array.isArray(settings.skills) ? settings.skills.filter((value): value is string => typeof value === 'string') : []
+  const skills = [...existingSkills]
+  for (const skillPath of PROJECT_SKILL_PATHS) {
+    if (!skills.includes(skillPath)) skills.push(skillPath)
+  }
+  settings.skills = skills
+  settings.enableSkillCommands = true
+  return `${JSON.stringify(settings, null, 2)}\n`
+}
+
+function ensurePiSettings(target: string, dryRun: boolean): FileAction {
+  const path = join(target, '.pi', 'settings.json')
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : ''
+  let next: string
+  try {
+    next = mergePiSettings(existing)
+  } catch (error) {
+    console.error(`lazy agent activate: failed to merge ${path}: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+  }
+  const action: FileAction['action'] = existing ? (existing === next ? 'unchanged' : 'update') : 'create'
+  if (!dryRun && action !== 'unchanged') {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, next, 'utf8')
+  }
+  return { path, action }
+}
+
 function gitExcludePath(target: string): string | undefined {
   const gitDirPath = join(target, '.git')
   if (!existsSync(gitDirPath)) return undefined
@@ -183,6 +218,7 @@ function main(): void {
   const files = [
     ensurePromptFile(target, join('.pi', 'APPEND_SYSTEM.md'), activationBody('Pi'), args.dryRun),
     ensurePromptFile(target, join('.omp', 'APPEND_SYSTEM.md'), activationBody('OMP'), args.dryRun),
+    ensurePiSettings(target, args.dryRun),
   ]
   const exclude = ensureGitExclude(target, args.dryRun)
   printResult(target, files, exclude, args)

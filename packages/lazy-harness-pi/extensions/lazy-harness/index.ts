@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -6,11 +7,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXTENSION_NAME = "lazy-harness";
-const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-visual-20260701";
+const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-steering-20260701";
 const MAX_RECENT_TOOL_CALLS = 80;
 const DEFAULT_TIMEOUT_MS = Number(process.env.LAZY_HARNESS_PI_HOOK_TIMEOUT_MS || 15000);
 
 type JsonObject = Record<string, unknown>;
+type ReadDebtStatus = "armed" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
+type HookResult = { stdout: string; stderr: string; status: number | null; signal?: string | null; error?: string };
 
 type RecentToolCall = {
   name: string;
@@ -23,8 +26,9 @@ type RecentToolCall = {
 };
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
-const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtArmed: boolean }>();
+const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
+const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
 const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Jcode-parity mid-turn re-grounding state (see the "context" handler).
@@ -58,7 +62,7 @@ function findLazyRootForInvocation(event: any, ctx: any): string | undefined {
   return findLazyRoot(resolveInvocationCwd(event, ctx));
 }
 
-function runHook(scriptPath: string, payload: JsonObject, root: string): { stdout: string; stderr: string; status: number | null; error?: string } {
+function runHook(scriptPath: string, payload: JsonObject, root: string): HookResult {
   const completed = spawnSync("bash", [scriptPath], {
     cwd: root,
     input: JSON.stringify(payload),
@@ -74,6 +78,7 @@ function runHook(scriptPath: string, payload: JsonObject, root: string): { stdou
     stdout: completed.stdout || "",
     stderr: completed.stderr || "",
     status: completed.status,
+    signal: completed.signal,
     error: completed.error ? String(completed.error) : undefined,
   };
 }
@@ -228,6 +233,14 @@ function isReadOnlyShell(args: JsonObject): boolean {
 function isActionTool(name: string, args: JsonObject): boolean {
   const lower = name.toLowerCase();
   if (["read", "grep", "find", "ls"].includes(lower)) return false;
+  if (lower === "batch" && Array.isArray((args as Record<string, unknown>).tool_calls)) {
+    return ((args as Record<string, unknown>).tool_calls as unknown[]).some((call) => {
+      const c = (call && typeof call === "object" ? call : {}) as Record<string, unknown>;
+      const nestedName = String(c.tool || c.name || c.toolName || "");
+      const nestedArgs = (c.parameters && typeof c.parameters === "object" ? c.parameters : c.input && typeof c.input === "object" ? c.input : {}) as JsonObject;
+      return isActionTool(nestedName, nestedArgs);
+    });
+  }
   if (MUTATION_TOOL_NAMES.has(lower)) return true;
   if (lower === "bash") return !isReadOnlyShell(args);
   if (ACTION_NAME_RE.test(name)) return true;
@@ -235,24 +248,83 @@ function isActionTool(name: string, args: JsonObject): boolean {
   return false;
 }
 
-function armStatusMessage(root: string, readDebtArmed: boolean): string {
-  return `lazy-harness armed: ${EXTENSION_RUNTIME_MARKER} root=${root} read-debt=${readDebtArmed ? "armed" : "NOT-ARMED"} tool-guard=ready`;
+function readDebtLabel(status: ReadDebtStatus): string {
+  if (status === "armed") return "armed";
+  if (status === "not-armed-synthetic") return "not-armed(synthetic-turn)";
+  if (status === "not-armed-hook-timeout") return "not-armed(hook-timeout)";
+  if (status === "not-armed-hook-error") return "not-armed(hook-error)";
+  return "not-armed(hook-empty)";
 }
 
-function readDebtNotArmedReason(root: string, name: string): string {
+function readDebtArmed(status: ReadDebtStatus): boolean {
+  return status === "armed";
+}
+
+function firstLine(value: string, max = 120): string {
+  return value.trim().split(/\r?\n/)[0]?.replace(/\s+/g, " ").slice(0, max) || "";
+}
+
+function hookErrorDetail(hook: HookResult, hookBody?: string): string | undefined {
+  if (hook.error) {
+    if (hook.error.includes("ETIMEDOUT")) return `timeout>${DEFAULT_TIMEOUT_MS}ms`;
+    return hook.error.replace(/\s+/g, " ").slice(0, 120);
+  }
+  if (hook.signal) return `signal=${hook.signal}`;
+  if (hook.status !== null && hook.status !== 0) return `exit=${hook.status}${hook.stderr.trim() ? ` stderr=${firstLine(hook.stderr, 100)}` : ""}`;
+  if (!hookBody && hook.stderr.trim()) return `stderr=${firstLine(hook.stderr, 120)}`;
+  if (!hookBody && hook.stdout.trim()) return `unparseable-stdout=${firstLine(hook.stdout, 120)}`;
+  if (!hookBody) return "empty-output";
+  return undefined;
+}
+
+function classifyReadDebtStatus(prompt: string, hook: HookResult, hookBody: string | undefined): ReadDebtStatus {
+  if (hookBody) return "armed";
+  if (!prompt.trim()) return "not-armed-synthetic";
+  if (hook.error?.includes("ETIMEDOUT")) return "not-armed-hook-timeout";
+  if (hook.error || (hook.status !== null && hook.status !== 0)) return "not-armed-hook-error";
+  return "not-armed-hook-empty";
+}
+
+function steeringReminder(root: string, status: ReadDebtStatus, detail?: string): string {
+  const statusLabel = readDebtLabel(status);
+  const synthetic = status === "not-armed-synthetic";
+  return [
+    synthetic
+      ? "REMINDER. Synthetic/steering turn; read-debt was not armed."
+      : `REMINDER. Harness-first search/read debt before response. lazy-harness read-debt was not armed (${statusLabel}).`,
+    `Root: ${root}`,
+    detail ? `Hook detail: ${detail}` : undefined,
+    "Do not make host-specific claims or mutations from memory.",
+    "If project detail is needed, run `.lazy-harness/bin/lazy map --overview --complete --format=md`, drill into a concrete feature id / record path / graph id / source path / test path copied from the map, and read real records/source/tests before proceeding.",
+    "Action tools remain guarded until a human turn arms read-debt or sufficient map/read evidence exists.",
+  ].filter(Boolean).join("\n");
+}
+
+function armStatusMessage(root: string, status: ReadDebtStatus, detail?: string): string {
+  const detailSuffix = detail ? ` hook=${detail.replace(/\s+/g, "_").slice(0, 80)}` : "";
+  const phase = readDebtArmed(status) ? "phase=armed" : "phase=debug";
+  return `lazy-harness read-debt: ${EXTENSION_RUNTIME_MARKER} root=${root} status=${readDebtLabel(status)} ${phase}${detailSuffix} tool-guard=ready`;
+}
+
+function readDebtNotArmedReason(root: string, name: string, status: ReadDebtStatus, detail?: string): string {
   return [
     "[lazy-harness read-debt not armed] action blocked before map/read evidence.",
     "",
     `Runtime marker: ${EXTENSION_RUNTIME_MARKER}`,
     `Root: ${root}`,
     `Tool: ${name}`,
+    `Status: ${readDebtLabel(status)}`,
+    detail ? `Hook detail: ${detail}` : undefined,
     "",
-    "This means before_agent_start did not arm the per-turn search/read debt row, or the hook failed before producing the turn-start reminder.",
-    "Do this first:",
-    "  - run `.lazy-harness/bin/lazy map --overview --complete --format=md`",
-    "  - drill into a concrete feature id, record path, graph id, source path, or test path copied from the map",
-    "  - read canonical records/files before rerunning the action",
-  ].join("\n");
+    "This means the turn-start read-debt reminder did not arm, so lazy-harness cannot prove map/read evidence exists for this action yet.",
+    "Recovery for the agent:",
+    "  1. Stop the blocked action; do not retry the same mutation immediately.",
+    "  2. Run: `.lazy-harness/bin/lazy map --overview --complete --format=md`.",
+    "  3. Pick a concrete feature id, record path, graph id, source path, or test path from that map output; never invent a query string.",
+    "  4. Run: `.lazy-harness/bin/lazy map <copied-node> --format=md --limit=8`.",
+    "  5. Read the governing record(s) and linked source/tests, then state the evidence and retry only if the action is still needed.",
+    "  6. If Status is hook-timeout/hook-error/hook-empty, report the visible `lazy-harness read-debt` marker and hook detail; after code/package update, restart/reload Pi/OMP if the marker still says `lazy-harness armed` or `read-debt=NOT-ARMED`.",
+  ].filter(Boolean).join("\n");
 }
 
 function normalizePiTool(toolName: unknown, input: unknown): { name: string; args: JsonObject } {
@@ -323,7 +395,77 @@ async function runPackageScript(pi: ExtensionAPI, ctx: any, args: string, script
   ctx.ui?.notify?.(`lazy-harness package script exit=${code}\n${body}`, code ? "warning" : "info");
 }
 
+function resolveTargetPath(ctx: any, targetPath: string): string {
+  const raw = String(targetPath || "").trim();
+  if (!raw) throw new Error("targetPath is required");
+  return resolve(resolveInvocationCwd(undefined, ctx), raw.replace(/^~(?=\/|$)/, process.env.HOME || "~"));
+}
+
+async function switchToProjectSession(ctx: any, target: string, prompt?: string): Promise<string> {
+  if (!existsSync(join(target, ".lazy-harness", "bin", "lazy"))) {
+    throw new Error(`target is not a lazy-harness project: ${target}`);
+  }
+  if (typeof ctx.switchSession !== "function") {
+    throw new Error("Pi command context does not expose switchSession; use /lazy-move from an interactive command context");
+  }
+  const session = SessionManager.create(target);
+  const sessionFile = session.getSessionFile();
+  if (!sessionFile) throw new Error(`failed to create persisted session for ${target}`);
+  await ctx.switchSession(sessionFile, {
+    withSession: async (nextCtx: any) => {
+      nextCtx.ui?.notify?.(`lazy-harness moved to ${target}`, "info");
+      if (prompt && typeof nextCtx.sendUserMessage === "function") {
+        await nextCtx.sendUserMessage(prompt);
+      }
+    },
+  });
+  return sessionFile;
+}
+
+async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: string, branch?: string, baseRef?: string): Promise<string> {
+  const args = ["worktree", "add"];
+  if (branch && branch.trim()) args.push("-b", branch.trim());
+  args.push(target);
+  if (baseRef && baseRef.trim()) args.push(baseRef.trim());
+  const result = await pi.exec("git", args, { cwd: root, timeout: 120000, signal: ctx.signal });
+  const stdout = String((result as any).stdout ?? "").trim();
+  const stderr = String((result as any).stderr ?? "").trim();
+  const code = (result as any).exitCode ?? (result as any).code ?? 0;
+  if (code) throw new Error(`git ${args.join(" ")} failed exit=${code}\n${[stdout, stderr].filter(Boolean).join("\n")}`);
+  return [stdout, stderr].filter(Boolean).join("\n");
+}
+
 export default function lazyHarnessPi(pi: ExtensionAPI) {
+  pi.on("input", async (event: any, ctx: any) => {
+    const root = findLazyRootForInvocation(event, ctx);
+    if (!root) return undefined;
+    lastInputByRoot.set(root, {
+      text: String(event.text || ""),
+      streamingBehavior: typeof event.streamingBehavior === "string" ? event.streamingBehavior : undefined,
+      source: typeof event.source === "string" ? event.source : undefined,
+      at: Date.now(),
+    });
+    // jcode delivery parity: jcode delivered user messages only BETWEEN turns
+    // (follow-up semantics). Pi's default Enter *steers* mid-turn, which skips
+    // before_agent_start entirely — the new instruction would silently inherit the
+    // previous topic's read-debt evidence and lose the §2.1 record-search push.
+    // Organic fix (ADR 0041/0051): transform the steered text with a compact
+    // steer re-ground reminder and force the next context call to re-inject the
+    // harness re-grounding body. Extension-injected messages are exempt.
+    if (event.streamingBehavior === "steer" && event.source !== "extension") {
+      const steerText = String(event.text || "");
+      if (steerText.trim()) {
+        pendingRegroundByRoot.set(root, true); // re-ground on the next LLM call
+        regroundBodyByRoot.delete(root); // recompute body with current turn state
+        return {
+          action: "transform",
+          text: `${steerText}\n\n<system-reminder>\nlazy-harness steer re-ground: this instruction arrived MID-TURN (jcode delivered user messages only between turns). Before acting on it: if it opens a new topic/scope, run \`.lazy-harness/bin/lazy map --overview\` and drill into the governing .lazy-harness records for the NEW topic first (AGENTS §2.1/§2.5); prior-turn evidence and approvals may be stale for this instruction (ADR 0038).\n</system-reminder>`,
+        };
+      }
+    }
+    return undefined;
+  });
+
   pi.on("before_agent_start", async (event: any, ctx: any) => {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
@@ -342,6 +484,9 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       lastAdvisoryByRoot.delete(root);
     }
     await ensureAskToolActive(pi); // keep OMP's native `ask` selector available for §2.3 option gates
+    const promptText = String(event.prompt || "");
+    // Steering/followUp starts are intentionally treated like regular read-debt starts:
+    // if Pi supplies a non-empty prompt, run on-message-received.sh and arm the turn.
 
     const payload: JsonObject = {
       event: "message.received",
@@ -354,15 +499,14 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-message-received.sh");
-    const hook = existsSync(script) ? runHook(script, payload, root) : { stdout: "", stderr: "", status: 0 };
+    const hook: HookResult = existsSync(script)
+      ? runHook(script, payload, root)
+      : { stdout: "", stderr: "", status: 127, error: "hook-missing:on-message-received.sh" };
     const hookBody = hookInjectBody(hook.stdout);
-    const readDebtArmed = Boolean(hookBody);
-    activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtArmed });
-    const body = hookBody ?? [
-      "REMINDER. Harness-first search/read debt before response.",
-      "- Pi lazy-harness package loaded; inspect real .lazy-harness records/source/tests before host-specific claims or mutation.",
-      "- Mutation remains guarded by the generic search/read evidence guard.",
-    ].join("\n");
+    const readDebtStatus = classifyReadDebtStatus(promptText, hook, hookBody);
+    const readDebtDetail = readDebtArmed(readDebtStatus) ? undefined : hookErrorDetail(hook, hookBody);
+    activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus, readDebtDetail });
+    const body = hookBody ?? steeringReminder(root, readDebtStatus, readDebtDetail);
 
     // jcode load_harness_dir parity: force-load the FULL .lazy-harness/AGENTS.md grammar into the
     // system prompt every session (OMP/Pi otherwise only load a compact pointer). Deduped by the
@@ -376,7 +520,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       } catch { /* fail-open: reminder only */ }
     }
 
-    const message = { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtArmed), display: true };
+    const message = { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtStatus, readDebtDetail), display: true };
     if (systemPromptIncludesBody(event.systemPrompt, inject)) return { message };
     return { message, systemPrompt: appendSystemPromptBody(event.systemPrompt, inject) };
   });
@@ -388,11 +532,11 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
-      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtArmed: false };
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const normalized = normalizePiTool(event.toolName, event.input || {});
-    if (!packet.readDebtArmed && isActionTool(normalized.name, normalized.args)) {
-      return { block: true, reason: readDebtNotArmedReason(root, normalized.name) };
+    if (!readDebtArmed(packet.readDebtStatus) && isActionTool(normalized.name, normalized.args)) {
+      return { block: true, reason: readDebtNotArmedReason(root, normalized.name, packet.readDebtStatus, packet.readDebtDetail) };
     }
 
     const payload: JsonObject = {
@@ -470,10 +614,9 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
-
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
-      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtArmed: false };
+      : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const messages = Array.isArray(event.messages) ? event.messages : [];
     const payload: JsonObject = {
@@ -515,6 +658,64 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     }
     return undefined;
   });
+
+  pi.registerCommand("lazy-move", {
+    description: "Move Pi to another lazy-harness project/session. Usage: /lazy-move /path/to/project [--prompt text]",
+    handler: async (args: string, ctx: any) => {
+      const [targetArg, ...rest] = String(args || "").trim().split(/\s+/).filter(Boolean);
+      const target = resolveTargetPath(ctx, targetArg || "");
+      const promptIndex = rest.indexOf("--prompt");
+      const prompt = promptIndex >= 0 ? rest.slice(promptIndex + 1).join(" ") : undefined;
+      await switchToProjectSession(ctx, target, prompt);
+    },
+  });
+
+  // Fail-open: older Pi/OMP runtimes (and the self-test smoke stub) may not expose
+  // registerTool; the /lazy-move command remains the fallback surface.
+  if (typeof (pi as any).registerTool === "function") pi.registerTool({
+    name: "lazy_move_project",
+    label: "Lazy Move Project",
+    description: "Create an optional git worktree and queue a lazy-harness project move. Use when the user asks to move/switch Pi to another repo/worktree.",
+    promptSnippet: "Create a worktree if requested, then queue /lazy-move to switch Pi to the target lazy-harness project.",
+    promptGuidelines: [
+      "Use lazy_move_project when the user asks to move/switch to another lazy-harness project or to create a worktree and continue there.",
+      "lazy_move_project should only be used with an explicit targetPath/worktreePath from the user or from read project evidence; do not invent paths.",
+    ],
+    parameters: Type.Object({
+      targetPath: Type.Optional(Type.String({ description: "Existing lazy-harness project path to move to. Required unless worktreePath is supplied." })),
+      createWorktree: Type.Optional(Type.Boolean({ description: "Whether to create a git worktree before moving." })),
+      worktreePath: Type.Optional(Type.String({ description: "Path for a new git worktree. Used as targetPath when createWorktree is true." })),
+      branch: Type.Optional(Type.String({ description: "Optional new branch name for git worktree add -b." })),
+      baseRef: Type.Optional(Type.String({ description: "Optional base ref for git worktree add." })),
+      prompt: Type.Optional(Type.String({ description: "Optional prompt to send after switching session." })),
+      autoSwitch: Type.Optional(Type.Boolean({ description: "Queue /lazy-move after worktree creation. Defaults to true." })),
+    }),
+    async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, _onUpdate: any, ctx: any) {
+      const root = findLazyRootForInvocation(undefined, ctx);
+      if (!root) throw new Error("lazy-harness root not found from current cwd");
+      const target = resolveTargetPath(ctx, params.createWorktree ? params.worktreePath : params.targetPath);
+      let worktreeOutput = "";
+      if (params.createWorktree) {
+        worktreeOutput = await createWorktree(pi, { ...ctx, signal }, root, target, params.branch, params.baseRef);
+      }
+      if (!existsSync(join(target, ".lazy-harness", "bin", "lazy"))) {
+        throw new Error(`target is not a lazy-harness project after preparation: ${target}`);
+      }
+      const autoSwitch = params.autoSwitch !== false;
+      if (autoSwitch && typeof (pi as any).sendUserMessage === "function") {
+        const promptSuffix = params.prompt ? ` --prompt ${String(params.prompt).replace(/\s+/g, " ")}` : "";
+        (pi as any).sendUserMessage(`/lazy-move ${target}${promptSuffix}`, { deliverAs: "followUp" });
+      }
+      const message = autoSwitch
+        ? `Prepared ${target} and queued /lazy-move.`
+        : `Prepared ${target}. Run /lazy-move ${target} to switch.`;
+      return {
+        content: [{ type: "text", text: [message, worktreeOutput].filter(Boolean).join("\n") }],
+        details: { targetPath: target, autoSwitch, worktreeOutput },
+      };
+    },
+  });
+  // (registerTool guard ends here)
 
   pi.registerCommand("lazy-map", {
     description: "Run lazy map from the current project root. Usage: /lazy-map --overview --format=md --limit=20",

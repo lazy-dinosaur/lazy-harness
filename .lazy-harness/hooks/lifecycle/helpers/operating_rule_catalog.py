@@ -13,10 +13,12 @@ intent itself. Single source of the catalog format for both hooks.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 
 MAX_ENTRIES = 14
 MAX_INTENT_CHARS = 140
+CATALOG_COMMAND_TIMEOUT_SECONDS = float(os.environ.get("LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS", "3"))
 
 HEADER = (
     "- Operating rules/capabilities registered for THIS project (deterministic catalog). "
@@ -33,7 +35,7 @@ def _run_json(lazy_bin: str, args: list, cwd: str) -> dict:
             [lazy_bin] + list(args),
             capture_output=True,
             text=True,
-            timeout=8,
+            timeout=CATALOG_COMMAND_TIMEOUT_SECONDS,
             cwd=cwd,
         )
         data = json.loads(result.stdout or "{}")

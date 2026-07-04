@@ -16,14 +16,43 @@
 
 set +e
 
-PAYLOAD=$(cat || echo '{}')
+PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/lazy-harness-message.XXXXXX.json" 2>/dev/null || true)"
+if [ -n "$PAYLOAD_FILE" ]; then
+  cat > "$PAYLOAD_FILE" || true
+  PAYLOAD_REF="@file:$PAYLOAD_FILE"
+  trap 'rm -f "$PAYLOAD_FILE"' EXIT
+else
+  # Last-resort fallback if tmp creation fails. Keep the payload empty rather than
+  # passing a potentially huge prompt through argv/env and tripping ARG_MAX.
+  cat >/dev/null || true
+  PAYLOAD_REF=""
+fi
+
+PYTHON_BIN="${PYTHON_BIN:-}"
+if [ -n "$PYTHON_BIN" ] && { [ ! -x "$PYTHON_BIN" ] || [ -d "$PYTHON_BIN" ]; }; then
+  PYTHON_BIN=""
+fi
+if [ -z "$PYTHON_BIN" ]; then
+  if [ -x /usr/bin/python3 ] && [ ! -d /usr/bin/python3 ]; then
+    PYTHON_BIN=/usr/bin/python3
+  elif [ -x /opt/homebrew/bin/python3 ] && [ ! -d /opt/homebrew/bin/python3 ]; then
+    PYTHON_BIN=/opt/homebrew/bin/python3
+  else
+    PYTHON_BIN="$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)"
+  fi
+fi
+if [ -z "$PYTHON_BIN" ] || [ ! -x "$PYTHON_BIN" ] || [ -d "$PYTHON_BIN" ]; then
+  exit 0
+fi
 
 ROOT_CANDIDATE="${LAZY_HOST_ROOT:-}"
 if [ -z "$ROOT_CANDIDATE" ] || [ ! -d "$ROOT_CANDIDATE/.lazy-harness" ]; then
-  ROOT_CANDIDATE=$(PAYLOAD="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
+  ROOT_CANDIDATE=$(PAYLOAD_FILE="$PAYLOAD_FILE" "$PYTHON_BIN" <<'PY' 2>/dev/null || true
 import json, os
+payload_file = os.environ.get('PAYLOAD_FILE') or ''
 try:
-    data=json.loads(os.environ.get('PAYLOAD') or '{}')
+    raw = open(payload_file, encoding='utf-8', errors='ignore').read() if payload_file else '{}'
+    data=json.loads(raw or '{}')
 except Exception:
     data={}
 print(data.get('working_dir') or data.get('cwd') or '')
@@ -41,10 +70,10 @@ cd "$ROOT_CANDIDATE" || exit 0
 if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
   # shellcheck disable=SC1091
   . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
-  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
+  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD_REF"
 fi
 
-python3 - "$ROOT_CANDIDATE" "$PAYLOAD" <<'PY'
+"$PYTHON_BIN" - "$ROOT_CANDIDATE" "$PAYLOAD_REF" <<'PY'
 import hashlib
 import json
 import os
@@ -60,7 +89,14 @@ except Exception:  # pragma: no cover - lifecycle helper must fail open
     _catalog_lines = None
 
 root = Path(sys.argv[1])
-payload_raw = sys.argv[2] if len(sys.argv) > 2 else '{}'
+payload_ref = sys.argv[2] if len(sys.argv) > 2 else '{}'
+try:
+    if payload_ref.startswith('@file:'):
+        payload_raw = Path(payload_ref[6:]).read_text(encoding='utf-8', errors='ignore')
+    else:
+        payload_raw = payload_ref
+except Exception:
+    payload_raw = '{}'
 try:
     payload = json.loads(payload_raw) if payload_raw.strip() else {}
 except Exception:
@@ -221,3 +257,8 @@ print(json.dumps({
     }
 }, ensure_ascii=False))
 PY
+status=$?
+if [ "$status" -ne 0 ]; then
+  printf '%s\n' '{"action":"allow","inject":{"body":"REMINDER. Harness-first search/read debt before response.\n- Hook fallback: Python reminder generation failed; run `.lazy-harness/bin/lazy map --overview --complete --format=md`, drill into a copied concrete node, and read real records/source/tests before host-specific claims or mutations.\n- This fallback is intentionally minimal; report the hook failure and fix the lifecycle hook/runtime after satisfying map/read evidence.\n","format":"system_reminder"}}}'
+fi
+exit 0

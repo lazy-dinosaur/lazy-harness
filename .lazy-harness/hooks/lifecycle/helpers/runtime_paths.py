@@ -174,7 +174,10 @@ if __name__ == "__main__":
     payload: dict[str, Any] = {}
     if len(sys.argv) > 2 and sys.argv[2].strip():
         try:
-            payload = json.loads(sys.argv[2])
+            payload_raw = sys.argv[2]
+            if payload_raw.startswith("@file:"):
+                payload_raw = Path(payload_raw[6:]).read_text(encoding="utf-8", errors="ignore")
+            payload = json.loads(payload_raw)
         except Exception:
             payload = {}
     mode = sys.argv[1] if len(sys.argv) > 1 else "runtime-root"
