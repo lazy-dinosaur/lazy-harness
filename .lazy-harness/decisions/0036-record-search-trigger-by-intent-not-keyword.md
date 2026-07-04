@@ -9,6 +9,11 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 검색 트리거
+  - search trigger
+  - 의도 분류
+  - 키워드 매칭 아님
 - Applies when:
   - user mentions any host detail, name, path, behavior, or rule (implement, fix, debug, look up, locate, ask, verify source)
   - e.g. "where is X?", "where does AGENTS.md load from?", "find feature Y"

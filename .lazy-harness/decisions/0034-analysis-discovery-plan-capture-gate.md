@@ -8,6 +8,11 @@ Date: 2026-05-14
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 발견 캡처
+  - discovery capture
+  - 분석 기록 게이트
+  - candidates 기록
 - Applies when:
   - performing non-trivial analysis or planning for a project change before implementing
   - discovering domain terms, contracts, behaviors, regressions, ownership, or multi-step plans

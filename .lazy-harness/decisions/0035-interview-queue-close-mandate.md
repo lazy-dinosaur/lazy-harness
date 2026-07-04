@@ -10,6 +10,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 인터뷰 큐
+  - interview queue
+  - 질문 닫기
+  - open.xml
+  - queue close
 - Applies when:
   - user answers or picks an option for a queued question (e.g. "Q1=A", "go with C", "A")
   - working with `.lazy-harness/questions/open.xml`, interview-loop, or tdd-cross-verify gates

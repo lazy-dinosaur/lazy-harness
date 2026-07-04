@@ -9,6 +9,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 사용자 정정
+  - user correction
+  - 소유권 수렴
+  - 정정 수렴
+  - ownership SSOT
 - Applies when:
   - a user corrects host role, ownership, source-of-truth, or forbidden work
   - deciding which layer records an ownership/boundary fact (default SSOT)

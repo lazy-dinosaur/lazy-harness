@@ -12,6 +12,10 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 사전 규칙 컨텍스트
+  - pre-response
+  - 응답 전 규칙 주입
 - Applies when:
   - configuring Jcode `message.received` or pre-turn context hooks
   - implementing same-turn lazy-harness direct-search prompt injection

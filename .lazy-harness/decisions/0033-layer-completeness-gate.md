@@ -8,6 +8,11 @@ Date: 2026-05-14
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - layer 완전성
+  - layer completeness
+  - 영향도 판단
+  - 교차 layer 영향
 - Applies when:
   - creating or updating a TDD/regression record for a bug fix
   - judging whether a change also affects SDD/BDD/SSOT/DDD layers

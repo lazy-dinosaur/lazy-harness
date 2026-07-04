@@ -10,6 +10,10 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - TDD 교차검증
+  - tdd cross verify
+  - 테스트 게이트
 - Applies when:
   - source code changes and you check test coverage/consistency before finishing
   - deciding whether to stop, warn, or force a gate based on test-to-layer alignment

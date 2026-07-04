@@ -13,6 +13,9 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 규칙 컨텍스트 회귀
+  - pre-response 테스트
 - Applies when:
   - changing `.lazy-harness/hooks/lifecycle/on-message-received.sh`
   - compacting or expanding the default `message.received` prompt

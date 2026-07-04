@@ -10,6 +10,10 @@ Related standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 완전성 게이트
+  - completeness check
+  - 교차 layer 검사
 - Applies when:
   - a turn creates or updates a TDD/regression record (bug fix or regression protection)
   - judging whether a fix also touched contracts, behavior, source-of-truth, or domain rules

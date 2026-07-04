@@ -11,6 +11,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 옵션 게이트
+  - option gate
+  - 3-5 선택지
+  - Recommended 표시
+  - 자가선택 금지
 - Applies when:
   - a detector or classifier hits an ambiguous or low-confidence case
   - deciding whether to auto-apply, recommend, or stop for human confirmation
