@@ -13,6 +13,11 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Status: active
 - Layer: BDD
 - Scope: framework-global
+- Aliases:
+  - LLM 검색 주체
+  - 검색 행동 규약
+  - retrieval behavior
+  - 메타데이터 큐
 - Applies when:
   - an agent/searcher uses searchable record memory before answering, planning, or editing
   - an agent/searcher starts a retrieval flow with `lazy map --overview`

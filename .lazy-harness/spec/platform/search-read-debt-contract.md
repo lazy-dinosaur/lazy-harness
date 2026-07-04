@@ -12,6 +12,12 @@ Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 검색 빚
+  - read debt
+  - 리드 뎁트
+  - 증거 게이트
+  - evidence guard
 - Applies when:
   - changing `message.received` search/read debt journaling
   - changing the generic pre-action evidence guard

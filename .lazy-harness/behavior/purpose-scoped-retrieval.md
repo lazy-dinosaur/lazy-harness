@@ -12,6 +12,10 @@ Related TDD: `.lazy-harness/tests/purpose-scoped-retrieval.md`
 - Status: active
 - Layer: BDD
 - Scope: framework-global
+- Aliases:
+  - 맵 검색 행동
+  - 검색 시나리오
+  - map 사용법
 - Applies when:
   - an agent chooses where to look for context
   - an agent differentiates project facts, expectations, contracts, validation, ownership, and source links

@@ -23,6 +23,11 @@ Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 - Status: active
 - Layer: DDD
 - Scope: framework-global
+- Aliases:
+  - 검색 용어
+  - retrieval 용어
+  - cue-only
+  - 큐 온리
 - Applies when:
   - discussing record search vs project map traversal
   - changing retrieval CLI behavior

@@ -14,6 +14,12 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 맵 우선
+  - map first
+  - 맵 퍼스트 검색
+  - purpose find 폐지
+  - 검색 프로토콜
 - Applies when:
   - retrieving project understanding or locating records, source, or tests in a host
   - choosing how to discover implementation evidence before answering or planning

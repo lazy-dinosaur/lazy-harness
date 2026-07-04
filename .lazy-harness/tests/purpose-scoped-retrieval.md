@@ -10,6 +10,10 @@ Related SDD: `.lazy-harness/spec/platform/purpose-scoped-retrieval.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 맵 회귀 테스트
+  - map regression
+  - 검색 보호
 - Applies when:
   - changing retrieval helpers, map traversal, or search/read-debt evidence rules
   - validating that agents follow the project map instead of delegating semantic search to a CLI

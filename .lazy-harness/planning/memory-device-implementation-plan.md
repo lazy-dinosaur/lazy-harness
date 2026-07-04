@@ -163,3 +163,4 @@ Status: approved-direction; execution via guided skill, batch-by-batch user chec
 ### W8 batch log
 
 - Batch 1 (2026-07-04, user-approved proposal): core-6 aliases (ADR 0016/0024/0049, digest-format, write-update-policy, record-lint SDD) + orphan repairs (0038←0019, graph-hygiene←progressive-knowledge-graph, sdd-component-contract-trigger←layer-completeness-gate, todo-reminder-loop←bdd-trigger reciprocal + full-path ref fix; jcode-era TDD already needs-review, left demoted). Results: advisories 160→151, orphans 4→0, aliases coverage 1→11, lint 0 issues.
+- Batch 2 (2026-07-04, user-approved): retrieval/rule-recall cluster aliases — 0045 + purpose-scoped-retrieval SDD/BDD/DDD/TDD, cli-tool-boundary, 0041, search-read-debt-contract, project-rule-router, llm-owned-record-retrieval. Results: advisories 151→141, coverage 11→21, orphans 0 maintained, lint 0 issues.

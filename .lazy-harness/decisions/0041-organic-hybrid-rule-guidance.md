@@ -9,6 +9,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 유기적 가이드
+  - organic hybrid
+  - 규칙 회수
+  - rule recall
+  - 사전 검색 프롬프트
 - Applies when:
   - user asks how lazy-harness should remember and apply stored rules
   - 사용자가 저장한 규칙, 기억, 인지, 따르기, 응답 전후 쿼리를 이야기한다

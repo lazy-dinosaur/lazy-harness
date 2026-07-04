@@ -13,6 +13,12 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 규칙 배치
+  - rule placement
+  - 어느 record 에
+  - 규칙 라우팅
+  - 팀 규칙 저장
 - Applies when:
   - user confirms or corrects a project rule, workflow rule, ownership, or source-of-truth fact
   - 사용자가 프로젝트 규칙, 룰, 기록 위치, AGENTS, Pi/OMP 로컬 노트(`.pi/`/`.omp/`), SSOT를 언급한다

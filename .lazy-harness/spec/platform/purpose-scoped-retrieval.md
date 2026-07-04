@@ -14,6 +14,12 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - lazy map
+  - 맵 명령
+  - drill-down
+  - 드릴다운
+  - overview 계약
 - Applies when:
   - changing retrieval prompt guidance
   - changing `lazy map`, record-index, graph/index navigation, or search/read evidence semantics

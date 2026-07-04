@@ -12,6 +12,12 @@ Related SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - CLI 경계
+  - 도구 경계
+  - tool boundary
+  - CLI 는 판단 금지
+  - 시맨틱 권위
 - Applies when:
   - adding or changing CLI helpers, lifecycle hooks, generated indexes, search/query helpers, context delivery, or record/write helpers
   - a tool would inspect raw user text, rank candidate importance, choose required reads, decide whether records should be written, choose risk/intent/gate, or pick the next action
