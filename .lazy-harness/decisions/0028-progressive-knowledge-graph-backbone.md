@@ -12,6 +12,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 지식 그래프
+  - knowledge graph
+  - graph.jsonl
+  - 그래프 백본
+  - edge 축적
 - Applies when:
   - capturing, querying, correcting, or validating reusable project knowledge
   - designing knowledge-graph storage, candidate capture, or confirmation flow

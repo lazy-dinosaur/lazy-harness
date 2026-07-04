@@ -11,6 +11,10 @@ Related SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 임플맵 마이그레이션
+  - impl map 이관
+  - needs-map
 - Applies when:
   - migrating existing host records to the ADR 0030 Implementation map, or auditing records for implementation links
 - Must:

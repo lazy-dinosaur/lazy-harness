@@ -14,6 +14,10 @@ Related SDD: `.lazy-harness/spec/platform/record-digest-format.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 인덱스 헤더
+  - index header
+  - record 메타데이터
 - Applies when:
   - adding or editing `## Index header` in a `.lazy-harness` record
   - designing deterministic record/source cache fields

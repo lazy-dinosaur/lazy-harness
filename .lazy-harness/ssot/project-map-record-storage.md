@@ -15,6 +15,10 @@ Related fixture: `.lazy-harness/fixtures/project-map-v2/record-branch-block.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 프로젝트 맵 저장
+  - project map branch
+  - 맵 브랜치
 - Applies when:
   - storing real project/framework knowledge in Project Map V2
   - writing or updating DDD/BDD/SDD/TDD/ADR/SSOT records that belong to a Project Map cluster

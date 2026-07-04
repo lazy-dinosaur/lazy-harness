@@ -3,7 +3,7 @@
   "mode": "backlink-index",
   "derived": true,
   "note": "Rebuildable derived index (backlinks are computed from forward links + graph.jsonl mentions; never hand-maintained). Cue-only; fallback: grep -rl <record-path> .lazy-harness/",
-  "generatedAt": "2026-07-04T13:11:39.786Z",
+  "generatedAt": "2026-07-04T13:20:05.684Z",
   "docCount": 229,
   "targetCount": 214,
   "entries": {

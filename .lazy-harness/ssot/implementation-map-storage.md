@@ -10,6 +10,10 @@ Related ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storag
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 임플맵 저장 위치
+  - 어디에 매핑
+  - graph 저장소
 - Applies when:
   - storing or updating implementation maps across Markdown records, graph facts, and the generated index
   - deciding which layer owns an implementation fact or whether the generated index is canonical

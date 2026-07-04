@@ -11,6 +11,11 @@ Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 임플맵 작성법
+  - impl map 형식
+  - 구현 매핑 규칙
+  - Primary files
 - Applies when:
   - writing or updating a record that refers to implemented behavior, or deciding where implementation facts live
 - Must:

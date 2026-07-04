@@ -10,6 +10,10 @@ Related plan: `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 그래프 파일
+  - graph 위치
+  - jsonl 저장
 - Applies when:
   - capturing, drafting, confirming, or superseding progressive knowledge-graph facts
   - deciding the storage path/owner for candidates, drafts, or canonical graph records

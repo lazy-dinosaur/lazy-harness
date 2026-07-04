@@ -8,6 +8,12 @@ Date: 2026-05-13
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 구현 맵
+  - implementation map
+  - 3층 저장
+  - 임플맵
+  - MD graph index
 - Applies when:
   - writing or updating an implemented DDD/SDD/BDD/TDD/ADR/SSOT record
   - recording how an implementation works and which files/symbols matter

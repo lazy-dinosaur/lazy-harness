@@ -10,6 +10,11 @@ Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 그래프 스키마
+  - graph schema
+  - edge 종류
+  - predicate
 - Applies when:
   - capturing, confirming, querying, or promoting reusable knowledge facts
   - designing how candidates, graph drafts, and the canonical graph are stored or projected
