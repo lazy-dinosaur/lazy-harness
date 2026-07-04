@@ -45,6 +45,32 @@ External harnesses are therefore references for mechanisms, not replacements for
 | OpenAI Agents SDK / Anthropic Agent SDK / Google ADK | provider-native orchestration, handoffs, guardrails, ecosystem integration | references for vendor-specific adapter capability surfaces, not canonical dependencies |
 | Pydantic AI / Semantic Kernel / Mastra / Strands Agents | type-safe app agents, enterprise orchestration, TS-first or AWS-centered integrations | compare only when lazy-harness needs production app-agent embedding |
 
+## Governance / workflow-enforcement frameworks (direct identity overlap)
+
+Unlike the references above (mechanisms to study), this category overlaps lazy-harness's own identity: deterministic process enforcement, human-in-the-loop gates, and a recorded decision trail. Treat these as competitors to study, not runtimes to install inside the lazy-harness source repo.
+
+| Framework | Public positioning | Strengths to study | Lazy-harness relevance |
+|---|---|---|---|
+| Babysitter (`@a5c-ai/babysitter-pi`, Pi integration Experimental v0.1.4, MIT) | Workflow orchestration/enforcement: event-sourced state, code- or NL-markdown-defined processes, quality gates before progression, human-in-the-loop approval at breakpoints, immutable decision journal, deterministic "hallucination-free self-orchestration"; thin Pi wrapper exposes `/babysit /call /plan /resume /doctor /yolo` slash aliases forwarding to `/skill:` (no custom tools/loop driver; orchestration lives in `@a5c-ai/babysitter-sdk`) | deterministic step-enforcement (block progression until a gate passes), event-sourced/replayable decision journal, explicit coded workflow definition, HITL breakpoints | closest direct competitor to lazy-harness enforcement; study its hard determinism but do not run it as a second governance layer in this source repo |
+| gentle-pi (`gentle-pi`, MIT v0.10.2, Gentleman Programming; 24.2 MB extension+skill+theme+prompt) | Full "controlled development harness": el Gentleman senior-architect persona, Spec-Driven Development via OpenSpec (init/explore/proposal/spec/design/tasks/apply/verify/sync/archive; canonical `openspec/specs/` + change deltas with ADDED/MODIFIED/REMOVED), Strict TDD evidence (RED->GREEN->TRIANGULATE->REFACTOR), subagent orchestration (scout/context-builder/worker/reviewer + delegation triggers), skill-discovery registry (`.atl/skill-registry.md`), runtime safety guards, per-agent model/effort routing, memory via `gentle-engram` (Engram Go binary, SQLite+FTS5) | OpenSpec delta-spec model (ADDED/MODIFIED/REMOVED vs canonical), RED->GREEN->TRIANGULATE->REFACTOR evidence shape, delegation triggers (4+ files->scout, 2+ code files->worker, commit->fresh reviewer), skill registry, per-agent model routing | closest PARALLEL of lazy-harness's own thesis (requirements-first, artifacts-over-chat, TDD, review); NON-INSTALLABLE here: bundles `@heyhuynhgiabuu/pi-pretty` which registers `read` -> hard conflict with `pi-hashline-edit-pro` (pi fails to start); study only |
+
+### lazy-harness vs Babysitter contrast
+
+- Same goal (govern an agent), opposite trade-off:
+  - lazy-harness = advisory/organic enforcement + LLM-as-semantic-authority + layered human-readable records; hard gate reserved for git pre-commit/pre-push `lazy test` (ADR 0016). Optimizes adaptability for open-ended development.
+  - Babysitter = deterministic step/gate enforcement + code-defined process + event-sourced journal. Optimizes guaranteed compliance for repeatable, high-stakes workflows.
+- What lazy-harness can learn (aligns with design ideas #2 deterministic record/replay, #3 typed lifecycle state, #10 observability): deterministic gate enforcement for the narrow set of already-hard gates (commit/push, irreversible ops), an event-sourced replayable decision journal, and explicit typed workflow state — without converting dev-time advisory hooks into rigid blocking gates.
+- What to NOT adopt: a second governance grammar inside this repo; `/yolo` auto-approve (antithetical to the requirements-first/option-gate discipline, ADR 0019/0038); and slash-command collisions (`/resume` is Pi-native, `/plan` and `/doctor` are generic).
+- Verdict: non-adopt as a runtime in the lazy-harness source repo; keep as a reference competitor. Any experiment belongs on a non-lazy-harness project. Best primary model: hybrid — lazy-harness flexible core, Babysitter-style determinism only on the narrow already-hard gates.
+
+### lazy-harness vs gentle-pi contrast
+
+- Closest parallel yet: gentle-pi independently implements lazy-harness's exact thesis (requirements-first, decisions-as-artifacts, TDD evidence, review discipline, skill discovery).
+- Where gentle-pi is ahead (study targets): turnkey SDD/OpenSpec phase workflow with file-backed artifacts; RED->GREEN->TRIANGULATE->REFACTOR strict TDD evidence; ACTIVE runtime safety guards (blocks destructive shell, sensitive-path read/write); deterministic delegation triggers; per-agent model/effort routing; polished onboarding (preflight, status/doctor, persona).
+- Where lazy-harness is ahead: depth of layered institutional memory (DDD/SDD/BDD/TDD/ADR/SSOT + knowledge graph + implementation maps) as git-tracked canonical SSOT; LLM-as-semantic-authority + map-first evidence retrieval; ownership/identity convergence and root-bound discipline; dogfood feedback loop.
+- Honest read: gentle-pi is the stronger turnkey workflow PRODUCT (more enforced, more polished); lazy-harness is the deeper institutional-memory SUBSTRATE with more flexible LLM-judgment enforcement but weaker active runtime blocking. lazy-harness's real weakness vs gentle-pi = enforcement is advisory until git boundaries (ADR 0016).
+- What to NOT adopt: full competing harness in this repo; the bundled-pi-pretty `read` conflict; persona/AGENTS-grammar injection. Verdict: non-adopt as a runtime; mine OpenSpec deltas, strict-TDD evidence, delegation triggers, and active safety guards as design references.
+
 ## Evaluation harnesses and benchmarks
 
 | Harness | Strengths to study | Lazy-harness relevance |
@@ -168,7 +194,7 @@ This section records additional well-known harnesses and products discovered aft
   - `.lazy-harness/knowledge/candidates.jsonl` — discovery/candidate trail that first captured the online research summary.
   - `.lazy-harness/decisions/0024-ai-first-framework-redesign.md` — identity constraint: AI-first lifecycle enforcement and SearchProvider delegation.
   - `.lazy-harness/README.md` — high-level lazy-harness identity and source-of-truth entry points.
-  - second-pass external references: Daintree, Emdash, AgentAPI, Gemini CLI, Qwen Code, Goose, Crush, Cursor, Devin, Replit Agent, Factory Droid, Junie, Amazon Q/Kiro, E2B, Daytona, Morph Cloud, Inspect AI, HAL, DeepEval, Ragas, DSPy.
+  - second-pass external references: Daintree, Emdash, AgentAPI, Gemini CLI, Qwen Code, Goose, Crush, Cursor, Devin, Replit Agent, Factory Droid, Junie, Amazon Q/Kiro, E2B, Daytona, Morph Cloud, Inspect AI, HAL, DeepEval, Ragas, DSPy, Babysitter (`@a5c-ai/babysitter-pi`), gentle-pi (`gentle-pi`).
 - Key symbols:
   - none; this is a planning/reference record, not an implemented code path.
 - Flow:
