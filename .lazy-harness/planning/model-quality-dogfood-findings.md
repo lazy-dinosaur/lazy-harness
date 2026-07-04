@@ -173,3 +173,31 @@ Implications:
 - Why not AGENTS.md: this is a framework architecture principle still being shaped through dogfooding, not final universal instruction text.
 - Why not `.jcode`: this is shared lazy-harness framework design, not local/private Jcode-only workflow.
 - Confirmation: user-confirmed
+
+## 2026-07-04 Claude session premature-execution finding (injection ≠ compliance specimen)
+
+Live dogfood case from the 2026-07-04 direction-discussion session (Claude, Pi runtime):
+
+- Failure pattern: during a requirements-discussion phase the agent repeatedly (2+ times) pushed "what shall we do next" execution option gates, violating ADR 0038 requirements-first ordering. Corrected only by user intervention ("지금 의논중이잖아").
+- Verified at failure time: prompt injection was WORKING — `lazy prompt-budget` pass (AGENTS.md 1,761 tokens enforced; message.received 758 tokens rendered), the agent could quote §2.5/ADR 0038 verbatim, and two Analysis-discovery-capture STOP gates fired post-hoc. Diagnosis: injection ≠ compliance; both STOP catches occurred AFTER the violation, consistent with the 2026-05-26 action-boundary finding above.
+- Agent self-diagnosis of causes (recorded as hypothesis, not verified mechanism):
+  1. output-pressure bias — "helpfulness = deliverable" training tilt pushes toward closure/action as conversations lengthen;
+  2. session-rhythm inertia — earlier approved analyze→gate→execute loops kept being applied after the user switched to discussion mode;
+  3. option-gate misuse — rendering an A/B/C/D "next action" gate FEELS like ADR 0019 compliance while actually being the ADR 0038 violation (jumping to action selection before requirements are formed);
+  4. stage self-assertion — "default = unknown" was applied to host knowledge but not to CONVERSATION PHASE; the agent self-asserted "discussion is done, execution follows" (a §2.5 assume-then-assert variant on phase rather than facts).
+- Implication (feeds two open tracks): (a) retro-loop proposal — this is exactly the L2 feedback class that currently evaporates in chat; (b) any future narrow fail-closed intervention should sit at the action boundary (before the mutating jump), since post-hoc reminders demonstrably fired and did not prevent.
+
+## Rule placement
+
+- Rule: premature-execution under a fully-injected grammar is a recurring model-behavior failure class; prevention requires action-boundary placement or loop-captured feedback, not more prompt volume.
+- Scope: transient-plan
+- Primary record: `.lazy-harness/planning/model-quality-dogfood-findings.md`
+- Why not AGENTS.md: dogfood finding/backlog, not a new universal rule (grammar already forbids the behavior; the gap is enforcement placement).
+- Confirmation: user-observed and user-corrected in session; recording requested by user ("우선 우리 모든내용 기록해두고").
+
+## Discovery capture
+
+- DDD/SDD/BDD/SSOT: none.
+- TDD: candidate — if a phase-guard or completion-boundary check is ever built, this session is its regression scenario.
+- ADR: none new; strengthens the existing ADR 0016 narrow-revisit question with a live specimen.
+- Planning: updated — this section; cross-feeds `retro-loop-first-development-path-proposal.md`.

@@ -99,6 +99,11 @@ Commands:
                                 Lint knowledge graph IDs and path hygiene
   record-lint [--format=json|md] [--fail-on-issues]
                                 Validate canonical records: Rule digest format + broken record refs
+  record-structure-audit [--format=json|md]
+                                Read-only W1 baseline: surface-term coverage, reachability/orphans, link density, graph schema census
+  backlink-index [--root=DIR]   Rebuild generated/backlink-index.json (derived backlinks from forward links + graph.jsonl)
+  retro feedback|report|resolve
+                                Retro learning loop MVP: classified feedback (L1/L2/L3), KPT report + 3-repeat pattern candidates, resolve after user-gated promotion
   regression add|lint        Register (validated, canonical) or lint Fix-commit regression entries
                                 add --sha <40hex> --description <t> --test <path> --repro <t> | lint [--fail-on-issues]
   gate-state list|clear-stale   Inspect or clear stale runtime open-gates state
@@ -295,6 +300,27 @@ case "$cmd" in
       exit 127
     fi
     exec bun "$SCRIPTS/record-lint.ts" "$@"
+    ;;
+  record-structure-audit)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy record-structure-audit: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/record-structure-audit.ts" "$@"
+    ;;
+  backlink-index)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy backlink-index: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/backlink-index.ts" "$@"
+    ;;
+  retro)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy retro: bun not found on PATH." >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/retro.ts" "$@"
     ;;
   regression)
     if ! command -v bun >/dev/null 2>&1; then

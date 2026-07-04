@@ -148,8 +148,9 @@ function loadFrameworkOwnedRecords(root: string): Set<string> {
   return owned
 }
 
-function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords: number; frameworkOwned: number } {
+function lint(root: string): { issues: Issue[]; advisories: Issue[]; inspected: number; cleanRecords: number; frameworkOwned: number } {
   const issues: Issue[] = []
+  const advisories: Issue[] = []
   let inspected = 0
   let cleanRecords = 0
   let frameworkOwned = 0
@@ -186,6 +187,15 @@ function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords:
 
         if (!/(?:^|\n)\s*-\s*Applies when\s*:/.test(block)) issues.push({ recordPath, code: 'digest-missing-applies-when', detail: 'Applies when bullet missing' })
         if (!/(?:^|\n)\s*-\s*Must\s*:/.test(block)) issues.push({ recordPath, code: 'digest-missing-must', detail: 'Must bullet missing' })
+
+        // ADR 0053 advisory (never exit-affecting): surface terms are the grep bait
+        // for bridging user vocabulary to records; coverage is advisory until dogfood
+        // evidence justifies promotion.
+        const hasAliases = /(?:^|\n)\s*-\s*Aliases\s*:\s*\n\s+-\s*\S/.test(block)
+        const hasSurfaceTerms = /(?:^|\n)\s*-\s*Surface terms\s*:\s*\n\s+-\s*\S/.test(block)
+        if (!hasAliases && !hasSurfaceTerms) {
+          advisories.push({ recordPath, code: 'advisory-missing-surface-terms', detail: 'digest has no non-empty Aliases/Surface terms (ADR 0053 grep-bait rule)' })
+        }
       }
 
       const scan = body.replace(/```[\s\S]*?```/g, '')
@@ -200,7 +210,7 @@ function lint(root: string): { issues: Issue[]; inspected: number; cleanRecords:
       if (issues.length === before) cleanRecords += 1
     }
   }
-  return { issues, inspected, cleanRecords, frameworkOwned }
+  return { issues, advisories, inspected, cleanRecords, frameworkOwned }
 }
 
 function renderMarkdown(payload: Record<string, unknown>): string {
@@ -224,13 +234,20 @@ function renderMarkdown(payload: Record<string, unknown>): string {
   } else {
     lines.push('', 'All canonical records pass digest-format and reference checks.')
   }
+  const advisories = (payload.advisories as Issue[] | undefined) ?? []
+  lines.push('', `- advisories (non-blocking): ${advisories.length}`)
+  if (advisories.length) {
+    const byCode: Record<string, number> = {}
+    for (const advisory of advisories) byCode[advisory.code] = (byCode[advisory.code] || 0) + 1
+    for (const [code, count] of Object.entries(byCode).sort()) lines.push(`  - ${code}: ${count}`)
+  }
   return `${lines.join('\n')}\n`
 }
 
 function main(): void {
   try {
     const args = parseArgs(process.argv.slice(2))
-    const { issues, inspected, cleanRecords, frameworkOwned } = lint(args.root)
+    const { issues, advisories, inspected, cleanRecords, frameworkOwned } = lint(args.root)
     const counts: Record<string, number> = {}
     for (const issue of issues) counts[issue.code] = (counts[issue.code] || 0) + 1
     const payload = {
@@ -243,6 +260,8 @@ function main(): void {
       issueCount: issues.length,
       counts,
       issues,
+      advisoryCount: advisories.length,
+      advisories,
       note: 'Read-only canonical-record validator (digest format + broken record refs). Enforce at the commit/push gate via lazy test, not a dev-time block.',
     }
     if (args.format === 'json') console.log(JSON.stringify(payload, null, 2))

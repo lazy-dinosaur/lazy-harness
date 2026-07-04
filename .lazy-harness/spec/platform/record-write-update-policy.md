@@ -147,6 +147,8 @@ Relevant-record query depends on duplicate control. Duplicate active digests cre
 Add or maintain:
 
 - `## Rule digest`
+- digest `Aliases`/`Surface terms` grep bait for new/updated reusable records — two sources: observed user vocabulary + LLM-generated variants (ADR 0053; advisory lint)
+- same-topic cross-links so any entry piece reaches the rest — acceptance is reachability, audited by `lazy record-structure-audit` (ADR 0053); backlinks stay derived (`lazy backlink-index`), never hand-written
 - `## Project Map branch` when the record participates in a Project Map V2 cluster
 - `## Implementation map` when implementation exists or will exist
 - `## Rule placement` when the record captures a user-confirmed rule/correction

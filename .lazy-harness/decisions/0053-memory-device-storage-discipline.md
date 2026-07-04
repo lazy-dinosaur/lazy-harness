@@ -1,0 +1,105 @@
+# ADR 0053 — Memory-Device Storage Discipline (walk-first retrieval)
+
+Status: accepted
+Date: 2026-07-04
+Layer: ADR
+Related plan: `.lazy-harness/planning/memory-device-implementation-plan.md`
+Related discussion: `.lazy-harness/planning/retrieval-architecture-holistic-review.md`
+Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md`
+
+## Rule digest
+
+- Status: active
+- Layer: ADR
+- Scope: framework-global
+- Applies when:
+  - writing or updating a canonical record (surface terms, cross-links, backlinks)
+  - deciding how retrieval should reach records (walking, grep, map drill-down)
+  - considering embedding/RAG/index machinery for record retrieval
+  - user vocabulary appears in conversation that records do not yet contain
+- Aliases:
+  - 메모리 장치
+  - memory device
+  - 백링크
+  - backlink
+  - 표면어
+  - surface terms
+  - grep bait
+  - 걷기 검색
+  - traversal retrieval
+- Must:
+  - treat records as an LLM-authored, LLM-read memory device; retrieval = link-walking (tree/map → entry doc → in-file links), not bulk fetch or similarity search
+  - seed surface terms at write time from two sources: observed user vocabulary (harvest as it occurs) and LLM-generated variants (Korean↔English, synonyms, predicted future greps)
+  - keep same-topic pieces cross-linked so any entry point reaches the rest (acceptance: reachability; audited by `lazy record-structure-audit`)
+  - keep backlinks DERIVED (`lazy backlink-index` → `generated/backlink-index.json`, surfaced by `lazy map` drill-down); fallback protocol `grep -rl <record-path> .lazy-harness/`
+  - mark weak or conflicting claims with optional `Confidence:`/`Contested:` digest fields instead of letting them harden into accepted fact
+- Must not:
+  - hand-maintain backlinks or any derivable data inside canonical records
+  - introduce embedding/vector retrieval as primary record search (delegated safety net remains an evidence-conditional option per ADR 0024)
+  - make surface-term/link checks commit-blocking before dogfood evidence (advisory first; ADR 0016 philosophy, roadmap hard-guard pause)
+- Record completion:
+  - changes to storage-discipline rules update this ADR, `.lazy-harness/spec/platform/record-digest-format.md`, `.lazy-harness/spec/platform/record-write-update-policy.md`, and the audit/index tooling together
+- Related records:
+  - `.lazy-harness/spec/platform/record-digest-format.md`
+  - `.lazy-harness/spec/platform/record-write-update-policy.md`
+  - `.lazy-harness/planning/memory-device-implementation-plan.md`
+
+## Context
+
+2026-07-04 discussion (user-confirmed, full trail in `retrieval-architecture-holistic-review.md`) converged on: records are a memory device attached to the LLM (human readability non-essential); priority 1 accurate lossless storage, priority 2 complete recall ("nothing missed"); retrieval is hop-by-hop link-walking with generic tools (tree/grep/fuzzy), so STORAGE DISCIPLINE — not a search engine — is the retrieval infrastructure. Independently validated by Karpathy's LLM Knowledge Bases pattern (compile→interlink→lint, navigate-not-search, bypasses RAG); lazy-harness adds what that ecosystem lacks: typed layers (absence detection), lint enforcement, provenance grades, forced lookup.
+
+Recall decomposes into three miss classes: ① discovery (solved by ADR 0049 complete overview), ② bridging (user vocabulary absent from file text — no tool can connect what is not written), ③ synthesis (partial set reported as complete; live specimen: 2026-07-04 TimSquad first-pass miss). W1 baseline (2026-07-04): surface terms 0/160, true orphans 4, one 216/227 connected component, avg 4.8 outbound links.
+
+## Decision
+
+1. **Surface-term rule (counters ②)**: reusable records SHOULD carry `Aliases`/`Surface terms` seeded from observed user vocabulary + LLM-generated variants. Coverage is lintable (advisory); quality is validated by use (replay/loop), not review.
+2. **Cross-link/reachability rule (counters ③)**: same-topic pieces must link (directly or via a hub); acceptance criterion is reachability, measured by `lazy record-structure-audit` connected components/orphans.
+3. **Backlinks are derived**: computed from forward links + graph.jsonl by `lazy backlink-index` into `generated/backlink-index.json` (rebuildable, cue-only), surfaced as `referenced by` in `lazy map` drill-down; grep fallback works with stale/absent index. Never hand-stored.
+4. **Weak-claim markers**: optional `Confidence: high|medium|low` / `Contested: <record>` digest fields (borrowed from the hermes llm-wiki implementation) so uncertain claims are visible to future retrieval.
+5. **Enforcement level**: advisory checks in `record-lint` (reported, not exit-affecting) until dogfood evidence justifies promotion — consistent with ADR 0016 and the roadmap hard-guard pause.
+
+## Consequences
+
+- Positive: ②/③ miss classes get structural countermeasures; the corpus becomes walkable from any entry; audits make "stored well" deterministic; retroactive backlinks are free (forward links already exist).
+- Negative / cost: write-time obligation grows (surface terms, links) — mitigated by LLM authorship and advisory-first enforcement; generated index adds one more derived artifact to rebuild.
+- Neutral: canonical MD, typed layers, map-first discovery, and no-embedding stance unchanged.
+
+## Implementation map
+
+- Status: `partially-verified (W1/W2 verified; W3 contract updates land with this ADR; backfill pending)`
+- Primary files:
+  - `.lazy-harness/scripts/record-structure-audit.ts` — W1 read-only baseline audit (`lazy record-structure-audit`).
+  - `.lazy-harness/scripts/backlink-index.ts` — W2 derived backlink generator (`lazy backlink-index`).
+  - `.lazy-harness/generated/backlink-index.json` — derived, rebuildable backlink index.
+  - `.lazy-harness/scripts/record-map.ts` — drill-down `referenced by` surface (loadBacklinkEntries).
+  - `.lazy-harness/scripts/record-lint.ts` — advisory surface-term check.
+  - `.lazy-harness/bin/lazy` — dispatchers for the two new commands.
+- Key symbols:
+  - `loadBacklinkEntries` (`record-map.ts`) — reads generated index into drill-down.
+  - `main` (`backlink-index.ts`) — forward-link + graph scan, all schema generations.
+- Tests / protection:
+  - determinism: two identical consecutive audit runs (verified 2026-07-04); W1↔W2 orphan parity (4/4, verified).
+  - self-test checks: candidate, to be added with the next slice (batching commit-gate changes).
+- Cross-layer links:
+  - SDD: `.lazy-harness/spec/platform/record-digest-format.md`, `.lazy-harness/spec/platform/record-write-update-policy.md`
+  - Planning: `.lazy-harness/planning/memory-device-implementation-plan.md`
+- Machine index:
+  - graph ids: `kg_adr0053_memory_device_discipline`
+
+## Rule placement
+
+- Rule: storage discipline (surface terms, cross-links, derived backlinks, weak-claim markers) is the retrieval infrastructure for walk-first record memory; enforcement starts advisory.
+- Scope: framework-global
+- Primary record: `.lazy-harness/decisions/0053-memory-device-storage-discipline.md`
+- Why not AGENTS.md: platform decision; AGENTS carries only the walking-grammar pointer (deferred, prompt-budget-sensitive).
+- Confirmation: user-approved plan execution 2026-07-04 ("좋아 진행해봐") over the user-confirmed requirement set.
+
+## Discovery capture
+
+- DDD: none new (taxonomy recorded in holistic review).
+- SDD: updated — digest-format + write-update-policy gain surface-term/backlink/marker rules (same slice).
+- BDD: none.
+- TDD: candidate — self-test checks for audit/backlink CLIs (next slice).
+- ADR: this record.
+- SSOT: none (generated/ boundary already covers derived data).
+- Planning: memory-device-implementation-plan W2/W3 sections updated with results.

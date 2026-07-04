@@ -298,6 +298,11 @@
           "description": "SDD contract for record-lint: canonical record digest-format + broken-reference validation, commit-gated via self-test."
         },
         {
+          "path": "spec/platform/retro-loop.md",
+          "kind": "file",
+          "description": "SDD contract for the retro learning loop: classified feedback (L1/L2/L3), deterministic 3-repeat pattern candidates, user-gated promotion, vocabulary harvest for ADR 0053 surface terms."
+        },
+        {
           "path": "tests/record-index-header.md",
           "kind": "file",
           "description": "TDD fixtures for record-index/lazy map, related-record parsing, cache behavior, and overview-batch advisory/no-op compatibility coverage."
@@ -696,6 +701,12 @@
           "kind": "file",
           "description": "Operational framework ADR referenced by synced spec (purpose-scoped-retrieval, record-index-header): discovery vs loading. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
           "targetPath": "framework/operational-adrs/0049-discovery-vs-loading-complete-lean-discovery.md"
+        },
+        {
+          "path": "decisions/0053-memory-device-storage-discipline.md",
+          "kind": "file",
+          "description": "Operational framework ADR referenced by synced spec (record-lint, record-digest-format, record-write-update-policy): memory-device storage discipline — surface-term grep bait, derived backlinks, reachability acceptance. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0053-memory-device-storage-discipline.md"
         },
         {
           "path": "spec/platform/policy-machinery-v2.md",

@@ -65,6 +65,7 @@ interface RecordMatch {
   components: string[]
   graphIds: string[]
   relatedRecords: string[]
+  referencedBy: string[]
 }
 
 interface GraphMatch {
@@ -518,6 +519,7 @@ function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
     components: hints.componentHints,
     graphIds: record.graphIds,
     relatedRecords: record.digest.relatedRecords,
+    referencedBy: [],
   }
 }
 
@@ -589,10 +591,27 @@ function buildDrilldown(root: string, features: FeatureMatch[], records: RecordM
   }
 }
 
+interface BacklinkIndexFile {
+  entries?: Record<string, { referencedBy?: string[]; graphRefIds?: string[] }>
+}
+
+function loadBacklinkEntries(root: string): Record<string, { referencedBy?: string[] }> {
+  const backlinkPath = path.join(root, '.lazy-harness', 'generated', 'backlink-index.json')
+  if (!existsSync(backlinkPath)) return {}
+  try {
+    const parsed = JSON.parse(readFileSync(backlinkPath, 'utf8')) as BacklinkIndexFile
+    return parsed.entries ?? {}
+  } catch {
+    return {}
+  }
+}
+
 export function buildRecordMap(root: string, query: string, limit = 8, fresh = false): RecordMapResult {
   const { index, cache } = loadRecordIndex(root, fresh)
   const features = sortMatches(index.projectProfile.features.map((feature) => featureMatch(query, feature)).filter((value): value is FeatureMatch => Boolean(value)), (item) => item.id).slice(0, limit)
   const records = sortMatches(index.records.map((record) => recordMatch(query, record)).filter((value): value is RecordMatch => Boolean(value)), (item) => item.recordPath).slice(0, limit)
+  const backlinks = loadBacklinkEntries(root)
+  for (const record of records) record.referencedBy = backlinks[record.recordPath]?.referencedBy ?? []
   const graph = sortMatches(graphRows(root).map((row) => graphMatch(query, row)).filter((value): value is GraphMatch => Boolean(value)), (item) => item.id || item.path || '').slice(0, limit)
   return {
     schemaVersion: '1.0',
@@ -750,6 +769,7 @@ function renderMarkdown(result: RecordMapResult): string {
     if (record.sourceFiles.length) lines.push(`  - source: ${record.sourceFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.graphIds.length) lines.push(`  - graph: ${record.graphIds.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.referencedBy.length) lines.push(`  - referenced by: ${record.referencedBy.slice(0, 8).map((item) => `\`${item}\``).join(', ')}${record.referencedBy.length > 8 ? ` (+${record.referencedBy.length - 8} more)` : ''}`)
   }
   lines.push('', '## Graph rows')
   if (!result.graphRows.length) lines.push('- -')

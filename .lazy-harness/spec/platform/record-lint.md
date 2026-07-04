@@ -46,6 +46,9 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 5. `digest-missing-applies-when` / `digest-missing-must` — required digest bullets absent.
 6. `broken-record-ref` — cites a `.lazy-harness/...md` path that does not exist, scanning the record body with fenced code blocks stripped (so template examples are not flagged).
 
+### Advisory tier (never exit-affecting, ADR 0053)
+
+7. `advisory-missing-surface-terms` — digest carries no non-empty `Aliases`/`Surface terms` list. Reported in `advisories[]`/`advisoryCount` and the md summary; NEVER counted in `issueCount` and never affects `--fail-on-issues` exit codes (grep-bait coverage stays advisory until dogfood evidence justifies promotion — ADR 0016/0053, roadmap hard-guard pause).
 ## CLI contract
 
 ```bash
@@ -53,7 +56,7 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 ```
 
 - `--fail-on-issues` exits `2` when any issue is found (commit/push gate). Default is report-only.
-- JSON shape: `schemaVersion`, `mode: "record-lint"`, `root`, `inspected`, `cleanRecords`, `frameworkOwned`, `issueCount`, `counts`, `issues[]` (`recordPath`, `code`, `detail`), `note`.
+- JSON shape: `schemaVersion`, `mode: "record-lint"`, `root`, `inspected`, `cleanRecords`, `frameworkOwned`, `issueCount`, `counts`, `issues[]` (`recordPath`, `code`, `detail`), `advisoryCount`, `advisories[]` (same item shape; non-blocking tier), `note`.
 
 ## Enforcement boundary
 
@@ -88,6 +91,7 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/record-digest-format.md`, `.lazy-harness/spec/platform/record-write-update-policy.md`
+  - ADR: `.lazy-harness/decisions/0053-memory-device-storage-discipline.md` (advisory surface-term tier)
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 - Machine index:
   - graph ids: `kg_record_lint_cli_20260624`, `kg_record_lint_self_test_20260624`

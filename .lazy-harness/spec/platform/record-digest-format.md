@@ -142,6 +142,14 @@ Use the same scope vocabulary as Project Rule Router:
 
 If ambiguous, do not guess. Use an option gate before committing canonical scope.
 
+### Confidence / Contested (optional, ADR 0053)
+
+Weak or conflicting claims should be visible to future retrieval instead of silently hardening into accepted fact:
+
+- `Confidence: high | medium | low` — how well-supported the digest's claims are (single-source or fast-moving topics should not claim `high`).
+- `Contested: .lazy-harness/<path>` — another record this one conflicts with; resolve via supersede/amend, or keep both marked until the user decides.
+
+Both fields are optional; linting never requires them. Borrowed from the hermes llm-wiki implementation (see ADR 0053).
 ### Applies when
 
 `Applies when` is the main retrieval surface for relevant-record query.
@@ -195,7 +203,7 @@ Use paths, not prose-only references. These paths help query expand context with
 
 Records may include optional compact retrieval metadata when a future record index or LLM/searcher flow needs to bridge user-facing language to records, files, routes, components, or tests.
 
-This metadata is optional. Do not make every record verbose. Add it when at least one of these is true:
+This metadata is optional per record, but ADR 0053 (memory-device storage discipline) activates it as the default expectation for NEW and UPDATED reusable records: aliases/surface terms are the grep bait that bridges user vocabulary to records (a term that is not written in the file cannot be found by any tool). Coverage is checked as a non-blocking advisory by `lazy record-lint`; do not make every historical record verbose retroactively — backfill follows walk-frequency priority (see `.lazy-harness/planning/memory-device-implementation-plan.md`). Add it when at least one of these is true:
 
 - users refer to the feature with aliases that differ from record or code names,
 - a Korean or multilingual surface term must map to English records/code,
