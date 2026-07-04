@@ -149,3 +149,13 @@ Delivered:
 - Evidence capsule: `.lazy-harness/evidence/2026-07-04-memory-device-w1-w4.md` (W1–W4 commands/results/interpretation/reproduce).
 
 Deferred (recorded): self-test checks for the three new CLIs (audit/backlink/retro) — batch as one commit-gate slice; W5 replay eval next (needs user-vetted gold set); surface-term backfill proceeds organically (vocab harvest + walk-frequency priority).
+
+## W8 — Full-corpus re-review backfill (policy changed 2026-07-04, user decision)
+
+Status: approved-direction; execution via guided skill, batch-by-batch user checkpoints.
+
+- Policy change: supersedes W3's "not bulk — walk-frequency priority" line. User chose full re-review over organic-only backfill at the 2026-07-04 option gate; ADR 0053 amended accordingly (see its Amendment section for preserved safeguards and accepted risk).
+- Scope: all canonical records (161 at amendment time; advisory queue = `lazy record-lint` advisories, currently 160) get surface terms; reachability repairs target the audit's orphan/isolated lists; Confidence/Contested markers added where claims are weak/conflicting.
+- Vehicle: `lazy-memory-backfill` skill (`packages/lazy-harness-pi/skills/lazy-memory-backfill/`), lazy-record-quality precedent: read-only evidence in (record-lint advisories + record-structure-audit + vocab harvest queue) → batch proposal (5–10 records) → user review → apply → re-run audits → progress via advisory count decrease.
+- Ordering inside the full sweep: walk-frequency/importance still orders BATCHES (map-frequent and feature-core records first); the change is that coverage no longer stops there.
+- Done when: advisory-missing-surface-terms count reaches 0 for canonical records and reachability audit shows no orphans; then (separate option gate) consider promoting the advisory to a commit-gate check for NEW records.

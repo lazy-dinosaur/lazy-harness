@@ -203,7 +203,7 @@ Use paths, not prose-only references. These paths help query expand context with
 
 Records may include optional compact retrieval metadata when a future record index or LLM/searcher flow needs to bridge user-facing language to records, files, routes, components, or tests.
 
-This metadata is optional per record, but ADR 0053 (memory-device storage discipline) activates it as the default expectation for NEW and UPDATED reusable records: aliases/surface terms are the grep bait that bridges user vocabulary to records (a term that is not written in the file cannot be found by any tool). Coverage is checked as a non-blocking advisory by `lazy record-lint`; do not make every historical record verbose retroactively — backfill follows walk-frequency priority (see `.lazy-harness/planning/memory-device-implementation-plan.md`). Add it when at least one of these is true:
+This metadata is optional per record, but ADR 0053 (memory-device storage discipline) activates it as the default expectation for NEW and UPDATED reusable records: aliases/surface terms are the grep bait that bridges user vocabulary to records (a term that is not written in the file cannot be found by any tool). Coverage is checked as a non-blocking advisory by `lazy record-lint`. Backfill policy (ADR 0053 amendment, 2026-07-04): the FULL existing corpus is re-reviewed and reworked to these rules via the guided `lazy-memory-backfill` skill — batched and user-checkpointed, never one unreviewable bulk diff (see `.lazy-harness/planning/memory-device-implementation-plan.md` W8). Add it when at least one of these is true:
 
 - users refer to the feature with aliases that differ from record or code names,
 - a Korean or multilingual surface term must map to English records/code,

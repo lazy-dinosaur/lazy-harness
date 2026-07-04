@@ -17,6 +17,7 @@ Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.la
   - deciding how retrieval should reach records (walking, grep, map drill-down)
   - considering embedding/RAG/index machinery for record retrieval
   - user vocabulary appears in conversation that records do not yet contain
+  - backfilling existing records to these rules (full-corpus re-review, 2026-07-04 amendment)
 - Aliases:
   - 메모리 장치
   - memory device
@@ -30,6 +31,7 @@ Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.la
 - Must:
   - treat records as an LLM-authored, LLM-read memory device; retrieval = link-walking (tree/map → entry doc → in-file links), not bulk fetch or similarity search
   - seed surface terms at write time from two sources: observed user vocabulary (harvest as it occurs) and LLM-generated variants (Korean↔English, synonyms, predicted future greps)
+  - backfill the FULL existing corpus to these rules via the guided backfill skill — batched, user-checkpointed, never one unreviewable bulk diff (2026-07-04 amendment; supersedes the original walk-frequency-only organic policy)
   - keep same-topic pieces cross-linked so any entry point reaches the rest (acceptance: reachability; audited by `lazy record-structure-audit`)
   - keep backlinks DERIVED (`lazy backlink-index` → `generated/backlink-index.json`, surfaced by `lazy map` drill-down); fallback protocol `grep -rl <record-path> .lazy-harness/`
   - mark weak or conflicting claims with optional `Confidence:`/`Contested:` digest fields instead of letting them harden into accepted fact
@@ -64,9 +66,20 @@ Recall decomposes into three miss classes: ① discovery (solved by ADR 0049 com
 - Negative / cost: write-time obligation grows (surface terms, links) — mitigated by LLM authorship and advisory-first enforcement; generated index adds one more derived artifact to rebuild.
 - Neutral: canonical MD, typed layers, map-first discovery, and no-embedding stance unchanged.
 
+## Amendment — 2026-07-04: full-corpus re-review backfill (user decision)
+
+Original decision limited backfill to organic, walk-frequency-priority updates ("do not make every historical record verbose retroactively"). The user overrode this the same day via option gate ("전면 재검토로 정책 변경"): ALL existing canonical records are to be re-reviewed and reworked to the new rules (surface terms, cross-links/reachability, Confidence/Contested where warranted).
+
+Preserved safeguards (unchanged by the amendment):
+
+- execution is batched and user-checkpointed via the guided backfill skill (`lazy-memory-backfill`, lazy-record-quality precedent) — "full corpus" defines COVERAGE, not a single unreviewed diff;
+- observed user vocabulary remains the preferred surface-term source where available; LLM-generated variants are legitimate authorship (user-confirmed 2026-07-04) but should be marked by usage evidence over time (replay/loop validates quality);
+- derived-backlink and advisory-lint principles are untouched;
+- risk accepted knowingly: LLM-authored aliases without usage evidence may be weak bait — the retro loop + W5 replay measure and correct this.
+
 ## Implementation map
 
-- Status: `partially-verified (W1/W2 verified; W3 contract updates land with this ADR; backfill pending)`
+- Status: `partially-verified (W1/W2 verified; W3 contracts landed; full-corpus backfill W8 in progress via lazy-memory-backfill skill)`
 - Primary files:
   - `.lazy-harness/scripts/record-structure-audit.ts` — W1 read-only baseline audit (`lazy record-structure-audit`).
   - `.lazy-harness/scripts/backlink-index.ts` — W2 derived backlink generator (`lazy backlink-index`).
