@@ -15,6 +15,10 @@ Related ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 프로필 V2
+  - queue router
+  - 프로필 갱신
 - Applies when:
   - redesigning Project Interview as an install-time, mid-project adoption, or refresh channel for V2 Project Map seeds and project/team policy discovery
   - extending `project-profile.ts` interview/plan/fill behavior

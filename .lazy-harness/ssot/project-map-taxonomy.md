@@ -12,6 +12,10 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Status: needs-review
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 맵 분류
+  - taxonomy
+  - 노드 종류
 - Applies when:
   - assigning Project Map V2 primary categories, facets, stages, or policy levels
   - translating V1 DDD/SDD/BDD/TDD/ADR/SSOT records into V2 map nodes

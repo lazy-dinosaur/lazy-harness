@@ -12,6 +12,9 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Status: needs-review
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 맵 스키마 회귀
+  - project map 테스트
 - Applies when:
   - validating Project Map V2 node fixtures or generated map outputs
   - changing Project Map V2 primary categories, facets, stage vocabulary, or policy levels

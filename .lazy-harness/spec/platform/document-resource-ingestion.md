@@ -10,6 +10,11 @@ Related: `.lazy-harness/spec/platform/project-profile.md`, `.lazy-harness/script
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 문서 수집
+  - doc ingestion
+  - 외부 문서 반입
+  - 문서 자원
 - Applies when:
   - ingesting project documents outside `.lazy-harness` (README, docs, onboarding, briefs) into durable records
 - Must:

@@ -12,6 +12,8 @@ Related fixture: `.lazy-harness/fixtures/project-map-v2/record-branch-block.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 맵 저장 회귀
 - Applies when:
   - changing how Project Map V2 knowledge is stored
   - adding Project Map branch metadata to canonical records

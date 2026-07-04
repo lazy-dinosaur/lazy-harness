@@ -14,6 +14,10 @@ Related schema: `.lazy-harness/schemas/context-tier-manifest.schema.json`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 컨텍스트 티어
+  - context tier
+  - 티어 매니페스트
 - Applies when:
   - defining or auditing optional context-tier hints for Project Profile/direct retrieval
   - adding `.lazy-harness/project/context-tiers.yaml` or a host equivalent

@@ -13,6 +13,8 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 프로필 회귀
 - Applies when:
   - implementing Project Interview V2 runtime behavior
   - changing the desired V2 interview output packet

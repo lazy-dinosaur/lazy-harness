@@ -14,6 +14,11 @@ Related Pi: `.lazy-harness/spec/platform/pi-agent-package.md`
 - Status: needs-review
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 프로젝트 맵
+  - project map
+  - 맵 V2
+  - anchor branch edge
 - Applies when:
   - defining V2 Project Map / Project Atlas knowledge node shape
   - adding metadata that lets records participate in project map generation

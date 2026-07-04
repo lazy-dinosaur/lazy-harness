@@ -15,6 +15,11 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 맵 업데이트 루프
+  - update loop
+  - 맵 갱신
+  - V2 핵심
 - Applies when:
   - defining Project Map V2 cluster create/update/promotion semantics
   - modeling candidate-to-canonical transitions for Project Map branches

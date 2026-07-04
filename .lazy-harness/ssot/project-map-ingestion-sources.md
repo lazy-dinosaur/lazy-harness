@@ -14,6 +14,10 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 맵 수집원
+  - ingestion sources
+  - 어디서 맵으로
 - Applies when:
   - classifying Project Map update event sources
   - mapping ingestion/update events to Project Map branches

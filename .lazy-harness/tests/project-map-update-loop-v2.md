@@ -13,6 +13,8 @@ Related fixture: `.lazy-harness/fixtures/project-map-update-loop-v2/events.json`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 업데이트 루프 회귀
 - Applies when:
   - validating Project Map update-loop event packets
   - changing candidate/canonical transition states

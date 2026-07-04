@@ -13,6 +13,11 @@ Related skill: `/lazy-project-profile`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 프로젝트 프로필
+  - project profile
+  - feature navigation
+  - 기능 지도
 - Applies when:
   - implementing or using Project Profile, feature navigation, or host project architecture maps
   - LLM/searcher direct retrieval needs feature aliases, routes, components, source roots, tests, or project-surface mappings
