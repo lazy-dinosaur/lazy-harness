@@ -83,3 +83,12 @@ This breaks lazy-harness's record-as-output promise. Future agents cannot reliab
 - Machine index:
   - graph ids: `kg_plan_analysis_discovery_capture_backlog`
   - generated index key: `pending until implementation-index generator exists`
+
+## 2026-07-04 — retro-loop promoted improvement: detect in-turn record writes (false-positive suppression)
+
+Source: first retro-loop pattern promotion (capture-gate-false-positive ×3, user-approved via option gate; regression record `.lazy-harness/tests/capture-gate-false-positive.md`).
+
+- Problem: `check-analysis-discovery-capture.sh` is a post-hoc text classifier; it fired three times in one session on turns whose discoveries were ALREADY appended to planning records in-turn (once even committed before the gate ran).
+- Improvement candidate: before emitting, check whether `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning,knowledge}` files were mutated during the turn window (mtime/git-status delta); stay silent when in-turn capture is detected, keep firing on genuine chat-only analysis.
+- Constraint: do not weaken the gate before the improvement is approved and fixture-tested (false positives are cheaper than silent capture loss); fixture pair specified in the TDD record.
+- Status: backlog — implementation needs its own approval slice.

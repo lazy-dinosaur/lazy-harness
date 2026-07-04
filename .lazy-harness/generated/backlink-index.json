@@ -3,9 +3,9 @@
   "mode": "backlink-index",
   "derived": true,
   "note": "Rebuildable derived index (backlinks are computed from forward links + graph.jsonl mentions; never hand-maintained). Cue-only; fallback: grep -rl <record-path> .lazy-harness/",
-  "generatedAt": "2026-07-04T13:20:05.684Z",
-  "docCount": 229,
-  "targetCount": 214,
+  "generatedAt": "2026-07-04T13:31:04.759Z",
+  "docCount": 230,
+  "targetCount": 215,
   "entries": {
     ".lazy-harness/behavior/llm-owned-record-retrieval.md": {
       "referencedBy": [
@@ -465,7 +465,8 @@
         ".lazy-harness/planning/workflow-compression-router-plan.md",
         ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
         ".lazy-harness/spec/platform/option-gate-discipline.md",
-        ".lazy-harness/spec/platform/record-before-session-history.md"
+        ".lazy-harness/spec/platform/record-before-session-history.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md"
       ],
       "graphRefIds": [
         "kg_adr0034_decides_analysis_discovery_capture_gate"
@@ -762,7 +763,8 @@
     ".lazy-harness/planning/analysis-discovery-capture-backlog.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
-        ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md"
+        ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md"
       ],
       "graphRefIds": [
         "kg_plan_analysis_discovery_capture_backlog"
@@ -951,7 +953,8 @@
         ".lazy-harness/decisions/0053-memory-device-storage-discipline.md",
         ".lazy-harness/planning/retro-loop-first-development-path-proposal.md",
         ".lazy-harness/spec/platform/record-digest-format.md",
-        ".lazy-harness/spec/platform/retro-loop.md"
+        ".lazy-harness/spec/platform/retro-loop.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md"
       ],
       "graphRefIds": []
     },
@@ -1838,7 +1841,8 @@
     },
     ".lazy-harness/spec/platform/retro-loop.md": {
       "referencedBy": [
-        ".lazy-harness/planning/memory-device-implementation-plan.md"
+        ".lazy-harness/planning/memory-device-implementation-plan.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md"
       ],
       "graphRefIds": [
         "kg_retro_loop_contract_20260704"
@@ -2272,6 +2276,12 @@
       "graphRefIds": [
         "kg_capability_registry_tdd"
       ]
+    },
+    ".lazy-harness/tests/capture-gate-false-positive.md": {
+      "referencedBy": [
+        ".lazy-harness/planning/analysis-discovery-capture-backlog.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/tests/evidence-capsule-standard.md": {
       "referencedBy": [
