@@ -9,6 +9,13 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 발견 vs 로딩
+  - complete overview
+  - 완전 목록
+  - JIT 로딩
+  - map overview
+  - 디스커버리
 - Applies when:
   - deciding how much project knowledge to surface or read before answering/acting
   - changing `lazy map --overview`, the message.received discovery prompt, or record-read expectations

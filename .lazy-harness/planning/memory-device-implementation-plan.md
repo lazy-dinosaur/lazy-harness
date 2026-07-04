@@ -159,3 +159,7 @@ Status: approved-direction; execution via guided skill, batch-by-batch user chec
 - Vehicle: `lazy-memory-backfill` skill (`packages/lazy-harness-pi/skills/lazy-memory-backfill/`), lazy-record-quality precedent: read-only evidence in (record-lint advisories + record-structure-audit + vocab harvest queue) → batch proposal (5–10 records) → user review → apply → re-run audits → progress via advisory count decrease.
 - Ordering inside the full sweep: walk-frequency/importance still orders BATCHES (map-frequent and feature-core records first); the change is that coverage no longer stops there.
 - Done when: advisory-missing-surface-terms count reaches 0 for canonical records and reachability audit shows no orphans; then (separate option gate) consider promoting the advisory to a commit-gate check for NEW records.
+
+### W8 batch log
+
+- Batch 1 (2026-07-04, user-approved proposal): core-6 aliases (ADR 0016/0024/0049, digest-format, write-update-policy, record-lint SDD) + orphan repairs (0038←0019, graph-hygiene←progressive-knowledge-graph, sdd-component-contract-trigger←layer-completeness-gate, todo-reminder-loop←bdd-trigger reciprocal + full-path ref fix; jcode-era TDD already needs-review, left demoted). Results: advisories 160→151, orphans 4→0, aliases coverage 1→11, lint 0 issues.

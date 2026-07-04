@@ -10,6 +10,14 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 훅 전략
+  - lifecycle hooks
+  - advisory enforcement
+  - hard gate
+  - 커밋 게이트
+  - commit gate
+  - blocking 정책
 - Applies when:
   - deciding whether a check should block during development edits or only at commit/push
   - designing response-completion or lifecycle verification gates

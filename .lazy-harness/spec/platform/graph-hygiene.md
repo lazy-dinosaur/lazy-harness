@@ -10,6 +10,11 @@ Related: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`, `.lazy-ha
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 그래프 위생
+  - graph hygiene
+  - graph lint
+  - 그래프 검사
 - Applies when:
   - linting `knowledge/graph.jsonl` for id/path hygiene, or before relying on graph paths for navigation
 - Must:

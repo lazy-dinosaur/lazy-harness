@@ -23,6 +23,7 @@ Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.
 - Record completion:
   - changes to store schemas, CLI behavior, or conflict handling update this SDD, the schemas, and self-test
 - Related records:
+  - `.lazy-harness/spec/platform/graph-hygiene.md`
   - `.lazy-harness/plans/progressive-knowledge-graph-pipeline.md`
   - `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md`
   - `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`

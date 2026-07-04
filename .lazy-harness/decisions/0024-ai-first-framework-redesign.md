@@ -10,6 +10,13 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - AI-first 재설계
+  - SearchProvider
+  - 시맨틱 검색 금지
+  - no embeddings
+  - LLM 직접 검색
+  - 검색 위임
 - Applies when:
   - deciding how the framework performs record/semantic search (AI-led vs algorithmic)
   - authoring AGENTS.md content or host-portable bootstrap behavior

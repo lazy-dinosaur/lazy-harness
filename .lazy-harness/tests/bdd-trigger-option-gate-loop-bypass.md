@@ -21,6 +21,7 @@ Related: `.lazy-harness/tests/bdd-trigger-option-gate-loop.md`, `.lazy-harness/h
 - Record completion:
   - changes to BDD candidate capture or dedupe update this TDD plus option-gate-discipline SDD and self-test
 - Related records:
+  - `.lazy-harness/tests/todo-reminder-loop-and-stream-utf8-invalid.md`
   - `.lazy-harness/tests/bdd-trigger-option-gate-loop.md`
   - `.lazy-harness/spec/platform/option-gate-discipline.md`
   - `.lazy-harness/ssot/gate-fingerprint-state.md`

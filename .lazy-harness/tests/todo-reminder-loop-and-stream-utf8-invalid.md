@@ -3,7 +3,7 @@
 Status: open
 Layer: TDD
 Date: 2026-05-17
-Related: `bdd-trigger-option-gate-loop-bypass.md`, jcode SIGHUP reload (별도 jcode issue), jcode auto-poke (별도 jcode 기능)
+Related: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`, jcode SIGHUP reload (별도 jcode issue), jcode auto-poke (별도 jcode 기능)
 
 ## Rule digest
 

@@ -12,6 +12,13 @@ Related TDD: `.lazy-harness/tests/record-lint.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 레코드 린트
+  - record lint
+  - digest 검사
+  - 깨진 참조
+  - broken refs
+  - advisory 검사
 - Applies when:
   - validating that canonical records carry a well-formed `## Rule digest` and no broken record references
   - wiring record-quality enforcement into the commit/push gate

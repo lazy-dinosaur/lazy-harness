@@ -23,6 +23,7 @@
 - Record completion:
   - ambiguous-case answers persist to ubiquitous-language, a forbidden list, or the decision log so detectors stop re-asking
 - Related records:
+  - `.lazy-harness/decisions/0038-requirements-first-change-gate.md`
   - `.lazy-harness/decisions/0010-plan-status-hygiene.md`
   - `.lazy-harness/decisions/0011-verification-discipline.md`
   - `.lazy-harness/decisions/0018-cross-layer-cascade.md`

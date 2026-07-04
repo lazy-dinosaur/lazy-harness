@@ -22,6 +22,7 @@ Related standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
 - Record completion:
   - when a fix touches a layer, update that layer's primary record instead of only noting it in TDD
 - Related records:
+  - `.lazy-harness/spec/platform/sdd-component-contract-trigger.md`
   - `.lazy-harness/decisions/0033-layer-completeness-gate.md`
   - `.lazy-harness/spec/platform/implementation-map-standard.md`
   - `.lazy-harness/ssot/implementation-map-storage.md`

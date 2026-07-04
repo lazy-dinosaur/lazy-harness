@@ -9,6 +9,11 @@ Date: 2026-05-14
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 컴포넌트 계약
+  - component contract
+  - SDD 트리거
+  - contract trigger
 - Applies when:
   - a change introduces or modifies exported component props, window controls, or IPC-facing UI control contracts
   - scroll/window-mode behavior contracts change on an exported React-style component

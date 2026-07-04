@@ -13,6 +13,12 @@ Related spec: `.lazy-harness/spec/platform/record-write-update-policy.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 디지스트 형식
+  - rule digest
+  - 표면어 형식
+  - aliases 작성법
+  - confidence 마커
 - Applies when:
   - creating or updating a record that should be surfaced by relevant-record query
   - designing compact rule digest output for explicit helpers; default pre-response flow prompts direct search

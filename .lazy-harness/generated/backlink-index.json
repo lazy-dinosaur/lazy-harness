@@ -3,9 +3,9 @@
   "mode": "backlink-index",
   "derived": true,
   "note": "Rebuildable derived index (backlinks are computed from forward links + graph.jsonl mentions; never hand-maintained). Cue-only; fallback: grep -rl <record-path> .lazy-harness/",
-  "generatedAt": "2026-07-04T11:31:47.026Z",
+  "generatedAt": "2026-07-04T12:50:35.146Z",
   "docCount": 229,
-  "targetCount": 213,
+  "targetCount": 214,
   "entries": {
     ".lazy-harness/behavior/llm-owned-record-retrieval.md": {
       "referencedBy": [
@@ -500,7 +500,9 @@
       ]
     },
     ".lazy-harness/decisions/0038-requirements-first-change-gate.md": {
-      "referencedBy": [],
+      "referencedBy": [
+        ".lazy-harness/decisions/0019-ambiguous-detection-force-gate.md"
+      ],
       "graphRefIds": [
         "kg_requirements_first_gate_adr"
       ]
@@ -1327,7 +1329,9 @@
       ]
     },
     ".lazy-harness/spec/platform/graph-hygiene.md": {
-      "referencedBy": [],
+      "referencedBy": [
+        ".lazy-harness/spec/platform/progressive-knowledge-graph.md"
+      ],
       "graphRefIds": [
         "kg_graph_hygiene_sdd"
       ]
@@ -1864,6 +1868,12 @@
       "graphRefIds": [
         "kg_sdd_runtime_shared_state"
       ]
+    },
+    ".lazy-harness/spec/platform/sdd-component-contract-trigger.md": {
+      "referencedBy": [
+        ".lazy-harness/spec/platform/layer-completeness-gate.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/spec/platform/search-read-debt-contract.md": {
       "referencedBy": [
@@ -2605,7 +2615,9 @@
       "graphRefIds": []
     },
     ".lazy-harness/tests/todo-reminder-loop-and-stream-utf8-invalid.md": {
-      "referencedBy": [],
+      "referencedBy": [
+        ".lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md"
+      ],
       "graphRefIds": [
         "kg_tdd_todo_auto_poke_rate_limit_loop"
       ]

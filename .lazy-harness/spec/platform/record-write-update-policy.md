@@ -13,6 +13,12 @@ Related spec: `.lazy-harness/spec/platform/project-rule-router.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 기록 정책
+  - record 작성 규칙
+  - update vs create
+  - 중복 방지
+  - 어디에 저장
 - Applies when:
   - user confirms a rule, decision, source-of-truth correction, behavior, contract, or regression
   - 사용자가 새 규칙/결정/정정/기록을 어디에 어떻게 저장할지 말한다

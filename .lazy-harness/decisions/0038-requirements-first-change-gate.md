@@ -8,6 +8,13 @@ Date: 2026-05-21
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 요구사항 우선
+  - requirements first
+  - 실행 승인
+  - execution approval
+  - stale approval
+  - 승인 게이트
 - Applies when:
   - user describes a problem or still-forming requirement, or adds a constraint/correction after a plan
   - before mutating code, records, config, schema, or git state
