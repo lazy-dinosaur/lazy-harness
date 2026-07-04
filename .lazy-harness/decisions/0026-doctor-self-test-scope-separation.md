@@ -10,6 +10,11 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - doctor 범위
+  - self-test 분리
+  - 스코프 분리
+  - framework vs host 검사
 - Applies when:
   - running or modifying doctor / self-test checks
   - adding a validation check and deciding framework-only, host-only, or both

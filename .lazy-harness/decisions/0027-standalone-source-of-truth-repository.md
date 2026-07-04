@@ -9,6 +9,11 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 소스 repo
+  - source of truth repo
+  - 독립 저장소
+  - 프레임워크 원본
 - Applies when:
   - editing framework source or deciding where canonical framework changes belong
   - syncing the framework into hosts, or resolving git-ignore / leak conflicts

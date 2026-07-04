@@ -13,6 +13,10 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`, `.lazy-harne
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - jcode 패리티
+  - grammar 재접지
+  - load_harness_dir 대체
 - Applies when:
   - deciding how OMP/Pi keep agents grounded in `.lazy-harness` records across a turn
   - changing the `before_agent_start` reminder, the `context` re-grounding body, or the capture gates

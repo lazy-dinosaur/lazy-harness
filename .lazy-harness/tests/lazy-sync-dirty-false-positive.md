@@ -9,6 +9,10 @@
 - Status: needs-review
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - sync 오탐
+  - dirty false positive
+  - 싱크 회귀
 - Applies when:
   - running `lazy-sync` from a source repo with uncommitted `.lazy-harness` changes
   - drift detection wrongly reports "Already in sync", or editing lazy-sync drift logic

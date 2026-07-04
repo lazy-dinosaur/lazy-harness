@@ -9,6 +9,12 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 루트 바운드
+  - root bound
+  - 현재 root 만
+  - sibling 금지
+  - 지식 반입 금지
 - Applies when:
   - searching or discovering host knowledge, or a `.lazy-harness` record is missing
   - an agent considers parent/sibling-directory discovery

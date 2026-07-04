@@ -9,6 +9,12 @@ Date: 2026-05-14
 - Status: active
 - Layer: SSOT
 - Scope: host-project
+- Aliases:
+  - 프로젝트 정체성
+  - 이 repo 뭐지
+  - dogfood host
+  - 소유권 경계
+  - upstream downstream
 - Applies when:
   - user asks about this checkout's project identity, goal, source-of-truth, or ownership boundary
   - interpreting ambiguous screenshots/transcripts shown during harness tuning

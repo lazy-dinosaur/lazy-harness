@@ -8,6 +8,11 @@ Date: 2026-06-19
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 설치 UX
+  - pi install
+  - omp install
+  - 공유 코어
 - Applies when:
   - installing or packaging lazy-harness for Pi and/or OMP runtimes
   - deciding install UX for Pi-only, OMP-only, or both

@@ -9,6 +9,11 @@
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 싱크 드리프트
+  - sync drift
+  - lazy sync 검증
+  - 동기화 검사
 - Applies when:
   - running or debugging `lazy sync`, or deciding whether a host is in sync with the framework source
   - the source `.lazy-harness` tree is dirty, or managed files were renamed/deleted

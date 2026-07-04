@@ -8,6 +8,11 @@ Date: 2026-06-09
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - Pi 패키지
+  - pi package
+  - 패키지 위치
+  - lazy-harness-pi
 - Applies when:
   - building, installing, or locating the Pi-native lazy-harness integration package
   - deciding where the Pi adapter package lives relative to the source repo

@@ -14,6 +14,11 @@ Related planning: `.lazy-harness/planning/discovery-vs-loading-followups-2026062
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - jcode 폐선
+  - jcode decommission
+  - Pi OMP 전용
+  - 런타임 정리
 - Applies when:
   - wiring, removing, or auditing agent-runtime lifecycle integration
   - deciding which runtime delivers lazy-harness hooks, skills, commands, or grammar
