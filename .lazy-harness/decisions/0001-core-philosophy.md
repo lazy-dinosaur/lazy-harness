@@ -6,7 +6,7 @@ Accepted (2026-05-10)
 
 ## Rule digest
 
-- Status: needs-review
+- Status: active
 - Layer: ADR
 - Scope: framework-global
 - Applies when:
@@ -79,7 +79,7 @@ lazy-harness 의 존재 이유를 명확히 박아두지 않으면 framework 가
 
 ## Implementation map
 
-- Status: `needs-review`
+- Status: `verified`
 - Primary files:
   - `.lazy-harness/framework/framework-contract.md` — current Principle 0 and lazy meaning contract.
   - `.lazy-harness/AGENTS.md` — active prompt grammar that applies record-first/default-unknown behavior.

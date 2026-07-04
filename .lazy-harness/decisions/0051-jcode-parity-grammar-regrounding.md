@@ -68,6 +68,27 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Change: `on-context.sh` MANDATE gains a proactive **"Map-first BEFORE reading/editing more"** bullet — run `lazy map --overview` + drill into governing records (decisions/ssot/behavior/domain) FIRST; for a review/audit, enumerate governing records + operating policies first, THEN read code to check compliance. This re-asserts record-first **every file-op turn** via the transient `context` messages path (no systemPrompt accumulation) — the same mechanism R3 (ADR 0048) uses for the operating-rule catalog.
 - Protection: `check_on_context_surfaces_operating_rule_catalog` asserts the `Map-first BEFORE reading/editing more` phrase in the on-context body.
 - Still organic/advisory (ADR 0041), not a hard block; takes effect in a fresh session.
+
+## 2026-07-03 amendment — M11 hard-block was already advisory in the LAST jcode state (gap framing corrected)
+
+- Trigger: user asked whether Pi now matches the last jcode-only state; git archaeology re-verified the actual M11 endgame.
+- Finding (git-verified):
+  - ADR 0016 (2026-05-11) designed `response.completed` as a PRIMARY blocking gate (`blocking = true`), but the generated jcode wiring (`25573b0`, 2026-05-14, first `jcode-wiring.ts`) registered it `blocking = false` from its very first version and NEVER emitted `blocking = true`.
+  - The 2026-06-01 hard-gate restoration experiment (`50477fa`, reverted same day by `9411cbd`/ADR 0041) also kept `response.completed` `blocking = false`.
+  - The last jcode state before the Pi cutover (`05c1c57^`, 2026-06-24) registered: `check-bash.sh blocking=true`, `response.completed blocking=false (5000ms)`, `message.received blocking=true (800ms, fail-open)`, `log-tool.sh blocking=false`.
+  - `.lazy-harness/ssot/harness-enforcement-policy.md` already recorded this: "current generated Jcode wiring uses `blocking = false`, weakening the original completion-audit contract".
+- Correction: the "Honest remaining gap" consequence above compares against the ORIGINAL ADR 0016 design, not the final jcode state. Measured against the LAST jcode state, the Pi `agent_end` advisory + bounded `followUp` continuation path is at parity or stronger — do not treat the M11 hard-block as a missing jcode feature; re-introducing it would be NEW enforcement (ADR 0041 L5 promotion), not a restoration.
+- Related context (same audit): the graph CLI rollback (`504a943`, the known-good baseline referenced above) and the birth of `packages/lazy-harness-pi` both happened in the 2026-06-08..15 window; the literal pre-graph commit (`da6417b`) predates the Pi adapter entirely, which is why the rollback was surgical rather than a branch reset (`.lazy-harness/planning/graph-cli-rollback-plan.md`).
+- Remaining gate for a "fully identical to jcode" claim: only the live fresh-session multi-turn verification (`.lazy-harness/planning/jcode-parity-regrounding-followups-20260625.md` item 1). **CLOSED 2026-07-03**: live fresh Pi session passed all six checklist items — evidence: `.lazy-harness/evidence/2026-07-03-pi-jcode-parity-live-fresh-session-verification.md`.
+
+## 2026-07-03 amendment 2 — mid-turn steer re-grounding (delivery-semantics parity)
+
+- Trigger: dogfood — the user observed that when a new instruction is sent mid-turn via Pi's default Enter (*steering*), the agent absorbs it without record search. jcode delivered user messages only BETWEEN turns (follow-up semantics), so this path did not exist under jcode.
+- Root cause (code + Pi docs verified): a steered message is delivered inside the running agent loop and does NOT re-fire `before_agent_start` — no fresh read-debt arming and no turn-start §2.1 reminder for the new instruction; the previous topic's armed read-debt packet keeps the action guard satisfied, so the new topic proceeds ungrounded. Pi `input` events expose `streamingBehavior: "steer"` for exactly this case; Alt+Enter (`followUp`) already matches jcode delivery.
+- Change: the extension `input` handler transforms steered user text (non-extension source, non-empty) by appending a compact steer re-ground `<system-reminder>` (map-first for the NEW topic; prior-turn evidence/approvals may be stale per ADR 0038) and sets `pendingRegroundByRoot` (clearing the cached body) so the next `context` call re-injects the harness re-grounding.
+- Boundary kept: organic/advisory (ADR 0041) — no blocking, no user-text classification (the reminder is static transport; the LLM judges topic novelty), fail-open for empty/extension inputs.
+- Protection: `check_pi_package_layout_and_contract` asserts `steer re-ground` / `streamingBehavior` in the extension source.
+- Takes effect in a fresh session (extension loads at session start).
 ## Implementation map
 
 - Status: implemented
@@ -89,7 +110,7 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 
 ## Rule placement
 
-- Rule: OMP/Pi replicate jcode's full-grammar drive organically via `on-message-received` + `on-context.sh` re-grounding (relevant-record search + turn-end capture); read-debt is not tightened and capture STOP gates stay conservative; the guarantee is organic, not hard.
+- Rule: OMP/Pi replicate jcode's full-grammar drive organically via `on-message-received` + `on-context.sh` re-grounding (relevant-record search + turn-end capture) and the `input` steer re-ground (mid-turn steered instructions get a map-first reminder + forced next-`context` re-injection; amendment 2); read-debt is not tightened and capture STOP gates stay conservative; the guarantee is organic, not hard.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md`
 - Why not AGENTS.md: runtime/extension behavior decision with source/tests and an implementation map; AGENTS.md carries only the compact grammar.
