@@ -38,7 +38,7 @@ Read these before planning or editing:
 
    - A. migrate one focused feature/domain batch
    - B. migrate one layer batch
-   - C. generate a Jcode prompt only
+   - C. generate an agent prompt only
    - D. defer migration and continue touch-on-change
    - E. custom batch
 
@@ -83,7 +83,7 @@ Read these before planning or editing:
 For a prompt-only handoff:
 
 ```bash
-.lazy-harness/bin/lazy impl-map --format=jcode-prompt > /tmp/implementation-map-migration.prompt.txt
+.lazy-harness/bin/lazy impl-map --format=agent-prompt > /tmp/implementation-map-migration.prompt.txt
 ```
 
 Then use the generated prompt as evidence, but still follow the flow above.

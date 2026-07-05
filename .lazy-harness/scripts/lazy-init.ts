@@ -75,7 +75,9 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--target') args.target = argv[++i]
+    else if (a.startsWith('--target=')) args.target = a.slice('--target='.length)
     else if (a === '--from') args.from = argv[++i]
+    else if (a.startsWith('--from=')) args.from = a.slice('--from='.length)
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--force') args.force = true
     else if (a === '--skip-hooks') args.skipHooks = true
