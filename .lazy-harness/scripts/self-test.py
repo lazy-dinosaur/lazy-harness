@@ -8885,6 +8885,7 @@ Fixture implementation map.
             ".lazy-harness/tests/project-operating-rulebook.md",
             ".lazy-harness/spec/platform/evidence-capsule-standard.md",
             ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
+            ".lazy-harness/spec/platform/pi-agent-package.md",
             ".lazy-harness/generated/README.md",
         }
         for rel in required_fixture_paths:

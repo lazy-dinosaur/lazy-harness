@@ -8,16 +8,43 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 4
+- Policy count: 5
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
+| `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
 | `project-operating-rulebook-policy` | discover | turn | advisory-only | When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records. |
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
 | `validation-evidence-block` | block | turn | block (not implemented by current runtime) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
 | `validation-evidence-warning` | warn | turn | warn-only (explicit policy_context required) | When structured policy context says the agent is making validation claims, warn if concrete validation evidence should be attached or summarized. |
+
+## framework-co-change-completeness
+
+- Title: Framework surface changes co-update all referencing distributed artifacts
+- Scope: framework-global
+- Stage: turn
+- Level: discover
+- Runtime: advisory-only
+- Source record: `.lazy-harness/spec/platform/pi-agent-package.md`
+- Summary: Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change.
+
+### Applies to
+- changing_framework_cli_surface
+- renaming_or_removing_cli_flags_or_formats
+- changing_shared_contract_or_schema
+- closing_framework_change_with_dependent_artifacts
+
+### Evidence
+- user-confirmation: User-confirmed operating rule 2026-07-05: when the framework changes, all related skills/prompts/help/parsers must be updated in the same change so downstream updates land consistent.
+- validation-output `.lazy-harness/spec/platform/pi-agent-package.md`: Record completion CO-CHANGE COMPLETENESS clause lists the artifact classes; precedent defects jcode-prompt rename and init --target= help/parser drift fixed in 5d88a31.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: discover, recommend, warn
+- Rollback target: discover
+  - Co-change checklist proves noisy for changes with no distributed references.
 
 ## project-operating-rulebook-policy
 

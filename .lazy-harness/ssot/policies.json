@@ -2,6 +2,56 @@
   "version": 1,
   "policies": [
     {
+      "id": "framework-co-change-completeness",
+      "title": "Framework surface changes co-update all referencing distributed artifacts",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "discover",
+      "appliesTo": [
+        "changing_framework_cli_surface",
+        "renaming_or_removing_cli_flags_or_formats",
+        "changing_shared_contract_or_schema",
+        "closing_framework_change_with_dependent_artifacts"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/pi-agent-package.md",
+      "capabilityIds": [],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User-confirmed operating rule 2026-07-05: when the framework changes, all related skills/prompts/help/parsers must be updated in the same change so downstream updates land consistent."
+        },
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/spec/platform/pi-agent-package.md",
+          "summary": "Record completion CO-CHANGE COMPLETENESS clause lists the artifact classes; precedent defects jcode-prompt rename and init --target= help/parser drift fixed in 5d88a31."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend",
+          "warn"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Co-change checklist proves noisy for changes with no distributed references."
+        ],
+        "demotionTarget": "discover"
+      },
+      "updateLoop": {
+        "eventType": "policy-candidate",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change.",
+        "nonCanonicalViews": [
+          ".lazy-harness/rules/README.md"
+        ]
+      }
+    },
+    {
       "id": "project-operating-rulebook-policy",
       "title": "Project operating rulebook policy",
       "scope": "framework-global",

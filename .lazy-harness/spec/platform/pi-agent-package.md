@@ -33,6 +33,7 @@ Layer: SDD
   - duplicate canonical policy in the extension, block read-only overview/parallel, or commit generated `.pi/`/`.omp/` by default
 - Record completion:
   - changes to the package manifest, wrapper UX, or adapter bridge update this SDD and `check_pi_package_layout_and_contract`
+  - CO-CHANGE COMPLETENESS (user-confirmed rule, 2026-07-05): any framework surface change (CLI command/flag/format rename or removal, contract/schema change, help-text change) must update ALL referencing distributed artifacts IN THE SAME CHANGE — `packages/lazy-harness-pi/skills/*/SKILL.md`, `packages/lazy-harness-pi/prompts/**`, extension bridge, `bin/lazy` help text, and parser dual-forms (`--flag value` / `--flag=value`) — so a downstream `lazy update` + live-linked Pi package always deliver a mutually consistent state. Precedent defects: `--format=jcode-prompt` left in lazy-impl-map-migrate after the `agent-prompt` rename; `init [--target=DIR]` help vs space-only parser (both fixed 5d88a31).
 - Related records:
   - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
   - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
