@@ -19,7 +19,7 @@ Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.
   - capturing, confirming, querying, or promoting reusable knowledge facts
   - designing how candidates, graph drafts, and the canonical graph are stored or projected
 - Must:
-  - keep candidate/draft/canonical stores append-only; supersede confirmed graph records, never overwrite
+  - keep candidate/draft/canonical stores append-only; supersede confirmed graph records, never overwrite. Supersession may reuse the original `id` in a new append-only row carrying `status: superseded` (+ a `supersededBy` pointer): a same-`id` group with AT MOST ONE active (non-superseded) row plus superseded history is a legitimate historical trail, NOT a duplicate-id defect. Only 2+ ACTIVE rows sharing an `id` are a duplicate-id error (graph-hygiene enforces this; 2026-07-05)
   - require explicit confirmation to promote graph records into layer docs (promotion dry-run by default)
   - on subject+predicate conflicts, record conflict metadata and ask structured options
   - verify file/symbol facts via LSP/AST/source read, not guesses

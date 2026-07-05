@@ -19,8 +19,9 @@ Related: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`, `.lazy-ha
   - linting `knowledge/graph.jsonl` for id/path hygiene, or before relying on graph paths for navigation
 - Must:
   - stay read-only and report issues (invalid rows, missing/duplicate id, comma-joined paths, missing/source-only paths)
+  - apply the supersession-aware duplicate-id policy (2026-07-05): group rows by `id`; a group with ≤1 active (non-`superseded`) row plus `status:superseded` history is a legitimate trail counted as `supersededTrails` (NOT an error); only 2+ ACTIVE rows sharing an `id` raise `duplicate-id`
   - support `--fail-on-issues` (exit 2) and classify source-only vs actionable host-missing paths
-  - support `--migration-plan` (2026-07-05, user-approved): read-only proposals only — flag legacy-schema rows (`from/to/type` variants without `predicate`/`relation`) with a subject/predicate/object normalization suggestion, and flag references to ADR-0050-removed framework files with a supersede-note suggestion; proposals never count toward `--fail-on-issues` and are applied only through the `lazy-graph-migrate` guided skill (batch + user approval, append+supersede, per-row source verification)
+  - support `--migration-plan` (2026-07-05, user-approved): read-only proposals only — flag legacy-schema rows (`from/to/type` variants without `predicate`/`relation`) with a subject/predicate/object normalization suggestion, flag references to ADR-0050-removed framework files with a supersede-note suggestion, and report record-BODY jcode mentions as DETECTION-ONLY (fixed via `lazy-record-quality`, never by graph-migrate); proposals never count toward `--fail-on-issues` and graph proposals are applied only through the `lazy-graph-migrate` guided skill (batch + user approval, append+supersede, per-row source verification)
 - Must not:
   - repair, delete, rewrite, supersede, or promote graph rows
 - Record completion:
@@ -55,7 +56,7 @@ Options:
 - `--graph`: explicit graph JSONL path.
 - `--format md|json`: output format.
 - `--fail-on-issues`: exit `2` when any issue is found. Default is report-only.
-- `--migration-plan`: append a read-only `migrationPlan` section (JSON) / `## Migration plan` section (md) proposing legacy-schema-row normalization and removed-framework-ref supersede notes. Still read-only: the CLI never repairs/rewrites/supersedes rows itself; the REMOVED_FRAMEWORK_FILES list mirrors `lazy-sync.ts` KNOWN_REMOVED_MANAGED_FILES (co-change both together).
+- `--migration-plan`: append a read-only `migrationPlan` section (JSON) / `## Migration plan` section (md) proposing legacy-schema-row normalization, removed-framework-ref supersede notes, and `recordJcodeMentions` (detection-only count of record BODIES mentioning jcode, for `lazy-record-quality` human judgment). Still read-only: the CLI never repairs/rewrites/supersedes rows or edits record bodies; the REMOVED_FRAMEWORK_FILES list mirrors `lazy-sync.ts` KNOWN_REMOVED_MANAGED_FILES (co-change both together). Summary also carries `supersededTrails` (legitimate 1-active+superseded id groups).
 
 ## Checks
 

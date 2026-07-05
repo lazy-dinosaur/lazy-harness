@@ -6317,6 +6317,31 @@ def check_graph_hygiene_cli() -> None:
         )
         if "migrationPlan" in json.loads(no_plan.stdout):
             fail("graph-hygiene default output must not include migrationPlan")
+        # Duplicate-id policy (2026-07-05): 1 active + superseded trail = OK; 2 active = error
+        graph3 = root / ".lazy-harness" / "knowledge" / "graph3.jsonl"
+        graph3.write_text(
+            '{"id":"x","subject":"a","predicate":"p","object":"o"}\n'
+            '{"id":"x","subject":"a2","predicate":"p","object":"o2","status":"superseded","supersededBy":"y"}\n'
+            '{"id":"dup","subject":"a","predicate":"p","object":"o"}\n'
+            '{"id":"dup","subject":"b","predicate":"p","object":"o"}\n',
+            encoding="utf-8",
+        )
+        (root / ".lazy-harness" / "domain" / "stale-jcode.md").write_text("jcode hook does X now\n", encoding="utf-8")
+        dup_completed = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "graph-hygiene.ts"), "--root", str(root), "--source", str(source), "--graph", str(graph3), "--format=json", "--migration-plan"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        dup_result = json.loads(dup_completed.stdout)
+        dsum = dup_result.get("summary", {})
+        if dsum.get("duplicateIds") != 1:
+            fail("graph-hygiene duplicate policy: 2 active same-id should be 1 duplicate, got %s" % dsum.get("duplicateIds"))
+        if dsum.get("supersededTrails") != 1:
+            fail("graph-hygiene duplicate policy: 1 active + superseded should be 1 supersededTrail, got %s" % dsum.get("supersededTrails"))
+        if (dup_result.get("migrationPlan") or {}).get("recordJcodeMentions", 0) < 1:
+            fail("graph-hygiene --migration-plan should detect record-body jcode mention")
     print("✓ graph-hygiene cli ok")
 
 

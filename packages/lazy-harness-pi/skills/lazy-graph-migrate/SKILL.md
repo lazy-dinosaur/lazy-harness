@@ -37,7 +37,7 @@ Read these before planning or editing:
 3. For each approved `legacy-schema-row` proposal:
    - VERIFY the fact first: read the subject/object source paths (or LSP/outline) — do not trust the legacy row blindly (progressive-knowledge-graph Must).
    - Append the normalized row `{id: <new id>, subject, predicate, object, source: <verification evidence>, confidence}` carrying `note` → summary.
-   - Append a supersede marker for the original id (`status: superseded`, pointer to the new id). Append-only — never rewrite or delete lines.
+   - Append a supersede marker row that REUSES the original id (`{id: <original id>, status: superseded, supersededBy: <new id>}`). Append-only — never rewrite or delete lines. graph-hygiene treats a same-id group of 1 active + superseded history as a legitimate `supersededTrail`, NOT a duplicate-id error (progressive-knowledge-graph supersession policy).
 4. For each approved `removed-framework-ref` proposal: append a superseding note row (`status: superseded`, pointer `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`).
 5. Validate after each batch:
 
@@ -47,8 +47,11 @@ Read these before planning or editing:
    ```
 
 6. Record batch progress in the host's plan record (same batch-log pattern as memory-device W8); commit the reviewed batch.
-7. Stop on: verification failure (path/symbol not confirmable), ambiguous ownership, duplicate-id conflicts, or user-specified batch limit. Present a fresh option gate with the stop reason.
+7. Stop on: verification failure (path/symbol not confirmable), ambiguous ownership, GENUINE duplicate-id conflicts (2+ ACTIVE rows sharing an id — superseded trails are fine), or user-specified batch limit. Present a fresh option gate with the stop reason.
 
+## Record-body jcode mentions (detection only)
+
+`graph-hygiene --migration-plan` also reports `recordJcodeMentions` — record BODIES that mention jcode. This skill does NOT edit record bodies. Surface the count to the user and hand off to `lazy-record-quality` for per-case human judgment: keep historical narration (e.g. ADR 0050/0051 jcode history) and rewrite only stale present-tense jcode claims.
 ## Must not
 
 - bulk-apply all proposals without per-batch user approval

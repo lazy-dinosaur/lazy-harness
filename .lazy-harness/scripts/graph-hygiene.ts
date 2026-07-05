@@ -4,7 +4,7 @@
  *
  * Read-only lint for .lazy-harness/knowledge/graph.jsonl path/id hygiene.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -38,6 +38,7 @@ interface GraphHygieneResult {
     invalidRows: number
     uniqueIds: number
     duplicateIds: number
+    supersededTrails: number
     missingIds: number
     pathReferences: number
     missingPaths: number
@@ -50,12 +51,13 @@ interface GraphHygieneResult {
   migrationPlan?: {
     legacySchemaRows: number
     removedFrameworkRefs: number
+    recordJcodeMentions: number
     proposals: MigrationProposal[]
   }
 }
 
 interface MigrationProposal {
-  kind: 'legacy-schema-row' | 'removed-framework-ref'
+  kind: 'legacy-schema-row' | 'removed-framework-ref' | 'record-body-jcode-mention'
   line: number
   id?: string
   detail: string
@@ -83,6 +85,33 @@ const REMOVED_FRAMEWORK_FILES = new Set([
 function isLegacySchemaRow(row: Record<string, unknown>): boolean {
   if ('predicate' in row || 'relation' in row) return false
   return ('from' in row && 'to' in row) || ('type' in row && ('source' in row || 'target' in row || 'from' in row))
+}
+
+const JCODE_SCAN_DIRS = ['domain', 'spec', 'behavior', 'tests', 'decisions', 'ssot']
+const JCODE_RE_G = /jcode/gi
+
+// Detection-only: record BODIES mentioning jcode. graph-migrate never edits record bodies;
+// it reports so the human can judge (historical narration stays vs stale present-tense claims
+// → lazy-record-quality). Scans the 6 canonical layer dirs under the host root.
+function scanRecordJcode(root: string): { file: string; hits: number }[] {
+  const out: { file: string; hits: number }[] = []
+  const walk = (dir: string, rel: string): void => {
+    let entries: string[]
+    try { entries = readdirSync(dir) } catch { return }
+    for (const entry of entries) {
+      const abs = join(dir, entry)
+      let st
+      try { st = statSync(abs) } catch { continue }
+      if (st.isDirectory()) { walk(abs, `${rel}/${entry}`); continue }
+      if (!entry.endsWith('.md')) continue
+      let text: string
+      try { text = readFileSync(abs, 'utf8') } catch { continue }
+      const hits = (text.match(JCODE_RE_G) || []).length
+      if (hits > 0) out.push({ file: `${rel}/${entry}`, hits })
+    }
+  }
+  for (const d of JCODE_SCAN_DIRS) walk(join(root, '.lazy-harness', d), `.lazy-harness/${d}`)
+  return out
 }
 
 function parseArgs(argv: string[]): Args {
@@ -145,7 +174,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues] [--migration-plan]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n  .lazy-harness/bin/lazy graph-hygiene --migration-plan --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.\n\n--migration-plan additionally proposes (read-only, never writes): normalization of legacy-schema rows (from/to/type variants) to subject/predicate/object, and supersede notes for references to ADR-0050-removed framework files. Apply proposals only through the lazy-graph-migrate guided skill (batch + user approval).`)
+  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues] [--migration-plan]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n  .lazy-harness/bin/lazy graph-hygiene --migration-plan --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.\n\nDuplicate-id policy: append-only supersession legitimately reuses an id (1 active row + status:superseded history). Only 2+ ACTIVE (non-superseded) rows sharing an id are a duplicate-id error; 1-active+superseded trails are counted as supersededTrails, not errors.\n\n--migration-plan additionally proposes (read-only, never writes): normalization of legacy-schema rows (from/to/type variants) to subject/predicate/object, supersede notes for references to ADR-0050-removed framework files, and detection-only reporting of record-body jcode mentions (fixed via lazy-record-quality, not here). Apply graph proposals only through the lazy-graph-migrate guided skill (batch + user approval).`)
 }
 
 function lazyDir(path: string): string {
@@ -207,12 +236,12 @@ function inspect(args: Args): GraphHygieneResult {
       root: args.root,
       graphPath: args.graph,
       inspectedAt: new Date().toISOString(),
-      summary: { rows: 0, invalidRows: 0, uniqueIds: 0, duplicateIds: 0, missingIds: 0, pathReferences: 0, missingPaths: 0, sourceOnlyPaths: 0, commaJoinedPaths: 0, issues: 0 },
+      summary: { rows: 0, invalidRows: 0, uniqueIds: 0, duplicateIds: 0, supersededTrails: 0, missingIds: 0, pathReferences: 0, missingPaths: 0, sourceOnlyPaths: 0, commaJoinedPaths: 0, issues: 0 },
       issues: [],
       nextActions: ['No graph.jsonl found. Create graph records through implementation maps or knowledge intake before relying on graph navigation.'],
     }
   }
-  const seen = new Map<string, number>()
+  const idGroups = new Map<string, { line: number; status: string }[]>()
   let rows = 0
   let invalidRows = 0
   let pathReferences = 0
@@ -237,10 +266,11 @@ function inspect(args: Args): GraphHygieneResult {
     if (!id) {
       missingIds += 1
       addIssue(issues, { code: 'missing-id', severity: 'error', line: lineNumber, message: 'Graph row is missing string id.' })
-    } else if (seen.has(id)) {
-      addIssue(issues, { code: 'duplicate-id', severity: 'error', line: lineNumber, id, message: `Duplicate id also appeared on line ${seen.get(id)}.` })
     } else {
-      seen.set(id, lineNumber)
+      const status = typeof row.status === 'string' ? row.status : ''
+      const group = idGroups.get(id)
+      if (group) group.push({ line: lineNumber, status })
+      else idGroups.set(id, [{ line: lineNumber, status }])
     }
     if (args.migrationPlan && isLegacySchemaRow(row)) {
       const subject = String(row.subject ?? row.from ?? row.source ?? '?')
@@ -279,7 +309,34 @@ function inspect(args: Args): GraphHygieneResult {
       }
     }
   }
+  // Duplicate-id policy (2026-07-05, user-approved): append-only supersession legitimately creates
+  // same-id trails. A group with <=1 active (non-superseded) row + superseded rest is a historical
+  // trail, NOT a duplicate error. Only 2+ ACTIVE rows sharing an id are a real duplicate.
+  let supersededTrails = 0
+  for (const [gid, entries] of idGroups) {
+    if (entries.length < 2) continue
+    const active = entries.filter((e) => e.status !== 'superseded')
+    if (active.length >= 2) {
+      for (const e of active.slice(1)) {
+        addIssue(issues, { code: 'duplicate-id', severity: 'error', line: e.line, id: gid, message: `Duplicate active id: ${active.length} non-superseded rows share this id (first at line ${active[0].line}). Supersede all but one with status:superseded (append-only) or fix the id.` })
+      }
+    } else {
+      supersededTrails += 1
+    }
+  }
   const duplicateIds = issues.filter((issue) => issue.code === 'duplicate-id').length
+  let recordJcodeMentions = 0
+  if (args.migrationPlan) {
+    for (const { file, hits } of scanRecordJcode(args.root)) {
+      recordJcodeMentions += 1
+      proposals.push({
+        kind: 'record-body-jcode-mention',
+        line: 0,
+        detail: `record body mentions jcode (${hits}x): ${file}`,
+        proposal: 'DETECTION ONLY — human judgment via lazy-record-quality: keep historical narration (e.g. ADR 0050/0051 jcode history), rewrite only stale present-tense jcode claims. graph-migrate never edits record bodies.',
+      })
+    }
+  }
   return {
     ok: issues.filter((issue) => issue.severity === 'error').length === 0,
     mode: 'graph-hygiene.inspect',
@@ -287,13 +344,14 @@ function inspect(args: Args): GraphHygieneResult {
     root: args.root,
     graphPath: args.graph,
     inspectedAt: new Date().toISOString(),
-    summary: { rows, invalidRows, uniqueIds: seen.size, duplicateIds, missingIds, pathReferences, missingPaths, sourceOnlyPaths, commaJoinedPaths, issues: issues.length },
+    summary: { rows, invalidRows, uniqueIds: idGroups.size, duplicateIds, supersededTrails, missingIds, pathReferences, missingPaths, sourceOnlyPaths, commaJoinedPaths, issues: issues.length },
     issues,
     ...(args.migrationPlan
       ? {
           migrationPlan: {
             legacySchemaRows: proposals.filter((p) => p.kind === 'legacy-schema-row').length,
             removedFrameworkRefs: proposals.filter((p) => p.kind === 'removed-framework-ref').length,
+            recordJcodeMentions: proposals.filter((p) => p.kind === 'record-body-jcode-mention').length,
             proposals,
           },
         }
@@ -317,6 +375,7 @@ function renderMd(result: GraphHygieneResult): string {
   lines.push(`- Issues: ${result.summary.issues}`)
   lines.push(`- Invalid rows: ${result.summary.invalidRows}`)
   lines.push(`- Duplicate IDs: ${result.summary.duplicateIds}`)
+  lines.push(`- Superseded trails (1 active + superseded history, OK): ${result.summary.supersededTrails}`)
   lines.push(`- Missing IDs: ${result.summary.missingIds}`)
   lines.push(`- Path references: ${result.summary.pathReferences}`)
   lines.push(`- Missing paths: ${result.summary.missingPaths}`)
@@ -335,6 +394,7 @@ function renderMd(result: GraphHygieneResult): string {
     lines.push('## Migration plan (read-only proposals — apply via the lazy-graph-migrate guided skill, batch + user approval)')
     lines.push(`- Legacy-schema rows: ${result.migrationPlan.legacySchemaRows}`)
     lines.push(`- Removed-framework refs: ${result.migrationPlan.removedFrameworkRefs}`)
+    lines.push(`- Record-body jcode mentions (detection only → lazy-record-quality): ${result.migrationPlan.recordJcodeMentions}`)
     for (const p of result.migrationPlan.proposals.slice(0, 80)) {
       lines.push(`- [${p.kind}] line=${p.line}${p.id ? ` id=${p.id}` : ''} — ${p.detail} → ${p.proposal}`)
     }
