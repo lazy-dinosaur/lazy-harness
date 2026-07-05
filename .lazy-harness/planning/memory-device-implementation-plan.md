@@ -181,3 +181,16 @@ Done-criteria met same-day as policy amendment: advisory-missing-surface-terms =
 ### Post-W8 gate resolved (2026-07-04)
 
 Surface-term check promoted to blocking `missing-surface-terms` issue in framework-source context (user-approved); hosts stay advisory until their backfill (host-owned). record-lint.ts + SDD + TDD + ADR 0053 second amendment updated in lockstep. Framework corpus passes at 0. Remaining open discussion: concurrent-worktree append semantics (candidates.jsonl).
+
+## Host conversion runbook (2026-07-04, reusable for every downstream host)
+
+What arrives automatically via `lazy update` (no host work): CLIs (record-structure-audit, backlink-index, retro), contracts (digest-format aliases/Confidence, write-update-policy obligations, ADR 0053), framework-owned records already backfilled, record-lint with context-split enforcement (host = advisory).
+
+What the host must do (content work on HOST-AUTHORED records only), started with one session instruction:
+
+1. Session-open message (verbatim template): "lazy-memory-backfill 스킬로 우리 record 들을 새 저장 규율에 맞게 backfill 하자. 먼저 record-lint 이슈는 lazy-record-quality 방식으로 고치고, 그다음 advisory 를 배치 단위(5~10개)로 제안해서 내 승인 받고 적용해줘. 표면어는 우리가 실제로 쓰는 말로."
+2. If the skill is missing from the session's skill list: refresh the Pi package first (`lazy pi install`) — skills travel via the Pi package, not lazy sync.
+3. Stage order per host: ① record-quality issues (digest format/broken refs — lazy-record-quality) → ② memory backfill (surface terms in the host's own domain vocabulary + reachability repairs — lazy-memory-backfill) → ③ host's own gate-promotion decision after reaching advisory 0 (mirror of the framework's post-W8 gate).
+4. Progress persists in the host's plan/records between sessions (same batch-log pattern as W8).
+
+Current host queues at time of writing: medivance = 3 issues (digest-bad-scope) + 231 advisories; medivance-pwa = unmeasured (run record-lint there).
