@@ -6362,6 +6362,8 @@ def check_graph_hygiene_cli() -> None:
             fail("graph-hygiene retired skip: only the ACTIVE row's missing-path should count, got %s" % ret_result.get("summary", {}).get("missingPaths"))
         if (ret_result.get("migrationPlan") or {}).get("removedFrameworkRefs") != 0:
             fail("graph-hygiene retired skip: superseded row's removed-framework-ref must be skipped, got %s" % (ret_result.get("migrationPlan") or {}).get("removedFrameworkRefs"))
+        if (ret_result.get("migrationPlan") or {}).get("missingPathRows") != 1:
+            fail("graph-hygiene --migration-plan should surface the ACTIVE missing-path row as a candidate, got %s" % (ret_result.get("migrationPlan") or {}).get("missingPathRows"))
     print("✓ graph-hygiene cli ok")
 
 

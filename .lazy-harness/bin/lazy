@@ -96,7 +96,7 @@ Commands:
   record-audit [--format=json|md] [--source=DIR]
                                 Summarize accumulated host records and quality signals
   graph-hygiene [--format=json|md] [--fail-on-issues] [--migration-plan]
-                                Lint knowledge graph IDs/paths (supersession-aware duplicate policy); --migration-plan adds read-only legacy-row/removed-ref/record-jcode proposals
+                                Lint knowledge graph IDs/paths (supersession-aware duplicate policy); --migration-plan adds read-only legacy-row/removed-ref/record-jcode/missing-path proposals
   record-lint [--format=json|md] [--fail-on-issues]
                                 Validate canonical records: Rule digest format + broken record refs
   record-structure-audit [--format=json|md]

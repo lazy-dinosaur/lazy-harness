@@ -52,12 +52,13 @@ interface GraphHygieneResult {
     legacySchemaRows: number
     removedFrameworkRefs: number
     recordJcodeMentions: number
+    missingPathRows: number
     proposals: MigrationProposal[]
   }
 }
 
 interface MigrationProposal {
-  kind: 'legacy-schema-row' | 'removed-framework-ref' | 'record-body-jcode-mention'
+  kind: 'legacy-schema-row' | 'removed-framework-ref' | 'record-body-jcode-mention' | 'missing-path-row'
   line: number
   id?: string
   detail: string
@@ -321,6 +322,15 @@ function inspect(args: Args): GraphHygieneResult {
         }
         missingPaths += 1
         addIssue(issues, { code: 'missing-path', severity: 'warning', line: lineNumber, id: id || undefined, path, message: 'Host-relative path does not exist.' })
+        if (args.migrationPlan && !REMOVED_FRAMEWORK_FILES.has(path)) {
+          proposals.push({
+            kind: 'missing-path-row',
+            line: lineNumber,
+            id: id || undefined,
+            detail: `active row references a missing path: ${path}`,
+            proposal: 'LLM verdict (verify against source, never guess): FIX if the path is a typo/moved target — append a corrected row + same-id supersede marker; ADD if the referenced record/file should exist — create it, then KEEP; SUPERSEDE if the fact is genuinely obsolete now that the target is gone, citing the ACTUAL reason. Never delete the original row (append-only).',
+          })
+        }
       }
     }
   }
@@ -367,6 +377,7 @@ function inspect(args: Args): GraphHygieneResult {
             legacySchemaRows: proposals.filter((p) => p.kind === 'legacy-schema-row').length,
             removedFrameworkRefs: proposals.filter((p) => p.kind === 'removed-framework-ref').length,
             recordJcodeMentions: proposals.filter((p) => p.kind === 'record-body-jcode-mention').length,
+            missingPathRows: proposals.filter((p) => p.kind === 'missing-path-row').length,
             proposals,
           },
         }
@@ -410,6 +421,7 @@ function renderMd(result: GraphHygieneResult): string {
     lines.push(`- Legacy-schema rows: ${result.migrationPlan.legacySchemaRows}`)
     lines.push(`- Removed-framework refs: ${result.migrationPlan.removedFrameworkRefs}`)
     lines.push(`- Record-body jcode mentions (detection only → lazy-record-quality): ${result.migrationPlan.recordJcodeMentions}`)
+    lines.push(`- Missing-path rows (active; FIX/ADD/SUPERSEDE verdict): ${result.migrationPlan.missingPathRows}`)
     for (const p of result.migrationPlan.proposals.slice(0, 80)) {
       lines.push(`- [${p.kind}] line=${p.line}${p.id ? ` id=${p.id}` : ''} — ${p.detail} → ${p.proposal}`)
     }

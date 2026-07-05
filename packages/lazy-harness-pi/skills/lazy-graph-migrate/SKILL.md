@@ -35,6 +35,7 @@ For each surfaced candidate, determine its ACTUAL reason and current validity, t
 - **KEEP** — the fact is still true and the row is usable. Legacy shape alone is NOT a reason to churn. Leave it untouched.
 - **CONVERT** — the fact still holds but is stored in a legacy shape. VERIFY the real subject/predicate/object meaning against source (the migration-plan mapping is a HINT, not truth — confirm the predicate, don't copy it blindly), append the normalized row (verified fields + source evidence + confidence), and append a same-id supersede marker (`status: superseded`, `supersededBy: <new id>`) citing `format migration, verified at <source>`.
 - **SUPERSEDE** — the fact is genuinely obsolete (e.g. it references a capability/file removed for a real reason such as ADR 0050, or it is simply no longer true). Append a same-id supersede marker citing the ACTUAL reason + pointer. Never "because old."
+- **FIX / ADD / SUPERSEDE (missing-path rows)** — for a `missing-path-row` candidate (an ACTIVE row pointing at a host path that does not exist): FIX if the path is a typo or the target moved (append a corrected row + same-id supersede marker); ADD if the referenced record/file genuinely should exist (create it, then KEEP the row); SUPERSEDE if the fact is obsolete now that the target is gone, citing the ACTUAL reason. Verify against source/records — never guess whether the target should exist.
 
 Append-only always: never rewrite or delete existing lines. graph-hygiene treats a 1-active + superseded id-group as a legitimate historical trail, not a duplicate.
 
