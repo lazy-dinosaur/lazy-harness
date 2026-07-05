@@ -23,6 +23,7 @@ Related ADR: `.lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.
   - require explicit confirmation to promote graph records into layer docs (promotion dry-run by default)
   - on subject+predicate conflicts, record conflict metadata and ask structured options
   - verify file/symbol facts via LSP/AST/source read, not guesses
+  - migrate/supersede graph rows by their ACTUAL reason (is the fact still true and useful?), NOT by age or key-shape (user correction 2026-07-05). Legacy shape or an `--migration-plan` candidate only SURFACES a row; the LLM's verdict is KEEP (fact holds, row usable — shape alone is not a reason to churn), CONVERT (fact holds but legacy shape — append normalized row with the source-VERIFIED meaning, mapping hints are not truth, + same-id supersede marker), or SUPERSEDE (genuinely obsolete — cite the real reason, never "because old"). Detection tools never decide the verdict
 - Must not:
   - silently promote unconfirmed conversation into canonical truth, or rely on blocking tool hooks as the main mechanism
 - Record completion:

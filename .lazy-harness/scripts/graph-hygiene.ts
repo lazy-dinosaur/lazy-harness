@@ -280,8 +280,8 @@ function inspect(args: Args): GraphHygieneResult {
         kind: 'legacy-schema-row',
         line: lineNumber,
         id: id || undefined,
-        detail: `legacy keys ${Object.keys(row).filter((k) => ['from', 'to', 'type', 'note'].includes(k)).join('/')}`,
-        proposal: `append normalized row {subject: ${subject}, predicate: ${predicate}, object: ${object}} (carry note→summary, confidence) and mark this row status:superseded — append-only, never rewrite in place; verify file/symbol facts via source read BEFORE applying (progressive-knowledge-graph Must)`,
+        detail: `legacy-shape candidate (keys ${Object.keys(row).filter((k) => ['from', 'to', 'type', 'note'].includes(k)).join('/')}) — shape only SURFACES it; the LLM decides by the row's ACTUAL reason`,
+        proposal: `LLM verdict required (verify against source, never guess — progressive-knowledge-graph Must): KEEP if the fact still holds and the row is usable as-is (legacy shape alone is NOT a reason to churn); CONVERT if the fact holds but only the shape is legacy — append a normalized row with the VERIFIED meaning (candidate hint: subject=${subject} predicate=${predicate} object=${object}, but confirm the real predicate against source) + append a same-id supersede marker citing "format migration, verified at <source>"; SUPERSEDE if the fact is genuinely obsolete, citing the ACTUAL reason (never "because old"). Append-only.`,
       })
     }
     for (const path of extractPaths(row)) {
@@ -295,8 +295,8 @@ function inspect(args: Args): GraphHygieneResult {
           kind: 'removed-framework-ref',
           line: lineNumber,
           id: id || undefined,
-          detail: `references framework file removed by ADR 0050: ${path}`,
-          proposal: 'append a superseding note row (status:superseded, pointer: .lazy-harness/decisions/0050-pi-omp-only-runtime.md) mirroring the framework Phase 2 treatment; do not delete the original row',
+          detail: `references framework file removed by ADR 0050: ${path} — candidate; the LLM confirms whether this fact is truly obsolete`,
+          proposal: 'LLM verdict: if this fact is genuinely obsolete now that the file is gone, append a same-id supersede marker citing ADR 0050 as the ACTUAL reason; if the fact still matters as history, KEEP it. Never delete or rewrite the original row (append-only).',
         })
       }
       if (path.startsWith('.') && !existsSync(join(args.root, path))) {
