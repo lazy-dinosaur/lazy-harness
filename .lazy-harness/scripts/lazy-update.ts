@@ -231,7 +231,21 @@ function main(): void {
 
     log('\n[Sync]')
     const res = spawnSync('bun', syncArgs, { stdio: 'inherit' })
-    process.exit(res.status ?? 1)
+    const status = res.status ?? 1
+    if (status === 0 && !args.dryRun) {
+      // Post-update migration pointer (user-approved option A, 2026-07-05):
+      // update/sync refresh the framework layer ONLY and never rewrite host-authored
+      // records. When upstream contracts/schemas changed, host records may drift silently;
+      // surface the read-only check + guided migration path instead of auto-rewriting.
+      log(`
+[Next steps] Framework layer updated. Host-authored records are never rewritten automatically.
+  If this update changed record contracts/schemas (digest format, storage rules, references):
+    1. Check drift (read-only):  .lazy-harness/bin/lazy record-lint
+    2. Issues (digest/broken refs)  -> run the 'lazy-record-quality' skill (guided, user-approved batches)
+    3. Advisories (surface terms / reachability, ADR 0053) -> run the 'lazy-memory-backfill' skill
+  Skills travel via the Pi/OMP package; if missing, refresh it first: .lazy-harness/bin/lazy pi install`)
+    }
+    process.exit(status)
   } catch (error) {
     console.error(`Error: ${(error as Error).message}`)
     process.exit(1)

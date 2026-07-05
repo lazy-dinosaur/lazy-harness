@@ -16,3 +16,14 @@ Run from the host project root:
 ```
 
 This skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.
+
+## After the update — host record migration check
+
+`lazy update`/`lazy sync` refresh the FRAMEWORK layer only (Category A). Host-authored records are NEVER rewritten automatically (never-bulk-rewrite principle). If the update changed record contracts or schemas (Rule digest format, storage discipline, reference/link rules), host records may silently drift from the new contracts. Always close the update with this check:
+
+1. Run the read-only drift check: `.lazy-harness/bin/lazy record-lint`
+2. If it reports **issues** (missing/malformed digests, broken references) → run the `lazy-record-quality` skill (guided, host-owned records only, user-approved batches).
+3. If it reports **advisories** (missing surface terms, orphan reachability — ADR 0053) → run the `lazy-memory-backfill` skill (same guided, batch-by-batch flow).
+4. Report the lint counts to the user even when both are zero, so the migration decision is explicit rather than silent.
+
+Skills travel via the Pi/OMP package, not lazy sync — if a skill is missing from the session, refresh the package first: `.lazy-harness/bin/lazy pi install` (or `lazy omp install`).

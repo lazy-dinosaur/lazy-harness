@@ -187,6 +187,8 @@ Surface-term check promoted to blocking `missing-surface-terms` issue in framewo
 
 What arrives automatically via `lazy update` (no host work): CLIs (record-structure-audit, backlink-index, retro), contracts (digest-format aliases/Confidence, write-update-policy obligations, ADR 0053), framework-owned records already backfilled, record-lint with context-split enforcement (host = advisory).
 
+2026-07-05 (user-approved option A): the runbook's entry point is now surfaced automatically — `lazy update` prints a post-update `[Next steps]` block (record-lint → lazy-record-quality → lazy-memory-backfill) on success, and the `lazy-update` skill carries an "After the update" migration-check section. Host records are still never rewritten automatically; the pointer only closes the silent-drift gap where a host updates contracts without knowing its records may lag.
+
 What the host must do (content work on HOST-AUTHORED records only), started with one session instruction:
 
 1. Session-open message (verbatim template): "lazy-memory-backfill 스킬로 우리 record 들을 새 저장 규율에 맞게 backfill 하자. 먼저 record-lint 이슈는 lazy-record-quality 방식으로 고치고, 그다음 advisory 를 배치 단위(5~10개)로 제안해서 내 승인 받고 적용해줘. 표면어는 우리가 실제로 쓰는 말로."
