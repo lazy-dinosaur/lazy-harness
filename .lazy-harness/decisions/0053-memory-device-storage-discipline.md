@@ -38,7 +38,7 @@ Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`, `.la
 - Must not:
   - hand-maintain backlinks or any derivable data inside canonical records
   - introduce embedding/vector retrieval as primary record search (delegated safety net remains an evidence-conditional option per ADR 0024)
-  - make surface-term/link checks commit-blocking before dogfood evidence (advisory first; ADR 0016 philosophy, roadmap hard-guard pause)
+  - make surface-term/link checks commit-blocking in HOST context before that host's backfill completes (framework source became blocking 2026-07-04 after W8 zero-advisory completion — see second Amendment)
 - Record completion:
   - changes to storage-discipline rules update this ADR, `.lazy-harness/spec/platform/record-digest-format.md`, `.lazy-harness/spec/platform/record-write-update-policy.md`, and the audit/index tooling together
 - Related records:
@@ -76,6 +76,10 @@ Preserved safeguards (unchanged by the amendment):
 - observed user vocabulary remains the preferred surface-term source where available; LLM-generated variants are legitimate authorship (user-confirmed 2026-07-04) but should be marked by usage evidence over time (replay/loop validates quality);
 - derived-backlink and advisory-lint principles are untouched;
 - risk accepted knowingly: LLM-authored aliases without usage evidence may be weak bait — the retro loop + W5 replay measure and correct this.
+
+## Amendment — 2026-07-04 (2): framework-source commit-gate promotion after W8
+
+W8 completed same-day (advisories 160→0, orphans 0). User then approved promoting the surface-term check to a blocking commit-gate issue (`missing-surface-terms`) in the FRAMEWORK SOURCE context only. Rationale: deterministic check with ~zero false positives, trivial compliance cost, digest-format precedent (already blocking), ADR 0016-compatible (commit boundary, not dev-time), and same-session injection≠compliance evidence showed advisory+habit decays. HOST context remains advisory until each host's own backfill completes (host-owned pace, record-lint ownership-suppression principle).
 
 ## Implementation map
 

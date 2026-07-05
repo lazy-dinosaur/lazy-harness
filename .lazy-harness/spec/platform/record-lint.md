@@ -55,7 +55,7 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 
 ### Advisory tier (never exit-affecting, ADR 0053)
 
-7. `advisory-missing-surface-terms` — digest carries no non-empty `Aliases`/`Surface terms` list. Digests with `Status: deprecated` or `reverted` are EXEMPT: the digest-format status table excludes them from retrieval by default, so grep bait on them is noise (2026-07-04 refinement, user-approved). Reported in `advisories[]`/`advisoryCount` and the md summary; NEVER counted in `issueCount` and never affects `--fail-on-issues` exit codes (grep-bait coverage stays advisory until dogfood evidence justifies promotion — ADR 0016/0053, roadmap hard-guard pause).
+7. Surface-term check (ADR 0053) — digest carries no non-empty `Aliases`/`Surface terms` list. Deprecated/reverted digests EXEMPT (excluded from retrieval by default — bait is noise). Enforcement is CONTEXT-SPLIT since the 2026-07-04 post-W8 promotion (user-approved): in the FRAMEWORK SOURCE (ADR 0026 markers) it is a blocking `missing-surface-terms` issue (commit gate); in HOST context it stays `advisory-missing-surface-terms` (non-blocking) until the host's own backfill completes — host-owned pace. Reported in `advisories[]`/`advisoryCount` and the md summary; NEVER counted in `issueCount` and never affects `--fail-on-issues` exit codes (grep-bait coverage stays advisory until dogfood evidence justifies promotion — ADR 0016/0053, roadmap hard-guard pause).
 ## CLI contract
 
 ```bash

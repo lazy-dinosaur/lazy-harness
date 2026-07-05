@@ -51,7 +51,7 @@ Self-test must verify:
 5. The framework's own canonical records pass `lazy record-lint --fail-on-issues` (exit 0) — commit-gate enforcement.
 6. In host context (ADR 0026 markers absent), a Category-A framework-owned record's broken ref is suppressed and counted in `frameworkOwned`, while a host-authored record's broken ref is still flagged.
 7. With markers present (framework context), suppression is disabled (`frameworkOwned == 0`) and the same record is flagged.
-8. Advisory tier (ADR 0053): a digest without non-empty `Aliases`/`Surface terms` yields `advisory-missing-surface-terms` in `advisories[]`/`advisoryCount` only — `issueCount` unchanged and `--fail-on-issues` still exits 0 when issues are absent (advisories never block). Digests with Status deprecated/reverted are exempt from the advisory.
+8. Surface-term check (ADR 0053, context-split since 2026-07-04): in FRAMEWORK context a digest without non-empty `Aliases`/`Surface terms` yields blocking issue `missing-surface-terms` (fails `--fail-on-issues`); in HOST context it yields non-blocking `advisory-missing-surface-terms` only. Deprecated/reverted digests exempt in both contexts. The framework's own corpus passes at 0 (post-W8 baseline).
 
 ## Validation commands
 

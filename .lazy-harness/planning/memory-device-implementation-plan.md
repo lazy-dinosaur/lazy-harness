@@ -177,3 +177,7 @@ Status: approved-direction; execution via guided skill, batch-by-batch user chec
 ### W8 DONE (2026-07-04)
 
 Done-criteria met same-day as policy amendment: advisory-missing-surface-terms = 0 across canonical records; reachability audit 0 orphans. 12 batches (5 gates after bundling), every batch user-approved, every batch committed+synced to both dogfood hosts. Per done-criteria the follow-up option gate is now DUE: whether to promote the surface-term advisory to a commit-gate check for NEW records (pending user decision, queued together with the concurrent-worktree append-semantics discussion — candidates.jsonl candidate-concurrent-worktree-append-semantics-20260704).
+
+### Post-W8 gate resolved (2026-07-04)
+
+Surface-term check promoted to blocking `missing-surface-terms` issue in framework-source context (user-approved); hosts stay advisory until their backfill (host-owned). record-lint.ts + SDD + TDD + ADR 0053 second amendment updated in lockstep. Framework corpus passes at 0. Remaining open discussion: concurrent-worktree append semantics (candidates.jsonl).
