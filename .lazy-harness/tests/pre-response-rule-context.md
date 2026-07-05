@@ -26,6 +26,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - keep direct-search debt journaling sanitized and free of raw user messages
   - keep the compact rendered body within the normal prompt-budget target for framework source dogfood
   - preserve the generic evidence guard behavior: block action before root-bound search/read evidence and allow after evidence
+  - keep the host-migration probe (`helpers/host_migration_state.py`) bounded + fail-open and host-state-derived only: identical user messages must render identical bodies for a given host state; a lint timeout/error must omit the line, never break the reminder
 - Must not:
   - reintroduce per-layer sample dumps into the default prompt
   - run deleted query helpers, subagents, or `jcode run` inside default `message.received`

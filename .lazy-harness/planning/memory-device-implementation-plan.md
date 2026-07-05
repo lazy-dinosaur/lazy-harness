@@ -189,6 +189,8 @@ What arrives automatically via `lazy update` (no host work): CLIs (record-struct
 
 2026-07-05 (user-approved option A): the runbook's entry point is now surfaced automatically — `lazy update` prints a post-update `[Next steps]` block (record-lint → lazy-record-quality → lazy-memory-backfill) on success, and the `lazy-update` skill carries an "After the update" migration-check section. Host records are still never rewritten automatically; the pointer only closes the silent-drift gap where a host updates contracts without knowing its records may lag.
 
+2026-07-05 (user-approved resume-surfacing, after dogfood report `fb-mr7g01i9-ui` — update alone did not resume backfill): the turn-start reminder now surfaces pending migration INSIDE the host agent's context — `on-message-received.sh` appends a deterministic `Host record migration PENDING (issues=N, advisories=M)` line via `helpers/host_migration_state.py` (bounded fail-open record-lint probe) whenever counts > 0, instructing the agent to offer the guided resume path that session. `[Next steps]` stdout remains for humans; the reminder line closes the agent-side gap. Measured at decision time: medivance 0/0 (backfill already completed by user), medivance-pwa 0/41, medivance-homepage 0/66, goedamjip-pipeline 0/0, beloaclinic 0/0.
+
 What the host must do (content work on HOST-AUTHORED records only), started with one session instruction:
 
 1. Session-open message (verbatim template): "lazy-memory-backfill 스킬로 우리 record 들을 새 저장 규율에 맞게 backfill 하자. 먼저 record-lint 이슈는 lazy-record-quality 방식으로 고치고, 그다음 advisory 를 배치 단위(5~10개)로 제안해서 내 승인 받고 적용해줘. 표면어는 우리가 실제로 쓰는 말로."

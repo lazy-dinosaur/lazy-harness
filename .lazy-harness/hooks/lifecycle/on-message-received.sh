@@ -87,6 +87,10 @@ try:
     from operating_rule_catalog import catalog_lines as _catalog_lines
 except Exception:  # pragma: no cover - lifecycle helper must fail open
     _catalog_lines = None
+try:
+    from host_migration_state import migration_lines as _migration_lines
+except Exception:  # pragma: no cover - lifecycle helper must fail open
+    _migration_lines = None
 
 root = Path(sys.argv[1])
 payload_ref = sys.argv[2] if len(sys.argv) > 2 else '{}'
@@ -242,6 +246,7 @@ body = '\n'.join([
     '- Missing record: read current host docs/package/config only when reached through concrete map/source paths; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
     '- Guard: action/mutation remains blocked by the generic evidence guard until map-first traversal/read evidence exists.',
     *(_catalog_lines(str(root / '.lazy-harness' / 'bin' / 'lazy'), str(root)) if _catalog_lines else []),
+    *(_migration_lines(str(root / '.lazy-harness' / 'bin' / 'lazy'), str(root)) if _migration_lines else []),
     '- Review / audit / gap-analysis request ("what is missing / undecided / incomplete"): FIRST consult the operating-rule catalog above (full detail: `.lazy-harness/bin/lazy policy list` + `.lazy-harness/bin/lazy capability list`) and map the governing records (decisions/ssot/behavior/domain per §1) for the feature/files in scope, THEN read code to audit compliance against each policy/record. Do NOT read code first and infer the answer — the canonical answer lives in the policy registry + records, not the code (AGENTS §1/§2.1).',
     '- Interactive grammar (apply THIS turn, not only at session start; AGENTS \u00a70/\u00a72.3/\u00a72.5):',
     '  - record\u2194code conflict: record=intent, code=reality \u2192 ask the user which is the truth; never silently pick (AGENTS \u00a70).',
