@@ -12,6 +12,10 @@ Related ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - lazy 명령
+  - CLI 진입점
+  - bin/lazy
 - Applies when:
   - reproducing, diagnosing, or recommending lazy-harness validation/self-test for a host
   - a doc or handoff mentions `bun run lazy:test`/`lazy:doctor` package scripts

@@ -193,7 +193,7 @@ function lint(root: string): { issues: Issue[]; advisories: Issue[]; inspected: 
         // evidence justifies promotion.
         const hasAliases = /(?:^|\n)\s*-\s*Aliases\s*:\s*\n\s+-\s*\S/.test(block)
         const hasSurfaceTerms = /(?:^|\n)\s*-\s*Surface terms\s*:\s*\n\s+-\s*\S/.test(block)
-        if (!hasAliases && !hasSurfaceTerms) {
+        if (!hasAliases && !hasSurfaceTerms && status !== 'deprecated' && status !== 'reverted') {
           advisories.push({ recordPath, code: 'advisory-missing-surface-terms', detail: 'digest has no non-empty Aliases/Surface terms (ADR 0053 grep-bait rule)' })
         }
       }

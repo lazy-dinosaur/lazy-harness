@@ -14,6 +14,10 @@ Related TDD: `.lazy-harness/tests/guidance-ladder-hard-stop-promotion.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 가이드 사다리
+  - guidance ladder
+  - hard stop 승격
 - Applies when:
   - deciding whether a stored lazy-harness rule should stay surfaced/audited or become a hard stop
   - adding, reviewing, or removing hard-stop behavior in framework lifecycle hooks

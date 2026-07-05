@@ -13,6 +13,9 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 인덱스 회귀
+  - map 테스트
 - Applies when:
   - adding or changing `## Index header` fields
   - adding parser/cache/audit behavior for record-authored metadata

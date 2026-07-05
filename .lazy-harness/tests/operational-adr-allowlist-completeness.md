@@ -12,6 +12,9 @@ Related planning: `.lazy-harness/planning/framework-adr-host-distribution-drift-
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - allowlist 회귀
+  - operational adr 검사
 - Applies when:
   - adding or removing a framework ADR that a synced canonical record references by a `decisions/NNNN-slug.md` path
   - changing the init-categories operational-adrs allowlist

@@ -13,6 +13,10 @@ Related TDD: `.lazy-harness/tests/rule-binding-pr-body-guard.md`
 - Status: deprecated
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 액션 바운더리
+  - 행동 경계 가드
+  - action boundary
 - Applies when:
   - evaluating old tool-attached rule binding/action-boundary helpers
   - seeing `check-rule-action-boundary.py` in old generated or user-owned Jcode bash hooks

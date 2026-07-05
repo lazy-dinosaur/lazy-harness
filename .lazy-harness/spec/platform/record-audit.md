@@ -10,6 +10,10 @@ Related: `.lazy-harness/spec/platform/project-profile.md`, `.lazy-harness/spec/p
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - record 감사
+  - 품질 대시보드
+  - record audit
 - Applies when:
   - auditing whether a host accumulated reusable lazy-harness record memory and what needs cleanup
   - running or extending the `record-audit` dashboard for dogfooding or host maintenance

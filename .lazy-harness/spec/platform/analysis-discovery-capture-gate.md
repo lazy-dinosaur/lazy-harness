@@ -11,6 +11,10 @@ Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 캡처 게이트
+  - capture gate
+  - 발견 기록 강제
 - Applies when:
   - a non-trivial analysis/planning turn surfaces multiple layer concepts or multi-step plans
   - reviewing whether discovered facts stayed only in chat history

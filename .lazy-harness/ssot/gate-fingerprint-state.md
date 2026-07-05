@@ -13,6 +13,10 @@ Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 게이트 상태
+  - fingerprint
+  - 게이트 중복 방지
 - Applies when:
   - implementing or debugging lifecycle option-gate / STOP reminders that need same-turn duplicate suppression
   - reasoning about turn-boundary state for loop-prone helpers (BDD trigger, project-rule-placement)

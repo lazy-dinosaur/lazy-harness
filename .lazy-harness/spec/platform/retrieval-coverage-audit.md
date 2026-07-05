@@ -14,6 +14,9 @@ Related TDD: `.lazy-harness/tests/retrieval-coverage-audit.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 검색 커버리지
+  - coverage audit
 - Applies when:
   - `lazy map` output is empty, ambiguous, or too narrow
   - an agent needs to prove it considered concrete map/read coverage before relying on absence

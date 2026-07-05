@@ -13,6 +13,9 @@ Superseded by: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 - Status: deprecated
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - PR 가드 회귀
+  - pr body guard
 - Applies when:
   - working on PR-body rule enforcement or the legacy rule-action-boundary helper
   - asking why tool-attached `gh pr` PR-body denial was replaced by digest + response audit

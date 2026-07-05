@@ -11,6 +11,10 @@ Related SDD: `.lazy-harness/spec/platform/record-before-session-history.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 루트 해석
+  - host root
+  - 어느 프로젝트 root
 - Applies when:
   - resolving the host worktree for lazy CLI/validators, especially PR/worktree flows where `.lazy-harness` resolves through symlinks
   - wiring commit/push hook validation environments

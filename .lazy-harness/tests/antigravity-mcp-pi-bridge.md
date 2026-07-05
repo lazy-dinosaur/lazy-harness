@@ -8,6 +8,9 @@ Layer: TDD
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 브리지 회귀
+  - antigravity 테스트
 - Applies when:
   - importing or converting an Antigravity MCP config into a Pi MCP adapter config
   - working on the Pi package importer, server field mapping, or OAuth handling

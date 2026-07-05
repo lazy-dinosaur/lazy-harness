@@ -8,6 +8,10 @@ Layer: SDD
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 안티그래비티 브리지
+  - antigravity bridge
+  - MCP 브리지
 - Applies when:
   - importing Antigravity MCP server definitions into Pi MCP adapter config
 - Must:

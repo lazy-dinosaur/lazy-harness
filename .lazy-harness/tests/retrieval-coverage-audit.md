@@ -13,6 +13,8 @@ Related SDD: `.lazy-harness/spec/platform/record-index-header.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 커버리지 회귀
 - Applies when:
   - implementing or changing `lazy retrieval-audit`
   - changing `lazy map` or `record-index` output that retrieval audit consumes

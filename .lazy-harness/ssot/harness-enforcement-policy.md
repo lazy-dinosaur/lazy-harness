@@ -10,6 +10,10 @@ Confirmation: user-confirmed
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 강제 정책
+  - enforcement 수준
+  - 하네스 강제
 - Applies when:
   - user discusses whether lazy-harness rules are mandatory or advisory
   - 사용자가 하네스 규칙, 기억, 인지, 기록 누락, 저장한 것을 안 따르는 문제를 이야기한다

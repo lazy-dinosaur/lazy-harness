@@ -10,6 +10,10 @@ Layer: SSOT
 - Status: deprecated
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - MCP 패리티
+  - pi mcp
+  - 도구 동등성
 - Applies when:
   - syncing or validating Pi Coding Agent MCP servers to match this host's Jcode harness set
   - converting Jcode MCP server config into Pi adapter `mcpServers` format

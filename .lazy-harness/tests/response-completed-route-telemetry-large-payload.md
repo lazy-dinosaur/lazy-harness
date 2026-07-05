@@ -9,6 +9,9 @@ Superseded by: `.lazy-harness/ssot/cli-tool-boundary.md` and `.lazy-harness/scri
 - Status: deprecated
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 텔레메트리 회귀
+  - large payload
 - Applies when:
   - working on `response.completed` lifecycle, route telemetry, or user-text classification
   - asking why automatic route telemetry / a static route classifier was removed

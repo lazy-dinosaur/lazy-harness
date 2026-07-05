@@ -12,6 +12,9 @@ Related ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 사다리 승격 회귀
+  - hard stop 승격 테스트
 - Applies when:
   - promoting a rule to a hard-stop or blocking hook, or auditing hard-stop promotion records
   - deciding whether softer guidance layers were insufficient before blocking

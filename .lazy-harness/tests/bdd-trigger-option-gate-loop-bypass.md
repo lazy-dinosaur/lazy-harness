@@ -10,6 +10,9 @@ Related: `.lazy-harness/tests/bdd-trigger-option-gate-loop.md`, `.lazy-harness/h
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 게이트 루프 우회
+  - gate loop bypass
 - Applies when:
   - a BDD natural-language trigger repeats the same option gate across turns
   - suppression depends on assistant response text or the production payload lacks `assistant_response`

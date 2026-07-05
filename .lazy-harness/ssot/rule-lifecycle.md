@@ -15,6 +15,9 @@ Related TDD: `.lazy-harness/tests/rule-binding-pr-body-guard.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 규칙 수명주기
+  - rule lifecycle
 - Applies when:
   - deciding how durable rules become future agent behavior
   - migrating tool-attached project policy to organic response lifecycle

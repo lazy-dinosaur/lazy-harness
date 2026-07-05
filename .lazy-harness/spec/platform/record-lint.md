@@ -55,7 +55,7 @@ Canonical layers: `domain` (DDD), `spec` (SDD), `behavior` (BDD), `tests` (TDD),
 
 ### Advisory tier (never exit-affecting, ADR 0053)
 
-7. `advisory-missing-surface-terms` — digest carries no non-empty `Aliases`/`Surface terms` list. Reported in `advisories[]`/`advisoryCount` and the md summary; NEVER counted in `issueCount` and never affects `--fail-on-issues` exit codes (grep-bait coverage stays advisory until dogfood evidence justifies promotion — ADR 0016/0053, roadmap hard-guard pause).
+7. `advisory-missing-surface-terms` — digest carries no non-empty `Aliases`/`Surface terms` list. Digests with `Status: deprecated` or `reverted` are EXEMPT: the digest-format status table excludes them from retrieval by default, so grep bait on them is noise (2026-07-04 refinement, user-approved). Reported in `advisories[]`/`advisoryCount` and the md summary; NEVER counted in `issueCount` and never affects `--fail-on-issues` exit codes (grep-bait coverage stays advisory until dogfood evidence justifies promotion — ADR 0016/0053, roadmap hard-guard pause).
 ## CLI contract
 
 ```bash

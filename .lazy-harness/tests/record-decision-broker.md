@@ -12,6 +12,8 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 브로커 회귀
 - Applies when:
   - changing Record Decision Packet schema or broker behavior
   - adding post-turn record-decision audit/runtime behavior

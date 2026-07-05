@@ -11,6 +11,10 @@ Related SDD: `.lazy-harness/spec/platform/project-rule-router.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 게이트 규율
+  - 반복 질문 금지
+  - gate discipline
 - Applies when:
   - a response opens an option gate (`needs-option-gate`, `선택해주세요`, `진행 선택 필요`)
   - deciding whether to proceed, write, or execute while a choice is still pending

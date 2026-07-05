@@ -11,6 +11,9 @@ Related helper: `.lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 게이트 루프 회귀
+  - option gate loop
 - Applies when:
   - a BDD natural-language trigger could repeat A-B-C-D option gates while waiting for the user
   - capturing scenario discoveries or running BDD detection in installed hosts

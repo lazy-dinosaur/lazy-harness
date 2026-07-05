@@ -11,6 +11,9 @@ Related SSOT: `.lazy-harness/ssot/rule-sources.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 규칙 메모리 라우팅 회귀
+  - memory routing
 - Applies when:
   - a user corrects that something is a project/team rule, not personal memory
   - an agent is about to store workflow/ownership/source-of-truth/forbidden-mutation policy via Jcode memory.remember

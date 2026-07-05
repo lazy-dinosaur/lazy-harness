@@ -17,6 +17,10 @@ Related fixture: `.lazy-harness/fixtures/policy-machinery-v2/example-policy.json
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 정책 기계 V2
+  - stage-aware
+  - policy packet
 - Applies when:
   - designing Policy Machinery V2
   - connecting project operating rules, capabilities, and Project Map update events

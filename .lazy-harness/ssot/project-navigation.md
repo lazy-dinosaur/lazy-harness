@@ -13,6 +13,10 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 프로젝트 내비
+  - 어디에 뭐가
+  - navigation
 - Applies when:
   - working in the lazy-harness source checkout and needing a compact project feature map
   - generating or inspecting `record-index.json` projectProfile metadata

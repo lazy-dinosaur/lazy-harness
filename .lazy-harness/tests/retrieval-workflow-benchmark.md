@@ -12,6 +12,8 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 벤치마크 회귀
 - Applies when:
   - adding or changing retrieval workflow benchmark measurement
   - comparing `lazy map` and `lazy retrieval-audit` after graph query/path/explain CLI removal

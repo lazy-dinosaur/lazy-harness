@@ -11,6 +11,9 @@ Related SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 규칙 배치 루프 회귀
+  - placement gate
 - Applies when:
   - editing the project-rule-placement gate helper or its same-turn duplicate suppression
   - a `Project rule placement gate` STOP reminder repeats in a turn or re-triggers from echoed/Korean no-record text

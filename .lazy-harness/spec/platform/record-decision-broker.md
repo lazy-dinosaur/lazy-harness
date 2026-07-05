@@ -16,6 +16,10 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 기록 결정 브로커
+  - decision packet
+  - record decision
 - Applies when:
   - designing or implementing post-turn record decision logic
   - deciding whether a completed turn needs record update, candidate capture, no-record-needed, or option gate

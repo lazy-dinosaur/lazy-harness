@@ -14,6 +14,10 @@ Related plan: `.lazy-harness/planning/retrieval-workflow-benchmark-plan.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 검색 벤치마크
+  - 토큰 측정
+  - retrieval benchmark
 - Applies when:
   - measuring post-overview retrieval helper cost after graph query/path/explain CLI removal
   - comparing `lazy map` and `lazy retrieval-audit` as cue-only helper surfaces

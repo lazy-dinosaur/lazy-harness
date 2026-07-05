@@ -12,6 +12,9 @@ Related SSOT: `.lazy-harness/ssot/project-identity.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 라이프사이클 비교 회귀
+  - compare fidelity
 - Applies when:
   - comparing legacy vs orchestrator lifecycle hooks (`response.completed.compare`) or diagnosing compare mismatches
   - running sandbox-mode lifecycle checks or deciding production orchestrator replacement

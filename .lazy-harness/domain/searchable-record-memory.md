@@ -13,6 +13,10 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 - Status: active
 - Layer: DDD
 - Scope: framework-global
+- Aliases:
+  - 검색 가능 기억
+  - record memory
+  - 기억 장치 용어
 - Applies when:
   - defining searchable record memory terminology
   - defining `## Index header` or record-authored retrieval metadata

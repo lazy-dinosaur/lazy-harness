@@ -11,6 +11,10 @@ Related SDD: `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - record 우선
+  - 세션 검색 나중
+  - session history fallback
 - Applies when:
   - user asks about recorded, planned, or intended work (기록/계획/handoff, SSOT/ADR/spec/behavior)
   - choosing between searching `.lazy-harness` records and searching previous chat sessions

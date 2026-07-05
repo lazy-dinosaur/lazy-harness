@@ -11,6 +11,8 @@ Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 응답 감사 회귀
 - Applies when:
   - editing pre-response digest journaling, response.completed audit, or the pre-action read/search-debt permit
   - validating that surfaced rules connect to post-response audit without noising successful turns

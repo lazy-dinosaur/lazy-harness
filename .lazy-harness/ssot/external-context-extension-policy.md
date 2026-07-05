@@ -12,6 +12,10 @@ Related ADR: `.lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-di
 - Status: active
 - Layer: SSOT
 - Scope: host-project
+- Aliases:
+  - 외부 확장 정책
+  - context extension
+  - 컨텍스트 압축 확장
 - Applies when:
   - user asks whether to add an external Pi/OMP context-compression, context-rerouting, or session-memory extension to this repo's workflow
   - evaluating packages such as `@hypabolic/pi-hypa`, `context-mode`, `pi-lean-ctx`, or similar context-window-savings extensions

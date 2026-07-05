@@ -9,6 +9,9 @@ Layer: TDD (regression case for interview gate dedup)
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 교차검증 루프 회귀
+  - forcegate loop
 - Applies when:
   - editing the TDD cross-verify or affected-test-runner interview/forceGate gate logic
   - a `5d-3` Cross-Verify/Affected Test gate STOP re-fires every response for the same source or question

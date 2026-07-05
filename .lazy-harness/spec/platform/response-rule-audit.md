@@ -14,6 +14,10 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 응답 감사
+  - rule audit
+  - response completed 검사
 - Applies when:
   - implementing or debugging `response.completed` audits for records or search/read-debt surfaced before a turn
   - checking whether pre-response direct-search or explicit surfaced digest context was ignored

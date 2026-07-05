@@ -10,6 +10,9 @@ Related SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - git 환경 격리
+  - env isolation
 - Applies when:
   - a git hook or wrapper runs lazy validation with `GIT_DIR`/`GIT_WORK_TREE` in the environment
   - self-test builds temp git fixtures or host-root resolution must ignore inherited git env

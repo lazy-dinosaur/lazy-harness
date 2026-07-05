@@ -13,6 +13,8 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 정책 V2 회귀
 - Applies when:
   - editing Policy Machinery V2 records or fixture
   - changing rulebook/capability/update-loop integration
