@@ -13,6 +13,11 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 증거 캡슐
+  - evidence capsule
+  - 검증 증거
+  - 재현 기록
 - Applies when:
   - a work unit makes non-trivial validation, performance, visual, migration, or cross-host claims
   - validation evidence is too large or too important to remain only in chat, commit text, or transient logs

@@ -9,6 +9,10 @@ Date: 2026-06-18
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 빠른 검증
+  - fast validation
+  - 검증 티어
 - Applies when:
   - agents need quick feedback after editing harness records/source/tests
   - `lazy test` is too slow for every edit loop

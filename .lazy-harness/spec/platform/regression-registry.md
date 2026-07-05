@@ -8,6 +8,10 @@ Layer: SDD
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 회귀 레지스트리
+  - regression registry
+  - Fix-commit 등록
 - Applies when:
   - working on the Fix-commit regression gate (`check-fix-regression.sh`), the regression registry, or its writer
   - debugging a repeating `STOP ... regression entry` advisory on a Fix commit

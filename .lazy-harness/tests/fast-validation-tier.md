@@ -9,6 +9,8 @@ Date: 2026-06-18
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 검증 티어 회귀
 - Applies when:
   - running or implementing `lazy check` for fast changed-file static validation before full regression
 - Must:

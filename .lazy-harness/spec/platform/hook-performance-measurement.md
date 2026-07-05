@@ -10,6 +10,10 @@ Related: `.lazy-harness/planning/performance-optimization-plan.md`, `.lazy-harne
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 훅 성능
+  - hook timing
+  - 지연 측정
 - Applies when:
   - measuring or optimizing `response.completed` hook performance, or adding a fast-path / lifecycle engine mode
 - Must:

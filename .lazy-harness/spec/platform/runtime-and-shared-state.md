@@ -13,6 +13,9 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 런타임 상태
+  - shared state
 - Applies when:
   - `.lazy-harness` is symlinked across git worktrees
   - multiple agents/sessions operate in the same branch or worktree

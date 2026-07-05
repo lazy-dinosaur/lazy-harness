@@ -11,6 +11,9 @@ Related TDD: `.lazy-harness/tests/parallel-runtime-state-isolation.md`
 - Status: active
 - Layer: SSOT
 - Scope: framework-global
+- Aliases:
+  - 상태 저장소
+  - state 위치
 - Applies when:
   - choosing where to write runtime, shared, or canonical lazy-harness state
   - deciding LAZY_HOST_ROOT / LAZY_RUNTIME_ROOT / LAZY_SHARED_ROOT placement for hooks or session state

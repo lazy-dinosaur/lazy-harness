@@ -11,6 +11,10 @@ Source records in downstream host: the Medivance install (`/home/lazydino/dev/me
 - Status: active
 - Layer: SSOT
 - Scope: host-project
+- Aliases:
+  - dogfood 런타임
+  - medivance 정책
+  - dev instance
 - Applies when:
   - dogfooding lazy-harness framework changes from this source repo against the Medivance downstream host
   - deciding whether a check is document-only or needs runtime/UI validation

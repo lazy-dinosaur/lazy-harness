@@ -13,6 +13,9 @@ Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_appl
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 증거 가드 회귀
+  - search evidence guard
 - Applies when:
   - editing the pre-action source-edit guard or its legacy search-performed compatibility helper
   - an edit is blocked despite prior harness-first record search/read, or patch-style mutation must be gated

@@ -8,6 +8,10 @@ Layer: SDD
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - Pi 확장
+  - pi extension
+  - 패키지 계약
 - Applies when:
   - installing, smoke-testing, or debugging the Pi/OMP lazy-harness package or its extension bridge
   - wiring `before_agent_start`/`tool_call` events or `lazy pi`/`lazy omp` wrapper commands

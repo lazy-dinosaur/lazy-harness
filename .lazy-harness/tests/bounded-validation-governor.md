@@ -9,6 +9,8 @@ Date: 2026-06-18
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - governor 회귀
 - Applies when:
   - running or implementing `lazy validate` and choosing a fast/standard/release plan
   - bounding validation time/budget or caching full-regression evidence

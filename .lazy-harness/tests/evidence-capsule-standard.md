@@ -12,6 +12,9 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 캡슐 회귀
+  - capsule 테스트
 - Applies when:
   - changing evidence capsule template headings, README guidance, capability registration, or self-test coverage
   - claiming validation/performance/visual/dogfood evidence should be reusable after the current session

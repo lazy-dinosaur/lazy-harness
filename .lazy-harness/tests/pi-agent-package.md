@@ -8,6 +8,8 @@ Layer: TDD
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 패키지 회귀
 - Applies when:
   - working on the in-repo Pi/OMP agent package install or wrapper UX
   - bridging agent extension events to lazy-harness lifecycle hooks or changing reminder/mutation-guard behavior

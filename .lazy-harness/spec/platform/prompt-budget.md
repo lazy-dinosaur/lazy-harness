@@ -13,6 +13,11 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 프롬프트 예산
+  - prompt budget
+  - 토큰 예산
+  - 주입량
 - Applies when:
   - reducing lazy-harness prompt-heavy operation
   - changing `.lazy-harness/AGENTS.md`, `.jcode/harness/**`, or `message.received` injection text

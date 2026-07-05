@@ -9,6 +9,9 @@
 - Status: deprecated
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - N2 리졸버
+  - reference resolver
 - Applies when:
   - investigating reference-resolver / layer-impact-gate scoring history or why keyword/IDF tuning was removed
   - debugging ADR-keyword false positives or host-pilot precision/recall validation

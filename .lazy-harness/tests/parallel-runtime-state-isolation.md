@@ -12,6 +12,9 @@ Related ADR: `.lazy-harness/decisions/0002-conflict-resolution-protocol.md`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 병렬 상태 격리
+  - runtime isolation
 - Applies when:
   - parallel agents/sessions or a secondary worktree symlink `.lazy-harness` to a primary checkout
   - concurrent commit/validation in the same worktree, or routing runtime journals/caches/logs

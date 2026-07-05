@@ -11,6 +11,8 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 예산 회귀
 - Applies when:
   - adding or changing prompt budget measurement
   - changing prompt surfaces that affect `.lazy-harness/AGENTS.md`, `.jcode/harness/**`, skill prompts, or `message.received` injection

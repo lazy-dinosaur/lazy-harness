@@ -9,6 +9,10 @@ Date: 2026-06-18
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 검증 governor
+  - validation governor
+  - 검증 한도
 - Applies when:
   - agents need to choose between fast, full, and release-grade validation
   - validation already has green evidence and another full matrix would duplicate work

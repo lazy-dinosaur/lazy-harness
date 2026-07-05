@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 검증 로그 보존
+  - validations retention
 - Applies when:
   - a log or JSONL file grows unbounded and needs a retention/rotation policy
   - deciding which audit logs are permanent versus ephemeral snapshots

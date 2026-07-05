@@ -8,6 +8,8 @@ Layer: TDD
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 레지스트리 회귀
 - Applies when:
   - changing the Fix-commit regression gate reader, the `lazy regression` writer/lint, or the registry contract
   - verifying that a spaced (`"sha": "x"`) registry entry satisfies the gate

@@ -12,6 +12,9 @@ Related policy: `validation-evidence-block`
 - Status: active
 - Layer: TDD
 - Scope: framework-global
+- Aliases:
+  - 검증 차단 회귀
+  - validation block
 - Applies when:
   - promoting the validation-evidence boundary to `level=block`
   - checking `lazy policy block-readiness --strict`
