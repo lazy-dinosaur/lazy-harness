@@ -81,6 +81,7 @@ Canonical MD; typed layers; no self-built semantic search (ADR 0024 — delegate
 3. W5 gold-set sourcing: past sessions (retroactive judgment) vs user-authored now vs 2-week live collection (= W4 overlap).
    - DECIDED 2026-07-05 (user-confirmed option gate): live collection (③) — keep using the harness normally; the W4 retro loop accumulates real miss/failure specimens (`lazy retro feedback`), and W5 runs when the collected corpus is sufficient. No forced gold-set authoring now. TimSquad-improve borrowing stays user-gated (retro-loop.md: no auto-apply).
 4. graph.jsonl schema drift: normalize-in-consumers only vs one-time migration (graph-hygiene decision).
+   - DECIDED 2026-07-05 (user-confirmed option gate, triggered by real-host evidence: downstream host update surfaced 9 legacy-schema rows (from/to/type/note, 2026-07-01~02 onboarding) + 21 dangling refs to ADR-0050-removed framework files): GUIDED ONE-TIME MIGRATION — `lazy graph-hygiene --migration-plan` (read-only proposals) + `lazy-graph-migrate` guided skill (batch + user approval, append+supersede, per-row source verification). Consumers keep normalizing all generations until each host's migration completes; framework's own graph shows 42 legacy rows to migrate the same way.
 
 ## Validation criteria (plan-level)
 

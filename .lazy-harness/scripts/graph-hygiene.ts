@@ -14,6 +14,7 @@ interface Args {
   source?: string
   format: 'json' | 'md'
   failOnIssues: boolean
+  migrationPlan: boolean
 }
 
 interface Issue {
@@ -46,6 +47,42 @@ interface GraphHygieneResult {
   }
   issues: Issue[]
   nextActions: string[]
+  migrationPlan?: {
+    legacySchemaRows: number
+    removedFrameworkRefs: number
+    proposals: MigrationProposal[]
+  }
+}
+
+interface MigrationProposal {
+  kind: 'legacy-schema-row' | 'removed-framework-ref'
+  line: number
+  id?: string
+  detail: string
+  proposal: string
+}
+
+// ADR 0050 (Pi/OMP-only runtime) removed these framework files; legacy host graph rows may
+// still reference them. Mirror of lazy-sync.ts KNOWN_REMOVED_MANAGED_FILES (not importable:
+// that script executes main() at module load). CO-CHANGE: extend both lists together.
+const REMOVED_FRAMEWORK_FILES = new Set([
+  '.lazy-harness/scripts/jcode-wiring.ts',
+  '.lazy-harness/scripts/skill-create.ts',
+  '.lazy-harness/scripts/operational-state.ts',
+  '.lazy-harness/scripts/task-router.ts',
+  '.lazy-harness/scripts/context-broker-dogfood.ts',
+  '.lazy-harness/scripts/context-delivery.ts',
+  '.lazy-harness/scripts/relevant-record-query.ts',
+  '.lazy-harness/scripts/context-index.ts',
+  '.lazy-harness/spec/platform/graph-explain.md',
+  '.lazy-harness/spec/platform/graph-path.md',
+  '.lazy-harness/spec/platform/graph-query.md',
+  '.lazy-harness/spec/platform/graph-cleanup.md',
+])
+
+function isLegacySchemaRow(row: Record<string, unknown>): boolean {
+  if ('predicate' in row || 'relation' in row) return false
+  return ('from' in row && 'to' in row) || ('type' in row && ('source' in row || 'target' in row || 'from' in row))
 }
 
 function parseArgs(argv: string[]): Args {
@@ -56,6 +93,7 @@ function parseArgs(argv: string[]): Args {
     source: process.env.LAZY_FRAMEWORK_SOURCE,
     format: 'md',
     failOnIssues: false,
+    migrationPlan: false,
   }
   let graphProvided = false
   for (let i = 0; i < argv.length; i += 1) {
@@ -90,6 +128,8 @@ function parseArgs(argv: string[]): Args {
       args.format = value === 'markdown' ? 'md' : value
     } else if (arg === '--fail-on-issues') {
       args.failOnIssues = true
+    } else if (arg === '--migration-plan') {
+      args.migrationPlan = true
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -105,7 +145,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.`)
+  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues] [--migration-plan]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n  .lazy-harness/bin/lazy graph-hygiene --migration-plan --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.\n\n--migration-plan additionally proposes (read-only, never writes): normalization of legacy-schema rows (from/to/type variants) to subject/predicate/object, and supersede notes for references to ADR-0050-removed framework files. Apply proposals only through the lazy-graph-migrate guided skill (batch + user approval).`)
 }
 
 function lazyDir(path: string): string {
@@ -180,6 +220,7 @@ function inspect(args: Args): GraphHygieneResult {
   let sourceOnlyPaths = 0
   let commaJoinedPaths = 0
   let missingIds = 0
+  const proposals: MigrationProposal[] = []
   for (const [index, line] of readFileSync(args.graph, 'utf8').split(/\r?\n/).entries()) {
     const lineNumber = index + 1
     if (!line.trim()) continue
@@ -201,11 +242,32 @@ function inspect(args: Args): GraphHygieneResult {
     } else {
       seen.set(id, lineNumber)
     }
+    if (args.migrationPlan && isLegacySchemaRow(row)) {
+      const subject = String(row.subject ?? row.from ?? row.source ?? '?')
+      const predicate = String(row.type ?? '?')
+      const object = String(row.to ?? row.target ?? '?')
+      proposals.push({
+        kind: 'legacy-schema-row',
+        line: lineNumber,
+        id: id || undefined,
+        detail: `legacy keys ${Object.keys(row).filter((k) => ['from', 'to', 'type', 'note'].includes(k)).join('/')}`,
+        proposal: `append normalized row {subject: ${subject}, predicate: ${predicate}, object: ${object}} (carry note→summary, confidence) and mark this row status:superseded — append-only, never rewrite in place; verify file/symbol facts via source read BEFORE applying (progressive-knowledge-graph Must)`,
+      })
+    }
     for (const path of extractPaths(row)) {
       pathReferences += 1
       if (path.includes(',')) {
         commaJoinedPaths += 1
         addIssue(issues, { code: 'comma-joined-path', severity: 'warning', line: lineNumber, id: id || undefined, path, message: 'Path field appears to contain multiple comma-joined paths; use one graph row per path or an explicit path array.' })
+      }
+      if (args.migrationPlan && REMOVED_FRAMEWORK_FILES.has(path)) {
+        proposals.push({
+          kind: 'removed-framework-ref',
+          line: lineNumber,
+          id: id || undefined,
+          detail: `references framework file removed by ADR 0050: ${path}`,
+          proposal: 'append a superseding note row (status:superseded, pointer: .lazy-harness/decisions/0050-pi-omp-only-runtime.md) mirroring the framework Phase 2 treatment; do not delete the original row',
+        })
       }
       if (path.startsWith('.') && !existsSync(join(args.root, path))) {
         if (existsInSource(args, path)) {
@@ -227,6 +289,15 @@ function inspect(args: Args): GraphHygieneResult {
     inspectedAt: new Date().toISOString(),
     summary: { rows, invalidRows, uniqueIds: seen.size, duplicateIds, missingIds, pathReferences, missingPaths, sourceOnlyPaths, commaJoinedPaths, issues: issues.length },
     issues,
+    ...(args.migrationPlan
+      ? {
+          migrationPlan: {
+            legacySchemaRows: proposals.filter((p) => p.kind === 'legacy-schema-row').length,
+            removedFrameworkRefs: proposals.filter((p) => p.kind === 'removed-framework-ref').length,
+            proposals,
+          },
+        }
+      : {}),
     nextActions: [
       'Fix invalid JSON and duplicate/missing IDs before relying on graph queries.',
       'Replace comma-joined path strings with separate graph records or explicit path arrays.',
@@ -258,6 +329,16 @@ function renderMd(result: GraphHygieneResult): string {
       lines.push(`- [${issue.severity}] ${issue.code} line=${issue.line}${issue.id ? ` id=${issue.id}` : ''}${issue.path ? ` path=\`${issue.path}\`` : ''} — ${issue.message}`)
     }
     if (result.issues.length > 80) lines.push(`- ... ${result.issues.length - 80} more issue(s)`)
+  }
+  if (result.migrationPlan) {
+    lines.push('')
+    lines.push('## Migration plan (read-only proposals — apply via the lazy-graph-migrate guided skill, batch + user approval)')
+    lines.push(`- Legacy-schema rows: ${result.migrationPlan.legacySchemaRows}`)
+    lines.push(`- Removed-framework refs: ${result.migrationPlan.removedFrameworkRefs}`)
+    for (const p of result.migrationPlan.proposals.slice(0, 80)) {
+      lines.push(`- [${p.kind}] line=${p.line}${p.id ? ` id=${p.id}` : ''} — ${p.detail} → ${p.proposal}`)
+    }
+    if (result.migrationPlan.proposals.length > 80) lines.push(`- ... ${result.migrationPlan.proposals.length - 80} more proposal(s)`)
   }
   lines.push('')
   lines.push('## Next actions')

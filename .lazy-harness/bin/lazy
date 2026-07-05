@@ -95,8 +95,8 @@ Commands:
                                 Produce post-turn Record Decision Packet from explicit evidence flags
   record-audit [--format=json|md] [--source=DIR]
                                 Summarize accumulated host records and quality signals
-  graph-hygiene [--format=json|md] [--fail-on-issues]
-                                Lint knowledge graph IDs and path hygiene
+  graph-hygiene [--format=json|md] [--fail-on-issues] [--migration-plan]
+                                Lint knowledge graph IDs and path hygiene; --migration-plan adds read-only legacy-row/removed-ref proposals
   record-lint [--format=json|md] [--fail-on-issues]
                                 Validate canonical records: Rule digest format + broken record refs
   record-structure-audit [--format=json|md]

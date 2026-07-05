@@ -6285,6 +6285,38 @@ def check_graph_hygiene_cli() -> None:
             fail("lazy graph-hygiene dispatcher failed:\n" + cli_completed.stdout + cli_completed.stderr)
         if json.loads(cli_completed.stdout).get("summary", {}).get("rows") != 7:
             fail("lazy graph-hygiene dispatcher should pass args through")
+        # --migration-plan: read-only proposals for legacy-schema rows + ADR-0050-removed refs
+        graph2 = root / ".lazy-harness" / "knowledge" / "graph2.jsonl"
+        graph2.write_text(
+            '{"id":"legacy1","from":"a.md","to":"b.md","type":"implements","note":"n"}\n'
+            '{"id":"jc","relation":"implemented_by","source":"x","path":".lazy-harness/scripts/jcode-wiring.ts"}\n'
+            '{"id":"modern","subject":"s","predicate":"implements","object":"o","source":"src"}\n',
+            encoding="utf-8",
+        )
+        before2 = graph2.read_text(encoding="utf-8")
+        plan_completed = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "graph-hygiene.ts"), "--root", str(root), "--source", str(source), "--graph", str(graph2), "--format=json", "--migration-plan"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if plan_completed.returncode != 0:
+            fail("graph-hygiene --migration-plan failed:\n" + plan_completed.stdout + plan_completed.stderr)
+        plan = json.loads(plan_completed.stdout).get("migrationPlan") or {}
+        if plan.get("legacySchemaRows") != 1 or plan.get("removedFrameworkRefs") != 1:
+            fail("graph-hygiene --migration-plan expected 1 legacy row + 1 removed ref: " + plan_completed.stdout[:500])
+        if graph2.read_text(encoding="utf-8") != before2:
+            fail("graph-hygiene --migration-plan must stay read-only")
+        no_plan = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "graph-hygiene.ts"), "--root", str(root), "--source", str(source), "--graph", str(graph2), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "migrationPlan" in json.loads(no_plan.stdout):
+            fail("graph-hygiene default output must not include migrationPlan")
     print("✓ graph-hygiene cli ok")
 
 
