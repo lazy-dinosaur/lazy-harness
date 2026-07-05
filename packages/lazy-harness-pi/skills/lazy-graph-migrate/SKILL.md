@@ -62,7 +62,7 @@ Read the subject/object source paths (or LSP/outline/AST). If a fact cannot be c
 
 ## Record-body jcode mentions (detection only)
 
-`--migration-plan` also reports `recordJcodeMentions` — record BODIES that mention jcode. This skill does NOT edit record bodies. Surface the count and hand off to `lazy-record-quality` for per-case human judgment: keep historical narration (e.g. ADR 0050/0051 jcode history), rewrite only stale present-tense jcode claims.
+`--migration-plan` also reports `recordJcodeMentions` — record BODIES that mention jcode. This skill does NOT edit record bodies, and neither does any other skill: `lazy-record-quality`'s scope is Rule digest + broken references, NOT body prose. Surface the count and handle it as a MANUAL, low-priority, per-case record-body review — keep historical narration (e.g. ADR 0050/0051 jcode history), rewrite only genuinely stale present-tense jcode claims.
 
 ## Must not
 

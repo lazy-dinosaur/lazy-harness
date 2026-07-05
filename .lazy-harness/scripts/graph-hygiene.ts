@@ -93,7 +93,7 @@ const JCODE_RE_G = /jcode/gi
 
 // Detection-only: record BODIES mentioning jcode. graph-migrate never edits record bodies;
 // it reports so the human can judge (historical narration stays vs stale present-tense claims
-// → lazy-record-quality). Scans the 6 canonical layer dirs under the host root.
+// → manual per-case body review; NO skill auto-edits record bodies). Scans the 6 canonical layer dirs under the host root.
 function scanRecordJcode(root: string): { file: string; hits: number }[] {
   const out: { file: string; hits: number }[] = []
   const walk = (dir: string, rel: string): void => {
@@ -175,7 +175,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues] [--migration-plan]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n  .lazy-harness/bin/lazy graph-hygiene --migration-plan --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.\n\nDuplicate-id policy: append-only supersession legitimately reuses an id (1 active row + status:superseded history). Only 2+ ACTIVE (non-superseded) rows sharing an id are a duplicate-id error; 1-active+superseded trails are counted as supersededTrails, not errors.\n\n--migration-plan additionally proposes (read-only, never writes): normalization of legacy-schema rows (from/to/type variants) to subject/predicate/object, supersede notes for references to ADR-0050-removed framework files, and detection-only reporting of record-body jcode mentions (fixed via lazy-record-quality, not here). Apply graph proposals only through the lazy-graph-migrate guided skill (batch + user approval).`)
+  console.log(`Graph Hygiene\n\nUsage:\n  bun .lazy-harness/scripts/graph-hygiene.ts [--format md|json] [--root <host>] [--source <framework>] [--graph <path>] [--fail-on-issues] [--migration-plan]\n  .lazy-harness/bin/lazy graph-hygiene --format=md\n  .lazy-harness/bin/lazy graph-hygiene --migration-plan --format=md\n\nRead-only lint for .lazy-harness/knowledge/graph.jsonl. Reports invalid JSON, missing IDs, duplicate IDs, comma-joined path strings, missing host-relative paths, and source-only paths that exist in the framework source but not the host.\n\nDuplicate-id policy: append-only supersession legitimately reuses an id (1 active row + status:superseded history). Only 2+ ACTIVE (non-superseded) rows sharing an id are a duplicate-id error; 1-active+superseded trails are counted as supersededTrails, not errors.\n\n--migration-plan additionally proposes (read-only, never writes): normalization of legacy-schema rows (from/to/type variants) to subject/predicate/object, supersede notes for references to ADR-0050-removed framework files, and detection-only reporting of record-body jcode mentions (fixed by MANUAL per-case body review — no skill auto-edits record bodies; NOT lazy-record-quality, whose scope is Rule digest + broken refs). Apply graph proposals only through the lazy-graph-migrate guided skill (batch + user approval).`)
 }
 
 function lazyDir(path: string): string {
@@ -358,7 +358,7 @@ function inspect(args: Args): GraphHygieneResult {
         kind: 'record-body-jcode-mention',
         line: 0,
         detail: `record body mentions jcode (${hits}x): ${file}`,
-        proposal: 'DETECTION ONLY — human judgment via lazy-record-quality: keep historical narration (e.g. ADR 0050/0051 jcode history), rewrite only stale present-tense jcode claims. graph-migrate never edits record bodies.',
+        proposal: 'DETECTION ONLY — MANUAL per-case record-body review (no skill auto-edits record bodies; NOT lazy-record-quality, which only fixes Rule digests + broken refs): keep historical narration (e.g. ADR 0050/0051 jcode history), rewrite only stale present-tense jcode claims. graph-migrate never edits record bodies.',
       })
     }
   }
@@ -420,7 +420,7 @@ function renderMd(result: GraphHygieneResult): string {
     lines.push('## Migration plan (read-only proposals — apply via the lazy-graph-migrate guided skill, batch + user approval)')
     lines.push(`- Legacy-schema rows: ${result.migrationPlan.legacySchemaRows}`)
     lines.push(`- Removed-framework refs: ${result.migrationPlan.removedFrameworkRefs}`)
-    lines.push(`- Record-body jcode mentions (detection only → lazy-record-quality): ${result.migrationPlan.recordJcodeMentions}`)
+    lines.push(`- Record-body jcode mentions (detection only → manual per-case body review, no skill auto-edits bodies): ${result.migrationPlan.recordJcodeMentions}`)
     lines.push(`- Missing-path rows (active; FIX/ADD/SUPERSEDE verdict): ${result.migrationPlan.missingPathRows}`)
     for (const p of result.migrationPlan.proposals.slice(0, 80)) {
       lines.push(`- [${p.kind}] line=${p.line}${p.id ? ` id=${p.id}` : ''} — ${p.detail} → ${p.proposal}`)
