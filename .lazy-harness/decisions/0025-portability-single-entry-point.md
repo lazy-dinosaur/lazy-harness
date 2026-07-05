@@ -9,6 +9,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 이식성
+  - single entry point
 - Applies when:
   - onboarding the framework onto a new host or bootstrapping a project
   - deciding where portability responsibility lives (single entry vs scattered milestones)

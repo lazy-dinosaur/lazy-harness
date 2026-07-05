@@ -13,6 +13,9 @@ Related candidate: `.lazy-harness/knowledge/candidates.jsonl#candidate-external-
 - Status: active
 - Layer: ADR
 - Scope: host-project
+- Aliases:
+  - 외부 확장 비채택
+  - non-adoption
 - Applies when:
   - considering installing an external Pi/OMP package that intercepts, compresses, or reroutes `bash`/`read`/`grep`/`find`/`ls` or `tool_call`/`tool_result`, injects its own routing `AGENTS.md`, or runs a competing session memory/knowledge store
   - evaluating context-window-savings extensions such as `@hypabolic/pi-hypa`, `context-mode`, or `pi-lean-ctx`

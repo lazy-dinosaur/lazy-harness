@@ -9,6 +9,9 @@ Accepted (2026-05-10)
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 복구 경로
+  - recovery
 - Applies when:
   - the framework or its hooks are damaged or malfunctioning, or trust is lost
   - planning backups or recovery for `.lazy-harness`

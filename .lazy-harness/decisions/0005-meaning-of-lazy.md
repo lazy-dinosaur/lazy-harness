@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - lazy 의 의미
+  - 게으름 정의
 - Applies when:
   - interpreting "lazy" during design or scope/size decisions
   - choosing between a minimal and a more complete framework option

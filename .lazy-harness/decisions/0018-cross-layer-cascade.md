@@ -10,6 +10,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 레이어 캐스케이드
+  - 상호 감지
 - Applies when:
   - designing detectors or analysis that should surface gaps across DDD/SDD/BDD/SSOT
   - a user requirement implies a new domain term, contract, scenario, or registry entry

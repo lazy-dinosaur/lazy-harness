@@ -9,6 +9,9 @@ Accepted (2026-05-10)
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 충돌 해결
+  - conflict resolution
 - Applies when:
   - user provides new information that may conflict with existing records
   - detecting or resolving a conflict across DDD/SDD/BDD/TDD/SSOT records

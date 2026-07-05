@@ -10,6 +10,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 외부 의존성 금지
+  - dependency invariant
 - Applies when:
   - deciding whether framework core may depend on an external service, API, or SaaS
   - adding a trigger, adapter, or integration to framework core

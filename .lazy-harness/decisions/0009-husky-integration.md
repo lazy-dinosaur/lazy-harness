@@ -11,6 +11,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - husky
+  - git hook 설치
 - Applies when:
   - wiring git hooks in a project that uses husky or a custom core.hooksPath
   - adding or debugging lazy-harness hook integration and confirming hooks fire

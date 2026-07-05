@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 감사 캐스케이드
+  - audit cascade
 - Applies when:
   - auditing whether framework state and "done" claims actually match reality
   - a phase or decision is declared closed and silent failures or stale living-docs may remain

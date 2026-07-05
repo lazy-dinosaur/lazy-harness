@@ -9,6 +9,10 @@ Accepted (2026-05-10)
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 핵심 철학
+  - Principle 0
+  - 상호 보완
 - Applies when:
   - reasoning about why a framework principle or safety rule exists
   - adding or justifying a new framework principle

@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 계획 위생
+  - plan status
 - Applies when:
   - closing a phase, or planning and tracking phase progress
   - recording emergent decisions or daily progress against a plan

@@ -10,6 +10,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - doctor 소유권
+  - lazy test 경계
 - Applies when:
   - deciding where framework validation, doctor, or self-test logic should live
   - wiring a hook to a validation gate

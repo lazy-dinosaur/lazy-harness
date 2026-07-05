@@ -11,6 +11,10 @@ Related ADR: `.lazy-harness/decisions/0022-framework-owned-doctor-and-lazy-test.
 - Status: active
 - Layer: SDD
 - Scope: framework-global
+- Aliases:
+  - 패키지 헬스
+  - package health
+  - 생성 복구
 - Applies when:
   - `lazy test` / `lazy doctor --profile full` package-health typecheck fails on suspected generated-artifact drift
   - a schema/source branch changed but generated client/artifacts are stale

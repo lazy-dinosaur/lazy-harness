@@ -10,6 +10,10 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 검증 규율
+  - verification
+  - 확인 원칙
 - Applies when:
   - verifying work after implementing, especially hook/framework/infra/doctor changes
   - closing a phase or interpreting a doctor warning

@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - doctor 신선도
+  - freshness 검사
 - Applies when:
   - a session or phase ends and plan/handoff/progress records may be stale or unsynced
   - extending doctor or freshness checks to catch missed record updates

@@ -10,6 +10,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 입력 트리거
+  - universal trigger
 - Applies when:
   - a feature proposes a channel-specific input adapter (Figma, Slack, etc.) inside framework core
   - deciding how user requirements enter framework triggers

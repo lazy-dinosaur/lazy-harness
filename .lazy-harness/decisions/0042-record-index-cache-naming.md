@@ -9,6 +9,9 @@
 - Status: active
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 인덱스 명명
+  - record index 이름
 - Applies when:
   - naming future deterministic cache/listing tools for Record Index Header metadata
   - deciding whether to keep, deprecate, or alias `context-index`

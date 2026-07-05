@@ -1,13 +1,13 @@
 # todo-reminder loop + Auto-poke + stream UTF-8 invalid → server reload
 
-Status: open
+Status: deprecated (2026-07-04: jcode-era test; jcode decommissioned by ADR 0050 — scenario no longer reproducible; kept for history)
 Layer: TDD
 Date: 2026-05-17
 Related: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`, jcode SIGHUP reload (별도 jcode issue), jcode auto-poke (별도 jcode 기능)
 
 ## Rule digest
 
-- Status: needs-review
+- Status: deprecated
 - Layer: TDD
 - Scope: framework-global
 - Applies when:

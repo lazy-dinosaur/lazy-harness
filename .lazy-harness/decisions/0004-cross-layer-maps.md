@@ -10,6 +10,9 @@
 - Status: needs-review
 - Layer: ADR
 - Scope: framework-global
+- Aliases:
+  - 크로스 레이어 맵
+  - full mirror
 - Applies when:
   - adding or auditing cross-layer landscape/coverage/relation maps for SDD/BDD/TDD
   - deciding map coverage breadth, full mirror versus minimal
