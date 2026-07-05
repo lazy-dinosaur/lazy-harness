@@ -193,4 +193,4 @@ What the host must do (content work on HOST-AUTHORED records only), started with
 3. Stage order per host: ① record-quality issues (digest format/broken refs — lazy-record-quality) → ② memory backfill (surface terms in the host's own domain vocabulary + reachability repairs — lazy-memory-backfill) → ③ host's own gate-promotion decision after reaching advisory 0 (mirror of the framework's post-W8 gate).
 4. Progress persists in the host's plan/records between sessions (same batch-log pattern as W8).
 
-Current host queues at time of writing: medivance = 3 issues (digest-bad-scope) + 231 advisories; medivance-pwa = unmeasured (run record-lint there).
+Current host queues at time of writing (SNAPSHOTS ONLY — every host differs; the skill's first step is always measuring in that host): medivance = 3 issues (digest-bad-scope) + 231 advisories; medivance-pwa = 0 issues + 47 advisories (skips the record-quality stage entirely). Future hosts: unknown until measured — the runbook is count-agnostic by design.
