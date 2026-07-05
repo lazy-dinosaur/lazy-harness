@@ -243,6 +243,8 @@ function main(): void {
     1. Check drift (read-only):  .lazy-harness/bin/lazy record-lint
     2. Issues (digest/broken refs)  -> run the 'lazy-record-quality' skill (guided, user-approved batches)
     3. Advisories (surface terms / reachability, ADR 0053) -> run the 'lazy-memory-backfill' skill
+    4. Graph legacy rows / removed-framework refs (jcode-era, ADR 0050):
+       .lazy-harness/bin/lazy graph-hygiene --migration-plan  -> run the 'lazy-graph-migrate' skill
   Skills travel via the Pi/OMP package; if missing, refresh it first: .lazy-harness/bin/lazy pi install`)
     }
     process.exit(status)

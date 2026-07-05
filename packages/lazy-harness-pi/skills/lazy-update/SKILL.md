@@ -24,6 +24,7 @@ This skill delegates to the installed .lazy-harness framework. Do not edit gener
 1. Run the read-only drift check: `.lazy-harness/bin/lazy record-lint`
 2. If it reports **issues** (missing/malformed digests, broken references) → run the `lazy-record-quality` skill (guided, host-owned records only, user-approved batches).
 3. If it reports **advisories** (missing surface terms, orphan reachability — ADR 0053) → run the `lazy-memory-backfill` skill (same guided, batch-by-batch flow).
-4. Report the lint counts to the user even when both are zero, so the migration decision is explicit rather than silent.
+4. Check jcode-era graph remnants (read-only): `.lazy-harness/bin/lazy graph-hygiene --migration-plan` — legacy-schema rows / removed-framework refs (ADR 0050) → run the `lazy-graph-migrate` skill.
+5. Report the lint + graph counts to the user even when all are zero, so the migration decision is explicit rather than silent.
 
 Skills travel via the Pi/OMP package, not lazy sync — if a skill is missing from the session, refresh the package first: `.lazy-harness/bin/lazy pi install` (or `lazy omp install`).
