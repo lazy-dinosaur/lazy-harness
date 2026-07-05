@@ -54,6 +54,7 @@ Pi/OMP `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. �
 ### 2.2 발견된 record 끝까지 Read
 
 거기 있는 정의·제약·결정이 host 의 진짜 룰. AGENTS.md 가 아니라 **record 가 single source of truth**.
+record 진입 시 Rule digest 의 Aliases/Surface terms 를 표면어 매칭 cue 로 쓰고, inbound 참조는 backlink-index (stale/부재 시 `grep -rl <record-path> .lazy-harness/`) 로 걷는다 (ADR 0053).
 
 ### 2.3 결정 분기 시 옵션 질문 (자유 문답 금지)
 

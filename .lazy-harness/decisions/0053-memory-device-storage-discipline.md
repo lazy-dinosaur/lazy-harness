@@ -86,14 +86,15 @@ W8 completed same-day (advisories 160→0, orphans 0). User then approved promot
 - Status: `partially-verified (W1/W2 verified; W3 contracts landed; full-corpus backfill W8 in progress via lazy-memory-backfill skill)`
 - Primary files:
   - `.lazy-harness/scripts/record-structure-audit.ts` — W1 read-only baseline audit (`lazy record-structure-audit`).
-  - `.lazy-harness/scripts/backlink-index.ts` — W2 derived backlink generator (`lazy backlink-index`).
+  - `.lazy-harness/scripts/backlink-index.ts` — W2 derived backlink generator (`lazy backlink-index`); exports `refreshBacklinkIndex` for auto-regen.
+  - `.lazy-harness/scripts/record-index.ts` — `--write` path auto-refreshes the backlink index (small-automation #1, 2026-07-05).
   - `.lazy-harness/generated/backlink-index.json` — derived, rebuildable backlink index.
   - `.lazy-harness/scripts/record-map.ts` — drill-down `referenced by` surface (loadBacklinkEntries).
   - `.lazy-harness/scripts/record-lint.ts` — advisory surface-term check.
   - `.lazy-harness/bin/lazy` — dispatchers for the two new commands.
 - Key symbols:
   - `loadBacklinkEntries` (`record-map.ts`) — reads generated index into drill-down.
-  - `main` (`backlink-index.ts`) — forward-link + graph scan, all schema generations.
+  - `refreshBacklinkIndex` / `main` (`backlink-index.ts`) — forward-link + graph scan, all schema generations; exported for record-index `--write` auto-regen.
 - Tests / protection:
   - determinism: two identical consecutive audit runs (verified 2026-07-04); W1↔W2 orphan parity (4/4, verified).
   - self-test checks: candidate, to be added with the next slice (batching commit-gate changes).
@@ -108,8 +109,9 @@ W8 completed same-day (advisories 160→0, orphans 0). User then approved promot
 - Rule: storage discipline (surface terms, cross-links, derived backlinks, weak-claim markers) is the retrieval infrastructure for walk-first record memory; enforcement starts advisory.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0053-memory-device-storage-discipline.md`
-- Why not AGENTS.md: platform decision; AGENTS carries only the walking-grammar pointer (deferred, prompt-budget-sensitive).
-- Confirmation: user-approved plan execution 2026-07-04 ("좋아 진행해봐") over the user-confirmed requirement set.
+- Why not AGENTS.md: platform decision; AGENTS carries only the walking-grammar pointer.
+- Walking-grammar pointer: DEFERRAL LIFTED 2026-07-05 (user-approved option gate) — one line added under AGENTS.md §2.2 pointing at Rule digest Aliases/Surface terms + backlink-index/grep-on-entry fallback.
+- Confirmation: user-approved plan execution 2026-07-04 ("좋아 진행해봐") over the user-confirmed requirement set; small-automation slice (backlink auto-regen in record-index --write + AGENTS pointer) user-approved 2026-07-05.
 
 ## Discovery capture
 

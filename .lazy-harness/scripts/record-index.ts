@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
+import { refreshBacklinkIndex } from './backlink-index.ts'
 
 const LAYER_DIRS = {
   DDD: '.lazy-harness/domain',
@@ -685,6 +686,15 @@ function main(): void {
   if (args.write) {
     mkdirSync(path.dirname(args.output), { recursive: true })
     writeFileSync(args.output, json, 'utf8')
+    // memory-device small-automation #1: keep the derived backlink index fresh
+    // whenever the record-index cache is rebuilt+persisted (candidates.jsonl
+    // candidate-memory-device-small-automations-20260704; ADR 0053: backlinks stay derived).
+    try {
+      const backlinks = refreshBacklinkIndex(args.root)
+      console.error(`record-index: backlink-index refreshed (${backlinks.outPath}, targets=${backlinks.targetCount})`)
+    } catch (error) {
+      console.error(`record-index: backlink-index refresh skipped (${error instanceof Error ? error.message : String(error)}); fallback: lazy backlink-index`)
+    }
     if (args.format === 'json') process.stdout.write(json)
     else process.stdout.write(renderMarkdown(index))
     return

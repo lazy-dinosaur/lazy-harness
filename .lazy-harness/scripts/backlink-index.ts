@@ -49,13 +49,18 @@ function stripFences(text: string): string {
   return text.replace(/```[\s\S]*?```/g, '')
 }
 
-function main(): number {
-  const argRoot = process.argv.find((a) => a.startsWith('--root='))?.slice('--root='.length)
-  const root = findHarnessRoot(argRoot ? path.resolve(argRoot) : process.cwd())
-  if (!root) {
-    console.error('backlink-index: no .lazy-harness root found')
-    return 1
-  }
+export interface BacklinkIndexResult {
+  outPath: string
+  docCount: number
+  targetCount: number
+}
+
+/**
+ * Compute and write generated/backlink-index.json for the given harness root.
+ * Exported so record-index rebuild paths (record-map/record-index) can keep the
+ * derived backlink index fresh automatically (memory-device small-automation #1).
+ */
+export function refreshBacklinkIndex(root: string): BacklinkIndexResult {
   const lh = path.join(root, '.lazy-harness')
   const rel = (p: string) => path.relative(root, p)
 
@@ -123,8 +128,19 @@ function main(): number {
   mkdirSync(outDir, { recursive: true })
   const outPath = path.join(outDir, 'backlink-index.json')
   writeFileSync(outPath, `${JSON.stringify(result, null, 2)}\n`)
-  console.log(`backlink-index: wrote ${rel(outPath)} (docs=${docs.length}, targets=${targets.size})`)
+  return { outPath: rel(outPath), docCount: docs.length, targetCount: targets.size }
+}
+
+function main(): number {
+  const argRoot = process.argv.find((a) => a.startsWith('--root='))?.slice('--root='.length)
+  const root = findHarnessRoot(argRoot ? path.resolve(argRoot) : process.cwd())
+  if (!root) {
+    console.error('backlink-index: no .lazy-harness root found')
+    return 1
+  }
+  const res = refreshBacklinkIndex(root)
+  console.log(`backlink-index: wrote ${res.outPath} (docs=${res.docCount}, targets=${res.targetCount})`)
   return 0
 }
 
-process.exit(main())
+if (import.meta.main) process.exit(main())

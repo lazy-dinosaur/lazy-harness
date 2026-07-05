@@ -22,6 +22,7 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
   - a work unit makes non-trivial validation, performance, visual, migration, or cross-host claims
   - validation evidence is too large or too important to remain only in chat, commit text, or transient logs
   - closing a phase or commit where future agents need reproducible commands/results/context
+  - declaring an install/update/rollout "complete" for one or more target hosts/runtimes
 - Must:
   - keep evidence capsules optional and human-authored; do not auto-write them from hooks
   - use `.lazy-harness/templates/evidence-capsule.md` as the checklist/template when a capsule is needed
@@ -29,6 +30,7 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
   - record commands, results, interpretation, reproduction steps, related records, and retention/privacy notes
   - redact or summarize raw transcripts, credentials, secrets, personal data, and excessive logs
   - link capsules to records/commits/plans when they support a claim
+  - verify DEPLOYMENT REACH before completion claims: an artifact existing in the source repo is not evidence that a target host can use it — check the target host/runtime actually has it linked/installed (e.g. `lazy pi list` / `lazy pi smoke` on that host) (retro `fb-mr79avdx-9x`, 2026-07-05, user-confirmed)
 - Must not:
   - treat an evidence capsule as canonical truth ahead of DDD/SDD/BDD/TDD/ADR/SSOT records or source code
   - require a capsule for every small edit or routine focused test

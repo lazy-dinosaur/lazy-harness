@@ -79,6 +79,7 @@ Canonical MD; typed layers; no self-built semantic search (ADR 0024 — delegate
 1. W2 surface detail: extend record-map.ts vs separate `lazy backlinks` CLI.
 2. W3 lint level: advisory-only start (recommended) vs immediate commit-gate for new records.
 3. W5 gold-set sourcing: past sessions (retroactive judgment) vs user-authored now vs 2-week live collection (= W4 overlap).
+   - DECIDED 2026-07-05 (user-confirmed option gate): live collection (③) — keep using the harness normally; the W4 retro loop accumulates real miss/failure specimens (`lazy retro feedback`), and W5 runs when the collected corpus is sufficient. No forced gold-set authoring now. TimSquad-improve borrowing stays user-gated (retro-loop.md: no auto-apply).
 4. graph.jsonl schema drift: normalize-in-consumers only vs one-time migration (graph-hygiene decision).
 
 ## Validation criteria (plan-level)
