@@ -250,6 +250,7 @@ function inspect(args: Args): GraphHygieneResult {
   let commaJoinedPaths = 0
   let missingIds = 0
   const proposals: MigrationProposal[] = []
+  const parsed: { lineNumber: number; row: Record<string, unknown>; id: string }[] = []
   for (const [index, line] of readFileSync(args.graph, 'utf8').split(/\r?\n/).entries()) {
     const lineNumber = index + 1
     if (!line.trim()) continue
@@ -272,6 +273,20 @@ function inspect(args: Args): GraphHygieneResult {
       if (group) group.push({ line: lineNumber, status })
       else idGroups.set(id, [{ line: lineNumber, status }])
     }
+    parsed.push({ lineNumber, row, id })
+  }
+  // Retired-id-group skip (2026-07-05, user-confirmed Option A from a downstream-host detector-conflict decision):
+  // an id-group containing any status:superseded row is retired — settled history. Skip path-hygiene
+  // warnings AND migration proposals for retired rows (and any row that is itself superseded) so
+  // already-handled/removed history does not re-surface as actionable. ACTIVE rows are still flagged.
+  // Read-only; host graph untouched — hosts get clean counts via lazy update, no bulk churn.
+  const retiredIds = new Set<string>()
+  for (const [gid, entries] of idGroups) {
+    if (entries.some((e) => e.status === 'superseded')) retiredIds.add(gid)
+  }
+  for (const { lineNumber, row, id } of parsed) {
+    const isRetired = (typeof row.status === 'string' && row.status === 'superseded') || (id !== '' && retiredIds.has(id))
+    if (isRetired) continue
     if (args.migrationPlan && isLegacySchemaRow(row)) {
       const subject = String(row.subject ?? row.from ?? row.source ?? '?')
       const predicate = String(row.type ?? '?')

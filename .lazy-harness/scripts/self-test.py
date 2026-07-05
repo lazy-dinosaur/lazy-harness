@@ -6342,6 +6342,26 @@ def check_graph_hygiene_cli() -> None:
             fail("graph-hygiene duplicate policy: 1 active + superseded should be 1 supersededTrail, got %s" % dsum.get("supersededTrails"))
         if (dup_result.get("migrationPlan") or {}).get("recordJcodeMentions", 0) < 1:
             fail("graph-hygiene --migration-plan should detect record-body jcode mention")
+        # Retired-id-group skip (2026-07-05, Option A): superseded/retired rows are skipped for
+        # missing-path + removed-ref; ACTIVE rows still flagged.
+        graph4 = root / ".lazy-harness" / "knowledge" / "graph4.jsonl"
+        graph4.write_text(
+            '{"id":"ret","subject":"s","predicate":"p","object":"o","status":"superseded","path":".lazy-harness/scripts/jcode-wiring.ts"}\n'
+            '{"id":"act","subject":"s","predicate":"p","object":"o","path":".lazy-harness/domain/also-gone.md"}\n',
+            encoding="utf-8",
+        )
+        ret_completed = subprocess.run(
+            ["bun", str(LAZY / "scripts" / "graph-hygiene.ts"), "--root", str(root), "--source", str(source), "--graph", str(graph4), "--format=json", "--migration-plan"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        ret_result = json.loads(ret_completed.stdout)
+        if ret_result.get("summary", {}).get("missingPaths") != 1:
+            fail("graph-hygiene retired skip: only the ACTIVE row's missing-path should count, got %s" % ret_result.get("summary", {}).get("missingPaths"))
+        if (ret_result.get("migrationPlan") or {}).get("removedFrameworkRefs") != 0:
+            fail("graph-hygiene retired skip: superseded row's removed-framework-ref must be skipped, got %s" % (ret_result.get("migrationPlan") or {}).get("removedFrameworkRefs"))
     print("✓ graph-hygiene cli ok")
 
 
