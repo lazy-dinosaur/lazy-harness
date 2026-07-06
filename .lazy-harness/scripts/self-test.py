@@ -10467,6 +10467,11 @@ def main() -> None:
         default="auto",
         help="Validation scope. 'auto' detects via framework-own markers (planning/phase-5-plan.xml + framework/framework-contract.md).",
     )
+    parser.add_argument(
+        "--light",
+        action="store_true",
+        help="Light mode: skip the measured-heavy integration/lifecycle/doctor/profile/benchmark checks (deferred to pre-push full run). Fast record/schema/structural checks still run. Commit-gate use; ADR 0016 2026-07-05 amendment (commit=light, push=full).",
+    )
     args = parser.parse_args()
 
     scope = _detect_scope() if args.scope == "auto" else args.scope
@@ -10562,6 +10567,24 @@ def main() -> None:
         (check_fix_regression_registry, "BOTH"),
     ]
 
+    # ADR 0016 2026-07-05 amendment: --light (pre-commit gate) skips these measured-heavy checks;
+    # they still run at pre-push (full). New checks default to light-INCLUDED (run at commit) unless
+    # added here — errs toward more checking at commit. Fast record/schema/structural checks stay in light.
+    HEAVY_CHECK_NAMES = {
+        "check_lazy_sync_prunes_stale_managed_files",
+        "check_doctor_smoke", "check_doctor_c17_negative", "check_doctor_package_health",
+        "check_package_health_generate_remediation_heuristic",
+        "check_lifecycle_fixture_intake_cli", "check_lifecycle_hook_integration", "check_lifecycle_parity_runner",
+        "check_response_completed_no_auto_route_telemetry",
+        "check_pi_package_layout_and_contract",
+        "check_affected_test_runner", "check_aftershock_reanalysis",
+        "check_retrieval_workflow_benchmark_cli", "check_retrieval_coverage_audit_cli",
+        "check_real_feature_walkthrough", "check_e2e_demo",
+        "check_knowledge_intake", "check_document_resource_ingestion_inspect",
+        "check_project_profile_inspect", "check_project_profile_v2_runtime", "check_project_profile_v2_queue_runtime",
+        "check_tdd_cross_verify",
+    }
+
     ran = 0
     skipped = 0
     for check, tag in checks:
@@ -10576,6 +10599,10 @@ def main() -> None:
 
         if not applies:
             print(f"[skipped] {check.__name__} (scope={scope}, tag={tag})")
+            skipped += 1
+            continue
+        if args.light and check.__name__ in HEAVY_CHECK_NAMES:
+            print(f"[skipped] {check.__name__} (light mode: heavy check deferred to pre-push full run)")
             skipped += 1
             continue
         check()

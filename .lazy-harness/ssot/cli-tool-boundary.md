@@ -94,7 +94,7 @@ Rule placement:
   - operational-state packet prototype user-text classifier.
   - deleted query-helper prototypes that accepted raw user messages.
 - Protection:
-  - `python3 .lazy-harness/scripts/self-test.py`
+  - `python3 .lazy-harness/scripts/self-test.py` (scope modes `--scope`, and `--light` for the pre-commit gate: skips measured-heavy checks; pre-push runs full — ADR 0016/0022)
   - grep/static checks for forbidden auto semantic CLI invocation and deleted helper absence.
 
 

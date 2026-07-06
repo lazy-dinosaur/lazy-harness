@@ -94,6 +94,7 @@ Hooks should call framework-owned validation first.
 - 재현 가능하다. `.jcode/`가 없어도 검증 가능.
 - future extract에 적합하다.
 - framework가 자기 일관성을 스스로 검증한다.
+- (2026-07-05) self-test 는 `--scope` 외에 `--light` 모드를 갖는다: pre-commit gate 는 `lazy test --light`(measured-heavy check skip, ~16s), pre-push 는 full `lazy test`. 여전히 framework-owned validation(`lazy test`/self-test)이 primary gate — 경계 불변. 상세: ADR 0016 §0b (2026-07-05) + `.lazy-harness/ssot/cli-tool-boundary.md`.
 - Jcode 외 다른 AI/tool 환경에서도 framework를 사용할 수 있다.
 
 ### Negative

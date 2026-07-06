@@ -57,8 +57,8 @@ Commands:
                                 Fast changed-file static validation, not full regression
   validate [--plan=fast|standard|release] [--max-seconds=N] [--dry-run]
                                 Run a bounded validation plan with release opt-in guard
-  test [--scope=auto|framework|host]
-                                Run framework self-test (default: auto)
+  test [--scope=auto|framework|host] [--light]
+                                Run framework self-test (default: auto). --light skips measured-heavy checks for the pre-commit gate; pre-push runs full (ADR 0016).
   doctor [--profile=smoke|full] Run framework health check (default: smoke)
   prompt-budget [--format=json|md]
                                 Measure prompt surface line/token budgets

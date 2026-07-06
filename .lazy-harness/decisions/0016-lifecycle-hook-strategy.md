@@ -72,6 +72,16 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 - `.lazy-harness/hooks/pre-commit-guard.sh` 는 host private leak guard 후 `.lazy-harness/bin/lazy test` 를 실행해 commit 을 차단한다.
 - pre-push 는 기존처럼 `.lazy-harness/bin/lazy test` 를 blocking 으로 유지한다.
 
+### 0b. 2026-07-05 amendment — commit=light, push=full (이중 full 중복 제거)
+
+사용자 확인: "경량이랑 full 두개로 나눠줘". 기존엔 `pre-commit-guard.sh` 와 `pre-push.sh` 가 **둘 다 full `lazy test`** (84-check) 를 돌려 commit→push 시 같은 스위트를 2번 실행했다(측정: source 111s, medivance host pre-push 441s). 개정:
+
+- **pre-commit = `lazy test --light`**: measured-heavy 추가(lifecycle/doctor/pi-package/profile/benchmark/lazy-sync 등 ~22개)를 skip, fast record/schema/structural check만 실행 (source 기준 111s→16s). record 무결성 regression 은 여전히 차단.
+- **pre-push = `lazy test` (full)** 유지: 전체 84-check. defense-in-depth — 값싼 commit gate + thorough push gate.
+- HEAVY 집합은 `self-test.py` 의 `HEAVY_CHECK_NAMES` 에 명시; 새 check 는 기본적으로 light-포함(commit 에서 실행)되며, heavy 면 명시 추가한다(더 많이 검사하는 쪽으로 안전).
+- ADR 0011 negative test 증거(2026-07-05): light 모드에서 `logs/actions.jsonl` 에 깨진 줄 삽입 → `--light` rc=1(차단), 복원 → rc=0. light 게이트가 실제 regression 을 막음을 확인. ADR 0003 recovery-path: 차단 메시지는 기존대로 "lazy test 실행 후 fix" 유지.
+- Related boundary: ADR 0022 (self-test scope mode — `--light`) + `.lazy-harness/ssot/cli-tool-boundary.md`.
+
 ### 1. `response.completed` — 매 응답 검증 게이트 (PRIMARY)
 
 **Fire 시점**: turn loop 끝 + tool calls 없음 (AI 가 더 이상 도구 사용 안 함)

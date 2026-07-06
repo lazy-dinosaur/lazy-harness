@@ -55,9 +55,9 @@ run_commit_gate() {
     [ -f "$LAZY/.hooks-disabled" ] && return 0
 
     if [ -x "$LAZY/bin/lazy" ]; then
-        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test 2>&1 || true)
+        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test --light 2>&1 || true)
     elif [ -x "$LAZY/scripts/self-test.py" ]; then
-        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py" 2>&1 || true)
+        TEST_OUT=$(LAZY_HOST_ROOT="$REPO_ROOT" env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py" --light 2>&1 || true)
     else
         echo "ℹ️  pre-commit: lazy test not wired on this host yet — skipping gate"
         return 0
