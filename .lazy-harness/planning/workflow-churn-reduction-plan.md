@@ -18,7 +18,7 @@ Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`,
 
 - pre-commit hook computes `git diff --cached --name-only`; if only record/doc/candidate paths changed (layer `.md`, `knowledge/*.jsonl`, planning, retrospective) and NOT `scripts/**`/`hooks/**`/`manifests/**`/`packages/**`/`bin/lazy`/schemas → run a LIGHT gate (`record-lint` + `graph-hygiene` + schema/JSON validation, ~5-10s).
 - Heavy lifecycle/pi-package/benchmark checks run only when their code changed, or always at pre-PUSH.
-- Implement: self-test gains a `--light`/scoped mode (subset of checks); pre-commit hook selects mode by diff. ADR 0016 says commit=blocking gate, not commit=full-suite — consistent.
+- Implement: self-test gains a `--light`/scoped mode (subset of checks); pre-commit hook selects mode by diff. CORRECTION (2026-07-05, grounded in ADR 0016): ADR 0016's 2026-05-19 amendment (lines 72-73) EXPLICITLY specifies BOTH `pre-commit-guard.sh` AND `pre-push` run the full `.lazy-harness/bin/lazy test` — i.e. the full 84-check suite runs at commit AND again at push (2× redundancy, by design). So making pre-commit a LIGHT subset is an ADR 0016 AMENDMENT (change 'both gates full' → 'pre-commit light/scoped, pre-push full'), NOT merely 'consistent with' it. Standard defense-in-depth: cheap gate at commit, thorough at push.
 - Safety: record-only changes cannot break hook/lifecycle code checks (those test code, not records). Needs a TDD fixture proving the light gate still catches record-lint/graph-hygiene regressions.
 
 ### Fix 1b — parallelize the full self-test (process pool) — arguably the best single lever (keeps full coverage)
