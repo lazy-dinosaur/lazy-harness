@@ -21,6 +21,14 @@ Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`,
 - Implement: self-test gains a `--light`/scoped mode (subset of checks); pre-commit hook selects mode by diff. ADR 0016 says commit=blocking gate, not commit=full-suite — consistent.
 - Safety: record-only changes cannot break hook/lifecycle code checks (those test code, not records). Needs a TDD fixture proving the light gate still catches record-lint/graph-hygiene regressions.
 
+### Fix 1b — parallelize the full self-test (process pool) — arguably the best single lever (keeps full coverage)
+
+- The 85 checks run sequentially (`for check, tag in checks: check()` — a check registry exists). Most are isolated (14 `TemporaryDirectory` + `__tmp_..._{os.getpid()}` pid-scoped fixtures). Run them concurrently via a PROCESS pool (`ProcessPoolExecutor`) — NOT threads: fixtures are `os.getpid()`-scoped, so threads (shared pid) collide; separate processes get distinct pids.
+- `fail()` raises `SystemExit(1)`; workers must catch it per-check and collect failures (do not abort the pool); report all failures at the end.
+- Expected: 111s → bounded by the slowest single check (~20s: lifecycle intake) + overhead ≈ 25-35s on a multi-core box, with FULL coverage preserved (unlike the Fix 1 subset).
+- REQUIRED pre-step: audit for checks that write SHARED repo state (generated indexes, the real `knowledge/graph.jsonl`, canonical files) rather than a tempdir/pid-scoped path — run those few serially or isolate them; everything else parallel. Governed by ADR 0022/0026 (framework-owned self-test scope).
+- Best combo: Fix 1 (record-only commits → light subset) + Fix 1b (when the full suite runs, run it parallel).
+
 ### Fix 2 — capture-gate false-positive suppression
 
 - `hooks/lifecycle/helpers/check-analysis-discovery-capture` (+ Pi adapter payload): before emitting STOP, inspect this turn's `recent_tool_calls` `edit_target` for a write to `.lazy-harness/knowledge/candidates.jsonl`, any `.lazy-harness/<layer>` record, or retro feedback → treat the capture obligation as satisfied and do not fire. Also suppress on pure-recap turns (no lazy-root mutation this turn).
@@ -34,6 +42,12 @@ Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`,
 ## Sequencing
 
 Fix 1 (mechanical, ~90% of a record-only commit's time removed, low risk) → Fix 2 (helper logic, removes gate interruptions) → Fix 3 (behavioral + optional parallel tooling).
+
+## 2026-07-05 applied — host pre-push #1 bottleneck fixed (measured on medivance)
+
+A host session profiled pre-PUSH (not pre-commit) on medivance: `.lazy-harness/bin/lazy test` = **441s**, of which **`check_lazy_sync_prunes_stale_managed_files` = 309.7s (72%)**. Root cause: that check runs `bun lazy-sync.ts --from <ROOT> --target <temp> --force` = a FULL managed-tree sync/prune, cost linear in host size (371 records). Other slow BOTH checks: doctor C17 negative 39s, lifecycle intake 20s, doctor D07 package-health 18.7s, retrieval benchmark 13.3s, response.completed telemetry 13.2s.
+
+APPLIED (user-approved option gate): tag `check_lazy_sync_prunes_stale_managed_files` BOTH → FRAMEWORK_ONLY (self-test.py) + ADR 0026 amendment (Record completion rule). It re-verifies framework lazy-sync code; hosts get that verification on the framework source, so re-running it per host push is redundant + O(host-size). Verified: `--scope host` skips it (ran 58→57), `--scope framework` still runs it (ran 84). Effect: host pre-push 441s → ~130s once hosts `lazy update`. NOT changed: the other slow BOTH checks (doctor/lifecycle/benchmark/telemetry) — left for per-check evaluation (user chose #1-only scope).
 
 ## Discovery capture
 

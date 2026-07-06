@@ -10504,7 +10504,7 @@ def main() -> None:
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),
         (check_manifest_syncs_python_lifecycle_helpers, "BOTH"),
-        (check_lazy_sync_prunes_stale_managed_files, "BOTH"),
+        (check_lazy_sync_prunes_stale_managed_files, "FRAMEWORK_ONLY"),  # moved BOTH->FRAMEWORK_ONLY 2026-07-05: re-verifies framework lazy-sync code at O(host-size) cost (309s on a 371-record host); host gets it verified on the framework source (ADR 0026 amendment)
         (check_rule_action_boundary_legacy_no_project_policy, "BOTH"),
         (check_guidance_ladder_hard_stop_promotion, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
