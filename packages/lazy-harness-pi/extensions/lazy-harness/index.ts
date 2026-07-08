@@ -675,8 +675,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   if (typeof (pi as any).registerTool === "function") pi.registerTool({
     name: "lazy_move_project",
     label: "Lazy Move Project",
-    description: "Create an optional git worktree and queue a lazy-harness project move. Use when the user asks to move/switch Pi to another repo/worktree.",
-    promptSnippet: "Create a worktree if requested, then queue /lazy-move to switch Pi to the target lazy-harness project.",
+    description: "Create an optional git worktree and switch Pi to another lazy-harness project/session when supported. Use when the user asks to move/switch to another repo/worktree.",
+    promptSnippet: "Create a worktree if requested, then switch Pi to the target lazy-harness project when the runtime exposes switchSession.",
     promptGuidelines: [
       "Use lazy_move_project when the user asks to move/switch to another lazy-harness project or to create a worktree and continue there.",
       "lazy_move_project should only be used with an explicit targetPath/worktreePath from the user or from read project evidence; do not invent paths.",
@@ -688,7 +688,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       branch: Type.Optional(Type.String({ description: "Optional new branch name for git worktree add -b." })),
       baseRef: Type.Optional(Type.String({ description: "Optional base ref for git worktree add." })),
       prompt: Type.Optional(Type.String({ description: "Optional prompt to send after switching session." })),
-      autoSwitch: Type.Optional(Type.Boolean({ description: "Queue /lazy-move after worktree creation. Defaults to true." })),
+      autoSwitch: Type.Optional(Type.Boolean({ description: "Switch to the target project after preparation when ctx.switchSession is available. Defaults to true." })),
     }),
     async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, _onUpdate: any, ctx: any) {
       const root = findLazyRootForInvocation(undefined, ctx);
@@ -702,16 +702,31 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
         throw new Error(`target is not a lazy-harness project after preparation: ${target}`);
       }
       const autoSwitch = params.autoSwitch !== false;
-      if (autoSwitch && typeof (pi as any).sendUserMessage === "function") {
-        const promptSuffix = params.prompt ? ` --prompt ${String(params.prompt).replace(/\s+/g, " ")}` : "";
-        (pi as any).sendUserMessage(`/lazy-move ${target}${promptSuffix}`, { deliverAs: "followUp" });
+      let switchedSessionFile = "";
+      if (autoSwitch) {
+        if (typeof ctx.switchSession === "function") {
+          switchedSessionFile = await switchToProjectSession(ctx, target, params.prompt);
+        } else {
+          const promptSuffix = params.prompt ? ` --prompt ${String(params.prompt).replace(/\s+/g, " ")}` : "";
+          return {
+            content: [{
+              type: "text",
+              text: [
+                `Prepared ${target}, but this tool context cannot switch sessions directly (ctx.switchSession unavailable).`,
+                `Run /lazy-move ${target}${promptSuffix} from an interactive command context to switch.`,
+                worktreeOutput,
+              ].filter(Boolean).join("\n"),
+            }],
+            details: { targetPath: target, autoSwitch, switched: false, worktreeOutput },
+          };
+        }
       }
       const message = autoSwitch
-        ? `Prepared ${target} and queued /lazy-move.`
+        ? `Prepared ${target} and switched session${switchedSessionFile ? ` (${switchedSessionFile})` : ""}.`
         : `Prepared ${target}. Run /lazy-move ${target} to switch.`;
       return {
         content: [{ type: "text", text: [message, worktreeOutput].filter(Boolean).join("\n") }],
-        details: { targetPath: target, autoSwitch, worktreeOutput },
+        details: { targetPath: target, autoSwitch, switched: Boolean(switchedSessionFile), switchedSessionFile, worktreeOutput },
       };
     },
   });

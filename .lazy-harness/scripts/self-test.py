@@ -2220,6 +2220,47 @@ def check_pi_package_layout_and_contract() -> None:
     finally:
         shutil.rmtree(isolation_smoke, ignore_errors=True)
 
+    move_tool_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-move-tool-"))
+    try:
+        source_root = move_tool_smoke / "source"
+        target_root = move_tool_smoke / "target"
+        fake_home = move_tool_smoke / "home"
+        for root in [source_root, target_root]:
+            (root / ".lazy-harness" / "bin").mkdir(parents=True)
+            (root / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        fake_home.mkdir(parents=True)
+        smoke = move_tool_smoke / "move-tool.ts"
+        smoke.write_text(
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const tools = new Map();\n"
+            "const commands = new Map();\n"
+            "const sent = [];\n"
+            "let switched = 0;\n"
+            "const pi = { on(){}, registerCommand(n,o){commands.set(n,o)}, registerTool(o){tools.set(o.name,o)}, sendUserMessage(msg,opts){sent.push({msg,opts,via:'pi'})}, async exec(){return {stdout:'',stderr:'',exitCode:0}} };\n"
+            "lazyHarnessPi(pi);\n"
+            "const tool = tools.get('lazy_move_project');\n"
+            "if (!tool || !commands.has('lazy-move')) throw new Error('lazy move surfaces not registered');\n"
+            "const sourceRoot=" + json.dumps(str(source_root)) + ";\n"
+            "const targetRoot=" + json.dumps(str(target_root)) + ";\n"
+            "const ctx={cwd:sourceRoot, signal:undefined, ui:{notify(){}}, async switchSession(sessionFile, opts){switched++; if (!sessionFile) throw new Error('missing session file'); if (typeof opts?.withSession !== 'function') throw new Error('missing withSession callback'); await opts.withSession({ui:{notify(){}}, sendUserMessage(msg){sent.push({msg,via:'next-session'})}});}};\n"
+            "const res = await tool.execute('tc1', {targetPath: targetRoot, autoSwitch:true, prompt:'continue after move'}, undefined, undefined, ctx);\n"
+            "if (switched !== 1) throw new Error('lazy_move_project did not call switchSession');\n"
+            "if (sent.some(s => String(s.msg).startsWith('/lazy-move'))) throw new Error('lazy_move_project queued /lazy-move instead of switching directly');\n"
+            "if (!sent.some(s => s.msg === 'continue after move' && s.via === 'next-session')) throw new Error('move prompt was not delivered in switched session');\n"
+            "if (!String(res.content?.[0]?.text || '').includes('switched session')) throw new Error('move tool result did not report switch');\n"
+            "const fallback = await tool.execute('tc2', {targetPath: targetRoot, autoSwitch:true}, undefined, undefined, {cwd:sourceRoot, signal:undefined, ui:{notify(){}}});\n"
+            "if (!String(fallback.content?.[0]?.text || '').includes('cannot switch sessions directly')) throw new Error('fallback did not explain unavailable switchSession');\n"
+            "console.log('pi lazy_move_project direct switch ok');\n",
+            encoding="utf-8",
+        )
+        move_env = env_without_lazy_runtime()
+        move_env["HOME"] = str(fake_home)
+        completed = subprocess.run(["bun", str(smoke)], cwd=ROOT, text=True, capture_output=True, check=False, env=move_env)
+        if completed.returncode != 0:
+            fail("Pi lazy_move_project switch smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(move_tool_smoke, ignore_errors=True)
+
     payload_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-agent-end-payload-"))
     try:
         proot = payload_smoke / "repo"
