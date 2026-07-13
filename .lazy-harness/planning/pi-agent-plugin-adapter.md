@@ -416,7 +416,7 @@ Discovery capture:
 
 ## Mid-turn steer evidence re-arming (2026-07-08)
 
-Status: implemented and source-validated; commit/push/all-initialized-host rollout authorized on 2026-07-13 and in progress
+Status: complete — implemented, source-validated, committed/pushed as `1bfcae8`, and deployment-reach verified on 2026-07-13
 
 User-confirmed direction:
 
@@ -445,7 +445,10 @@ Validation (2026-07-13):
 - focused `check_pi_package_layout_and_contract` passed
 - full `python3 .lazy-harness/scripts/self-test.py --scope framework` passed (`ran=84`, `skipped=0`)
 - `record-lint` clean; new graph rows validate and add no hygiene warnings
-- evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+- source evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+- deployment evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-deployment-reach.md`
+- topology: 6 physical harness installations, 60/60 logical initialized entrypoints, 54 symlinks, 5 git repository families
+- Pi/OMP package list and one-run smoke passed; physical-host light self-test passed `6/6`
 
 Discovery capture:
 

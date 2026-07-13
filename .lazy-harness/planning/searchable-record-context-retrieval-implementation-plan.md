@@ -50,7 +50,7 @@ Evidence:
 Layer package completed:
 
 - Phase B: Record Index Header Layer Package complete: DDD, BDD, SDD, TDD, and SSOT/ADR review done.
-- SCR-702 source implementation and validation complete: Pi/OMP mid-turn steering advances a root evidence epoch, clears prior evidence, excludes late pre-steer results, and requires fresh post-steer map/read evidence. User authorized commit, push, and all initialized downstream sync on 2026-07-13; rollout is in progress.
+- SCR-702 complete: Pi/OMP mid-turn steering advances a root evidence epoch, clears prior evidence, excludes late pre-steer results, and requires fresh post-steer map/read evidence. Commit `1bfcae8` is pushed; deployment reach is verified across 6 physical harness installations and 60 logical initialized entrypoints.
 
 Remaining not-started / blocked work:
 
@@ -159,7 +159,7 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Run host tests/doctor.
 
 ### Phase F — Pi/OMP steer evidence re-arming
-- Status: source-validated; commit/push/all-initialized-host rollout authorized on 2026-07-13 and in progress.
+- Status: complete on 2026-07-13 — source validated, commit `1bfcae8` pushed, 6 physical deployments verified, 60/60 logical entrypoints reachable.
 
 - Detect non-extension, non-empty mid-turn steering without inspecting message meaning.
 - Advance a root evidence epoch and clear prior recent-tool evidence.
@@ -167,7 +167,9 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Preserve read-only map/read access while the generic pre-action guard blocks later actions.
 - Protect prior-evidence invalidation, late-result exclusion, and fresh-evidence recovery with a fake runtime.
 - Validation: focused Pi contract smoke passed; full framework self-test passed (`ran=84`, `skipped=0`); record-lint clean; graph rows valid/unique.
-- Evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+- Source evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+- Deployment evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-deployment-reach.md`
+- Rollout efficiency follow-up: dedupe initialized worktree paths by resolved physical `.lazy-harness` target before syncing.
 
 ## Validation commands
 

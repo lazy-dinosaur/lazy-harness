@@ -363,9 +363,9 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ### SCR-702 — Re-arm evidence after Pi/OMP mid-turn steer
 
-- Status: in-progress
-- Source status: implemented and validated on 2026-07-13.
-- Rollout status: user authorized commit, push, and all initialized downstream sync on 2026-07-13; rollout in progress.
+- Status: done
+- Source status: implemented, validated, committed, and pushed as `1bfcae8` on 2026-07-13.
+- Rollout status: complete — 6 physical harness installations verified; 60/60 logical initialized worktree paths reach those installations; 54 paths are symlinks across 5 git repository families.
 - Type: adapter/source/BDD/SDD/TDD
 - Requirements:
   - detect non-extension, non-empty `streamingBehavior === "steer"` generically
@@ -384,7 +384,11 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - focused `check_pi_package_layout_and_contract` passed
   - full `python3 .lazy-harness/scripts/self-test.py --scope framework` passed (`ran=84`, `skipped=0`)
   - `record-lint` reported 163/163 clean; `graph-hygiene` reported 666 valid unique rows with only two pre-existing command-string path warnings
-  - evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+  - source evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+  - deployment evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-deployment-reach.md`
+  - physical-host light tests passed `6/6`; Pi/OMP package list and one-run smoke passed
+  - user-confirmed topology correction: report 6 physical deployments plus 60 logical entrypoints, not 60 independent projects
+- Follow-up: future all-host rollout must group initialized paths by resolved physical `.lazy-harness` target, sync each physical target once, then verify logical entrypoint reach separately.
 
 ## Discovery capture
 
