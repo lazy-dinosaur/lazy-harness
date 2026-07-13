@@ -27,6 +27,8 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
   - keep evidence capsules optional and human-authored; do not auto-write them from hooks
   - use `.lazy-harness/templates/evidence-capsule.md` as the checklist/template when a capsule is needed
   - put durable capsules under `.lazy-harness/evidence/` with privacy-reviewed content
+  - consolidate repeated validation/review/benchmark detail into at most one capsule per logical work unit
+  - keep canonical records to the durable result, interpretation, and capsule link instead of copied command logs
   - record commands, results, interpretation, reproduction steps, related records, and retention/privacy notes
   - redact or summarize raw transcripts, credentials, secrets, personal data, and excessive logs
   - link capsules to records/commits/plans when they support a claim
@@ -34,6 +36,7 @@ Related template: `.lazy-harness/templates/evidence-capsule.md`
 - Must not:
   - treat an evidence capsule as canonical truth ahead of DDD/SDD/BDD/TDD/ADR/SSOT records or source code
   - require a capsule for every small edit or routine focused test
+  - copy the same validation transcript into planning, ADR, SDD, SSOT, and TDD records
   - store raw private transcripts, raw tool-event payloads, credentials, tokens, or unrelated product data
   - make default `message.received` or response hooks write capsules automatically
 - Record completion:
@@ -72,6 +75,8 @@ A capsule is usually unnecessary for:
 - tiny edits validated by one focused unit test,
 - purely mechanical formatting changes,
 - failures that are immediately fixed and fully captured by a TDD record or commit message.
+
+For a non-trivial logical work unit, one capsule is the durable validation-detail ceiling by default. Canonical records summarize the independently owned rule/contract/behavior/regression and link the capsule; routine reruns, selective staging state, review-round counters, and transient progress remain no-record/runtime evidence.
 
 ## Required headings
 
@@ -128,9 +133,10 @@ Downstream host capability registries are host-owned. A host may opt in to the `
   - `check_evidence_capsule_standard_phase5` (`self-test.py`) — validates the standard/template/capability invariants.
 - Flow:
   1. Agent decides a capsule is useful for a non-trivial claim.
-  2. Agent copies `.lazy-harness/templates/evidence-capsule.md` to a dated/topic file under `.lazy-harness/evidence/`.
+  2. Agent reuses the logical work unit's existing capsule or copies the template once; it does not create one capsule per layer/validation rerun.
   3. Agent fills summarized, privacy-reviewed evidence with commands/results/reproduction.
-  4. Capsule links back to records/plans/commits and never supersedes canonical records/source.
+  4. Canonical records keep only their independent semantic delta, concise validation interpretation, and capsule link.
+  5. Capsule links back to records/plans/commits and never supersedes canonical records/source.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy capability audit --format=json`
@@ -148,6 +154,6 @@ Downstream host capability registries are host-owned. A host may opt in to the `
 - SDD: this record defines evidence capsule semantics.
 - BDD: no user-visible UI flow change.
 - TDD: `.lazy-harness/tests/evidence-capsule-standard.md` protects template/capability/no-auto-write behavior.
-- ADR: no new decision; implements Phase 5 of the approved compression plan.
-- SSOT: capability registry gains a recommend-level checklist entry.
-- Planning: Phase 5 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
+- ADR: ADR 0033 primary-record amendment prevents layer mirroring.
+- SSOT: capability registry remains recommend-only; no automatic evidence writer is added.
+- Planning: `.lazy-harness/planning/workflow-churn-reduction-plan.md` records the one-capsule-per-work-unit rollout.

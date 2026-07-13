@@ -26,9 +26,10 @@ Related spec: `.lazy-harness/spec/platform/project-rule-router.md`
   - response.completed reports missing record completion
 - Must:
   - search existing canonical records before writing
-  - update the primary existing record when the subject matches
-  - create a new record only for a distinct subject/layer/context
-  - maintain Rule digest, Implementation map, graph links, and layer completeness when applicable
+  - choose and update one primary narrative record for the logical work unit by default
+  - promote an additional layer record only for an independent semantic delta; otherwise link or record `no independent delta`
+  - keep repeated validation/progress detail in one evidence capsule when durable, otherwise no-record/transient
+  - maintain Rule digest, Implementation map, graph links, and layer completeness only on records actually promoted
 - Record completion:
   - changes to record mutation behavior update this SDD
 - Related records:
@@ -46,8 +47,9 @@ This policy is the write-side companion to relevant-record query.
 ```text
 confirmed information
 → route to layer
-→ update existing record or create new record
-→ maintain digest + Project Map branch + implementation map + graph links as needed
+→ choose one primary canonical record by default
+→ promote another layer only for an independent semantic delta
+→ maintain digest + Project Map branch + implementation map + graph links on promoted records as needed
 → future query can surface it
 ```
 
@@ -108,7 +110,7 @@ Examples:
 Create a new record when:
 
 - no existing record covers the subject,
-- the new information belongs to a different layer or bounded context,
+- the information belongs to a different layer or bounded context **and** carries an independent semantic delta that the existing primary record cannot own,
 - the new item is a separate decision/trade-off,
 - mixing would make a record too broad to query usefully,
 - the existing record is historical/reverted and should not become active again.
@@ -146,6 +148,22 @@ When a new candidate overlaps an existing record:
 
 Relevant-record query depends on duplicate control. Duplicate active digests create noisy context and reduce trust.
 
+## Primary canonical record default
+
+A logical work unit should have one primary narrative record by default. This is a promotion rule, not a hard one-file cap: a regression TDD plus an independently changed API contract or visible behavior record is valid, while copying the same invariant into SDD, BDD, and SSOT merely because each layer is related is not.
+
+Before promoting each additional canonical record, answer:
+
+1. What fact belongs uniquely to this layer?
+2. What would future agents miss if this layer only linked to the primary record?
+3. Did this layer's contract, visible flow, source-of-truth invariant, domain rule, or regression protection independently change?
+
+If no independent semantic delta exists, keep a cross-link or write `no independent delta` in the primary/TDD completeness judgement. MultiCandidate packets may preserve every possible gap for review, but candidate enumeration never implies multi-record canonical promotion.
+
+Required sections apply after promotion. Do not create a record merely to host Rule digest, Implementation map, Rule placement, Discovery capture, validation output, commit SHA, staging status, or review-round prose.
+
+Repeated commands/results that are durable belong in at most one evidence capsule for the logical work unit; routine reruns and transient progress use `no-record-needed`.
+
 ## Required sections by record class
 
 ### Records with reusable guidance
@@ -170,11 +188,12 @@ Do not add Project Map branch metadata for an unconfirmed host-specific fact unl
 
 ### Planning records
 
-Planning records should include:
+Planning records should keep a compact current state rather than become chronological execution journals:
 
 - status (`proposed`, `in-progress`, `implemented`, `reverted-experiment`, `blocked`, etc.)
 - current phase or next slice
-- validation criteria
+- validation criteria and residual risks
+- one link to an evidence capsule when detailed repeated commands/results must remain durable
 - Rule placement
 - Discovery capture
 
@@ -184,12 +203,12 @@ They may include `## Rule digest` only if the plan itself is active guidance fut
 
 TDD records must include layer completeness judgement:
 
-- SDD impact or none,
-- BDD impact or none,
-- SSOT impact or none,
-- DDD impact or none.
+- SDD independent delta or none,
+- BDD independent delta or none,
+- SSOT independent delta or none,
+- DDD independent delta or none.
 
-If impacted records exist, update/cross-link them in the same slice.
+Update/cross-link another layer in the same slice only when its independent semantic delta exists; otherwise the local judgement is complete.
 
 ### ADR records
 
@@ -238,6 +257,8 @@ Do not invent file/symbol facts.
 - a design trade-off is decided but no ADR or planning record captures it,
 - an existing surfaced digest required record completion and the response skipped it.
 
+The audit should not request another canonical record only because a related layer or repeated validation output exists; `no independent delta` and `no-record-needed` are successful outcomes.
+
 The audit should remain silent for normal turns with no record-completion trigger.
 
 ## Record update examples
@@ -275,19 +296,26 @@ Expected:
 
 ## Validation expectations
 
-A future implementation should add fixtures for:
+Current protection covers:
 
-1. update existing SSOT vs create duplicate SSOT,
-2. create new SDD for distinct contract,
-3. mark reverted experiment without active digest noise,
-4. TDD layer completeness on bug/regression records,
-5. digest maintenance when status/appliesWhen changes.
+1. every touched TDD Markdown record needs a non-empty four-layer judgement matrix, even when another layer record is also touched,
+2. label-only completeness text does not satisfy the helper,
+3. MultiCandidate packets preserve the exact candidate set, reject canonical mutation actions, and cap overflow at 20,
+4. broker/AGENTS instructions surface one primary canonical record plus independent-delta guidance,
+5. `primary-canonical-record` resolves as recommend/advisory-only and the portable framework-policy subset audits cleanly after downstream sync without requiring arbitrary host-local policy sources in the framework manifest.
 
-Until implementation exists, this SDD is validated by source self-test/doctor and review.
+Planned/retained coverage still needed for older write-policy branches:
+
+- update existing SSOT vs create duplicate SSOT,
+- create new SDD for a distinct contract,
+- mark reverted experiment without active digest noise,
+- digest maintenance when status/appliesWhen changes.
+
+This SDD is protected by source self-test, policy resolution, record lint, graph hygiene, and review.
 
 ## Implementation map
 
-- Status: `planned`
+- Status: `implemented; primary-canonical-record amendment active`
 - Primary files:
   - `.lazy-harness/spec/platform/record-write-update-policy.md` — this SDD contract.
   - `.lazy-harness/spec/platform/record-digest-format.md` — companion digest section contract.
@@ -295,40 +323,53 @@ Until implementation exists, this SDD is validated by source self-test/doctor an
   - `.lazy-harness/spec/platform/implementation-map-standard.md` — implementation map requirements.
   - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md` — phase plan.
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` — architecture decision.
-- Future files:
+  - `.lazy-harness/decisions/0033-layer-completeness-gate.md` — primary-record and independent-delta completeness decision.
+  - `.lazy-harness/spec/platform/record-decision-broker.md` — candidate enumeration vs canonical promotion boundary.
+  - `.lazy-harness/spec/platform/evidence-capsule-standard.md` — single durable evidence location for detailed validation.
+  - `.lazy-harness/ssot/policies.json` — typed `primary-canonical-record` recommend policy.
+  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — typed policy storage/co-change decision.
+  - `.lazy-harness/spec/platform/policy-machinery-v2.md` — advisory resolver and downstream sync contract.
+- Future file:
   - `.lazy-harness/scripts/record-digest-audit.ts`
+- Existing supporting record:
   - `.lazy-harness/spec/platform/search-read-debt-contract.md`
 - Flow:
   1. New confirmed information appears.
-  2. Agent searches existing records.
-  3. Agent updates primary record or creates a new one by decision tree.
-  4. Agent updates digest/implementation map/cross-links as needed.
-  5. Future relevant-record query surfaces the updated digest.
+  2. Agent searches existing records and chooses one primary narrative record.
+  3. Agent promotes another layer only when it owns an independent semantic delta; otherwise it links or records `no independent delta`.
+  4. Agent updates digest/implementation map/cross-links only for promoted records.
+  5. Repeated validation detail goes to one evidence capsule or remains transient.
+  6. Future relevant-record query surfaces the compact canonical set.
 - Tests / protection:
-  - Future fixtures listed above.
-  - Current validation: `.lazy-harness/scripts/self-test.py`, `doctor.py --profile smoke`.
+  - `.lazy-harness/scripts/self-test.py#check_layer_completeness_helper`
+  - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
+  - `.lazy-harness/scripts/self-test.py#check_policy_machinery_v2`
+  - `.lazy-harness/scripts/self-test.py#check_agents_md_invariants`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/record-digest-format.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
   - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-  - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
+  - ADR: `.lazy-harness/decisions/0033-layer-completeness-gate.md`
+  - SDD: `.lazy-harness/spec/platform/evidence-capsule-standard.md`
+  - SDD: `.lazy-harness/spec/platform/record-decision-broker.md`
+  - Planning: `.lazy-harness/planning/workflow-churn-reduction-plan.md`
 
 ## Rule placement
 
-- Rule: confirmed framework/host knowledge must update existing canonical records when appropriate, create new records only for distinct subjects, and maintain digest/implementation metadata to support future relevant-record query.
+- Rule: confirmed knowledge chooses one primary canonical record by default; additional layers require an independent semantic delta, and repeated validation/progress detail is consolidated into one evidence capsule or remains no-record/transient.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/record-write-update-policy.md`
-- Why not AGENTS.md: this is a platform contract for record mutation behavior, not short operational grammar.
+- Why not AGENTS.md alone: AGENTS carries only the compact operational pointer; this SDD defines the complete mutation contract.
 - Why not `.jcode`: record write/update policy is shared lazy-harness framework behavior, not local/private Jcode policy.
-- Confirmation: user-confirmed direction via ADR 0041 and active transition plan.
+- Confirmation: user selected the guard → sample-cleanup rollout on 2026-07-13 after Medivance dogfood evidence.
 
 ## Discovery capture
 
 - DDD: none.
 - SDD: updated, this contract defines record write/update behavior.
-- BDD: candidate, future behavior should avoid duplicate/stale record surfacing.
-- TDD: future fixtures needed for update-vs-create, supersede/retire, and layer completeness.
-- ADR: ADR 0041 selected organic hybrid guidance.
-- SSOT: harness enforcement policy anchors mandatory record completion.
-- Planning: searchable record memory cleanup plan Phase 1.
+- BDD: no framework-visible UI flow change.
+- TDD: existing self-test fixtures gain primary-record/no-independent-delta cases; no separate narrative TDD record is needed.
+- ADR: ADR 0033 amended — completeness is impact judgement, not layer mirroring.
+- SSOT: typed `primary-canonical-record` recommend policy added to `.lazy-harness/ssot/policies.json`.
+- Planning: `.lazy-harness/planning/workflow-churn-reduction-plan.md` records the approved rollout and dogfood baseline.

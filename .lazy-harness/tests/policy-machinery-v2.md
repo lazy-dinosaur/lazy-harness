@@ -55,6 +55,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 | `policy_machinery_generated_rulebook_view` | `lazy policy render-rulebook --write --format=json` + `.lazy-harness/generated/policy-rulebook.md` | Generated view contains canonical-source disclaimer, policy sections, deterministic output, and path confinement under `.lazy-harness/generated/**`. |
 | `policy_machinery_policy_write_roundtrip` | temp host + `lazy policy upsert --from-json ... --confirm` | Dry-run does not write; confirmed upsert inserts/replaces id-sorted policies; saved policy audits cleanly and appears in resolve/warn/render outputs. |
 | `policy_machinery_policy_sync_roundtrip` | temp host + `lazy-sync --force --quiet` | Host-local saved policy survives policy seed merge and framework seed policies are merged without overwriting host-local policies. |
+| `policy_machinery_primary_canonical_recommend` | `primary-canonical-record` registry entry + synced temp host | Policy resolves as recommend/advisory-only, uses synced evidence paths, and the portable framework-seed + fixture-policy subset audits cleanly while an unsynced-source host-local policy remains preserved but outside portability audit scope. |
 | `policy_machinery_rulebook_retire_readiness_source_host_ready` | source host + `lazy policy retire-readiness --strict --format=json` | Current host passes strict readiness after `.lazy-harness/rules/README.md` → `project-operating-rulebook` capability → `project-operating-rulebook-policy` typed policy link is complete. |
 | `policy_machinery_rulebook_retire_readiness_positive_fixture` | temp host + `lazy policy retire-readiness --strict --format=json` | Strict readiness passes when active rulebook entry → capability → typed policy links are complete; missing policy ids fail deterministically. |
 | `policy_machinery_rulebook_semantic_retirement_boundary` | `lazy rules list|audit|resolve --format=json` | Rulebook outputs expose `rulebook-compatibility/v1`, `retiredCanonicalSemantics=true`, `canonicalPolicySource=.lazy-harness/ssot/policies.json`, and resolve is `compatibility-advisory`. |
@@ -64,11 +65,11 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 
 ## Layer completeness gate
 
-- DDD: no domain/business rule impact.
-- SDD: `.lazy-harness/spec/platform/policy-machinery-v2.md`.
-- BDD: agent guidance remains advisory unless a future confirmed policy level explicitly changes behavior.
-- SSOT: `.lazy-harness/ssot/policy-registry.md` is canonical for behavior policy semantics; `.lazy-harness/ssot/capability-registry.md` stays canonical for kind/level bindings.
-- ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` records user-confirmed Option B.
+- DDD: no independent delta; no domain term or business rule changed.
+- SDD: updated `.lazy-harness/spec/platform/policy-machinery-v2.md` to define the portable framework-policy audit subset.
+- BDD: no independent delta; agent-visible guidance and user flow are unchanged.
+- SSOT: updated `.lazy-harness/ssot/policies.json` with the framework-global `primary-canonical-record` recommend policy; the later portable-subset fixture fix adds no further registry delta.
+- ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` clarifies the downstream fixture boundary.
 
 ## Implementation map
 
@@ -76,7 +77,7 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Records:
   - `.lazy-harness/spec/platform/policy-machinery-v2.md`
   - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — source canonical ADR.
-  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR.
+  - downstream manifest targetPath `framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md` — synced framework ADR location.
   - `.lazy-harness/ssot/policy-registry.md`
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md`
   - `.lazy-harness/tests/policy-machinery-v2.md`

@@ -18,13 +18,14 @@ Related standard: `.lazy-harness/spec/platform/implementation-map-standard.md`
   - a turn creates or updates a TDD/regression record (bug fix or regression protection)
   - judging whether a fix also touched contracts, behavior, source-of-truth, or domain rules
 - Must:
-  - in the same turn, update affected SDD/BDD/SSOT/DDD records, or
-  - add a `Layer completeness` judgement explicitly naming SDD, BDD, SSOT, DDD, or
-  - stop with an option gate when the primary layer is ambiguous
+  - identify the logical work unit's primary narrative record
+  - require every TDD Markdown record to carry an explicit four-row SDD/BDD/SSOT/DDD judgement matrix, even when another layer record is updated
+  - update another layer only for an independent semantic delta; otherwise mark that row `no independent delta`
+  - stop with an option gate when the primary record or layer is ambiguous
 - Must not:
   - complete a TDD/regression turn on regression evidence alone with no cross-layer check
 - Record completion:
-  - when a fix touches a layer, update that layer's primary record instead of only noting it in TDD
+  - every TDD update records the four-layer matrix; independently changed layers also update their primary records
 - Related records:
   - `.lazy-harness/spec/platform/sdd-component-contract-trigger.md`
   - `.lazy-harness/decisions/0033-layer-completeness-gate.md`
@@ -47,30 +48,35 @@ The gate applies when a turn creates or updates any of:
 
 ## Completion contract
 
-A triggered turn is complete only if at least one condition is true:
+A triggered TDD Markdown turn is complete only when all applicable conditions hold:
 
-1. The same turn also updates an affected cross-layer record:
+1. The TDD record includes a `Layer completeness` section with four explicit bullet rows: SDD, BDD, SSOT, DDD.
+2. Each row records either the independently updated primary record/reason or `no independent delta` / not impacted.
+3. Every layer with an independent semantic delta is updated/cross-linked in the same slice:
    - SDD: `.lazy-harness/spec/**`
    - BDD: `.lazy-harness/behavior/**`
    - SSOT: `.lazy-harness/ssot/**`
    - DDD: `.lazy-harness/domain/**`
-2. The TDD Markdown record includes a `Layer completeness` section that explicitly names all four: SDD, BDD, SSOT, DDD.
-3. The agent stops with an option gate because the primary layer is ambiguous.
+4. The agent stops with an option gate when the primary narrative record or impacted layer is ambiguous.
+
+A `.lazy-harness/regression/*.jsonl` data update cannot carry Markdown sections itself, so it must be paired in the same turn with a `.lazy-harness/tests/*.md` or `.lazy-harness/regression/*.md` record containing the matrix. A regression Markdown record may carry its own matrix.
+
+One primary narrative record is the default, not a hard one-file cap. TDD regression protection may coexist with an independently changed contract/behavior/invariant record; relatedness alone is not an independent delta.
 
 ## Required judgement
 
-Use this block when no other layer is impacted:
+Every TDD Markdown record uses this compact matrix. Example when no other layer is independently impacted:
 
 ```md
 ## Layer completeness
 
-- SDD: 영향 없음 because no API/component/IPC/contract changed.
-- BDD: 영향 없음 because no user-visible flow changed.
-- SSOT: 영향 없음 because no routing/config/schema/source-of-truth invariant changed.
-- DDD: 영향 없음 because no domain term/business rule changed.
+- SDD: no independent delta because no API/component/IPC/contract changed.
+- BDD: no independent delta because no user-visible flow changed.
+- SSOT: no independent delta because no routing/config/schema/source-of-truth invariant changed.
+- DDD: no independent delta because no domain term/business rule changed.
 ```
 
-If any item is impacted, update that layer's primary record instead of only saying so in TDD.
+If a layer is independently impacted, replace that row with the updated primary record and reason; the other rows remain explicit `no independent delta` judgements.
 
 ## Examples
 
@@ -85,14 +91,14 @@ A TDD regression record is incomplete if it documents reproduction/protection bu
 
 ### Complete with cross-layer records
 
-A fix is complete when it updates, for example:
+A fix is complete when it keeps one primary narrative record and updates only independently changed layers, for example:
 
-- the TDD regression record (reproduction/protection)
-- the SDD contract for the affected component or route
-- the BDD record for the affected user flow
-- the SSOT record for the affected routing or ownership invariant
+- the TDD regression record captures reproduction/protection,
+- the SDD record is also updated only if the component or route contract independently changed,
+- the BDD record is also updated only if the visible user flow independently changed,
+- the SSOT record is also updated only if routing or ownership became a new source-of-truth invariant.
 
-DDD may be explicitly marked as no impact if no new domain language exists.
+Any layer without its own delta is explicitly marked `no independent delta` rather than receiving mirrored prose.
 
 ## Lifecycle helper behavior
 
@@ -100,14 +106,18 @@ DDD may be explicitly marked as no impact if no new domain language exists.
 
 It emits a STOP message when:
 
-- the payload indicates a TDD/regression record was written,
-- no SDD/BDD/SSOT/DDD record was also written,
-- and the TDD Markdown record lacks an explicit `Layer completeness` block.
+- the payload indicates a TDD/regression record was written, and
+- a touched TDD/regression Markdown record lacks `Layer completeness` plus explicit `- SDD:`, `- BDD:`, `- SSOT:`, and `- DDD:` judgement rows, or
+- a regression JSON/JSONL update has no same-turn TDD/regression Markdown record that carries that matrix.
+Touching another layer does not bypass the matrix. The helper validates only its mechanical shape and non-empty row values; it does not decide whether a semantic delta is real.
+
+The helper can observe touched paths and explicit judgement text only. It must not guess whether two records contain an independent semantic delta; that decision remains LLM-owned after record/source/test reads.
+
 
 The STOP options are:
 
-- update related SDD/BDD/SSOT/DDD records,
-- add a local Layer completeness judgement,
+- add the four-row judgement matrix to the TDD record (always required for TDD Markdown),
+- update/cross-link another layer's primary record only for an independent semantic delta; otherwise write `no independent delta`,
 - ask the user if layer ownership is ambiguous,
 - or record an intentional skip in `.lazy-harness/logs/skipped.jsonl`.
 
@@ -120,13 +130,14 @@ The STOP options are:
   - `.lazy-harness/AGENTS.md` — concise operational grammar.
   - `.lazy-harness/scripts/self-test.py` — regression coverage for helper behavior and AGENTS wording.
 - Key symbols:
-  - `check_layer_completeness_helper` (`.lazy-harness/scripts/self-test.py`) — asserts TDD-only blocks and explicit judgement passes.
+  - `check_layer_completeness_helper` (`.lazy-harness/scripts/self-test.py`) — asserts missing/label-only matrices block, explicit judgements pass, and regression JSON/JSONL requires a same-turn Markdown matrix.
   - `run_layer_completeness_helper` (`.lazy-harness/scripts/self-test.py`) — fixture runner.
 - Flow:
-  1. A turn writes TDD/regression records.
+  1. A turn writes TDD/regression records and chooses a primary narrative record.
   2. Lifecycle hook extracts touched `.lazy-harness` paths from recent tool calls.
-  3. Helper detects whether cross-layer record updates or local completeness judgement exist.
-  4. Missing judgement injects STOP text into the next assistant turn.
+  3. Helper requires a non-empty SDD/BDD/SSOT/DDD bullet matrix in each touched TDD/regression Markdown record, regardless of other layer touches; regression JSON/JSONL must be paired with such a Markdown record.
+  4. The LLM confirms independent semantic deltas; the helper never infers them from paths or raw text.
+  5. Missing matrix judgement injects STOP text whose default guidance is primary-record-first.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh`
@@ -135,5 +146,5 @@ The STOP options are:
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
 - Machine index:
-  - graph ids: `pending`
+  - graph ids: `kg_primary_canonical_record_policy_20260713`, `kg_primary_canonical_record_broker_20260713`
   - generated index key: `pending until implementation-index generator exists`

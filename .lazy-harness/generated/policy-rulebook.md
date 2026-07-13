@@ -8,13 +8,14 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 5
+- Policy count: 6
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
+| `primary-canonical-record` | recommend | turn | advisory-only | Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule. |
 | `project-operating-rulebook-policy` | discover | turn | advisory-only | When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records. |
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
 | `validation-evidence-block` | block | turn | block (not implemented by current runtime) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
@@ -45,6 +46,35 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 - Allowed target levels: discover, recommend, warn
 - Rollback target: discover
   - Co-change checklist proves noisy for changes with no distributed references.
+
+## primary-canonical-record
+
+- Title: Prefer one primary canonical record per logical work unit
+- Scope: framework-global
+- Stage: turn
+- Level: recommend
+- Runtime: advisory-only
+- Source record: `.lazy-harness/spec/platform/record-write-update-policy.md`
+- Summary: Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule.
+
+### Applies to
+- writing_canonical_record
+- updating_cross_layer_records
+- closing_logical_work_unit
+- recording_repeated_validation_evidence
+
+### Evidence
+- user-confirmation: User selected the guard → sample-cleanup rollout on 2026-07-13 after reviewing Medivance record write amplification.
+- record `.lazy-harness/spec/platform/record-write-update-policy.md`: The synced write/update contract defines one primary narrative record, independent-delta exceptions, and one durable evidence location.
+- record `.lazy-harness/spec/platform/layer-completeness-gate.md`: The synced completeness contract defines impact judgement rather than layer mirroring and keeps semantic-delta judgement LLM-owned.
+- record `.lazy-harness/tests/record-decision-broker.md`: The synced TDD contract protects lossless candidate review without automatic multi-record promotion.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: discover, recommend
+- Rollback target: discover
+  - Dogfood shows the primary-record default hides an independently changed layer.
+  - Agents treat the recommendation as a hard one-file cap instead of an independent-delta test.
 
 ## project-operating-rulebook-policy
 

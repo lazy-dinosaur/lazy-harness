@@ -117,6 +117,18 @@ User confirmed the next step after Option B: start with advisory resolution befo
 
 Block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
 
+## Primary canonical record recommend slice
+
+The user-confirmed 2026-07-13 write-amplification guard adds `primary-canonical-record` as a framework-global, turn-stage, `recommend` policy:
+
+- `writing_canonical_record`, `updating_cross_layer_records`, `closing_logical_work_unit`, and `recording_repeated_validation_evidence` resolve to advisory guidance;
+- MultiCandidate review remains lossless, but canonical promotion chooses one primary narrative record by default;
+- an additional layer requires an independent semantic delta;
+- every TDD Markdown record still carries the explicit four-layer judgement matrix;
+- durable repeated validation detail is consolidated into one evidence capsule;
+- no hard-stop hook or raw-text semantic classifier is introduced;
+- source/evidence records for framework seed policies are distributed assets; the nested sync fixture audits that portable subset while preserving, but not portability-auditing, arbitrary host-local policies whose source records are host-owned.
+
 ## Block runtime readiness preflight slice
 
 User confirmed the next step after rulebook semantic retirement: prepare block runtime, but do not install hard-stop hooks.
@@ -277,7 +289,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 - Records:
   - `.lazy-harness/spec/platform/policy-machinery-v2.md` — this contract.
   - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — source canonical ADR for the user-confirmed Option B decision.
-  - `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` — host sync target for the same framework ADR so host `.lazy-harness/decisions/` remains host-owned.
+  - downstream manifest targetPath `framework/operational-adrs/0046-policy-machinery-typed-policy-canonical.md` — synced framework ADR location; host `.lazy-harness/decisions/` remains host-owned.
   - `.lazy-harness/ssot/policy-registry.md` — typed policy registry SSOT.
   - `.lazy-harness/tests/policy-machinery-v2.md` — regression expectations.
   - `.lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md` — baseline/gap audit.
@@ -293,7 +305,7 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py` — dry-run review helper for explicit structured block policy context, not installed in lifecycle hooks.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes `check-policy-block-runtime.py` in helper order; helper remains dry-run and fail-open.
   - `.lazy-harness/scripts/lifecycle-check.py` — mirrors the same dry-run helper order for parity/sandbox inspection.
-  - `.lazy-harness/ssot/policies.json` — contains `validation-evidence-block` as the first readiness-complete block policy.
+  - `.lazy-harness/ssot/policies.json` — contains `primary-canonical-record` recommend guidance and `validation-evidence-block` readiness metadata.
   - `.lazy-harness/tests/policy-block-validation-evidence.md` — fixture record for allow/block cases and no-hook readiness.
   - `.lazy-harness/scripts/rulebook.ts` — exposes `rulebook-compatibility/v1` boundary metadata after semantic retirement.
   - `.lazy-harness/ssot/policies.json` — includes `project-operating-rulebook-policy` for active rulebook compatibility coverage.
@@ -309,6 +321,8 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `self-test.py#check_policy_machinery_v2`
   - `lazy policy audit --format=json`
   - `lazy policy resolve --stage turn --applies-to making_validation_claims --format=json`
+  - `lazy policy resolve --stage turn --applies-to writing_canonical_record --format=json`
+  - `lazy policy explain --id primary-canonical-record --format=md`
   - `lazy policy resolve --runtime warn --stage turn --applies-to making_validation_claims --format=json`
   - `lazy policy render-rulebook --write --format=json`
   - `lazy policy upsert --from-json <policy.json> --confirm --format=json`
@@ -326,12 +340,12 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
 
 ## Layer completeness impact
 
-- DDD: no business-domain vocabulary impact.
-- SDD: this record defines the Phase 3 policy contract and links to rulebook/capability/update-loop contracts.
-- BDD: agent behavior may now surface explicit-context warn-only guidance; block behavior remains future work.
-- TDD: `.lazy-harness/tests/policy-machinery-v2.md` and `self-test.py#check_policy_machinery_v2` protect this slice.
-- ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` selects Option B.
-- SSOT: `.lazy-harness/ssot/policy-registry.md` is canonical for behavior policy semantics; `.lazy-harness/ssot/capability-registry.md` remains kind/level binding source of truth.
+- DDD: no independent delta; no domain vocabulary or business rule changed.
+- SDD: this record independently defines the recommend-level policy resolver/downstream-sync contract.
+- BDD: no independent delta; guidance remains advisory and no user-visible flow changed.
+- TDD: `.lazy-harness/tests/policy-machinery-v2.md` and `self-test.py#check_policy_machinery_v2` protect source and synced-host policy resolution/audit.
+- ADR: `.lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md` records the typed `primary-canonical-record` addition.
+- SSOT: `.lazy-harness/ssot/policies.json` independently adds the recommend policy; `.lazy-harness/ssot/policy-registry.md` remains canonical for registry semantics.
 
 ## Rule placement
 

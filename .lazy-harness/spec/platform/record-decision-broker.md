@@ -30,9 +30,11 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - keep the explicit generator local and deterministic and require separate fixtures for each response lifecycle integration step
   - keep response lifecycle integration shadow/silent by default until dogfood evidence justifies stronger guidance
   - treat `recommendedRecords` as the MultiCandidate Packet: every distinct candidate inferred from safe evidence must be preserved, not collapsed to the first match
+  - treat MultiCandidate enumeration as review input, never as automatic multi-record canonical promotion
+  - choose one primary canonical narrative record by default and promote another layer only for an independent semantic delta
   - support explicit `no-record-needed` for explanation/evaluation/inspection-only turns
   - require concrete turn evidence before `candidate-needed`, `record-updated`, or `option-gate-needed`
-  - prefer updating existing canonical records before creating new records
+  - prefer updating one existing primary canonical record before creating another record
   - keep packet output advisory/non-canonical until a user or explicit write path confirms a record update
   - avoid raw transcript storage; store paths, tool names, reasons, hashes, and compact evidence summaries only
   - keep clean turns silent in `response.completed`; advisory output must remain opt-in and fixture-protected
@@ -129,18 +131,21 @@ Record Decision Packet top-level shape. `recommendedRecords` is the **MultiCandi
       {
         "path": ".lazy-harness/behavior/feature-surface.md",
         "layer": "BDD",
-        "action": "update",
+        "action": "candidate",
         "reason": "UI flow or alias changed.",
         "confidence": 0.82
       },
       {
         "path": ".lazy-harness/knowledge/candidates.jsonl",
-        "action": "append",
+        "layer": "Knowledge",
+        "action": "candidate",
         "reason": "If canonical layer is not yet confirmed, capture as a candidate.",
         "confidence": 0.7
       }
     ],
     "instructions": [
+      "Preserve every candidate for review, then choose one primary canonical record by default.",
+      "Promote another layer only for an independent semantic delta.",
       "Ask an option gate if the canonical layer is ambiguous.",
       "Do not write automatically from this packet alone."
     ]
@@ -195,6 +200,9 @@ Rules:
 3. Use `ask-option-gate` when DDD/SDD/BDD/TDD/ADR/SSOT placement is ambiguous.
 4. Use `none` only with `no-record-needed` or when a record was already updated elsewhere.
 5. For `candidate-needed`, emit one recommendation per distinct safe evidence bucket/layer/path, deduped by action/path/layer/reason and capped at 20. Never collapse several missing candidates into one generic entry.
+6. Preserving several candidates does not authorize promoting them all; choose one primary canonical narrative record by default.
+7. Promote an additional layer only when it owns an independent semantic delta; otherwise link it or record `no independent delta`.
+8. Put durable repeated validation/progress detail in at most one evidence capsule for the logical work unit; routine reruns stay no-record/transient.
 
 ## False-positive policy
 
@@ -263,11 +271,13 @@ Pre-turn search/read evidence informs reading. Record Decision Broker is post-tu
   1. Turn completes.
   2. Explicit generator normalizes supplied user confirmations, corrections, changed files, changed records, search/read evidence, and validation evidence.
   3. Broker emits Record Decision Packet. For `candidate-needed`, each safe evidence bucket becomes a separate MultiCandidate `recommendedRecords` entry.
-  4. If `record-updated`, audit can stay silent.
-  5. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write.
-  6. If `option-gate-needed`, agent asks options before mutating records.
-  7. If `no-record-needed`, response lifecycle stays silent.
-  8. In response shadow mode, the helper writes a sanitized runtime row preserving `recommendedRecords`, `recommendedRecordCount`, `candidateLayers`, and `candidatePaths`; it emits no stdout unless advisory mode is explicitly enabled and does not derive `option-gate-needed` from raw user text.
+  4. The agent reviews all candidates, chooses one primary canonical narrative record by default, and promotes another layer only for an independent semantic delta.
+  5. If `record-updated`, audit can stay silent.
+  6. If `candidate-needed`, future tooling may append `.lazy-harness/knowledge/candidates.jsonl` or ask before canonical write; it must not promote the whole candidate set.
+  7. If `option-gate-needed`, agent asks options before mutating records.
+  8. If `no-record-needed`, response lifecycle stays silent.
+  9. Repeated validation detail, when durable, is consolidated into one evidence capsule rather than copied into candidate records.
+  10. In response shadow mode, the helper writes a sanitized runtime row preserving `recommendedRecords`, `recommendedRecordCount`, `candidateLayers`, and `candidatePaths`; it emits no stdout unless advisory mode is explicitly enabled and does not derive `option-gate-needed` from raw user text.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_record_decision_broker_phase8`
     - validates schema/contract and generator output for `no-record-needed`, `candidate-needed`, `option-gate-needed`, `record-updated`, and MultiCandidate BDD/SDD/TDD/Knowledge preservation.
@@ -293,11 +303,12 @@ Future validation:
 - Fixture: confirmed new alias returns `candidate-needed` with BDD/graph recommendations.
 - Fixture: ambiguous layer returns `option-gate-needed` and no mutation.
 - Fixture: same-turn record update returns `record-updated` and no audit output.
+- Fixture: MultiCandidate packet preserves BDD/SDD/TDD/Knowledge candidates while instructions require one primary canonical record and independent deltas for extra promotions.
 - Fixture: repeated advisory with concrete evidence can produce candidate guidance, not blocking output.
 
 ## Rule placement
 
-- Rule: Post-turn record decisions must use a structured packet with explicit no-record-needed/candidate/option-gate dispositions before any automated record-write escalation.
+- Rule: Post-turn record decisions must preserve all safe candidates in a structured packet, then choose one primary canonical record by default; additional layer promotion requires an independent semantic delta.
 - Scope: framework-global
 - Primary record: `.lazy-harness/spec/platform/record-decision-broker.md`
 - Why not AGENTS.md: this is a platform packet contract and lifecycle design, not compact base grammar.
@@ -309,7 +320,7 @@ Future validation:
 - DDD: no domain entity added; examples use reservation aliases only as framework fixtures.
 - SDD: this record defines the Phase 8 post-turn broker contract and response shadow bridge.
 - BDD: agent-visible default behavior remains silent; optional advisory mode can surface candidate/option-gate observations without blocking.
-- TDD: `.lazy-harness/tests/record-decision-broker.md` and self-test fixtures protect generator and response shadow behavior.
-- ADR: ADR 0041 receives a Phase 8 shadow bridge implementation note.
-- SSOT: rule lifecycle notes reference Record Decision Broker as shadow/audited lifecycle observation, not hard-stop promotion.
-- Planning: native context broker plan marks Phase 8 response shadow implemented when committed.
+- TDD: `.lazy-harness/tests/record-decision-broker.md` and self-test protect candidate preservation plus primary-record promotion guidance.
+- ADR: ADR 0033 records that layer completeness is impact judgement, not mirroring.
+- SSOT: typed `primary-canonical-record` recommend policy governs promotion; Record Decision Broker remains shadow/audited, not a hard-stop.
+- Planning: `.lazy-harness/planning/workflow-churn-reduction-plan.md` records the Medivance dogfood baseline and rollout.

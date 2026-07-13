@@ -2,8 +2,8 @@
 # check-layer-completeness.sh — prevent TDD/regression-only record completion
 #
 # If an agent writes a TDD/regression record, it must also document the cross-layer
-# impact check in the same turn. Either update SDD/BDD/SSOT/DDD records or add a
-# `Layer completeness` section to the TDD record that explicitly mentions all four.
+# impact check in the same turn. Update another layer only for an independent semantic
+# delta; otherwise add a `Layer completeness` section naming all four as no delta.
 
 set -euo pipefail
 
@@ -44,51 +44,54 @@ files = list(dict.fromkeys(path for path in paths if path))
 if not files:
     raise SystemExit(0)
 
-touched_tdd = False
-touched_other_layer = False
-for file in files:
-    if file == ".lazy-harness/tests/test-strategy.xml":
-        continue
-    if (
-        file.startswith(".lazy-harness/tests/") and file.endswith(".md")
-    ) or file.startswith(".lazy-harness/regression/"):
-        touched_tdd = True
-    elif file.startswith((
-        ".lazy-harness/spec/",
-        ".lazy-harness/behavior/",
-        ".lazy-harness/ssot/",
-        ".lazy-harness/domain/",
-    )):
-        touched_other_layer = True
+def is_tdd_markdown(file: str) -> bool:
+    return (
+        file != ".lazy-harness/tests/test-strategy.xml"
+        and file.endswith(".md")
+        and (
+            file.startswith(".lazy-harness/tests/")
+            or file.startswith(".lazy-harness/regression/")
+        )
+    )
 
-if not touched_tdd or touched_other_layer:
+tdd_markdown_files = [file for file in files if is_tdd_markdown(file)]
+regression_data_files = [
+    file
+    for file in files
+    if file.startswith(".lazy-harness/regression/") and not file.endswith(".md")
+]
+if not tdd_markdown_files and not regression_data_files:
     raise SystemExit(0)
 
 missing: list[str] = []
-for file in files:
-    if file.startswith(".lazy-harness/tests/") and file.endswith(".md"):
-        path = pathlib.Path(file)
-        if not path.exists():
-            missing.append(file)
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        if not all(token in text for token in ("Layer completeness", "SDD", "BDD", "SSOT", "DDD")):
-            missing.append(file)
-    elif file.startswith(".lazy-harness/regression/"):
+for file in tdd_markdown_files:
+    path = pathlib.Path(file)
+    if not path.exists():
         missing.append(file)
+        continue
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    has_matrix = "Layer completeness" in text and all(
+        re.search(rf"(?mi)^\s*[-*]\s*{layer}\s*:\s*\S.*$", text)
+        for layer in ("SDD", "BDD", "SSOT", "DDD")
+    )
+    if not has_matrix:
+        missing.append(file)
+
+if regression_data_files and not tdd_markdown_files:
+    missing.extend(regression_data_files)
 
 if not missing:
     raise SystemExit(0)
 
-print("STOP. Layer completeness gate: TDD/regression record 만 쓰고 SDD/BDD/SSOT/DDD 영향 판단이 빠졌습니다.\n")
+print("STOP. Layer completeness gate: TDD/regression record 의 SDD/BDD/SSOT/DDD 명시적 판단 matrix 가 빠졌습니다.\n")
 print("누락 후보:")
 for file in missing:
     print(f"  - {file}")
 print("\n해야 할 일:")
-print("  A. 관련 SDD/BDD/SSOT/DDD record 를 같은 turn 에 추가/갱신 (Recommended)")
-print("  B. TDD record 에 Layer completeness 섹션을 추가하고 SDD/BDD/SSOT/DDD 각각 영향 없음/있음 판단 기록")
+print("  A. TDD record 에 `- SDD: ...` / BDD / SSOT / DDD 네 개의 명시적 판단을 추가 (Recommended)")
+print("  B. 독립적으로 바뀐 invariant 가 있으면 그 layer 의 primary record 도 갱신·cross-link; 없으면 no independent delta/영향 없음 기록")
 print("  C. layer 가 애매하면 사용자에게 옵션 게이트로 확인")
 print("  D. 직접 입력 / skip 사유를 .lazy-harness/logs/skipped.jsonl 에 기록")
-print("\n규칙: AGENTS §2.4 Layer completeness gate. TDD 만 추가하고 끝내면 안 됩니다.")
+print("\n규칙: AGENTS §2.4 Primary canonical record + Layer completeness gate. 후보/관련성만으로 여러 layer 에 같은 내용을 복제하면 안 됩니다.")
 raise SystemExit(0)
 PY

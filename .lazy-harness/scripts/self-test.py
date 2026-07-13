@@ -646,22 +646,38 @@ def check_tdd_cross_verify() -> None:
 def check_layer_completeness_helper() -> None:
     """AGENTS §2.4 — TDD/regression records must not complete without layer judgement."""
     tdd = LAZY / "tests" / f"__tmp_layer_completeness_{os.getpid()}.md"
+    regression = LAZY / "regression" / f"__tmp_layer_completeness_{os.getpid()}.jsonl"
     try:
         tdd.write_text("# Regression only\n\nNo cross-layer judgement yet.\n", encoding="utf-8")
         payload = {"recent_tool_calls": [{"name": "Edit", "args_preview": str(tdd.relative_to(ROOT))}]}
         blocked = run_layer_completeness_helper(payload)
-        if "Layer completeness gate" not in blocked or "SDD/BDD/SSOT/DDD" not in blocked:
-            fail("layer completeness helper did not block TDD-only record:\n" + blocked)
+        if (
+            "Layer completeness gate" not in blocked
+            or "SDD/BDD/SSOT/DDD" not in blocked
+            or "primary record" not in blocked
+            or "independent delta" not in blocked
+        ):
+            fail("layer completeness helper did not provide primary-record/no-delta guidance:\n" + blocked)
+
+        tdd.write_text(
+            "# Regression with labels only\n\n"
+            "## Layer completeness\n\n"
+            "SDD BDD SSOT DDD\n",
+            encoding="utf-8",
+        )
+        label_only = run_layer_completeness_helper(payload)
+        if "Layer completeness gate" not in label_only:
+            fail("layer completeness helper must reject a heading plus bare layer labels:\n" + label_only)
 
         tdd.write_text(
             "# Regression with judgement\n\n"
             "## Layer completeness\n\n"
-            "- SDD: 영향 없음\n- BDD: 영향 없음\n- SSOT: 영향 없음\n- DDD: 영향 없음\n",
+            "- SDD: no independent delta\n- BDD: no independent delta\n- SSOT: no independent delta\n- DDD: no independent delta\n",
             encoding="utf-8",
         )
         passed = run_layer_completeness_helper(payload)
         if passed.strip():
-            fail("layer completeness helper should pass with explicit judgement:\n" + passed)
+            fail("layer completeness helper should pass with explicit four-layer judgement:\n" + passed)
 
         paired = {
             "recent_tool_calls": [{
@@ -669,11 +685,45 @@ def check_layer_completeness_helper() -> None:
                 "args_preview": f"{tdd.relative_to(ROOT)} .lazy-harness/spec/example.md",
             }]
         }
+        tdd.write_text("# Regression paired with SDD but no matrix\n", encoding="utf-8")
+        paired_without_matrix = run_layer_completeness_helper(paired)
+        if "Layer completeness gate" not in paired_without_matrix:
+            fail("cross-layer touch must not bypass the four-layer judgement matrix:\n" + paired_without_matrix)
+
+        tdd.write_text(
+            "# Regression paired with independent SDD delta\n\n"
+            "## Layer completeness\n\n"
+            "- SDD: updated .lazy-harness/spec/example.md for an independent contract delta\n"
+            "- BDD: no independent delta\n- SSOT: no independent delta\n- DDD: no independent delta\n",
+            encoding="utf-8",
+        )
         paired_out = run_layer_completeness_helper(paired)
         if paired_out.strip():
-            fail("layer completeness helper should pass when SDD is updated in same turn:\n" + paired_out)
+            fail("layer completeness helper should pass paired updates only with an explicit four-layer matrix:\n" + paired_out)
+
+        regression.write_text("{}\n", encoding="utf-8")
+        regression_only = {
+            "recent_tool_calls": [{
+                "name": "Edit",
+                "args_preview": str(regression.relative_to(ROOT)),
+            }]
+        }
+        regression_only_out = run_layer_completeness_helper(regression_only)
+        if "Layer completeness gate" not in regression_only_out:
+            fail("regression JSONL without a same-turn TDD Markdown matrix must be rejected:\n" + regression_only_out)
+
+        regression_with_matrix = {
+            "recent_tool_calls": [{
+                "name": "Edit",
+                "args_preview": f"{regression.relative_to(ROOT)} {tdd.relative_to(ROOT)}",
+            }]
+        }
+        regression_with_matrix_out = run_layer_completeness_helper(regression_with_matrix)
+        if regression_with_matrix_out.strip():
+            fail("regression JSONL should pass when paired with a valid TDD Markdown matrix:\n" + regression_with_matrix_out)
     finally:
         tdd.unlink(missing_ok=True)
+        regression.unlink(missing_ok=True)
     print("✓ layer completeness helper ok")
 
 
@@ -8618,6 +8668,8 @@ def check_policy_machinery_v2() -> None:
     policy_ids = [policy.get("id") for policy in policy_registry.get("policies", [])]
     if "record-first-validation" not in policy_ids:
         fail("Policy Registry missing record-first-validation seed policy")
+    if "primary-canonical-record" not in policy_ids:
+        fail("Policy Registry missing primary-canonical-record recommend policy")
     if "validation-evidence-warning" not in policy_ids:
         fail("Policy Registry missing validation-evidence-warning warn policy")
     if ACTIVE_SCOPE == "framework" and policy_ids != sorted(policy_ids):
@@ -8679,6 +8731,7 @@ def check_policy_machinery_v2() -> None:
     walk(fixture)
 
     framework_policy_ids = {
+        "primary-canonical-record",
         "project-operating-rulebook-policy",
         "record-first-validation",
         "validation-evidence-block",
@@ -8722,8 +8775,9 @@ def check_policy_machinery_v2() -> None:
     if audit_json.get("ok") is not True or audit_json.get("policies", 0) < 1:
         fail("lazy policy audit should pass and include at least one policy: " + audit_result.stdout)
     list_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "list", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if list_result.returncode != 0 or "record-first-validation" not in [policy.get("id") for policy in json.loads(list_result.stdout).get("policies", [])]:
-        fail("lazy policy list should include record-first-validation:\n" + list_result.stdout + list_result.stderr)
+    listed_policy_ids = {policy.get("id") for policy in json.loads(list_result.stdout).get("policies", [])} if list_result.returncode == 0 else set()
+    if not {"record-first-validation", "primary-canonical-record"}.issubset(listed_policy_ids):
+        fail("lazy policy list should include record-first-validation and primary-canonical-record:\n" + list_result.stdout + list_result.stderr)
     explain_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "explain", "--id", "record-first-validation", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if explain_json_result.returncode != 0:
         fail("lazy policy explain json failed:\n" + explain_json_result.stdout + explain_json_result.stderr)
@@ -8747,6 +8801,19 @@ def check_policy_machinery_v2() -> None:
             fail("lazy policy resolve must not surface warn/block levels in advisory slice: " + resolve_result.stdout)
         if match.get("enforcement") != "advisory-only" or match.get("recommendedAction") != "surface-guidance":
             fail("lazy policy resolve match must be advisory-only surface-guidance: " + resolve_result.stdout)
+    primary_resolve_result = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "policy", "resolve", "--stage", "turn", "--applies-to", "writing_canonical_record", "--format=json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if primary_resolve_result.returncode != 0:
+        fail("lazy policy resolve failed for primary canonical record:\n" + primary_resolve_result.stdout + primary_resolve_result.stderr)
+    primary_matches = json.loads(primary_resolve_result.stdout).get("matches", [])
+    primary_match = next((match for match in primary_matches if match.get("id") == "primary-canonical-record"), None)
+    if not primary_match or primary_match.get("level") != "recommend" or primary_match.get("enforcement") != "advisory-only":
+        fail("primary-canonical-record must resolve as recommend/advisory-only: " + primary_resolve_result.stdout)
     invalid_max_level = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "resolve", "--max-level", "warn", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
     if invalid_max_level.returncode == 0:
         fail("lazy policy resolve must reject warn/block max-level in advisory slice")
@@ -8805,7 +8872,7 @@ def check_policy_machinery_v2() -> None:
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
-    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "primary-canonical-record", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
         if expected not in render_md_result.stdout:
             fail("lazy policy render-rulebook md missing expected text: " + expected)
     render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -9041,6 +9108,9 @@ Fixture implementation map.
             ".lazy-harness/spec/platform/evidence-capsule-standard.md",
             ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
             ".lazy-harness/spec/platform/pi-agent-package.md",
+            ".lazy-harness/spec/platform/record-write-update-policy.md",
+            ".lazy-harness/spec/platform/layer-completeness-gate.md",
+            ".lazy-harness/tests/record-decision-broker.md",
             ".lazy-harness/generated/README.md",
         }
         for rel in required_fixture_paths:
@@ -9118,15 +9188,62 @@ Fixture implementation map.
 
         sync_host = temp_root / "sync-host"
         (sync_host / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
-        (sync_host / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [policy_payload]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        host_only_unsynced_policy = {
+            **policy_payload,
+            "id": "host-only-unsynced-source-policy",
+            "title": "Host-only policy with an unsynced source record",
+            "appliesTo": ["host_only_unsynced_source_fixture"],
+            "sourceRecord": ".lazy-harness/rules/host-only-not-in-framework-manifest.md",
+            "evidence": [{
+                "kind": "record",
+                "path": ".lazy-harness/rules/host-only-not-in-framework-manifest.md",
+                "summary": "Host-local policy sources are not framework portability fixtures.",
+            }],
+        }
+        (sync_host / ".lazy-harness/ssot/policies.json").write_text(
+            json.dumps(
+                {"version": 1, "policies": [policy_payload, host_only_unsynced_policy]},
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
         sync_result = subprocess.run(["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(ROOT), "--target", str(sync_host), "--force", "--quiet"], cwd=ROOT, text=True, capture_output=True, check=False)
         if sync_result.returncode != 0:
             fail("lazy-sync policy seed merge roundtrip failed:\n" + sync_result.stdout + sync_result.stderr)
         merged_registry = json.loads((sync_host / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"))
         merged_ids = {policy.get("id") for policy in merged_registry.get("policies", [])}
-        for expected_id in ("temp-write-roundtrip-policy", "record-first-validation", "validation-evidence-warning"):
+        for expected_id in (
+            "host-only-unsynced-source-policy",
+            "temp-write-roundtrip-policy",
+            "primary-canonical-record",
+            "record-first-validation",
+            "validation-evidence-warning",
+        ):
             if expected_id not in merged_ids:
                 fail("lazy-sync policy seed merge must preserve host policy and merge framework seed: " + expected_id)
+        portable_policy_ids = framework_policy_ids | {"temp-write-roundtrip-policy"}
+        portable_registry = {
+            **merged_registry,
+            "policies": [
+                policy
+                for policy in merged_registry.get("policies", [])
+                if policy.get("id") in portable_policy_ids
+            ],
+        }
+        (sync_host / ".lazy-harness/ssot/policies.json").write_text(
+            json.dumps(portable_registry, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        synced_audit = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "policy", "audit", "--target", str(sync_host), "--format=json"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if synced_audit.returncode != 0 or json.loads(synced_audit.stdout).get("ok") is not True:
+            fail("lazy-sync portable framework policy subset should audit cleanly:\n" + synced_audit.stdout + synced_audit.stderr)
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness" not in help_text:
         fail("lazy help must advertise policy command")
@@ -9290,7 +9407,9 @@ def check_record_decision_broker_phase8() -> None:
     schema_path = LAZY / "schemas" / "record-decision-packet.schema.json"
     generator_path = LAZY / "scripts" / "record-decision-broker.ts"
     manifest_path = LAZY / "manifests" / "init-categories.json"
-    for path in [sdd_path, tdd_path, schema_path, generator_path]:
+    graph_path = LAZY / "knowledge" / "graph.jsonl"
+    graph_schema_path = LAZY / "schemas" / "knowledge-graph-record.schema.json"
+    for path in [sdd_path, tdd_path, schema_path, generator_path, graph_path, graph_schema_path]:
         if not path.exists():
             fail("Record Decision Broker Phase 8 artifact missing: " + str(path))
 
@@ -9309,6 +9428,8 @@ def check_record_decision_broker_phase8() -> None:
         "check-record-decision-shadow.py",
         "Search/read evidence is pre-turn read evidence",
         "recommendedRecords must preserve every distinct candidate",
+        "one primary canonical narrative record by default",
+        "independent semantic delta",
         "`--message` display/summary-only",
         "Do not write automatically from this packet alone",
         "`.lazy-harness/scripts/record-decision-broker.ts`",
@@ -9328,6 +9449,7 @@ def check_record_decision_broker_phase8() -> None:
         "Ambiguous layer placement",
         "Same-turn record update",
         "Multiple missing candidates",
+        "Primary canonical promotion",
         "Deferred by user",
         "generator and response shadow fixtures",
         "check_record_decision_shadow_response_completed",
@@ -9341,6 +9463,51 @@ def check_record_decision_broker_phase8() -> None:
         fail("init-categories manifest must sync Record Decision Broker SDD")
     if "tests/record-decision-broker.md" not in manifest:
         fail("init-categories manifest must sync Record Decision Broker TDD fixture")
+
+    graph_schema = json.loads(graph_schema_path.read_text(encoding="utf-8"))
+    graph_properties = graph_schema.get("properties", {})
+    graph_rows = {
+        row.get("id"): row
+        for line in graph_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+        for row in [json.loads(line)]
+        if isinstance(row, dict)
+    }
+    primary_graph_ids = {
+        "kg_primary_canonical_record_policy_20260713",
+        "kg_primary_canonical_record_broker_20260713",
+    }
+    if not primary_graph_ids.issubset(graph_rows):
+        fail("primary-canonical-record graph rows missing: " + json.dumps(sorted(primary_graph_ids - set(graph_rows))))
+    graph_required = set(graph_schema.get("required", []))
+    graph_enum_fields = {
+        field: set(graph_properties.get(field, {}).get("enum", []))
+        for field in ("layer", "kind", "status", "confidence")
+    }
+    evidence_types = set(
+        graph_schema.get("definitions", {}).get("evidence", {}).get("properties", {}).get("type", {}).get("enum", [])
+    )
+    link_rels = set(
+        graph_schema.get("definitions", {}).get("link", {}).get("properties", {}).get("rel", {}).get("enum", [])
+    )
+    for graph_id in sorted(primary_graph_ids):
+        row = graph_rows[graph_id]
+        missing_graph_fields = graph_required - set(row)
+        if missing_graph_fields:
+            fail(f"{graph_id} missing canonical graph fields: {sorted(missing_graph_fields)}")
+        for field, allowed_values in graph_enum_fields.items():
+            if row.get(field) not in allowed_values:
+                fail(f"{graph_id} has schema-invalid {field}: {row.get(field)}")
+        if any(not isinstance(item, dict) or item.get("type") not in evidence_types for item in row.get("evidence", [])):
+            fail(f"{graph_id} has schema-invalid evidence type")
+        if any(
+            not isinstance(item, dict)
+            or item.get("rel") not in link_rels
+            or not isinstance(item.get("target"), str)
+            or not item.get("target")
+            for item in row.get("links", [])
+        ):
+            fail(f"{graph_id} has schema-invalid link")
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     if schema.get("title") != "RecordDecisionPacket":
@@ -9384,7 +9551,7 @@ def check_record_decision_broker_phase8() -> None:
                 "trigger": "new-alias-found",
                 "summary": "User confirmed a new surface alias.",
                 "evidence": [{"kind": "user-confirmation", "summary": "Alias confirmed.", "confidence": 0.9}],
-                "recommendedRecords": [{"path": ".lazy-harness/behavior/feature-surface.md", "layer": "BDD", "action": "update", "reason": "Alias should be captured.", "confidence": 0.8}],
+                "recommendedRecords": [{"path": ".lazy-harness/behavior/feature-surface.md", "layer": "BDD", "action": "candidate", "reason": "Alias may need capture after canonical placement is confirmed.", "confidence": 0.8}],
                 "instructions": ["Do not write automatically from this packet alone."],
             },
         },
@@ -9501,14 +9668,64 @@ def check_record_decision_broker_phase8() -> None:
     )
     multi_decision = multi_packet.get("recordDecision", {})
     multi_records = [item for item in multi_decision.get("recommendedRecords", []) if isinstance(item, dict)]
-    multi_layers = {item.get("layer") for item in multi_records}
-    for expected_layer in ["BDD", "SDD", "TDD", "Knowledge"]:
-        if expected_layer not in multi_layers:
-            fail("multi-candidate generator should preserve layer " + expected_layer + ": " + json.dumps(multi_records, ensure_ascii=False, indent=2))
-    if len(multi_records) < 4 or len(multi_records) > 20:
-        fail("multi-candidate generator should preserve all distinct candidates with max 20 cap: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
-    if any(item.get("action") == "update" for item in multi_records):
-        fail("multi-candidate generator must not propose canonical update without record-updated evidence: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+    expected_multi_records = {
+        (
+            ".lazy-harness/behavior/",
+            "BDD",
+            "candidate",
+            "User-visible UI/flow evidence may need BDD capture: src/features/reservation/ReservationPanel.tsx",
+        ),
+        (
+            ".lazy-harness/spec/",
+            "SDD",
+            "candidate",
+            "Contract/API/source interface evidence may need SDD capture: src/api/reservations/route.ts",
+        ),
+        (
+            ".lazy-harness/tests/",
+            "TDD",
+            "candidate",
+            "Regression/test evidence may need TDD capture: tests/reservation.spec.ts",
+        ),
+        (
+            ".lazy-harness/knowledge/candidates.jsonl",
+            "Knowledge",
+            "candidate",
+            "Response audit advisory is useful evidence but should not become a blind canonical write.",
+        ),
+        (
+            ".lazy-harness/knowledge/candidates.jsonl",
+            "Knowledge",
+            "candidate",
+            "Preserve all unconfirmed record gaps as candidates; do not write canonical records automatically from this packet alone.",
+        ),
+    }
+    actual_multi_records = {
+        (item.get("path"), item.get("layer"), item.get("action"), item.get("reason"))
+        for item in multi_records
+    }
+    if actual_multi_records != expected_multi_records or len(multi_records) != 5:
+        fail(
+            "multi-candidate generator must preserve the exact five candidate identities/actions: "
+            + json.dumps(multi_records, ensure_ascii=False, indent=2)
+        )
+    canonical_mutation_actions = {"update", "create", "append"}
+    if any(item.get("action") in canonical_mutation_actions for item in multi_records):
+        fail("multi-candidate generator must not propose canonical mutation actions: " + json.dumps(multi_records, ensure_ascii=False, indent=2))
+    multi_instructions = " ".join(str(item) for item in multi_decision.get("instructions", []))
+    for expected_instruction in ("one primary canonical record by default", "independent semantic delta", "one evidence capsule"):
+        if expected_instruction not in multi_instructions:
+            fail("multi-candidate generator missing promotion guidance '" + expected_instruction + "': " + json.dumps(multi_decision, ensure_ascii=False, indent=2))
+
+    overflow_args = ["--message", "overflow candidate evidence"]
+    for index in range(25):
+        overflow_args.extend(["--changed-file", f"src/features/feature-{index}/Panel.tsx"])
+    overflow_packet = run_generator(*overflow_args)
+    overflow_records = overflow_packet.get("recordDecision", {}).get("recommendedRecords", [])
+    if len(overflow_records) != 20:
+        fail("multi-candidate generator must enforce the 20-item cap: " + json.dumps(overflow_records, ensure_ascii=False, indent=2))
+    if any(not isinstance(item, dict) or item.get("action") != "candidate" for item in overflow_records):
+        fail("overflow candidate packet must remain non-canonical candidate actions: " + json.dumps(overflow_records, ensure_ascii=False, indent=2))
 
     message_only = run_generator("--message", "사용자가 신규 별칭을 확인했다고 쓰여 있어도 flag 없이는 의미판단 금지")
     if message_only.get("recordDecision", {}).get("disposition") != "no-record-needed":
@@ -10503,9 +10720,12 @@ def check_agents_md_invariants() -> None:
         fail(f"N2.5 AGENTS.md missing layer references: {missing}")
 
     required_phrases = [
+        "Primary canonical record",
         "Layer completeness gate",
+        "no independent delta",
         "TDD/regression/bug",
         "SDD/BDD/SSOT/DDD",
+        "same-turn TDD/regression Markdown",
         "Analysis discovery capture",
         "Discovery capture",
         "rule-sources",

@@ -62,6 +62,12 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
    - Expected packet: `disposition=candidate-needed`, `recommendedRecords` contains distinct BDD, SDD, TDD, and Knowledge candidates, capped at 20.
    - Expected lifecycle behavior: response shadow journals the full candidate array/count/layers silently by default and never rewrites canonical records from the packet alone.
 
+7. **Primary canonical promotion**
+   - Given: a MultiCandidate packet preserves BDD, SDD, TDD, and Knowledge candidates for one logical work unit.
+   - Expected packet: candidate recommendations remain lossless, while instructions choose one primary canonical record by default.
+   - Expected lifecycle behavior: an additional layer is promoted only for an independent semantic delta; otherwise it links to the primary or records `no independent delta`.
+   - Expected evidence behavior: repeated validation/progress detail is consolidated into one evidence capsule when durable, otherwise no-record/transient.
+
 ## Current protection
 
 The generator and response shadow fixtures are now active.
@@ -71,7 +77,10 @@ The generator and response shadow fixtures are now active.
   - validates schema title, required top-level fields, dispositions, evidence kinds, triggers, and actions,
   - validates sample `candidate-needed`, `no-record-needed`, and `option-gate-needed` packet shapes.
   - runs `.lazy-harness/scripts/record-decision-broker.ts` for `no-record-needed`, `candidate-needed`, `option-gate-needed`, and `record-updated` cases.
-  - validates a multi-candidate packet preserves BDD, SDD, TDD, and Knowledge recommendations instead of only the first candidate.
+  - validates the exact five BDD/SDD/TDD/two-distinct-Knowledge candidate identities and `candidate` actions,
+  - rejects `update`/`create`/`append` actions in MultiCandidate review output and verifies 25 candidates cap at 20,
+  - validates both `primary-canonical-record` graph rows against canonical required-field and enum metadata,
+  - validates MultiCandidate instructions require one primary canonical record, independent semantic delta for extra promotions, and one durable evidence location,
   - statically rejects raw-message semantic helper functions such as `looksExplanationOnly` and validates clean outcomes use explicit evidence/flags.
 - `.lazy-harness/scripts/self-test.py#check_record_decision_shadow_response_completed`
   - validates `response.completed` helper chain registration,
@@ -107,16 +116,16 @@ The generator and response shadow fixtures are now active.
 
 ## Layer completeness
 
-- DDD: no domain entity change; examples are framework fixtures.
-- SDD: `.lazy-harness/spec/platform/record-decision-broker.md` captures the contract and response shadow bridge.
-- BDD: default visible behavior is still silent; optional advisory mode can surface candidate/option-gate guidance without blocking.
-- TDD: this record and self-test protect the false-positive surface.
-- ADR: ADR 0041 records Phase 8 as organic post-turn packet design.
-- SSOT: `.lazy-harness/ssot/rule-lifecycle.md` references Record Decision Broker as advisory lifecycle stage.
+- DDD: no independent delta; no domain term/entity/business rule changed.
+- SDD: updated `.lazy-harness/spec/platform/record-decision-broker.md` for lossless candidate review versus primary canonical promotion.
+- BDD: no independent delta; default visible behavior remains silent and optional advisory output does not change a user flow.
+- TDD: this record and self-test protect exact candidate identity/action, cap, mutation rejection, and promotion guidance.
+- ADR: ADR 0033 owns the independent-delta/matrix decision; ADR 0046 owns typed policy storage.
+- SSOT: updated `.lazy-harness/ssot/policies.json` with the recommend-level `primary-canonical-record` policy; lifecycle stage ownership otherwise remains unchanged.
 
 ## Rule placement
 
-- Rule: Record Decision Broker tests must prove no-record-needed/option-gate/candidate cases before runtime escalation.
+- Rule: Record Decision Broker tests must prove lossless candidates, primary canonical promotion, independent-delta exceptions, and no-record-needed/option-gate behavior before runtime escalation.
 - Scope: framework-global
 - Primary record: `.lazy-harness/tests/record-decision-broker.md`
 - Why not AGENTS.md: this is a regression fixture plan, not base operating grammar.

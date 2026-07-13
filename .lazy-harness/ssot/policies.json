@@ -52,6 +52,66 @@
       }
     },
     {
+      "id": "primary-canonical-record",
+      "title": "Prefer one primary canonical record per logical work unit",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "recommend",
+      "appliesTo": [
+        "writing_canonical_record",
+        "updating_cross_layer_records",
+        "closing_logical_work_unit",
+        "recording_repeated_validation_evidence"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/record-write-update-policy.md",
+      "capabilityIds": [],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User selected the guard → sample-cleanup rollout on 2026-07-13 after reviewing Medivance record write amplification."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/record-write-update-policy.md",
+          "summary": "The synced write/update contract defines one primary narrative record, independent-delta exceptions, and one durable evidence location."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/layer-completeness-gate.md",
+          "summary": "The synced completeness contract defines impact judgement rather than layer mirroring and keeps semantic-delta judgement LLM-owned."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/tests/record-decision-broker.md",
+          "summary": "The synced TDD contract protects lossless candidate review without automatic multi-record promotion."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Dogfood shows the primary-record default hides an independently changed layer.",
+          "Agents treat the recommendation as a hard one-file cap instead of an independent-delta test."
+        ],
+        "demotionTarget": "discover"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule.",
+        "nonCanonicalViews": [
+          ".lazy-harness/generated/policy-rulebook.md"
+        ]
+      }
+    },
+    {
       "id": "project-operating-rulebook-policy",
       "title": "Project operating rulebook policy",
       "scope": "framework-global",

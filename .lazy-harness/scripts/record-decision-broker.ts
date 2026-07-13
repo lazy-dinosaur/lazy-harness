@@ -347,9 +347,14 @@ function summaryFor(args: Args, disposition: Disposition, trigger: Trigger): str
 function instructionsFor(disposition: Disposition): string[] {
   if (disposition === 'no-record-needed') return ['Keep response.completed silent.', 'Do not create or update records from this packet.']
   if (disposition === 'option-gate-needed') return ['Ask a 3-5 option gate before mutating records.', 'Do not write automatically from this packet alone.']
-  if (disposition === 'record-updated') return ['Verify the changed record path is canonical.', 'No additional record action is needed unless validation reveals a gap.']
+  if (disposition === 'record-updated') return ['Verify the changed record path is canonical.', 'No additional record action is needed unless validation reveals an independent semantic delta.']
   if (disposition === 'deferred') return ['Respect the user deferral boundary.', 'Capture a planning pointer only when durable backlog is useful.']
-  return ['Append candidate evidence or ask before canonical record write.', 'Do not write automatically from this packet alone.']
+  return [
+    'Preserve every distinct candidate, then choose one primary canonical record by default.',
+    'Promote an additional layer only for an independent semantic delta; otherwise link it or record no independent delta.',
+    'Put durable repeated validation/progress detail in one evidence capsule; keep routine reruns transient.',
+    'Do not write automatically from this packet alone.',
+  ]
 }
 
 function buildPacket(args: Args): RecordDecisionPacket {

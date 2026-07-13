@@ -112,9 +112,9 @@ record 진입 시 Rule digest 의 Aliases/Surface terms 를 표면어 매칭 cue
 
 **Layer 가 애매하면 §2.3 옵션 게이트 발동**. AI 가 혼자 결정 금지.
 
-**Layer completeness gate**: TDD/regression/bug record 를 쓸 때는 같은 turn 에 SDD/BDD/SSOT/DDD 영향도 검색·판단한다. SDD=API/컴포넌트/IPC/scroll/focus 계약, BDD=visible flow, SSOT=라우팅/ownership/config/schema/source-of-truth, DDD=도메인 용어/비즈니스 규칙. 없으면 "영향 없음" 을 기록.
+**Primary canonical record + Layer completeness gate**: 한 logical work unit 은 primary canonical record 1 개를 기본으로 한다. TDD/regression/bug record 에는 다른 layer 갱신 여부와 무관하게 SDD/BDD/SSOT/DDD 4-row 판단 matrix 를 항상 쓰고(regression JSON/JSONL 은 same-turn TDD/regression Markdown matrix 와 pair), 추가 layer 전문 갱신은 그 layer 의 independent semantic delta(API/컴포넌트/visible flow/ownership·config/domain rule) 가 있을 때만 한다. 나머지는 `no independent delta`/"영향 없음" 으로 끝내며, 반복 validation·review·commit 진행 정보는 한 evidence capsule 또는 no-record/transient 로 둔다.
 
-**Analysis discovery capture (ADR 0034)**: 비 trivial 분석/계획 중 DDD/SDD/BDD/TDD/ADR/SSOT/Planning 후보나 다단계 backlog 가 나오면 답변 전에 records 를 갱신하거나 `.lazy-harness/knowledge/candidates.jsonl`/`.lazy-harness/planning/` 에 남기고 `Discovery capture` 판단을 적는다. 프로젝트별 rule/correction 은 `.lazy-harness/ssot/rule-sources.md` 로 위치 판정 후 `Rule placement` 를 남긴다. 운영 규칙(operating rule)은 추가/적용 전 `lazy (policy|capability|rules) resolve` 로 기존 규칙을 먼저 찾아 중복을 피하고 canonical store 는 `.lazy-harness/ssot/policies.json`+`.lazy-harness/ssot/capabilities.json`(`rules/**` 는 compat), 잘못된 SSOT 위치/중복 작성은 `check-operating-rule-storage` advisory 가 잡는다.
+**Analysis discovery capture (ADR 0034)**: 비 trivial 분석/계획 중 DDD/SDD/BDD/TDD/ADR/SSOT/Planning 후보나 다단계 backlog 가 나오면 답변 전에 records 를 갱신하거나 `.lazy-harness/knowledge/candidates.jsonl`/`.lazy-harness/planning/` 에 남기고 `Discovery capture` 판단을 적는다. 후보 캡처는 multi-layer canonical 승격이 아니다. 프로젝트별 rule/correction 은 `.lazy-harness/ssot/rule-sources.md` 로 위치 판정 후 `Rule placement` 를 남긴다. 운영 규칙(operating rule)은 추가/적용 전 `lazy (policy|capability|rules) resolve` 로 기존 규칙을 먼저 찾아 중복을 피하고 canonical store 는 `.lazy-harness/ssot/policies.json`+`.lazy-harness/ssot/capabilities.json`(`rules/**` 는 compat), 잘못된 SSOT 위치/중복 작성은 `check-operating-rule-storage` advisory 가 잡는다.
 
 **Forbidden**:
 - 사용자 확인 없이 record 박기 / layer 추정 기록 / 중복 기록 / TDD 만 추가하고 SDD/BDD/SSOT/DDD 판단 생략 / 분석·계획에서 발견한 layer 지식이나 backlog 를 chat 에만 남기기
