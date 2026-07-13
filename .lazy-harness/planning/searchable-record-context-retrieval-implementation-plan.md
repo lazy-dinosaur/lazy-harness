@@ -50,6 +50,7 @@ Evidence:
 Layer package completed:
 
 - Phase B: Record Index Header Layer Package complete: DDD, BDD, SDD, TDD, and SSOT/ADR review done.
+- SCR-702 source implementation and validation complete: Pi/OMP mid-turn steering advances a root evidence epoch, clears prior evidence, excludes late pre-steer results, and requires fresh post-steer map/read evidence. User authorized commit, push, and all initialized downstream sync on 2026-07-13; rollout is in progress.
 
 Remaining not-started / blocked work:
 
@@ -157,6 +158,17 @@ Add self-test coverage so the deleted helper files and commands cannot reappear 
 - Verify stale helper files are pruned.
 - Run host tests/doctor.
 
+### Phase F — Pi/OMP steer evidence re-arming
+- Status: source-validated; commit/push/all-initialized-host rollout authorized on 2026-07-13 and in progress.
+
+- Detect non-extension, non-empty mid-turn steering without inspecting message meaning.
+- Advance a root evidence epoch and clear prior recent-tool evidence.
+- Bind allowed tool calls to their start epoch and ignore late results from older epochs.
+- Preserve read-only map/read access while the generic pre-action guard blocks later actions.
+- Protect prior-evidence invalidation, late-result exclusion, and fresh-evidence recovery with a fake runtime.
+- Validation: focused Pi contract smoke passed; full framework self-test passed (`ran=84`, `skipped=0`); record-lint clean; graph rows valid/unique.
+- Evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+
 ## Validation commands
 
 ```bash
@@ -172,6 +184,7 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
   - `.lazy-harness/bin/lazy` — removes obsolete helper dispatch commands.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — static reminder and `search-read-debt.jsonl` writer.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — generic evidence guard.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — root-scoped steer evidence epochs and tool-call start-epoch tracking.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — audit/backstop reader.
   - `.lazy-harness/scripts/self-test.py` — validates cleanup and guard behavior.
   - `.lazy-harness/spec/platform/search-read-debt-contract.md` — replacement SDD.
@@ -188,10 +201,10 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 - DDD: searchable record memory terminology/invariants added and cited by Index Header SDD/TDD.
 - BDD: LLM-owned retrieval scenarios added and mapped by Index Header TDD.
 - SDD: removed obsolete helper contracts; added static search/read-debt SDD; added Index Header SDD.
-- TDD: self-test and pre-action/pre-response records updated; added Index Header TDD fixture plan.
-- ADR: ADR 0042 records SCR-401 canonical `record-index` naming; no implementation code yet.
-- SSOT: runtime/shared-state and CLI boundary updated.
-- Planning: contaminated plan replaced.
+- TDD: self-test and pre-action/pre-response/Pi package records protect static debt plus post-steer invalidation/recovery.
+- ADR: ADR 0042 records cache naming; ADR 0041 remains the guidance authority for steer hardening.
+- SSOT: runtime/shared-state and CLI semantic-authority boundaries remain unchanged.
+- Planning: contaminated plan remains replaced; SCR-702 tracks the approved steer evidence boundary.
 
 ## Rule placement
 
@@ -205,10 +218,10 @@ bun .lazy-harness/scripts/graph-hygiene.ts --format=json
 
 ## Discovery capture — SCR-303/304/305
 
-- DDD: updated/covered by `.lazy-harness/domain/searchable-record-memory.md`.
-- BDD: updated/covered by `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
-- SDD: updated by `.lazy-harness/spec/platform/record-index-header.md`.
-- TDD: updated by `.lazy-harness/tests/record-index-header.md`.
-- ADR: `.lazy-harness/decisions/0042-record-index-cache-naming.md` records SCR-401.
-- SSOT: updated by `.lazy-harness/ssot/cli-tool-boundary.md` SCR-305 review section.
-- Planning: updated by `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` and this plan.
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` includes instruction-scoped evidence.
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` includes the post-steer freshness scenario.
+- SDD: search-read-debt/pre-response/Pi package contracts updated.
+- TDD: pre-action/pre-response/Pi package regression records updated.
+- ADR: no new ADR; ADR 0041/0024 semantics are applied generically.
+- SSOT: CLI semantic-authority boundary remains unchanged.
+- Planning: SCR-702 and this plan track implementation/validation.

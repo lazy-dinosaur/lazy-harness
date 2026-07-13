@@ -29,6 +29,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - inject framework-structured harness-first instructions for ambiguous/surface-like or host-dependent requests without running a subagent or semantic search backend in the hook
   - include compact actual `.lazy-harness` layer/file inventory plus generated-index, graph, and project/profile pointers before any free-form query/alias expansion
   - journal sanitized direct-search debt before the first action so the generic evidence guard/audit can verify real root-bound search evidence
+  - when Pi/OMP receives a non-extension mid-turn steer, re-arm the same generic protocol in adapter memory by invalidating prior-instruction evidence and requiring fresh post-steer map/read evidence before later actions; do not classify the steer text or write a semantic debt row
   - keep deleted query-helper CLIs removed; `message.received` remains static transport, not automatic semantic authority
   - keep exploration tool names as examples, not a closed allowlist; the required behavior is following lazy-harness and leaving root-bound evidence before action
   - surface pending host record migration deterministically (2026-07-05, user-approved resume-surfacing decision; graph probe added same day): the reminder MAY append a `Host record migration PENDING` line derived from bounded, fail-open probes (`helpers/host_migration_state.py`, each timeout < extension hook budget): `lazy record-lint --format=json` (issues/advisories) AND `lazy graph-hygiene --migration-plan --format=json` (legacy-schema rows / removed-framework refs). The line varies ONLY by host validator state, never by user text (static-equality per message preserved); it is omitted when clean/unknown, points at the guided `lazy-record-quality`/`lazy-memory-backfill`/`lazy-graph-migrate` resume paths, and never triggers automatic record/graph rewrites
@@ -195,11 +196,22 @@ message.received
 → response.completed audit/backstop
 ```
 
+Pi/OMP mid-turn steering adds an instruction boundary inside the same agent run:
+
+```text
+non-extension input(streamingBehavior=steer)
+→ invalidate prior recent-tool evidence and advance the root evidence epoch
+→ ignore late results from tool calls started before the steer
+→ inject compact steer re-grounding
+→ generic pre-action guard blocks later actions until fresh post-steer map/read evidence exists
+```
+
 ## Implementation map
 
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` - resolves host root, injects the same compact static harness-first inventory/search prompt for every non-empty user message, includes bounded layer counts, generated-index/graph/project pointers, and source/test/doc directory presence without per-layer sample dumps, and journals sanitized direct-search debt without running semantic query backends or user-text semantic classifiers.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` - generic pre-action evidence detector that blocks action until the turn shows root-bound harness-following inventory/search/read evidence; it is not a tool allowlist.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` - detects non-extension mid-turn steering, advances a root evidence epoch, clears prior recent-tool evidence, and accepts only results from tool calls started in the current epoch.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` - post-response audit helper that consumes sanitized search/read-debt journal rows and reports missed requiredRead/search evidence.
   - `.lazy-harness/spec/platform/search-read-debt-contract.md` - defines the static search/read-debt runtime row contract.
   - `.lazy-harness/scripts/self-test.py` - protects harness-first prompt, examples-not-allowlist wording, search-debt journal, and evidence guard fixtures.
@@ -210,8 +222,10 @@ message.received
   4. Hook journals direct-search debt with safe hashes and static instruction level `harness-first-static`.
   5. Main LLM/searcher follows lazy-harness, reads actual records/source, and may use any root-bound read-only/search/query affordance before answering or acting.
   6. Unsatisfied direct-search/read debt is guarded before action and audited after response.
+  7. A Pi/OMP mid-turn steer invalidates earlier-instruction evidence for later actions until fresh post-steer map/read evidence completes.
 - Protection:
   - `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection`
+  - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` (post-steer evidence epoch regression)
 
 ## Rule placement
 
@@ -224,13 +238,13 @@ message.received
 
 ## Discovery capture
 
-- DDD: none.
-- SDD: updated, this contract defines pre-response rule context lifecycle requirements.
-- BDD: future agent behavior should follow harness records first before response/action.
-- TDD: fixtures protect lazy-harness hook payload/output behavior and generic evidence detection.
-- ADR: ADR 0041 selected the organic hybrid response lifecycle model.
-- SSOT: harness enforcement policy anchors mandatory record vs organic guidance split.
-- Planning: searchable record memory cleanup plan Phase 3.
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence.
+- SDD: updated; this contract defines pre-response and mid-turn steer self-resolution requirements.
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` defines fresh post-steer evidence behavior.
+- TDD: pre-response, pre-action, and Pi package fixtures protect the generic evidence boundary.
+- ADR: ADR 0041 remains the organic-hybrid authority; no command-specific policy branch was added.
+- SSOT: CLI semantic-authority and enforcement-level boundaries are unchanged.
+- Planning: searchable-record tasks/plan and Pi adapter plan track the implemented steer hardening.
 
 ## Map-first retrieval prompt guidance
 

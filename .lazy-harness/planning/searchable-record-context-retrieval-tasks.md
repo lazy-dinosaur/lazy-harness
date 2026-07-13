@@ -361,13 +361,37 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Result: 13 initialized downstream hosts synced to marker `34c1ef2`; stale files/help/hook checks all zero.
 - Follow-up result: selected hosts `medivance`, `medivance-pwa`, and `medivance-homepage` synced to marker `30e9866` after SCR-402/SCR-501/SCR-601/SCR-602; `record-index` present, `context-index` absent, host `lazy test` passed. Evidence: `.lazy-harness/evidence/2026-06-06-selected-medivance-host-sync-record-index.md`.
 
+### SCR-702 — Re-arm evidence after Pi/OMP mid-turn steer
+
+- Status: in-progress
+- Source status: implemented and validated on 2026-07-13.
+- Rollout status: user authorized commit, push, and all initialized downstream sync on 2026-07-13; rollout in progress.
+- Type: adapter/source/BDD/SDD/TDD
+- Requirements:
+  - detect non-extension, non-empty `streamingBehavior === "steer"` generically
+  - advance a root-scoped evidence epoch and clear prior recent-tool evidence
+  - tag each allowed `tool_call` with its start epoch
+  - ignore a `tool_result` whose start epoch predates the latest steer
+  - block later actions until fresh post-steer map/read evidence completes
+  - add no steer-text classifier, command allowlist, or semantic debt row
+- Acceptance:
+  - fake runtime proves prior evidence is invalidated
+  - fake runtime proves a late pre-steer result stays stale
+  - immediate post-steer mutation blocks
+  - fresh post-steer read restores action permission
+  - DDD/BDD/SDD/TDD/PRD/plan/report/package README remain co-updated
+- Validation (2026-07-13):
+  - focused `check_pi_package_layout_and_contract` passed
+  - full `python3 .lazy-harness/scripts/self-test.py --scope framework` passed (`ran=84`, `skipped=0`)
+  - `record-lint` reported 163/163 clean; `graph-hygiene` reported 666 valid unique rows with only two pre-existing command-string path warnings
+  - evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+
 ## Discovery capture
 
-- DDD: `searchable-record-memory` created for terminology/invariants.
-- BDD: `llm-owned-record-retrieval` created for agent/searcher behavior.
-- SDD: `search-read-debt-contract` created; `record-index-header` created/updated for header field, record-index cache, and Record Map consumer contract.
-- TDD: deleted-helper absence and static debt tests planned/updated; `record-index-header` created/updated for fixture expectations including Record Map.
-- SSOT/ADR: `cli-tool-boundary` reviewed/updated for SCR-303/304/SCR-403; ADR 0042 records SCR-401 canonical `record-index` naming decision.
-- SSOT: CLI tool boundary remains canonical.
-- Planning: native query-helper plan removed; this backlog is the replacement.
-- ADR: no new ADR until a new trade-off decision is needed.
+- DDD: `searchable-record-memory` includes instruction-scoped evidence freshness.
+- BDD: `llm-owned-record-retrieval` includes post-steer fresh-evidence behavior.
+- SDD: search-read-debt/pre-response/Pi package contracts define root evidence epochs.
+- TDD: pre-action/pre-response/Pi package records protect invalidation, late-result exclusion, and recovery.
+- SSOT/ADR: CLI semantic-authority boundary remains; no new ADR or command-specific policy branch.
+- Planning: native query-helper plan stays removed; SCR-702 adds generic steer re-arming.
+- ADR: no new ADR; user approved the narrow generic enforcement boundary.

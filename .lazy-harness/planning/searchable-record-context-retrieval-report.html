@@ -66,6 +66,7 @@
           <tr><td>Runtime journal</td><td><code>context-delivery-packets.jsonl</code> → <code>search-read-debt.jsonl</code></td><td>runtime row가 후보/packet이 아니라 static evidence debt라는 의미로 정정</td></tr>
           <tr><td>message.received hook</td><td>obsolete index inventory 제거, static harness-first reminder 유지</td><td>사용자 turn마다 helper/index semantic authority를 암시하지 않음</td></tr>
           <tr><td>Self-test</td><td>삭제된 helper 파일/명령/라이프사이클 참조 부재 검증 추가</td><td>오염 구조가 다시 살아나는 회귀 방지</td></tr>
+          <tr><td>Pi/OMP steering evidence</td><td>non-extension mid-turn steer마다 root evidence epoch 증가, 이전 recent-tool evidence 제거, pre-steer tool result 제외</td><td>이전 지시에서 읽은 근거로 새 지시의 mutation을 통과하는 것을 막고, post-steer map/read 후에만 재개</td></tr>
           <tr><td>PRD/tasks/plan</td><td>LLM-owned retrieval 중심으로 전면 재작성</td><td>미래 agent가 잘못된 helper 구현으로 돌아가지 않음</td></tr>
           <tr><td>Graph/generated cache</td><td>삭제된 helper path를 가리키는 stale row 제거</td><td>다음 검색이 삭제된 파일을 따라가지 않음</td></tr>
         </tbody>
@@ -99,7 +100,7 @@
       <h2>5. 앞으로 어디를 어떻게 수정해서 개선할 것인가</h2>
       <div class="grid2">
         <div class="card"><span class="badge ok">SCR-301</span><h3>DDD — Searchable Record Memory</h3><p>Searchable Record Memory, Record-authored metadata, Record Index Header, LLM-owned retrieval, Semantic authority, Deterministic cache를 정의했습니다.</p><p><strong>개선:</strong> 구현/계약 전에 용어 경계를 고정해서 코드가 판단하는 구조로 미끄러지지 않게 합니다.</p></div>
-        <div class="card"><span class="badge ok">SCR-302</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 먼저 고정합니다.</p></div>
+        <div class="card"><span class="badge ok">SCR-302/702</span><h3>BDD — LLM-owned retrieval behavior</h3><p>metadata cue read, conflict option gate, cache-hit-not-proof, missing knowledge convergence, layer package trigger, mid-turn steer fresh-evidence 시나리오를 만들었습니다.</p><p><strong>개선:</strong> agent/searcher가 실제 record/source/test를 읽는 행동 기준을 고정하고, steer 이전 evidence와 늦게 도착한 old result가 새 action을 허가하지 못하게 합니다.</p></div>
         <div class="card"><span class="badge ok">SCR-303/304</span><h3>SDD/TDD — Index Header contract and fixtures</h3><p><code>## Index header</code> 필드 구조와 complete/missing/fallback/no-semantic-query fixtures를 작성했습니다. parser 구현은 하지 않았습니다.</p><p><strong>개선:</strong> 나중에 구현할 cache/parser가 검증 가능한 contract 아래에서만 진행됩니다.</p></div>
         <div class="card"><span class="badge ok">SCR-401</span><h3>ADR — canonical record-index naming</h3><p>사용자가 Option A를 선택했고, ADR 0042가 canonical name을 <code>record-index</code>로 기록합니다. SCR-402는 active <code>context-index</code> command/source/schema/cache path를 제거하고 compatibility alias 없이 구현했습니다.</p><p><strong>다음:</strong> SCR-501 record-audit advisory warning을 완료했고, SCR-601 implementation-map needs-map backlog도 캡처했고, SCR-602 Batch 1~4 migration도 완료했습니다. 다음은 전체 최종 검수/브랜치 정리입니다.</p></div>
       </div>
@@ -111,9 +112,10 @@
         <thead><tr><th>문서</th><th>상태</th><th>핵심 내용</th></tr></thead>
         <tbody>
           <tr><td><a href="../prd/searchable-record-context-retrieval-prd.md">PRD</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/sync 완료 상태와 future phases를 분리함</td></tr>
-          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/SCR-701 완료, layer package 완료, SCR-401 naming decision 완료, SCR-402 record-index-only 구현 완료</td></tr>
+          <tr><td><a href="searchable-record-context-retrieval-tasks.md">Tasks</a></td><td><span class="badge ok">정리됨</span></td><td>cleanup/layer package/cache 작업 완료; SCR-702가 Pi/OMP steer evidence re-arming 구현·검증을 추적</td></tr>
           <tr><td><a href="searchable-record-context-retrieval-implementation-plan.md">Plan</a></td><td><span class="badge ok">정리됨</span></td><td>current status, completed phases, next work를 분리함</td></tr>
           <tr><td><a href="../evidence/2026-06-06-searchable-record-memory-host-sync.md">Evidence capsule</a></td><td><span class="badge ok">신규</span></td><td>13개 host sync/smoke 결과 기록</td></tr>
+          <tr><td><a href="../evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md">SCR-702 source evidence</a></td><td><span class="badge ok">검증됨</span></td><td>fake-runtime + full framework 84/0; commit/push/downstream rollout은 미수행</td></tr>
         </tbody>
       </table>
     </section>
@@ -124,7 +126,7 @@
 .lazy-harness/bin/lazy prompt-budget --format=md # green
 bun .lazy-harness/scripts/graph-hygiene.ts --format=json # green
 host sync smoke: 13/13 ok, staleFiles/helpBad/hookBad all 0</pre>
-      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. SCR-402 record-index-only cache migration은 no raw-message query/no semantic authority 조건을 유지합니다. SCR-501 record-audit advisory warning도 완료되어 `recordQuality` structured counts/samples를 제공합니다. SCR-601 needs-map backlog를 캡처했고, SCR-602 Batch 1~4 implementation-map migration을 완료했고 `lazy impl-map` needs-map이 0입니다. 다음 단계는 전체 최종 검수/브랜치 정리입니다.</p>
+      <p>이 검증은 cleanup과 sync가 완료됐다는 증거입니다. SCR-402 record-index-only cache migration은 no raw-message query/no semantic authority 조건을 유지합니다. SCR-501 record-audit advisory warning도 완료되어 `recordQuality` structured counts/samples를 제공합니다. SCR-601 needs-map backlog를 캡처했고, SCR-602 Batch 1~4 implementation-map migration을 완료했고 `lazy impl-map` needs-map이 0입니다. SCR-702는 Pi/OMP mid-turn steering 이후 fresh evidence를 강제하며 fake-runtime regression으로 prior evidence invalidation, late-result exclusion, block/recovery를 검증합니다.</p>
     </section>
   </main>
 </body>

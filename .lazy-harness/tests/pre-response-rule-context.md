@@ -26,6 +26,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - keep direct-search debt journaling sanitized and free of raw user messages
   - keep the compact rendered body within the normal prompt-budget target for framework source dogfood
   - preserve the generic evidence guard behavior: block action before root-bound search/read evidence and allow after evidence
+  - preserve Pi/OMP steer re-arming: prior evidence and late pre-steer results stay stale until a fresh post-steer map/read result
   - keep the host-migration probe (`helpers/host_migration_state.py`) bounded + fail-open and host-state-derived only: identical user messages must render identical bodies for a given host state; a lint timeout/error must omit the line, never break the reminder
 - Must not:
   - reintroduce per-layer sample dumps into the default prompt
@@ -63,6 +64,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 5. Rendered token estimate is at or below 600 in framework source self-test after adding map-first retrieval guidance.
 6. Journal row has `event = message.received.search-read-debt`, `fallbackSearchCount = 1`, `instructionLevel = harness-first-static`, and no raw user text.
 7. Generic read-debt permit still blocks action before root-bound harness/source evidence and allows action after such evidence.
+8. A non-extension mid-turn steer clears earlier evidence, ignores a late result from a pre-steer tool call, blocks the immediate action, and allows after a post-steer map/read call and result.
 
 ## Implementation map
 
@@ -71,7 +73,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - `.lazy-harness/spec/platform/pre-response-rule-context.md` — SDD contract.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — compact prompt renderer and debt journal writer.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — generic evidence guard.
-  - `.lazy-harness/scripts/self-test.py` — executable regression fixtures.
+  - `.lazy-harness/scripts/self-test.py` — executable regression fixtures, including Pi/OMP post-steer evidence epoch behavior.
   - `.lazy-harness/scripts/prompt-budget.py` — token/line measurement.
 - Key symbols:
   - `harness_inventory_lines` (`on-message-received.sh` embedded Python) — renders compact counts/pointers.
@@ -82,10 +84,10 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 
 ## Layer completeness impact
 
-- SDD: pre-response prompt transport contract changed from verbose static inventory to compact static inventory.
-- BDD: agent-visible system reminder is shorter but carries the same search/read/option-gate behavior.
-- SSOT: capability/hard-stop policy unchanged; no new block level.
-- DDD: no domain/business rule change.
+- SDD: pre-response/search-read-debt contracts include the Pi/OMP mid-turn evidence epoch boundary.
+- BDD: agent-visible steering guidance requires fresh post-steer evidence.
+- SSOT: capability/hard-stop and CLI semantic-authority policies remain unchanged; no text or command classifier was added.
+- DDD: searchable record memory defines instruction-scoped evidence.
 
 ## Rule placement
 
@@ -97,13 +99,13 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 
 ## Discovery capture
 
-- DDD: none.
-- SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md` updated.
-- BDD: compact prompt changes visible agent guidance by teaching map-first traversal, but not user-facing product UI.
-- TDD: this record covers the regression.
-- ADR: no new ADR; implements ADR 0041 without changing its model.
-- SSOT: no capability level or hard-stop policy change.
-- Planning: Phase 2 of `.lazy-harness/plans/prompt-runtime-compression-implementation-plan.md`.
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` updated with instruction-scoped evidence.
+- SDD: pre-response/search-read-debt/Pi package contracts updated.
+- BDD: post-steer evidence freshness captured.
+- TDD: this record, pre-action guard TDD, and Pi package TDD cover the regression.
+- ADR: no new ADR; implements ADR 0041 without changing its semantic-authority model.
+- SSOT: no capability level change and no command-specific policy branch.
+- Planning: `SCR-702` tracks steer evidence re-arming.
 
 ## Phase 5 map-first prompt guidance
 

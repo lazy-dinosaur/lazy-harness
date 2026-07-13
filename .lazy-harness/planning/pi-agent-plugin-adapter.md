@@ -413,3 +413,46 @@ Discovery capture:
 - Why not AGENTS.md: this is adapter packaging rollout planning, not global prompt grammar.
 - Why not `.jcode`: this is shared lazy-harness package behavior, not local/private Jcode preference.
 - Confirmation: user-confirmed
+
+## Mid-turn steer evidence re-arming (2026-07-08)
+
+Status: implemented and source-validated; commit/push/all-initialized-host rollout authorized on 2026-07-13 and in progress
+
+User-confirmed direction:
+
+- Pi/OMP mid-turn steering must not inherit evidence gathered for the previous instruction.
+- Enforcement stays generic: no steer-text semantic classifier and no command/CLI-specific filter.
+- Read-only map/read remains available; later actions require fresh post-steer evidence.
+
+Implementation:
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` advances a root-scoped evidence epoch for each non-extension, non-empty `streamingBehavior === "steer"`.
+- It clears prior `recent_tool_calls`, tags every allowed `tool_call` with its start epoch, and accepts a `tool_result` as evidence only when its start epoch matches the current root epoch.
+- Therefore a slow/parallel result from a tool call started before the steer cannot repopulate the evidence cache.
+- The transformed steer reminder states that prior evidence and approvals may be stale and fresh root-bound map/read evidence is required before mutation.
+
+Acceptance:
+
+- fake runtime establishes valid pre-steer evidence; a pre-steer write is allowed
+- a second read starts before steer and finishes after it; that late result remains stale
+- immediate post-steer write is blocked
+- a read call/result started after the steer restores write permission
+- empty/extension-injected inputs do not re-arm
+- no user-text or command-name classification is introduced
+
+Validation (2026-07-13):
+
+- focused `check_pi_package_layout_and_contract` passed
+- full `python3 .lazy-harness/scripts/self-test.py --scope framework` passed (`ran=84`, `skipped=0`)
+- `record-lint` clean; new graph rows validate and add no hygiene warnings
+- evidence: `.lazy-harness/evidence/2026-07-13-pi-steer-evidence-epoch-source-validation.md`
+
+Discovery capture:
+
+- DDD: `searchable-record-memory` defines instruction-scoped evidence.
+- BDD: `llm-owned-record-retrieval` adds the mid-turn steer scenario.
+- SDD: Pi package, search-read-debt, and pre-response contracts updated.
+- TDD: Pi package, pre-action, and pre-response regression records updated.
+- ADR: no new ADR; applies ADR 0041 §9 / ADR 0024 Layer 2 without broad edit gating.
+- SSOT: no ownership/config/schema change; CLI semantic-authority boundary remains unchanged.
+- Planning: SCR-702 and searchable-record plan/report updated.

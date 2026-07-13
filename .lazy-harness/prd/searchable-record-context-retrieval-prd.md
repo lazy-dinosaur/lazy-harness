@@ -50,6 +50,7 @@ Completed on 2026-06-06:
 Also completed on 2026-06-06:
 
 - Record Index Header Layer Package completed for DDD, BDD, SDD, TDD, and SSOT/ADR review.
+- Pi/OMP mid-turn steering now re-arms root-scoped evidence: prior-instruction evidence and late pre-steer results cannot authorize later actions.
 
 Not started yet:
 
@@ -78,6 +79,7 @@ Observed failure modes:
 4. Records lack a consistent place for aliases, source/test hints, and graph ids.
 5. Generated indexes are sometimes treated as if they could decide relevance.
 6. Future agents may follow stale docs instead of the static search/read-debt loop.
+7. Mid-turn steering can inherit valid evidence from the previous instruction, allowing mutation before the steered scope is searched/read.
 
 ## 5. Goals
 
@@ -88,6 +90,7 @@ Observed failure modes:
 5. Use canonical future `record-index` naming for deterministic cache/listing, with no raw-user-message semantic query.
 6. Extend audit/test coverage so removed helper artifacts cannot come back silently.
 7. Rebuild PRD/tasks/plan around LLM-owned root-bound search/read.
+8. Treat a non-extension mid-turn steer as an instruction evidence boundary: require fresh post-steer map/read evidence without classifying user text or command names.
 
 ## 6. Non-goals
 
@@ -112,6 +115,7 @@ Observed failure modes:
 | FR-8 | Extend record-audit later to warn about missing headers/source/test/graph hints. |
 | FR-9 | Maintain implementation-map and graph hygiene after deletions. |
 | FR-10 | Rewrite planning/task docs so future agents do not follow the removed architecture. |
+| FR-11 | Pi/OMP steering must clear prior recent-tool evidence, exclude late results from tool calls started before the steer, and allow later actions only after fresh post-steer map/read evidence. |
 
 ## 8. Acceptance criteria
 
@@ -122,6 +126,7 @@ Observed failure modes:
 - `lazy test`, `prompt-budget`, and `graph-hygiene` pass.
 - PRD/tasks/plan describe LLM-owned retrieval only.
 - Any future `record-index` / `Index header` parser work has no raw-message query entry point.
+- Fake-runtime regression proves pre-steer evidence and late pre-steer results cannot satisfy post-steer action debt; fresh post-steer evidence restores permission.
 
 ## 9. Metrics
 
@@ -158,6 +163,7 @@ Observed failure modes:
 | Stale generated index still references deleted files | Regenerate derived indexes or remove stale rows |
 | Future plan reintroduces raw-message query helper | PRD/tasks explicitly forbid it; self-test checks commands absent |
 | Record search quality remains weak after cleanup | Add `Index header` standard and record-audit warnings as separate later phases |
+| Mid-turn steer reuses earlier-instruction evidence or accepts a late parallel result | Advance a root-scoped evidence epoch on steer, clear recent evidence, tag allowed tool calls by start epoch, and test block/recovery without text or command classification |
 
 ## 12. Rollout plan
 
@@ -169,6 +175,7 @@ Observed failure modes:
 6. Record-audit advisory warnings.
 7. Implementation-map backlog reduction.
 8. Host sync/dogfood using normal LLM/searcher root-bound evidence, not query helpers.
+9. Pi/OMP steer evidence re-arming with fake-runtime regression and downstream package rollout.
 
 ## Rule placement
 
@@ -181,8 +188,10 @@ Observed failure modes:
 
 ## Discovery capture
 
-- SDD: new `search-read-debt-contract` replaces the removed helper contract.
-- TDD: self-test and pre-response/pre-action records protect static debt and deleted helper absence.
-- SSOT: CLI boundary remains canonical.
-- Planning: this PRD and the task backlog replace the earlier contaminated plan.
-- ADR: no new ADR yet; this implements the user-confirmed correction to ADR 0041 boundary.
+- DDD: instruction-scoped evidence added to searchable record memory.
+- BDD: LLM-owned retrieval includes the mid-turn steer fresh-evidence scenario.
+- SDD: search-read-debt, pre-response, and Pi package contracts define evidence epochs.
+- TDD: pre-action/pre-response/Pi package fixtures protect block, late-result exclusion, and recovery.
+- SSOT: CLI semantic-authority and enforcement policies remain canonical and unchanged.
+- Planning: PRD/plan/tasks/report updated together under `SCR-702`.
+- ADR: no new ADR; this is the user-approved generic application of ADR 0041 and ADR 0024 Layer 2.

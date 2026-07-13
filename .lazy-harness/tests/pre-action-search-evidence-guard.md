@@ -23,6 +23,7 @@ Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_appl
   - unblock source edits once valid root-bound `.lazy-harness` search/read evidence exists, including nested batch reads
   - recognize brace-syntax record scopes and treat `apply_patch`/namespaced patch as the same source-edit action
   - keep record-file and non-code-docs edits exempt; parse hook payloads safely via argv
+  - after a non-extension mid-turn steer, deny later actions until fresh post-steer map/read evidence exists, and never count late results from pre-steer tool calls
 - Must not:
   - false-deny edits after evidence exists, or let patch-style source mutation bypass the search gate
 - Record completion:
@@ -42,6 +43,7 @@ Observed failure modes:
 2. The deny text recommended `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/`, but the matcher looked only for literal `.lazy-harness/<dir>` substrings, so brace syntax could be denied.
 3. Quoted bash payloads could fail-open because the helper embedded the JSON payload into a Python here-doc with shell quoting instead of passing it as argv.
 4. `apply_patch` / namespaced patch-style mutation was not consistently treated as the same source-edit action, so it could bypass the same code-edit search gate that blocked `Edit`.
+5. Pi mid-turn steering could inherit earlier-instruction `recent_tool_calls`; clearing only the cache was insufficient because a slow pre-steer parallel result could arrive later and repopulate it as apparently fresh evidence.
 
 ## Protected behavior
 
@@ -55,15 +57,18 @@ Observed failure modes:
 - record file edits remain exempt so record capture is not blocked,
 - non-code docs edits remain exempt,
 - session cache still allows subsequent source edits after evidence is established,
-- `apply_patch` or namespaced patch tools targeting source code without search evidence are denied instead of bypassing the guard.
+- `apply_patch` or namespaced patch tools targeting source code without search evidence are denied instead of bypassing the guard,
+- Pi/OMP steering clears prior evidence and advances an evidence epoch,
+- a tool result whose tool call started before the steer does not satisfy post-steer debt,
+- a fresh post-steer map/read result restores action permission.
 
 ## Layer completeness
 
-- DDD: no domain/business entity changed.
-- SDD: impacted. `.lazy-harness/spec/platform/search-read-debt-contract.md` is the generic guard contract; this TDD clarifies the legacy compatibility helper must respect the same root-bound evidence semantics and not behave as a concrete-tool allowlist.
-- BDD: impacted only for agent workflow behavior. Expected agent behavior after fix is that valid harness-first search/read evidence unblocks mutation, while no-search source mutation remains blocked.
-- SSOT: impacted. `.lazy-harness/ssot/harness-enforcement-policy.md` records the static search/read-debt evidence policy and the rejection of broad stale edit gates.
-- ADR: no new decision. ADR 0041 and existing hard-stop promotion policy still apply.
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence.
+- SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md` defines generic guard and post-steer evidence epoch semantics.
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` requires fresh post-steer evidence without text/command classification.
+- SSOT: harness enforcement and CLI semantic-authority boundaries remain unchanged.
+- ADR: no new decision. ADR 0041 and existing hard-stop promotion policy still apply; the user approved this narrow generic steer boundary.
 
 ## Implementation map
 
@@ -72,6 +77,7 @@ Observed failure modes:
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper that chains generic read-debt permit and legacy search-performed compatibility helper.
   - `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — legacy source-edit compatibility helper fixed to parse payloads safely, flatten nested recent tool calls, recognize current record scopes/brace syntax, and cover patch/apply_patch/namespaced patch source edits.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — modern static search/read-debt generic evidence guard that remains the primary search/read-debt mechanism.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — advances root evidence epochs on steering and filters tool results by their start epoch before exposing recent evidence to the guard.
   - `.lazy-harness/scripts/self-test.py` — `check_tool_execute_before_hook` regression scenarios.
   - `.lazy-harness/manifests/init-categories.json` — syncs this TDD record to hosts.
 - Flow:
@@ -80,16 +86,17 @@ Observed failure modes:
   3. The compatibility `check-search-performed.sh` applies only to source-code edits and source-code patch/apply_patch/namespaced patch calls.
   4. The compatibility helper must accept prior root-bound `.lazy-harness` read/search evidence, including nested batch evidence.
   5. If no evidence exists, source code mutation still denies with the standard lazy-harness gate message.
+  6. A non-extension mid-turn steer clears prior evidence; only results from tool calls started in the new epoch may re-satisfy the guard.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
-  - Direct reproduction checks for brace grep allow, batch read allow, apply_patch no-search deny, and namespaced apply_patch no-search deny.
+  - Direct reproduction checks for brace grep allow, batch read allow, apply_patch no-search deny, namespaced apply_patch no-search deny, and Pi steer fresh-evidence re-arming.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
   - SSOT: `.lazy-harness/ssot/harness-enforcement-policy.md`
   - Planning: `.lazy-harness/knowledge/candidates.jsonl#candidate_pre_action_legacy_search_performed_false_deny_apply_patch_gap_20260604`
 - Machine index:
-  - graph ids: `kg_tdd_pre_action_search_evidence_guard`, `kg_impl_check_search_performed_false_deny_fix`, `kg_test_check_tool_execute_before_guard_false_deny_fix`
+  - graph ids: `kg_tdd_pre_action_search_evidence_guard`, `kg_impl_check_search_performed_false_deny_fix`, `kg_test_check_tool_execute_before_guard_false_deny_fix`, `kg_pi_steer_evidence_epoch_impl_20260713`, `kg_pi_steer_evidence_epoch_test_20260713`
   - generated index key: pending regeneration; generated indexes are derived and non-canonical.
 
 ## Rule placement
@@ -103,10 +110,10 @@ Observed failure modes:
 
 ## Discovery capture
 
-- DDD: none.
-- SDD: search-read-debt/pre-response guard contracts updated or linked.
-- BDD: agent workflow expectation captured above.
-- TDD: this record is the regression protection.
-- ADR: none.
-- SSOT: harness enforcement policy linked.
-- Planning: bug candidate promoted from candidates into accepted TDD/regression after reproduction and fix.
+- DDD: instruction-scoped evidence added to searchable record memory.
+- SDD: search-read-debt/pre-response guard contracts updated with steer evidence epochs.
+- BDD: fresh post-steer evidence behavior captured.
+- TDD: this record and Pi package smoke protect the regression.
+- ADR: none; the change applies ADR 0041 without a command-specific policy branch.
+- SSOT: harness enforcement policy and CLI semantic-authority boundary remain linked and unchanged.
+- Planning: steer hardening promoted from `candidate-steer-readdebt-rearm-fresh-evidence-20260708` into accepted regression coverage.

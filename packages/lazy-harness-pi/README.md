@@ -178,6 +178,7 @@ omp -e "$LAZY_HARNESS_PI_PACKAGE" --help
 ## What it wires
 
 - `before_agent_start` injects the lazy-harness record-first reminder by reusing `.lazy-harness/hooks/lifecycle/on-message-received.sh` when available, and displays `lazy-harness read-debt` with `status=armed`, `status=not-armed(synthetic-turn)`, `status=not-armed(hook-empty)`, `status=not-armed(hook-timeout)`, or `status=not-armed(hook-error)`, plus `phase=armed|debug` and concise `hook=<detail>` for failures. Synthetic/steering starts are debug-only: they do not create read-debt journal rows, but they still get a visible status marker and minimal steering reminder to avoid host-specific claims or mutations from memory.
+- A non-extension mid-turn steer re-arms generic evidence in memory: prior recent-tool evidence is cleared, late results from pre-steer tool calls are ignored, and action remains blocked until a fresh post-steer map/read call completes. The adapter does not classify steer text or maintain command-specific rules.
 - `tool_call` bridges Pi tool payloads into `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` and blocks only when the generic search/read evidence guard denies.
 - `tool_call` normalizes Pi shell aliases `cmd`, `command`, `shell`, and `terminal` to lazy `bash` before invoking the guard; not-armed action blocks include the read-debt status/detail.
 - Commands: `/lazy-map`, `/lazy-doctor`, `/lazy-test`, `/lazy-sync`, `/lazy-update`, `/lazy-import-antigravity-mcp`.

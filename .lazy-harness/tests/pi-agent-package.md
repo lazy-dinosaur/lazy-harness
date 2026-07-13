@@ -19,6 +19,7 @@ Layer: TDD
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
   - ensure `lazy_move_project` switches directly through `ctx.switchSession` when available; it must not treat `sendUserMessage('/lazy-move ...', { deliverAs: 'followUp' })` as command execution, because that only queues an agent-visible user message
   - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity); if `on-context.sh` cannot provide the real relevant-record body, fail open silently instead of injecting a generic fallback reminder
+  - on every non-extension, non-empty mid-turn steer, advance a root evidence epoch and clear prior recent-tool evidence; only tool results whose tool calls started in the current epoch may satisfy later action guards, so late pre-steer parallel results remain stale
   - project the jcode-shape `agent_end` payload (`assistant_response` + `last_user_message` from `event.messages`, string `args_preview` per `recent_tool_calls` entry) so `on-response-completed.sh` helper satisfaction works under Pi/OMP and does not loop
   - keep OMP's native `ask` selector active (`ensureAskToolActive` on `before_agent_start`) so option gates render as selectable choices under tool discovery mode; add-only, interactive-only, fail-open
   - surface a visible per-start `lazy-harness read-debt` marker with runtime marker/root/status/phase/tool-guard (`status=armed`, `status=not-armed(synthetic-turn)`, `status=not-armed(hook-empty)`, `status=not-armed(hook-timeout)`, `status=not-armed(hook-error)`) plus concise hook detail for failures; synthetic/steering starts are debug-only and must not create read-debt journal rows, large hook payloads must be handed to Python helpers by temp-file/ref rather than argv/env to avoid ARG_MAX hook-empty/error loops, and lazy-root action tools still block with `read-debt not armed` plus status/detail when the turn did not arm
@@ -63,6 +64,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_root_scoped_recent_tools` | Fake Pi runtime touches repo A and repo B in one process | Repo B does not see repo A's `recent_tool_calls`; repo A retains its own recent tool evidence |
 | `pi_extension_lazy_move_project_switches_directly` | Fake Pi runtime registers `lazy_move_project`, exposes `ctx.switchSession`, and executes the tool with `autoSwitch:true` | The tool calls `switchSession` exactly once, does not send `/lazy-move` as a follow-up user message, delivers the optional prompt in the switched session, and returns an explicit manual `/lazy-move` instruction when `ctx.switchSession` is unavailable |
 | `pi_extension_move_rescopes_root_state` | Fake OMP/Pi runtime keeps stale `ctx.cwd` but changes `ctx.sessionManager.getCwd()` after `/move` | Hook payloads, `LAZY_HOST_ROOT`, recent tool evidence, and `/lazy-*` command execution re-scope to the live session cwd |
+| `pi_extension_steer_rearms_fresh_evidence` | Fake Pi runtime establishes valid evidence, starts a second read, receives a non-extension `streamingBehavior:'steer'`, then delivers the old read result and attempts a write | The transformed steer reminder says earlier evidence is stale; the old result is ignored; the write blocks; a read call/result started after the steer restores permission; no command-name or steer-text classifier is involved |
 | `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns and alternating advisory chains are capped at `MAX_ADVISORY_CHAIN_CONTINUATIONS`, then suppresses chat/display messages and only emits transient UI notification/log; an empty body resets the per-root counter, and a new human prompt distinct from the queued advisory body resets the cap while synthetic follow-up turns keep it |
 | `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root | Reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
 | `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh`; generic fallback reminder text is not injected when `on-context.sh` is missing or unparsable |
@@ -116,7 +118,7 @@ omp plugin list
 - BDD: Pi behavior mirrors `.lazy-harness/behavior/llm-owned-record-retrieval.md` for reminder and mutation guard behavior.
 - SSOT: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` is the placement decision for now.
 - ADR: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`, `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
-- DDD: no domain/business term impact.
+- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence freshness.
 
 ## Implementation map
 
@@ -124,7 +126,7 @@ omp plugin list
 - `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
 - `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
 - `.lazy-harness/scripts/agent-activate.ts` — fixture for project-local Pi/OMP activation prompt files, project-local skill settings, and `.git/info/exclude` entries.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, hook-timeout diagnosis, and synthetic steering reminders.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, synthetic steering reminders, and root-scoped evidence epochs that exclude late pre-steer results.
 - `.pi/settings.json` — optional generated project-local Pi settings; activation ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` load with `enableSkillCommands`, while local package install may add package attachment; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
@@ -134,7 +136,7 @@ omp plugin list
 - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded operating-rule/capability catalog enumeration timeout (`LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS`, default 3s).
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for skill availability.
-- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation, including fake live-session `/move` root re-scope.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation, including fake live-session `/move` re-scope and post-steer evidence re-arming.
 
 ## Rule placement
 

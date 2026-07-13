@@ -1706,6 +1706,10 @@ def check_pi_package_layout_and_contract() -> None:
         "lazy-harness read-debt:",
         "phase=debug",
         "steeringReminder",
+        "evidenceEpochByRoot",
+        "toolCallEpochsByRoot",
+        "rearmEvidenceAfterSteer",
+        "Prior-topic tool evidence is stale",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2145,7 +2149,9 @@ def check_pi_package_layout_and_contract() -> None:
             "const allowed=await handlers.get('tool_call')({toolCallId:'lazy-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'}},ctx);\n"
             "if(allowed?.block) throw new Error('lazy map read-only bash should not be blocked: '+allowed.reason);\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should no-op without a file op');\n"
-            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'x.md'}, toolCallId:'ctx-read', content:'data'}, ctx);\n"
+            "const ctxReadCall=await handlers.get('tool_call')({toolName:'read', input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}, toolCallId:'ctx-read'}, ctx);\n"
+            "if(ctxReadCall?.block) throw new Error('fixture read call unexpectedly blocked');\n"
+            "await handlers.get('tool_result')({toolName:'read', input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}, toolCallId:'ctx-read', content:'data'}, ctx);\n"
             "const reground=await handlers.get('context')({messages:[{role:'user',content:'hi',timestamp:1}]},ctx);\n"
             "if(!Array.isArray(reground?.messages)) throw new Error('context should inject messages after a file op');\n"
             "const injected=reground.messages[reground.messages.length-1];\n"
@@ -2153,6 +2159,26 @@ def check_pi_package_layout_and_contract() -> None:
             "if(!String(injected?.content).includes('NOT record-grounding') || !String(injected?.content).includes('Capture before you finish')) throw new Error('context injection missing relevant-record search / turn-end capture mandate');\n"
             "if(injected?.role !== 'user' || typeof injected?.timestamp !== 'number') throw new Error('context injected message must be a UserMessage');\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should not re-inject until a new file op');\n"
+            "const preSteerWrite=await handlers.get('tool_call')({toolCallId:'pre-steer-write',toolName:'write',input:{file_path:'pre-steer.txt',content:'ok'}},ctx);\n"
+            "if(preSteerWrite?.block) throw new Error('valid pre-steer evidence should allow mutation: '+preSteerWrite.reason);\n"
+            "const slowPreSteerRead=await handlers.get('tool_call')({toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
+            "if(slowPreSteerRead?.block) throw new Error('pre-steer read should remain allowed');\n"
+            "const steered=await handlers.get('input')({text:'switch to a different task',source:'user',streamingBehavior:'steer'},ctx);\n"
+            "if(steered?.action!=='transform' || !String(steered.text).includes('Prior-topic tool evidence is stale')) throw new Error('steer did not re-arm fresh-evidence reminder');\n"
+            "await handlers.get('tool_result')({toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'late'},ctx);\n"
+            "const staleWrite=await handlers.get('tool_call')({toolCallId:'post-steer-stale-write',toolName:'write',input:{file_path:'post-steer.txt',content:'blocked'}},ctx);\n"
+            "if(!staleWrite?.block) throw new Error('late pre-steer result restored stale evidence');\n"
+            "const freshRead=await handlers.get('tool_call')({toolCallId:'fresh-post-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
+            "if(freshRead?.block) throw new Error('fresh post-steer read should be allowed: '+freshRead.reason);\n"
+            "await handlers.get('tool_result')({toolCallId:'fresh-post-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'fresh'},ctx);\n"
+            "const freshWrite=await handlers.get('tool_call')({toolCallId:'post-steer-fresh-write',toolName:'write',input:{file_path:'post-steer.txt',content:'allowed'}},ctx);\n"
+            "if(freshWrite?.block) throw new Error('fresh post-steer evidence did not restore permission: '+freshWrite.reason);\n"
+            "if((await handlers.get('input')({text:'extension context',source:'extension',streamingBehavior:'steer'},ctx)) !== undefined) throw new Error('extension input must not be transformed/re-armed');\n"
+            "const afterExtensionWrite=await handlers.get('tool_call')({toolCallId:'after-extension-write',toolName:'write',input:{file_path:'extension.txt',content:'allowed'}},ctx);\n"
+            "if(afterExtensionWrite?.block) throw new Error('extension input incorrectly invalidated evidence');\n"
+            "if((await handlers.get('input')({text:'   ',source:'user',streamingBehavior:'steer'},ctx)) !== undefined) throw new Error('empty steer must not be transformed/re-armed');\n"
+            "const afterEmptyWrite=await handlers.get('tool_call')({toolCallId:'after-empty-write',toolName:'write',input:{file_path:'empty.txt',content:'allowed'}},ctx);\n"
+            "if(afterEmptyWrite?.block) throw new Error('empty steer incorrectly invalidated evidence');\n"
             "console.log('pi shell alias read-debt smoke ok');\n",
             encoding="utf-8",
         )
@@ -2196,6 +2222,8 @@ def check_pi_package_layout_and_contract() -> None:
             "const rootB=" + json.dumps(str(root_b)) + ";\n"
             "let liveCwd=rootA;\n"
             "const ctx={cwd:rootA, signal:undefined, ui:{notify(){}}, sessionManager:{getCwd(){return liveCwd}}};\n"
+            "const rootARead=await handlers.get('tool_call')({toolName:'read', input:{file_path:'a.txt'}, toolCallId:'a-read'}, ctx);\n"
+            "if(rootARead?.block) throw new Error('repo A read unexpectedly blocked');\n"
             "await handlers.get('tool_result')({toolName:'read', input:{file_path:'a.txt'}, toolCallId:'a-read', content:'aaa'}, ctx);\n"
             "liveCwd=rootB;\n"
             "await handlers.get('before_agent_start')({prompt:'moved to b', systemPrompt:'base'}, ctx);\n"
@@ -2267,6 +2295,9 @@ def check_pi_package_layout_and_contract() -> None:
         (proot / ".lazy-harness" / "bin").mkdir(parents=True)
         (proot / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
         (proot / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        msg_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+        msg_hook.write_text("#!/usr/bin/env bash\nprintf '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n", encoding="utf-8")
+        msg_hook.chmod(0o755)
         rc_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
         rc_hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-response-payload.json\n", encoding="utf-8")
         rc_hook.chmod(0o755)
@@ -2279,6 +2310,10 @@ def check_pi_package_layout_and_contract() -> None:
             "lazyHarnessPi(pi);\n"
             "const proot=" + json.dumps(str(proot)) + ";\n"
             "const ctx={cwd:proot, signal:undefined, ui:{notify(){}}};\n"
+            "const armed=await handlers.get('before_agent_start')({prompt:'analyze the redesign',systemPrompt:'base'},ctx);\n"
+            "if(!armed?.message?.content?.includes('status=armed')) throw new Error('candidate fixture did not arm read-debt');\n"
+            "const candidateWrite=await handlers.get('tool_call')({toolName:'write', input:{file_path:'.lazy-harness/knowledge/candidates.jsonl', content:'{}'}, toolCallId:'w1'}, ctx);\n"
+            "if(candidateWrite?.block) throw new Error('candidate fixture write unexpectedly blocked');\n"
             "await handlers.get('tool_result')({toolName:'write', input:{file_path:'.lazy-harness/knowledge/candidates.jsonl', content:'{}'}, toolCallId:'w1', content:'ok'}, ctx);\n"
             "const msgs=[{role:'user',content:'analyze the redesign',timestamp:1},{role:'assistant',content:[{type:'text',text:'## Discovery capture done'}],timestamp:2}];\n"
             "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"

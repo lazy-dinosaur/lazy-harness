@@ -26,6 +26,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - treat Record Index Header fields as record-authored search cues
   - keep meaning, priority, ambiguity, gate, and next-action decisions with the LLM/searcher after real evidence reads
   - distinguish storage/searchability metadata from semantic authority
+  - treat map/read evidence as instruction-scoped: a new accepted mid-turn steer makes prior-instruction evidence stale for later actions
 - Must not:
   - define Index Header as a raw-user-message query interface
   - define cache hits as proof that a record/source/test was read
@@ -44,6 +45,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 | LLM-owned retrieval | The process where the LLM/searcher performs root-bound search/read, inspects records/source/tests, then decides relevance and ambiguity. | Code-owned candidate selection from raw user text. |
 | Semantic authority | The authority to decide intent, meaning, priority, required reads, risk, gate, or next action. In this framework, that authority belongs to the LLM/searcher plus canonical evidence, not deterministic helper code. | Deterministic parsing, validation, cache generation, or evidence bookkeeping. |
 | Deterministic cache | A rebuildable cache derived from already-authored records/source/graph data. | Canonical memory or proof of read evidence. |
+| Instruction-scoped evidence | Root-bound map/read evidence collected after the latest user-instruction boundary. A non-extension mid-turn steer starts a new evidence epoch for later actions. | A user-text classifier, command allowlist, or claim that the earlier evidence became false. |
 
 ## Domain invariants
 
@@ -53,6 +55,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 4. LLM/searcher may use metadata as a starting point only after reading real records/source/tests.
 5. Conflicting candidate meanings require an option gate, not automatic ranking.
 6. Missing host knowledge converges into the right layer only after source evidence and/or user confirmation.
+7. Evidence gathered for an earlier instruction cannot authorize mutation after a mid-turn steer; the agent must produce fresh root-bound evidence for the steered instruction.
 
 ## Implementation map
 
@@ -73,6 +76,7 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   3. `lazy map --overview` shows the whole structure before concrete node selection.
   4. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls list candidate records/source/tests/graph ids as navigation cues only.
   5. The agent reads all relevant actual records/source/tests and option-gates unresolved ambiguity.
+  6. When a non-extension mid-turn steer changes the active instruction boundary, the adapter invalidates prior evidence for later actions until fresh post-steer map/read evidence exists.
 - Tests / protection:
   - `.lazy-harness/tests/record-index-header.md` protects the no-semantic-query invariant and map drill-down output.
   - Existing `.lazy-harness/scripts/self-test.py` protects deleted helper absence and static search/read debt.
@@ -85,15 +89,15 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - Planning: `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md`
   - SDD: `.lazy-harness/spec/platform/record-index-header.md`
 - Machine index:
-  - graph ids: `kg_searchable_record_memory_defines_domain`, `kg_llm_owned_retrieval_behaves_from_domain`
+  - graph ids: `kg_searchable_record_memory_defines_domain`, `kg_llm_owned_retrieval_behaves_from_domain`, `kg_pi_steer_evidence_epoch_impl_20260713`
   - generated index key: pending until index generator exists
 
 ## Layer completeness impact
 
 - DDD: this record supplies terminology and invariants.
-- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` supplies behavior scenarios.
-- SDD: future `record-index-header.md` must cite these terms.
-- TDD: future `record-index-header.md` TDD must test “metadata is not semantic authority.”
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` supplies behavior scenarios, including post-steer evidence freshness.
+- SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md` defines the generic evidence epoch contract; `record-index-header.md` cites these terms.
+- TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md` and Pi package regression coverage protect post-steer re-arming; `record-index-header.md` tests metadata authority boundaries.
 - SSOT: `.lazy-harness/ssot/cli-tool-boundary.md` remains the boundary for code/tool authority.
 - ADR: needed only if a future naming/cache trade-off cannot be resolved by existing SSOT.
 

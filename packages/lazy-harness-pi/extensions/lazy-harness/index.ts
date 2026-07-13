@@ -29,6 +29,11 @@ const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
+// A non-extension mid-turn steer starts a new evidence epoch. Tool calls retain
+// the epoch in which they began so late results from pre-steer parallel work
+// cannot repopulate the fresh evidence cache after it has been invalidated.
+const evidenceEpochByRoot = new Map<string, number>();
+const toolCallEpochsByRoot = new Map<string, Map<string, number>>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
 const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Jcode-parity mid-turn re-grounding state (see the "context" handler).
@@ -359,6 +364,50 @@ function rememberToolCall(root: string, call: RecentToolCall): void {
   while (calls.length > MAX_RECENT_TOOL_CALLS) calls.shift();
 }
 
+function currentEvidenceEpoch(root: string): number {
+  return evidenceEpochByRoot.get(root) ?? 0;
+}
+
+function toolCallKey(event: any): string {
+  const toolCallId = String(event?.toolCallId || "").trim();
+  if (toolCallId) return toolCallId;
+  let input = "";
+  try { input = JSON.stringify(event?.input || {}); } catch { input = String(event?.input || ""); }
+  return `anonymous:${stableHash(`${String(event?.toolName || "")}\n${input}`)}`;
+}
+
+function markToolCallStarted(root: string, event: any): void {
+  let epochs = toolCallEpochsByRoot.get(root);
+  if (!epochs) {
+    epochs = new Map<string, number>();
+    toolCallEpochsByRoot.set(root, epochs);
+  }
+  epochs.set(toolCallKey(event), currentEvidenceEpoch(root));
+  while (epochs.size > MAX_RECENT_TOOL_CALLS * 2) {
+    const oldest = epochs.keys().next().value as string | undefined;
+    if (!oldest) break;
+    epochs.delete(oldest);
+  }
+}
+
+function toolResultBelongsToCurrentEvidenceEpoch(root: string, event: any): boolean {
+  const epochs = toolCallEpochsByRoot.get(root);
+  const key = toolCallKey(event);
+  const startedEpoch = epochs?.get(key);
+  epochs?.delete(key);
+  // Older runtimes/tests may omit tool_call events. Preserve their pre-steer
+  // behavior, but after a steer accept only results tied to a known fresh call.
+  if (startedEpoch === undefined) return currentEvidenceEpoch(root) === 0;
+  return startedEpoch === currentEvidenceEpoch(root);
+}
+
+function rearmEvidenceAfterSteer(root: string): number {
+  const nextEpoch = currentEvidenceEpoch(root) + 1;
+  evidenceEpochByRoot.set(root, nextEpoch);
+  recentToolCallsByRoot.set(root, []);
+  return nextEpoch;
+}
+
 function findLazyRootFromEvent(event: any, ctx: any): string | undefined {
   return findLazyRootForInvocation(event, ctx);
 }
@@ -455,11 +504,12 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     if (event.streamingBehavior === "steer" && event.source !== "extension") {
       const steerText = String(event.text || "");
       if (steerText.trim()) {
+        rearmEvidenceAfterSteer(root); // invalidate all evidence collected for the previous instruction
         pendingRegroundByRoot.set(root, true); // re-ground on the next LLM call
         regroundBodyByRoot.delete(root); // recompute body with current turn state
         return {
           action: "transform",
-          text: `${steerText}\n\n<system-reminder>\nlazy-harness steer re-ground: this instruction arrived MID-TURN (jcode delivered user messages only between turns). Before acting on it: if it opens a new topic/scope, run \`.lazy-harness/bin/lazy map --overview\` and drill into the governing .lazy-harness records for the NEW topic first (AGENTS §2.1/§2.5); prior-turn evidence and approvals may be stale for this instruction (ADR 0038).\n</system-reminder>`,
+          text: `${steerText}\n\n<system-reminder>\nlazy-harness steer re-ground: this instruction arrived MID-TURN (jcode delivered user messages only between turns). Prior-topic tool evidence is stale for subsequent actions. Before mutating, collect fresh root-bound evidence after this message: run \`.lazy-harness/bin/lazy map --overview\`, drill into governing .lazy-harness records for the current scope, and read the relevant records/source/tests (AGENTS §2.1/§2.5). Prior approvals may also be stale (ADR 0038).\n</system-reminder>`,
         };
       }
     }
@@ -550,16 +600,19 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-tool-execute-before.sh");
-    if (!existsSync(script)) return undefined;
-    const hook = runHook(script, payload, root);
-    const reason = denyReason(hook.stdout, hook.stderr);
-    if (reason) return { block: true, reason };
+    if (existsSync(script)) {
+      const hook = runHook(script, payload, root);
+      const reason = denyReason(hook.stdout, hook.stderr);
+      if (reason) return { block: true, reason };
+    }
+    markToolCallStarted(root, event);
     return undefined;
   });
 
   pi.on("tool_result", async (event: any, ctx: any) => {
     const root = findLazyRootFromEvent(event, ctx);
     if (!root) return undefined;
+    if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const normalized = normalizePiTool(event.toolName, event.input || {});
     rememberToolCall(root, {
       ...normalized,
