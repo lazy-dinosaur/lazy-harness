@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 | [`plans/north-star-accuracy-and-no-regression.md`](plans/north-star-accuracy-and-no-regression.md) | **목표 그림 (north-star)** — 왜 lazy-harness 를 만드는가, 막으려는 실패 9 종, 핵심 개발 루프, 필수 게이트 |
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 53 ADR (의사결정 영구 기록) — # 53 ADRs |
+| [`decisions/`](decisions/) | 54 ADR (의사결정 영구 기록) — # 54 ADRs |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -94,7 +94,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 53 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 54 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태
@@ -164,11 +164,11 @@ flowchart LR
 ## Framework self-test (자동 검증)
 
 ```bash
-$ bun run lazy:test      # primary reproducible gate: doctor smoke + trigger fixtures + negative C17 + D07 package-health classification
-$ bun run lazy:doctor    # full framework doctor: D01~D07
+$ .lazy-harness/bin/lazy test      # primary reproducible gate: doctor smoke + trigger fixtures + negative C17 + D07 package-health classification
+$ .lazy-harness/bin/lazy doctor --profile=full    # full framework doctor: D01~D08
 ```
 
-ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `lazy:test`이고, framework-owned full doctor 는 `.lazy-harness/scripts/doctor.py` / `bun run lazy:doctor` 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant 와 D07 package health classification 까지 검사한다.
+ADR 0022: Jcode 는 harness 사용을 위한 tool/wrapper 이고, 검증/운영 로직은 `.lazy-harness/` framework 가 소유한다. 현재 primary gate 는 `.lazy-harness/bin/lazy test`이고, framework-owned full doctor 는 `.lazy-harness/bin/lazy doctor --profile=full` (`.lazy-harness/scripts/doctor.py`) 이다. Smoke profile 은 XML/JSONL/ADR sequence/docs freshness/branch-hook policy 를 검사하고, full profile 은 D06 C17 external dependency invariant, D07 package health classification, D08 Unicode replacement-character advisory 까지 검사한다.
 
 ## 완료된 5c/5d 및 다음 단계 — 5e MVP proof
 

@@ -2088,7 +2088,7 @@ def check_pi_package_layout_and_contract() -> None:
     finally:
         shutil.rmtree(activation_repo, ignore_errors=True)
 
-    expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test", "lazy-impl-map-migrate"]
+    expected_skills = ["lazy-init", "lazy-doctor", "lazy-sync", "lazy-update", "lazy-test", "lazy-impl-map-migrate", "lazy-architecture-refactor"]
     for skill in expected_skills:
         skill_file = pkg_root / "skills" / skill / "SKILL.md"
         if not skill_file.exists():
@@ -2118,6 +2118,21 @@ def check_pi_package_layout_and_contract() -> None:
             ]:
                 if phrase not in content:
                     fail("Pi package lazy-impl-map-migrate skill missing phrase: " + phrase)
+        if skill == "lazy-architecture-refactor":
+            for phrase in [
+                "not an automatic folder rewriter",
+                "Architecture-map approval gate",
+                "Source-refactor approval gate",
+                "exact `planDigest`",
+                ".lazy-harness/bin/lazy architecture apply",
+                "--confirmation-ref <approval-reference>",
+                "Never apply a second source batch",
+                "No candidate-to-confirmed promotion without explicit approval",
+                "No policy/capability `warn` or `block` enforcement",
+                "No downstream canary application-source changes",
+            ]:
+                if phrase not in content:
+                    fail("Pi package lazy-architecture-refactor skill missing phrase: " + phrase)
 
     importer = pkg_root / "scripts" / "import-antigravity-mcp.ts"
     fixture = pkg_root / "fixtures" / "antigravity-mcp-config.jsonc"
@@ -2719,6 +2734,17 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             + "\n",
             encoding="utf-8",
         )
+        host_architecture_map = temp / ".lazy-harness" / "project" / "architecture-map.json"
+        host_architecture_map.parent.mkdir(parents=True, exist_ok=True)
+        host_architecture_map_content = json.dumps(
+            {
+                "schemaVersion": "host-architecture-map/v1",
+                "hostId": "host-owned-sync-fixture",
+                "sentinel": "must-survive-byte-identical",
+            },
+            indent=2,
+        ) + "\n"
+        host_architecture_map.write_text(host_architecture_map_content, encoding="utf-8")
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, env=env_without_lazy_runtime(), text=True).strip()
         (state / "synced-from-commit").write_text(
             json.dumps({"syncedFromCommit": head, "sourceRoot": str(ROOT)}, ensure_ascii=False),
@@ -2743,6 +2769,13 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             "tests/record-index-header.md",
             "spec/platform/pre-response-rule-context.md",
             "tests/pre-response-rule-context.md",
+            "framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md",
+            "domain/architecture-guidance.md",
+            "behavior/architecture-refactor-flow.md",
+            "spec/platform/architecture-guidance.md",
+            "tests/architecture-guidance.md",
+            "ssot/architecture-guidance-storage.md",
+            "ssot/architecture-profile-catalog.json",
         ]:
             if not (temp / ".lazy-harness" / required_record).exists():
                 fail("lazy-sync must copy retrieval/index foundation record: " + required_record)
@@ -2764,6 +2797,8 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         ]:
             if required_capability not in capability_ids:
                 fail("lazy-sync must preserve host capabilities and merge framework seeds: " + required_capability)
+        if host_architecture_map.read_text(encoding="utf-8") != host_architecture_map_content:
+            fail("lazy-sync must preserve the host-owned architecture map byte-identically")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ lazy-sync stale managed file prune ok")
@@ -5074,7 +5109,7 @@ def check_project_profile_v2_runtime() -> None:
         "writes",
         "questionGroups",
         "projectMapSeeds",
-        "policyCandidates",
+        "architectureCandidates",
         "unresolvedAmbiguities",
         "proposedWrites",
     }
@@ -5118,6 +5153,8 @@ def check_project_profile_v2_runtime() -> None:
     transition = update_loop.get("transition", {})
     if transition.get("to") != "candidate" or transition.get("requiresConfirmation") is not True or transition.get("canonicalRecords") != []:
         fail("project-profile interview-v2 update-loop metadata must stay candidate-only")
+    if packet.get("architectureCandidates") != []:
+        fail("project-profile interview-v2 must default to no inferred architecture candidates")
     _assert_no_project_map_forbidden_fields(packet, "projectProfileInterviewV2")
     print("✓ project-profile V2 runtime ok")
 
@@ -5872,7 +5909,7 @@ def check_project_profile_v2_queue_runtime() -> None:
         fail("project-profile queue-v2 must emit queue items")
     allowed_routes = {"facts", "expectations", "contracts", "validation", "decisions", "ownership", "source-links", "policies", "event-ready-metadata", "queue-only"}
     allowed_statuses = {"pending", "accepted", "rejected", "promoted", "superseded"}
-    allowed_promotion_kinds = {"record", "project-map-branch", "rulebook", "capability-binding", "candidate-row", "update-loop-event", "queue-only"}
+    allowed_promotion_kinds = {"record", "project-map-branch", "rulebook", "capability-binding", "candidate-row", "update-loop-event", "host-architecture-map", "queue-only"}
     seen_routes = set()
     has_multifacet = False
     has_non_policy = False
@@ -5927,6 +5964,798 @@ def check_project_profile_v2_queue_runtime() -> None:
     _assert_no_project_map_forbidden_fields(queue, "projectProfileQueueV2")
     print("✓ project-profile V2 queue runtime ok")
 
+
+def check_architecture_guidance_cli() -> None:
+    """Architecture core and Project Profile adapter must preserve confirmation and ownership boundaries."""
+    required_assets = [
+        LAZY / "schemas" / "architecture-profile-catalog.schema.json",
+        LAZY / "schemas" / "host-architecture-map.schema.json",
+        LAZY / "ssot" / "architecture-profile-catalog.json",
+        LAZY / "ssot" / "architecture-guidance-storage.md",
+        LAZY / "domain" / "architecture-guidance.md",
+        LAZY / "behavior" / "architecture-refactor-flow.md",
+        LAZY / "spec" / "platform" / "architecture-guidance.md",
+        LAZY / "tests" / "architecture-guidance.md",
+        LAZY / "fixtures" / "architecture-guidance" / "host-map-proposal.json",
+        LAZY / "fixtures" / "architecture-guidance" / "project-profile-candidates.json",
+        LAZY / "scripts" / "architecture-profile-core.ts",
+        LAZY / "scripts" / "architecture-profile.ts",
+        LAZY / "scripts" / "project-profile-architecture.ts",
+    ]
+    for path in required_assets:
+        if not path.exists():
+            fail("architecture guidance asset missing: " + str(path.relative_to(ROOT)))
+
+    catalog = json.loads((LAZY / "ssot" / "architecture-profile-catalog.json").read_text(encoding="utf-8"))
+    if catalog.get("schemaVersion") != "architecture-profile-catalog/v1":
+        fail("architecture catalog schema version mismatch")
+    if len(catalog.get("principleRefs", [])) != 6 or len(catalog.get("values", [])) < 10:
+        fail("architecture catalog must preserve six Layer 1 refs and normalized values")
+    alias_ids = {entry.get("id") for entry in catalog.get("aliases", [])}
+    if not {"vertical-slice", "fsd-inspired"}.issubset(alias_ids):
+        fail("architecture catalog must expose transparent vertical-slice and fsd-inspired aliases")
+    relation_types = {entry.get("type") for entry in catalog.get("relations", [])}
+    if not relation_types.issubset({"requires", "compatibleWith", "conflictsWith", "strengthens"}):
+        fail("architecture catalog relation type outside the approved vocabulary")
+
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a = manifest.get("categories", {}).get("A", {}).get("items", [])
+    managed_paths = {entry.get("path") for entry in category_a}
+    required_managed_paths = {
+        "decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        "domain/architecture-guidance.md",
+        "behavior/architecture-refactor-flow.md",
+        "spec/platform/architecture-guidance.md",
+        "tests/architecture-guidance.md",
+        "ssot/architecture-guidance-storage.md",
+        "ssot/architecture-profile-catalog.json",
+    }
+    missing_managed = sorted(required_managed_paths - managed_paths)
+    if missing_managed:
+        fail("architecture Category A assets missing: " + json.dumps(missing_managed))
+    if "project/architecture-map.json" in managed_paths:
+        fail("host-owned project/architecture-map.json must never be a Category A sync asset")
+    adr_item = next(
+        (entry for entry in category_a if entry.get("path") == "decisions/0054-three-layer-cross-stack-architecture-guidance.md"),
+        {},
+    )
+    if adr_item.get("targetPath") != "framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md":
+        fail("ADR 0054 must distribute under framework/operational-adrs")
+    fixture_item = next((entry for entry in category_a if entry.get("path") == "fixtures/"), {})
+    if "architecture-guidance/*.json" not in fixture_item.get("glob", []):
+        fail("architecture guidance fixtures must be Category A sync assets")
+
+    def run_architecture(root: pathlib.Path, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                str(LAZY / "bin" / "lazy"),
+                "architecture",
+                *args,
+                "--root",
+                str(root),
+                "--format=json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+
+    def json_payload(completed: subprocess.CompletedProcess[str], label: str) -> dict:
+        try:
+            return json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            fail(label + " did not emit JSON:\n" + completed.stdout + completed.stderr)
+        return {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        harness = root / ".lazy-harness"
+
+        def copy_asset(source_relative: str, target_relative: str | None = None) -> pathlib.Path:
+            source = LAZY / source_relative
+            if not source.exists():
+                fail("architecture self-test source asset missing: " + source_relative)
+            target = harness / (target_relative or source_relative)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            return target
+
+        copy_asset("ssot/architecture-profile-catalog.json")
+        copy_asset("ssot/project-identity.md")
+        copy_asset("schemas/architecture-profile-catalog.schema.json")
+        copy_asset("schemas/host-architecture-map.schema.json")
+        copy_asset("spec/platform/architecture-guidance.md")
+        copy_asset("domain/architecture-guidance.md")
+        copy_asset("planning/cross-stack-architecture-guidance.md")
+        copy_asset("planning/cross-stack-architecture-profiles.md")
+        proposal_path = copy_asset("fixtures/architecture-guidance/host-map-proposal.json")
+        candidate_path = copy_asset("fixtures/architecture-guidance/project-profile-candidates.json")
+        adr_source = LAZY / "framework" / "operational-adrs" / "0054-three-layer-cross-stack-architecture-guidance.md"
+        if not adr_source.exists():
+            adr_source = LAZY / "decisions" / "0054-three-layer-cross-stack-architecture-guidance.md"
+        adr_target = harness / "framework" / "operational-adrs" / "0054-three-layer-cross-stack-architecture-guidance.md"
+        adr_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(adr_source, adr_target)
+
+        map_path = harness / "project" / "architecture-map.json"
+
+        def writer_artifact_snapshot() -> dict[str, bytes]:
+            if not map_path.parent.exists():
+                return {}
+            return {
+                path.name: path.read_bytes()
+                for path in sorted(map_path.parent.glob(f"{map_path.name}*"))
+                if path.is_file()
+            }
+
+        def host_file_snapshot(excluded: set[str] | None = None) -> dict[str, bytes]:
+            excluded = excluded or set()
+            return {
+                path.relative_to(root).as_posix(): path.read_bytes()
+                for path in sorted(root.rglob("*"))
+                if path.is_file()
+                and path.relative_to(root).as_posix() not in excluded
+            }
+
+        initial_writer_snapshot = writer_artifact_snapshot()
+        initial_host_snapshot = host_file_snapshot()
+        inspect = run_architecture(root, "inspect")
+        if inspect.returncode != 0:
+            fail("lazy architecture inspect failed:\n" + inspect.stdout + inspect.stderr)
+        inspect_payload = json_payload(inspect, "lazy architecture inspect")
+        if inspect_payload.get("mode") != "architecture.inspect":
+            fail("lazy architecture inspect mode mismatch")
+        if inspect_payload.get("hostMap", {}).get("status") != "missing":
+            fail("missing Host Architecture Map must remain unclassified/missing")
+        if inspect_payload.get("writes") != [] or map_path.exists():
+            fail("lazy architecture inspect must not write a Host Architecture Map")
+
+        plan = run_architecture(root, "plan", "--proposal", str(proposal_path))
+        repeated_plan = run_architecture(root, "plan", "--proposal", str(proposal_path))
+        if plan.returncode != 0 or repeated_plan.returncode != 0:
+            fail("lazy architecture plan failed:\n" + plan.stdout + plan.stderr)
+        plan_payload = json_payload(plan, "lazy architecture plan")
+        repeated_payload = json_payload(repeated_plan, "repeated lazy architecture plan")
+        if not plan_payload.get("ok") or plan_payload.get("mode") != "architecture.plan":
+            fail("lazy architecture plan payload mismatch: " + plan.stdout[:500])
+        if plan_payload.get("planDigest") != repeated_payload.get("planDigest"):
+            fail("architecture plan digest must be deterministic")
+        if plan_payload.get("normalizedMap", {}).get("status") != "candidate":
+            fail("architecture plan must preserve candidate status before apply")
+        if len(plan_payload.get("normalizedMap", {}).get("bindings", [])) != 4:
+            fail("architecture alias expansion must materialize three bindings beside the direct runtime binding")
+        if map_path.exists():
+            fail("lazy architecture plan must be read-only")
+        relative_plan = run_architecture(
+            root,
+            "plan",
+            "--proposal",
+            ".lazy-harness/fixtures/architecture-guidance/host-map-proposal.json",
+        )
+        if relative_plan.returncode != 0:
+            fail("root-relative architecture proposal failed:\n" + relative_plan.stdout + relative_plan.stderr)
+        relative_payload = json_payload(relative_plan, "root-relative architecture plan")
+        if (
+            relative_payload.get("planDigest") != plan_payload.get("planDigest")
+            or relative_payload.get("proposalPath") != str(proposal_path.resolve())
+        ):
+            fail("relative architecture proposal paths must resolve against --root")
+        if host_file_snapshot() != initial_host_snapshot:
+            fail("architecture inspect and plan must be full-tree read-only")
+
+        raw_proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        catalog_path = harness / "ssot" / "architecture-profile-catalog.json"
+        catalog_text = catalog_path.read_text(encoding="utf-8")
+
+        unknown_property_proposal = json.loads(json.dumps(raw_proposal))
+        unknown_property_proposal["enforcement"] = {"level": "block"}
+        unknown_property_proposal["bindings"][0]["enforcement"] = {"level": "block"}
+        unknown_property_path = proposal_path.with_name("unknown-property-proposal.json")
+        unknown_property_path.write_text(
+            json.dumps(unknown_property_proposal, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        unknown_property_result = run_architecture(
+            root, "plan", "--proposal", str(unknown_property_path),
+        )
+        unknown_property_payload = json_payload(
+            unknown_property_result, "unknown-property architecture plan",
+        )
+        if unknown_property_result.returncode == 0 or not any(
+            finding.get("code") == "unknown-property"
+            for finding in unknown_property_payload.get("findings", [])
+        ):
+            fail("architecture runtime must enforce additionalProperties=false recursively")
+
+        traversal_proposal = json.loads(json.dumps(raw_proposal))
+        traversal_proposal["bindings"][0]["evidenceRefs"] = [
+            ".lazy-harness/spec/platform/../../../../../../../etc/passwd",
+        ]
+        traversal_path = proposal_path.with_name("traversal-proposal.json")
+        traversal_path.write_text(
+            json.dumps(traversal_proposal, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        traversal_result = run_architecture(
+            root, "plan", "--proposal", str(traversal_path),
+        )
+        traversal_payload = json_payload(traversal_result, "traversal architecture plan")
+        if traversal_result.returncode == 0 or not any(
+            finding.get("code") == "non-root-bound-reference"
+            for finding in traversal_payload.get("findings", [])
+        ):
+            fail("architecture references must reject parent traversal outside the host root")
+
+        planning_owner_proposal = json.loads(json.dumps(raw_proposal))
+        planning_owner_proposal["bindings"][0]["semanticOwnerRefs"] = [
+            ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ]
+        planning_owner_path = proposal_path.with_name("planning-owner-proposal.json")
+        planning_owner_path.write_text(
+            json.dumps(planning_owner_proposal, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        planning_owner_result = run_architecture(
+            root, "plan", "--proposal", str(planning_owner_path),
+        )
+        planning_owner_payload = json_payload(
+            planning_owner_result, "planning semantic-owner architecture plan",
+        )
+        if planning_owner_result.returncode == 0 or not any(
+            finding.get("code") == "invalid-semantic-owner"
+            for finding in planning_owner_payload.get("findings", [])
+        ):
+            fail("planning evidence must not be promoted to architecture semantic ownership")
+
+        invalid_catalog = json.loads(catalog_text)
+        invalid_catalog["enforcement"] = {"level": "block"}
+        invalid_catalog["values"][0]["enforcement"] = {"level": "block"}
+        catalog_path.write_text(json.dumps(invalid_catalog, indent=2) + "\n", encoding="utf-8")
+        invalid_catalog_result = run_architecture(root, "plan", "--proposal", str(proposal_path))
+        invalid_catalog_payload = json_payload(invalid_catalog_result, "invalid architecture catalog")
+        catalog_path.write_text(catalog_text, encoding="utf-8")
+        if invalid_catalog_result.returncode == 0 or not any(
+            finding.get("code") == "unknown-property"
+            for finding in invalid_catalog_payload.get("findings", [])
+        ):
+            fail("architecture catalog runtime must reject unknown properties")
+
+        changed_catalog = json.loads(catalog_text)
+        changed_catalog["values"][0]["summary"] += " (self-test content change)"
+        catalog_path.write_text(json.dumps(changed_catalog, indent=2) + "\n", encoding="utf-8")
+        changed_catalog_plan = run_architecture(root, "plan", "--proposal", str(proposal_path))
+        changed_catalog_payload = json_payload(
+            changed_catalog_plan, "changed-content architecture catalog plan",
+        )
+        changed_catalog_apply = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(proposal_path),
+            "--confirm",
+            str(plan_payload.get("planDigest")),
+            "--confirmation-ref",
+            "self-test:stale-catalog-content",
+        )
+        catalog_path.write_text(catalog_text, encoding="utf-8")
+        if (
+            changed_catalog_plan.returncode != 0
+            or changed_catalog_payload.get("planDigest") == plan_payload.get("planDigest")
+            or changed_catalog_apply.returncode == 0
+            or writer_artifact_snapshot() != initial_writer_snapshot
+        ):
+            fail("architecture confirmation must bind the validated catalog content digest")
+        invalid_alias = json.loads(json.dumps(raw_proposal))
+        invalid_alias["aliasInstances"][0]["aliasRef"] = "missing-profile@1.0.0"
+        invalid_alias_path = proposal_path.with_name("invalid-alias.json")
+        invalid_alias_path.write_text(json.dumps(invalid_alias, indent=2) + "\n", encoding="utf-8")
+        invalid_alias_result = run_architecture(root, "plan", "--proposal", str(invalid_alias_path))
+        invalid_alias_payload = json_payload(invalid_alias_result, "invalid alias plan")
+        if invalid_alias_result.returncode == 0 or not any(
+            finding.get("code") == "unknown-alias" for finding in invalid_alias_payload.get("findings", [])
+        ):
+            fail("architecture plan must reject an unknown alias")
+
+        invalid_cardinality = json.loads(json.dumps(raw_proposal))
+        invalid_cardinality["bindings"].append({
+            "id": "binding:duplicate-organization",
+            "axis": "organization",
+            "valueRef": "organization/capability-module@1.0.0",
+            "scopeId": "scope:responsibility:web-features",
+            "evidenceRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "semanticOwnerRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "reviewTrigger": "self-test duplicate organization binding",
+        })
+        invalid_cardinality_path = proposal_path.with_name("invalid-cardinality.json")
+        invalid_cardinality_path.write_text(json.dumps(invalid_cardinality, indent=2) + "\n", encoding="utf-8")
+        cardinality_result = run_architecture(root, "plan", "--proposal", str(invalid_cardinality_path))
+        cardinality_payload = json_payload(cardinality_result, "invalid cardinality plan")
+        if cardinality_result.returncode == 0 or not any(
+            finding.get("code") == "organization-cardinality" for finding in cardinality_payload.get("findings", [])
+        ):
+            fail("architecture plan must reject duplicate primary organization bindings")
+        missing_scope = json.loads(json.dumps(raw_proposal))
+        missing_scope["bindings"][0]["scopeId"] = "scope:missing"
+        missing_scope_path = proposal_path.with_name("missing-scope.json")
+        missing_scope_path.write_text(json.dumps(missing_scope, indent=2) + "\n", encoding="utf-8")
+        missing_scope_result = run_architecture(root, "plan", "--proposal", str(missing_scope_path))
+        missing_scope_payload = json_payload(missing_scope_result, "missing scope plan")
+        if missing_scope_result.returncode == 0 or not any(
+            finding.get("code") == "unknown-binding-scope" for finding in missing_scope_payload.get("findings", [])
+        ):
+            fail("architecture plan must reject bindings to unknown scopes")
+
+        scope_cycle = json.loads(json.dumps(raw_proposal))
+        scopes_by_id = {scope["id"]: scope for scope in scope_cycle["scopes"]}
+        scopes_by_id["scope:entrypoint:web-browser"]["parentId"] = (
+            "scope:responsibility:web-features"
+        )
+        scopes_by_id["scope:responsibility:web-features"]["parentId"] = (
+            "scope:entrypoint:web-browser"
+        )
+        scope_cycle_path = proposal_path.with_name("scope-cycle.json")
+        scope_cycle_path.write_text(
+            json.dumps(scope_cycle, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        scope_cycle_result = run_architecture(
+            root, "plan", "--proposal", str(scope_cycle_path),
+        )
+        scope_cycle_payload = json_payload(scope_cycle_result, "scope parent cycle plan")
+        if scope_cycle_result.returncode == 0 or not any(
+            finding.get("code") == "scope-cycle"
+            for finding in scope_cycle_payload.get("findings", [])
+        ):
+            fail("architecture plan must reject cyclic scope parentage")
+
+        runtime_cardinality = json.loads(json.dumps(raw_proposal))
+        runtime_cardinality["bindings"].append({
+            "id": "binding:duplicate-runtime",
+            "axis": "runtime",
+            "valueRef": "runtime/server-request@1.0.0",
+            "scopeId": "scope:entrypoint:web-browser",
+            "evidenceRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "semanticOwnerRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "reviewTrigger": "self-test duplicate runtime binding",
+        })
+        runtime_cardinality_path = proposal_path.with_name("invalid-runtime-cardinality.json")
+        runtime_cardinality_path.write_text(json.dumps(runtime_cardinality, indent=2) + "\n", encoding="utf-8")
+        runtime_result = run_architecture(root, "plan", "--proposal", str(runtime_cardinality_path))
+        runtime_payload = json_payload(runtime_result, "invalid runtime cardinality plan")
+        if runtime_result.returncode == 0 or not any(
+            finding.get("code") == "runtime-cardinality" for finding in runtime_payload.get("findings", [])
+        ):
+            fail("architecture plan must reject duplicate runtime bindings per entrypoint")
+
+        missing_requirement = json.loads(json.dumps(raw_proposal))
+        missing_requirement["bindings"].append({
+            "id": "binding:independent-browser-deployment",
+            "axis": "operational",
+            "valueRef": "operational/independent-deployment@1.0.0",
+            "scopeId": "scope:entrypoint:web-browser",
+            "condition": "self-test independently deployable browser entrypoint",
+            "evidenceRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "semanticOwnerRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "reviewTrigger": "self-test deployment boundary change",
+        })
+        missing_requirement_path = proposal_path.with_name("missing-required-binding.json")
+        missing_requirement_path.write_text(json.dumps(missing_requirement, indent=2) + "\n", encoding="utf-8")
+        requires_result = run_architecture(root, "plan", "--proposal", str(missing_requirement_path))
+        requires_payload = json_payload(requires_result, "missing required relation plan")
+        if requires_result.returncode == 0 or not any(
+            finding.get("code") == "missing-required-binding" for finding in requires_payload.get("findings", [])
+        ):
+            fail("architecture plan must enforce requires relations")
+
+        directional_requires = json.loads(json.dumps(raw_proposal))
+        directional_requires["bindings"].append({
+            "id": "binding:zz-independent-deployment",
+            "axis": "operational",
+            "valueRef": "operational/independent-deployment@1.0.0",
+            "scopeId": "scope:responsibility:web-features",
+            "condition": "self-test independent deployment with a public contract",
+            "evidenceRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "semanticOwnerRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "reviewTrigger": "self-test deployment boundary change",
+        })
+        directional_requires_path = proposal_path.with_name("directional-requires.json")
+        directional_requires_path.write_text(
+            json.dumps(directional_requires, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        directional_result = run_architecture(
+            root, "plan", "--proposal", str(directional_requires_path),
+        )
+        directional_payload = json_payload(directional_result, "directional requires plan")
+        if directional_result.returncode != 0 or any(
+            finding.get("code") in {"missing-required-binding", "unknown-composition"}
+            for finding in directional_payload.get("findings", [])
+        ):
+            fail("directional requires validation must not depend on binding ID sort order")
+
+        unknown_composition = json.loads(json.dumps(raw_proposal))
+        unknown_composition["bindings"].append({
+            "id": "binding:persisted-feature-state",
+            "axis": "operational",
+            "valueRef": "operational/persisted-state@1.0.0",
+            "scopeId": "scope:responsibility:web-features",
+            "condition": "self-test persisted feature state",
+            "evidenceRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "semanticOwnerRefs": [".lazy-harness/spec/platform/architecture-guidance.md"],
+            "reviewTrigger": "self-test state authority change",
+        })
+        unknown_composition_path = proposal_path.with_name("unknown-composition.json")
+        unknown_composition_path.write_text(json.dumps(unknown_composition, indent=2) + "\n", encoding="utf-8")
+        unknown_result = run_architecture(root, "plan", "--proposal", str(unknown_composition_path))
+        unknown_payload = json_payload(unknown_result, "unknown composition plan")
+        if unknown_result.returncode == 0 or not any(
+            finding.get("code") == "unknown-composition" for finding in unknown_payload.get("findings", [])
+        ):
+            fail("undocumented overlapping architecture combinations must remain unresolved")
+
+        explicit_scope_catalog = json.loads(catalog_text)
+        explicit_scope_catalog["relations"][0]["scopeRule"] = "explicit-cross-scope"
+        catalog_path.write_text(
+            json.dumps(explicit_scope_catalog, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        missing_explicit_edge = run_architecture(root, "plan", "--proposal", str(proposal_path))
+        missing_explicit_edge_payload = json_payload(
+            missing_explicit_edge, "missing explicit cross-scope edge plan",
+        )
+        explicit_edge_proposal = json.loads(json.dumps(raw_proposal))
+        explicit_edge_proposal["projectBase"]["edges"].append({
+            "fromScopeId": "scope:unit:web",
+            "toScopeId": "scope:responsibility:web-features",
+            "relation": "owns",
+        })
+        explicit_edge_path = proposal_path.with_name("explicit-cross-scope-edge.json")
+        explicit_edge_path.write_text(
+            json.dumps(explicit_edge_proposal, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        explicit_edge_result = run_architecture(
+            root, "plan", "--proposal", str(explicit_edge_path),
+        )
+        catalog_path.write_text(catalog_text, encoding="utf-8")
+        if missing_explicit_edge.returncode == 0 or not any(
+            finding.get("code") == "unknown-composition"
+            for finding in missing_explicit_edge_payload.get("findings", [])
+        ):
+            fail("explicit-cross-scope relations must require a matching project edge")
+        if explicit_edge_result.returncode != 0:
+            fail(
+                "explicit-cross-scope relation did not accept its project edge:\n"
+                + explicit_edge_result.stdout
+                + explicit_edge_result.stderr
+            )
+
+        conflict_catalog = json.loads(catalog_text)
+        conflict_catalog["relations"].append({
+            "id": "self-test-public-contract-conflicts-with-persisted-state",
+            "type": "conflictsWith",
+            "from": "operational/public-contract@1.0.0",
+            "to": "operational/persisted-state@1.0.0",
+            "scopeRule": "overlap",
+            "decisionRef": ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md",
+        })
+        catalog_path.write_text(json.dumps(conflict_catalog, indent=2) + "\n", encoding="utf-8")
+        conflict_result = run_architecture(root, "plan", "--proposal", str(unknown_composition_path))
+        conflict_payload = json_payload(conflict_result, "conflicting relation plan")
+        catalog_path.write_text(catalog_text, encoding="utf-8")
+        if conflict_result.returncode == 0 or not any(
+            finding.get("code") == "conflicting-bindings" for finding in conflict_payload.get("findings", [])
+        ):
+            fail("architecture plan must enforce conflictsWith relations")
+
+        if writer_artifact_snapshot() != initial_writer_snapshot:
+            fail("read-only and invalid architecture plans must leave no writer artifacts")
+
+        exact_digest = str(plan_payload.get("planDigest"))
+        missing_confirmation = run_architecture(
+            root, "apply", "--proposal", str(proposal_path),
+        )
+        bare_confirmation = run_architecture(
+            root, "apply", "--proposal", str(proposal_path), "--confirm",
+        )
+        missing_confirmation_ref = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(proposal_path),
+            "--confirm",
+            exact_digest,
+        )
+        blank_confirmation_ref = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(proposal_path),
+            "--confirm",
+            exact_digest,
+            "--confirmation-ref",
+            "   ",
+        )
+        if (
+            any(result.returncode == 0 for result in [
+                missing_confirmation,
+                bare_confirmation,
+                missing_confirmation_ref,
+                blank_confirmation_ref,
+            ])
+            or writer_artifact_snapshot() != initial_writer_snapshot
+        ):
+            fail("architecture apply must reject missing or bare confirmation without side effects")
+
+        wrong_digest = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(proposal_path),
+            "--confirm",
+            "0" * 64,
+            "--confirmation-ref",
+            "self-test:wrong-digest",
+        )
+        if wrong_digest.returncode == 0 or writer_artifact_snapshot() != initial_writer_snapshot:
+            fail("architecture apply with a wrong digest must fail without writer artifacts")
+
+        map_relative = map_path.relative_to(root).as_posix()
+        before_apply_snapshot = host_file_snapshot({map_relative})
+        applied = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(proposal_path),
+            "--confirm",
+            exact_digest,
+            "--confirmation-ref",
+            "self-test:explicit-map-approval",
+        )
+        if applied.returncode != 0:
+            fail("exact-digest architecture apply failed:\n" + applied.stdout + applied.stderr)
+        applied_payload = json_payload(applied, "architecture apply")
+        confirmed_map = json.loads(map_path.read_text(encoding="utf-8"))
+        if applied_payload.get("status") != "confirmed" or confirmed_map.get("status") != "confirmed":
+            fail("architecture apply must write a confirmed Host Architecture Map")
+        if confirmed_map.get("confirmation", {}).get("reference") != "self-test:explicit-map-approval":
+            fail("architecture apply must persist the explicit confirmation reference")
+        if len(confirmed_map.get("bindings", [])) != 4:
+            fail("confirmed Host Architecture Map must persist normalized bindings")
+        lock_path = map_path.with_name(f"{map_path.name}.lock")
+        if lock_path.exists() or list(map_path.parent.glob(f"{map_path.name}.tmp-*")):
+            fail("successful atomic architecture apply must clean lock and temporary files")
+        if host_file_snapshot({map_relative}) != before_apply_snapshot:
+            fail("architecture apply must change only the canonical Host Architecture Map")
+
+        update_proposal = json.loads(json.dumps(raw_proposal))
+        update_proposal["mapVersion"] = 2
+        update_path = proposal_path.with_name("update-proposal.json")
+        update_path.write_text(json.dumps(update_proposal, indent=2) + "\n", encoding="utf-8")
+        update_plan = run_architecture(root, "plan", "--proposal", str(update_path))
+        if update_plan.returncode != 0:
+            fail("architecture update plan failed:\n" + update_plan.stdout + update_plan.stderr)
+        update_payload = json_payload(update_plan, "architecture update plan")
+        lock_path.write_text("held\n", encoding="utf-8")
+        before_locked_snapshot = writer_artifact_snapshot()
+        locked_apply = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(update_path),
+            "--confirm",
+            str(update_payload.get("planDigest")),
+            "--confirmation-ref",
+            "self-test:locked-writer",
+        )
+        after_locked_snapshot = writer_artifact_snapshot()
+        lock_preserved = lock_path.exists() and lock_path.read_text(encoding="utf-8") == "held\n"
+        lock_path.unlink(missing_ok=True)
+        if (
+            locked_apply.returncode == 0
+            or not lock_preserved
+            or after_locked_snapshot != before_locked_snapshot
+            or list(map_path.parent.glob(f"{map_path.name}.tmp-*"))
+        ):
+            fail("architecture apply must respect an exclusive writer lock without side effects")
+
+        externally_changed = json.loads(map_path.read_text(encoding="utf-8"))
+        externally_changed.setdefault("reviewTriggers", []).append("self-test external baseline change")
+        map_path.write_text(json.dumps(externally_changed, indent=2) + "\n", encoding="utf-8")
+        before_stale_snapshot = writer_artifact_snapshot()
+        stale_apply = run_architecture(
+            root,
+            "apply",
+            "--proposal",
+            str(update_path),
+            "--confirm",
+            str(update_payload.get("planDigest")),
+            "--confirmation-ref",
+            "self-test:stale-plan",
+        )
+        if stale_apply.returncode == 0 or writer_artifact_snapshot() != before_stale_snapshot:
+            fail("stale architecture apply must fail without replacing the external baseline or leaving artifacts")
+
+        def run_profile(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [
+                    "bun",
+                    str(LAZY / "scripts" / "project-profile.ts"),
+                    *args,
+                    "--root",
+                    str(root),
+                    "--format=json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env_without_lazy_runtime(),
+            )
+
+        default_profile = run_profile("--mode", "interview-v2", "--dry-run")
+        if default_profile.returncode != 0:
+            fail("default Project Profile V2 architecture packet failed:\n" + default_profile.stdout + default_profile.stderr)
+        default_packet = json_payload(default_profile, "default Project Profile V2 packet")
+        if default_packet.get("architectureCandidates") != []:
+            fail("Project Profile V2 must not infer architecture candidates by default")
+
+        explicit_profile = run_profile(
+            "--mode",
+            "interview-v2",
+            "--dry-run",
+            "--architecture-candidates",
+            str(candidate_path),
+        )
+        if explicit_profile.returncode != 0:
+            fail("explicit Project Profile architecture candidate failed:\n" + explicit_profile.stdout + explicit_profile.stderr)
+        explicit_packet = json_payload(explicit_profile, "explicit Project Profile architecture packet")
+        candidates = explicit_packet.get("architectureCandidates", [])
+        if len(candidates) != 1 or candidates[0].get("status") != "candidate" or candidates[0].get("requiresConfirmation") is not True:
+            fail("Project Profile architecture adapter must preserve candidate and confirmation status")
+
+        invalid_candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        invalid_candidate["candidates"][0]["confidence"] = "high"
+        invalid_candidate_path = candidate_path.with_name("invalid-project-profile-candidate.json")
+        invalid_candidate_path.write_text(json.dumps(invalid_candidate, indent=2) + "\n", encoding="utf-8")
+        rejected_candidate = run_profile(
+            "--mode",
+            "interview-v2",
+            "--dry-run",
+            "--architecture-candidates",
+            str(invalid_candidate_path),
+        )
+        if rejected_candidate.returncode == 0 or "forbidden semantic-authority field" not in rejected_candidate.stderr:
+            fail("Project Profile architecture adapter must reject forbidden semantic-authority fields")
+
+        unknown_candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        unknown_candidate["candidates"][0]["notes"] = "unsupported runtime metadata"
+        unknown_candidate_path = candidate_path.with_name("unknown-property-project-profile-candidate.json")
+        unknown_candidate_path.write_text(
+            json.dumps(unknown_candidate, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        rejected_unknown_candidate = run_profile(
+            "--mode",
+            "interview-v2",
+            "--dry-run",
+            "--architecture-candidates",
+            str(unknown_candidate_path),
+        )
+        if (
+            rejected_unknown_candidate.returncode == 0
+            or "is not supported by the architecture candidate contract"
+            not in rejected_unknown_candidate.stderr
+        ):
+            fail("Project Profile architecture adapter must reject unknown properties")
+
+        traversal_candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        traversal_candidate["candidates"][0]["evidence"][0]["path"] = (
+            ".lazy-harness/planning/../../../../../../../etc/passwd"
+        )
+        traversal_candidate_path = candidate_path.with_name("traversal-project-profile-candidate.json")
+        traversal_candidate_path.write_text(
+            json.dumps(traversal_candidate, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        rejected_traversal_candidate = run_profile(
+            "--mode",
+            "interview-v2",
+            "--dry-run",
+            "--architecture-candidates",
+            str(traversal_candidate_path),
+        )
+        if (
+            rejected_traversal_candidate.returncode == 0
+            or "must resolve to a root-bound record" not in rejected_traversal_candidate.stderr
+        ):
+            fail("Project Profile architecture adapter must reject parent traversal references")
+
+        planning_owner_candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        planning_owner_candidate["candidates"][0]["semanticOwnerRefs"] = [
+            ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ]
+        planning_owner_candidate_path = candidate_path.with_name("planning-owner-project-profile-candidate.json")
+        planning_owner_candidate_path.write_text(
+            json.dumps(planning_owner_candidate, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        rejected_planning_owner = run_profile(
+            "--mode",
+            "interview-v2",
+            "--dry-run",
+            "--architecture-candidates",
+            str(planning_owner_candidate_path),
+        )
+        if (
+            rejected_planning_owner.returncode == 0
+            or "must resolve to DDD" not in rejected_planning_owner.stderr
+        ):
+            fail("Project Profile architecture semantic owners must exclude planning evidence")
+
+        queue_apply = run_profile(
+            "--mode",
+            "queue-v2",
+            "--confirm",
+            "--architecture-candidates",
+            str(candidate_path),
+        )
+        if queue_apply.returncode != 0:
+            fail("Project Profile architecture queue apply failed:\n" + queue_apply.stdout + queue_apply.stderr)
+        queue_path = harness / "project" / "profile-queue.json"
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        architecture_items = [
+            item for item in queue.get("items", [])
+            if item.get("source", {}).get("kind") == "architecture-candidate"
+        ]
+        if len(architecture_items) != 1:
+            fail("Project Profile queue must contain one explicit architecture candidate")
+        architecture_item = architecture_items[0]
+        target = architecture_item.get("promotionTarget", {})
+        if target.get("kind") != "host-architecture-map" or target.get("handler") != "lazy architecture plan":
+            fail("Project Profile architecture queue item must delegate to lazy architecture plan")
+        architecture_item["status"] = "accepted"
+        queue_path.write_text(json.dumps(queue, indent=2) + "\n", encoding="utf-8")
+        map_before_profile_promotion = map_path.read_text(encoding="utf-8")
+        queue_before_preview = queue_path.read_text(encoding="utf-8")
+        preview = run_profile(
+            "--mode",
+            "promote-v2",
+            "--item",
+            architecture_item["id"],
+            "--dry-run",
+        )
+        if preview.returncode != 0:
+            fail("Project Profile architecture promotion preview failed:\n" + preview.stdout + preview.stderr)
+        preview_payload = json_payload(preview, "Project Profile architecture promotion preview")
+        if preview_payload.get("plannedWrites", [{}])[0].get("action") != "delegate":
+            fail("Project Profile architecture preview must expose delegated handling")
+        if queue_path.read_text(encoding="utf-8") != queue_before_preview:
+            fail("Project Profile architecture promotion preview must not mutate queue state")
+        if map_path.read_text(encoding="utf-8") != map_before_profile_promotion:
+            fail("Project Profile architecture promotion preview must not mutate the Host Architecture Map")
+        promotion = run_profile(
+            "--mode",
+            "promote-v2",
+            "--item",
+            architecture_item["id"],
+            "--confirm",
+        )
+        if promotion.returncode != 0:
+            fail("Project Profile architecture promotion delegation failed:\n" + promotion.stdout + promotion.stderr)
+        promotion_payload = json_payload(promotion, "Project Profile architecture promotion")
+        delegation = promotion_payload.get("architectureDelegation", {})
+        if delegation.get("handler") != "lazy architecture plan" or delegation.get("requiresConfirmation") is not True:
+            fail("Project Profile promotion must emit an explicit architecture plan delegation")
+        if map_path.read_text(encoding="utf-8") != map_before_profile_promotion:
+            fail("Project Profile promotion must never write or replace the Host Architecture Map")
+        applied_paths = [entry.get("path") for entry in promotion_payload.get("appliedWrites", [])]
+        if applied_paths != [".lazy-harness/project/profile-queue.json"]:
+            fail("Project Profile architecture promotion must write only profile-queue metadata")
+
+    print("✓ architecture guidance CLI, ownership, and Project Profile adapter ok")
 
 def check_record_audit_cli() -> None:
     """Record audit must summarize host-owned records, markers, JSONL, Project Profile, and graph hygiene."""
@@ -10830,6 +11659,7 @@ def main() -> None:
         (check_project_profile_inspect, "FRAMEWORK_ONLY"),
         (check_project_profile_v2_runtime, "FRAMEWORK_ONLY"),
         (check_project_profile_v2_queue_runtime, "FRAMEWORK_ONLY"),
+        (check_architecture_guidance_cli, "BOTH"),
         (check_record_audit_cli, "FRAMEWORK_ONLY"),
         (check_graph_hygiene_cli, "FRAMEWORK_ONLY"),
         (check_impl_map_status_drift, "FRAMEWORK_ONLY"),

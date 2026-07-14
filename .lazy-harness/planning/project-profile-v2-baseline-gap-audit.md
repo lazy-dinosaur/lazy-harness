@@ -24,7 +24,7 @@ Related source: `.lazy-harness/scripts/project-profile.ts`
   - keep `fill --confirm` confirmed-answer only
   - keep V2 runtime as read-only dry-run output first
   - align V2 profile refresh with Project Map update-loop `project-profile-refresh` semantics
-  - keep Pi primary and Jcode compatibility in V2 packet metadata
+  - keep Pi primary and OMP compatibility in V2 packet metadata
   - keep unconfirmed Project Map seeds and policies as candidates/unresolved ambiguities
 - Must not:
   - replace V1 semantics without a separate migration/ADR
@@ -289,7 +289,7 @@ Clarification from user correction on 2026-06-17:
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`
 - Why not AGENTS.md: this is Phase 2 Project Profile apply/write design, not prompt grammar.
-- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; Jcode is compatibility only.
+- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; OMP is the compatibility adapter.
 - Confirmation: user-confirmed on 2026-06-17.
 
 ### Discovery capture
@@ -309,7 +309,7 @@ Clarification from user correction on 2026-06-17:
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`
 - Why not AGENTS.md: this is Phase 2 apply/write design, not prompt grammar.
-- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; Jcode is compatibility only.
+- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; OMP is the compatibility adapter.
 - Confirmation: user-confirmed on 2026-06-17.
 
 ### Discovery capture
@@ -375,7 +375,7 @@ Clarification from user correction on 2026-06-17:
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/project-profile-v2-baseline-gap-audit.md`
 - Why not AGENTS.md: this is a Phase 2 implementation audit/plan, not prompt grammar.
-- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; Jcode is compatibility only.
+- Why not `.jcode`: Project Profile V2 is Pi-primary and adapter-neutral; OMP is the compatibility adapter.
 - Confirmation: user selected Phase 2 option 1 baseline/gap audit on 2026-06-17.
 
 ## Discovery capture

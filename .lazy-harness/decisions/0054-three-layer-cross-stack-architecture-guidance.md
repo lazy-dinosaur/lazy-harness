@@ -2,12 +2,14 @@
 
 Status: accepted
 Date: 2026-07-13
+Updated: 2026-07-14
 Layer: ADR
 Related Layer 1: `.lazy-harness/planning/cross-stack-architecture-guidance.md`
 Related Layer 2: `.lazy-harness/planning/cross-stack-architecture-profiles.md`
 Related Layer 3: `.lazy-harness/planning/cross-stack-architecture-host-mapping.md`
 Related direction: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
-Related evidence: `.lazy-harness/evidence/2026-07-13-cross-stack-architecture-planning-baseline.md`
+Related baseline evidence: `.lazy-harness/evidence/2026-07-13-cross-stack-architecture-planning-baseline.md`
+Related pilot evidence: `.lazy-harness/evidence/2026-07-14-cross-stack-architecture-pilot-validation.md`
 
 ## Rule digest
 
@@ -44,11 +46,11 @@ Related evidence: `.lazy-harness/evidence/2026-07-13-cross-stack-architecture-pl
   - infer or confirm a profile silently from paths, frameworks, or source evidence
   - mirror one constraint body across the host map and multiple layer records
   - let generated indexes, check output, or policy levels become architecture truth
-  - treat this ADR as schema, validator, scaffold, or enforcement approval
+  - extend the approved core+skill pilot into inferred architecture, application-source refactors, or enforcement
 - Record completion:
   - changes to the three-layer architecture require this ADR or a superseding ADR
-  - schema/storage work requires explicit SSOT, SDD, TDD, and execution approval
-  - enforcement work requires evidence, policy/capability approval, and rollback
+  - bounded catalog/schema/CLI/Project Profile/skill changes update the linked DDD/SDD/BDD/TDD/SSOT records, fixtures, manifests, graph facts, and evidence together
+  - host source-refactor or enforcement work requires separate scope, evidence, and execution approval
 - Related records:
   - `.lazy-harness/planning/cross-stack-architecture-guidance.md`
   - `.lazy-harness/planning/cross-stack-architecture-profiles.md`
@@ -225,53 +227,85 @@ Layer 3 host choices.
 - Alias quality depends on complete, reviewable expansion.
 - Unknown combinations require human decisions until catalog evidence grows.
 - One semantic owner requires disciplined links and duplicate control.
-- Portable evidence adapters and pilot coverage are still unproven.
+- Portable evidence adapters and downstream mixed-host use remain unproven.
 
 ### Neutral
 
-- Existing Project Profile V1/V2 behavior is unchanged by this ADR.
+- Existing Project Profile V1 behavior remains unchanged; V2 gains only an explicit candidate-only architecture input and defaults to no candidates.
 - Existing policies and capabilities keep their current semantics and levels.
 - No host folder structure, runtime, or deployment topology changes automatically.
 
-## Explicit non-approval boundary
+## Approved bounded pilot amendment
 
-This ADR adopts the architecture model only. It does not approve:
+The original 2026-07-13 decision adopted only the three-layer model and deliberately
+withheld schema, writer, adapter, and enforcement approval. On 2026-07-14 the user
+separately approved a bounded **core + Pi/OMP skill pilot**.
 
-- a profile catalog schema or storage path;
-- a Host Architecture Map filename, schema, or writer;
-- stable id or scope-selector syntax;
-- alias and relation registries;
-- Project Profile packet or promotion-writer changes;
-- dependency, AST, API, runtime, or repository validators;
-- scaffolding or host source edits;
-- new policies, capabilities, warnings, or hard stops;
-- Category A sync or Medivance sample cleanup.
+The pilot approves:
 
-Each implementation slice requires its own requirements, plan, approval, records,
-fixtures, and validation evidence.
+- the framework-owned profile catalog and two architecture schemas;
+- the host-owned `.lazy-harness/project/architecture-map.json` canonical path;
+- stable value, scope, binding, alias, relation, and confirmation grammar;
+- read-only `lazy architecture inspect|plan`;
+- exact-digest, confirmation-referenced, validate-then-atomic `apply`;
+- a candidate-only Project Profile V2 adapter and delegated promotion target;
+- framework fixtures, self-tests, Category A distribution metadata, and graph links;
+- the approval-gated `lazy-architecture-refactor` Pi/OMP package skill.
 
-## Follow-up decision gates
+The pilot still does **not** approve:
 
-1. Select canonical paths and schemas for profile catalogs, bindings, and waivers.
-2. Define stable ids, scope selectors, relation validation, and version lifecycle.
-3. Specify Project Profile candidate, confirmation, promotion, and failure behavior.
-4. Select a minimal portable evidence-adapter set and mixed-host pilot matrix.
-5. Define drift, retirement, supersession, and waiver review behavior.
-6. Approve implementation and enforcement slices independently.
+- architecture inference or automatic candidate confirmation from source/folder evidence;
+- application-source or host-folder refactoring under this framework work unit;
+- portable evidence-adapter enforcement beyond the approved validation surfaces;
+- new policies, capabilities, warning behavior, or hard stops;
+- bulk graph migration or cleanup of the pending legacy rows;
+- npm publication; source-path Pi/OMP validation remains the distribution path;
+- downstream canary application-source edits or shared-host sync before its own safety gate.
+
+Every Host Architecture Map apply still requires an exact plan digest and explicit
+confirmation reference. Map confirmation does not authorize a source-refactor batch;
+the skill requires a separate option gate for one independently reviewable seam.
+
+## Remaining follow-up decision gates
+
+1. Approve any real-host architecture candidate and map composition separately.
+2. Select and approve one host source-refactor seam, if desired, after map confirmation.
+3. Define additional portable evidence adapters only from pilot evidence.
+4. Define profile retirement, supersession, and waiver review lifecycle.
+5. Approve policy/capability enforcement, if ever warranted, as an independent slice.
+6. Approve downstream canary sync only after source validation and host safety evidence.
 
 ## Implementation map
 
-- Status: `decision-only; no implementation approved`
+- Status: `core+skill pilot source-validated; rollout pending`
 - Primary records:
   - `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`
-  - `.lazy-harness/planning/cross-stack-architecture-guidance.md`
-  - `.lazy-harness/planning/cross-stack-architecture-profiles.md`
-  - `.lazy-harness/planning/cross-stack-architecture-host-mapping.md`
-- Evidence:
-  - `.lazy-harness/evidence/2026-07-13-cross-stack-architecture-planning-baseline.md`
-- Source files changed by this decision: none.
-- Runtime or host changes: none.
-- Future protection: SDD/TDD contracts and pilot evidence require separate approval.
+  - `.lazy-harness/domain/architecture-guidance.md`
+  - `.lazy-harness/spec/platform/architecture-guidance.md`
+  - `.lazy-harness/behavior/architecture-refactor-flow.md`
+  - `.lazy-harness/tests/architecture-guidance.md`
+  - `.lazy-harness/ssot/architecture-guidance-storage.md`
+- Core implementation:
+  - `.lazy-harness/ssot/architecture-profile-catalog.json`
+  - `.lazy-harness/schemas/architecture-profile-catalog.schema.json`
+  - `.lazy-harness/schemas/host-architecture-map.schema.json`
+  - `.lazy-harness/scripts/architecture-profile-core.ts`
+  - `.lazy-harness/scripts/architecture-profile.ts`
+  - `.lazy-harness/scripts/project-profile-architecture.ts`
+  - `.lazy-harness/scripts/project-profile.ts`
+  - `.lazy-harness/bin/lazy`
+- Skill and distribution:
+  - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md`
+  - `packages/lazy-harness-pi/skills/lazy-project-profile/SKILL.md`
+  - `.lazy-harness/manifests/init-categories.json`
+  - `.lazy-harness/manifests/skills.xml`
+- Protection:
+  - `.lazy-harness/fixtures/architecture-guidance/**`
+  - `.lazy-harness/scripts/self-test.py#check_architecture_guidance_cli`
+  - `.lazy-harness/evidence/2026-07-14-cross-stack-architecture-pilot-validation.md`
+  - `.lazy-harness/tests/project-profile-v2.md`
+  - `.lazy-harness/tests/pi-agent-package.md`
+- Runtime/host boundary: no canonical map exists in the source repository and no application source is refactored by this pilot.
 
 ## Rule placement
 
@@ -282,16 +316,16 @@ fixtures, and validation evidence.
 - Why not AGENTS.md: this is an architecture decision; AGENTS should carry only a
   compact retrieval or execution pointer after an implementation is approved.
 - Why not local notes: the decision is shared framework knowledge.
-- Confirmation: the user selected the three-layer planning baseline on 2026-07-13
-  and explicitly selected formal ADR progress in the current work unit.
+- Confirmation: the user selected the three-layer planning baseline and formal ADR on
+  2026-07-13, then explicitly approved the bounded core+skill pilot, source-path
+  Pi/OMP validation, and later safety-gated canary rollout on 2026-07-14.
 
 ## Discovery capture
 
-- DDD: no independent promoted record; vocabulary remains linked planning input.
-- SDD: no contract implementation approved; follow-up schema/flow SDD is required.
-- BDD: no user-visible runtime flow changed.
-- TDD: no implementation regression exists; future composition and pilot fixtures
-  are required before implementation closure.
-- ADR: this record is the primary architecture decision.
-- SSOT: catalog, Host Architecture Map, id, scope, and waiver storage remain open.
-- Planning: the three planning records remain detailed design and evidence inputs.
+- DDD: architecture vocabulary and identity invariants are owned by `.lazy-harness/domain/architecture-guidance.md`.
+- SDD: architecture CLI/schema/adapter contract implemented in the linked SDD.
+- BDD: separate map and source-refactor approval gates implemented in the skill flow.
+- TDD: architecture, Project Profile, package, and sync-preservation coverage implemented.
+- ADR: this amendment records the separately approved bounded pilot without approving enforcement.
+- SSOT: catalog/schema ownership and the host-owned map path are confirmed.
+- Planning: remaining real-host refactor, enforcement, canary, and legacy graph migration work stays deferred.

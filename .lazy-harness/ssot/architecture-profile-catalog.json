@@ -1,0 +1,320 @@
+{
+  "schemaVersion": "architecture-profile-catalog/v1",
+  "catalogId": "lazy-harness-cross-stack",
+  "catalogVersion": "1.1.0",
+  "principleRefs": [
+    "ARCH-L1-01",
+    "ARCH-L1-02",
+    "ARCH-L1-03",
+    "ARCH-L1-04",
+    "ARCH-L1-05",
+    "ARCH-L1-06"
+  ],
+  "projectBaseDimensions": {
+    "unitTopology": ["single-unit", "multi-unit"],
+    "packageTopology": ["single-package", "multi-package"],
+    "deploymentTopology": ["single-deployment", "multi-deployment", "hybrid"],
+    "ownershipTopology": ["single-owner", "multi-owner"]
+  },
+  "values": [
+    {
+      "id": "runtime/interactive-session",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A user-driven session with an explicit interactive lifetime.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/request-response",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A bounded request with an explicit response or outcome.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/one-shot-command",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A command invocation that terminates after one bounded operation.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/scheduled-batch",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A scheduled finite batch with explicit completion and retry semantics.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/long-running-consumer",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A supervised long-running consumer with drain and interruption behavior.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/reusable-library",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A reusable in-process library consumed through a public contract.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "runtime/generated-binding",
+      "version": "1.0.0",
+      "axis": "runtime",
+      "status": "active",
+      "summary": "A generated interface or binding with explicit provenance.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "organization/simple-direct",
+      "version": "1.0.0",
+      "axis": "organization",
+      "status": "active",
+      "summary": "A confirmed direct organization with no fictional intermediate boundary.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "organization/feature-use-case",
+      "version": "1.0.0",
+      "axis": "organization",
+      "status": "active",
+      "summary": "Responsibility is localized around a feature or use-case slice.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "organization/capability-module",
+      "version": "1.0.0",
+      "axis": "organization",
+      "status": "active",
+      "summary": "A module owns one capability and exposes an explicit public surface.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "organization/domain-centered",
+      "version": "1.0.0",
+      "axis": "organization",
+      "status": "active",
+      "summary": "Invariant-rich decisions are centered in an explicit domain scope.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "organization/presentation-composition",
+      "version": "1.0.0",
+      "axis": "organization",
+      "status": "active",
+      "summary": "Presentation composition coordinates narrower UI responsibilities.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "operational/public-contract",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "A boundary consumed outside its owner has an explicit public contract.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md"
+      ]
+    },
+    {
+      "id": "operational/persisted-state",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "Persistent state has an authoritative writer and consistency boundary.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md"
+      ]
+    },
+    {
+      "id": "operational/async-delivery",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "Asynchronous delivery declares acknowledgement and failure semantics.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md"
+      ]
+    },
+    {
+      "id": "operational/generated-artifact",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "Generated output has source provenance and regeneration boundaries.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md"
+      ]
+    },
+    {
+      "id": "operational/independent-deployment",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "A deployment unit has explicit compatibility and failure boundaries.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "operational/regulated-or-high-risk",
+      "version": "1.0.0",
+      "axis": "operational",
+      "status": "active",
+      "summary": "A regulated or high-risk scope requires proportional controls and evidence.",
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md"
+      ]
+    }
+  ],
+  "aliases": [
+    {
+      "id": "vertical-slice",
+      "version": "1.0.0",
+      "status": "active",
+      "parameters": [
+        {
+          "name": "responsibilityScope",
+          "scopeKinds": ["unit", "responsibility"]
+        }
+      ],
+      "bindings": [
+        {
+          "axis": "organization",
+          "valueRef": "organization/feature-use-case@1.0.0",
+          "scopeParameter": "responsibilityScope",
+          "semanticOwnerRefs": [
+            ".lazy-harness/spec/platform/architecture-guidance.md"
+          ]
+        }
+      ],
+      "assumptions": [
+        "The supplied scope owns one independently reviewable responsibility."
+      ],
+      "omissions": [
+        "Runtime, persistence, delivery, and deployment overlays remain explicit host choices."
+      ],
+      "activationEvidence": [
+        "Changes and tests repeatedly cluster around one feature or use-case responsibility."
+      ],
+      "exitTriggers": [
+        "The scope no longer owns a coherent responsibility or becomes a thin adapter."
+      ],
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    },
+    {
+      "id": "fsd-inspired",
+      "version": "1.0.0",
+      "status": "active",
+      "parameters": [
+        {
+          "name": "unitScope",
+          "scopeKinds": ["unit", "responsibility"]
+        },
+        {
+          "name": "featureScope",
+          "scopeKinds": ["responsibility"]
+        }
+      ],
+      "bindings": [
+        {
+          "axis": "organization",
+          "valueRef": "organization/presentation-composition@1.0.0",
+          "scopeParameter": "unitScope",
+          "semanticOwnerRefs": [
+            ".lazy-harness/spec/platform/architecture-guidance.md"
+          ]
+        },
+        {
+          "axis": "organization",
+          "valueRef": "organization/feature-use-case@1.0.0",
+          "scopeParameter": "featureScope",
+          "semanticOwnerRefs": [
+            ".lazy-harness/spec/platform/architecture-guidance.md"
+          ]
+        },
+        {
+          "axis": "operational",
+          "valueRef": "operational/public-contract@1.0.0",
+          "scopeParameter": "featureScope",
+          "condition": "The feature scope is consumed outside its owning responsibility.",
+          "semanticOwnerRefs": [
+            ".lazy-harness/spec/platform/architecture-guidance.md"
+          ]
+        }
+      ],
+      "assumptions": [
+        "The unit composes presentation responsibilities and the feature scope has an owner."
+      ],
+      "omissions": [
+        "No FSD directory names or complete layer taxonomy are implied.",
+        "Backend, data, worker, and deployment profiles remain separate bindings."
+      ],
+      "activationEvidence": [
+        "Presentation composition and feature-local change clusters are both confirmed."
+      ],
+      "exitTriggers": [
+        "The feature scope is not independently owned or the UI composition boundary disappears."
+      ],
+      "constraintRefs": [
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "presentation-with-feature-use-case",
+      "type": "compatibleWith",
+      "from": "organization/presentation-composition@1.0.0",
+      "to": "organization/feature-use-case@1.0.0",
+      "scopeRule": "overlap",
+      "decisionRef": ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md"
+    },
+    {
+      "id": "independent-deployment-requires-public-contract",
+      "type": "requires",
+      "from": "operational/independent-deployment@1.0.0",
+      "to": "operational/public-contract@1.0.0",
+      "scopeRule": "overlap",
+      "decisionRef": ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md"
+    }
+  ],
+  "semanticOwnerRefs": [
+    ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md",
+    ".lazy-harness/domain/architecture-guidance.md",
+    ".lazy-harness/spec/platform/architecture-guidance.md"
+  ]
+}

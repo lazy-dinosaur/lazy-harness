@@ -52,6 +52,7 @@
       ]
     }
   ],
+  "architectureCandidates": [],
   "policyCandidates": [
     {
       "id": "project-validation-stage-policy",

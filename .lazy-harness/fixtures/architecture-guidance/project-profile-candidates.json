@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "project-profile-architecture-candidates/v1",
+  "candidates": [
+    {
+      "id": "architecture-candidate:web-composition",
+      "status": "candidate",
+      "sourceQuestionGroup": "system-design",
+      "summary": "Review presentation composition and feature responsibility scopes.",
+      "proposedBindings": [
+        {
+          "axis": "organization",
+          "valueRef": "organization/presentation-composition@1.0.0",
+          "scopeRef": "scope:unit:web",
+          "alias": {
+            "id": "fsd-inspired",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "axis": "organization",
+          "valueRef": "organization/feature-use-case@1.0.0",
+          "scopeRef": "scope:responsibility:web-features",
+          "alias": {
+            "id": "fsd-inspired",
+            "version": "1.0.0"
+          }
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "record",
+          "path": ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+          "summary": "Layer 2 defines presentation-composition and feature-use-case as normalized values."
+        }
+      ],
+      "semanticOwnerRefs": [
+        ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md"
+      ],
+      "requiresConfirmation": true
+    }
+  ]
+}

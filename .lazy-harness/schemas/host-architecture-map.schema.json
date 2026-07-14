@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/host-architecture-map.schema.json",
+  "title": "Lazy-Harness Host Architecture Map",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mapVersion",
+    "hostId",
+    "catalogRef",
+    "status",
+    "principleRefs",
+    "projectBase",
+    "scopes",
+    "bindings",
+    "aliasInstances",
+    "compositionDecisions",
+    "waiverRefs",
+    "evidenceAdapterRefs",
+    "policyRefs",
+    "capabilityRefs",
+    "reviewTriggers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "host-architecture-map/v1"
+    },
+    "mapVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hostId": {
+      "$ref": "#/definitions/stableId"
+    },
+    "catalogRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {"$ref": "#/definitions/stableId"},
+        "version": {"$ref": "#/definitions/semver"}
+      }
+    },
+    "status": {
+      "enum": ["candidate", "confirmed"]
+    },
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "confirmedAt"],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1, "maxLength": 500},
+        "confirmedAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "principleRefs": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ARCH-L1-0[1-6]$"
+      }
+    },
+    "projectBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unitTopology",
+        "packageTopology",
+        "deploymentTopology",
+        "ownershipTopology",
+        "edges",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "unitTopology": {"enum": ["single-unit", "multi-unit"]},
+        "packageTopology": {"enum": ["single-package", "multi-package"]},
+        "deploymentTopology": {
+          "enum": ["single-deployment", "multi-deployment", "hybrid"]
+        },
+        "ownershipTopology": {"enum": ["single-owner", "multi-owner"]},
+        "edges": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/projectEdge"}
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/rootBoundRef"}
+        }
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/scope"}
+    },
+    "bindings": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/binding"}
+    },
+    "aliasInstances": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/aliasInstance"}
+    },
+    "compositionDecisions": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/compositionDecision"}
+    },
+    "waiverRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/rootBoundRef"}
+    },
+    "evidenceAdapterRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/rootBoundRef"}
+    },
+    "policyRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/rootBoundRef"}
+    },
+    "capabilityRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/definitions/rootBoundRef"}
+    },
+    "reviewTriggers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "confirmed"}}
+      },
+      "then": {
+        "required": ["confirmation"]
+      }
+    }
+  ],
+  "definitions": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:[.:][a-z0-9][a-z0-9-]*)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "valueRef": {
+      "type": "string",
+      "pattern": "^(?:runtime|organization|operational)/[a-z][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "rootBoundRef": {
+      "type": "string",
+      "pattern": "^\\.lazy-harness/(?!.*\\/(?:\\.{1,2})(?:/|$))(?!.*\\\\)(?:domain|spec|behavior|tests|decisions|ssot|rules|project|planning|evidence|framework/operational-adrs)/.+$"
+    },
+    "semanticOwnerRef": {
+      "type": "string",
+      "pattern": "^\\.lazy-harness/(?!.*\\/(?:\\.{1,2})(?:/|$))(?!.*\\\\)(?:domain|spec|behavior|tests|decisions|ssot|rules|framework/operational-adrs)/.+$"
+    },
+    "scopeSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "enum": ["path", "package", "process", "service", "deployment"]
+        },
+        "value": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "parentId", "selectors", "ownerRefs"],
+      "properties": {
+        "id": {"$ref": "#/definitions/stableId"},
+        "kind": {"enum": ["host", "unit", "entrypoint", "responsibility"]},
+        "parentId": {
+          "oneOf": [
+            {"$ref": "#/definitions/stableId"},
+            {"type": "null"}
+          ]
+        },
+        "selectors": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/scopeSelector"}
+        },
+        "ownerRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/semanticOwnerRef"}
+        }
+      }
+    },
+    "projectEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fromScopeId", "toScopeId", "relation"],
+      "properties": {
+        "fromScopeId": {"$ref": "#/definitions/stableId"},
+        "toScopeId": {"$ref": "#/definitions/stableId"},
+        "relation": {
+          "enum": ["depends-on", "owns", "deploys-with", "publishes-to"]
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "axis",
+        "valueRef",
+        "scopeId",
+        "evidenceRefs",
+        "semanticOwnerRefs",
+        "reviewTrigger"
+      ],
+      "properties": {
+        "id": {"$ref": "#/definitions/stableId"},
+        "axis": {"enum": ["runtime", "organization", "operational"]},
+        "valueRef": {"$ref": "#/definitions/valueRef"},
+        "scopeId": {"$ref": "#/definitions/stableId"},
+        "condition": {"type": "string", "minLength": 1},
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/rootBoundRef"}
+        },
+        "semanticOwnerRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/semanticOwnerRef"}
+        },
+        "aliasInstanceId": {"$ref": "#/definitions/stableId"},
+        "reviewTrigger": {"type": "string", "minLength": 1}
+      }
+    },
+    "aliasInstance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "aliasRef", "parameters", "materializedBindingIds"],
+      "properties": {
+        "id": {"$ref": "#/definitions/stableId"},
+        "aliasRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*(?:[.:][a-z0-9][a-z0-9-]*)*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/definitions/stableId"}
+        },
+        "materializedBindingIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/stableId"}
+        }
+      }
+    },
+    "compositionDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "leftBindingId",
+        "rightBindingId",
+        "scopeId",
+        "outcome",
+        "decisionRef"
+      ],
+      "properties": {
+        "id": {"$ref": "#/definitions/stableId"},
+        "leftBindingId": {"$ref": "#/definitions/stableId"},
+        "rightBindingId": {"$ref": "#/definitions/stableId"},
+        "scopeId": {"$ref": "#/definitions/stableId"},
+        "outcome": {"enum": ["accepted-compatible", "accepted-with-waiver"]},
+        "decisionRef": {"$ref": "#/definitions/semanticOwnerRef"}
+      }
+    }
+  }
+}

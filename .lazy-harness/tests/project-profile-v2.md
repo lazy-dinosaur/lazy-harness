@@ -18,12 +18,12 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
 - Applies when:
   - implementing Project Interview V2 runtime behavior
   - changing the desired V2 interview output packet
-  - adding Pi/Jcode adapter consumption of project profile/interview output
+  - adding Pi/OMP adapter consumption of project profile/interview output
 - Must:
   - verify V2 interview output includes project-map seed candidates and policy candidates
   - verify question groups cover non-test dimensions
   - verify policy candidates are stage-aware and start at discover/recommend unless explicitly confirmed
-  - verify Pi primary / Jcode compatibility adapter boundary
+  - verify Pi primary / OMP compatibility adapter boundary
   - verify dry-run and confirmed-only write semantics
   - verify queue-v2 emits typed queue items and writes only `.lazy-harness/project/profile-queue.json`
   - verify promote-v2 dry-run preview requires `status=accepted` and does not mutate queue/canonical targets
@@ -37,6 +37,8 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - verify promote-v2 update-loop-event writer appends only non-canonical rows to `.lazy-harness/knowledge/project-map-update-events.jsonl`
   - verify duplicate update-loop-event promotions dedupe identical event rows without conflict files
   - verify forbidden semantic-authority fields are absent
+  - verify architecture candidates default to an empty array and load only from an explicit file
+  - verify architecture queue promotion delegates to `lazy architecture plan` and never writes the Host Architecture Map
 - Must not:
   - permit silent defaults
   - permit unconfirmed facts/policies to become canonical writes
@@ -50,6 +52,8 @@ Related Project Map: `.lazy-harness/spec/platform/project-map-v2.md`
   - permit update-loop event rows to become canonical project truth without record-write policy
   - center the model on tests only
   - require write/apply behavior before a separate approval
+  - infer named architecture profiles from source paths, folders, or frameworks
+  - let Project Profile write `.lazy-harness/project/architecture-map.json` directly
 - Record completion:
   - runtime implementation updates this TDD, SDD, fixtures, `project-profile.ts`, self-test, manifest, and graph rows together.
 
@@ -66,7 +70,7 @@ The design fixture is:
 | Case | Input | Expected |
 |---|---|---|
 | `project_profile_v2_packet_shape` | dry-run interview output | `schemaVersion`, `adapterBoundary`, `questionGroups`, `projectMapSeeds`, `policyCandidates`, `unresolvedAmbiguities`, `writes` present. |
-| `project_profile_v2_pi_primary` | output packet | `adapterBoundary.primary == "pi"` and compatibility includes `jcode`. |
+| `project_profile_v2_pi_primary` | output packet | `adapterBoundary.primary == "pi"` and compatibility includes `omp`. |
 | `project_profile_v2_question_groups` | output packet | non-test groups exist: source ownership, system design, domain vocabulary, dependency policy, security/privacy, human confirmation. |
 | `project_profile_v2_project_map_seeds` | output packet | seeds include Project Map V2 cluster fields and branches. |
 | `project_profile_v2_policy_candidates` | output packet | policies include stage-aware levels and at least one non-test policy. |
@@ -93,6 +97,11 @@ The design fixture is:
 | `project_profile_v2_promote_capability_audit` | generated capability registry | passes `lazy capability audit --format=json` with sourceRecord pointing to the queue source. |
 | `project_profile_v2_promote_update_loop_event_writer` | accepted `promotionTarget.kind=update-loop-event` item + `promote-v2 --confirm` | writes queue plus one stable non-canonical Project Map update event row, reports applied update-loop effect, and does not write canonical records/candidates/rules/capabilities. |
 | `project_profile_v2_promote_update_loop_event_dedupe` | same update-loop-event item promoted again in a fresh accepted queue | uses stable id append semantics and does not duplicate an identical update event row or create a conflict file. |
+| `project_profile_v2_architecture_default_empty` | interview-v2 without `--architecture-candidates` | `architectureCandidates=[]`; no architecture is inferred. |
+| `project_profile_v2_architecture_candidate_file` | explicit valid candidate file | candidate status and confirmation requirement are preserved. |
+| `project_profile_v2_architecture_forbidden_fields` | candidate containing `confidence` | command fails; no queue or map is written. |
+| `project_profile_v2_architecture_queue_delegate` | explicit candidate + queue-v2 | one `host-architecture-map` item delegates to `lazy architecture plan`. |
+| `project_profile_v2_architecture_promote_boundary` | accepted architecture item + preview/confirm | preview writes nothing; confirm writes queue metadata only and never changes the Host Architecture Map. |
 
 ## Acceptance assertions for implemented runtime
 
@@ -104,7 +113,7 @@ The design fixture is:
 4. V2 output includes policy candidates for at least validation and a non-test dimension.
 5. Initial policy candidate levels are only `discover` or `recommend` unless fixture marks a confirmed answer.
 6. `fill --confirm` writes only confirmed answers.
-7. Pi primary/Jcode compatibility appears in output.
+7. Pi primary/OMP compatibility appears in output.
 8. Existing Project Profile tests still pass.
 9. `queue-v2 --dry-run` emits `project-profile-queue/v1`.
 10. `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
@@ -128,10 +137,15 @@ The design fixture is:
 28. Re-promoting the same project-map-branch content skips the existing feature-navigation entry without altering the file.
 29. `promote-v2 --confirm` for `promotionTarget.kind=update-loop-event` appends one stable non-canonical update event row to `.lazy-harness/knowledge/project-map-update-events.jsonl` and marks the effect applied.
 30. Re-promoting the same update-loop event content is deduped by stable id semantics and does not create a conflict file.
+31. Interview V2 emits `architectureCandidates=[]` unless an explicit candidate file is supplied.
+32. Explicit architecture candidates remain `status=candidate`, require confirmation, and reject forbidden semantic-authority fields.
+33. Queue V2 routes architecture candidates to `promotionTarget.kind=host-architecture-map` with handler `lazy architecture plan`.
+34. Promote V2 preview leaves queue/map bytes unchanged; confirmed promotion writes only queue metadata and a delegation packet.
+35. Architecture candidate promotion never creates or replaces `.lazy-harness/project/architecture-map.json`.
 
 ## Implementation map
 
-- Status: promote-v2 project-map-branch target writer slice implemented.
+- Status: promote-v2 target writers plus candidate-only architecture delegation implemented.
 - Primary files:
   - `.lazy-harness/tests/project-profile-v2.md` — this TDD.
   - `.lazy-harness/spec/platform/project-profile-v2.md` — SDD output contract.
@@ -146,8 +160,10 @@ The design fixture is:
   - `.lazy-harness/fixtures/project-profile-v2/promote-rulebook.json` — promote-v2 rulebook writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-capability-binding.json` — promote-v2 capability-binding writer result fixture.
   - `.lazy-harness/fixtures/project-profile-v2/promote-update-loop-event.json` — promote-v2 update-loop-event writer result fixture.
+  - `.lazy-harness/fixtures/architecture-guidance/project-profile-candidates.json` — explicit architecture candidate adapter fixture.
   - `.lazy-harness/knowledge/project-map-update-events.jsonl` — non-canonical update event row store created by confirmed update-loop-event promotions.
-  - `.lazy-harness/scripts/project-profile.ts` — implements `interview-v2 --dry-run`, `queue-v2 --dry-run|--confirm`, `promote-v2 --dry-run`, confirmed queue-status writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer.
+  - `.lazy-harness/scripts/project-profile.ts` — implements interview, queue, target writers, and candidate-only architecture delegation without a Host Architecture Map writer.
+  - `.lazy-harness/scripts/project-profile-architecture.ts` — validates explicit architecture candidate files and builds the `lazy architecture plan` delegation packet.
   - `.lazy-harness/scripts/self-test.py` — protects interview/queue/promote runtime packet shapes, write boundaries, and V1 backward compatibility.
 - Key symbols:
   - `project-profile.ts#ProjectProfileInterviewV2Packet`
@@ -171,15 +187,19 @@ The design fixture is:
   - `project-profile.ts#buildRulebookPromotionWrite`
   - `project-profile.ts#buildCapabilityPromotionWrite`
   - `project-profile.ts#applyPromoteV2`
+  - `project-profile-architecture.ts#loadProjectProfileArchitectureCandidates`
+  - `project-profile-architecture.ts#buildArchitecturePromotionDelegation`
   - `project-profile.ts#renderPromoteV2Md`
   - `self-test.py#check_project_profile_v2_runtime`
   - `self-test.py#check_project_profile_v2_queue_runtime`
+  - `self-test.py#check_architecture_guidance_cli`
 - Protection now:
   - `bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <accepted-id> --dry-run --format json`
   - `bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <accepted-id> --confirm --format json`
+  - `bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --architecture-candidates <path> --format json`
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
   - `.lazy-harness/bin/lazy test`
 - Runtime boundary:
@@ -188,14 +208,15 @@ The design fixture is:
   - `queue-v2 --confirm` writes only `.lazy-harness/project/profile-queue.json`.
   - `promote-v2 --dry-run` requires `status=accepted` and previews only, with no queue/canonical mutation.
   - `promote-v2 --confirm` writes queue status/promoted metadata, only for record targets a deterministic `needs-interview` record skeleton, only for candidate-row targets a stable candidates JSONL row, only for rulebook targets a draft/discover rulebook entry, and only for capability-binding targets a discover/checklist capability entry.
-  - no update-loop event append happens in this slice.
+  - architecture targets emit a deferred `lazy architecture plan` delegation and write only queue metadata; they never write the Host Architecture Map.
+  - no update-loop event append happens for non-update-loop targets.
 
 ## Layer completeness impact
 
 - DDD: domain vocabulary/invariant question groups protected as future fixture expectation.
 - BDD: project expectations and workflow behavior protected as future fixture expectation.
 - SDD: paired with Project Profile V2 SDD.
-- TDD: this record, `self-test.py#check_project_profile_v2_runtime`, and `self-test.py#check_project_profile_v2_queue_runtime` protect the implemented interview, category-first queue, promote preview, and confirmed queue-status promotion packets.
+- TDD: this record plus the three self-test functions protect interview, queue, promote, and architecture delegation boundaries.
 - ADR: future ADR needed before replacing V1 mode semantics.
 - SSOT: policy/capability/taxonomy SSOT inputs are referenced, not changed here.
 - Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.
@@ -206,7 +227,7 @@ The design fixture is:
 - Scope: framework-global
 - Primary record: `.lazy-harness/tests/project-profile-v2.md`
 - Why not AGENTS.md: this is a regression/acceptance contract, not prompt grammar.
-- Why not `.jcode`: V2 is Pi-primary and agent-neutral.
+- Why not `.jcode`: V2 is Pi-primary and adapter-neutral; OMP is the compatibility adapter and Jcode is retired.
 - Confirmation: user-approved Phase 2 design draft, first read-only runtime slice, queue-v2 writer slice, A/A/A/B/A promote preview decisions, and A→B→C confirmed-writer sequence on 2026-06-17.
 
 ## Discovery capture
@@ -214,7 +235,7 @@ The design fixture is:
 - DDD: future domain branch coverage.
 - BDD: future behavior/policy coverage.
 - SDD: paired with SDD and implemented by `project-profile.ts#buildInterviewV2Result`, category-first `project-profile.ts#buildProfileQueueV1FromInterviewV2`, `project-profile.ts#buildPromoteV2Preview`, `project-profile.ts#buildRecordPromotionWrite`, `project-profile.ts#buildCandidatePromotionWrite`, `project-profile.ts#buildRulebookPromotionWrite`, `project-profile.ts#buildCapabilityPromotionWrite`, and `project-profile.ts#applyPromoteV2`.
-- TDD: updated here and in `self-test.py#check_project_profile_v2_runtime` plus `self-test.py#check_project_profile_v2_queue_runtime`.
+- TDD: updated here and in Project Profile V2 plus architecture guidance self-tests.
 - ADR: none yet; ADR required only before replacing V1 behavior.
 - SSOT: no SSOT mutation; uses Project Map ingestion source vocabulary.
 - Planning: Phase 2 interview dry-run, queue-v2 writer, promote-v2 dry-run preview, confirmed queue-status promotion writer, record target writer, project-map-branch writer, candidate-row writer, rulebook writer, capability-binding writer, and update-loop-event writer implemented.

@@ -10,6 +10,12 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { appendJsonlStable, type JsonlAppendStatus } from './runtime-paths.ts'
+import {
+  buildArchitecturePromotionDelegation,
+  loadProjectProfileArchitectureCandidates,
+  type ProjectProfileArchitectureCandidate,
+  type ProjectProfileArchitecturePromotionDelegation,
+} from './project-profile-architecture.ts'
 
 type Mode = 'inspect' | 'plan' | 'apply' | 'interview' | 'interview-v2' | 'queue-v2' | 'promote-v2' | 'fill'
 type Format = 'json' | 'md'
@@ -17,8 +23,8 @@ type ArtifactStatus = 'present' | 'missing'
 type QueueStatus = 'pending' | 'accepted' | 'rejected' | 'promoted' | 'superseded'
 type QueuePrimaryRoute = 'facts' | 'expectations' | 'contracts' | 'validation' | 'decisions' | 'ownership' | 'source-links' | 'policies' | 'event-ready-metadata' | 'queue-only'
 type QueueFacet = 'DDD' | 'BDD' | 'SDD' | 'TDD' | 'ADR' | 'SSOT' | 'Policy' | 'Project' | 'Source' | 'Evidence'
-type QueueSourceKind = 'question-group' | 'project-map-seed' | 'policy-candidate' | 'unresolved-ambiguity' | 'proposed-write' | 'update-loop'
-type QueuePromotionKind = 'record' | 'project-map-branch' | 'rulebook' | 'capability-binding' | 'candidate-row' | 'update-loop-event' | 'queue-only'
+type QueueSourceKind = 'question-group' | 'project-map-seed' | 'policy-candidate' | 'architecture-candidate' | 'unresolved-ambiguity' | 'proposed-write' | 'update-loop'
+type QueuePromotionKind = 'record' | 'project-map-branch' | 'rulebook' | 'capability-binding' | 'candidate-row' | 'update-loop-event' | 'host-architecture-map' | 'queue-only'
 
 interface Args {
   mode: Mode
@@ -28,6 +34,7 @@ interface Args {
   confirm: boolean
   answers?: string
   item?: string
+  architectureCandidates?: string
 }
 
 interface RequiredArtifact {
@@ -193,6 +200,7 @@ interface ProjectProfileInterviewV2Packet {
     }
     canonicalRecords: string[]
   }>
+  architectureCandidates: ProjectProfileArchitectureCandidate[]
   policyCandidates: Array<{
     id: string
     dimension: string
@@ -246,7 +254,11 @@ interface ProjectProfileQueueItem {
     kind: QueuePromotionKind
     path?: string
     requiresConfirmation: true
+    handler?: 'lazy architecture plan'
+    candidateId?: string
+    semanticOwnerRefs?: string[]
   }
+  architectureCandidate?: ProjectProfileArchitectureCandidate
   promotedAt?: string
   promotedTo?: string[]
   promotionEffects?: ProjectProfilePromotionTargetEffect[]
@@ -283,7 +295,7 @@ interface ProjectProfilePromotionTargetEffect {
   kind: QueuePromotionKind
   path?: string
   status: 'applied' | 'deferred'
-  action: 'create-record' | 'skip-existing-record' | 'append-project-map-branch' | 'skip-existing-project-map-branch' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'append-update-loop-event' | 'dedupe-update-loop-event' | 'conflict-update-loop-event' | 'defer-target-writer'
+  action: 'create-record' | 'skip-existing-record' | 'append-project-map-branch' | 'skip-existing-project-map-branch' | 'append-candidate-row' | 'dedupe-candidate-row' | 'conflict-candidate-row' | 'create-rulebook' | 'skip-existing-rulebook' | 'upsert-capability' | 'append-update-loop-event' | 'dedupe-update-loop-event' | 'conflict-update-loop-event' | 'delegate-host-architecture-map' | 'defer-target-writer'
   summary: string
   reason: string
 }
@@ -352,7 +364,7 @@ interface ProjectProfilePromoteV2Preview {
   plannedWrites: Array<{
     kind: QueuePromotionKind
     path?: string
-    action: 'create-or-update' | 'append' | 'preview-only'
+    action: 'create-or-update' | 'append' | 'delegate' | 'preview-only'
     requiresConfirmation: true
     summary: string
   }>
@@ -381,6 +393,7 @@ interface ProjectProfilePromoteV2Result {
   candidateRow?: Record<string, unknown>
   capability?: Record<string, unknown>
   updateEvent?: Record<string, unknown>
+  architectureDelegation?: ProjectProfileArchitecturePromotionDelegation
   queueUpdate: {
     id: string
     from: 'accepted'
@@ -447,6 +460,11 @@ function parseArgs(argv: string[]): Args {
       i += 1
     } else if (arg.startsWith('--item=')) {
       args.item = arg.slice('--item='.length)
+    } else if (arg === '--architecture-candidates' && next) {
+      args.architectureCandidates = next
+      i += 1
+    } else if (arg.startsWith('--architecture-candidates=')) {
+      args.architectureCandidates = arg.slice('--architecture-candidates='.length)
     } else if (arg === '--help' || arg === '-h') {
       printHelp()
       process.exit(0)
@@ -458,7 +476,9 @@ function parseArgs(argv: string[]): Args {
 }
 
 function printHelp(): void {
-  console.log(`Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; --confirm always writes queue status/promoted metadata and applies only the writer for that item's target kind (record skeleton, feature-navigation cue, candidate row, draft rulebook, discover/checklist capability, or non-canonical update-loop event). Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`)
+  console.log(
+    `Project Profile\n\nUsage:\n  bun .lazy-harness/scripts/project-profile.ts --mode inspect [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode plan [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode apply --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run [--architecture-candidates <path>] [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --dry-run [--architecture-candidates <path>] [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode queue-v2 --confirm [--architecture-candidates <path>] [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode promote-v2 --item <queue-item-id> --confirm [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --dry-run [--format md|json] [--root <path>]\n  bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm [--format md|json] [--root <path>]\n\nInspect mode is read-only. Plan mode proposes missing skeleton profile records. Apply with --confirm writes only needs-interview skeletons and never makes architecture decisions. Interview mode emits structured questions for needs-interview fields; --confirm writes only the open-question transcript. Interview V2 emits a read-only Project Map/policy discovery packet and requires --dry-run. Architecture candidates default to an empty list and are loaded only from an explicit --architecture-candidates file. Queue V2 converts the Interview V2 packet into a typed queue; --confirm writes only .lazy-harness/project/profile-queue.json. Promote V2 previews or confirms one accepted queue item; an architecture candidate is delegated to lazy architecture plan and never writes the host map directly. Fill mode applies only explicit answers from an answers file and requires --dry-run or --confirm.`,
+  )
 }
 
 function artifact(root: string, item: (typeof REQUIRED_ARTIFACTS)[number]): RequiredArtifact {
@@ -881,6 +901,10 @@ function buildInterviewV2Result(args: Args): ProjectProfileInterviewV2Packet {
     throw new Error('interview-v2 mode is read-only and requires --dry-run; --confirm is intentionally unsupported')
   }
   const inspectResult = inspect(args)
+  const architectureCandidates = loadProjectProfileArchitectureCandidates(
+    args.root,
+    args.architectureCandidates,
+  )
   return {
     schemaVersion: 'project-profile-interview-v2/v1',
     mode: 'interview-v2',
@@ -941,6 +965,7 @@ function buildInterviewV2Result(args: Args): ProjectProfileInterviewV2Packet {
       },
       canonicalRecords: ['.lazy-harness/spec/platform/project-profile-v2.md', '.lazy-harness/spec/platform/project-map-v2.md'],
     }],
+    architectureCandidates,
     policyCandidates: [
       {
         id: 'project-validation-stage-policy',
@@ -1024,6 +1049,12 @@ function renderInterviewV2Md(result: ProjectProfileInterviewV2Packet): string {
     '## Project Map seeds',
     ...result.projectMapSeeds.map((seed) => `- ${seed.id}: ${seed.primary} [${seed.facets.join(', ')}]`),
     '',
+    '## Architecture candidates',
+    ...(result.architectureCandidates.length
+      ? result.architectureCandidates.map((candidate) =>
+        `- ${candidate.id}: ${candidate.proposedBindings.length} proposed binding(s); confirmation required`)
+      : ['- none (default; no architecture is inferred)']),
+    '',
     '## Policy candidates',
     ...result.policyCandidates.map((policy) => `- ${policy.id}: ${policy.dimension} (${policy.stages.map((stage) => `${stage.stage}:${stage.level}`).join(', ')})`),
     '',
@@ -1089,6 +1120,28 @@ function buildProfileQueueV1FromInterviewV2(packet: ProjectProfileInterviewV2Pac
       summary: `${seed.title}: ${seed.cluster.branches.length} branch(es), ${seed.cluster.edges.length} edge(s)`,
       evidence: [{ kind: 'project-map-seed', summary: `Derived from interview-v2 Project Map seed ${seed.id}` }],
       promotionTarget: { kind: 'project-map-branch', path: '.lazy-harness/project/feature-navigation.xml', requiresConfirmation: true },
+    })
+  }
+
+  for (const candidate of packet.architectureCandidates) {
+    items.push({
+      id: queueItemId('architecture-candidate', candidate.id),
+      status: 'pending',
+      primaryRoute: 'contracts',
+      facets: ['SDD', 'ADR', 'Project', 'Evidence'],
+      relatedRoutes: ['decisions', 'ownership'],
+      source: { kind: 'architecture-candidate', id: candidate.id },
+      summary: `${candidate.summary}: ${candidate.proposedBindings.length} proposed binding(s)`,
+      evidence: candidate.evidence,
+      promotionTarget: {
+        kind: 'host-architecture-map',
+        path: '.lazy-harness/project/architecture-map.json',
+        requiresConfirmation: true,
+        handler: 'lazy architecture plan',
+        candidateId: candidate.id,
+        semanticOwnerRefs: candidate.semanticOwnerRefs,
+      },
+      architectureCandidate: candidate,
     })
   }
 
@@ -1212,8 +1265,9 @@ function summarizeProfileQueueItems(items: ProjectProfileQueueItem[]): ProjectPr
   }
 }
 
-function actionForPromotionKind(kind: QueuePromotionKind): 'create-or-update' | 'append' | 'preview-only' {
+function actionForPromotionKind(kind: QueuePromotionKind): 'create-or-update' | 'append' | 'delegate' | 'preview-only' {
   if (kind === 'candidate-row' || kind === 'update-loop-event') return 'append'
+  if (kind === 'host-architecture-map') return 'delegate'
   if (kind === 'queue-only') return 'preview-only'
   return 'create-or-update'
 }
@@ -1227,6 +1281,16 @@ function pathForPromotionTarget(target: ProjectProfileQueueItem['promotionTarget
 function buildPromotionTargetEffect(item: ProjectProfileQueueItem): ProjectProfilePromotionTargetEffect {
   const target = item.promotionTarget
   const path = pathForPromotionTarget(target)
+  if (target.kind === 'host-architecture-map') {
+    return {
+      kind: target.kind,
+      path,
+      status: 'deferred',
+      action: 'delegate-host-architecture-map',
+      summary: `Delegated ${item.source.id} to ${target.handler || 'lazy architecture plan'}`,
+      reason: 'Project Profile preserves candidate status; lazy architecture plan validates the proposal and lazy architecture apply requires a separate exact-digest confirmation.',
+    }
+  }
   return {
     kind: target.kind,
     path,
@@ -1849,6 +1913,12 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
   const rulebookWrite = buildRulebookPromotionWrite(item, generatedAt, args.root)
   const capabilityWrite = buildCapabilityPromotionWrite(item, args.root)
   const updateLoopWrite = buildUpdateLoopPromotionWrite(item, queue)
+  const architectureDelegation = item.promotionTarget.kind === 'host-architecture-map'
+    ? buildArchitecturePromotionDelegation(
+      item.promotionTarget.candidateId || item.source.id,
+      item.promotionTarget.semanticOwnerRefs || [],
+    )
+    : undefined
   const appliedWrites: ProjectProfilePromoteV2Result['appliedWrites'] = []
   let candidateAppendStatus: JsonlAppendStatus | null = null
   let updateLoopAppendStatus: JsonlAppendStatus | null = null
@@ -1941,6 +2011,7 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
     candidateRow: candidateWrite?.row,
     capability: capabilityWrite?.capability,
     updateEvent: updateLoopWrite?.row,
+    architectureDelegation,
     queueUpdate: {
       id: item.id,
       from: 'accepted',
@@ -1986,11 +2057,17 @@ function applyPromoteV2(args: Args): ProjectProfilePromoteV2Result {
           'The generated update-loop event is non-canonical and must not be treated as confirmed project truth by itself.',
           'No canonical record, rulebook, capability, or candidate row was written.',
         ]
-      : [
-        'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
-        'Target-specific canonical writers were separated as deferred effects.',
-        'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
-      ],
+      : architectureDelegation
+        ? [
+          'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json and emitted a host-architecture-map delegation packet.',
+          'The architecture candidate remains non-canonical; run lazy architecture plan and obtain separate exact-digest confirmation before apply.',
+          'No .lazy-harness/project/architecture-map.json or application source file was written.',
+        ]
+        : [
+          'promote-v2 --confirm updated only .lazy-harness/project/profile-queue.json.',
+          'Target-specific canonical writers were separated as deferred effects.',
+          'No canonical record, rulebook, capability, candidate row, or update-loop event was written.',
+        ],
   }
 }
 

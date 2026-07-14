@@ -89,10 +89,11 @@
             "context-tier/*.json",
             "project-map-v2/*.json",
             "project-profile-v2/*.json",
+            "architecture-guidance/*.json",
             "project-map-v2/*.md",
             "project-map-update-loop-v2/*.json"
           ],
-          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2/update-loop, and Project Profile V2 fixtures."
+          "description": "Framework self-test fixtures that must be present on hosts for BOTH-scope checks, including context-tier, Project Map V2/update-loop, Project Profile V2, and architecture-guidance fixtures."
         },
         {
           "path": "evidence/",
@@ -580,6 +581,62 @@
           "path": "tests/project-profile-v2.md",
           "kind": "file",
           "description": "TDD for Project Profile V2 interview output, read-only interview-v2 runtime, and queue-v2 typed queue writer."
+        },
+        {
+          "path": "decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+          "kind": "file",
+          "description": "Operational framework ADR for the three-layer cross-stack architecture model and bounded core+skill pilot. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "targetPath": "framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md"
+        },
+        {
+          "path": "domain/architecture-guidance.md",
+          "kind": "file",
+          "description": "DDD vocabulary for architecture values, bindings, aliases, Host Architecture Maps, candidates, confirmations, and waivers."
+        },
+        {
+          "path": "behavior/architecture-refactor-flow.md",
+          "kind": "file",
+          "description": "BDD approval flow separating architecture inspection, exact map confirmation, and one independently approved source-refactor batch."
+        },
+        {
+          "path": "spec/platform/architecture-guidance.md",
+          "kind": "file",
+          "description": "SDD contract for architecture catalog/map validation, inspect/plan/apply, and candidate-only Project Profile delegation."
+        },
+        {
+          "path": "tests/architecture-guidance.md",
+          "kind": "file",
+          "description": "TDD regression contract for architecture schema, CLI digest/apply safety, Project Profile candidate boundaries, distribution, and skill discovery."
+        },
+        {
+          "path": "ssot/architecture-guidance-storage.md",
+          "kind": "file",
+          "description": "SSOT ownership boundary for framework catalog/schemas and the host-owned architecture map."
+        },
+        {
+          "path": "ssot/architecture-profile-catalog.json",
+          "kind": "file",
+          "description": "Framework-owned normalized architecture profile catalog with explicit aliases and scope-aware relations."
+        },
+        {
+          "path": "planning/cross-stack-architecture-guidance.md",
+          "kind": "file",
+          "description": "Layer 1 cross-stack architecture principles and evidence baseline."
+        },
+        {
+          "path": "planning/cross-stack-architecture-profiles.md",
+          "kind": "file",
+          "description": "Layer 2 normalized profile, axis, relation, alias, and cardinality baseline."
+        },
+        {
+          "path": "planning/cross-stack-architecture-host-mapping.md",
+          "kind": "file",
+          "description": "Layer 3 Host Architecture Map, semantic-owner, waiver, and truth/check/policy separation baseline."
+        },
+        {
+          "path": "evidence/2026-07-13-cross-stack-architecture-planning-baseline.md",
+          "kind": "file",
+          "description": "Evidence capsule for the approved cross-stack architecture planning baseline."
         },
         {
           "path": "ssot/project-map-record-storage.md",

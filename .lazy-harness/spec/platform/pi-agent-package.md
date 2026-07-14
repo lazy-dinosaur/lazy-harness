@@ -226,7 +226,7 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template.
 - `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.
 - `.lazy-harness/scripts/agent-activate.ts` — project-local activation writer for `.pi/APPEND_SYSTEM.md`, `.omp/APPEND_SYSTEM.md`, `.pi/settings.json` project skill entries, and `.git/info/exclude` entries; used after `lazy init` or directly via `lazy agent activate`.
-- `.lazy-harness/scripts/pi-package.ts` — runtime-aware `lazy pi` and `lazy omp` install/list/remove/smoke/doctor wrapper; Pi maps to official `pi install/remove/list/-e`, OMP maps to official `omp plugin install/uninstall/list` and `omp -e`.
+- `.lazy-harness/scripts/pi-package.ts` — runtime-aware `lazy pi` and `lazy omp` install/list/remove/smoke/doctor wrapper; Pi maps to official `pi install/remove/list/-e`, OMP maps to official `omp plugin link/uninstall/list` and `omp -e`.
 - `.lazy-harness/bin/lazy` — dispatches `lazy pi ...` and `lazy omp ...` to `pi-package.ts`, exposes `lazy agent activate`, captures a fresh `LAZY_INVOCATION_CWD`, and passes it as `LAZY_PI_TARGET_REPO` or `LAZY_OMP_TARGET_REPO` so nested lazy/pre-commit calls still target the caller cwd.
 - `.pi/settings.json` — optional generated project-local Pi settings; `lazy agent activate` ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` are present, while `pi install -l` may add local package attachment. Not committed by default.
 - `~/.pi/agent/settings.json` — optional user-global package attachment created by `pi install` so all existing Pi projects load the extension.

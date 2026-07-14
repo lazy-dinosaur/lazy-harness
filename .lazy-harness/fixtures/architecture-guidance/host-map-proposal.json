@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "host-architecture-map/v1",
+  "mapVersion": 1,
+  "hostId": "fixture-host",
+  "catalogRef": {
+    "id": "lazy-harness-cross-stack",
+    "version": "1.1.0"
+  },
+  "status": "candidate",
+  "principleRefs": [
+    "ARCH-L1-01",
+    "ARCH-L1-02",
+    "ARCH-L1-03",
+    "ARCH-L1-04",
+    "ARCH-L1-05",
+    "ARCH-L1-06"
+  ],
+  "projectBase": {
+    "unitTopology": "multi-unit",
+    "packageTopology": "single-package",
+    "deploymentTopology": "single-deployment",
+    "ownershipTopology": "single-owner",
+    "edges": [
+      {
+        "fromScopeId": "scope:host",
+        "toScopeId": "scope:unit:web",
+        "relation": "owns"
+      }
+    ],
+    "evidenceRefs": [
+      ".lazy-harness/framework/operational-adrs/0054-three-layer-cross-stack-architecture-guidance.md"
+    ]
+  },
+  "scopes": [
+    {
+      "id": "scope:host",
+      "kind": "host",
+      "parentId": null,
+      "selectors": [],
+      "ownerRefs": [
+        ".lazy-harness/ssot/project-identity.md"
+      ]
+    },
+    {
+      "id": "scope:unit:web",
+      "kind": "unit",
+      "parentId": "scope:host",
+      "selectors": [
+        {
+          "kind": "path",
+          "value": "src/web"
+        }
+      ],
+      "ownerRefs": [
+        ".lazy-harness/ssot/project-identity.md"
+      ]
+    },
+    {
+      "id": "scope:entrypoint:web-browser",
+      "kind": "entrypoint",
+      "parentId": "scope:unit:web",
+      "selectors": [
+        {
+          "kind": "path",
+          "value": "src/web/main.ts"
+        }
+      ],
+      "ownerRefs": [
+        ".lazy-harness/ssot/project-identity.md"
+      ]
+    },
+    {
+      "id": "scope:responsibility:web-features",
+      "kind": "responsibility",
+      "parentId": "scope:unit:web",
+      "selectors": [
+        {
+          "kind": "path",
+          "value": "src/web/features"
+        }
+      ],
+      "ownerRefs": [
+        ".lazy-harness/spec/platform/architecture-guidance.md"
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "id": "binding:web-browser-runtime",
+      "axis": "runtime",
+      "valueRef": "runtime/interactive-session@1.0.0",
+      "scopeId": "scope:entrypoint:web-browser",
+      "evidenceRefs": [
+        ".lazy-harness/spec/platform/architecture-guidance.md"
+      ],
+      "semanticOwnerRefs": [
+        ".lazy-harness/spec/platform/architecture-guidance.md"
+      ],
+      "reviewTrigger": "entrypoint invocation or lifetime changes"
+    }
+  ],
+  "aliasInstances": [
+    {
+      "id": "alias:fixture-fsd",
+      "aliasRef": "fsd-inspired@1.0.0",
+      "parameters": {
+        "unitScope": "scope:unit:web",
+        "featureScope": "scope:responsibility:web-features"
+      },
+      "materializedBindingIds": [
+        "binding:alias:fixture-fsd:1",
+        "binding:alias:fixture-fsd:2",
+        "binding:alias:fixture-fsd:3"
+      ]
+    }
+  ],
+  "compositionDecisions": [],
+  "waiverRefs": [],
+  "evidenceAdapterRefs": [],
+  "policyRefs": [],
+  "capabilityRefs": [],
+  "reviewTriggers": [
+    "catalog version changes",
+    "unit ownership or entrypoint lifetime changes"
+  ]
+}

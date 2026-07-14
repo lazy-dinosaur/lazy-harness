@@ -74,6 +74,8 @@ Commands:
                                 Manage lazy-harness-pi plugin wrappers for Oh My Pi / OMP
   capability add|list|resolve|candidates|audit
                                 Add, list, resolve, suggest, or audit registered capabilities
+  architecture inspect|plan|apply
+                                Inspect, plan, and exactly confirm host architecture maps
   policy list|audit|explain|resolve|render-rulebook|upsert|retire-readiness|block-readiness
                                 List, audit, explain, resolve, render generated views, upsert typed behavior policies, or preflight rulebook/block readiness
   rules list|resolve|audit
@@ -209,6 +211,13 @@ case "$cmd" in
       exit 127
     fi
     LAZY_AGENT_RUNTIME="omp" LAZY_OMP_TARGET_REPO="$LAZY_INVOCATION_CWD" exec bun "$SCRIPTS/pi-package.ts" "$@"
+    ;;
+  architecture)
+    if ! command -v bun >/dev/null 2>&1; then
+      echo "lazy architecture: bun not found on PATH. Install bun first: https://bun.sh" >&2
+      exit 127
+    fi
+    exec bun "$SCRIPTS/architecture-profile.ts" "$@"
     ;;
   capability)
     if ! command -v bun >/dev/null 2>&1; then

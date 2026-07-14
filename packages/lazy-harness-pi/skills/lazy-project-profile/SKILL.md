@@ -26,6 +26,9 @@ This is an interview-first framework skill. Do not silently invent architecture 
 - .lazy-harness/spec/platform/project-profile.md
 - .lazy-harness/plans/project-init-interview-spec.md
 - .lazy-harness/decisions/0024-ai-first-framework-redesign.md
+- .lazy-harness/spec/platform/project-profile-v2.md
+- .lazy-harness/spec/platform/architecture-guidance.md
+- .lazy-harness/ssot/architecture-guidance-storage.md
 
 ## Flow
 
@@ -38,10 +41,14 @@ This is an interview-first framework skill. Do not silently invent architecture 
 7. Only after confirmation, apply matching answers: bun .lazy-harness/scripts/project-profile.ts --mode fill --answers answers.json --confirm --format=md
 8. Inspect existing host records and code structure.
 9. Check whether Document Resource Ingestion outputs exist and should be used; if outside docs need assimilation, use the separate ingestion flow.
-10. Ask 3-5 option gates for decisions that cannot be inferred.
-11. Never invent architecture defaults; generated skeletons must remain status=needs-interview until confirmed.
-12. Run lazy-harness validation.
+10. Run Interview V2 without architecture input first: bun .lazy-harness/scripts/project-profile.ts --mode interview-v2 --dry-run --format=json
+11. Architecture candidates default to an empty array. Load them only from an explicit, reviewable file with --architecture-candidates <path>.
+12. Queue accepted architecture candidates with queue-v2. Promotion writes queue metadata only and delegates to lazy architecture plan; it never writes .lazy-harness/project/architecture-map.json.
+13. Use /lazy-architecture-refactor for a separately approved Host Architecture Map or source-refactor batch.
+14. Ask 3-5 option gates for decisions that cannot be inferred.
+15. Never invent architecture defaults; generated skeletons must remain status=needs-interview and architecture observations must remain status=candidate until separately confirmed.
+16. Run lazy-harness validation.
 
-Current interview CLI writes only .lazy-harness/project/profile-interview.xml. Fill applies only explicit answer targets and reports unmatched answers without writing them.
+Current V1 interview CLI writes only .lazy-harness/project/profile-interview.xml. Fill applies only explicit answer targets and reports unmatched answers without writing them. Interview V2 is read-only; queue-v2 writes only the profile queue; architecture promotion delegates to `lazy architecture plan` and does not write the Host Architecture Map.
 
 This skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.

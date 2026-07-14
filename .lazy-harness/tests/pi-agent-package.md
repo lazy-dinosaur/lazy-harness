@@ -13,6 +13,7 @@ Layer: TDD
 - Applies when:
   - working on the in-repo Pi/OMP agent package install or wrapper UX
   - bridging agent extension events to lazy-harness lifecycle hooks or changing reminder/mutation-guard behavior
+  - adding or changing a shared Pi/OMP package skill
 - Must:
   - keep separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp` resources
   - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit driven as a bounded continuation: `pi.sendUserMessage(body, { deliverAs: "followUp" })`, loop-capped by `MAX_ADVISORY_CONTINUATIONS` plus `MAX_ADVISORY_CHAIN_CONTINUATIONS`, falling back to non-steering display without a custom transport label); preserve OMP string-array `systemPrompt` blocks
@@ -24,6 +25,7 @@ Layer: TDD
   - keep OMP's native `ask` selector active (`ensureAskToolActive` on `before_agent_start`) so option gates render as selectable choices under tool discovery mode; add-only, interactive-only, fail-open
   - surface a visible per-start `lazy-harness read-debt` marker with runtime marker/root/status/phase/tool-guard (`status=armed`, `status=not-armed(synthetic-turn)`, `status=not-armed(hook-empty)`, `status=not-armed(hook-timeout)`, `status=not-armed(hook-error)`) plus concise hook detail for failures; synthetic/steering starts are debug-only and must not create read-debt journal rows, large hook payloads must be handed to Python helpers by temp-file/ref rather than argv/env to avoid ARG_MAX hook-empty/error loops, and lazy-root action tools still block with `read-debt not armed` plus status/detail when the turn did not arm
   - project-local activation must merge `.pi/settings.json` with project-owned skill paths (`../.claude/skills`, `../.codex/skills`, `../.agents/skills`) and `enableSkillCommands: true` without relying on global wildcard behavior
+  - expose `lazy-architecture-refactor` through the shared `skills/` resource with separate map/source approval gates, exact digest confirmation, stop rules, and no enforcement
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
 - Record completion:
@@ -50,7 +52,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Default/global install, explicit local install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
 | `lazy_omp_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy omp install/list/remove/smoke/doctor` is documented and dispatched separately from `lazy pi` |
-| `lazy_omp_wrapper_dry_run` | Run `pi-package.ts` with `LAZY_AGENT_RUNTIME=omp` and lazy CLI OMP dispatch fixtures | OMP install/remove/smoke dry-runs produce exact `omp plugin install`, `omp plugin uninstall`, and `omp -e` command arrays without mutating plugin settings |
+| `lazy_omp_wrapper_dry_run` | Run `pi-package.ts` with `LAZY_AGENT_RUNTIME=omp` and lazy CLI OMP dispatch fixtures | OMP install/remove/smoke dry-runs produce exact `omp plugin link`, `omp plugin uninstall`, and `omp -e` command arrays without mutating plugin settings |
 | `lazy_omp_wrapper_doctor_no_smoke` | Run OMP doctor no-smoke in non-strict mode | Doctor is safe in environments without persistent OMP plugin settings and reports that smoke is skipped/non-mutating |
 | `lazy_pi_source_target_isolation` | Run `lazy pi install --local --dry-run` and direct `pi-package.ts` from another cwd with stale parent `LAZY_INVOCATION_CWD`, plus explicit `--target-repo` | Source package path stays in the lazy-harness source checkout while target repo resolves to caller/explicit repo; direct wrapper ignores stale parent invocation cwd unless `LAZY_PI_TARGET_REPO` or `--target-repo` is set |
 | `lazy_pi_global_bootstrap_no_harness_noop` | Fake runtime calls `before_agent_start` from a temp directory without `.lazy-harness/bin/lazy` | The globally loaded extension returns `undefined` and injects no lazy-harness reminder |
@@ -71,7 +73,8 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
 | `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response` (assistant prose), `last_user_message`, and a `recent_tool_calls[].args_preview` containing the written path |
 | `pi_extension_ensure_ask_tool_active` | Fake runtime with `ask` present in `getAllTools` but not in `getActiveTools` calls `before_agent_start` | Extension calls `setActiveTools` with the existing active set plus `ask` (add-only); a runtime missing the `ask` tool or the tool APIs is a graceful no-op (no throw) |
-| `pi_package_skills` | Inspect package skills | `lazy-init`, `lazy-doctor`, `lazy-sync`, `lazy-update`, and `lazy-test` expose `SKILL.md` wrappers |
+| `pi_package_skills` | Inspect package skills | core wrappers plus `lazy-architecture-refactor` expose valid `SKILL.md` resources to both Pi and OMP |
+| `architecture_refactor_skill_contract` | Inspect `lazy-architecture-refactor/SKILL.md` | required records, exact map digest, confirmation ref, separate source gate, single-batch boundary, stop rules, no enforcement, and no canary source edit are explicit |
 
 ## Automated coverage
 
@@ -108,7 +111,7 @@ pi -e "$LAZY_HARNESS_PI_PACKAGE" --help
 pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve
 pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve
 omp -e "$LAZY_HARNESS_PI_PACKAGE" --help
-omp plugin install "$LAZY_HARNESS_PI_PACKAGE"
+omp plugin link "$LAZY_HARNESS_PI_PACKAGE"
 omp plugin list
 ```
 
@@ -135,7 +138,8 @@ omp plugin list
 - `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for the mid-turn `context` re-grounding body.
 - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded operating-rule/capability catalog enumeration timeout (`LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS`, default 3s).
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
-- `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for skill availability.
+- `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
+- `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation, including fake live-session `/move` re-scope and post-steer evidence re-arming.
 
 ## Rule placement

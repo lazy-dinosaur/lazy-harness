@@ -1,0 +1,287 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lazy-harness.local/schemas/architecture-profile-catalog.schema.json",
+  "title": "Lazy-Harness Architecture Profile Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "catalogId",
+    "catalogVersion",
+    "principleRefs",
+    "projectBaseDimensions",
+    "values",
+    "aliases",
+    "relations",
+    "semanticOwnerRefs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "architecture-profile-catalog/v1"
+    },
+    "catalogId": {
+      "$ref": "#/definitions/stableId"
+    },
+    "catalogVersion": {
+      "$ref": "#/definitions/semver"
+    },
+    "principleRefs": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ARCH-L1-0[1-6]$"
+      }
+    },
+    "projectBaseDimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unitTopology",
+        "packageTopology",
+        "deploymentTopology",
+        "ownershipTopology"
+      ],
+      "properties": {
+        "unitTopology": {
+          "type": "array",
+          "const": ["single-unit", "multi-unit"]
+        },
+        "packageTopology": {
+          "type": "array",
+          "const": ["single-package", "multi-package"]
+        },
+        "deploymentTopology": {
+          "type": "array",
+          "const": ["single-deployment", "multi-deployment", "hybrid"]
+        },
+        "ownershipTopology": {
+          "type": "array",
+          "const": ["single-owner", "multi-owner"]
+        }
+      }
+    },
+    "values": {
+      "type": "array",
+      "minItems": 18,
+      "items": {
+        "$ref": "#/definitions/profileValue"
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/profileAlias"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/profileRelation"
+      }
+    },
+    "semanticOwnerRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/semanticOwnerRef"
+      }
+    }
+  },
+  "definitions": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:[.:][a-z0-9][a-z0-9-]*)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "rootBoundRef": {
+      "type": "string",
+      "pattern": "^\\.lazy-harness/(?!.*\\/(?:\\.{1,2})(?:/|$))(?!.*\\\\)(?:domain|spec|behavior|tests|decisions|ssot|rules|project|planning|evidence|framework/operational-adrs)/.+$"
+    },
+    "semanticOwnerRef": {
+      "type": "string",
+      "pattern": "^\\.lazy-harness/(?!.*\\/(?:\\.{1,2})(?:/|$))(?!.*\\\\)(?:domain|spec|behavior|tests|decisions|ssot|rules|framework/operational-adrs)/.+$"
+    },
+    "valueRef": {
+      "type": "string",
+      "pattern": "^(?:runtime|organization|operational)/[a-z][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "profileValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "axis", "status", "summary", "constraintRefs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:runtime|organization|operational)/[a-z][a-z0-9-]*$"
+        },
+        "version": {
+          "$ref": "#/definitions/semver"
+        },
+        "axis": {
+          "enum": ["runtime", "organization", "operational"]
+        },
+        "status": {
+          "enum": ["active", "deprecated"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constraintRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/rootBoundRef"
+          }
+        }
+      }
+    },
+    "aliasParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "scopeKinds"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$"
+        },
+        "scopeKinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["host", "unit", "entrypoint", "responsibility"]
+          }
+        }
+      }
+    },
+    "aliasBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "valueRef", "scopeParameter", "semanticOwnerRefs"],
+      "properties": {
+        "axis": {
+          "enum": ["runtime", "organization", "operational"]
+        },
+        "valueRef": {
+          "$ref": "#/definitions/valueRef"
+        },
+        "scopeParameter": {
+          "type": "string",
+          "pattern": "^[a-z][a-zA-Z0-9]*$"
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semanticOwnerRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/semanticOwnerRef"
+          }
+        }
+      }
+    },
+    "profileAlias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "status",
+        "parameters",
+        "bindings",
+        "assumptions",
+        "omissions",
+        "activationEvidence",
+        "exitTriggers",
+        "constraintRefs"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/stableId"
+        },
+        "version": {
+          "$ref": "#/definitions/semver"
+        },
+        "status": {
+          "enum": ["active", "deprecated"]
+        },
+        "parameters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/aliasParameter"
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/aliasBinding"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "omissions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "activationEvidence": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "exitTriggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "constraintRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/rootBoundRef"
+          }
+        }
+      }
+    },
+    "profileRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "from", "to", "scopeRule", "decisionRef"],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/stableId"
+        },
+        "type": {
+          "enum": ["requires", "compatibleWith", "conflictsWith", "strengthens"]
+        },
+        "from": {
+          "$ref": "#/definitions/valueRef"
+        },
+        "to": {
+          "$ref": "#/definitions/valueRef"
+        },
+        "scopeRule": {
+          "enum": ["same", "overlap", "explicit-cross-scope"]
+        },
+        "decisionRef": {
+          "$ref": "#/definitions/semanticOwnerRef"
+        }
+      }
+    }
+  }
+}
