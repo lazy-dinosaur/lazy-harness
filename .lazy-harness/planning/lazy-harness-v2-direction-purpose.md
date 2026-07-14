@@ -6,12 +6,21 @@ Layer: Planning
 Related DDD: `.lazy-harness/domain/searchable-record-memory.md`
 Related SSOT: `.lazy-harness/ssot/project-navigation.md`, `.lazy-harness/ssot/rule-sources.md`
 Related Project Map: `.lazy-harness/project/feature-navigation.xml`
+Related architecture guidance: `.lazy-harness/planning/cross-stack-architecture-guidance.md`
 
 ## Purpose
 
 Lazy-Harness V2 should help an agent keep durable understanding of a project as the project evolves.
 
 The core product is not a CLI, folder taxonomy, hook, or graph search engine. The core product is an expanding **project map / project atlas**: a structured memory of facts, expectations, contracts, decisions, validation evidence, ownership, and source links.
+
+## Confirmed architecture-convention objective (2026-07-13)
+
+The architecture/convention work is not a Goedamjip-only cleanup or a request to standardize Goedamjip's current folders. Its goal is to make Lazy-Harness help agents structure and design code across frontend, backend, and multiple host projects.
+
+Goedamjip is one reference case from which reusable strengths, failure modes, and candidate principles can be extracted. FSD is likewise comparison evidence, not the mandatory target architecture. The eventual framework shape must separate cross-project design invariants from stack-, architecture-, and host-specific choices.
+
+This confirmation fixes the scope only. It does not yet approve a fixed folder taxonomy, convention-pack format, profile hierarchy, enforcement level, or implementation.
 
 ## Direction
 
@@ -62,6 +71,12 @@ The core product is not a CLI, folder taxonomy, hook, or graph search engine. Th
    - Other policies can follow the same pattern: system design review, dependency addition, schema migration, database changes, UI accessibility checks, security checks, release dispatch, PR body style, branch strategy, documentation updates, or human confirmation boundaries can vary by turn, edit, commit, push, release, or high-risk mutation boundary.
    - V2 should model this as flexible project policy machinery, not as one hardcoded testing workflow.
 
+9. **Three-layer architecture guidance**
+   - Layer 1 defines cross-project invariants such as cohesion, dependency direction, public boundaries, ownership, runtime separation, validation, resource lifecycle, and change protection without prescribing one folder taxonomy.
+   - Layer 2 provides selectable stack/architecture profiles for frontend applications, backend services, CLI/worker runtimes, monorepos and multi-service systems, including patterns such as feature composition, FSD-inspired boundaries, vertical slices, hexagonal boundaries, and package/service ownership.
+   - Layer 3 records confirmed host-project choices, mappings, exceptions, and enforcement levels through Project Profile and canonical layer records.
+   - Reference projects such as Goedamjip and external methods such as FSD are evidence inputs used to refine principles and profiles; neither becomes the universal default by itself.
+
 ## Non-goals for this direction note
 
 - This is not implementation approval.
@@ -92,7 +107,13 @@ Project interview is one structured bootstrap/refresh channel for this machinery
 - Primary record: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
 - Why not AGENTS.md: this is architectural direction, not an immediate prompt rule.
 - Why not `.jcode`: the direction explicitly reduces Jcode-specific coupling and applies to the shared framework.
-- Confirmation: user-confirmed as direction/purpose discussion, not implementation approval.
+- Confirmation: user-confirmed as direction/purpose discussion. On 2026-07-13 the
+  user clarified that architecture/convention guidance must span frontend, backend,
+  and multiple host projects, selected the three-layer model, and explicitly
+  approved balanced research across frontend applications, backend services,
+  CLI/worker runtimes, monorepos, and multi-service systems. Goedamjip/FSD remain
+  one frontend evidence track rather than the center. This confirms research
+  scope, not implementation or enforcement changes.
 
 ## Discovery capture
 
@@ -100,6 +121,8 @@ Project interview is one structured bootstrap/refresh channel for this machinery
 - BDD: candidate only; implies agent behavior should maintain project understanding and follow stage-aware project policies.
 - SDD: candidate only; future project policy schema should model stage-aware execution and policy levels.
 - TDD: candidate only; testing policy is an example of stage-aware validation behavior, not the center of the V2 policy model.
-- ADR: none yet; trade-off decision still needs a future ADR if adopted.
+- ADR: ADR 0054 adopts the three-layer architecture guidance model; its approved
+  implementation slices are tracked through dedicated SDD/TDD/SSOT records and
+  execution evidence.
 - SSOT: candidate only; future taxonomy/ownership records may be needed.
 - Planning: updated by this draft direction record.
