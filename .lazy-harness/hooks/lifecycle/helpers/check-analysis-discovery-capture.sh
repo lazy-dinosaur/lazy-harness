@@ -22,6 +22,7 @@ except Exception:
 
 WRITE_TOOLS = {
     "Write", "Edit", "MultiEdit", "write", "edit", "multiedit",
+    "replace", "functions.replace",
     "mcp__filesystem__write_file", "mcp__filesystem__edit_file",
 }
 CAPTURE_RE = re.compile(

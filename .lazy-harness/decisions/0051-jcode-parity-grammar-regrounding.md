@@ -99,17 +99,20 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-context.sh` — mid-turn re-grounding body (search §2.1/§2.5 + capture §2.4 + interactive grammar)
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — turn-start harness-first reminder
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `context` handler, `FILE_OP_TOOLS`, `pendingRegroundByRoot`/`regroundBodyByRoot`, jcode-shape `agent_end` payload, `ensureAskToolActive`
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `context` handler, `FILE_OP_TOOLS`, `pendingRegroundByRoot`/`regroundBodyByRoot`, jcode-shape `agent_end` payload, opt-in content-free `agent_end` trace, `ensureAskToolActive`
 - Key symbols:
   - `context` handler + `pendingRegroundByRoot` (`index.ts`) — one re-inject per file-op batch, reset per turn
   - re-grounding body phrases `NOT record-grounding` / `Capture before you finish` — search + capture mandates
+  - `agentEndTracePath` / `writeAgentEndTrace` — opt-in runtime-root diagnostics that preserve payload and continuation semantics
 - Commits: `1ccfd05` (re-grounding wiring), `62fc284` (jcode-shape agent_end payload), `791d659` (native `ask` option gates), `069d603` (option-gate-discipline false positives), `3617769` (relevant-record search mandate), `deb9d53` (turn-end capture mandate), `3bb06d5` (SDD record + fixture)
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py` — pi-package context-injection assertion checks the body carries `re-grounding`, `NOT record-grounding`, `Capture before you finish`
+  - `.lazy-harness/scripts/self-test.py` — pi-package assertions protect re-grounding plus jcode-shape `agent_end` projection and content-free trace behavior
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
   - ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md` (decommission that removed `load_harness_dir`), `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` (organic, not hard-gate)
 - Machine index:
+  - graph ids: `kg_pi_agent_end_structural_trace_impl_20260714`,
+    `kg_pi_agent_end_structural_trace_test_20260714`
   - generated index key: `pending until implementation-index generator exists`
 
 ## Rule placement
@@ -129,3 +132,13 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - TDD: `pi-agent-package.md` context-injection self-test assertion extended for the search+capture mandate phrases.
 - SSOT: none changed; `cli-tool-boundary.md`/`harness-enforcement-policy.md` remain authoritative (no tool-specific policy added).
 - Planning: none (decision recorded here; live fresh-session verification pending).
+
+## Discovery capture — Pi agent-end trace
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in `pi-agent-package.md`; this ADR's implementation map only gained the verified diagnostic symbols.
+- BDD: none because normal agent behavior is unchanged.
+- TDD: updated in `pi-agent-package.md` and `self-test.py`.
+- ADR: none semantic because the opt-in trace does not change the accepted runtime decision.
+- SSOT: updated in `runtime-and-shared-state.md` for the runtime-only path.
+- Planning: updated in the analysis-discovery capture backlog; fresh source-linked trace passed and current remediation was user-closed without changing runtime semantics.

@@ -76,6 +76,7 @@ These are non-canonical and default to `LAZY_RUNTIME_ROOT`:
 - `state/last-session.json`
 - `logs/hook-timings.jsonl`
 - `logs/lifecycle-compare.jsonl`
+- `logs/pi-agent-end-trace.jsonl` — opt-in, content-free Pi `agent_end` structural diagnostics; newest 50 rows only, with bounded message/content-kind/tool metadata per row and atomic temp-file replacement
 - `logs/actions.jsonl` entries created by disconnect/runtime hooks
 
 Runtime-only state may be pruned without losing durable project knowledge.
@@ -113,6 +114,7 @@ Only `deduped-identical` may skip writing. Idless rows may only dedupe by identi
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes static search-debt packet journal to runtime state.
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — reads the matching runtime packet journal for the same session/worktree.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — writes timing/compare logs to runtime logs.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — resolves the canonical runtime log path and writes opt-in structural `agent_end` trace rows.
   - `.lazy-harness/hooks/lifecycle/helpers/check-record-decision-shadow.py` — writes record-decision shadow journal to runtime state.
   - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — reads runtime packet journal.
   - `.lazy-harness/hooks/lifecycle/helpers/gate-fingerprint.sh` and `.lazy-harness/scripts/gate-state.ts` — use runtime `open-gates.json`.
@@ -123,11 +125,16 @@ Only `deduped-identical` may skip writing. Idless rows may only dedupe by identi
   - `LAZY_SHARED_ROOT`
   - `runtimeRoot`, `sharedRoot`, `appendJsonlStable`
   - `runtime_state_path`, `append_jsonl_stable`
+  - `agentEndTracePath`, `writeAgentEndTrace`
   - `git-action.lockdir`
 - Tests / protection:
   - `.lazy-harness/tests/parallel-runtime-state-isolation.md`
   - `check_parallel_runtime_state_isolation`
   - `check_shared_jsonl_conflict_visible`
+  - `check_pi_package_layout_and_contract` — verifies trace default-off behavior, runtime-root placement, structural-only fields, and queued follow-up preservation.
+- Machine index:
+  - `kg_pi_agent_end_structural_trace_impl_20260714`
+  - `kg_pi_agent_end_structural_trace_test_20260714`
   - `check_pre_commit_runs_lazy_test`
 
 ## Layer completeness
@@ -143,3 +150,13 @@ Only `deduped-identical` may skip writing. Idless rows may only dedupe by identi
 
 - Planning: previous backlog item "Parallel record writes with conflict boundaries" is now partly implemented for runtime isolation, JSONL stable append, and git-action lock.
 - Remaining work: scoped XML question queues and full MD write DAG remain future work unless later dogfood shows blocking failures.
+
+## Discovery capture — Pi agent-end trace
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated because the runtime-state contract now includes the opt-in structural trace.
+- BDD: none because tracing is disabled by default and does not change visible agent flow.
+- TDD: updated in `.lazy-harness/tests/parallel-runtime-state-isolation.md` and `.lazy-harness/tests/pi-agent-package.md`.
+- ADR: none because the trace preserves ADR 0051 runtime behavior and adds no enforcement.
+- SSOT: updated in `.lazy-harness/ssot/runtime-and-shared-state.md` with the canonical runtime path.
+- Planning: updated in `.lazy-harness/planning/analysis-discovery-capture-backlog.md`.

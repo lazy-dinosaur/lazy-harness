@@ -2,7 +2,7 @@ import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-age
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +10,13 @@ const EXTENSION_NAME = "lazy-harness";
 const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-steering-20260701";
 const MAX_RECENT_TOOL_CALLS = 80;
 const DEFAULT_TIMEOUT_MS = Number(process.env.LAZY_HARNESS_PI_HOOK_TIMEOUT_MS || 15000);
+const AGENT_END_TRACE_ENV = "LAZY_PI_AGENT_END_TRACE";
+const AGENT_END_TRACE_NAME = "pi-agent-end-trace.jsonl";
+const MAX_AGENT_END_TRACE_MESSAGE_SHAPES = 40;
+const MAX_AGENT_END_TRACE_CONTENT_KINDS = 12;
+const MAX_AGENT_END_TRACE_TOOL_NAMES = 40;
+const MAX_AGENT_END_TRACE_ROWS = 50;
+const MAX_AGENT_END_TRACE_METADATA_CHARS = 128;
 
 type JsonObject = Record<string, unknown>;
 type ReadDebtStatus = "armed" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
@@ -186,6 +193,123 @@ function lastMessageTextByRole(messages: unknown, role: string): string {
     if ((messages[i] as { role?: string } | undefined)?.role === role) return messageText(messages[i]);
   }
   return "";
+}
+
+function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function boundedTraceMetadata(value: unknown, maxChars = MAX_AGENT_END_TRACE_METADATA_CHARS): string {
+  return String(value ?? "").slice(0, maxChars);
+}
+
+function traceContentShape(content: unknown): { contentPartCount: number; contentKinds: string[]; contentKindsTruncated: boolean } {
+  const parts = Array.isArray(content) ? content : content == null ? [] : [content];
+  const contentKinds = parts.slice(0, MAX_AGENT_END_TRACE_CONTENT_KINDS).map((part) => {
+    if (typeof part === "string") return "string";
+    if (part && typeof part === "object" && typeof (part as { type?: unknown }).type === "string") {
+      return boundedTraceMetadata((part as { type: string }).type, 64);
+    }
+    return part == null ? "none" : typeof part;
+  });
+  return {
+    contentPartCount: parts.length,
+    contentKinds,
+    contentKindsTruncated: parts.length > MAX_AGENT_END_TRACE_CONTENT_KINDS,
+  };
+}
+
+function traceMessageShapes(messages: unknown): Array<{ role: string; contentPartCount: number; contentKinds: string[]; contentKindsTruncated: boolean }> {
+  if (!Array.isArray(messages)) return [];
+  return messages.slice(-MAX_AGENT_END_TRACE_MESSAGE_SHAPES).map((message) => {
+    const item = message && typeof message === "object" ? message as { role?: unknown; content?: unknown } : {};
+    return {
+      role: boundedTraceMetadata(typeof item.role === "string" ? item.role : "unknown", 64),
+      ...traceContentShape(item.content),
+    };
+  });
+}
+
+function traceTextFingerprint(value: string): { present: boolean; bytes: number; hash: string | null } {
+  return {
+    present: value.length > 0,
+    bytes: utf8ByteLength(value),
+    hash: value.length > 0 ? stableHash(value) : null,
+  };
+}
+
+function agentEndTracePath(root: string, payload: JsonObject): string | undefined {
+  const explicitRuntimeRoot = String(process.env.LAZY_RUNTIME_ROOT || "").trim();
+  if (explicitRuntimeRoot) return join(resolve(explicitRuntimeRoot), "logs", AGENT_END_TRACE_NAME);
+
+  const helper = join(root, ".lazy-harness", "hooks", "lifecycle", "helpers", "runtime_paths.py");
+  if (!existsSync(helper)) return undefined;
+  const runtimePayload = JSON.stringify({ session_id: payload.session_id });
+  const completed = spawnSync(process.env.PYTHON_BIN || "python3", [helper, "log-path", runtimePayload, AGENT_END_TRACE_NAME], {
+    cwd: root,
+    encoding: "utf8",
+    timeout: DEFAULT_TIMEOUT_MS,
+    env: { ...process.env, LAZY_HOST_ROOT: root },
+  });
+  if (completed.status !== 0) return undefined;
+  const resolvedPath = String(completed.stdout || "").trim();
+  return resolvedPath ? resolve(resolvedPath) : undefined;
+}
+
+function writeBoundedAgentEndTrace(tracePath: string, row: Record<string, unknown>): void {
+  const existingLines = existsSync(tracePath)
+    ? readFileSync(tracePath, "utf8").split(/\r?\n/).filter(Boolean)
+    : [];
+  const retained = existingLines.slice(-(MAX_AGENT_END_TRACE_ROWS - 1));
+  retained.push(JSON.stringify(row));
+  const tempPath = `${tracePath}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tempPath, `${retained.join("\n")}\n`, { encoding: "utf8", flag: "w", mode: 0o600 });
+  renameSync(tempPath, tracePath);
+}
+
+function writeAgentEndTrace(
+  root: string,
+  payload: JsonObject,
+  messages: unknown,
+  recentToolCalls: RecentToolCall[],
+  hook: HookResult,
+  advisoryBody: string | undefined,
+): void {
+  if (process.env[AGENT_END_TRACE_ENV] !== "1") return;
+  try {
+    const tracePath = agentEndTracePath(root, payload);
+    if (!tracePath) return;
+    const messageList = Array.isArray(messages) ? messages : [];
+    const assistantResponse = String(payload.assistant_response || "");
+    const lastUserMessage = String(payload.last_user_message || "");
+    const row = {
+      schemaVersion: "pi-agent-end-trace/v1",
+      timestamp: new Date().toISOString(),
+      event: "pi.agent_end.response.completed",
+      rootHash: stableHash(root),
+      sessionHash: stableHash(payload.session_id),
+      messageCount: messageList.length,
+      messageShapesTruncated: messageList.length > MAX_AGENT_END_TRACE_MESSAGE_SHAPES,
+      messageShapes: traceMessageShapes(messageList),
+      assistantResponse: traceTextFingerprint(assistantResponse),
+      lastUserMessage: traceTextFingerprint(lastUserMessage),
+      recentToolNames: recentToolCalls
+        .slice(-MAX_AGENT_END_TRACE_TOOL_NAMES)
+        .map((call) => boundedTraceMetadata(call.name || "unknown")),
+      hook: {
+        status: hook.status,
+        signal: hook.signal ? boundedTraceMetadata(hook.signal, 32) : null,
+        error: Boolean(hook.error),
+        stdout: traceTextFingerprint(hook.stdout || ""),
+        stderr: traceTextFingerprint(hook.stderr || ""),
+      },
+      advisory: traceTextFingerprint(advisoryBody || ""),
+    };
+    mkdirSync(dirname(tracePath), { recursive: true, mode: 0o700 });
+    writeBoundedAgentEndTrace(tracePath, row);
+  } catch {
+    // Diagnostics are opt-in and fail-open; tracing must never alter agent behavior.
+  }
 }
 
 // OMP/Pi expose a native interactive `ask` selector (loadMode "discoverable"), which tool
@@ -672,23 +796,30 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const messages = Array.isArray(event.messages) ? event.messages : [];
+    const recentToolCalls = recentToolCallsForRoot(root).slice(-40);
+    const assistantResponse = lastMessageTextByRole(messages, "assistant");
+    const lastUserMessage = lastMessageTextByRole(messages, "user");
     const payload: JsonObject = {
       event: "response.completed",
       source: EXTENSION_NAME,
       session_id: packet.sessionId,
       message_id: packet.messageId,
       working_dir: root,
-      recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
+      recent_tool_calls: recentToolCalls,
       // jcode-shape parity: on-response-completed helpers walk the assistant response
       // prose and last user message (e.g. discovery-capture satisfaction #2).
-      assistant_response: lastMessageTextByRole(messages, "assistant"),
-      last_user_message: lastMessageTextByRole(messages, "user"),
+      assistant_response: assistantResponse,
+      last_user_message: lastUserMessage,
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-response-completed.sh");
-    if (!existsSync(script)) return undefined;
+    if (!existsSync(script)) {
+      writeAgentEndTrace(root, payload, messages, recentToolCalls, { stdout: "", stderr: "", status: 127, error: "hook-missing" }, undefined);
+      return undefined;
+    }
     const hook = runHook(script, payload, root);
     const body = hookInjectBody(hook.stdout);
+    writeAgentEndTrace(root, payload, messages, recentToolCalls, hook, body);
     if (!body) {
       lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
       return undefined;

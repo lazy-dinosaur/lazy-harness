@@ -772,6 +772,21 @@ def check_analysis_discovery_capture_helper() -> None:
     if planning.strip():
         fail("analysis discovery capture helper should pass when planning is updated:\n" + planning)
 
+    for tool_name in ("replace", "functions.replace", "Edit"):
+        mutation_payload = {
+            "assistant_response": blocked_payload["assistant_response"],
+            "recent_tool_calls": [{
+                "name": tool_name,
+                "args_preview": ".lazy-harness/planning/example-backlog.md",
+            }],
+        }
+        mutation = run_analysis_discovery_capture_helper(mutation_payload)
+        if mutation.strip():
+            fail(
+                f"analysis discovery capture helper should pass for {tool_name} capture evidence:\n"
+                + mutation
+            )
+
     candidate_payload = {
         "assistant_response": blocked_payload["assistant_response"],
         "recent_tool_calls": [{
@@ -1743,6 +1758,11 @@ def check_pi_package_layout_and_contract() -> None:
         "assistant_response",
         "args_preview",
         "lastMessageTextByRole",
+        "LAZY_PI_AGENT_END_TRACE",
+        "pi-agent-end-trace.jsonl",
+        "writeAgentEndTrace",
+        "writeBoundedAgentEndTrace",
+        "MAX_AGENT_END_TRACE_ROWS",
         "ensureAskToolActive",
         "setActiveTools",
         "getAllTools",
@@ -2359,19 +2379,30 @@ def check_pi_package_layout_and_contract() -> None:
         proot = payload_smoke / "repo"
         (proot / ".lazy-harness" / "bin").mkdir(parents=True)
         (proot / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
+        (proot / ".lazy-harness" / "hooks" / "lifecycle" / "helpers").mkdir(parents=True)
+        shutil.copy2(
+            LAZY / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py",
+            proot / ".lazy-harness" / "hooks" / "lifecycle" / "helpers" / "runtime_paths.py",
+        )
+        subprocess.run(["git", "init", "-q"], cwd=proot, text=True, capture_output=True, check=True)
         (proot / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
         msg_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
         msg_hook.write_text("#!/usr/bin/env bash\nprintf '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n", encoding="utf-8")
         msg_hook.chmod(0o755)
         rc_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
-        rc_hook.write_text("#!/usr/bin/env bash\ncat > .lazy-harness/last-response-payload.json\n", encoding="utf-8")
+        rc_hook.write_text(
+            "#!/usr/bin/env bash\ncat > .lazy-harness/last-response-payload.json\nif [ \"${LAZY_TEST_EMIT_ADVISORY:-}\" = \"1\" ]; then printf '{\"inject\":{\"body\":\"TRACE_ADVISORY_BODY\"}}'; fi\n",
+            encoding="utf-8",
+        )
         rc_hook.chmod(0o755)
         smoke = payload_smoke / "agent-end-payload.ts"
         smoke.write_text(
-            "import { readFileSync } from 'node:fs';\n"
+            "import { createHash } from 'node:crypto';\n"
+            "import { existsSync, readFileSync, writeFileSync } from 'node:fs';\n"
             "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
             "const handlers = new Map();\n"
-            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}}, sendUserMessage(){}, sendMessage(){} };\n"
+            "const sent = [];\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}}, sendUserMessage(msg,opts){sent.push({msg,opts})}, sendMessage(){} };\n"
             "lazyHarnessPi(pi);\n"
             "const proot=" + json.dumps(str(proot)) + ";\n"
             "const ctx={cwd:proot, signal:undefined, ui:{notify(){}}};\n"
@@ -2380,14 +2411,53 @@ def check_pi_package_layout_and_contract() -> None:
             "const candidateWrite=await handlers.get('tool_call')({toolName:'write', input:{file_path:'.lazy-harness/knowledge/candidates.jsonl', content:'{}'}, toolCallId:'w1'}, ctx);\n"
             "if(candidateWrite?.block) throw new Error('candidate fixture write unexpectedly blocked');\n"
             "await handlers.get('tool_result')({toolName:'write', input:{file_path:'.lazy-harness/knowledge/candidates.jsonl', content:'{}'}, toolCallId:'w1', content:'ok'}, ctx);\n"
-            "const msgs=[{role:'user',content:'analyze the redesign',timestamp:1},{role:'assistant',content:[{type:'text',text:'## Discovery capture done'}],timestamp:2}];\n"
+            "const assistantParts=Array.from({length:16},(_,i)=>({type:i===0?'text':'kind-'+i,text:i===0?'## Discovery capture done':''}));\n"
+            "const msgs=[{role:'user',content:'analyze the redesign',timestamp:1},{role:'assistant',content:assistantParts,timestamp:2}];\n"
+            "const tracePath=proot+'/.runtime-agent-end/logs/pi-agent-end-trace.jsonl';\n"
             "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "if(existsSync(tracePath)) throw new Error('agent_end structural trace must be default-off');\n"
             "const p=JSON.parse(readFileSync(proot+'/.lazy-harness/last-response-payload.json','utf8'));\n"
             "if(!String(p.assistant_response||'').includes('Discovery capture done')) throw new Error('agent_end payload missing assistant_response prose');\n"
             "if(String(p.last_user_message||'').indexOf('analyze the redesign')<0) throw new Error('agent_end payload missing last_user_message');\n"
             "const tc=(p.recent_tool_calls||[]).find((c)=>String(c.args_preview||'').includes('candidates.jsonl'));\n"
             "if(!tc) throw new Error('agent_end recent_tool_calls missing args_preview with the written path');\n"
-            "console.log('pi agent_end jcode-shape payload ok');\n",
+            "process.env.LAZY_PI_AGENT_END_TRACE='1';\n"
+            "process.env.LAZY_RUNTIME_ROOT=proot+'/.runtime-agent-end';\n"
+            "process.env.LAZY_TEST_EMIT_ADVISORY='1';\n"
+            "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "if(sent.length!==1 || sent[0].msg!=='TRACE_ADVISORY_BODY' || sent[0].opts?.deliverAs!=='followUp') throw new Error('agent_end advisory was not queued as one followUp');\n"
+            "if(!existsSync(tracePath)) throw new Error('opt-in agent_end structural trace missing from runtime root');\n"
+            "const traceRows=readFileSync(tracePath,'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse);\n"
+            "const trace=traceRows[traceRows.length-1];\n"
+            "if(trace.schemaVersion!=='pi-agent-end-trace/v1' || trace.messageCount!==2) throw new Error('agent_end trace metadata mismatch');\n"
+            "if(trace.messageShapes.map((m)=>m.role).join(',')!=='user,assistant') throw new Error('agent_end trace role projection mismatch');\n"
+            "if(trace.messageShapes[1].contentKinds[0]!=='text') throw new Error('agent_end trace content-kind projection mismatch');\n"
+            "if(trace.messageShapes[1].contentPartCount!==16 || trace.messageShapes[1].contentKinds.length!==12 || !trace.messageShapes[1].contentKindsTruncated) throw new Error('agent_end trace content-kind bounds missing');\n"
+            "if(!trace.assistantResponse.present || trace.assistantResponse.bytes<=0 || String(trace.assistantResponse.hash||'').length!==16) throw new Error('agent_end assistant fingerprint missing');\n"
+            "if(!trace.lastUserMessage.present || !trace.recentToolNames.includes('write')) throw new Error('agent_end trace missing structural user/tool evidence');\n"
+            "if(trace.hook.status!==0 || !trace.hook.stdout.present || !trace.advisory.present) throw new Error('agent_end trace missing hook/advisory fingerprints');\n"
+            "const serialized=JSON.stringify(trace);\n"
+            "for(const raw of ['Discovery capture done','analyze the redesign','TRACE_ADVISORY_BODY','candidates.jsonl']) if(serialized.includes(raw)) throw new Error('agent_end trace leaked raw conversation/tool content: '+raw);\n"
+            "const hash=(value,length)=>createHash('sha256').update(String(value??'')).digest('hex').slice(0,length);\n"
+            "const sessionId='pi:'+hash(proot,16);\n"
+            "const fallbackTracePath=proot+'/.git/lazy-harness/runtime/session-'+hash(sessionId,20)+'/logs/pi-agent-end-trace.jsonl';\n"
+            "delete process.env.LAZY_RUNTIME_ROOT;\n"
+            "process.env.LAZY_TEST_EMIT_ADVISORY='';\n"
+            "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "if(!existsSync(fallbackTracePath)) throw new Error('canonical runtime_paths.py fallback trace missing');\n"
+            "const blockedRuntimeRoot=proot+'/.blocked-runtime-root';\n"
+            "writeFileSync(blockedRuntimeRoot,'not-a-directory');\n"
+            "process.env.LAZY_RUNTIME_ROOT=blockedRuntimeRoot;\n"
+            "process.env.LAZY_TEST_EMIT_ADVISORY='1';\n"
+            "const sentBeforeFailure=sent.length;\n"
+            "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "if(sent.length!==sentBeforeFailure+1 || sent[sent.length-1].opts?.deliverAs!=='followUp') throw new Error('trace-write failure changed followUp delivery');\n"
+            "process.env.LAZY_RUNTIME_ROOT=proot+'/.runtime-agent-end';\n"
+            "process.env.LAZY_TEST_EMIT_ADVISORY='';\n"
+            "for(let i=0;i<55;i++) await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
+            "const boundedRows=readFileSync(tracePath,'utf8').trim().split('\\n').filter(Boolean);\n"
+            "if(boundedRows.length!==50) throw new Error('agent_end trace retention bound changed: '+boundedRows.length);\n"
+            "console.log('pi agent_end jcode-shape payload and bounded structural trace ok');\n",
             encoding="utf-8",
         )
         completed = subprocess.run(["bun", str(smoke)], cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime())
