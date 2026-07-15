@@ -1,7 +1,8 @@
 # Cross-Stack Architecture Guidance — Layer 1 Baseline
 
-Status: active
+Status: implemented-pilot; downstream-canary-blocked
 Date: 2026-07-13
+Updated: 2026-07-14
 Layer: Planning
 Related direction: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
 Related profile contract: `.lazy-harness/spec/platform/project-profile-v2.md`
@@ -67,8 +68,10 @@ The user confirmed the following direction on 2026-07-13:
 4. Layer 1 uses the six-principle minimum set below instead of a fixed
    taxonomy or a larger checklist.
 
-This confirmation approves the research baseline. It does not approve schemas,
-scaffolding, validators, policies, capabilities, or hook enforcement.
+This confirmation approved the research baseline only. ADR 0054's 2026-07-14
+bounded amendment later approved the catalog/schema/CLI/Project Profile/skill pilot
+while keeping architecture inference, application-source refactoring, and enforcement
+out of scope.
 
 ## Three-layer planning baseline approval
 
@@ -81,9 +84,10 @@ decision. The baseline consists of:
 3. `.lazy-harness/planning/cross-stack-architecture-host-mapping.md` for the
    Layer 3 Host Architecture Map, semantic owners, checks/policies, and waivers.
 
-ADR 0054 now formalizes this research/design baseline. It still does not approve
-schemas, storage paths, SDD/TDD contracts, implementation, or enforcement; each
-follow-up slice requires its own plan and execution approval.
+ADR 0054 formalizes this research/design baseline. The original 2026-07-13
+decision withheld schemas, storage paths, runtime contracts, implementation, and
+enforcement; the 2026-07-14 bounded amendment approved only the linked core +
+Pi/OMP skill pilot.
 
 ## Evaluation standard
 
@@ -291,31 +295,34 @@ The confirmed Layer 3 baseline lives in
 - truth, evidence adapters, and policy/capability enforcement stay separate;
 - intentional deviations use scoped waivers.
 
-The exact map path, schema, writer, and enforcement adapters remain unapproved.
+The bounded pilot now fixes the host-map path, schemas, candidate adapter, and
+exact-plan atomic writer in the linked SDD/SSOT. Portable evidence adapters and
+policy/capability enforcement remain unapproved.
 
-## Current Lazy-Harness gap
+## Current Lazy-Harness state
 
-Project Profile already asks generic questions about system design, frontend
-design, backend/data, source ownership, and dependency policy. The three planning
-records now define the missing conceptual bridge:
+Project Profile, the architecture core, and the Pi/OMP skill now implement the
+conceptual bridge without making source observations authoritative:
 
 ```text
 six Layer 1 principles
 → normalized and composable Layer 2 bindings
-→ confirmed Layer 3 host mapping, semantic owners, waivers, checks, and policies
+→ candidate-only Project Profile input
+→ exact-plan confirmed Layer 3 host map
 ```
 
-The remaining gap is implementation-level: no approved profile catalog schema,
-Host Architecture Map schema, promotion transaction, evidence-adapter registry,
-or architecture enforcement integration exists.
+The source pilot is validated, committed, and pushed. Downstream deployment reach
+is still unproven: the one-host canary remains blocked until W1.4 reports explicit
+`COMPLETE/SAFE`, and the canary must not modify application source.
 
-## Open decisions
+## Remaining decision gates
 
-1. What schemas and canonical paths store catalogs, bindings, and waivers?
-2. What stable ids, scope selectors, version rules, and relation catalogs apply?
-3. What evidence adapters and pilot hosts validate the model?
-4. How do promotion, partial failure, drift, retirement, and supersession work?
-5. Which implementation and enforcement slices receive separate approval?
+1. Which portable evidence adapters are justified by pilot evidence?
+2. How should future multi-record promotion, drift, retirement, and supersession work?
+3. How are scoped waivers versioned, reviewed, expired, and superseded?
+4. Which real host will confirm a map composition or separately approve one source seam?
+5. Does any policy/capability enforcement warrant a separately approved slice?
+6. Resume the 37-row legacy graph migration only through its separate guided approval flow.
 
 ## Primary sources
 
@@ -341,16 +348,26 @@ Primary evidence includes:
 - Why not AGENTS.md: this is architecture design, not immediate grammar.
 - Why not local notes: this is shared framework knowledge.
 - Confirmation: the user adopted the linked three-layer model as the final planning
-  baseline on 2026-07-13; implementation and enforcement remain unapproved.
+  baseline on 2026-07-13 and separately approved the bounded core + Pi/OMP skill
+  pilot and safety-gated source-plus-canary rollout on 2026-07-14.
 
 ## Discovery capture
 
-- DDD: define `boundary`, `owner`, `unit`, `public surface`, and
-  `consistency boundary` before schema work.
-- SDD: architecture-guidance and Project Profile contracts remain candidates.
-- BDD: define profile discovery, proposal, confirmation, and application flow.
-- TDD: require cross-profile fixtures and pilot repositories before
-  enforcement.
-- ADR: ADR 0054 adopts the three-layer model; follow-up implementation decisions remain.
-- SSOT: profile taxonomy and host mapping storage remain undecided.
-- Planning: this is the primary detailed research baseline.
+- DDD: none because reusable architecture vocabulary and identity invariants are already
+  canonical in `.lazy-harness/domain/architecture-guidance.md`; this reconciliation found
+  no independent domain delta.
+- SDD: none because the architecture CLI/schema/Project Profile adapter contract is already
+  canonical in `.lazy-harness/spec/platform/architecture-guidance.md`; no contract changed.
+- BDD: none because map approval, separate source-batch approval, and canary no-refactor
+  behavior are already canonical in `.lazy-harness/behavior/architecture-refactor-flow.md`.
+- TDD: none because the existing architecture regression record already protects the core,
+  adapter, package, and sync-preservation cases; no protection expectation changed.
+- ADR: none because ADR 0054 already records the baseline and bounded pilot amendment; no
+  new architecture trade-off was decided.
+- SSOT: none because catalog/schema ownership and the host-owned architecture-map path are
+  already canonical in `.lazy-harness/ssot/architecture-guidance-storage.md`.
+- Planning: updated because this Layer 1 planning baseline now records implemented-pilot
+  state plus the W1.4-gated canary, portable-adapter/lifecycle, host-map/source-seam,
+  optional-enforcement, and separately approved graph-migration backlog.
+- Candidate store: none because this reconciliation discovered no unconfirmed architecture
+  fact; unresolved items are multi-step planning/decision gates rather than candidate truth.

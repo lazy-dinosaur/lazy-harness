@@ -28,8 +28,9 @@ Out of scope:
 - Date: 2026-07-14
 - Project root: `/home/lazydino/dev/lazy-harness`
 - Branch: `main`
-- Base commit: `71d6e11`
-- State: implementation worktree, not yet committed or pushed
+- Baseline commit: `71d6e11`
+- Implementation commit: `c7c3d61b876273ddc78a41fb16171b8187328a7b`
+- State: source implementation committed and pushed; downstream canary pending
 - Bun: `1.3.14`
 - Python: `3.14.4`
 - Pi: `0.80.6`
@@ -110,6 +111,8 @@ the Pi package contract before source/test inspection.
 - The user confirmed `omp plugin link` as canonical over stale `plugin install` TDD prose,
   and confirmed `.lazy-harness/bin/lazy` as the canonical test/doctor entrypoint over missing
   Bun package scripts. The affected records/docs were reconciled.
+- Implementation commit `c7c3d61b876273ddc78a41fb16171b8187328a7b` was pushed
+  to `origin/main`, and the remote branch SHA matched the local commit.
 
 ## Interpretation
 
@@ -129,7 +132,8 @@ Pi-lens scan.
 
 ## Reproduce
 
-1. Check out the implementation worktree on top of `71d6e11`.
+1. Check out implementation commit `c7c3d61b876273ddc78a41fb16171b8187328a7b`
+   (baseline parent `71d6e11`).
 2. Run the primary source gates above from the repository root.
 3. Run record-lint, structure audit, graph hygiene, and implementation-map audit.
 4. Validate the two JSON schemas with the positive fixtures and the negative mutations listed
@@ -154,7 +158,8 @@ Pi-lens scan.
 
 ## Retention / privacy
 
-Retain this capsule with ADR 0054 and the eventual implementation commit. It contains
+Retain this capsule with ADR 0054 and implementation commit
+`c7c3d61b876273ddc78a41fb16171b8187328a7b`. It contains
 summarized commands and results only. No credentials, tokens, personal data, raw transcripts,
 raw assistant responses, or unrelated product data are included. Reviewer session artifacts
 under `.pi-subagents/` remain local and are not part of the implementation commit.

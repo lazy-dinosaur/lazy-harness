@@ -1,7 +1,8 @@
 # Cross-Stack Architecture Guidance — Layer 3 Host Mapping
 
-Status: active
+Status: implemented-pilot; downstream-canary-blocked
 Date: 2026-07-13
+Updated: 2026-07-14
 Layer: Planning
 Related Layer 1: `.lazy-harness/planning/cross-stack-architecture-guidance.md`
 Related Layer 2: `.lazy-harness/planning/cross-stack-architecture-profiles.md`
@@ -39,8 +40,9 @@ Related ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-
   - mutate a framework profile alias to hide a host exception
   - let confirmation silently activate warning or blocking enforcement
 - Record completion:
-  - confirmed host-mapping decisions update this planning record
-  - schema, writer, validator, or enforcement work requires follow-up records and approval
+  - confirmed host-mapping decisions update this planning baseline
+  - catalog/schema/writer/adapter changes update ADR 0054 and linked canonical records,
+    fixtures, graph facts, and evidence under separate approval
 - Related records:
   - `.lazy-harness/planning/cross-stack-architecture-profiles.md`
   - `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`
@@ -81,8 +83,9 @@ Host Architecture Map
   +--> optional policies/capabilities with separately approved levels
 ```
 
-`Host Architecture Map` is a conceptual name. Its exact path, schema, and writer
-are not approved by this planning decision.
+`Host Architecture Map` began as a conceptual name in the 2026-07-13 planning
+baseline. ADR 0054's 2026-07-14 bounded amendment now approves its canonical path,
+schema, and exact-plan atomic writer while preserving host ownership and no-enforcement.
 
 ## Host Architecture Map responsibility
 
@@ -125,10 +128,10 @@ A cross-layer impact creates references and independently meaningful records onl
 when each layer has a real semantic delta. It does not create synchronized prose
 mirrors.
 
-## Stable-reference concept
+## Stable-reference grammar
 
-A future confirmed binding needs enough identity to remain explainable across
-profile and record evolution. Candidate concepts include:
+The bounded pilot normalized the previously candidate identity requirements into the
+framework schema and writer contract. The approved fields cover:
 
 - stable binding id;
 - scope reference;
@@ -141,7 +144,10 @@ profile and record evolution. Candidate concepts include:
 - policy and capability ids;
 - review, retirement, or supersession trigger.
 
-These are semantic requirements, not approved field names or a data schema.
+These requirements now have approved pilot field names and validation rules in
+`.lazy-harness/spec/platform/architecture-guidance.md`,
+`.lazy-harness/schemas/host-architecture-map.schema.json`, and
+`.lazy-harness/ssot/architecture-guidance-storage.md`.
 
 ## Truth, check, and policy separation
 
@@ -208,30 +214,57 @@ observation -> candidate -> confirmation -> canonical mapping
                                      \-> separately approved enforcement
 ```
 
-A future writer must define atomicity and partial-failure behavior before it may
-update the host map and multiple referenced records.
+The approved writer updates only the host map under an exclusive lock, recomputes the
+catalog and baseline digests, and performs validate → temporary write → atomic rename.
+Project Profile queue promotion remains a separate delegation and never pretends that
+the host map or semantic-owner records were written.
 
-## Non-goals
+## Post-pilot non-goals
 
-This planning decision does not approve:
+The bounded pilot still does not approve:
 
-- a Host Architecture Map filename, serialization format, or schema;
-- changes to Project Profile V2 packets or promotion writers;
-- a profile or constraint registry implementation;
 - automatic architecture inference or candidate confirmation;
-- dependency, AST, API, runtime, or repository validators;
-- new typed policies, capabilities, warning behavior, or hard stops;
-- scaffold generation or host source changes.
+- application-source or host-folder refactoring in the framework work unit;
+- automatic updates to semantic-owner records, graph rows, policies, or capabilities;
+- portable dependency/AST/API/runtime enforcement adapters;
+- typed policy/capability warning or blocking behavior;
+- scaffold generation or npm publication.
 
-## Open decisions
+## Resolved pilot decisions
 
-1. What exact path and schema own the Host Architecture Map?
-2. What stable id and scope-selector grammar links bindings and constraints?
-3. How does a promotion transaction update the map and semantic-owner records?
-4. Which initial evidence adapters are portable enough for the first catalog?
-5. Where and how are waivers versioned, reviewed, expired, and superseded?
-6. How are source drift, record drift, and profile-version drift reconciled?
-7. Which hosts will pilot the full candidate-to-confirmed mapping flow?
+ADR 0054 and the linked SDD/SSOT now resolve the original pilot questions:
+
+1. Canonical host map: `.lazy-harness/project/architecture-map.json`, host-owned.
+2. Framework schema: `.lazy-harness/schemas/host-architecture-map.schema.json`.
+3. Stable ID/scope/reference grammar: defined by the schema and storage SSOT.
+4. Promotion boundary: Project Profile queues candidates and delegates; only
+   `lazy architecture apply` may write the map after exact-plan confirmation.
+5. Writer atomicity: exclusive lock, catalog/baseline recheck, temporary write,
+   atomic rename, and artifact cleanup.
+
+## Current rollout state
+
+- Framework baseline commit: `71d6e11`.
+- Source implementation commit: `c7c3d61b876273ddc78a41fb16171b8187328a7b`,
+  pushed to `origin/main` with matching remote SHA.
+- Source validation and source-path Pi/OMP skill discovery are complete; durable
+  command/results evidence remains in
+  `.lazy-harness/evidence/2026-07-14-cross-stack-architecture-pilot-validation.md`.
+- No confirmed architecture map exists in the framework source checkout.
+- The single downstream canary remains blocked until W1.4 explicitly reports
+  `COMPLETE/SAFE`; no downstream sync or application-source edit is authorized before it.
+
+## Remaining decision gates
+
+1. Which initial portable evidence adapters are justified by pilot evidence?
+2. How are source drift, record drift, catalog-version drift, retirement, and
+   supersession reconciled?
+3. How are scoped waivers versioned, reviewed, expired, and superseded?
+4. Which real host will first confirm a map composition?
+5. Will any independently reviewable host source-refactor seam be approved separately?
+6. Will any policy/capability enforcement slice be approved separately?
+7. Resume the 37-row legacy graph migration only through `lazy-graph-migrate` with
+   batch-scoped user approval; it is not part of architecture rollout.
 
 ## Rule placement
 
@@ -239,17 +272,41 @@ This planning decision does not approve:
   owner per constraint, separate check/policy links, and scoped waivers.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/cross-stack-architecture-host-mapping.md`
-- Why not AGENTS.md: this is a future architecture model, not immediate grammar.
+- Why not AGENTS.md: this is the Layer 3 design and rollout baseline, not immediate grammar.
 - Why not local notes: the model is shared framework knowledge.
-- Confirmation: user-confirmed host map, semantic ownership, responsibility
-  separation, and waiver decisions on 2026-07-13.
+- Confirmation: user-confirmed the host map, semantic ownership, responsibility
+  separation, and waiver decisions on 2026-07-13, then separately approved the bounded
+  core + Pi/OMP skill pilot and safety-gated canary rollout on 2026-07-14.
 
 ## Discovery capture
 
-- DDD: candidate vocabulary for binding, constraint, semantic owner, and waiver.
-- SDD: candidate Host Architecture Map, reference, and promotion contracts.
-- BDD: candidate inspect, option-gate, confirm, and reconsider flow.
-- TDD: future ownership, partial-write, drift, conflict, and waiver fixtures.
-- ADR: ADR 0054 adopts the responsibility split; storage and implementation remain open.
-- SSOT: exact map, id, scope, catalog, and waiver ownership remain undecided.
-- Planning: this record is the primary Layer 3 host-mapping baseline.
+- DDD: none because binding, scope, candidate, alias, relation, evidence-adapter, and
+  waiver vocabulary is already canonical in `.lazy-harness/domain/architecture-guidance.md`;
+  this reconciliation found no independent domain delta.
+- SDD: none because the Host Architecture Map, validation, writer, and Project Profile
+  delegation contracts are already canonical in
+  `.lazy-harness/spec/platform/architecture-guidance.md`; no contract changed.
+- BDD: none because candidate inspection, exact map confirmation, separate source-batch
+  approval, safety stops, and no-refactor canary behavior are already canonical in
+  `.lazy-harness/behavior/architecture-refactor-flow.md`.
+- TDD: none because ownership, traversal, digest, relation, scope-cycle, lock, atomicity,
+  delegation, package, and sync-preservation regressions are already canonical in
+  `.lazy-harness/tests/architecture-guidance.md`; no new protection case was introduced.
+- ADR: none because ADR 0054 already preserves the original planning boundary and bounded
+  pilot amendment; no new trade-off was approved.
+- SSOT: none because exact catalog/schema/map paths, framework-versus-host ownership,
+  writer authority, and sync preservation are already canonical in
+  `.lazy-harness/ssot/architecture-guidance-storage.md`.
+- Planning: updated because this is the primary Layer 3 rollout/backlog record and now
+  captures the W1.4-gated canary, portable adapters, drift/lifecycle, real-host mapping and
+  source seams, optional enforcement, and separate graph migration.
+- Candidate store: none because no unconfirmed architecture fact was discovered; the
+  unresolved items are multi-step rollout/design gates and remain in this planning record.
+- Graph draft: none because no new implementation fact was discovered. Existing confirmed
+  facts remain represented by `kg_adr0054_architecture_core_pilot_20260714`,
+  `kg_architecture_guidance_core_impl_20260714`,
+  `kg_architecture_guidance_cli_impl_20260714`,
+  `kg_project_profile_architecture_adapter_20260714`,
+  `kg_architecture_refactor_skill_20260714`,
+  `kg_architecture_guidance_self_test_20260714`, and
+  `kg_architecture_catalog_storage_20260714`.

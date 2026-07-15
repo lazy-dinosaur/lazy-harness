@@ -1,7 +1,8 @@
 # Cross-Stack Architecture Guidance — Layer 2 Profile Model
 
-Status: active
+Status: implemented-pilot; downstream-canary-blocked
 Date: 2026-07-13
+Updated: 2026-07-14
 Layer: Planning
 Related baseline: `.lazy-harness/planning/cross-stack-architecture-guidance.md`
 Related direction: `.lazy-harness/planning/lazy-harness-v2-direction-purpose.md`
@@ -34,7 +35,8 @@ Related ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-
   - let a profile silently weaken Layer 1 or another profile
 - Record completion:
   - confirmed profile families and fields update this record
-  - schema or runtime work requires follow-up decision records, SDD, TDD, and approval
+  - catalog/schema/runtime changes update ADR 0054 and the linked DDD/SDD/BDD/TDD/SSOT
+    records, fixtures, graph facts, and evidence under separate approval
 - Related records:
   - `.lazy-harness/planning/cross-stack-architecture-guidance.md`
   - `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`
@@ -69,7 +71,9 @@ Layer 3 host mapping
   └─ paths, units, owners, selected profiles, exceptions, and checks
 ```
 
-This is a design decision, not an approved data schema or implementation.
+This was originally a design decision rather than an approved schema. ADR 0054's
+2026-07-14 bounded amendment now implements the approved subset in the framework
+catalog and host-map schema while retaining the no-silent-inference boundary.
 
 ## Confirmed catalog organization
 
@@ -92,7 +96,8 @@ not replace the axes as canonical semantics. Presets may improve onboarding,
 but every preset must decompose into explicit axis values and constraints.
 
 Axis semantics, initial values, scope cardinality, compatibility, aliasing, and
-activation lifecycle are confirmed. Concrete schemas and catalogs remain open.
+activation lifecycle are confirmed. The bounded pilot now provides the initial
+validated catalog; catalog expansion, retirement, and supersession remain later work.
 
 ## Composition rules
 
@@ -315,32 +320,28 @@ units:
 The example demonstrates composition only. No host is required to use this
 combination.
 
-## Candidate profile-instance fields
+## Candidate profile extensions
 
-A future profile instance may need:
+Future catalog/schema versions may still need richer profile-instance metadata such as:
 
-- `profileId` and version;
-- `scope` or target unit;
-- activation evidence;
-- inherited Layer 1 principles;
-- constraints and allowed dependency edges;
-- required declarations or records;
-- required/optional evidence adapters;
-- `requires`, `compatibleWith`, and `conflictsWith` relations;
-- intentional omissions;
-- exceptions with owner, rationale, and review trigger;
-- strengthening and exit triggers.
+- activation-evidence requirements by normalized value;
+- explicit omissions and exit triggers;
+- optional portable evidence-adapter references;
+- catalog retirement/supersession metadata;
+- richer waiver review semantics.
 
-These are planning candidates, not an approved schema.
+These are planning candidates only. The approved pilot grammar and field names are
+owned by `.lazy-harness/spec/platform/architecture-guidance.md` and the two framework
+schemas; this planning list cannot extend that contract.
 
-## Open decisions
+## Remaining decision gates
 
-1. What exact ids, schema fields, and retirement/version rules represent bindings?
-2. Which initial relation and alias catalog is small enough to defend with evidence?
-3. What minimum observable evidence creates each candidate binding?
-4. How will Project Profile present and confirm choices without self-selection?
-5. Which policy/capability adapters may enforce confirmed constraints, at what stage?
-6. Which pilot hosts will test mixed entrypoints, nested scopes, and alias expansion?
+1. Which additional relation/value/alias entries are small enough to defend with evidence?
+2. What minimum observable evidence should create each candidate binding?
+3. Which portable evidence adapters are worth standardizing?
+4. How should catalog values, aliases, waivers, and host maps retire or supersede?
+5. Which real hosts will validate mixed entrypoints, nested scopes, and alias expansion?
+6. Does any policy/capability enforcement warrant separate approval?
 
 ## Rule placement
 
@@ -351,15 +352,25 @@ These are planning candidates, not an approved schema.
 - Why not local notes: the model is shared framework knowledge.
 - Confirmation: user-confirmed composition, axes, normalized values, scope bindings,
   relation graph, transparent versioned aliases, and observe-confirm-enforce lifecycle
-  on 2026-07-13.
+  on 2026-07-13; separately approved the bounded catalog/schema/runtime pilot on
+  2026-07-14.
 
 ## Discovery capture
 
-- DDD: candidate vocabulary for `project base`, `unit`, `overlay`, and profile
-  relationships.
-- SDD: candidate profile schema and Project Profile selection contract.
-- BDD: candidate mixed-host discovery and confirmation flow.
-- TDD: future compatibility, conflict, and mixed-unit fixtures.
-- ADR: ADR 0054 adopts the composition model; schema and implementation remain open.
-- SSOT: profile catalog ownership and versioning remain undecided.
-- Planning: this record is the primary Layer 2 composition baseline.
+- DDD: none because profile composition terms and identity invariants are already canonical
+  in `.lazy-harness/domain/architecture-guidance.md`; no independent domain delta emerged.
+- SDD: none because the catalog, schema, CLI, and Project Profile candidate contract are
+  already canonical in `.lazy-harness/spec/platform/architecture-guidance.md`.
+- BDD: none because candidate, exact-plan confirmation, and separate source-batch behavior
+  are already canonical in `.lazy-harness/behavior/architecture-refactor-flow.md`.
+- TDD: none because catalog/schema/cardinality/relation/adapter regressions are already
+  canonical in `.lazy-harness/tests/architecture-guidance.md`; no new case was introduced.
+- ADR: none because ADR 0054 already records the bounded pilot and excluded enforcement; no
+  new profile trade-off was decided.
+- SSOT: none because framework catalog/schema ownership and host-map ownership are already
+  canonical in `.lazy-harness/ssot/architecture-guidance-storage.md`.
+- Planning: updated because this Layer 2 baseline now keeps catalog expansion, portable
+  adapters, lifecycle semantics, real-host validation, and optional enforcement as explicit
+  follow-up decision gates.
+- Candidate store: none because no unconfirmed profile fact was discovered; the remaining
+  items are multi-step planning backlog and cannot extend the approved schema implicitly.
