@@ -6157,7 +6157,21 @@ def check_architecture_guidance_cli() -> None:
             return target
 
         copy_asset("ssot/architecture-profile-catalog.json")
-        copy_asset("ssot/project-identity.md")
+        # Project identity is host-owned and may be absent in older downstream installs.
+        # Keep this framework regression sandbox self-contained instead of treating the
+        # current host's identity record as a prerequisite for `lazy test`.
+        fixture_identity = harness / "ssot" / "project-identity.md"
+        fixture_identity.parent.mkdir(parents=True, exist_ok=True)
+        fixture_identity.write_text(
+            "# Fixture Project Identity\n\n"
+            "Status: accepted\n"
+            "Layer: SSOT\n\n"
+            "## Rule digest\n\n"
+            "- Status: active\n"
+            "- Layer: SSOT\n"
+            "- Scope: host-project\n",
+            encoding="utf-8",
+        )
         copy_asset("schemas/architecture-profile-catalog.schema.json")
         copy_asset("schemas/host-architecture-map.schema.json")
         copy_asset("spec/platform/architecture-guidance.md")

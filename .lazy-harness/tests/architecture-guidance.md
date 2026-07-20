@@ -2,6 +2,7 @@
 
 Status: active-pilot
 Date: 2026-07-14
+Updated: 2026-07-20
 Layer: TDD
 Related ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`
 Related SDD: `.lazy-harness/spec/platform/architecture-guidance.md`
@@ -22,6 +23,7 @@ Related SSOT: `.lazy-harness/ssot/architecture-guidance-storage.md`
 - Surface terms:
   - stale plan exact digest no silent default alias relation cardinality
   - architecture candidate delegation sync preservation skill discovery
+  - host self-test missing project identity synthetic owner fixture
 - Applies when:
   - changing architecture catalog, schemas, CLI, Project Profile adapter, or skill
   - changing Category A distribution for architecture guidance
@@ -35,6 +37,7 @@ Related SSOT: `.lazy-harness/ssot/architecture-guidance-storage.md`
   - prove Project Profile defaults to no architecture candidates
   - prove candidate promotion delegates without claiming a map write
   - prove sync preserves host-owned architecture maps
+  - prove host-scope architecture self-test does not require a pre-existing host-owned project identity record
 - Must not:
   - accept folder/framework evidence as confirmed architecture
   - create policy enforcement or application-source edits in core tests
@@ -83,6 +86,7 @@ Related SSOT: `.lazy-harness/ssot/architecture-guidance-storage.md`
 | `project_profile_omp_compatibility` | interview packet | Pi primary, OMP compatibility, no active Jcode |
 | `architecture_skill_contract` | package skill | required records, gate, stop rules, structured edits |
 | `architecture_sync_preserves_host_map` | temporary downstream sync | map byte-identical |
+| `architecture_host_without_project_identity` | host-scoped self-test source has no host-owned project identity | synthetic sandbox owner record; architecture check passes without creating or requiring a real host identity |
 
 ## Fixture contract
 
@@ -98,7 +102,10 @@ Related SSOT: `.lazy-harness/ssot/architecture-guidance-storage.md`
   writer locking, and Project Profile rejection.
 
 Fixtures are framework-owned Category A test assets. They do not create a real host
-map in the source repository.
+map in the source repository. The architecture sandbox writes a minimal synthetic
+`.lazy-harness/ssot/project-identity.md` inside its temporary root because fixture
+`ownerRefs` need an existing SSOT path; it must not copy or require the invoking
+host's optional, host-owned project identity record.
 
 ## Acceptance assertions
 
@@ -122,7 +129,9 @@ Architecture pilot self-tests verify:
 11. Project Profile emits no default candidates and rejects malformed explicit candidates;
 12. candidate promotion remains queue-only and delegates host-map handling;
 13. Pi package checks protect the skill exposure and safety contract;
-14. temporary downstream Category A sync leaves a host-owned map byte-identical.
+14. temporary downstream Category A sync leaves a host-owned map byte-identical;
+15. host-scope execution remains compatible with an older downstream install that has no
+    `.lazy-harness/ssot/project-identity.md`, using only the synthetic sandbox owner record.
 
 `check_architecture_guidance_cli` owns the sandbox core/adapter assertions. Companion Project
 Profile, Pi package, and lazy-sync checks protect their existing surfaces; actual installed
@@ -139,6 +148,19 @@ and promotion target kinds.
 | SDD | new CLI, schemas, catalog, adapter, and writer contract | yes — `spec/platform/architecture-guidance.md` |
 | BDD | approval-batched map/refactor behavior | yes — `behavior/architecture-refactor-flow.md` |
 | SSOT | canonical paths, sync ownership, and map mutability | yes — `ssot/architecture-guidance-storage.md` |
+
+### 2026-07-20 compatibility amendment
+
+| Layer | Impact | Independent delta |
+|---|---|---|
+| DDD | none; architecture vocabulary is unchanged | no independent delta |
+| SDD | none; CLI, schema, and writer contracts are unchanged | no independent delta |
+| BDD | none; user-visible architecture flow is unchanged | no independent delta |
+| SSOT | host identity remains host-owned and optional for sync | no independent delta |
+
+The TDD/self-test fixture alone changes: a framework-owned synthetic owner record replaces
+the accidental dependency on the invoking host's project identity. No host record is
+created, migrated, or promoted by this framework fix.
 
 ADR 0054 is amended because the previously unapproved pilot implementation is now
 explicitly approved. Existing planning records are linked and do not need mirrored
@@ -165,11 +187,12 @@ runtime prose.
   - `.lazy-harness/tests/architecture-guidance.md` — this contract.
   - `.lazy-harness/fixtures/architecture-guidance/**` — positive fixtures.
   - `.lazy-harness/scripts/self-test.py#check_architecture_guidance_cli` — sandbox
-    CLI, Project Profile, ownership, digest, alias/relation/cardinality, and no-write coverage.
+    CLI, Project Profile, ownership, digest, alias/relation/cardinality, and no-write coverage;
+    writes a synthetic temporary identity owner without reading the invoking host identity.
   - `.lazy-harness/tests/project-profile-v2.md` — adapter regression amendment.
   - `.lazy-harness/tests/pi-agent-package.md` — skill availability amendment.
 - Validation:
-  - focused architecture self-test
+  - focused architecture self-test, including a copied host with project identity removed
   - Project Profile V2 runtime/queue tests
   - Pi package contract
   - `.lazy-harness/bin/lazy test --scope framework`
