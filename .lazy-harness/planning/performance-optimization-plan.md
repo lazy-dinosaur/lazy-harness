@@ -557,3 +557,113 @@ Current readiness delta:
 - Why not AGENTS.md: this is lifecycle roadmap status, not permanent agent grammar.
 - Why not `.jcode`: this is shared lazy-harness lifecycle implementation, not local/private Jcode wiring.
 - Confirmation: validation evidence
+
+## 2026-07-15 user-confirmed staged validation deduplication plan
+
+Status: Phase 1 seam-preserving implementation and validation complete. Focused, fast static/record, independent review, and the single final full framework self-test all pass. The enclosing Git commit carries the validated source change; downstream host sync remains out of scope.
+Selection: `단계별 안전 감축` with a second read-only design review before execution. Remove proven duplicate execution first; validation ownership/evidence reuse and parallelism remain separately approved phases.
+
+### Measured baseline
+
+A clean temporary repository created from committed base `5f890d58e96726015e85a3830ba76973e566457f` measured:
+
+- full framework self-test: `142.159s`, 85 checks;
+- light framework self-test: `23.652s`, 63 checks / 22 skipped;
+- lifecycle fixture intake: `25.486s`;
+- canonical lifecycle parity: `23.062s`;
+- lifecycle hook integration: `19.017s`;
+- response telemetry/compare check: `17.954s`;
+- lifecycle-heavy copy workload: at least 52 complete `.lazy-harness` copies per full suite.
+
+### Re-audit correction
+
+The first uncommitted experiment removed TDD/aftershock queue persistence, BDD candidate persistence, and the explicit `injectJson == firstOutput` assertion from the full-chain integration check. Independent review classified those as unique composition seams rather than duplicate assertions. That temporary worktree disappeared without a commit; committed source stayed on the original safe structure. The user then approved this corrected seam-preserving reconstruction.
+
+Phase 1 must therefore:
+
+1. keep `check_lifecycle_parity_runner` as the sole complete 12-fixture legacy-vs-shadow matrix owner;
+2. make fixture intake select the just-appended candidate by deterministic candidate ID and execute exactly that one fixture through unchanged `run_fixture`;
+3. retain TDD and aftershock full-chain queue persistence, BDD legacy/shadow candidate persistence, and `injectJson == firstOutput`;
+4. retain edit-target-only and structured-policy-context/raw-text composition seams;
+5. remove only option-gate, record-before-session-history, and read-only integration repetitions already owned by both focused helper tests and the canonical matrix;
+6. run the retained integration seams in one isolated temporary host so source `candidates.jsonl`, queues, runtime state, and concurrent appends are never deleted or restored by the test;
+7. leave production hooks, helpers, CLI/result semantics, runtime enforcement, and the canonical parity fixture set unchanged.
+
+The broader alternative—making `lifecycle-parity` compare queue/candidate state—is deferred. It would change `--fail-on-mismatch` semantics and requires environment isolation, fixture-safe names, normalized XML/JSONL delta rules, privacy-safe diagnostics, and an SDD/TDD contract update.
+
+### Expected structural reduction
+
+- Fixture intake: 27 copies → 3 copies (outer intake copy plus one legacy/shadow pair).
+- Canonical parity: unchanged at 24 copies for 12 fixtures.
+- Response telemetry fixture: unchanged at one copy.
+- Lifecycle integration: one isolated host copy, replacing source-state backup/delete/restore.
+- Minimum lifecycle-heavy copy count: 52 → 29.
+- Lifecycle integration removes six duplicate chain executions while preserving unique stateful seams.
+
+### Acceptance and validation budget
+
+Correctness hard gates:
+
+- targeted intake resolves exactly one appended fixture by candidate ID and returns `ok=true`, `issues=[]`, with no legacy/shadow output;
+- canonical parity reports 12/12 and zero mismatches;
+- TDD/aftershock queue, BDD candidate, `injectJson`, edit-target, and policy-context seams remain asserted;
+- integration state is contained in a temporary host and never rewrites the source candidate store;
+- production hook/helper/CLI/runtime files have no semantic delta;
+- one final full framework self-test passes on the unchanged final tree.
+
+Performance interpretation:
+
+- structural and focused metrics are the primary acceptance evidence, as user-confirmed after the re-audit;
+- intake should fall below 8 seconds or have its residual cost separately attributed;
+- the old 25% whole-suite wall-clock target remains a diagnostic comparison, not a standalone completion blocker, because prior clean runs varied materially under system load;
+- report the final whole-suite timing without rerunning full merely to improve the number.
+
+Validation budget:
+
+1. iterate with focused intake, integration, and canonical parity checks;
+2. run `lazy check` and record lint for record/static changes;
+3. run exactly one final clean full framework self-test after all source/test/record content is final;
+4. after that full run, allow only mechanical result/status append, validated by fast checks—any source/test/contract mutation invalidates the evidence;
+5. independent reviewers consume recorded evidence and do not rerun the full suite by default.
+
+### Record and layer ownership
+
+- Primary canonical record: this planning record.
+- TDD independent delta: update `.lazy-harness/tests/lifecycle-compare-fidelity.md` with the ownership matrix and four-row SDD/BDD/SSOT/DDD judgement.
+- Evidence detail: one capsule at `.lazy-harness/evidence/2026-07-15-validation-deduplication-phase1.md`.
+- SDD: no independent contract delta in Phase 1; only its implementation-map wording may be synchronized if needed.
+- BDD/SSOT/DDD: no independent semantic delta.
+- ADR: no new decision; this stays within ADR 0016's existing test/validation boundary.
+- Graph/index: update only if a verified file/symbol relation changes; generated indexes remain derived.
+
+### Deferred phases
+
+- Phase 2: exact-commit validation ownership, evidence reuse, test strategy, and hook/CLI wiring reconciliation—separate approval.
+- Phase 3: optional parallelism only after semantic duplication is removed—separate approval.
+- Guided migration of 37 legacy-schema graph rows remains a separate user-approved batch and is not run here.
+
+### Rollback
+
+Restore the original `self-test.py` assertions if any retained seam loses an owner, parity diverges, a production/CLI change becomes necessary, or focused validation fails. Phase 1 requires no runtime-state or host-data rollback.
+
+### Rule placement
+
+- Rule: one complete parity-matrix owner; retain unique stateful composition seams; deduplicate before parallelizing.
+- Scope: transient implementation plan for Phase 1.
+- Primary record: `.lazy-harness/planning/performance-optimization-plan.md`.
+- Confirmation: user selected `재검토안 실행 (Recommended)` after two fresh read-only reviews on 2026-07-15.
+
+### Phase 1 progress
+
+- Fixture intake now resolves the append command's candidate ID, loads exactly one matching fixture, and calls unchanged `run_fixture` once.
+- Integration retains TDD/aftershock queue state, BDD candidate state, `injectJson`, edit-target, and policy-context seams; only option-gate, record-before, and read-only repetitions were removed.
+- The retained integration seams execute inside one temporary host; source queues, runtime state, and `.lazy-harness/knowledge/candidates.jsonl` are not mutated. Self-test child environments also strip inherited timing/compare output-path overrides.
+- Production hook/helper/CLI/runtime files and the 12-fixture matrix are unchanged.
+- Review-hardening final-tree focused results (one non-retried run after the source change): intake `25.486s → 3.204s` (`87.4%`), isolated integration `19.017s → 16.170s` (`15.0%`), canonical parity 12/12 in `33.086s`; the three checks fell `67.565s → 52.460s` (`22.4%`). The unchanged parity owner was slower than its `23.062s` baseline under current load, so deterministic workload and correctness remain the primary evidence.
+- The earlier pre-hardening focused run was `35.514s`; it is retained for transparency but superseded by the post-change `52.460s` run rather than retried for a better number.
+- Source `.lazy-harness/knowledge/candidates.jsonl` had identical SHA-256 before and after the focused run (`4526ca6771f8d43c85d89caee659f155937e6f33fea33f354e69b759171eeb02`).
+- Deterministic copy workload is reduced from at least 52 to 29 complete harness copies per full suite (`44.2%`).
+- Fast explicit check passed for five changed files; record lint passed `169/169`; AST ownership assertions and `git diff --check` passed.
+- Independent final gate review passed with no blockers and confirmed readiness for the budgeted full run.
+- The single executed final full framework self-test passed `85/85` with zero skips in `82.282s`; HEAD, the five-file test-input fingerprint, and source candidate-store hash were unchanged before/after. The wall-time result is reported without retry and remains diagnostic.
+- Evidence capsule: `.lazy-harness/evidence/2026-07-15-validation-deduplication-phase1.md`.

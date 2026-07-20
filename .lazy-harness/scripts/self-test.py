@@ -43,6 +43,8 @@ def fail(message: str) -> None:
 INHERITED_ENV_KEYS_TO_CLEAR = (
     "LAZY_RUNTIME_ROOT",
     "LAZY_SHARED_ROOT",
+    "LAZY_HOOK_TIMING_LOG",
+    "LAZY_RESPONSE_COMPLETED_COMPARE_LOG",
     "GIT_DIR",
     "GIT_WORK_TREE",
     "GIT_INDEX_FILE",
@@ -379,18 +381,25 @@ def run_knowledge_intake_fixture() -> dict:
     return json.loads(completed.stdout)
 
 
-def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> str:
-    validations = LAZY / "logs" / f"__tmp_hook_validations_{os.getpid()}.jsonl"
+def run_response_completed_hook(
+    payload: dict,
+    queue: pathlib.Path,
+    decisions: pathlib.Path | None = None,
+    root: pathlib.Path = ROOT,
+) -> str:
+    lazy = root / ".lazy-harness"
+    validations = lazy / "logs" / f"__tmp_hook_validations_{os.getpid()}.jsonl"
     validations.unlink(missing_ok=True)
     env = env_without_lazy_runtime(
-        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(ROOT)),
-        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(ROOT)),
+        LAZY_HOST_ROOT=str(root),
+        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(root)),
+        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(root)),
     )
     if decisions is not None:
-        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
+        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(root))
     completed = subprocess.run(
         [".lazy-harness/hooks/lifecycle/on-response-completed.sh"],
-        cwd=ROOT,
+        cwd=root,
         env=env,
         input=json.dumps(payload),
         text=True,
@@ -407,18 +416,25 @@ def run_response_completed_hook(payload: dict, queue: pathlib.Path, decisions: p
         validations.unlink(missing_ok=True)
 
 
-def run_lifecycle_check_shadow(payload: dict, queue: pathlib.Path, decisions: pathlib.Path | None = None) -> dict:
-    validations = LAZY / "logs" / f"__tmp_lifecycle_shadow_validations_{os.getpid()}.jsonl"
+def run_lifecycle_check_shadow(
+    payload: dict,
+    queue: pathlib.Path,
+    decisions: pathlib.Path | None = None,
+    root: pathlib.Path = ROOT,
+) -> dict:
+    lazy = root / ".lazy-harness"
+    validations = lazy / "logs" / f"__tmp_lifecycle_shadow_validations_{os.getpid()}.jsonl"
     validations.unlink(missing_ok=True)
     env = env_without_lazy_runtime(
-        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(ROOT)),
-        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(ROOT)),
+        LAZY_HOST_ROOT=str(root),
+        LAZY_HARNESS_QUESTION_QUEUE=str(queue.relative_to(root)),
+        LAZY_HARNESS_VALIDATIONS_FILE=str(validations.relative_to(root)),
     )
     if decisions is not None:
-        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(ROOT))
+        env["LAZY_HARNESS_DECISIONS_FILE"] = str(decisions.relative_to(root))
     completed = subprocess.run(
-        [".lazy-harness/scripts/lifecycle-check.py", "--format=json"],
-        cwd=ROOT,
+        [".lazy-harness/scripts/lifecycle-check.py", "--root", str(root), "--format=json"],
+        cwd=root,
         env=env,
         input=json.dumps(payload),
         text=True,
@@ -3168,12 +3184,36 @@ def check_lifecycle_fixture_intake_cli() -> None:
         listed_names = [candidate.get("name") for candidate in listed_json.get("candidates", [])]
         if listed.returncode != 0 or "fixture-intake-smoke" not in listed_names:
             fail("lifecycle-fixture list should include appended fixture even when host already has candidates:\n" + listed.stdout + listed.stderr)
-        parity = subprocess.run([str(LAZY / "bin" / "lazy"), "lifecycle-parity", "--format=json", "--fail-on-mismatch"], cwd=temp, env=env, text=True, capture_output=True, check=False)
-        if parity.returncode != 0:
-            fail("lifecycle parity with intake candidate failed:\n" + parity.stdout + parity.stderr)
-        parity_json = json.loads(parity.stdout)
-        if parity_json.get("passed", 0) < 13:
-            fail("lifecycle parity should include the appended candidate fixture: " + parity.stdout)
+        appended_candidate = json.loads(appended.stdout).get("candidate") or {}
+        appended_candidate_id = appended_candidate.get("id")
+        if not appended_candidate_id:
+            fail("lifecycle-fixture append did not return a candidate id: " + appended.stdout)
+        parity_runner = runpy.run_path(
+            str(LAZY / "scripts" / "lifecycle-parity-runner.py"),
+            run_name="lazy_lifecycle_parity_runner_import",
+        )
+        candidate_fixtures = [
+            fixture
+            for fixture in parity_runner["real_payload_candidate_fixtures"](temp)
+            if fixture.get("sourceCandidate") == appended_candidate_id
+        ]
+        if len(candidate_fixtures) != 1:
+            fail(
+                "lifecycle parity should load exactly the appended candidate fixture: "
+                + json.dumps(candidate_fixtures, ensure_ascii=False)
+            )
+        targeted_result = parity_runner["run_fixture"](temp, candidate_fixtures[0])
+        if (
+            targeted_result.get("name") != "fixture-intake-smoke"
+            or targeted_result.get("ok") is not True
+            or targeted_result.get("issues") != []
+            or targeted_result.get("legacyOutputEmitted") is not False
+            or targeted_result.get("shadowOutputEmitted") is not False
+        ):
+            fail(
+                "targeted lifecycle parity with intake candidate failed: "
+                + json.dumps(targeted_result, ensure_ascii=False)
+            )
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ lifecycle fixture intake CLI ok")
@@ -4395,34 +4435,46 @@ def check_aftershock_reanalysis() -> None:
 
 
 def check_lifecycle_hook_integration() -> None:
-    tdd_queue = LAZY / "questions" / f"__tmp_hook_tdd_{os.getpid()}.xml"
-    tdd_shadow_queue = LAZY / "questions" / f"__tmp_shadow_tdd_{os.getpid()}.xml"
-    aftershock_queue = LAZY / "questions" / f"__tmp_hook_aftershock_{os.getpid()}.xml"
-    aftershock_shadow_queue = LAZY / "questions" / f"__tmp_shadow_aftershock_{os.getpid()}.xml"
-    bdd_queue = LAZY / "questions" / f"__tmp_hook_bdd_{os.getpid()}.xml"
-    bdd_shadow_queue = LAZY / "questions" / f"__tmp_shadow_bdd_{os.getpid()}.xml"
-    generic_queue = LAZY / "questions" / f"__tmp_hook_generic_{os.getpid()}.xml"
-    decisions = LAZY / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
-    shadow_decisions = LAZY / "logs" / f"__tmp_shadow_decisions_{os.getpid()}.jsonl"
-    bdd_state = runtime_open_gates_file(ROOT)
-    bdd_state_backup = bdd_state.read_text(encoding="utf-8") if bdd_state.exists() else None
-    for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
-        path.unlink(missing_ok=True)
-    bdd_state.unlink(missing_ok=True)
+    temp_root = pathlib.Path(tempfile.mkdtemp(prefix="lazy_lifecycle_integration_"))
     try:
+        temp_lazy = temp_root / ".lazy-harness"
+        shutil.copytree(
+            LAZY,
+            temp_lazy,
+            ignore=shutil.ignore_patterns(".cache", "state", "logs/hook-timings.jsonl"),
+        )
+        subprocess.run(
+            ["git", "init", "-q"],
+            cwd=temp_root,
+            env=env_without_lazy_runtime(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+        tdd_queue = temp_lazy / "questions" / f"__tmp_hook_tdd_{os.getpid()}.xml"
+        tdd_shadow_queue = temp_lazy / "questions" / f"__tmp_shadow_tdd_{os.getpid()}.xml"
+        aftershock_queue = temp_lazy / "questions" / f"__tmp_hook_aftershock_{os.getpid()}.xml"
+        aftershock_shadow_queue = temp_lazy / "questions" / f"__tmp_shadow_aftershock_{os.getpid()}.xml"
+        bdd_queue = temp_lazy / "questions" / f"__tmp_hook_bdd_{os.getpid()}.xml"
+        bdd_shadow_queue = temp_lazy / "questions" / f"__tmp_shadow_bdd_{os.getpid()}.xml"
+        generic_queue = temp_lazy / "questions" / f"__tmp_hook_generic_{os.getpid()}.xml"
+        decisions = temp_lazy / "logs" / f"__tmp_hook_decisions_{os.getpid()}.jsonl"
+        shadow_decisions = temp_lazy / "logs" / f"__tmp_shadow_decisions_{os.getpid()}.jsonl"
+
         tdd_payload = {
             "recent_tool_calls": [
                 {"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts", "edit_target": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"},
             ],
         }
-        tdd_out = run_response_completed_hook(tdd_payload, tdd_queue)
+        tdd_out = run_response_completed_hook(tdd_payload, tdd_queue, root=temp_root)
         if "5d-3 TDD Cross-Verify Gate" not in tdd_out or "Q-22c6c7cf5a7620f1" not in tdd_out:
             fail("response.completed did not surface TDD cross-verify gate:\n" + tdd_out)
         tdd_root = parse_xml_tree(tdd_queue).getroot()
         if not any(question.attrib.get("criterionId") == "5d-3" for question in tdd_root.findall("question")):
             fail("response.completed TDD helper did not persist question")
 
-        tdd_shadow = run_lifecycle_check_shadow(tdd_payload, tdd_shadow_queue)
+        tdd_shadow = run_lifecycle_check_shadow(tdd_payload, tdd_shadow_queue, root=temp_root)
         if tdd_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh":
             fail("lifecycle-check shadow should match TDD first output helper: " + json.dumps(tdd_shadow, ensure_ascii=False)[:800])
         if "5d-3 TDD Cross-Verify Gate" not in tdd_shadow.get("firstOutput", "") or "Q-22c6c7cf5a7620f1" not in tdd_shadow.get("firstOutput", ""):
@@ -4439,25 +4491,36 @@ def check_lifecycle_hook_integration() -> None:
                  "args_preview": "fired for src/features/billing/SubscribedDownloadView.tsx and app/Widget.tsx"},
             ],
         }
-        quoted_out = run_response_completed_hook(quoted_payload, generic_queue)
+        quoted_out = run_response_completed_hook(quoted_payload, generic_queue, root=temp_root)
         if "5d-3 TDD Cross-Verify Gate" in quoted_out:
             fail("edit-target-only: quoting a source path in a record edit must not fire 5d-3:\n" + quoted_out)
 
-        decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
-        shadow_decisions.write_text((LAZY / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+        aftershock_fixture = temp_lazy / "triggers" / "fixtures" / "aftershock" / "decisions.jsonl"
+        decisions.write_text(aftershock_fixture.read_text(encoding="utf-8"), encoding="utf-8")
+        shadow_decisions.write_text(aftershock_fixture.read_text(encoding="utf-8"), encoding="utf-8")
         aftershock_payload = {
             "recent_tool_calls": [
                 {"name": "Edit", "args_preview": ".lazy-harness/logs/decisions.jsonl"},
             ],
         }
-        aftershock_out = run_response_completed_hook(aftershock_payload, aftershock_queue, decisions=decisions)
+        aftershock_out = run_response_completed_hook(
+            aftershock_payload,
+            aftershock_queue,
+            decisions=decisions,
+            root=temp_root,
+        )
         if "5d-4 Aftershock Re-analysis" not in aftershock_out or "Q-e69259ad4ca94b24" not in aftershock_out:
             fail("response.completed did not surface aftershock gate:\n" + aftershock_out)
         aftershock_root = parse_xml_tree(aftershock_queue).getroot()
         if not any(question.attrib.get("criterionId") == "5d-4" for question in aftershock_root.findall("question")):
             fail("response.completed aftershock helper did not persist question")
 
-        aftershock_shadow = run_lifecycle_check_shadow(aftershock_payload, aftershock_shadow_queue, decisions=shadow_decisions)
+        aftershock_shadow = run_lifecycle_check_shadow(
+            aftershock_payload,
+            aftershock_shadow_queue,
+            decisions=shadow_decisions,
+            root=temp_root,
+        )
         if aftershock_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-aftershock-reanalysis.sh":
             fail("lifecycle-check shadow should match aftershock first output helper: " + json.dumps(aftershock_shadow, ensure_ascii=False)[:800])
         if "5d-4 Aftershock Re-analysis" not in aftershock_shadow.get("firstOutput", "") or "Q-e69259ad4ca94b24" not in aftershock_shadow.get("firstOutput", ""):
@@ -4468,62 +4531,26 @@ def check_lifecycle_hook_integration() -> None:
             "message_id": "shadow-bdd-parity",
             "recent_tool_calls": [],
         }
-        bdd_candidates = ROOT / ".lazy-harness" / "knowledge" / "candidates.jsonl"
-        bdd_candidates_backup = bdd_candidates.read_text(encoding="utf-8") if bdd_candidates.exists() else None
+        bdd_candidates = temp_lazy / "knowledge" / "candidates.jsonl"
         bdd_candidates.unlink(missing_ok=True)
-        bdd_hook_body = hook_inject_body(run_response_completed_hook(bdd_payload, bdd_queue))
+        bdd_hook_body = hook_inject_body(
+            run_response_completed_hook(bdd_payload, bdd_queue, root=temp_root)
+        )
         if bdd_hook_body.strip():
             fail("response.completed should silently capture BDD candidate, not surface gate:\n" + bdd_hook_body)
         if not bdd_candidates.exists() or "lifecycle-bdd-trigger" not in bdd_candidates.read_text(encoding="utf-8"):
             fail("response.completed BDD helper should append candidate row")
         bdd_candidates.unlink(missing_ok=True)
-        bdd_shadow = run_lifecycle_check_shadow(bdd_payload, bdd_shadow_queue)
+        bdd_shadow = run_lifecycle_check_shadow(bdd_payload, bdd_shadow_queue, root=temp_root)
         if bdd_shadow.get("outputEmitted") is not False or bdd_shadow.get("firstOutput"):
             fail("lifecycle-check shadow should silently capture BDD candidate: " + json.dumps(bdd_shadow, ensure_ascii=False)[:800])
         if not bdd_candidates.exists() or "lifecycle-bdd-trigger" not in bdd_candidates.read_text(encoding="utf-8"):
             fail("lifecycle-check shadow BDD helper should append candidate row")
-        if bdd_candidates_backup is not None:
-            bdd_candidates.write_text(bdd_candidates_backup, encoding="utf-8")
-        else:
-            bdd_candidates.unlink(missing_ok=True)
 
-        option_payload = {
-            "assistant_response": (
-                "## Rule placement\n"
-                "- Rule: release execution policy.\n"
-                "- Scope: ambiguous\n"
-                "- Confirmation: needs-option-gate\n\n"
-                "선택해주세요:\n"
-                "A. SSOT 기록 후 test release dispatch (Recommended)\n"
-            ),
-            "recent_tool_calls": [{"name": "Write", "args_preview": ".lazy-harness/ssot/release-sources.md"}],
-        }
-        option_hook_body = hook_inject_body(run_response_completed_hook(option_payload, generic_queue))
-        option_shadow = run_lifecycle_check_shadow(option_payload, generic_queue)
-        if "Option gate discipline" not in option_hook_body or "Option gate discipline" not in option_shadow.get("firstOutput", ""):
-            fail("option-gate parity fixture did not surface expected STOP")
-        if option_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-option-gate-discipline.sh":
-            fail("lifecycle-check shadow should match option-gate first output helper")
-
-        record_before_payload = {
-            "assistant_response": "기록된 계획을 찾아보겠습니다.",
-            "recent_tool_calls": [{"name": "session_search", "args_preview": "계획"}],
-        }
-        record_hook_body = hook_inject_body(run_response_completed_hook(record_before_payload, generic_queue))
-        record_shadow = run_lifecycle_check_shadow(record_before_payload, generic_queue)
-        if "Record-before-session-history" not in record_hook_body or "Record-before-session-history" not in record_shadow.get("firstOutput", ""):
-            fail("record-before parity fixture did not surface expected STOP")
-        if record_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-record-before-session-history.sh":
-            fail("lifecycle-check shadow should match record-before first output helper")
-
-        read_only_payload = {
-            "message_id": "shadow-no-output-read-only",
-            "recent_tool_calls": [{"name": "read", "args_preview": ".lazy-harness/spec/platform/hook-performance-measurement.md"}],
-        }
-        read_only_hook_out = run_response_completed_hook(read_only_payload, generic_queue)
-        read_only_shadow = run_lifecycle_check_shadow(read_only_payload, generic_queue)
-        if read_only_hook_out.strip() or read_only_shadow.get("outputEmitted") is not False or read_only_shadow.get("firstOutput"):
-            fail("read-only no-output parity fixture should stay silent")
+        # Option-gate, record-before-session-history, and read-only full-chain parity
+        # are owned by the canonical 12-fixture matrix plus their focused helper
+        # regressions. Keep this integration check limited to stateful/composition
+        # seams that the matrix does not inspect.
 
         block_dry_payload = {
             "message_id": "shadow-policy-block-dry-run",
@@ -4534,8 +4561,10 @@ def check_lifecycle_hook_integration() -> None:
                 "appliesTo": ["claiming_validation_complete_without_evidence"],
             },
         }
-        block_hook_body = hook_inject_body(run_response_completed_hook(block_dry_payload, generic_queue))
-        block_shadow = run_lifecycle_check_shadow(block_dry_payload, generic_queue)
+        block_hook_body = hook_inject_body(
+            run_response_completed_hook(block_dry_payload, generic_queue, root=temp_root)
+        )
+        block_shadow = run_lifecycle_check_shadow(block_dry_payload, generic_queue, root=temp_root)
         if "DRY-RUN STOP. Policy Machinery block runtime" not in block_hook_body or "validation-evidence-block" not in block_hook_body:
             fail("response.completed should surface dry-run block helper output for explicit structured dry-run context:\n" + block_hook_body)
         if "No lifecycle hard-stop is installed" not in block_hook_body:
@@ -4551,17 +4580,12 @@ def check_lifecycle_hook_integration() -> None:
             "last_user_message": "검증 완료",
             "assistant_response": "검증 완료",
         }
-        block_raw_hook_out = run_response_completed_hook(block_raw_payload, generic_queue)
-        block_raw_shadow = run_lifecycle_check_shadow(block_raw_payload, generic_queue)
+        block_raw_hook_out = run_response_completed_hook(block_raw_payload, generic_queue, root=temp_root)
+        block_raw_shadow = run_lifecycle_check_shadow(block_raw_payload, generic_queue, root=temp_root)
         if block_raw_hook_out.strip() or "DRY-RUN STOP" in block_raw_shadow.get("firstOutput", ""):
             fail("dry-run block lifecycle integration must stay silent for raw text payloads")
     finally:
-        for path in [tdd_queue, tdd_shadow_queue, aftershock_queue, aftershock_shadow_queue, bdd_queue, bdd_shadow_queue, generic_queue, decisions, shadow_decisions]:
-            path.unlink(missing_ok=True)
-        if bdd_state_backup is not None:
-            bdd_state.write_text(bdd_state_backup, encoding="utf-8")
-        else:
-            bdd_state.unlink(missing_ok=True)
+        shutil.rmtree(temp_root, ignore_errors=True)
     print("✓ 5d-5 lifecycle hook integration ok")
 
 

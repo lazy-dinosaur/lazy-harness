@@ -141,3 +141,54 @@ Implementation map update:
 - `.lazy-harness/scripts/self-test.py` — `check_response_completed_auto_route_telemetry` fixture verifies both new CLI paths.
 - `.lazy-harness/bin/lazy` — help surface for new flags.
 - Protected by: `python3 .lazy-harness/scripts/self-test.py --scope framework`.
+
+## 2026-07-15 lifecycle validation ownership deduplication
+
+Status: implemented and validated; focused/static checks, independent review, and the single final full framework self-test pass after review corrections and inherited output-path isolation hardening.
+Related planning: `.lazy-harness/planning/performance-optimization-plan.md`
+Related evidence: `.lazy-harness/evidence/2026-07-15-validation-deduplication-phase1.md`
+
+### Regression ownership matrix
+
+| Concern | Owner | Required focused seam |
+|---|---|---|
+| Complete 12-fixture legacy-vs-shadow output/helper/validation parity | `check_lifecycle_parity_runner` | Sole complete matrix invocation; fixture set and CLI semantics unchanged. |
+| Sanitized real-payload intake, privacy, append/list, and parity loading | `check_lifecycle_fixture_intake_cli` | Select exactly the appended candidate by ID and execute it once through unchanged `run_fixture`. |
+| TDD and aftershock persisted question state | `check_lifecycle_hook_integration` plus focused helper tests | Retain legacy/shadow full-chain queue assertions; matrix output equality alone is insufficient. |
+| BDD candidate persistence | `check_lifecycle_hook_integration` plus `check_bdd_trigger_loop_suppression` | Retain legacy/shadow candidate-file assertions inside one isolated temporary host; matrix does not compare candidate state. |
+| `injectJson` composition | `check_lifecycle_hook_integration` | Retain `injectJson.inject.body == firstOutput`. |
+| Option gate and record-before helper semantics | Focused helper tests | Full-chain output/helper parity remains in the canonical matrix; do not repeat it in integration. |
+| Read-only no-output/fast-path behavior | Canonical matrix plus response telemetry/fast-path fixture | Do not repeat it in integration. |
+| Edit-target and structured policy context | `check_lifecycle_hook_integration` | Retain quoted-path negative case and explicit-context/raw-text policy cases. |
+
+### Protected behavior
+
+- The canonical matrix remains 12 fixtures and must pass 12/12 with zero mismatches.
+- Fixture intake must preserve raw user/assistant/command privacy checks, then execute only the just-appended candidate.
+- TDD/aftershock queues, BDD candidate state, `injectJson`, edit-target extraction, and policy-context seams remain protected.
+- Integration runs against one copied temporary host; it must not delete, truncate, restore, or otherwise mutate the source candidate store or source runtime queues. Self-test child environments strip inherited timing/compare output-path overrides so explicit outer paths cannot escape the copy.
+- Production hook order, helper behavior, CLI/result schema, runtime enforcement, and fixture definitions do not change.
+- A future fixture must declare one complete-matrix owner and only narrowly justified focused state/composition seams.
+
+### Layer completeness
+
+- SDD: no independent contract delta. `.lazy-harness/spec/platform/hook-performance-measurement.md` still defines the same parity CLI semantics; only test ownership changes.
+- BDD: no independent delta; no user- or agent-visible lifecycle behavior changes.
+- SSOT: no independent delta; runtime/shared-state roots and engine defaults are unchanged.
+- DDD: no independent delta; no domain vocabulary or business rule changes.
+- ADR: no new decision; this stays inside ADR 0016's existing validation boundary.
+
+### Implementation map update
+
+- `.lazy-harness/scripts/self-test.py#check_lifecycle_fixture_intake_cli` — privacy/list checks plus one candidate-ID-targeted `run_fixture` execution.
+- `.lazy-harness/scripts/self-test.py#check_lifecycle_hook_integration` — unique queue/candidate/inject/edit-target/policy composition seams in one isolated temporary host; root-aware test wrappers keep source state untouched.
+- `.lazy-harness/scripts/self-test.py#check_lifecycle_parity_runner` — sole complete matrix owner.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py#run_fixture` — unchanged single-fixture semantics reused by intake.
+- Existing graph relations remain valid; no new file/symbol relation is introduced.
+
+### Rule placement
+
+- Rule: keep one complete lifecycle parity matrix owner while preserving unique stateful composition seams.
+- Scope: framework-global TDD regression ownership.
+- Regression owner: this TDD record. The single work-unit primary canonical narrative remains `.lazy-harness/planning/performance-optimization-plan.md`.
+- Confirmation: user approved the seam-preserving re-audit plan on 2026-07-15.

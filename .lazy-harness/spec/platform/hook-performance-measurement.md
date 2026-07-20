@@ -233,8 +233,8 @@ rm -f $LAZY_RUNTIME_ROOT/logs/lifecycle-compare.jsonl
   - The same test protects fast-path safety: read-only payloads skip only write-only helpers, while unknown/missing payload shapes run the full helper set.
   - The same test protects Phase 3 opt-in modes: orchestrator timing, sandboxed compare logging, and no raw body storage.
   - The same test protects user-correction capture: acknowledgement without durable capture emits STOP, while a `.lazy-harness` record write satisfies the gate.
-  - `check_lifecycle_hook_integration` verifies shadow parity for TDD cross-verify, aftershock, BDD, option-gate discipline, record-before-session-history, and read-only no-output cases.
-  - `check_lifecycle_parity_runner` verifies the batch parity runner succeeds across the 12-fixture suite.
+  - `check_lifecycle_hook_integration` retains full-chain queue/candidate persistence, `injectJson`, edit-target-only, and structured-policy-context seams that the matrix does not inspect; the test runs these seams in one isolated temporary host so source durable/runtime state remains untouched. Self-test child environments strip inherited explicit timing/compare output paths; production environment semantics are unchanged.
+  - `check_lifecycle_parity_runner` is the sole complete 12-fixture output/helper/validation parity owner, including option-gate, record-before-session-history, and read-only cases.
 
 ## Discovery capture
 
