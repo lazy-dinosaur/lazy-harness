@@ -27,6 +27,35 @@
       ]
     },
     {
+      "id": "code-organization-review",
+      "kind": "checklist",
+      "level": "recommend",
+      "sourceRecord": ".lazy-harness/spec/platform/code-organization-profile.md",
+      "appliesWhen": [
+        "creating_source_file",
+        "modifying_source_file",
+        "reviewing_code_organization",
+        "extracting_shared_code"
+      ],
+      "actions": [
+        "Review changed source against COP-01 through COP-05",
+        "Keep coherent flow local or extract one explicit shared authority",
+        "Record no organization change needed when the changed surface is already coherent"
+      ],
+      "checklistPath": ".lazy-harness/spec/platform/code-organization-profile.md",
+      "description": "Recommend an observe-only review of new or modified source without inferring system architecture or enforcing a folder taxonomy.",
+      "owner": "framework-global",
+      "tags": [
+        "code-organization",
+        "changed-source",
+        "review",
+        "observe-only"
+      ],
+      "policyIds": [
+        "code-organization-profile"
+      ]
+    },
+    {
       "id": "lazy-evidence-capsule",
       "kind": "checklist",
       "level": "recommend",

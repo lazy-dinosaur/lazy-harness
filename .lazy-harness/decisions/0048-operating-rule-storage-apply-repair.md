@@ -26,10 +26,12 @@
   - detect intra-`.lazy-harness` wrong-surface and duplicate operating-rule writes via an advisory storage helper
   - keep the canonical store as `.lazy-harness/ssot/policies.json` (+ `capabilities.json`), `rules/**` compat/explain
   - surface the deterministic operating-rule/capability catalog at turn-start (`on-message-received.sh`, R3) so stored project rules are visible before action; keep it user-text-agnostic (no classification) and a plain registry enumeration the agent matches, never a `lazy find --purpose` query backend
+  - when source-file context is available, derive exact source-work intents from tool labels and resolve them through this host's canonical policy/capability registries before the next source action
 - Must not:
   - add a new `tool.execute.before` rule-specific hard gate (the user previously rejected hard gates; ADR 0041)
   - revive `rule-bindings.json`, `check-rule-action-boundary.py` enforcement, or a `lazy find --purpose` pre-turn query backend
   - classify raw user text in hooks; only deterministic label/cue matching of assistant/tool-arg evidence
+  - hardcode one framework profile as the only source guidance or ignore host-owned policies/capabilities that match the same exact source-work intent
 - Record completion:
   - changes to the storage helper, the missed-action level set, or the canonical-store policy update this ADR plus `spec/platform/response-rule-audit.md`, `ssot/rule-sources.md`, and self-test
 - Related records:
@@ -59,6 +61,7 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
    - operating-rule semantics (preferred/discouraged command, `warn`/`block`, workflow-gating before commit/push/merge/yield/PR/mutation) written as prose into a non-canonical `ssot/*.md` (not an allowlisted meta record) → wrong-surface advisory.
 3. **Grammar (R4).** AGENTS.md gains a thin resolve-before-add pointer; `ssot/rule-sources.md`, `spec/platform/response-rule-audit.md`, `spec/platform/project-rule-router.md` document the behavior and scope boundary.
 4. **Pre-action surfacing (R3) — included as of the 2026-06-28 amendment (reverses the original exclusion below).** Both lifecycle re-grounding hooks now surface a deterministic operating-rule/capability catalog (`lazy capability list` + `lazy policy list`, shared helper `helpers/operating_rule_catalog.py`): `on-message-received.sh` at turn-start (session baseline) and `on-context.sh` mid-turn after file-ops (per-turn refresh, since turn-start injection is deduped to once-per-session) — so stored rules are visible before action (jcode full-grammar parity). It stays within ADR 0041: the catalog is a plain enumeration the agent matches itself — not a `lazy find --purpose` semantic pre-turn resolver — is identical regardless of user text (no classification), and is advisory/visible with no hard gate. *(Original decision, retained as history: R3 was intentionally excluded to keep `on-message-received.sh` fully static and avoid reviving a retired pre-turn resolver backend; apply relied on grammar + the post-response advisory + the generic pre-action read-debt permit. Dogfood showed post-only surfacing left downstream agents improvising before the stored rule was ever seen — see the amendment section.)*
+5. **Exact-intent source-context adaptation.** When `on-context.sh` receives a source-file touch, it maps only the mechanical tool label to source-work intents (`creating_source_file`, `modifying_source_file`, `reviewing_code_organization`) and calls the canonical `lazy capability resolve` / `lazy policy resolve` surfaces. The injected body includes matching host policy/capability ids, source records, summaries, and actions. This is an advisory resolver application, not user-text classification, profile inference, or a second policy engine.
 
 ## Consequences
 
@@ -75,6 +78,14 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - Change: a shared helper `helpers/operating_rule_catalog.py` builds a deterministic catalog from `lazy capability list` + `lazy policy list` (`- \`<id>\` (<level>): <appliesWhen/appliesTo intents>`). `on-message-received.sh` injects it in the static turn-start body (session baseline); `on-context.sh` injects it in the mid-turn re-grounding (per-turn refresh after file-ops) because turn-start injection is deduped to once-per-session (`index.ts` `before_agent_start`; `pi-agent-package` §19) and on-context previously surfaced policy titles only, not capabilities. The agent resolves the matching intent (`lazy capability resolve --intent <intent>` / `lazy rules resolve`) and follows the stored convention before acting.
 - Guardrails preserved (ADR 0041 / this ADR's Must-not): deterministic enumeration, not a query backend (§24); identical output regardless of user text (§25, fixture-enforced); advisory/visible, no hard gate (§23).
 - Budget: turn-start estimate ~551→~758 tokens on the source repo, within the 1000 hard max (`check_prompt_budget_measurement`); no threshold change. Catalog entries capped (14) and intents truncated to bound host growth.
+## 2026-07-20 amendment — host source-policy adaptation
+
+- Trigger: the user restated the original framework goal: storing a reusable Code Organization Profile is not sufficient; project-specific rules must change actual agent behavior. The first Profile v1 implementation still hardcoded one framework profile pointer after source touches and only listed host rule ids in a generic catalog.
+- Change: `on-context.sh` now derives exact source-work intents from file-tool labels and asks the existing capability/policy resolvers for this host's matches. `operating_rule_catalog.py` renders those canonical resolver results beside the bounded all-rule catalog.
+- Host boundary: the framework Code Organization Profile remains a recommend-level baseline. Host-project policies/capabilities may add narrower source guidance through the same registries and are surfaced without being overwritten or reinterpreted by the framework.
+- Behavior boundary: source records, summaries, and capability actions are surfaced before the next source step; record/docs-only touches keep the generic catalog but receive no source-adaptation block.
+- Safety boundary: no raw user-text classification, architecture/profile inference, warn/block promotion, tool-specific hard gate, or second policy engine is introduced.
+- Protection: a minimal temp-host regression owns a host-only source policy/capability and proves it appears in source context while remaining absent from record-only context.
 
 ## Implementation map
 
@@ -86,17 +97,18 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
   - `.lazy-harness/scripts/lifecycle-check.py` — HELPERS parity.
   - `.lazy-harness/AGENTS.md`, `.lazy-harness/ssot/rule-sources.md`, `.lazy-harness/spec/platform/response-rule-audit.md`, `.lazy-harness/spec/platform/project-rule-router.md` — grammar/record alignment.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — R3 turn-start catalog injection (imports `helpers/operating_rule_catalog.catalog_lines`); 2026-06-28 amendment.
-  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — shared deterministic catalog builder used by both hooks (`catalog_lines`); 2026-06-28 amendment.
+  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — shared deterministic catalog builder plus canonical exact-intent resolver rendering used by source-touch context; 2026-07-20 amendment.
   - `.lazy-harness/hooks/lifecycle/on-context.sh` — R3 mid-turn (per-turn) catalog injection; 2026-06-28 amendment.
 - Key symbols:
   - `missed_discouraged_action` (`check-response-rule-audit.py`) — now `{default, warn, block}`.
   - `rule_store_write` / `wrong_surface_write` / `has_resolve_evidence` (`check-operating-rule-storage.py`).
-  - `catalog_lines` / `catalog_entries` (`helpers/operating_rule_catalog.py`) — R3 shared deterministic catalog builder (capabilities + policies, id-keyed, intents truncated, fail-open).
+  - `catalog_lines` / `catalog_entries` / `context_guidance_lines` (`helpers/operating_rule_catalog.py`) — bounded registry catalog plus host-specific canonical resolver output for mechanically derived source-work intents.
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py#check_operating_rule_storage_helper`
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest` (default-level + recommend-silent cases)
   - `.lazy-harness/scripts/self-test.py#check_message_received_surfaces_operating_rule_catalog` (R3 catalog surfaced at turn-start; user-text-agnostic)
   - `.lazy-harness/scripts/self-test.py#check_on_context_surfaces_operating_rule_catalog` (R3 catalog surfaced mid-turn incl. capabilities)
+  - `.lazy-harness/scripts/self-test.py#check_code_organization_profile` (host-only source policy/capability resolves into source context; record-only context has no source-adaptation block)
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
 - Cross-layer links:
@@ -125,3 +137,13 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - ADR: this ADR; ADR 0041/0044/0046 remain governing.
 - SSOT: `rule-sources.md` updated; `rule-lifecycle.md` unchanged (still phase5-organic).
 - Planning: `operating-rule-storage-apply-repair-20260624.md` supersedes the 2026-06-10 audit's repair direction.
+
+## Discovery capture — 2026-07-20 host source-policy adaptation
+
+- DDD: no independent delta; no business vocabulary or invariant changed.
+- SDD: Code Organization Profile and Pi/OMP package contracts gain host-resolved source guidance.
+- BDD: no product-visible flow; agent source-context guidance remains advisory.
+- TDD: Code Organization Profile and Pi/OMP package regression records gain the host-only adaptation fixture.
+- ADR: this amendment records why exact-intent source resolution extends the existing R3 catalog without reintroducing semantic user-text routing.
+- SSOT: no registry schema or seed semantic change; existing host-owned policy/capability stores remain canonical.
+- Planning: no new plan; this approved bounded amendment closes the source-organization canary of the existing adaptation bridge.

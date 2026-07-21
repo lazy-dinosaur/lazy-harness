@@ -1811,7 +1811,14 @@ def check_pi_package_layout_and_contract() -> None:
         fail("runtime_paths.py must accept @file: payload refs to avoid argv/env ARG_MAX failures")
 
     catalog_text = (LAZY / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py").read_text(encoding="utf-8")
-    for phrase in ["CATALOG_COMMAND_TIMEOUT_SECONDS", "LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS", "timeout=CATALOG_COMMAND_TIMEOUT_SECONDS"]:
+    for phrase in [
+        "CATALOG_COMMAND_TIMEOUT_SECONDS",
+        "LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS",
+        "timeout=CATALOG_COMMAND_TIMEOUT_SECONDS",
+        "context_guidance_lines",
+        "ThreadPoolExecutor",
+        "policy", "resolve",
+    ]:
         if phrase not in catalog_text:
             fail("operating rule catalog missing bounded timeout phrase: " + phrase)
 
@@ -9668,6 +9675,7 @@ def check_policy_machinery_v2() -> None:
     walk(fixture)
 
     framework_policy_ids = {
+        "code-organization-profile",
         "primary-canonical-record",
         "project-operating-rulebook-policy",
         "record-first-validation",
@@ -9809,7 +9817,7 @@ def check_policy_machinery_v2() -> None:
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
-    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "primary-canonical-record", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "code-organization-profile", "primary-canonical-record", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
         if expected not in render_md_result.stdout:
             fail("lazy policy render-rulebook md missing expected text: " + expected)
     render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -10036,6 +10044,8 @@ Fixture implementation map.
             ".lazy-harness/ssot/capabilities.json",
             ".lazy-harness/rules/README.md",
             ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            ".lazy-harness/spec/platform/code-organization-profile.md",
+            ".lazy-harness/tests/code-organization-profile.md",
             ".lazy-harness/spec/platform/guidance-ladder.md",
             ".lazy-harness/spec/platform/project-operating-rulebook.md",
             ".lazy-harness/ssot/policy-registry.md",
@@ -10153,6 +10163,7 @@ Fixture implementation map.
         for expected_id in (
             "host-only-unsynced-source-policy",
             "temp-write-roundtrip-policy",
+            "code-organization-profile",
             "primary-canonical-record",
             "record-first-validation",
             "validation-evidence-warning",
@@ -11081,6 +11092,213 @@ def check_on_context_surfaces_operating_rule_catalog() -> None:
     print("✓ on-context operating-rule catalog (R3) ok")
 
 
+def check_code_organization_profile() -> None:
+    """Profile v1 stays advisory and resolves host-owned source guidance."""
+    sdd_path = LAZY / "spec" / "platform" / "code-organization-profile.md"
+    tdd_path = LAZY / "tests" / "code-organization-profile.md"
+    adr_name = "0054-three-layer-cross-stack-architecture-guidance.md"
+    adr_path = LAZY / "decisions" / adr_name
+    if not adr_path.exists():
+        adr_path = LAZY / "framework" / "operational-adrs" / adr_name
+    apply_adr_name = "0048-operating-rule-storage-apply-repair.md"
+    apply_adr_path = LAZY / "decisions" / apply_adr_name
+    if not apply_adr_path.exists():
+        apply_adr_path = LAZY / "framework" / "operational-adrs" / apply_adr_name
+    agents_path = LAZY / "AGENTS.md"
+    hook_path = LAZY / "hooks" / "lifecycle" / "on-context.sh"
+    catalog_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py"
+    manifest_path = LAZY / "manifests" / "init-categories.json"
+    policy_path = LAZY / "ssot" / "policies.json"
+    capability_path = LAZY / "ssot" / "capabilities.json"
+
+    required_paths = (
+        sdd_path, tdd_path, adr_path, apply_adr_path, agents_path, hook_path,
+        catalog_helper_path, manifest_path, policy_path, capability_path,
+    )
+    for path in required_paths:
+        if not path.exists():
+            fail("Code Organization Profile missing file: " + str(path.relative_to(ROOT)))
+
+    sdd = sdd_path.read_text(encoding="utf-8")
+    tdd = tdd_path.read_text(encoding="utf-8")
+    adr = adr_path.read_text(encoding="utf-8")
+    apply_adr = apply_adr_path.read_text(encoding="utf-8")
+    agents = agents_path.read_text(encoding="utf-8")
+    catalog_helper = catalog_helper_path.read_text(encoding="utf-8")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    policies = json.loads(policy_path.read_text(encoding="utf-8")).get("policies", [])
+    capabilities = json.loads(capability_path.read_text(encoding="utf-8")).get("capabilities", [])
+
+    for phrase in (
+        "COP-01 — Domain-shape continuity",
+        "COP-02 — Local chronological coherence",
+        "COP-03 — Narrowing ownership path",
+        "COP-04 — Explicit lifecycle vocabulary and owner",
+        "COP-05 — Delayed extraction, single authority",
+        "A long file alone is not evidence for extraction",
+        "Phase O — observe (active)",
+        "cannot authorize a hard stop",
+        "matching host-project source guidance",
+    ):
+        if phrase not in sdd:
+            fail("Code Organization Profile SDD missing invariant: " + phrase)
+    for phrase in (
+        "Code Organization Profile is a separate track",
+        "cannot select a Layer 2 profile",
+        "Profile v1 is changed-source-only and observe/recommend level",
+    ):
+        if phrase not in adr:
+            fail("ADR 0054 missing Code Organization Profile boundary: " + phrase)
+    for phrase in (
+        "host source-policy adaptation",
+        "exact source-work intents",
+        "no raw user-text classification",
+    ):
+        if phrase not in apply_adr:
+            fail("ADR 0048 missing host source-policy adaptation boundary: " + phrase)
+    for phrase in (
+        "code_org_profile_source_touch",
+        "code_org_profile_host_adaptation",
+        "code_org_profile_non_source_touch",
+        "code_org_profile_no_enforcement",
+        "## Layer completeness",
+    ):
+        if phrase not in tdd:
+            fail("Code Organization Profile TDD missing fixture: " + phrase)
+    if "host 의 exact-intent policy/capability" not in agents:
+        fail("AGENTS.md missing host-resolved Code Organization Profile pointer")
+    for phrase in ("context_guidance_lines", "canonical exact-intent", "ThreadPoolExecutor"):
+        if phrase not in catalog_helper:
+            fail("Operating-rule catalog helper missing host adaptation mechanism: " + phrase)
+
+    policy = next((item for item in policies if isinstance(item, dict) and item.get("id") == "code-organization-profile"), None)
+    if not isinstance(policy, dict) or policy.get("stage") != "edit" or policy.get("level") != "recommend":
+        fail("Code Organization Profile policy must be edit-stage recommend")
+    if policy.get("sourceRecord") != ".lazy-harness/spec/platform/code-organization-profile.md":
+        fail("Code Organization Profile policy sourceRecord mismatch")
+    capability = next((item for item in capabilities if isinstance(item, dict) and item.get("id") == "code-organization-review"), None)
+    if not isinstance(capability, dict) or capability.get("kind") != "checklist" or capability.get("level") != "recommend":
+        fail("Code Organization Profile capability must be a recommend checklist")
+    if "code-organization-profile" not in capability.get("policyIds", []):
+        fail("Code Organization Profile capability must link its typed policy")
+
+    policy_resolve = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "policy", "resolve", "--stage", "edit", "--applies-to", "reviewing_code_organization", "--format=json"],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    if policy_resolve.returncode != 0:
+        fail("Code Organization Profile policy resolve failed:\n" + policy_resolve.stdout + policy_resolve.stderr)
+    resolved_policy = next((item for item in json.loads(policy_resolve.stdout).get("matches", []) if isinstance(item, dict) and item.get("id") == "code-organization-profile"), None)
+    if not isinstance(resolved_policy, dict) or resolved_policy.get("level") != "recommend" or resolved_policy.get("enforcement") != "advisory-only":
+        fail("Code Organization Profile must resolve recommend/advisory-only: " + policy_resolve.stdout)
+
+    capability_resolve = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "capability", "resolve", "--intent", "reviewing_code_organization", "--format=json"],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    if capability_resolve.returncode != 0 or "code-organization-review" not in [item.get("id") for item in json.loads(capability_resolve.stdout).get("matches", [])]:
+        fail("Code Organization Profile capability did not resolve: " + capability_resolve.stdout + capability_resolve.stderr)
+
+    def context_body(root: pathlib.Path, hook: pathlib.Path, path: str, tool_name: str) -> str:
+        payload = {
+            "event": "context",
+            "source": "lazy-harness-pi",
+            "working_dir": str(root),
+            "recent_tool_calls": [{"name": tool_name, "args_preview": path}],
+        }
+        completed = subprocess.run(
+            [str(hook)], cwd=root, input=json.dumps(payload), text=True, capture_output=True, check=False,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(root)),
+        )
+        if completed.returncode != 0 or not completed.stdout.strip():
+            fail("Code Organization Profile context fixture failed:\n" + completed.stdout + completed.stderr)
+        return json.loads(completed.stdout).get("inject", {}).get("body", "")
+
+    source_body = context_body(ROOT, hook_path, ".lazy-harness/scripts/lazy-sync.ts", "read")
+    for expected in (
+        "Resolved source-work guidance for THIS project",
+        "exact intents: reviewing_code_organization",
+        "policy `code-organization-profile` (recommend)",
+        "capability `code-organization-review` (recommend)",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+    ):
+        if expected not in source_body:
+            fail("Source touch must surface canonical resolved profile guidance: " + expected + "\n" + source_body)
+    record_body = context_body(ROOT, hook_path, ".lazy-harness/spec/platform/code-organization-profile.md", "read")
+    if "Resolved source-work guidance for THIS project" in record_body:
+        fail("Record-only touch must not surface source-adaptation guidance:\n" + record_body)
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-code-org-host-adaptation-"))
+    try:
+        temp_lazy = temp / ".lazy-harness"
+        for relative in ("bin", "scripts", "hooks/lifecycle/helpers", "ssot", "spec/host"):
+            (temp_lazy / relative).mkdir(parents=True, exist_ok=True)
+        shutil.copy2(LAZY / "bin" / "lazy", temp_lazy / "bin" / "lazy")
+        shutil.copy2(LAZY / "scripts" / "capability.ts", temp_lazy / "scripts" / "capability.ts")
+        shutil.copy2(LAZY / "scripts" / "policy.ts", temp_lazy / "scripts" / "policy.ts")
+        temp_hook = temp_lazy / "hooks" / "lifecycle" / "on-context.sh"
+        shutil.copy2(hook_path, temp_hook)
+        shutil.copy2(catalog_helper_path, temp_lazy / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py")
+        (temp_lazy / "spec" / "host" / "source-organization.md").write_text(
+            "# Host source organization\n\nKeep parser phases in input → normalize → emit order.\n",
+            encoding="utf-8",
+        )
+        host_policy = {
+            "version": 1,
+            "policies": [{
+                "id": "host-source-organization",
+                "title": "Host parser flow",
+                "scope": "host-project",
+                "stage": "edit",
+                "level": "recommend",
+                "appliesTo": ["modifying_source_file"],
+                "sourceRecord": ".lazy-harness/spec/host/source-organization.md",
+                "capabilityIds": ["host-source-organization-review"],
+                "explain": {"summary": "Keep parser phases in input to normalize to emit order."},
+            }],
+        }
+        host_capability = {
+            "version": 1,
+            "capabilities": [{
+                "id": "host-source-organization-review",
+                "kind": "checklist",
+                "level": "recommend",
+                "sourceRecord": ".lazy-harness/spec/host/source-organization.md",
+                "appliesWhen": ["modifying_source_file"],
+                "actions": ["Preserve input to normalize to emit order"],
+                "policyIds": ["host-source-organization"],
+            }],
+        }
+        (temp_lazy / "ssot" / "policies.json").write_text(json.dumps(host_policy), encoding="utf-8")
+        (temp_lazy / "ssot" / "capabilities.json").write_text(json.dumps(host_capability), encoding="utf-8")
+
+        host_source_body = context_body(temp, temp_hook, "src/parser.ts", "replace")
+        for expected in (
+            "exact intents: modifying_source_file",
+            "policy `host-source-organization` (recommend)",
+            "capability `host-source-organization-review` (recommend)",
+            ".lazy-harness/spec/host/source-organization.md",
+            "Keep parser phases in input to normalize to emit order.",
+            "Preserve input to normalize to emit order",
+        ):
+            if expected not in host_source_body:
+                fail("Host source adaptation fixture missing guidance: " + expected + "\n" + host_source_body)
+        if "code-organization-profile" in host_source_body:
+            fail("Host source adaptation must not hardcode the framework profile outside registry matches:\n" + host_source_body)
+        host_record_body = context_body(temp, temp_hook, ".lazy-harness/spec/host/source-organization.md", "read")
+        if "Resolved source-work guidance for THIS project" in host_record_body:
+            fail("Host record-only context must not emit source-adaptation guidance:\n" + host_record_body)
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+    category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
+    for expected in ("spec/platform/code-organization-profile.md", "tests/code-organization-profile.md"):
+        if expected not in category_a:
+            fail("Category A manifest missing Code Organization Profile asset: " + expected)
+
+    print("✓ Code Organization Profile host-adaptation contract ok")
+
+
 def check_response_rule_audit_from_surfaced_digest() -> None:
     """Phase 4: response.completed should audit surfaced digest rows and stay silent on clean turns."""
     tdd_path = LAZY / "tests" / "response-rule-audit.md"
@@ -11793,6 +12011,7 @@ def main() -> None:
         (check_message_received_hook_context_injection, "BOTH"),
         (check_message_received_surfaces_operating_rule_catalog, "BOTH"),
         (check_on_context_surfaces_operating_rule_catalog, "BOTH"),
+        (check_code_organization_profile, "BOTH"),
         (check_response_rule_audit_from_surfaced_digest, "BOTH"),
         (check_operating_rule_storage_helper, "BOTH"),
         (check_tool_execute_before_hook, "BOTH"),

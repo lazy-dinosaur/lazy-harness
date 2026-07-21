@@ -8,18 +8,48 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 6
+- Policy count: 7
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
+| `code-organization-profile` | recommend | edit | advisory-only | Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code. |
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
 | `primary-canonical-record` | recommend | turn | advisory-only | Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule. |
 | `project-operating-rulebook-policy` | discover | turn | advisory-only | When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records. |
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
 | `validation-evidence-block` | block | turn | block (not implemented by current runtime) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
 | `validation-evidence-warning` | warn | turn | warn-only (explicit policy_context required) | When structured policy context says the agent is making validation claims, warn if concrete validation evidence should be attached or summarized. |
+
+## code-organization-profile
+
+- Title: Review changed source with the Code Organization Profile
+- Scope: framework-global
+- Stage: edit
+- Level: recommend
+- Runtime: advisory-only
+- Source record: `.lazy-harness/spec/platform/code-organization-profile.md`
+- Capabilities: code-organization-review
+- Summary: Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code.
+
+### Applies to
+- creating_source_file
+- modifying_source_file
+- reviewing_code_organization
+- extracting_shared_code
+
+### Evidence
+- user-confirmation: User selected the Code Organization Profile track and requested implementation on 2026-07-20, with system architecture kept separate and no bulk rewrite.
+- record `.lazy-harness/spec/platform/code-organization-profile.md`: Profile v1 defines domain-shape continuity, local chronological coherence, narrowing ownership, explicit lifecycle vocabulary, delayed extraction, and changed-surface-only review.
+- validation-output `.lazy-harness/tests/code-organization-profile.md`: Regression contract protects recommend-only resolution, source-touch context, architecture separation, and no enforcement.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: discover, recommend, warn
+- Rollback target: discover
+  - Changed-source review produces noisy or generic advice.
+  - The profile starts inferring system architecture or prescribing folder taxonomies.
 
 ## framework-co-change-completeness
 

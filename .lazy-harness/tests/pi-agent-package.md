@@ -20,6 +20,7 @@ Layer: TDD
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
   - ensure `lazy_move_project` switches directly through `ctx.switchSession` when available; it must not treat `sendUserMessage('/lazy-move ...', { deliverAs: 'followUp' })` as command execution, because that only queues an agent-visible user message
   - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity); if `on-context.sh` cannot provide the real relevant-record body, fail open silently instead of injecting a generic fallback reminder
+  - when context evidence includes source-code paths, derive exact source-work intents from mechanical file-tool labels and surface canonical framework + host-project policy/capability matches; record/docs-only touches must not receive a source-adaptation block
   - on every non-extension, non-empty mid-turn steer, advance a root evidence epoch and clear prior recent-tool evidence; only tool results whose tool calls started in the current epoch may satisfy later action guards, so late pre-steer parallel results remain stale
   - project the jcode-shape `agent_end` payload (`assistant_response` + `last_user_message` from `event.messages`, string `args_preview` per `recent_tool_calls` entry) so `on-response-completed.sh` helper satisfaction works under Pi/OMP and does not loop
   - protect the opt-in `LAZY_PI_AGENT_END_TRACE=1` diagnostic: absent by default, written under `$LAZY_RUNTIME_ROOT`, structural fingerprints only, no conversation prose/tool args/results, fail-open, and no change to queued continuation behavior
@@ -36,6 +37,7 @@ Layer: TDD
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md`
   - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
   - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
+  - `.lazy-harness/spec/platform/code-organization-profile.md`
 
 ## Regression target
 
@@ -71,6 +73,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns and alternating advisory chains are capped at `MAX_ADVISORY_CHAIN_CONTINUATIONS`, then suppresses chat/display messages and only emits transient UI notification/log; an empty body resets the per-root counter, and a new human prompt distinct from the queued advisory body resets the cap while synthetic follow-up turns keep it |
 | `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root | Reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
 | `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh`; generic fallback reminder text is not injected when `on-context.sh` is missing or unparsable |
+| `pi_context_code_organization_profile` | Run `on-context.sh` with source, host-only source-policy, and record-only path fixtures | Source paths receive canonical resolver guidance for the framework baseline plus matching host-project policy/capability records and actions; record-only paths receive no source-adaptation block; all output stays advisory and user-text-agnostic |
 | `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
 | `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response` (assistant prose), `last_user_message`, and a `recent_tool_calls[].args_preview` containing the written path |
 | `pi_extension_agent_end_structural_trace` | Run the fake runtime with trace disabled, with explicit-root trace enabled, without an explicit root so canonical `runtime_paths.py` resolves the path, with a forced trace-write failure, and through 55 additional trace turns | No trace exists by default; opt-in rows contain bounded role/content-kind metadata, byte counts/hashes, tool names, and hook/advisory fingerprints without raw conversation/tool content; a 16-part message records only 12 kinds plus total/truncation metadata; the canonical fallback writes under the session runtime root; forced write failure still delivers one `followUp`; retention keeps exactly the newest 50 rows |
@@ -138,8 +141,8 @@ omp plugin list
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#appendSystemPromptBody` — fixture for official Pi string prompt and OMP string-array prompt compatibility.
 - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — fixture for the per-turn reminder carrying the interactive grammar.
-- `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for the mid-turn `context` re-grounding body.
-- `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded operating-rule/capability catalog enumeration timeout (`LAZY_HARNESS_CATALOG_TIMEOUT_SECONDS`, default 3s).
+- `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for mechanical source-intent derivation and source-only host policy/capability guidance.
+- `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded catalog enumeration plus canonical resolver rendering under one fail-open timeout window.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
 - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.

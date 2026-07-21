@@ -2,6 +2,64 @@
   "version": 1,
   "policies": [
     {
+      "id": "code-organization-profile",
+      "title": "Review changed source with the Code Organization Profile",
+      "scope": "framework-global",
+      "stage": "edit",
+      "level": "recommend",
+      "appliesTo": [
+        "creating_source_file",
+        "modifying_source_file",
+        "reviewing_code_organization",
+        "extracting_shared_code"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/code-organization-profile.md",
+      "capabilityIds": [
+        "code-organization-review"
+      ],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User selected the Code Organization Profile track and requested implementation on 2026-07-20, with system architecture kept separate and no bulk rewrite."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/code-organization-profile.md",
+          "summary": "Profile v1 defines domain-shape continuity, local chronological coherence, narrowing ownership, explicit lifecycle vocabulary, delayed extraction, and changed-surface-only review."
+        },
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/code-organization-profile.md",
+          "summary": "Regression contract protects recommend-only resolution, source-touch context, architecture separation, and no enforcement."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend",
+          "warn"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Changed-source review produces noisy or generic advice.",
+          "The profile starts inferring system architecture or prescribing folder taxonomies."
+        ],
+        "demotionTarget": "discover"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code.",
+        "nonCanonicalViews": [
+          ".lazy-harness/generated/policy-rulebook.md"
+        ]
+      }
+    },
+    {
       "id": "framework-co-change-completeness",
       "title": "Framework surface changes co-update all referencing distributed artifacts",
       "scope": "framework-global",

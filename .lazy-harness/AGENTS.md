@@ -170,10 +170,10 @@ host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝�
 의식적으로 위 단계를 건너뛸 때는 사유를 `.lazy-harness/logs/skipped.jsonl` 에 한 줄 기록한다. "looks fine" 으로 통과하지 말 것.
 
 ## 4. Framework Contract
-
 - 능동 검색하면 hook 은 silent
 - Jcode edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. 반복 속도를 위해 개발 중에는 agent 가 본 규칙을 능동 준수하고, 최종 일관성은 git pre-commit/pre-push 의 `.lazy-harness/bin/lazy test` 가 blocking 으로 검증한다 (ADR 0016).
 - `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. CLI 는 LLM/searcher 가 필요할 때 호출하는 tool 일 뿐이며, lifecycle hook 이 user text 를 정적으로 분류해 intent/risk/importance/required-read/record-write/next-action 을 정하면 안 된다. 판단은 record/source/test 를 읽은 LLM/searcher 가 한다 (SSOT cli-tool-boundary, ADR 0041).
+- 신규·수정 source 는 host 의 exact-intent policy/capability 를 먼저 resolve 한 뒤 `.lazy-harness/spec/platform/code-organization-profile.md` baseline 을 observe-only 로 적용한다. 로컬 정돈은 system architecture 와 분리하고 줄 수 분할·untouched rewrite 를 금지한다.
 - record 가 빈약하다? 누적해라. 1 주 동안 어느 layer 도 안 자라면 framework 활용 실패 신호
 - 검색 알고리즘 직접 구현 금지 (ADR 0024 §2). semantic 검색이 필요하면 SearchProvider (`search-provider.ts`) 통해 위임
 

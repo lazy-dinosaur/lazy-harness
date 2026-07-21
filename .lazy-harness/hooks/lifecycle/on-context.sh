@@ -42,8 +42,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path('.lazy-harness/hooks/lifecycle/helpers').resolve()))
 try:
     from operating_rule_catalog import catalog_lines as _catalog_lines
+    from operating_rule_catalog import context_guidance_lines as _context_guidance_lines
 except Exception:
     _catalog_lines = None
+    _context_guidance_lines = None
 
 try:
     payload = json.loads(os.environ.get('PAYLOAD_JSON') or '{}')
@@ -69,16 +71,39 @@ def run(args):
     except Exception:
         return ''
 
-# Touched source/test paths from this turn's tool calls.
+# Touched source/test paths and mechanical source-work intents from this turn's tool calls.
+SOURCE_RE = re.compile(r'\.(ts|tsx|js|jsx|py|sh|vue|svelte|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala|ex|exs|dart)$', re.IGNORECASE)
+PATH_RE = re.compile(r'\.(ts|tsx|js|jsx|py|md|json|sh|vue|svelte|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala|ex|exs|dart)$', re.IGNORECASE)
+READ_TOOLS = {'read', 'grep', 'find', 'ls', 'search', 'symbol_search', 'module_report', 'read_symbol', 'read_enclosing'}
+CREATE_TOOLS = {'write', 'create'}
+MODIFY_TOOLS = {'edit', 'replace', 'multiedit', 'patch', 'apply_patch', 'write'}
+
 paths = []
+source_intents = set()
 for call in (payload.get('recent_tool_calls') or []):
     raw = str(call.get('args_preview') or '')
+    call_paths = []
     for tok in re.split(r'[\s,]+', raw):
         tok = tok.strip().strip('`"\'')
-        if '/' in tok and not tok.startswith('-') and re.search(r'\.(ts|tsx|js|jsx|py|md|json|sh|vue|svelte|go|rs|java|kt)$', tok):
+        if '/' in tok and not tok.startswith('-') and PATH_RE.search(tok):
             if tok not in paths:
                 paths.append(tok)
+            call_paths.append(tok)
+    if any(SOURCE_RE.search(path) for path in call_paths):
+        tool_name = str(call.get('name') or call.get('tool') or '').strip().lower().rsplit('.', 1)[-1]
+        if tool_name in READ_TOOLS:
+            source_intents.add('reviewing_code_organization')
+        if tool_name in CREATE_TOOLS:
+            source_intents.add('creating_source_file')
+        if tool_name in MODIFY_TOOLS:
+            source_intents.add('modifying_source_file')
+
 paths = paths[-3:]
+source_paths = [path for path in paths if SOURCE_RE.search(path)]
+if source_paths and not source_intents:
+    # Legacy/minimal payloads may omit tool names. Keep the exact-intent path
+    # deterministic and conservative rather than classifying user text.
+    source_intents.add('modifying_source_file')
 
 # jcode (b) parity: surface the ACTUAL records relevant to what was touched.
 records = []
@@ -100,7 +125,10 @@ for p in paths:
             break
 
 # Operating rules/capabilities in effect — jcode parity: surface stored rules before action (R3, ADR 0048).
-catalog = _catalog_lines(LAZY, os.getcwd()) if _catalog_lines else []
+if source_paths and _context_guidance_lines:
+    catalog = _context_guidance_lines(LAZY, os.getcwd(), sorted(source_intents), stage='edit')
+else:
+    catalog = _catalog_lines(LAZY, os.getcwd()) if _catalog_lines else []
 
 lines = list(MANDATE)
 if records:

@@ -609,6 +609,16 @@
           "description": "TDD regression contract for architecture schema, CLI digest/apply safety, Project Profile candidate boundaries, distribution, and skill discovery."
         },
         {
+          "path": "spec/platform/code-organization-profile.md",
+          "kind": "file",
+          "description": "SDD for the observe-only Code Organization Profile baseline and host-resolved changed-source guidance, kept separate from system architecture and enforcement."
+        },
+        {
+          "path": "tests/code-organization-profile.md",
+          "kind": "file",
+          "description": "TDD regression for framework plus host-project policy/capability resolution, source/non-source context, architecture separation, and no-enforcement boundaries."
+        },
+        {
           "path": "ssot/architecture-guidance-storage.md",
           "kind": "file",
           "description": "SSOT ownership boundary for framework catalog/schemas and the host-owned architecture map."

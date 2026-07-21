@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-07-13
-Updated: 2026-07-14
+Updated: 2026-07-20
 Layer: ADR
 Related Layer 1: `.lazy-harness/planning/cross-stack-architecture-guidance.md`
 Related Layer 2: `.lazy-harness/planning/cross-stack-architecture-profiles.md`
@@ -47,6 +47,7 @@ Related pilot evidence: `.lazy-harness/evidence/2026-07-14-cross-stack-architect
   - mirror one constraint body across the host map and multiple layer records
   - let generated indexes, check output, or policy levels become architecture truth
   - extend the approved core+skill pilot into inferred architecture, application-source refactors, or enforcement
+  - treat local code organization, source ordering, or extraction advice as Host Architecture Map truth
 - Record completion:
   - changes to the three-layer architecture require this ADR or a superseding ADR
   - bounded catalog/schema/CLI/Project Profile/skill changes update the linked DDD/SDD/BDD/TDD/SSOT records, fixtures, manifests, graph facts, and evidence together
@@ -57,6 +58,7 @@ Related pilot evidence: `.lazy-harness/evidence/2026-07-14-cross-stack-architect
   - `.lazy-harness/planning/cross-stack-architecture-host-mapping.md`
   - `.lazy-harness/spec/platform/project-profile-v2.md`
   - `.lazy-harness/spec/platform/policy-machinery-v2.md`
+  - `.lazy-harness/spec/platform/code-organization-profile.md`
   - `.lazy-harness/ssot/rule-sources.md`
 
 ## Context
@@ -235,6 +237,17 @@ Layer 3 host choices.
 - Existing policies and capabilities keep their current semantics and levels.
 - No host folder structure, runtime, or deployment topology changes automatically.
 
+## 2026-07-20 amendment — Code Organization Profile is a separate track
+
+The user selected a Goedamjip-derived Code Organization Profile while explicitly keeping business/domain/system architecture outside that profile. The two tracks may share words such as ownership, cohesion, and lifecycle, but they own different facts:
+
+- this ADR and the Host Architecture Map own topology, scoped architecture bindings, boundaries, contracts, and confirmed host architecture truth;
+- `.lazy-harness/spec/platform/code-organization-profile.md` owns local source discoverability, chronological coherence, narrowing ownership paths, lifecycle vocabulary, and extraction timing;
+- a code-organization observation cannot select a Layer 2 profile, infer a named architecture, or confirm a host map;
+- Profile v1 is changed-source-only and observe/recommend level. Warnings, hard stops, AST rules, and bulk rewrites require later independent approval.
+
+Goedamjip remains read-only supporting evidence, not a folder or implementation oracle. The profile preserves useful local organization principles without making its current tree, framework, or legacy choices canonical.
+
 ## Approved bounded pilot amendment
 
 The original 2026-07-13 decision adopted only the three-layer model and deliberately
@@ -282,8 +295,10 @@ the skill requires a separate option gate for one independently reviewable seam.
   - `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`
   - `.lazy-harness/domain/architecture-guidance.md`
   - `.lazy-harness/spec/platform/architecture-guidance.md`
+  - `.lazy-harness/spec/platform/code-organization-profile.md`
   - `.lazy-harness/behavior/architecture-refactor-flow.md`
   - `.lazy-harness/tests/architecture-guidance.md`
+  - `.lazy-harness/tests/code-organization-profile.md`
   - `.lazy-harness/ssot/architecture-guidance-storage.md`
 - Core implementation:
   - `.lazy-harness/ssot/architecture-profile-catalog.json`
