@@ -6,13 +6,15 @@ This capsule covers the framework-source implementation of Code Organization Pro
 
 It proves that source context no longer depends on a hardcoded framework-profile pointer alone. Mechanical file-tool labels become exact source-work intents; the canonical capability/policy resolvers return framework and host-project matches; the context reminder surfaces their ids, source records, summaries, and actions before the next source step.
 
-Out of scope: Host Architecture Map confirmation, folder-taxonomy enforcement, AST/lint warn or block rules, bulk rewrites, product-source refactors, cybersecurity policy, downstream sync, commit, and push.
+Out of scope: Host Architecture Map confirmation, folder-taxonomy enforcement, AST/lint warn or block rules, bulk rewrites, product-source refactors, cybersecurity policy, unknown-host discovery, and seven-day outcome measurement.
 
 ## Environment
 
 - Work date: 2026-07-20
-- Source checkout HEAD: `5f890d58e96726015e85a3830ba76973e566457f`
-- Observed remote ref: `origin/main` at `1b4f7e5aed3b13aa1397e7c38944674ba28e8c8f`
+- Investigation source checkout HEAD: `5f890d58e96726015e85a3830ba76973e566457f` (dirty overlay preserved; not used as the deployment tree).
+- Clean integration base: `origin/main@1b4f7e5aed3b13aa1397e7c38944674ba28e8c8f`.
+- Published implementation commit: `550f28cc9bd2d0316123eb9109e937eaec97c2c1` (`origin/main`, remote ref verified).
+- Known rollout targets: `/home/lazydino/dev/medivance`, `/home/lazydino/dev/medivance-pwa`, `/home/lazydino/dev/medivance-homepage`.
 - Existing unrelated dirty files were preserved and excluded: `.lazy-harness/knowledge/candidates.jsonl`, `.lazy-harness/logs/validations.jsonl`, `.lazy-harness/planning/performance-optimization-plan.md`, `.pi-subagents/`.
 - Generated policy rulebook was regenerated from `.lazy-harness/ssot/policies.json`.
 - The tracked backlink cache was restored instead of retaining a regeneration that could mix unrelated shared-checkout work.
@@ -62,6 +64,24 @@ pi --no-extensions --no-session \
   -e /home/lazydino/dev/lazy-harness/packages/lazy-harness-pi/extensions/lazy-harness/index.ts \
   -p '<read parser, implement requested behavior, follow host rules, run bun test>'
 bun test
+
+# Clean integration and publication
+cd /tmp/lazy-code-org-rollout
+.lazy-harness/bin/lazy test --light
+.lazy-harness/bin/lazy test
+git push origin HEAD:main
+
+# Repeat for each known downstream host
+bun .lazy-harness/scripts/lazy-sync.ts \
+  --from /tmp/lazy-code-org-rollout --target <host> --dry-run
+bun .lazy-harness/scripts/lazy-sync.ts \
+  --from /tmp/lazy-code-org-rollout --target <host>
+cd <host>
+.lazy-harness/bin/lazy policy resolve \
+  --stage edit --applies-to modifying_source_file --format=json
+.lazy-harness/bin/lazy capability resolve \
+  --intent modifying_source_file --format=json
+.lazy-harness/bin/lazy test
 ```
 
 ## Results
@@ -100,6 +120,18 @@ bun test
 - Clean-worktree full suite: `ran=86`, `skipped=0`, exit 0.
 - Python LSP did not complete within the bounded multi-file wait; syntax, focused checks, and full runtime regression are the positive evidence.
 
+## Downstream rollout verification
+
+- Published implementation commit: `550f28cc9bd2d0316123eb9109e937eaec97c2c1`; local integration commit, `origin/main`, and `git ls-remote origin refs/heads/main` matched.
+- Pre-sync dry-run on each known target reported `15 updated`, `287 unchanged`, `0 missing`, with drift `behind` from `1b4f7e5aed3b` to `550f28cc9bd2`.
+- Live sync on each target merged the framework policy/capability seeds, appended three new graph rows, copied the Profile/runtime assets, and advanced `.lazy-harness/state/synced-from-commit` to `550f28cc9bd2d0316123eb9109e937eaec97c2c1`.
+- Medivance, PWA, and Homepage all preserved their host-owned project identity plus every non-framework policy/capability entry byte-for-JSON-equivalent to the pre-sync snapshots.
+- On all three hosts, `code-organization-profile` resolved for `modifying_source_file`, `code-organization-review` resolved for the same intent, and a direct source-context payload included `Resolved source-work guidance for THIS project`.
+- Host regression result on every target: `lazy-harness self-test ok (scope=host, ran=59, skipped=27)`.
+- Post-sync dry-run on every target reported drift `equal: Already in sync`; the distributed Profile SDD/TDD, context hook, and catalog-helper hashes matched the clean source worktree.
+- Medivance and PWA product trees remained clean. Homepage's pre-existing 42-line product-tree status was preserved exactly before versus after sync.
+- The marker `sourceRoot` now points to the clean integration worktree `/tmp/lazy-code-org-rollout`, replacing the older `/tmp/lazy-validation-dedupe-phase1` source. The dirty primary checkout was intentionally not pulled, reset, stashed, or rewritten.
+
 ## Interpretation
 
 The evidence supports these bounded claims:
@@ -112,12 +144,14 @@ The evidence supports these bounded claims:
 6. Current behavior is advisory/recommend-level; no warn/block promotion, AST/lint gate, line threshold, folder prescription, or bulk rewrite was introduced.
 7. The framework regression suite passed on the final source/test implementation tree.
 
-The evidence does not prove downstream rollout quality, seven-day developer outcomes, or suitability of future mechanical warning thresholds. Those remain separate dogfood and approval gates.
+The evidence proves publication and runtime reach for the three known downstream hosts listed above at implementation commit `550f28cc9bd2d0316123eb9109e937eaec97c2c1`. It does not prove unknown-host rollout, seven-day developer outcomes, or suitability of future mechanical warning thresholds. The clean integration worktree must remain available for marker-based default sync until the separately owned dirty primary checkout can be reconciled to published `origin/main`; this operational follow-up does not change the deployed runtime assets or host test results.
 
 ## Reproduce
 
 ```bash
 cd /home/lazydino/dev/lazy-harness
+git worktree add --detach /tmp/lazy-code-org-reproduce 550f28cc9bd2d0316123eb9109e937eaec97c2c1
+cd /tmp/lazy-code-org-reproduce
 
 python3 - <<'PY'
 import importlib.util, pathlib
