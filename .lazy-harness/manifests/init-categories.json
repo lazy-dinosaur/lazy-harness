@@ -224,6 +224,16 @@
           "description": "SDD standard for project-specific rule placement: route new rules to AGENTS, SSOT/ADR/layer records, planning, or .jcode-local workflow with an explicit Rule placement judgement."
         },
         {
+          "path": "ssot/gate-fingerprint-state.md",
+          "kind": "file",
+          "description": "SSOT contract for same-turn gate fingerprint state and project-rule placement fingerprint inputs."
+        },
+        {
+          "path": "tests/project-rule-placement-gate-loop.md",
+          "kind": "file",
+          "description": "TDD regression for project-rule placement false positives, duplicate suppression, failed-tool evidence, and current-turn Pi/OMP projection."
+        },
+        {
           "path": "spec/platform/project-profile.md",
           "kind": "file",
           "description": "SDD contract for Project Profile architecture and feature-navigation retrieval metadata used by LLM/searcher direct reads."

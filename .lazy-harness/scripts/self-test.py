@@ -819,6 +819,20 @@ def check_analysis_discovery_capture_helper() -> None:
 
 def check_project_rule_placement_helper() -> None:
     """Project-specific rules must route to .lazy-harness or explicit local-only judgement."""
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    category_a_paths = {
+        entry.get("path")
+        for entry in manifest.get("categories", {}).get("A", {}).get("items", [])
+        if isinstance(entry, dict)
+    }
+    required_records = {
+        "spec/platform/project-rule-router.md",
+        "ssot/gate-fingerprint-state.md",
+        "tests/project-rule-placement-gate-loop.md",
+    }
+    missing_records = sorted(required_records - category_a_paths)
+    if missing_records:
+        fail("project rule placement manifest dependencies missing: " + ", ".join(missing_records))
     state_file = runtime_open_gates_file(ROOT)
     state_file.parent.mkdir(parents=True, exist_ok=True)
     backup = state_file.read_text(encoding="utf-8") if state_file.exists() else None

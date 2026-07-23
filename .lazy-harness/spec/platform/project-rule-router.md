@@ -29,6 +29,7 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
   - include a complete Rule placement judgement when recording or reporting placement
   - derive semantic placement cues only from `last_user_message` and `assistant_response`; tool calls are structural action evidence, not prose
   - accept record/local-note/memory action evidence only from successful calls (`is_error` / `isError` is not true)
+  - distribute this SDD, `ssot/gate-fingerprint-state.md`, and `tests/project-rule-placement-gate-loop.md` together through the Category A manifest
   - stop with an option gate when placement is ambiguous
 - Must not:
   - treat `needs-option-gate` as approval to keep working
@@ -124,12 +125,13 @@ The placement helper's scope is `.jcode`/Jcode-memory over-routing only. Intra-`
   - `.lazy-harness/ssot/rule-sources.md` — canonical placement registry.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — enforcement helper, including Jcode memory misuse detection.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime state schema shared by loop-prone option-gate helpers.
-  - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated `Rule placement` STOP reminders.
+  - `.lazy-harness/tests/project-rule-placement-gate-loop.md` — regression record for repeated and stale-evidence `Rule placement` STOP reminders.
+  - `.lazy-harness/manifests/init-categories.json` — distributes the router SDD with its fingerprint SSOT and regression TDD to hosts.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes the helper.
   - `.lazy-harness/scripts/self-test.py` — fixture tests.
   - `.lazy-harness/AGENTS.md` — concise grammar pointer.
 - Key symbols:
-  - `check_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — validates block/pass/no-false-positive cases.
+  - `check_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — validates block/pass/no-false-positive cases and Category A co-distribution of the router SDD, fingerprint SSOT, and regression TDD.
   - `run_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — helper runner.
   - `Rule placement` judgement — completion signal.
   - `MEMORY_TOOLS` / `MEMORY_RULE_CUES` (`check-project-rule-placement.sh`) — detects successful project-rule writes to Pi/OMP memory.
@@ -145,6 +147,7 @@ The placement helper's scope is `.jcode`/Jcode-memory over-routing only. Intra-`
   - `python3 .lazy-harness/scripts/self-test.py`
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
+  - focused manifest assertion: `check_project_rule_placement_helper` requires all three project-rule contract records in Category A.
   - focused: `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper` validates first fire, same-turn suppression, new-turn re-fire, tool/path-only fetch silence, failed-call exclusion, and genuine semantic re-fire.
   - focused: `.lazy-harness/scripts/self-test.py` `_check_pi_agent_end_current_turn_scope` validates that Pi `agent_end` sends only the active turn's tool results while retaining current failed-tool structure.
   - focused: `.lazy-harness/scripts/self-test.py` `run_project_rule_placement_helper` invokes the helper with `env_without_lazy_runtime()` so duplicate-suppression fixtures do not inherit outer runtime/session state.

@@ -73,6 +73,7 @@ Expected behavior:
 4. First derived gate for a `(message_id, fingerprint)` emits STOP; repeated same-turn derivation exits silently.
 5. A new `message_id` may re-fire if the semantic placement issue is still unresolved.
 6. Pi/OMP `agent_end` carries current-turn tool results only; a tool-free turn receives no prior-turn evidence.
+7. Host sync distributes the router SDD, fingerprint SSOT, and this regression TDD together, so helper behavior and linked records cannot drift.
 
 ## Layer completeness gate
 
@@ -81,7 +82,7 @@ Expected behavior:
 - BDD: no independent record delta; user-visible behavior returns to the intended flow where unrelated fetch/tool completion does not enqueue a false placement follow-up, while genuine placement gaps still do.
 - SSOT: `.lazy-harness/ssot/gate-fingerprint-state.md` narrows the project-rule fingerprint input to semantic text plus successful relevant action kinds.
 - DDD: no domain terminology or business invariant change.
-- TDD: `check_project_rule_placement_helper` protects path-only/fetch/failed-call cases; `_check_pi_agent_end_current_turn_scope` protects active-turn projection.
+- TDD: `check_project_rule_placement_helper` protects path-only/fetch/failed-call cases, active-turn projection, and Category A co-distribution of the linked SDD/SSOT/TDD records.
 - ADR: no new decision; existing lifecycle, option-gate, and Pi/OMP bridge decisions remain unchanged.
 
 ## Implementation map
@@ -94,11 +95,12 @@ Expected behavior:
   - `.lazy-harness/spec/platform/project-rule-router.md` — SDD contract for semantic cue and action-evidence boundaries.
   - `.lazy-harness/spec/platform/pi-agent-package.md` — SDD contract for current-turn Pi/OMP projection.
   - `.lazy-harness/ssot/gate-fingerprint-state.md` — runtime fingerprint input and shared option-gate state schema.
+  - `.lazy-harness/manifests/init-categories.json` — co-distributes the router SDD, fingerprint SSOT, and this TDD to downstream hosts.
 - Key symbols:
   - `call_succeeded` / `cue_lower` (`check-project-rule-placement.sh`) — ignore failed calls and prevent path tokens from self-triggering semantic cues.
   - `gate_already_open_this_turn` (`check-project-rule-placement.sh`) — fingerprints semantic text plus successful relevant action kinds.
   - `advanceEvidenceEpoch` / `toolResultBelongsToCurrentEvidenceEpoch` (`index.ts`) — create normal-turn boundaries and reject late old-turn results.
-  - `_check_project_rule_placement_helper_cases` (`self-test.py`) — validates genuine gates, tool/path-only silence, and failed-call exclusion.
+  - `check_project_rule_placement_helper` / `_check_project_rule_placement_helper_cases` (`self-test.py`) — validate manifest completeness, genuine gates, tool/path-only silence, and failed-call exclusion.
   - `_check_pi_agent_end_current_turn_scope` (`self-test.py`) — validates active-turn-only Pi/OMP projection.
 - Flow:
   1. `before_agent_start` advances the Pi/OMP evidence epoch; tool results retain their completion epoch.
@@ -109,7 +111,7 @@ Expected behavior:
 - Tests / protection:
   - `bash -n .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh`
   - `python3 -m py_compile .lazy-harness/scripts/self-test.py`
-  - focused self-test call for `check_project_rule_placement_helper` (includes the Pi/OMP current-turn fake runtime)
+  - focused self-test call for `check_project_rule_placement_helper` (includes manifest completeness and the Pi/OMP current-turn fake runtime)
   - `python3 .lazy-harness/scripts/self-test.py`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
