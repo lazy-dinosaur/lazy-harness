@@ -30,7 +30,7 @@ python3 .lazy-harness/scripts/doctor.py --profile full
   - D04 README/handoff/phase freshness
   - D05 branch/hook policy
   - D06 C17 external dependency invariant (full profile)
-- `lazy-sync.ts` — update Category A framework body on an already-initialized host while preserving host memory.
+- `lazy-sync.ts` — update Category A framework body on an already-initialized host while preserving host memory; `--skip-knowledge-seeds` leaves host `knowledge/*.jsonl` untouched for a reviewed rollout.
 - `lazy-update.ts` — public-safe updater. Refreshes the persistent source checkout, then delegates to `lazy-sync.ts`.
 - `contract-diff.ts` — existing contract diff helper.
 - `lazy-check.py` — fast changed-file static validation tier used by `.lazy-harness/bin/lazy check`; not a replacement for `self-test.py` / `lazy test`.

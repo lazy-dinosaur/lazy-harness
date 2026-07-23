@@ -2951,7 +2951,7 @@ def check_manifest_syncs_python_lifecycle_helpers() -> None:
 
 
 def check_lazy_sync_prunes_stale_managed_files() -> None:
-    """lazy-sync must remove stale files from managed Category A directories."""
+    """lazy-sync prunes Category A files and can opt out of host knowledge JSONL seed merges."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-sync-prune-"))
     try:
         state = temp / ".lazy-harness" / "state"
@@ -2962,16 +2962,22 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             temp / ".lazy-harness" / "scripts" / "task-router.ts",
             temp / ".lazy-harness" / "fixtures" / "task-router" / "cases.json",
         ]
-        graph = temp / ".lazy-harness" / "knowledge" / "graph.jsonl"
+        knowledge = temp / ".lazy-harness" / "knowledge"
+        graph = knowledge / "graph.jsonl"
+        candidates = knowledge / "candidates.jsonl"
         state.mkdir(parents=True)
         stale.parent.mkdir(parents=True)
         for removed in removed_managed:
             removed.parent.mkdir(parents=True, exist_ok=True)
             removed.write_text("legacy managed file\n", encoding="utf-8")
-        graph.parent.mkdir(parents=True)
+        knowledge.mkdir(parents=True)
         stale.write_text("<legacy-fixture />\n", encoding="utf-8")
         host_graph_row = {"id": "host_local_graph_fact", "source": "host-local fact must survive lazy-sync"}
-        graph.write_text(json.dumps(host_graph_row, ensure_ascii=False) + "\n", encoding="utf-8")
+        host_candidate_row = {"id": "host_local_candidate", "source": "host-local candidate must survive lazy-sync"}
+        host_graph_text = json.dumps(host_graph_row, ensure_ascii=False) + "\n"
+        host_candidate_text = json.dumps(host_candidate_row, ensure_ascii=False) + "\n"
+        graph.write_text(host_graph_text, encoding="utf-8")
+        candidates.write_text(host_candidate_text, encoding="utf-8")
         capabilities = temp / ".lazy-harness" / "ssot" / "capabilities.json"
         capabilities.parent.mkdir(parents=True, exist_ok=True)
         capabilities.write_text(
@@ -2986,6 +2992,27 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
                             "sourceRecord": ".lazy-harness/ssot/host-local.md",
                             "appliesWhen": ["host_local_only"],
                             "actions": ["host-local action"],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        policies = temp / ".lazy-harness" / "ssot" / "policies.json"
+        policies.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "policies": [
+                        {
+                            "id": "host-local-policy",
+                            "level": "recommend",
+                            "stage": "edit",
+                            "appliesTo": ["host_local_only"],
+                            "summary": "host-local policy must survive lazy-sync",
+                            "action": "surface-guidance",
                         }
                     ],
                 },
@@ -3010,6 +3037,70 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             json.dumps({"syncedFromCommit": head, "sourceRoot": str(ROOT)}, ensure_ascii=False),
             encoding="utf-8",
         )
+
+        help_completed = subprocess.run(
+            ["bun", ".lazy-harness/scripts/lazy-sync.ts", "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if help_completed.returncode != 0 or "--skip-knowledge-seeds" not in help_completed.stdout:
+            fail("lazy-sync help must document --skip-knowledge-seeds:\n" + help_completed.stdout + help_completed.stderr)
+
+        skipped = subprocess.run(
+            [
+                "bun",
+                ".lazy-harness/scripts/lazy-sync.ts",
+                "--from",
+                str(ROOT),
+                "--target",
+                str(temp),
+                "--force",
+                "--quiet",
+                "--skip-knowledge-seeds",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if skipped.returncode != 0:
+            fail("lazy-sync knowledge seed opt-out fixture failed:\n" + skipped.stdout + skipped.stderr)
+        marker_after_skip = json.loads((state / "synced-from-commit").read_text(encoding="utf-8"))
+        if marker_after_skip.get("syncedFromCommit") != head:
+            fail("knowledge seed opt-out must advance the normal syncedFromCommit marker")
+        if pathlib.Path(str(marker_after_skip.get("sourceRoot", ""))).resolve() != ROOT.resolve():
+            fail("knowledge seed opt-out must retain the canonical sourceRoot in the sync marker")
+        if not marker_after_skip.get("syncedAt"):
+            fail("knowledge seed opt-out must write the normal syncedAt marker timestamp")
+        if graph.read_text(encoding="utf-8") != host_graph_text:
+            fail("lazy-sync --skip-knowledge-seeds must preserve graph.jsonl byte-identically")
+        if candidates.read_text(encoding="utf-8") != host_candidate_text:
+            fail("lazy-sync --skip-knowledge-seeds must preserve candidates.jsonl byte-identically")
+        conflict_files = sorted(str(path.relative_to(temp)) for path in knowledge.glob("*.conflicts.jsonl"))
+        if conflict_files:
+            fail("lazy-sync --skip-knowledge-seeds must not create knowledge conflict sidecars: " + json.dumps(conflict_files))
+        if not (knowledge / "README.md").exists():
+            fail("lazy-sync --skip-knowledge-seeds must still copy the framework knowledge README")
+        current = temp / ".lazy-harness" / "fixtures" / "context-tier" / "context-tier-manifest.sample.json"
+        if stale.exists() or not current.exists():
+            fail("knowledge seed opt-out must still prune/copy non-knowledge Category A files")
+        skipped_capability_ids = [
+            cap.get("id")
+            for cap in json.loads(capabilities.read_text(encoding="utf-8")).get("capabilities", [])
+        ]
+        for required_capability in ["host-local-capability", "project-operating-rulebook"]:
+            if required_capability not in skipped_capability_ids:
+                fail("knowledge seed opt-out must preserve/merge capabilities: " + required_capability)
+        skipped_policy_ids = [
+            policy.get("id")
+            for policy in json.loads(policies.read_text(encoding="utf-8")).get("policies", [])
+        ]
+        for required_policy in ["host-local-policy", "code-organization-profile"]:
+            if required_policy not in skipped_policy_ids:
+                fail("knowledge seed opt-out must preserve/merge policies: " + required_policy)
+
         completed = subprocess.run(
             ["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(ROOT), "--target", str(temp), "--force", "--quiet"],
             cwd=ROOT,
@@ -3019,7 +3110,6 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         )
         if completed.returncode != 0:
             fail("lazy-sync prune fixture failed:\n" + completed.stdout + completed.stderr)
-        current = temp / ".lazy-harness" / "fixtures" / "context-tier" / "context-tier-manifest.sample.json"
         if stale.exists() or not current.exists():
             fail("lazy-sync must prune stale managed fixture and copy current context-tier fixture")
         for required_record in [
@@ -3045,6 +3135,8 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
         graph_text = graph.read_text(encoding="utf-8")
         if "host_local_graph_fact" not in graph_text or "kg_" not in graph_text:
             fail("lazy-sync must merge source knowledge seeds while preserving host-local graph rows")
+        if "host_local_candidate" not in candidates.read_text(encoding="utf-8"):
+            fail("lazy-sync must preserve host-local candidate rows during the default seed merge")
         if not (temp / ".lazy-harness" / "rules" / "README.md").exists():
             fail("lazy-sync must copy the framework rulebook README seed")
         capability_ids = [
@@ -3061,7 +3153,7 @@ def check_lazy_sync_prunes_stale_managed_files() -> None:
             fail("lazy-sync must preserve the host-owned architecture map byte-identically")
     finally:
         shutil.rmtree(temp, ignore_errors=True)
-    print("✓ lazy-sync stale managed file prune ok")
+    print("✓ lazy-sync stale managed file prune and knowledge seed opt-out ok")
 
 
 def run_rule_action_boundary_helper(payload: dict, root: pathlib.Path | None = None) -> str:

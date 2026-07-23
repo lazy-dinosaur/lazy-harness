@@ -11,7 +11,7 @@
  *   - Ahead/divergent: refuses unless --force
  *
  * Usage:
- *   bun .lazy-harness/scripts/lazy-sync.ts [--from <dir>] [--target <dir>] [--dry-run] [--force] [--quiet]
+ *   bun .lazy-harness/scripts/lazy-sync.ts [--from <dir>] [--target <dir>] [--dry-run] [--force] [--skip-knowledge-seeds] [--quiet]
  *
  * Exit:
  *   0 success | 1 validation | 2 drift conflict | 3 IO
@@ -41,6 +41,7 @@ interface Args {
   from: string
   dryRun: boolean
   force: boolean
+  skipKnowledgeSeeds: boolean
   quiet: boolean
 }
 
@@ -50,6 +51,7 @@ function parseArgs(argv: string[]): Args {
     from: '',
     dryRun: false,
     force: false,
+    skipKnowledgeSeeds: false,
     quiet: false
   }
   for (let i = 0; i < argv.length; i++) {
@@ -58,6 +60,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--from') args.from = argv[++i]
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--force') args.force = true
+    else if (a === '--skip-knowledge-seeds') args.skipKnowledgeSeeds = true
     else if (a === '--quiet') args.quiet = true
     else if (a === '--help' || a === '-h') {
       printHelp()
@@ -77,11 +80,12 @@ Usage:
   bun lazy-sync.ts [options]
 
 Options:
-  --target <dir>   Host root (default: cwd)
-  --from <dir>     Framework source (auto from state/synced-from-commit if omitted)
-  --dry-run        Show changes only
-  --force          Update despite drift
-  --quiet          Suppress per-file logs
+  --target <dir>             Host root (default: cwd)
+  --from <dir>               Framework source (auto from state/synced-from-commit if omitted)
+  --dry-run                  Show changes only
+  --force                    Update despite drift
+  --skip-knowledge-seeds     Do not merge knowledge/*.jsonl; other Category A and registry seeds still sync
+  --quiet                    Suppress per-file logs
 
 Exit:
   0 ok | 1 validation | 2 drift | 3 io`)
@@ -484,7 +488,8 @@ function loadManifest(sourceRoot: string): InitManifest {
 function syncCategoryA(
   sourceRoot: string,
   targetRoot: string,
-  items: ManifestItem[]
+  items: ManifestItem[],
+  skipKnowledgeSeeds = false
 ): { updated: number; unchanged: number; missing: number } {
   const sourceLazy = join(sourceRoot, '.lazy-harness')
   const targetLazy = join(targetRoot, '.lazy-harness')
@@ -546,6 +551,7 @@ function syncCategoryA(
       const src = join(srcDir, f)
       const dest = join(targetLazy, item.targetPath ?? item.path, f)
       if (isKnowledgeSeedItem(item) && f.endsWith('.jsonl')) {
+        if (skipKnowledgeSeeds) continue
         const result = mergeJsonlSeed(src, dest, targetRoot)
         if (result === 'updated') updated++
         else unchanged++
@@ -668,6 +674,7 @@ function main(): void {
   log(`  source: ${sourceRoot}`)
   log(`  target: ${targetRoot}`)
   if (DRY) log(`  mode:   DRY-RUN`)
+  if (args.skipKnowledgeSeeds) log(`  knowledge seeds: SKIPPED (--skip-knowledge-seeds)`)
 
   // Drift detection
   const drift = detectDrift(sourceRoot, targetRoot)
@@ -686,7 +693,12 @@ function main(): void {
 
   // Sync
   const manifest = loadManifest(sourceRoot)
-  const result = syncCategoryA(sourceRoot, targetRoot, manifest.categories.A.items)
+  const result = syncCategoryA(
+    sourceRoot,
+    targetRoot,
+    manifest.categories.A.items,
+    args.skipKnowledgeSeeds
+  )
   result.updated += removeKnownRemovedManagedFiles(sourceRoot, targetRoot)
 
   // Update marker

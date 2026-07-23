@@ -66,7 +66,8 @@ Commands:
                                 Bootstrap .lazy-harness/ in a new host; prints Pi/OMP activation command
   agent activate [--target=DIR] [--dry-run]
                                 Create project-local Pi/OMP activation prompt files
-  sync [--dry-run]              Refresh framework body (Category A) from canonical source
+  sync [--dry-run] [--force] [--skip-knowledge-seeds]
+                                Refresh framework body (Category A); optionally leave knowledge JSONL untouched
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
   pi install|remove|list|smoke|doctor
                                 Manage lazy-harness-pi install/list/smoke wrappers for official Pi

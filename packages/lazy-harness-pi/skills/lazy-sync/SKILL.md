@@ -12,7 +12,21 @@ Sync framework Category A from the recorded source checkout while preserving hos
 Run from the host project root:
 
 ```bash
-.lazy-harness/bin/lazy sync [--dry-run|--force]
+.lazy-harness/bin/lazy sync [--dry-run|--force|--skip-knowledge-seeds]
 ```
+
+Use `--skip-knowledge-seeds` only when a reviewed rollout must leave host `knowledge/*.jsonl` byte-identical. It does not skip other Category A files or capability/policy seed merges, and the sync marker still advances.
+
+For the **first** protected rollout to a host whose installed sync predates this flag, do not call that host's old `.lazy-harness/bin/lazy sync` parser. Invoke the updated source checkout directly, dry-run first, then repeat without `--dry-run`:
+
+```bash
+bun /path/to/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
+  --from /path/to/lazy-harness \
+  --target /path/to/host \
+  --dry-run \
+  --skip-knowledge-seeds
+```
+
+After that sync, the host-installed dispatcher supports the flag.
 
 This skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.

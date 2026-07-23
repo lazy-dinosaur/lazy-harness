@@ -16,13 +16,14 @@
   - 동기화 검사
 - Applies when:
   - running or debugging `lazy sync`, or deciding whether a host is in sync with the framework source
-  - the source `.lazy-harness` tree is dirty, or managed files were renamed/deleted
+  - the source `.lazy-harness` tree is dirty, managed files were renamed/deleted, or host knowledge seed merge must be explicitly skipped
 - Must:
   - report `ahead` (error/exit 2) when the source `.lazy-harness` working tree is dirty, even if marker SHA equals source HEAD
   - auto-sync only on `behind`; everything else exits 2 without `--force`
-  - prune stale Category A managed files; seed-merge (never overwrite) host `knowledge/*.jsonl` and `ssot/capabilities.json`
+  - sync Category A and registry seeds; merge `knowledge/*.jsonl` by default, but skip only those JSONL stores when `--skip-knowledge-seeds` is explicit
 - Must not:
   - reintroduce retired retrieval-purpose capabilities or overwrite host-owned capability/knowledge rows
+  - create, append, or conflict-record any host `knowledge/*.jsonl` when `--skip-knowledge-seeds` is set
 - Record completion:
   - drift-status, merge, or prune rule changes update this SDD and the lazy-sync regression tests
 - Related records:
@@ -55,29 +56,27 @@ Rationale: the previous implementation only compared committed SHAs, so a workfl
 
 `--force` overrides any non-`equal` drift status, including the new `ahead-dirty` variant. With `--force`, lazy-sync always proceeds to the file-copy phase. Without `--force`, only `behind` runs sync automatically; everything else exits with code 2.
 
-### Managed directory prune and local wiring refresh (added 2026-06-02)
+### Managed directory prune and host-owned seed behavior (added 2026-06-02; opt-out added 2026-07-23)
 
 For Category A manifest directory entries, `lazy-sync` must remove stale destination files that still match the managed `glob`/`exclude` rules but no longer exist in the source directory. This prevents renamed or deleted framework fixtures from remaining in downstream hosts as false context.
 
-Exception: `knowledge/` JSONL files are host-local append-only stores. They are seed-merged, not overwritten or pruned: missing source seed rows are appended to the host file, while host-local graph/candidate rows are preserved.
+Exception: `knowledge/` JSONL files are host-local append-only stores. By default they are seed-merged, not overwritten or pruned: missing source seed rows are appended to the host file, while host-local graph/candidate rows are preserved.
 
-`ssot/capabilities.json` is also host-owned. When the manifest includes the framework seed registry, `lazy-sync` merges missing source capability ids into the host registry without deleting or overwriting host-local capability entries. This lets downstream hosts receive new framework capability surfaces such as rulebook capabilities while preserving project-specific capabilities. Retired retrieval-purpose capabilities must not be reintroduced.
+`--skip-knowledge-seeds` is an explicit rollout safety option. It skips only `knowledge/*.jsonl` processing in both dry-run and live modes: existing files stay byte-identical, missing files stay absent, and no adjacent `*.conflicts.jsonl` sidecars are created. `knowledge/README.md`, all other Category A files, and the host-owned capability/policy registries still sync normally. The successful sync marker still advances to the source commit; a later opt-in seed merge at the same commit therefore requires `--force`.
+
+`ssot/capabilities.json` and `ssot/policies.json` are also host-owned. When the manifest includes the framework seed registries, `lazy-sync` merges missing source ids without deleting or overwriting host-local entries. The knowledge opt-out does not disable these registry merges.
 
 Every framework-owned seed capability (`owner=framework-global`) `sourceRecord` that is synced into host `ssot/capabilities.json` must also be present in the Category A manifest, or have a host-safe `targetPath` mirror. Host-owned capabilities are deliberately excluded from this framework manifest rule because their records are owned by the downstream project. Otherwise host `lazy capability audit` or framework self-tests can fail immediately after a successful capability seed merge.
 
-After file sync, `installJcodeWiring` must refresh lazy-harness managed blocks in `.jcode/config.toml` when their marker comments are present. User-owned config content remains preserved, but managed hook blocks should receive updated framework wording/commands instead of staying stale forever.
-
 ## Implementation map
 
-- **Function**: `detectDrift` — `.lazy-harness/scripts/lazy-sync.ts` line ~205
-- **Helper**: `isSourceWorkingTreeDirty` — same file line ~193 (added 2026-05-17). Runs `git status --porcelain -- .lazy-harness` in source repo, returns true if any output. Catches `execSync` failure and returns false (treats unreadable git as clean).
-- **Caller**: `main` — same file line ~411. Reads `drift.status`, branches on `equal` (fast-path) vs everything else.
-- **Force gate**: `main` line ~421. `(ahead|divergent) && !args.force → error exit 2`.
-- **Marker storage**: `state/synced-from-commit` JSON file in the host. Written after each successful sync.
-- **Managed directory prune**: `syncCategoryA` walks the destination directory for each Category A directory item and removes files that match that item's managed globs but are absent from the source, except `knowledge/` JSONL stores.
-- **Knowledge seed merge**: `mergeJsonlSeed` appends missing source seed JSONL rows into host `knowledge/*.jsonl` without removing or overwriting host-local rows.
-- **Capability seed merge**: `mergeCapabilitiesSeed` appends missing source entries from `.lazy-harness/ssot/capabilities.json` by `id` without removing or overwriting host-local capabilities.
-- **Jcode managed block refresh**: `installJcodeWiring` refreshes marked lazy-harness blocks, including the generic search/read evidence guard block, while leaving unmarked user-owned config sections intact.
+- **Function**: `detectDrift` — `.lazy-harness/scripts/lazy-sync.ts`; classifies source/host marker drift before sync.
+- **Caller**: `main` — parses `--skip-knowledge-seeds`, reports the active mode, and passes it into Category A sync.
+- **Marker storage**: `state/synced-from-commit` JSON file in the host. Written after each successful sync, including knowledge-seed opt-out runs.
+- **Managed directory prune**: `syncCategoryA` walks destination Category A directories and removes stale managed files, except host-owned `knowledge/` JSONL stores.
+- **Knowledge seed merge**: `mergeJsonlSeed` appends missing source JSONL rows by default; `syncCategoryA(..., skipKnowledgeSeeds=true)` bypasses every `knowledge/*.jsonl` merge.
+- **Capability/policy seed merge**: `mergeCapabilitiesSeed` and `mergePoliciesSeed` append missing framework ids while preserving host-local entries.
+- **Protection**: `.lazy-harness/scripts/self-test.py#check_lazy_sync_prunes_stale_managed_files` proves opt-out byte identity, no conflict sidecars, normal non-knowledge sync, and unchanged default merge behavior.
 
 ### Related records
 
@@ -105,9 +104,14 @@ bun .lazy-harness/scripts/lazy-sync.ts --target /path/to/host-project-a --force
 
 # Host has an existing ssot/capabilities.json with project-specific entries, then sync.
 # Expected: host capability ids remain and missing framework capability ids are appended.
+
+# Host requires knowledge JSONL to remain untouched during a framework rollout.
+bun .lazy-harness/scripts/lazy-sync.ts --target /path/to/host-project-a --force --skip-knowledge-seeds
+# Expected: graph/candidates/other knowledge JSONL bytes remain unchanged; no conflict sidecars; Category A and registry seeds still update.
 ```
 
 ## Non-goals
 
 - This contract does **not** introduce per-file content hashing. A dirty working tree is the only new signal. If higher precision is needed (e.g. detect changes between two committed branches that lazy-sync should consider drift), that is a future spec.
 - `--force` still does not bypass safety checks for `user-owned` files in the destination — those keep their existing override semantics.
+- `--skip-knowledge-seeds` is not a permanent registry preference. It is a per-run opt-out; the normal source marker still advances.

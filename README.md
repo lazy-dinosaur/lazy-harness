@@ -180,6 +180,8 @@ bun /path/to/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
 .lazy-harness/bin/lazy test
 ```
 
+For a reviewed rollout that must leave host `knowledge/*.jsonl` byte-identical, add `--skip-knowledge-seeds` to `lazy sync`/`lazy-sync.ts`. Other Category A files and capability/policy seeds still sync, and the source marker still advances. For the first such rollout from a pre-flag host, invoke the updated source-checkout `lazy-sync.ts` directly (as above) because the old host parser does not recognize the new option; dry-run first, then repeat without `--dry-run`.
+
 The sync manifest intentionally includes important explanation and instruction documents such as:
 
 - `.lazy-harness/AGENTS.md`

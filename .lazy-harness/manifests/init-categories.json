@@ -530,7 +530,7 @@
             "README.md",
             "*.jsonl"
           ],
-          "description": "Progressive knowledge graph stores plus host-local custom skill metadata: candidates, graph drafts, canonical graph, skills.jsonl. Empty JSONL containers are valid."
+          "description": "Progressive knowledge graph stores plus host-local custom skill metadata: candidates, graph drafts, canonical graph, skills.jsonl. Empty JSONL containers are valid. lazy-sync seed-merges these JSONL files by default; --skip-knowledge-seeds leaves them untouched for one run."
         },
         {
           "path": "generated/README.md",

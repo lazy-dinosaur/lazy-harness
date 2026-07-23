@@ -26,6 +26,8 @@ bun ~/dev/lazy-harness/.lazy-harness/scripts/lazy-sync.ts \
 .lazy-harness/bin/lazy test
 ```
 
+검토된 rollout에서 host `knowledge/*.jsonl`을 byte-identical하게 유지해야 하면 sync 명령에 `--skip-knowledge-seeds`를 추가한다. 이 옵션은 capability/policy seed와 다른 Category A 파일을 계속 동기화하며, marker도 정상적으로 source commit으로 전진한다. 아직 이 flag를 모르는 구버전 host의 첫 보호 rollout은 host dispatcher가 아니라 위의 최신 source-checkout `lazy-sync.ts`를 직접 dry-run한 뒤 live로 실행한다.
+
 - user-level `~/.local/bin/lazy` launcher 는 packaging 단계에서 처리한다. 현재 source repo 는 per-host `.lazy-harness/bin/lazy` dispatcher 만 소유한다.
 
 ## 한 줄 개요
