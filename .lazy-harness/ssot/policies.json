@@ -2,6 +2,60 @@
   "version": 1,
   "policies": [
     {
+      "id": "bounded-validation-orchestration",
+      "title": "Prefer bounded validation and one final full-regression boundary",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "recommend",
+      "appliesTo": [
+        "iterating_after_edit",
+        "choosing_validation_scope",
+        "making_validation_claims",
+        "closing_non_trivial_work_unit",
+        "before_commit_or_sync"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/bounded-validation-governor.md",
+      "capabilityIds": [
+        "bounded-validation-orchestration"
+      ],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User approved the full validation-churn improvement on 2026-07-23 after repeated host lazy test runs consumed roughly 147 seconds each."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/bounded-validation-governor.md",
+          "summary": "The bounded governor defines fast edit-loop checks, one standard full-regression boundary, release opt-in, and conservative evidence reuse."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend",
+          "warn"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Agents under-validate source, test, hook, schema, or contract changes.",
+          "The recommendation obscures an explicit user request for fresh full regression."
+        ],
+        "demotionTarget": "discover"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated.",
+        "nonCanonicalViews": [
+          ".lazy-harness/generated/policy-rulebook.md"
+        ]
+      }
+    },
+    {
       "id": "code-organization-profile",
       "title": "Review changed source with the Code Organization Profile",
       "scope": "framework-global",

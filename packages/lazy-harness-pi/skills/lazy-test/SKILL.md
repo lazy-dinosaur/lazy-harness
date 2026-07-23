@@ -7,7 +7,7 @@ allowed-tools: bash, read, grep
 
 # lazy-test
 
-Run lazy-harness reproducible self-test for the host.
+Run a fresh lazy-harness full-regression self-test for the host. Use `lazy check` during edit loops and `lazy validate --plan standard` once after the final mutation; invoke this skill only when the user or a commit/push/release boundary explicitly requires fresh full regression.
 
 Run from the host project root:
 
@@ -15,4 +15,4 @@ Run from the host project root:
 .lazy-harness/bin/lazy test
 ```
 
-This skill delegates to the installed .lazy-harness framework. Do not edit generated framework files directly in the host; use lazy update/sync.
+This skill always delegates to the installed framework's fresh full gate. It does not reuse `lazy validate` evidence. Do not edit generated framework files directly in the host; use lazy update/sync.

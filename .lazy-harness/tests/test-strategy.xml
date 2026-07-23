@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<test-strategy version="1.0" status="active" scope="framework-source">
+  <purpose>
+    Define the cheapest sufficient validation path for lazy-harness source, records, and runtime-package changes.
+  </purpose>
+
+  <tiers>
+    <tier id="fast" command=".lazy-harness/bin/lazy check">
+      Use during edit loops for changed-file syntax, parse, path, and diff hygiene.
+    </tier>
+    <tier id="focused">
+      Run the directly affected Python check function, Bun test target, package smoke, or typecheck only when its source surface changed.
+    </tier>
+    <tier id="standard" command=".lazy-harness/bin/lazy validate --plan standard">
+      Run once after the final mutation. It performs fast validation and one full regression or conservatively reuses matching full-regression evidence.
+    </tier>
+    <tier id="release" command=".lazy-harness/bin/lazy validate --plan release --allow-release">
+      Run only for an explicitly approved release/readiness boundary.
+    </tier>
+  </tiers>
+
+  <full-regression command=".lazy-harness/bin/lazy test">
+    <rule>Direct full regression is reserved for explicit fresh validation or commit, push, and release gates.</rule>
+    <rule>Default execution uses at most four bounded audited process workers; out-of-range job counts are rejected and --jobs=1 provides serial fallback.</rule>
+    <rule>Pre-commit uses lazy test --light; pre-push uses full lazy test.</rule>
+  </full-regression>
+
+  <project-commands>
+    <command id="bun-tests">bun test</command>
+    <command id="typescript-build-check">bun run typecheck:node</command>
+  </project-commands>
+  <affectedTestRouting command="bun run test:run {tests}" />
+
+  <boundaries>
+    <boundary>Do not run product-wide lint, build, E2E, or unrelated downstream tests unless the user requests them or changed product code requires them.</boundary>
+    <boundary>Do not rerun full regression merely because an evidence capsule was updated.</boundary>
+    <boundary>Source, tests, contracts, policies, graph, planning, and canonical layer records remain full-regression fingerprint inputs.</boundary>
+    <boundary>Full-regression cache evidence is namespaced by resolved host root, dependency manifests/locks, and Python/Bun/Git toolchain signatures.</boundary>
+  </boundaries>
+
+  <evidence>
+    <source>package.json</source>
+    <source>.lazy-harness/spec/platform/fast-validation-tier.md</source>
+    <source>.lazy-harness/spec/platform/bounded-validation-governor.md</source>
+    <source>.lazy-harness/decisions/0016-lifecycle-hook-strategy.md</source>
+    <source>.lazy-harness/scripts/self-test.py</source>
+  </evidence>
+</test-strategy>

@@ -82,6 +82,12 @@ jcode 에는 처음에 hook event `tool.execute.before` / `after` 만 있었음.
 - ADR 0011 negative test 증거(2026-07-05): light 모드에서 `logs/actions.jsonl` 에 깨진 줄 삽입 → `--light` rc=1(차단), 복원 → rc=0. light 게이트가 실제 regression 을 막음을 확인. ADR 0003 recovery-path: 차단 메시지는 기존대로 "lazy test 실행 후 fix" 유지.
 - Related boundary: ADR 0022 (self-test scope mode — `--light`) + `.lazy-harness/ssot/cli-tool-boundary.md`.
 
+### 0c. 2026-07-23 amendment — bounded intra-run concurrency and one final manual boundary
+
+User approved the full validation-churn improvement after repeated host `lazy test` runs consumed roughly 147 seconds each. Commit/push semantics remain unchanged: pre-commit is light and pre-push is full. Inside either invocation, `self-test.py` may run explicitly audited independent checks in bounded process phases (default max four workers), while fixed-path/canonical-state fixtures remain serial and `--jobs=1` preserves the historical serial fail-fast path.
+
+Agents must not manually multiply those gates during normal editing: use `lazy check` while mutating, focused checks for changed behavior, then one `lazy validate --plan standard` after the final mutation. Direct `lazy test` is reserved for explicit fresh full regression or commit/push/release boundaries. This is organic recommend-level guidance, not a new edit-time blocking hook.
+
 ### 1. `response.completed` — 매 응답 검증 게이트 (PRIMARY)
 
 **Fire 시점**: turn loop 끝 + tool calls 없음 (AI 가 더 이상 도구 사용 안 함)

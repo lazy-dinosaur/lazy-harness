@@ -28,7 +28,21 @@ Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`,
 - `fail()` raises `SystemExit(1)`; workers must catch it per-check and collect failures (do not abort the pool); report all failures at the end.
 - Expected: 111s → bounded by the slowest single check (~20s: lifecycle intake) + overhead ≈ 25-35s on a multi-core box, with FULL coverage preserved (unlike the Fix 1 subset).
 - REQUIRED pre-step: audit for checks that write SHARED repo state (generated indexes, the real `knowledge/graph.jsonl`, canonical files) rather than a tempdir/pid-scoped path — run those few serially or isolate them; everything else parallel. Governed by ADR 0022/0026 (framework-owned self-test scope).
-- Best combo: Fix 1 (record-only commits → light subset) + Fix 1b (when the full suite runs, run it parallel).
+- Best combo: Fix 1 (record-only commits → light subset) + Fix 1b (when the full suite runs, run audited checks in bounded process phases).
+
+#### Applied 2026-07-23 — validation orchestration + bounded process phases
+
+User approved the full improvement after a Medivance session ran a 147.5-second host `lazy test`, edited evidence records, then selected another full `lazy test`. Root cause was a framework integration gap: `lazy validate` and `lazy check` existed, but no capability/policy surfaced them as the preferred agent path; validation-evidence policies emphasized proving completion, Pi exposed only `/lazy-test`, evidence capsules invalidated the full cache, and self-test remained sequential.
+
+Applied:
+
+1. recommend-level `bounded-validation-orchestration` capability/policy;
+2. AGENTS and Pi prompt guidance: `lazy check` during edits, focused checks for changed behavior, one `lazy validate --plan standard` after the final mutation, direct `lazy test` only for explicit fresh full regression or commit/push/release gates;
+3. Pi `/lazy-check` and `/lazy-validate` commands, with `/lazy-test` explicitly described as fresh/full;
+4. cache version 3 excludes only runtime/derived paths and `.lazy-harness/evidence/**`, while binding evidence to resolved host root, dependency manifests/locks, and Python/Bun/Git signatures; source, tests, contracts, policy, graph, planning, and canonical layer records remain regression-relevant;
+5. self-test defaults to at most four process workers across separately audited static/isolated, PID-fixture, and stable-repository-reader phases; fixed-path/canonical-state checks stay serial, worker runtime roots are isolated, output is emitted in registry order, and `--jobs=1` preserves serial fail-fast fallback.
+
+Focused measurement before final closure: host-scope light validation completed `ran=51, skipped=35` with `--jobs 4` in **12.993s**. This is not the final full-suite performance measurement; final standard validation remains the single closure boundary.
 
 ### Fix 2 — capture-gate false-positive suppression
 

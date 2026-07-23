@@ -6,20 +6,22 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 
 | Group | Entry point | Purpose |
 |---|---|---|
-| Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on host branches and run `.lazy-harness/bin/lazy test` as the commit-time blocking gate. |
+| Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on host branches and run `.lazy-harness/bin/lazy test --light` as the commit-time blocking gate. |
 | Git post-commit | `.lazy-harness/hooks/post-commit.sh` | Append action log metadata and regression hints. |
-| Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
+| Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run full `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
 | Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
 
 ## Development-time vs commit-time enforcement
 
-Edit/write/multiedit Jcode hooks are not registered as blocking gates by default.
-Agents should still follow `.lazy-harness/AGENTS.md` proactively, but missed record
-or validation work is enforced at git pre-commit/pre-push via framework-owned
-checks. This keeps normal coding iterations fast and moves expensive or noisy
-validation to an explicit commit boundary.
+Edit/write/multiedit hooks are not registered as blocking gates by default.
+Agents use `lazy check` during mutation loops, focused checks when behavior changes,
+and one `lazy validate --plan standard` after the final mutation. Direct `lazy test`
+is reserved for explicit fresh full regression or commit/push/release boundaries.
+Git pre-commit runs `lazy test --light`; pre-push runs full `lazy test`. Audited
+independent self-test checks use bounded process phases by default, while fixed-path
+checks remain serial and `--jobs=1` provides the serial fallback.
 
 CLI helpers are explicit tools only. Lifecycle hooks must not run static
 user-text route classifiers, route telemetry, or context-delivery backends to

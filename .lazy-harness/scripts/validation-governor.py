@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -30,7 +31,7 @@ DEFAULT_BUDGET_SECONDS = {
 }
 MAX_BUDGET_SECONDS = 3600.0
 OUTPUT_TAIL_CHARS = 4000
-CACHE_VERSION = 1
+CACHE_VERSION = 3
 CACHE_MAX_ENTRIES = 50
 
 
@@ -111,6 +112,41 @@ def run_git(args: list[str]) -> bytes:
     return completed.stdout
 
 
+def command_signature(command: str) -> str:
+    executable = shutil.which(command)
+    if executable is None:
+        return sha256_text(json.dumps({"command": command, "status": "missing"}, sort_keys=True))
+    try:
+        completed = subprocess.run([executable, "--version"], cwd=ROOT, capture_output=True, check=False, timeout=10)
+        version = (completed.stdout or completed.stderr).decode("utf-8", errors="replace").strip()
+        if completed.returncode != 0 or not version:
+            version = f"exit={completed.returncode}"
+    except Exception as exc:
+        version = f"uncertain:{type(exc).__name__}"
+    return sha256_text(json.dumps({"command": command, "path": str(pathlib.Path(executable).resolve()), "version": version}, sort_keys=True))
+
+
+def dependency_fingerprint() -> str:
+    h = hashlib.sha256()
+    for name in ("package.json", "bun.lock", "bun.lockb", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "requirements.txt"):
+        path = ROOT / name
+        if not path.is_file():
+            continue
+        h.update(name.encode("utf-8") + b"\0")
+        h.update(sha256_bytes(path.read_bytes()).encode("ascii") + b"\0")
+    return h.hexdigest()
+
+
+def toolchain_fingerprint() -> str:
+    payload = {
+        "pythonExecutable": str(pathlib.Path(sys.executable).resolve()),
+        "pythonVersion": sys.version,
+        "bun": command_signature("bun"),
+        "git": command_signature("git"),
+    }
+    return sha256_text(json.dumps(payload, sort_keys=True, ensure_ascii=False))
+
+
 def runtime_root() -> pathlib.Path:
     return pathlib.Path(os.environ.get("LAZY_RUNTIME_ROOT", str(LAZY))).resolve()
 
@@ -135,6 +171,17 @@ def is_volatile_harness_path(name: str) -> bool:
     return normalized.startswith(volatile_prefixes) or "/__pycache__/" in f"/{normalized}/" or normalized.endswith(".pyc")
 
 
+def is_full_regression_irrelevant_path(name: str) -> bool:
+    """Paths whose content cannot change the executable/full-regression result.
+
+    Evidence capsules are validation output. They are still checked by the fast
+    tier, but editing a summarized command/result must not invalidate the full
+    regression evidence that produced it.
+    """
+    normalized = name.strip("/")
+    return is_volatile_harness_path(normalized) or normalized.startswith(".lazy-harness/evidence/")
+
+
 def should_hash_harness_file(path: pathlib.Path) -> bool:
     try:
         rel = path.relative_to(LAZY)
@@ -143,8 +190,7 @@ def should_hash_harness_file(path: pathlib.Path) -> bool:
     if not path.is_file():
         return False
     rel_name = f".lazy-harness/{rel.as_posix()}"
-    parts = set(rel.parts)
-    if parts & {"state", "logs", "generated", "__pycache__"} or is_volatile_harness_path(rel_name):
+    if is_full_regression_irrelevant_path(rel_name):
         return False
     if path.suffix == ".pyc":
         return False
@@ -166,7 +212,7 @@ def untracked_fingerprint() -> str:
     raw = run_git(["ls-files", "--others", "--exclude-standard", "-z"])
     h = hashlib.sha256()
     for name in sorted(item for item in raw.decode("utf-8", errors="surrogateescape").split("\0") if item):
-        if is_volatile_harness_path(name):
+        if is_full_regression_irrelevant_path(name):
             continue
         path = ROOT / name
         h.update(name.encode("utf-8", errors="surrogateescape") + b"\0")
@@ -195,17 +241,21 @@ def workspace_fingerprint() -> dict[str, str]:
         ":(exclude).lazy-harness/state/**",
         ":(exclude).lazy-harness/logs/**",
         ":(exclude).lazy-harness/generated/**",
+        ":(exclude).lazy-harness/evidence/**",
     ]))
     raw_status = run_git(["status", "--porcelain=v1", "-z"]).decode("utf-8", errors="surrogateescape")
     status_items = [item for item in raw_status.split("\0") if item]
-    filtered_status = "\0".join(item for item in status_items if not is_volatile_harness_path(item[3:] if len(item) > 3 else item))
+    filtered_status = "\0".join(item for item in status_items if not is_full_regression_irrelevant_path(item[3:] if len(item) > 3 else item))
     status_hash = sha256_text(filtered_status)
     return {
+        "hostRootHash": sha256_text(str(ROOT)),
         "head": head,
         "diffHash": diff_hash,
         "statusHash": status_hash,
         "untrackedHash": untracked_fingerprint(),
         "harnessHash": harness_fingerprint(),
+        "dependencyHash": dependency_fingerprint(),
+        "toolchainHash": toolchain_fingerprint(),
     }
 
 

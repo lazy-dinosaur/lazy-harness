@@ -16,6 +16,6 @@ Code added/changed, regression entry created, spec sync.
 
 ## Status
 
-- Empty is valid (Principle #10 Empty-Container Tolerance)
-- Will be filled when triggers fire (Principle #6 Trigger-Based Growth)
-- Auto-audited on update (Principle #1.2 Drafting and Auditing)
+- `.lazy-harness/tests/test-strategy.xml` is active and records fast, focused, standard, release, full-regression, worker, and product-validation boundaries.
+- Update it when validation commands, scope, or gate semantics change.
+- Auto-audited on update (Principle #1.2 Drafting and Auditing).

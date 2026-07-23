@@ -3,6 +3,37 @@
   "version": 1,
   "capabilities": [
     {
+      "id": "bounded-validation-orchestration",
+      "kind": "checklist",
+      "level": "recommend",
+      "sourceRecord": ".lazy-harness/spec/platform/bounded-validation-governor.md",
+      "appliesWhen": [
+        "iterating_after_edit",
+        "choosing_validation_scope",
+        "making_validation_claims",
+        "closing_non_trivial_work_unit",
+        "before_commit_or_sync"
+      ],
+      "actions": [
+        "Use lazy check during edit loops",
+        "Use focused or affected validation only when changed behavior needs it",
+        "Run lazy validate --plan standard once after the final mutation",
+        "Reserve direct lazy test for explicit full-regression requests and commit/push/release gates"
+      ],
+      "checklistPath": ".lazy-harness/spec/platform/bounded-validation-governor.md",
+      "description": "Choose the cheapest sufficient validation tier and avoid multiplying full lazy test runs within one unchanged work-unit fingerprint.",
+      "owner": "framework-global",
+      "tags": [
+        "validation",
+        "bounded",
+        "edit-loop",
+        "full-regression"
+      ],
+      "policyIds": [
+        "bounded-validation-orchestration"
+      ]
+    },
+    {
       "id": "capability-registry-phase1",
       "kind": "command",
       "level": "discover",

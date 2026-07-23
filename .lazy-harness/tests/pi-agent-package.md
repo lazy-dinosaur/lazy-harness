@@ -51,6 +51,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_clean_default_no_project_settings` | Inspect source checkout | `.pi/settings.json` is absent by default after factory reset; project-local Pi attachment is generated only by an intentional install command |
 | `pi_install_guidance` | Inspect package README and SDD | Global bootstrap and project-local activation commands are documented, including that the package is not installed by default after a clean reset |
 | `cross_platform_dependency_guidance` | Inspect installer, README, package README, and SDD | macOS/Linux prerequisites are documented; installer requires `git`, `bun`, and `python3` before mutation and prints OS-specific install hints |
+| `pi_validation_commands` | Inspect extension and package prompt | `/lazy-check`, `/lazy-validate`, and `/lazy-test` are registered; prompt guidance uses fast edit loops, one final standard plan, and explicit fresh full regression only. |
 | `lazy_pi_wrapper_guidance` | Inspect package README, SDD, `.lazy-harness/bin/lazy`, and `.lazy-harness/scripts/pi-package.ts` | `lazy pi install/list/remove/smoke/doctor` is documented and dispatched; install defaults to global bootstrap; remove requires explicit scope; dry-run is supported |
 | `lazy_pi_wrapper_dry_run` | Run `pi-package.ts` dry-run fixtures | Default/global install, explicit local install, local remove, and one-run smoke dry-run produce the exact Pi command arrays without mutating settings |
 | `lazy_pi_wrapper_doctor_no_smoke` | Run `pi-package.ts doctor --no-smoke --format=json` | Doctor is safe in environments without persistent Pi package settings and reports that smoke is skipped/non-mutating |
@@ -141,7 +142,8 @@ omp plugin list
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, normal-turn and steer evidence epochs, late-result exclusion, current-turn-only `agent_end` projection, and opt-in content-free tracing.
 - `.pi/settings.json` — optional generated project-local Pi settings; activation ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` load with `enableSkillCommands`, while local package install may add package attachment; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge events plus `/lazy-check`, `/lazy-validate`, and explicit fresh/full `/lazy-test` commands.
+- `packages/lazy-harness-pi/prompts/lazy-harness.md` — fixture for fast edit-loop, focused-check, and one-final-standard-boundary guidance.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#appendSystemPromptBody` — fixture for official Pi string prompt and OMP string-array prompt compatibility.
 - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — fixture for the per-turn reminder carrying the interactive grammar.
 - `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for mechanical source-intent derivation and source-only host policy/capability guidance.

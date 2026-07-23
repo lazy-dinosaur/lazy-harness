@@ -939,8 +939,18 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args, ["doctor"]),
   });
 
+  pi.registerCommand("lazy-check", {
+    description: "Run fast changed-file lazy validation from the current project root.",
+    handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args, ["check"]),
+  });
+
+  pi.registerCommand("lazy-validate", {
+    description: "Run bounded lazy validation. Defaults to the fast plan; pass --plan standard once after final mutation.",
+    handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args || "--plan fast", ["validate"]),
+  });
+
   pi.registerCommand("lazy-test", {
-    description: "Run lazy test from the current project root.",
+    description: "Run a fresh full lazy regression test. Prefer /lazy-check while editing and /lazy-validate --plan standard at the final boundary.",
     handler: async (args: string, ctx: any) => runLazyCommand(pi, ctx, args, ["test"]),
   });
 

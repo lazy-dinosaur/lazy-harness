@@ -9,7 +9,10 @@ Checks the framework-owned operational invariants defined by ADR 0022:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import contextlib
 import hashlib
+import io
 import json
 import os
 import pathlib
@@ -20,6 +23,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Callable
+import traceback
 import shutil
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -38,6 +43,87 @@ def doctor_scope_args() -> list[str]:
 def fail(message: str) -> None:
     print(f"✗ {message}")
     raise SystemExit(1)
+
+
+MAX_SELF_TEST_JOBS = 4
+
+# Explicit concurrency audit. New checks stay serial until added to a reviewed
+# phase. Separate processes isolate module globals and environment mutation.
+PARALLEL_STATIC_OR_ISOLATED = frozenset({
+    "check_package_health_generate_remediation_heuristic",
+    "check_xml", "check_xml_compat_parser", "check_jsonl", "check_schemas", "check_lint_output",
+    "check_analysis_discovery_capture_helper", "check_option_gate_discipline_helper",
+    "check_bdd_trigger_avoids_runtime_tsmorph", "check_record_before_session_history_helper",
+    "check_pre_push_uses_canonical_lazy_cli", "check_lazy_cli_entrypoint_helper",
+    "check_destructive_command_block", "check_operational_adr_allowlist_complete",
+    "check_framework_runtime_no_host_product_hardcoding", "check_manifest_syncs_python_lifecycle_helpers",
+    "check_pre_commit_runs_lazy_test", "check_removed_query_helper_artifacts_absent",
+    "check_standalone_source_detection_uses_markers", "check_source_feature_navigation_phase3",
+    "check_context_tier_manifest_phase4", "check_project_map_v2_schema",
+    "check_project_map_update_loop_v2", "check_evidence_capsule_standard_phase5",
+    "check_record_decision_broker_phase8", "check_on_context_surfaces_operating_rule_catalog",
+    "check_agents_md_invariants",
+    "check_fast_validation_tier_cli", "check_bounded_validation_governor_cli",
+    "check_pi_package_layout_and_contract", "check_prompt_budget_measurement",
+    "check_rule_action_boundary_legacy_no_project_policy", "check_guidance_ladder_hard_stop_promotion",
+    "check_gate_state_cli_and_record_audit_source_guard", "check_capability_registry_cli_phase1",
+    "check_project_operating_rulebook_cli", "check_lazy_host_root_resolution",
+    "check_parallel_runtime_state_isolation", "check_shared_jsonl_conflict_visible",
+    "check_document_resource_ingestion_inspect", "check_project_profile_inspect",
+    "check_project_profile_v2_runtime", "check_project_profile_v2_queue_runtime",
+    "check_architecture_guidance_cli", "check_record_audit_cli", "check_graph_hygiene_cli",
+    "check_impl_map_status_drift", "check_impl_map_status_drift_helper",
+    "check_search_provider_canonical_record_dirs", "check_record_index_generator_phase3",
+    "check_retrieval_coverage_audit_cli", "check_read_debt_permit_generic_external_action",
+    "check_record_decision_shadow_response_completed", "check_message_received_hook_context_injection",
+    "check_message_received_surfaces_operating_rule_catalog", "check_code_organization_profile",
+    "check_response_rule_audit_from_surfaced_digest", "check_operating_rule_storage_helper",
+    "check_record_lint_cli", "check_fix_regression_registry",
+})
+
+PARALLEL_PID_FIXTURES = frozenset({
+    "check_interview_loop_collect", "check_interview_loop_answer",
+    "check_layer_completeness_helper", "check_tdd_cross_verify",
+    "check_aftershock_reanalysis", "check_real_feature_walkthrough",
+})
+
+PARALLEL_STABLE_REPO_READERS = frozenset({
+    "check_doctor_smoke", "check_doctor_package_health", "check_knowledge_intake",
+    "check_lazy_sync_prunes_stale_managed_files", "check_lifecycle_fixture_intake_cli",
+    "check_response_completed_no_auto_route_telemetry", "check_retrieval_workflow_benchmark_cli",
+})
+
+
+def run_check_captured(check, scope: str, isolate_runtime: bool) -> dict[str, object]:
+    """Run one check with buffered output; process workers get isolated runtime state."""
+    global ACTIVE_SCOPE
+    ACTIVE_SCOPE = scope
+    output = io.StringIO()
+    old_runtime = os.environ.get("LAZY_RUNTIME_ROOT")
+    worker_runtime: pathlib.Path | None = None
+    if isolate_runtime:
+        worker_runtime = pathlib.Path(tempfile.mkdtemp(prefix=f"lazy-self-test-{check.__name__}-"))
+        os.environ["LAZY_RUNTIME_ROOT"] = str(worker_runtime)
+    try:
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            check()
+        return {"name": check.__name__, "ok": True, "output": output.getvalue(), "error": ""}
+    except BaseException as exc:
+        if not isinstance(exc, SystemExit):
+            output.write(traceback.format_exc())
+        return {
+            "name": check.__name__,
+            "ok": False,
+            "output": output.getvalue(),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+    finally:
+        if old_runtime is None:
+            os.environ.pop("LAZY_RUNTIME_ROOT", None)
+        else:
+            os.environ["LAZY_RUNTIME_ROOT"] = old_runtime
+        if worker_runtime is not None:
+            shutil.rmtree(worker_runtime, ignore_errors=True)
 
 
 INHERITED_ENV_KEYS_TO_CLEAR = (
@@ -1629,6 +1715,23 @@ def check_bounded_validation_governor_cli() -> None:
         if expected not in manifest_text:
             fail("init categories missing bounded validation sync record: " + expected)
 
+    capabilities = json.loads((LAZY / "ssot" / "capabilities.json").read_text(encoding="utf-8")).get("capabilities", [])
+    capability = next((item for item in capabilities if item.get("id") == "bounded-validation-orchestration"), None)
+    if capability is None or capability.get("level") != "recommend":
+        fail("bounded validation orchestration capability must be registered at recommend level")
+    required_actions = {
+        "Use lazy check during edit loops",
+        "Run lazy validate --plan standard once after the final mutation",
+        "Reserve direct lazy test for explicit full-regression requests and commit/push/release gates",
+    }
+    if not required_actions.issubset(set(capability.get("actions", []))):
+        fail("bounded validation orchestration capability actions are incomplete")
+
+    policies = json.loads((LAZY / "ssot" / "policies.json").read_text(encoding="utf-8")).get("policies", [])
+    policy = next((item for item in policies if item.get("id") == "bounded-validation-orchestration"), None)
+    if policy is None or policy.get("level") != "recommend" or capability.get("id") not in policy.get("capabilityIds", []):
+        fail("bounded validation orchestration policy/capability binding is missing")
+
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "validate [--plan=fast|standard|release]" not in help_text:
         fail("lazy help should list validate command")
@@ -1771,6 +1874,14 @@ def check_bounded_validation_governor_cli() -> None:
         fail("lazy validate zero budget should skip with deadline-exhausted: " + exhausted.stdout)
 
     governor = runpy.run_path(str(script), run_name="lazy_validation_governor_import")
+    current_fingerprint = governor["workspace_fingerprint"]()
+    for required_key in ("hostRootHash", "dependencyHash", "toolchainHash"):
+        if not current_fingerprint.get(required_key):
+            fail("validation evidence fingerprint missing environment namespace: " + required_key)
+    self_test_text = pathlib.Path(__file__).read_text(encoding="utf-8")
+    for phrase in ("MAX_SELF_TEST_JOBS = 4", "--jobs must be between 1 and {MAX_SELF_TEST_JOBS}"):
+        if phrase not in self_test_text:
+            fail("self-test bounded worker ceiling missing: " + phrase)
     old_cache_env = os.environ.get("LAZY_VALIDATE_EVIDENCE_CACHE")
     try:
         os.environ.pop("LAZY_VALIDATE_EVIDENCE_CACHE", None)
@@ -1796,6 +1907,7 @@ def check_bounded_validation_governor_cli() -> None:
         "harnessHash": "harness-A",
     }
     fingerprint_b = {**fingerprint_a, "harnessHash": "harness-B"}
+    fingerprint_c = {**fingerprint_a, "toolchainHash": "toolchain-B"}
     cache_runtime = pathlib.Path(tempfile.mkdtemp(prefix="validate-cache-"))
     old_runtime = os.environ.get("LAZY_RUNTIME_ROOT")
     try:
@@ -1806,17 +1918,21 @@ def check_bounded_validation_governor_cli() -> None:
             ".lazy-harness/generated/implementation-index.json",
             ".lazy-harness/scripts/__pycache__/validation-governor.pyc",
         ):
-            if not governor["is_volatile_harness_path"](volatile):
-                fail("validation evidence fingerprint should ignore volatile harness path: " + volatile)
+            if not governor["is_full_regression_irrelevant_path"](volatile):
+                fail("validation evidence fingerprint should ignore runtime/derived harness path: " + volatile)
+        if not governor["is_full_regression_irrelevant_path"](".lazy-harness/evidence/closure.md"):
+            fail("validation evidence fingerprint should ignore evidence capsule body changes")
         for canonical in (
             ".lazy-harness/scripts/validation-governor.py",
             ".lazy-harness/spec/platform/bounded-validation-governor.md",
         ):
-            if governor["is_volatile_harness_path"](canonical):
+            if governor["is_full_regression_irrelevant_path"](canonical):
                 fail("validation evidence fingerprint should keep canonical harness path: " + canonical)
         key_a = governor["evidence_key"](fake_step, "auto", fingerprint_a)
         key_b = governor["evidence_key"](fake_step, "auto", fingerprint_b)
-        if key_a == key_b:
+        key_c = governor["evidence_key"](fake_step, "auto", fingerprint_c)
+        if key_a == key_b or key_a == key_c:
+            fail("validation evidence key should change when workspace or environment fingerprint changes")
             fail("validation evidence key should change when conservative fingerprint changes")
         if governor["cached_step_result"](fake_step, key_a, governor["load_cache"]()) is not None:
             fail("validation evidence cache should miss before store")
@@ -1923,6 +2039,8 @@ def check_pi_package_layout_and_contract() -> None:
         "LAZY_HARNESS_INVOKER",
         "pi.registerCommand(\"lazy-map\"",
         "pi.registerCommand(\"lazy-doctor\"",
+        "pi.registerCommand(\"lazy-check\"",
+        "pi.registerCommand(\"lazy-validate\"",
         "pi.registerCommand(\"lazy-test\"",
         "pi.registerCommand(\"lazy-import-antigravity-mcp\"",
         "import-antigravity-mcp.ts",
@@ -1996,7 +2114,9 @@ def check_pi_package_layout_and_contract() -> None:
         "map <copied-node>",
         "never pass raw user text",
         "invented `--query` flags",
-        "bounded lazy-harness commands",
+        "use `lazy check` during edit loops",
+        "one `lazy validate --plan standard` only after the final mutation",
+        "Reserve direct `lazy test`",
         "Do not run product-wide typecheck/lint/build just to \"cover all bases\"",
         "host test-strategy record requires it",
     ]:
@@ -2306,6 +2426,15 @@ def check_pi_package_layout_and_contract() -> None:
         content = skill_file.read_text(encoding="utf-8")
         if "name:" not in content or skill not in content:
             fail(f"Pi package skill wrapper lacks expected frontmatter/content: {skill}")
+        if skill == "lazy-test":
+            for phrase in [
+                "Use `lazy check` during edit loops",
+                "`lazy validate --plan standard` once after the final mutation",
+                "fresh full regression",
+                "does not reuse `lazy validate` evidence",
+            ]:
+                if phrase not in content:
+                    fail("Pi package lazy-test skill missing bounded-validation guidance: " + phrase)
         if skill == "lazy-impl-map-migrate":
             for phrase in [
                 "Guided LLM-assisted implementation-map migration",
@@ -9934,6 +10063,7 @@ def check_policy_machinery_v2() -> None:
     walk(fixture)
 
     framework_policy_ids = {
+        "bounded-validation-orchestration",
         "code-organization-profile",
         "primary-canonical-record",
         "project-operating-rulebook-policy",
@@ -10303,6 +10433,7 @@ Fixture implementation map.
             ".lazy-harness/ssot/capabilities.json",
             ".lazy-harness/rules/README.md",
             ".lazy-harness/spec/platform/policy-machinery-v2.md",
+            ".lazy-harness/spec/platform/bounded-validation-governor.md",
             ".lazy-harness/spec/platform/code-organization-profile.md",
             ".lazy-harness/tests/code-organization-profile.md",
             ".lazy-harness/spec/platform/guidance-ladder.md",
@@ -12182,7 +12313,16 @@ def main() -> None:
         action="store_true",
         help="Light mode: skip the measured-heavy integration/lifecycle/doctor/profile/benchmark checks (deferred to pre-push full run). Fast record/schema/structural checks still run. Commit-gate use; ADR 0016 2026-07-05 amendment (commit=light, push=full).",
     )
+    default_jobs = min(MAX_SELF_TEST_JOBS, max(1, os.cpu_count() or 1))
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=int(os.environ.get("LAZY_TEST_JOBS", str(default_jobs))),
+        help="Bounded process workers for audited independent checks. Use --jobs=1 for exact serial fallback (default: min(4, CPU count)).",
+    )
     args = parser.parse_args()
+    if args.jobs < 1 or args.jobs > MAX_SELF_TEST_JOBS:
+        parser.error(f"--jobs must be between 1 and {MAX_SELF_TEST_JOBS}")
 
     scope = _detect_scope() if args.scope == "auto" else args.scope
     global ACTIVE_SCOPE
@@ -12297,8 +12437,8 @@ def main() -> None:
         "check_tdd_cross_verify",
     }
 
-    ran = 0
-    skipped = 0
+    applicable: list[Callable[[], None]] = []
+    skip_messages: dict[str, str] = {}
     for check, tag in checks:
         if tag == "BOTH":
             applies = True
@@ -12310,17 +12450,76 @@ def main() -> None:
             applies = True
 
         if not applies:
-            print(f"[skipped] {check.__name__} (scope={scope}, tag={tag})")
-            skipped += 1
+            skip_messages[check.__name__] = f"[skipped] {check.__name__} (scope={scope}, tag={tag})"
             continue
         if args.light and check.__name__ in HEAVY_CHECK_NAMES:
-            print(f"[skipped] {check.__name__} (light mode: heavy check deferred to pre-push full run)")
-            skipped += 1
+            skip_messages[check.__name__] = f"[skipped] {check.__name__} (light mode: heavy check deferred to pre-push full run)"
             continue
-        check()
-        ran += 1
+        applicable.append(check)
 
-    print(f"lazy-harness self-test ok (scope={scope}, ran={ran}, skipped={skipped})")
+    # Exact serial fallback preserves the historical fail-fast execution path.
+    if args.jobs == 1:
+        for check, _tag in checks:
+            if check.__name__ in skip_messages:
+                print(skip_messages[check.__name__])
+                continue
+            check()
+        print(f"lazy-harness self-test ok (scope={scope}, ran={len(applicable)}, skipped={len(skip_messages)}, jobs=1)")
+        return
+
+    results: dict[str, dict[str, object]] = {}
+    phase_sets = (PARALLEL_STATIC_OR_ISOLATED, PARALLEL_PID_FIXTURES, PARALLEL_STABLE_REPO_READERS)
+
+    # Resource-separated phases prevent live-root fixture writers, stable-repo
+    # readers, and generated-cache readers from overlapping. Output is buffered
+    # and emitted in registry order after every phase completes.
+    for phase_names in phase_sets:
+        phase_checks = [check for check in applicable if check.__name__ in phase_names]
+        if not phase_checks:
+            continue
+        workers = min(args.jobs, len(phase_checks))
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            future_to_name = {
+                executor.submit(run_check_captured, check, scope, True): check.__name__
+                for check in phase_checks
+            }
+            for future, name in [(future, future_to_name[future]) for future in future_to_name]:
+                try:
+                    results[name] = future.result()
+                except BaseException as exc:
+                    results[name] = {"name": name, "ok": False, "output": "", "error": f"worker failure: {type(exc).__name__}: {exc}"}
+
+    audited_parallel = set().union(*phase_sets)
+    for check in applicable:
+        if check.__name__ in audited_parallel:
+            continue
+        # Unclassified/new checks and fixed-path exclusive fixtures stay serial
+        # by default. Their output is still buffered for deterministic ordering.
+        results[check.__name__] = run_check_captured(check, scope, False)
+
+    failures: list[str] = []
+    for check, _tag in checks:
+        name = check.__name__
+        if name in skip_messages:
+            print(skip_messages[name])
+            continue
+        result = results.get(name)
+        if result is None:
+            failures.append(f"{name}: missing result")
+            continue
+        output = str(result.get("output", ""))
+        if output:
+            print(output, end="" if output.endswith("\n") else "\n")
+        if not result.get("ok"):
+            failures.append(f"{name}: {result.get('error', 'failed')}")
+
+    if failures:
+        print("✗ parallel self-test failures:")
+        for failure in failures:
+            print(f"  - {failure}")
+        raise SystemExit(1)
+
+    print(f"lazy-harness self-test ok (scope={scope}, ran={len(applicable)}, skipped={len(skip_messages)}, jobs={args.jobs})")
 
 
 def _detect_scope() -> str:
