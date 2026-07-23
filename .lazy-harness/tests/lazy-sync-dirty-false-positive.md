@@ -122,7 +122,8 @@ The dirty-source regression itself is not yet sandboxed, so this record remains 
 - Tests / protection:
   - Manual dirty-source recipe in this record remains the direct dirty-tree protection.
   - `.lazy-harness/spec/lazy-sync-drift-detection.md#verification` mirrors expected commands and outcomes.
-  - `.lazy-harness/scripts/self-test.py#check_lazy_sync_prunes_stale_managed_files` protects opt-out byte identity, no conflict sidecars, continued capability merge, and unchanged default knowledge merge.
+  - `.lazy-harness/scripts/self-test.py#check_lazy_sync_prunes_stale_managed_files` protects opt-out byte identity, no conflict sidecars, continued capability merge, marker advancement, and unchanged default knowledge merge.
+  - `.lazy-harness/evidence/2026-07-23-knowledge-safe-placement-rollout.md` records source validation, independent review, and byte-safe rollout to the three approved dogfood hosts.
   - No sandboxed automated dirty-source fixture exists yet; keep this map `needs-review` until one is added.
 - Layer completeness:
   - SDD: independent delta in `.lazy-harness/spec/lazy-sync-drift-detection.md` defines the new CLI/merge contract.
