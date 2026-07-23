@@ -25,8 +25,9 @@ Related TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
   - clear `open_fingerprints` whenever `message_id` (the turn boundary) changes
   - emit a gate reminder only if `(helper, fingerprint)` is not already open for the current `message_id`, then record it
   - keep state read/write best-effort so a failure never crashes the lifecycle hook
+  - for `project-rule-placement`, fingerprint semantic user/assistant text plus normalized successful placement-relevant action kinds; exclude raw tool arguments and failed calls
 - Must not:
-  - depend on `payload.assistant_response`, which jcode `response.completed` omits in production
+  - require `payload.assistant_response` to exist; Jcode may omit it, so `last_user_message` must remain sufficient semantic evidence
 - Record completion:
   - state-schema, turn-boundary, or suppression-behavior changes update this SSOT plus the option-gate SDD and gate-loop TDD records
 - Related records:
@@ -66,7 +67,8 @@ This file is runtime state, not institutional memory. It is safe to regenerate a
 - A helper may emit an option-gate reminder only if `(helper, fingerprint)` is not already present for the current `message_id`.
 - After emitting, the helper records `(helper, fingerprint)` in this file.
 - State read/write failures are best-effort and must not crash the lifecycle hook.
-- Helpers must not depend on `payload.assistant_response` because jcode `response.completed` payload does not include assistant text in production.
+- Helpers must not require `payload.assistant_response` because Jcode `response.completed` may omit assistant text; helpers may include it when present.
+- Project-rule placement fingerprints use semantic `last_user_message`/optional `assistant_response` text plus normalized successful placement-relevant action kinds. Raw tool arguments, read paths, unrelated tools, and failed calls are excluded from the fingerprint input.
 - Known helper prefixes:
   - `bdd:<fingerprint>` for BDD scenario option-gate triggers.
   - `project-rule-placement:<fingerprint>` for project rule placement STOP reminders.
@@ -82,17 +84,24 @@ This file is runtime state, not institutional memory. It is safe to regenerate a
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — writes compatible `project-rule-placement:<fingerprint>` entries directly because its Python implementation runs inside one helper process.
   - `.lazy-harness/scripts/self-test.py` — validates same-turn suppression and new-turn re-fire in `check_bdd_trigger_loop_suppression` and `check_project_rule_placement_helper`.
 - Flow:
-  1. A loop-prone helper computes a deterministic fingerprint from stable trigger inputs.
-  2. It checks whether the helper-prefixed key already exists for the current `message_id`.
-  3. If already open, it exits silently.
-  4. If new, it emits the gate/STOP reminder and records the fingerprint.
-  5. The next `message_id` clears prior entries.
+  1. A loop-prone helper computes a deterministic fingerprint from its stable, contract-approved trigger inputs.
+  2. Project-rule placement uses semantic text plus successful relevant action kinds; other helpers keep their own SDD-defined inputs.
+  3. It checks whether the helper-prefixed key already exists for the current `message_id`.
+  4. If already open, it exits silently.
+  5. If new, it emits the gate/STOP reminder and records the fingerprint.
+  6. The next `message_id` clears prior entries.
 - Protection:
   - `.lazy-harness/scripts/self-test.py` `check_bdd_trigger_loop_suppression`
-  - `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper`
+  - `.lazy-harness/scripts/self-test.py` `check_project_rule_placement_helper` — same-turn suppression plus tool/path-only and failed-call fingerprint exclusion
   - `.lazy-harness/scripts/self-test.py` `check_gate_state_cli_and_record_audit_source_guard`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/option-gate-discipline.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
   - TDD: `.lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md`
   - TDD: `.lazy-harness/tests/project-rule-placement-gate-loop.md`
+
+## Discovery capture — project-rule fingerprint narrowing
+
+- Primary canonical record: `.lazy-harness/tests/project-rule-placement-gate-loop.md`.
+- SSOT delta: only `project-rule-placement:<fingerprint>` input composition changes; the file path, state schema, message boundary, and best-effort behavior remain unchanged.
+- SDD/TDD links are updated; BDD/DDD/ADR have no independent canonical delta.

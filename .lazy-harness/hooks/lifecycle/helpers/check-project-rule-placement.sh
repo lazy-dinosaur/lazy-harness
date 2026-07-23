@@ -39,29 +39,27 @@ LAZY_CAPTURE_RE = re.compile(
 )
 LOCAL_NOTE_RULES = (".pi/APPEND_SYSTEM.md", ".omp/APPEND_SYSTEM.md")
 
-strings: list[str] = []
+assistant_response = str(payload.get("assistant_response") or "")
+last_user_message = str(payload.get("last_user_message") or "")
 
-def walk(value):
-    if isinstance(value, str):
-        strings.append(value)
-    elif isinstance(value, dict):
-        for child in value.values():
-            walk(child)
-    elif isinstance(value, list):
-        for child in value:
-            walk(child)
-
-walk(payload)
-blob = "\n".join(strings)
+# Semantic placement cues come only from user/assistant prose. Tool arguments are
+# structural evidence (successful writes or memory actions), never prose: read
+# paths such as project-rule-router.md contain cue words and must not self-trigger.
+blob = "\n".join(text for text in (last_user_message, assistant_response) if text)
 lower = blob.lower()
-if not blob.strip():
-    sys.exit(0)
+# File/path tokens in prose are placement context, not rule/action language. Keep
+# the original text for explicit destination cues, but exclude paths from the
+# rule/action/workflow cue scan so `project-rule-router.md` cannot self-trigger.
+cue_lower = re.sub(
+    r"`?(?:(?:[a-z0-9_.-]+/)+[a-z0-9_.-]+|[a-z0-9_.-]+\.(?:md|jsonl?|ya?ml|toml|tsx?|jsx?|py|sh))`?",
+    " ",
+    lower,
+    flags=re.IGNORECASE,
+)
 
 # Jcode can surface blocking hook output back into the next turn as
 # last_user_message. Only this structural field is allowed to trigger the echo
-# guard; do not scan the whole payload/blob, because assistant discussion of a
-# STOP text should not weaken normal project-rule detection.
-last_user_message = str(payload.get("last_user_message") or "")
+# guard; assistant discussion of a STOP text must not weaken normal detection.
 last_lower = last_user_message.lower()
 if (
     (
@@ -88,6 +86,13 @@ def call_blob(call):
             except Exception:
                 parts.append(str(value))
     return "\n".join(parts)
+
+
+def call_succeeded(call) -> bool:
+    is_error = call.get("is_error", call.get("isError", False))
+    if isinstance(is_error, str):
+        return is_error.strip().lower() not in {"1", "true", "yes"}
+    return not bool(is_error)
 
 
 def has_rule_placement_judgement(text: str) -> bool:
@@ -165,7 +170,7 @@ MEMORY_RULE_CUES = [
 ]
 memory_rule_touched = False
 for call in payload.get("recent_tool_calls", []) or []:
-    if str(call.get("name", "")) not in MEMORY_TOOLS:
+    if not call_succeeded(call) or str(call.get("name", "")) not in MEMORY_TOOLS:
         continue
     args_blob = call_blob(call)
     args_lower = args_blob.lower()
@@ -176,7 +181,7 @@ for call in payload.get("recent_tool_calls", []) or []:
 # Same-turn .lazy-harness record/planning capture satisfies the gate.
 if not memory_rule_touched:
     for call in payload.get("recent_tool_calls", []) or []:
-        if str(call.get("name", "")) not in WRITE_TOOLS:
+        if not call_succeeded(call) or str(call.get("name", "")) not in WRITE_TOOLS:
             continue
         args_blob = call_blob(call)
         if LAZY_CAPTURE_RE.search(args_blob):
@@ -185,7 +190,7 @@ if not memory_rule_touched:
 # .jcode write is allowed only with explicit local-only judgement.
 jcode_touched = False
 for call in payload.get("recent_tool_calls", []) or []:
-    if str(call.get("name", "")) not in WRITE_TOOLS:
+    if not call_succeeded(call) or str(call.get("name", "")) not in WRITE_TOOLS:
         continue
     args_blob = call_blob(call)
     if any(p in args_blob for p in LOCAL_NOTE_RULES):
@@ -211,17 +216,22 @@ negative_noop_cues = [
     "not recording", "do not record", "no record", "no recording", "non-applicable", "not applicable",
 ]
 
-has_rule = any(cue in lower for cue in [c.lower() for c in rule_cues])
+has_rule = any(cue in cue_lower for cue in [c.lower() for c in rule_cues])
 has_placement = any(cue in lower for cue in [c.lower() for c in placement_cues])
-has_workflow = any(cue in lower for cue in [c.lower() for c in workflow_cues])
-has_action = any(cue in lower for cue in [c.lower() for c in action_cues])
-has_status_only = any(cue in lower for cue in [c.lower() for c in status_only_cues])
-has_negative_noop = any(cue in lower for cue in [c.lower() for c in negative_noop_cues])
-has_forward_action = any(cue in lower for cue in [
+has_workflow = any(cue in cue_lower for cue in [c.lower() for c in workflow_cues])
+has_action = any(cue in cue_lower for cue in [c.lower() for c in action_cues])
+has_status_only = any(cue in cue_lower for cue in [c.lower() for c in status_only_cues])
+has_negative_noop = any(cue in cue_lower for cue in [c.lower() for c in negative_noop_cues])
+has_forward_action = any(cue in cue_lower for cue in [
     "해야", "하겠", "할게", "하자", "필요", "빠져", "누락", "추가해야", "기록해야",
     "will", "need", "needs", "missing", "should", "must",
 ])
-write_touched = any(str(call.get("name", "")) in WRITE_TOOLS for call in payload.get("recent_tool_calls", []) or [])
+write_touched = any(
+    call_succeeded(call)
+    and str(call.get("name", "")) in WRITE_TOOLS
+    and (LAZY_CAPTURE_RE.search(call_blob(call)) or any(path in call_blob(call) for path in LOCAL_NOTE_RULES))
+    for call in payload.get("recent_tool_calls", []) or []
+)
 
 # High-confidence only. Casual/status reporting about existing records should stay silent.
 # The gate is for newly discovered/corrected/routed project rules, not for answers
@@ -243,15 +253,19 @@ def gate_already_open_this_turn() -> bool:
     the same runtime state contract here to prevent visible Rule placement loops.
     """
     message_id = str(payload.get("message_id") or "unknown")
-    recent = []
+    relevant_recent = []
     for call in payload.get("recent_tool_calls", []) or []:
-        recent.append({
-            "name": str(call.get("name", "")),
-            "blob": call_blob(call),
-        })
+        if not call_succeeded(call):
+            continue
+        name = str(call.get("name", ""))
+        args_blob = call_blob(call)
+        if name in MEMORY_TOOLS and memory_rule_touched:
+            relevant_recent.append({"name": name, "kind": "memory-rule"})
+        elif name in WRITE_TOOLS and any(path in args_blob for path in LOCAL_NOTE_RULES):
+            relevant_recent.append({"name": name, "kind": "local-note"})
     fp_input = json.dumps({
-        "last_user_message": payload.get("last_user_message") or "",
-        "recent_tool_calls": recent,
+        "semantic_text": blob,
+        "relevant_tool_calls": relevant_recent,
         "jcode_touched": jcode_touched,
         "memory_rule_touched": memory_rule_touched,
         "has_rule": has_rule,

@@ -28,6 +28,7 @@ type RecentToolCall = {
   args_preview?: string;
   edit_target?: string;
   toolCallId?: string;
+  evidence_epoch?: number;
   is_error?: boolean;
   result_preview?: unknown;
 };
@@ -36,9 +37,10 @@ const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
-// A non-extension mid-turn steer starts a new evidence epoch. Tool calls retain
-// the epoch in which they began so late results from pre-steer parallel work
-// cannot repopulate the fresh evidence cache after it has been invalidated.
+// Every normal turn and non-extension mid-turn steer advances a root-scoped
+// evidence epoch. Tool calls retain their start epoch, and completed calls retain
+// their completion epoch, so agent_end can project only the current turn while
+// late results from an older turn/steer cannot repopulate current evidence.
 const evidenceEpochByRoot = new Map<string, number>();
 const toolCallEpochsByRoot = new Map<string, Map<string, number>>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
@@ -519,15 +521,21 @@ function toolResultBelongsToCurrentEvidenceEpoch(root: string, event: any): bool
   const key = toolCallKey(event);
   const startedEpoch = epochs?.get(key);
   epochs?.delete(key);
-  // Older runtimes/tests may omit tool_call events. Preserve their pre-steer
-  // behavior, but after a steer accept only results tied to a known fresh call.
+  // Older runtimes/tests may omit tool_call events. Preserve their pre-turn
+  // behavior only at epoch zero; after any turn/steer boundary, accept results
+  // only when the corresponding call started in the current evidence epoch.
   if (startedEpoch === undefined) return currentEvidenceEpoch(root) === 0;
   return startedEpoch === currentEvidenceEpoch(root);
 }
 
-function rearmEvidenceAfterSteer(root: string): number {
+function advanceEvidenceEpoch(root: string): number {
   const nextEpoch = currentEvidenceEpoch(root) + 1;
   evidenceEpochByRoot.set(root, nextEpoch);
+  return nextEpoch;
+}
+
+function rearmEvidenceAfterSteer(root: string): number {
+  const nextEpoch = advanceEvidenceEpoch(root);
   recentToolCallsByRoot.set(root, []);
   return nextEpoch;
 }
@@ -647,6 +655,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
 
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
+    advanceEvidenceEpoch(root); // fresh turn boundary: exclude prior-turn calls from agent_end
     pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
     regroundBodyByRoot.delete(root);
     // A queued lazy-harness follow-up starts a new runtime turn too. Keep the
@@ -743,6 +752,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       args_preview: argsPreview(normalized.args),
       edit_target: editTargetPaths(normalized.args),
       toolCallId: String(event.toolCallId || ""),
+      evidence_epoch: currentEvidenceEpoch(root),
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
     });
@@ -796,7 +806,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const messages = Array.isArray(event.messages) ? event.messages : [];
-    const recentToolCalls = recentToolCallsForRoot(root).slice(-40);
+    const currentEpoch = currentEvidenceEpoch(root);
+    const recentToolCalls = recentToolCallsForRoot(root)
+      .filter((call) => call.evidence_epoch === currentEpoch)
+      .slice(-40);
     const assistantResponse = lastMessageTextByRole(messages, "assistant");
     const lastUserMessage = lastMessageTextByRole(messages, "user");
     const payload: JsonObject = {

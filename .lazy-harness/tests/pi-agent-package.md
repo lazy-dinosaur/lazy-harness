@@ -22,7 +22,7 @@ Layer: TDD
   - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity); if `on-context.sh` cannot provide the real relevant-record body, fail open silently instead of injecting a generic fallback reminder
   - when context evidence includes source-code paths, derive exact source-work intents from mechanical file-tool labels and surface canonical framework + host-project policy/capability matches; record/docs-only touches must not receive a source-adaptation block
   - on every non-extension, non-empty mid-turn steer, advance a root evidence epoch and clear prior recent-tool evidence; only tool results whose tool calls started in the current epoch may satisfy later action guards, so late pre-steer parallel results remain stale
-  - project the jcode-shape `agent_end` payload (`assistant_response` + `last_user_message` from `event.messages`, string `args_preview` per `recent_tool_calls` entry) so `on-response-completed.sh` helper satisfaction works under Pi/OMP and does not loop
+  - project the jcode-shape `agent_end` payload with user/assistant prose plus current-turn-only tool entries carrying `args_preview`, `edit_target`, `evidence_epoch`, and `is_error`; prior-turn/late results must not reach response-completion helpers, while failed current calls remain explicit structural facts
   - protect the opt-in `LAZY_PI_AGENT_END_TRACE=1` diagnostic: absent by default, written under `$LAZY_RUNTIME_ROOT`, structural fingerprints only, no conversation prose/tool args/results, fail-open, and no change to queued continuation behavior
   - keep OMP's native `ask` selector active (`ensureAskToolActive` on `before_agent_start`) so option gates render as selectable choices under tool discovery mode; add-only, interactive-only, fail-open
   - surface a visible per-start `lazy-harness read-debt` marker with runtime marker/root/status/phase/tool-guard (`status=armed`, `status=not-armed(synthetic-turn)`, `status=not-armed(hook-empty)`, `status=not-armed(hook-timeout)`, `status=not-armed(hook-error)`) plus concise hook detail for failures; synthetic/steering starts are debug-only and must not create read-debt journal rows, large hook payloads must be handed to Python helpers by temp-file/ref rather than argv/env to avoid ARG_MAX hook-empty/error loops, and lazy-root action tools still block with `read-debt not armed` plus status/detail when the turn did not arm
@@ -75,7 +75,8 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh`; generic fallback reminder text is not injected when `on-context.sh` is missing or unparsable |
 | `pi_context_code_organization_profile` | Run `on-context.sh` with source, host-only source-policy, and record-only path fixtures | Source paths receive canonical resolver guidance for the framework baseline plus matching host-project policy/capability records and actions; record-only paths receive no source-adaptation block; all output stays advisory and user-text-agnostic |
 | `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
-| `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response` (assistant prose), `last_user_message`, and a `recent_tool_calls[].args_preview` containing the written path |
+| `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response`, `last_user_message`, and current-turn tool fields including `args_preview`, `edit_target`, `evidence_epoch`, and `is_error` |
+| `pi_extension_agent_end_current_turn_tool_scope` | Fake runtime completes one read, leaves another result late, starts a new normal turn, then records a failed fetch and ends a third tool-free turn | Turn two payload contains only the current failed fetch with `is_error: true`; completed/late turn-one reads are absent; turn three has no inherited tool calls |
 | `pi_extension_agent_end_structural_trace` | Run the fake runtime with trace disabled, with explicit-root trace enabled, without an explicit root so canonical `runtime_paths.py` resolves the path, with a forced trace-write failure, and through 55 additional trace turns | No trace exists by default; opt-in rows contain bounded role/content-kind metadata, byte counts/hashes, tool names, and hook/advisory fingerprints without raw conversation/tool content; a 16-part message records only 12 kinds plus total/truncation metadata; the canonical fallback writes under the session runtime root; forced write failure still delivers one `followUp`; retention keeps exactly the newest 50 rows |
 | `pi_extension_agent_end_fresh_source_trace` | Start `pi -e packages/lazy-harness-pi -p` with trace enabled, let it exit normally after map/read grounding and one complete seven-layer judgement, then inspect the runtime-only structural row | Assistant and last-user projections are present, hook status is `0`, hook stdout/stderr and advisory are empty, and no continuation occurs; this proves current-source non-reproduction for the controlled case, not the historical session cause. Evidence: `.lazy-harness/evidence/2026-07-14-pi-agent-end-structural-trace.md` |
 | `pi_extension_ensure_ask_tool_active` | Fake runtime with `ask` present in `getAllTools` but not in `getActiveTools` calls `before_agent_start` | Extension calls `setActiveTools` with the existing active set plus `ask` (add-only); a runtime missing the `ask` tool or the tool APIs is a graceful no-op (no throw) |
@@ -123,11 +124,13 @@ omp plugin list
 
 ## Layer completeness
 
-- SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
-- BDD: Pi behavior mirrors `.lazy-harness/behavior/llm-owned-record-retrieval.md` for reminder and mutation guard behavior.
-- SSOT: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` is the placement decision for now.
-- ADR: `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`, `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
-- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence freshness.
+- Primary canonical record: `.lazy-harness/tests/project-rule-placement-gate-loop.md`; this package TDD is an independent adapter regression delta.
+- SDD: `.lazy-harness/spec/platform/pi-agent-package.md` defines normal-turn evidence epochs and active-turn-only `agent_end` projection.
+- BDD: no separate canonical record; the user-visible false placement follow-up is the primary TDD regression correction.
+- SSOT: no package runtime-path/schema delta; `.lazy-harness/ssot/gate-fingerprint-state.md` owns the related project-rule fingerprint narrowing.
+- DDD: no domain terminology or business invariant delta.
+- TDD: this record protects the package bridge; the primary TDD record protects the end-to-end placement regression.
+- ADR: no new decision; existing Pi/OMP bridge and lifecycle decisions remain unchanged.
 
 ## Implementation map
 
@@ -135,7 +138,7 @@ omp plugin list
 - `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
 - `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
 - `.lazy-harness/scripts/agent-activate.ts` — fixture for project-local Pi/OMP activation prompt files, project-local skill settings, and `.git/info/exclude` entries.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, synthetic steering reminders, root-scoped evidence epochs that exclude late pre-steer results, and opt-in content-free `agent_end` tracing.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, normal-turn and steer evidence epochs, late-result exclusion, current-turn-only `agent_end` projection, and opt-in content-free tracing.
 - `.pi/settings.json` — optional generated project-local Pi settings; activation ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` load with `enableSkillCommands`, while local package install may add package attachment; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge phrases/events.
@@ -146,7 +149,7 @@ omp plugin list
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
 - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.
-- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — regression implementation, including fake live-session `/move` re-scope, post-steer evidence re-arming, jcode-shape `agent_end` projection, trace privacy/default-off/runtime-root assertions, and queued follow-up preservation.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` plus `_check_pi_agent_end_current_turn_scope` — regression implementation, including live-session `/move` re-scope, post-steer re-arming, current-turn jcode-shape projection, failed-call structure, trace privacy/default-off/runtime-root assertions, and queued follow-up preservation.
 - Machine index:
   - `kg_pi_agent_end_structural_trace_impl_20260714`
   - `kg_pi_agent_end_structural_trace_test_20260714`
@@ -187,3 +190,9 @@ omp plugin list
 - ADR: none because no payload or continuation semantics changed.
 - SSOT: updated in `.lazy-harness/ssot/runtime-and-shared-state.md`.
 - Planning: updated in the analysis-discovery capture backlog; fresh live reproduction remains pending.
+
+## Discovery capture — current-turn tool scope
+
+- Primary narrative remains `.lazy-harness/tests/project-rule-placement-gate-loop.md`; this record only carries the independent Pi/OMP adapter fixture delta.
+- The fake runtime covers completed prior-turn evidence, a late old-turn result, a failed current-turn fetch, and a following tool-free turn.
+- No new BDD/DDD/ADR record is warranted; SDD and SSOT impacts are linked in the layer-completeness matrix above.

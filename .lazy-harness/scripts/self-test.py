@@ -826,6 +826,7 @@ def check_project_rule_placement_helper() -> None:
         state_file.unlink()
     try:
         _check_project_rule_placement_helper_cases()
+        _check_pi_agent_end_current_turn_scope()
     finally:
         if backup is not None:
             state_file.write_text(backup, encoding="utf-8")
@@ -1046,6 +1047,158 @@ def _check_project_rule_placement_helper_cases() -> None:
     status_report = run_project_rule_placement_helper(status_report_payload)
     if status_report.strip():
         fail("project rule placement helper false-positive on existing-record status report:\n" + status_report)
+
+    for is_error in (True, False):
+        stale_tool_path_payload = {
+            "last_user_message": "git fetch 결과를 확인해줘.",
+            "assistant_response": (
+                "git fetch failed after reading "
+                "`.lazy-harness/spec/platform/project-rule-router.md`."
+            ),
+            "message_id": f"project-rule-stale-tool-path-{is_error}",
+            "recent_tool_calls": [
+                {
+                    "name": "read",
+                    "args_preview": ".lazy-harness/spec/platform/project-rule-router.md",
+                    "is_error": False,
+                },
+                {
+                    "name": "bash",
+                    "args_preview": "git fetch origin",
+                    "is_error": is_error,
+                },
+            ],
+        }
+        stale_tool_path = run_project_rule_placement_helper(stale_tool_path_payload)
+        if stale_tool_path.strip():
+            fail(
+                "project rule placement helper must ignore stale/path-only tool evidence "
+                f"regardless of later fetch success: {is_error}:\n" + stale_tool_path
+            )
+
+    failed_memory_payload = {
+        "assistant_response": "The failed memory call did not change anything.",
+        "message_id": "project-rule-failed-memory",
+        "recent_tool_calls": [{
+            "name": "memory",
+            "args": {
+                "action": "remember",
+                "content": "Project workflow rule: switch cwd after creating a worktree.",
+            },
+            "is_error": True,
+        }],
+    }
+    failed_memory = run_project_rule_placement_helper(failed_memory_payload)
+    if failed_memory.strip():
+        fail("failed memory calls must not count as successful project-rule capture:\n" + failed_memory)
+
+    genuine_rule_with_failed_fetch_payload = {
+        "last_user_message": "이 프로젝트 규칙을 .lazy-harness SSOT에 기록해야 해.",
+        "assistant_response": "git fetch failed.",
+        "message_id": "project-rule-genuine-with-failed-fetch",
+        "recent_tool_calls": [{
+            "name": "bash",
+            "args_preview": "git fetch origin",
+            "is_error": True,
+        }],
+    }
+    genuine_rule_with_failed_fetch = run_project_rule_placement_helper(
+        genuine_rule_with_failed_fetch_payload
+    )
+    if "Project rule placement gate" not in genuine_rule_with_failed_fetch:
+        fail(
+            "genuine semantic project-rule requests must still gate after failed tools:\n"
+            + genuine_rule_with_failed_fetch
+        )
+
+    failed_capture_payload = {
+        "assistant_response": "프로젝트 규칙을 .lazy-harness SSOT에 기록하겠습니다.",
+        "message_id": "project-rule-failed-capture",
+        "recent_tool_calls": [{
+            "name": "Write",
+            "args_preview": ".lazy-harness/ssot/rule-sources.md",
+            "is_error": True,
+        }],
+    }
+    failed_capture = run_project_rule_placement_helper(failed_capture_payload)
+    if "Project rule placement gate" not in failed_capture:
+        fail("failed canonical writes must not satisfy project-rule placement:\n" + failed_capture)
+
+
+def _check_pi_agent_end_current_turn_scope() -> None:
+    """Pi agent_end must project only tool results from the active turn."""
+    extension = ROOT / "packages" / "lazy-harness-pi" / "extensions" / "lazy-harness" / "index.ts"
+    if not extension.exists():
+        return
+
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-current-turn-tools-"))
+    try:
+        proot = temp / "repo"
+        (proot / ".lazy-harness" / "bin").mkdir(parents=True)
+        (proot / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
+        (proot / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        message_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+        message_hook.write_text(
+            "#!/usr/bin/env bash\n"
+            "printf '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n",
+            encoding="utf-8",
+        )
+        message_hook.chmod(0o755)
+        response_hook = proot / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
+        response_hook.write_text(
+            "#!/usr/bin/env bash\ncat > .lazy-harness/last-response-payload.json\n",
+            encoding="utf-8",
+        )
+        response_hook.chmod(0o755)
+
+        smoke = temp / "current-turn-tools.ts"
+        smoke.write_text(
+            "import { readFileSync } from 'node:fs';\n"
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers=new Map();\n"
+            "const pi={on(e,h){handlers.set(e,h)},registerCommand(){},async exec(){return {stdout:'',stderr:'',exitCode:0}},sendUserMessage(){throw new Error('unexpected follow-up')}};\n"
+            "lazyHarnessPi(pi);\n"
+            "const proot=" + json.dumps(str(proot)) + ";\n"
+            "const ctx={cwd:proot,signal:undefined,ui:{notify(){}}};\n"
+            "await handlers.get('before_agent_start')({prompt:'turn one',systemPrompt:'base'},ctx);\n"
+            "await handlers.get('tool_call')({toolCallId:'old-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/project-rule-router.md'}},ctx);\n"
+            "await handlers.get('tool_result')({toolCallId:'old-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/project-rule-router.md'},content:'old'},ctx);\n"
+            "await handlers.get('tool_call')({toolCallId:'late-old-read',toolName:'read',input:{file_path:'late.md'}},ctx);\n"
+            "await handlers.get('before_agent_start')({prompt:'turn two',systemPrompt:'base'},ctx);\n"
+            "await handlers.get('tool_result')({toolCallId:'late-old-read',toolName:'read',input:{file_path:'late.md'},content:'late'},ctx);\n"
+            "const fetchCall=await handlers.get('tool_call')({toolCallId:'current-fetch',toolName:'fetch_content',input:{url:'fixture://project-rule-fetch'}},ctx);\n"
+            "if(fetchCall?.block) throw new Error('current fetch unexpectedly blocked');\n"
+            "await handlers.get('tool_result')({toolCallId:'current-fetch',toolName:'fetch_content',input:{url:'fixture://project-rule-fetch'},isError:true,content:'failed'},ctx);\n"
+            "const messages=[{role:'user',content:'turn two',timestamp:1},{role:'assistant',content:'fetch failed',timestamp:2}];\n"
+            "await handlers.get('agent_end')({type:'agent_end',messages},ctx);\n"
+            "let payload=JSON.parse(readFileSync(proot+'/.lazy-harness/last-response-payload.json','utf8'));\n"
+            "if(payload.recent_tool_calls?.length!==1) throw new Error('agent_end leaked prior-turn calls: '+JSON.stringify(payload.recent_tool_calls));\n"
+            "const only=payload.recent_tool_calls[0];\n"
+            "if(only.toolCallId!=='current-fetch'||only.is_error!==true||!Number.isInteger(only.evidence_epoch)||typeof only.args_preview!=='string'||!('edit_target' in only)) throw new Error('agent_end lost current failed-tool structure: '+JSON.stringify(only));\n"
+            "await handlers.get('before_agent_start')({prompt:'turn three',systemPrompt:'base'},ctx);\n"
+            "await handlers.get('agent_end')({type:'agent_end',messages:[{role:'user',content:'turn three',timestamp:3},{role:'assistant',content:'done',timestamp:4}]},ctx);\n"
+            "payload=JSON.parse(readFileSync(proot+'/.lazy-harness/last-response-payload.json','utf8'));\n"
+            "if(payload.recent_tool_calls?.length!==0) throw new Error('tool-free turn inherited prior evidence: '+JSON.stringify(payload.recent_tool_calls));\n"
+            "console.log('pi agent_end current-turn tool scope ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            ["bun", str(smoke)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail(
+                "Pi agent_end current-turn tool scope smoke failed:\n"
+                + completed.stdout
+                + completed.stderr
+            )
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
 
 def check_option_gate_discipline_helper() -> None:
     """Option gates must stop for the user and must not self-select Recommended."""
