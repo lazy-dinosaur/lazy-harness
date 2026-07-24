@@ -23,7 +23,7 @@ Date: 2026-06-18
   - enforce a total `--max-seconds` budget and reject budgets over 3600 seconds
   - require explicit `--allow-release` before executing `--plan release`
   - support `--dry-run` so agents can inspect expensive plans without starting them
-  - emit `JCODE_PROGRESS` lines to stderr during execution so long-running validation has visible progress without corrupting JSON stdout
+  - emit runtime-neutral `LAZY_PROGRESS` lines to stderr during execution so long-running validation has visible progress without corrupting JSON stdout
   - reuse full-regression evidence only when a conservative regression-relevant workspace fingerprint matches exactly
   - exclude `.lazy-harness/evidence/**` from the full-regression fingerprint because capsules summarize validation output; the fast tier still runs after every edit
   - register recommend-level `bounded-validation-orchestration` capability/policy guidance so agents use `lazy check` while editing and one `lazy validate --plan standard` after the final mutation
@@ -68,7 +68,7 @@ Execution rules:
 5. A failed step stops later steps.
 6. `--plan release` exits non-zero unless `--allow-release` or `--dry-run` is present.
 7. `--max-seconds` over 3600 exits non-zero and tells the caller to split validation into bounded chunks.
-8. Non-dry-run execution emits `JCODE_PROGRESS {json}` lines to stderr at plan start, step start, and step completion. `--progress=off` or `LAZY_VALIDATE_PROGRESS=0` disables these lines.
+8. Non-dry-run execution emits `LAZY_PROGRESS {json}` lines to stderr at plan start, step start, and step completion. `--progress=off` or `LAZY_VALIDATE_PROGRESS=0` disables these lines.
 9. Full-regression evidence cache is conservative and applies only to full-regression steps. Fast static checks still run every time.
 10. Cache keys include cache version, resolved host-root identity, step command, scope, git `HEAD`, regression-relevant git diff/status, untracked-file hash, canonical `.lazy-harness` content hash, dependency manifests/locks, and Python/Bun/Git executable-version signatures. Volatile runtime/derived paths and `.lazy-harness/evidence/**` are excluded; source, tests, contracts, policies, graph, and canonical records remain fingerprint inputs. Cache miss, unavailable tool signature, cache read/write error, or fingerprint uncertainty falls back to running `lazy test`.
 11. Cache storage is runtime state at `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, defaulting to `.lazy-harness/state/validation-evidence-cache.json`, and is ignored by git. In worktrees where `.lazy-harness` is a symlink, the cache path is considered protected when the `.lazy-harness` boundary itself is ignored, even if `git check-ignore` refuses nested symlink pathspecs.
@@ -93,7 +93,7 @@ JSON output includes:
 - `errors[]`
 - `notes[]`
 
-Progress output is intentionally not included in stdout JSON. It is emitted on stderr so automation can parse stdout as JSON and the Jcode background task UI can still show progress.
+Progress output is intentionally not included in stdout JSON. It is emitted on stderr so automation can parse stdout as JSON while Pi/OMP and other runtime consumers can render progress without a Jcode-specific protocol.
 
 When evidence is reused, the full-regression step status is `reused`, `fullRegression` remains true, and `evidenceReused` is true. This is a full-regression evidence reuse, not a fast-check substitution.
 
@@ -148,7 +148,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`
   - `.lazy-harness/bin/lazy validate --plan release --format=json` should fail without `--allow-release`.
   - `.lazy-harness/bin/lazy validate --plan release --dry-run --format=json` should list the release plan without executing it.
-  - `.lazy-harness/bin/lazy validate --plan fast --format=json` should keep stdout JSON parseable and emit `JCODE_PROGRESS` on stderr.
+  - `.lazy-harness/bin/lazy validate --plan fast --format=json` should keep stdout JSON parseable and emit `LAZY_PROGRESS` on stderr.
   - `.lazy-harness/bin/lazy validate --plan standard --format=json` should store full-regression evidence on a miss, then reuse it on the same regression-relevant fingerprint.
   - evidence-only path classification should preserve cache reuse; source/test/spec/graph paths must remain fingerprint-relevant.
   - `.lazy-harness/bin/lazy validate --plan standard --evidence-cache=off --format=json` should never reuse evidence.

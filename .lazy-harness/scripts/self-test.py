@@ -1765,11 +1765,11 @@ def check_bounded_validation_governor_cli() -> None:
     fast_steps = fast_result.get("steps", [])
     if len(fast_steps) != 1 or fast_steps[0].get("status") != "passed" or fast_steps[0].get("kind") != "fast-static":
         fail("lazy validate fast should run exactly one fast-static step: " + fast.stdout)
-    progress_lines = [line for line in fast.stderr.splitlines() if line.startswith("JCODE_PROGRESS ")]
+    progress_lines = [line for line in fast.stderr.splitlines() if line.startswith("LAZY_PROGRESS ")]
     if len(progress_lines) < 3:
         fail("lazy validate fast should emit progress rows to stderr without corrupting stdout JSON: " + fast.stderr)
     try:
-        progress_payloads = [json.loads(line.removeprefix("JCODE_PROGRESS ")) for line in progress_lines]
+        progress_payloads = [json.loads(line.removeprefix("LAZY_PROGRESS ")) for line in progress_lines]
     except json.JSONDecodeError as exc:
         fail("lazy validate progress row is not JSON: " + str(exc) + "\n" + fast.stderr)
     if not any(payload.get("message") == "Running fast-static-check" for payload in progress_payloads):
@@ -1797,7 +1797,7 @@ def check_bounded_validation_governor_cli() -> None:
     if fast_no_progress.returncode != 0:
         fail("lazy validate fast --progress=off failed:\n" + fast_no_progress.stdout + fast_no_progress.stderr)
     json.loads(fast_no_progress.stdout)
-    if "JCODE_PROGRESS" in fast_no_progress.stderr:
+    if "LAZY_PROGRESS" in fast_no_progress.stderr:
         fail("lazy validate --progress=off should suppress progress stderr: " + fast_no_progress.stderr)
 
     release_blocked = subprocess.run(

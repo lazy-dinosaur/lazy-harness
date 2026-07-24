@@ -353,7 +353,7 @@ def emit_progress(enabled: bool, *, current: int, total: int, message: str) -> N
         "percent": percent,
         "message": message,
     }
-    print("JCODE_PROGRESS " + json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
+    print("LAZY_PROGRESS " + json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
 
 
 def check_step(files: list[str]) -> ValidationStep:
@@ -605,7 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-release", action="store_true", help="Required to execute --plan release. Not required for --dry-run.")
     parser.add_argument("--dry-run", action="store_true", help="Print the bounded plan without executing steps.")
     parser.add_argument("--evidence-cache", choices=["auto", "on", "off"], default="auto", help="Reuse cached full-regression evidence when the conservative workspace fingerprint matches. Use --evidence-cache=off or LAZY_VALIDATE_EVIDENCE_CACHE=0 to disable.")
-    parser.add_argument("--progress", choices=["auto", "on", "off"], default="auto", help="Emit JCODE_PROGRESS lines to stderr while executing plans. Use --progress=off or LAZY_VALIDATE_PROGRESS=0 to disable.")
+    parser.add_argument("--progress", choices=["auto", "on", "off"], default="auto", help="Emit LAZY_PROGRESS lines to stderr while executing plans. Use --progress=off or LAZY_VALIDATE_PROGRESS=0 to disable.")
     parser.add_argument("--format", choices=["md", "json"], default="md")
     args = parser.parse_args(argv)
 

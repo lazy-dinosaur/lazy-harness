@@ -43,8 +43,8 @@ Date: 2026-06-18
 | `validate_release_dry_run` | `lazy validate --plan release --dry-run --format=json` | Exits 0, lists planned release steps, does not execute them, and shows `fullRegression: true` because the plan includes one full test. |
 | `validate_budget_cap` | `lazy validate --plan fast --max-seconds=3601 --format=json` | Exits non-zero and reports that budgets over 3600 must be split. |
 | `validate_deadline_zero` | `lazy validate --plan fast --max-seconds=0 --format=json` | Exits non-zero without running `lazy check`, step status is `skipped` with `deadline-exhausted`. |
-| `validate_progress_json_safe` | `lazy validate --plan fast --format=json` | Stdout remains parseable JSON and stderr contains `JCODE_PROGRESS` rows. |
-| `validate_progress_off` | `lazy validate --plan fast --progress=off --format=json` | Stdout remains parseable JSON and stderr contains no `JCODE_PROGRESS` rows. |
+| `validate_progress_json_safe` | `lazy validate --plan fast --format=json` | Stdout remains parseable JSON and stderr contains `LAZY_PROGRESS` rows. |
+| `validate_progress_off` | `lazy validate --plan fast --progress=off --format=json` | Stdout remains parseable JSON and stderr contains no `LAZY_PROGRESS` rows. |
 | `validate_cache_miss_then_hit` | Two `lazy validate --plan standard --format=json` runs with identical regression-relevant fingerprint and isolated `LAZY_RUNTIME_ROOT` | First run stores full-regression evidence, second run reports `evidenceReused: true` and full-regression step status `reused`. |
 | `validate_cache_evidence_only` | Classify `.lazy-harness/evidence/**` after a green full run | Evidence capsule body changes remain full-regression-irrelevant while the fast tier still runs. |
 | `validate_cache_relevant_change` | Classify source, test, spec, policy, graph, and canonical record paths | Any relevant change remains in the fingerprint and causes a cache miss. |
@@ -64,7 +64,7 @@ Date: 2026-06-18
 5. All plans include a total budget and reject `--max-seconds > 3600`.
 6. Dry-run output must be available for release plans without starting expensive commands.
 7. Full regression claims remain tied to `lazy test` execution or planned full-regression steps, not to fast static checks.
-8. Long-running non-dry-run plans emit progress to stderr, never stdout, so JSON consumers and Jcode background progress can both work.
+8. Long-running non-dry-run plans emit runtime-neutral progress to stderr, never stdout, so JSON consumers and Pi/OMP or other runtime consumers can both work.
 9. Cached full-regression evidence can be reused only when the regression-relevant evidence key matches; otherwise validation runs `lazy test`.
 10. Evidence capsule edits alone do not invalidate full evidence; executable/canonical changes do.
 11. Fast static checks still run when full-regression evidence is reused.
