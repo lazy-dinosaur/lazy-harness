@@ -4764,6 +4764,68 @@ def check_affected_test_runner() -> None:
         if run.get("command") != ["bun", "run", "test:run", "tests/lazy-harness/affected/covered.test.ts"]:
             fail("affected-test-runner should use repo-native test script, not hardcoded vitest: " + json.dumps(run, ensure_ascii=False))
 
+        # Pi may report absolute edit_target paths outside its session root when an
+        # edit lands in another linked git worktree. The response.completed helper
+        # must retain that absolute ownership signal, group by git worktree, and run
+        # each matching test from the worktree that owns the edited source.
+        worktree_temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-affected-worktrees-"))
+        try:
+            primary = worktree_temp / "primary"
+            linked = worktree_temp / "linked worktree with spaces"
+            if " " not in str(linked):
+                fail("cross-worktree fixture must include a space-containing owner path")
+            primary.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=primary, env=env_without_lazy_runtime(), check=True)
+            subprocess.run(["git", "config", "user.email", "lazy-harness@example.invalid"], cwd=primary, check=True)
+            subprocess.run(["git", "config", "user.name", "Lazy Harness Test"], cwd=primary, check=True)
+            (primary / "src").mkdir()
+            (primary / ".lazy-harness" / "tests").mkdir(parents=True)
+            (primary / "src" / "cross-worktree.ts").write_text("export const crossWorktree = true\n", encoding="utf-8")
+            (primary / "src" / "cross-worktree.test.ts").write_text(
+                'import { expect, test } from "bun:test";\ntest("cross worktree", () => expect(true).toBe(true));\n',
+                encoding="utf-8",
+            )
+            (primary / "package.json").write_text(json.dumps({
+                "name": "affected-worktree-fixture",
+                "private": True,
+                "scripts": {"test:run": "sh -c 'pwd > affected-cwd.txt; bun test \"$@\"' --"},
+            }), encoding="utf-8")
+            (primary / ".lazy-harness" / "tests" / "test-strategy.xml").write_text(
+                '<test-strategy><affectedTestRouting command="bun run test:run {tests}" /></test-strategy>\n',
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=primary, check=True)
+            subprocess.run(["git", "commit", "-qm", "affected worktree fixture"], cwd=primary, check=True)
+            subprocess.run(["git", "worktree", "add", "-q", "-b", "affected-linked", str(linked)], cwd=primary, check=True)
+
+            absolute_payload = {
+                "recent_tool_calls": [
+                    {"name": "Edit", "edit_target": str(primary / "src" / "cross-worktree.ts")},
+                    {"name": "Edit", "edit_target": str(linked / "src" / "cross-worktree.ts")},
+                ],
+            }
+            worktree_queue = worktree_temp / "questions.xml"
+            affected_helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-affected-tests.sh"
+            completed = subprocess.run(
+                [str(affected_helper), json.dumps(absolute_payload)],
+                cwd=ROOT,
+                env=env_without_lazy_runtime(
+                    LAZY_HOST_ROOT=str(ROOT),
+                    LAZY_HARNESS_QUESTION_QUEUE=str(worktree_queue),
+                ),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if completed.returncode != 0 or completed.stdout.strip():
+                fail("cross-worktree affected-test helper should pass silently:\n" + completed.stdout + completed.stderr)
+            for owner in (primary, linked):
+                sentinel = owner / "affected-cwd.txt"
+                if not sentinel.exists() or pathlib.Path(sentinel.read_text(encoding="utf-8").strip()).resolve() != owner.resolve():
+                    fail("affected tests did not run from owning worktree: " + str(owner))
+        finally:
+            shutil.rmtree(worktree_temp, ignore_errors=True)
+
         missing = run_affected_tests(["tests/lazy-harness/affected/missing.ts"], queue=queue, expect_code=2)
         if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("questions") == []:
             fail("affected-test-runner missing fixture changed: " + json.dumps(missing, ensure_ascii=False))
