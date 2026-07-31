@@ -20,6 +20,7 @@ Layer: TDD (regression case for interview gate dedup)
   - derive `needsInterview` from newly-pushed questions, not merely a question defined on the plan
   - still report `failed` accurately and re-fire the gate for a brand-new fingerprint
   - recognize a source file's tests across co-located/`__tests__`/`tests` dirs with separator-insensitive (PascalCase↔kebab↔snake) and infix (`.contract`, `.unit`) matching via the shared `scripts/test-match.ts`, so files that DO have tests never false-positive either 5d-3 gate
+  - preserve absolute Pi `edit_target` ownership across linked git worktrees, including worktree/file paths containing spaces; group affected sources by `git rev-parse --show-toplevel`, and execute each matching test command with that owning worktree as cwd
 - Must not:
   - re-ask the same fingerprint every turn while the source path stays in `recent_tool_calls`
 - Record completion:
@@ -91,6 +92,14 @@ Fix (two layers): (1) existence guard — both gates skip a source file when `!e
 
 Host-parity follow-up: the existence guard (1) interacted with the static `tdd-cross-verify-stop` lifecycle-parity fixture, which edits `.lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts` — a framework self-test fixture NOT synced to hosts. Before the guard the gate fired regardless of existence; after it, the gate stays silent on hosts (file absent) → `lifecycle-parity --fail-on-mismatch` → `check_lifecycle_fixture_intake_cli` flips green→fail on hosts (the mid-session flip seen in dogfood). Fix: the parity fixture is now self-contained via a `sourceFiles` map — `prepare_env` writes the stub source into the copied host before replay (mirrors `decisionsFixture`/`decisionsFallback`), so `existsSync` passes and the gate fires on source AND hosts.
 
+## 2026-07-31 — absolute Pi edit targets across linked worktrees (fourth facet)
+
+A Medivance Pi session rooted at the primary worktree reported an absolute `edit_target` in a linked worktree. `check-affected-tests.sh` matched only the `src/...` suffix, discarded the absolute prefix, and invoked `affected-test-runner.ts` from the Pi session root. The gate therefore ran the primary worktree's package command instead of the edited worktree's matching test.
+
+Fix: the helper now resolves every absolute or relative edit target to its owning git worktree with `git -C <target-dir> rev-parse --show-toplevel`, retains only supported source-relative paths, groups paths per worktree, and invokes the canonical affected-test runner once per group with that worktree as cwd. The question queue and runner source remain anchored to the active lazy-harness host root, so linked worktree routing does not fork gate state or duplicate policy. The complete `edit_target` is resolved before token fallback so paths containing spaces preserve ownership.
+
+Regression coverage creates a temporary repository plus a linked worktree whose path contains spaces, supplies absolute edit targets from both worktrees, and verifies each configured matching test command writes its cwd sentinel in its own worktree. The fixture itself touches only temporary repositories; this does not assert anything about Medivance's pre-existing or current working-tree state.
+
 ## Implementation map
 
 - Affected scripts:
@@ -98,6 +107,7 @@ Host-parity follow-up: the existence guard (1) interacted with the static `tdd-c
   - `.lazy-harness/scripts/affected-test-runner.ts` — `needsInterview` derivation
   - `.lazy-harness/scripts/test-match.ts` — shared `matchingTests`/`candidateTestPaths` (separator-insensitive + `__tests__`/`tests` + infix); single source for both gates
   - both gates: `existsSync` existence guard skips non-existent (quoted / cross-repo) source paths (`reason: not-found`) before asking
+  - `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh` — resolves the complete `edit_target` before token fallback so space-containing absolute paths retain ownership, groups source-relative paths by git worktree, and runs `affected-test-runner.ts` with the owner as cwd while keeping the active host queue canonical
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `editTargetPaths` + `edit_target` field; both gate hooks scan `call.edit_target` (not `args_preview` body) — edit-target-only extraction
   - `.lazy-harness/scripts/lifecycle-parity-runner.py` — `sourceFiles` fixture support; `tdd-cross-verify-stop` writes its stub source so the existence guard passes on hosts (parity green→fail flip fix)
 - Affected lifecycle helpers (unchanged in code, but rely on the new contract):
@@ -109,6 +119,7 @@ Host-parity follow-up: the existence guard (1) interacted with the static `tdd-c
   - `.lazy-harness/triggers/fixtures/tdd-cross-verify/KebabContractView.tsx` + `__tests__/kebab-contract-view.contract.test.tsx` — regression fixture; `check_tdd_cross_verify` asserts the PascalCase→kebab `.contract` layout is recognized (forceGate=false)
   - `check_tdd_cross_verify` asserts a non-existent source path is ignored (no question, forceGate=false) — quoted-path false-positive guard
   - lifecycle-shadow self-test asserts a `.md` edit that quotes a source path does NOT fire 5d-3 (`quoted_payload`); `tdd-cross-verify-stop` parity fixture + `tdd_payload` carry `edit_target`
+  - `check_affected_test_runner` creates primary + linked git worktrees (the linked path contains spaces), sends both absolute `edit_target` paths through the response helper, and asserts each matching test command runs from its owning worktree
 
 ## Manual reproduction proof
 
@@ -139,3 +150,12 @@ Before the fix, all three runs reported `forceGate=true` (the loop).
 - BDD: none required — no product/user flow changed; the only visible effect is fewer false-positive 5d-3 STOPs, which is internal harness lifecycle, not an app behavior record.
 - SSOT: none — no config/schema/ownership/source-of-truth changed; matching is heuristic, not driven by a stored glob/config.
 - DDD: none — no new domain term; "matching test" is existing ADR 0019/0020 vocabulary.
+
+2026-07-31 cross-worktree routing judgement:
+
+- SDD: no independent delta — the Pi package already contracts absolute `edit_target` projection and canonical response-hook bridging; this fix corrects the affected-test helper's cwd routing to honor that contract.
+- BDD: no independent delta — no product-visible user flow changes; only the incorrect worktree used by an internal gate is corrected.
+- SSOT: no independent delta — test strategy and question-queue ownership remain unchanged.
+- DDD: no independent delta — no domain vocabulary or business invariant changes.
+- ADR: no independent delta — no trade-off or lifecycle architecture decision changes.
+- TDD: updated here as the primary regression record with a focused linked-worktree fixture.
