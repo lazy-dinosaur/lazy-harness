@@ -2867,7 +2867,7 @@ def check_jcode_agent_adapter() -> None:
             fail("Jcode adapter install fixture failed:\n" + install.stdout + install.stderr)
         installed_text = config.read_text(encoding="utf-8")
         parsed = tomllib.loads(installed_text)
-        if parsed.get("display", {}).get("centered") is not True or parsed.get("hooks", {}).get("custom") != "echo ok" or len(parsed.get("hooks", {})) != 8:
+        if parsed.get("display", {}).get("centered") is not True or parsed.get("hooks", {}).get("custom") != "echo ok" or len(parsed.get("hooks", {})) != 9:
             fail("Jcode install did not preserve legal TOML and add all managed hooks")
         if not list(jcode_home.glob("config.toml.lazy-harness-backup-*")):
             fail("Jcode install did not create a backup")
@@ -2981,7 +2981,10 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         )
         context_hook.chmod(0o755)
         response_hook = hooks / "on-response-completed.sh"
-        response_hook.write_text('#!/bin/sh\ncat >/dev/null\n[ -z "${ATTACK_PROOF:-}" ] || touch "$ATTACK_PROOF"\n', encoding="utf-8")
+        response_hook.write_text(
+            '#!/bin/sh\ncat >/dev/null\n[ -z "${ATTACK_PROOF:-}" ] || touch "$ATTACK_PROOF"\n[ -z "${FOLLOWUP_BODY:-}" ] || printf \'%s\\n\' "{\\"inject\\":{\\"body\\":\\"$FOLLOWUP_BODY\\",\\"format\\":\\"system_reminder\\"}}"\n',
+            encoding="utf-8",
+        )
         response_hook.chmod(0o755)
         guard.chmod(0o755)
 
@@ -2992,7 +2995,7 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
             JCODE_HOOK_PAYLOAD=json.dumps({"cwd": str(root), "session_id": "fixture-session"}),
             LAZY_RUNTIME_ROOT=str(runtime),
         )
-        for event in ["session-start", "before-model", "turn-start", "pre-tool", "post-tool", "turn-end", "session-end"]:
+        for event in ["session-start", "before-model", "turn-followup", "turn-start", "pre-tool", "post-tool", "turn-end", "session-end"]:
             noop = subprocess.run(["bun", str(adapter), event], cwd=root, input="{}", text=True, capture_output=True, check=False, env=base_env)
             if noop.returncode != 0 or noop.stdout or noop.stderr or runtime.exists():
                 fail(f"Marker-only untrusted Jcode root did not no-op for {event}")
@@ -3083,6 +3086,27 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         post_tool_body = post_tool_decision.get("inject", {}).get("body", "")
         if post_tool_context.returncode != 0 or post_tool_context.stderr or "post-tool fixture recent_tool_calls=True" not in post_tool_body:
             fail("Trusted Jcode post-tool before_model did not pass bounded structural evidence to on-context")
+
+        followup = subprocess.run(
+            ["bun", str(adapter), "turn-followup"], cwd=root, text=True, capture_output=True, check=False,
+            env={**base_env, "FOLLOWUP_BODY": "verify fixture gap", "JCODE_HOOK_LAST_ASSISTANT_TEXT": "first completion"},
+        )
+        try:
+            followup_decision = json.loads(followup.stdout)
+        except Exception:
+            followup_decision = {}
+        continuation = followup_decision.get("continue", {})
+        if (
+            followup.returncode != 0
+            or followup.stderr
+            or continuation.get("body") != "verify fixture gap"
+            or continuation.get("reason") != "lazy-harness response.completed audit"
+            or not continuation.get("fingerprint")
+        ):
+            fail("Trusted Jcode turn_followup did not emit a strict bounded continuation decision")
+        audited_state = json.loads(state_path.read_text(encoding="utf-8"))
+        if audited_state.get("pending") or audited_state.get("recent") or audited_state.get("followupIssued") is not True:
+            fail("Jcode turn_followup did not clear per-turn evidence or mark issued continuation")
 
         url_env = {**base_env, "JCODE_HOOK_TOOL_NAME": "read"}
         outside_file = tmp / "outside-secret.txt"

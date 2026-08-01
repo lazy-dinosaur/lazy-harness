@@ -1,6 +1,6 @@
 # SDD — Jcode Agent Adapter
 
-Status: active-phase1
+Status: active-phase3
 Date: 2026-08-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -20,6 +20,7 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - Jcode 기본 적용
 - Surface terms:
   - before_model
+  - turn_followup
   - ask
   - interaction_request
   - needs_input
@@ -39,6 +40,7 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - persist no raw command, query, URL, credential, or tool-result text
   - treat `before_model` as a bounded request-scoped context transport, separate from detached observers and the `pre_tool` gate
   - use Jcode's typed native interaction broker for supported option gates and structured `needs_input` for unsupported runtimes
+  - treat `turn_followup` as a separately bounded synchronous controller with at most one synthetic continuation per originating real-user turn
 - Must not:
   - restore generated project policy under `.jcode`
   - claim observer hooks can block or inject model context
@@ -56,7 +58,7 @@ Provide a thin, reversible Jcode adapter that reuses lazy-harness canonical life
 
 ## Supported Jcode baseline
 
-The pilot baseline is Jcode `v0.64.114-dev` / base release `0.64.2`, commit `0ffe9f484`.
+The current source baseline includes Jcode lifecycle commits `38036ca63`, `eaa12fc30`, `6597ac650`, and `dcc8ed100`.
 
 Supported official surfaces:
 
@@ -64,6 +66,7 @@ Supported official surfaces:
 |---|---|---|
 | project `AGENTS.md` | static project instructions in system prompt | canonical root grammar entrypoint |
 | `before_model` | synchronous bounded JSON context decision immediately before a provider request | initial static harness reminder or post-tool relevant-record re-grounding |
+| `turn_followup` | synchronous strict JSON decision after a fully committed turn | one bounded system-generated response-completed audit continuation |
 | `turn_start` | detached observer before model generation | arm root/session turn state |
 | `pre_tool` | synchronous gate; stdin tool JSON; exit 2 blocks | canonical destructive/read-debt guard |
 | `post_tool` | detached observer after tool completion | append bounded success/failure evidence |
@@ -82,7 +85,7 @@ lazy jcode smoke   [--dry-run] [--format=md|json]
 lazy jcode trust   [--target=DIR] [--dry-run] [--format=md|json]
 lazy jcode untrust [--target=DIR] [--dry-run] [--format=md|json]
 lazy jcode trusted-roots [--format=md|json]
-lazy jcode hook <before-model|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>
+lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>
 ```
 
 - Default config: absolute `$JCODE_HOME/config.toml` when `JCODE_HOME` is absolute, otherwise `~/.jcode/config.toml`; relative `JCODE_HOME` is never resolved from a repository cwd. Package mutations reject relative `JCODE_HOME`.
@@ -141,9 +144,18 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 ### Turn end
 
 - Project `assistant_response` from `JCODE_HOOK_LAST_ASSISTANT_TEXT` and attach bounded recent tool calls from adapter state.
-- Invoke the canonical response-completed hook for advisory diagnostics.
-- Do not claim or attempt Pi-style bounded follow-up continuation in the pilot.
-- Clear per-turn evidence after the audit snapshot is produced.
+- Keep `turn_end` detached and advisory. If `turn_followup` already produced a stop decision, do not duplicate that audit.
+- If a synthetic continuation was issued, audit its completed response once at final `turn_end`.
+- Clear per-turn evidence and followup audit markers after the final audit snapshot.
+
+### Turn followup
+
+- Invoke `.lazy-harness/hooks/lifecycle/on-response-completed.sh` only after the originating turn is fully committed.
+- Accept only canonical strict injection JSON and normalize it to Jcode's `{"continue":{"body","reason","fingerprint"}}` contract; otherwise emit `{"stop":true}`.
+- Bound the UTF-8 continuation body to 16 KiB and the complete decision to 32 KiB.
+- Clear pending/recent per-turn evidence when the decision is produced so the synthetic turn cannot reuse stale proof.
+- Derive a stable fingerprint from canonical root, session, and bounded body. Jcode app-core owns one-per-origin, duplicate, ask, user-input, cancellation, guardrail, and non-retryable-error suppression.
+- Outside an exact trusted root, exit successfully with no output and no state.
 
 ## Prompt and option-gate boundary
 
@@ -153,6 +165,8 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 - Jcode commit `eaa12fc30` adds a generic `ask` tool, session interaction broker, typed wire requests/answers/cancellation, local/remote picker, and NDJSON/ACP `needs_input` fallback. Commit `6597ac650` enforces one recommended option and bounded question/option/custom fields.
 - A supported TUI advertises `native_interactions = true`; without that capability the tool returns immediately rather than hanging or reading command stdin.
 - Native ask parity remains partial until the source-built picker and remote reconnect/disconnect matrix are exercised live.
+- Jcode commit `dcc8ed100` adds the generic bounded `turn_followup` hook, app-core session controller, local/remote presentation, headless/server execution, cancellation, guardrail/error suppression, and wire lifecycle status.
+- Bounded followup transport is installed and fixture-tested. Full parity remains partial until the source-built local/remote/headless live matrix is exercised.
 
 ## Security and state
 
@@ -163,7 +177,7 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 
 ## Implementation map
 
-- Status: Phase 1 Jcode core committed at `38036ca63`; lazy-harness adapter fixture passed; source-build live matrix pending
+- Status: Phases 1–3 core committed through `dcc8ed100`; lazy-harness adapter fixture passed; source-build live matrix pending
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — strict bounded `before_model` execution, parsing, recursion suppression, request-kind classification, and dynamic-only application.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/agent/prompting.rs` — shared app-core provider request prompt boundary.
@@ -173,6 +187,11 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/server/client_interactions.rs` — answer/cancel correlation and session isolation.
   - `/home/lazydino/dev/jcode/crates/jcode-protocol/src/wire.rs` — native interaction capability and wire frames.
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/interaction_picker.rs` — picker/custom/cancel UI.
+  - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks/turn_followup.rs` — strict JSON, timeout, and byte-bound controller hook.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/turn_followup.rs` — session-scoped one-per-origin, fingerprint, cancellation, interaction, guardrail, and error bounds.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/agent/turn_followup.rs` — headless/server followup claim, synthetic message, execution, and lifecycle events.
+  - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/turn_followup.rs` — local system-generated followup presentation and queue transport.
+  - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/remote/turn_followup.rs` — remote lifecycle status presentation.
   - `.lazy-harness/scripts/jcode-adapter.ts` — trusted-root gating, hook normalization, canonical runtime state, owned locks, and canonical hook invocation.
   - `.lazy-harness/scripts/jcode-trust.ts` — mode-0600 exact canonical-root trust registry.
   - `.lazy-harness/scripts/jcode-package.ts` — TOML validation/merge/remove, trust commands, doctor, smoke, and formatting.

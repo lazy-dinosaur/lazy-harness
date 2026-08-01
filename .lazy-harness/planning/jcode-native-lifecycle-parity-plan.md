@@ -177,6 +177,14 @@ Before editing a single loop, inventory every provider-request path used by loca
 - The full 2,135-test TUI suite was intentionally stopped after unrelated tests hung concurrently for more than 13 minutes; focused native-interaction tests and affected crate checks replaced that non-diagnostic run. No test result was falsely reported as a Phase 2 failure.
 - Visible behavior is canonical in `.lazy-harness/behavior/jcode-native-ask.md`. Source-build local/remote picker and reconnect proof remains in Phase 4 before full parity is claimed.
 
+### Phase 3 evidence — 2026-08-01
+
+- Jcode commit `dcc8ed100` adds a separately named strict `turn_followup` hook and app-core-owned bounded controller across local TUI, remote server/client, and headless run-once paths.
+- The controller enforces one synthetic continuation per originating real-user turn and suppresses continuation for open native ask, queued/new user input, cancellation, provider guardrail, deterministic non-retryable errors, malformed/oversized/failed/timed-out hook output, and repeated fingerprints.
+- Focused validation passes for affected crate compilation, strict hook/config behavior, five app-core controller/cancellation tests, and protocol lifecycle round-trip. Fast guardrails report only pre-existing unrelated oversized/test/swallowed-error ratchet failures; Phase 3 target files are flat or below the limit.
+- Lazy-harness adapter emits strict bounded continuation JSON only for exact trusted roots, clears per-turn evidence at decision time, prevents duplicate stop audits, and preserves one final audit for an issued synthetic response. The focused adapter fixture and `lazy check` pass.
+- Visible behavior is canonical in `.lazy-harness/behavior/jcode-bounded-followup.md`. Source-build local/remote/headless live proof remains in Phase 4 before full parity is claimed.
+
 ## Phase 2 — Native interactive `ask` / option-gate tool
 
 ### Required behavior
@@ -379,7 +387,7 @@ Stop and request a revised decision if any occurs:
 
 ## Implementation map
 
-- Status: approved; Phase 0 contracts and Jcode Phase 1 core implementation complete, adapter/live proof in progress.
+- Status: approved; Jcode Phases 1–3 and matching lazy-harness adapter transports implemented, source-build live proof and final closure in progress.
 - Jcode source candidates verified by source read:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — current observer/gate execution boundary; future bounded synchronous context/followup contracts.
   - `/home/lazydino/dev/jcode/crates/jcode-config-types/src/lib.rs` — `HooksConfig`.

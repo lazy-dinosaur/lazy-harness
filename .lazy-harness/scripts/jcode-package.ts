@@ -38,6 +38,7 @@ type Options = {
 
 const HOOKS = {
   before_model: 'before-model',
+  turn_followup: 'turn-followup',
   turn_start: 'turn-start',
   pre_tool: 'pre-tool',
   post_tool: 'post-tool',
@@ -478,7 +479,7 @@ function doctor(options: Options): void {
       conflicts: classification.conflicts.map((conflict) => `${conflict.key}: ${conflict.line}`),
       knownGaps: [
         'before_model context transport installed; live provider prompt proof pending',
-        'no bounded turn-end continuation',
+        'bounded turn_followup transport installed; live continuation proof pending',
         'native ask transport installed; live local/remote picker proof pending',
       ],
     },

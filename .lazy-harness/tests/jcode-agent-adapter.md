@@ -21,6 +21,8 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - native ask picker
   - interaction session isolation
   - needs_input fallback
+  - bounded turn followup
+  - followup fingerprint
   - pre_tool gate
   - root isolation
   - config backup
@@ -36,8 +38,9 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - keep Pi/OMP regression coverage green
   - protect strict bounded initial and post-tool `before_model` injection without changing untrusted-root no-op behavior
   - protect bounded native ask, typed answer/cancel routing, continuation suppression, and unsupported-runtime fallback
+  - protect strict bounded `turn_followup`, exactly-one origin control, stable fingerprinting, and ask/input/cancel/guardrail/error suppression
 - Must not:
-  - claim unsupported context reinjection, continuation, or native ask parity
+  - claim full live context, continuation, or native ask parity before the corresponding source-build matrix passes
 - Record completion:
   - Jcode adapter bugs update this regression record and its layer matrix
 - Related records:
@@ -73,6 +76,11 @@ The Jcode adapter must reuse canonical lazy-harness hooks only for exact user-tr
 | `jcode_ask_picker` | Local/remote picker receives navigation, custom, Enter, or Escape | Selection/custom/cancel is typed, custom input is bounded, and recommended remains visual metadata |
 | `jcode_ask_headless_acp_fallback` | NDJSON or ACP has no native interaction capability | Structured `needs_input` is emitted immediately and no stdin wait occurs |
 | `jcode_ask_suppresses_followup` | Picker is open while auto-poke or queued followup scheduling runs | No synthetic continuation dispatches until the interaction closes |
+| `jcode_turn_followup_strict_output` | Controller emits valid, malformed, oversized, failed, or timed-out output | Only one bounded strict continuation is accepted; every other outcome stops normally |
+| `jcode_turn_followup_exactly_once` | One real-user turn completes and the controller requests continuation more than once | Exactly one synthetic message can be claimed for that origin |
+| `jcode_turn_followup_loop_bounds` | Fingerprint repeats, an ask is open, user input arrives, cancellation occurs, provider guardrail fires, or a non-retryable error occurs | Followup stops and cannot recursively create another allowance |
+| `jcode_turn_followup_local_remote_headless` | Local TUI, remote server/client, and run-once paths receive a followup decision | System-generated status is explicit and the shared app-core controller owns bounds outside TUI-only state |
+| `jcode_turn_followup_adapter_audit` | Trusted response-completed hook emits one bounded injection body | Adapter emits strict Jcode continuation JSON, clears per-turn evidence, avoids duplicate stop audits, and audits the issued synthetic response once |
 | `jcode_pre_tool_blocks_canonical_deny` | Canonical before-tool hook emits deny | Adapter writes reason to stderr and exits 2 |
 | `jcode_pre_tool_allows` | Canonical before-tool hook is silent | Adapter exits 0 |
 | `jcode_post_tool_success_evidence` | Successful read post-tool follows one fresh matching pre-tool; URL-shaped `path` is also attempted | Only canonical root-contained filesystem-path evidence is retained; raw command/query/URL text is absent |
@@ -99,19 +107,22 @@ Direct repeated `lazy test` runs are not part of the edit loop.
 | Layer | Independent delta? | Judgement |
 |---|---|---|
 | SDD | yes | `.lazy-harness/spec/platform/jcode-agent-adapter.md` defines the new hook/config/runtime contract. |
-| BDD | yes | `.lazy-harness/behavior/jcode-native-ask.md` owns visible picker, answer, cancellation, and needs-input behavior. |
+| BDD | yes | `.lazy-harness/behavior/jcode-native-ask.md` owns picker behavior and `.lazy-harness/behavior/jcode-bounded-followup.md` owns visible system continuation/status behavior. |
 | SSOT | yes | `.lazy-harness/ssot/harness-enforcement-policy.md` now owns the Pi/OMP/Jcode delivery boundary; runtime path ownership remains unchanged. |
 | DDD | no | No domain term, entity, or business invariant changes. |
 
 ## Implementation map
 
-- Status: Phase 1 core hook/config/prompt tests and focused adapter fixture pass; source-build live matrix pending
+- Status: Phases 1–3 focused hook/config/controller/protocol tests and adapter fixture pass; source-build live matrix pending
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — 11 strict parsing, bounds, timeout, recursion, request-kind, and dynamic-only injection tests.
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/config_hook_tests.rs` — extracted hook config/default/env regression tests.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/ask.rs` — ask validation and broker/no-broker tests.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/server/client_interactions.rs` — cross-session and duplicate/late response tests.
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/interaction_picker.rs` — picker selection/cancel/custom bound tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks/turn_followup.rs` — strict parsing, malformed/oversized output, timeout, and normal-stop tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/turn_followup.rs` — exactly-one, repeated fingerprint, pending interaction, cancellation, guardrail, and error tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-protocol/src/protocol_tests/misc_events.rs` — followup lifecycle wire round-trip.
   - `.lazy-harness/scripts/self-test.py` — adversarial TOML, trust, secret-free state, runtime-root, deny-cleanup, before-model transport, and non-regression fixtures.
   - `.lazy-harness/scripts/jcode-adapter.ts` — runtime target under test.
   - `.lazy-harness/scripts/jcode-trust.ts` — exact-root trust registry target under test.
@@ -140,7 +151,7 @@ Direct repeated `lazy test` runs are not part of the edit loop.
 
 - DDD: no independent delta.
 - SDD: independent delta linked above.
-- BDD: no independent delta.
+  - BDD: independent visible followup delta in `.lazy-harness/behavior/jcode-bounded-followup.md`.
 - TDD: this record owns the regression contract.
 - ADR: architecture decision linked above.
 - SSOT: independent delivery-boundary delta in `.lazy-harness/ssot/harness-enforcement-policy.md`.

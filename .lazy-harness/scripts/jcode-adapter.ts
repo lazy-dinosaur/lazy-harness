@@ -16,6 +16,7 @@ import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } fr
 import { isTrustedRoot } from './jcode-trust';
 type HookName =
   | 'before-model'
+  | 'turn-followup'
   | 'turn-start'
   | 'pre-tool'
   | 'post-tool'
@@ -47,6 +48,8 @@ type AdapterState = {
   epoch: number;
   pending: PendingToolCall[];
   recent: RecentToolCall[];
+  followupAuditEpoch?: number;
+  followupIssued?: boolean;
 };
 
 const MAX_RECENT = 40;
@@ -55,9 +58,11 @@ const PREVIEW_LIMIT = 768;
 const PENDING_MAX_AGE_MS = 60_000;
 const LOCK_STALE_MS = 30_000;
 const MAX_INJECT_BYTES = 24_000;
+const MAX_FOLLOWUP_BODY_BYTES = 16 * 1024;
+const MAX_FOLLOWUP_OUTPUT_BYTES = 32 * 1024;
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error;
-  out('Usage: lazy jcode hook <before-model|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>');
+  out('Usage: lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>');
   process.exit(exitCode);
   throw new Error('unreachable');
 }
@@ -65,6 +70,20 @@ function usage(exitCode = 0): never {
 function bounded(value: unknown, limit = PREVIEW_LIMIT): string {
   const text = String(value ?? '').trim();
   return text.length <= limit ? text : `${text.slice(0, limit)}…`;
+}
+
+function boundedUtf8(value: unknown, limit: number): string {
+  const text = String(value ?? '').trim();
+  if (Buffer.byteLength(text, 'utf8') <= limit) return text;
+  let result = '';
+  let bytes = 0;
+  for (const character of text) {
+    const size = Buffer.byteLength(character, 'utf8');
+    if (bytes + size > limit) break;
+    result += character;
+    bytes += size;
+  }
+  return result.trim();
 }
 
 function parsePayload(): Record<string, unknown> {
@@ -394,6 +413,54 @@ function normalizedInjection(stdout: string): string | undefined {
   }
 }
 
+function canonicalInjectionBody(stdout: string): string | undefined {
+  if (!stdout.trim() || Buffer.byteLength(stdout, 'utf8') > MAX_INJECT_BYTES * 2) return undefined;
+  try {
+    const parsed = JSON.parse(stdout) as { inject?: { body?: unknown; format?: unknown } };
+    if (typeof parsed.inject?.body !== 'string') return undefined;
+    const body = boundedUtf8(parsed.inject.body, MAX_FOLLOWUP_BODY_BYTES);
+    return body || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function turnFollowup(root: string, session: string, path: string): void {
+  const state = loadState(path, root, session);
+  const result = runCanonical(
+    root,
+    '.lazy-harness/hooks/lifecycle/on-response-completed.sh',
+    hookEnvPayload('response.completed', root, session, {
+      assistant_response: bounded(process.env.JCODE_HOOK_LAST_ASSISTANT_TEXT ?? '', 4000),
+      last_user_message: '',
+      recent_tool_calls: state.recent,
+    }),
+  );
+  const body = canonicalInjectionBody(result.stdout ?? '');
+  withState(path, root, session, (current) => {
+    current.pending = [];
+    current.recent = [];
+    current.followupAuditEpoch = current.epoch;
+    current.followupIssued = Boolean(body);
+  });
+  if (!body) {
+    console.log('{"stop":true}');
+    return;
+  }
+  const decision = JSON.stringify({
+    continue: {
+      body,
+      reason: 'lazy-harness response.completed audit',
+      fingerprint: hash(`${root}\n${session}\n${body}`),
+    },
+  });
+  if (Buffer.byteLength(decision, 'utf8') > MAX_FOLLOWUP_OUTPUT_BYTES) {
+    console.log('{"stop":true}');
+    return;
+  }
+  console.log(decision);
+}
+
 function beforeModel(root: string, session: string, path: string): void {
   const state = loadState(path, root, session);
   const hasToolEvidence = state.recent.length > 0;
@@ -506,18 +573,23 @@ function postTool(root: string, session: string, path: string): void {
 
 function turnEnd(root: string, session: string, path: string): void {
   const state = loadState(path, root, session);
-  runCanonical(
-    root,
-    '.lazy-harness/hooks/lifecycle/on-response-completed.sh',
-    hookEnvPayload('response.completed', root, session, {
-      assistant_response: bounded(process.env.JCODE_HOOK_LAST_ASSISTANT_TEXT ?? '', 4000),
-      last_user_message: '',
-      recent_tool_calls: state.recent,
-    }),
-  );
+  const followupHookAlreadyAudited = state.followupAuditEpoch === state.epoch;
+  if (!followupHookAlreadyAudited || state.followupIssued) {
+    runCanonical(
+      root,
+      '.lazy-harness/hooks/lifecycle/on-response-completed.sh',
+      hookEnvPayload('response.completed', root, session, {
+        assistant_response: bounded(process.env.JCODE_HOOK_LAST_ASSISTANT_TEXT ?? '', 4000),
+        last_user_message: '',
+        recent_tool_calls: state.recent,
+      }),
+    );
+  }
   withState(path, root, session, (current) => {
     current.pending = [];
     current.recent = [];
+    current.followupAuditEpoch = undefined;
+    current.followupIssued = false;
   });
 }
 
@@ -525,6 +597,7 @@ function main(): void {
   const [rawHook] = process.argv.slice(2) as [string | undefined];
   const supported = new Set<HookName>([
     'before-model',
+    'turn-followup',
     'turn-start',
     'pre-tool',
     'post-tool',
@@ -545,6 +618,9 @@ function main(): void {
     switch (hook) {
       case 'before-model':
         beforeModel(root, session, path);
+        break;
+      case 'turn-followup':
+        turnFollowup(root, session, path);
         break;
       case 'session-start':
         withState(path, root, session, () => undefined);
