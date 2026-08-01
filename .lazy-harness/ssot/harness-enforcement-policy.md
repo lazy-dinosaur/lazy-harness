@@ -29,21 +29,31 @@ Confirmation: user-confirmed
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
 - Related records:
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
+  - `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
+  - `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
-
 ## Rule
 
 Lazy-harness enforcement layers must not be weakened into optional memory or best-effort behavior.
 
 The harness is mandatory infrastructure for agents that operate inside a lazy-harness host:
 
-- The Pi/OMP extension (`packages/lazy-harness-pi`) plus the shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably load the current lazy-harness grammar and project-local harness overlays, and destructive-command blocking is performed by `check-destructive-command.py` chained in `on-tool-execute-before.sh` (ADR 0050: Pi/OMP-only runtime).
+- Separate Pi/OMP and Jcode thin adapters plus shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably deliver the current grammar and canonical guards; destructive-command blocking remains in `check-destructive-command.py` via `on-tool-execute-before.sh` (ADR 0056).
 - Agents must retain and apply the core rules during a session: record-first lookup, default-unknown, option gates, requirements-first execution, rule placement, and record-as-output.
 - DDD/SDD/BDD/TDD/ADR/SSOT records are not optional notes. They are the canonical institutional memory and must continue accumulating when confirmed facts, rules, contracts, behavior, tests, or decisions are discovered.
 - Advisory routing, telemetry, workflow compression, and non-blocking lifecycle hooks may improve throughput, but must not reduce the effective enforcement of canonical layer obligations.
 - If a policy is prevention-grade, repeated, or high-cost when missed, it must be surfaced or enforced before the miss becomes expensive; the final mechanism must preserve agent flow and avoid tool-specific adapter sprawl.
 
+## Jcode trusted-root boundary (2026-08-01)
+
+User-confirmed after independent security review:
+
+- Global Jcode hooks may execute repository lifecycle scripts only when the canonical real root is present in the user-owned Jcode trusted-roots registry.
+- A `.lazy-harness/bin/lazy` marker is discovery evidence, never trust evidence.
+- `lazy jcode install` trusts the selected current root; each new project requires `lazy jcode trust`; `untrust` is reversible.
+- Untrusted/non-lazy roots must exit silently before state creation or repository script execution.
+- Adapter state must use canonical root/session runtime paths, honor an explicit `LAZY_RUNTIME_ROOT` consistently with shared hooks, and persist no raw command/query/URL secrets.
 ## Active memory loop policy
 
 User-confirmed on 2026-06-01:
@@ -181,7 +191,7 @@ Result:
 
 Future fixes should restore mandatory behavior without turning the framework into a brittle or slow blocker:
 
-1. Preserve current lazy-harness grammar injection through the Pi/OMP extension (`packages/lazy-harness-pi`) and shared `.lazy-harness/hooks/lifecycle/*` scripts, and verify it continuously (ADR 0050: Pi/OMP-only runtime).
+1. Preserve lazy-harness grammar and lifecycle delivery through separate Pi/OMP and Jcode thin adapters over shared `.lazy-harness/hooks/lifecycle/*` scripts, and verify each runtime capability honestly (ADR 0056).
 2. Improve rule recall before action, but prefer organic surfacing over broad edit/write blocking.
 3. Keep `response.completed` as a backstop for missed record/capture work.
 4. Add regression fixtures for concrete dogfood failures, but do not encode the final architecture as one-off tool-specific patches.
@@ -192,7 +202,9 @@ Future fixes should restore mandatory behavior without turning the framework int
 
 - Primary files:
   - `.lazy-harness/AGENTS.md` — shared framework grammar that defines mandatory record-first and record-as-output behavior.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP extension runtime surface that delivers lazy-harness grammar, skills, commands, and lifecycle hooks (ADR 0050: Pi/OMP-only runtime).
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP runtime adapter.
+  - `.lazy-harness/scripts/jcode-adapter.ts` — official Jcode hook adapter with lazy-root detection and root/session evidence isolation.
+  - `.lazy-harness/scripts/jcode-package.ts` — reversible Jcode adapter installation, doctor, smoke, and removal.
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — chains `check-destructive-command.py` first for runtime-agnostic destructive-command blocking.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — completion backstop hook.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — project-rule placement gate.
@@ -209,7 +221,9 @@ Future fixes should restore mandatory behavior without turning the framework int
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
   - ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
+  - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
+  - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`
 

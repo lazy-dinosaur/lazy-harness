@@ -1,7 +1,8 @@
 # ADR 0050 - Pi/OMP-Only Runtime: Decommission Jcode Wiring
 
-Status: accepted
+Status: superseded
 Date: 2026-06-24
+Superseded by: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
 Layer: ADR
 Supersedes: `.lazy-harness/decisions/0006-directory-bridge-architecture.md`, `.lazy-harness/decisions/0007-agents-md-injection.md`, `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`
 Related SDD: `.lazy-harness/spec/platform/pi-agent-package.md`, `.lazy-harness/spec/platform/host-root-resolution.md`
@@ -11,7 +12,7 @@ Related planning: `.lazy-harness/planning/discovery-vs-loading-followups-2026062
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: ADR
 - Scope: framework-global
 - Aliases:
@@ -36,7 +37,7 @@ Related planning: `.lazy-harness/planning/discovery-vs-loading-followups-2026062
   - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
   - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md`
   - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md`
-
+  - `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
 ## Context
 
 ADR 0006 (directory-bridge `.jcode/` ↔ `.lazy-harness/`), ADR 0007 (AGENTS.md injection via generated jcode files), and ADR 0029 (generated project-local jcode wiring) established Jcode as a first-class runtime that received lazy-harness hooks, skills, and grammar through a generated `.jcode/` directory.

@@ -2823,6 +2823,370 @@ def check_pi_package_layout_and_contract() -> None:
     print("✓ Pi package layout and extension contract ok")
 
 
+def check_jcode_agent_adapter() -> None:
+    """Official Jcode hooks use explicit trusted roots and secret-free isolated state (ADR 0056)."""
+    import shlex
+    import tomllib
+
+    adapter = LAZY / "scripts" / "jcode-adapter.ts"
+    package = LAZY / "scripts" / "jcode-package.ts"
+    trust_module = LAZY / "scripts" / "jcode-trust.ts"
+    cli = LAZY / "bin" / "lazy"
+    required_files = [
+        adapter,
+        package,
+        trust_module,
+        LAZY / "spec" / "platform" / "jcode-agent-adapter.md",
+        LAZY / "tests" / "jcode-agent-adapter.md",
+    ]
+    for required in required_files:
+        if not required.exists():
+            fail(f"Jcode adapter required file missing: {required}")
+
+    built = subprocess.run(
+        ["bun", "build", str(adapter), str(package), str(trust_module), "--target=bun", "--outdir", tempfile.mkdtemp(prefix="lazy-jcode-build-")],
+        cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime(),
+    )
+    if built.returncode != 0:
+        fail("Jcode adapter Bun build failed:\n" + built.stdout + built.stderr)
+
+    with tempfile.TemporaryDirectory(prefix="lazy-jcode-config-") as tmp_raw:
+        tmp = pathlib.Path(tmp_raw)
+        jcode_home = tmp / "jcode-home"
+        config = jcode_home / "config.toml"
+        jcode_home.mkdir()
+        original_config = '[display]\ncentered = true\n\n[hooks] # keep comment\n"custom" = "echo ok"\n'
+        config.write_text(original_config, encoding="utf-8")
+        env = env_without_lazy_runtime(JCODE_HOME=str(jcode_home), LAZY_INVOCATION_CWD=str(ROOT))
+        base = [str(cli), "jcode"]
+        install = subprocess.run(
+            base + ["install", f"--config={config}", f"--target={ROOT}", "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+        )
+        if install.returncode != 0:
+            fail("Jcode adapter install fixture failed:\n" + install.stdout + install.stderr)
+        installed_text = config.read_text(encoding="utf-8")
+        parsed = tomllib.loads(installed_text)
+        if parsed.get("display", {}).get("centered") is not True or parsed.get("hooks", {}).get("custom") != "echo ok" or len(parsed.get("hooks", {})) != 8:
+            fail("Jcode install did not preserve legal TOML and add all managed hooks")
+        if not list(jcode_home.glob("config.toml.lazy-harness-backup-*")):
+            fail("Jcode install did not create a backup")
+        registry_path = jcode_home / "lazy-harness-trusted-roots.json"
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        if str(ROOT.resolve()) not in registry.get("roots", []):
+            fail("Jcode install did not trust the selected canonical root")
+
+        config.write_text(installed_text.replace("\npre_tool =", '\n"pre_tool" ='), encoding="utf-8")
+        again = subprocess.run(
+            base + ["install", "--config", str(config), "--target", str(ROOT), "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+        )
+        if again.returncode != 0 or json.loads(again.stdout).get("changed") is not False:
+            fail("Jcode install is not idempotent: " + again.stdout + again.stderr)
+
+        removed = subprocess.run(
+            base + ["remove", "--config", str(config), "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+        )
+        remaining_text = config.read_text(encoding="utf-8")
+        remaining = tomllib.loads(remaining_text)
+        if removed.returncode != 0 or remaining.get("hooks") != {"custom": "echo ok"} or remaining_text != original_config:
+            fail("Jcode remove did not byte-preserve unrelated TOML/hooks")
+
+        config.write_text("", encoding="utf-8")
+        subprocess.run(base + ["install", f"--config={config}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        subprocess.run(base + ["remove", f"--config={config}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        if config.read_text(encoding="utf-8") != "":
+            fail("Jcode empty-config install/remove did not round-trip exactly")
+
+        crlf = jcode_home / "crlf.toml"
+        crlf_original = b'[display]\r\ncentered = true\r\n\r\n'
+        crlf.write_bytes(crlf_original)
+        subprocess.run(base + ["install", f"--config={crlf}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        subprocess.run(base + ["remove", f"--config={crlf}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        if crlf.read_bytes() != crlf_original:
+            fail("Jcode CRLF/trailing-blank config did not round-trip byte-exactly")
+
+        dry = jcode_home / "dry.toml"
+        dry.write_text("[display]\ncentered = true\n", encoding="utf-8")
+        dry_before = dry.read_bytes()
+        dry_result = subprocess.run(base + ["install", f"--config={dry}", f"--target={ROOT}", "--dry-run", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        if dry_result.returncode != 0 or dry.read_bytes() != dry_before:
+            fail("Jcode install dry-run mutated config")
+
+        relative_env = env_without_lazy_runtime(JCODE_HOME="repository-relative-home", LAZY_INVOCATION_CWD=str(ROOT))
+        relative_result = subprocess.run(base + ["trust", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=relative_env)
+        if relative_result.returncode != 2 or (ROOT / "repository-relative-home").exists():
+            fail("Relative JCODE_HOME was not rejected before package mutation")
+
+        spaced_source = tmp / "source with spaces" / ".lazy-harness"
+        spaced_scripts = spaced_source / "scripts"
+        spaced_bin = spaced_source / "bin"
+        spaced_scripts.mkdir(parents=True)
+        spaced_bin.mkdir()
+        shutil.copy2(package, spaced_scripts / "jcode-package.ts")
+        shutil.copy2(trust_module, spaced_scripts / "jcode-trust.ts")
+        spaced_lazy = spaced_bin / "lazy"
+        spaced_lazy.write_text("#!/bin/sh\n", encoding="utf-8")
+        spaced_lazy.chmod(0o755)
+        spaced_config = jcode_home / "spaced.toml"
+        spaced_install = subprocess.run(
+            ["bun", str(spaced_scripts / "jcode-package.ts"), "install", f"--config={spaced_config}", f"--target={ROOT}", "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+        )
+        if spaced_install.returncode != 0:
+            fail("Jcode source-path-with-spaces install failed: " + spaced_install.stdout + spaced_install.stderr)
+        spaced_command = tomllib.loads(spaced_config.read_text(encoding="utf-8"))["hooks"]["pre_tool"]
+        if shlex.split(spaced_command)[0] != str(spaced_lazy.resolve()):
+            fail("Jcode managed command did not shell-quote a source path with spaces")
+        conflict = jcode_home / "conflict.toml"
+        conflict.write_text('[hooks]\npre_tool = "keep-user-hook"\n', encoding="utf-8")
+        before = conflict.read_text(encoding="utf-8")
+        denied = subprocess.run(base + ["install", f"--config={conflict}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        if denied.returncode != 2 or conflict.read_text(encoding="utf-8") != before:
+            fail("Jcode install conflict did not stop before mutation")
+
+        invalid = jcode_home / "invalid.toml"
+        invalid.write_text('[hooks]\npre_tool = "unterminated\n', encoding="utf-8")
+        before = invalid.read_text(encoding="utf-8")
+        invalid_result = subprocess.run(base + ["install", f"--config={invalid}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        if invalid_result.returncode != 2 or invalid.read_text(encoding="utf-8") != before:
+            fail("Jcode invalid TOML did not stop before mutation")
+
+    with tempfile.TemporaryDirectory(prefix="lazy-jcode-root-") as tmp_raw:
+        tmp = pathlib.Path(tmp_raw)
+        root = tmp / "root"
+        runtime = tmp / "runtime"
+        jcode_home = tmp / "jcode-home"
+        marker = root / ".lazy-harness" / "bin" / "lazy"
+        marker.parent.mkdir(parents=True)
+        marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        marker.chmod(0o755)
+        hooks = root / ".lazy-harness" / "hooks" / "lifecycle"
+        hooks.mkdir(parents=True)
+        guard = hooks / "on-tool-execute-before.sh"
+        guard.write_text("#!/bin/sh\ncat >/dev/null\nexit 0\n", encoding="utf-8")
+        message_hook = hooks / "on-message-received.sh"
+        message_hook.write_text(
+            '#!/bin/sh\ncat >/dev/null\n[ -z "${ATTACK_PROOF:-}" ] || touch "$ATTACK_PROOF"\nprintf \'%s\\n\' \'{"action":"allow","inject":{"body":"initial fixture","format":"system_reminder"}}\'\n',
+            encoding="utf-8",
+        )
+        message_hook.chmod(0o755)
+        context_hook = hooks / "on-context.sh"
+        context_hook.write_text(
+            '''#!/bin/sh
+python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":"allow","inject":{"body":"post-tool fixture recent_tool_calls=%s" % bool(p.get("recent_tool_calls")),"format":"system_reminder"}}))'
+''',
+            encoding="utf-8",
+        )
+        context_hook.chmod(0o755)
+        response_hook = hooks / "on-response-completed.sh"
+        response_hook.write_text('#!/bin/sh\ncat >/dev/null\n[ -z "${ATTACK_PROOF:-}" ] || touch "$ATTACK_PROOF"\n', encoding="utf-8")
+        response_hook.chmod(0o755)
+        guard.chmod(0o755)
+
+        base_env = env_without_lazy_runtime(
+            JCODE_HOME=str(jcode_home),
+            JCODE_HOOK_CWD=str(root),
+            JCODE_HOOK_SESSION_ID="fixture-session",
+            JCODE_HOOK_PAYLOAD=json.dumps({"cwd": str(root), "session_id": "fixture-session"}),
+            LAZY_RUNTIME_ROOT=str(runtime),
+        )
+        for event in ["session-start", "before-model", "turn-start", "pre-tool", "post-tool", "turn-end", "session-end"]:
+            noop = subprocess.run(["bun", str(adapter), event], cwd=root, input="{}", text=True, capture_output=True, check=False, env=base_env)
+            if noop.returncode != 0 or noop.stdout or noop.stderr or runtime.exists():
+                fail(f"Marker-only untrusted Jcode root did not no-op for {event}")
+
+        relative_home = root / "relative-jcode-home"
+        relative_home.mkdir()
+        (relative_home / "lazy-harness-trusted-roots.json").write_text(
+            json.dumps({"schemaVersion": "lazy-jcode-trusted-roots/v1", "roots": [str(root.resolve())]}),
+            encoding="utf-8",
+        )
+        proof = tmp / "relative-home-attack-proof"
+        safe_home = tmp / "safe-home"
+        safe_home.mkdir()
+        attack_env = {
+            **base_env,
+            "HOME": str(safe_home),
+            "JCODE_HOME": "relative-jcode-home",
+            "ATTACK_PROOF": str(proof),
+        }
+        relative_attack = subprocess.run(["bun", str(adapter), "turn-start"], cwd=root, text=True, capture_output=True, check=False, env=attack_env)
+        if relative_attack.returncode != 0 or relative_attack.stdout or relative_attack.stderr or proof.exists():
+            fail("Repository-relative JCODE_HOME reopened untrusted lifecycle execution")
+
+        trusted = subprocess.run(
+            ["bun", str(package), "trust", f"--target={root}", "--format=json"],
+            cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        if trusted.returncode != 0:
+            fail("Jcode trust fixture failed: " + trusted.stdout + trusted.stderr)
+
+        initial_context = subprocess.run(
+            ["bun", str(adapter), "before-model"], cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        try:
+            initial_decision = json.loads(initial_context.stdout)
+        except Exception:
+            initial_decision = {}
+        if initial_context.returncode != 0 or initial_context.stderr or initial_decision.get("inject", {}).get("body") != "initial fixture":
+            fail("Trusted Jcode initial before_model did not emit strict canonical context JSON")
+
+        second_root = tmp / "second-root"
+        second_marker = second_root / ".lazy-harness" / "bin" / "lazy"
+        second_marker.parent.mkdir(parents=True)
+        second_marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        second_marker.chmod(0o755)
+        shutil.copytree(hooks, second_root / ".lazy-harness" / "hooks" / "lifecycle")
+        second_trust = subprocess.run(
+            ["bun", str(package), "trust", f"--target={second_root}", "--format=json"],
+            cwd=second_root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        roots = json.loads((jcode_home / "lazy-harness-trusted-roots.json").read_text(encoding="utf-8")).get("roots", [])
+        if second_trust.returncode != 0 or sorted(roots) != sorted([str(root.resolve()), str(second_root.resolve())]):
+            fail("Jcode trust registry did not preserve two exact canonical roots")
+        second_runtime = tmp / "second-runtime"
+        second_env = {
+            **base_env,
+            "JCODE_HOOK_CWD": str(second_root),
+            "JCODE_HOOK_PAYLOAD": json.dumps({"cwd": str(second_root), "session_id": "second-session"}),
+            "JCODE_HOOK_SESSION_ID": "second-session",
+            "LAZY_RUNTIME_ROOT": str(second_runtime),
+        }
+        subprocess.run(["bun", str(adapter), "session-start"], cwd=second_root, text=True, capture_output=True, check=True, env=second_env)
+        second_state = json.loads((second_runtime / "state" / "jcode-adapter.json").read_text(encoding="utf-8"))
+        if second_state.get("root") != str(second_root.resolve()) or second_state.get("recent") or runtime.exists():
+            fail("Jcode trusted-root/session state crossed root boundaries")
+
+        secret = "https://user:super-secret@example.test/?token=hidden"
+        pre_env = {**base_env, "JCODE_HOOK_TOOL_NAME": "bash"}
+        allowed = subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"command": f"curl {secret}"}), text=True, capture_output=True, check=False, env=pre_env)
+        if allowed.returncode != 0:
+            fail("Jcode trusted pre_tool allow fixture failed: " + allowed.stderr)
+        subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**pre_env, "JCODE_HOOK_STATUS": "ok"})
+        state_path = runtime / "state" / "jcode-adapter.json"
+        state_text = state_path.read_text(encoding="utf-8")
+        state = json.loads(state_text)
+        if secret in state_text or "super-secret" in state_text or state.get("recent", [{}])[0].get("args_preview") != "":
+            fail("Jcode adapter persisted raw command/URL secret material")
+        if state.get("root") != str(root.resolve()):
+            fail("Jcode adapter did not honor explicit canonical runtime-root isolation")
+
+        post_tool_context = subprocess.run(
+            ["bun", str(adapter), "before-model"], cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        try:
+            post_tool_decision = json.loads(post_tool_context.stdout)
+        except Exception:
+            post_tool_decision = {}
+        post_tool_body = post_tool_decision.get("inject", {}).get("body", "")
+        if post_tool_context.returncode != 0 or post_tool_context.stderr or "post-tool fixture recent_tool_calls=True" not in post_tool_body:
+            fail("Trusted Jcode post-tool before_model did not pass bounded structural evidence to on-context")
+
+        url_env = {**base_env, "JCODE_HOOK_TOOL_NAME": "read"}
+        outside_file = tmp / "outside-secret.txt"
+        outside_file.write_text("secret\n", encoding="utf-8")
+        symlink_path = root / "inside-link"
+        symlink_path.symlink_to(outside_file)
+        rejected_paths = [
+            secret,
+            "https:user:SCHEME-SECRET@example.test/path",
+            "mailto:user:MAIL-SECRET@example.test",
+            "../outside-secret.txt",
+            "inside-link",
+        ]
+        for rejected_path in rejected_paths:
+            subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"path": rejected_path}), text=True, capture_output=True, check=True, env=url_env)
+            subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**url_env, "JCODE_HOOK_STATUS": "ok"})
+        state_text = state_path.read_text(encoding="utf-8")
+        if any(needle in state_text for needle in ["super-secret", "SCHEME-SECRET", "MAIL-SECRET", "example.test", str(outside_file)]):
+            fail("Jcode adapter persisted URI credentials, out-of-root paths, or symlink escapes")
+
+        record_path = root / "record.md"
+        record_path.write_text("fixture\n", encoding="utf-8")
+        subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"path": "record.md"}), text=True, capture_output=True, check=True, env=url_env)
+        subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**url_env, "JCODE_HOOK_STATUS": "ok"})
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        if state.get("recent", [])[-1].get("args_preview") != str(record_path.resolve()):
+            fail("Jcode adapter did not retain canonical root-contained path evidence")
+
+        recent_count = len(state.get("recent", []))
+        for _ in range(2):
+            subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"path": "record.md"}), text=True, capture_output=True, check=True, env=url_env)
+        subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**url_env, "JCODE_HOOK_STATUS": "ok"})
+        ambiguous = json.loads(state_path.read_text(encoding="utf-8"))
+        if ambiguous.get("pending") or len(ambiguous.get("recent", [])) != recent_count:
+            fail("Ambiguous same-tool post_tool became evidence or remained pending")
+
+        subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"path": "record.md"}), text=True, capture_output=True, check=True, env=url_env)
+        subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**url_env, "JCODE_HOOK_STATUS": "error"})
+        failed_state = json.loads(state_path.read_text(encoding="utf-8"))
+        if failed_state.get("pending") or len(failed_state.get("recent", [])) != recent_count:
+            fail("Failed post_tool became evidence or remained pending")
+
+        failed_state["pending"] = [{"id": "stale", "name": "read", "evidencePath": str(record_path), "startedAt": 0, "epoch": failed_state["epoch"]}]
+        state_path.write_text(json.dumps(failed_state) + "\n", encoding="utf-8")
+        subprocess.run(["bun", str(adapter), "post-tool"], cwd=root, text=True, capture_output=True, check=True, env={**url_env, "JCODE_HOOK_STATUS": "ok"})
+        if json.loads(state_path.read_text(encoding="utf-8")).get("pending"):
+            fail("Stale post_tool pending evidence was not pruned")
+
+        lock_path = pathlib.Path(str(state_path) + ".lock")
+        lock_path.mkdir()
+        old = time.time() - 120
+        os.utime(lock_path, (old, old))
+        subprocess.run(["bun", str(adapter), "session-start"], cwd=root, text=True, capture_output=True, check=True, env=base_env)
+        if lock_path.exists():
+            fail("Ownerless stale Jcode state lock was not recovered")
+
+        lock_path.mkdir()
+        foreign_owner = {"id": "foreign-live-owner", "pid": os.getpid(), "startedAt": int(time.time() * 1000)}
+        (lock_path / "owner.json").write_text(json.dumps(foreign_owner) + "\n", encoding="utf-8")
+        subprocess.run(["bun", str(adapter), "session-end"], cwd=root, text=True, capture_output=True, check=True, env=base_env)
+        if not lock_path.exists() or json.loads((lock_path / "owner.json").read_text(encoding="utf-8")) != foreign_owner:
+            fail("Jcode session-end removed a live foreign-owned lock")
+        shutil.rmtree(lock_path)
+
+        default_env = dict(base_env)
+        default_env.pop("LAZY_RUNTIME_ROOT", None)
+        default_env["JCODE_HOOK_SESSION_ID"] = "default-path-session"
+        default_env["JCODE_HOOK_PAYLOAD"] = json.dumps({"cwd": str(root), "session_id": "default-path-session"})
+        subprocess.run(["bun", str(adapter), "session-start"], cwd=root, text=True, capture_output=True, check=True, env=default_env)
+        default_key = hashlib.sha256(b"default-path-session").hexdigest()[:20]
+        default_state = root / ".lazy-harness" / ".gitless" / "lazy-harness" / "runtime" / f"session-{default_key}" / "state" / "jcode-adapter.json"
+        if not default_state.exists():
+            fail("Jcode default runtime state did not use git-dir/session layout")
+
+        state_before_deny = state_path.read_text(encoding="utf-8")
+        guard.write_text(
+            '#!/bin/sh\ncat >/dev/null\nrm -f "$LAZY_RUNTIME_ROOT/state/jcode-adapter.json"\nmkdir -p "$LAZY_RUNTIME_ROOT/state/jcode-adapter.json"\necho \'{"action":"deny","reason":"fixture deny"}\'\n',
+            encoding="utf-8",
+        )
+        blocked = subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input='{"command":"rm -rf /"}', text=True, capture_output=True, check=False, env=pre_env)
+        if blocked.returncode != 2 or "fixture deny" not in blocked.stderr:
+            fail("Jcode canonical deny was lost during true state-save cleanup failure")
+        shutil.rmtree(state_path)
+        state_path.write_text(state_before_deny, encoding="utf-8")
+
+        turn_end_proof = tmp / "turn-end-proof"
+        turn_end = subprocess.run(
+            ["bun", str(adapter), "turn-end"],
+            cwd=root, text=True, capture_output=True, check=False,
+            env={**base_env, "ATTACK_PROOF": str(turn_end_proof), "JCODE_HOOK_LAST_ASSISTANT_TEXT": "bounded fixture"},
+        )
+        if turn_end.returncode != 0 or not turn_end_proof.exists():
+            fail("Trusted Jcode turn-end did not invoke the canonical advisory hook")
+
+        untrusted = subprocess.run(["bun", str(package), "untrust", f"--target={root}", "--format=json"], cwd=root, text=True, capture_output=True, check=False, env=base_env)
+        if untrusted.returncode != 0:
+            fail("Jcode untrust fixture failed")
+        before_state = state_path.read_text(encoding="utf-8")
+        after_untrust = subprocess.run(["bun", str(adapter), "turn-start"], cwd=root, text=True, capture_output=True, check=False, env=base_env)
+        if after_untrust.returncode != 0 or after_untrust.stdout or after_untrust.stderr or state_path.read_text(encoding="utf-8") != before_state:
+            fail("Jcode untrusted root mutated state or emitted output")
+
+    print("✓ Jcode agent adapter contract ok")
+
 def check_destructive_command_block() -> None:
     """Shared guard denies destructive shell commands for Pi/OMP tool_call (ADR 0050)."""
     helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-destructive-command.py"
@@ -12354,6 +12718,7 @@ def main() -> None:
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
+        (check_jcode_agent_adapter, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
         (check_operational_adr_allowlist_complete, "FRAMEWORK_ONLY"),
         (check_prompt_budget_measurement, "BOTH"),
