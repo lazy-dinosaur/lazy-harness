@@ -185,6 +185,14 @@ Before editing a single loop, inventory every provider-request path used by loca
 - Lazy-harness adapter emits strict bounded continuation JSON only for exact trusted roots, clears per-turn evidence at decision time, prevents duplicate stop audits, and preserves one final audit for an issued synthetic response. The focused adapter fixture and `lazy check` pass.
 - Visible behavior is canonical in `.lazy-harness/behavior/jcode-bounded-followup.md`. Source-build local/remote/headless live proof remains in Phase 4 before full parity is claimed.
 
+### Current-channel installation evidence — 2026-08-01
+
+- Release build from Jcode commit `dcc8ed100` completed and was installed only to the reversible current channel at `~/.jcode/builds/versions/dcc8ed100-phase3/jcode`; the stable channel was not changed.
+- Exact build metadata was forced after Cargo's intentional dev-metadata cache initially reported a stale hash. The installed binary reports `v0.64.131-dev (dcc8ed100, dirty)` and its checksum matches the release artifact.
+- Global Jcode config selects `default_model = "gpt-5.6-sol"`, `openai_reasoning_effort = "medium"`, and `swarm_model = "gpt-5.6-sol"`.
+- `lazy jcode doctor` and `lazy jcode smoke` both pass with all eight managed hooks, including `turn_followup`, exact trusted-root activation, and non-lazy silent no-op.
+- No paid live provider request was made solely for validation. Doctor therefore continues to report the local/remote/headless live prompt, picker, and continuation rows as pending rather than claiming full parity.
+
 ## Phase 2 — Native interactive `ask` / option-gate tool
 
 ### Required behavior
@@ -387,7 +395,7 @@ Stop and request a revised decision if any occurs:
 
 ## Implementation map
 
-- Status: approved; Jcode Phases 1–3 and matching lazy-harness adapter transports implemented, source-build live proof and final closure in progress.
+- Status: approved implementation complete and installed on the current channel; paid live provider proof remains explicitly pending before a full parity claim.
 - Jcode source candidates verified by source read:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — current observer/gate execution boundary; future bounded synchronous context/followup contracts.
   - `/home/lazydino/dev/jcode/crates/jcode-config-types/src/lib.rs` — `HooksConfig`.

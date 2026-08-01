@@ -177,7 +177,7 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 
 ## Implementation map
 
-- Status: Phases 1–3 core committed through `dcc8ed100`; lazy-harness adapter fixture passed; source-build live matrix pending
+- Status: Phases 1–3 core committed through `dcc8ed100`, installed on the current channel, and doctor/smoke/focused fixtures pass; paid source-build live matrix pending
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — strict bounded `before_model` execution, parsing, recursion suppression, request-kind classification, and dynamic-only application.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/agent/prompting.rs` — shared app-core provider request prompt boundary.
