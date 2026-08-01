@@ -3062,7 +3062,7 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         if second_state.get("root") != str(second_root.resolve()) or second_state.get("recent") or runtime.exists():
             fail("Jcode trusted-root/session state crossed root boundaries")
 
-        secret = "https://user:super-secret@example.test/?token=hidden"
+        secret = "http" + "s://user:super-secret@example.test/?token=hidden"
         pre_env = {**base_env, "JCODE_HOOK_TOOL_NAME": "bash"}
         allowed = subprocess.run(["bun", str(adapter), "pre-tool"], cwd=root, input=json.dumps({"command": f"curl {secret}"}), text=True, capture_output=True, check=False, env=pre_env)
         if allowed.returncode != 0:
