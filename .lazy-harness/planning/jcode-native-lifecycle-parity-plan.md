@@ -169,6 +169,14 @@ Before editing a single loop, inventory every provider-request path used by loca
 - Fast guardrails no longer report growth from the Phase 1 target files. The repository-wide guardrail remains red only for unrelated concurrent dirty changes in desktop/provider/todo/TUI files, so no baseline ratchet update was applied.
 - Lazy-harness adapter now has managed `before_model` configuration, trusted-root initial/post-tool dispatch, strict normalized injection, and focused fixture coverage. Live source-build validation remains before the Phase 1 parity claim can close.
 
+### Phase 2 evidence — 2026-08-01
+
+- Jcode commit `eaa12fc30` adds the generic native `ask` tool, session broker, server/client capability negotiation and correlation, local/remote picker, disconnect cancellation, continuation suppression, NDJSON `needs_input`, and ACP structured fallback.
+- Jcode commit `6597ac650` closes contract gaps by enforcing at most one recommended option and bounded question, id, label, description, and custom-answer sizes.
+- Focused validation passes for ask validation/broker resume, cross-session and duplicate response rejection, wire round-trip, picker selection/cancel/custom bounds, and affected app-core/protocol/tool/TUI crates.
+- The full 2,135-test TUI suite was intentionally stopped after unrelated tests hung concurrently for more than 13 minutes; focused native-interaction tests and affected crate checks replaced that non-diagnostic run. No test result was falsely reported as a Phase 2 failure.
+- Visible behavior is canonical in `.lazy-harness/behavior/jcode-native-ask.md`. Source-build local/remote picker and reconnect proof remains in Phase 4 before full parity is claimed.
+
 ## Phase 2 — Native interactive `ask` / option-gate tool
 
 ### Required behavior

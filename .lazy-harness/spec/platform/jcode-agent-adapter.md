@@ -20,6 +20,9 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - Jcode 기본 적용
 - Surface terms:
   - before_model
+  - ask
+  - interaction_request
+  - needs_input
   - pre_tool
   - post_tool
   - turn_start
@@ -35,6 +38,7 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - keep Jcode runtime evidence isolated by canonical runtime root and session
   - persist no raw command, query, URL, credential, or tool-result text
   - treat `before_model` as a bounded request-scoped context transport, separate from detached observers and the `pre_tool` gate
+  - use Jcode's typed native interaction broker for supported option gates and structured `needs_input` for unsupported runtimes
 - Must not:
   - restore generated project policy under `.jcode`
   - claim observer hooks can block or inject model context
@@ -146,7 +150,9 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 - Root `AGENTS.md` is the canonical Jcode prompt entrypoint.
 - `.jcode/prompt-overlay.md` is optional transport and must not contain canonical project policy.
 - The approved Phase 1 baseline adds a generic `before_model` transport. Context reinjection remains a reported gap until the Jcode core implementation, adapter fixture, and trusted/untrusted live matrix pass.
-- Jcode has no verified native selectable `ask` tool in this baseline; agents must still stop for options, but UI parity is not claimed.
+- Jcode commit `eaa12fc30` adds a generic `ask` tool, session interaction broker, typed wire requests/answers/cancellation, local/remote picker, and NDJSON/ACP `needs_input` fallback. Commit `6597ac650` enforces one recommended option and bounded question/option/custom fields.
+- A supported TUI advertises `native_interactions = true`; without that capability the tool returns immediately rather than hanging or reading command stdin.
+- Native ask parity remains partial until the source-built picker and remote reconnect/disconnect matrix are exercised live.
 
 ## Security and state
 
@@ -162,6 +168,11 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — strict bounded `before_model` execution, parsing, recursion suppression, request-kind classification, and dynamic-only application.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/agent/prompting.rs` — shared app-core provider request prompt boundary.
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/turn_hooks.rs` — local TUI test-harness request boundary.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/ask.rs` — bounded ask validation and typed answer/needs-input result.
+  - `/home/lazydino/dev/jcode/crates/jcode-tool-core/src/lib.rs` — session interaction broker.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/server/client_interactions.rs` — answer/cancel correlation and session isolation.
+  - `/home/lazydino/dev/jcode/crates/jcode-protocol/src/wire.rs` — native interaction capability and wire frames.
+  - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/interaction_picker.rs` — picker/custom/cancel UI.
   - `.lazy-harness/scripts/jcode-adapter.ts` — trusted-root gating, hook normalization, canonical runtime state, owned locks, and canonical hook invocation.
   - `.lazy-harness/scripts/jcode-trust.ts` — mode-0600 exact canonical-root trust registry.
   - `.lazy-harness/scripts/jcode-package.ts` — TOML validation/merge/remove, trust commands, doctor, smoke, and formatting.

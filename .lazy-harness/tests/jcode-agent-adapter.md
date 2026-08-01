@@ -18,6 +18,9 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - Jcode hook test
 - Surface terms:
   - before_model injection
+  - native ask picker
+  - interaction session isolation
+  - needs_input fallback
   - pre_tool gate
   - root isolation
   - config backup
@@ -32,6 +35,7 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - protect trust registry, secret-free state, and canonical runtime-root sanitation
   - keep Pi/OMP regression coverage green
   - protect strict bounded initial and post-tool `before_model` injection without changing untrusted-root no-op behavior
+  - protect bounded native ask, typed answer/cancel routing, continuation suppression, and unsupported-runtime fallback
 - Must not:
   - claim unsupported context reinjection, continuation, or native ask parity
 - Record completion:
@@ -63,6 +67,12 @@ The Jcode adapter must reuse canonical lazy-harness hooks only for exact user-tr
 | `jcode_before_model_initial` | Invoke before-model before any successful tool evidence | Strict bounded system-reminder JSON from the canonical static message hook is emitted |
 | `jcode_before_model_post_tool` | Invoke before-model after one successful correlated file-touching tool | Strict bounded system-reminder JSON from `on-context.sh` includes structural recent-tool evidence |
 | `jcode_before_model_fail_open` | Canonical context hook is empty, malformed, oversized, fails, or root is untrusted | Exit 0 with no stdout/stderr and no prompt mutation |
+| `jcode_ask_validation` | Ask has fewer than 3 or more than 5 options, duplicate/invalid ids, multiple recommended options, or oversized fields | Tool rejects before opening an interaction |
+| `jcode_ask_broker_resume` | Supported client answers a pending ask | The same tool call resumes with typed selected/custom/cancelled JSON |
+| `jcode_ask_session_isolation` | Wrong session, duplicate, late answer, disconnect, or broker replacement occurs | Wrong/duplicate/late answers are rejected and disconnect/replacement cancels the waiter |
+| `jcode_ask_picker` | Local/remote picker receives navigation, custom, Enter, or Escape | Selection/custom/cancel is typed, custom input is bounded, and recommended remains visual metadata |
+| `jcode_ask_headless_acp_fallback` | NDJSON or ACP has no native interaction capability | Structured `needs_input` is emitted immediately and no stdin wait occurs |
+| `jcode_ask_suppresses_followup` | Picker is open while auto-poke or queued followup scheduling runs | No synthetic continuation dispatches until the interaction closes |
 | `jcode_pre_tool_blocks_canonical_deny` | Canonical before-tool hook emits deny | Adapter writes reason to stderr and exits 2 |
 | `jcode_pre_tool_allows` | Canonical before-tool hook is silent | Adapter exits 0 |
 | `jcode_post_tool_success_evidence` | Successful read post-tool follows one fresh matching pre-tool; URL-shaped `path` is also attempted | Only canonical root-contained filesystem-path evidence is retained; raw command/query/URL text is absent |
@@ -89,7 +99,7 @@ Direct repeated `lazy test` runs are not part of the edit loop.
 | Layer | Independent delta? | Judgement |
 |---|---|---|
 | SDD | yes | `.lazy-harness/spec/platform/jcode-agent-adapter.md` defines the new hook/config/runtime contract. |
-| BDD | no | Phase 1 is internal context transport; the later native ask phase will require a separate visible interaction judgment. |
+| BDD | yes | `.lazy-harness/behavior/jcode-native-ask.md` owns visible picker, answer, cancellation, and needs-input behavior. |
 | SSOT | yes | `.lazy-harness/ssot/harness-enforcement-policy.md` now owns the Pi/OMP/Jcode delivery boundary; runtime path ownership remains unchanged. |
 | DDD | no | No domain term, entity, or business invariant changes. |
 
@@ -99,6 +109,9 @@ Direct repeated `lazy test` runs are not part of the edit loop.
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — 11 strict parsing, bounds, timeout, recursion, request-kind, and dynamic-only injection tests.
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/config_hook_tests.rs` — extracted hook config/default/env regression tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/ask.rs` — ask validation and broker/no-broker tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/server/client_interactions.rs` — cross-session and duplicate/late response tests.
+  - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/interaction_picker.rs` — picker selection/cancel/custom bound tests.
   - `.lazy-harness/scripts/self-test.py` — adversarial TOML, trust, secret-free state, runtime-root, deny-cleanup, before-model transport, and non-regression fixtures.
   - `.lazy-harness/scripts/jcode-adapter.ts` — runtime target under test.
   - `.lazy-harness/scripts/jcode-trust.ts` — exact-root trust registry target under test.

@@ -479,7 +479,7 @@ function doctor(options: Options): void {
       knownGaps: [
         'before_model context transport installed; live provider prompt proof pending',
         'no bounded turn-end continuation',
-        'no verified native selectable ask tool',
+        'native ask transport installed; live local/remote picker proof pending',
       ],
     },
     options.format,
