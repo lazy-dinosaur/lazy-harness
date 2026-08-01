@@ -39,7 +39,7 @@ AI 와 사람이 같은 framework 위에서 일하면서 서로의 한계를 보
 
 ## Public install entrypoint
 
-이 repo 가 public 으로 운영될 때 host 설치는 root `install.sh` 를 사용한다. 설치 스크립트는 generic/secret-free 이어야 하며 host-local `.jcode/` wiring 은 public template 에서 생성한다.
+이 repo 가 public 으로 운영될 때 host 설치는 root `install.sh` 를 사용한다. 설치 스크립트는 generic/secret-free 이어야 하며 agent runtime 연결은 canonical `.lazy-harness` 위의 별도 thin adapter 로 관리한다.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/install.sh | bash
@@ -48,10 +48,10 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 - 설치 후 업데이트: `.lazy-harness/bin/lazy update`
 - 기본 source clone: `~/.cache/lazy-harness/source`
 - 실제 framework layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
-- host-local/private Jcode wiring 은 기본 생성한다: `.jcode/config.toml`, `.jcode/AGENTS.md`, `.jcode/harness/*.md`, `.jcode/hooks/*.sh`, `.jcode/skills/lazy-*`
-- root `AGENTS.md` 는 `.lazy-harness/AGENTS.md` symlink 이고, `.jcode/harness/05-lazy-harness.md` 는 duplicate prompt 를 피하는 pointer-only generated file 이다
-- generated marker 가 남아있는 `.jcode` 파일은 template 갱신 시 refresh, marker 없는 user-owned 파일은 보존
-
+- Jcode 는 generated `.jcode` directory bridge 대신 official `[hooks]` adapter 를 사용한다.
+- `.lazy-harness/bin/lazy jcode install` 은 current root 를 trust 하며, hook 은 exact trusted root 에서만 자동 활성화된다. 새 project 는 한 번 `lazy jcode trust` 해야 하고 그 밖의 project 에서는 no-op 한다.
+- Pi/OMP/Jcode adapter 는 서로 독립이며 canonical policy 와 lifecycle 의미는 `.lazy-harness` 가 소유한다.
+- root `AGENTS.md` 는 Jcode static project grammar entrypoint 이고 `.jcode` memory/config 는 project/team policy SSOT 가 아니다.
 ## 빠른 진입점
 
 | 첫 발은 여기서 | 내용 |
@@ -59,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 | [`plans/north-star-accuracy-and-no-regression.md`](plans/north-star-accuracy-and-no-regression.md) | **목표 그림 (north-star)** — 왜 lazy-harness 를 만드는가, 막으려는 실패 9 종, 핵심 개발 루프, 필수 게이트 |
 | [`framework/framework-contract.md`](framework/framework-contract.md) | 23 principle + 4 pattern + 5 trigger 강도 — **single source of truth** |
 | [`handoff/00-current-state.md`](handoff/00-current-state.md) | 현재 framework 상태 (실시간 갱신) |
-| [`decisions/`](decisions/) | 54 ADR (의사결정 영구 기록) — # 54 ADRs |
+| [`decisions/`](decisions/) | ADR 의사결정 영구 기록과 superseded history |
 | [`planning/phase-5-plan.xml`](planning/phase-5-plan.xml) | Phase 5a~5e 계획 + success criteria |
 | [`trails/01-long-term-roadmap.xml`](trails/01-long-term-roadmap.xml) | M0~M10 long-term milestones (2027-05 까지) |
 
@@ -96,7 +96,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 54 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 56 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태
