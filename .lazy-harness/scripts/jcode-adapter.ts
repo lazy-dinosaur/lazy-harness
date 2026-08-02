@@ -60,6 +60,8 @@ const LOCK_STALE_MS = 30_000;
 const MAX_INJECT_BYTES = 24_000;
 const MAX_FOLLOWUP_BODY_BYTES = 16 * 1024;
 const MAX_FOLLOWUP_OUTPUT_BYTES = 32 * 1024;
+const CANONICAL_GRAMMAR_PREFIX = '<lazy_harness_canonical_grammar source=".lazy-harness/AGENTS.md">\n';
+const CANONICAL_GRAMMAR_SUFFIX = '\n</lazy_harness_canonical_grammar>';
 function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error;
   out('Usage: lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>');
@@ -394,7 +396,7 @@ function denyReason(stdout: string): string | undefined {
   return bounded(text, 2000);
 }
 
-function normalizedInjection(stdout: string): string | undefined {
+function normalizedInjectionBody(stdout: string): string | undefined {
   if (!stdout.trim() || Buffer.byteLength(stdout, 'utf8') > MAX_INJECT_BYTES * 2) return undefined;
   try {
     const parsed = JSON.parse(stdout) as {
@@ -402,15 +404,39 @@ function normalizedInjection(stdout: string): string | undefined {
       inject?: { body?: unknown; format?: unknown };
     };
     if (parsed.action !== 'allow' || typeof parsed.inject?.body !== 'string') return undefined;
-    const body = bounded(parsed.inject.body, MAX_INJECT_BYTES).trim();
-    if (!body) return undefined;
-    return JSON.stringify({
-      action: 'allow',
-      inject: { body, format: 'system_reminder' },
-    });
+    return boundedUtf8(parsed.inject.body, MAX_INJECT_BYTES) || undefined;
   } catch {
     return undefined;
   }
+}
+
+function canonicalGrammar(root: string): string | undefined {
+  try {
+    const grammar = readFileSync(join(root, '.lazy-harness', 'AGENTS.md'), 'utf8').trim();
+    return grammar || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function beforeModelDecision(root: string, dynamicBody: string | undefined): string | undefined {
+  const grammar = canonicalGrammar(root);
+  if (!grammar) return undefined;
+  const canonical = `${CANONICAL_GRAMMAR_PREFIX}${grammar}${CANONICAL_GRAMMAR_SUFFIX}`;
+  if (Buffer.byteLength(canonical, 'utf8') > MAX_INJECT_BYTES) return undefined;
+  const remaining = MAX_INJECT_BYTES - Buffer.byteLength(canonical, 'utf8');
+  const dynamicPrefix = '\n\n<lazy_harness_runtime_context>\n';
+  const dynamicSuffix = '\n</lazy_harness_runtime_context>';
+  const wrapperBytes = Buffer.byteLength(`${dynamicPrefix}${dynamicSuffix}`, 'utf8');
+  const boundedDynamic = dynamicBody && remaining > wrapperBytes
+    ? boundedUtf8(dynamicBody, remaining - wrapperBytes)
+    : '';
+  const dynamic = boundedDynamic ? `${dynamicPrefix}${boundedDynamic}${dynamicSuffix}` : '';
+  const body = `${canonical}${dynamic}`;
+  return JSON.stringify({
+    action: 'allow',
+    inject: { body, format: 'system_reminder' },
+  });
 }
 
 function canonicalInjectionBody(stdout: string): string | undefined {
@@ -476,7 +502,10 @@ function beforeModel(root: string, session: string, path: string): void {
       : '.lazy-harness/hooks/lifecycle/on-message-received.sh',
     payload,
   );
-  const injection = normalizedInjection(result.stdout ?? '');
+  const dynamicBody = result.status === 0 && !result.error
+    ? normalizedInjectionBody(result.stdout ?? '')
+    : undefined;
+  const injection = beforeModelDecision(root, dynamicBody);
   if (injection) console.log(injection);
 }
 

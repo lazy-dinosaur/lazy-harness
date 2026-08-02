@@ -2831,11 +2831,13 @@ def check_jcode_agent_adapter() -> None:
     adapter = LAZY / "scripts" / "jcode-adapter.ts"
     package = LAZY / "scripts" / "jcode-package.ts"
     trust_module = LAZY / "scripts" / "jcode-trust.ts"
+    local_config_module = LAZY / "scripts" / "jcode-local-config.ts"
     cli = LAZY / "bin" / "lazy"
     required_files = [
         adapter,
         package,
         trust_module,
+        local_config_module,
         LAZY / "spec" / "platform" / "jcode-agent-adapter.md",
         LAZY / "tests" / "jcode-agent-adapter.md",
     ]
@@ -2844,7 +2846,7 @@ def check_jcode_agent_adapter() -> None:
             fail(f"Jcode adapter required file missing: {required}")
 
     built = subprocess.run(
-        ["bun", "build", str(adapter), str(package), str(trust_module), "--target=bun", "--outdir", tempfile.mkdtemp(prefix="lazy-jcode-build-")],
+        ["bun", "build", str(adapter), str(package), str(trust_module), str(local_config_module), "--target=bun", "--outdir", tempfile.mkdtemp(prefix="lazy-jcode-build-")],
         cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime(),
     )
     if built.returncode != 0:
@@ -2855,13 +2857,23 @@ def check_jcode_agent_adapter() -> None:
         jcode_home = tmp / "jcode-home"
         config = jcode_home / "config.toml"
         jcode_home.mkdir()
+        target = tmp / "target"
+        target_marker = target / ".lazy-harness" / "bin" / "lazy"
+        target_marker.parent.mkdir(parents=True)
+        target_marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        target_marker.chmod(0o755)
+        subprocess.run(["git", "init", "-q", str(target)], check=True)
+        local_original = '[model]\nprovider = "fixture"\n'
+        target_local_config = target / ".jcode" / "config.local.toml"
+        target_local_config.parent.mkdir()
+        target_local_config.write_text(local_original, encoding="utf-8")
         original_config = '[display]\ncentered = true\n\n[hooks] # keep comment\n"custom" = "echo ok"\n'
         config.write_text(original_config, encoding="utf-8")
-        env = env_without_lazy_runtime(JCODE_HOME=str(jcode_home), LAZY_INVOCATION_CWD=str(ROOT))
+        env = env_without_lazy_runtime(JCODE_HOME=str(jcode_home), LAZY_INVOCATION_CWD=str(target))
         base = [str(cli), "jcode"]
         install = subprocess.run(
-            base + ["install", f"--config={config}", f"--target={ROOT}", "--format=json"],
-            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+            base + ["install", f"--config={config}", f"--target={target}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
         )
         if install.returncode != 0:
             fail("Jcode adapter install fixture failed:\n" + install.stdout + install.stderr)
@@ -2873,13 +2885,25 @@ def check_jcode_agent_adapter() -> None:
             fail("Jcode install did not create a backup")
         registry_path = jcode_home / "lazy-harness-trusted-roots.json"
         registry = json.loads(registry_path.read_text(encoding="utf-8"))
-        if str(ROOT.resolve()) not in registry.get("roots", []):
+        if str(target.resolve()) not in registry.get("roots", []):
             fail("Jcode install did not trust the selected canonical root")
+        local_config = target / ".jcode" / "config.local.toml"
+        local_parsed = tomllib.loads(local_config.read_text(encoding="utf-8"))
+        if local_parsed.get("prompt", {}).get("ignore_project_agents") is not True:
+            fail("Jcode install did not enable trusted-root project AGENTS suppression")
+        if local_parsed.get("model", {}).get("provider") != "fixture":
+            fail("Jcode install did not preserve unrelated local TOML")
+        private_backups = list((target / ".git" / "lazy-harness-backups").glob("jcode-config.local-*.toml"))
+        if not private_backups or private_backups[0].read_text(encoding="utf-8") != local_original:
+            fail("Jcode local prompt backup was not stored byte-exactly in private Git metadata")
+        ignored = subprocess.run(["git", "-C", str(target), "check-ignore", "-q", ".jcode/config.local.toml"], check=False)
+        if ignored.returncode != 0:
+            fail("Jcode local prompt config was not kept private through Git ignore metadata")
 
         config.write_text(installed_text.replace("\npre_tool =", '\n"pre_tool" ='), encoding="utf-8")
         again = subprocess.run(
-            base + ["install", "--config", str(config), "--target", str(ROOT), "--format=json"],
-            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+            base + ["install", "--config", str(config), "--target", str(target), "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
         )
         if again.returncode != 0 or json.loads(again.stdout).get("changed") is not False:
             fail("Jcode install is not idempotent: " + again.stdout + again.stderr)
@@ -2894,7 +2918,7 @@ def check_jcode_agent_adapter() -> None:
             fail("Jcode remove did not byte-preserve unrelated TOML/hooks")
 
         config.write_text("", encoding="utf-8")
-        subprocess.run(base + ["install", f"--config={config}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        subprocess.run(base + ["install", f"--config={config}", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=True, env=env)
         subprocess.run(base + ["remove", f"--config={config}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
         if config.read_text(encoding="utf-8") != "":
             fail("Jcode empty-config install/remove did not round-trip exactly")
@@ -2902,7 +2926,7 @@ def check_jcode_agent_adapter() -> None:
         crlf = jcode_home / "crlf.toml"
         crlf_original = b'[display]\r\ncentered = true\r\n\r\n'
         crlf.write_bytes(crlf_original)
-        subprocess.run(base + ["install", f"--config={crlf}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
+        subprocess.run(base + ["install", f"--config={crlf}", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=True, env=env)
         subprocess.run(base + ["remove", f"--config={crlf}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=True, env=env)
         if crlf.read_bytes() != crlf_original:
             fail("Jcode CRLF/trailing-blank config did not round-trip byte-exactly")
@@ -2910,13 +2934,13 @@ def check_jcode_agent_adapter() -> None:
         dry = jcode_home / "dry.toml"
         dry.write_text("[display]\ncentered = true\n", encoding="utf-8")
         dry_before = dry.read_bytes()
-        dry_result = subprocess.run(base + ["install", f"--config={dry}", f"--target={ROOT}", "--dry-run", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        dry_result = subprocess.run(base + ["install", f"--config={dry}", f"--target={target}", "--dry-run", "--format=json"], cwd=target, text=True, capture_output=True, check=False, env=env)
         if dry_result.returncode != 0 or dry.read_bytes() != dry_before:
             fail("Jcode install dry-run mutated config")
 
-        relative_env = env_without_lazy_runtime(JCODE_HOME="repository-relative-home", LAZY_INVOCATION_CWD=str(ROOT))
-        relative_result = subprocess.run(base + ["trust", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=relative_env)
-        if relative_result.returncode != 2 or (ROOT / "repository-relative-home").exists():
+        relative_env = env_without_lazy_runtime(JCODE_HOME="repository-relative-home", LAZY_INVOCATION_CWD=str(target))
+        relative_result = subprocess.run(base + ["trust", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=False, env=relative_env)
+        if relative_result.returncode != 2 or (target / "repository-relative-home").exists():
             fail("Relative JCODE_HOME was not rejected before package mutation")
 
         spaced_source = tmp / "source with spaces" / ".lazy-harness"
@@ -2926,13 +2950,14 @@ def check_jcode_agent_adapter() -> None:
         spaced_bin.mkdir()
         shutil.copy2(package, spaced_scripts / "jcode-package.ts")
         shutil.copy2(trust_module, spaced_scripts / "jcode-trust.ts")
+        shutil.copy2(local_config_module, spaced_scripts / "jcode-local-config.ts")
         spaced_lazy = spaced_bin / "lazy"
         spaced_lazy.write_text("#!/bin/sh\n", encoding="utf-8")
         spaced_lazy.chmod(0o755)
         spaced_config = jcode_home / "spaced.toml"
         spaced_install = subprocess.run(
-            ["bun", str(spaced_scripts / "jcode-package.ts"), "install", f"--config={spaced_config}", f"--target={ROOT}", "--format=json"],
-            cwd=ROOT, text=True, capture_output=True, check=False, env=env,
+            ["bun", str(spaced_scripts / "jcode-package.ts"), "install", f"--config={spaced_config}", f"--target={target}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
         )
         if spaced_install.returncode != 0:
             fail("Jcode source-path-with-spaces install failed: " + spaced_install.stdout + spaced_install.stderr)
@@ -2942,16 +2967,65 @@ def check_jcode_agent_adapter() -> None:
         conflict = jcode_home / "conflict.toml"
         conflict.write_text('[hooks]\npre_tool = "keep-user-hook"\n', encoding="utf-8")
         before = conflict.read_text(encoding="utf-8")
-        denied = subprocess.run(base + ["install", f"--config={conflict}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        denied = subprocess.run(base + ["install", f"--config={conflict}", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=False, env=env)
         if denied.returncode != 2 or conflict.read_text(encoding="utf-8") != before:
             fail("Jcode install conflict did not stop before mutation")
 
         invalid = jcode_home / "invalid.toml"
         invalid.write_text('[hooks]\npre_tool = "unterminated\n', encoding="utf-8")
         before = invalid.read_text(encoding="utf-8")
-        invalid_result = subprocess.run(base + ["install", f"--config={invalid}", f"--target={ROOT}", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False, env=env)
+        invalid_result = subprocess.run(base + ["install", f"--config={invalid}", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=False, env=env)
         if invalid_result.returncode != 2 or invalid.read_text(encoding="utf-8") != before:
             fail("Jcode invalid TOML did not stop before mutation")
+
+        local_removed = subprocess.run(base + ["untrust", f"--target={target}", "--format=json"], cwd=target, text=True, capture_output=True, check=False, env=env)
+        if local_removed.returncode != 0 or target_local_config.read_text(encoding="utf-8") != local_original:
+            fail("Jcode untrust did not byte-preserve unrelated local TOML while removing managed state")
+        if subprocess.run(["git", "-C", str(target), "check-ignore", "-q", ".jcode/config.local.toml"], check=False).returncode == 0:
+            fail("Jcode untrust did not remove its exact managed Git exclude entry")
+
+        conflict_target = tmp / "conflict-target"
+        conflict_marker = conflict_target / ".lazy-harness" / "bin" / "lazy"
+        conflict_marker.parent.mkdir(parents=True)
+        conflict_marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        conflict_marker.chmod(0o755)
+        subprocess.run(["git", "init", "-q", str(conflict_target)], check=True)
+        conflict_local = conflict_target / ".jcode" / "config.local.toml"
+        conflict_local.parent.mkdir()
+        conflict_original = '[prompt]\nignore_project_agents = false\n\n[model]\nprovider = "keep"\n'
+        conflict_local.write_text(conflict_original, encoding="utf-8")
+        local_conflict = subprocess.run(base + ["trust", f"--target={conflict_target}", "--format=json"], cwd=conflict_target, text=True, capture_output=True, check=False, env=env)
+        if local_conflict.returncode != 2 or conflict_local.read_text(encoding="utf-8") != conflict_original:
+            fail("Jcode user-owned local prompt conflict did not stop byte-exactly before trust")
+
+        failure_target = tmp / "failure-target"
+        failure_marker = failure_target / ".lazy-harness" / "bin" / "lazy"
+        failure_marker.parent.mkdir(parents=True)
+        failure_marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        failure_marker.chmod(0o755)
+        subprocess.run(["git", "init", "-q", str(failure_target)], check=True)
+        blocked_parent = tmp / "blocked-config-parent"
+        blocked_parent.write_text("not a directory\n", encoding="utf-8")
+        failed_install = subprocess.run(base + ["install", f"--config={blocked_parent / 'config.toml'}", f"--target={failure_target}", "--format=json"], cwd=failure_target, text=True, capture_output=True, check=False, env=env)
+        trusted_after_failure = json.loads(registry_path.read_text(encoding="utf-8")).get("roots", [])
+        if (
+            failed_install.returncode != 2
+            or (failure_target / ".jcode" / "config.local.toml").exists()
+            or subprocess.run(["git", "-C", str(failure_target), "check-ignore", "-q", ".jcode/config.local.toml"], check=False).returncode == 0
+            or str(failure_target.resolve()) in trusted_after_failure
+        ):
+            fail("Failed Jcode global install did not roll back local prompt and trust state")
+
+        remove_target = tmp / "remove-target"
+        remove_marker = remove_target / ".lazy-harness" / "bin" / "lazy"
+        remove_marker.parent.mkdir(parents=True)
+        remove_marker.write_text("#!/bin/sh\n", encoding="utf-8")
+        remove_marker.chmod(0o755)
+        subprocess.run(["git", "init", "-q", str(remove_target)], check=True)
+        remove_only = subprocess.run(base + ["remove", f"--config={config}", f"--target={remove_target}", "--format=json"], cwd=remove_target, text=True, capture_output=True, check=False, env=env)
+        roots_after_remove = json.loads(registry_path.read_text(encoding="utf-8")).get("roots", [])
+        if remove_only.returncode != 0 or str(remove_target.resolve()) in roots_after_remove:
+            fail("Jcode remove --target incorrectly added a trusted-root entry")
 
     with tempfile.TemporaryDirectory(prefix="lazy-jcode-root-") as tmp_raw:
         tmp = pathlib.Path(tmp_raw)
@@ -2962,6 +3036,8 @@ def check_jcode_agent_adapter() -> None:
         marker.parent.mkdir(parents=True)
         marker.write_text("#!/bin/sh\n", encoding="utf-8")
         marker.chmod(0o755)
+        (root / ".lazy-harness" / "AGENTS.md").write_text("canonical fixture grammar\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
         hooks = root / ".lazy-harness" / "hooks" / "lifecycle"
         hooks.mkdir(parents=True)
         guard = hooks / "on-tool-execute-before.sh"
@@ -3026,6 +3102,22 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         if trusted.returncode != 0:
             fail("Jcode trust fixture failed: " + trusted.stdout + trusted.stderr)
 
+        backup_blocker = root / ".git" / "lazy-harness-backups"
+        backup_blocker.write_text("not a directory\n", encoding="utf-8")
+        failed_untrust = subprocess.run(
+            ["bun", str(package), "untrust", f"--target={root}", "--format=json"],
+            cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        roots_after_failed_untrust = json.loads((jcode_home / "lazy-harness-trusted-roots.json").read_text(encoding="utf-8")).get("roots", [])
+        if (
+            failed_untrust.returncode != 2
+            or not (root / ".jcode" / "config.local.toml").exists()
+            or subprocess.run(["git", "-C", str(root), "check-ignore", "-q", ".jcode/config.local.toml"], check=False).returncode != 0
+            or str(root.resolve()) not in roots_after_failed_untrust
+        ):
+            fail("Failed Jcode untrust mutated local prompt, ignore, or trust state")
+        backup_blocker.unlink()
+
         initial_context = subprocess.run(
             ["bun", str(adapter), "before-model"], cwd=root, text=True, capture_output=True, check=False, env=base_env,
         )
@@ -3033,14 +3125,43 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
             initial_decision = json.loads(initial_context.stdout)
         except Exception:
             initial_decision = {}
-        if initial_context.returncode != 0 or initial_context.stderr or initial_decision.get("inject", {}).get("body") != "initial fixture":
+        initial_body = initial_decision.get("inject", {}).get("body", "")
+        if initial_context.returncode != 0 or initial_context.stderr or "canonical fixture grammar" not in initial_body or "initial fixture" not in initial_body:
             fail("Trusted Jcode initial before_model did not emit strict canonical context JSON")
+
+        grammar_path = root / ".lazy-harness" / "AGENTS.md"
+        grammar_path.write_text("g" * 23500, encoding="utf-8")
+        near_limit = subprocess.run(
+            ["bun", str(adapter), "before-model"], cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        near_limit_body = json.loads(near_limit.stdout).get("inject", {}).get("body", "") if near_limit.stdout else ""
+        if near_limit.returncode != 0 or ("g" * 23500) not in near_limit_body or len(near_limit_body.encode("utf-8")) > 24000:
+            fail("Valid near-limit canonical Jcode grammar was rejected or exceeded the byte bound")
+
+        grammar_path.write_text("canonical fixture grammar\n", encoding="utf-8")
+        message_hook.write_text(
+            '#!/bin/sh\ncat >/dev/null\nprintf \'%s\\n\' \'{"action":"allow","inject":{"body":"failed dynamic must not inject","format":"system_reminder"}}\'\nexit 7\n',
+            encoding="utf-8",
+        )
+        failed_dynamic = subprocess.run(
+            ["bun", str(adapter), "before-model"], cwd=root, text=True, capture_output=True, check=False, env=base_env,
+        )
+        failed_dynamic_body = json.loads(failed_dynamic.stdout).get("inject", {}).get("body", "") if failed_dynamic.stdout else ""
+        if "canonical fixture grammar" not in failed_dynamic_body or "failed dynamic must not inject" in failed_dynamic_body:
+            fail("Failed Jcode dynamic context hook output was injected or removed canonical grammar")
+        message_hook.write_text(
+            '#!/bin/sh\ncat >/dev/null\n[ -z "${ATTACK_PROOF:-}" ] || touch "$ATTACK_PROOF"\nprintf \'%s\\n\' \'{"action":"allow","inject":{"body":"initial fixture","format":"system_reminder"}}\'\n',
+            encoding="utf-8",
+        )
+        message_hook.chmod(0o755)
 
         second_root = tmp / "second-root"
         second_marker = second_root / ".lazy-harness" / "bin" / "lazy"
         second_marker.parent.mkdir(parents=True)
         second_marker.write_text("#!/bin/sh\n", encoding="utf-8")
         second_marker.chmod(0o755)
+        (second_root / ".lazy-harness" / "AGENTS.md").write_text("second canonical fixture grammar\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(second_root)], check=True)
         shutil.copytree(hooks, second_root / ".lazy-harness" / "hooks" / "lifecycle")
         second_trust = subprocess.run(
             ["bun", str(package), "trust", f"--target={second_root}", "--format=json"],
@@ -3084,7 +3205,7 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         except Exception:
             post_tool_decision = {}
         post_tool_body = post_tool_decision.get("inject", {}).get("body", "")
-        if post_tool_context.returncode != 0 or post_tool_context.stderr or "post-tool fixture recent_tool_calls=True" not in post_tool_body:
+        if post_tool_context.returncode != 0 or post_tool_context.stderr or "canonical fixture grammar" not in post_tool_body or "post-tool fixture recent_tool_calls=True" not in post_tool_body:
             fail("Trusted Jcode post-tool before_model did not pass bounded structural evidence to on-context")
 
         followup = subprocess.run(
@@ -3177,7 +3298,8 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         default_env["JCODE_HOOK_PAYLOAD"] = json.dumps({"cwd": str(root), "session_id": "default-path-session"})
         subprocess.run(["bun", str(adapter), "session-start"], cwd=root, text=True, capture_output=True, check=True, env=default_env)
         default_key = hashlib.sha256(b"default-path-session").hexdigest()[:20]
-        default_state = root / ".lazy-harness" / ".gitless" / "lazy-harness" / "runtime" / f"session-{default_key}" / "state" / "jcode-adapter.json"
+        git_dir = pathlib.Path(subprocess.run(["git", "-C", str(root), "rev-parse", "--absolute-git-dir"], text=True, capture_output=True, check=True).stdout.strip())
+        default_state = git_dir / "lazy-harness" / "runtime" / f"session-{default_key}" / "state" / "jcode-adapter.json"
         if not default_state.exists():
             fail("Jcode default runtime state did not use git-dir/session layout")
 
@@ -3204,6 +3326,8 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         untrusted = subprocess.run(["bun", str(package), "untrust", f"--target={root}", "--format=json"], cwd=root, text=True, capture_output=True, check=False, env=base_env)
         if untrusted.returncode != 0:
             fail("Jcode untrust fixture failed")
+        if (root / ".jcode" / "config.local.toml").exists():
+            fail("Jcode untrust did not remove only the managed local prompt config")
         before_state = state_path.read_text(encoding="utf-8")
         after_untrust = subprocess.run(["bun", str(adapter), "turn-start"], cwd=root, text=True, capture_output=True, check=False, env=base_env)
         if after_untrust.returncode != 0 or after_untrust.stdout or after_untrust.stderr or state_path.read_text(encoding="utf-8") != before_state:

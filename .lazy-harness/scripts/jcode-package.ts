@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -19,6 +20,11 @@ import {
   updateTrustedRoot,
   writeTrustRegistry,
 } from './jcode-trust';
+import {
+  inspectLocalPromptTransport,
+  updateLocalPromptTransport,
+  type LocalPromptTransportResult,
+} from './jcode-local-config';
 type Format = 'md' | 'json';
 type Action =
   | 'install'
@@ -55,7 +61,7 @@ function usage(exitCode = 0): never {
 
 Commands:
   install [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
-  remove  [--dry-run] [--format=md|json] [--config=PATH]
+  remove  [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
   doctor  [--target=DIR] [--format=md|json] [--config=PATH]
   smoke   [--dry-run] [--format=md|json]
   trust   [--target=DIR] [--dry-run] [--format=md|json]
@@ -323,7 +329,7 @@ function installOrRemove(options: Options): void {
   }
 
   let root: string | undefined;
-  if (options.action === 'install') {
+  if (options.action === 'install' || options.target) {
     try {
       root = targetRoot(options);
     } catch (error) {
@@ -357,22 +363,63 @@ function installOrRemove(options: Options): void {
     return;
   }
 
+  let localTransport: LocalPromptTransportResult | undefined;
+  if (root) {
+    localTransport = updateLocalPromptTransport(root, options.action === 'install', options.dryRun);
+    if (!localTransport.ok) {
+      emitFailure(
+        'Jcode local prompt transport error',
+        {
+          root,
+          config: localTransport.config,
+          error: localTransport.error ?? 'local prompt transport update failed',
+          next: 'No global Jcode hook changes were written.',
+        },
+        options.format,
+      );
+      return;
+    }
+  }
+
   let backup: string | undefined;
   let trustChanged = false;
+  const configExisted = existsSync(config);
   if (!options.dryRun) {
-    if (result.changed) {
-      if (existsSync(config)) {
-        backup = backupPath(config);
-        copyFileSync(config, backup);
+    let globalApplied = false;
+    try {
+      if (result.changed) {
+        if (configExisted) {
+          backup = backupPath(config);
+          copyFileSync(config, backup);
+        }
+        atomicWrite(config, result.text);
+        globalApplied = true;
       }
-      atomicWrite(config, result.text);
+      if (root && options.action === 'install') {
+        const update = updateTrustedRoot(root, true);
+        trustChanged = update.changed;
+        if (trustChanged) writeTrustRegistry(update.registry);
+      }
+    } catch (error) {
+      try {
+        if (globalApplied) {
+          if (configExisted) atomicWrite(config, original);
+          else rmSync(config, { force: true });
+        }
+        if (root && localTransport?.changed) {
+          updateLocalPromptTransport(root, options.action !== 'install');
+        }
+      } catch {
+        // Doctor reports any residual drift after best-effort rollback.
+      }
+      emitFailure(
+        'Jcode adapter transaction error',
+        { config, root: root ?? 'unchanged', error: String(error) },
+        options.format,
+      );
+      return;
     }
-    if (root) {
-      const update = updateTrustedRoot(root, true);
-      trustChanged = update.changed;
-      if (trustChanged) writeTrustRegistry(update.registry);
-    }
-  } else if (root) {
+  } else if (root && options.action === 'install') {
     trustChanged = !isTrustedRoot(root);
   }
 
@@ -386,6 +433,12 @@ function installOrRemove(options: Options): void {
       backup: backup ?? 'none',
       trustedRoot: root ?? 'unchanged',
       trustChanged,
+      localPromptConfig: localTransport?.config ?? 'unchanged',
+      localPromptChanged: localTransport?.changed ?? false,
+      localPromptActive: localTransport?.active ?? false,
+      localPromptManaged: localTransport?.managed ?? false,
+      localPromptIgnored: localTransport?.ignored ?? false,
+      localPromptBackup: localTransport?.backup ?? 'none',
       managedHooks: Object.keys(HOOKS),
     },
     options.format,
@@ -401,8 +454,33 @@ function trustCommand(options: Options): void {
     return;
   }
   const trust = options.action === 'trust';
+  const localTransport = updateLocalPromptTransport(root, trust, options.dryRun);
+  if (!localTransport.ok) {
+    emitFailure(
+      'Jcode local prompt transport error',
+      {
+        root,
+        config: localTransport.config,
+        error: localTransport.error ?? 'local prompt transport update failed',
+      },
+      options.format,
+    );
+    return;
+  }
   const update = updateTrustedRoot(root, trust);
-  if (update.changed && !options.dryRun) writeTrustRegistry(update.registry);
+  if (update.changed && !options.dryRun) {
+    try {
+      writeTrustRegistry(update.registry);
+    } catch (error) {
+      if (localTransport.changed) updateLocalPromptTransport(root, !trust);
+      emitFailure(
+        'Jcode trust transaction error',
+        { root, registry: trustRegistryPath(), error: String(error) },
+        options.format,
+      );
+      return;
+    }
+  }
   emit(
     {
       title: trust ? 'Jcode root trust' : 'Jcode root untrust',
@@ -411,6 +489,12 @@ function trustCommand(options: Options): void {
       changed: update.changed,
       dryRun: options.dryRun,
       registry: trustRegistryPath(),
+      localPromptConfig: localTransport.config,
+      localPromptChanged: localTransport.changed,
+      localPromptActive: localTransport.active,
+      localPromptManaged: localTransport.managed,
+      localPromptIgnored: localTransport.ignored,
+      localPromptBackup: localTransport.backup ?? 'none',
     },
     options.format,
   );
@@ -455,10 +539,14 @@ function doctor(options: Options): void {
     root = undefined;
   }
   const trusted = root ? isTrustedRoot(root) : false;
+  const localTransport = root ? inspectLocalPromptTransport(root) : undefined;
   const ok =
     version.available &&
     validation.ok &&
     trusted &&
+    localTransport?.ok === true &&
+    localTransport.active &&
+    localTransport.ignored &&
     classification.conflicts.length === 0 &&
     classification.missing.length === 0;
   emit(
@@ -473,6 +561,12 @@ function doctor(options: Options): void {
       tomlError: validation.error ?? 'none',
       targetRoot: root ?? 'not-a-lazy-root',
       targetTrusted: trusted,
+      localPromptConfig: localTransport?.config ?? 'not-a-lazy-root',
+      localPromptTomlValid: localTransport?.ok ?? false,
+      localPromptActive: localTransport?.active ?? false,
+      localPromptManaged: localTransport?.managed ?? false,
+      localPromptIgnored: localTransport?.ignored ?? false,
+      projectAgentsSuppressed: localTransport?.active ?? false,
       trustRegistry: trustRegistryPath(),
       matchingHooks: classification.matching,
       missingHooks: classification.missing,

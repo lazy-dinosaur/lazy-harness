@@ -39,6 +39,7 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - protect strict bounded initial and post-tool `before_model` injection without changing untrusted-root no-op behavior
   - protect bounded native ask, typed answer/cancel routing, continuation suppression, and unsupported-runtime fallback
   - protect strict bounded `turn_followup`, exactly-one origin control, stable fingerprinting, and ask/input/cancel/guardrail/error suppression
+  - protect private reversible trusted-root `ignore_project_agents` configuration and canonical grammar injection priority
 - Must not:
   - claim full live context, continuation, or native ask parity before the corresponding source-build matrix passes
 - Record completion:
@@ -64,12 +65,19 @@ The Jcode adapter must reuse canonical lazy-harness hooks only for exact user-tr
 | `jcode_toml_legal_variants` | Install with commented `[hooks]` header and quoted hook keys | No duplicate table or invalid TOML is produced; conflicts stop before mutation |
 | `jcode_path_with_spaces` | Source adapter path contains spaces | Managed command is shell-quoted and parsed as one executable path |
 | `jcode_trust_registry` | Install/trust/untrust two canonical roots and attempt a repository-relative `JCODE_HOME` registry | Only exact user-home trusted roots activate; marker-only/relative-home attacker roots are silent |
+| `jcode_local_prompt_transport` | Install/trust against a Git-backed lazy root containing unrelated local TOML | Only marker-owned `ignore_project_agents = true` is merged, the file is ignored, and backups stay in private Git metadata |
+| `jcode_local_prompt_remove` | Remove with an explicit target or untrust a managed root | Only marker-owned key/table/file and exact managed exclude entry are removed; user-owned TOML remains |
+| `jcode_local_prompt_conflict` | User-owned local config sets `ignore_project_agents = false` | Stop before trust/global-hook mutation and preserve the file byte-for-byte |
+| `jcode_local_prompt_transaction_rollback` | Global hook write or local backup preparation fails after planning | Local config, Git exclusion, global hooks, and trust registry remain at their pre-command state |
+| `jcode_remove_target_no_trust` | Run `remove --target` for an untrusted lazy root | Managed removal may run, but no trusted-root entry is created |
 | `jcode_doctor_capabilities` | Doctor with missing binary/config, trust, matching config, and conflicts | Structured report distinguishes availability, trust, hooks, conflicts, and gaps |
 | `jcode_hook_untrusted_noop` | Invoke every hook in non-lazy and marker-only untrusted roots | Exit 0, no output, no repository script execution, no state files |
 | `jcode_turn_start_arms_root` | Invoke turn-start in a temp lazy root | Root/session state is initialized without user-text classification |
-| `jcode_before_model_initial` | Invoke before-model before any successful tool evidence | Strict bounded system-reminder JSON from the canonical static message hook is emitted |
-| `jcode_before_model_post_tool` | Invoke before-model after one successful correlated file-touching tool | Strict bounded system-reminder JSON from `on-context.sh` includes structural recent-tool evidence |
-| `jcode_before_model_fail_open` | Canonical context hook is empty, malformed, oversized, fails, or root is untrusted | Exit 0 with no stdout/stderr and no prompt mutation |
+| `jcode_before_model_initial` | Invoke before-model before any successful tool evidence | Strict bounded system-reminder contains complete canonical `.lazy-harness/AGENTS.md` followed by static dynamic context |
+| `jcode_before_model_post_tool` | Invoke before-model after one successful correlated file-touching tool | Canonical grammar remains first and bounded `on-context.sh` structural evidence is appended |
+| `jcode_before_model_fail_open` | Canonical grammar is missing/empty/oversized or root is untrusted | Exit 0 with no stdout/stderr and no prompt mutation; malformed dynamic context alone does not remove valid canonical grammar |
+| `jcode_before_model_exact_byte_bound` | Canonical grammar plus wrapper fits within 24,000 UTF-8 bytes | Complete grammar is injected; only dynamic context yields remaining budget |
+| `jcode_before_model_failed_dynamic` | Dynamic lifecycle hook prints valid-looking JSON but exits nonzero | Canonical grammar remains injected and failed dynamic output is discarded |
 | `jcode_ask_validation` | Ask has fewer than 3 or more than 5 options, duplicate/invalid ids, multiple recommended options, or oversized fields | Tool rejects before opening an interaction |
 | `jcode_ask_broker_resume` | Supported client answers a pending ask | The same tool call resumes with typed selected/custom/cancelled JSON |
 | `jcode_ask_session_isolation` | Wrong session, duplicate, late answer, disconnect, or broker replacement occurs | Wrong/duplicate/late answers are rejected and disconnect/replacement cancels the waiter |
@@ -127,9 +135,10 @@ Direct repeated `lazy test` runs are not part of the edit loop.
   - `.lazy-harness/scripts/jcode-adapter.ts` — runtime target under test.
   - `.lazy-harness/scripts/jcode-trust.ts` — exact-root trust registry target under test.
   - `.lazy-harness/scripts/jcode-package.ts` — install/doctor/smoke/remove/trust target under test.
+  - `.lazy-harness/scripts/jcode-local-config.ts` — local prompt transport merge/remove/privacy target under test.
   - `.lazy-harness/bin/lazy` — dispatch target under test.
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` — intended coverage includes Bun build, legal/invalid TOML, byte round trips, trust/untrust and relative-home attack, every-hook marker-only no-op, runtime isolation, URL/path secrecy, stale/ambiguous correlation, lock ownership/recovery, and true deny-cleanup failure.
+  - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` — coverage includes Bun build, legal/invalid global and local TOML, local config privacy/removal, canonical initial/post-tool grammar injection, trust/untrust and relative-home attack, every-hook marker-only no-op, runtime isolation, URL/path secrecy, stale/ambiguous correlation, lock ownership/recovery, and true deny-cleanup failure.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`

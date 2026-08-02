@@ -1,6 +1,6 @@
 # Planning — Lazy-Patched Jcode Channel
 
-Status: needs-execution-approval
+Status: in-progress
 Date: 2026-08-02
 Layer: Planning
 Primary ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
@@ -101,6 +101,17 @@ Stop and request a revised decision if:
 - validation cannot distinguish official and patched build provenance,
 - a new user constraint changes this confirmed scope.
 
+## Execution evidence
+
+### 2026-08-02 — Phases 0–3 implementation
+
+- Jcode source commit `15e87544c` adds the narrow `[prompt] ignore_project_agents` control, working-directory `.jcode/config.local.toml` prompt-only merge, project `AGENTS.md` suppression, prompt accounting, and full/split prompt tests.
+- Jcode maintenance commit `3f06d761a` restores `LAZYDINO_MAINTENANCE.md` and `scripts/lazydino/reapply-custom-stack.sh` from the existing `custom/lazydino-harness` provenance source.
+- Jcode focused prompt/config tests, formatting, targeted check, clippy, and source build passed. The broad fast guardrail reported three unchanged repository-wide ratchet failures in pre-existing files; candidate promotion remains pending integrated evidence.
+- Lazy-harness adds reversible trusted-root `.jcode/config.local.toml` management, private Git exclusion/backups, exact transaction rollback, doctor fields, and canonical `.lazy-harness/AGENTS.md` request-scoped injection.
+- `check_jcode_agent_adapter` passes with trusted/untrusted roots, user-TOML preservation, remove/untrust reversal, failed install/untrust rollback, no trust creation from `remove --target`, exact 24,000-byte grammar bounds, failed dynamic-hook suppression, initial/post-tool injection, and root/session isolation.
+- Independent GPT-5.6 Sol review found four release blockers; all four received focused fixes and regression fixtures. Final independent re-verification and Phase 4 candidate promotion are pending.
+
 ## Validation matrix
 
 | Case | Expected result |
@@ -115,7 +126,7 @@ Stop and request a revised decision if:
 
 ## Implementation map
 
-- Status: corrected direction user-confirmed; exact source execution approval pending.
+- Status: source execution approved by user option A on 2026-08-02; Phase 1/2/3 implementation and candidate validation in progress.
 - Jcode repository: `/home/lazydino/dev/jcode` is the mapped implementation target already recorded by the lifecycle parity plan.
 - Existing patches: `38036ca63`, `eaa12fc30`, `6597ac650`, `dcc8ed100`.
 - Lazy-harness integration: `.lazy-harness/scripts/jcode-adapter.ts`, `.lazy-harness/scripts/jcode-package.ts`, `.lazy-harness/scripts/jcode-trust.ts`, `.lazy-harness/spec/platform/jcode-agent-adapter.md`, `.lazy-harness/tests/jcode-agent-adapter.md`.
@@ -127,7 +138,7 @@ Stop and request a revised decision if:
 - Rule: execute the accepted patched-channel architecture through bounded, independently reversible phases.
 - Scope: transient-plan.
 - Primary record: `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`.
-- Confirmation: corrected explicit-source requirements confirmed 2026-08-02; source execution not yet approved.
+- Confirmation: corrected explicit-source requirements and source execution option A confirmed 2026-08-02.
 
 ## Discovery capture
 

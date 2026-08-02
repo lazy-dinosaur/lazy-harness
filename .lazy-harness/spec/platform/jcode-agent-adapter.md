@@ -41,6 +41,8 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - treat `before_model` as a bounded request-scoped context transport, separate from detached observers and the `pre_tool` gate
   - use Jcode's typed native interaction broker for supported option gates and structured `needs_input` for unsupported runtimes
   - treat `turn_followup` as a separately bounded synchronous controller with at most one synthetic continuation per originating real-user turn
+  - manage trusted-root project AGENTS suppression through a private reversible local transport flag
+  - inject the canonical trusted root `.lazy-harness/AGENTS.md` on every `before_model` request
 - Must not:
   - restore generated project policy under `.jcode`
   - claim observer hooks can block or inject model context
@@ -79,7 +81,7 @@ Observer output is ignored by Jcode. Therefore `turn_start`, `post_tool`, and `t
 
 ```text
 lazy jcode install [--dry-run] [--format=md|json] [--config=PATH] [--target=DIR]
-lazy jcode remove  [--dry-run] [--format=md|json] [--config=PATH]
+lazy jcode remove  [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
 lazy jcode doctor  [--format=md|json] [--config=PATH] [--target=DIR]
 lazy jcode smoke   [--dry-run] [--format=md|json]
 lazy jcode trust   [--target=DIR] [--dry-run] [--format=md|json]
@@ -96,6 +98,9 @@ lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-e
 - A conflicting existing managed hook key stops before mutation unless it already matches the desired command. The pilot does not compose arbitrary user hook commands.
 - `remove` removes only exact managed values and removes an adapter-created empty `[hooks]` table; it never removes an unrelated hook or trust entry.
 - `trust`/`untrust` are explicit, reversible registry operations; a repository marker alone never grants execution.
+- `install`/`trust` idempotently manage only `[prompt] ignore_project_agents = true` in `<trusted-root>/.jcode/config.local.toml`; `remove --target`/`untrust` remove only a marker-owned key/table/file.
+- Existing user-owned local TOML is preserved. A user-owned `ignore_project_agents = false` is a conflict, while an already-true unmarked value remains user-owned and is never removed.
+- The local config is kept private through an existing Git ignore or one exact managed `.git/info/exclude` entry. Backups are written under private Git metadata, not into the worktree.
 - Outside an exact trusted root, hook commands exit `0` silently.
 
 ## Runtime bridge contract
@@ -118,10 +123,12 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 ### Before model
 
 - Run synchronously before every actual provider request, including the initial request and requests following successful tools.
+- Read the exact trusted root's `.lazy-harness/AGENTS.md` and place its complete bounded contents first in the request-scoped system reminder.
 - Jcode supplies bounded structural request metadata and never requires raw provider output or unbounded conversation history.
 - Before the first tool result, invoke `.lazy-harness/hooks/lifecycle/on-message-received.sh` as a static transport and pass through only strict `{"action":"allow","inject":{"body":"...","format":"system_reminder"}}` JSON.
 - After successful correlated tool evidence exists, invoke `.lazy-harness/hooks/lifecycle/on-context.sh` with the bounded root/session `recent_tool_calls` envelope.
-- Cap the normalized reminder body at 24,000 characters; empty, malformed, oversized, timed-out, failed, or untrusted results fail open with no stdout.
+- Cap the complete UTF-8 reminder at 24,000 bytes. Dynamic lifecycle context is appended only within the remaining budget, so canonical grammar has priority.
+- Empty, malformed, timed-out, or failed dynamic hook output omits only the dynamic section. Missing/empty/oversized canonical grammar or an untrusted root fails open with no stdout.
 - The injected body is request-scoped dynamic system context. It is not canonical memory and must not alter Jcode's static prompt-cache portion.
 
 ### Pre-tool
@@ -159,7 +166,7 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 
 ## Prompt and option-gate boundary
 
-- Root `AGENTS.md` is the canonical Jcode prompt entrypoint.
+- Trusted lazy roots suppress project-root `AGENTS.md`; canonical `.lazy-harness/AGENTS.md` is the project/team grammar entrypoint through `before_model`.
 - `.jcode/prompt-overlay.md` is optional transport and must not contain canonical project policy.
 - The approved Phase 1 baseline adds a generic `before_model` transport. Context reinjection remains a reported gap until the Jcode core implementation, adapter fixture, and trusted/untrusted live matrix pass.
 - Jcode commit `eaa12fc30` adds a generic `ask` tool, session interaction broker, typed wire requests/answers/cancellation, local/remote picker, and NDJSON/ACP `needs_input` fallback. Commit `6597ac650` enforces one recommended option and bounded question/option/custom fields.
@@ -193,12 +200,13 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/turn_followup.rs` — local system-generated followup presentation and queue transport.
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/remote/turn_followup.rs` — remote lifecycle status presentation.
   - `.lazy-harness/scripts/jcode-adapter.ts` — trusted-root gating, hook normalization, canonical runtime state, owned locks, and canonical hook invocation.
+  - `.lazy-harness/scripts/jcode-local-config.ts` — reversible local prompt transport, user-TOML preservation, private Git exclusion, and private backup storage.
   - `.lazy-harness/scripts/jcode-trust.ts` — mode-0600 exact canonical-root trust registry.
   - `.lazy-harness/scripts/jcode-package.ts` — TOML validation/merge/remove, trust commands, doctor, smoke, and formatting.
   - `.lazy-harness/bin/lazy` — Jcode CLI dispatch.
   - `.lazy-harness/scripts/self-test.py` — adversarial config/trust/runtime fake-hook coverage.
 - Flow:
-  1. Explicit install TOML-validates and writes managed global hooks with backup, then trusts the selected root.
+  1. Explicit install TOML-validates global hooks and the trusted-root local prompt transport, writes reversible managed state, then trusts the selected root.
   2. Jcode dispatches official events to `lazy jcode hook`.
   3. The adapter canonicalizes the live root and bridges shared lifecycle hooks only for an exact registry match.
   4. Marker-only/non-lazy projects return silently; doctor reports hooks, trust, TOML validity, and capability gaps.
@@ -207,6 +215,7 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
   - `turnStart` / `preTool` / `postTool` / `turnEnd` — translate official lifecycle events without persisting raw command/query/URL text.
   - `loadTrustRegistry` / `updateTrustedRoot` / `writeTrustRegistry` — canonical root trust.
   - `installText` / `removeText` / `trustCommand` / `classifyHooks` — preserve valid TOML and stop on conflicts.
+  - `updateLocalPromptTransport` / `inspectLocalPromptTransport` — own the private local flag, ignore metadata, backup, status, and exact removal contract.
 - Tests / protection:
   - `.lazy-harness/tests/jcode-agent-adapter.md`
   - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter`
