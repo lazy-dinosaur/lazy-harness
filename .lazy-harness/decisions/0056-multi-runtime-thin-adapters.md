@@ -7,6 +7,7 @@ Supersedes: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
 Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`, `.lazy-harness/spec/platform/pi-agent-package.md`
 Related TDD: `.lazy-harness/tests/jcode-agent-adapter.md`, `.lazy-harness/tests/pi-agent-package.md`
 Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
+Related ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
 
 ## Rule digest
 
@@ -34,12 +35,14 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
 - Must not:
   - restore the generated `.jcode` directory bridge or duplicate policy in runtime config
   - treat Jcode memory as project or team policy authority
+  - confuse the thin adapter boundary with the separately governed generic Jcode patch channel in ADR 0057
 - Record completion:
   - runtime adapter changes update this ADR and the affected SDD/TDD records
 - Related records:
   - `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
   - `.lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md`
   - `.lazy-harness/spec/platform/jcode-agent-adapter.md`
+  - `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
 
 ## Context
 
@@ -103,6 +106,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
   - Lazy-Harness owns adapter semantics and shared lifecycle hooks.
   - Jcode owns hook dispatch, environment fields, timeout, and observer/gate semantics.
   - The adapter must not modify Jcode runtime internals or make Jcode memory canonical.
+  - Generic Jcode-core patches, when temporarily required, are maintained separately under ADR 0057 and must not move lazy-harness policy into Jcode.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - TDD: `.lazy-harness/tests/jcode-agent-adapter.md`

@@ -726,6 +726,18 @@
           "targetPath": "framework/operational-adrs/0051-jcode-parity-grammar-regrounding.md"
         },
         {
+          "path": "decisions/0056-multi-runtime-thin-adapters.md",
+          "kind": "file",
+          "description": "Operational framework ADR for separate Pi/OMP/Jcode thin adapters over the canonical lazy-harness core; synced so Jcode adapter SDD/TDD references resolve on hosts.",
+          "targetPath": "framework/operational-adrs/0056-multi-runtime-thin-adapters.md"
+        },
+        {
+          "path": "decisions/0057-jcode-lazy-patched-channel.md",
+          "kind": "file",
+          "description": "Operational framework ADR for the rebase-maintained lazy-patched Jcode channel and trusted-root harness precedence; synced so adapter and runtime records resolve on hosts.",
+          "targetPath": "framework/operational-adrs/0057-jcode-lazy-patched-channel.md"
+        },
+        {
           "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
           "kind": "file",
           "description": "Operational framework ADR referenced by synced spec/ssot (progressive-knowledge-graph, knowledge-graph-storage): progressive knowledge graph backbone. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
