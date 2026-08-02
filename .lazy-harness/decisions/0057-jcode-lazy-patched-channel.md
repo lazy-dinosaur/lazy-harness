@@ -88,25 +88,29 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
 
 ## Implementation map
 
-- Status: decision accepted; exact implementation plan awaiting execution approval.
+- Status: implemented and locally promoted on the isolated lazy-patched channel; official stable/current launchers remain unchanged.
 - Existing Jcode patch commits:
   - `38036ca63` — generic `before_model` transport.
   - `eaa12fc30` — generic native ask transport.
   - `6597ac650` — bounded ask controls.
   - `dcc8ed100` — generic bounded follow-up controller.
-- Planned Jcode responsibilities:
-  - expose the narrow generic `ignore_project_agents` prompt-source flag if upstream lacks it,
-  - merge the flag from gitignored project-local `.jcode/config.local.toml`,
-  - keep existing working-directory inheritance for spawned sessions unchanged.
-- Lazy-harness responsibilities:
-  - own trusted-root registration and canonical records,
-  - safely merge/remove only the managed local transport flag for exact trusted roots,
-  - inject `.lazy-harness/AGENTS.md` through `before_model`,
-  - validate trusted activation, untrusted silence, child inheritance, and personal-overlay preservation.
+- Jcode implementation:
+  - `/home/lazydino/dev/jcode` commit `15e87544c` implements the narrow `ignore_project_agents` prompt-source flag, working-directory local-config merge, project `AGENTS.md` suppression, prompt accounting, and regression tests.
+  - `/home/lazydino/dev/jcode/scripts/lazydino/install-custom-jcode.sh` builds exact-source candidates, stores strict data-only JSON provenance, prevents dirty-state reuse collisions, publishes immutable completed candidates, atomically switches only the dedicated pointer, and restores interrupted post-promotion changes.
+  - `/home/lazydino/dev/jcode/LAZYDINO_MAINTENANCE.md` documents replay, provenance, validation, protected launchers, direct-candidate use, and rollback.
+  - Channel commits: `4481df5f9` adds the isolated helper/docs, `b2e566586` hardens provenance/publication/rollback, and `04092f6de` makes signal-triggered cleanup nonzero and concurrency-safe.
+- Lazy-harness implementation:
+  - `.lazy-harness/scripts/jcode-local-config.ts` owns reversible exact-root local transport configuration.
+  - `.lazy-harness/scripts/jcode-adapter.ts` injects bounded canonical grammar for exact trusted roots.
+  - `.lazy-harness/scripts/jcode-package.ts` exposes install/trust/remove/doctor/smoke flows without moving canonical policy into `.jcode`.
+- Installed candidate:
+  - `~/.jcode/builds/lazy-patched/versions/04092f6de-b6ee0d1e472a-release-01fb0a99792f0fac/jcode`.
+  - `~/.jcode/builds/lazy-patched/jcode` points to that candidate.
+  - `~/.jcode/builds/stable/jcode`, `~/.jcode/builds/current/jcode`, and `~/.local/bin/jcode` retain their pre-promotion targets.
 - Tests / protection:
-  - Jcode prompt-source config and working-directory loading tests.
-  - Lazy-harness local-config merge/remove, adapter, and trusted-root regression fixtures.
-  - Candidate build, focused crate tests, guardrails, live trusted/untrusted-root smoke, and final `lazy validate --plan standard`.
+  - Focused Jcode prompt/config tests, formatting, source checks/build, direct `version --json`, offline help, provenance round-trip, candidate reuse, and protected-pointer checks passed.
+  - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` protects trusted/untrusted roots, reversible local config, bounded initial/post-tool injection, child/root isolation, and overlay preservation.
+  - Normal launcher activation, server reload, provider traffic, push, and rebase were intentionally not performed during candidate promotion.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - Planning: `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`
@@ -126,8 +130,8 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
 ## Discovery capture
 
 - DDD: no independent delta.
-- SDD: candidate delta for local transport-flag merge/remove and prompt-source control; update after approved implementation establishes the contract.
+- SDD: implemented by the existing Jcode adapter/local-config contract; no additional independent contract delta from candidate packaging.
 - BDD: no independent end-user product flow; runtime diagnostics may require a behavior record if made user-visible.
-- TDD: candidate regression coverage for source suppression, child inheritance, untrusted silence, and overlay preservation.
+- TDD: existing adapter regression record covers source suppression, child inheritance, untrusted silence, overlay preservation, and reversible configuration; candidate packaging evidence remains in this ADR and rollout plan.
 - SSOT: updated harness enforcement boundary; canonical grammar remains in `.lazy-harness`, never `.jcode`.
-- Planning: exact staged rollout is captured in `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`.
+- Planning: staged rollout and completion evidence are captured in `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`.

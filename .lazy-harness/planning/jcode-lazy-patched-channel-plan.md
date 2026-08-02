@@ -1,6 +1,6 @@
 # Planning — Lazy-Patched Jcode Channel
 
-Status: in-progress
+Status: completed
 Date: 2026-08-02
 Layer: Planning
 Primary ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
@@ -112,6 +112,18 @@ Stop and request a revised decision if:
 - `check_jcode_agent_adapter` passes with trusted/untrusted roots, user-TOML preservation, remove/untrust reversal, failed install/untrust rollback, no trust creation from `remove --target`, exact 24,000-byte grammar bounds, failed dynamic-hook suppression, initial/post-tool injection, and root/session isolation.
 - Independent GPT-5.6 Sol review found four release blockers; all four received focused fixes and regression fixtures. Final independent re-verification and Phase 4 candidate promotion are pending.
 
+### 2026-08-02 — Phase 4 isolated candidate and promotion
+
+- Jcode commit `4481df5f9` added the isolated `scripts/lazydino/install-custom-jcode.sh` helper and Phase 4 maintenance documentation without staging the pre-existing `Cargo.lock` modification or untracked `.env`.
+- Independent review found executable provenance loading, dirty-source identity collisions, candidate publication races, post-promotion cleanup gaps, inaccurate rollback for unsupported pointer states, and overstated dry-run wording.
+- Jcode commit `b2e566586` replaced sidecar execution with strict JSON data parsing, bound reuse/candidate identity to an exact source digest and profile, required completed real-file candidates, used locked no-clobber publication and unique temporary pointer directories, added source-stability rechecks, and aligned dry-run/rollback documentation.
+- Jcode commit `04092f6de` makes `INT`/`TERM` exit nonzero through the `EXIT` cleanup path and restores a prior pointer only when the current pointer still targets the promoted candidate.
+- Final candidate: `~/.jcode/builds/lazy-patched/versions/04092f6de-b6ee0d1e472a-release-01fb0a99792f0fac/jcode` with embedded hash `04092f6de`, `release_build=false`, immutable mode-marked candidate files, and strict `provenance.json`.
+- Dedicated pointer: `~/.jcode/builds/lazy-patched/jcode` points to the final candidate. Stable, current, and `~/.local/bin/jcode` retain their exact pre-promotion symlink targets.
+- Focused prompt/config tests, formatting, targeted checks/build, shell syntax, dry-run match reporting, direct version JSON, offline help, provenance verification, reuse path, candidate build, and protected-path checks passed.
+- Local `refs/lazydino/phase0-maintenance` now points to `04092f6de`. No push, rebase, server reload, hotkey change, provider request, or normal-launcher activation was performed.
+- Existing unmatched Cargo profile package warnings remain non-blocking and separate from the completed channel work.
+
 ## Validation matrix
 
 | Case | Expected result |
@@ -126,12 +138,13 @@ Stop and request a revised decision if:
 
 ## Implementation map
 
-- Status: source execution approved by user option A on 2026-08-02; Phase 1/2/3 implementation and candidate validation in progress.
+- Status: completed through isolated candidate promotion and rollback verification on 2026-08-02.
 - Jcode repository: `/home/lazydino/dev/jcode` is the mapped implementation target already recorded by the lifecycle parity plan.
 - Existing patches: `38036ca63`, `eaa12fc30`, `6597ac650`, `dcc8ed100`.
 - Lazy-harness integration: `.lazy-harness/scripts/jcode-adapter.ts`, `.lazy-harness/scripts/jcode-package.ts`, `.lazy-harness/scripts/jcode-trust.ts`, `.lazy-harness/spec/platform/jcode-agent-adapter.md`, `.lazy-harness/tests/jcode-agent-adapter.md`.
-- Existing maintenance assets to modernize: `custom/lazydino-harness`, `LAZYDINO_MAINTENANCE.md`, `scripts/lazydino/reapply-custom-stack.sh`, and the custom install helper.
-- Protection: Jcode prompt/config/agent tests and guardrails plus lazy-harness focused fixtures and final standard validation.
+- Jcode maintenance assets: `/home/lazydino/dev/jcode/LAZYDINO_MAINTENANCE.md`, `/home/lazydino/dev/jcode/scripts/lazydino/reapply-custom-stack.sh`, and `/home/lazydino/dev/jcode/scripts/lazydino/install-custom-jcode.sh`.
+- Final channel commits: `15e87544c`, `3f06d761a`, `5e1594e49`, `4481df5f9`, `b2e566586`, `04092f6de` on top of the existing lifecycle patch series.
+- Protection: Jcode prompt/config/agent tests and source build, lazy-harness focused fixtures, strict candidate provenance, direct offline candidate smoke, exact protected-pointer checks, and final standard validation.
 
 ## Rule placement
 
