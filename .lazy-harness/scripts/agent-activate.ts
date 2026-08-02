@@ -1,5 +1,16 @@
 #!/usr/bin/env bun
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
@@ -17,10 +28,38 @@ type FileAction = {
   action: 'create' | 'update' | 'unchanged'
 }
 
+type FilePlan = FileAction & {
+  next: string
+}
+
 type ExcludeAction = {
   path?: string
   added: string[]
   skipped?: string
+}
+
+type ExcludePlan = ExcludeAction & {
+  next?: string
+}
+
+type FileSnapshot = {
+  path: string
+  existed: boolean
+  content?: Buffer
+  mode?: number
+}
+
+type CommandResult = {
+  ok: boolean
+  status: number
+  payload: Record<string, unknown>
+  stderr: string
+}
+
+type JcodeActivation = {
+  install: Record<string, unknown>
+  doctor?: Record<string, unknown>
+  ready: boolean
 }
 
 const START = '<!-- lazy-harness-agent-activation:start -->'
@@ -66,7 +105,7 @@ function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error
   out(`Usage: lazy agent activate [--target DIR] [--dry-run] [--format=md|json]
 
-Create project-local Pi/OMP activation prompt files for the global lazy-harness runtime bootstrap.
+Create project-local Pi/OMP activation files and explicitly trust this exact root for the machine Jcode bootstrap.
 
 The target must already contain .lazy-harness/bin/lazy. Run lazy init first for new projects.`)
   process.exit(exitCode)
@@ -121,16 +160,12 @@ function mergeManagedBlock(existing: string, body: string): string {
   return `${existing.replace(/\n?$/, '\n\n')}${body}`
 }
 
-function ensurePromptFile(target: string, relPath: string, body: string, dryRun: boolean): FileAction {
+function planPromptFile(target: string, relPath: string, body: string): FilePlan {
   const path = join(target, relPath)
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : ''
   const next = mergeManagedBlock(existing, body)
   const action: FileAction['action'] = existing ? (existing === next ? 'unchanged' : 'update') : 'create'
-  if (!dryRun && action !== 'unchanged') {
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, next, 'utf8')
-  }
-  return { path, action }
+  return { path, action, next }
 }
 
 function mergePiSettings(existing: string): string {
@@ -149,22 +184,12 @@ function mergePiSettings(existing: string): string {
   return `${JSON.stringify(settings, null, 2)}\n`
 }
 
-function ensurePiSettings(target: string, dryRun: boolean): FileAction {
+function planPiSettings(target: string): FilePlan {
   const path = join(target, '.pi', 'settings.json')
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  let next: string
-  try {
-    next = mergePiSettings(existing)
-  } catch (error) {
-    console.error(`lazy agent activate: failed to merge ${path}: ${error instanceof Error ? error.message : String(error)}`)
-    process.exit(1)
-  }
+  const next = mergePiSettings(existing)
   const action: FileAction['action'] = existing ? (existing === next ? 'unchanged' : 'update') : 'create'
-  if (!dryRun && action !== 'unchanged') {
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, next, 'utf8')
-  }
-  return { path, action }
+  return { path, action, next }
 }
 
 function gitExcludePath(target: string): string | undefined {
@@ -180,24 +205,95 @@ function gitExcludePath(target: string): string | undefined {
   return join(gitDir, 'info', 'exclude')
 }
 
-function ensureGitExclude(target: string, dryRun: boolean): ExcludeAction {
+function planGitExclude(target: string): ExcludePlan {
   const path = gitExcludePath(target)
   if (!path) return { added: [], skipped: 'target is not a git worktree' }
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : ''
   const existingLines = new Set(existing.split(/\r?\n/).map((line) => line.trim()))
   const added = EXCLUDE_LINES.filter((line) => !existingLines.has(line))
-  if (!dryRun && added.length > 0) {
-    mkdirSync(dirname(path), { recursive: true })
-    const prefix = existing && !existing.endsWith('\n') ? '\n' : ''
-    appendFileSync(path, `${prefix}# Added by lazy agent activate (${new Date().toISOString()})\n${added.join('\n')}\n`, 'utf8')
-  }
-  return { path, added }
+  const prefix = existing && !existing.endsWith('\n') ? '\n' : ''
+  const suffix = added.length > 0 ? `${prefix}# Added by lazy agent activate\n${added.join('\n')}\n` : ''
+  return { path, added, next: `${existing}${suffix}` }
 }
 
-function printResult(target: string, files: FileAction[], exclude: ExcludeAction, args: Args): void {
+function atomicWrite(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true })
+  const tmp = `${path}.${process.pid}.tmp`
+  writeFileSync(tmp, content, 'utf8')
+  renameSync(tmp, path)
+}
+
+function snapshotFile(path: string): FileSnapshot {
+  if (!existsSync(path)) return { path, existed: false }
+  const stat = lstatSync(path)
+  if (!stat.isFile()) throw new Error(`managed path is not a regular file: ${path}`)
+  return { path, existed: true, content: readFileSync(path), mode: stat.mode & 0o777 }
+}
+
+function restoreSnapshots(snapshots: FileSnapshot[]): void {
+  for (const snapshot of [...snapshots].reverse()) {
+    if (!snapshot.existed) {
+      rmSync(snapshot.path, { force: true })
+      continue
+    }
+    mkdirSync(dirname(snapshot.path), { recursive: true })
+    writeFileSync(snapshot.path, snapshot.content ?? Buffer.alloc(0))
+    if (snapshot.mode !== undefined) chmodSync(snapshot.path, snapshot.mode)
+  }
+}
+
+function removeCreatedDirs(paths: string[]): void {
+  for (const path of [...paths].reverse()) {
+    try {
+      rmdirSync(path)
+    } catch {
+      // Preserve non-empty or concurrently reused directories.
+    }
+  }
+}
+
+function applyPlans(files: FilePlan[], exclude: ExcludePlan): void {
+  for (const file of files) {
+    if (file.action !== 'unchanged') atomicWrite(file.path, file.next)
+  }
+  if (exclude.path && exclude.added.length > 0 && exclude.next !== undefined) atomicWrite(exclude.path, exclude.next)
+}
+
+function adapterLazyPath(target: string): string {
+  const marker = join(target, '.lazy-harness', 'state', 'synced-from-commit')
+  try {
+    const parsed = JSON.parse(readFileSync(marker, 'utf8')) as { sourceRoot?: unknown }
+    if (typeof parsed.sourceRoot === 'string') {
+      const candidate = resolve(parsed.sourceRoot, '.lazy-harness', 'bin', 'lazy')
+      if (existsSync(candidate)) return candidate
+    }
+  } catch {
+    // Standalone activation falls back to the framework copy executing this command.
+  }
+  return resolve(import.meta.dir, '..', 'bin', 'lazy')
+}
+
+function runJcode(target: string, command: 'install' | 'doctor', dryRun = false): CommandResult {
+  const lazy = resolve(import.meta.dir, '..', 'bin', 'lazy')
+  const argv = ['jcode', command, '--target', target, '--adapter-lazy', adapterLazyPath(target), '--format=json']
+  if (dryRun && command === 'install') argv.push('--dry-run')
+  const result = spawnSync(lazy, argv, { encoding: 'utf8', env: process.env })
+  let payload: Record<string, unknown> = {}
+  try {
+    payload = JSON.parse(result.stdout || '{}') as Record<string, unknown>
+  } catch {
+    payload = { ok: false, error: 'invalid Jcode command JSON', stdout: result.stdout.trim() }
+  }
+  const status = result.status ?? 1
+  return { ok: status === 0 && payload.ok === true, status, payload, stderr: result.stderr.trim() }
+}
+
+function printResult(target: string, files: FileAction[], exclude: ExcludeAction, jcode: JcodeActivation, args: Args): void {
   const ok = true
+  const fileResults = files.map(({ path, action }) => ({ path, action }))
+  const excludeResult = { path: exclude.path, added: exclude.added, skipped: exclude.skipped }
   if (args.format === 'json') {
-    console.log(JSON.stringify({ ok, target, dryRun: args.dryRun, files, gitInfoExclude: exclude }, null, 2))
+    console.log(JSON.stringify({ ok, target, dryRun: args.dryRun, files: fileResults, gitInfoExclude: excludeResult, jcode }, null, 2))
     return
   }
   if (!args.quiet) {
@@ -208,20 +304,67 @@ function printResult(target: string, files: FileAction[], exclude: ExcludeAction
     for (const file of files) console.log(`- ${file.action}: ${file.path}`)
     if (exclude.path) console.log(`- git_info_exclude: ${exclude.path} added=${exclude.added.join(',') || 'none'}`)
     else console.log(`- git_info_exclude: skipped (${exclude.skipped})`)
+    console.log(`- jcode_install: ${String(jcode.install.ok === true)}`)
+    console.log(`- jcode_ready: ${jcode.ready}`)
   }
+}
+
+function failResult(target: string, error: unknown, jcode: Record<string, unknown> | undefined, args: Args): void {
+  const message = error instanceof Error ? error.message : String(error)
+  if (args.format === 'json') {
+    console.log(JSON.stringify({ ok: false, target, dryRun: args.dryRun, error: message, jcode }, null, 2))
+  } else {
+    console.error(`lazy agent activate: ${message}`)
+  }
+  process.exitCode = 1
 }
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2))
   const target = resolveTarget(args.target)
   ensureActivatedProject(target)
-  const files = [
-    ensurePromptFile(target, join('.pi', 'APPEND_SYSTEM.md'), activationBody('Pi'), args.dryRun),
-    ensurePromptFile(target, join('.omp', 'APPEND_SYSTEM.md'), activationBody('OMP'), args.dryRun),
-    ensurePiSettings(target, args.dryRun),
-  ]
-  const exclude = ensureGitExclude(target, args.dryRun)
-  printResult(target, files, exclude, args)
+  let files: FilePlan[]
+  let exclude: ExcludePlan
+  try {
+    files = [
+      planPromptFile(target, join('.pi', 'APPEND_SYSTEM.md'), activationBody('Pi')),
+      planPromptFile(target, join('.omp', 'APPEND_SYSTEM.md'), activationBody('OMP')),
+      planPiSettings(target),
+    ]
+    exclude = planGitExclude(target)
+  } catch (error) {
+    failResult(target, error, undefined, args)
+    return
+  }
+
+  if (args.dryRun) {
+    const install = runJcode(target, 'install', true)
+    if (!install.ok) {
+      failResult(target, install.stderr || install.payload.error || 'Jcode install dry-run failed', install.payload, args)
+      return
+    }
+    printResult(target, files, exclude, { install: install.payload, ready: false }, args)
+    return
+  }
+
+  const managedPaths = files.filter((file) => file.action !== 'unchanged').map((file) => file.path)
+  if (exclude.path && exclude.added.length > 0) managedPaths.push(exclude.path)
+  const snapshots = managedPaths.map(snapshotFile)
+  const candidateDirs = [join(target, '.pi'), join(target, '.omp')]
+  const createdDirs = candidateDirs.filter((path) => !existsSync(path))
+  let installPayload: Record<string, unknown> | undefined
+  try {
+    applyPlans(files, exclude)
+    const install = runJcode(target, 'install')
+    installPayload = install.payload
+    if (!install.ok) throw new Error(install.stderr || String(install.payload.error ?? 'Jcode install failed'))
+    const doctor = runJcode(target, 'doctor')
+    printResult(target, files, exclude, { install: install.payload, doctor: doctor.payload, ready: doctor.ok }, args)
+  } catch (error) {
+    restoreSnapshots(snapshots)
+    removeCreatedDirs(createdDirs)
+    failResult(target, error, installPayload, args)
+  }
 }
 
 main()

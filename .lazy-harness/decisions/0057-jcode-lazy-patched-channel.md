@@ -63,13 +63,14 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
 
 1. The official stable/current builds remain independently recoverable.
 2. Reuse and modernize the existing `custom/lazydino-harness`, `reapply-custom-stack.sh`, maintenance ledger, and install-helper model rather than creating a second custom-stack system.
-3. The ordered patch series contains the four approved generic lifecycle patches plus, only if current upstream still lacks it, one narrow generic `ignore_project_agents` prompt-source control.
+3. The ordered patch series contains the approved generic lifecycle patches, native same-session cwd restoration while upstream lacks it, plus one narrow generic `ignore_project_agents` prompt-source control when required.
 4. For each exact trusted lazy-harness root, a gitignored `.jcode/config.local.toml` may contain only the private runtime transport flag `[prompt] ignore_project_agents = true`; it must not contain canonical grammar or project policy.
 5. The exact-trusted-root `before_model` adapter injects canonical `.lazy-harness/AGENTS.md` before every provider request. Untrusted and ordinary projects do not receive this injection.
 6. Spawned agents require no separate authority patch: they inherit the coordinator working directory and therefore the same local prompt-source setting and trusted-root adapter behavior.
 7. Global personal overlays, model preferences, and other non-project-policy configuration remain active.
 8. Each upstream update is handled by replaying the explicit patch series onto a fresh candidate, running focused and full validation, and switching only the lazy-patched channel pointer after success.
 9. When an equivalent capability lands upstream and passes parity validation, its local patch is removed independently.
+10. After explicit user selection, the normal `~/.local/bin/jcode` launcher may atomically target the dedicated `~/.jcode/builds/lazy-patched/jcode` pointer. Official stable/current pointers remain unchanged, and rollback restores the launcher's exact prior symlink target.
 
 ## Rejected alternatives
 
@@ -85,17 +86,25 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
 - Official Jcode updates require a controlled rebase/replay and validation step before promotion.
 - Trusted-root behavior is implemented through deterministic source selection plus request-scoped canonical injection, not semantic prompt inspection.
 - The patch channel is temporary infrastructure. Patch count should shrink as generic capabilities land upstream.
+- The normal launcher may provide the same patched runtime across every project, while stable/current remain independent rollback targets.
 
 ## Implementation map
 
-- Status: implemented and locally promoted on the isolated lazy-patched channel; official stable/current launchers remain unchanged.
+- Status: refreshed same-session cwd candidate installed and normal launcher verified with durable exact rollback; closing standard validation follows the final record mutation.
 - Existing Jcode patch commits:
   - `38036ca63` — generic `before_model` transport.
   - `eaa12fc30` — generic native ask transport.
   - `6597ac650` — bounded ask controls.
   - `dcc8ed100` — generic bounded follow-up controller.
+  - `71adb1853` — native same-session cwd commands, remote protocol, LLM cwd tool, client propagation, and target-root prompt rebuilding.
+  - `2f44249d1` — transactional cwd save-failure rollback and success-side-effect suppression.
+  - `d58409274` — live session cwd retention across same-session remote reconnects.
 - Jcode implementation:
   - `/home/lazydino/dev/jcode` commit `15e87544c` implements the narrow `ignore_project_agents` prompt-source flag, working-directory local-config merge, project `AGENTS.md` suppression, prompt accounting, and regression tests.
+  - `/home/lazydino/dev/jcode` commit `71adb1853` restores `/pwd`, `/cwd [path]`, `/cd <path>`, same-session persistence, remote `SetCwd`/`SessionCwd`, LLM cwd tool side effects, client propagation, skill/header refresh, and the post-conversation two-root AGENTS regression.
+  - `/home/lazydino/dev/jcode` commit `2f44249d1` makes cwd persistence transactional and prevents failed save paths from publishing successful local, remote, or tool-visible cwd effects.
+  - `/home/lazydino/dev/jcode` commit `d58409274` makes reconnect of the exact established remote session advertise its live cwd while preserving launch cwd for initial or different-session subscriptions.
+  - `/home/lazydino/dev/jcode` commit `daf9d3d90` reconciles the root package's existing `jcode-provider-core` dev-dependency into `Cargo.lock`; the lock delta is one dependency-list line with no version, checksum, source, or transitive-package churn.
   - `/home/lazydino/dev/jcode/scripts/lazydino/install-custom-jcode.sh` builds exact-source candidates, stores strict data-only JSON provenance, prevents dirty-state reuse collisions, publishes immutable completed candidates, atomically switches only the dedicated pointer, and restores interrupted post-promotion changes.
   - `/home/lazydino/dev/jcode/LAZYDINO_MAINTENANCE.md` documents replay, provenance, validation, protected launchers, direct-candidate use, and rollback.
   - Channel commits: `4481df5f9` adds the isolated helper/docs, `b2e566586` hardens provenance/publication/rollback, and `04092f6de` makes signal-triggered cleanup nonzero and concurrency-safe.
@@ -104,13 +113,17 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
   - `.lazy-harness/scripts/jcode-adapter.ts` injects bounded canonical grammar for exact trusted roots.
   - `.lazy-harness/scripts/jcode-package.ts` exposes install/trust/remove/doctor/smoke flows without moving canonical policy into `.jcode`.
 - Installed candidate:
-  - `~/.jcode/builds/lazy-patched/versions/04092f6de-b6ee0d1e472a-release-01fb0a99792f0fac/jcode`.
+  - `~/.jcode/builds/lazy-patched/versions/daf9d3d90-b6ee0d1e472a-release-bb2f6034b9335651/jcode`.
   - `~/.jcode/builds/lazy-patched/jcode` points to that candidate.
-  - `~/.jcode/builds/stable/jcode`, `~/.jcode/builds/current/jcode`, and `~/.local/bin/jcode` retain their pre-promotion targets.
+  - `~/.local/bin/jcode` now points to `~/.jcode/builds/lazy-patched/jcode`; mode-0600 rollback state preserves its exact prior target `~/.jcode/builds/current/jcode`.
+  - `~/.jcode/builds/stable/jcode` and `~/.jcode/builds/current/jcode` retain their exact pre-promotion targets.
+  - Strict provenance records HEAD `daf9d3d90912223f2c765c1a6b0f081af46d8b4e`, source digest `bb2f6034b93356512eae791975383c479e24c8dd94372d932b2e607647db2dff`, Cargo.lock digest `b6ee0d1e472a9ca7d3bb0738ce5c873a7f189c8288db53535987bc84d725e474`, and binary digest `122e6637e8ca10f2e4bd5b209dbec7954b59efb856b28f070bd4e120d5a150d4`.
 - Tests / protection:
   - Focused Jcode prompt/config tests, formatting, source checks/build, direct `version --json`, offline help, provenance round-trip, candidate reuse, and protected-pointer checks passed.
+  - Cwd restoration passed `cargo check -p jcode-app-core -p jcode-tui -p jcode-protocol`, focused protocol/app-core cwd tests, and the post-visible-conversation target-root prompt regression.
+  - Transactional failure injection and remote error-only event tests passed for `2f44249d1`; the exact TUI reconnect regression and `cargo check -p jcode-tui` passed for `d58409274`.
   - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` protects trusted/untrusted roots, reversible local config, bounded initial/post-tool injection, child/root isolation, and overlay preservation.
-  - Normal launcher activation, server reload, provider traffic, push, and rebase were intentionally not performed during candidate promotion.
+  - Normal launcher activation now passes candidate provenance/digest/version validation, offline help, trusted-root doctor, protected-pointer checks, and launcher status. Server reload, provider traffic, push, and rebase remain intentionally unperformed.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - Planning: `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`
@@ -126,6 +139,7 @@ Adopt one rebase-maintained **lazy-patched Jcode channel** until the necessary g
 - Why not AGENTS.md: this is runtime distribution and precedence architecture, not per-turn grammar.
 - Why not `.jcode`: local Jcode configuration is transport/personal state, not canonical team policy.
 - Confirmation: user-confirmed original channel direction and corrected explicit-source option A on 2026-08-02.
+- Launcher amendment: user-confirmed option A on 2026-08-02; atomically repoint only `~/.local/bin/jcode` to the dedicated lazy-patched pointer and preserve exact rollback plus official stable/current.
 
 ## Discovery capture
 

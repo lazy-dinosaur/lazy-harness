@@ -2871,6 +2871,81 @@ def check_jcode_agent_adapter() -> None:
         config.write_text(original_config, encoding="utf-8")
         env = env_without_lazy_runtime(JCODE_HOME=str(jcode_home), LAZY_INVOCATION_CWD=str(target))
         base = [str(cli), "jcode"]
+
+        builds = jcode_home / "builds"
+        candidate_dir = builds / "lazy-patched" / "versions" / "fixture"
+        candidate_dir.mkdir(parents=True)
+        candidate = candidate_dir / "jcode"
+        candidate.write_text(
+            '#!/bin/sh\nif [ "$1" = "version" ] && [ "$2" = "--json" ]; then echo \'{"version":"fixture","git_hash":"fixturehash"}\'; exit 0; fi\nexit 0\n',
+            encoding="utf-8",
+        )
+        candidate.chmod(0o755)
+        (candidate_dir / ".complete").write_text("", encoding="utf-8")
+        candidate_sha = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        (candidate_dir / "provenance.json").write_text(
+            json.dumps({"schema": 1, "binary_sha256": candidate_sha, "version_json": {"version": "fixture", "git_hash": "fixturehash"}}) + "\n",
+            encoding="utf-8",
+        )
+        channel = builds / "lazy-patched" / "jcode"
+        channel.symlink_to(candidate)
+        stable = builds / "stable" / "jcode"
+        current = builds / "current" / "jcode"
+        stable.parent.mkdir(parents=True)
+        current.parent.mkdir(parents=True)
+        stable.symlink_to("/fixture/stable")
+        current.symlink_to("/fixture/current")
+        launcher = tmp / "bin" / "jcode"
+        launcher.parent.mkdir()
+        launcher.symlink_to(current)
+        launcher_prior = os.readlink(launcher)
+        dry_promote = subprocess.run(
+            base + ["promote-launcher", f"--launcher={launcher}", "--dry-run", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
+        )
+        if dry_promote.returncode != 0 or os.readlink(launcher) != launcher_prior:
+            fail("Jcode launcher promotion dry-run mutated launcher: " + dry_promote.stdout + dry_promote.stderr)
+        promoted = subprocess.run(
+            base + ["promote-launcher", f"--launcher={launcher}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
+        )
+        if promoted.returncode != 0 or launcher.resolve() != candidate.resolve():
+            fail("Jcode launcher promotion failed: " + promoted.stdout + promoted.stderr)
+        rollback_state = builds / "lazy-patched" / "launcher-rollback.json"
+        if not rollback_state.exists() or os.readlink(stable) != "/fixture/stable" or os.readlink(current) != "/fixture/current":
+            fail("Jcode launcher promotion changed protected pointers or omitted rollback state")
+        status = subprocess.run(
+            base + ["launcher-status", f"--launcher={launcher}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
+        )
+        if status.returncode != 0 or json.loads(status.stdout).get("promoted") is not True:
+            fail("Jcode launcher status did not report promotion: " + status.stdout + status.stderr)
+        rolled_back = subprocess.run(
+            base + ["rollback-launcher", f"--launcher={launcher}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
+        )
+        if rolled_back.returncode != 0 or os.readlink(launcher) != launcher_prior or rollback_state.exists():
+            fail("Jcode launcher rollback did not restore exact prior target: " + rolled_back.stdout + rolled_back.stderr)
+        rollback_state.write_text(
+            json.dumps({
+                "schemaVersion": "lazy-jcode-launcher-rollback/v1",
+                "launcher": str(launcher.absolute()),
+                "channel": str(channel),
+                "prior": {"kind": "symlink", "target": launcher_prior},
+                "promotedAt": "fixture-interrupted-before-switch",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        interrupted_recovery = subprocess.run(
+            base + ["promote-launcher", f"--launcher={launcher}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=False, env=env,
+        )
+        if interrupted_recovery.returncode != 0 or launcher.resolve() != candidate.resolve():
+            fail("Jcode launcher promotion did not recover pre-switch rollback state: " + interrupted_recovery.stdout + interrupted_recovery.stderr)
+        subprocess.run(
+            base + ["rollback-launcher", f"--launcher={launcher}", "--format=json"],
+            cwd=target, text=True, capture_output=True, check=True, env=env,
+        )
         install = subprocess.run(
             base + ["install", f"--config={config}", f"--target={target}", "--format=json"],
             cwd=target, text=True, capture_output=True, check=False, env=env,
@@ -3170,6 +3245,90 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
         roots = json.loads((jcode_home / "lazy-harness-trusted-roots.json").read_text(encoding="utf-8")).get("roots", [])
         if second_trust.returncode != 0 or sorted(roots) != sorted([str(root.resolve()), str(second_root.resolve())]):
             fail("Jcode trust registry did not preserve two exact canonical roots")
+
+        # Native Jcode /cwd preserves the same session and conversation while only
+        # changing its working_dir.  Reuse the exact session id and runtime root to
+        # prove the adapter does not carry old-root grammar or evidence across that
+        # transition.  Root mismatch must recreate the state envelope, and the next
+        # before_model request must load the target root's canonical AGENTS grammar.
+        old_root_record = root / "old-root-record.md"
+        old_root_record.write_text("fixture\n", encoding="utf-8")
+        old_root_read_env = {**base_env, "JCODE_HOOK_TOOL_NAME": "read"}
+        subprocess.run(
+            ["bun", str(adapter), "pre-tool"], cwd=root,
+            input=json.dumps({"path": "old-root-record.md"}), text=True,
+            capture_output=True, check=True, env=old_root_read_env,
+        )
+        subprocess.run(
+            ["bun", str(adapter), "post-tool"], cwd=root,
+            text=True, capture_output=True, check=True,
+            env={**old_root_read_env, "JCODE_HOOK_STATUS": "ok"},
+        )
+        state_path = runtime / "state" / "jcode-adapter.json"
+        if not json.loads(state_path.read_text(encoding="utf-8")).get("recent"):
+            fail("Jcode cwd fixture did not seed old-root evidence")
+
+        moved_env = {
+            **base_env,
+            # Deliberately retain base_env JCODE_HOOK_CWD=root to model a stale
+            # inherited env during the same-session cwd transition. Payload cwd is
+            # the current request authority and must select second_root.
+            "JCODE_HOOK_PAYLOAD": json.dumps({"cwd": str(second_root), "session_id": "fixture-session"}),
+        }
+        moved_context = subprocess.run(
+            ["bun", str(adapter), "before-model"], cwd=second_root,
+            text=True, capture_output=True, check=False, env=moved_env,
+        )
+        try:
+            moved_decision = json.loads(moved_context.stdout)
+        except Exception:
+            moved_decision = {}
+        moved_body = moved_decision.get("inject", {}).get("body", "")
+        moved_state_after_model = json.loads(state_path.read_text(encoding="utf-8"))
+        if (
+            moved_context.returncode != 0
+            or moved_context.stderr
+            or "second canonical fixture grammar" not in moved_body
+            or "canonical fixture grammar" in moved_body.replace("second canonical fixture grammar", "")
+            or "post-tool fixture recent_tool_calls=True" in moved_body
+            or moved_state_after_model.get("root") != str(second_root.resolve())
+            or moved_state_after_model.get("recent")
+            or moved_state_after_model.get("pending")
+        ):
+            fail(
+                "Jcode same-session cwd change retained old-root grammar/evidence or missed target grammar: "
+                + json.dumps({
+                    "returncode": moved_context.returncode,
+                    "stderr": moved_context.stderr,
+                    "body": moved_body,
+                    "state": moved_state_after_model,
+                }, ensure_ascii=False)
+            )
+
+        target_root_record = second_root / "target-root-record.md"
+        target_root_record.write_text("fixture\n", encoding="utf-8")
+        moved_read_env = {**moved_env, "JCODE_HOOK_TOOL_NAME": "read"}
+        subprocess.run(
+            ["bun", str(adapter), "pre-tool"], cwd=second_root,
+            input=json.dumps({"path": "target-root-record.md"}), text=True,
+            capture_output=True, check=True, env=moved_read_env,
+        )
+        subprocess.run(
+            ["bun", str(adapter), "post-tool"], cwd=second_root,
+            text=True, capture_output=True, check=True,
+            env={**moved_read_env, "JCODE_HOOK_STATUS": "ok"},
+        )
+        moved_state = json.loads(state_path.read_text(encoding="utf-8"))
+        moved_recent = moved_state.get("recent", [])
+        if (
+            moved_state.get("root") != str(second_root.resolve())
+            or moved_state.get("pending")
+            or len(moved_recent) != 1
+            or moved_recent[0].get("args_preview") != str(target_root_record.resolve())
+            or str(old_root_record.resolve()) in json.dumps(moved_state)
+        ):
+            fail("Jcode same-session cwd change reused old-root evidence in target-root state")
+
         second_runtime = tmp / "second-runtime"
         second_env = {
             **base_env,
@@ -3178,9 +3337,14 @@ python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"action":
             "JCODE_HOOK_SESSION_ID": "second-session",
             "LAZY_RUNTIME_ROOT": str(second_runtime),
         }
+        primary_runtime_before_second_session = state_path.read_text(encoding="utf-8")
         subprocess.run(["bun", str(adapter), "session-start"], cwd=second_root, text=True, capture_output=True, check=True, env=second_env)
         second_state = json.loads((second_runtime / "state" / "jcode-adapter.json").read_text(encoding="utf-8"))
-        if second_state.get("root") != str(second_root.resolve()) or second_state.get("recent") or runtime.exists():
+        if (
+            second_state.get("root") != str(second_root.resolve())
+            or second_state.get("recent")
+            or state_path.read_text(encoding="utf-8") != primary_runtime_before_second_session
+        ):
             fail("Jcode trusted-root/session state crossed root boundaries")
 
         secret = "http" + "s://user:super-secret@example.test/?token=hidden"

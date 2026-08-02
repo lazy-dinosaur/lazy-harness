@@ -27,6 +27,8 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - root isolation
   - config backup
   - install remove round trip
+  - same-session cwd
+  - target-root AGENTS reload
 - Applies when:
   - changing Jcode adapter hooks, configuration merge, CLI dispatch, or root isolation
   - claiming Jcode support or parity with Pi/OMP
@@ -40,6 +42,9 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - protect bounded native ask, typed answer/cancel routing, continuation suppression, and unsupported-runtime fallback
   - protect strict bounded `turn_followup`, exactly-one origin control, stable fingerprinting, and ask/input/cancel/guardrail/error suppression
   - protect private reversible trusted-root `ignore_project_agents` configuration and canonical grammar injection priority
+  - protect same-session cwd transitions against stale env cwd, old-root grammar, and old-root pending/recent evidence
+  - protect cwd save-failure rollback so live, persisted, remote/client, slash-command, and tool-visible state cannot split
+  - protect remote reconnect after a cwd transition so the initial launcher cwd cannot overwrite the current session cwd
 - Must not:
   - claim full live context, continuation, or native ask parity before the corresponding source-build matrix passes
 - Record completion:
@@ -96,8 +101,16 @@ The Jcode adapter must reuse canonical lazy-harness hooks only for exact user-tr
 | `jcode_runtime_root_override` | Hook receives explicit `LAZY_RUNTIME_ROOT` | Adapter state and canonical hook journals share that exact root; default resolution remains worktree/session scoped |
 | `jcode_lock_and_deny_cleanup` | Ownerless stale lock, live foreign lock at session-end, replaced-owner recovery, and canonical deny with state-save failure | Stale lock recovers, foreign/new owner survives, and deny still exits 2 |
 | `jcode_root_session_isolation` | Interleave hooks for two roots and sessions | No state or evidence crosses either boundary |
+| `jcode_same_session_cwd_reground` | Seed root-A read evidence, retain the same Jcode session/runtime and a stale root-A `JCODE_HOOK_CWD`, then send a root-B payload cwd | Root-B grammar is injected, root-A grammar/evidence is absent, and the persisted envelope is immediately reset to root B before target evidence is recorded |
+| `jcode_cwd_save_failure_rollback` | Inject `session.save()` failure after a valid target cwd has been resolved | The prior cwd and all cwd-derived live context are restored; persisted session is unchanged; no `SessionCwd`, successful slash result, or cwd-tool side-effect metadata is published |
+| `jcode_remote_cwd_reconnect` | Start remote session in root A, accept `SessionCwd` for root B, then reconnect/subscribe | The reconnect advertises B, the same session/messages remain active, and server persistence is not reverted to A |
 | `jcode_turn_end_advisory` | Turn-end with bounded assistant text and tool evidence | Canonical audit runs once; no false claim of blocking or continuation |
 | `jcode_pi_omp_non_regression` | Run existing Pi/OMP package fixture | Existing package contract remains unchanged and green |
+| `jcode_lazy_launcher_promotion_rollback` | Promote the normal launcher to the validated dedicated lazy-patched pointer, then simulate validation failure or explicit rollback | Only `~/.local/bin/jcode` changes atomically; stable/current remain byte-identical and rollback restores the exact prior launcher target |
+| `jcode_unified_agent_activation` | Run `lazy agent activate` twice with an isolated Jcode home | Pi/OMP pointer files and skill settings are idempotent, global hooks target the stable framework source, exact-root trust/local transport are active, doctor is ready, and aggregate JSON exposes structural actions without file contents |
+| `jcode_unified_activation_rollback` | Make the target's user-owned local Jcode config conflict after Pi/OMP plans are prepared | Activation fails and restores Pi/OMP files, directories, and Git exclude bytes while Jcode trust remains unchanged |
+| `jcode_init_auto_activation` | Run `lazy init` for a temporary Git host with isolated Jcode home | The explicitly selected new root receives Pi/OMP activation and exact Jcode trust without a second command |
+| `jcode_sync_trust_boundary` | Run `lazy sync` for trusted, conflicting trusted, and then explicitly untrusted temporary hosts | Trusted activation is checked/repaired; repair failure leaves the prior sync marker unchanged; untrusted sync prints the activation command and never creates trust |
 
 ## Validation route
 
@@ -119,9 +132,18 @@ Direct repeated `lazy test` runs are not part of the edit loop.
 | SSOT | yes | `.lazy-harness/ssot/harness-enforcement-policy.md` now owns the Pi/OMP/Jcode delivery boundary; runtime path ownership remains unchanged. |
 | DDD | no | No domain term, entity, or business invariant changes. |
 
+### 2026-08-02 same-session cwd work unit
+
+| Layer | Independent delta? | Judgement |
+|---|---|---|
+| SDD | yes | The adapter now defines payload-cwd authority, same-session root transition, target-root grammar, and immediate old-root evidence reset. |
+| BDD | no | No separate product UI or user journey was added; the native runtime command behavior is fully specified by the Jcode/runtime SDD. |
+| SSOT | no | Runtime path and project ownership remain unchanged; live session cwd is consumed as runtime evidence rather than a new ownership source. |
+| DDD | no | No business term, entity, or invariant changed. |
+
 ## Implementation map
 
-- Status: Phases 1–3 focused hook/config/controller/protocol tests and adapter fixture pass; source-build live matrix pending
+- Status: native cwd success paths, lazy-harness two-root fixture, transactional save-failure rollback, exact established-session reconnect regression, independent review, and refreshed candidate verification pass; closing standard validation follows the final record mutation
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — 11 strict parsing, bounds, timeout, recursion, request-kind, and dynamic-only injection tests.
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/config_hook_tests.rs` — extracted hook config/default/env regression tests.
@@ -131,6 +153,9 @@ Direct repeated `lazy test` runs are not part of the edit loop.
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks/turn_followup.rs` — strict parsing, malformed/oversized output, timeout, and normal-stop tests.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/turn_followup.rs` — exactly-one, repeated fingerprint, pending interaction, cancellation, guardrail, and error tests.
   - `/home/lazydino/dev/jcode/crates/jcode-protocol/src/protocol_tests/misc_events.rs` — followup lifecycle wire round-trip.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/cwd.rs` and cwd tests — parser, existing-directory resolution, same-session mutation, and persistence.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/cwd.rs` — LLM cwd tool metadata and side effects.
+  - `/home/lazydino/dev/jcode/crates/jcode-protocol` cwd tests — `SetCwd`/`SessionCwd` round-trip.
   - `.lazy-harness/scripts/self-test.py` — adversarial TOML, trust, secret-free state, runtime-root, deny-cleanup, before-model transport, and non-regression fixtures.
   - `.lazy-harness/scripts/jcode-adapter.ts` — runtime target under test.
   - `.lazy-harness/scripts/jcode-trust.ts` — exact-root trust registry target under test.
@@ -138,13 +163,14 @@ Direct repeated `lazy test` runs are not part of the edit loop.
   - `.lazy-harness/scripts/jcode-local-config.ts` — local prompt transport merge/remove/privacy target under test.
   - `.lazy-harness/bin/lazy` — dispatch target under test.
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` — coverage includes Bun build, legal/invalid global and local TOML, local config privacy/removal, canonical initial/post-tool grammar injection, trust/untrust and relative-home attack, every-hook marker-only no-op, runtime isolation, URL/path secrecy, stale/ambiguous correlation, lock ownership/recovery, and true deny-cleanup failure.
+  - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter` — coverage includes Bun build, legal/invalid global and local TOML, local config privacy/removal, canonical initial/post-tool grammar injection, same-session two-root re-grounding with stale env cwd and shared runtime state, trust/untrust and relative-home attack, every-hook marker-only no-op, runtime isolation, URL/path secrecy, stale/ambiguous correlation, lock ownership/recovery, and true deny-cleanup failure.
+  - Jcode `request_prompt_rebuilds_agents_from_updated_cwd_after_visible_conversation` protects target-root AGENTS rebuilding without changing session id or messages.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - TDD: `.lazy-harness/tests/pi-agent-package.md`
 - Machine index:
-  - graph ids: `kg_jcode_agent_adapter_test_20260801`, `kg_jcode_agent_adapter_runtime_20260801`, `kg_jcode_agent_adapter_install_20260801`, `kg_jcode_agent_adapter_trust_20260801`
+  - graph ids: `kg_jcode_agent_adapter_test_20260801`, `kg_jcode_agent_adapter_runtime_20260801`, `kg_jcode_agent_adapter_install_20260801`, `kg_jcode_agent_adapter_trust_20260801`, `kg_jcode_same_session_cwd_20260802`, `kg_jcode_same_session_cwd_test_20260802`
   - generated index key: pending regeneration
 
 ## Rule placement

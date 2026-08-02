@@ -118,11 +118,20 @@ Stop and request a revised decision if:
 - Independent review found executable provenance loading, dirty-source identity collisions, candidate publication races, post-promotion cleanup gaps, inaccurate rollback for unsupported pointer states, and overstated dry-run wording.
 - Jcode commit `b2e566586` replaced sidecar execution with strict JSON data parsing, bound reuse/candidate identity to an exact source digest and profile, required completed real-file candidates, used locked no-clobber publication and unique temporary pointer directories, added source-stability rechecks, and aligned dry-run/rollback documentation.
 - Jcode commit `04092f6de` makes `INT`/`TERM` exit nonzero through the `EXIT` cleanup path and restores a prior pointer only when the current pointer still targets the promoted candidate.
-- Final candidate: `~/.jcode/builds/lazy-patched/versions/04092f6de-b6ee0d1e472a-release-01fb0a99792f0fac/jcode` with embedded hash `04092f6de`, `release_build=false`, immutable mode-marked candidate files, and strict `provenance.json`.
-- Dedicated pointer: `~/.jcode/builds/lazy-patched/jcode` points to the final candidate. Stable, current, and `~/.local/bin/jcode` retain their exact pre-promotion symlink targets.
+- Previous Phase 4 candidate, now superseded by the same-session cwd refresh below: `~/.jcode/builds/lazy-patched/versions/04092f6de-b6ee0d1e472a-release-01fb0a99792f0fac/jcode` with embedded hash `04092f6de`, `release_build=false`, immutable mode-marked candidate files, and strict `provenance.json`.
+- At that phase, the dedicated pointer `~/.jcode/builds/lazy-patched/jcode` pointed to the previous candidate; stable, current, and `~/.local/bin/jcode` retained their exact pre-promotion symlink targets. The later launcher activation and cwd refresh are recorded below.
 - Focused prompt/config tests, formatting, targeted checks/build, shell syntax, dry-run match reporting, direct version JSON, offline help, provenance verification, reuse path, candidate build, and protected-path checks passed.
 - Local `refs/lazydino/phase0-maintenance` now points to `04092f6de`. No push, rebase, server reload, hotkey change, provider request, or normal-launcher activation was performed.
 - Existing unmatched Cargo profile package warnings remain non-blocking and separate from the completed channel work.
+
+### 2026-08-02 — Same-session cwd candidate refresh
+
+- Jcode commits `71adb1853`, `2f44249d1`, and `d58409274` restore native same-session cwd, transactional persistence rollback, and live-cwd reconnect semantics.
+- The first exact-source install attempt stopped safely because the committed lockfile omitted the root package's existing `jcode-provider-core` dev-dependency. No candidate or pointer changed on that failed attempt.
+- Commit `daf9d3d90` adds exactly that one lock dependency-list entry; no dependency version, checksum, source, or transitive package changed. Full workspace `cargo check --locked` then passed.
+- Refreshed candidate: `~/.jcode/builds/lazy-patched/versions/daf9d3d90-b6ee0d1e472a-release-bb2f6034b9335651/jcode`, embedded hash `daf9d3d90`, source digest `bb2f6034b93356512eae791975383c479e24c8dd94372d932b2e607647db2dff`, and binary digest `122e6637e8ca10f2e4bd5b209dbec7954b59efb856b28f070bd4e120d5a150d4`.
+- Dedicated pointer and normal launcher resolve to the refreshed candidate. Stable remains `/home/lazydino/.jcode/builds/versions/d6c7c36d6-dirty-762754f1ab93/jcode` and current remains `/home/lazydino/.jcode/builds/versions/dcc8ed100-phase3/jcode`.
+- Strict launcher status, normal-launcher version JSON, offline help, trusted-root doctor, candidate provenance, source/binary digest, and protected-pointer checks pass. No push was performed and the pre-existing Jcode `.env` remained untouched.
 
 ## Validation matrix
 
@@ -144,6 +153,7 @@ Stop and request a revised decision if:
 - Lazy-harness integration: `.lazy-harness/scripts/jcode-adapter.ts`, `.lazy-harness/scripts/jcode-package.ts`, `.lazy-harness/scripts/jcode-trust.ts`, `.lazy-harness/spec/platform/jcode-agent-adapter.md`, `.lazy-harness/tests/jcode-agent-adapter.md`.
 - Jcode maintenance assets: `/home/lazydino/dev/jcode/LAZYDINO_MAINTENANCE.md`, `/home/lazydino/dev/jcode/scripts/lazydino/reapply-custom-stack.sh`, and `/home/lazydino/dev/jcode/scripts/lazydino/install-custom-jcode.sh`.
 - Final channel commits: `15e87544c`, `3f06d761a`, `5e1594e49`, `4481df5f9`, `b2e566586`, `04092f6de` on top of the existing lifecycle patch series.
+- Cwd extension commits installed in the refreshed candidate: `71adb1853`, `2f44249d1`, and `d58409274`; packaging lock reconciliation: `daf9d3d90`.
 - Protection: Jcode prompt/config/agent tests and source build, lazy-harness focused fixtures, strict candidate provenance, direct offline candidate smoke, exact protected-pointer checks, and final standard validation.
 
 ## Rule placement

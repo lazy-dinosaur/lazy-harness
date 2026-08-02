@@ -29,8 +29,9 @@ import {
   rmSync
 } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 import { appendJsonlStable } from './runtime-paths.ts'
+import { isTrustedRoot } from './jcode-trust.ts'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -639,6 +640,24 @@ function updateMarker(sourceRoot: string, targetRoot: string): void {
   log(`  ✓ marker updated → ${sha.slice(0, 12)}`)
 }
 
+function reconcileAgentActivation(targetRoot: string): 'repaired' | 'dry-run' | 'activation-required' {
+  if (!isTrustedRoot(targetRoot)) {
+    log(`  ⊘ Jcode root remains untrusted; activate explicitly:`)
+    log(`    ${join(targetRoot, '.lazy-harness', 'bin', 'lazy')} agent activate --target ${targetRoot}`)
+    return 'activation-required'
+  }
+  const lazy = join(targetRoot, '.lazy-harness', 'bin', 'lazy')
+  const argv = ['agent', 'activate', '--target', targetRoot, '--format=json']
+  if (DRY) argv.push('--dry-run')
+  const result = spawnSync(lazy, argv, { encoding: 'utf8', env: process.env })
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`
+    throw new Error(`trusted-root activation repair failed: ${detail}`)
+  }
+  log(`  ✓ trusted Pi/OMP/Jcode activation ${DRY ? 'checked' : 'repaired'}`)
+  return DRY ? 'dry-run' : 'repaired'
+}
+
 // ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
@@ -683,6 +702,13 @@ function main(): void {
   log(`  source: ${drift.sourceSha.slice(0, 12) || '(none)'}`)
 
   if (drift.status === 'equal' && !args.force) {
+    log('\n[Activation]')
+    try {
+      reconcileAgentActivation(targetRoot)
+    } catch (error) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+      process.exit(3)
+    }
     log('\n✓ Already in sync.')
     process.exit(0)
   }
@@ -701,16 +727,25 @@ function main(): void {
   )
   result.updated += removeKnownRemovedManagedFiles(sourceRoot, targetRoot)
 
-  // Update marker
+  log('\n[Activation]')
+  let activation: 'repaired' | 'dry-run' | 'activation-required'
+  try {
+    activation = reconcileAgentActivation(targetRoot)
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(3)
+  }
+
+  // Publish the synced marker only after trusted activation repair succeeds.
   log('\n[Marker]')
   updateMarker(sourceRoot, targetRoot)
-
 
   // Summary
   log('\n[Summary]')
   log(`  updated:   ${result.updated}`)
   log(`  unchanged: ${result.unchanged}`)
   log(`  missing:   ${result.missing}`)
+  log(`  activation: ${activation}`)
   log('')
   if (DRY) {
     log('Dry run complete. Re-run without --dry-run to apply.')

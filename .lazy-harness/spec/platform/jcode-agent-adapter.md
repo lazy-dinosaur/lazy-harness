@@ -29,6 +29,9 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - turn_start
   - turn_end
   - JCODE_HOOK_PAYLOAD
+  - /cwd
+  - /cd
+  - session cwd
 - Applies when:
   - installing, removing, smoke-testing, or debugging lazy-harness under Jcode
   - changing Jcode lifecycle payload translation or root-scoped evidence
@@ -43,6 +46,10 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
   - treat `turn_followup` as a separately bounded synchronous controller with at most one synthetic continuation per originating real-user turn
   - manage trusted-root project AGENTS suppression through a private reversible local transport flag
   - inject the canonical trusted root `.lazy-harness/AGENTS.md` on every `before_model` request
+  - prefer the current request payload cwd over a stale inherited hook cwd during a same-session cwd transition
+  - replace old-root pending/recent evidence before target-root context or actions are evaluated
+  - make Jcode core cwd persistence transactional: a failed save restores all live cwd-derived state and exposes no successful cwd side effect
+  - preserve the current live session cwd across remote reconnect/subscription instead of replaying the launcher cwd
 - Must not:
   - restore generated project policy under `.jcode`
   - claim observer hooks can block or inject model context
@@ -80,13 +87,16 @@ Observer output is ignored by Jcode. Therefore `turn_start`, `post_tool`, and `t
 ## CLI contract
 
 ```text
-lazy jcode install [--dry-run] [--format=md|json] [--config=PATH] [--target=DIR]
+lazy jcode install [--dry-run] [--format=md|json] [--config=PATH] [--target=DIR] [--adapter-lazy=PATH]
 lazy jcode remove  [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
-lazy jcode doctor  [--format=md|json] [--config=PATH] [--target=DIR]
+lazy jcode doctor  [--format=md|json] [--config=PATH] [--target=DIR] [--adapter-lazy=PATH]
 lazy jcode smoke   [--dry-run] [--format=md|json]
 lazy jcode trust   [--target=DIR] [--dry-run] [--format=md|json]
 lazy jcode untrust [--target=DIR] [--dry-run] [--format=md|json]
 lazy jcode trusted-roots [--format=md|json]
+lazy jcode launcher-status [--launcher=PATH] [--format=md|json]
+lazy jcode promote-launcher [--launcher=PATH] [--dry-run] [--format=md|json]
+lazy jcode rollback-launcher [--launcher=PATH] [--dry-run] [--format=md|json]
 lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-end|session-start|session-end>
 ```
 
@@ -103,16 +113,38 @@ lazy jcode hook <before-model|turn-followup|turn-start|pre-tool|post-tool|turn-e
 - The local config is kept private through an existing Git ignore or one exact managed `.git/info/exclude` entry. Backups are written under private Git metadata, not into the worktree.
 - Outside an exact trusted root, hook commands exit `0` silently.
 
+## Unified project activation contract
+
+- `lazy agent activate --target <root>` is the explicit unified Pi/OMP/Jcode activation and repair surface. For Jcode it reuses the existing install/trust/local-config transaction, installs or repairs global hooks, and passes one stable adapter entrypoint resolved from the host sync marker's canonical `sourceRoot` with a current-framework fallback.
+- `lazy init --target <root>` may invoke unified activation after successful framework installation because the user explicitly selected that target. Dry-run must describe the activation without mutating global config, trust, Git exclusions, or project files.
+- `lazy sync --target <root>` must inspect exact-root trust before invoking Jcode repair. It may repair or diagnose an already trusted root, but an untrusted root remains untrusted and receives an explicit `lazy agent activate --target <root>` instruction.
+- Unified activation is idempotent and reports Pi, OMP, Jcode global-hook, exact-root trust, local transport, and doctor readiness outcomes in one Markdown/JSON result without emitting planned file contents.
+- A partial failure must restore all activation state changed by that invocation while preserving pre-existing Pi/OMP files, unrelated Jcode TOML, user-owned local config, and prior trust.
+- Projects reuse one machine-global lazy-patched Jcode candidate. Project activation must not copy/build Jcode per root or silently promote the candidate over official stable/current or the normal launcher.
+- Machine launcher option A is confirmed: after candidate provenance and pointer validation, atomically repoint only `~/.local/bin/jcode` to `~/.jcode/builds/lazy-patched/jcode`; preserve its exact prior target and leave official stable/current unchanged.
+- `launcher-status` validates the completed candidate, binary digest, and embedded version against strict provenance. `promote-launcher` persists mode-0600 rollback state before atomic symlink replacement; `rollback-launcher` restores the exact prior symlink or missing state and refuses unrelated launcher drift.
+
 ## Runtime bridge contract
 
 ### Root resolution
 
-Resolve candidates only from official Jcode evidence, in this order:
+Resolve candidates only from official Jcode evidence:
 
-1. `JCODE_HOOK_CWD`,
-2. `cwd` inside `JCODE_HOOK_PAYLOAD`.
+1. When `JCODE_HOOK_PAYLOAD.cwd` is present and non-empty, it is the current request authority and is the only root candidate.
+2. Fall back to `JCODE_HOOK_CWD` only when the payload omits cwd.
 
-Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, then require an exact trust-registry match. Do not fall back to adapter process cwd, sibling checkouts, remembered roots, or marker-only trust.
+This ordering is required because an inherited hook environment can briefly retain the previous root after native same-session `/cwd`. Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, then require an exact trust-registry match. Do not fall back to adapter process cwd, sibling checkouts, remembered roots, or marker-only trust.
+
+### Same-session cwd transition
+
+- Jcode core owns `/pwd`, `/cwd [path]`, `/cd <path>`, existing-directory canonicalization, mutation and persistence of the current session `working_dir`, remote `SetCwd`/`SessionCwd`, client propagation, and the LLM cwd tool.
+- The transition preserves the current session id and conversation messages. It must not create a new session or worktree.
+- On the next provider request, Jcode rebuilds project instructions, skills, and headers from the updated working directory, including after visible conversation has begun.
+- The adapter consumes the request payload cwd, selects the target exact-trusted lazy root, and treats any persisted state envelope whose `root` differs as invalid.
+- The first target-root `before_model` atomically persists a fresh target-root envelope with empty `pending` and `recent` rows before emitting target grammar. Old-root evidence cannot satisfy a target-root gate.
+- Jcode core must snapshot every live field changed by `Agent::set_working_dir`. If `session.save()` fails, it restores that snapshot before returning the error. Remote `SetCwd`, local slash commands, and the LLM cwd tool must not publish successful events or metadata for a rolled-back transition.
+- Remote clients must update their reconnect/subscription cwd source when `SessionCwd` succeeds. Reconnecting after A → `/cwd` B must advertise B and must not overwrite the persisted/live session back to A.
+- Implemented by Jcode commits `2f44249d1` (transactional rollback and error-only failure propagation) and `d58409274` (exact established-session reconnect uses live cwd).
 
 ### Turn start
 
@@ -130,6 +162,7 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 - Cap the complete UTF-8 reminder at 24,000 bytes. Dynamic lifecycle context is appended only within the remaining budget, so canonical grammar has priority.
 - Empty, malformed, timed-out, or failed dynamic hook output omits only the dynamic section. Missing/empty/oversized canonical grammar or an untrusted root fails open with no stdout.
 - The injected body is request-scoped dynamic system context. It is not canonical memory and must not alter Jcode's static prompt-cache portion.
+- A root mismatch is persisted as a fresh empty state envelope before dynamic context is selected, so stale old-root evidence is removed even when no target-root tool has run yet.
 
 ### Pre-tool
 
@@ -180,14 +213,22 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
 - Never log raw user messages, assistant prose beyond Jcode's bounded turn-end field, tool results, secrets, or full tool inputs in persistent adapter state.
 - Persist only canonical root-contained filesystem paths needed by guards plus tool name, status, timestamps, and hashes; reject URL-shaped, control-character, or out-of-root `path` values and never persist command/query/URL text.
 - Resolve state under canonical `$LAZY_RUNTIME_ROOT` when explicitly provided; otherwise use the worktree git-dir/session runtime root, matching `runtime_paths.py`, and pass the same runtime environment to canonical hooks.
+- An explicitly shared `$LAZY_RUNTIME_ROOT` may keep one session envelope, but a cwd root mismatch must replace that envelope immediately rather than retain or reactivate evidence from either root.
 - Long-lived Jcode server processes must not share evidence between roots or sessions.
 
 ## Implementation map
 
-- Status: Phases 1–3 core committed through `dcc8ed100`, installed on the current channel, and doctor/smoke/focused fixtures pass; paid source-build live matrix pending
+- Status: Phases 1–3 core, unified activation, reversible launcher promotion, native same-session cwd restoration, independent review, and refreshed candidate verification complete; closing standard validation follows the final record mutation
 - Primary files:
   - `/home/lazydino/dev/jcode/crates/jcode-base/src/hooks.rs` — strict bounded `before_model` execution, parsing, recursion suppression, request-kind classification, and dynamic-only application.
+  - `.lazy-harness/scripts/agent-activate.ts` — unified Pi/OMP/Jcode transaction owner with stable adapter-source selection, global-hook repair, exact-root trust, content-free reporting, and Pi/OMP rollback.
+  - `.lazy-harness/scripts/lazy-init.ts` — explicit post-init activation caller with framework-only opt-out.
+  - `.lazy-harness/scripts/lazy-sync.ts` — trust-aware repair/report caller that never creates trust and updates its marker only after successful repair.
+  - `.lazy-harness/scripts/jcode-package.ts` — launcher status/promotion/rollback validates immutable candidate provenance and preserves exact prior launcher state.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/agent/prompting.rs` — shared app-core provider request prompt boundary.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/cwd.rs` — shared cwd parser/resolver and same-session mutation contract.
+  - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/cwd.rs` — LLM cwd tool and cwd-change metadata side effects.
+  - `/home/lazydino/dev/jcode/crates/jcode-protocol/src/protocol.rs` — remote `SetCwd` request and `SessionCwd` event contract.
   - `/home/lazydino/dev/jcode/crates/jcode-tui/src/tui/app/turn_hooks.rs` — local TUI test-harness request boundary.
   - `/home/lazydino/dev/jcode/crates/jcode-app-core/src/tool/ask.rs` — bounded ask validation and typed answer/needs-input result.
   - `/home/lazydino/dev/jcode/crates/jcode-tool-core/src/lib.rs` — session interaction broker.
@@ -210,15 +251,18 @@ Walk upward until `.lazy-harness/bin/lazy` exists, canonicalize the real path, t
   2. Jcode dispatches official events to `lazy jcode hook`.
   3. The adapter canonicalizes the live root and bridges shared lifecycle hooks only for an exact registry match.
   4. Marker-only/non-lazy projects return silently; doctor reports hooks, trust, TOML validity, and capability gaps.
+  5. Native cwd changes preserve the session, rebuild target-root prompt sources, and cause the adapter to replace old-root state before target-root grammar or evidence is used.
 - Key symbols:
   - `activeRoot` / `statePath` / `withState` — exact trust gate, canonical state path, stale-lock recovery, and ownership-safe cleanup.
   - `turnStart` / `preTool` / `postTool` / `turnEnd` — translate official lifecycle events without persisting raw command/query/URL text.
   - `loadTrustRegistry` / `updateTrustedRoot` / `writeTrustRegistry` — canonical root trust.
   - `installText` / `removeText` / `trustCommand` / `classifyHooks` — preserve valid TOML and stop on conflicts.
   - `updateLocalPromptTransport` / `inspectLocalPromptTransport` — own the private local flag, ignore metadata, backup, status, and exact removal contract.
+  - `parse_cwd_command` / `resolve_cwd` / `Agent::set_working_dir` / `CwdTool` — Jcode core same-session cwd parsing, canonicalization, persistence, and tool transport in commit `71adb1853`.
 - Tests / protection:
   - `.lazy-harness/tests/jcode-agent-adapter.md`
   - `.lazy-harness/scripts/self-test.py#check_jcode_agent_adapter`
+  - Jcode focused tests for cwd protocol/app-core plus `request_prompt_rebuilds_agents_from_updated_cwd_after_visible_conversation`.
 - Ownership boundaries:
   - Lazy-Harness owns translation, root isolation, and canonical hook calls.
   - Jcode owns official event timing, observer detachment, gate timeout, and prompt loading.

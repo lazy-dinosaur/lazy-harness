@@ -1,19 +1,28 @@
 #!/usr/bin/env bun
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
+  accessSync,
+  constants,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
   renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
   canonicalRoot,
   isTrustedRoot,
+  jcodeHome,
   loadTrustRegistry,
   relativeJcodeHome,
   trustRegistryPath,
@@ -33,11 +42,16 @@ type Action =
   | 'smoke'
   | 'trust'
   | 'untrust'
-  | 'trusted-roots';
+  | 'trusted-roots'
+  | 'launcher-status'
+  | 'promote-launcher'
+  | 'rollback-launcher';
 type Options = {
   action: Action;
   config?: string;
   target?: string;
+  launcher?: string;
+  adapterLazy?: string;
   dryRun: boolean;
   format: Format;
 };
@@ -60,13 +74,16 @@ function usage(exitCode = 0): never {
   out(`Usage: lazy jcode <command> [options]
 
 Commands:
-  install [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
+  install [--target=DIR] [--adapter-lazy=PATH] [--dry-run] [--format=md|json] [--config=PATH]
   remove  [--target=DIR] [--dry-run] [--format=md|json] [--config=PATH]
-  doctor  [--target=DIR] [--format=md|json] [--config=PATH]
+  doctor  [--target=DIR] [--adapter-lazy=PATH] [--format=md|json] [--config=PATH]
   smoke   [--dry-run] [--format=md|json]
   trust   [--target=DIR] [--dry-run] [--format=md|json]
   untrust [--target=DIR] [--dry-run] [--format=md|json]
   trusted-roots [--format=md|json]
+  launcher-status [--launcher=PATH] [--format=md|json]
+  promote-launcher [--launcher=PATH] [--dry-run] [--format=md|json]
+  rollback-launcher [--launcher=PATH] [--dry-run] [--format=md|json]
 
 Managed hooks execute project lifecycle scripts only for canonical roots in the
 user-owned trusted-roots registry; all other projects silently no-op.`);
@@ -85,7 +102,18 @@ function optionValue(argv: string[], index: number, flag: string): [string, numb
 
 function parseOptions(argv: string[]): Options {
   const action = argv[0] as Action | undefined;
-  const actions: Action[] = ['install', 'remove', 'doctor', 'smoke', 'trust', 'untrust', 'trusted-roots'];
+  const actions: Action[] = [
+    'install',
+    'remove',
+    'doctor',
+    'smoke',
+    'trust',
+    'untrust',
+    'trusted-roots',
+    'launcher-status',
+    'promote-launcher',
+    'rollback-launcher',
+  ];
   if (!action || !actions.includes(action)) usage(2);
   const options: Options = { action, dryRun: false, format: 'md' };
   for (let index = 1; index < argv.length; index += 1) {
@@ -104,6 +132,14 @@ function parseOptions(argv: string[]): Options {
     } else if (arg === '--target' || arg.startsWith('--target=')) {
       const [raw, consumed] = optionValue(argv, index, '--target');
       options.target = resolve(raw);
+      index = consumed;
+    } else if (arg === '--launcher' || arg.startsWith('--launcher=')) {
+      const [raw, consumed] = optionValue(argv, index, '--launcher');
+      options.launcher = resolve(raw);
+      index = consumed;
+    } else if (arg === '--adapter-lazy' || arg.startsWith('--adapter-lazy=')) {
+      const [raw, consumed] = optionValue(argv, index, '--adapter-lazy');
+      options.adapterLazy = resolve(raw);
       index = consumed;
     } else if (arg === '-h' || arg === '--help' || arg === 'help') {
       usage(0);
@@ -124,6 +160,12 @@ function defaultTarget(): string {
 
 function sourceLazyPath(): string {
   return resolve(import.meta.dir, '..', 'bin', 'lazy');
+}
+
+function selectedLazyPath(options: Options): string {
+  const path = options.adapterLazy ?? sourceLazyPath();
+  if (!existsSync(path)) throw new Error(`Jcode adapter lazy entrypoint does not exist: ${path}`);
+  return path;
 }
 
 function tomlString(value: string): string {
@@ -338,7 +380,13 @@ function installOrRemove(options: Options): void {
     }
   }
 
-  const commands = managedCommands();
+  let commands: Record<HookKey, string>;
+  try {
+    commands = managedCommands(selectedLazyPath(options));
+  } catch (error) {
+    emitFailure('Jcode adapter source error', { error: String(error) }, options.format);
+    return;
+  }
   const result = options.action === 'install' ? installText(original, commands) : removeText(original, commands);
   if (result.conflicts.length > 0 && options.action === 'install') {
     emitFailure(
@@ -513,6 +561,323 @@ function trustedRoots(options: Options): void {
   );
 }
 
+type LauncherRollbackState = {
+  schemaVersion: 'lazy-jcode-launcher-rollback/v1';
+  launcher: string;
+  channel: string;
+  prior: { kind: 'missing' } | { kind: 'symlink'; target: string };
+  promotedAt: string;
+};
+
+function pathExistsIncludingBrokenSymlink(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function launcherPaths(options: Options) {
+  const channel = join(jcodeHome(), 'builds', 'lazy-patched', 'jcode');
+  const launcher = options.launcher ?? join(homedir(), '.local', 'bin', 'jcode');
+  const rollback = join(jcodeHome(), 'builds', 'lazy-patched', 'launcher-rollback.json');
+  return { channel, launcher, rollback };
+}
+
+function sha256(path: string): string {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function validateLazyPatchedCandidate(channel: string): Record<string, unknown> {
+  if (!pathExistsIncludingBrokenSymlink(channel) || !lstatSync(channel).isSymbolicLink()) {
+    throw new Error(`lazy-patched channel is not a symlink: ${channel}`);
+  }
+  const candidate = realpathSync(channel);
+  accessSync(candidate, constants.X_OK);
+  const candidateDir = dirname(candidate);
+  const complete = join(candidateDir, '.complete');
+  const provenancePath = join(candidateDir, 'provenance.json');
+  if (!existsSync(complete) || !existsSync(provenancePath)) {
+    throw new Error(`lazy-patched candidate is incomplete: ${candidateDir}`);
+  }
+  const provenance = JSON.parse(readFileSync(provenancePath, 'utf8')) as {
+    schema?: number;
+    binary_sha256?: string;
+    version_json?: { git_hash?: string; version?: string };
+  };
+  if (provenance.schema !== 1 || !provenance.binary_sha256 || !provenance.version_json?.git_hash) {
+    throw new Error(`invalid lazy-patched provenance: ${provenancePath}`);
+  }
+  const binarySha256 = sha256(candidate);
+  if (binarySha256 !== provenance.binary_sha256) {
+    throw new Error(`lazy-patched binary digest mismatch: ${candidate}`);
+  }
+  const versionResult = spawnSync(candidate, ['version', '--json'], { encoding: 'utf8', timeout: 10_000 });
+  if (versionResult.status !== 0) {
+    throw new Error(`lazy-patched version check failed: ${versionResult.stderr.trim()}`);
+  }
+  const version = JSON.parse(versionResult.stdout) as { git_hash?: string; version?: string };
+  if (version.git_hash !== provenance.version_json.git_hash) {
+    throw new Error(`lazy-patched version/provenance mismatch: ${version.git_hash ?? 'unknown'}`);
+  }
+  return { candidate, complete, provenance: provenancePath, binarySha256, version };
+}
+
+function capturePriorLauncher(launcher: string): LauncherRollbackState['prior'] {
+  if (!pathExistsIncludingBrokenSymlink(launcher)) return { kind: 'missing' };
+  const stat = lstatSync(launcher);
+  if (!stat.isSymbolicLink()) {
+    throw new Error(`normal launcher is not a symlink; refusing replacement: ${launcher}`);
+  }
+  return { kind: 'symlink', target: readlinkSync(launcher) };
+}
+
+function launcherMatchesPrior(launcher: string, prior: LauncherRollbackState['prior']): boolean {
+  if (prior.kind === 'missing') return !pathExistsIncludingBrokenSymlink(launcher);
+  return (
+    pathExistsIncludingBrokenSymlink(launcher) &&
+    lstatSync(launcher).isSymbolicLink() &&
+    readlinkSync(launcher) === prior.target
+  );
+}
+
+function atomicSymlink(target: string, path: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.tmp`;
+  rmSync(tmp, { force: true });
+  symlinkSync(target, tmp);
+  renameSync(tmp, path);
+}
+
+function writeRollbackState(path: string, state: LauncherRollbackState): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tmp, path);
+}
+
+function readRollbackState(path: string): LauncherRollbackState | undefined {
+  if (!existsSync(path)) return undefined;
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<LauncherRollbackState>;
+  if (
+    parsed.schemaVersion !== 'lazy-jcode-launcher-rollback/v1' ||
+    typeof parsed.launcher !== 'string' ||
+    typeof parsed.channel !== 'string' ||
+    !parsed.prior ||
+    (parsed.prior.kind !== 'missing' && (parsed.prior.kind !== 'symlink' || typeof parsed.prior.target !== 'string'))
+  ) {
+    throw new Error(`invalid launcher rollback state: ${path}`);
+  }
+  return parsed as LauncherRollbackState;
+}
+
+function launcherStatus(options: Options): void {
+  const paths = launcherPaths(options);
+  let candidate: Record<string, unknown> | undefined;
+  let candidateError: string | undefined;
+  try {
+    candidate = validateLazyPatchedCandidate(paths.channel);
+  } catch (error) {
+    candidateError = String(error);
+  }
+  const launcherKind = pathExistsIncludingBrokenSymlink(paths.launcher)
+    ? lstatSync(paths.launcher).isSymbolicLink()
+      ? 'symlink'
+      : 'other'
+    : 'missing';
+  const launcherTarget = launcherKind === 'symlink' ? readlinkSync(paths.launcher) : undefined;
+  let promoted = false;
+  try {
+    promoted = launcherKind === 'symlink' && realpathSync(paths.launcher) === realpathSync(paths.channel);
+  } catch {
+    promoted = false;
+  }
+  emit(
+    {
+      title: 'Jcode lazy-patched launcher status',
+      ok: candidate !== undefined,
+      ...paths,
+      launcherKind,
+      launcherTarget: launcherTarget ?? 'none',
+      promoted,
+      rollbackAvailable: existsSync(paths.rollback),
+      candidate: candidate ?? 'invalid',
+      candidateError: candidateError ?? 'none',
+    },
+    options.format,
+  );
+  if (!candidate) process.exitCode = 1;
+}
+
+function promoteLauncher(options: Options): void {
+  const paths = launcherPaths(options);
+  let candidate: Record<string, unknown>;
+  try {
+    candidate = validateLazyPatchedCandidate(paths.channel);
+  } catch (error) {
+    emitFailure('Jcode launcher promotion error', { ...paths, error: String(error) }, options.format);
+    return;
+  }
+  let alreadyPromoted = false;
+  try {
+    alreadyPromoted = pathExistsIncludingBrokenSymlink(paths.launcher) && realpathSync(paths.launcher) === realpathSync(paths.channel);
+  } catch {
+    alreadyPromoted = false;
+  }
+  if (alreadyPromoted) {
+    if (!existsSync(paths.rollback)) {
+      emitFailure(
+        'Jcode launcher promotion conflict',
+        { ...paths, error: 'launcher already targets lazy-patched channel but no rollback state exists' },
+        options.format,
+      );
+      return;
+    }
+    emit(
+      {
+        title: 'Jcode launcher promotion',
+        ok: true,
+        changed: false,
+        dryRun: options.dryRun,
+        ...paths,
+        rollbackAvailable: existsSync(paths.rollback),
+        candidate,
+      },
+      options.format,
+    );
+    return;
+  }
+  if (existsSync(paths.rollback)) {
+    try {
+      const stale = readRollbackState(paths.rollback);
+      if (!stale || stale.launcher !== paths.launcher || stale.channel !== paths.channel || !launcherMatchesPrior(paths.launcher, stale.prior)) {
+        throw new Error('rollback state already exists while launcher is not in its recorded prior state');
+      }
+      if (!options.dryRun) rmSync(paths.rollback, { force: true });
+    } catch (error) {
+      emitFailure('Jcode launcher promotion conflict', { ...paths, error: String(error) }, options.format);
+      return;
+    }
+  }
+  let prior: LauncherRollbackState['prior'];
+  try {
+    prior = capturePriorLauncher(paths.launcher);
+  } catch (error) {
+    emitFailure('Jcode launcher promotion error', { ...paths, error: String(error) }, options.format);
+    return;
+  }
+  const state: LauncherRollbackState = {
+    schemaVersion: 'lazy-jcode-launcher-rollback/v1',
+    launcher: paths.launcher,
+    channel: paths.channel,
+    prior,
+    promotedAt: new Date().toISOString(),
+  };
+  if (!options.dryRun) {
+    try {
+      writeRollbackState(paths.rollback, state);
+      atomicSymlink(paths.channel, paths.launcher);
+      if (realpathSync(paths.launcher) !== realpathSync(paths.channel)) throw new Error('launcher verification failed');
+      const verifiedCandidate = validateLazyPatchedCandidate(paths.channel);
+      if (verifiedCandidate.candidate !== candidate.candidate) throw new Error('lazy-patched channel changed during promotion');
+    } catch (error) {
+      try {
+        if (prior.kind === 'symlink') atomicSymlink(prior.target, paths.launcher);
+        else rmSync(paths.launcher, { force: true });
+        rmSync(paths.rollback, { force: true });
+      } catch {
+        // Status/doctor will expose residual drift.
+      }
+      emitFailure('Jcode launcher promotion error', { ...paths, error: String(error) }, options.format);
+      return;
+    }
+  }
+  emit(
+    {
+      title: 'Jcode launcher promotion',
+      ok: true,
+      changed: true,
+      dryRun: options.dryRun,
+      ...paths,
+      prior,
+      candidate,
+    },
+    options.format,
+  );
+}
+
+function rollbackLauncher(options: Options): void {
+  const paths = launcherPaths(options);
+  let state: LauncherRollbackState | undefined;
+  try {
+    state = readRollbackState(paths.rollback);
+  } catch (error) {
+    emitFailure('Jcode launcher rollback error', { ...paths, error: String(error) }, options.format);
+    return;
+  }
+  if (!state) {
+    emitFailure('Jcode launcher rollback error', { ...paths, error: 'no rollback state exists' }, options.format);
+    return;
+  }
+  if (state.launcher !== paths.launcher || state.channel !== paths.channel) {
+    emitFailure('Jcode launcher rollback error', { ...paths, error: 'rollback state path mismatch' }, options.format);
+    return;
+  }
+  let currentlyPromoted = false;
+  try {
+    currentlyPromoted = realpathSync(paths.launcher) === realpathSync(paths.channel);
+  } catch {
+    currentlyPromoted = false;
+  }
+  if (!currentlyPromoted) {
+    const priorAlreadyRestored = launcherMatchesPrior(paths.launcher, state.prior);
+    if (priorAlreadyRestored) {
+      if (!options.dryRun) rmSync(paths.rollback, { force: true });
+      emit(
+        {
+          title: 'Jcode launcher rollback',
+          ok: true,
+          changed: false,
+          dryRun: options.dryRun,
+          ...paths,
+          restored: state.prior,
+          recoveredStaleState: true,
+        },
+        options.format,
+      );
+      return;
+    }
+    emitFailure(
+      'Jcode launcher rollback conflict',
+      { ...paths, error: 'launcher no longer targets the recorded lazy-patched channel' },
+      options.format,
+    );
+    return;
+  }
+  if (!options.dryRun) {
+    try {
+      if (state.prior.kind === 'symlink') atomicSymlink(state.prior.target, paths.launcher);
+      else rmSync(paths.launcher, { force: true });
+      rmSync(paths.rollback, { force: true });
+    } catch (error) {
+      emitFailure('Jcode launcher rollback error', { ...paths, error: String(error) }, options.format);
+      return;
+    }
+  }
+  emit(
+    {
+      title: 'Jcode launcher rollback',
+      ok: true,
+      changed: true,
+      dryRun: options.dryRun,
+      ...paths,
+      restored: state.prior,
+    },
+    options.format,
+  );
+}
+
 function jcodeVersion(): { available: boolean; version?: string; error?: string } {
   const result = spawnSync('jcode', ['version', '--json'], { encoding: 'utf8', timeout: 10_000 });
   if (result.error || result.status !== 0) {
@@ -530,7 +895,14 @@ function doctor(options: Options): void {
   const config = options.config ?? defaultConfigPath();
   const original = readConfig(config);
   const validation = tomlIsValid(original);
-  const classification = classifyHooks(original ? original.replace(/\n$/, '').split('\n') : [], managedCommands());
+  let commands: Record<HookKey, string>;
+  try {
+    commands = managedCommands(selectedLazyPath(options));
+  } catch (error) {
+    emitFailure('Jcode adapter source error', { error: String(error) }, options.format);
+    return;
+  }
+  const classification = classifyHooks(original ? original.replace(/\n$/, '').split('\n') : [], commands);
   const version = jcodeVersion();
   let root: string | undefined;
   try {
@@ -631,6 +1003,9 @@ function main(): void {
   else if (options.action === 'doctor') doctor(options);
   else if (options.action === 'trust' || options.action === 'untrust') trustCommand(options);
   else if (options.action === 'trusted-roots') trustedRoots(options);
+  else if (options.action === 'launcher-status') launcherStatus(options);
+  else if (options.action === 'promote-launcher') promoteLauncher(options);
+  else if (options.action === 'rollback-launcher') rollbackLauncher(options);
   else smoke(options);
 }
 

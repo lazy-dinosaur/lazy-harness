@@ -73,7 +73,7 @@ Commands:
                                 Manage lazy-harness-pi install/list/smoke wrappers for official Pi
   omp install|remove|list|smoke|doctor
                                 Manage lazy-harness-pi plugin wrappers for Oh My Pi / OMP
-  jcode install|remove|smoke|doctor|trust|untrust|trusted-roots
+  jcode install|remove|smoke|doctor|trust|untrust|trusted-roots|launcher-status|promote-launcher|rollback-launcher
                                 Manage official Jcode hooks; repository scripts run only for explicitly trusted lazy roots
   capability add|list|resolve|candidates|audit
                                 Add, list, resolve, suggest, or audit registered capabilities
@@ -229,7 +229,7 @@ case "$cmd" in
         shift || true
         exec bun "$SCRIPTS/jcode-adapter.ts" "$event" "$@"
         ;;
-      install|remove|smoke|doctor|trust|untrust|trusted-roots)
+      install|remove|smoke|doctor|trust|untrust|trusted-roots|launcher-status|promote-launcher|rollback-launcher)
         exec bun "$SCRIPTS/jcode-package.ts" "$subcmd" "$@"
         ;;
       help|-h|--help)
@@ -237,7 +237,7 @@ case "$cmd" in
         ;;
       *)
         echo "Unknown lazy jcode command: $subcmd" >&2
-        echo "Usage: lazy jcode install|remove|smoke|doctor|trust|untrust|trusted-roots" >&2
+        echo "Usage: lazy jcode install|remove|smoke|doctor|trust|untrust|trusted-roots|launcher-status|promote-launcher|rollback-launcher" >&2
         exit 2
         ;;
     esac

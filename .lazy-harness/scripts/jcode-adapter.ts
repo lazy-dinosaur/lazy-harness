@@ -113,10 +113,13 @@ function findLazyRoot(start: string | undefined): string | undefined {
 }
 
 function activeRoot(payload: Record<string, unknown>): string | undefined {
-  const candidates = [
-    process.env.JCODE_HOOK_CWD,
-    typeof payload.cwd === 'string' ? payload.cwd : undefined,
-  ];
+  const payloadCwd = typeof payload.cwd === 'string' && payload.cwd.trim()
+    ? payload.cwd
+    : undefined;
+  // The request payload is the current session view. During an in-session /cwd
+  // transition an inherited hook env can briefly retain the previous root; never
+  // fall back to that stale trusted root when the payload supplied a cwd.
+  const candidates = payloadCwd ? [payloadCwd] : [process.env.JCODE_HOOK_CWD];
   for (const candidate of candidates) {
     const root = findLazyRoot(candidate);
     if (root && isTrustedRoot(root)) return root;
@@ -488,7 +491,12 @@ function turnFollowup(root: string, session: string, path: string): void {
 }
 
 function beforeModel(root: string, session: string, path: string): void {
-  const state = loadState(path, root, session);
+  // Persist the root-validated snapshot at the first model boundary. If /cwd kept
+  // the same session/runtime path, loadState returns a fresh envelope for the new
+  // root and this write removes old-root evidence before any target-root tool can
+  // run.
+  const state = withState(path, root, session, (current) => current)
+    ?? loadState(path, root, session);
   const hasToolEvidence = state.recent.length > 0;
   const payload = hookEnvPayload('model.request.before', root, session, {
     request_kind: hasToolEvidence ? 'post_tool' : 'initial',

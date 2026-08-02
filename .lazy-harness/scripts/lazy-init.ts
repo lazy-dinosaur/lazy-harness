@@ -48,7 +48,7 @@ import {
   renameSync
 } from 'node:fs'
 import { join, dirname, basename, resolve, relative } from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -60,6 +60,7 @@ interface Args {
   dryRun: boolean
   force: boolean
   skipHooks: boolean
+  skipAgentActivation: boolean
   quiet: boolean
 }
 
@@ -70,6 +71,7 @@ function parseArgs(argv: string[]): Args {
     dryRun: false,
     force: false,
     skipHooks: false,
+    skipAgentActivation: false,
     quiet: false
   }
   for (let i = 0; i < argv.length; i++) {
@@ -81,6 +83,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--force') args.force = true
     else if (a === '--skip-hooks') args.skipHooks = true
+    else if (a === '--skip-agent-activation') args.skipAgentActivation = true
     else if (a === '--quiet') args.quiet = true
     else if (a === '--help' || a === '-h') {
       printHelp()
@@ -107,12 +110,13 @@ Options:
   --dry-run         Show planned actions only
   --force           Overwrite existing .lazy-harness/
   --skip-hooks      Don't wire git pre-commit hook
+  --skip-agent-activation
+                    Install framework files without activating Pi/OMP/Jcode for this root
   --quiet           Suppress per-file logs
 
   0 success | 1 validation | 2 conflict | 3 io
 
-After success, run:
-  .lazy-harness/bin/lazy agent activate --target <dir>`)
+By default, successful init activates Pi/OMP/Jcode for the explicit target.`)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -615,6 +619,30 @@ function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPat
   log(`  ✓ version marker: ${markerPath} → ${sha.slice(0, 12)}`)
 }
 
+function postInitAgentActivation(sourceRoot: string, targetRoot: string, args: Args): 'activated' | 'dry-run' | 'skipped' {
+  if (args.skipAgentActivation) {
+    log('  ⊘ skipped: unified Pi/OMP/Jcode activation (--skip-agent-activation)')
+    return 'skipped'
+  }
+  if (resolve(sourceRoot) === resolve(targetRoot)) {
+    log('  ⊘ skipped: unified activation for self-target source repo')
+    return 'skipped'
+  }
+  const lazy = join(sourceRoot, '.lazy-harness', 'bin', 'lazy')
+  const command = [lazy, 'agent', 'activate', '--target', targetRoot, '--format=json']
+  if (args.dryRun) {
+    log(`  [dry] would activate Pi/OMP/Jcode: ${command.join(' ')} --dry-run`)
+    return 'dry-run'
+  }
+  const result = spawnSync(command[0], command.slice(1), { encoding: 'utf8', env: process.env })
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`
+    throw new Error(`unified agent activation failed: ${detail}`)
+  }
+  log('  ✓ unified Pi/OMP/Jcode activation complete')
+  return 'activated'
+}
+
 // ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
@@ -665,19 +693,26 @@ function main(): void {
     }
   }
 
+  let activation: 'activated' | 'dry-run' | 'skipped'
+  try {
+    activation = postInitAgentActivation(sourceRoot, targetRoot, args)
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(3)
+  }
+
   // Summary
   log('\n[Summary]')
   log(`  Category A: ${a.copied} files copied (framework 본체)`)
   log(`  Category B: ${b.created} containers seeded (institutional memory)`)
   log(`  Post-init:  ${manifest.postInit.actions.length} actions ${DRY ? '(dry)' : 'executed'}`)
+  log(`  Activation: ${activation}`)
   log('')
   if (DRY) {
     log('Dry run complete. Re-run without --dry-run to apply.')
-    log(`Activation preview: ${join(targetRoot, '.lazy-harness', 'bin', 'lazy')} agent activate --target ${targetRoot} --dry-run`)
   } else {
     log(`✓ lazy-harness installed at ${join(targetRoot, '.lazy-harness')}`)
-    log(`  Next: cd ${targetRoot} && .lazy-harness/bin/lazy agent activate --target ${targetRoot}`)
-    log(`  Then: cd ${targetRoot} && python3 .lazy-harness/scripts/self-test.py`)
+    log(`  Next: cd ${targetRoot} && python3 .lazy-harness/scripts/self-test.py`)
   }
 }
 
