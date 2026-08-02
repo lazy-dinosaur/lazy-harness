@@ -32,6 +32,7 @@ Related ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
   - implement each runtime as a thin adapter over shared hooks
   - preserve Pi/OMP behavior while Jcode support is introduced independently
   - activate automatically only inside a user-trusted lazy-harness project
+  - keep any project-local Jcode file transport-only, private, reversible, and free of canonical policy
 - Must not:
   - restore the generated `.jcode` directory bridge or duplicate policy in runtime config
   - treat Jcode memory as project or team policy authority
@@ -60,16 +61,16 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 2. Jcode receives a separate adapter that translates official `JCODE_HOOK_*` events into the canonical lazy-harness lifecycle payloads.
 3. Jcode installation is explicit once and registers the current lazy root in a user-owned trust registry; runtime application is automatic only for exact trusted roots.
 4. Outside a trusted lazy-harness root, every Jcode hook exits successfully without mutation, output, state creation, or repository script execution.
-5. Global Jcode configuration is changed only through an explicit install command, with backup, idempotent merge, doctor, smoke, and reversible remove behavior.
-6. Project/team policy remains in canonical records. Jcode config, prompt overlay, skills, and memory are transport or personal surfaces only.
+5. Global Jcode configuration is changed only through an explicit install command. An exact trusted root may additionally receive a gitignored `.jcode/config.local.toml` containing only a reversible managed transport flag such as `[prompt] ignore_project_agents = true`, with TOML-safe backup/merge/remove behavior.
+6. Project/team policy remains in canonical records. Jcode config, prompt overlay, skills, and memory are transport or personal surfaces only; the local flag must not duplicate grammar or policy.
 7. Parity claims are capability-specific. Unsupported Jcode surfaces such as Pi-style `context` reinjection, bounded `agent_end` continuation, or native selectable `ask` are reported honestly and require live evidence before equivalence is claimed.
-8. A new lazy project requires one explicit `lazy jcode trust` before global hooks may execute its lifecycle scripts; `untrust` is reversible and does not modify the project.
+8. A new lazy project requires one explicit `lazy jcode trust` before global hooks may execute its lifecycle scripts or the local transport flag may be managed; `untrust` reverses only managed adapter state.
 
 ## Rejected alternatives
 
 - Restore `.jcode` generation and the old directory bridge — rejected because it duplicates policy and revives superseded infrastructure.
 - Fold Jcode into `pi-package.ts` — rejected because Jcode uses global TOML hooks rather than Pi/OMP package manifests and extension events.
-- Configure all projects with project-owned Jcode policy — rejected because canonical policy belongs in `.lazy-harness`; global hooks only transport policy for explicitly trusted roots.
+- Configure projects with Jcode-owned policy — rejected because canonical policy belongs in `.lazy-harness`; a private source-selection flag is transport, not policy.
 - Trust every directory containing `.lazy-harness/bin/lazy` — rejected because an arbitrary checkout could otherwise trigger execution of repository-controlled hook scripts.
 - Claim full parity from static inspection — rejected because observer ordering, mid-turn interleaving, and turn-end continuation require live verification.
 

@@ -33,6 +33,7 @@ Confirmation: user-confirmed
   - `.lazy-harness/spec/platform/jcode-agent-adapter.md`
   - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
+  - `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
 ## Rule
 
 Lazy-harness enforcement layers must not be weakened into optional memory or best-effort behavior.
@@ -54,6 +55,17 @@ User-confirmed after independent security review:
 - `lazy jcode install` trusts the selected current root; each new project requires `lazy jcode trust`; `untrust` is reversible.
 - Untrusted/non-lazy roots must exit silently before state creation or repository script execution.
 - Adapter state must use canonical root/session runtime paths, honor an explicit `LAZY_RUNTIME_ROOT` consistently with shared hooks, and persist no raw command/query/URL secrets.
+
+## Jcode prompt-source boundary (2026-08-02)
+
+User-confirmed after source review and independent GPT-5.6 Sol counterreview:
+
+- In an exact trusted lazy-harness root, `<project>/AGENTS.md` may be suppressed only through the explicit private transport flag `[prompt] ignore_project_agents = true` in gitignored `.jcode/config.local.toml`.
+- The local Jcode file must not store or copy grammar, records, policy, model routing, or trust decisions. Canonical meaning remains in `.lazy-harness`.
+- The synchronous `before_model` adapter injects canonical `.lazy-harness/AGENTS.md` and bounded re-grounding on every initial and post-tool provider request.
+- Global personal overlays and ordinary-project `AGENTS.md` behavior remain unchanged.
+- Spawned agents use the inherited working directory and therefore receive the same source-selection and trusted-root adapter behavior without a separate authority engine.
+- Do not implement semantic prompt-conflict detection in Jcode. Prompt sources are selected deterministically; the LLM applies canonical injected grammar.
 ## Active memory loop policy
 
 User-confirmed on 2026-06-01:
