@@ -23,9 +23,12 @@ Source records in downstream host: the Medivance install (`/home/lazydino/dev/me
   - run document-only checks (e.g. ingestion `--mode inspect`) without launching the Electron app or a database
   - use the Medivance named `--test` instance workflow and confirm inspect shows the test environment before judging runtime/UI
   - run framework sync first, wait for success, then run host validation; never the same parallel batch
+  - treat the Medivance product branch, product source, and in-progress working tree as protected user work during lazy-harness sync or deployment remediation
+  - scope any sync rollback or repair explicitly to lazy-harness-managed framework/transport files; preserve product files and current product branch state
 - Must not:
   - launch an unnamed/default dev app, reuse a running original instance, or use local/prod DB for runtime dogfood
   - parallelize source-to-Medivance sync with the command that validates the synced feature
+  - run `git reset`, branch rollback, checkout/revert of product files, or any repository-wide rollback in Medivance to repair a lazy-harness deployment
 - Record completion:
   - dogfood runtime-boundary changes update this SSOT and the downstream host's named-instance/restart policy records
 - Related records:
@@ -50,6 +53,8 @@ The inspect output must show the test environment before behavior is judged or r
 
 Framework sync and host execution must be sequential. Do not run `lazy-sync` and the host validation command in the same parallel batch, because the validation can race the sync and execute stale or missing host files. First sync, wait for success, then run the host command.
 
+Medivance product work is outside the rollback boundary of lazy-harness deployment. If a synchronized harness snapshot fails validation, stop and preserve the current product branch and product working tree. Any proposed rollback must name only the lazy-harness-managed files or transport state it would restore; the word "Medivance rollback" must never imply a repository, branch, or product-code rollback.
+
 ## Do not
 
 - Do not launch an unnamed/default Medivance dev app for runtime dogfood.
@@ -57,10 +62,12 @@ Framework sync and host execution must be sequential. Do not run `lazy-sync` and
 - Do not use local/prod DB when the user expects test DB.
 - Do not judge UI persistence/runtime behavior until stale instances have been stopped and the named `--test` instance is inspected.
 - Do not parallelize source-to-Medivance sync with the command that validates the synced framework feature.
+- Do not reset, switch, revert, clean, or otherwise roll back the Medivance product branch or product working tree as part of framework sync remediation.
 
 ## Implementation map
 
 - Downstream Medivance install (`/home/lazydino/dev/medivance`) — host-owned canonical policy for named dev instances / `--test` launcher and runtime restart before judging backend/main-side behavior.
+- Downstream protection boundary — only `.lazy-harness` managed framework files and explicitly managed runtime transport state may be considered for sync repair; Medivance product code, branch state, and unrelated working-tree changes are protected.
 - `.lazy-harness/planning/document-resource-ingestion-implementation-plan.md`
   - Marks the first Medivance dogfood as document-only and not a runtime validation.
 
@@ -73,3 +80,8 @@ Framework sync and host execution must be sequential. Do not run `lazy-sync` and
 - ADR: none.
 - SSOT: updated, this record captures the dogfooding boundary in the source repo.
 - Planning: updated, document ingestion dogfood note clarified as document-only.
+
+## User correction — 2026-08-03
+
+- The user corrected an ambiguous proposal to "roll back Medivance" while active product work was in progress.
+- Confirmed boundary: never roll back the Medivance repository, branch, or product working tree for a lazy-harness deployment failure. Harness remediation must be narrowly scoped and explicitly named.

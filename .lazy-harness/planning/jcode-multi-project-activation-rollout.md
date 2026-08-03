@@ -110,6 +110,23 @@ User-confirmed option A on 2026-08-02: promote the normal `jcode` launcher to th
 - The normal launcher reports git hash `04092f6de`; trusted-root doctor and offline help pass. Stable/current pointers remain unchanged and mode-0600 rollback state preserves the exact prior launcher target.
 - No server reload, provider request, push, rebase, or per-project binary copy occurred.
 
+## Existing-host activation evidence — 2026-08-03
+
+- The normal launcher was confirmed promoted and running the later lazy-patched build `v0.64.141-dev (daf9d3d90)` with all eight managed hooks present.
+- Medivance initially reported `targetTrusted: false` and `localPromptActive: false`; therefore the exact-trusted-root adapter intentionally no-op'd even though the machine-level launcher and hooks were installed. This explained the observed plain-text option output and ungoverned auto-poke continuation without treating it as a missing Jcode binary deployment.
+- After explicit `lazy agent activate --target /home/lazydino/dev/medivance`, the user confirmed that Jcode now appears to behave normally.
+- This is existing-host migration evidence for the intentional rule that `lazy sync` never creates trust: an existing untrusted host needs one explicit activation, while `lazy init` may activate its explicit new target automatically.
+
+## Runtime-neutral progress deployment evidence — 2026-08-03
+
+- The trusted-root registry contained the lazy-harness source root and one downstream activated project, `/home/lazydino/dev/medivance`; therefore Medivance was the complete downstream deployment set for this machine.
+- Runtime-neutral progress commit `f08b1c92b901ae9c247218528ff5cfe222d04c71` was synchronized to Medivance from a clean detached source snapshot, with the marker restored to canonical source root `/home/lazydino/dev/lazy-harness`.
+- Initial host standard validation exposed two missing harness coherence dependencies, not product failures: the committed host snapshot lacked the matching operating-rule catalog implementation and manifest entries for the already-present code-organization records/capability.
+- A detached Medivance candidate worktree proved a two-file harness-only coherence overlay (`hooks/lifecycle/helpers/operating_rule_catalog.py`, `manifests/init-categories.json`) against the two failing checks plus the bounded-validation progress regression before active application.
+- Active Medivance then passed capability registry, on-context catalog, bounded validation progress, Jcode doctor, and final `lazy validate --plan standard`: host self-test `ran=58`, `skipped=28`, exit 0.
+- Medivance product state remained untouched throughout: branch `dev`, HEAD `5c4a1db225d2ed3b1b0edd56ce5ffd8672e3061f`, and clean product working tree were unchanged. No product reset, checkout, revert, branch move, runtime launch, or database action occurred.
+- The shared machine Jcode launcher remained promoted to the lazy-patched channel and Medivance remained an exact trusted root with all eight hooks active.
+
 ## Implementation map
 
 - Planned source seams verified from current source:
