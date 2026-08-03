@@ -1736,11 +1736,33 @@ def check_bounded_validation_governor_cli() -> None:
     if "validate [--plan=fast|standard|release]" not in help_text:
         fail("lazy help should list validate command")
 
-    env = env_without_lazy_runtime(
+    quiet_env = env_without_lazy_runtime(
         LAZY_HOST_ROOT=str(ROOT),
-        LAZY_VALIDATE_PROGRESS="1",
         LAZY_VALIDATE_EVIDENCE_CACHE="0",
     )
+    progress_env = {**quiet_env, "LAZY_PROGRESS_SUPPORTED": "1"}
+    fast_auto_quiet = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "validate",
+            "--plan",
+            "fast",
+            "--files",
+            ".lazy-harness/fixtures/project-map-v2/example-node.json",
+            "--format=json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=quiet_env,
+    )
+    if fast_auto_quiet.returncode != 0:
+        fail("lazy validate fast auto-quiet plan failed:\n" + fast_auto_quiet.stdout + fast_auto_quiet.stderr)
+    json.loads(fast_auto_quiet.stdout)
+    if "LAZY_PROGRESS" in fast_auto_quiet.stderr or "JCODE_PROGRESS" in fast_auto_quiet.stderr:
+        fail("lazy validate --progress=auto should stay quiet without runtime support: " + fast_auto_quiet.stderr)
+
     fast = subprocess.run(
         [
             str(LAZY / "bin" / "lazy"),
@@ -1755,7 +1777,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=progress_env,
     )
     if fast.returncode != 0:
         fail("lazy validate fast plan failed:\n" + fast.stdout + fast.stderr)
@@ -1767,7 +1789,7 @@ def check_bounded_validation_governor_cli() -> None:
         fail("lazy validate fast should run exactly one fast-static step: " + fast.stdout)
     progress_lines = [line for line in fast.stderr.splitlines() if line.startswith("LAZY_PROGRESS ")]
     if len(progress_lines) < 3:
-        fail("lazy validate fast should emit progress rows to stderr without corrupting stdout JSON: " + fast.stderr)
+        fail("lazy validate fast should emit runtime-neutral progress rows when support is advertised: " + fast.stderr)
     try:
         progress_payloads = [json.loads(line.removeprefix("LAZY_PROGRESS ")) for line in progress_lines]
     except json.JSONDecodeError as exc:
@@ -1792,13 +1814,36 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=progress_env,
     )
     if fast_no_progress.returncode != 0:
         fail("lazy validate fast --progress=off failed:\n" + fast_no_progress.stdout + fast_no_progress.stderr)
     json.loads(fast_no_progress.stdout)
-    if "LAZY_PROGRESS" in fast_no_progress.stderr:
+    if "LAZY_PROGRESS" in fast_no_progress.stderr or "JCODE_PROGRESS" in fast_no_progress.stderr:
         fail("lazy validate --progress=off should suppress progress stderr: " + fast_no_progress.stderr)
+
+    fast_explicit_progress = subprocess.run(
+        [
+            str(LAZY / "bin" / "lazy"),
+            "validate",
+            "--plan",
+            "fast",
+            "--progress=on",
+            "--files",
+            ".lazy-harness/fixtures/project-map-v2/example-node.json",
+            "--format=json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=quiet_env,
+    )
+    if fast_explicit_progress.returncode != 0:
+        fail("lazy validate fast --progress=on failed:\n" + fast_explicit_progress.stdout + fast_explicit_progress.stderr)
+    json.loads(fast_explicit_progress.stdout)
+    if "LAZY_PROGRESS " not in fast_explicit_progress.stderr or "JCODE_PROGRESS" in fast_explicit_progress.stderr:
+        fail("lazy validate --progress=on should emit only LAZY_PROGRESS rows: " + fast_explicit_progress.stderr)
 
     release_blocked = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "validate", "--plan", "release", "--format=json"],
@@ -1806,7 +1851,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=quiet_env,
     )
     if release_blocked.returncode == 0:
         fail("lazy validate release should require --allow-release")
@@ -1820,7 +1865,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=quiet_env,
     )
     if release_dry.returncode != 0:
         fail("lazy validate release dry-run failed:\n" + release_dry.stdout + release_dry.stderr)
@@ -1836,7 +1881,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=quiet_env,
     )
     if standard_dry.returncode != 0:
         fail("lazy validate standard dry-run failed:\n" + standard_dry.stdout + standard_dry.stderr)
@@ -1851,7 +1896,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=quiet_env,
     )
     if too_long.returncode == 0:
         fail("lazy validate should reject over-hour budgets")
@@ -1865,7 +1910,7 @@ def check_bounded_validation_governor_cli() -> None:
         text=True,
         capture_output=True,
         check=False,
-        env=env,
+        env=quiet_env,
     )
     if exhausted.returncode == 0:
         fail("lazy validate zero budget should fail without running steps")

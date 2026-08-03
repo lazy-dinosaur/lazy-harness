@@ -33,6 +33,8 @@ MAX_BUDGET_SECONDS = 3600.0
 OUTPUT_TAIL_CHARS = 4000
 CACHE_VERSION = 3
 CACHE_MAX_ENTRIES = 50
+PROGRESS_PREFIX = "LAZY_PROGRESS "
+PROGRESS_SUPPORT_ENV = "LAZY_PROGRESS_SUPPORTED"
 
 
 @dataclass
@@ -337,9 +339,12 @@ def store_step_result(step: ValidationStep, key: str, fingerprint: dict[str, str
 def progress_enabled(value: str, dry_run: bool) -> bool:
     if dry_run:
         return False
-    if value == "off" or os.environ.get("LAZY_VALIDATE_PROGRESS") == "0":
+    legacy_override = os.environ.get("LAZY_VALIDATE_PROGRESS")
+    if value == "off" or legacy_override == "0":
         return False
-    return True
+    if value == "on":
+        return True
+    return os.environ.get(PROGRESS_SUPPORT_ENV) == "1" or legacy_override == "1"
 
 
 def emit_progress(enabled: bool, *, current: int, total: int, message: str) -> None:
@@ -353,7 +358,7 @@ def emit_progress(enabled: bool, *, current: int, total: int, message: str) -> N
         "percent": percent,
         "message": message,
     }
-    print("LAZY_PROGRESS " + json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
+    print(PROGRESS_PREFIX + json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
 
 
 def check_step(files: list[str]) -> ValidationStep:
@@ -605,7 +610,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-release", action="store_true", help="Required to execute --plan release. Not required for --dry-run.")
     parser.add_argument("--dry-run", action="store_true", help="Print the bounded plan without executing steps.")
     parser.add_argument("--evidence-cache", choices=["auto", "on", "off"], default="auto", help="Reuse cached full-regression evidence when the conservative workspace fingerprint matches. Use --evidence-cache=off or LAZY_VALIDATE_EVIDENCE_CACHE=0 to disable.")
-    parser.add_argument("--progress", choices=["auto", "on", "off"], default="auto", help="Emit LAZY_PROGRESS lines to stderr while executing plans. Use --progress=off or LAZY_VALIDATE_PROGRESS=0 to disable.")
+    parser.add_argument(
+        "--progress",
+        choices=["auto", "on", "off"],
+        default="auto",
+        help=(
+            "Emit runtime-neutral LAZY_PROGRESS lines to stderr. auto requires "
+            "LAZY_PROGRESS_SUPPORTED=1; on enables explicitly; off or "
+            "LAZY_VALIDATE_PROGRESS=0 disables."
+        ),
+    )
     parser.add_argument("--format", choices=["md", "json"], default="md")
     args = parser.parse_args(argv)
 

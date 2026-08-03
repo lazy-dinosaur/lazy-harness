@@ -36,6 +36,7 @@ Related ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
   - activate automatically only inside a user-trusted lazy-harness project
   - keep any project-local Jcode file transport-only, private, reversible, and free of canonical policy
   - when a runtime changes the active session cwd, preserve the existing conversation while re-grounding hooks, tools, grammar, and evidence against the new live root
+  - keep shared lazy-harness CLI protocols runtime-neutral; Pi, OMP, Jcode, and future runtimes may consume or translate them only through capability-aware adapters
 - Must not:
   - restore the generated `.jcode` directory bridge or duplicate policy in runtime config
   - treat Jcode memory as project or team policy authority
@@ -71,6 +72,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 9. `lazy init --target <root>` may invoke the unified activation because the user explicitly selected the target and requested installation. `lazy sync` must never create trust for an untrusted root; it may validate or repair already trusted roots and report that explicit activation is required otherwise.
 10. Machine-level selection of the lazy-patched Jcode executable is separate from project trust and must not silently replace official stable/current or the normal launcher.
 11. Project-folder movement is a runtime-native same-session cwd transition, not worktree creation or a new project session. Jcode exposes `/pwd`, `/cwd [path]`, and `/cd <path>`; Pi/OMP retain their native same-session move surface. The next provider boundary must use the target directory's instructions, and lazy-harness evidence from the prior root must be cleared before it can authorize target-root work.
+12. Shared CLI progress uses the runtime-neutral `LAZY_PROGRESS` protocol. Auto mode is quiet until a consumer advertises `LAZY_PROGRESS_SUPPORTED=1`; runtime names such as Jcode must not appear in shared-core protocol prefixes.
 
 ## Rejected alternatives
 
@@ -89,6 +91,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 - Jcode observer hooks cannot be treated as synchronous prompt-injection or blocking surfaces.
 - ADR 0050 remains decision history for the removed directory bridge but is no longer the active runtime-support boundary.
 - One machine-global lazy-patched candidate may be shared by every trusted project, but launcher promotion remains a separately approved machine-level action.
+- Foreground lazy-harness commands remain quiet by default, while any Pi/OMP/Jcode adapter or external runner can explicitly advertise and parse the same progress protocol.
 
 ## Implementation map
 
@@ -154,6 +157,12 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 - Jcode commit `71adb1853` restores native same-session `/pwd`, `/cwd [path]`, `/cd <path>`, remote `SetCwd`/`SessionCwd`, and the LLM cwd tool.
 - Future provider requests rebuild project instructions from the updated session working directory. The lazy-harness adapter treats request payload cwd as current authority, replaces stale root state, and injects only the target trusted root's `.lazy-harness/AGENTS.md`.
 - Pi/OMP source is unchanged in this work unit because their native same-session move path already exposes the required live cwd semantics. The separate custom new-session `/lazy-move` remains outside this decision.
+
+### 2026-08-03 amendment — runtime-neutral validation progress
+
+- Confirmation: user selected option 1 and clarified that lazy-harness must serve Pi, OMP, and Jcode equally rather than exposing a Jcode-branded core protocol.
+- `lazy validate` emits `LAZY_PROGRESS` only for explicit `--progress=on` or advertised auto support; ordinary foreground auto mode is quiet.
+- Runtime-specific rendering belongs in thin adapters or callers, not in the shared validation governor.
 
 ## Discovery capture
 
