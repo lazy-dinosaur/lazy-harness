@@ -115,7 +115,7 @@ User confirmed the next step after Option B: start with advisory resolution befo
 - Emits `enforcement = advisory-only` and `recommendedAction = surface-guidance`.
 - Does not emit warn/block decisions, write state, mutate graph rows, or hook into lifecycle enforcement.
 
-Block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation.
+Generic response/turn block runtime remains a future promoted slice with separate TDD, bypass behavior, and explicit confirmation. The later project command-boundary slice is a separate pre-tool executor for already-promoted structural host policies and does not classify or block response prose.
 
 ## Primary canonical record recommend slice
 
@@ -138,7 +138,8 @@ User confirmed the next step after rulebook semantic retirement: prepare block r
 - Reads `.lazy-harness/ssot/policies.json`.
 - Reports `schemaVersion = policy-block-readiness/v1`.
 - Reports `runtime = block-preflight-only`.
-- Reports `hardStopHookInstalled = false` and `lifecycleMutation = false`.
+- Reports `hardStopHookInstalled = false` and `lifecycleMutation = false` for the generic response/turn block runtime.
+- Reports separately whether already-promoted structural executors are active through `commandBoundaryInstalled` / `commandBoundaryPolicyIds` / `counts.commandBoundaryPolicies` and `typedAgentRoutingInstalled` / `typedAgentRoutingPolicyIds` / `counts.typedAgentRoutingPolicies`.
 - Returns `ready: false` on the source host until a promoted `level=block` policy exists.
 - `--strict` exits nonzero while blockers exist.
 - A block policy is ready only when it has:
@@ -159,6 +160,9 @@ Source-host status after the first block promotion readiness slice:
 - It is scoped to `claiming_validation_complete_without_evidence` and equivalent non-trivial completion claims without evidence.
 - `lazy policy block-readiness --strict --format=json` passes.
 - `hardStopHookInstalled=false` and `lifecycleMutation=false` remain required until a later lifecycle integration slice.
+- On hosts with a promoted `runtime.mode=command-boundary` policy, block-readiness additionally requires `runtime.commandBoundary.guard` plus the shared helper chained from `on-tool-execute-before.sh`.
+- On hosts with a promoted `runtime.mode=typed-agent-routing` policy, block-readiness additionally requires a non-empty `runtime.typedAgentRouting` route map plus `check-agent-model-routing.py` chained from the shared pre-tool hook.
+- These installed structural executors do not change the generic response/turn fields `hardStopHookInstalled=false` and `lifecycleMutation=false`.
 
 ## Dry-run hard-stop runtime helper slice
 
@@ -173,7 +177,7 @@ User confirmed proceeding with dry-run hard-stop runtime integration and review,
 - Always exits zero and fails open.
 - Does not install hooks, mutate lifecycle state, or connect itself to `response.completed`.
 - It is connected to the `response.completed` / `lifecycle-check.py` helper chain only as a dry-run/fail-open review helper.
-- Actual blocking hard-stop behavior remains uninstalled.
+- Generic response/turn blocking hard-stop behavior remains uninstalled.
 - Uses `validation-evidence-block` as the only current source-host block policy.
 
 Allow/block/bypass semantics:
@@ -182,6 +186,26 @@ Allow/block/bypass semantics:
 - `DRY-RUN ALLOW`: explicit block context matches and validation evidence is attached.
 - `DRY-RUN BYPASS`: explicit block context matches and `acknowledgedPolicyBlocks` plus `policyBlockBypassReason` are present.
 - Silent: raw user/assistant text, no `policy_context`, no `blockRuntimeDryRun`, or no matching block policy.
+
+## Promoted project command-boundary runtime slice
+
+User confirmed common structural hard-stop option 1 on 2026-08-04 after a high-cost Medivance PR/worktree dogfood miss.
+
+This slice does not activate generic Policy Machinery block decisions. It installs one runtime-neutral executor for host policies that have already met L5 promotion requirements:
+
+- `check-project-command-boundary.py` runs from the shared `tool.execute.before` chain used by Pi, OMP, and Jcode.
+- It reads only explicit structured shell tool input and `level=block`, `runtime.mode=command-boundary`, `runtime.blocks=true` host policies.
+- The host policy owns the supported guard configuration, protected refs, source record, validation fixture, bypass text, and rollback.
+- Missing/malformed/non-promoted policies are silent and fail open.
+- A structured bypass requires the exact policy id in `acknowledgedPolicyBlocks` plus a non-empty `policyBlockBypassReason`.
+- The first guard, `git-worktree-promotion/v1`, blocks structural Git worktree/promotion mistakes and performs only read-only Git inspection/preflight.
+- The generic response/turn block helper remains dry-run and uninstalled; no raw assistant/user text classification was added.
+
+Contract and regression ownership:
+
+- SDD: `.lazy-harness/spec/platform/project-command-boundary.md`
+- TDD: `.lazy-harness/tests/project-command-boundary.md`
+- Each active host boundary must still carry its own canonical `## Hard-stop promotion` record and block/allow fixture.
 
 ## Hard-stop promotion
 
@@ -303,6 +327,9 @@ Policy candidate, promotion, and demotion events are Project Map update-loop eve
   - `.lazy-harness/scripts/policy.ts` — also exposes `retire-readiness` preflight for rulebook retirement gating.
   - `.lazy-harness/scripts/policy.ts` — exposes `block-readiness` preflight for block runtime preparation without lifecycle mutation.
   - `.lazy-harness/hooks/lifecycle/helpers/check-policy-block-runtime.py` — dry-run review helper for explicit structured block policy context, not installed in lifecycle hooks.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` — installed pre-tool executor for separately promoted host structural command policies.
+  - `.lazy-harness/spec/platform/project-command-boundary.md` — runtime-neutral executor contract.
+  - `.lazy-harness/tests/project-command-boundary.md` — shared block/allow/bypass/merge-tree fixture.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — invokes `check-policy-block-runtime.py` in helper order; helper remains dry-run and fail-open.
   - `.lazy-harness/scripts/lifecycle-check.py` — mirrors the same dry-run helper order for parity/sandbox inspection.
   - `.lazy-harness/ssot/policies.json` — contains `primary-canonical-record` recommend guidance and `validation-evidence-block` readiness metadata.

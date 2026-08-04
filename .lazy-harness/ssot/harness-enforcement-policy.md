@@ -24,13 +24,14 @@ Confirmation: user-confirmed
   - surface a direct framework-structured search prompt before response when host context is likely needed; keep deterministic query/digest CLIs explicit/manual helpers
   - audit missed rules and missing records after response with `response.completed`
   - record unresolved search/read evidence as debt in the pre-turn journal and surface/audit it; do not attach project/context policy to concrete tool surfaces
-  - avoid solving stored-rule recall by adding per-tool project-policy adapters
+  - avoid solving stored-rule recall by adding per-tool project-policy adapters; only explicitly promoted, narrow, runtime-neutral structural command boundaries may execute through the shared pre-tool helper
 - Record completion:
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
 - Related records:
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
   - `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - `.lazy-harness/spec/platform/jcode-agent-adapter.md`
+  - `.lazy-harness/spec/platform/project-command-boundary.md`
   - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
   - `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
@@ -40,7 +41,7 @@ Lazy-harness enforcement layers must not be weakened into optional memory or bes
 
 The harness is mandatory infrastructure for agents that operate inside a lazy-harness host:
 
-- Separate Pi/OMP and Jcode thin adapters plus shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably deliver the current grammar and canonical guards; destructive-command blocking remains in `check-destructive-command.py` via `on-tool-execute-before.sh` (ADR 0056).
+- Separate Pi/OMP and Jcode thin adapters plus shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably deliver the current grammar and canonical guards; destructive-command blocking remains in `check-destructive-command.py`, while explicitly promoted host structural boundaries execute through `check-project-command-boundary.py` via `on-tool-execute-before.sh` (ADR 0056).
 - Agents must retain and apply the core rules during a session: record-first lookup, default-unknown, option gates, requirements-first execution, rule placement, and record-as-output.
 - DDD/SDD/BDD/TDD/ADR/SSOT records are not optional notes. They are the canonical institutional memory and must continue accumulating when confirmed facts, rules, contracts, behavior, tests, or decisions are discovered.
 - Advisory routing, telemetry, workflow compression, and non-blocking lifecycle hooks may improve throughput, but must not reduce the effective enforcement of canonical layer obligations.
@@ -120,7 +121,22 @@ search/read debt journal from message.received when required context is unresolv
 response.completed audit/backstop
 ```
 
-Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport, destructive safety, logging, and search/read evidence guards. Search/read debt is produced at message.received as a direct framework-structured search prompt, and the generic guard may deny action only when the LLM/searcher has not left required direct search/read evidence. Project rules should not be authored as `bash` rules, `gh` rules, `dev-cli` rules, or GitHub MCP rules.
+Tool-specific policy hooks should be removed or migrated. Tool hooks may remain only as generic transport, destructive safety, logging, search/read evidence guards, and explicitly L5-promoted structural command executors whose canonical semantics/configuration remain host-owned. Search/read debt is produced at message.received as a direct framework-structured search prompt, and the generic guard may deny action only when the LLM/searcher has not left required direct search/read evidence. Project rules should not be authored as runtime-specific `bash`, `gh`, `dev-cli`, or GitHub MCP adapters.
+
+## 2026-08-04 promoted project command-boundary result
+
+The user selected common structural hard-stop option 1 after a Medivance dogfood session read the PR/worktree SSOT but later reused the same worktree for a protected destination branch and reached a cherry-pick conflict.
+
+Accepted boundary:
+
+- Canonical project semantics and hard-stop promotion evidence remain in the host `.lazy-harness` policy/SSOT/TDD records.
+- `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` is a project-name-free executor for explicitly promoted `level=block`, `runtime.mode=command-boundary` policies.
+- The helper reads only structured shell tool input and policy configuration. It never classifies user/assistant prose.
+- Pi, OMP, and Jcode reach the helper through the same `on-tool-execute-before.sh` chain.
+- The first supported guard denies raw worktree creation and protected-remote rebranching, and runs read-only merge-tree conflict preflight for destination-labelled single-commit promotion cherry-picks.
+- Recovery commands remain allowed; malformed/unconfigured hosts fail open; explicit bypass requires structured policy acknowledgement plus a reason.
+
+This is not a return to the rejected broad hard-gate experiment. It is the L5 exception already allowed by the guidance ladder: user-confirmed, narrow, fixture-protected, reversible, and canonically host-owned.
 
 Migration target:
 
@@ -217,7 +233,8 @@ Future fixes should restore mandatory behavior without turning the framework int
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP runtime adapter.
   - `.lazy-harness/scripts/jcode-adapter.ts` — official Jcode hook adapter with lazy-root detection and root/session evidence isolation.
   - `.lazy-harness/scripts/jcode-package.ts` — reversible Jcode adapter installation, doctor, smoke, and removal.
-  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — chains `check-destructive-command.py` first for runtime-agnostic destructive-command blocking.
+  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — chains runtime-agnostic destructive safety and promoted host structural command boundaries before advisory evidence checks.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` — executes host-owned promoted command-boundary policies without project-name or runtime-specific policy hardcoding.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — completion backstop hook.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — project-rule placement gate.
   - `.lazy-harness/ssot/medivance-dogfood-runtime-policy.md` — concrete runtime/test-instance policy skipped by the observed agent.
@@ -225,9 +242,10 @@ Future fixes should restore mandatory behavior without turning the framework int
 - Flow:
   1. User observes agents skipping mandatory lazy-harness rules.
   2. Hard-gate restoration is tested, then rejected for speed/tool-attachment reasons.
-  3. The next design step is C+ v2 organic hybrid planning/ADR, not more tool-specific guards.
+  3. Default guidance remains C+ v2 organic hybrid; only a separately promoted L5 structural boundary enters the shared command executor.
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py`
+  - `.lazy-harness/scripts/self-test.py#check_project_command_boundary`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
   - Future fixtures for rule surfacing without broad hard gates.
 - Cross-layer links:
@@ -236,6 +254,7 @@ Future fixes should restore mandatory behavior without turning the framework int
   - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
   - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
+  - SDD: `.lazy-harness/spec/platform/project-command-boundary.md`
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`
 

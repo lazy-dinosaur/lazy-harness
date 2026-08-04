@@ -2877,12 +2877,14 @@ def check_jcode_agent_adapter() -> None:
     package = LAZY / "scripts" / "jcode-package.ts"
     trust_module = LAZY / "scripts" / "jcode-trust.ts"
     local_config_module = LAZY / "scripts" / "jcode-local-config.ts"
+    model_routing_helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-agent-model-routing.py"
     cli = LAZY / "bin" / "lazy"
     required_files = [
         adapter,
         package,
         trust_module,
         local_config_module,
+        model_routing_helper,
         LAZY / "spec" / "platform" / "jcode-agent-adapter.md",
         LAZY / "tests" / "jcode-agent-adapter.md",
     ]
@@ -2907,6 +2909,26 @@ def check_jcode_agent_adapter() -> None:
         target_marker.parent.mkdir(parents=True)
         target_marker.write_text("#!/bin/sh\n", encoding="utf-8")
         target_marker.chmod(0o755)
+        routing_policy_path = target / ".lazy-harness" / "ssot" / "policies.json"
+        routing_policy_path.parent.mkdir(parents=True)
+        routing_policy = {
+            "version": 1,
+            "policies": [
+                {
+                    "id": "jcode-typed-review-model-routing",
+                    "level": "block",
+                    "runtime": {
+                        "mode": "typed-agent-routing",
+                        "blocks": True,
+                        "typedAgentRouting": {
+                            "reviewer": {"labelPrefix": "[reviewer]", "model": "gpt-5.6-sol", "effort": "high"},
+                            "oracle": {"labelPrefix": "[oracle]", "model": "gpt-5.6-sol", "effort": "max"},
+                        },
+                    },
+                }
+            ],
+        }
+        routing_policy_path.write_text(json.dumps(routing_policy), encoding="utf-8")
         subprocess.run(["git", "init", "-q", str(target)], check=True)
         local_original = '[model]\nprovider = "fixture"\n'
         target_local_config = target / ".jcode" / "config.local.toml"
@@ -2916,6 +2938,51 @@ def check_jcode_agent_adapter() -> None:
         config.write_text(original_config, encoding="utf-8")
         env = env_without_lazy_runtime(JCODE_HOME=str(jcode_home), LAZY_INVOCATION_CWD=str(target))
         base = [str(cli), "jcode"]
+
+        def routing_guard(label: str, model: str, effort: str, tool_name: str = "swarm") -> str:
+            payload = json.dumps({
+                "event": "tool.execute.before",
+                "working_dir": str(target),
+                "tool": {
+                    "name": tool_name,
+                    "args": {
+                        "action": "spawn",
+                        "label": label,
+                        "model": model,
+                        "effort": effort,
+                    },
+                },
+            })
+            result = subprocess.run(
+                [str(model_routing_helper), payload],
+                cwd=target,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**env, "LAZY_HOST_ROOT": str(ROOT)},
+            )
+            if result.returncode != 0:
+                fail("Jcode model-routing helper failed open incorrectly: " + result.stdout + result.stderr)
+            return result.stdout.strip()
+
+        if routing_guard("[reviewer] appointment diff", "gpt-5.5", "high") == "":
+            fail("Typed reviewer routing accepted GPT-5.5")
+        if routing_guard("[reviewer] appointment diff", "gpt-5.6-sol", "medium") == "":
+            fail("Typed reviewer routing accepted non-high effort")
+        if routing_guard("[reviewer] appointment diff", "fixture-provider:gpt-5.6-sol", "high", "functions.swarm"):
+            fail("Typed reviewer routing rejected GPT-5.6 Sol high")
+        if routing_guard("[oracle] release audit", "gpt-5.6-sol", "high") == "":
+            fail("Typed Oracle routing accepted non-max effort")
+        if routing_guard("[oracle] release audit", "gpt-5.6-sol", "max"):
+            fail("Typed Oracle routing rejected GPT-5.6 Sol max")
+        if routing_guard("untyped review label", "gpt-5.5", "high"):
+            fail("Model-routing helper classified an untyped label")
+        routing_policy["policies"][0]["level"] = "recommend"
+        routing_policy_path.write_text(json.dumps(routing_policy), encoding="utf-8")
+        if routing_guard("[reviewer] rollback fixture", "gpt-5.5", "high"):
+            fail("Demoted typed routing policy continued blocking")
+        routing_policy["policies"][0]["level"] = "block"
+        routing_policy_path.write_text(json.dumps(routing_policy), encoding="utf-8")
 
         builds = jcode_home / "builds"
         candidate_dir = builds / "lazy-patched" / "versions" / "fixture"
@@ -3561,6 +3628,169 @@ def check_destructive_command_block() -> None:
             fail(f"benign/non-shell wrongly blocked: {payload} -> {out!r}")
     print("\u2713 destructive command block ok")
 
+def check_project_command_boundary() -> None:
+    """Promoted host command boundaries block structural PR/worktree violations on every runtime."""
+    import importlib.util
+
+    helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-project-command-boundary.py"
+    pre_tool = LAZY / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
+    if not helper.exists() or not os.access(helper, os.X_OK):
+        fail("check-project-command-boundary.py missing or not executable")
+    if "check-project-command-boundary.py" not in pre_tool.read_text(encoding="utf-8"):
+        fail("project command boundary helper is not chained from on-tool-execute-before.sh")
+
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        ssot = root / ".lazy-harness" / "ssot"
+        tests_dir = root / ".lazy-harness" / "tests"
+        ssot.mkdir(parents=True)
+        tests_dir.mkdir(parents=True)
+        (ssot / "pr-worktree-first-workflow.md").write_text("# fixture rule\n", encoding="utf-8")
+        (tests_dir / "pr-worktree-command-boundary.md").write_text("# fixture\n", encoding="utf-8")
+        policy_id = "fixture-pr-worktree-command-boundary"
+        (ssot / "policies.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "policies": [
+                        {
+                            "id": policy_id,
+                            "level": "block",
+                            "sourceRecord": ".lazy-harness/ssot/pr-worktree-first-workflow.md",
+                            "runtime": {
+                                "mode": "command-boundary",
+                                "blocks": True,
+                                "commandBoundary": {
+                                    "guard": "git-worktree-promotion/v1",
+                                    "protectedRemoteRefs": ["main", "staging", "test", "dev"],
+                                    "blockRawGitWorktreeAdd": True,
+                                    "blockProtectedRemoteRebranch": True,
+                                    "preflightPromotionCherryPick": True,
+                                },
+                            },
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        def guard(command: str, tool: str = "bash", extra: dict | None = None) -> str:
+            payload = {
+                "working_dir": str(root),
+                "tool": {"name": tool, "args": {"command": command}},
+                **(extra or {}),
+            }
+            completed = subprocess.run(
+                ["python3", str(helper), json.dumps(payload)],
+                cwd=root,
+                text=True,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LAZY_HOST_ROOT": str(ROOT)},
+            )
+            if completed.returncode != 0 or completed.stderr:
+                fail("project command boundary helper must be silent/fail-open on stderr: " + completed.stderr)
+            return completed.stdout.strip()
+
+        for tool in ["bash", "command", "cmd", "shell", "terminal"]:
+            if "git worktree add" not in guard("git worktree add /tmp/fixture origin/staging", tool).lower():
+                fail(f"raw git worktree add was not blocked for normalized runtime shell tool {tool}")
+        if "origin/staging" not in guard("git checkout -B fix/demo-staging origin/staging"):
+            fail("checkout -B from protected remote was not blocked")
+        if "origin/test" not in guard("git switch -c fix/demo-test origin/test"):
+            fail("switch -c from protected remote was not blocked")
+        if "git worktree add" not in guard(f"cd {root} && git worktree add /tmp/fixture origin/main").lower():
+            fail("raw worktree add after cd segment was not blocked")
+        if "git worktree add" not in guard(f"git -C {root} worktree add /tmp/fixture origin/dev").lower():
+            fail("raw worktree add through git -C was not blocked")
+        if "git worktree add" not in guard("echo ok\ngit worktree add /tmp/fixture origin/staging").lower():
+            fail("raw worktree add after a newline command separator was not blocked")
+
+        allowed = [
+            "bun wt new fix/demo-staging --base staging",
+            "git checkout -b local-topic HEAD",
+            "git switch -c local-topic HEAD",
+            "git cherry-pick --abort",
+            "echo 'git worktree add is documentation'",
+        ]
+        for command in allowed:
+            if guard(command):
+                fail(f"benign project command boundary command was blocked: {command}")
+        if guard("git worktree add /tmp/fixture origin/staging", "Edit"):
+            fail("non-shell tool containing a blocked command was denied")
+        registry_path = ssot / "policies.json"
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        registry["policies"][0]["level"] = "recommend"
+        registry_path.write_text(json.dumps(registry), encoding="utf-8")
+        if guard("git worktree add /tmp/fixture origin/staging"):
+            fail("demoted project command-boundary policy continued blocking")
+        registry["policies"][0]["level"] = "block"
+        registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args], cwd=root, text=True, capture_output=True, check=False
+            )
+            if completed.returncode != 0:
+                fail("git fixture setup failed: " + " ".join(args) + "\n" + completed.stderr)
+            return completed.stdout.strip()
+
+        git("init", "-b", "staging")
+        git("config", "user.email", "fixture@example.com")
+        git("config", "user.name", "Fixture")
+        (root / "shared.txt").write_text("base\n", encoding="utf-8")
+        git("add", "shared.txt")
+        git("commit", "-m", "base")
+        base = git("rev-parse", "HEAD")
+        git("update-ref", "refs/remotes/origin/staging", base)
+
+        git("switch", "-c", "source-clean")
+        (root / "clean.txt").write_text("clean\n", encoding="utf-8")
+        git("add", "clean.txt")
+        git("commit", "-m", "clean cherry-pick")
+        clean_commit = git("rev-parse", "HEAD")
+        git("switch", "-c", "fix/demo-staging", base)
+        if guard(f"git cherry-pick {clean_commit}"):
+            fail("clean single-commit promotion cherry-pick failed merge-tree preflight")
+        if guard(f"git cherry-pick {clean_commit} 2>&1"):
+            fail("shell redirection was misclassified as a second cherry-pick revision")
+
+        helper_spec = importlib.util.spec_from_file_location("project_command_boundary_fixture", helper)
+        helper_module = importlib.util.module_from_spec(helper_spec)
+        helper_spec.loader.exec_module(helper_module)
+        parent_queries: list[list[str]] = []
+        helper_module.current_branch = lambda _cwd: "fix/demo-staging"
+        helper_module.nearest_protected_base = lambda _cwd, _refs: "staging"
+        def fake_run_git(_cwd: pathlib.Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+            if args[:3] == ["rev-parse", "--verify", "merge-fixture^{commit}"]:
+                return subprocess.CompletedProcess(args, 0, "merge-commit\n", "")
+            if args[:2] == ["rev-parse", "--verify"]:
+                parent_queries.append(args)
+                return subprocess.CompletedProcess(args, 0, "selected-parent\n", "")
+            return subprocess.CompletedProcess(args, 0, "tree-oid\n", "")
+        helper_module.run_git = fake_run_git
+        if helper_module.preflight_cherry_pick(root, ["-m", "2", "merge-fixture"], ["staging"]):
+            fail("merge mainline fixture was unexpectedly denied")
+        if ["rev-parse", "--verify", "merge-fixture^2"] not in parent_queries:
+            fail("merge cherry-pick preflight ignored the selected -m/--mainline parent")
+
+        git("switch", "-c", "source-conflict", base)
+        (root / "shared.txt").write_text("source change\n", encoding="utf-8")
+        git("add", "shared.txt")
+        git("commit", "-m", "conflicting source")
+        conflict_commit = git("rev-parse", "HEAD")
+        git("switch", "-C", "fix/demo-staging", base)
+        (root / "shared.txt").write_text("destination change\n", encoding="utf-8")
+        git("add", "shared.txt")
+        git("commit", "-m", "destination divergence")
+        conflict = guard(f"git cherry-pick {conflict_commit}")
+        if "preflight failed" not in conflict.lower():
+            fail("conflicting promotion cherry-pick was not blocked by merge-tree preflight: " + conflict)
+        if "one commit at a time" not in guard(f"git cherry-pick {clean_commit} {conflict_commit}").lower():
+            fail("multi-commit promotion cherry-pick was not narrowed to one-at-a-time preflight")
+
+    print("\u2713 project command boundary ok")
 
 def check_operational_adr_allowlist_complete() -> None:
     """Every framework ADR (>=0026) referenced by a `decisions/NNNN-slug.md` path from a
@@ -10786,12 +11016,14 @@ def check_policy_machinery_v2() -> None:
     framework_policy_ids = {
         "bounded-validation-orchestration",
         "code-organization-profile",
+        "jcode-typed-review-model-routing",
         "primary-canonical-record",
         "project-operating-rulebook-policy",
         "record-first-validation",
         "validation-evidence-block",
         "validation-evidence-warning",
     }
+    approved_block_policy_ids = {"validation-evidence-block", "jcode-typed-review-model-routing"}
 
     for policy in policy_registry.get("policies", []):
         policy_id = policy.get("id")
@@ -10801,8 +11033,8 @@ def check_policy_machinery_v2() -> None:
         walk(policy, f"policy[{policy_id}]")
         if policy.get("updateLoop", {}).get("canonicalByPacketAlone") is not False:
             fail("Policy Registry policy must not canonicalize by packet alone: " + repr(policy_id))
-        if policy.get("level") == "block" and policy_id != "validation-evidence-block":
-            fail("Policy Registry may only include the first approved validation-evidence block policy in this slice: " + repr(policy_id))
+        if policy.get("level") == "block" and policy_id not in approved_block_policy_ids:
+            fail("Policy Registry contains an unapproved framework block policy: " + repr(policy_id))
         if policy_id == "validation-evidence-block":
             runtime = policy.get("runtime", {})
             if runtime.get("blocks") is not True or runtime.get("requiresExplicitContext") is not True or runtime.get("fixture") != ".lazy-harness/tests/policy-block-validation-evidence.md":
@@ -10981,13 +11213,20 @@ def check_policy_machinery_v2() -> None:
         fail("block-readiness must expose policy-block-readiness/v1 schema: " + block_readiness.stdout)
     if block_readiness_json.get("hardStopHookInstalled") is not False or block_readiness_json.get("lifecycleMutation") is not False:
         fail("block-readiness must not install lifecycle hard-stop hooks: " + block_readiness.stdout)
+    if ACTIVE_SCOPE == "framework" and block_readiness_json.get("commandBoundaryInstalled") is not False:
+        fail("source block-readiness must report no host command-boundary policy installed: " + block_readiness.stdout)
+    if ACTIVE_SCOPE == "host" and block_readiness_json.get("counts", {}).get("commandBoundaryPolicies", 0) > 0 and block_readiness_json.get("commandBoundaryInstalled") is not True:
+        fail("host block-readiness must report its promoted project command boundary installed: " + block_readiness.stdout)
+    if block_readiness_json.get("counts", {}).get("typedAgentRoutingPolicies", 0) > 0 and block_readiness_json.get("typedAgentRoutingInstalled") is not True:
+        fail("block-readiness must report promoted typed agent routing installed: " + block_readiness.stdout)
     if ACTIVE_SCOPE == "framework":
         if block_readiness_json.get("ready") is not True:
             fail("current source should be block-runtime ready after validation-evidence-block promotion evidence exists: " + block_readiness.stdout)
-        if block_readiness_json.get("counts", {}).get("blockPolicies") != 1 or block_readiness_json.get("counts", {}).get("readyBlockPolicies") != 1 or block_readiness_json.get("counts", {}).get("blockers") != 0:
-            fail("block-readiness should report exactly one ready source block policy and zero blockers: " + block_readiness.stdout)
-        if not any(finding.get("policyId") == "validation-evidence-block" and finding.get("severity") == "info" for finding in block_readiness_json.get("findings", [])):
-            fail("block-readiness should identify validation-evidence-block as ready: " + block_readiness.stdout)
+        if block_readiness_json.get("counts", {}).get("blockPolicies") != len(approved_block_policy_ids) or block_readiness_json.get("counts", {}).get("readyBlockPolicies") != len(approved_block_policy_ids) or block_readiness_json.get("counts", {}).get("blockers") != 0:
+            fail("block-readiness should report every approved source block policy ready with zero blockers: " + block_readiness.stdout)
+        ready_ids = {finding.get("policyId") for finding in block_readiness_json.get("findings", []) if finding.get("severity") == "info"}
+        if not approved_block_policy_ids.issubset(ready_ids):
+            fail("block-readiness should identify every approved source block policy as ready: " + block_readiness.stdout)
         strict_block_readiness = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
         if strict_block_readiness.returncode != 0:
             fail("lazy policy block-readiness --strict should pass after validation-evidence-block promotion evidence exists:\n" + strict_block_readiness.stdout + strict_block_readiness.stderr)
@@ -11051,6 +11290,10 @@ Layer: SDD
         ready_block_json = json.loads(ready_block.stdout)
         if ready_block_json.get("ready") is not True or ready_block_json.get("counts", {}).get("readyBlockPolicies") != 1 or ready_block_json.get("hardStopHookInstalled") is not False:
             fail("block-readiness positive fixture should be ready but non-mutating: " + ready_block.stdout)
+        if ready_block_json.get("commandBoundaryInstalled") is not False:
+            fail("generic block-readiness fixture must not report a project command boundary: " + ready_block.stdout)
+        if ready_block_json.get("typedAgentRoutingInstalled") is not False:
+            fail("generic block-readiness fixture must not report typed agent routing: " + ready_block.stdout)
         broken_block_policy = json.loads(json.dumps(block_policy))
         del broken_block_policy["runtime"]["fixture"]
         (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [broken_block_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -11060,6 +11303,38 @@ Layer: SDD
         broken_block_json = json.loads(broken_block.stdout)
         if not any("runtime.fixture" in finding.get("message", "") for finding in broken_block_json.get("findings", [])):
             fail("block-readiness missing fixture case should report runtime.fixture blocker: " + broken_block.stdout)
+        command_policy = json.loads(json.dumps(block_policy))
+        command_policy["id"] = "fixture-command-boundary"
+        command_policy["runtime"]["mode"] = "command-boundary"
+        command_policy["runtime"]["commandBoundary"] = {"guard": "git-worktree-promotion/v1"}
+        helper_dir = temp_root / ".lazy-harness/hooks/lifecycle/helpers"
+        helper_dir.mkdir(parents=True, exist_ok=True)
+        (helper_dir / "check-project-command-boundary.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        hook_path = temp_root / ".lazy-harness/hooks/lifecycle/on-tool-execute-before.sh"
+        hook_path.parent.mkdir(parents=True, exist_ok=True)
+        hook_path.write_text("check-project-command-boundary.py\n", encoding="utf-8")
+        (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [command_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        command_ready = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if command_ready.returncode != 0:
+            fail("command-boundary block-readiness fixture should pass when helper is installed:\n" + command_ready.stdout + command_ready.stderr)
+        command_ready_json = json.loads(command_ready.stdout)
+        if command_ready_json.get("commandBoundaryInstalled") is not True or command_ready_json.get("commandBoundaryPolicyIds") != ["fixture-command-boundary"] or command_ready_json.get("counts", {}).get("commandBoundaryPolicies") != 1:
+            fail("block-readiness must report installed project command boundary separately: " + command_ready.stdout)
+        typed_policy = json.loads(json.dumps(block_policy))
+        typed_policy["id"] = "fixture-typed-agent-routing"
+        typed_policy["runtime"]["mode"] = "typed-agent-routing"
+        typed_policy["runtime"]["typedAgentRouting"] = {
+            "reviewer": {"labelPrefix": "[reviewer]", "model": "gpt-5.6-sol", "effort": "high"}
+        }
+        (helper_dir / "check-agent-model-routing.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        hook_path.write_text("check-project-command-boundary.py\ncheck-agent-model-routing.py\n", encoding="utf-8")
+        (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps({"version": 1, "policies": [typed_policy]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        typed_ready = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "block-readiness", "--target", str(temp_root), "--strict", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if typed_ready.returncode != 0:
+            fail("typed-agent-routing block-readiness fixture should pass when helper is installed:\n" + typed_ready.stdout + typed_ready.stderr)
+        typed_ready_json = json.loads(typed_ready.stdout)
+        if typed_ready_json.get("typedAgentRoutingInstalled") is not True or typed_ready_json.get("typedAgentRoutingPolicyIds") != ["fixture-typed-agent-routing"] or typed_ready_json.get("counts", {}).get("typedAgentRoutingPolicies") != 1:
+            fail("block-readiness must report installed typed agent routing separately: " + typed_ready.stdout)
     with tempfile.TemporaryDirectory(prefix="policy-retire-readiness-") as tmp:
         temp_root = pathlib.Path(tmp)
         (temp_root / ".lazy-harness/rules").mkdir(parents=True, exist_ok=True)
@@ -11168,6 +11443,8 @@ Fixture implementation map.
             ".lazy-harness/spec/platform/pi-agent-package.md",
             ".lazy-harness/spec/platform/record-write-update-policy.md",
             ".lazy-harness/spec/platform/layer-completeness-gate.md",
+            ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
+            ".lazy-harness/tests/jcode-typed-review-routing.md",
             ".lazy-harness/tests/record-decision-broker.md",
             ".lazy-harness/generated/README.md",
         }
@@ -11333,7 +11610,6 @@ Fixture implementation map.
             fail("init categories missing Policy Machinery V2 sync asset: " + expected)
 
     print("✓ Policy Machinery V2 static contract ok")
-
 
 def check_evidence_capsule_standard_phase5() -> None:
     """Phase 5 should provide a manual evidence capsule checklist without auto-writing."""
@@ -13077,6 +13353,7 @@ def main() -> None:
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_jcode_agent_adapter, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
+        (check_project_command_boundary, "FRAMEWORK_ONLY"),
         (check_operational_adr_allowlist_complete, "FRAMEWORK_ONLY"),
         (check_prompt_budget_measurement, "BOTH"),
         (check_framework_runtime_no_host_product_hardcoding, "BOTH"),

@@ -153,6 +153,44 @@
       "policyIds": [
         "project-operating-rulebook-policy"
       ]
+    },
+    {
+      "id": "jcode-typed-review-model-routing",
+      "kind": "hook",
+      "level": "block",
+      "sourceRecord": ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
+      "appliesWhen": [
+        "spawning_typed_jcode_reviewer",
+        "spawning_typed_jcode_oracle",
+        "delegating_high_risk_code_review"
+      ],
+      "actions": [
+        "Spawn [reviewer] with gpt-5.6-sol and effort high",
+        "Spawn [oracle] with gpt-5.6-sol and effort max"
+      ],
+      "entrypoint": ".lazy-harness/hooks/lifecycle/helpers/check-agent-model-routing.py",
+      "description": "Structurally enforce exact GPT-5.6 Sol model and effort pairs for typed Jcode reviewer and Oracle swarm spawns.",
+      "owner": "framework-global",
+      "tags": [
+        "jcode",
+        "swarm",
+        "review",
+        "model-routing",
+        "gpt-5.6-sol"
+      ],
+      "preferredActions": [
+        "[reviewer] model=gpt-5.6-sol effort=high",
+        "[oracle] model=gpt-5.6-sol effort=max"
+      ],
+      "discouragedActions": [
+        "[reviewer] model=gpt-5.5",
+        "[oracle] model=gpt-5.5",
+        "[oracle] effort below max"
+      ],
+      "requiresReasonForBypass": true,
+      "policyIds": [
+        "jcode-typed-review-model-routing"
+      ]
     }
   ]
 }

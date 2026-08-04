@@ -624,7 +624,12 @@ function explainPolicy(policy: Policy, format: Format): void {
 
 function policyRuntimeDescription(policy: Policy): string {
   if (policy.level === 'warn') return 'warn-only (explicit policy_context required)'
-  if (policy.level === 'block') return 'block (not implemented by current runtime)'
+  if (policy.level === 'block') {
+    const runtime = objectValue(policy.runtime)
+    if (runtime?.mode === 'command-boundary' && runtime.blocks === true) return 'block (command-boundary configured; verify installation with block-readiness)'
+    if (runtime?.mode === 'typed-agent-routing' && runtime.blocks === true) return 'block (typed-agent-routing configured; verify installation with block-readiness)'
+    return 'block (readiness/preflight only; no lifecycle runtime declared)'
+  }
   return 'advisory-only'
 }
 
@@ -804,6 +809,19 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
   const registry = loadRegistry(root)
   const auditIssues = auditRegistry(root, registry).filter((issue) => issue.severity === 'error')
   const blockPolicies = registry.policies.filter((policy) => policy.level === 'block')
+  const commandBoundaryPolicies = blockPolicies.filter((policy) => objectValue(policy.runtime)?.mode === 'command-boundary')
+  const commandBoundaryHelper = join(root, '.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py')
+  const commandBoundaryHook = join(root, '.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh')
+  const commandBoundaryInstalled = commandBoundaryPolicies.length > 0
+    && existsSync(commandBoundaryHelper)
+    && existsSync(commandBoundaryHook)
+    && readFileSync(commandBoundaryHook, 'utf8').includes('check-project-command-boundary.py')
+  const typedAgentRoutingPolicies = blockPolicies.filter((policy) => objectValue(policy.runtime)?.mode === 'typed-agent-routing')
+  const typedAgentRoutingHelper = join(root, '.lazy-harness/hooks/lifecycle/helpers/check-agent-model-routing.py')
+  const typedAgentRoutingInstalled = typedAgentRoutingPolicies.length > 0
+    && existsSync(typedAgentRoutingHelper)
+    && existsSync(commandBoundaryHook)
+    && readFileSync(commandBoundaryHook, 'utf8').includes('check-agent-model-routing.py')
   const findings: ReadinessFinding[] = []
   const readyPolicyIds = new Set<string>()
 
@@ -833,6 +851,16 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
       if (!nonEmptyString(runtime.bypass)) addBlocker('runtime.bypass must document bypass or acknowledgement behavior')
       if (!nonEmptyString(runtime.fixture)) addBlocker('runtime.fixture must point to a block/allow regression fixture')
       else if (!isRootRelativeLazyPath(runtime.fixture) || !existsSync(join(root, runtime.fixture))) addBlocker(`runtime.fixture missing or invalid: ${runtime.fixture}`, String(runtime.fixture))
+      if (runtime.mode === 'command-boundary') {
+        const boundary = objectValue(runtime.commandBoundary)
+        if (!boundary || !nonEmptyString(boundary.guard)) addBlocker('command-boundary policy requires runtime.commandBoundary.guard')
+        if (!commandBoundaryInstalled) addBlocker('command-boundary policy requires the shared helper to be chained from on-tool-execute-before.sh')
+      }
+      if (runtime.mode === 'typed-agent-routing') {
+        const routes = objectValue(runtime.typedAgentRouting)
+        if (!routes || !Object.keys(routes).length) addBlocker('typed-agent-routing policy requires runtime.typedAgentRouting route configuration')
+        if (!typedAgentRoutingInstalled) addBlocker('typed-agent-routing policy requires the shared helper to be chained from on-tool-execute-before.sh')
+      }
     }
 
     if (!isRootRelativeLazyPath(policy.sourceRecord) || !existsSync(join(root, policy.sourceRecord))) {
@@ -864,7 +892,11 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
     runtime: 'block-preflight-only',
     hardStopHookInstalled: false,
     lifecycleMutation: false,
-    boundary: 'Readiness/preflight only; does not install or enable lifecycle hard-stop hooks.',
+    commandBoundaryInstalled,
+    commandBoundaryPolicyIds: commandBoundaryPolicies.map((policy) => policy.id),
+    typedAgentRoutingInstalled,
+    typedAgentRoutingPolicyIds: typedAgentRoutingPolicies.map((policy) => policy.id),
+    boundary: 'Generic response/turn block runtime: Readiness/preflight only; does not install or enable lifecycle hard-stop hooks. Promoted project command boundaries are reported separately.',
     criteria: [
       'block policy level',
       'user-confirmation evidence',
@@ -880,6 +912,8 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
       policies: registry.policies.length,
       blockPolicies: blockPolicies.length,
       readyBlockPolicies: readyPolicyIds.size,
+      commandBoundaryPolicies: commandBoundaryPolicies.length,
+      typedAgentRoutingPolicies: typedAgentRoutingPolicies.length,
       blockers: blockers.length,
     },
     findings,
@@ -891,6 +925,8 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
     console.log(`- ready: ${result.ready ? 'yes' : 'no'}`)
     console.log(`- runtime: ${result.runtime}`)
     console.log(`- hard-stop hook installed: ${result.hardStopHookInstalled ? 'yes' : 'no'}`)
+    console.log(`- project command boundary installed: ${result.commandBoundaryInstalled ? 'yes' : 'no'}`)
+    console.log(`- typed agent routing installed: ${result.typedAgentRoutingInstalled ? 'yes' : 'no'}`)
     console.log(`- boundary: ${result.boundary}`)
     console.log(`- block policies: ${result.counts.blockPolicies}`)
     console.log(`- ready block policies: ${result.counts.readyBlockPolicies}`)

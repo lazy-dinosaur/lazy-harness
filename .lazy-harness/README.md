@@ -96,7 +96,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 57 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 58 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태

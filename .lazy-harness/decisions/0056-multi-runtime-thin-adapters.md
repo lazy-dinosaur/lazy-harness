@@ -73,6 +73,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 10. Machine-level selection of the lazy-patched Jcode executable is separate from project trust and must not silently replace official stable/current or the normal launcher.
 11. Project-folder movement is a runtime-native same-session cwd transition, not worktree creation or a new project session. Jcode exposes `/pwd`, `/cwd [path]`, and `/cd <path>`; Pi/OMP retain their native same-session move surface. The next provider boundary must use the target directory's instructions, and lazy-harness evidence from the prior root must be cleared before it can authorize target-root work.
 12. Shared CLI progress uses the runtime-neutral `LAZY_PROGRESS` protocol. Auto mode is quiet until a consumer advertises `LAZY_PROGRESS_SUPPORTED=1`; runtime names such as Jcode must not appear in shared-core protocol prefixes.
+13. Explicitly promoted host structural command boundaries execute once in the shared pre-tool core from host-owned typed policy configuration; Pi, OMP, and Jcode adapters only transport the normalized payload and native deny result.
 
 ## Rejected alternatives
 
@@ -102,6 +103,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
   - `.lazy-harness/scripts/jcode-package.ts` — TOML-validated install/remove/doctor/smoke plus trust management.
   - `.lazy-harness/bin/lazy` — dispatch `lazy jcode ...`.
   - `.lazy-harness/scripts/self-test.py` — protect adapter/config/trust/CLI behavior.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` — project-name-free shared executor for promoted host structural command policies.
 - Flow:
   1. `lazy jcode install` validates and merges managed global hooks, backs up config, and registers the selected canonical root.
   2. Unified activation makes `lazy agent activate` the explicit Pi/OMP/Jcode project activation surface, installs/repairs global hooks against the stable synced framework source, and transactionally manages exact-root trust/local transport.
@@ -110,6 +112,7 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
   5. The adapter canonicalizes root evidence and exits silently unless the exact root is user-trusted.
   6. Trusted hooks invoke canonical lifecycle scripts and store only bounded secret-free evidence in canonical runtime state.
   7. Native `/cwd` mutates the existing Jcode session working directory; the following request supplies the target cwd, and the adapter replaces the state envelope before injecting the target root's canonical grammar.
+  8. Pi/OMP and Jcode normalize shell tool payloads into the shared pre-tool hook; any promoted host command boundary returns the same canonical deny reason before runtime-native translation.
 - Key symbols:
   - `activeRoot` / `statePath` / `withState` / `preTool` (`jcode-adapter.ts`) — trust gate, canonical runtime path, owned locks, and deny translation.
   - `/home/lazydino/dev/jcode` commit `71adb1853` — shared cwd resolver, local `/pwd`/`/cwd`/`/cd`, remote protocol/client propagation, persisted `Agent::set_working_dir`, LLM cwd tool, and post-conversation target-root prompt regression.
@@ -163,6 +166,14 @@ Adopt an agent-neutral lazy-harness core with separate thin runtime adapters:
 - Confirmation: user selected option 1 and clarified that lazy-harness must serve Pi, OMP, and Jcode equally rather than exposing a Jcode-branded core protocol.
 - `lazy validate` emits `LAZY_PROGRESS` only for explicit `--progress=on` or advertised auto support; ordinary foreground auto mode is quiet.
 - Runtime-specific rendering belongs in thin adapters or callers, not in the shared validation governor.
+
+### 2026-08-04 amendment — promoted host structural command boundaries
+
+- Confirmation: user selected option 1 rather than restoring Jcode-only prompt-resident project policy.
+- Canonical host policy remains in `.lazy-harness`; `.jcode`, `.pi`, and `.omp` receive no duplicated project rule body.
+- `check-project-command-boundary.py` executes only already-promoted host `level=block` command-boundary policies from the shared pre-tool chain.
+- Pi, OMP, and Jcode therefore receive the same structural block/allow result while ordinary guidance remains on the organic surfacing/audit path.
+- Shared contract: `.lazy-harness/spec/platform/project-command-boundary.md`; regression: `.lazy-harness/tests/project-command-boundary.md`.
 
 ## Discovery capture
 

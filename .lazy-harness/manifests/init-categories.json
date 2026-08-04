@@ -716,7 +716,7 @@
         {
           "path": "decisions/0050-pi-omp-only-runtime.md",
           "kind": "file",
-          "description": "Operational framework ADR referenced by synced hooks (check-destructive-command, check-rule-action-boundary) and specs (jcode-skill-creation, pi-mcp-parity, rule-sources): Pi/OMP-only runtime, jcode decommissioned. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "description": "Superseded operational ADR retained as the history of generated Jcode directory-bridge removal; ADR 0056 now owns the active multi-runtime support boundary.",
           "targetPath": "framework/operational-adrs/0050-pi-omp-only-runtime.md"
         },
         {
@@ -800,7 +800,7 @@
         {
           "path": "spec/platform/policy-machinery-v2.md",
           "kind": "file",
-          "description": "SDD contract for Phase 3 Policy Machinery V2: stage-aware policy packets connecting rulebook, capability registry, and Project Map update-loop evidence without new runtime enforcement."
+          "description": "SDD contract for Policy Machinery V2: stage-aware policy packets, advisory/warn/readiness slices, dry-run generic block review, and the separately promoted host structural command-boundary executor."
         },
         {
           "path": "tests/policy-machinery-v2.md",
@@ -849,6 +849,26 @@
           "path": "tests/regression-registry.md",
           "kind": "file",
           "description": "TDD fixtures for the regression gate reader (spaced entry satisfies; candidates do not) and lazy regression add/lint validation."
+        },
+        {
+          "path": "spec/platform/jcode-typed-review-routing.md",
+          "kind": "file",
+          "description": "Portable SDD sourceRecord for the GPT-5.6 Sol typed reviewer high and Oracle max block policy."
+        },
+        {
+          "path": "spec/platform/project-command-boundary.md",
+          "kind": "file",
+          "description": "SDD contract for the runtime-neutral pre-tool executor of explicitly promoted host structural command policies."
+        },
+        {
+          "path": "tests/jcode-typed-review-routing.md",
+          "kind": "file",
+          "description": "Portable TDD fixture dependency for the typed Jcode review routing block policy."
+        },
+        {
+          "path": "tests/project-command-boundary.md",
+          "kind": "file",
+          "description": "TDD fixture for runtime-neutral promoted project command boundaries, including structural Git block/allow, bypass, and merge-tree preflight cases."
         }
       ]
     },
