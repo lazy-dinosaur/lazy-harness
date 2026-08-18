@@ -22,6 +22,7 @@ Date: 2026-06-18
   - protect recommend-level guidance that removes `iterating_after_edit`, forbids validation after every micro-edit, batches coherent mutations before one fast checkpoint, limits focused/affected checks to once per changed-behavior batch, and keeps one final standard boundary
   - protect bounded process execution, audited resource phases, deterministic output, worker runtime isolation, and `--jobs=1` serial fallback
   - keep validation progress runtime-neutral and capability-aware across Pi, OMP, Jcode, and ordinary foreground callers
+  - keep installed-host full regression independent of absent source-only `packages/lazy-harness-pi` paths while still checking those prompt/skill surfaces in the framework source checkout
 - Must not:
   - claim full regression from fast static checks instead of `lazy test` execution
   - emit progress to stdout, emit runtime-branded progress prefixes from shared core, or leak auto-mode progress into foreground callers that did not advertise support
@@ -57,6 +58,7 @@ Date: 2026-06-18
 | `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and the default path is ignored by the active git ignore rules in both source and installed hosts. |
 | `validation_orchestration_guidance` | Resolve capability/policy and inspect Pi prompt/commands | Edit loops batch coherent mutations; closure uses one `lazy validate --plan standard`; direct `lazy test` is explicitly fresh/full. |
 | `validation_no_micro_edit_loop` | Inspect capability/policy/AGENTS/Pi prompt/test strategy | `iterating_after_edit` is absent; all surfaces say not to validate after each micro-edit, use one fast checkpoint per coherent batch, and run focused/affected validation at most once per changed-behavior batch. |
+| `validation_installed_host_without_pi_package` | Run the bounded-validation self-test from an installed host root without `packages/lazy-harness-pi` | Distributed `.lazy-harness` surfaces remain required; absent source-only Pi package paths are skipped instead of raising `FileNotFoundError`. In the framework source checkout, both Pi package surfaces remain mandatory. |
 | `self_test_parallel_resources` | Run `self-test.py --jobs 4` | Only explicitly audited checks use isolated process phases; fixed-path checks remain serial and output stays in registry order. |
 | `self_test_serial_fallback` | Run `self-test.py --jobs 1` | Historical serial fail-fast behavior remains available. |
 
@@ -77,6 +79,7 @@ Date: 2026-06-18
 13. Capability/policy, AGENTS, Pi prompt, skill, and test-strategy surfaces explicitly prohibit validation after each micro-edit, omit `iterating_after_edit`, batch coherent mutations before one fast checkpoint, and keep one final standard boundary.
 14. Parallel execution caps workers at four, rejects out-of-range CLI/environment values, uses audited resource phases and isolated worker runtime roots, preserves deterministic output, and keeps serial fallback.
 15. Evidence keys bind to resolved host root, dependency manifests/locks, and Python/Bun/Git signatures; uncertainty remains a miss.
+16. Installed hosts without `packages/lazy-harness-pi` pass the bounded-validation self-test when all distributed `.lazy-harness` surfaces are valid; framework source checkouts still require the Pi prompt and lazy-test skill guards.
 
 ## Implementation map
 

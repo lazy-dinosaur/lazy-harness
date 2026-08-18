@@ -23,6 +23,7 @@ Source records in downstream host: the Medivance install (`/home/lazydino/dev/me
   - run document-only checks (e.g. ingestion `--mode inspect`) without launching the Electron app or a database
   - use the Medivance named `--test` instance workflow and confirm inspect shows the test environment before judging runtime/UI
   - run framework sync first, wait for success, then run host validation; never the same parallel batch
+  - after framework sync or host-owned seed convergence changes validation capabilities, policies, generated rulebooks, or test-strategy records, require one serial host full regression to pass before deployment all-clear; a scoped `lazy check` alone is not sufficient
   - treat the Medivance product branch, product source, and in-progress working tree as protected user work during lazy-harness sync or deployment remediation
   - scope any sync rollback or repair explicitly to lazy-harness-managed framework/transport files; preserve product files and current product branch state
 - Must not:
@@ -52,6 +53,8 @@ bun dev:inspect <instance-name>
 The inspect output must show the test environment before behavior is judged or reported as ready.
 
 Framework sync and host execution must be sequential. Do not run `lazy-sync` and the host validation command in the same parallel batch, because the validation can race the sync and execute stale or missing host files. First sync, wait for success, then run the host command.
+
+When sync seed-merge semantics preserve host-owned validation registries or test-strategy records, deployment convergence must preserve source-exact protected actions/phrases while retaining host-specific content. After such convergence, run one serial host full regression before announcing all-clear. A scoped static check proves only the edited files parse; it does not prove the installed host satisfies framework self-test fixtures.
 
 Medivance product work is outside the rollback boundary of lazy-harness deployment. If a synchronized harness snapshot fails validation, stop and preserve the current product branch and product working tree. Any proposed rollback must name only the lazy-harness-managed files or transport state it would restore; the word "Medivance rollback" must never imply a repository, branch, or product-code rollback.
 
@@ -85,3 +88,17 @@ Medivance product work is outside the rollback boundary of lazy-harness deployme
 
 - The user corrected an ambiguous proposal to "roll back Medivance" while active product work was in progress.
 - Confirmed boundary: never roll back the Medivance repository, branch, or product working tree for a lazy-harness deployment failure. Harness remediation must be narrowly scoped and explicitly named.
+
+## 2026-08-18 host validation convergence correction
+
+A post-deployment serial host pre-push exposed two seed-preserved drifts that the earlier scoped checks did not cover: paraphrased `bounded-validation-orchestration` action strings failed source-exact fixtures, and host-owned `tests/test-strategy.xml` lacked the protected `never after every micro-edit` guard. Deployment all-clear was therefore premature. Repair remains limited to host `.lazy-harness` capability/policy/rulebook and test-strategy records, followed by one serial full host regression; product files and branch state remain protected.
+
+## Discovery capture — host validation convergence
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: none because the bounded-validation source contract already defines the protected actions and phrases.
+- BDD: none because no product-visible workflow changed.
+- TDD: existing bounded-validation self-test fixtures correctly detected both host drifts; no test-contract change is required.
+- ADR: none because no architectural trade-off changed.
+- SSOT: updated here because deployment readiness now requires source-exact host-owned convergence plus one serial full host regression before all-clear.
+- Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md` with the post-deployment repair status.

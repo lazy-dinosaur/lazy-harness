@@ -31,6 +31,7 @@ Date: 2026-06-18
   - run audited independent self-test checks in bounded process workers by default, isolate worker runtime state, serialize fixed-path checks, preserve registry-order output, and provide `--jobs=1` fallback
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
   - keep harness-integrity plans bounded to lazy-harness commands unless a user request, host test strategy, or product-code impact explicitly calls for downstream app typecheck/lint/build/E2E
+  - in installed hosts, validate distributed `.lazy-harness` surfaces without assuming the source-only `packages/lazy-harness-pi` tree exists; when that package root exists in the framework source checkout, continue requiring its prompt and skill guards
 - Must not:
   - silently replace full regression claims with fast checks
   - reuse full-regression evidence across changed `HEAD`, regression-relevant working-tree diff/status, untracked files, source/tests/contracts/graph, or canonical `.lazy-harness` body; only runtime/derived files and `.lazy-harness/evidence/**` are excluded
@@ -78,6 +79,7 @@ Execution rules:
 12. `--evidence-cache=off` or `LAZY_VALIDATE_EVIDENCE_CACHE=0` disables reuse and storage for full-regression evidence.
 13. Agent edit loops batch a coherent mutation set without validation between individual edits. At a deliberate checkpoint, run `lazy check` once and at most one focused/affected check per changed-behavior batch when needed. After the final mutation, run one `lazy validate --plan standard`. Writing an evidence capsule after a green full run does not require another full run.
 14. `self-test.py` defaults to at most four audited process workers and rejects `--jobs`/`LAZY_TEST_JOBS` values outside 1–4. Static/isolated checks, PID-qualified live fixtures, and stable-repository readers run in separate phases; fixed-path/canonical-state checks remain serial. `--jobs=1` preserves the historical serial fail-fast path.
+15. `check_bounded_validation_governor_cli` always validates distributed host surfaces under `.lazy-harness`. It validates Pi prompt/skill guards only when the source-only `packages/lazy-harness-pi` package root exists, so installed hosts do not fail on a path that is intentionally absent.
 
 ## Output
 

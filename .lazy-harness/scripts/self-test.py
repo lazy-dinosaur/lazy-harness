@@ -1737,12 +1737,18 @@ def check_bounded_validation_governor_cli() -> None:
         fail("bounded validation orchestration policy/capability binding is missing")
     if "iterating_after_edit" in policy.get("appliesTo", []):
         fail("bounded validation policy must not trigger after every edit")
-    surface_expectations = {
+    host_surface_expectations = {
         LAZY / "AGENTS.md": "coherent mutation batch",
         LAZY / "tests" / "test-strategy.xml": "never after every micro-edit",
-        ROOT / "packages" / "lazy-harness-pi" / "prompts" / "lazy-harness.md": "Do NOT run any validation command after each micro-edit",
-        ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-test" / "SKILL.md": "Do not validate after each micro-edit",
     }
+    source_package = ROOT / "packages" / "lazy-harness-pi"
+    source_surface_expectations = {
+        source_package / "prompts" / "lazy-harness.md": "Do NOT run any validation command after each micro-edit",
+        source_package / "skills" / "lazy-test" / "SKILL.md": "Do not validate after each micro-edit",
+    }
+    surface_expectations = dict(host_surface_expectations)
+    if source_package.exists():
+        surface_expectations.update(source_surface_expectations)
     for surface, phrase in surface_expectations.items():
         if phrase not in surface.read_text(encoding="utf-8"):
             fail(f"bounded validation micro-edit guard missing from {surface.relative_to(ROOT)}: {phrase}")
