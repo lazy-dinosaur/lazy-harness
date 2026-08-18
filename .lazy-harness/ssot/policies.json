@@ -164,6 +164,81 @@
       }
     },
     {
+      "id": "jcode-typed-review-model-routing",
+      "title": "Route typed Jcode review roles through GPT-5.6 Sol",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "block",
+      "appliesTo": [
+        "spawning_typed_jcode_reviewer",
+        "spawning_typed_jcode_oracle",
+        "delegating_high_risk_code_review"
+      ],
+      "sourceRecord": ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
+      "capabilityIds": [
+        "jcode-typed-review-model-routing"
+      ],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User confirmed GPT-5.6 Sol high for normal reviewers and max for Oracle on 2026-08-03."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
+          "summary": "Portable SDD defines exact typed labels, GPT-5.6 Sol routes, and the promoted structured spawn boundary."
+        },
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/jcode-typed-review-routing.md",
+          "summary": "Portable TDD records approved and rejected typed reviewer and Oracle routes."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "block"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "Typed label routing blocks valid GPT-5.6 Sol reviewer or Oracle workers.",
+          "The structured role convention creates material review-routing ambiguity."
+        ],
+        "demotionTarget": "recommend"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "runtime": {
+        "blocks": true,
+        "requiresExplicitContext": true,
+        "bypass": "Use an untyped non-review role or demote/retire the policy after user-confirmed routing change; typed roles are never silently downgraded.",
+        "fixture": ".lazy-harness/tests/jcode-typed-review-routing.md",
+        "mode": "typed-agent-routing",
+        "typedAgentRouting": {
+          "reviewer": {
+            "labelPrefix": "[reviewer]",
+            "model": "gpt-5.6-sol",
+            "effort": "high"
+          },
+          "oracle": {
+            "labelPrefix": "[oracle]",
+            "model": "gpt-5.6-sol",
+            "effort": "max"
+          }
+        }
+      },
+      "explain": {
+        "summary": "Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles.",
+        "nonCanonicalViews": [
+          "~/.jcode/swarm-prompt.md",
+          "~/.jcode/prompt-overlay.md"
+        ]
+      }
+    },
+    {
       "id": "primary-canonical-record",
       "title": "Prefer one primary canonical record per logical work unit",
       "scope": "framework-global",
@@ -456,81 +531,6 @@
         "requiresExplicitContext": true,
         "bypass": "Continue is allowed; include a short reason when bypassing the warning.",
         "blocks": false
-      }
-    },
-    {
-      "id": "jcode-typed-review-model-routing",
-      "title": "Route typed Jcode review roles through GPT-5.6 Sol",
-      "scope": "framework-global",
-      "stage": "turn",
-      "level": "block",
-      "appliesTo": [
-        "spawning_typed_jcode_reviewer",
-        "spawning_typed_jcode_oracle",
-        "delegating_high_risk_code_review"
-      ],
-      "sourceRecord": ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
-      "capabilityIds": [
-        "jcode-typed-review-model-routing"
-      ],
-      "evidence": [
-        {
-          "kind": "user-confirmation",
-          "summary": "User confirmed GPT-5.6 Sol high for normal reviewers and max for Oracle on 2026-08-03."
-        },
-        {
-          "kind": "record",
-          "path": ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
-          "summary": "Portable SDD defines exact typed labels, GPT-5.6 Sol routes, and the promoted structured spawn boundary."
-        },
-        {
-          "kind": "validation-output",
-          "path": ".lazy-harness/tests/jcode-typed-review-routing.md",
-          "summary": "Portable TDD records approved and rejected typed reviewer and Oracle routes."
-        }
-      ],
-      "promotion": {
-        "requiresConfirmation": true,
-        "allowedTargetLevels": [
-          "block"
-        ]
-      },
-      "rollback": {
-        "criteria": [
-          "Typed label routing blocks valid GPT-5.6 Sol reviewer or Oracle workers.",
-          "The structured role convention creates material review-routing ambiguity."
-        ],
-        "demotionTarget": "recommend"
-      },
-      "updateLoop": {
-        "eventType": "policy-promotion",
-        "canonicalByPacketAlone": false
-      },
-      "runtime": {
-        "blocks": true,
-        "requiresExplicitContext": true,
-        "bypass": "Use an untyped non-review role or demote/retire the policy after user-confirmed routing change; typed roles are never silently downgraded.",
-        "fixture": ".lazy-harness/tests/jcode-typed-review-routing.md",
-        "mode": "typed-agent-routing",
-        "typedAgentRouting": {
-          "reviewer": {
-            "labelPrefix": "[reviewer]",
-            "model": "gpt-5.6-sol",
-            "effort": "high"
-          },
-          "oracle": {
-            "labelPrefix": "[oracle]",
-            "model": "gpt-5.6-sol",
-            "effort": "max"
-          }
-        }
-      },
-      "explain": {
-        "summary": "Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles.",
-        "nonCanonicalViews": [
-          "~/.jcode/swarm-prompt.md",
-          "~/.jcode/prompt-overlay.md"
-        ]
       }
     }
   ]

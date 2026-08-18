@@ -8,19 +8,50 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 7
+- Policy count: 9
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
+| `bounded-validation-orchestration` | recommend | turn | advisory-only | During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated. |
 | `code-organization-profile` | recommend | edit | advisory-only | Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code. |
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
+| `jcode-typed-review-model-routing` | block | turn | block (typed-agent-routing configured; verify installation with block-readiness) | Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles. |
 | `primary-canonical-record` | recommend | turn | advisory-only | Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule. |
 | `project-operating-rulebook-policy` | discover | turn | advisory-only | When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records. |
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
-| `validation-evidence-block` | block | turn | block (not implemented by current runtime) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
+| `validation-evidence-block` | block | turn | block (readiness/preflight only; no lifecycle runtime declared) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
 | `validation-evidence-warning` | warn | turn | warn-only (explicit policy_context required) | When structured policy context says the agent is making validation claims, warn if concrete validation evidence should be attached or summarized. |
+
+## bounded-validation-orchestration
+
+- Title: Prefer bounded validation and one final full-regression boundary
+- Scope: framework-global
+- Stage: turn
+- Level: recommend
+- Runtime: advisory-only
+- Source record: `.lazy-harness/spec/platform/bounded-validation-governor.md`
+- Capabilities: bounded-validation-orchestration
+- Summary: During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated.
+
+### Applies to
+- iterating_after_edit
+- choosing_validation_scope
+- making_validation_claims
+- closing_non_trivial_work_unit
+- before_commit_or_sync
+
+### Evidence
+- user-confirmation: User approved the full validation-churn improvement on 2026-07-23 after repeated host lazy test runs consumed roughly 147 seconds each.
+- record `.lazy-harness/spec/platform/bounded-validation-governor.md`: The bounded governor defines fast edit-loop checks, one standard full-regression boundary, release opt-in, and conservative evidence reuse.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: discover, recommend, warn
+- Rollback target: discover
+  - Agents under-validate source, test, hook, schema, or contract changes.
+  - The recommendation obscures an explicit user request for fresh full regression.
 
 ## code-organization-profile
 
@@ -76,6 +107,34 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 - Allowed target levels: discover, recommend, warn
 - Rollback target: discover
   - Co-change checklist proves noisy for changes with no distributed references.
+
+## jcode-typed-review-model-routing
+
+- Title: Route typed Jcode review roles through GPT-5.6 Sol
+- Scope: framework-global
+- Stage: turn
+- Level: block
+- Runtime: block (typed-agent-routing configured; verify installation with block-readiness)
+- Source record: `.lazy-harness/spec/platform/jcode-typed-review-routing.md`
+- Capabilities: jcode-typed-review-model-routing
+- Summary: Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles.
+
+### Applies to
+- spawning_typed_jcode_reviewer
+- spawning_typed_jcode_oracle
+- delegating_high_risk_code_review
+
+### Evidence
+- user-confirmation: User confirmed GPT-5.6 Sol high for normal reviewers and max for Oracle on 2026-08-03.
+- record `.lazy-harness/spec/platform/jcode-typed-review-routing.md`: Portable SDD defines exact typed labels, GPT-5.6 Sol routes, and the promoted structured spawn boundary.
+- validation-output `.lazy-harness/tests/jcode-typed-review-routing.md`: Portable TDD records approved and rejected typed reviewer and Oracle routes.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: block
+- Rollback target: recommend
+  - Typed label routing blocks valid GPT-5.6 Sol reviewer or Oracle workers.
+  - The structured role convention creates material review-routing ambiguity.
 
 ## primary-canonical-record
 
@@ -168,7 +227,7 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 - Scope: framework-global
 - Stage: turn
 - Level: block
-- Runtime: block (not implemented by current runtime)
+- Runtime: block (readiness/preflight only; no lifecycle runtime declared)
 - Source record: `.lazy-harness/spec/platform/policy-machinery-v2.md`
 - Capabilities: lazy-evidence-capsule
 - Summary: Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice.
