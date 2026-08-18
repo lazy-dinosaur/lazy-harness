@@ -91,14 +91,14 @@ Medivance product work is outside the rollback boundary of lazy-harness deployme
 
 ## 2026-08-18 host validation convergence correction
 
-A post-deployment serial host pre-push exposed two seed-preserved drifts that the earlier scoped checks did not cover: paraphrased `bounded-validation-orchestration` action strings failed source-exact fixtures, and host-owned `tests/test-strategy.xml` lacked the protected `never after every micro-edit` guard. Deployment all-clear was therefore premature. Repair remains limited to host `.lazy-harness` capability/policy/rulebook and test-strategy records, followed by one serial full host regression; product files and branch state remain protected.
+A post-deployment serial host pre-push exposed two seed-preserved drifts that the earlier scoped checks did not cover: paraphrased `bounded-validation-orchestration` action strings failed source-exact fixtures, and host-owned `tests/test-strategy.xml` lacked the protected `never after every micro-edit` guard. It then exposed an upstream host-scope defect: the self-test unconditionally read source-only `packages/lazy-harness-pi` paths that installed hosts intentionally omit. Deployment all-clear was therefore premature. Upstream `bb149aa` narrows those package checks to source checkouts, and the three hosts now preserve source-exact capability/test-strategy guards and pass one serial full host regression each (`ran=59`, `skipped=29`); product files and branch state remained protected.
 
 ## Discovery capture — host validation convergence
 
 - DDD: none because no domain vocabulary or business invariant changed.
-- SDD: none because the bounded-validation source contract already defines the protected actions and phrases.
+- SDD: updated in `.lazy-harness/spec/platform/bounded-validation-governor.md` so installed hosts validate distributed surfaces without requiring source-only Pi package paths.
 - BDD: none because no product-visible workflow changed.
-- TDD: existing bounded-validation self-test fixtures correctly detected both host drifts; no test-contract change is required.
+- TDD: updated in `.lazy-harness/tests/bounded-validation-governor.md`; existing exact-action/test-strategy fixtures caught the host drifts, and the new installed-host case protects absence of source-only Pi package paths.
 - ADR: none because no architectural trade-off changed.
 - SSOT: updated here because deployment readiness now requires source-exact host-owned convergence plus one serial full host regression before all-clear.
 - Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md` with the post-deployment repair status.
