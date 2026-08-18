@@ -1,6 +1,6 @@
 # Planning — Workflow Churn Reduction (pre-commit scope, capture-gate FP, batched capture)
 
-Status: mixed — Fix 1 and host pre-push scope applied; primary-canonical-record deployment in progress; Fix 1b, Fix 2, and draft-first tooling remain proposed
+Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, and Fix 2b once-per-turn re-grounding are applied; Fix 3 and remaining Fix 2 work remain proposed
 Layer: Planning
 Source: 2026-07-05 graph-hygiene session — user frustration + measured evidence that a routine session burned ~57min on pre-commit self-test alone (31 commits × 111s), plus 13+ capture-gate false positives.
 Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`, `candidate-draft-first-batched-capture-20260705`, `candidate-parallel-atomic-append-capture-20260705`, `candidate-workflow-parallel-subagents-and-batching-20260705`, `candidate-host-worktree-symlink-propagation-20260705`.
@@ -49,6 +49,15 @@ Focused measurement before final closure: host-scope light validation completed 
 - `hooks/lifecycle/helpers/check-analysis-discovery-capture` (+ Pi adapter payload): before emitting STOP, inspect this turn's `recent_tool_calls` `edit_target` for a write to `.lazy-harness/knowledge/candidates.jsonl`, any `.lazy-harness/<layer>` record, or retro feedback → treat the capture obligation as satisfied and do not fire. Also suppress on pure-recap turns (no lazy-root mutation this turn).
 - Already backlogged: `.lazy-harness/planning/analysis-discovery-capture-backlog.md`, `.lazy-harness/tests/capture-gate-false-positive.md` (pattern promoted ×3+ earlier; 13+ instances 2026-07-05).
 
+### Fix 2b — applied 2026-08-18: once-per-turn re-grounding and resolver de-duplication
+
+- Dogfood symptom: a one-line Medivance source correction caused the Pi session to stop after each file operation, re-read the full mid-turn reminder, manually chain eight capability intents, and rediscover nearby code before continuing.
+- Confirmed framework root cause: `index.ts#tool_result` set `pendingRegroundByRoot` after every successful file operation even when `regroundBodyByRoot` already held the turn's injected body. `operating_rule_catalog.py` simultaneously told the agent to resolve any matching-looking intent `FIRST`, although source context had already resolved exact mechanical intents.
+- User-confirmed repair: preserve all pre-existing dirty/canonical work in `rescue/main-dirty-20260818` (`129e90c`), rebase `main` onto `origin/main`, then fix the framework source before downstream sync.
+- Applied behavior: successful file operations collapse into at most one `context` reminder per normal turn; later same-turn operations do not restart discovery. `before_agent_start` and explicit steer boundaries reset the cache and permit one fresh reminder.
+- Applied resolver guidance: the full catalog is discovery-only; never resolve every listed intent or chain resolver calls; resolve only one immediate rule-governed intent when needed; reuse already-resolved source guidance.
+- Protection/rollout: Pi fake runtime covers pre-context batching, failed-hook retry, same-turn suppression, fresh-turn reset, and explicit steer reset; catalog fixtures protect no-chain/no-rerun copy. Canonical source is committed/pushed first, then Medivance receives the framework update without direct edits to copied framework files.
+
 ### Fix 3 — draft-first batched capture (behavioral + tooling)
 
 - During work, append facts cheaply to the DRAFT tier (`candidates.jsonl`/`graph-drafts.jsonl`) with no gate and no commit; main agent verifies + promotes to canonical and commits ONCE per logical unit at turn end. Compounds with Fix 1 (fewer commits × cheaper commits).
@@ -56,7 +65,7 @@ Focused measurement before final closure: host-scope light validation completed 
 
 ## Sequencing
 
-Fix 1 (mechanical, ~90% of a record-only commit's time removed, low risk) → Fix 2 (helper logic, removes gate interruptions) → Fix 3 (behavioral + optional parallel tooling).
+Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding per turn + resolver reuse) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
 
 ## 2026-07-05 applied — host pre-push #1 bottleneck fixed (measured on medivance)
 
@@ -121,3 +130,13 @@ This deployment completion does not wait for the 7-day effectiveness verdict; th
 - Scope: framework-global.
 - Primary record: this mixed-status plan; ADR 0033 owns the primary-record decision and ADR 0046 owns typed policy storage.
 - Confirmation: Fix 1 and the Medivance host test-scope correction were previously approved/applied; the primary-record guard → sample cleanup → 7-day dogfood rollout was user-approved on 2026-07-13. Fix 1b, capture-gate suppression, and draft-first tooling still require separate approval.
+
+## Discovery capture — Fix 2b
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in `.lazy-harness/spec/platform/pi-agent-package.md` for once-per-turn cadence and resolver reuse.
+- BDD: none because no independent product flow changed.
+- TDD: updated in `.lazy-harness/tests/pi-agent-package.md` plus the Pi fake-runtime fixture.
+- ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because R3 was narrowed from repeated file-op surfacing to one bounded turn reminder.
+- SSOT: none because registry ownership, schema, levels, and storage remain unchanged.
+- Planning: updated here as the user-selected primary canonical work-unit record.

@@ -2099,6 +2099,7 @@ def check_pi_package_layout_and_contract() -> None:
         "MAX_ADVISORY_CONTINUATIONS",
         "pi.on(\"context\"",
         "pendingRegroundByRoot",
+        "!regroundBodyByRoot.has(root)",
         "FILE_OP_TOOLS",
         "on-context.sh",
         "assistant_response",
@@ -2608,6 +2609,17 @@ def check_pi_package_layout_and_contract() -> None:
             "if(!String(injected?.content).includes('NOT record-grounding') || !String(injected?.content).includes('Capture before you finish')) throw new Error('context injection missing relevant-record search / turn-end capture mandate');\n"
             "if(injected?.role !== 'user' || typeof injected?.timestamp !== 'number') throw new Error('context injected message must be a UserMessage');\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should not re-inject until a new file op');\n"
+            "const sameTurnRead=await handlers.get('tool_call')({toolCallId:'same-turn-read',toolName:'read',input:{file_path:'.lazy-harness/tests/pi-agent-package.md'}},ctx);\n"
+            "if(sameTurnRead?.block) throw new Error('same-turn read unexpectedly blocked');\n"
+            "await handlers.get('tool_result')({toolCallId:'same-turn-read',toolName:'read',input:{file_path:'.lazy-harness/tests/pi-agent-package.md'},content:'more'},ctx);\n"
+            "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('a later file op in the same turn must not restart re-grounding');\n"
+            "const nextTurn=await handlers.get('before_agent_start')({prompt:'next human turn',systemPrompt:'base'},ctx);\n"
+            "if(!nextTurn?.message?.content?.includes('status=armed')) throw new Error('next human turn did not re-arm');\n"
+            "const nextTurnRead=await handlers.get('tool_call')({toolCallId:'next-turn-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
+            "if(nextTurnRead?.block) throw new Error('next-turn read unexpectedly blocked');\n"
+            "await handlers.get('tool_result')({toolCallId:'next-turn-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'next'},ctx);\n"
+            "const nextTurnReground=await handlers.get('context')({messages:[]},ctx);\n"
+            "if(!Array.isArray(nextTurnReground?.messages)) throw new Error('new turn should allow one fresh re-grounding');\n"
             "const preSteerWrite=await handlers.get('tool_call')({toolCallId:'pre-steer-write',toolName:'write',input:{file_path:'pre-steer.txt',content:'ok'}},ctx);\n"
             "if(preSteerWrite?.block) throw new Error('valid pre-steer evidence should allow mutation: '+preSteerWrite.reason);\n"
             "const slowPreSteerRead=await handlers.get('tool_call')({toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
@@ -2643,6 +2655,77 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi shell alias read-debt smoke failed:\n" + completed.stdout + completed.stderr)
     finally:
         shutil.rmtree(runtime_smoke, ignore_errors=True)
+
+    retry_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-context-retry-"))
+    try:
+        retry_root = retry_smoke / "root"
+        retry_hooks = retry_root / ".lazy-harness" / "hooks" / "lifecycle"
+        retry_hooks.mkdir(parents=True)
+        retry_bin = retry_root / ".lazy-harness" / "bin" / "lazy"
+        retry_bin.parent.mkdir(parents=True)
+        retry_bin.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        retry_bin.chmod(0o755)
+        (retry_root / ".lazy-harness" / "AGENTS.md").write_text("# Lazy-Harness AI retry fixture\n", encoding="utf-8")
+        retry_message = retry_hooks / "on-message-received.sh"
+        retry_message.write_text(
+            "#!/usr/bin/env bash\ncat >/dev/null\nprintf '%s' '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n",
+            encoding="utf-8",
+        )
+        retry_message.chmod(0o755)
+        retry_guard = retry_hooks / "on-tool-execute-before.sh"
+        retry_guard.write_text("#!/usr/bin/env bash\ncat >/dev/null\n", encoding="utf-8")
+        retry_guard.chmod(0o755)
+        retry_context = retry_hooks / "on-context.sh"
+        retry_context.write_text(
+            "#!/usr/bin/env bash\n"
+            "cat >/dev/null\n"
+            "counter=.lazy-harness/context-retry-count\n"
+            "if [ ! -f \"$counter\" ]; then touch \"$counter\"; printf '%s' '{\"inject\":{\"body\":\"must-not-cache-failed-body\"}}'; exit 1; fi\n"
+            "printf '%s' '{\"inject\":{\"body\":\"retry fixture body\"}}'\n",
+            encoding="utf-8",
+        )
+        retry_context.chmod(0o755)
+        retry_script = retry_smoke / "context-retry.ts"
+        retry_script.write_text(
+            "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
+            "const handlers=new Map();\n"
+            "const pi={on(e,h){handlers.set(e,h)},registerCommand(){},async exec(){return {stdout:'',stderr:'',exitCode:0}}};\n"
+            "lazyHarnessPi(pi);\n"
+            "const ctx={cwd:" + json.dumps(str(retry_root)) + ",signal:undefined,ui:{notify(){}}};\n"
+            "await handlers.get('before_agent_start')({prompt:'retry turn',systemPrompt:'base'},ctx);\n"
+            "for (const id of ['batch-read-1','batch-read-2']) {\n"
+            " const call=await handlers.get('tool_call')({toolCallId:id,toolName:'read',input:{file_path:id+'.md'}},ctx);\n"
+            " if(call?.block) throw new Error('batch read blocked: '+id);\n"
+            " await handlers.get('tool_result')({toolCallId:id,toolName:'read',input:{file_path:id+'.md'},content:'ok'},ctx);\n"
+            "}\n"
+            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('failed first hook must fail open');\n"
+            "const retried=await handlers.get('context')({messages:[]},ctx);\n"
+            "if(!Array.isArray(retried?.messages) || !String(retried.messages.at(-1)?.content).includes('retry fixture body')) throw new Error('pending context was not retried');\n"
+            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('successful batch injected more than once');\n"
+            "const lateCall=await handlers.get('tool_call')({toolCallId:'late-read',toolName:'read',input:{file_path:'late.md'}},ctx);\n"
+            "if(lateCall?.block) throw new Error('late same-turn read blocked');\n"
+            "await handlers.get('tool_result')({toolCallId:'late-read',toolName:'read',input:{file_path:'late.md'},content:'ok'},ctx);\n"
+            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('late same-turn file op restarted context');\n"
+            "const steered=await handlers.get('input')({text:'new topic',source:'user',streamingBehavior:'steer'},ctx);\n"
+            "if(steered?.action!=='transform') throw new Error('steer did not reset context boundary');\n"
+            "const steerContext=await handlers.get('context')({messages:[]},ctx);\n"
+            "if(!Array.isArray(steerContext?.messages)) throw new Error('steer did not permit one fresh context injection');\n"
+            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('steer context injected more than once');\n"
+            "console.log('pi context retry and batch smoke ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(
+            ["bun", str(retry_script)],
+            cwd=retry_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(),
+        )
+        if completed.returncode != 0:
+            fail("Pi context retry/batch smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(retry_smoke, ignore_errors=True)
 
     isolation_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-root-isolation-"))
     try:
@@ -12434,6 +12517,8 @@ def check_message_received_surfaces_operating_rule_catalog() -> None:
         body = render("PR 올려줘", "m-r3a")
         for phrase in [
             "Operating rules/capabilities registered for THIS project",
+            "Do NOT resolve every listed intent or chain resolver calls",
+            "without rerunning the resolver",
             "lazy capability resolve --intent",
             "capability-registry-phase1",
         ]:

@@ -28,10 +28,11 @@ def _command_timeout_seconds() -> float:
 CATALOG_COMMAND_TIMEOUT_SECONDS = _command_timeout_seconds()
 
 HEADER = (
-    "- Operating rules/capabilities registered for THIS project (deterministic catalog). "
-    "If your task matches an intent below, resolve it FIRST "
-    "(`.lazy-harness/bin/lazy capability resolve --intent <intent>` / `lazy rules resolve`) "
-    "and follow the stored convention BEFORE acting — do not improvise "
+    "- Operating rules/capabilities registered for THIS project (deterministic catalog; discovery only). "
+    "Do NOT resolve every listed intent or chain resolver calls. Before a rule-governed action, "
+    "resolve only the single immediate matching intent when needed "
+    "(`.lazy-harness/bin/lazy capability resolve --intent <intent>` / `lazy rules resolve`). "
+    "If resolved source-work guidance is already shown, follow it without rerunning the resolver "
     "(jcode parity: stored project rules surface before action; AGENTS §2.4/§2.5):"
 )
 RESOLVED_HEADER = (

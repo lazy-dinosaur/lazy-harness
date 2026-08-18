@@ -22,7 +22,7 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`, `.lazy-harne
   - changing the `before_agent_start` reminder, the `context` re-grounding body, or the capture gates
   - diagnosing why an agent read source/tests and acted without consulting the governing record, or ended a turn without capturing decisions
 - Must:
-  - replicate jcode's full-grammar drive organically via lifecycle hooks: `on-message-received` turn-start reminder AND `on-context.sh` mid-turn re-injection after file-touching tool results
+  - replicate jcode's full-grammar drive organically via `on-message-received` at turn start and one bounded `on-context.sh` reminder after the first successful file-operation batch of each normal turn; later same-turn file operations must not restart re-grounding
   - keep the `on-context.sh` body forcing relevant-record search (reading code/tests is NOT record-grounding; `lazy map` + governing `.lazy-harness/<layer>` record before action, §2.1/§2.5) and turn-end capture (decisions/user-corrections/repeated-mistake-fixes/host-learnings → record, §2.4)
   - keep the keyword-gated capture STOP gates conservative and drive capture through re-grounding (Option C)
   - state honestly that this is organic (advisory reminder), not a hard guarantee
@@ -50,7 +50,7 @@ The generic read-debt guard (`check-read-debt-permit.py`) was never the relevant
 Replicate jcode's grammar drive **organically through the lifecycle hooks**, with no read-debt tightening and no runtime change:
 
 1. `on-message-received` (`before_agent_start`) — the extension **force-loads the FULL `.lazy-harness/AGENTS.md` grammar (§0–§2.5) into the system prompt once per session (jcode `load_harness_dir` parity, deduped by the `Lazy-Harness AI` title marker, fail-open)** — and the hook carries the turn-start harness-first search/read-debt reminder, map-first protocol, interactive grammar, and a **review/gap-analysis driver**: on a "what is missing/undecided/incomplete"/audit request, enumerate `lazy policy list` + `lazy capability list` and map the governing records BEFORE reading code (AGENTS §1/§2.1).
-2. `on-context.sh` (Pi/OMP `context` event, fed the turn's `recent_tool_calls`) **runs `lazy map` on the touched paths and injects the ACTUAL matching `.lazy-harness/<layer>` record refs + `lazy policy list` operating policies** — jcode "instructions relevant to files just read/edited — read and follow" parity: SURFACE the records, not merely a "go look" reminder — leading with the relevant-record search (§2.1/§2.5) and turn-end capture (§2.4) mandates plus the interactive grammar (§0/§2.3). `index.ts` passes `recent_tool_calls` to the hook and wires `FILE_OP_TOOLS`/`pendingRegroundByRoot`/`regroundBodyByRoot` — one inject per new file-op batch, reset per turn, fail-open.
+2. `on-context.sh` (Pi/OMP `context` event, fed the turn's `recent_tool_calls`) runs `lazy map` on touched paths and injects actual matching records plus operating guidance. `index.ts` collapses all successful file operations before the first callback into one batch and injects at most once per normal turn; a cached body suppresses later same-turn retriggers. Fresh `before_agent_start` and explicit steer epochs reset the boundary. Missing/failed/empty context hooks fail open for that callback but retain pending state for a later context retry. Catalog enumeration is discovery-only and already-resolved source guidance must not trigger another resolver chain.
 3. Keep the keyword-gated capture STOP gates (`check-analysis-discovery-capture.sh` needs ≥3 layer acronyms + plan cue; `check-user-correction-capture.sh` needs a current-turn correction + ack) **conservative**, and drive capture through the re-grounding reminder instead — **Option C**.
 
 ### Rejected alternatives
@@ -69,7 +69,7 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 ## 2026-06-28 amendment — proactive map-first in mid-turn re-grounding
 
 - Trigger: dogfood — on a later-turn audit the agent read a known spec then dove into code without running `lazy map --overview` first. Root cause: the proactive map-first protocol AND the review/audit driver ("map governing records FIRST, then read code") lived only in the turn-start `on-message-received` reminder, which is **once-per-session** (`before_agent_start` dedup). The `context` mid-turn body was **reactive** (records for files already touched) and never re-asserted proactive map-first — so on later turns the record-first push faded and agents leaned code-first.
-- Change: `on-context.sh` MANDATE gains a proactive **"Map-first BEFORE reading/editing more"** bullet — run `lazy map --overview` + drill into governing records (decisions/ssot/behavior/domain) FIRST; for a review/audit, enumerate governing records + operating policies first, THEN read code to check compliance. This re-asserts record-first **every file-op turn** via the transient `context` messages path (no systemPrompt accumulation) — the same mechanism R3 (ADR 0048) uses for the operating-rule catalog.
+- Change: `on-context.sh` MANDATE keeps the proactive **"Map-first BEFORE reading/editing more"** bullet, but ADR 0048's 2026-08-18 correction bounds delivery to one successful reminder per normal turn rather than every file operation. This preserves record-first visibility without fragmenting a coherent edit loop.
 - Protection: `check_on_context_surfaces_operating_rule_catalog` asserts the `Map-first BEFORE reading/editing more` phrase in the on-context body.
 - Still organic/advisory (ADR 0041), not a hard block; takes effect in a fresh session.
 
@@ -93,6 +93,14 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Boundary kept: organic/advisory (ADR 0041) — no blocking, no user-text classification (the reminder is static transport; the LLM judges topic novelty), fail-open for empty/extension inputs.
 - Protection: `check_pi_package_layout_and_contract` asserts `steer re-ground` / `streamingBehavior` in the extension source.
 - Takes effect in a fresh session (extension loads at session start).
+
+## 2026-08-18 amendment — cadence bounded after Medivance dogfood
+
+- Medivance exposed that literal post-file-op parity was counterproductive in Pi: every micro-edit/search triggered another full reminder and restarted record/capability discovery.
+- ADR 0048 now owns the correction: at most one successful `context` reminder per normal turn, with pre-context file operations collapsed; fresh turns and explicit steers reset the boundary.
+- Fail-open remains, but failed/empty context hooks keep pending state so a later context callback can retry. Pending clears only after a valid body exists.
+- Exact source guidance rendered by the helper is already resolved. The generic catalog is discovery-only and must not cause broad manual resolver chains.
+- Protection lives in `check_pi_package_layout_and_contract` and `.lazy-harness/tests/pi-agent-package.md`.
 ## Implementation map
 
 - Status: implemented
@@ -101,7 +109,7 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — turn-start harness-first reminder
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `context` handler, `FILE_OP_TOOLS`, `pendingRegroundByRoot`/`regroundBodyByRoot`, jcode-shape `agent_end` payload, opt-in content-free `agent_end` trace, `ensureAskToolActive`
 - Key symbols:
-  - `context` handler + `pendingRegroundByRoot` (`index.ts`) — one re-inject per file-op batch, reset per turn
+  - `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot` (`index.ts`) — one successful re-inject per normal turn; pre-context file operations collapse, failed hooks retain pending retry, and fresh turn/steer boundaries reset the cache
   - re-grounding body phrases `NOT record-grounding` / `Capture before you finish` — search + capture mandates
   - `agentEndTracePath` / `writeAgentEndTrace` — opt-in runtime-root diagnostics that preserve payload and continuation semantics
 - Commits: `1ccfd05` (re-grounding wiring), `62fc284` (jcode-shape agent_end payload), `791d659` (native `ask` option gates), `069d603` (option-gate-discipline false positives), `3617769` (relevant-record search mandate), `deb9d53` (turn-end capture mandate), `3bb06d5` (SDD record + fixture)
@@ -112,12 +120,13 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
   - ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md` (decommission that removed `load_harness_dir`), `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` (organic, not hard-gate)
 - Machine index:
   - graph ids: `kg_pi_agent_end_structural_trace_impl_20260714`,
-    `kg_pi_agent_end_structural_trace_test_20260714`
+    `kg_pi_agent_end_structural_trace_test_20260714`,
+    `kg_pi_context_once_per_turn_20260818`
   - generated index key: `pending until implementation-index generator exists`
 
 ## Rule placement
 
-- Rule: OMP/Pi replicate jcode's full-grammar drive organically via `on-message-received` + `on-context.sh` re-grounding (relevant-record search + turn-end capture) and the `input` steer re-ground (mid-turn steered instructions get a map-first reminder + forced next-`context` re-injection; amendment 2); read-debt is not tightened and capture STOP gates stay conservative; the guarantee is organic, not hard.
+- Rule: OMP/Pi replicate jcode's grammar drive organically through turn-start grounding plus at most one successful mid-turn context reminder per normal turn. File operations before the first callback collapse; later same-turn operations do not re-trigger; failed hooks may retry; explicit steer starts a fresh evidence boundary. Read-debt is not tightened and capture STOP gates stay conservative.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md`
 - Why not AGENTS.md: runtime/extension behavior decision with source/tests and an implementation map; AGENTS.md carries only the compact grammar.
@@ -142,3 +151,13 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - ADR: none semantic because the opt-in trace does not change the accepted runtime decision.
 - SSOT: updated in `runtime-and-shared-state.md` for the runtime-only path.
 - Planning: updated in the analysis-discovery capture backlog; fresh source-linked trace passed and current remediation was user-closed without changing runtime semantics.
+
+## Discovery capture — 2026-08-18 cadence correction
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in `.lazy-harness/spec/platform/pi-agent-package.md`.
+- BDD: none because no independent product flow changed.
+- TDD: updated in `.lazy-harness/tests/pi-agent-package.md` and the Pi fake runtime.
+- ADR: updated here and in ADR 0048 because the former per-file-op parity cadence was narrowed after dogfood evidence.
+- SSOT: none because no policy/capability ownership or schema changed.
+- Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md`.

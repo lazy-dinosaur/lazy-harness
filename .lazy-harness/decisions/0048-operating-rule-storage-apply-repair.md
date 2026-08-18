@@ -87,6 +87,15 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - Safety boundary: no raw user-text classification, architecture/profile inference, warn/block promotion, tool-specific hard gate, or second policy engine is introduced.
 - Protection: a minimal temp-host regression owns a host-only source policy/capability and proves it appears in source context while remaining absent from record-only context.
 
+## 2026-08-18 amendment — bounded re-grounding and resolver de-duplication
+
+- Trigger: Medivance dogfood showed one-line source changes repeatedly interrupted by full mid-turn reminders, broad rediscovery, and manual chains of unrelated `lazy capability resolve` intents.
+- Root cause: the Pi/OMP adapter marked re-grounding pending after every successful `read`/`edit`/`write`/`grep`/`find`/`ls` result even after the turn's reminder body had already been cached, while the catalog header told the agent to resolve every matching-looking intent `FIRST`. Source-touch context had already resolved exact mechanical intents, so the prompt duplicated that work.
+- Decision: preserve R3 visibility but bound it to at most one successful context injection per normal turn. File operations completed before the first callback collapse into one batch; later same-turn file operations do not restart discovery. A fresh `before_agent_start` turn or explicit steer evidence epoch clears the cache and permits one new injection.
+- Resolver boundary: the full catalog is discovery-only. Agents must not chain all listed intents. They resolve only the single immediate intent when a rule-governed action requires it, and they reuse already-rendered resolved source guidance without another resolver call.
+- Ownership: this is a framework-source correction in `packages/lazy-harness-pi` and the shared lifecycle helper. Downstream hosts receive it through package live-link/update and framework sync; host-local validation policies remain separate.
+- Protection: the Pi fake runtime proves pre-context file operations collapse, failed hooks retain pending state for a later retry, later same-turn operations do not inject again, fresh turn/steer boundaries permit one new injection, and catalog copy rejects resolver chaining.
+
 ## Implementation map
 
 - Status: `implemented`
@@ -97,8 +106,9 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
   - `.lazy-harness/scripts/lifecycle-check.py` — HELPERS parity.
   - `.lazy-harness/AGENTS.md`, `.lazy-harness/ssot/rule-sources.md`, `.lazy-harness/spec/platform/response-rule-audit.md`, `.lazy-harness/spec/platform/project-rule-router.md` — grammar/record alignment.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — R3 turn-start catalog injection (imports `helpers/operating_rule_catalog.catalog_lines`); 2026-06-28 amendment.
-  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — shared deterministic catalog builder plus canonical exact-intent resolver rendering used by source-touch context; 2026-07-20 amendment.
-  - `.lazy-harness/hooks/lifecycle/on-context.sh` — R3 mid-turn (per-turn) catalog injection; 2026-06-28 amendment.
+  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — bounded catalog and canonical exact-intent rendering; the 2026-08-18 amendment marks enumeration discovery-only and prevents duplicate manual resolution when source guidance is already resolved.
+  - `.lazy-harness/hooks/lifecycle/on-context.sh` — builds the bounded mid-turn body from touched paths.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — collapses file operations into one context injection per turn and resets only at a fresh turn or explicit steer boundary.
 - Key symbols:
   - `missed_discouraged_action` (`check-response-rule-audit.py`) — now `{default, warn, block}`.
   - `rule_store_write` / `wrong_surface_write` / `has_resolve_evidence` (`check-operating-rule-storage.py`).
@@ -117,7 +127,7 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`, `0044`, `0046`
 - Machine index:
-  - graph ids: `pending`
+  - graph ids: `kg_pi_context_once_per_turn_20260818`
 
 ## Rule placement
 
@@ -147,3 +157,13 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - ADR: this amendment records why exact-intent source resolution extends the existing R3 catalog without reintroducing semantic user-text routing.
 - SSOT: no registry schema or seed semantic change; existing host-owned policy/capability stores remain canonical.
 - Planning: no new plan; this approved bounded amendment closes the source-organization canary of the existing adaptation bridge.
+
+## Discovery capture — 2026-08-18 bounded re-grounding
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in `.lazy-harness/spec/platform/pi-agent-package.md` for the adapter cadence and resolved-guidance reuse contract.
+- BDD: none because no independent product flow changed.
+- TDD: updated in `.lazy-harness/tests/pi-agent-package.md` and the Pi fake-runtime fixture.
+- ADR: updated here because the prior R3 per-file-op interpretation caused measured dogfood churn and required a user-confirmed trade-off correction.
+- SSOT: none because policy/capability registries, levels, and ownership did not change.
+- Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md`, the selected primary work-unit record.

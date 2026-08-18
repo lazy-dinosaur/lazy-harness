@@ -19,8 +19,8 @@ Layer: TDD
   - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit driven as a bounded continuation: `pi.sendUserMessage(body, { deliverAs: "followUp" })`, loop-capped by `MAX_ADVISORY_CONTINUATIONS` plus `MAX_ADVISORY_CHAIN_CONTINUATIONS`, falling back to non-steering display without a custom transport label); preserve OMP string-array `systemPrompt` blocks
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
   - ensure `lazy_move_project` switches directly through `ctx.switchSession` when available; it must not treat `sendUserMessage('/lazy-move ...', { deliverAs: 'followUp' })` as command execution, because that only queues an agent-visible user message
-  - carry the interactive grammar (record↔code conflict→ask, option gate, requirements-first) in the `before_agent_start` reminder and re-inject it via the `context` event after file-touching tool results (jcode mid-turn re-grounding parity); if `on-context.sh` cannot provide the real relevant-record body, fail open silently instead of injecting a generic fallback reminder
-  - when context evidence includes source-code paths, derive exact source-work intents from mechanical file-tool labels and surface canonical framework + host-project policy/capability matches; record/docs-only touches must not receive a source-adaptation block
+  - carry the interactive grammar in `before_agent_start` and re-inject it through `context` at most once per normal turn after the first successful file-operation batch; later same-turn file operations must not restart re-grounding, while a fresh turn or explicit steer permits one new injection
+  - when context evidence includes source-code paths, surface canonical framework + host-project policy/capability matches from mechanical intents; the catalog must identify itself as discovery-only, reject resolver chaining, and tell agents to reuse already-resolved source guidance
   - on every non-extension, non-empty mid-turn steer, advance a root evidence epoch and clear prior recent-tool evidence; only tool results whose tool calls started in the current epoch may satisfy later action guards, so late pre-steer parallel results remain stale
   - project the jcode-shape `agent_end` payload with user/assistant prose plus current-turn-only tool entries carrying `args_preview`, `edit_target`, `evidence_epoch`, and `is_error`; prior-turn/late results must not reach response-completion helpers, while failed current calls remain explicit structural facts
   - protect the opt-in `LAZY_PI_AGENT_END_TRACE=1` diagnostic: absent by default, written under `$LAZY_RUNTIME_ROOT`, structural fingerprints only, no conversation prose/tool args/results, fail-open, and no change to queued continuation behavior
@@ -76,8 +76,8 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_steer_rearms_fresh_evidence` | Fake Pi runtime establishes valid evidence, starts a second read, receives a non-extension `streamingBehavior:'steer'`, then delivers the old read result and attempts a write | The transformed steer reminder says earlier evidence is stale; the old result is ignored; the write blocks; a read call/result started after the steer restores permission; no command-name or steer-text classifier is involved |
 | `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns and alternating advisory chains are capped at `MAX_ADVISORY_CHAIN_CONTINUATIONS`, then suppresses chat/display messages and only emits transient UI notification/log; an empty body resets the per-root counter, and a new human prompt distinct from the queued advisory body resets the cap while synthetic follow-up turns keep it |
 | `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root | Reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
-| `pi_extension_context_regrounds_after_file_op` | Fake runtime fires `tool_result` for a `read`/`write`, then calls the `context` handler | `context` returns `{ messages }` with an appended `<system-reminder>` re-grounding message sourced from `on-context.sh`; generic fallback reminder text is not injected when `on-context.sh` is missing or unparsable |
-| `pi_context_code_organization_profile` | Run `on-context.sh` with source, host-only source-policy, and record-only path fixtures | Source paths receive canonical resolver guidance for the framework baseline plus matching host-project policy/capability records and actions; record-only paths receive no source-adaptation block; all output stays advisory and user-text-agnostic |
+| `pi_extension_context_regrounds_once_per_turn` | Fake runtime batches multiple pre-context file results, receives one reminder, fires another same-turn file result, simulates one failed context hook, then starts a fresh turn and explicit steer | Pre-context operations collapse into one injection; later same-turn operations do not re-inject; failed/empty hooks keep pending state for the next context retry; fresh turn and steer each permit one new injection. |
+| `pi_context_code_organization_profile` | Run `on-context.sh` with source, host-only source-policy, and record-only path fixtures | Source paths receive canonical resolver guidance for framework and host-project records; catalog copy says not to resolve every listed intent or rerun already-resolved source guidance; record-only paths receive no source-adaptation block. |
 | `pi_extension_context_noop_without_file_op` | Fake runtime fires `context` with no preceding file-touching tool result | `context` returns `undefined` (no injection) |
 | `pi_extension_agent_end_jcode_shape_payload` | Fake runtime fires `tool_result` (write to `.lazy-harness/knowledge/candidates.jsonl`) then `agent_end` with `event.messages` (user + assistant), capturing the payload via a fake `on-response-completed.sh` | Captured payload carries `assistant_response`, `last_user_message`, and current-turn tool fields including `args_preview`, `edit_target`, `evidence_epoch`, and `is_error` |
 | `pi_extension_agent_end_current_turn_tool_scope` | Fake runtime completes one read, leaves another result late, starts a new normal turn, then records a failed fetch and ends a third tool-free turn | Turn two payload contains only the current failed fetch with `is_error: true`; completed/late turn-one reads are absent; turn three has no inherited tool calls |
@@ -150,14 +150,15 @@ omp plugin list
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#appendSystemPromptBody` — fixture for official Pi string prompt and OMP string-array prompt compatibility.
 - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — fixture for the per-turn reminder carrying the interactive grammar.
 - `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for mechanical source-intent derivation and source-only host policy/capability guidance.
-- `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded catalog enumeration plus canonical resolver rendering under one fail-open timeout window.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for the `context` mid-turn re-grounding injection, bounded one inject per file-op batch.
+- `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded catalog enumeration, canonical resolver rendering, discovery-only copy, and explicit no-chain/no-rerun guidance.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for pre-context batching, failed-hook pending retry, at-most-once-per-turn injection, same-turn suppression after a cached body, and reset on fresh turn/steer.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
 - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.
 - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` plus `_check_pi_agent_end_current_turn_scope` — regression implementation, including hermetic fake peer modules, live-session `/move` re-scope, post-steer re-arming, current-turn jcode-shape projection, failed-call structure, trace privacy/default-off/runtime-root assertions, and queued follow-up preservation.
 - Machine index:
   - `kg_pi_agent_end_structural_trace_impl_20260714`
   - `kg_pi_agent_end_structural_trace_test_20260714`
+  - `kg_pi_context_once_per_turn_20260818`
 
 ## Rule placement
 
@@ -201,3 +202,13 @@ omp plugin list
 - Primary narrative remains `.lazy-harness/tests/project-rule-placement-gate-loop.md`; this record only carries the independent Pi/OMP adapter fixture delta.
 - The fake runtime covers completed prior-turn evidence, a late old-turn result, a failed current-turn fetch, and a following tool-free turn.
 - No new BDD/DDD/ADR record is warranted; SDD and SSOT impacts are linked in the layer-completeness matrix above.
+
+## Discovery capture — bounded mid-turn re-grounding
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in `.lazy-harness/spec/platform/pi-agent-package.md` because the adapter cadence and resolver-reuse contract changed.
+- BDD: none because the agent-visible correction is fully owned by the platform adapter contract rather than a product flow.
+- TDD: updated here with same-turn suppression, fresh-turn reset, and catalog no-chain/no-rerun fixtures.
+- ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because the earlier per-file-op surfacing decision was narrowed after dogfood evidence.
+- SSOT: none because policy/capability registry ownership, schema, and levels did not change.
+- Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md` as the primary work-unit narrative.

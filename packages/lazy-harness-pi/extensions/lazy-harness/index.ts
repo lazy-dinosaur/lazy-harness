@@ -756,9 +756,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
     });
-    // Jcode parity: after the agent reads/searches/edits files, mark the next LLM
-    // call for harness-grammar re-grounding (handled by the "context" handler).
-    if (FILE_OP_TOOLS.has(normalized.name.toLowerCase()) && !event.isError) {
+    // Re-ground at most once per turn. Parallel or sequential file operations before
+    // the first context callback collapse into one batch; once a body is cached, later
+    // file operations in the same turn must not restart the discovery loop.
+    if (FILE_OP_TOOLS.has(normalized.name.toLowerCase()) && !event.isError && !regroundBodyByRoot.has(root)) {
       pendingRegroundByRoot.set(root, true);
     }
     return undefined;
@@ -767,8 +768,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   // "context" fires before each LLM call and can modify the messages sent to the model.
   // Jcode natively re-injected relevant AGENTS/.jcode instructions after file operations
   // ("read and follow them for the next steps"). Pi/OMP load AGENTS.md only once at session
-  // start, so we replicate that mid-turn re-grounding here: one inject per new file-op batch,
-  // body computed once per turn via on-context.sh. If the hook cannot produce a real body,
+  // start, so we replicate that mid-turn re-grounding here: at most one inject per turn,
+  // with pre-injection parallel/sequential file operations collapsed into one batch.
   // fail open silently; do NOT inject a generic fallback reminder, because it can loop without
   // surfacing the relevant records that make the reminder actionable.
   pi.on("context", async (event: any, ctx: any) => {
@@ -776,18 +777,18 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));
       if (!root) return undefined;
       if (!pendingRegroundByRoot.get(root)) return undefined;
-      pendingRegroundByRoot.delete(root);
-
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
         const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-context.sh");
         if (!existsSync(script)) return undefined;
         const payload: JsonObject = { event: "context", source: EXTENSION_NAME, working_dir: root, recent_tool_calls: recentToolCallsForRoot(root).slice(-40) };
         const hook = runHook(script, payload, root);
+        if (hook.status !== 0 || hook.signal || hook.error) return undefined;
         body = hookInjectBody(hook.stdout);
         if (!body) return undefined;
         regroundBodyByRoot.set(root, body);
       }
+      pendingRegroundByRoot.delete(root);
 
       const messages = Array.isArray(event.messages) ? event.messages : [];
       const reminder = { role: "user", content: `<system-reminder>\n${body}\n</system-reminder>`, timestamp: Date.now() };
