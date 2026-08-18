@@ -8,20 +8,20 @@
       "level": "recommend",
       "sourceRecord": ".lazy-harness/spec/platform/bounded-validation-governor.md",
       "appliesWhen": [
-        "iterating_after_edit",
         "choosing_validation_scope",
         "making_validation_claims",
         "closing_non_trivial_work_unit",
         "before_commit_or_sync"
       ],
       "actions": [
-        "Use lazy check during edit loops",
-        "Use focused or affected validation only when changed behavior needs it",
+        "Do not run validation after each micro-edit",
+        "Batch a coherent mutation set before running lazy check",
+        "Run focused or affected validation once per changed-behavior batch when needed",
         "Run lazy validate --plan standard once after the final mutation",
         "Reserve direct lazy test for explicit full-regression requests and commit/push/release gates"
       ],
       "checklistPath": ".lazy-harness/spec/platform/bounded-validation-governor.md",
-      "description": "Choose the cheapest sufficient validation tier and avoid multiplying full lazy test runs within one unchanged work-unit fingerprint.",
+      "description": "Batch coherent mutations before validation, choose the cheapest sufficient checkpoint, and avoid multiplying focused or full test runs within one work unit.",
       "owner": "framework-global",
       "tags": [
         "validation",

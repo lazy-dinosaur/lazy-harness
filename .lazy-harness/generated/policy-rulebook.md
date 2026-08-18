@@ -14,7 +14,7 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
-| `bounded-validation-orchestration` | recommend | turn | advisory-only | During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated. |
+| `bounded-validation-orchestration` | recommend | turn | advisory-only | Do not validate after each micro-edit. Batch a coherent mutation set, run lazy check at a deliberate checkpoint, run focused or affected validation once per changed-behavior batch when needed, then run one lazy validate --plan standard after the final mutation. Direct lazy test remains explicit fresh full regression or commit/push/release only. |
 | `code-organization-profile` | recommend | edit | advisory-only | Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code. |
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
 | `jcode-typed-review-model-routing` | block | turn | block (typed-agent-routing configured; verify installation with block-readiness) | Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles. |
@@ -33,10 +33,9 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 - Runtime: advisory-only
 - Source record: `.lazy-harness/spec/platform/bounded-validation-governor.md`
 - Capabilities: bounded-validation-orchestration
-- Summary: During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated.
+- Summary: Do not validate after each micro-edit. Batch a coherent mutation set, run lazy check at a deliberate checkpoint, run focused or affected validation once per changed-behavior batch when needed, then run one lazy validate --plan standard after the final mutation. Direct lazy test remains explicit fresh full regression or commit/push/release only.
 
 ### Applies to
-- iterating_after_edit
 - choosing_validation_scope
 - making_validation_claims
 - closing_non_trivial_work_unit

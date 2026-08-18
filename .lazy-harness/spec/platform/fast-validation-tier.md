@@ -19,6 +19,7 @@ Date: 2026-06-18
   - choosing between formatter/static checks, affected tests, and full regression
 - Must:
   - expose `.lazy-harness/bin/lazy check` as a fast static validation tier
+  - position `lazy check` as an explicit checkpoint after a coherent mutation batch, never as an automatic command after every individual edit
   - validate changed files by default and explicit files with `--files`
   - keep JSON/XML/JSONL parse, Python compile, shell syntax, graph-id, manifest-path, fixture canonical-record, root-bound path, and `git diff --check` coverage lightweight
   - state clearly that `lazy check` is not full regression and does not replace `.lazy-harness/bin/lazy test`
@@ -29,6 +30,7 @@ Date: 2026-06-18
   - silently skip unknown static parse failures
   - become a semantic authority for project rules or record meaning
   - scan sibling repos or paths outside the current host root
+  - instruct agents to run `lazy check` after every micro-edit
 
 ## Contract
 
@@ -71,9 +73,9 @@ Default behavior:
   - `lazy-check.py#main`
   - `self-test.py#check_fast_validation_tier_cli`
 - Flow:
-  1. Agent edits harness/source files.
-  2. Agent runs `lazy check` for fast static feedback.
-  3. Agent runs focused/affected validation as needed.
+  1. Agent completes a coherent batch of related harness/source edits without validation between individual edits.
+  2. At a deliberate checkpoint, agent runs `lazy check` once for fast static feedback.
+  3. Agent runs at most one focused/affected validation per changed-behavior batch when needed.
   4. Agent runs `lazy test` before claiming full regression safety.
 - Tests:
   - `python3 .lazy-harness/scripts/self-test.py --scope framework`
@@ -87,7 +89,7 @@ Default behavior:
 
 - DDD: no domain model change.
 - SDD: adds fast validation tier contract.
-- BDD: agent/user behavior changes from “run full lazy test after every edit” to “run fast check while iterating, full test at safety boundaries.”
+- BDD: agent/user behavior changes from validation after every micro-edit to coherent mutation batching, one deliberate fast checkpoint, focused validation once per changed-behavior batch when needed, and full validation only at safety boundaries.
 - TDD: `.lazy-harness/tests/fast-validation-tier.md` protects CLI and failure behavior.
 - ADR: no new ADR; this refines existing CLI/test contracts without changing full-gate semantics.
 - SSOT: full regression remains mandatory for final safety claims.

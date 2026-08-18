@@ -1720,17 +1720,32 @@ def check_bounded_validation_governor_cli() -> None:
     if capability is None or capability.get("level") != "recommend":
         fail("bounded validation orchestration capability must be registered at recommend level")
     required_actions = {
-        "Use lazy check during edit loops",
+        "Do not run validation after each micro-edit",
+        "Batch a coherent mutation set before running lazy check",
+        "Run focused or affected validation once per changed-behavior batch when needed",
         "Run lazy validate --plan standard once after the final mutation",
         "Reserve direct lazy test for explicit full-regression requests and commit/push/release gates",
     }
     if not required_actions.issubset(set(capability.get("actions", []))):
         fail("bounded validation orchestration capability actions are incomplete")
+    if "iterating_after_edit" in capability.get("appliesWhen", []):
+        fail("bounded validation capability must not trigger after every edit")
 
     policies = json.loads((LAZY / "ssot" / "policies.json").read_text(encoding="utf-8")).get("policies", [])
     policy = next((item for item in policies if item.get("id") == "bounded-validation-orchestration"), None)
     if policy is None or policy.get("level") != "recommend" or capability.get("id") not in policy.get("capabilityIds", []):
         fail("bounded validation orchestration policy/capability binding is missing")
+    if "iterating_after_edit" in policy.get("appliesTo", []):
+        fail("bounded validation policy must not trigger after every edit")
+    surface_expectations = {
+        LAZY / "AGENTS.md": "coherent mutation batch",
+        LAZY / "tests" / "test-strategy.xml": "never after every micro-edit",
+        ROOT / "packages" / "lazy-harness-pi" / "prompts" / "lazy-harness.md": "Do NOT run any validation command after each micro-edit",
+        ROOT / "packages" / "lazy-harness-pi" / "skills" / "lazy-test" / "SKILL.md": "Do not validate after each micro-edit",
+    }
+    for surface, phrase in surface_expectations.items():
+        if phrase not in surface.read_text(encoding="utf-8"):
+            fail(f"bounded validation micro-edit guard missing from {surface.relative_to(ROOT)}: {phrase}")
 
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "validate [--plan=fast|standard|release]" not in help_text:
@@ -2160,7 +2175,9 @@ def check_pi_package_layout_and_contract() -> None:
         "map <copied-node>",
         "never pass raw user text",
         "invented `--query` flags",
-        "use `lazy check` during edit loops",
+        "Do NOT run any validation command after each micro-edit",
+        "Finish a coherent mutation batch first",
+        "at most one focused/affected check per changed-behavior batch",
         "one `lazy validate --plan standard` only after the final mutation",
         "Reserve direct `lazy test`",
         "Do not run product-wide typecheck/lint/build just to \"cover all bases\"",
@@ -2474,7 +2491,9 @@ def check_pi_package_layout_and_contract() -> None:
             fail(f"Pi package skill wrapper lacks expected frontmatter/content: {skill}")
         if skill == "lazy-test":
             for phrase in [
-                "Use `lazy check` during edit loops",
+                "Do not validate after each micro-edit",
+                "Batch a coherent mutation set",
+                "focused/affected validation at most once per changed-behavior batch",
                 "`lazy validate --plan standard` once after the final mutation",
                 "fresh full regression",
                 "does not reuse `lazy validate` evidence",

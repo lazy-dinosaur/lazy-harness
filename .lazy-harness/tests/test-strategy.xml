@@ -6,10 +6,10 @@
 
   <tiers>
     <tier id="fast" command=".lazy-harness/bin/lazy check">
-      Use during edit loops for changed-file syntax, parse, path, and diff hygiene.
+      Use only at a deliberate checkpoint after a coherent mutation batch for changed-file syntax, parse, path, and diff hygiene; never after every micro-edit.
     </tier>
     <tier id="focused">
-      Run the directly affected Python check function, Bun test target, package smoke, or typecheck only when its source surface changed.
+      Run the directly affected Python check function, Bun test target, package smoke, or typecheck at most once per changed-behavior batch when its source surface changed.
     </tier>
     <tier id="standard" command=".lazy-harness/bin/lazy validate --plan standard">
       Run once after the final mutation. It performs fast validation and one full regression or conservatively reuses matching full-regression evidence.
@@ -32,6 +32,7 @@
   <affectedTestRouting command="bun run test:run {tests}" />
 
   <boundaries>
+    <boundary>Do not run `lazy check`, focused tests, typecheck, lint, build, or any other validation command after every individual edit; batch coherent mutations first.</boundary>
     <boundary>Do not run product-wide lint, build, E2E, or unrelated downstream tests unless the user requests them or changed product code requires them.</boundary>
     <boundary>Do not rerun full regression merely because an evidence capsule was updated.</boundary>
     <boundary>Source, tests, contracts, policies, graph, planning, and canonical layer records remain full-regression fingerprint inputs.</boundary>

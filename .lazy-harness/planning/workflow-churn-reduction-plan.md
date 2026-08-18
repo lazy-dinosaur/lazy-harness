@@ -1,6 +1,6 @@
 # Planning — Workflow Churn Reduction (pre-commit scope, capture-gate FP, batched capture)
 
-Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, and Fix 2b once-per-turn re-grounding are applied; Fix 3 and remaining Fix 2 work remain proposed
+Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, Fix 2b once-per-turn re-grounding, and Fix 2c no-micro-edit validation are applied; Fix 3 and remaining Fix 2 work remain proposed
 Layer: Planning
 Source: 2026-07-05 graph-hygiene session — user frustration + measured evidence that a routine session burned ~57min on pre-commit self-test alone (31 commits × 111s), plus 13+ capture-gate false positives.
 Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`, `candidate-draft-first-batched-capture-20260705`, `candidate-parallel-atomic-append-capture-20260705`, `candidate-workflow-parallel-subagents-and-batching-20260705`, `candidate-host-worktree-symlink-propagation-20260705`.
@@ -58,6 +58,14 @@ Focused measurement before final closure: host-scope light validation completed 
 - Applied resolver guidance: the full catalog is discovery-only; never resolve every listed intent or chain resolver calls; resolve only one immediate rule-governed intent when needed; reuse already-resolved source guidance.
 - Protection/rollout: Pi fake runtime covers pre-context batching, failed-hook retry, same-turn suppression, fresh-turn reset, and explicit steer reset; catalog fixtures protect no-chain/no-rerun copy. Canonical source is committed/pushed first, then Medivance receives the framework update without direct edits to copied framework files.
 
+### Fix 2c — applied 2026-08-18: eliminate validation after each micro-edit
+
+- User correction: the primary complaint was not only repeated context re-grounding; the harmful loop was `one tiny edit → test/check → one tiny edit → test/check`. The first `5e8530d` push did not yet remove that validation cadence.
+- Confirmed framework cause: `bounded-validation-orchestration` matched `iterating_after_edit`; capability actions, policy summary, Pi prompt, skill, test strategy, and SDD repeatedly said to use `lazy check` "during edit loops", while the SDD explicitly said the fast tier runs "after every edit". Agents could reasonably interpret those surfaces as a validation command after every micro-edit even though full `lazy test` repetition was forbidden.
+- Applied framework behavior: remove `iterating_after_edit`; explicitly prohibit any validation command after each micro-edit; finish a coherent mutation batch first; run one `lazy check` at a deliberate checkpoint; run focused/affected validation at most once per changed-behavior batch when needed; run one standard plan only after the final mutation.
+- Host boundary: framework sync preserves host-owned validation entries. Medivance's broad `medivance-lazy-test-validation` rule must be narrowed separately at the host before claiming the issue fully deployed there.
+- Protection: bounded validation regression checks capability/policy triggers and actions, AGENTS, Pi prompt, lazy-test skill, test strategy, SDD/TDD wording, and generated policy explanation.
+
 ### Fix 3 — draft-first batched capture (behavioral + tooling)
 
 - During work, append facts cheaply to the DRAFT tier (`candidates.jsonl`/`graph-drafts.jsonl`) with no gate and no commit; main agent verifies + promotes to canonical and commits ONCE per logical unit at turn end. Compounds with Fix 1 (fewer commits × cheaper commits).
@@ -65,7 +73,7 @@ Focused measurement before final closure: host-scope light validation completed 
 
 ## Sequencing
 
-Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding per turn + resolver reuse) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
+Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding per turn) → Fix 2c (no validation between micro-edits) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
 
 ## 2026-07-05 applied — host pre-push #1 bottleneck fixed (measured on medivance)
 
@@ -140,3 +148,13 @@ This deployment completion does not wait for the 7-day effectiveness verdict; th
 - ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because R3 was narrowed from repeated file-op surfacing to one bounded turn reminder.
 - SSOT: none because registry ownership, schema, levels, and storage remain unchanged.
 - Planning: updated here as the user-selected primary canonical work-unit record.
+
+## Discovery capture — Fix 2c
+
+- DDD: none because no domain vocabulary or business invariant changed.
+- SDD: updated in bounded/fast validation contracts and the canonical test strategy.
+- BDD: none because no independent product-visible flow changed; this is framework agent-operation behavior.
+- TDD: updated in the bounded validation regression contract and self-test.
+- ADR: no new architectural decision; ADR 0016's bounded validation direction is clarified rather than replaced.
+- SSOT: updated in framework capability/policy registries by removing `iterating_after_edit` and changing the canonical guidance.
+- Planning: updated here as the primary work-unit narrative; Medivance host-local narrowing remains a deployment step.

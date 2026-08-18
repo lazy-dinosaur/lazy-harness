@@ -7,7 +7,7 @@ allowed-tools: bash, read, grep
 
 # lazy-test
 
-Run a fresh lazy-harness full-regression self-test for the host. Use `lazy check` during edit loops and `lazy validate --plan standard` once after the final mutation; invoke this skill only when the user or a commit/push/release boundary explicitly requires fresh full regression.
+Run a fresh lazy-harness full-regression self-test for the host. Do not validate after each micro-edit. Batch a coherent mutation set, run `lazy check` once at a deliberate checkpoint, run focused/affected validation at most once per changed-behavior batch when needed, and run `lazy validate --plan standard` once after the final mutation. Invoke this skill only when the user or a commit/push/release boundary explicitly requires fresh full regression.
 
 Run from the host project root:
 

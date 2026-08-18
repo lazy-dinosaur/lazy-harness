@@ -25,8 +25,8 @@ Date: 2026-06-18
   - support `--dry-run` so agents can inspect expensive plans without starting them
   - keep progress transport runtime-neutral: emit `LAZY_PROGRESS` JSON lines to stderr only when `--progress=on`, `LAZY_PROGRESS_SUPPORTED=1`, or the legacy explicit enable is present, so Pi, OMP, Jcode, and non-agent callers share one protocol without foreground noise
   - reuse full-regression evidence only when a conservative regression-relevant workspace fingerprint matches exactly
-  - exclude `.lazy-harness/evidence/**` from the full-regression fingerprint because capsules summarize validation output; the fast tier still runs after every edit
-  - register recommend-level `bounded-validation-orchestration` capability/policy guidance so agents use `lazy check` while editing and one `lazy validate --plan standard` after the final mutation
+  - exclude `.lazy-harness/evidence/**` from the full-regression fingerprint because capsules summarize validation output; the fast tier runs at explicit validation checkpoints, never automatically after each micro-edit
+  - register recommend-level guidance that removes the `iterating_after_edit` trigger, prohibits validation after each micro-edit, batches coherent mutations before one `lazy check` checkpoint, limits focused/affected checks to once per changed-behavior batch when needed, and runs one `lazy validate --plan standard` after the final mutation
   - reserve direct `lazy test` for explicit fresh full-regression requests or commit/push/release gates
   - run audited independent self-test checks in bounded process workers by default, isolate worker runtime state, serialize fixed-path checks, preserve registry-order output, and provide `--jobs=1` fallback
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
@@ -36,6 +36,7 @@ Date: 2026-06-18
   - reuse full-regression evidence across changed `HEAD`, regression-relevant working-tree diff/status, untracked files, source/tests/contracts/graph, or canonical `.lazy-harness` body; only runtime/derived files and `.lazy-harness/evidence/**` are excluded
   - run release-grade readiness validation by default
   - allow unbounded validation workflows
+  - instruct agents to run `lazy check`, focused tests, typecheck, lint, build, or any other validation command after every individual edit
   - scan outside the current host root
 
 ## Contract
@@ -75,7 +76,7 @@ Execution rules:
 10. Cache keys include cache version, resolved host-root identity, step command, scope, git `HEAD`, regression-relevant git diff/status, untracked-file hash, canonical `.lazy-harness` content hash, dependency manifests/locks, and Python/Bun/Git executable-version signatures. Volatile runtime/derived paths and `.lazy-harness/evidence/**` are excluded; source, tests, contracts, policies, graph, and canonical records remain fingerprint inputs. Cache miss, unavailable tool signature, cache read/write error, or fingerprint uncertainty falls back to running `lazy test`.
 11. Cache storage is runtime state at `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, defaulting to `.lazy-harness/state/validation-evidence-cache.json`, and is ignored by git. In worktrees where `.lazy-harness` is a symlink, the cache path is considered protected when the `.lazy-harness` boundary itself is ignored, even if `git check-ignore` refuses nested symlink pathspecs.
 12. `--evidence-cache=off` or `LAZY_VALIDATE_EVIDENCE_CACHE=0` disables reuse and storage for full-regression evidence.
-13. Agent edit loops use `lazy check`; after the final mutation they use one `lazy validate --plan standard`. Writing an evidence capsule after a green full run does not itself require another full run.
+13. Agent edit loops batch a coherent mutation set without validation between individual edits. At a deliberate checkpoint, run `lazy check` once and at most one focused/affected check per changed-behavior batch when needed. After the final mutation, run one `lazy validate --plan standard`. Writing an evidence capsule after a green full run does not require another full run.
 14. `self-test.py` defaults to at most four audited process workers and rejects `--jobs`/`LAZY_TEST_JOBS` values outside 1–4. Static/isolated checks, PID-qualified live fixtures, and stable-repository readers run in separate phases; fixed-path/canonical-state checks remain serial. `--jobs=1` preserves the historical serial fail-fast path.
 
 ## Output
@@ -119,6 +120,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `.lazy-harness/spec/platform/lazy-cli-entrypoint.md` — canonical CLI command list.
   - `.lazy-harness/spec/platform/fast-validation-tier.md` — related fast/static validation tier.
   - `.lazy-harness/planning/workflow-churn-reduction-plan.md` — measured churn, approved process-pool direction, and rollout evidence.
+  - Machine index: `kg_validation_no_micro_edit_loop_20260818`
 - Key symbols:
   - `validation-governor.py#main`
   - `validation-governor.py#build_result`
@@ -137,7 +139,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
   - `self-test.py#main`
   - `self-test.py#check_bounded_validation_governor_cli`
 - Flow:
-  1. Agent uses `lazy check` during mutation loops and focused validation only for changed behavior.
+  1. Agent batches a coherent mutation set without validation between individual edits, then runs one `lazy check` at a deliberate checkpoint and at most one focused/affected check per changed-behavior batch when needed.
   2. After the final mutation, agent chooses one explicit standard/release plan; direct `lazy test` is reserved for an explicit fresh full boundary.
   3. Governor deduplicates commands and enforces a global budget.
   4. Fast static check runs normally.
@@ -170,7 +172,7 @@ Markdown output is a compact human-readable summary of the same plan and step re
 
 - DDD: no domain/business model change.
 - SDD: this record defines the new CLI contract.
-- BDD: agent-visible validation behavior changes from ad hoc repeated full matrices to fast edit loops plus one final standard boundary.
-- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, capability/policy surfacing, evidence-only reuse, source/test misses, worker isolation, serial fallback, and bounded parallel execution.
+- BDD: agent-visible validation behavior now explicitly forbids validation between micro-edits, batches coherent mutations before one fast checkpoint, limits focused validation to once per changed-behavior batch, and keeps one final standard boundary.
+- TDD: `.lazy-harness/tests/bounded-validation-governor.md` protects plan selection, no-micro-edit guidance across all distributed surfaces, removal of `iterating_after_edit`, evidence reuse, worker isolation, and bounded execution.
 - ADR: ADR 0016 is amended operationally: commit remains light, push remains full, while each self-test invocation may execute audited checks concurrently without weakening scope.
-- SSOT: `bounded-validation-orchestration` is recommend-level; full regression remains `lazy test`, release readiness remains explicit and bounded.
+- SSOT: `bounded-validation-orchestration` remains recommend-level, but its canonical capability/policy no longer applies to `iterating_after_edit`; full regression remains `lazy test`, and release readiness remains explicit.

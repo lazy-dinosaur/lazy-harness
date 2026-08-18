@@ -19,12 +19,13 @@ Date: 2026-06-18
   - reject budgets over 3600 seconds and require `--allow-release` or `--dry-run` for release plans
   - reuse cached full-regression evidence only when the regression-relevant evidence key matches
   - ignore evidence-capsule body changes without ignoring source, tests, contracts, policies, graph, or canonical records
-  - protect recommend-level bounded validation capability/policy guidance and Pi `/lazy-check`/`/lazy-validate` surfaces
+  - protect recommend-level guidance that removes `iterating_after_edit`, forbids validation after every micro-edit, batches coherent mutations before one fast checkpoint, limits focused/affected checks to once per changed-behavior batch, and keeps one final standard boundary
   - protect bounded process execution, audited resource phases, deterministic output, worker runtime isolation, and `--jobs=1` serial fallback
   - keep validation progress runtime-neutral and capability-aware across Pi, OMP, Jcode, and ordinary foreground callers
 - Must not:
   - claim full regression from fast static checks instead of `lazy test` execution
   - emit progress to stdout, emit runtime-branded progress prefixes from shared core, or leak auto-mode progress into foreground callers that did not advertise support
+  - preserve an `iterating_after_edit` capability/policy trigger or prompt language that implies validation after each individual edit
 - Record completion:
   - changes to plans, budgets, or evidence caching update this TDD plus the bounded-validation-governor SDD
 - Related records:
@@ -54,7 +55,8 @@ Date: 2026-06-18
 | `validate_cache_environment_namespace` | Change host-root, dependency, or toolchain fingerprint fields | Evidence key changes; shared runtime cache cannot reuse another host/toolchain's result. |
 | `validate_cache_disabled` | `lazy validate --plan standard --evidence-cache=off --format=json` after cache exists | Full-regression step is not `reused`, and `evidenceReused: false`. |
 | `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and the default path is ignored by the active git ignore rules in both source and installed hosts. |
-| `validation_orchestration_guidance` | Resolve capability/policy and inspect Pi prompt/commands | Edit loops prefer `lazy check`; closure uses one `lazy validate --plan standard`; direct `lazy test` is explicitly fresh/full. |
+| `validation_orchestration_guidance` | Resolve capability/policy and inspect Pi prompt/commands | Edit loops batch coherent mutations; closure uses one `lazy validate --plan standard`; direct `lazy test` is explicitly fresh/full. |
+| `validation_no_micro_edit_loop` | Inspect capability/policy/AGENTS/Pi prompt/test strategy | `iterating_after_edit` is absent; all surfaces say not to validate after each micro-edit, use one fast checkpoint per coherent batch, and run focused/affected validation at most once per changed-behavior batch. |
 | `self_test_parallel_resources` | Run `self-test.py --jobs 4` | Only explicitly audited checks use isolated process phases; fixed-path checks remain serial and output stays in registry order. |
 | `self_test_serial_fallback` | Run `self-test.py --jobs 1` | Historical serial fail-fast behavior remains available. |
 
@@ -72,7 +74,7 @@ Date: 2026-06-18
 10. Evidence capsule edits alone do not invalidate full evidence; executable/canonical changes do.
 11. Fast static checks still run when full-regression evidence is reused.
 12. Cache disable flags force full-regression execution even when evidence exists.
-13. Capability/policy and Pi prompt/command surfaces expose the bounded edit-loop/final-boundary guidance.
+13. Capability/policy, AGENTS, Pi prompt, skill, and test-strategy surfaces explicitly prohibit validation after each micro-edit, omit `iterating_after_edit`, batch coherent mutations before one fast checkpoint, and keep one final standard boundary.
 14. Parallel execution caps workers at four, rejects out-of-range CLI/environment values, uses audited resource phases and isolated worker runtime roots, preserves deterministic output, and keeps serial fallback.
 15. Evidence keys bind to resolved host root, dependency manifests/locks, and Python/Bun/Git signatures; uncertainty remains a miss.
 
@@ -88,6 +90,7 @@ Date: 2026-06-18
   - `.lazy-harness/ssot/capabilities.json` / `.lazy-harness/ssot/policies.json` — orchestration guidance fixtures.
   - `packages/lazy-harness-pi/prompts/lazy-harness.md` / `extensions/lazy-harness/index.ts` — agent prompt and convenience command fixtures.
   - `.lazy-harness/manifests/init-categories.json` — syncs the SDD/TDD and script through Category A.
+  - Machine index: `kg_validation_no_micro_edit_loop_20260818`
 - Key symbols:
   - `validation-governor.py#main`
   - `validation-governor.py#build_result`
@@ -119,7 +122,7 @@ Date: 2026-06-18
 ## Layer completeness
 
 - SDD: `.lazy-harness/spec/platform/bounded-validation-governor.md` owns orchestration, cache, and worker contracts.
-- BDD: agent-visible flow changes to fast edit loops, focused checks when needed, and one final standard boundary; no separate BDD record is needed because this is agent/framework operation rather than product-visible behavior.
-- SSOT: `.lazy-harness/ssot/capabilities.json` and `.lazy-harness/ssot/policies.json` own recommend-level orchestration registration; full regression remains `.lazy-harness/bin/lazy test`.
+- BDD: agent-visible flow explicitly forbids validation after each micro-edit, batches coherent mutations before one fast checkpoint, limits focused checks to once per changed-behavior batch, and keeps one final standard boundary; platform SDD/TDD own this internal agent operation.
+- SSOT: `.lazy-harness/ssot/capabilities.json` and `.lazy-harness/ssot/policies.json` remove `iterating_after_edit` and own the canonical no-micro-edit guidance; full regression remains `.lazy-harness/bin/lazy test`.
 - ADR: ADR 0016 keeps commit=light/push=full and records bounded intra-run concurrency without a new architectural trade-off.
 - DDD: no independent domain vocabulary or business-rule delta.

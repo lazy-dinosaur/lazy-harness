@@ -8,7 +8,6 @@
       "stage": "turn",
       "level": "recommend",
       "appliesTo": [
-        "iterating_after_edit",
         "choosing_validation_scope",
         "making_validation_claims",
         "closing_non_trivial_work_unit",
@@ -49,7 +48,7 @@
         "canonicalByPacketAlone": false
       },
       "explain": {
-        "summary": "During edits run lazy check and focused validation. After the final mutation run one lazy validate --plan standard. Use direct lazy test only for explicit fresh full-regression requests or commit/push/release gates; do not rerun it merely because an evidence capsule was updated.",
+        "summary": "Do not validate after each micro-edit. Batch a coherent mutation set, run lazy check at a deliberate checkpoint, run focused or affected validation once per changed-behavior batch when needed, then run one lazy validate --plan standard after the final mutation. Direct lazy test remains explicit fresh full regression or commit/push/release only.",
         "nonCanonicalViews": [
           ".lazy-harness/generated/policy-rulebook.md"
         ]

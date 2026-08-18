@@ -171,7 +171,7 @@ host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝�
 
 ## 4. Framework Contract
 - 능동 검색하면 hook 은 silent
-- Agent edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. 반복 속도를 위해 개발 중에는 `lazy check` 와 focused validation 을 사용하고, 마지막 mutation 뒤 `lazy validate --plan standard` 를 한 번 실행한다. Direct `lazy test` 반복 실행은 금지하며 explicit fresh full-regression 요청 또는 git pre-commit/pre-push/release gate 에만 사용한다 (ADR 0016, bounded-validation-governor).
+- Agent edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. **미세 수정 하나마다 테스트/`lazy check`/typecheck/lint 를 실행하지 않는다.** 하나의 coherent mutation batch 를 먼저 끝내고, 의도적인 checkpoint 에서 `lazy check` 를 한 번 실행한다. 동작이 바뀐 경우 focused/affected validation 은 behavior batch 당 최대 한 번만 실행하고, 마지막 mutation 뒤 `lazy validate --plan standard` 를 한 번 실행한다. Direct `lazy test` 는 explicit fresh full-regression 요청 또는 git pre-commit/pre-push/release gate 에만 사용한다 (ADR 0016, bounded-validation-governor).
 - `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. CLI 는 LLM/searcher 가 필요할 때 호출하는 tool 일 뿐이며, lifecycle hook 이 user text 를 정적으로 분류해 intent/risk/importance/required-read/record-write/next-action 을 정하면 안 된다. 판단은 record/source/test 를 읽은 LLM/searcher 가 한다 (SSOT cli-tool-boundary, ADR 0041).
 - 신규·수정 source 는 host 의 exact-intent policy/capability 를 먼저 resolve 한 뒤 `.lazy-harness/spec/platform/code-organization-profile.md` baseline 을 observe-only 로 적용한다. 로컬 정돈은 system architecture 와 분리하고 줄 수 분할·untouched rewrite 를 금지한다.
 - record 가 빈약하다? 누적해라. 1 주 동안 어느 layer 도 안 자라면 framework 활용 실패 신호
