@@ -1,6 +1,6 @@
 # Planning — Workflow Churn Reduction (pre-commit scope, capture-gate FP, batched capture)
 
-Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, Fix 2b/2c are applied; Fix 2d work-unit grounding/token compaction is implemented and framework-validated with rollout in progress; Fix 3 and remaining Fix 2 work remain proposed
+Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, Fix 2b/2c/2d are applied and deployed; Fix 3 and remaining Fix 2 work remain proposed
 Layer: Planning
 Source: 2026-07-05 graph-hygiene session — user frustration + measured evidence that a routine session burned ~57min on pre-commit self-test alone (31 commits × 111s), plus 13+ capture-gate false positives.
 Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`, `candidate-draft-first-batched-capture-20260705`, `candidate-parallel-atomic-append-capture-20260705`, `candidate-workflow-parallel-subagents-and-batching-20260705`, `candidate-host-worktree-symlink-propagation-20260705`.
@@ -73,7 +73,7 @@ Focused measurement before final closure: host-scope light validation completed 
 - Prompt boundary: first-grounding `message.received` body target <=300 tokens with no inventory/catalog replay. `on-context.sh` becomes a five-line pointer-only body triggered only after the first successful mutation, never after reads/searches. Explicit steer creates one fresh grounding packet instead of inheriting a reused packet or scheduling a second context reminder.
 - Validation boundary: preserve one coherent mutation batch, one focused checkpoint when needed, and one final standard validation. Green output in conversation is status/count/time only; detailed output stays captured unless failure or explicit request.
 - Protection: prompt budget thresholds 100–300/600/800, static/no-classifier hook fixture, Pi fake-runtime reuse + record-fingerprint invalidation + steer reset, mutation-only context retry, and compact-green guidance checks.
-- Framework evidence: final standard validation GREEN (`fast-static-check` + full self-test, 73.902s). Prompt budget GREEN at 184 estimated first-grounding tokens versus the measured 985-token catalog-expanded body (81.3% reduction); valid later normal Pi/OMP turns inject 0 system-prompt tokens. Rollout proceeds via commit/push then serial Medivance host sync/validation without product-code changes.
+- Closure evidence: framework standard validation GREEN (`fast-static-check` + full self-test, 73.902s). Prompt budget GREEN at 184 estimated first-grounding tokens versus the measured 985-token catalog-expanded body (81.3% reduction); valid later normal Pi/OMP turns inject 0 system-prompt tokens. Upstream `01692a3` was pushed and synced sequentially to Medivance PWA, Medivance Homepage, and Medivance root; each explicit serial `LAZY_TEST_JOBS=1 lazy test --scope host` passed (`ran=59`, `skipped=29`). Product Git status remained unchanged, and Homepage's three named host-owned records were hash-preserved across sync.
 
 ### Fix 3 — draft-first batched capture (behavioral + tooling)
 
@@ -82,7 +82,7 @@ Focused measurement before final closure: host-scope light validation completed 
 
 ## Sequencing
 
-Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding) → Fix 2c (no micro-edit validation) are applied. Fix 2d work-unit grounding/token compaction is the active approved slice. Remaining Fix 2 and Fix 3 stay separately approval-gated.
+Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding) → Fix 2c (no micro-edit validation) → Fix 2d (work-unit evidence reuse/token compaction) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
 
 ## 2026-07-05 applied — host pre-push #1 bottleneck fixed (measured on medivance)
 
