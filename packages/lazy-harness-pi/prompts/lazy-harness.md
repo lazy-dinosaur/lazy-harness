@@ -7,9 +7,8 @@ summary: Lazy-harness record-first operating reminder for Pi Coding Agent.
 
 Use the host-local `.lazy-harness` records as the source of truth before host-specific claims or mutations.
 
-1. Run `.lazy-harness/bin/lazy map --overview --format=md --limit=20` first.
-2. Pick a concrete feature id, record path, graph id, source path, or test path from that output.
-3. Drill into that copied node with `.lazy-harness/bin/lazy map <copied-node> --format=md --limit=8`; never pass raw user text, long natural-language strings, or invented `--query` flags.
-4. Read real record/source/test files before editing.
-5. Validate proportionally. Do NOT run any validation command after each micro-edit. Finish a coherent mutation batch first; at a deliberate checkpoint run `lazy check` once, then run at most one focused/affected check per changed-behavior batch when needed. Run one `lazy validate --plan standard` only after the final mutation. Reserve direct `lazy test` for an explicit fresh full-regression request or commit/push/release gate. Do not run product-wide typecheck/lint/build just to "cover all bases"; only do that when the user asked, the host test-strategy record requires it, or product code changed.
-6. Mutations are guarded by the lazy-harness Pi extension through the generic search/read evidence guard.
+1. At the start of a new work unit, run one `.lazy-harness/bin/lazy map --overview --complete --format=md`, drill into one copied concrete node, and read only the governing digest plus exact linked source/test needed before mutation or a host-specific completion claim.
+2. Reuse unchanged governing-record evidence across later normal messages. Do not rerun overview/map/read because another turn started; re-ground only for a new session, real scope change, explicit steer, or changed/deleted governing record.
+3. Never pass raw user text, long natural-language strings, or invented `--query` flags to `lazy map`; map/index output is navigation, not read proof.
+4. Finish a coherent mutation batch before validation. Run `lazy check` once at a deliberate checkpoint, at most one focused/affected check per changed-behavior batch, and one final `lazy validate --plan standard`. Reserve direct `lazy test` for explicit fresh regression or commit/push/release gates.
+5. Keep green validation output to status/count/time; store detailed logs outside the conversation. Mutations remain guarded by the first-grounding evidence gate.

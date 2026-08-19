@@ -37,6 +37,7 @@
     <boundary>Do not rerun full regression merely because an evidence capsule was updated.</boundary>
     <boundary>Source, tests, contracts, policies, graph, planning, and canonical layer records remain full-regression fingerprint inputs.</boundary>
     <boundary>Full-regression cache evidence is namespaced by resolved host root, dependency manifests/locks, and Python/Bun/Git toolchain signatures.</boundary>
+    <boundary>On green validation, report only status, check count, and elapsed time in conversation; keep detailed output in runtime capture unless failure or explicitly requested.</boundary>
   </boundaries>
 
   <evidence>

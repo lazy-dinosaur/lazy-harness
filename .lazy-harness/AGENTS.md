@@ -34,10 +34,10 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ## 2. 5 단계 흐름 (작업 시작 ~ 종료)
 
-### 2.1 요청 받자마자 검색 (필수)
+### 2.1 Work unit 시작 시 한 번 검색 (필수)
 
-발화 의도와 무관하게 (구현·수정·디버그·조회·탐색·질문·출처 확인 포함) host 디테일이 등장하면 즉시 `lazy map --overview` 로 전체 구조를 본 뒤, map 에 나온 feature id / record path / graph id / source path / test path 같은 concrete node 를 골라 `lazy map <node>` 로 drill-down 한다.
-결과는 cue-only/read proof 아님. raw user text / 긴 자연어 / invented `--query` 를 `lazy map` 에 넘기지 않는다. 빈 결과 / 애매함 / 누락이면 옵션 게이트나 missing-prerequisite 로 멈춘 뒤, 후보 record 의 Rule digest / 본문 / Implementation map 과 분산된 source/tests 를 끝까지 읽는다.
+새 runtime work unit 에서 host 디테일이 필요하고 mutation 또는 host-specific 완료 주장을 하려면 `lazy map --overview` 를 한 번 실행하고, map 에 나온 concrete node 하나를 drill-down 한 뒤 governing record 와 필요한 exact source/test 만 읽는다. 같은 work unit 의 이후 일반 발화에서는 읽은 record content fingerprint 가 그대로면 그 증거를 재사용하며, 새 turn 이라는 이유만으로 overview/map/read 를 반복하지 않는다.
+새 session, non-extension steer, 실제 새 scope, governing record 변경/삭제만 재접지를 요구한다. 새 scope 판단은 LLM 소유이며 hook 이 user text 를 분류하면 안 된다. map 결과는 cue-only/read proof 가 아니고, raw user text/긴 자연어/invented `--query` 를 넘기지 않는다.
 
 ```bash
 .lazy-harness/bin/lazy map --overview --complete --format=md
@@ -51,10 +51,9 @@ Pi/OMP 전용 로컬/개인 실행 메모만 `.pi/APPEND_SYSTEM.md` (또는 `.om
 Pi/OMP `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. 그런 규칙은 `.lazy-harness` record 로 수렴하고 잘못 저장한 memory 는 삭제한다.
 또는 N2 resolver 활용: `bun .lazy-harness/scripts/reference-resolver.ts --file <path> --format ask`
 
-### 2.2 발견된 record 끝까지 Read
+### 2.2 발견된 governing evidence 를 필요한 만큼 Read
 
-거기 있는 정의·제약·결정이 host 의 진짜 룰. AGENTS.md 가 아니라 **record 가 single source of truth**.
-record 진입 시 Rule digest 의 Aliases/Surface terms 를 표면어 매칭 cue 로 쓰고, inbound 참조는 backlink-index (stale/부재 시 `grep -rl <record-path> .lazy-harness/`) 로 걷는다 (ADR 0053).
+record 가 host 의 의도이고 코드는 현실이다. 먼저 Rule digest 와 Implementation map 을 읽고, 현재 결정에 필요한 본문 구간·exact source/test symbol 만 추가로 읽는다. 관련 없거나 이미 fingerprint 가 동일한 record 를 다시 읽지 않는다. record↔code 충돌만 사용자에게 확인한다. Aliases/Surface terms 는 탐색 cue 이며 generated index 는 canonical proof 가 아니다.
 
 ### 2.3 결정 분기 시 옵션 질문 (자유 문답 금지)
 
@@ -124,18 +123,14 @@ record 진입 시 Rule digest 의 Aliases/Surface terms 를 표면어 매칭 cue
 **원칙**: AI 의 디폴트 상태는 "이 host 의 디테일을 모름" 이다.
 "안다" 는 record / 코드 검색 / 사용자 확인으로 획득된 override 다.
 
-요청 (질문 / 구현 / 디버그 무관) 을 받으면 다음 시퀀스를 반드시 따른다:
+새 work unit 또는 실제 새 scope 에서 host detail 이 필요할 때만 다음 시퀀스를 수행한다. 같은 work unit 의 follow-up 은 unchanged evidence 를 재사용한다:
 
-1. **모름 자각**: "내가 이 host 의 X 디테일을 모름" — 디폴트.
-2. **조사**: §2.1 발동 — `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot}/` +
-   관련 코드 grep / read. **이 단계 skip 금지**.
-3. **분류**:
-   - record 에 있음 → §2.2 read 후 그대로 진행 (override 획득)
-   - record 없지만 코드에서 1 개 후보로 추론 가능 → "이거 맞아?" 단답 확인
-   - record 없고 코드에서 여러 후보 → §2.3 옵션 게이트 (A/B/C/D)
-   - record / 코드 둘 다 없음 → "정보 없음, 알려줘" 직접 요청
-4. **확인**: 사용자 응답으로 override 획득
-5. **누적**: §2.4 발동, 적절한 layer 에 record — 다음 세션이 안 헤매도록
+1. **모름 자각**: 현재 scope 의 host detail 을 모르면 추정하지 않는다.
+2. **조사**: §2.1 의 overview 1회 → concrete node → governing digest/Implementation map → 필요한 exact source/test 순서로 bounded read 한다.
+3. **분류**: record 근거가 있으면 진행하고, 하나의 코드 후보만 있으면 단답 확인, 여러 후보면 §2.3 option gate, 근거가 없으면 정보를 요청한다.
+4. **확인·누적**: 사용자 확인으로 override 를 얻고, durable delta 만 §2.4 에 따라 한 primary record 로 수렴한다.
+
+일반 대화, 동일 scope follow-up, unchanged record, 이미 승인된 coherent mutation batch 에서는 이 시퀀스를 재시작하지 않는다.
 
 **Missing record 수렴 규칙**: `.lazy-harness` 에 필요한 record 가 없으면,
 현재 host 내부 근거에서 내용을 가져와 새 record 를 만든다. 테스트 전략 질문 / 검증 기준 / "Vitest 강제?" 류는
@@ -171,7 +166,7 @@ host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝�
 
 ## 4. Framework Contract
 - 능동 검색하면 hook 은 silent
-- Agent edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. **미세 수정 하나마다 테스트/`lazy check`/typecheck/lint 를 실행하지 않는다.** 하나의 coherent mutation batch 를 먼저 끝내고, 의도적인 checkpoint 에서 `lazy check` 를 한 번 실행한다. 동작이 바뀐 경우 focused/affected validation 은 behavior batch 당 최대 한 번만 실행하고, 마지막 mutation 뒤 `lazy validate --plan standard` 를 한 번 실행한다. Direct `lazy test` 는 explicit fresh full-regression 요청 또는 git pre-commit/pre-push/release gate 에만 사용한다 (ADR 0016, bounded-validation-governor).
+- Agent edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. **미세 수정 하나마다 테스트/`lazy check`/typecheck/lint 를 실행하지 않는다.** coherent mutation batch 를 먼저 끝내고 checkpoint 에서 `lazy check` 1회, changed-behavior focused validation 최대 1회, 마지막 mutation 뒤 `lazy validate --plan standard` 1회만 실행한다. Green 결과는 상태/개수/시간만 대화에 요약하고 상세 로그는 runtime artifact/capture 에 둔다. Direct `lazy test` 는 explicit fresh full-regression 또는 commit/push/release gate 에만 사용한다 (ADR 0016).
 - `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. CLI 는 LLM/searcher 가 필요할 때 호출하는 tool 일 뿐이며, lifecycle hook 이 user text 를 정적으로 분류해 intent/risk/importance/required-read/record-write/next-action 을 정하면 안 된다. 판단은 record/source/test 를 읽은 LLM/searcher 가 한다 (SSOT cli-tool-boundary, ADR 0041).
 - 신규·수정 source 는 host 의 exact-intent policy/capability 를 먼저 resolve 한 뒤 `.lazy-harness/spec/platform/code-organization-profile.md` baseline 을 observe-only 로 적용한다. 로컬 정돈은 system architecture 와 분리하고 줄 수 분할·untouched rewrite 를 금지한다.
 - record 가 빈약하다? 누적해라. 1 주 동안 어느 layer 도 안 자라면 framework 활용 실패 신호

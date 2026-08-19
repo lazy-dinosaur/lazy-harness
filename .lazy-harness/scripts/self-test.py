@@ -1743,7 +1743,7 @@ def check_bounded_validation_governor_cli() -> None:
     }
     source_package = ROOT / "packages" / "lazy-harness-pi"
     source_surface_expectations = {
-        source_package / "prompts" / "lazy-harness.md": "Do NOT run any validation command after each micro-edit",
+        source_package / "prompts" / "lazy-harness.md": "Finish a coherent mutation batch before validation",
         source_package / "skills" / "lazy-test" / "SKILL.md": "Do not validate after each micro-edit",
     }
     surface_expectations = dict(host_surface_expectations)
@@ -1752,6 +1752,16 @@ def check_bounded_validation_governor_cli() -> None:
     for surface, phrase in surface_expectations.items():
         if phrase not in surface.read_text(encoding="utf-8"):
             fail(f"bounded validation micro-edit guard missing from {surface.relative_to(ROOT)}: {phrase}")
+
+    green_surfaces = {
+        LAZY / "AGENTS.md": "Green 결과는 상태/개수/시간만",
+        LAZY / "spec" / "platform" / "bounded-validation-governor.md": "status, check count, and elapsed time",
+    }
+    if source_package.exists():
+        green_surfaces[source_package / "prompts" / "lazy-harness.md"] = "Keep green validation output to status/count/time"
+    for surface, phrase in green_surfaces.items():
+        if phrase not in surface.read_text(encoding="utf-8"):
+            fail(f"compact green validation guidance missing from {surface.relative_to(ROOT)}: {phrase}")
 
     help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
     if "validate [--plan=fast|standard|release]" not in help_text:
@@ -2096,10 +2106,10 @@ def check_pi_package_layout_and_contract() -> None:
         "recent_tool_calls",
         "rememberToolCall",
         "block: true",
-        "REMINDER. Harness-first search/read debt before response.",
+        "observeWorkUnitEvidence",
         "lazy-harness read-debt:",
         "read-debt not armed",
-        "steer re-ground",
+        "explicit steer starts a fresh work unit",
         "streamingBehavior",
         "EXTENSION_RUNTIME_MARKER",
         "LAZY_HARNESS_INVOKER",
@@ -2121,7 +2131,9 @@ def check_pi_package_layout_and_contract() -> None:
         "pi.on(\"context\"",
         "pendingRegroundByRoot",
         "!regroundBodyByRoot.has(root)",
-        "FILE_OP_TOOLS",
+        "REGROUND_MUTATION_TOOLS",
+        "reused-work-unit",
+        "workUnitEvidenceValid",
         "on-context.sh",
         "assistant_response",
         "args_preview",
@@ -2147,7 +2159,7 @@ def check_pi_package_layout_and_contract() -> None:
         "evidenceEpochByRoot",
         "toolCallEpochsByRoot",
         "rearmEvidenceAfterSteer",
-        "Prior-topic tool evidence is stale",
+        "workUnitEvidenceByRoot.delete(root)",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2176,18 +2188,16 @@ def check_pi_package_layout_and_contract() -> None:
 
     prompt_text = prompt.read_text(encoding="utf-8")
     for phrase in [
-        "map --overview",
-        "concrete feature id, record path, graph id, source path, or test path",
-        "map <copied-node>",
-        "never pass raw user text",
-        "invented `--query` flags",
-        "Do NOT run any validation command after each micro-edit",
-        "Finish a coherent mutation batch first",
+        "new work unit",
+        "map --overview --complete",
+        "governing digest",
+        "Reuse unchanged governing-record evidence",
+        "Never pass raw user text",
+        "Finish a coherent mutation batch before validation",
         "at most one focused/affected check per changed-behavior batch",
-        "one `lazy validate --plan standard` only after the final mutation",
+        "one final `lazy validate --plan standard`",
         "Reserve direct `lazy test`",
-        "Do not run product-wide typecheck/lint/build just to \"cover all bases\"",
-        "host test-strategy record requires it",
+        "green validation output to status/count/time",
     ]:
         if phrase not in prompt_text:
             fail("Pi package prompt missing map-first guidance: " + phrase)
@@ -2599,12 +2609,12 @@ def check_pi_package_layout_and_contract() -> None:
             "const noHarness=await handlers.get('before_agent_start')({prompt:'outside', systemPrompt:'base'}, {cwd:" + json.dumps(str(runtime_smoke)) + ", signal:undefined, ui:{notify(){}}});\n"
             "if(noHarness !== undefined) throw new Error('non-harness cwd should not receive lazy reminder');\n"
             "const before=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:'base'},ctx);\n"
-            "if(!before?.systemPrompt?.includes('REMINDER. Harness-first')) throw new Error('no reminder');\n"
+            "if(!before?.systemPrompt?.includes('REMINDER. Ground this work unit once')) throw new Error('no work-unit reminder');\n"
             "if(!before?.message?.content?.includes('status=armed') || !before.message.content.includes('phase=armed')) throw new Error('human turn should mark read-debt armed');\n"
-            "if(!before.systemPrompt.includes('Interactive grammar') || !before.systemPrompt.includes('option gate')) throw new Error('reminder missing interactive grammar');\n"
+            "if(!before.systemPrompt.includes('Work unit 시작 시 한 번 검색') || !before.systemPrompt.includes('Requirements-first change gate')) throw new Error('session grammar was not loaded once');\n"
             "const beforeOmp=await handlers.get('before_agent_start')({prompt:'testdb instance start', systemPrompt:['base-block']},ctx);\n"
             "if(!Array.isArray(beforeOmp?.systemPrompt)) throw new Error('OMP systemPrompt array not preserved');\n"
-            "if(!beforeOmp.systemPrompt.some((part)=>part.includes('REMINDER. Harness-first'))) throw new Error('OMP array missing reminder');\n"
+            "if(!beforeOmp.systemPrompt.some((part)=>part.includes('REMINDER. Ground this work unit once'))) throw new Error('OMP array missing work-unit reminder');\n"
             "if(!beforeOmp.systemPrompt.includes('base-block')) throw new Error('OMP array lost original prompt block');\n"
             "const synthetic=await handlers.get('before_agent_start')({prompt:'', systemPrompt:'base'},ctx);\n"
             "if(!synthetic?.message?.content?.includes('status=not-armed(synthetic-turn)') || !synthetic.message.content.includes('phase=debug')) throw new Error('synthetic turn marker should distinguish not-armed debug status');\n"
@@ -2623,15 +2633,19 @@ def check_pi_package_layout_and_contract() -> None:
             "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(!r?.block) throw new Error(name+' not blocked'); }\n"
             "const allowed=await handlers.get('tool_call')({toolCallId:'lazy-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'}},ctx);\n"
             "if(allowed?.block) throw new Error('lazy map read-only bash should not be blocked: '+allowed.reason);\n"
+            "await handlers.get('tool_result')({toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'},toolCallId:'lazy-map',content:'mapped'},ctx);\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should no-op without a file op');\n"
             "const ctxReadCall=await handlers.get('tool_call')({toolName:'read', input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}, toolCallId:'ctx-read'}, ctx);\n"
             "if(ctxReadCall?.block) throw new Error('fixture read call unexpectedly blocked');\n"
             "await handlers.get('tool_result')({toolName:'read', input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}, toolCallId:'ctx-read', content:'data'}, ctx);\n"
+            "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('record reads must not trigger context replay');\n"
+            "const mutationCall=await handlers.get('tool_call')({toolCallId:'ctx-write',toolName:'write',input:{file_path:'tmp.txt',content:'x'}},ctx);\n"
+            "if(mutationCall?.block) throw new Error('grounded mutation unexpectedly blocked: '+mutationCall.reason);\n"
+            "await handlers.get('tool_result')({toolCallId:'ctx-write',toolName:'write',input:{file_path:'tmp.txt',content:'x'},content:'ok'},ctx);\n"
             "const reground=await handlers.get('context')({messages:[{role:'user',content:'hi',timestamp:1}]},ctx);\n"
-            "if(!Array.isArray(reground?.messages)) throw new Error('context should inject messages after a file op');\n"
+            "if(!Array.isArray(reground?.messages)) throw new Error('context should inject once after the first mutation');\n"
             "const injected=reground.messages[reground.messages.length-1];\n"
-            "if(!String(injected?.content).includes('system-reminder') || !String(injected?.content).includes('re-grounding')) throw new Error('context injection missing re-grounding body');\n"
-            "if(!String(injected?.content).includes('NOT record-grounding') || !String(injected?.content).includes('Capture before you finish')) throw new Error('context injection missing relevant-record search / turn-end capture mandate');\n"
+            "if(!String(injected?.content).includes('Continue the approved work unit') || String(injected?.content).includes('Operating rules/capabilities')) throw new Error('context injection is not pointer-only');\n"
             "if(injected?.role !== 'user' || typeof injected?.timestamp !== 'number') throw new Error('context injected message must be a UserMessage');\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('context should not re-inject until a new file op');\n"
             "const sameTurnRead=await handlers.get('tool_call')({toolCallId:'same-turn-read',toolName:'read',input:{file_path:'.lazy-harness/tests/pi-agent-package.md'}},ctx);\n"
@@ -2639,18 +2653,15 @@ def check_pi_package_layout_and_contract() -> None:
             "await handlers.get('tool_result')({toolCallId:'same-turn-read',toolName:'read',input:{file_path:'.lazy-harness/tests/pi-agent-package.md'},content:'more'},ctx);\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('a later file op in the same turn must not restart re-grounding');\n"
             "const nextTurn=await handlers.get('before_agent_start')({prompt:'next human turn',systemPrompt:'base'},ctx);\n"
-            "if(!nextTurn?.message?.content?.includes('status=armed')) throw new Error('next human turn did not re-arm');\n"
-            "const nextTurnRead=await handlers.get('tool_call')({toolCallId:'next-turn-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
-            "if(nextTurnRead?.block) throw new Error('next-turn read unexpectedly blocked');\n"
-            "await handlers.get('tool_result')({toolCallId:'next-turn-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'next'},ctx);\n"
-            "const nextTurnReground=await handlers.get('context')({messages:[]},ctx);\n"
-            "if(!Array.isArray(nextTurnReground?.messages)) throw new Error('new turn should allow one fresh re-grounding');\n"
+            "if(!nextTurn?.message?.content?.includes('status=reused-work-unit')) throw new Error('next normal turn should reuse valid work-unit grounding');\n"
+            "if(nextTurn?.systemPrompt) throw new Error('reused work unit must not replay system prompt content');\n"
+            "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('normal turn reuse must not inject a fresh context reminder');\n"
             "const preSteerWrite=await handlers.get('tool_call')({toolCallId:'pre-steer-write',toolName:'write',input:{file_path:'pre-steer.txt',content:'ok'}},ctx);\n"
             "if(preSteerWrite?.block) throw new Error('valid pre-steer evidence should allow mutation: '+preSteerWrite.reason);\n"
             "const slowPreSteerRead=await handlers.get('tool_call')({toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
             "if(slowPreSteerRead?.block) throw new Error('pre-steer read should remain allowed');\n"
             "const steered=await handlers.get('input')({text:'switch to a different task',source:'user',streamingBehavior:'steer'},ctx);\n"
-            "if(steered?.action!=='transform' || !String(steered.text).includes('Prior-topic tool evidence is stale')) throw new Error('steer did not re-arm fresh-evidence reminder');\n"
+            "if(steered?.action!=='transform' || !String(steered.text).includes('Ground this work unit once')) throw new Error('steer did not create fresh work-unit grounding');\n"
             "await handlers.get('tool_result')({toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'late'},ctx);\n"
             "const staleWrite=await handlers.get('tool_call')({toolCallId:'post-steer-stale-write',toolName:'write',input:{file_path:'post-steer.txt',content:'blocked'}},ctx);\n"
             "if(!staleWrite?.block) throw new Error('late pre-steer result restored stale evidence');\n"
@@ -2691,9 +2702,12 @@ def check_pi_package_layout_and_contract() -> None:
         retry_bin.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
         retry_bin.chmod(0o755)
         (retry_root / ".lazy-harness" / "AGENTS.md").write_text("# Lazy-Harness AI retry fixture\n", encoding="utf-8")
+        retry_record = retry_root / ".lazy-harness" / "spec" / "fixture.md"
+        retry_record.parent.mkdir(parents=True)
+        retry_record.write_text("# Fixture grounding\n", encoding="utf-8")
         retry_message = retry_hooks / "on-message-received.sh"
         retry_message.write_text(
-            "#!/usr/bin/env bash\ncat >/dev/null\nprintf '%s' '{\"inject\":{\"body\":\"REMINDER. Harness-first search/read debt before response.\"}}'\n",
+            "#!/usr/bin/env bash\ncat >/dev/null\nprintf '%s' '{\"inject\":{\"body\":\"REMINDER. Ground this work unit once before mutation or a host-specific completion claim.\"}}'\n",
             encoding="utf-8",
         )
         retry_message.chmod(0o755)
@@ -2712,16 +2726,17 @@ def check_pi_package_layout_and_contract() -> None:
         retry_context.chmod(0o755)
         retry_script = retry_smoke / "context-retry.ts"
         retry_script.write_text(
+            "import { writeFileSync } from 'node:fs';\n"
             "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
             "const handlers=new Map();\n"
             "const pi={on(e,h){handlers.set(e,h)},registerCommand(){},async exec(){return {stdout:'',stderr:'',exitCode:0}}};\n"
             "lazyHarnessPi(pi);\n"
             "const ctx={cwd:" + json.dumps(str(retry_root)) + ",signal:undefined,ui:{notify(){}}};\n"
             "await handlers.get('before_agent_start')({prompt:'retry turn',systemPrompt:'base'},ctx);\n"
-            "for (const id of ['batch-read-1','batch-read-2']) {\n"
-            " const call=await handlers.get('tool_call')({toolCallId:id,toolName:'read',input:{file_path:id+'.md'}},ctx);\n"
-            " if(call?.block) throw new Error('batch read blocked: '+id);\n"
-            " await handlers.get('tool_result')({toolCallId:id,toolName:'read',input:{file_path:id+'.md'},content:'ok'},ctx);\n"
+            "for (const id of ['batch-write-1','batch-write-2']) {\n"
+            " const call=await handlers.get('tool_call')({toolCallId:id,toolName:'write',input:{file_path:id+'.md',content:'x'}},ctx);\n"
+            " if(call?.block) throw new Error('batch write blocked: '+id);\n"
+            " await handlers.get('tool_result')({toolCallId:id,toolName:'write',input:{file_path:id+'.md',content:'x'},content:'ok'},ctx);\n"
             "}\n"
             "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('failed first hook must fail open');\n"
             "const retried=await handlers.get('context')({messages:[]},ctx);\n"
@@ -2731,11 +2746,20 @@ def check_pi_package_layout_and_contract() -> None:
             "if(lateCall?.block) throw new Error('late same-turn read blocked');\n"
             "await handlers.get('tool_result')({toolCallId:'late-read',toolName:'read',input:{file_path:'late.md'},content:'ok'},ctx);\n"
             "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('late same-turn file op restarted context');\n"
+            "await handlers.get('tool_call')({toolCallId:'ground-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --complete --format=md'}},ctx);\n"
+            "await handlers.get('tool_result')({toolCallId:'ground-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --complete --format=md'},content:'mapped'},ctx);\n"
+            "const nestedGrounding={tool_uses:[{recipient_name:'functions.read',parameters:{path:'.lazy-harness/spec/fixture.md'}}]};\n"
+            "await handlers.get('tool_call')({toolCallId:'ground-record',toolName:'multi_tool_use.parallel',input:nestedGrounding},ctx);\n"
+            "await handlers.get('tool_result')({toolCallId:'ground-record',toolName:'multi_tool_use.parallel',input:nestedGrounding,content:'read'},ctx);\n"
+            "const reused=await handlers.get('before_agent_start')({prompt:'same work unit',systemPrompt:'base'},ctx);\n"
+            "if(!reused?.message?.content?.includes('status=reused-work-unit') || reused.systemPrompt) throw new Error('valid fingerprint grounding was not reused');\n"
+            "writeFileSync(" + json.dumps(str(retry_record)) + ",'# changed governing record\\n');\n"
+            "const invalidated=await handlers.get('before_agent_start')({prompt:'same work unit after record change',systemPrompt:'base'},ctx);\n"
+            "if(!invalidated?.message?.content?.includes('status=armed')) throw new Error('changed governing record did not invalidate work-unit grounding');\n"
             "const steered=await handlers.get('input')({text:'new topic',source:'user',streamingBehavior:'steer'},ctx);\n"
             "if(steered?.action!=='transform') throw new Error('steer did not reset context boundary');\n"
-            "const steerContext=await handlers.get('context')({messages:[]},ctx);\n"
-            "if(!Array.isArray(steerContext?.messages)) throw new Error('steer did not permit one fresh context injection');\n"
-            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('steer context injected more than once');\n"
+            "if(!String(steered?.text).includes('Ground this work unit once')) throw new Error('steer did not inject fresh first-grounding pointer');\n"
+            "if((await handlers.get('context')({messages:[]},ctx))!==undefined) throw new Error('steer must not schedule a second context reminder');\n"
             "console.log('pi context retry and batch smoke ok');\n",
             encoding="utf-8",
         )
@@ -3955,7 +3979,7 @@ def check_operational_adr_allowlist_complete() -> None:
 
 
 def check_prompt_budget_measurement() -> None:
-    """Phase 1 prompt/runtime compression should measure prompt budget without runtime behavior changes."""
+    """Work-unit prompt measurement enforces compact first grounding without runtime replay."""
     spec_path = LAZY / "spec" / "platform" / "prompt-budget.md"
     tdd_path = LAZY / "tests" / "prompt-budget.md"
     script_path = LAZY / "scripts" / "prompt-budget.py"
@@ -3991,7 +4015,7 @@ def check_prompt_budget_measurement() -> None:
     if report.get("schemaVersion") != "1.0":
         fail("prompt-budget schemaVersion mismatch: " + json.dumps(report, ensure_ascii=False)[:500])
     if report.get("status") == "fail":
-        fail("prompt-budget should not fail during Phase 1 transition:\n" + completed.stdout)
+        fail("work-unit prompt budget exceeded its transition ceiling:\n" + completed.stdout)
 
     rendered = report.get("renderedMessageReceived") or {}
     for key in ["lineCount", "tokenEstimate", "status", "journalRows", "bodyHash", "transitionHardMaxTokens"]:
@@ -4003,6 +4027,11 @@ def check_prompt_budget_measurement() -> None:
         fail("prompt-budget should render hook in isolated runtime and observe journal row: " + json.dumps(rendered, ensure_ascii=False))
     if rendered.get("fixtureMessageLeaked"):
         fail("prompt-budget rendered output reports fixture message leak")
+    if int(rendered.get("tokenEstimate") or 0) > 300:
+        fail("first-grounding prompt exceeded 300-token target: " + json.dumps(rendered, ensure_ascii=False))
+    message_budget = report.get("budgets", {}).get("messageReceived", {})
+    if message_budget.get("targetMaxTokens") != 300 or message_budget.get("hardMaxTokens") != 600 or message_budget.get("transitionHardMaxTokens") != 800:
+        fail("work-unit prompt thresholds drifted: " + json.dumps(message_budget, ensure_ascii=False))
     if int(rendered.get("tokenEstimate") or 0) > int(rendered.get("transitionHardMaxTokens") or 0):
         fail("prompt-budget rendered prompt exceeded transition hard max: " + json.dumps(rendered, ensure_ascii=False))
 
@@ -12457,45 +12486,27 @@ def check_message_received_hook_context_injection() -> None:
 
         non_space = re.sub(r"\s+", "", body)
         token_estimate = max(len(re.findall(r"\S+", body)), (len(non_space) + 5) // 6 if non_space else 0)
-        if token_estimate > 600:
-            fail(f"compact message.received prompt too large: {token_estimate} estimated tokens > 600\n" + output)
+        if token_estimate > 300:
+            fail(f"compact work-unit prompt too large: {token_estimate} estimated tokens > 300\n" + output)
 
         for phrase in [
-            "REMINDER. Harness-first search/read debt before response.",
+            "REMINDER. Ground this work unit once before mutation or a host-specific completion claim.",
             "harness-first-static",
-            "static transport; no user-text classification; no CLI/index semantic authority",
-            "inspect the map/index inventory",
-            "let the LLM choose concrete record/source/test nodes",
-            "Inventory counts:",
-            "DDD=",
-            "SDD=",
-            "BDD=",
-            "TDD=",
-            "ADR=",
-            "SSOT=",
-            "Project=",
-            "Knowledge=",
-            "Derived indexes:",
-            "Pointers:",
-            "feature-navigation.xml=",
-            "Source/test/doc dirs:",
-            "Map-first protocol:",
-            "choose the next concrete node yourself",
-            "Drill-down:",
-            "map <feature-id|record-path|graph-id|source-path>",
-            "Do not pass raw user text",
-            "invented `--query` flags",
-            "fallback discovery commands",
-            "do not run fallback discovery commands",
-            "Rule digest/full body/Implementation map/graph links",
-            "3-5 option gate",
-            "Missing record: read current host docs/package/config only when reached through concrete map/source paths",
-            "generic evidence guard",
+            "static transport; no user-text classification",
+            "First grounding only",
+            "lazy map --overview --complete",
+            "Reuse unchanged grounding across later messages",
+            "do not repeat map/read just because a new turn started",
+            "Never validate between micro-edits",
+            "capture confirmed durable knowledge once at work-unit closure",
         ]:
             if phrase not in body:
                 fail("direct-search prompt missing framework search phrase: " + phrase + "\n" + output)
         for forbidden in [
             "Harness inventory (actual files first, compact)",
+            "Inventory counts:",
+            "Operating rules/capabilities registered for THIS project",
+            "Relevant records for the files you just touched",
             "Actual record layers",
             "sample:",
             "Evidence examples (examples, not a required tool list)",
@@ -12592,82 +12603,64 @@ def check_message_received_hook_context_injection() -> None:
 
 
 def check_message_received_surfaces_operating_rule_catalog() -> None:
-    """R3 (ADR 0048): message.received turn-start surfaces the deterministic operating-rule/capability catalog so stored project rules are visible before action."""
-    runtime_root = pathlib.Path(tempfile.mkdtemp(prefix="lazy-r3-catalog-"))
+    """Turn-start transport stays pointer-only; catalogs remain explicit discovery commands."""
+    runtime_root = pathlib.Path(tempfile.mkdtemp(prefix="lazy-r3-pointer-"))
     hook = LAZY / "hooks" / "lifecycle" / "on-message-received.sh"
-
-    def render(message: str, message_id: str) -> str:
-        payload = {
-            "event": "message.received",
-            "session_id": "s-r3",
-            "message_id": message_id,
-            "working_dir": str(ROOT),
-            "last_user_message": message,
-            "recent_tool_calls": [],
-            "turn_count": 1,
-        }
+    payload = {
+        "event": "message.received",
+        "session_id": "s-r3",
+        "message_id": "m-r3",
+        "working_dir": str(ROOT),
+        "last_user_message": "기능 고쳐줘",
+        "recent_tool_calls": [],
+    }
+    try:
         completed = subprocess.run(
-            [str(hook)],
-            cwd=str(ROOT),
-            input=json.dumps(payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
-            check=False,
+            [str(hook)], cwd=ROOT, input=json.dumps(payload, ensure_ascii=False),
+            text=True, capture_output=True, check=False,
             env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT), LAZY_RUNTIME_ROOT=str(runtime_root)),
         )
         if completed.returncode != 0 or not completed.stdout.strip():
-            fail("R3 catalog: message.received hook should emit inject on the real repo:\n" + completed.stdout + completed.stderr)
-        return json.loads(completed.stdout).get("inject", {}).get("body", "")
-
-    try:
-        body = render("PR 올려줘", "m-r3a")
-        for phrase in [
+            fail("pointer-only turn-start hook should emit inject:\n" + completed.stdout + completed.stderr)
+        body = json.loads(completed.stdout).get("inject", {}).get("body", "")
+        for forbidden in (
             "Operating rules/capabilities registered for THIS project",
-            "Do NOT resolve every listed intent or chain resolver calls",
-            "without rerunning the resolver",
-            "lazy capability resolve --intent",
             "capability-registry-phase1",
-        ]:
-            if phrase not in body:
-                fail("R3 catalog: turn-start body missing operating-rule surfacing phrase: " + phrase + "\n" + body)
-        # Deterministic catalog: identical regardless of user text (no user-text classification, cli-tool-boundary).
-        body2 = render("기능 고쳐줘", "m-r3b")
-        if body2 != body:
-            fail("R3 catalog: turn-start body must be static and not vary by user text:\n--- a ---\n" + body + "\n--- b ---\n" + body2)
+            "lazy capability resolve --intent",
+            "Inventory counts:",
+        ):
+            if forbidden in body:
+                fail("turn-start prompt must not replay catalog/inventory detail: " + forbidden + "\n" + body)
     finally:
         shutil.rmtree(runtime_root, ignore_errors=True)
-    print("✓ message.received operating-rule catalog (R3) ok")
+    print("✓ message.received pointer-only work-unit grounding ok")
 
 
 def check_on_context_surfaces_operating_rule_catalog() -> None:
-    """R3 (ADR 0048): on-context.sh mid-turn re-grounding surfaces the operating-rule/capability catalog (incl. capabilities), not just policy titles."""
+    """Mid-turn context is pointer-only and never performs map/catalog replay."""
     hook = LAZY / "hooks" / "lifecycle" / "on-context.sh"
-    payload = {
-        "event": "context",
-        "source": "lazy-harness-pi",
-        "working_dir": str(ROOT),
-        "recent_tool_calls": [],
-    }
     completed = subprocess.run(
-        [str(hook)],
-        cwd=str(ROOT),
-        input=json.dumps(payload, ensure_ascii=False),
-        text=True,
-        capture_output=True,
-        check=False,
+        [str(hook)], cwd=ROOT,
+        input=json.dumps({"event": "context", "working_dir": str(ROOT), "recent_tool_calls": []}),
+        text=True, capture_output=True, check=False,
         env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
     )
     if completed.returncode != 0 or not completed.stdout.strip():
-        fail("R3 catalog: on-context.sh should emit a mid-turn re-grounding inject:\n" + completed.stdout + completed.stderr)
+        fail("pointer-only on-context hook should emit inject:\n" + completed.stdout + completed.stderr)
     body = json.loads(completed.stdout).get("inject", {}).get("body", "")
-    for phrase in [
-        "Operating rules/capabilities registered for THIS project",
-        "capability-registry-phase1",
-        "Map-first BEFORE reading/editing more",
-    ]:
+    for phrase in (
+        "Continue the approved work unit without restarting discovery",
+        "do not reread unchanged records",
+        "Finish the coherent mutation batch before validation",
+    ):
         if phrase not in body:
-            fail("R3 catalog: on-context mid-turn body missing catalog phrase: " + phrase + "\n" + body)
-    print("✓ on-context operating-rule catalog (R3) ok")
+            fail("pointer-only on-context body missing phrase: " + phrase + "\n" + body)
+    for forbidden in ("Operating rules/capabilities", "Relevant records", "lazy map", "capability-registry-phase1"):
+        if forbidden in body:
+            fail("on-context must not replay maps/catalogs: " + forbidden + "\n" + body)
+    if len(body.splitlines()) > 5:
+        fail("on-context pointer reminder must stay within five lines:\n" + body)
+    print("✓ on-context pointer-only reminder ok")
 
 
 def check_code_organization_profile() -> None:
@@ -12683,14 +12676,13 @@ def check_code_organization_profile() -> None:
     if not apply_adr_path.exists():
         apply_adr_path = LAZY / "framework" / "operational-adrs" / apply_adr_name
     agents_path = LAZY / "AGENTS.md"
-    hook_path = LAZY / "hooks" / "lifecycle" / "on-context.sh"
     catalog_helper_path = LAZY / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py"
     manifest_path = LAZY / "manifests" / "init-categories.json"
     policy_path = LAZY / "ssot" / "policies.json"
     capability_path = LAZY / "ssot" / "capabilities.json"
 
     required_paths = (
-        sdd_path, tdd_path, adr_path, apply_adr_path, agents_path, hook_path,
+        sdd_path, tdd_path, adr_path, apply_adr_path, agents_path,
         catalog_helper_path, manifest_path, policy_path, capability_path,
     )
     for path in required_paths:
@@ -12735,9 +12727,8 @@ def check_code_organization_profile() -> None:
         if phrase not in apply_adr:
             fail("ADR 0048 missing host source-policy adaptation boundary: " + phrase)
     for phrase in (
-        "code_org_profile_source_touch",
-        "code_org_profile_host_adaptation",
-        "code_org_profile_non_source_touch",
+        "code_org_profile_explicit_resolution",
+        "code_org_profile_pointer_context",
         "code_org_profile_no_enforcement",
         "## Layer completeness",
     ):
@@ -12776,98 +12767,6 @@ def check_code_organization_profile() -> None:
     )
     if capability_resolve.returncode != 0 or "code-organization-review" not in [item.get("id") for item in json.loads(capability_resolve.stdout).get("matches", [])]:
         fail("Code Organization Profile capability did not resolve: " + capability_resolve.stdout + capability_resolve.stderr)
-
-    def context_body(root: pathlib.Path, hook: pathlib.Path, path: str, tool_name: str) -> str:
-        payload = {
-            "event": "context",
-            "source": "lazy-harness-pi",
-            "working_dir": str(root),
-            "recent_tool_calls": [{"name": tool_name, "args_preview": path}],
-        }
-        completed = subprocess.run(
-            [str(hook)], cwd=root, input=json.dumps(payload), text=True, capture_output=True, check=False,
-            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(root)),
-        )
-        if completed.returncode != 0 or not completed.stdout.strip():
-            fail("Code Organization Profile context fixture failed:\n" + completed.stdout + completed.stderr)
-        return json.loads(completed.stdout).get("inject", {}).get("body", "")
-
-    source_body = context_body(ROOT, hook_path, ".lazy-harness/scripts/lazy-sync.ts", "read")
-    for expected in (
-        "Resolved source-work guidance for THIS project",
-        "exact intents: reviewing_code_organization",
-        "policy `code-organization-profile` (recommend)",
-        "capability `code-organization-review` (recommend)",
-        ".lazy-harness/spec/platform/code-organization-profile.md",
-    ):
-        if expected not in source_body:
-            fail("Source touch must surface canonical resolved profile guidance: " + expected + "\n" + source_body)
-    record_body = context_body(ROOT, hook_path, ".lazy-harness/spec/platform/code-organization-profile.md", "read")
-    if "Resolved source-work guidance for THIS project" in record_body:
-        fail("Record-only touch must not surface source-adaptation guidance:\n" + record_body)
-
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-code-org-host-adaptation-"))
-    try:
-        temp_lazy = temp / ".lazy-harness"
-        for relative in ("bin", "scripts", "hooks/lifecycle/helpers", "ssot", "spec/host"):
-            (temp_lazy / relative).mkdir(parents=True, exist_ok=True)
-        shutil.copy2(LAZY / "bin" / "lazy", temp_lazy / "bin" / "lazy")
-        shutil.copy2(LAZY / "scripts" / "capability.ts", temp_lazy / "scripts" / "capability.ts")
-        shutil.copy2(LAZY / "scripts" / "policy.ts", temp_lazy / "scripts" / "policy.ts")
-        temp_hook = temp_lazy / "hooks" / "lifecycle" / "on-context.sh"
-        shutil.copy2(hook_path, temp_hook)
-        shutil.copy2(catalog_helper_path, temp_lazy / "hooks" / "lifecycle" / "helpers" / "operating_rule_catalog.py")
-        (temp_lazy / "spec" / "host" / "source-organization.md").write_text(
-            "# Host source organization\n\nKeep parser phases in input → normalize → emit order.\n",
-            encoding="utf-8",
-        )
-        host_policy = {
-            "version": 1,
-            "policies": [{
-                "id": "host-source-organization",
-                "title": "Host parser flow",
-                "scope": "host-project",
-                "stage": "edit",
-                "level": "recommend",
-                "appliesTo": ["modifying_source_file"],
-                "sourceRecord": ".lazy-harness/spec/host/source-organization.md",
-                "capabilityIds": ["host-source-organization-review"],
-                "explain": {"summary": "Keep parser phases in input to normalize to emit order."},
-            }],
-        }
-        host_capability = {
-            "version": 1,
-            "capabilities": [{
-                "id": "host-source-organization-review",
-                "kind": "checklist",
-                "level": "recommend",
-                "sourceRecord": ".lazy-harness/spec/host/source-organization.md",
-                "appliesWhen": ["modifying_source_file"],
-                "actions": ["Preserve input to normalize to emit order"],
-                "policyIds": ["host-source-organization"],
-            }],
-        }
-        (temp_lazy / "ssot" / "policies.json").write_text(json.dumps(host_policy), encoding="utf-8")
-        (temp_lazy / "ssot" / "capabilities.json").write_text(json.dumps(host_capability), encoding="utf-8")
-
-        host_source_body = context_body(temp, temp_hook, "src/parser.ts", "replace")
-        for expected in (
-            "exact intents: modifying_source_file",
-            "policy `host-source-organization` (recommend)",
-            "capability `host-source-organization-review` (recommend)",
-            ".lazy-harness/spec/host/source-organization.md",
-            "Keep parser phases in input to normalize to emit order.",
-            "Preserve input to normalize to emit order",
-        ):
-            if expected not in host_source_body:
-                fail("Host source adaptation fixture missing guidance: " + expected + "\n" + host_source_body)
-        if "code-organization-profile" in host_source_body:
-            fail("Host source adaptation must not hardcode the framework profile outside registry matches:\n" + host_source_body)
-        host_record_body = context_body(temp, temp_hook, ".lazy-harness/spec/host/source-organization.md", "read")
-        if "Resolved source-work guidance for THIS project" in host_record_body:
-            fail("Host record-only context must not emit source-adaptation guidance:\n" + host_record_body)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
 
     category_a = json.dumps(manifest.get("categories", {}).get("A", {}).get("items", []), ensure_ascii=False)
     for expected in ("spec/platform/code-organization-profile.md", "tests/code-organization-profile.md"):

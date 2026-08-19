@@ -21,7 +21,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - protect `prompt-budget.py` JSON and Markdown output shapes
   - verify the rendered `message.received` measurement includes line and token estimates
   - verify the measurement uses isolated runtime state and does not emit the synthetic fixture message
-  - allow current over-target prompt size during Phase 1 while failing severe transition-threshold regressions
+  - enforce the tightened work-unit first-grounding thresholds: target <=300, hard 600, transition hard 800
   - keep project-local skill prompts as measured advisory surfaces, not broad hard failures
   - verify `lazy prompt-budget --format=md` dispatch works
 - Must not:
@@ -38,11 +38,12 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 
 ## Regression target
 
-Phase 1 should add measurement only. Existing hook behavior must remain unchanged:
+Prompt-budget now protects the work-unit-scoped runtime behavior:
 
-- `message.received` output remains static for all non-empty messages.
-- Direct-search debt journal rows are still written by the hook itself.
-- Prompt budget measurement renders the hook in a temporary runtime root, not in the host's runtime journal.
+- the first-grounding `message.received` body remains static across non-empty messages and stays <=300 estimated tokens;
+- direct-search debt rows are still sanitized and written only when the runtime requests grounding;
+- Pi/OMP valid later normal turns return only `reused-work-unit` status and inject no repeated system-prompt body;
+- measurement renders the hook in an isolated temporary runtime root.
 
 ## Self-test coverage
 

@@ -96,6 +96,16 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - Ownership: this is a framework-source correction in `packages/lazy-harness-pi` and the shared lifecycle helper. Downstream hosts receive it through package live-link/update and framework sync; host-local validation policies remain separate.
 - Protection: the Pi fake runtime proves pre-context file operations collapse, failed hooks retain pending state for a later retry, later same-turn operations do not inject again, fresh turn/steer boundaries permit one new injection, and catalog copy rejects resolver chaining.
 
+## 2026-08-19 amendment — work-unit grounding replaces per-turn catalog replay
+
+- Trigger: the user identified abnormal token consumption and confirmed that repeated tests, result replay, and mandatory rereads were the primary operational cause. Live dogfood reproduced the issue: a short conversational follow-up triggered overview traversal, several record reads, and the full catalog reminder again.
+- Decision: R3 remains available through explicit `lazy capability/policy list|resolve` and the initial work-unit grounding, but turn-start and mid-turn hooks no longer replay inventory, record lists, or policy/capability catalogs. Pi/OMP cache one successful overview plus directly read governing-record fingerprints for the active work unit and reuse them across normal messages while those records remain unchanged.
+- Invalidation: a new runtime session, explicit non-extension steer, or changed/deleted governing record requires fresh grounding. A normal message boundary alone does not invalidate evidence. New-scope judgement remains LLM-owned; hooks must not classify raw user text.
+- Context boundary: `on-context.sh` is pointer-only, fires only after the first successful mutation rather than reads/searches, stays within five lines, and never executes map/resolver/catalog commands.
+- Validation/output boundary: coherent mutations precede validation; green completion is summarized, while detailed validation output stays in command capture/artifacts rather than being replayed into chat. Direct fresh `lazy test` remains reserved for explicit or commit/push/release boundaries.
+- Trade-off: automatic per-turn rule visibility is reduced, but the prior design repeatedly spent large prompt/read budgets and still used only coarse "any map/read" evidence. Work-unit fingerprints preserve concrete grounding while avoiding systematic replay.
+- Protection: message/context prompt budgets, Pi fake-runtime reuse/invalidation cases, and existing explicit resolver fixtures protect the new boundary.
+
 ## Implementation map
 
 - Status: `implemented`
@@ -105,10 +115,10 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — wires the storage helper after the placement gate.
   - `.lazy-harness/scripts/lifecycle-check.py` — HELPERS parity.
   - `.lazy-harness/AGENTS.md`, `.lazy-harness/ssot/rule-sources.md`, `.lazy-harness/spec/platform/response-rule-audit.md`, `.lazy-harness/spec/platform/project-rule-router.md` — grammar/record alignment.
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — R3 turn-start catalog injection (imports `helpers/operating_rule_catalog.catalog_lines`); 2026-06-28 amendment.
-  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — bounded catalog and canonical exact-intent rendering; the 2026-08-18 amendment marks enumeration discovery-only and prevents duplicate manual resolution when source guidance is already resolved.
-  - `.lazy-harness/hooks/lifecycle/on-context.sh` — builds the bounded mid-turn body from touched paths.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — collapses file operations into one context injection per turn and resets only at a fresh turn or explicit steer boundary.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — pointer-only first-grounding packet; no per-turn catalog injection.
+  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — explicit/on-demand catalog and exact-intent rendering remains available outside automatic prompt transport.
+  - `.lazy-harness/hooks/lifecycle/on-context.sh` — five-line pointer-only mutation-boundary body with no resolver subprocess.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — caches overview + governing-record hashes, reuses valid normal turns, and clears reuse on steer/record drift.
 - Key symbols:
   - `missed_discouraged_action` (`check-response-rule-audit.py`) — now `{default, warn, block}`.
   - `rule_store_write` / `wrong_surface_write` / `has_resolve_evidence` (`check-operating-rule-storage.py`).
@@ -116,9 +126,9 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py#check_operating_rule_storage_helper`
   - `.lazy-harness/scripts/self-test.py#check_response_rule_audit_from_surfaced_digest` (default-level + recommend-silent cases)
-  - `.lazy-harness/scripts/self-test.py#check_message_received_surfaces_operating_rule_catalog` (R3 catalog surfaced at turn-start; user-text-agnostic)
-  - `.lazy-harness/scripts/self-test.py#check_on_context_surfaces_operating_rule_catalog` (R3 catalog surfaced mid-turn incl. capabilities)
-  - `.lazy-harness/scripts/self-test.py#check_code_organization_profile` (host-only source policy/capability resolves into source context; record-only context has no source-adaptation block)
+  - `.lazy-harness/scripts/self-test.py#check_message_received_surfaces_operating_rule_catalog` (historical name; now proves turn-start remains pointer-only with no catalog replay)
+  - `.lazy-harness/scripts/self-test.py#check_on_context_surfaces_operating_rule_catalog` (historical name; now proves five-line pointer-only mutation context)
+  - `.lazy-harness/scripts/self-test.py#check_code_organization_profile` (explicit resolver availability without automatic context injection)
   - `python3 .lazy-harness/scripts/self-test.py`
   - `python3 .lazy-harness/scripts/doctor.py --profile smoke`
 - Cross-layer links:
@@ -127,7 +137,7 @@ Repair both halves organically, with no new hard gate, and propagate via framewo
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - ADR: `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`, `0044`, `0046`
 - Machine index:
-  - graph ids: `kg_pi_context_once_per_turn_20260818`
+  - graph ids: `kg_pi_context_once_per_turn_20260818`, `kg_work_unit_grounding_token_compaction_20260819`
 
 ## Rule placement
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Measure lazy-harness prompt surfaces without changing runtime behavior.
+"""Measure lazy-harness prompt surfaces in an isolated runtime.
 
-Phase 1 scope: read-only budget report for prompt/runtime compression work.
+The report enforces the compact first-grounding work-unit budget without mutating host journals.
 The script renders message.received in an isolated runtime directory so the host's
 normal runtime journals are not polluted by measurement fixtures.
 """
@@ -25,7 +25,7 @@ SCHEMA_VERSION = "1.0"
 SYNTHETIC_MESSAGE = "__lazy_prompt_budget_fixture_message__"
 
 DEFAULT_BUDGETS = {
-    "messageReceived": {"targetMinTokens": 200, "targetMaxTokens": 600, "hardMaxTokens": 1000, "transitionHardMaxTokens": 1400},
+    "messageReceived": {"targetMinTokens": 100, "targetMaxTokens": 300, "hardMaxTokens": 600, "transitionHardMaxTokens": 800},
     "lazyAgents": {"targetMaxLines": 140, "hardMaxLines": 200, "transitionHardMaxLines": 220},
     "jcodeHarness05": {"targetMaxLines": 80, "hardMaxLines": 80, "transitionHardMaxLines": 220},
     "skillPrompt": {"targetMaxLines": 120, "hardMaxLines": 160, "transitionHardMaxLines": 200},
@@ -36,7 +36,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Measure lazy-harness prompt surfaces")
     parser.add_argument("--root", default=os.environ.get("LAZY_HOST_ROOT") or os.getcwd(), help="Host root (default: LAZY_HOST_ROOT or cwd)")
     parser.add_argument("--format", choices=["json", "md"], default="md", help="Output format")
-    parser.add_argument("--transition-message-tokens", type=int, default=DEFAULT_BUDGETS["messageReceived"]["transitionHardMaxTokens"], help="Temporary Phase 1 transition hard ceiling for rendered message.received tokens")
+    parser.add_argument("--transition-message-tokens", type=int, default=DEFAULT_BUDGETS["messageReceived"]["transitionHardMaxTokens"], help="Transition hard ceiling for rendered first-grounding message.received tokens")
     return parser.parse_args(argv)
 
 
@@ -247,7 +247,7 @@ def build_report(root: pathlib.Path, transition_message_tokens: int) -> dict[str
         statuses.append("fail")
     status = merge_status(*statuses)
     notes = [
-        "Phase 1 is measurement-only; message.received behavior is not changed.",
+        "Measures the pointer-only first-grounding body; valid later Pi/OMP work-unit turns inject no system-prompt body.",
         "Generated measurements are non-canonical and should be used as regression evidence only.",
         "Skill prompts are measured as on-demand assets; oversized skill prompts are advisory warnings, not hard failures.",
     ]

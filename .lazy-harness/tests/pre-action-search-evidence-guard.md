@@ -24,6 +24,8 @@ Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_appl
   - recognize brace-syntax record scopes and treat `apply_patch`/namespaced patch as the same source-edit action
   - keep record-file and non-code-docs edits exempt; parse hook payloads safely via argv
   - after a non-extension mid-turn steer, deny later actions until fresh post-steer map/read evidence exists, and never count late results from pre-steer tool calls
+  - allow Pi/OMP to reuse a valid overview + governing-record fingerprint packet across normal message boundaries without journaling a new per-message debt row
+  - invalidate reuse when a cached governing record changes or disappears
 - Must not:
   - false-deny edits after evidence exists, or let patch-style source mutation bypass the search gate
 - Record completion:
@@ -56,7 +58,9 @@ Observed failure modes:
 - a prior `batch` containing nested `read` calls for `.lazy-harness` records allows the edit,
 - record file edits remain exempt so record capture is not blocked,
 - non-code docs edits remain exempt,
-- session cache still allows subsequent source edits after evidence is established,
+- session/work-unit cache allows subsequent source edits and later normal messages after evidence is established, while unchanged
+- normal messages do not replay prompt/catalog bodies when valid work-unit fingerprints exist
+- changed/deleted governing-record fingerprints re-arm one fresh grounding packet
 - `apply_patch` or namespaced patch tools targeting source code without search evidence are denied instead of bypassing the guard,
 - Pi/OMP steering clears prior evidence and advances an evidence epoch,
 - a tool result whose tool call started before the steer does not satisfy post-steer debt,

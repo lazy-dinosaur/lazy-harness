@@ -26,18 +26,20 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - retrieved metadata conflicts, is incomplete, or could be mistaken for semantic authority
 - Must:
   - use metadata as a starting cue only
-  - prefer `lazy map --overview` as the first inventory call before choosing dependent follow-up queries/reads
+  - prefer `lazy map --overview` as the first inventory call for a new work unit, not for every normal message
   - treat `lazy map` output as drill-down candidates, not evidence that anything was read
-  - read the real record body/Rule digest/Implementation map before relying on a record
+  - read the real governing record body/Rule digest/Implementation map before the first mutation or host-specific completion claim
+  - reuse directly read governing-record evidence across later normal messages while its content fingerprint remains unchanged
   - inspect source/tests when a plan or mutation depends on implementation facts
   - ask a 3-5 option gate when meanings/layers still conflict after evidence reads
   - create or update durable records after user confirmation when missing host knowledge is found
-  - after a non-extension mid-turn steer, treat all evidence from the previous instruction as stale for later actions and gather fresh root-bound map/read evidence
+  - after a non-extension mid-turn steer, treat prior work-unit evidence as stale for later actions and gather fresh root-bound map/read evidence
 - Must not:
   - answer or mutate based only on cache/header existence
   - treat batched `lazy map --overview` output as proof that dependent follow-up calls were evidence-informed or read-satisfying
   - treat metadata field names as requiredRead, confidence, risk, gate, or next-action output
   - skip DDD/BDD impact when a new retrieval concept or behavior appears
+  - rerun overview, reread unchanged records, or replay mapped record/catalog output solely because a normal message or read operation occurred
 - Record completion:
   - changes to retrieval behavior update this BDD, DDD terminology, SDD contract, TDD fixtures, tasks, and HTML report together.
 
@@ -115,6 +117,15 @@ Then the adapter invalidates the previous instruction's evidence cache
 And ignores late tool results from tool calls that started before the steer
 And the action remains blocked until a map/read tool call started after the steer produces fresh root-bound evidence
 And this behavior does not classify the steered text or maintain command-specific rules.
+
+### Scenario 7b — Normal follow-up reuses work-unit evidence
+
+Given the agent completed one overview and directly read the governing records for the active work unit
+And those record content fingerprints are unchanged
+When the user sends another normal follow-up in the same runtime session
+Then Pi/OMP reports `reused-work-unit`
+And does not inject the full grounding prompt, rerun map/catalog commands, or require the same records to be read again
+But a changed/deleted governing record or explicit steer invalidates reuse before the next mutation.
 
 ### Scenario 8 — Dynamic write/read loop treats graph as cue, not truth
 

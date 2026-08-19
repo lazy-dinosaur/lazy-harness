@@ -101,16 +101,26 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Fail-open remains, but failed/empty context hooks keep pending state so a later context callback can retry. Pending clears only after a valid body exists.
 - Exact source guidance rendered by the helper is already resolved. The generic catalog is discovery-only and must not cause broad manual resolver chains.
 - Protection lives in `check_pi_package_layout_and_contract` and `.lazy-harness/tests/pi-agent-package.md`.
+
+## 2026-08-19 amendment — parity yields to bounded work-unit grounding
+
+- Trigger: live Pi dogfood showed that once-per-turn parity was still too expensive: ordinary follow-ups and reads repeatedly injected map/record/catalog instructions and caused the model to reread unchanged evidence.
+- Decision: preserve the full grammar once per runtime session, but replace per-turn/file-read re-grounding with work-unit evidence reuse. Pi/OMP cache one successful overview plus directly read governing-record hashes; normal messages reuse valid hashes without another system-prompt body.
+- Context: reads/searches never trigger `on-context.sh`. The first successful mutation may trigger one five-line pointer-only reminder. The hook performs no map, catalog, record-list, or resolver subprocess.
+- Steering: an explicit non-extension steer clears work-unit fingerprints and writes one fresh grounding packet inline; it does not schedule a second context reminder.
+- Rationale: jcode delivery parity is subordinate to ADR 0041’s organic/fast requirement. Replaying full grammar/catalog state is not correctness evidence and became a measured token-cost regression.
+- Protection: prompt-budget <=300, Pi reuse/record-drift/steer fixtures, and mutation-only context retry.
+
 ## Implementation map
 
 - Status: implemented
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-context.sh` — mid-turn re-grounding body (search §2.1/§2.5 + capture §2.4 + interactive grammar)
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — turn-start harness-first reminder
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `context` handler, `FILE_OP_TOOLS`, `pendingRegroundByRoot`/`regroundBodyByRoot`, jcode-shape `agent_end` payload, opt-in content-free `agent_end` trace, `ensureAskToolActive`
+  - `.lazy-harness/hooks/lifecycle/on-context.sh` — five-line pointer-only mutation-boundary reminder.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — pointer-only first-grounding packet.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `workUnitEvidenceByRoot`, governing-record hashes, `REGROUND_MUTATION_TOOLS`, explicit-steer reset, jcode-shape `agent_end`, trace, and native ask support.
 - Key symbols:
-  - `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot` (`index.ts`) — one successful re-inject per normal turn; pre-context file operations collapse, failed hooks retain pending retry, and fresh turn/steer boundaries reset the cache
-  - re-grounding body phrases `NOT record-grounding` / `Capture before you finish` — search + capture mandates
+  - `observeWorkUnitEvidence` / `workUnitEvidenceValid` — recognize overview + direct governing-record reads and verify hashes before later-turn reuse.
+  - `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot` — mutation-only pointer injection with retry, not per-read re-grounding.
   - `agentEndTracePath` / `writeAgentEndTrace` — opt-in runtime-root diagnostics that preserve payload and continuation semantics
 - Commits: `1ccfd05` (re-grounding wiring), `62fc284` (jcode-shape agent_end payload), `791d659` (native `ask` option gates), `069d603` (option-gate-discipline false positives), `3617769` (relevant-record search mandate), `deb9d53` (turn-end capture mandate), `3bb06d5` (SDD record + fixture)
 - Tests / protection:

@@ -28,6 +28,7 @@ Date: 2026-06-18
   - exclude `.lazy-harness/evidence/**` from the full-regression fingerprint because capsules summarize validation output; the fast tier runs at explicit validation checkpoints, never automatically after each micro-edit
   - register recommend-level guidance that removes the `iterating_after_edit` trigger, prohibits validation after each micro-edit, batches coherent mutations before one `lazy check` checkpoint, limits focused/affected checks to once per changed-behavior batch when needed, and runs one `lazy validate --plan standard` after the final mutation
   - reserve direct `lazy test` for explicit fresh full-regression requests or commit/push/release gates
+  - keep successful validation conversation output to status, check count, and elapsed time; detailed captured stdout/stderr belongs in runtime artifacts and is surfaced only on failure or explicit request
   - run audited independent self-test checks in bounded process workers by default, isolate worker runtime state, serialize fixed-path checks, preserve registry-order output, and provide `--jobs=1` fallback
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
   - keep harness-integrity plans bounded to lazy-harness commands unless a user request, host test strategy, or product-code impact explicitly calls for downstream app typecheck/lint/build/E2E

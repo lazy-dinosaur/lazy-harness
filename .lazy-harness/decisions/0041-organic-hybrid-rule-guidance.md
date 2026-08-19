@@ -469,6 +469,14 @@ Any implementation of this ADR must validate:
 - Fixtures proving promoted high-risk cases still hard-stop.
 - Fixture proving deleted query helpers remain absent and direct root-bound evidence satisfies the guard.
 
+## 2026-08-19 amendment — work-unit-scoped organic recall
+
+The user confirmed that per-message search debt, repeated record reads, and replayed validation/context output had become a material token-cost failure. Organic recall therefore becomes **work-unit scoped**: perform one concrete overview + governing-record read at the first mutation/host-specific completion boundary, retain content fingerprints for the active runtime work unit, and reuse them across normal messages while unchanged.
+
+This narrows the earlier phrase “before response” to the boundaries where canonical recall changes correctness: mutation, irreversible action, and host-specific completion/validation claims. Read-only conversation may reuse already-grounded evidence. Explicit steer, new session, or changed/deleted governing records invalidates reuse. A genuinely new semantic scope remains an LLM-owned judgement; lifecycle shell code still may not classify raw user text.
+
+Turn-start and mid-turn transports become pointer-only. They no longer enumerate the full inventory, policy/capability catalog, or mapped records into every model call. Explicit policy/capability resolution and response-completed audit remain available, so the change removes systematic replay rather than removing canonical storage or organic guidance.
+
 ## Implementation map
 
 - Status: `design-direction-accepted`

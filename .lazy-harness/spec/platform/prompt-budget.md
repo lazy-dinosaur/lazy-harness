@@ -79,7 +79,7 @@ This intentionally avoids external tokenizer dependencies.
 
 | Surface | Target | Hard ceiling | Transition hard ceiling | Phase 1 behavior |
 |---|---:|---:|---:|---|
-| Rendered `message.received` body | 200-600 tokens | 1,000 tokens | 1,400 tokens | warn above hard; fail above transition hard |
+| Rendered first-grounding `message.received` body | 100-300 tokens | 600 tokens | 800 tokens | warn above hard; fail above transition hard |
 | `.lazy-harness/AGENTS.md` | <= 140 lines | <= 200 lines | 220 lines | warn above hard; fail above transition hard |
 | `.jcode/harness/05-lazy-harness.md` | pointer-only | <= 80 lines | 220 lines | warn above hard; fail above transition hard |
 | `SKILL.md` prompt files | <= 120 lines | <= 160 lines | 200 lines | advisory only: warn above hard/transition; never fail solely due to skill length |
@@ -88,7 +88,7 @@ The transition hard ceilings are deliberately looser so Phase 1 can be merged be
 
 Skill prompts are on-demand instruction assets, not always-injected runtime prompt. `prompt-budget` must still measure them and report warnings, but it must not fail a host validation solely because a host-owned skill is long. Skill shortening, pointer-only rewrites, or migration into records require explicit user approval and are outside prompt-budget enforcement.
 
-Phase 2 compact prompt work should keep the rendered `message.received` body at or below the normal 600-token target in framework source self-test. The Phase 1 source baseline was 799 estimated tokens, so a successful Phase 2 source run should show at least meaningful reduction and no regression in debt journaling or static/no-classifier behavior.
+The 2026-08-19 work-unit revision tightens the first-grounding body to 300 estimated tokens and requires Pi/OMP later normal turns with valid record fingerprints to inject no system-prompt body at all. The earlier Phase 1 baseline was 799 tokens and the later catalog-expanded dogfood body reached 985 tokens; both demonstrated why per-turn catalog replay is outside the target architecture.
 
 ## CLI contract
 

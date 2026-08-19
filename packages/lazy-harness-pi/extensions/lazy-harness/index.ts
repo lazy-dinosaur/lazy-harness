@@ -19,7 +19,7 @@ const MAX_AGENT_END_TRACE_ROWS = 50;
 const MAX_AGENT_END_TRACE_METADATA_CHARS = 128;
 
 type JsonObject = Record<string, unknown>;
-type ReadDebtStatus = "armed" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
+type ReadDebtStatus = "armed" | "reused-work-unit" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
 type HookResult = { stdout: string; stderr: string; status: number | null; signal?: string | null; error?: string };
 
 type RecentToolCall = {
@@ -33,7 +33,13 @@ type RecentToolCall = {
   result_preview?: unknown;
 };
 
+type WorkUnitEvidence = {
+  mapped: boolean;
+  recordHashes: Map<string, string>;
+};
+
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
+const workUnitEvidenceByRoot = new Map<string, WorkUnitEvidence>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
@@ -48,7 +54,7 @@ const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Jcode-parity mid-turn re-grounding state (see the "context" handler).
 const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
-const FILE_OP_TOOLS = new Set(["read", "edit", "write", "grep", "find", "ls"]);
+const REGROUND_MUTATION_TOOLS = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
 const MUTATION_TOOL_NAMES = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
 const READ_ONLY_SHELL_RE = /^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?(?:(?:\.lazy-harness\/bin\/lazy|lazy)\s+map|pwd|ls|tree|cat|grep|rg|find|git\s+(?:status|diff|show|log|rev-parse))\b/is;
 const ACTION_NAME_RE = /(?:^|[_:.\-])(write|edit|patch|apply_patch|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])/i;
@@ -57,6 +63,53 @@ function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
 }
 
+const RECORD_EVIDENCE_PATH_RE = /\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)\/[A-Za-z0-9_./-]+\.(?:md|xml|json)/g;
+const RECORD_EVIDENCE_TOOLS = new Set(["read", "read_symbol", "read_enclosing", "module_report"]);
+
+function hashFile(path: string): string | undefined {
+  try {
+    return stableHash(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function workUnitEvidenceValid(root: string): boolean {
+  const evidence = workUnitEvidenceByRoot.get(root);
+  if (!evidence?.mapped || evidence.recordHashes.size === 0) return false;
+  for (const [relativePath, expectedHash] of evidence.recordHashes) {
+    if (hashFile(join(root, relativePath)) !== expectedHash) return false;
+  }
+  return true;
+}
+
+function observeEvidenceCall(root: string, evidence: WorkUnitEvidence, name: string, args: JsonObject): void {
+  const normalizedName = name.toLowerCase();
+  const blob = JSON.stringify(args ?? {});
+  if (/(?:\.lazy-harness\/bin\/lazy|\blazy)\s+map\s+--overview\b/.test(blob)) evidence.mapped = true;
+  const leafName = normalizedName.split(/[.:]/).pop() ?? normalizedName;
+  if (RECORD_EVIDENCE_TOOLS.has(leafName)) {
+    for (const relativePath of blob.match(RECORD_EVIDENCE_PATH_RE) ?? []) {
+      const digest = hashFile(join(root, relativePath));
+      if (digest) evidence.recordHashes.set(relativePath, digest);
+    }
+  }
+  const nested = (args.tool_calls ?? args.toolCalls ?? args.tool_uses) as unknown;
+  if (!Array.isArray(nested)) return;
+  for (const item of nested) {
+    if (!item || typeof item !== "object") continue;
+    const call = item as Record<string, unknown>;
+    const nestedName = String(call.recipient_name ?? call.tool ?? call.name ?? call.toolName ?? "");
+    const nestedArgs = (call.parameters ?? call.input ?? call.args ?? {}) as JsonObject;
+    observeEvidenceCall(root, evidence, nestedName, nestedArgs);
+  }
+}
+
+function observeWorkUnitEvidence(root: string, name: string, args: JsonObject): void {
+  const evidence = workUnitEvidenceByRoot.get(root) ?? { mapped: false, recordHashes: new Map<string, string>() };
+  observeEvidenceCall(root, evidence, name, args);
+  workUnitEvidenceByRoot.set(root, evidence);
+}
 function findLazyRoot(cwd: string): string | undefined {
   let current = resolve(cwd || process.cwd());
   while (true) {
@@ -380,7 +433,7 @@ function isActionTool(name: string, args: JsonObject): boolean {
 }
 
 function readDebtLabel(status: ReadDebtStatus): string {
-  if (status === "armed") return "armed";
+  if (status === "armed" || status === "reused-work-unit") return status;
   if (status === "not-armed-synthetic") return "not-armed(synthetic-turn)";
   if (status === "not-armed-hook-timeout") return "not-armed(hook-timeout)";
   if (status === "not-armed-hook-error") return "not-armed(hook-error)";
@@ -388,7 +441,7 @@ function readDebtLabel(status: ReadDebtStatus): string {
 }
 
 function readDebtArmed(status: ReadDebtStatus): boolean {
-  return status === "armed";
+  return status === "armed" || status === "reused-work-unit";
 }
 
 function firstLine(value: string, max = 120): string {
@@ -422,7 +475,7 @@ function steeringReminder(root: string, status: ReadDebtStatus, detail?: string)
   return [
     synthetic
       ? "REMINDER. Synthetic/steering turn; read-debt was not armed."
-      : `REMINDER. Harness-first search/read debt before response. lazy-harness read-debt was not armed (${statusLabel}).`,
+      : `REMINDER. Work-unit grounding hook was not armed (${statusLabel}).`,
     `Root: ${root}`,
     detail ? `Hook detail: ${detail}` : undefined,
     "Do not make host-specific claims or mutations from memory.",
@@ -630,18 +683,34 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     // (follow-up semantics). Pi's default Enter *steers* mid-turn, which skips
     // before_agent_start entirely — the new instruction would silently inherit the
     // previous topic's read-debt evidence and lose the §2.1 record-search push.
-    // Organic fix (ADR 0041/0051): transform the steered text with a compact
-    // steer re-ground reminder and force the next context call to re-inject the
-    // harness re-grounding body. Extension-injected messages are exempt.
+    // Organic fix (ADR 0041/0048/0051): a real mid-turn steer starts a fresh
+    // work unit, writes one compact first-grounding packet, and clears cached
+    // fingerprints. It does not schedule a second context reminder.
     if (event.streamingBehavior === "steer" && event.source !== "extension") {
       const steerText = String(event.text || "");
       if (steerText.trim()) {
         rearmEvidenceAfterSteer(root); // invalidate all evidence collected for the previous instruction
-        pendingRegroundByRoot.set(root, true); // re-ground on the next LLM call
-        regroundBodyByRoot.delete(root); // recompute body with current turn state
+        workUnitEvidenceByRoot.delete(root); // explicit steer starts a fresh work unit
+        pendingRegroundByRoot.delete(root);
+        regroundBodyByRoot.delete(root);
+        const sessionId = `pi:${stableHash(root)}`;
+        const messageId = `pi:${stableHash(`${Date.now()}:${steerText}`)}`;
+        const payload: JsonObject = {
+          event: "message.received", source: EXTENSION_NAME, session_id: sessionId,
+          message_id: messageId, working_dir: root, last_user_message: steerText, recent_tool_calls: [],
+        };
+        const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-message-received.sh");
+        const hook: HookResult = existsSync(script)
+          ? runHook(script, payload, root)
+          : { stdout: "", stderr: "", status: 127, error: "hook-missing:on-message-received.sh" };
+        const hookBody = hookInjectBody(hook.stdout);
+        const readDebtStatus = classifyReadDebtStatus(steerText, hook, hookBody);
+        const readDebtDetail = readDebtArmed(readDebtStatus) ? undefined : hookErrorDetail(hook, hookBody);
+        activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus, readDebtDetail });
+        const body = hookBody ?? steeringReminder(root, readDebtStatus, readDebtDetail);
         return {
-          action: "transform",
-          text: `${steerText}\n\n<system-reminder>\nlazy-harness steer re-ground: this instruction arrived MID-TURN (jcode delivered user messages only between turns). Prior-topic tool evidence is stale for subsequent actions. Before mutating, collect fresh root-bound evidence after this message: run \`.lazy-harness/bin/lazy map --overview\`, drill into governing .lazy-harness records for the current scope, and read the relevant records/source/tests (AGENTS §2.1/§2.5). Prior approvals may also be stale (ADR 0038).\n</system-reminder>`,
+          action: "transform" as const,
+          text: `${steerText}\n\n<system-reminder>\n${body}\n</system-reminder>`,
         };
       }
     }
@@ -668,8 +737,15 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     }
     await ensureAskToolActive(pi); // keep OMP's native `ask` selector available for §2.3 option gates
     const promptText = String(event.prompt || "");
-    // Steering/followUp starts are intentionally treated like regular read-debt starts:
-    // if Pi supplies a non-empty prompt, run on-message-received.sh and arm the turn.
+    // Reuse validated map/record fingerprints for the current work unit. A new
+    // Pi/OMP session or explicit steer starts a new work unit; changed/deleted
+    // governing records invalidate reuse without replaying their bodies.
+    if (workUnitEvidenceValid(root)) {
+      const readDebtStatus: ReadDebtStatus = "reused-work-unit";
+      activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus });
+      return { message: { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtStatus), display: true } };
+    }
+    workUnitEvidenceByRoot.delete(root);
 
     const payload: JsonObject = {
       event: "message.received",
@@ -747,6 +823,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     if (!root) return undefined;
     if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const normalized = normalizePiTool(event.toolName, event.input || {});
+    if (!event.isError) observeWorkUnitEvidence(root, normalized.name, normalized.args);
     rememberToolCall(root, {
       ...normalized,
       args_preview: argsPreview(normalized.args),
@@ -756,22 +833,19 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       is_error: Boolean(event.isError),
       result_preview: previewContent(event.content),
     });
-    // Re-ground at most once per turn. Parallel or sequential file operations before
-    // the first context callback collapse into one batch; once a body is cached, later
-    // file operations in the same turn must not restart the discovery loop.
-    if (FILE_OP_TOOLS.has(normalized.name.toLowerCase()) && !event.isError && !regroundBodyByRoot.has(root)) {
+    // Re-ground only after the first successful mutation, never after reads/searches.
+    // The hook is pointer-only and cannot replay maps, records, or policy catalogs.
+    if (REGROUND_MUTATION_TOOLS.has(normalized.name.toLowerCase()) && !event.isError && !regroundBodyByRoot.has(root)) {
       pendingRegroundByRoot.set(root, true);
     }
     return undefined;
   });
 
   // "context" fires before each LLM call and can modify the messages sent to the model.
-  // Jcode natively re-injected relevant AGENTS/.jcode instructions after file operations
-  // ("read and follow them for the next steps"). Pi/OMP load AGENTS.md only once at session
-  // start, so we replicate that mid-turn re-grounding here: at most one inject per turn,
-  // with pre-injection parallel/sequential file operations collapsed into one batch.
-  // fail open silently; do NOT inject a generic fallback reminder, because it can loop without
-  // surfacing the relevant records that make the reminder actionable.
+  // Work-unit grounding is already cached. After the first successful mutation,
+  // inject one pointer-only continuation reminder; reads/searches never schedule it.
+  // Failed hooks keep pending for a retry, while a valid body suppresses later
+  // same-turn mutation retriggers.
   pi.on("context", async (event: any, ctx: any) => {
     try {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));

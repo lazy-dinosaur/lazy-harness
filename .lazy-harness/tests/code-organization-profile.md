@@ -19,9 +19,9 @@ Related ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-
   - changing Profile v1 semantics, policy/capability bindings, or source-touch reminders
   - promoting any mechanical code-organization observation toward warn or block
 - Must:
-  - prove source touches surface observe-only guidance
-  - prove non-source touches do not add source-adaptation guidance
-  - prove a host-only source policy/capability is resolved and surfaced from canonical registries
+  - prove source-work guidance remains available through explicit canonical policy/capability resolution
+  - prove pointer-only context does not inject source-adaptation guidance after reads
+  - prove host-only source policy/capability entries remain resolvable from canonical registries without framework hardcoding
   - prove policy/capability resolution remains recommend/advisory-only
   - prove system architecture inference and bulk rewrite stay forbidden
 - Must not:
@@ -40,9 +40,8 @@ Related ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-
 | `code_org_profile_contract_files` | inspect SDD/TDD/ADR/AGENTS/runtime files | all canonical pointers and observe-only boundaries exist |
 | `code_org_profile_policy_resolve` | resolve `reviewing_code_organization` at edit stage | `code-organization-profile` resolves as `recommend` and `advisory-only` |
 | `code_org_profile_capability_resolve` | resolve `reviewing_code_organization` intent | `code-organization-review` is available as a recommend checklist |
-| `code_org_profile_source_touch` | run `on-context.sh` with a touched source path and mechanical edit tool label | reminder resolves framework source guidance through canonical policy/capability surfaces |
-| `code_org_profile_host_adaptation` | run the hook in a minimal temp host with a host-only `modifying_source_file` policy/capability | injected guidance includes the host ids, source record, summary, and action without framework hardcoding |
-| `code_org_profile_non_source_touch` | run `on-context.sh` with only a `.md` record path | generic catalog remains available but no source-adaptation block is injected |
+| `code_org_profile_explicit_resolution` | resolve the immediate source-work intent once before a coherent mutation batch | framework and host registry matches remain available as recommend/advisory-only guidance |
+| `code_org_profile_pointer_context` | run `on-context.sh` after a read-only source touch | body stays pointer-only and contains no source profile, host ids, catalog, or resolver result |
 | `code_org_profile_manifest_distribution` | inspect Category A manifest | SDD and TDD records are distributed to hosts |
 | `code_org_profile_no_enforcement` | inspect policy, runtime reminder, and SDD | no warn/block level, AST/lint gate, line threshold, or bulk rewrite |
 | `code_org_profile_architecture_separation` | inspect SDD and ADR 0054 amendment | local organization cannot confirm a Host Architecture Map or named architecture |
@@ -70,19 +69,19 @@ ADR impact: ADR 0054 is amended because separating local code organization from 
 - Primary files:
   - `.lazy-harness/tests/code-organization-profile.md` — regression contract.
   - `.lazy-harness/scripts/self-test.py` — executable focused assertions.
-  - `.lazy-harness/hooks/lifecycle/on-context.sh` — tool-label-to-source-intent context transport.
-  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — canonical resolver output rendering for framework and host-project matches.
+  - `.lazy-harness/hooks/lifecycle/on-context.sh` — pointer-only mutation-boundary reminder that deliberately does not resolve or inject source guidance.
+  - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — explicit canonical resolver rendering remains available to direct callers, not automatic context replay.
   - `.lazy-harness/ssot/policies.json` — recommend policy fixture.
   - `.lazy-harness/ssot/capabilities.json` — checklist capability fixture.
 - Key symbols:
   - `check_code_organization_profile` (`.lazy-harness/scripts/self-test.py`) — validates the complete observe-only slice.
 - Flow:
   1. Self-test verifies canonical records and manifest distribution.
-  2. It resolves typed policy/capability entries.
-  3. It runs source, host-only source-policy, and non-source context payloads.
-  4. It rejects any accidental warn/block or architecture-inference wording.
+  2. It resolves typed policy/capability entries explicitly.
+  3. Pointer-only context is checked for absence of automatic profile/catalog replay.
+  4. It rejects accidental warn/block or architecture-inference wording.
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py#check_code_organization_profile` — includes a minimal temp-host registry canary.
+  - `.lazy-harness/scripts/self-test.py#check_code_organization_profile` — verifies explicit recommend-only registry resolution and pointer-only context separation.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/code-organization-profile.md`
   - ADR: `.lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md`, `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md`

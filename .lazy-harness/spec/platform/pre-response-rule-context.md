@@ -22,14 +22,13 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
   - comparing `response.completed` with pre-response context
   - enforcing harness-first record/source search before agent responses or actions
 - Must:
-  - use Jcode `message.received` for bounded same-turn harness-first inventory/search prompt injection when host context is likely needed
-  - keep `blocking = true` with `timeout_ms = 800` for same-turn prompt inclusion
-  - fail open on timeout or hook failure
+  - use Jcode/Pi/OMP `message.received` only for bounded pointer-only first-grounding guidance; do not replay it on every normal message when valid work-unit evidence exists
+  - keep `blocking = true` with `timeout_ms = 800` for Jcode same-turn inclusion and fail open on timeout or hook failure
   - keep response policy in lifecycle context, not tool-specific project-policy branches
-  - inject framework-structured harness-first instructions for ambiguous/surface-like or host-dependent requests without running a subagent or semantic search backend in the hook
-  - include compact actual `.lazy-harness` layer/file inventory plus generated-index, graph, and project/profile pointers before any free-form query/alias expansion
-  - journal sanitized direct-search debt before the first action so the generic evidence guard/audit can verify real root-bound search evidence
-  - when Pi/OMP receives a non-extension mid-turn steer, re-arm the same generic protocol in adapter memory by invalidating prior-instruction evidence and requiring fresh post-steer map/read evidence before later actions; do not classify the steer text or write a semantic debt row
+  - keep the transport static and user-text-agnostic; it may tell the LLM how to ground the work unit but may not run a subagent or semantic search backend
+  - omit full layer inventory, generated-index details, mapped record lists, and policy/capability catalogs from the injected body
+  - journal sanitized direct-search debt for the first Pi/OMP work-unit grounding; after overview + governing-record fingerprints exist, later normal messages reuse them without another row or system-prompt injection
+  - when Pi/OMP receives a non-extension mid-turn steer, clear work-unit fingerprints and require fresh post-steer map/read evidence before later actions; do not classify the steer text or write a semantic debt row
   - keep deleted query-helper CLIs removed; `message.received` remains static transport, not automatic semantic authority
   - keep exploration tool names as examples, not a closed allowlist; the required behavior is following lazy-harness and leaving root-bound evidence before action
   - surface pending host record migration deterministically (2026-07-05, user-approved resume-surfacing decision; graph probe added same day): the reminder MAY append a `Host record migration PENDING` line derived from bounded, fail-open probes (`helpers/host_migration_state.py`, each timeout < extension hook budget): `lazy record-lint --format=json` (issues/advisories) AND `lazy graph-hygiene --migration-plan --format=json` (legacy-schema rows / removed-framework refs). The line varies ONLY by host validator state, never by user text (static-equality per message preserved); it is omitted when clean/unknown, points at the guided `lazy-record-quality`/`lazy-memory-backfill`/`lazy-graph-migrate` resume paths, and never triggers automatic record/graph rewrites
@@ -41,9 +40,9 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 
 ## Purpose
 
-Pre-response rule context is the lifecycle surface that lets lazy-harness inject a direct framework-structured harness-first inventory/search protocol after a user message is received and before the assistant response/provider prompt is generated.
+Pre-response rule context is a bounded pointer for the first grounding boundary of a work unit. Pi/OMP suppress repeated injection after concrete overview + governing-record fingerprints are valid; Jcode keeps the same static, compact, fail-open body where native work-unit reuse is unavailable.
 
-This is the key Phase 3 integration point for C+ v2 organic hybrid guidance.
+This remains the Phase 3 integration point for C+ v2 organic hybrid guidance, but no longer treats every response as a fresh retrieval obligation.
 
 ## Confirmed Jcode lifecycle capability
 
@@ -128,7 +127,7 @@ The hook may output JSON:
 {
   "action": "allow",
   "inject": {
-    "body": "REMINDER. Harness-first search/read debt before response.\n- ...",
+    "body": "REMINDER. Ground this work unit once before mutation or a host-specific completion claim.\n- ...",
     "format": "system_reminder"
   }
 }
@@ -148,13 +147,14 @@ Semantics:
 1. resolve host root,
 2. parse payload,
 3. avoid all user-text semantic classification in shell/CLI code; the hook must not branch on words such as `fix`, `test`, `고쳐`, or `확인`,
-4. emit the same compact `REMINDER. Harness-first search/read debt before response.` static transport for any non-empty user message, with static guidance that the LLM/searcher explicitly chooses a retrieval purpose before search,
-5. include bounded actual harness inventory in the prompt: DDD/SDD/BDD/TDD/ADR/SSOT/Planning/Plans/Project/Knowledge counts, generated-index presence, graph/candidate/project navigation pointers, and source/test/doc directory presence, without dumping per-layer samples,
-6. keep the compact prompt under the normal 200-600 token target for framework source dogfood when feasible and under the 1,000-token hard ceiling for normal hosts,
-7. append sanitized direct-search debt rows to `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl` with hashed identifiers, static `instructionLevel`, and no raw user message,
-8. stay silent only when no user message exists or the hook cannot resolve a host root,
-9. avoid running deleted query helpers, subagents, `jcode run`, or any semantic search backend inside `message.received`,
-10. log latency without raw message bodies when logging is needed.
+4. emit the same compact work-unit grounding body for any non-empty user message when the runtime requests first grounding,
+5. omit harness inventory counts, generated-index details, mapped records, and operating-rule catalogs from the body,
+6. keep the body at or below 300 estimated tokens in framework source dogfood,
+7. append one sanitized first-grounding debt row with hashed identifiers and no raw user message,
+8. let Pi/OMP skip the hook entirely for a valid cached work unit; unchanged normal turns produce only the visible `reused-work-unit` marker,
+9. stay silent when no user message exists or the hook cannot resolve a host root,
+10. avoid deleted query helpers, subagents, `jcode run`, semantic search, map, catalog, or resolver subprocesses inside `message.received`,
+11. log latency without raw message bodies when logging is needed.
 
 The surfaced digest journal is runtime state only and is now written by explicit digest surfacing/dogfood paths, not by the default `message.received` harness-first search hook. It stores safe hashes and record-authored fields (record path, title, layer, status, record-completion text, compact bullets) so `response.completed` can audit the same turn without storing raw user or assistant message bodies.
 
@@ -165,8 +165,8 @@ Protocol-only harness-first inventory/search injections are prompt context, not 
 Target:
 
 - timeout: 800ms bounded by Jcode,
-- normal digest: 200–600 tokens,
-- hard ceiling: 1,000 tokens,
+- first-grounding body: <=300 estimated tokens,
+- later valid Pi/OMP normal turn: status marker only; no system-prompt injection,
 - no full record dumps,
 - fail-open on error/timeout.
 

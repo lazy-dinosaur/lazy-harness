@@ -26,16 +26,21 @@ Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
   - store only sanitized search/read debt rows in `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`
   - keep debt rows static/protocol-level, not selected by a raw user-text classifier
   - use safe message/session hashes and bounded counters, never raw prompts or transcripts
-  - let the LLM/searcher satisfy debt by map-first traversal and root-bound record/source/test reads
-  - let `check-read-debt-permit.py` measure whether map/read evidence exists before action
+  - let the LLM/searcher satisfy the first work-unit debt by map-first traversal and root-bound governing-record/source/test reads
+  - cache successful Pi/OMP work-unit grounding as an overview marker plus content hashes of directly read governing records
+  - reuse valid work-unit grounding across normal message boundaries; do not reissue map/read debt merely because another user message arrived
+  - let `check-read-debt-permit.py` measure first-grounding map/read evidence before mutation or a host-specific completion claim
   - allow map-first `lazy map --overview` evidence to satisfy search-debt, but never required-read debt
-  - on a non-extension mid-turn steer, invalidate prior-instruction evidence for subsequent actions and require fresh post-steer map/read evidence without classifying the steered text
+  - invalidate work-unit reuse on a new runtime session, a non-extension mid-turn steer, or changed/deleted governing-record fingerprints
   - bind tool results to the evidence epoch in which their tool call started so a late pre-steer parallel result cannot satisfy post-steer debt
+  - keep genuinely new-scope judgement LLM-owned; lifecycle code must not classify raw user text to guess scope
   - keep response audit advisory/backstop, not semantic routing
 - Must not:
   - generate required-read lists, confidence scores, intent/risk/gate, or next-action from raw user text
   - treat any generated cache or helper output as proof that the LLM/searcher read evidence
   - reintroduce deleted query/backbone helper CLIs as lifecycle semantic authority
+  - replay full inventory, record lists, or policy/capability catalogs on every normal message or file read
+  - invalidate valid work-unit evidence solely because a new normal message started
 - Record completion:
   - changes to journal name, row shape, evidence tools, or guard semantics update this SDD, `.lazy-harness/spec/platform/pre-response-rule-context.md`, `.lazy-harness/tests/pre-action-search-evidence-guard.md`, `.lazy-harness/tests/pre-response-rule-context.md`, and implementation maps.
 
@@ -59,25 +64,33 @@ Allowed fields are transport/evidence bookkeeping only. They are not semantic ju
 ## Flow
 
 ```text
-message.received
-→ append sanitized static search/read-debt row
-→ inject compact harness-first reminder with mandatory `lazy map --overview`, concrete map-node drilldown, and no keyword fallback
-→ LLM/searcher inspects whole record/feature/graph structure, chooses concrete feature/record/graph/source/test nodes from map output, then reads canonical record/source/test evidence
-→ generic pre-action guard allows mutation only after map/read evidence exists
-→ response.completed audits misses as a backstop
+first Pi/OMP work-unit boundary
+→ append one sanitized static search/read-debt row
+→ inject a pointer-only grounding reminder
+→ LLM/searcher runs one overview, chooses a concrete node, and reads only governing records plus exact implementation evidence
+→ adapter stores the overview marker and governing-record content hashes
+→ generic pre-action guard allows mutation after concrete evidence exists
 
-mid-turn steer
-→ Pi/OMP adapter advances a root-scoped evidence epoch and clears prior recent-tool evidence
-→ results from tool calls started in an older epoch are ignored for evidence
-→ next action remains blocked until a post-steer map/read call completes
+later normal message in the same work unit
+→ adapter verifies governing-record hashes
+→ valid: reuse grounding with a visible `reused-work-unit` status and no prompt/catalog replay
+→ changed/deleted: arm one fresh grounding packet
+
+explicit mid-turn steer
+→ clear work-unit grounding and advance the evidence epoch
+→ ignore results from tool calls started in an older epoch
+→ require one fresh post-steer map/read grounding before mutation
+
+response.completed
+→ audit durable capture and strong misses as a backstop
 ```
 
 ## Implementation map
 
 - Primary files:
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes static `message.received.search-read-debt` rows and injects the compact reminder with mandatory overview-first, concrete node drilldown, and fallback search guidance.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — blocks action before root-bound evidence exists.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — re-arms generic debt on non-extension steering by advancing a root-scoped evidence epoch, clearing prior recent-tool evidence, and rejecting late results from older epochs.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes the first sanitized work-unit debt row and injects a pointer-only grounding reminder without inventory/catalog replay.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — blocks the first mutation before root-bound evidence exists; later valid Pi/OMP work-unit reuse does not create a new row.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — caches overview + governing-record hashes, emits `reused-work-unit` on valid later turns, and clears reuse on explicit steering.
   - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — audits unsatisfied debt after response.
   - `.lazy-harness/scripts/lifecycle-check.py` — mirrors `search-read-debt.jsonl` in sandbox fidelity checks.
   - `.lazy-harness/scripts/self-test.py` — protects row name, guard behavior, deleted helper absence, and post-steer fresh-evidence recovery.

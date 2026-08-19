@@ -21,51 +21,34 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - compacting or expanding the default `message.received` prompt
   - changing search/read debt journaling or pre-action evidence behavior
 - Must:
-  - keep `message.received` prompt static for all non-empty user messages until an explicit opt-in semantic mode is accepted
-  - keep shell/CLI hook code free of raw user-text semantic classifiers
+  - keep the first-grounding `message.received` body static across non-empty user messages and free of raw user-text semantic classifiers
   - keep direct-search debt journaling sanitized and free of raw user messages
-  - keep the compact rendered body within the normal prompt-budget target for framework source dogfood
-  - preserve the generic evidence guard behavior: block action before root-bound search/read evidence and allow after evidence
-  - preserve Pi/OMP steer re-arming: prior evidence and late pre-steer results stay stale until a fresh post-steer map/read result
+  - keep the rendered body at or below 300 estimated tokens in framework source dogfood
+  - preserve first-grounding guard behavior: block mutation before root-bound map/read evidence and allow after evidence
+  - preserve Pi/OMP work-unit reuse: overview + directly read governing-record hashes suppress later normal-turn prompt/debt replay while unchanged
+  - preserve invalidation: changed/deleted governing records or explicit steer require fresh grounding; late pre-steer results remain stale
   - keep the host-migration probe (`helpers/host_migration_state.py`) bounded + fail-open and host-state-derived only: identical user messages must render identical bodies for a given host state; a lint timeout/error must omit the line, never break the reminder
 - Must not:
   - reintroduce per-layer sample dumps into the default prompt
   - run deleted query helpers, subagents, or `jcode run` inside default `message.received`
   - treat CLI/index output as proof that the LLM/searcher performed direct search
   - add broad edit/write hard stops as prompt-compression work
+  - replay full inventory, policy/capability catalogs, mapped records, or context resolver results on every normal message or read operation
 - Record completion:
   - changes to compact prompt phrases, static equality, no-classifier checks, token ceiling, or debt journal semantics update this TDD record and `.lazy-harness/spec/platform/pre-response-rule-context.md`
 
 ## Regression cases
 
-1. Non-empty smalltalk and implementation-like messages render identical prompt bodies.
+1. Non-empty smalltalk and implementation-like messages render the same static first-grounding body.
 2. Empty message produces no output.
-3. Rendered body contains:
-   - `REMINDER. Harness-first search/read debt before response.`
-   - `harness-first-static`
-   - `static transport; no user-text classification`
-   - `no CLI/index semantic authority`
-   - `Inventory counts:`
-   - `Derived indexes:`
-   - `Pointers:`
-   - `Map-first protocol:`
-   - `lazy map --overview`
-   - `choose the next concrete node yourself`
-   - `map <feature-id|record-path|graph-id|source-path>`
-   - `Do not pass raw user text`
-   - `invented --query`
-   - `3-5 option gate`
-   - `generic evidence guard`
-4. Rendered body does not contain older verbose prompt fragments:
-   - `Harness inventory (actual files first, compact)`
-   - `sample:`
-   - `Evidence examples`
-   - `find .lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning} -maxdepth 2 -type f`
-5. Rendered token estimate is at or below 600 in framework source self-test after adding map-first retrieval guidance.
-6. Journal row has `event = message.received.search-read-debt`, `fallbackSearchCount = 1`, `instructionLevel = harness-first-static`, and no raw user text.
-7. Generic read-debt permit still blocks action before root-bound harness/source evidence and allows action after such evidence.
-8. A non-extension mid-turn steer clears earlier evidence, ignores a late result from a pre-steer tool call, blocks the immediate action, and allows after a post-steer map/read call and result.
-
+3. Rendered body contains the work-unit grounding boundary, one overview + concrete-node protocol, unchanged-evidence reuse, no-micro-edit validation rule, and closure capture pointer.
+4. Rendered body excludes inventory counts, generated-index/pointer dumps, mapped record lists, operating-rule catalogs, and source resolver results.
+5. Rendered token estimate is at or below 300 in framework source self-test.
+6. First grounding journals `message.received.search-read-debt` with sanitized hashes and no raw user text.
+7. Generic read-debt permit blocks the first mutation before root-bound evidence and allows after concrete evidence.
+8. Pi/OMP fake runtime observes one overview result plus one directly read governing record, then a later normal turn returns `status=reused-work-unit` with no system-prompt replay.
+9. Reads/searches never trigger `on-context.sh`; the first successful mutation triggers one pointer-only body of at most five lines.
+10. Changing a cached governing record or sending an explicit non-extension steer invalidates reuse; late old-epoch results cannot restore it.
 ## Implementation map
 
 - Primary files:
@@ -76,8 +59,9 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - `.lazy-harness/scripts/self-test.py` — executable regression fixtures, including Pi/OMP post-steer evidence epoch behavior.
   - `.lazy-harness/scripts/prompt-budget.py` — token/line measurement.
 - Key symbols:
-  - `harness_inventory_lines` (`on-message-received.sh` embedded Python) — renders compact counts/pointers.
-  - `check_message_received_hook_context_injection` (`self-test.py`) — protects compact prompt behavior.
+  - `workUnitEvidenceValid` / `observeWorkUnitEvidence` (`packages/lazy-harness-pi/extensions/lazy-harness/index.ts`) — cache and verify overview + governing-record hashes.
+  - `check_message_received_hook_context_injection` (`self-test.py`) — protects pointer-only first-grounding body and sanitized journal.
+  - `check_pi_package_layout_and_contract` (`self-test.py`) — protects reuse, mutation-only context injection, record-change invalidation, and steer reset.
 - Protection:
   - `python3 .lazy-harness/scripts/self-test.py`
   - `.lazy-harness/bin/lazy prompt-budget --format=md`

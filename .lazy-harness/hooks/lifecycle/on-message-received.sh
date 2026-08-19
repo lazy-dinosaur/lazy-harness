@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
-# on-message-received.sh — pre-turn lazy-harness static inventory/search prompt for Jcode message.received.
+# on-message-received.sh — pointer-only first-grounding transport.
 #
-# This hook deliberately does not run relevant-record-query/context-delivery or any
-# semantic search backend. It also deliberately does not interpret user text with
-# meaning-specific regex/classifier branches. It is a static transport: inject a
-# compact harness inventory/search protocol for the LLM/searcher and journal
-# sanitized search-debt so the generic evidence guard/audit can verify that
-# harness-following search happened before action.
-#
-# It also surfaces the deterministic operating-rule/capability catalog
-# (`lazy policy list` + `lazy capability list`) at turn-start so stored project
-# rules are visible before action (jcode full-grammar parity / R3, ADR 0048).
-# This enumerates the registry deterministically; it is not a semantic backend
-# and does not classify user text.
+# The hook is static and user-text-agnostic. It writes sanitized first-grounding
+# debt and emits only the compact work-unit protocol; inventory, map output, mapped
+# records, and policy/capability catalogs stay explicit/on-demand and are never
+# replayed into every normal model turn.
 
 set +e
 
@@ -83,10 +75,6 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(sys.argv[1]) / '.lazy-harness' / 'hooks' / 'lifecycle' / 'helpers'))
-try:
-    from operating_rule_catalog import catalog_lines as _catalog_lines
-except Exception:  # pragma: no cover - lifecycle helper must fail open
-    _catalog_lines = None
 try:
     from host_migration_state import migration_lines as _migration_lines
 except Exception:  # pragma: no cover - lifecycle helper must fail open
@@ -234,24 +222,13 @@ def harness_inventory_lines() -> list[str]:
 
 
 body = '\n'.join([
-    'REMINDER. Harness-first search/read debt before response.',
-    f'- Instruction: {level}; static transport; no user-text classification; no CLI/index semantic authority.',
-    '- Before answer/plan/edit: inspect the map/index inventory, let the LLM choose concrete record/source/test nodes, read real evidence in this host root, and stay read-only until debt is satisfied.',
-    f'- Evidence scope: `{search_hint}`',
-    *harness_inventory_lines(),
-    "- Map-first protocol: run `.lazy-harness/bin/lazy map --overview --complete --format=md` (complete lean discovery index of every record, untruncated); from the returned feature ids, record paths, graph ids, source paths, and test paths, choose the next concrete node yourself.",
-    "- Drill-down: run `.lazy-harness/bin/lazy map <feature-id|record-path|graph-id|source-path> --format=md --limit=8` only with a node/key copied from the map. Do not pass raw user text, long natural-language strings, invented `--query` flags, or fallback discovery commands.",
-    "- If the map/index is empty, ambiguous, or missing a concrete node: ask a 3-5 option gate or state the missing prerequisite; do not run fallback discovery commands.",
-    '- Loading is targeted: read Rule digest/full body/Implementation map/graph links only for records the task implicates (read the Rule digest first where present; do not read-to-cover-all-layers) → inspect linked source/tests → answer, or ask a 3-5 option gate if meanings/layers still conflict.',
-    '- Missing record: read current host docs/package/config only when reached through concrete map/source paths; after user confirmation converge durable knowledge into the right `.lazy-harness/<layer>/...` record.',
-    '- Guard: action/mutation remains blocked by the generic evidence guard until map-first traversal/read evidence exists.',
-    *(_catalog_lines(str(root / '.lazy-harness' / 'bin' / 'lazy'), str(root)) if _catalog_lines else []),
+    'REMINDER. Ground this work unit once before mutation or a host-specific completion claim.',
+    f'- Mode: {level}; static transport; no user-text classification; generated indexes are navigation only.',
+    '- First grounding only: run `lazy map --overview --complete`, drill into one copied concrete node, then read only the governing digest and exact linked source/test needed for this work unit.',
+    '- Reuse unchanged grounding across later messages. Re-ground only for a genuinely new scope, an explicit steer, or a changed/deleted governing record; do not repeat map/read just because a new turn started.',
+    '- Batch coherent mutations. Never validate between micro-edits; use one focused checkpoint when needed and one final `lazy validate --plan standard`.',
+    '- Before a new decision, use the native option gate; capture confirmed durable knowledge once at work-unit closure.',
     *(_migration_lines(str(root / '.lazy-harness' / 'bin' / 'lazy'), str(root)) if _migration_lines else []),
-    '- Review / audit / gap-analysis request ("what is missing / undecided / incomplete"): FIRST consult the operating-rule catalog above (full detail: `.lazy-harness/bin/lazy policy list` + `.lazy-harness/bin/lazy capability list`) and map the governing records (decisions/ssot/behavior/domain per §1) for the feature/files in scope, THEN read code to audit compliance against each policy/record. Do NOT read code first and infer the answer — the canonical answer lives in the policy registry + records, not the code (AGENTS §1/§2.1).',
-    '- Interactive grammar (apply THIS turn, not only at session start; AGENTS \u00a70/\u00a72.3/\u00a72.5):',
-    '  - record\u2194code conflict: record=intent, code=reality \u2192 ask the user which is the truth; never silently pick (AGENTS \u00a70).',
-    '  - ambiguous / multi-interpretation / new design decision: stop and ask a 3-5 option gate + Recommended, then RENDER it via the runtime interactive `ask` tool (native selectable choices; type-your-own automatic), NOT plain A/B/C text; never self-select (AGENTS \u00a72.3, ADR 0019).',
-    '  - on an implement request: read records first, surface why + options, get execution approval before mutating (Requirement \u2192 Plan \u2192 Approval \u2192 Implement; ADR 0038); confirmed facts/decisions accumulate into the right .lazy-harness layer (AGENTS \u00a72.4).',
 ]).strip() + '\n'
 
 print(json.dumps({
@@ -264,6 +241,6 @@ print(json.dumps({
 PY
 status=$?
 if [ "$status" -ne 0 ]; then
-  printf '%s\n' '{"action":"allow","inject":{"body":"REMINDER. Harness-first search/read debt before response.\n- Hook fallback: Python reminder generation failed; run `.lazy-harness/bin/lazy map --overview --complete --format=md`, drill into a copied concrete node, and read real records/source/tests before host-specific claims or mutations.\n- This fallback is intentionally minimal; report the hook failure and fix the lifecycle hook/runtime after satisfying map/read evidence.\n","format":"system_reminder"}}}'
+  printf '%s\n' '{"action":"allow","inject":{"body":"REMINDER. Ground this work unit once before mutation or a host-specific completion claim.\n- Hook fallback: run one lazy map overview, drill into a concrete node, and read only the governing evidence before mutation.\n","format":"system_reminder"}}'
 fi
 exit 0
