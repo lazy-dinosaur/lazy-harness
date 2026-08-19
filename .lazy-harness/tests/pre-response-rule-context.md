@@ -24,6 +24,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
   - keep the first-grounding `message.received` body static across non-empty user messages and free of raw user-text semantic classifiers
   - keep direct-search debt journaling sanitized and free of raw user messages
   - keep the rendered body at or below 300 estimated tokens in framework source dogfood
+  - keep non-empty hook payload transport intact when inherited `TMPDIR` is missing/unusable by falling back to `/tmp`; this must pass inside the default parallel self-test phase as well as serial fallback
   - preserve first-grounding guard behavior: block mutation before root-bound map/read evidence and allow after evidence
   - preserve Pi/OMP work-unit reuse: overview + directly read governing-record hashes suppress later normal-turn prompt/debt replay while unchanged
   - preserve invalidation: changed/deleted governing records or explicit steer require fresh grounding; late pre-steer results remain stale
@@ -49,6 +50,7 @@ Related plan: `.lazy-harness/plans/prompt-runtime-compression-implementation-pla
 8. Pi/OMP fake runtime observes one overview result plus one directly read governing record, then a later normal turn returns `status=reused-work-unit` with no system-prompt replay.
 9. Reads/searches never trigger `on-context.sh`; the first successful mutation triggers one pointer-only body of at most five lines.
 10. Changing a cached governing record or sending an explicit non-extension steer invalidates reuse; late old-epoch results cannot restore it.
+11. Running the hook with a non-existent inherited `TMPDIR` still emits the same static body and journals debt through the `/tmp` payload-file fallback; default `--jobs 4` validation must not report correlated empty-hook failures.
 ## Implementation map
 
 - Primary files:

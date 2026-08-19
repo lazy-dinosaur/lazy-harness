@@ -24,6 +24,7 @@ Related plan: `.lazy-harness/planning/searchable-record-context-retrieval-implem
 - Must:
   - use Jcode/Pi/OMP `message.received` only for bounded pointer-only first-grounding guidance; do not replay it on every normal message when valid work-unit evidence exists
   - keep `blocking = true` with `timeout_ms = 800` for Jcode same-turn inclusion and fail open on timeout or hook failure
+  - preserve valid non-empty payloads when caller `TMPDIR` is stale, missing, or unusable by retrying payload-file creation under `/tmp` before the final fail-open/no-injection fallback
   - keep response policy in lifecycle context, not tool-specific project-policy branches
   - keep the transport static and user-text-agnostic; it may tell the LLM how to ground the work unit but may not run a subagent or semantic search backend
   - omit full layer inventory, generated-index details, mapped record lists, and policy/capability catalogs from the injected body

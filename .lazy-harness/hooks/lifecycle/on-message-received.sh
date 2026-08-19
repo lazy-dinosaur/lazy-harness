@@ -9,6 +9,10 @@
 set +e
 
 PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/lazy-harness-message.XXXXXX.json" 2>/dev/null || true)"
+if [ -z "$PAYLOAD_FILE" ] && [ "${TMPDIR:-/tmp}" != "/tmp" ]; then
+  # A stale/missing caller TMPDIR must not silently erase a valid pre-turn payload.
+  PAYLOAD_FILE="$(mktemp "/tmp/lazy-harness-message.XXXXXX.json" 2>/dev/null || true)"
+fi
 if [ -n "$PAYLOAD_FILE" ]; then
   cat > "$PAYLOAD_FILE" || true
   PAYLOAD_REF="@file:$PAYLOAD_FILE"

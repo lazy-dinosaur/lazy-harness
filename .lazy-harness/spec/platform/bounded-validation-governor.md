@@ -30,6 +30,7 @@ Date: 2026-06-18
   - reserve direct `lazy test` for explicit fresh full-regression requests or commit/push/release gates
   - keep successful validation conversation output to status, check count, and elapsed time; detailed captured stdout/stderr belongs in runtime artifacts and is surfaced only on failure or explicit request
   - run audited independent self-test checks in bounded process workers by default, isolate worker runtime state, serialize fixed-path checks, preserve registry-order output, and provide `--jobs=1` fallback
+  - keep default parallel validation robust when an outer runner exports a stale/missing `TMPDIR`; lifecycle payload transport must retry under `/tmp` rather than correlating several empty-hook fixture failures
   - preserve `.lazy-harness/bin/lazy check` as fast static validation and `.lazy-harness/bin/lazy test` as the full regression gate
   - keep harness-integrity plans bounded to lazy-harness commands unless a user request, host test strategy, or product-code impact explicitly calls for downstream app typecheck/lint/build/E2E
   - in installed hosts, validate distributed `.lazy-harness` surfaces without assuming the source-only `packages/lazy-harness-pi` tree exists; when that package root exists in the framework source checkout, continue requiring its prompt and skill guards

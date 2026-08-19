@@ -12463,6 +12463,22 @@ def check_message_received_hook_context_injection() -> None:
         if smalltalk_body != body:
             fail("message.received hook body must be static and not vary by user text:\n--- smalltalk ---\n" + smalltalk_output + "\n--- surface ---\n" + output)
 
+        invalid_tmp_payload = {**payload, "message_id": "m-invalid-tmpdir", "turn_count": 3}
+        invalid_tmp = subprocess.run(
+            [str(hook)],
+            cwd=temp,
+            input=json.dumps(invalid_tmp_payload, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp), TMPDIR=str(temp / "missing-tmpdir")),
+        )
+        if invalid_tmp.returncode != 0 or not invalid_tmp.stdout.strip():
+            fail("message.received hook should fall back to /tmp when caller TMPDIR is missing:\n" + invalid_tmp.stdout + invalid_tmp.stderr)
+        invalid_tmp_body = json.loads(invalid_tmp.stdout).get("inject", {}).get("body", "")
+        if invalid_tmp_body != body:
+            fail("invalid TMPDIR fallback must preserve the static first-grounding body")
+
         empty_payload = {
             "event": "message.received",
             "session_id": "s-test",

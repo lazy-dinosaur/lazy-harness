@@ -1,6 +1,6 @@
 # Planning — Workflow Churn Reduction (pre-commit scope, capture-gate FP, batched capture)
 
-Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, Fix 2b/2c/2d are applied and deployed; Fix 3 and remaining Fix 2 work remain proposed
+Status: mixed — Fix 1, bounded process validation, host pre-push scope, primary-canonical-record guard, bounded-validation orchestration, and Fix 2b/2c/2d/2e are applied; Fix 3 and remaining Fix 2 work remain proposed
 Layer: Planning
 Source: 2026-07-05 graph-hygiene session — user frustration + measured evidence that a routine session burned ~57min on pre-commit self-test alone (31 commits × 111s), plus 13+ capture-gate false positives.
 Consolidates candidates: `candidate-precommit-test-scope-optimization-20260705`, `candidate-draft-first-batched-capture-20260705`, `candidate-parallel-atomic-append-capture-20260705`, `candidate-workflow-parallel-subagents-and-batching-20260705`, `candidate-host-worktree-symlink-propagation-20260705`.
@@ -75,6 +75,13 @@ Focused measurement before final closure: host-scope light validation completed 
 - Protection: prompt budget thresholds 100–300/600/800, static/no-classifier hook fixture, Pi fake-runtime reuse + record-fingerprint invalidation + steer reset, mutation-only context retry, and compact-green guidance checks.
 - Closure evidence: framework standard validation GREEN (`fast-static-check` + full self-test, 73.902s). Prompt budget GREEN at 184 estimated first-grounding tokens versus the measured 985-token catalog-expanded body (81.3% reduction); valid later normal Pi/OMP turns inject 0 system-prompt tokens. Upstream `01692a3` was pushed and synced sequentially to Medivance PWA, Medivance Homepage, and Medivance root; each explicit serial `LAZY_TEST_JOBS=1 lazy test --scope host` passed (`ran=59`, `skipped=29`). Product Git status remained unchanged, and Homepage's three named host-owned records were hash-preserved across sync.
 
+### Fix 2e — approved/implemented 2026-08-19: invalid `TMPDIR` hook payload fallback
+
+- PR #552's feature worktree reported four correlated default-parallel failures: prompt-budget rendering returned an empty body, the runtime journal was absent, and both message-received fixtures emitted nothing. Category A hashes and marker `01692a3` matched source/root/worktree, while serial validation passed, so stale sync was ruled out.
+- Root cause: `on-message-received.sh` attempted payload-file creation only beneath inherited `${TMPDIR}`. A stale or non-existent outer-runner `TMPDIR` made `mktemp` fail; the safety fallback then drained stdin and exited cleanly with no injection, which made several independent fixtures appear to fail together.
+- User selected the root fix. The hook now retries payload-file creation under `/tmp` before its final fail-open/no-injection path. The executable regression forces a missing `TMPDIR` inside the default parallel-audited message-received check and requires the same static body and journal behavior.
+- This is lifecycle test-transport hardening, not product runtime logic. No product source, DB contract, capability level, validation scope, or prompt body changed. Framework/feature-worktree validation and downstream sync evidence belongs in the rollout evidence capsule.
+
 ### Fix 3 — draft-first batched capture (behavioral + tooling)
 
 - During work, append facts cheaply to the DRAFT tier (`candidates.jsonl`/`graph-drafts.jsonl`) with no gate and no commit; main agent verifies + promotes to canonical and commits ONCE per logical unit at turn end. Compounds with Fix 1 (fewer commits × cheaper commits).
@@ -82,7 +89,7 @@ Focused measurement before final closure: host-scope light validation completed 
 
 ## Sequencing
 
-Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding) → Fix 2c (no micro-edit validation) → Fix 2d (work-unit evidence reuse/token compaction) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
+Fix 1 (commit cost) → Fix 1b (bounded full validation) → Fix 2b (single re-grounding) → Fix 2c (no micro-edit validation) → Fix 2d (work-unit evidence reuse/token compaction) → Fix 2e (invalid `TMPDIR` payload fallback) are applied. Remaining Fix 2 and Fix 3 stay separately approval-gated.
 
 ## 2026-07-05 applied — host pre-push #1 bottleneck fixed (measured on medivance)
 
@@ -178,3 +185,14 @@ This deployment completion does not wait for the 7-day effectiveness verdict; th
 - SSOT: no capability kind/level or canonical registry ownership change; explicit resolver surfaces remain intact.
 - Planning: this record is the primary canonical narrative for the user-approved implementation and rollout.
 - Rule placement: framework-global agent operating/runtime rule; canonical decisions in ADR 0041/0048, executable contracts in SDD/TDD, no duplicate policy-registry entry.
+
+## Discovery capture — Fix 2e
+
+- DDD: no independent domain vocabulary or business invariant delta.
+- SDD: pre-response and bounded-validation contracts require valid payload preservation when inherited `TMPDIR` is unusable.
+- BDD: no independent user/product flow delta; the visible prompt body and grounding workflow are unchanged.
+- TDD: pre-response and bounded-validation regressions force the invalid-`TMPDIR` fallback inside the default parallel phase.
+- ADR: no new trade-off; this repairs fail-open transport within the existing ADR 0041 lifecycle boundary.
+- SSOT: no capability, policy, schema, ownership, or validation-scope delta.
+- Planning: this record is the primary work-unit narrative; rollout results are stored once in the evidence capsule.
+- Rule placement: framework-global lifecycle transport robustness; SDD/TDD own the contract and fixture.
