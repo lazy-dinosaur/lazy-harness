@@ -1,6 +1,6 @@
 # Planning — Framework implementation-map source/host ownership drift handoff
 
-Status: implemented-source-verified — downstream host sync/audit pending
+Status: completed — source and three-host rollout verified
 Date: 2026-07-23
 Layer: Planning
 Source observation: Medivance downstream host
@@ -71,7 +71,7 @@ The earlier follow-up separation is now closed by the approved distribution-awar
 4. **Implemented:** manifest `targetPath` relocation wins over stale source-form collisions; missing targets remain drift.
 5. **Reviewed by corpus fixture:** source-only package/planning/PRD paths remain source-authored and installed-host-clean.
 6. **Implemented:** synthetic fixtures cover source/host mode, sync-marker source safety, directory globs/excludes, collisions, relocation, and genuine missing refs.
-7. **Source verified:** focused status-drift tests and full framework regression pass; downstream host sync/audit remains before release closure.
+7. **Verified and deployed:** source focused/full regression passed; commit `84ee154` was synced sequentially to Medivance, PWA, and Homepage; serial host full tests passed (`ran=59`, `skipped=29`).
 
 ## Acceptance criteria
 
@@ -108,7 +108,7 @@ The earlier follow-up separation is now closed by the approved distribution-awar
   - Focused serial framework light suite passed, including status-drift and helper fixtures.
   - Framework standard/full regression passed before downstream deployment.
   - Temporary real `lazy-init` installed-host audit reported zero drift candidates.
-  - Downstream Medivance audit remains the final rollout receipt.
+  - Downstream receipts: the original four framework false positives plus the later project-rule placement record no longer appear. PWA reports zero drift; Medivance and Homepage report only independent host-owned product-path candidates (9 and 2 respectively). All three serial host full tests pass (`ran=59`, `skipped=29`).
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
