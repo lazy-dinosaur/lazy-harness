@@ -32,6 +32,7 @@ import { join, dirname, resolve, relative } from 'node:path'
 import { execSync, spawnSync } from 'node:child_process'
 import { appendJsonlStable } from './runtime-paths.ts'
 import { isTrustedRoot } from './jcode-trust.ts'
+import { shouldIncludeManifestPath } from './manifest-path-matcher.ts'
 
 // ─────────────────────────────────────────────────────────────
 // Args
@@ -292,28 +293,6 @@ function walkFiles(dir: string, baseDir: string = dir): string[] {
   return out
 }
 
-function matchGlob(name: string, glob: string): boolean {
-  const re = new RegExp(
-    '^' +
-      glob
-        .replace(/\./g, '\\.')
-        .replace(/\*\*/g, '___DOUBLESTAR___')
-        .replace(/\*/g, '[^/]*')
-        .replace(/___DOUBLESTAR___/g, '.*') +
-      '$'
-  )
-  return re.test(name)
-}
-
-function shouldInclude(relPath: string, glob?: string[], exclude?: string[]): boolean {
-  if (exclude) {
-    for (const ex of exclude) {
-      if (matchGlob(relPath, ex) || relPath.startsWith(ex.replace(/\/$/, ''))) return false
-    }
-  }
-  if (!glob || glob.length === 0) return true
-  return glob.some((g) => matchGlob(relPath, g))
-}
 
 // ─────────────────────────────────────────────────────────────
 // Drift detection
@@ -547,7 +526,7 @@ function syncCategoryA(
     const managedFiles = new Set<string>()
     const files = walkFiles(srcDir)
     for (const f of files) {
-      if (!shouldInclude(f, item.glob, item.exclude)) continue
+      if (!shouldIncludeManifestPath(f, item.glob, item.exclude)) continue
       managedFiles.add(f)
       const src = join(srcDir, f)
       const dest = join(targetLazy, item.targetPath ?? item.path, f)
@@ -568,7 +547,7 @@ function syncCategoryA(
     if (isKnowledgeSeedItem(item)) continue
     const destDir = join(targetLazy, item.targetPath ?? item.path)
     for (const f of walkFiles(destDir)) {
-      if (!shouldInclude(f, item.glob, item.exclude)) continue
+      if (!shouldIncludeManifestPath(f, item.glob, item.exclude)) continue
       if (managedFiles.has(f)) continue
       const stale = join(destDir, f)
       if (DRY) {

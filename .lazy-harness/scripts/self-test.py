@@ -8463,7 +8463,7 @@ def check_record_audit_cli() -> None:
 
 
 def check_impl_map_status_drift() -> None:
-    """impl-map reports advisory status drift from Primary/Future files only (.lazy-harness fallback, deprecated/reverted skipped, command/env noise ignored)."""
+    """impl-map keeps source/host distribution refs quiet while retaining strict genuine-missing drift."""
     script = LAZY / "scripts" / "implementation-map-audit.ts"
     if not script.exists():
         fail("impl-map: missing " + str(script.relative_to(ROOT)))
@@ -8507,6 +8507,85 @@ def check_impl_map_status_drift() -> None:
             fail("impl-map must not flag relative shorthand or command/env-var noise: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
         if any(p.endswith("dead.md") for p in by_path):
             fail("impl-map must skip deprecated/reverted records: " + json.dumps(data.get("driftCandidates"), ensure_ascii=False))
+        (lazy / "state").mkdir(parents=True)
+        (lazy / "manifests").mkdir(parents=True)
+        (lazy / "framework" / "operational-adrs").mkdir(parents=True)
+        (lazy / "decisions").mkdir(parents=True)
+        (lazy / "state" / "synced-from-commit").write_text("fixture\n", encoding="utf-8")
+        (lazy / "framework" / "operational-adrs" / "0034.md").write_text("relocated\n", encoding="utf-8")
+        (lazy / "decisions" / "0041.md").write_text(
+            f"# Host-owned ADR collision\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `packages/host-owned/adr-missing.ts` — host implementation\n",
+            encoding="utf-8",
+        )
+        manifest = {
+            "categories": {
+                "A": {
+                    "items": [
+                        {"path": "spec/platform/framework-source-only.md", "kind": "file"},
+                        {"path": "spec/platform/framework-relocated.md", "kind": "file"},
+                        {"path": "spec/platform/framework-target-missing.md", "kind": "file"},
+                        {"path": "spec/platform/framework-source-collision.md", "kind": "file"},
+                        {"path": "spec/platform/framework-directory-missing.md", "kind": "file"},
+                        {"path": "spec/platform/framework-excluded-source-only.md", "kind": "file"},
+                        {"path": "spec/platform/framework-record-excluded-ref.md", "kind": "file"},
+                        {"path": "decisions/0034.md", "kind": "file", "targetPath": "framework/operational-adrs/0034.md"},
+                        {"path": "decisions/0041.md", "kind": "file", "targetPath": "framework/operational-adrs/0041.md"},
+                        {"path": "scripts/", "kind": "directory", "glob": ["*.ts", "*.py"], "exclude": ["excluded-*.ts", "__pycache__/"]},
+                    ]
+                }
+            }
+        }
+        (lazy / "manifests" / "init-categories.json").write_text(json.dumps(manifest), encoding="utf-8")
+        write_record("framework-source-only.md", f"# Source only\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — source package\n")
+        write_record("framework-relocated.md", f"# Relocated\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/decisions/0034.md` — relocated ADR\n")
+        write_record("framework-target-missing.md", f"# Missing target\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/decisions/0041.md` — missing relocated ADR\n")
+        write_record("framework-source-collision.md", f"# Stale source collision\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/decisions/0041.md` — mapped target must win\n")
+        write_record("framework-directory-missing.md", f"# Directory missing\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/missing-managed.ts` — distributed directory child\n")
+        write_record("framework-excluded-source-only.md", f"# Unmatched source only\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/nested/missing.ts` — unmatched source-only child\n")
+        write_record("framework-record-excluded-ref.md", f"# Explicitly excluded source only\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/scripts/excluded-missing.ts` — explicitly excluded child\n")
+        write_record("host-owned-missing.md", f"# Host owned\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `packages/host-owned/missing.ts` — host implementation\n")
+        write_record("host-owned-target-collision.md", f"# Host target collision\n\n{digest}\n## Implementation map\n\n- Status: `verified`\n- Primary files:\n  - `.lazy-harness/decisions/0034.md` — host-owned source path\n")
+        installed = subprocess.run(
+            ["bun", str(script), "--root", str(host), "--format=json"],
+            cwd=str(ROOT), text=True, capture_output=True, check=False,
+        )
+        if installed.returncode != 0:
+            fail("impl-map installed-host fixture run failed: " + installed.stdout[-1000:] + installed.stderr)
+        installed_data = json.loads(installed.stdout)
+        installed_by_path = {c["path"]: c for c in installed_data.get("driftCandidates", [])}
+        for clean_name in (
+            "framework-source-only.md",
+            "framework-relocated.md",
+            "framework-excluded-source-only.md",
+            "framework-record-excluded-ref.md",
+        ):
+            if any(path.endswith(clean_name) for path in installed_by_path):
+                fail("impl-map must not flag intentional framework distribution refs: " + json.dumps(installed_data.get("driftCandidates"), ensure_ascii=False))
+        for missing_name in (
+            "framework-target-missing.md",
+            "framework-source-collision.md",
+            "framework-directory-missing.md",
+            "host-owned-missing.md",
+            "host-owned-target-collision.md",
+            "decisions/0041.md",
+        ):
+            candidate = next((value for path, value in installed_by_path.items() if path.endswith(missing_name)), None)
+            if candidate is None or "verified-status-files-missing" not in candidate.get("drift", []):
+                fail("impl-map must retain strict mapped-target and host-owned missing checks: " + json.dumps(installed_data.get("driftCandidates"), ensure_ascii=False))
+        (lazy / "framework" / "framework-contract.md").write_text("source marker\n", encoding="utf-8")
+        (lazy / "planning").mkdir(parents=True)
+        (lazy / "planning" / "phase-5-plan.xml").write_text("<plan/>\n", encoding="utf-8")
+        source_with_marker = subprocess.run(
+            ["bun", str(script), "--root", str(host), "--format=json"],
+            cwd=str(ROOT), text=True, capture_output=True, check=False,
+        )
+        if source_with_marker.returncode != 0:
+            fail("impl-map source-with-sync-marker fixture failed: " + source_with_marker.stdout[-1000:] + source_with_marker.stderr)
+        source_marker_data = json.loads(source_with_marker.stdout)
+        source_marker_by_path = {c["path"]: c for c in source_marker_data.get("driftCandidates", [])}
+        source_only = next((value for path, value in source_marker_by_path.items() if path.endswith("framework-source-only.md")), None)
+        if source_only is None or "verified-status-files-missing" not in source_only.get("drift", []):
+            fail("impl-map must keep framework source roots strict even when a sync marker exists: " + json.dumps(source_marker_data.get("driftCandidates"), ensure_ascii=False))
     print("✓ impl-map status drift ok")
 
 
@@ -8514,7 +8593,8 @@ def check_impl_map_status_drift_helper() -> None:
     """response.completed advisory: turn-scoped impl-map status drift; silent on read-only/clean/no-touch turns, fail-open, reuses the TS detector."""
     helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-impl-map-status-drift.py"
     audit_src = LAZY / "scripts" / "implementation-map-audit.ts"
-    for p in (helper, audit_src):
+    matcher_src = LAZY / "scripts" / "manifest-path-matcher.ts"
+    for p in (helper, audit_src, matcher_src):
         if not p.exists():
             fail("impl-map drift helper: missing " + str(p.relative_to(ROOT)))
     with tempfile.TemporaryDirectory() as tmp:
@@ -8523,6 +8603,7 @@ def check_impl_map_status_drift_helper() -> None:
         (lazy / "spec" / "platform").mkdir(parents=True)
         (lazy / "scripts").mkdir(parents=True)
         shutil.copy(audit_src, lazy / "scripts" / "implementation-map-audit.ts")
+        shutil.copy(matcher_src, lazy / "scripts" / "manifest-path-matcher.ts")
         (lazy / "scripts" / "real.ts").write_text("export const x = 1\n", encoding="utf-8")
         digest = "## Rule digest\n\n- Status: active\n- Layer: SDD\n- Scope: framework-global\n- Applies when:\n  - x\n- Must:\n  - y\n"
         (lazy / "spec" / "platform" / "planned-done.md").write_text(

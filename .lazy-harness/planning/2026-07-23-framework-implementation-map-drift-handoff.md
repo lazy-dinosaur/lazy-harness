@@ -1,6 +1,6 @@
 # Planning — Framework implementation-map source/host ownership drift handoff
 
-Status: queued-separate-from-placement-rollout
+Status: implemented-source-verified — downstream host sync/audit pending
 Date: 2026-07-23
 Layer: Planning
 Source observation: Medivance downstream host
@@ -58,17 +58,20 @@ This evidence does **not** prove that the source implementation maps are stale. 
 
 Blindly changing all four source statuses from `verified` to `needs-review` would discard valid source-checkout verification. A correct repair must state which root owns/verifies each reference or make the audit manifest/ownership-aware without violating root-bound host retrieval.
 
+## 2026-08-18 approved direction
+
+After the drift recurred in a Medivance product hotfix session, the user selected **Distribution-aware (Recommended)**. The audit will identify framework-owned records from Category A manifest entries, resolve manifest `targetPath` relocations, treat absent unmapped refs as source-only only for those framework-owned records in an installed host, and preserve strict active-root checks for host-owned records. Syncing every source ref and rewriting every record per host layout were rejected.
+
 ## Deferred implementation slice
 
-The user selected **follow-up separation**. This slice is explicitly outside the current project-rule placement and `--skip-knowledge-seeds` rollout.
-
-1. Choose a compact record syntax or metadata rule for downstream-distributed versus framework-source-only implementation references.
-2. Update `.lazy-harness/spec/platform/implementation-map-standard.md` and `.lazy-harness/ssot/implementation-map-storage.md` before changing audit behavior.
-3. Update `implementation-map-audit.ts` so host audits do not report intentional source-only references as missing while genuine host-path drift remains visible.
-4. Reconcile manifest `targetPath` references, especially operational ADRs, without assuming host `decisions/` contains framework ADRs.
-5. Audit every Category A framework record that lists `packages/lazy-harness-pi/**`, source-only planning/PRD files, or source-form ADR paths under `Primary files`.
-6. Add a synthetic source/host distribution fixture covering source-clean, host-intentional-absence, manifest relocation, and genuine missing-host-file cases.
-7. Run focused status-drift tests, framework full regression, and a downstream-host sync/audit fixture before release.
+The earlier follow-up separation is now closed by the approved distribution-aware work unit:
+1. **Implemented:** framework-owned/source-only and host-owned/strict semantics are encoded in the SDD/SSOT without per-record path rewrites.
+2. **Implemented:** `.lazy-harness/spec/platform/implementation-map-standard.md` and `.lazy-harness/ssot/implementation-map-storage.md` own the contract.
+3. **Implemented:** `implementation-map-audit.ts` resolves exact and directory Category A refs only for framework-owned installed records.
+4. **Implemented:** manifest `targetPath` relocation wins over stale source-form collisions; missing targets remain drift.
+5. **Reviewed by corpus fixture:** source-only package/planning/PRD paths remain source-authored and installed-host-clean.
+6. **Implemented:** synthetic fixtures cover source/host mode, sync-marker source safety, directory globs/excludes, collisions, relocation, and genuine missing refs.
+7. **Source verified:** focused status-drift tests and full framework regression pass; downstream host sync/audit remains before release closure.
 
 ## Acceptance criteria
 
@@ -80,49 +83,54 @@ The user selected **follow-up separation**. This slice is explicitly outside the
 
 ## Implementation map
 
-- Status: `needs-review`
+- Status: `verified`
 - Primary files:
-  - `.lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md` — durable framework-source backlog and corrected diagnosis.
-  - `.lazy-harness/scripts/implementation-map-audit.ts` — current host-root-only path resolver and status-drift audit.
-  - `.lazy-harness/manifests/init-categories.json` — source-to-host Category A path and `targetPath` mappings.
-  - `.lazy-harness/spec/platform/implementation-map-standard.md` — future ownership/path-scope contract owner.
-  - `.lazy-harness/ssot/implementation-map-storage.md` — future source/host ownership storage boundary.
-  - `.lazy-harness/scripts/self-test.py` — future synthetic source/host drift fixture.
+  - `.lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md` — durable framework-source plan and rollout status.
+  - `.lazy-harness/scripts/implementation-map-audit.ts` — distribution-aware status-drift audit.
+  - `.lazy-harness/scripts/manifest-path-matcher.ts` — shared Category A glob/exclude semantics.
+  - `.lazy-harness/scripts/lazy-sync.ts` — sync consumer of the shared matcher.
+  - `.lazy-harness/manifests/init-categories.json` — source-to-host exact/directory/`targetPath` ownership map.
+  - `.lazy-harness/spec/platform/implementation-map-standard.md` — audit contract.
+  - `.lazy-harness/ssot/implementation-map-storage.md` — source/host ownership truth.
+  - `.lazy-harness/scripts/self-test.py` — source/installed-host distribution fixtures.
 - Key symbols:
-  - `refExists` (`.lazy-harness/scripts/implementation-map-audit.ts`) — currently checks only the active root and `.lazy-harness` shorthand.
-  - `extractPrimaryFutureRefs` (`.lazy-harness/scripts/implementation-map-audit.ts`) — selects path tokens from Primary/Future sections without ownership metadata.
-  - `auditRecord` (`.lazy-harness/scripts/implementation-map-audit.ts`) — emits `verified-status-files-missing` from unresolved refs.
+  - `loadDistributionContext` / `manifestTargetFor` / `isFrameworkOwnedRecord` / `refState` (`implementation-map-audit.ts`) — resolve installed framework refs without weakening host-owned checks.
+  - `isFrameworkSourceRoot` (`implementation-map-audit.ts`) — prevents self-target sync markers from misclassifying the standalone source.
+  - `shouldIncludeManifestPath` (`manifest-path-matcher.ts`) — shared exact directory glob/exclude behavior.
+  - `check_impl_map_status_drift` (`self-test.py`) — collision, directory, relocation, source-marker, and strict-missing regression matrix.
 - Flow:
-  1. Framework record is verified in the source checkout.
-  2. Category A copies the record, relocates selected ADRs, and omits source-only package/planning/PRD files.
-  3. Host `lazy impl-map` resolves every Primary path only against the host root.
-  4. Intentional source-only absence becomes a false advisory candidate.
-  5. The deferred slice will add explicit ownership semantics and preserve genuine drift detection.
+  1. Framework source authors Category A record refs against the source checkout.
+  2. Sync copies or relocates exact/directory items through the manifest and shared matcher.
+  3. Installed-host audit identifies framework-owned records from the same manifest.
+  4. Mapped refs require their installed target; unmapped refs are not-applicable only for framework-owned installed records.
+  5. Host-owned records and standalone source roots retain strict active-root checks.
 - Tests / protection:
-  - Existing `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift` covers only one-root present/missing behavior.
-  - New source/host distribution coverage is required before this plan can close.
+  - Focused serial framework light suite passed, including status-drift and helper fixtures.
+  - Framework standard/full regression passed before downstream deployment.
+  - Temporary real `lazy-init` installed-host audit reported zero drift candidates.
+  - Downstream Medivance audit remains the final rollout receipt.
 - Cross-layer links:
-  - SDD candidate: `.lazy-harness/spec/platform/implementation-map-standard.md`
-  - SSOT candidate: `.lazy-harness/ssot/implementation-map-storage.md`
-  - TDD candidate: focused source/host status-drift fixture in `.lazy-harness/scripts/self-test.py` plus a promoted TDD record if the regression contract has an independent delta.
-  - ADR: no independent decision yet; use an option gate if ownership syntax requires a new trade-off.
+  - SDD: `.lazy-harness/spec/platform/implementation-map-standard.md`
+  - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
+  - TDD: `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift`
+  - ADR: none; the user selected the existing ownership-aware direction without a new architectural trade-off.
 - Machine index:
-  - existing graph ids: `kg_impl_map_status_drift_cli_20260626`, `kg_impl_map_status_drift_self_test_20260626`
+  - graph ids: `kg_impl_map_status_drift_cli_20260626`, `kg_impl_map_status_drift_self_test_20260626`, `kg_impl_map_distribution_aware_audit_20260818`, `kg_impl_map_distribution_aware_test_20260818`
 
 ## Rule placement
 
-- Rule: framework-source implementation-map ownership drift belongs in a framework planning handoff until its SDD/SSOT semantics are separately approved.
+- Rule: installed-host impl-map audits use Category A distribution mappings only for framework-owned records; host-owned records remain strict.
 - Scope: framework-global
 - Primary record: `.lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md`
 - Why not Medivance canonical records: the affected files are framework-owned Category A copies and must not be patched downstream.
-- Confirmation: user selected **후속 분리 (Recommended)** on 2026-07-23.
+- Confirmation: user selected follow-up separation on 2026-07-23, then selected **Distribution-aware (Recommended)** for implementation on 2026-08-18.
 
 ## Discovery capture
 
 - DDD: no independent delta; searchable-record terminology is unchanged.
-- SDD: candidate for ownership-aware implementation-map path semantics; deferred to the separate work unit.
-- BDD: no independent delta; no product-visible workflow changes.
-- TDD: candidate for a source/host distribution regression fixture; deferred with the SDD.
-- ADR: none yet; the current diagnosis does not choose a new architecture trade-off.
-- SSOT: candidate for source/host verification-root ownership; deferred to the separate work unit.
+- SDD: updated in `.lazy-harness/spec/platform/implementation-map-standard.md` with distribution-aware advisory semantics.
+- BDD: none because no product-visible workflow changed.
+- TDD: updated through source/installed-host regression fixtures in `check_impl_map_status_drift`.
+- ADR: none because no new architecture trade-off was introduced.
+- SSOT: updated in `.lazy-harness/ssot/implementation-map-storage.md` with source/host ownership truth.
 - Planning: updated by this durable framework-source handoff.

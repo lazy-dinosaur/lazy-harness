@@ -8,6 +8,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
+import { shouldIncludeManifestPath } from './manifest-path-matcher.ts'
 
 interface Args {
   root: string
@@ -27,6 +28,22 @@ interface RecordAudit {
   driftDetail: string[]
   driftFiles: string[]
 }
+
+interface DistributionRule {
+  sourceDir: string
+  targetDir: string
+  glob?: string[]
+  exclude?: string[]
+}
+
+interface DistributionContext {
+  installedHost: boolean
+  frameworkRecords: Set<string>
+  sourceToTarget: Map<string, string>
+  directoryRules: DistributionRule[]
+}
+
+type RefState = 'present' | 'missing' | 'not-applicable'
 
 const LAYER_DIRS: Array<[string, string]> = [
   ['ddd', 'domain'],
@@ -135,11 +152,106 @@ function isCleanPath(token: string): boolean {
   return /\.[a-z0-9]{1,5}$/i.test(token)
 }
 
-/** Resolve a ref against the host root, with a `.lazy-harness/`-relative fallback for shorthand like `knowledge/graph.jsonl`. */
-function refExists(root: string, ref: string): boolean {
-  if (existsSync(resolve(root, ref))) return true
-  if (!ref.startsWith('.lazy-harness/') && existsSync(resolve(root, '.lazy-harness', ref))) return true
+function asLazyPath(path: string): string {
+  const normalized = path.replace(/^\.\//, '')
+  return normalized.startsWith('.lazy-harness/') ? normalized : `.lazy-harness/${normalized}`
+}
+
+function withTrailingSlash(path: string): string {
+  return path.endsWith('/') ? path : `${path}/`
+}
+
+function isFrameworkSourceRoot(root: string): boolean {
+  return (
+    existsSync(resolve(root, '.lazy-harness', 'framework', 'framework-contract.md')) &&
+    existsSync(resolve(root, '.lazy-harness', 'planning', 'phase-5-plan.xml'))
+  )
+}
+
+/** Category A source/target ownership used only to interpret framework records in installed hosts. */
+function loadDistributionContext(root: string): DistributionContext {
+  const context: DistributionContext = {
+    installedHost: !isFrameworkSourceRoot(root) && existsSync(resolve(root, '.lazy-harness', 'state', 'synced-from-commit')),
+    frameworkRecords: new Set<string>(),
+    sourceToTarget: new Map<string, string>(),
+    directoryRules: [],
+  }
+  const manifestPath = resolve(root, '.lazy-harness', 'manifests', 'init-categories.json')
+  if (!existsSync(manifestPath)) return context
+  try {
+    const parsed = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      categories?: {
+        A?: {
+          items?: Array<{
+            path?: unknown
+            targetPath?: unknown
+            kind?: unknown
+            glob?: unknown
+            exclude?: unknown
+          }>
+        }
+      }
+    }
+    for (const item of parsed.categories?.A?.items ?? []) {
+      if (typeof item.path !== 'string') continue
+      const source = asLazyPath(item.path)
+      const target = asLazyPath(typeof item.targetPath === 'string' ? item.targetPath : item.path)
+      if (item.kind === 'directory') {
+        context.directoryRules.push({
+          sourceDir: withTrailingSlash(source),
+          targetDir: withTrailingSlash(target),
+          glob: Array.isArray(item.glob) ? item.glob.filter((value): value is string => typeof value === 'string') : undefined,
+          exclude: Array.isArray(item.exclude) ? item.exclude.filter((value): value is string => typeof value === 'string') : undefined,
+        })
+      } else {
+        context.sourceToTarget.set(source, target)
+      }
+      if (/^\.lazy-harness\/(domain|spec|behavior|tests|decisions|ssot)\/.+\.md$/i.test(source)) {
+        context.frameworkRecords.add(target)
+      }
+    }
+  } catch {
+    // Fail strict: an unreadable manifest yields no framework-record exemptions.
+  }
+  return context
+}
+
+function manifestTargetFor(sourceRef: string, distribution: DistributionContext): string | undefined {
+  const exact = distribution.sourceToTarget.get(sourceRef)
+  if (exact !== undefined) return exact
+  for (const rule of distribution.directoryRules) {
+    if (!sourceRef.startsWith(rule.sourceDir)) continue
+    const child = sourceRef.slice(rule.sourceDir.length)
+    if (shouldIncludeManifestPath(child, rule.glob, rule.exclude)) return `${rule.targetDir}${child}`
+  }
+  return undefined
+}
+
+function isFrameworkOwnedRecord(relPath: string, distribution: DistributionContext): boolean {
+  if (!/^\.lazy-harness\/(domain|spec|behavior|tests|decisions|ssot)\/.+\.md$/i.test(relPath)) return false
+  if (distribution.frameworkRecords.has(relPath)) return true
+  for (const rule of distribution.directoryRules) {
+    if (!relPath.startsWith(rule.targetDir)) continue
+    const child = relPath.slice(rule.targetDir.length)
+    if (shouldIncludeManifestPath(child, rule.glob, rule.exclude)) return true
+  }
   return false
+}
+
+/** Resolve one ref as present, genuinely missing, or intentionally source-only for this installed host. */
+function refState(root: string, ref: string, distribution: DistributionContext, frameworkOwned: boolean): RefState {
+  const sourceRef = asLazyPath(ref)
+  if (distribution.installedHost && frameworkOwned) {
+    const targetRef = manifestTargetFor(sourceRef, distribution)
+    if (targetRef !== undefined) {
+      return existsSync(resolve(root, targetRef)) ? 'present' : 'missing'
+    }
+    if (existsSync(resolve(root, ref)) || (sourceRef !== ref && existsSync(resolve(root, sourceRef)))) return 'present'
+    return 'not-applicable'
+  }
+  if (existsSync(resolve(root, ref))) return 'present'
+  if (sourceRef !== ref && existsSync(resolve(root, sourceRef))) return 'present'
+  return 'missing'
 }
 
 /** Clean path refs listed under `Primary files:` / `Future files:` only (excludes Tests/validation/cross-layer noise). */
@@ -162,8 +274,9 @@ function extractPrimaryFutureRefs(block: string): string[] {
   return [...refs]
 }
 
-function auditRecord(root: string, layer: string, absPath: string, includeReadme: boolean): RecordAudit | null {
+function auditRecord(root: string, layer: string, absPath: string, includeReadme: boolean, distribution: DistributionContext): RecordAudit | null {
   const relPath = relative(root, absPath)
+  const frameworkOwned = isFrameworkOwnedRecord(relPath, distribution)
   if (!includeReadme && relPath.endsWith('/README.md')) return null
   const text = readFileSync(absPath, 'utf8')
   const hasImplementationMap = /^##\s+Implementation map\b/im.test(text)
@@ -187,8 +300,9 @@ function auditRecord(root: string, layer: string, absPath: string, includeReadme
     const dead = digestStatus === 'deprecated' || digestStatus === 'reverted'
     if (!dead) {
       const refs = extractPrimaryFutureRefs(mapBlock)
-      const presentCode = refs.filter((ref) => CODE_EXT.test(ref) && refExists(root, ref))
-      const missing = refs.filter((ref) => !refExists(root, ref))
+      const states = new Map(refs.map((ref) => [ref, refState(root, ref, distribution, frameworkOwned)]))
+      const presentCode = refs.filter((ref) => CODE_EXT.test(ref) && states.get(ref) === 'present')
+      const missing = refs.filter((ref) => states.get(ref) === 'missing')
       if ((mapStatus === 'planned' || mapStatus === 'none') && presentCode.length > 0) {
         drift.push('planned-status-files-present')
         driftDetail.push(`Status='${mapStatus}' but implementing files exist: ${presentCode.join(', ')}`)
@@ -210,10 +324,11 @@ function audit(root: string, includeReadme: boolean): RecordAudit[] {
     throw new Error(`No .lazy-harness directory under root: ${root}`)
   }
   const records: RecordAudit[] = []
+  const distribution = loadDistributionContext(root)
   for (const [layer, dirName] of LAYER_DIRS) {
     const dir = join(lazyRoot, dirName)
     for (const file of walkMarkdown(dir)) {
-      const record = auditRecord(root, layer, file, includeReadme)
+      const record = auditRecord(root, layer, file, includeReadme, distribution)
       if (record) records.push(record)
     }
   }

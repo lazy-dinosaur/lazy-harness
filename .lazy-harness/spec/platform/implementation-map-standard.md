@@ -22,6 +22,7 @@ Related graph spec: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
   - add an `## Implementation map` (files, key symbols, flow, tests, ownership, cross-layer links) when implementation exists or is verifiable
   - store confirmed file/symbol/edge facts in `knowledge/graph.jsonl`; keep the generated index derived-only
   - heed advisory `lazy impl-map` status drift (planned-but-files-present, verified-but-files-missing) when reviewing map `Status`
+  - when auditing an installed host, resolve framework-owned Category A record refs through manifest source→`targetPath` mappings and ignore intentionally non-distributed source-only refs only for those framework-owned records; keep host-owned records strict
 - Must not:
   - treat the generated implementation-index as canonical, or mark `verified` without confirmable source
 - Record completion:
@@ -194,8 +195,10 @@ To stay low-noise, detection:
 
 1. reads only the `Primary files:` / `Future files:` subsections (Tests/validation/cross-layer noise excluded);
 2. counts only clean path tokens (a slash + file extension; whitespace, `$env`, globs, `#anchors`, and `path/to/` placeholders are ignored — so command strings like `python3 …/self-test.py` never count);
-3. resolves a ref against the host root with a `.lazy-harness/`-relative fallback (so shorthand like `knowledge/graph.jsonl` resolves);
-4. skips records whose `## Rule digest` `Status` is `deprecated` or `reverted`.
+3. resolves a ref against the active root with a `.lazy-harness/`-relative fallback (so shorthand like `knowledge/graph.jsonl` resolves);
+4. in an installed host, loads Category A source→target mappings from `.lazy-harness/manifests/init-categories.json` and accepts a mapped `targetPath` only when that installed target exists;
+5. treats an unmapped, absent ref as source-only/not-applicable only when the audited record itself is a framework-owned Category A record; host-owned records retain strict active-root existence checks;
+6. skips records whose `## Rule digest` `Status` is `deprecated` or `reverted`.
 
 File existence is a heuristic, not proof of completion, so the report is a review list, not a verdict. Promote/demote `Status` only after confirming source.
 
@@ -209,17 +212,31 @@ A turn-scoped advisory also runs at `response.completed` via `.lazy-harness/hook
 - Primary files:
   - `.lazy-harness/spec/platform/implementation-map-standard.md` — this contract (map format, `Status` enum, advisory drift).
   - `.lazy-harness/scripts/implementation-map-audit.ts` — `lazy impl-map` audit + advisory status-drift detection.
+  - `.lazy-harness/scripts/manifest-path-matcher.ts` — shared Category A glob/exclude semantics used by sync and audit.
+  - `.lazy-harness/scripts/lazy-sync.ts` — uses the same manifest matcher while copying/pruning directory items.
   - `.lazy-harness/bin/lazy` — dispatches `lazy impl-map`.
   - `.lazy-harness/hooks/lifecycle/helpers/check-impl-map-status-drift.py` — response.completed turn-scoped drift advisory (reuses the audit detector).
 - Key symbols:
   - `auditRecord` (`.lazy-harness/scripts/implementation-map-audit.ts`) — per-record migration status + drift computation.
-  - `extractPrimaryFutureRefs` / `isCleanPath` / `refExists` (`.lazy-harness/scripts/implementation-map-audit.ts`) — low-noise ref extraction and `.lazy-harness/`-fallback resolution.
+  - `extractPrimaryFutureRefs` / `isCleanPath` (`.lazy-harness/scripts/implementation-map-audit.ts`) — low-noise ref extraction.
+  - `loadDistributionContext` / `manifestTargetFor` / `refState` / `isFrameworkSourceRoot` (`.lazy-harness/scripts/implementation-map-audit.ts`) — strict source/host existence, exact/directory Category A relocation, source-marker safety, and framework-only source-ref handling.
+  - `shouldIncludeManifestPath` (`.lazy-harness/scripts/manifest-path-matcher.ts`) — one glob/exclude authority shared with `lazy-sync.ts`.
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift` — synthetic-fixture detection test; never gates on real-corpus drift.
+  - `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift` — synthetic source/installed-host fixture covering source-only refs, exact/directory manifest mappings, stale source/target collisions, excluded refs, source roots carrying sync markers, and genuine host-owned/mapped-target missing refs; never gates on real-corpus drift.
   - `.lazy-harness/scripts/self-test.py#check_impl_map_status_drift_helper` — helper advisory fixture (silent / relevant-emit / fail-open).
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0030-implementation-map-three-layer-storage.md`
   - SSOT: `.lazy-harness/ssot/implementation-map-storage.md`
   - SDD: `.lazy-harness/spec/platform/progressive-knowledge-graph.md`
 - Machine index:
-  - graph ids: `kg_impl_map_status_drift_cli_20260626`, `kg_impl_map_status_drift_self_test_20260626`, `kg_impl_map_status_drift_helper_20260626`
+  - graph ids: `kg_impl_map_status_drift_cli_20260626`, `kg_impl_map_status_drift_self_test_20260626`, `kg_impl_map_status_drift_helper_20260626`, `kg_impl_map_distribution_aware_audit_20260818`, `kg_impl_map_distribution_aware_test_20260818`
+
+## Discovery capture — distribution-aware host audit
+
+- DDD: none because implementation-map terminology did not change.
+- SDD: updated here with installed-host manifest relocation and framework-only source-ref semantics.
+- BDD: none because no product-visible flow changed; the advisory stops producing false drift.
+- TDD: updated through `check_impl_map_status_drift` with source-clean, source-only, relocated-target, missing-target, and host-owned missing fixtures.
+- ADR: none because the approved direction applies existing source/host ownership boundaries without a new architectural trade-off.
+- SSOT: updated in `.lazy-harness/ssot/implementation-map-storage.md`.
+- Planning: updated in `.lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md`.
