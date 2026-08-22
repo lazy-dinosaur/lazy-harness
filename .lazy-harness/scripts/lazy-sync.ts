@@ -177,6 +177,13 @@ function isPoliciesSeedItem(item: ManifestItem): boolean {
   return item.path === 'ssot/policies.json'
 }
 
+const RETIRED_FRAMEWORK_SEED_IDS = new Set(['jcode-typed-review-model-routing'])
+
+function registryItemId(item: unknown): string {
+  return item && typeof item === 'object' && typeof (item as Record<string, unknown>).id === 'string'
+    ? String((item as Record<string, unknown>).id)
+    : ''
+}
 function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchanged' {
   if (!existsSync(dest)) {
     copyFile(src, dest)
@@ -195,30 +202,27 @@ function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchange
 
   const srcCaps = Array.isArray(srcData.capabilities) ? srcData.capabilities : []
   const destCaps = Array.isArray(destData.capabilities) ? destData.capabilities : []
-  const existingIds = new Set(
-    destCaps
-      .map((cap) => (cap && typeof cap === 'object' ? (cap as Record<string, unknown>).id : undefined))
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-  )
+  const retainedDestCaps = destCaps.filter((cap) => !RETIRED_FRAMEWORK_SEED_IDS.has(registryItemId(cap)))
+  const retired = destCaps.length - retainedDestCaps.length
+  const existingIds = new Set(retainedDestCaps.map(registryItemId).filter(Boolean))
   const missing = srcCaps.filter((cap) => {
-    if (!cap || typeof cap !== 'object') return false
-    const id = (cap as Record<string, unknown>).id
-    return typeof id === 'string' && id.length > 0 && !existingIds.has(id)
+    const id = registryItemId(cap)
+    return id.length > 0 && !existingIds.has(id)
   })
 
-  if (missing.length === 0) return 'unchanged'
+  if (missing.length === 0 && retired === 0) return 'unchanged'
   if (DRY) {
-    log(`  [dry] would merge ${missing.length} seed capabilities into: ${dest}`)
+    log(`  [dry] would merge ${missing.length} seed capabilities and retire ${retired} removed framework capabilities in: ${dest}`)
     return 'updated'
   }
 
   const merged: Record<string, unknown> = { ...destData }
   if (!('$schema' in merged) && '$schema' in srcData) merged.$schema = srcData.$schema
   if (!('version' in merged) && 'version' in srcData) merged.version = srcData.version
-  merged.capabilities = [...destCaps, ...missing]
+  merged.capabilities = [...retainedDestCaps, ...missing]
   ensureDir(dirname(dest))
   writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`, 'utf8')
-  log(`  merged ${missing.length} seed capabilities into: ${dest}`)
+  log(`  merged ${missing.length} seed capabilities and retired ${retired} removed framework capabilities in: ${dest}`)
   return 'updated'
 }
 
@@ -240,30 +244,27 @@ function mergePoliciesSeed(src: string, dest: string): 'updated' | 'unchanged' {
 
   const srcPolicies = Array.isArray(srcData.policies) ? srcData.policies : []
   const destPolicies = Array.isArray(destData.policies) ? destData.policies : []
-  const existingIds = new Set(
-    destPolicies
-      .map((policy) => (policy && typeof policy === 'object' ? (policy as Record<string, unknown>).id : undefined))
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-  )
+  const retainedDestPolicies = destPolicies.filter((policy) => !RETIRED_FRAMEWORK_SEED_IDS.has(registryItemId(policy)))
+  const retired = destPolicies.length - retainedDestPolicies.length
+  const existingIds = new Set(retainedDestPolicies.map(registryItemId).filter(Boolean))
   const missing = srcPolicies.filter((policy) => {
-    if (!policy || typeof policy !== 'object') return false
-    const id = (policy as Record<string, unknown>).id
-    return typeof id === 'string' && id.length > 0 && !existingIds.has(id)
+    const id = registryItemId(policy)
+    return id.length > 0 && !existingIds.has(id)
   })
 
-  if (missing.length === 0) return 'unchanged'
+  if (missing.length === 0 && retired === 0) return 'unchanged'
   if (DRY) {
-    log(`  [dry] would merge ${missing.length} seed policies into: ${dest}`)
+    log(`  [dry] would merge ${missing.length} seed policies and retire ${retired} removed framework policies in: ${dest}`)
     return 'updated'
   }
 
   const merged: Record<string, unknown> = { ...destData }
   if (!('$schema' in merged) && '$schema' in srcData) merged.$schema = srcData.$schema
   if (!('version' in merged) && 'version' in srcData) merged.version = srcData.version
-  merged.policies = [...destPolicies, ...missing]
+  merged.policies = [...retainedDestPolicies, ...missing]
   ensureDir(dirname(dest))
   writeFileSync(dest, `${JSON.stringify(merged, null, 2)}\n`, 'utf8')
-  log(`  merged ${missing.length} seed policies into: ${dest}`)
+  log(`  merged ${missing.length} seed policies and retired ${retired} removed framework policies in: ${dest}`)
   return 'updated'
 }
 

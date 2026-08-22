@@ -39,8 +39,8 @@ Related SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
 | `lazy_init_pi_omp_only` | Initialize an isolated host | Explicit target receives Pi/OMP activation only |
 | `lazy_sync_pi_omp_repair` | Sync an isolated host with no Jcode state | Pi/OMP activation is checked/repaired independently and marker publication remains transactional |
 | `jcode_sources_absent` | Inspect active source tree | Adapter/package/trust/local-config scripts and typed Jcode routing helper are absent |
-| `jcode_registry_absent` | Audit policies/capabilities | No active Jcode typed-routing policy/capability remains |
-| `jcode_distribution_absent` | Inspect init manifest | No active Jcode adapter/channel/typed-routing contract or integration guide is distributed |
+| `jcode_registry_absent` | Audit source registries and sync an isolated host seeded with the retired framework id | No active Jcode typed-routing policy/capability remains; sync removes the retired framework seed id while preserving other host entries |
+| `jcode_distribution_retired` | Inspect and exercise the init manifest | No active Jcode integration guide/runtime implementation is distributed; visibly retired historical contracts overwrite stale active host copies |
 | `runtime_neutral_payload_preserved` | Run Pi fake runtime | Current-turn lifecycle payload, evidence epochs, error structure, continuation bounds, and trace privacy remain unchanged |
 | `runtime_neutral_progress_preserved` | Run validation progress fixture | `LAZY_PROGRESS` behavior remains active and runtime-neutral |
 | `machine_exact_cleanup` | Inspect decommission receipt | Managed hooks/trust/local flag are gone; launcher is exactly restored; unrelated config and stable/current pointers are preserved |

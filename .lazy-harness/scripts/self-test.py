@@ -3070,6 +3070,14 @@ def check_jcode_decommission() -> None:
         stale_adapter = host / ".lazy-harness" / "scripts" / "jcode-adapter.ts"
         stale_adapter.parent.mkdir(parents=True, exist_ok=True)
         stale_adapter.write_text("// stale active adapter\n", encoding="utf-8")
+        stale_registry_specs = (
+            (host / ".lazy-harness" / "ssot" / "policies.json", "policies"),
+            (host / ".lazy-harness" / "ssot" / "capabilities.json", "capabilities"),
+        )
+        for registry_path, key in stale_registry_specs:
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            registry.setdefault(key, []).append({"id": "jcode-typed-review-model-routing", "owner": "framework-global"})
+            registry_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         synced = subprocess.run(
             ["bun", str(LAZY / "scripts" / "lazy-sync.ts"), "--from", str(ROOT), "--target", str(host), "--force", "--quiet"],
             cwd=ROOT, text=True, capture_output=True, check=False,
@@ -3081,6 +3089,10 @@ def check_jcode_decommission() -> None:
             fail("lazy sync did not overwrite a stale active Jcode record with retired history")
         if stale_adapter.exists():
             fail("lazy sync did not prune the formerly active Jcode adapter from an installed host")
+        for registry_path, key in stale_registry_specs:
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            if any(item.get("id") == "jcode-typed-review-model-routing" for item in registry.get(key, [])):
+                fail("lazy sync did not retire the removed framework Jcode registry entry: " + str(registry_path))
         if hostile_jcode_home.exists():
             fail("Pi/OMP init/sync decommission fixture created Jcode state")
 
