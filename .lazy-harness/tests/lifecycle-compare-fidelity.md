@@ -42,7 +42,7 @@ The root causes were framework-general compare/sandbox fidelity gaps, not Mediva
 
 1. **Trailing newline normalization**: legacy bash command substitution strips trailing newlines from helper stdout, while `lifecycle-check.py` stores subprocess stdout as-is.
 2. **Missing git context**: sandbox used `git init` only, so git-dependent `check-fix-regression.sh` could not see real host last commit facts.
-3. **Missing runtime/Jcode state**: sandbox copied only `.lazy-harness` and omitted duplicate-suppression `open-gates.json`, surfaced digest/packet journals, and correlated `.jcode/hooks/tool-events.jsonl` rows.
+3. **Missing runtime state**: sandbox copied only `.lazy-harness` and omitted duplicate-suppression `open-gates.json` plus surfaced digest/packet journals.
 
 ## Protected behavior
 
@@ -53,7 +53,6 @@ The root causes were framework-general compare/sandbox fidelity gaps, not Mediva
 - sandbox mode uses an isolated `LAZY_RUNTIME_ROOT` / `LAZY_SHARED_ROOT` rather than writing to the source host runtime,
 - sandbox mode receives safe read-only git facts for git-dependent helpers,
 - sandbox mode mirrors bounded runtime state tails for `open-gates.json`, `surfaced-rule-digests.jsonl`, and `search-read-debt.jsonl`,
-- sandbox mode mirrors only message/session-correlated `.jcode/hooks/tool-events.jsonl` rows, not wholesale raw tool-event history,
 - duplicate open-gate suppression matches legacy behavior in compare mode,
 - `check-fix-regression.sh` matches legacy behavior in compare mode when the real host last commit is `Fix: ...`,
 - compare logs still store hashes/lengths/helper names only and must not include `legacyBody`, `orchestratorBody`, raw payload, or raw message fields.

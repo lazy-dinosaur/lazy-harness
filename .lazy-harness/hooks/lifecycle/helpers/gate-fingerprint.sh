@@ -8,14 +8,10 @@
 #   gate_fingerprint_record <helper_name> <fingerprint>      → mark open
 #
 # The state file `$LAZY_RUNTIME_ROOT/state/open-gates.json` is keyed by helper name +
-# fingerprint and tied to `JCODE_MESSAGE_ID` (or argv-passed message id). When
-# the message id rolls over, all fingerprints from the previous turn are
-# cleared.
-#
-# Rationale: jcode `response.completed` payload does not include the actual
-# assistant text, so the previous suppression strategy (string-match the
-# assistant_response for option gate markers) was a no-op in production. This
-# helper provides a payload-schema-independent invariant: within a single turn
+# fingerprint and tied to the argv-passed message id. When the message id rolls
+# over, all fingerprints from the previous turn are cleared. This provides a
+# payload-schema-independent invariant: within a single turn each helper and
+# fingerprint pair fires at most once.
 # (= same message_id), each (helper, fingerprint) pair fires at most once.
 #
 # Contract:
@@ -37,10 +33,6 @@ _gate_get_message_id() {
   # Prefer message id passed as 3rd argv, fall back to env, fall back to "unknown".
   if [ -n "${3:-}" ]; then
     printf '%s' "$3"
-    return 0
-  fi
-  if [ -n "${JCODE_MESSAGE_ID:-}" ]; then
-    printf '%s' "$JCODE_MESSAGE_ID"
     return 0
   fi
   printf '%s' "unknown"

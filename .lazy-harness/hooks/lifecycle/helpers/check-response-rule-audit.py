@@ -17,7 +17,6 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +41,6 @@ else:
     _runtime_root = Path(os.environ.get("LAZY_RUNTIME_ROOT") or (ROOT / ".lazy-harness" / ".runtime"))
     DIGEST_JOURNAL = _runtime_root / "state" / "surfaced-rule-digests.jsonl"
     PACKET_JOURNAL = _runtime_root / "state" / "search-read-debt.jsonl"
-TOOL_EVENTS_JOURNAL = ROOT / ".jcode" / "hooks" / "tool-events.jsonl"
 TTL_SECONDS = int(os.environ.get("LAZY_RESPONSE_RULE_AUDIT_TTL_SECONDS", "7200") or "7200")
 
 WRITE_TOOLS = {
@@ -136,101 +134,12 @@ def payload_recent_calls() -> list[dict[str, Any]]:
     return [c for c in calls if isinstance(c, dict)] if isinstance(calls, list) else []
 
 
-def parse_event_epoch(value: str) -> float:
-    text = str(value or "").strip()
-    if not text:
-        return 0
-    try:
-        return float(text)
-    except Exception:
-        pass
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
-    except Exception:
-        return 0
-
-
-def extract_logged_payload(line: str) -> tuple[float, dict[str, Any] | None]:
-    text = line.strip()
-    if not text:
-        return 0, None
-    prefix, sep, rest = text.partition(" ")
-    if not sep:
-        return 0, None
-    try:
-        payload = json.loads(rest)
-    except Exception:
-        return 0, None
-    if not isinstance(payload, dict):
-        return 0, None
-    return parse_event_epoch(prefix), payload
-
-
-def logged_tool_event_calls(packet_row: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    if not TOOL_EVENTS_JOURNAL.exists():
-        return []
-    current_message_id = str(PAYLOAD.get("message_id") or PAYLOAD.get("messageId") or "")
-    current_session_id = str(PAYLOAD.get("session_id") or PAYLOAD.get("sessionId") or "")
-    try:
-        packet_epoch = float((packet_row or {}).get("epochSeconds") or 0)
-    except Exception:
-        packet_epoch = 0
-    now = time.time()
-    rows: list[dict[str, Any]] = []
-    try:
-        lines = TOOL_EVENTS_JOURNAL.read_text(encoding="utf-8", errors="ignore").splitlines()[-400:]
-    except Exception:
-        return []
-    for line in lines:
-        event_epoch, event = extract_logged_payload(line)
-        if not event or event.get("event") != "tool.execute.after":
-            continue
-        if event_epoch and now - event_epoch > TTL_SECONDS:
-            continue
-        if packet_epoch and event_epoch and event_epoch < packet_epoch - 5:
-            continue
-        event_message_id = str(event.get("message_id") or event.get("messageId") or "")
-        event_session_id = str(event.get("session_id") or event.get("sessionId") or "")
-        same_message = bool(current_message_id and event_message_id == current_message_id)
-        same_session = bool(current_session_id and event_session_id == current_session_id)
-        if current_message_id:
-            if not same_message:
-                continue
-        elif current_session_id:
-            if not same_session:
-                continue
-        else:
-            continue
-        tool = event.get("tool") if isinstance(event.get("tool"), dict) else {}
-        name = str(tool.get("name") or event.get("tool_name") or event.get("name") or "")
-        args = tool.get("args") if isinstance(tool.get("args"), dict) else {}
-        rows.append({
-            "name": name,
-            "args": args or {},
-            "args_preview": json.dumps(args or {}, ensure_ascii=False)[:4000],
-            "source": "tool-events-journal",
-        })
-    return rows
-
-
 def recent_calls() -> list[dict[str, Any]]:
     return payload_recent_calls()
 
 
 def evidence_calls(packet_row: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    calls = payload_recent_calls()
-    logged = logged_tool_event_calls(packet_row)
-    if not logged:
-        return calls
-    seen: set[str] = set()
-    out: list[dict[str, Any]] = []
-    for call in [*calls, *logged]:
-        key = json.dumps(call, ensure_ascii=False, sort_keys=True, default=str)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(call)
-    return out
+    return payload_recent_calls()
 
 
 def has_lazy_capture() -> bool:

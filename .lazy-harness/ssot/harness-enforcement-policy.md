@@ -29,44 +29,32 @@ Confirmation: user-confirmed
   - user-confirmed enforcement policy changes update this SSOT and link ADR/planning records
 - Related records:
   - `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md`
-  - `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
-  - `.lazy-harness/spec/platform/jcode-agent-adapter.md`
+  - `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
+  - `.lazy-harness/spec/platform/pi-agent-package.md`
   - `.lazy-harness/spec/platform/project-command-boundary.md`
   - `.lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md`
   - `.lazy-harness/spec/platform/record-write-update-policy.md`
-  - `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
 ## Rule
 
 Lazy-harness enforcement layers must not be weakened into optional memory or best-effort behavior.
 
 The harness is mandatory infrastructure for agents that operate inside a lazy-harness host:
 
-- Separate Pi/OMP and Jcode thin adapters plus shared `.lazy-harness/hooks/lifecycle/*` scripts must reliably deliver the current grammar and canonical guards; destructive-command blocking remains in `check-destructive-command.py`, while explicitly promoted host structural boundaries execute through `check-project-command-boundary.py` via `on-tool-execute-before.sh` (ADR 0056).
+- The Pi stable adapter and OMP Experimental adapter share `packages/lazy-harness-pi` plus `.lazy-harness/hooks/lifecycle/*`; destructive-command blocking remains in `check-destructive-command.py`, while explicitly promoted host structural boundaries execute through `check-project-command-boundary.py` via `on-tool-execute-before.sh` (ADR 0059).
 - Agents must retain and apply the core rules during a session: record-first lookup, default-unknown, option gates, requirements-first execution, rule placement, and record-as-output.
 - DDD/SDD/BDD/TDD/ADR/SSOT records are not optional notes. They are the canonical institutional memory and must continue accumulating when confirmed facts, rules, contracts, behavior, tests, or decisions are discovered.
 - Advisory routing, telemetry, workflow compression, and non-blocking lifecycle hooks may improve throughput, but must not reduce the effective enforcement of canonical layer obligations.
 - If a policy is prevention-grade, repeated, or high-cost when missed, it must be surfaced or enforced before the miss becomes expensive; the final mechanism must preserve agent flow and avoid tool-specific adapter sprawl.
 
-## Jcode trusted-root boundary (2026-08-01)
+## Runtime delivery boundary (2026-08-22)
 
-User-confirmed after independent security review:
+User-confirmed by ADR 0059:
 
-- Global Jcode hooks may execute repository lifecycle scripts only when the canonical real root is present in the user-owned Jcode trusted-roots registry.
-- A `.lazy-harness/bin/lazy` marker is discovery evidence, never trust evidence.
-- `lazy jcode install` trusts the selected current root; each new project requires `lazy jcode trust`; `untrust` is reversible.
-- Untrusted/non-lazy roots must exit silently before state creation or repository script execution.
-- Adapter state must use canonical root/session runtime paths, honor an explicit `LAZY_RUNTIME_ROOT` consistently with shared hooks, and persist no raw command/query/URL secrets.
-
-## Jcode prompt-source boundary (2026-08-02)
-
-User-confirmed after source review and independent GPT-5.6 Sol counterreview:
-
-- In an exact trusted lazy-harness root, `<project>/AGENTS.md` may be suppressed only through the explicit private transport flag `[prompt] ignore_project_agents = true` in gitignored `.jcode/config.local.toml`.
-- The local Jcode file must not store or copy grammar, records, policy, model routing, or trust decisions. Canonical meaning remains in `.lazy-harness`.
-- The synchronous `before_model` adapter injects canonical `.lazy-harness/AGENTS.md` and bounded re-grounding on every initial and post-tool provider request.
-- Global personal overlays and ordinary-project `AGENTS.md` behavior remain unchanged.
-- Spawned agents use the inherited working directory and therefore receive the same source-selection and trusted-root adapter behavior without a separate authority engine.
-- Do not implement semantic prompt-conflict detection in Jcode. Prompt sources are selected deterministically; the LLM applies canonical injected grammar.
+- Pi is the stable primary runtime.
+- OMP remains Experimental through the shared Pi/OMP package and separate install UX.
+- Active Jcode adapter, hook, trust, prompt-transport, launcher-promotion, and typed-routing integration is decommissioned.
+- Runtime-neutral lifecycle payloads, work-unit grounding, bounded validation, progress, project-command boundaries, and distribution-aware audits remain canonical framework behavior.
+- Historical Jcode records remain searchable decision evidence but do not authorize active runtime integration.
 ## Active memory loop policy
 
 User-confirmed on 2026-06-01:
@@ -132,7 +120,7 @@ Accepted boundary:
 - Canonical project semantics and hard-stop promotion evidence remain in the host `.lazy-harness` policy/SSOT/TDD records.
 - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` is a project-name-free executor for explicitly promoted `level=block`, `runtime.mode=command-boundary` policies.
 - The helper reads only structured shell tool input and policy configuration. It never classifies user/assistant prose.
-- Pi, OMP, and Jcode reach the helper through the same `on-tool-execute-before.sh` chain.
+- Pi and OMP reach the helper through the same `on-tool-execute-before.sh` chain.
 - The first supported guard denies raw worktree creation and protected-remote rebranching, and runs read-only merge-tree conflict preflight for destination-labelled single-commit promotion cherry-picks.
 - Recovery commands remain allowed; malformed/unconfigured hosts fail open; explicit bypass requires structured policy acknowledgement plus a reason.
 
@@ -219,7 +207,7 @@ Result:
 
 Future fixes should restore mandatory behavior without turning the framework into a brittle or slow blocker:
 
-1. Preserve lazy-harness grammar and lifecycle delivery through separate Pi/OMP and Jcode thin adapters over shared `.lazy-harness/hooks/lifecycle/*` scripts, and verify each runtime capability honestly (ADR 0056).
+1. Preserve lazy-harness grammar and lifecycle delivery through the Pi stable / OMP Experimental shared package over `.lazy-harness/hooks/lifecycle/*` scripts (ADR 0059).
 2. Improve rule recall before action, but prefer organic surfacing over broad edit/write blocking.
 3. Keep `response.completed` as a backstop for missed record/capture work.
 4. Add regression fixtures for concrete dogfood failures, but do not encode the final architecture as one-off tool-specific patches.
@@ -231,8 +219,6 @@ Future fixes should restore mandatory behavior without turning the framework int
 - Primary files:
   - `.lazy-harness/AGENTS.md` — shared framework grammar that defines mandatory record-first and record-as-output behavior.
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP runtime adapter.
-  - `.lazy-harness/scripts/jcode-adapter.ts` — official Jcode hook adapter with lazy-root detection and root/session evidence isolation.
-  - `.lazy-harness/scripts/jcode-package.ts` — reversible Jcode adapter installation, doctor, smoke, and removal.
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — chains runtime-agnostic destructive safety and promoted host structural command boundaries before advisory evidence checks.
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` — executes host-owned promoted command-boundary policies without project-name or runtime-specific policy hardcoding.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — completion backstop hook.
@@ -251,9 +237,9 @@ Future fixes should restore mandatory behavior without turning the framework int
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
   - ADR: `.lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md`
-  - ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
+  - ADR: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
   - SDD: `.lazy-harness/spec/platform/project-rule-router.md`
-  - SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
+  - SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
   - SDD: `.lazy-harness/spec/platform/project-command-boundary.md`
   - SSOT: `.lazy-harness/ssot/rule-sources.md`
   - SSOT: `.lazy-harness/ssot/project-identity.md`

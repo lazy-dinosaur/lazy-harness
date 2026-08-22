@@ -2,7 +2,7 @@
 """Enforce promoted host-owned command boundaries from typed policy records.
 
 The shared hook receives the same normalized ``tool.name``/``tool.args`` shape
-from Pi, OMP, and Jcode.  This helper deliberately reads only explicit shell
+from Pi and OMP. This helper deliberately reads only explicit shell
 tool input plus a promoted ``level=block`` policy.  It never classifies user or
 assistant prose and stays silent for hosts without a matching command boundary.
 

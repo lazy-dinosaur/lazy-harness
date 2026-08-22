@@ -64,7 +64,7 @@ LAZY_RUNTIME_ROOT = $(git rev-parse --absolute-git-dir)/lazy-harness/runtime/<se
 LAZY_SHARED_ROOT  = $(git rev-parse --git-common-dir)/lazy-harness/shared
 ```
 
-`<session-key>` is derived from `session_id`/`JCODE_SESSION_ID` when available, otherwise `default`.
+`<session-key>` is derived from payload `session_id` or `LAZY_SESSION_ID` when available, otherwise `default`.
 
 ### Runtime-only files
 

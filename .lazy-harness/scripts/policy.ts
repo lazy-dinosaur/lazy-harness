@@ -817,11 +817,11 @@ function blockReadiness(root: string, opts: Record<string, string | boolean>, fo
     && existsSync(commandBoundaryHook)
     && readFileSync(commandBoundaryHook, 'utf8').includes('check-project-command-boundary.py')
   const typedAgentRoutingPolicies = blockPolicies.filter((policy) => objectValue(policy.runtime)?.mode === 'typed-agent-routing')
-  const typedAgentRoutingHelper = join(root, '.lazy-harness/hooks/lifecycle/helpers/check-agent-model-routing.py')
+  const typedAgentRoutingHelper = join(root, '.lazy-harness/hooks/lifecycle/helpers/check-subagent-model-routing.py')
   const typedAgentRoutingInstalled = typedAgentRoutingPolicies.length > 0
     && existsSync(typedAgentRoutingHelper)
     && existsSync(commandBoundaryHook)
-    && readFileSync(commandBoundaryHook, 'utf8').includes('check-agent-model-routing.py')
+    && readFileSync(commandBoundaryHook, 'utf8').includes('check-subagent-model-routing.py')
   const findings: ReadinessFinding[] = []
   const readyPolicyIds = new Set<string>()
 

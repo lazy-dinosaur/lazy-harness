@@ -1,6 +1,6 @@
 # Jcode Graph Memory Tool Integration
 
-Status: exploratory
+Status: cancelled-by-ADR-0059
 Date: 2026-05-15
 Related candidate: `.lazy-harness/knowledge/candidates.jsonl` entries `ki_graphify_external_graph_backend_d4313176da`, `ki_jcode_session_graph_context_2532d74e13`
 Related ADR: `.lazy-harness/decisions/0024-ai-first-framework-redesign.md`

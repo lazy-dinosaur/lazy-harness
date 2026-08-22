@@ -20,7 +20,7 @@ def payload_session_id(payload: dict[str, Any] | None = None) -> str:
         value = payload.get(key)
         if value:
             return str(value)
-    for key in ("LAZY_SESSION_ID", "JCODE_SESSION_ID", "JCODE_SESSION"):
+    for key in ("LAZY_SESSION_ID",):
         value = os.environ.get(key)
         if value:
             return value

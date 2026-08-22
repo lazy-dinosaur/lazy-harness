@@ -48,10 +48,14 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 - 설치 후 업데이트: `.lazy-harness/bin/lazy update`
 - 기본 source clone: `~/.cache/lazy-harness/source`
 - 실제 framework layout 은 `.lazy-harness/scripts/lazy-init.ts` 가 manifest 기반으로 수행
-- Jcode 는 generated `.jcode` directory bridge 대신 official `[hooks]` adapter 를 사용한다.
-- `.lazy-harness/bin/lazy jcode install` 은 current root 를 trust 하며, hook 은 exact trusted root 에서만 자동 활성화된다. 새 project 는 한 번 `lazy jcode trust` 해야 하고 그 밖의 project 에서는 no-op 한다.
-- Pi/OMP/Jcode adapter 는 서로 독립이며 canonical policy 와 lifecycle 의미는 `.lazy-harness` 가 소유한다.
-- root `AGENTS.md` 는 Jcode static project grammar entrypoint 이고 `.jcode` memory/config 는 project/team policy SSOT 가 아니다.
+- Pi is the stable primary runtime through `packages/lazy-harness-pi`.
+- OMP uses the same package core as an Experimental integration with separate wrapper UX.
+- Active Jcode adapter, hooks, trust, prompt transport, and launcher integration are decommissioned by ADR 0059; historical records remain searchable.
+- Canonical policy and lifecycle meaning remain owned by `.lazy-harness`.
+## 59 ADRs
+
+Runtime support authority is ADR 0059; earlier Jcode decisions remain retained history.
+
 ## 빠른 진입점
 
 | 첫 발은 여기서 | 내용 |

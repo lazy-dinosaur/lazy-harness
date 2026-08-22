@@ -51,7 +51,7 @@ const evidenceEpochByRoot = new Map<string, number>();
 const toolCallEpochsByRoot = new Map<string, Map<string, number>>();
 const MAX_ADVISORY_CONTINUATIONS = 2;
 const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
-// Jcode-parity mid-turn re-grounding state (see the "context" handler).
+// Runtime-neutral mid-turn re-grounding state (see the "context" handler).
 const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
 const REGROUND_MUTATION_TOOLS = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
@@ -194,7 +194,7 @@ function previewContent(content: unknown): unknown {
   return content;
 }
 
-// jcode-shape payload parity: on-response-completed helpers (17 of them) read a
+// Canonical lifecycle payload: on-response-completed helpers read a
 // string `args_preview` per tool call and the agent's `assistant_response` prose
 // to decide gate satisfaction. The Pi/OMP events expose `args` objects and
 // `event.messages`, so we project them into the shape the canonical helpers expect.
@@ -679,8 +679,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       source: typeof event.source === "string" ? event.source : undefined,
       at: Date.now(),
     });
-    // jcode delivery parity: jcode delivered user messages only BETWEEN turns
-    // (follow-up semantics). Pi's default Enter *steers* mid-turn, which skips
+    // Pi's default Enter steers mid-turn, which skips before_agent_start entirely.
     // before_agent_start entirely — the new instruction would silently inherit the
     // previous topic's read-debt evidence and lose the §2.1 record-search push.
     // Organic fix (ADR 0041/0048/0051): a real mid-turn steer starts a fresh
@@ -767,7 +766,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus, readDebtDetail });
     const body = hookBody ?? steeringReminder(root, readDebtStatus, readDebtDetail);
 
-    // jcode load_harness_dir parity: force-load the FULL .lazy-harness/AGENTS.md grammar into the
+    // Force-load the FULL .lazy-harness/AGENTS.md grammar into the
     // system prompt every session (OMP/Pi otherwise only load a compact pointer). Deduped by the
     // grammar title marker so it lands once and persists; fail-open to reminder-only on any error.
     let inject = body;
@@ -894,7 +893,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       message_id: packet.messageId,
       working_dir: root,
       recent_tool_calls: recentToolCalls,
-      // jcode-shape parity: on-response-completed helpers walk the assistant response
+      // Canonical response-completed helpers walk the assistant response
       // prose and last user message (e.g. discovery-capture satisfaction #2).
       assistant_response: assistantResponse,
       last_user_message: lastUserMessage,
@@ -912,7 +911,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
       return undefined;
     }
-    // Drive a continuation so the agent addresses the gate (Jcode response.completed M11 parity).
+    // Drive a continuation so the agent addresses the response-completed advisory.
     // Loop-safe on two axes: the SAME unresolved advisory drives at most
     // MAX_ADVISORY_CONTINUATIONS turns, and an alternating sequence of different
     // STOP advisories drives at most MAX_ADVISORY_CHAIN_CONTINUATIONS follow-up

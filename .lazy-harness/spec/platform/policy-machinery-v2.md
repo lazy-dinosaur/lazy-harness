@@ -161,7 +161,7 @@ Source-host status after the first block promotion readiness slice:
 - `lazy policy block-readiness --strict --format=json` passes.
 - `hardStopHookInstalled=false` and `lifecycleMutation=false` remain required until a later lifecycle integration slice.
 - On hosts with a promoted `runtime.mode=command-boundary` policy, block-readiness additionally requires `runtime.commandBoundary.guard` plus the shared helper chained from `on-tool-execute-before.sh`.
-- On hosts with a promoted `runtime.mode=typed-agent-routing` policy, block-readiness additionally requires a non-empty `runtime.typedAgentRouting` route map plus `check-agent-model-routing.py` chained from the shared pre-tool hook.
+- On hosts with a promoted `runtime.mode=typed-agent-routing` policy, block-readiness additionally requires a non-empty `runtime.typedAgentRouting` route map plus a runtime-neutral `check-subagent-model-routing.py` helper chained from the shared pre-tool hook. No such runtime block is installed by default; a future Pi Subagents route requires separate approval and fixtures.
 - These installed structural executors do not change the generic response/turn fields `hardStopHookInstalled=false` and `lifecycleMutation=false`.
 
 ## Dry-run hard-stop runtime helper slice

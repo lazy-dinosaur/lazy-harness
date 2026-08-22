@@ -3,23 +3,52 @@
   "mode": "backlink-index",
   "derived": true,
   "note": "Rebuildable derived index (backlinks are computed from forward links + graph.jsonl mentions; never hand-maintained). Cue-only; fallback: grep -rl <record-path> .lazy-harness/",
-  "generatedAt": "2026-07-05T05:24:05.994Z",
-  "docCount": 230,
-  "targetCount": 215,
+  "generatedAt": "2026-08-22T05:33:21.151Z",
+  "docCount": 264,
+  "targetCount": 248,
   "entries": {
+    ".lazy-harness/behavior/architecture-refactor-flow.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/tests/architecture-guidance.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/behavior/jcode-bounded-followup.md": {
+      "referencedBy": [
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/behavior/jcode-native-ask.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/behavior/llm-owned-record-retrieval.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0042-record-index-cache-naming.md",
         ".lazy-harness/domain/searchable-record-memory.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/graph-cli-rollback-plan.md",
         ".lazy-harness/planning/purpose-scoped-retrieval-implementation-plan.md",
         ".lazy-harness/planning/retrieval-architecture-holistic-review.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
+        ".lazy-harness/spec/platform/pre-response-rule-context.md",
         ".lazy-harness/spec/platform/record-index-header.md",
         ".lazy-harness/spec/platform/retrieval-coverage-audit.md",
         ".lazy-harness/ssot/cli-tool-boundary.md",
         ".lazy-harness/tests/pi-agent-package.md",
+        ".lazy-harness/tests/pre-action-search-evidence-guard.md",
         ".lazy-harness/tests/record-index-header.md",
         ".lazy-harness/tests/retrieval-coverage-audit.md"
       ],
@@ -167,6 +196,7 @@
       "referencedBy": [
         ".lazy-harness/decisions/0014-validations-retention.md",
         ".lazy-harness/decisions/0015-doctor-c16-extend-plan-progress-freshness.md",
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
         ".lazy-harness/planning/scr-601-implementation-map-needs-map.md"
       ],
       "graphRefIds": [
@@ -259,6 +289,7 @@
     },
     ".lazy-harness/decisions/0019-ambiguous-detection-force-gate.md": {
       "referencedBy": [
+        ".lazy-harness/behavior/jcode-native-ask.md",
         ".lazy-harness/decisions/0002-conflict-resolution-protocol.md",
         ".lazy-harness/decisions/0020-tdd-cross-verify-gate-in-5d.md",
         ".lazy-harness/decisions/0035-interview-queue-close-mandate.md",
@@ -414,6 +445,7 @@
         ".lazy-harness/decisions/0028-progressive-knowledge-graph-backbone.md",
         ".lazy-harness/decisions/0033-layer-completeness-gate.md",
         ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/graph-index-migration-considerations.md",
         ".lazy-harness/planning/lazy-harness-v2-evolution-context.md",
         ".lazy-harness/planning/scr-601-implementation-map-needs-map.md",
@@ -453,7 +485,8 @@
     ".lazy-harness/decisions/0033-layer-completeness-gate.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
-        ".lazy-harness/spec/platform/layer-completeness-gate.md"
+        ".lazy-harness/spec/platform/layer-completeness-gate.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md"
       ],
       "graphRefIds": []
     },
@@ -502,7 +535,11 @@
     },
     ".lazy-harness/decisions/0038-requirements-first-change-gate.md": {
       "referencedBy": [
-        ".lazy-harness/decisions/0019-ambiguous-detection-force-gate.md"
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0019-ambiguous-detection-force-gate.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md"
       ],
       "graphRefIds": [
         "kg_requirements_first_gate_adr"
@@ -573,7 +610,6 @@
     ".lazy-harness/decisions/0042-record-index-cache-naming.md": {
       "referencedBy": [
         ".lazy-harness/planning/record-index-parser-cache-migration-plan.md",
-        ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
         ".lazy-harness/spec/platform/record-index-header.md",
         ".lazy-harness/ssot/cli-tool-boundary.md",
@@ -631,6 +667,7 @@
         ".lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md",
         ".lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md",
         ".lazy-harness/spec/platform/policy-machinery-v2.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md",
         ".lazy-harness/ssot/policy-registry.md",
         ".lazy-harness/tests/policy-block-validation-evidence.md",
         ".lazy-harness/tests/policy-machinery-v2.md"
@@ -655,8 +692,13 @@
     ".lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md": {
       "referencedBy": [
         ".lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md",
+        ".lazy-harness/planning/workflow-churn-reduction-plan.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
         ".lazy-harness/spec/platform/response-rule-audit.md",
-        ".lazy-harness/ssot/rule-sources.md"
+        ".lazy-harness/ssot/rule-sources.md",
+        ".lazy-harness/tests/code-organization-profile.md",
+        ".lazy-harness/tests/pi-agent-package.md"
       ],
       "graphRefIds": []
     },
@@ -664,6 +706,7 @@
       "referencedBy": [
         ".lazy-harness/decisions/0052-external-context-extension-non-adoption.md",
         ".lazy-harness/decisions/0053-memory-device-storage-discipline.md",
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
         ".lazy-harness/planning/discovery-vs-loading-followups-20260624.md",
         ".lazy-harness/planning/memory-device-implementation-plan.md",
         ".lazy-harness/spec/platform/purpose-scoped-retrieval.md",
@@ -682,8 +725,11 @@
         ".lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
         ".lazy-harness/decisions/0052-external-context-extension-non-adoption.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
         ".lazy-harness/planning/framework-adr-host-distribution-drift-20260625.md",
         ".lazy-harness/planning/omp-plugin-live-link-fix-20260627.md",
+        ".lazy-harness/spec/platform/graph-hygiene.md",
         ".lazy-harness/spec/platform/jcode-skill-creation.md",
         ".lazy-harness/spec/platform/project-rule-router.md",
         ".lazy-harness/ssot/pi-mcp-parity.md",
@@ -704,6 +750,9 @@
     },
     ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
         ".lazy-harness/planning/jcode-parity-regrounding-followups-20260625.md",
         ".lazy-harness/planning/omp-plugin-live-link-fix-20260627.md"
       ],
@@ -711,6 +760,7 @@
     },
     ".lazy-harness/decisions/0052-external-context-extension-non-adoption.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
         ".lazy-harness/ssot/external-context-extension-policy.md"
       ],
       "graphRefIds": []
@@ -723,6 +773,91 @@
       "graphRefIds": [
         "kg_adr0053_memory_device_discipline"
       ]
+    },
+    ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+        ".lazy-harness/spec/platform/project-profile-v2.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md",
+        ".lazy-harness/tests/architecture-guidance.md",
+        ".lazy-harness/tests/code-organization-profile.md"
+      ],
+      "graphRefIds": [
+        "kg_adr0054_architecture_core_pilot_20260714"
+      ]
+    },
+    ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
+        ".lazy-harness/planning/jcode-multi-project-activation-rollout.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/planning/jcode-runtime-adapter-pilot.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
+        ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md",
+        ".lazy-harness/planning/jcode-multi-project-activation-rollout.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/planning/jcode-decommission-plan.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
+        ".lazy-harness/spec/platform/jcode-typed-review-routing.md",
+        ".lazy-harness/ssot/harness-enforcement-policy.md",
+        ".lazy-harness/ssot/project-identity.md",
+        ".lazy-harness/tests/jcode-decommission.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/domain/architecture-guidance.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/domain/purpose-scoped-retrieval.md": {
       "referencedBy": [
@@ -740,12 +875,16 @@
       "referencedBy": [
         ".lazy-harness/behavior/llm-owned-record-retrieval.md",
         ".lazy-harness/decisions/0042-record-index-cache-naming.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/lazy-harness-v2-direction-purpose.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
+        ".lazy-harness/spec/platform/pre-response-rule-context.md",
         ".lazy-harness/spec/platform/record-index-header.md",
         ".lazy-harness/spec/platform/retrieval-coverage-audit.md",
         ".lazy-harness/ssot/cli-tool-boundary.md",
+        ".lazy-harness/tests/pre-action-search-evidence-guard.md",
+        ".lazy-harness/tests/pre-response-rule-context.md",
         ".lazy-harness/tests/record-index-header.md"
       ],
       "graphRefIds": [
@@ -760,11 +899,29 @@
         "kg_practical_agent_harness_patterns_omo_source"
       ]
     },
+    ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md": {
+      "referencedBy": [
+        ".lazy-harness/spec/platform/implementation-map-standard.md",
+        ".lazy-harness/ssot/implementation-map-storage.md",
+        ".lazy-harness/tests/lazy-sync-dirty-false-positive.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/agent-neutral-orchestration-pilot.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/planning/analysis-discovery-capture-backlog.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
+        ".lazy-harness/planning/workflow-churn-reduction-plan.md",
         ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
-        ".lazy-harness/tests/capture-gate-false-positive.md"
+        ".lazy-harness/spec/platform/pi-agent-package.md",
+        ".lazy-harness/spec/platform/runtime-and-shared-state.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md",
+        ".lazy-harness/tests/parallel-runtime-state-isolation.md"
       ],
       "graphRefIds": [
         "kg_plan_analysis_discovery_capture_backlog"
@@ -787,6 +944,37 @@
       "graphRefIds": [
         "kg_competitive_evaluation_2026_06_doc"
       ]
+    },
+    ".lazy-harness/planning/cross-stack-architecture-guidance.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/planning/lazy-harness-v2-direction-purpose.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/cross-stack-architecture-host-mapping.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/cross-stack-architecture-profiles.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/planning/current-framework-roadmap-snapshot.md": {
       "referencedBy": [
@@ -858,9 +1046,30 @@
       ],
       "graphRefIds": []
     },
+    ".lazy-harness/planning/jcode-decommission-plan.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/planning/jcode-graph-memory-tool-integration.md": {
       "referencedBy": [
         ".lazy-harness/planning/retrieval-architecture-holistic-review.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md"
       ],
       "graphRefIds": []
     },
@@ -870,9 +1079,21 @@
       ],
       "graphRefIds": []
     },
+    ".lazy-harness/planning/jcode-runtime-adapter-pilot.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/planning/lazy-harness-v2-direction-purpose.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
         ".lazy-harness/planning/competitive-evaluation-and-positioning-2026-06.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
         ".lazy-harness/planning/lazy-harness-v2-evolution-context.md",
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
         ".lazy-harness/planning/lazy-harness-v2-roadmap-detailed-review.md",
@@ -987,9 +1208,9 @@
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/planning/capability-registry-implementation-plan.md",
         ".lazy-harness/planning/lifecycle-phase3-readiness-checklist.md",
-        ".lazy-harness/spec/platform/bounded-validation-governor.md",
         ".lazy-harness/spec/platform/fast-validation-tier.md",
-        ".lazy-harness/spec/platform/hook-performance-measurement.md"
+        ".lazy-harness/spec/platform/hook-performance-measurement.md",
+        ".lazy-harness/tests/lifecycle-compare-fidelity.md"
       ],
       "graphRefIds": [
         "kg_performance_optimization_plan"
@@ -1161,6 +1382,27 @@
         "kg_scr602_complete"
       ]
     },
+    ".lazy-harness/planning/unified-project-context-move.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/planning/workflow-churn-reduction-plan.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md",
+        ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md",
+        ".lazy-harness/spec/platform/bounded-validation-governor.md",
+        ".lazy-harness/spec/platform/evidence-capsule-standard.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
+        ".lazy-harness/spec/platform/record-decision-broker.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md",
+        ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md",
+        ".lazy-harness/tests/pi-agent-package.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/plans/north-star-accuracy-and-no-regression.md": {
       "referencedBy": [
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md"
@@ -1233,6 +1475,7 @@
     },
     ".lazy-harness/spec/lazy-sync-drift-detection.md": {
       "referencedBy": [
+        ".lazy-harness/ssot/architecture-guidance-storage.md",
         ".lazy-harness/tests/lazy-sync-dirty-false-positive.md"
       ],
       "graphRefIds": [
@@ -1246,8 +1489,10 @@
     ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0034-analysis-discovery-plan-capture-gate.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
-        ".lazy-harness/spec/platform/record-before-session-history.md"
+        ".lazy-harness/spec/platform/record-before-session-history.md",
+        ".lazy-harness/tests/capture-gate-false-positive.md"
       ],
       "graphRefIds": [
         "kg_manifest_sync_analysis_discovery_capture_gate",
@@ -1263,10 +1508,25 @@
         "kg_antigravity_mcp_pi_bridge_sdd_20260609"
       ]
     },
+    ".lazy-harness/spec/platform/architecture-guidance.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/project-profile-v2.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md",
+        ".lazy-harness/tests/architecture-guidance.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/spec/platform/bounded-validation-governor.md": {
       "referencedBy": [
         ".lazy-harness/planning/performance-optimization-plan.md",
         ".lazy-harness/spec/platform/lazy-cli-entrypoint.md",
+        ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md",
         ".lazy-harness/tests/bounded-validation-governor.md"
       ],
       "graphRefIds": [
@@ -1292,6 +1552,15 @@
         "kg_capability_rulebook_action_fields_20260610"
       ]
     },
+    ".lazy-harness/spec/platform/code-organization-profile.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
+        ".lazy-harness/tests/code-organization-profile.md",
+        ".lazy-harness/tests/pi-agent-package.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/spec/platform/context-tier-manifest.md": {
       "referencedBy": [
         ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md"
@@ -1313,6 +1582,7 @@
     ".lazy-harness/spec/platform/evidence-capsule-standard.md": {
       "referencedBy": [
         ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md",
         ".lazy-harness/tests/evidence-capsule-standard.md"
       ],
       "graphRefIds": [
@@ -1345,9 +1615,13 @@
         ".lazy-harness/planning/project-operating-rulebook-implementation-plan.md",
         ".lazy-harness/planning/project-rule-adaptation-regression-audit-20260610.md",
         ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+        ".lazy-harness/spec/platform/project-command-boundary.md",
         ".lazy-harness/spec/platform/prompt-budget.md",
         ".lazy-harness/ssot/rule-lifecycle.md",
-        ".lazy-harness/tests/guidance-ladder-hard-stop-promotion.md"
+        ".lazy-harness/tests/code-organization-profile.md",
+        ".lazy-harness/tests/guidance-ladder-hard-stop-promotion.md",
+        ".lazy-harness/tests/project-command-boundary.md"
       ],
       "graphRefIds": [
         "kg_phase6_guidance_ladder_manifest_sync",
@@ -1381,6 +1655,7 @@
       "referencedBy": [
         ".lazy-harness/decisions/0027-standalone-source-of-truth-repository.md",
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
         ".lazy-harness/spec/platform/lazy-cli-entrypoint.md",
         ".lazy-harness/spec/platform/package-health-generate-remediation.md",
         ".lazy-harness/spec/platform/runtime-and-shared-state.md",
@@ -1408,6 +1683,7 @@
         ".lazy-harness/decisions/0031-root-bound-record-convergence.md",
         ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md",
         ".lazy-harness/decisions/0033-layer-completeness-gate.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/external-agent-harness-reference.md",
         ".lazy-harness/planning/practical-agent-harness-operating-patterns.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
@@ -1428,6 +1704,22 @@
         "kg_implmap_standard_implements_ownership_boundaries"
       ]
     },
+    ".lazy-harness/spec/platform/jcode-agent-adapter.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md",
+        ".lazy-harness/planning/jcode-multi-project-activation-rollout.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/planning/jcode-runtime-adapter-pilot.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/spec/platform/jcode-skill-creation.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
@@ -1436,6 +1728,13 @@
       "graphRefIds": [
         "kg_sdd_jcode_skill_creation_contract"
       ]
+    },
+    ".lazy-harness/spec/platform/jcode-typed-review-routing.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/tests/jcode-typed-review-routing.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/spec/platform/layer-completeness-gate.md": {
       "referencedBy": [
@@ -1457,6 +1756,7 @@
     },
     ".lazy-harness/spec/platform/option-gate-discipline.md": {
       "referencedBy": [
+        ".lazy-harness/behavior/jcode-native-ask.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
         ".lazy-harness/ssot/gate-fingerprint-state.md",
         ".lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md",
@@ -1481,16 +1781,30 @@
       "referencedBy": [
         ".lazy-harness/decisions/0043-pi-native-package-in-source-repo.md",
         ".lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md",
+        ".lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md",
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md",
         ".lazy-harness/planning/jcode-parity-regrounding-followups-20260625.md",
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
         ".lazy-harness/planning/lazy-harness-v2-roadmap-detailed-review.md",
         ".lazy-harness/planning/omp-plugin-live-link-fix-20260627.md",
         ".lazy-harness/planning/pi-agent-plugin-adapter.md",
         ".lazy-harness/planning/pi-omp-global-bootstrap-project-activation-plan.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
+        ".lazy-harness/planning/workflow-churn-reduction-plan.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
         ".lazy-harness/spec/platform/project-map-v2.md",
-        ".lazy-harness/tests/pi-agent-package.md"
+        ".lazy-harness/ssot/harness-enforcement-policy.md",
+        ".lazy-harness/tests/code-organization-profile.md",
+        ".lazy-harness/tests/jcode-decommission.md",
+        ".lazy-harness/tests/pi-agent-package.md",
+        ".lazy-harness/tests/project-rule-placement-gate-loop.md"
       ],
       "graphRefIds": [
         "kg_omp_phase2_system_prompt_array_spec_20260619",
@@ -1505,8 +1819,13 @@
     ".lazy-harness/spec/platform/policy-machinery-v2.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0046-policy-machinery-typed-policy-canonical.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
         ".lazy-harness/planning/policy-machinery-v2-baseline-gap-audit.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md",
+        ".lazy-harness/spec/platform/project-command-boundary.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md",
         ".lazy-harness/ssot/policy-registry.md",
         ".lazy-harness/tests/policy-block-validation-evidence.md",
         ".lazy-harness/tests/policy-machinery-v2.md"
@@ -1521,6 +1840,7 @@
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md",
         ".lazy-harness/domain/searchable-record-memory.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
         ".lazy-harness/planning/project-operating-rulebook-implementation-plan.md",
         ".lazy-harness/planning/purpose-scoped-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
@@ -1557,6 +1877,15 @@
         "kg_adr0028_storage_contract"
       ]
     },
+    ".lazy-harness/spec/platform/project-command-boundary.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/spec/platform/policy-machinery-v2.md",
+        ".lazy-harness/ssot/harness-enforcement-policy.md",
+        ".lazy-harness/tests/project-command-boundary.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/spec/platform/project-map-update-loop-v2.md": {
       "referencedBy": [
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
@@ -1580,6 +1909,7 @@
         ".lazy-harness/planning/lazy-harness-v2-roadmap-detailed-review.md",
         ".lazy-harness/planning/project-profile-v2-design-review.md",
         ".lazy-harness/plans/project-init-interview-v2-spec.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
         ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
         ".lazy-harness/spec/platform/project-profile-v2.md",
         ".lazy-harness/ssot/project-map-ingestion-sources.md",
@@ -1611,10 +1941,15 @@
     },
     ".lazy-harness/spec/platform/project-profile-v2.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
         ".lazy-harness/planning/project-profile-v2-baseline-gap-audit.md",
         ".lazy-harness/planning/project-profile-v2-design-review.md",
         ".lazy-harness/planning/project-profile-v2-queue-router-implementation-plan.md",
         ".lazy-harness/plans/project-init-interview-v2-spec.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/tests/project-profile-v2.md"
       ],
@@ -1626,6 +1961,7 @@
     ".lazy-harness/spec/platform/project-profile.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0025-portability-single-entry-point.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
         ".lazy-harness/planning/document-resource-ingestion-implementation-plan.md",
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
         ".lazy-harness/planning/workflow-compression-router-plan.md",
@@ -1712,8 +2048,10 @@
     },
     ".lazy-harness/spec/platform/record-decision-broker.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0033-layer-completeness-gate.md",
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
+        ".lazy-harness/spec/platform/record-write-update-policy.md",
         ".lazy-harness/spec/platform/response-rule-audit.md",
         ".lazy-harness/ssot/rule-lifecycle.md",
         ".lazy-harness/tests/record-decision-broker.md"
@@ -1730,6 +2068,7 @@
       "referencedBy": [
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/decisions/0053-memory-device-storage-discipline.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/spec/platform/record-index-header.md",
@@ -1746,7 +2085,6 @@
         ".lazy-harness/domain/searchable-record-memory.md",
         ".lazy-harness/planning/record-index-parser-cache-migration-plan.md",
         ".lazy-harness/planning/retrieval-architecture-holistic-review.md",
-        ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
         ".lazy-harness/spec/platform/retrieval-coverage-audit.md",
         ".lazy-harness/ssot/cli-tool-boundary.md",
@@ -1774,6 +2112,7 @@
     },
     ".lazy-harness/spec/platform/record-write-update-policy.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0033-layer-completeness-gate.md",
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/decisions/0053-memory-device-storage-discipline.md",
         ".lazy-harness/spec/platform/project-rule-router.md",
@@ -1785,6 +2124,7 @@
         ".lazy-harness/tests/project-map-record-storage.md"
       ],
       "graphRefIds": [
+        "kg_primary_canonical_record_policy_20260713",
         "kg_project_map_record_storage_write_policy"
       ]
     },
@@ -1830,6 +2170,7 @@
     ".lazy-harness/spec/platform/retrieval-workflow-benchmark.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0049-discovery-vs-loading-complete-lean-discovery.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md",
         ".lazy-harness/planning/competitive-evaluation-and-positioning-2026-06.md",
         ".lazy-harness/planning/graph-cli-rollback-plan.md",
         ".lazy-harness/planning/retrieval-workflow-benchmark-plan.md",
@@ -1885,13 +2226,16 @@
         ".lazy-harness/decisions/0037-workflow-compression-not-safety-reduction.md",
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
         ".lazy-harness/domain/searchable-record-memory.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md",
         ".lazy-harness/planning/purpose-scoped-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
         ".lazy-harness/plans/prompt-runtime-compression-implementation-plan.md",
         ".lazy-harness/spec/platform/context-tier-manifest.md",
         ".lazy-harness/spec/platform/evidence-capsule-standard.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
         ".lazy-harness/spec/platform/pre-response-rule-context.md",
         ".lazy-harness/spec/platform/project-profile.md",
         ".lazy-harness/spec/platform/prompt-budget.md",
@@ -1916,6 +2260,20 @@
       ],
       "graphRefIds": []
     },
+    ".lazy-harness/ssot/architecture-guidance-storage.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/spec/platform/project-profile-v2.md",
+        ".lazy-harness/tests/architecture-guidance.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/ssot/capability-registry.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0040-capability-registry-kind-level-separation.md",
@@ -1936,7 +2294,6 @@
         ".lazy-harness/spec/platform/project-profile-v2.md",
         ".lazy-harness/tests/capability-registry.md",
         ".lazy-harness/tests/evidence-capsule-standard.md",
-        ".lazy-harness/tests/policy-machinery-v2.md",
         ".lazy-harness/tests/project-operating-rulebook.md"
       ],
       "graphRefIds": [
@@ -1996,9 +2353,11 @@
       "referencedBy": [
         ".lazy-harness/planning/lifecycle-phase3-readiness-checklist.md",
         ".lazy-harness/spec/platform/option-gate-discipline.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
         ".lazy-harness/spec/platform/project-rule-router.md",
         ".lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md",
         ".lazy-harness/tests/bdd-trigger-option-gate-loop.md",
+        ".lazy-harness/tests/pi-agent-package.md",
         ".lazy-harness/tests/project-rule-placement-gate-loop.md"
       ],
       "graphRefIds": [
@@ -2011,15 +2370,24 @@
         ".lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md",
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
         ".lazy-harness/planning/harness-enforcement-restoration-plan.md",
+        ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/planning/jcode-runtime-adapter-pilot.md",
         ".lazy-harness/planning/lazy-harness-v2-roadmap-detailed-review.md",
         ".lazy-harness/planning/organic-hybrid-rule-guidance-plan.md",
         ".lazy-harness/spec/platform/bounded-validation-governor.md",
         ".lazy-harness/spec/platform/fast-validation-tier.md",
         ".lazy-harness/spec/platform/guidance-ladder.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
         ".lazy-harness/spec/platform/response-rule-audit.md",
         ".lazy-harness/spec/platform/rule-binding-action-boundary.md",
         ".lazy-harness/ssot/rule-lifecycle.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md",
+        ".lazy-harness/tests/jcode-decommission.md",
         ".lazy-harness/tests/pre-action-search-evidence-guard.md",
         ".lazy-harness/tests/response-rule-audit.md"
       ],
@@ -2031,6 +2399,7 @@
         ".lazy-harness/decisions/0031-root-bound-record-convergence.md",
         ".lazy-harness/decisions/0032-user-correction-ownership-ssot-convergence.md",
         ".lazy-harness/decisions/0033-layer-completeness-gate.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
         ".lazy-harness/planning/external-agent-harness-reference.md",
         ".lazy-harness/planning/graph-index-migration-considerations.md",
         ".lazy-harness/planning/jcode-graph-memory-tool-integration.md",
@@ -2060,6 +2429,7 @@
       ],
       "graphRefIds": [
         "kg_medivance_dogfood_sync_then_execute_policy",
+        "kg_medivance_product_work_protected_during_harness_sync_20260803",
         "kg_ssot_medivance_dogfood_runtime_policy"
       ]
     },
@@ -2092,6 +2462,7 @@
     ".lazy-harness/ssot/project-identity.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0052-external-context-extension-non-adoption.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
         ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
         ".lazy-harness/planning/competitive-evaluation-and-positioning-2026-06.md",
         ".lazy-harness/planning/external-agent-harness-reference.md",
@@ -2108,6 +2479,7 @@
         ".lazy-harness/ssot/harness-enforcement-policy.md",
         ".lazy-harness/ssot/project-navigation.md",
         ".lazy-harness/ssot/rule-sources.md",
+        ".lazy-harness/tests/architecture-guidance.md",
         ".lazy-harness/tests/lifecycle-compare-fidelity.md"
       ],
       "graphRefIds": [
@@ -2136,6 +2508,7 @@
         ".lazy-harness/spec/platform/project-map-update-loop-v2.md",
         ".lazy-harness/spec/platform/project-map-v2.md",
         ".lazy-harness/spec/platform/record-write-update-policy.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md",
         ".lazy-harness/ssot/project-map-ingestion-sources.md",
         ".lazy-harness/ssot/project-map-taxonomy.md",
         ".lazy-harness/tests/project-map-record-storage.md"
@@ -2180,7 +2553,6 @@
         ".lazy-harness/spec/platform/guidance-ladder.md",
         ".lazy-harness/spec/platform/rule-binding-action-boundary.md",
         ".lazy-harness/tests/guidance-ladder-hard-stop-promotion.md",
-        ".lazy-harness/tests/record-decision-broker.md",
         ".lazy-harness/tests/rule-binding-pr-body-guard.md"
       ],
       "graphRefIds": [
@@ -2198,6 +2570,8 @@
         ".lazy-harness/decisions/0044-project-operating-rulebook.md",
         ".lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md",
         ".lazy-harness/decisions/0052-external-context-extension-non-adoption.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
         ".lazy-harness/planning/jcode-wiring-drift-audit.md",
         ".lazy-harness/planning/lazy-harness-v2-direction-purpose.md",
         ".lazy-harness/planning/operating-rule-storage-apply-repair-20260624.md",
@@ -2209,6 +2583,7 @@
         ".lazy-harness/spec/platform/option-gate-discipline.md",
         ".lazy-harness/spec/platform/project-operating-rulebook.md",
         ".lazy-harness/spec/platform/project-rule-router.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md",
         ".lazy-harness/ssot/cli-tool-boundary.md",
         ".lazy-harness/ssot/external-context-extension-policy.md",
         ".lazy-harness/ssot/harness-enforcement-policy.md",
@@ -2223,8 +2598,15 @@
     ".lazy-harness/ssot/runtime-and-shared-state.md": {
       "referencedBy": [
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
+        ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
         ".lazy-harness/spec/platform/runtime-and-shared-state.md",
-        ".lazy-harness/tests/parallel-runtime-state-isolation.md"
+        ".lazy-harness/tests/capture-gate-false-positive.md",
+        ".lazy-harness/tests/parallel-runtime-state-isolation.md",
+        ".lazy-harness/tests/pi-agent-package.md"
       ],
       "graphRefIds": [
         "kg_ssot_runtime_shared_roots"
@@ -2237,6 +2619,18 @@
       "graphRefIds": [
         "kg_antigravity_mcp_importer_selftest_20260609"
       ]
+    },
+    ".lazy-harness/tests/architecture-guidance.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/architecture-refactor-flow.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/domain/architecture-guidance.md",
+        ".lazy-harness/planning/cross-stack-architecture-host-mapping.md",
+        ".lazy-harness/planning/cross-stack-architecture-profiles.md",
+        ".lazy-harness/spec/platform/architecture-guidance.md",
+        ".lazy-harness/ssot/architecture-guidance-storage.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/tests/bdd-trigger-option-gate-loop-bypass.md": {
       "referencedBy": [
@@ -2259,7 +2653,8 @@
     ".lazy-harness/tests/bounded-validation-governor.md": {
       "referencedBy": [
         ".lazy-harness/planning/performance-optimization-plan.md",
-        ".lazy-harness/spec/platform/bounded-validation-governor.md"
+        ".lazy-harness/spec/platform/bounded-validation-governor.md",
+        ".lazy-harness/ssot/medivance-dogfood-runtime-policy.md"
       ],
       "graphRefIds": [
         "kg_bounded_validation_governor_tdd"
@@ -2279,7 +2674,16 @@
     },
     ".lazy-harness/tests/capture-gate-false-positive.md": {
       "referencedBy": [
-        ".lazy-harness/planning/analysis-discovery-capture-backlog.md"
+        ".lazy-harness/planning/analysis-discovery-capture-backlog.md",
+        ".lazy-harness/planning/workflow-churn-reduction-plan.md",
+        ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/tests/code-organization-profile.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/spec/platform/code-organization-profile.md"
       ],
       "graphRefIds": []
     },
@@ -2316,11 +2720,44 @@
         "kg_phase6_guidance_ladder_tdd"
       ]
     },
+    ".lazy-harness/tests/jcode-agent-adapter.md": {
+      "referencedBy": [
+        ".lazy-harness/behavior/jcode-bounded-followup.md",
+        ".lazy-harness/behavior/jcode-native-ask.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0057-jcode-lazy-patched-channel.md",
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/planning/jcode-lazy-patched-channel-plan.md",
+        ".lazy-harness/planning/jcode-multi-project-activation-rollout.md",
+        ".lazy-harness/planning/jcode-native-lifecycle-parity-plan.md",
+        ".lazy-harness/planning/jcode-runtime-adapter-pilot.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
+        ".lazy-harness/spec/platform/jcode-agent-adapter.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/tests/jcode-decommission.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
+        ".lazy-harness/planning/jcode-decommission-plan.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md",
+        ".lazy-harness/tests/jcode-typed-review-routing.md"
+      ],
+      "graphRefIds": []
+    },
+    ".lazy-harness/tests/jcode-typed-review-routing.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0058-jcode-typed-review-model-routing.md",
+        ".lazy-harness/spec/platform/jcode-typed-review-routing.md"
+      ],
+      "graphRefIds": []
+    },
     ".lazy-harness/tests/lazy-sync-dirty-false-positive.md": {
       "referencedBy": [
         ".lazy-harness/planning/scr-601-implementation-map-needs-map.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
-        ".lazy-harness/spec/lazy-sync-drift-detection.md"
+        ".lazy-harness/spec/lazy-sync-drift-detection.md",
+        ".lazy-harness/tests/architecture-guidance.md"
       ],
       "graphRefIds": [
         "kg_lazy_sync_dirty_false_positive_source",
@@ -2329,6 +2766,7 @@
     },
     ".lazy-harness/tests/lifecycle-compare-fidelity.md": {
       "referencedBy": [
+        ".lazy-harness/planning/performance-optimization-plan.md",
         ".lazy-harness/spec/platform/hook-performance-measurement.md"
       ],
       "graphRefIds": [
@@ -2355,10 +2793,20 @@
       "referencedBy": [
         ".lazy-harness/decisions/0043-pi-native-package-in-source-repo.md",
         ".lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md",
+        ".lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md",
         ".lazy-harness/decisions/0050-pi-omp-only-runtime.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/decisions/0059-pi-primary-jcode-decommission.md",
         ".lazy-harness/planning/pi-agent-plugin-adapter.md",
-        ".lazy-harness/planning/pi-omp-global-bootstrap-project-activation-plan.md"
+        ".lazy-harness/planning/pi-omp-global-bootstrap-project-activation-plan.md",
+        ".lazy-harness/planning/unified-project-context-move.md",
+        ".lazy-harness/planning/workflow-churn-reduction-plan.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
+        ".lazy-harness/spec/platform/runtime-and-shared-state.md",
+        ".lazy-harness/tests/architecture-guidance.md",
+        ".lazy-harness/tests/jcode-agent-adapter.md"
       ],
       "graphRefIds": [
         "kg_pi_omp_move_live_cwd_test_20260623",
@@ -2394,7 +2842,10 @@
       "referencedBy": [
         ".lazy-harness/behavior/llm-owned-record-retrieval.md",
         ".lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md",
+        ".lazy-harness/decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
         ".lazy-harness/domain/searchable-record-memory.md",
+        ".lazy-harness/planning/2026-07-23-framework-implementation-map-drift-handoff.md",
+        ".lazy-harness/planning/agent-neutral-orchestration-pilot.md",
         ".lazy-harness/spec/platform/search-read-debt-contract.md",
         ".lazy-harness/ssot/harness-enforcement-policy.md",
         ".lazy-harness/tests/record-index-header.md"
@@ -2414,6 +2865,14 @@
         "kg_pre_response_tdd_manifest_sync_20260609",
         "kg_purpose_scoped_retrieval_phase5_prompt_test"
       ]
+    },
+    ".lazy-harness/tests/project-command-boundary.md": {
+      "referencedBy": [
+        ".lazy-harness/decisions/0056-multi-runtime-thin-adapters.md",
+        ".lazy-harness/spec/platform/policy-machinery-v2.md",
+        ".lazy-harness/spec/platform/project-command-boundary.md"
+      ],
+      "graphRefIds": []
     },
     ".lazy-harness/tests/project-map-record-storage.md": {
       "referencedBy": [
@@ -2459,13 +2918,15 @@
     },
     ".lazy-harness/tests/project-profile-v2.md": {
       "referencedBy": [
+        ".lazy-harness/decisions/0054-three-layer-cross-stack-architecture-guidance.md",
         ".lazy-harness/planning/lazy-harness-v2-implementation-roadmap.md",
         ".lazy-harness/planning/project-profile-v2-baseline-gap-audit.md",
         ".lazy-harness/planning/project-profile-v2-design-review.md",
         ".lazy-harness/planning/project-profile-v2-queue-router-implementation-plan.md",
         ".lazy-harness/plans/project-init-interview-v2-spec.md",
         ".lazy-harness/spec/platform/project-profile-v2.md",
-        ".lazy-harness/spec/platform/project-profile.md"
+        ".lazy-harness/spec/platform/project-profile.md",
+        ".lazy-harness/tests/architecture-guidance.md"
       ],
       "graphRefIds": [
         "kg_project_profile_v2_promote_candidate_row_tdd",
@@ -2491,8 +2952,10 @@
     ".lazy-harness/tests/project-rule-placement-gate-loop.md": {
       "referencedBy": [
         ".lazy-harness/spec/platform/option-gate-discipline.md",
+        ".lazy-harness/spec/platform/pi-agent-package.md",
         ".lazy-harness/spec/platform/project-rule-router.md",
-        ".lazy-harness/ssot/gate-fingerprint-state.md"
+        ".lazy-harness/ssot/gate-fingerprint-state.md",
+        ".lazy-harness/tests/pi-agent-package.md"
       ],
       "graphRefIds": [
         "kg_tdd_project_rule_placement_gate_loop",
@@ -2533,7 +2996,6 @@
         ".lazy-harness/decisions/0042-record-index-cache-naming.md",
         ".lazy-harness/domain/searchable-record-memory.md",
         ".lazy-harness/planning/record-index-parser-cache-migration-plan.md",
-        ".lazy-harness/planning/searchable-record-context-retrieval-implementation-plan.md",
         ".lazy-harness/planning/searchable-record-context-retrieval-tasks.md",
         ".lazy-harness/spec/platform/record-index-header.md",
         ".lazy-harness/ssot/cli-tool-boundary.md"

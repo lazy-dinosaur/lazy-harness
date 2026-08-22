@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# on-tool-execute-before.sh — lifecycle hook for jcode tool.execute.before event
+# on-tool-execute-before.sh — runtime-neutral lifecycle pre-tool safety hook
 #
 # Triggered: tool.execute.before for all tool calls.
 # Purpose: generic packet-scoped search/read evidence guard. It does not perform
@@ -45,7 +45,6 @@ fi
 for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-destructive-command.py \
   .lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py \
-  .lazy-harness/hooks/lifecycle/helpers/check-agent-model-routing.py \
   .lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py \
   .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py \
   .lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh

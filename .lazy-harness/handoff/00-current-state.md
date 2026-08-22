@@ -5,7 +5,7 @@
 ## 즉시 실행할 것 (다음 세션 시작 시)
 
 1. **framework 개발은 반드시 standalone source repo 에서 시작**:
-   `cd /home/lazydino/dev/lazy-harness && jcode`
+   `cd /home/lazydino/dev/lazy-harness && pi`
 
 2. **수정 후 framework 자체 검증**:
    ```bash
@@ -31,7 +31,7 @@
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | (removed 2026-05-17 — `medivance.experimental-lazy-harness` worktree + branch 모두 삭제) |
 | **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
-| **ADRs** | **58** (0001~0058; 0024 AI-first redesign, 0025 portability single entry point, 0026 doctor/self-test scope separation, 0027 standalone source-of-truth repo, 0028 progressive knowledge graph backbone, 0029 generated project-local Jcode wiring, 0030 implementation map three-layer storage, 0031 root-bound record convergence, 0032 user-correction ownership SSOT convergence, 0033 layer completeness gate, 0034 analysis discovery capture gate, 0035 interview queue close mandate, 0036 record-search trigger by intent not keyword, 0037 workflow compression not safety reduction, 0038 requirements-first change gate, 0039 rule lifecycle bindings, 0040 capability registry kind/level separation, 0041 organic hybrid rule guidance, 0042 record-index cache naming, 0043 Pi native package in source repo, 0044 project operating rulebook, 0045 purpose-scoped retrieval, 0046 policy machinery typed policy canonical, 0047 Pi/OMP shared package separate install UX, 0048 operating-rule storage+apply repair, 0049 discovery-vs-loading complete lean discovery, 0050 Pi/OMP-only runtime supersedes 0006/0007/0029, 0051 jcode-parity grammar re-grounding, 0052 external context-extension non-adoption, 0053 memory-device storage discipline, 0054 three-layer cross-stack architecture guidance, 0055 agent-neutral orchestration core + Pi Subagents runtime, 0056 multi-runtime thin adapters for Pi/OMP/Jcode, 0057 rebase-maintained lazy-patched Jcode channel, 0058 Jcode typed review model routing) |
+| **ADRs** | **59** (0001~0059; ADR 0055 owns agent-neutral orchestration, ADR 0059 makes Pi stable primary, keeps OMP Experimental, and decommissions active Jcode integration while retaining history) |
 | **Decisions logged** | 28+ entries |
 | **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=23, skipped=0)` |
 | **Medivance sync validation** | ✅ `~/dev/medivance`: synced to source `caa2a2b` on 2026-05-20, `lazy-harness self-test ok (scope=host, ran=30, skipped=11)` |
@@ -83,7 +83,7 @@ D. Post-MVP hardening
    - decision consume/effect executor 확장
    - custom test command / Playwright routing beyond v1 package-script fallback
    - aftershock v0 heuristic 을 artifact diff 기반으로 강화
-   - jcode lifecycle hook semantics 문서 최종화
+   - Pi Subagents 기반 bounded evidence orchestration 파일럿
 ```
 
 ## Repository 배치 (현재 기준)

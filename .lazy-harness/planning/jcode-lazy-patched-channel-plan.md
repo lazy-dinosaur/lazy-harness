@@ -1,6 +1,6 @@
 # Planning — Lazy-Patched Jcode Channel
 
-Status: completed
+Status: retired-history
 Date: 2026-08-02
 Layer: Planning
 Primary ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
@@ -8,7 +8,7 @@ Related plan: `.lazy-harness/planning/jcode-native-lifecycle-parity-plan.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: Planning
 - Scope: transient-plan
 - Confidence: high

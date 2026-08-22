@@ -230,47 +230,6 @@ def mirror_first_existing_state(root: Path, payload: dict[str, Any], sandbox_run
     return False, 0
 
 
-def mirror_tool_events(root: Path, payload: dict[str, Any], target: Path, max_lines: int = 400) -> int:
-    """Mirror only current message/session tool events into sandbox.
-
-    `.jcode/hooks/tool-events.jsonl` can contain raw tool payloads. Compare-mode
-    sandbox needs it only for stateful helpers that correlate by message/session
-    id, so copy a bounded filtered subset instead of a wholesale log tail.
-    """
-    source = root / ".jcode" / "hooks" / "tool-events.jsonl"
-    if not source.exists() or not source.is_file():
-        return 0
-    message_id = str(payload.get("message_id") or payload.get("messageId") or "")
-    session_id = str(payload.get("session_id") or payload.get("sessionId") or "")
-    if not message_id and not session_id:
-        return 0
-    matched: list[str] = []
-    try:
-        lines = source.read_text(encoding="utf-8", errors="ignore").splitlines()
-    except Exception:
-        return 0
-    for line in lines[-max_lines:]:
-        _, sep, rest = line.partition(" ")
-        if not sep:
-            continue
-        try:
-            event = json.loads(rest)
-        except Exception:
-            continue
-        if not isinstance(event, dict):
-            continue
-        event_message_id = str(event.get("message_id") or event.get("messageId") or "")
-        event_session_id = str(event.get("session_id") or event.get("sessionId") or "")
-        if message_id and event_message_id != message_id:
-            continue
-        if session_id and event_session_id != session_id:
-            continue
-        matched.append(line)
-    if not matched:
-        return 0
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("\n".join(matched[-max_lines:]) + "\n", encoding="utf-8")
-    return len(matched[-max_lines:])
 
 
 def sandbox_root(root: Path, raw_payload: str) -> tuple[Path, dict[str, str], dict[str, Any]]:
@@ -301,9 +260,6 @@ def sandbox_root(root: Path, raw_payload: str) -> tuple[Path, dict[str, str], di
     for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl"):
         ok, rows = mirror_first_existing_state(root, payload, sandbox_runtime, name, max_lines=400)
         mirrored[name] = {"copied": ok, "rows": rows}
-
-    tool_events_rows = mirror_tool_events(root, payload, tmp / ".jcode" / "hooks" / "tool-events.jsonl", max_lines=400)
-    mirrored[".jcode/hooks/tool-events.jsonl"] = {"copied": tool_events_rows > 0, "rows": tool_events_rows}
 
     context = {
         "runtimeRoot": str(sandbox_runtime),

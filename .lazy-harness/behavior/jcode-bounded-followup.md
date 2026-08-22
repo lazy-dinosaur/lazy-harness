@@ -1,6 +1,7 @@
 # BDD — Jcode Bounded Turn Followup
 
-Status: active-phase3
+Status: retired-history
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-01
 Layer: BDD
 Related ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -10,7 +11,7 @@ Related planning: `.lazy-harness/planning/jcode-native-lifecycle-parity-plan.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: BDD
 - Scope: framework-global
 - Confidence: high

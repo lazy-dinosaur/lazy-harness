@@ -8,7 +8,7 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 9
+- Policy count: 8
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
@@ -17,7 +17,6 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 | `bounded-validation-orchestration` | recommend | turn | advisory-only | Do not validate after each micro-edit. Batch a coherent mutation set, run lazy check at a deliberate checkpoint, run focused or affected validation once per changed-behavior batch when needed, then run one lazy validate --plan standard after the final mutation. Direct lazy test remains explicit fresh full regression or commit/push/release only. |
 | `code-organization-profile` | recommend | edit | advisory-only | Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code. |
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
-| `jcode-typed-review-model-routing` | block | turn | block (typed-agent-routing configured; verify installation with block-readiness) | Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles. |
 | `primary-canonical-record` | recommend | turn | advisory-only | Choose one primary canonical narrative record by default. Promote another layer only for an independent semantic delta; otherwise link it or record no independent delta. Consolidate durable repeated validation detail into one evidence capsule. |
 | `project-operating-rulebook-policy` | discover | turn | advisory-only | When adding or resolving project/team operating behavior policy, keep human-readable rulebook compatibility surfaces and machine-readable capability bindings linked to typed policy records. |
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
@@ -106,34 +105,6 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 - Allowed target levels: discover, recommend, warn
 - Rollback target: discover
   - Co-change checklist proves noisy for changes with no distributed references.
-
-## jcode-typed-review-model-routing
-
-- Title: Route typed Jcode review roles through GPT-5.6 Sol
-- Scope: framework-global
-- Stage: turn
-- Level: block
-- Runtime: block (typed-agent-routing configured; verify installation with block-readiness)
-- Source record: `.lazy-harness/spec/platform/jcode-typed-review-routing.md`
-- Capabilities: jcode-typed-review-model-routing
-- Summary: Use [reviewer] with GPT-5.6 Sol high and [oracle] with GPT-5.6 Sol max. GPT-5.5 is rejected for both typed review roles.
-
-### Applies to
-- spawning_typed_jcode_reviewer
-- spawning_typed_jcode_oracle
-- delegating_high_risk_code_review
-
-### Evidence
-- user-confirmation: User confirmed GPT-5.6 Sol high for normal reviewers and max for Oracle on 2026-08-03.
-- record `.lazy-harness/spec/platform/jcode-typed-review-routing.md`: Portable SDD defines exact typed labels, GPT-5.6 Sol routes, and the promoted structured spawn boundary.
-- validation-output `.lazy-harness/tests/jcode-typed-review-routing.md`: Portable TDD records approved and rejected typed reviewer and Oracle routes.
-
-### Promotion / rollback
-- Requires confirmation: true
-- Allowed target levels: block
-- Rollback target: recommend
-  - Typed label routing blocks valid GPT-5.6 Sol reviewer or Oracle workers.
-  - The structured role convention creates material review-routing ambiguity.
 
 ## primary-canonical-record
 

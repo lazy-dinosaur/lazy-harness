@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# on-response-completed.sh — lifecycle hook for jcode response.completed event
+# on-response-completed.sh — runtime-neutral response lifecycle hook
 # Returns deny text when a lifecycle helper requires a human gate.
 
 set +e

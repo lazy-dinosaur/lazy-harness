@@ -1,6 +1,7 @@
 # ADR 0057 — Rebase-Maintained Lazy-Patched Jcode Channel
 
-Status: accepted
+Status: retired
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-02
 Layer: ADR
 Related ADR: `.lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md`, `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -9,7 +10,7 @@ Related planning: `.lazy-harness/planning/jcode-lazy-patched-channel-plan.md`, `
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: ADR
 - Scope: framework-global
 - Confidence: high

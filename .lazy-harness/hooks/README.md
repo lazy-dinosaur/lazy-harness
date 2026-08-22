@@ -10,8 +10,7 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 | Git post-commit | `.lazy-harness/hooks/post-commit.sh` | Append action log metadata and regression hints. |
 | Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run full `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
-| Jcode response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end force gates and continuation reminders. |
-| Jcode disconnect lifecycle | `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` | Session cleanup/snapshot hook. |
+| Runtime response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end audits and bounded continuation reminders transported by Pi/OMP. |
 
 ## Development-time vs commit-time enforcement
 
@@ -44,7 +43,7 @@ record/source/test evidence (SSOT cli-tool-boundary; ADR 0041).
 9. `check-fix-regression.sh`
 10. `check-adr-sync.sh`
 
-A helper should stay silent when clean. If it emits a force-gate message, jcode injects that reason into a later continuation turn and the agent must handle it.
+A helper should stay silent when clean. If it emits a force-gate message, the Pi/OMP adapter may deliver one bounded follow-up so the agent handles it.
 
 ## Audit/read-only mode
 
@@ -62,5 +61,5 @@ or run helpers with dry-run semantics when available. This prevents response lif
 
 - Current operational gate: `.lazy-harness/bin/lazy test` and `.lazy-harness/bin/lazy doctor --profile smoke`.
 - Current boundary: CLI helpers are explicit tools only; no automatic route telemetry.
-- Jcode is a wrapper/tooling layer; framework-owned checks live in `.lazy-harness` (ADR 0022).
+- Pi is the stable primary adapter; OMP remains Experimental. Framework-owned checks live in `.lazy-harness` (ADR 0022/0059).
 - Empty-container tolerance still applies to future hook registries, but this README is no longer intentionally empty.

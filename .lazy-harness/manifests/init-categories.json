@@ -716,26 +716,44 @@
         {
           "path": "decisions/0050-pi-omp-only-runtime.md",
           "kind": "file",
-          "description": "Superseded operational ADR retained as the history of generated Jcode directory-bridge removal; ADR 0056 now owns the active multi-runtime support boundary.",
+          "description": "Historical Pi/OMP-only decommission precedent retained for ADR 0059 chronology.",
           "targetPath": "framework/operational-adrs/0050-pi-omp-only-runtime.md"
         },
         {
           "path": "decisions/0051-jcode-parity-grammar-regrounding.md",
           "kind": "file",
-          "description": "Operational framework ADR referenced by the pi-agent-package SDD: jcode-parity grammar re-grounding (load_harness_dir replacement). Synced under framework/operational-adrs so host decisions/ remains host-owned.",
+          "description": "Operational grounding ADR retained for its runtime-neutral Pi/OMP grammar and re-grounding decisions.",
           "targetPath": "framework/operational-adrs/0051-jcode-parity-grammar-regrounding.md"
+        },
+        {
+          "path": "decisions/0055-agent-neutral-orchestration-core-pi-runtime.md",
+          "kind": "file",
+          "description": "Advisory operational ADR for agent-neutral orchestration with Pi Subagents as the first execution runtime.",
+          "targetPath": "framework/operational-adrs/0055-agent-neutral-orchestration-core-pi-runtime.md"
         },
         {
           "path": "decisions/0056-multi-runtime-thin-adapters.md",
           "kind": "file",
-          "description": "Operational framework ADR for separate Pi/OMP/Jcode thin adapters over the canonical lazy-harness core; synced so Jcode adapter SDD/TDD references resolve on hosts.",
+          "description": "Superseded historical ADR for the former Pi/OMP/Jcode thin-adapter support boundary.",
           "targetPath": "framework/operational-adrs/0056-multi-runtime-thin-adapters.md"
         },
         {
           "path": "decisions/0057-jcode-lazy-patched-channel.md",
           "kind": "file",
-          "description": "Operational framework ADR for the rebase-maintained lazy-patched Jcode channel and trusted-root harness precedence; synced so adapter and runtime records resolve on hosts.",
+          "description": "Retired historical ADR for the former lazy-patched Jcode channel.",
           "targetPath": "framework/operational-adrs/0057-jcode-lazy-patched-channel.md"
+        },
+        {
+          "path": "decisions/0058-jcode-typed-review-model-routing.md",
+          "kind": "file",
+          "description": "Retired historical ADR for former Jcode typed review routing.",
+          "targetPath": "framework/operational-adrs/0058-jcode-typed-review-model-routing.md"
+        },
+        {
+          "path": "decisions/0059-pi-primary-jcode-decommission.md",
+          "kind": "file",
+          "description": "Active operational ADR: Pi stable primary, OMP Experimental, Jcode integration decommissioned while runtime-neutral improvements remain.",
+          "targetPath": "framework/operational-adrs/0059-pi-primary-jcode-decommission.md"
         },
         {
           "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
@@ -790,6 +808,12 @@
           "kind": "file",
           "description": "Operational framework ADR referenced by synced spec (purpose-scoped-retrieval, record-index-header): discovery vs loading. Synced under framework/operational-adrs so host decisions/ remains host-owned.",
           "targetPath": "framework/operational-adrs/0049-discovery-vs-loading-complete-lean-discovery.md"
+        },
+        {
+          "path": "decisions/0052-external-context-extension-non-adoption.md",
+          "kind": "file",
+          "description": "Operational ADR referenced by agent-neutral orchestration: external context compression or memory extensions are not adopted as competing authority by default.",
+          "targetPath": "framework/operational-adrs/0052-external-context-extension-non-adoption.md"
         },
         {
           "path": "decisions/0053-memory-device-storage-discipline.md",
@@ -851,9 +875,34 @@
           "description": "TDD fixtures for the regression gate reader (spaced entry satisfies; candidates do not) and lazy regression add/lint validation."
         },
         {
+          "path": "behavior/jcode-bounded-followup.md",
+          "kind": "file",
+          "description": "Retired historical BDD for the former Jcode bounded follow-up behavior."
+        },
+        {
+          "path": "behavior/jcode-native-ask.md",
+          "kind": "file",
+          "description": "Retired historical BDD for the former Jcode native ask behavior."
+        },
+        {
+          "path": "spec/platform/jcode-agent-adapter.md",
+          "kind": "file",
+          "description": "Deprecated historical SDD for the former Jcode adapter; synced to retire stale active host copies."
+        },
+        {
           "path": "spec/platform/jcode-typed-review-routing.md",
           "kind": "file",
-          "description": "Portable SDD sourceRecord for the GPT-5.6 Sol typed reviewer high and Oracle max block policy."
+          "description": "Deprecated historical SDD for former typed Jcode review routing; synced to retire stale active host copies."
+        },
+        {
+          "path": "tests/jcode-agent-adapter.md",
+          "kind": "file",
+          "description": "Retired historical TDD for the former Jcode adapter; synced to retire stale active host copies."
+        },
+        {
+          "path": "tests/jcode-typed-review-routing.md",
+          "kind": "file",
+          "description": "Retired historical TDD for former typed Jcode review routing; synced to retire stale active host copies."
         },
         {
           "path": "spec/platform/project-command-boundary.md",
@@ -861,9 +910,9 @@
           "description": "SDD contract for the runtime-neutral pre-tool executor of explicitly promoted host structural command policies."
         },
         {
-          "path": "tests/jcode-typed-review-routing.md",
+          "path": "tests/jcode-decommission.md",
           "kind": "file",
-          "description": "Portable TDD fixture dependency for the typed Jcode review routing block policy."
+          "description": "TDD contract proving Jcode integration is absent while Pi/OMP runtime-neutral behavior remains protected."
         },
         {
           "path": "tests/project-command-boundary.md",

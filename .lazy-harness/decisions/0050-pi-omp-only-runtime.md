@@ -76,7 +76,7 @@ Phase 2 (executed 2026-06-25 — user-confirmed clean cutover):
 
 Preserved as history (deprecate, do not delete):
 
-- ADR 0006/0007/0029 (superseded); `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), `.lazy-harness/JCODE-INTEGRATION.md`, and historical jcode mentions in planning/retrospective records describe the former jcode wiring and are left intact as decision history.
+- ADR 0006/0007/0029 (superseded), `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), and historical Jcode mentions in planning/retrospective records remain as decision history; the former integration guide was removed by ADR 0059.
 
 ## Consequences
 
@@ -97,7 +97,7 @@ Preserved as history (deprecate, do not delete):
   - `.jcode/**` (deleted); `jcode-skill-install` post-init action; `--skip-jcode` flag; 10 `check_jcode_*` self-tests
   - Phase 2 (2026-06-25): `.lazy-harness/scripts/jcode-wiring.ts` and `.lazy-harness/scripts/skill-create.ts` deleted; `lazy skill create` dispatcher removed from `.lazy-harness/bin/lazy`; `jcode-local` Scope enum renamed `local-only`
 - Retained as deprecated history:
-  - `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), `.lazy-harness/JCODE-INTEGRATION.md`, ADR 0006/0007/0029, and historical planning jcode mentions
+  - `.lazy-harness/spec/platform/jcode-skill-creation.md` (deprecated), ADR 0006/0007/0029, and historical planning Jcode mentions
 - Tests / protection:
   - `.lazy-harness/scripts/self-test.py` - `check_destructive_command_block` plus Pi package contract; jcode checks removed
 - Cross-layer links:

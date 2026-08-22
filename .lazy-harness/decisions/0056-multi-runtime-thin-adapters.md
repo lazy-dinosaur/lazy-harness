@@ -1,6 +1,7 @@
 # ADR 0056 — Multi-Runtime Thin Adapters for Pi, OMP, and Jcode
 
-Status: accepted
+Status: superseded
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-01
 Layer: ADR
 Supersedes: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`
@@ -11,7 +12,7 @@ Related ADR: `.lazy-harness/decisions/0057-jcode-lazy-patched-channel.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: ADR
 - Scope: framework-global
 - Confidence: high

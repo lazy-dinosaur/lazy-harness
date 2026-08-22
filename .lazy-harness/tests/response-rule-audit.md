@@ -19,7 +19,7 @@ Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 - Must:
   - write sanitized journal/debt rows (paths/titles/bullets/hashes), never raw user text or raw record bullets
   - emit advisory (not STOP) when a correlated search/read-debt packet lacks root-bound evidence; stay silent once evidenced
-  - keep packet/tool-events matching message- and session-scoped and respect epoch ordering
+  - keep packet matching message- and session-scoped and respect epoch ordering
   - sync this TDD fixture via `init-categories.json` and keep runtime surfaces host-agnostic
 - Must not:
   - require concrete tool/Figma adapter names or downstream host/product aliases in runtime/generator/fixtures
@@ -50,9 +50,6 @@ Regression fixtures cover:
 11. Pre-action search-debt permit blocks action tools when a correlated self-resolve packet has fallback searches but no prior root-bound search evidence.
 12. Search-debt permit stays silent for search tools, explicit searcher handoff, and action after search evidence exists.
 13. Response audit emits advisory whenever a correlated search-debt packet reaches response.completed without root-bound search evidence, and stays silent when search evidence exists.
-14. Read/search evidence can come from `.jcode/hooks/tool-events.jsonl` when lifecycle `recent_tool_calls` omits prior Read/Search calls; this prevents false-positive action blocks after the agent already satisfied requiredRead/search-debt.
-15. Tool-events fallback must not accept same-session events from a different message when current `message_id` is present.
-16. Tool-events fallback must not accept evidence older than the correlated search/read-debt row epoch.
 17. Packet journal matching must not accept a same-session packet from a different message when current `message_id` is present.
 18. Packet journal matching must not accept a same-message packet from a different session when current `session_id` is present.
 19. Category A sync manifest must include `.lazy-harness/tests/response-rule-audit.md` so host self-tests carry the response audit TDD fixture, not only the SDD contract.
@@ -83,8 +80,6 @@ Regression fixtures cover:
   6. Test writes a manual harness-enforcement journal row and checks record-completion miss vs captured cases.
   8. Test runs `check-read-debt-permit.py` against packet evidence for read-debt action-block, read-allow, satisfied-action silence, and mixed batch block cases.
   9. Test runs `check-read-debt-permit.py` against packet evidence for search-debt action-block, search-tool allow, searcher handoff allow, and satisfied-action silence cases.
-  10. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with empty lifecycle `recent_tool_calls` plus same-message/session `.jcode/hooks/tool-events.jsonl` Read/Search events to prevent the false-positive reported on 2026-06-01.
-  11. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message events and pre-packet events to prevent over-accepting stale evidence.
   12. Test runs `check-read-debt-permit.py` and `check-response-rule-audit.py` with same-session/different-message packets and same-message/different-session packets to prevent parallel session/turn packet contamination.
   13. Test runs `check-response-rule-audit.py` against packet evidence for no-mutation, missing-read/search advisory, satisfied-read/search silence, and uncorrelated silence cases.
   14. `check_response_rule_audit_from_surfaced_digest` asserts both this TDD record exists in source and `init-categories.json` syncs `tests/response-rule-audit.md` to hosts.

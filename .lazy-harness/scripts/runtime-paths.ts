@@ -22,7 +22,7 @@ export function hostRoot(explicit?: string): string {
 }
 
 export function sessionKey(sessionId?: string): string {
-  const raw = sessionId || process.env.LAZY_SESSION_ID || process.env.JCODE_SESSION_ID || process.env.JCODE_SESSION || ''
+  const raw = sessionId || process.env.LAZY_SESSION_ID || ''
   const trimmed = String(raw || '').trim()
   if (!trimmed) return 'default'
   return `session-${stableHash(trimmed, 20)}`

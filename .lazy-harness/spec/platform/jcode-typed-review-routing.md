@@ -1,13 +1,14 @@
 # SDD — Jcode Typed Review Routing
 
-Status: accepted
+Status: deprecated-history
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-04
 Layer: SDD
 Related TDD: `.lazy-harness/tests/jcode-typed-review-routing.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: SDD
 - Scope: framework-global
 - Confidence: high

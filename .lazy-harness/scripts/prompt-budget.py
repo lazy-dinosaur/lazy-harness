@@ -27,7 +27,6 @@ SYNTHETIC_MESSAGE = "__lazy_prompt_budget_fixture_message__"
 DEFAULT_BUDGETS = {
     "messageReceived": {"targetMinTokens": 100, "targetMaxTokens": 300, "hardMaxTokens": 600, "transitionHardMaxTokens": 800},
     "lazyAgents": {"targetMaxLines": 140, "hardMaxLines": 200, "transitionHardMaxLines": 220},
-    "jcodeHarness05": {"targetMaxLines": 80, "hardMaxLines": 80, "transitionHardMaxLines": 220},
     "skillPrompt": {"targetMaxLines": 120, "hardMaxLines": 160, "transitionHardMaxLines": 200},
 }
 
@@ -116,12 +115,7 @@ def collect_file_surfaces(root: pathlib.Path) -> list[dict[str, Any]]:
         (root / ".lazy-harness" / "AGENTS.md", "lazy-agents", "lazyAgents"),
         (root / "AGENTS.md", "root-agents", None),
     ]
-    jcode_harness = root / ".jcode" / "harness"
-    if jcode_harness.is_dir():
-        for path in sorted(jcode_harness.glob("*.md")):
-            key = "jcodeHarness05" if path.name == "05-lazy-harness.md" else None
-            candidates.append((path, "jcode-harness", key))
-    for base in [root / ".jcode" / "skills", root / ".lazy-harness" / "skills"]:
+    for base in [root / ".lazy-harness" / "skills"]:
         if base.is_dir():
             for path in sorted(base.rglob("SKILL.md")):
                 candidates.append((path, "skill-prompt", "skillPrompt"))
@@ -217,25 +211,7 @@ def normalized_blocks(text: str, *, min_lines: int = 4) -> list[str]:
 
 
 def find_duplicate_blocks(root: pathlib.Path) -> list[dict[str, Any]]:
-    primary = root / ".lazy-harness" / "AGENTS.md"
-    local = root / ".jcode" / "harness" / "05-lazy-harness.md"
-    if not primary.exists() or not local.exists():
-        return []
-    primary_text = primary.read_text(encoding="utf-8", errors="replace")
-    local_text = local.read_text(encoding="utf-8", errors="replace")
-    local_blocks = set(normalized_blocks(local_text))
-    duplicates: list[dict[str, Any]] = []
-    for block in normalized_blocks(primary_text):
-        if block in local_blocks:
-            digest = hashlib.sha256(block.encode("utf-8", errors="replace")).hexdigest()[:16]
-            duplicates.append({
-                "hash": digest,
-                "lineCount": len(block.splitlines()),
-                "preview": block.splitlines()[0][:120],
-                "paths": [".lazy-harness/AGENTS.md", ".jcode/harness/05-lazy-harness.md"],
-            })
-    duplicates.sort(key=lambda row: (-int(row["lineCount"]), row["hash"]))
-    return duplicates[:20]
+    return []
 
 
 def build_report(root: pathlib.Path, transition_message_tokens: int) -> dict[str, Any]:
@@ -251,8 +227,6 @@ def build_report(root: pathlib.Path, transition_message_tokens: int) -> dict[str
         "Generated measurements are non-canonical and should be used as regression evidence only.",
         "Skill prompts are measured as on-demand assets; oversized skill prompts are advisory warnings, not hard failures.",
     ]
-    if duplicates:
-        notes.append("Duplicate grammar blocks detected between .lazy-harness/AGENTS.md and .jcode/harness/05-lazy-harness.md.")
     return {
         "schemaVersion": SCHEMA_VERSION,
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

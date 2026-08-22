@@ -1,13 +1,14 @@
 # TDD — Jcode Typed Review Routing
 
-Status: accepted
+Status: retired-history
+Superseded by: `.lazy-harness/tests/jcode-decommission.md`
 Date: 2026-08-04
 Layer: TDD
 Related SDD: `.lazy-harness/spec/platform/jcode-typed-review-routing.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: TDD
 - Scope: framework-global
 - Confidence: high

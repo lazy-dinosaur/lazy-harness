@@ -2,7 +2,7 @@
 """Framework-owned Lazy-Harness doctor.
 
 ADR 0022 boundary:
-- Jcode may wrap this command, but operational checks live in .lazy-harness.
+- Pi/OMP may wrap this command, but operational checks live in .lazy-harness.
 - `.lazy-harness/bin/lazy test` is the primary reproducible gate and calls the scope-aware self-test.
 
 ADR 0026 scope separation:

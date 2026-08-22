@@ -1,6 +1,6 @@
 # Custom Jcode Skill Creation Backlog
 
-Status: accepted
+Status: cancelled-by-ADR-0059
 Date: 2026-05-15
 Related SDD: `.lazy-harness/spec/platform/jcode-skill-creation.md`
 

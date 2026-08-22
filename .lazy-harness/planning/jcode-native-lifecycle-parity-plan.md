@@ -1,6 +1,6 @@
 # Planning — Jcode Native Lifecycle Parity Primitives
 
-Status: approved-in-progress
+Status: cancelled-by-ADR-0059
 Date: 2026-08-01
 Layer: Planning
 Primary ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -10,7 +10,7 @@ Related candidate: `candidate-jcode-native-lifecycle-parity-primitives-20260801T
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: Planning
 - Scope: transient-plan
 - Confidence: high

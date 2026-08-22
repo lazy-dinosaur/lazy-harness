@@ -2,7 +2,7 @@
 
 Framework-owned verification scripts (ADR 0022).
 
-Jcode may wrap these commands, but operational validation lives here.
+Pi/OMP wrappers may call these commands, but operational validation lives here.
 
 ## Commands
 

@@ -31,7 +31,6 @@ import {
 import { join, dirname, resolve, relative } from 'node:path'
 import { execSync, spawnSync } from 'node:child_process'
 import { appendJsonlStable } from './runtime-paths.ts'
-import { isTrustedRoot } from './jcode-trust.ts'
 import { shouldIncludeManifestPath } from './manifest-path-matcher.ts'
 
 // ─────────────────────────────────────────────────────────────
@@ -434,6 +433,12 @@ const KNOWN_REMOVED_MANAGED_FILES = [
   `.lazy-harness/tests/${removedName('relevant', '-record-query-cli-equals-flags.md')}`,
   '.lazy-harness/fixtures/task-router/cases.json',
   `.lazy-harness/scripts/${removedName('jcode', '-wiring.ts')}`,
+  '.lazy-harness/scripts/jcode-adapter.ts',
+  '.lazy-harness/scripts/jcode-package.ts',
+  '.lazy-harness/scripts/jcode-trust.ts',
+  '.lazy-harness/scripts/jcode-local-config.ts',
+  '.lazy-harness/hooks/lifecycle/helpers/check-agent-model-routing.py',
+  '.lazy-harness/JCODE-INTEGRATION.md',
   `.lazy-harness/scripts/${removedName('skill', '-create.ts')}`,
   '.lazy-harness/spec/platform/graph-explain.md',
   '.lazy-harness/spec/platform/graph-path.md',
@@ -483,8 +488,6 @@ function syncCategoryA(
   for (const item of items) {
     if (
       item.path === 'AGENTS.md' ||
-      item.path === 'JCODE-INTEGRATION.md' ||
-      item.path === 'README.md' ||
       item.kind === 'file'
     ) {
       const src = join(sourceLazy, item.path)
@@ -619,21 +622,16 @@ function updateMarker(sourceRoot: string, targetRoot: string): void {
   log(`  ✓ marker updated → ${sha.slice(0, 12)}`)
 }
 
-function reconcileAgentActivation(targetRoot: string): 'repaired' | 'dry-run' | 'activation-required' {
-  if (!isTrustedRoot(targetRoot)) {
-    log(`  ⊘ Jcode root remains untrusted; activate explicitly:`)
-    log(`    ${join(targetRoot, '.lazy-harness', 'bin', 'lazy')} agent activate --target ${targetRoot}`)
-    return 'activation-required'
-  }
+function reconcileAgentActivation(targetRoot: string): 'repaired' | 'dry-run' {
   const lazy = join(targetRoot, '.lazy-harness', 'bin', 'lazy')
   const argv = ['agent', 'activate', '--target', targetRoot, '--format=json']
   if (DRY) argv.push('--dry-run')
   const result = spawnSync(lazy, argv, { encoding: 'utf8', env: process.env })
   if (result.status !== 0) {
     const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`
-    throw new Error(`trusted-root activation repair failed: ${detail}`)
+    throw new Error(`Pi/OMP activation repair failed: ${detail}`)
   }
-  log(`  ✓ trusted Pi/OMP/Jcode activation ${DRY ? 'checked' : 'repaired'}`)
+  log(`  ✓ Pi/OMP activation ${DRY ? 'checked' : 'repaired'} (Pi stable, OMP Experimental)`)
   return DRY ? 'dry-run' : 'repaired'
 }
 
@@ -707,7 +705,7 @@ function main(): void {
   result.updated += removeKnownRemovedManagedFiles(sourceRoot, targetRoot)
 
   log('\n[Activation]')
-  let activation: 'repaired' | 'dry-run' | 'activation-required'
+  let activation: 'repaired' | 'dry-run' = DRY ? 'dry-run' : 'repaired'
   try {
     activation = reconcileAgentActivation(targetRoot)
   } catch (error) {
@@ -715,7 +713,7 @@ function main(): void {
     process.exit(3)
   }
 
-  // Publish the synced marker only after trusted activation repair succeeds.
+  // Publish the synced marker only after Pi/OMP activation repair succeeds.
   log('\n[Marker]')
   updateMarker(sourceRoot, targetRoot)
 

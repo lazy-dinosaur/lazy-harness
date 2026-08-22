@@ -125,18 +125,18 @@ Required standard:
 - Primary files:
   - `.lazy-harness/ssot/rule-sources.md` — this SSOT placement registry.
   - `.lazy-harness/spec/platform/project-rule-router.md` — SDD operating standard.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — response-completed guard, including Jcode memory misuse detection.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh` — response-completed guard, including runtime-local memory/transport misuse detection.
   - `.lazy-harness/scripts/self-test.py` — helper tests and AGENTS invariant.
   - `.lazy-harness/AGENTS.md` — concise grammar pointer.
 - Key symbols:
   - `Rule placement` judgement — completion signal for routing.
-  - `memory forget` — required cleanup when a project/team rule is mistakenly stored in Jcode memory.
+  - runtime memory cleanup — required when a project/team rule is mistakenly stored in non-canonical personal/runtime memory.
   - `check_project_rule_placement_helper` (`.lazy-harness/scripts/self-test.py`) — fixture coverage.
 - Flow:
   1. User or analysis introduces a rule/correction/workflow policy.
   2. Agent reads this registry and project identity.
   3. Agent writes the correct `.lazy-harness` record; the Pi/OMP local note receives only a pointer unless the rule is explicitly `local-only`.
-  4. If the rule was placed in Jcode memory, agent forgets that memory and records the canonical `.lazy-harness` source.
+  4. If the rule was placed in runtime-local memory, agent removes it there and records the canonical `.lazy-harness` source.
   5. Ambiguity triggers the option gate.
 - Tests / protection:
   - `python3 .lazy-harness/scripts/self-test.py`

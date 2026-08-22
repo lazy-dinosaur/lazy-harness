@@ -1,6 +1,7 @@
 # SDD — Jcode Agent Adapter
 
-Status: active-phase3
+Status: deprecated-history
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-01
 Layer: SDD
 Related ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -9,7 +10,7 @@ Related planning: `.lazy-harness/planning/jcode-runtime-adapter-pilot.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: SDD
 - Scope: framework-global
 - Confidence: high

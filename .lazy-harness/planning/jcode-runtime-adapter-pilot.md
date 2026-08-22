@@ -1,6 +1,6 @@
 # Planning — Jcode Runtime Adapter Pilot
 
-Status: in-progress
+Status: cancelled-by-ADR-0059
 Date: 2026-08-01
 Layer: Planning
 Primary ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -9,7 +9,7 @@ Related TDD: `.lazy-harness/tests/jcode-agent-adapter.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: Planning
 - Scope: transient-plan
 - Confidence: high

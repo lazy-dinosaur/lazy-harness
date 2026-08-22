@@ -111,12 +111,12 @@ Options:
   --force           Overwrite existing .lazy-harness/
   --skip-hooks      Don't wire git pre-commit hook
   --skip-agent-activation
-                    Install framework files without activating Pi/OMP/Jcode for this root
+                    Install framework files without activating Pi/OMP for this root
   --quiet           Suppress per-file logs
 
   0 success | 1 validation | 2 conflict | 3 io
 
-By default, successful init activates Pi/OMP/Jcode for the explicit target.`)
+By default, successful init activates Pi (stable) and OMP (Experimental) for the explicit target.`)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -329,8 +329,8 @@ function copyCategoryA(
   log('\n[Category A] Framework 본체 copy')
 
   for (const item of items) {
-    // Top-level files (AGENTS.md, JCODE-INTEGRATION.md, README.md)
-    if (item.path === 'AGENTS.md' || item.path === 'JCODE-INTEGRATION.md' || item.path === 'README.md') {
+    // Top-level framework files
+    if (item.path === 'AGENTS.md' || item.path === 'README.md') {
       const src = join(sourceLazy, item.path)
       const dest = join(targetLazy, item.targetPath ?? item.path)
       if (existsSync(src)) {
@@ -621,7 +621,7 @@ function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPat
 
 function postInitAgentActivation(sourceRoot: string, targetRoot: string, args: Args): 'activated' | 'dry-run' | 'skipped' {
   if (args.skipAgentActivation) {
-    log('  ⊘ skipped: unified Pi/OMP/Jcode activation (--skip-agent-activation)')
+    log('  ⊘ skipped: Pi/OMP activation (--skip-agent-activation)')
     return 'skipped'
   }
   if (resolve(sourceRoot) === resolve(targetRoot)) {
@@ -631,7 +631,7 @@ function postInitAgentActivation(sourceRoot: string, targetRoot: string, args: A
   const lazy = join(sourceRoot, '.lazy-harness', 'bin', 'lazy')
   const command = [lazy, 'agent', 'activate', '--target', targetRoot, '--format=json']
   if (args.dryRun) {
-    log(`  [dry] would activate Pi/OMP/Jcode: ${command.join(' ')} --dry-run`)
+    log(`  [dry] would activate Pi/OMP: ${command.join(' ')} --dry-run`)
     return 'dry-run'
   }
   const result = spawnSync(command[0], command.slice(1), { encoding: 'utf8', env: process.env })
@@ -639,7 +639,7 @@ function postInitAgentActivation(sourceRoot: string, targetRoot: string, args: A
     const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`
     throw new Error(`unified agent activation failed: ${detail}`)
   }
-  log('  ✓ unified Pi/OMP/Jcode activation complete')
+  log('  ✓ Pi/OMP activation complete (Pi stable, OMP Experimental)')
   return 'activated'
 }
 
@@ -693,7 +693,7 @@ function main(): void {
     }
   }
 
-  let activation: 'activated' | 'dry-run' | 'skipped'
+  let activation: 'activated' | 'dry-run' | 'skipped' = 'skipped'
   try {
     activation = postInitAgentActivation(sourceRoot, targetRoot, args)
   } catch (error) {

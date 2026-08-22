@@ -109,7 +109,7 @@ Only explicit Git invocations are inspected. Text passed to `echo`, documentatio
 - Status: `implemented-focused-validation-passed`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py` — load promoted host policies, parse explicit shell segments, enforce the supported structural guard, and run read-only merge-tree preflight.
-  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — shared Pi/OMP/Jcode deny chain.
+  - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — shared Pi/OMP deny chain.
   - `.lazy-harness/scripts/self-test.py#check_project_command_boundary` — block, allow, policy-demotion rollback, runtime-alias, newline, redirection, merge-mainline, clean-preflight, and conflict-preflight fixture.
   - `.lazy-harness/manifests/init-categories.json` — distributes the helper through the existing lifecycle-helper glob and this SDD/TDD contract as framework assets.
 - Key symbols:

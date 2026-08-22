@@ -1,6 +1,6 @@
 # Jcode Wiring Drift Audit — Medivance dogfood host
 
-Status: discovered
+Status: retired-history
 Date: 2026-05-24
 Scope: transient-plan
 Related ADR: `.lazy-harness/decisions/0029-generated-project-local-jcode-wiring.md`

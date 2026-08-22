@@ -1,12 +1,13 @@
 # ADR 0058 — Jcode Typed Review Model Routing
 
-Status: accepted
+Status: retired
+Superseded by: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 Date: 2026-08-03
 Layer: ADR
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: ADR
 - Scope: framework-global
 - Confidence: high

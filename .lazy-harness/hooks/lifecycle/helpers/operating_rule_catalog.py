@@ -33,7 +33,7 @@ HEADER = (
     "resolve only the single immediate matching intent when needed "
     "(`.lazy-harness/bin/lazy capability resolve --intent <intent>` / `lazy rules resolve`). "
     "If resolved source-work guidance is already shown, follow it without rerunning the resolver "
-    "(jcode parity: stored project rules surface before action; AGENTS §2.4/§2.5):"
+    "(stored project rules surface before action; AGENTS §2.4/§2.5):"
 )
 RESOLVED_HEADER = (
     "- Resolved source-work guidance for THIS project "

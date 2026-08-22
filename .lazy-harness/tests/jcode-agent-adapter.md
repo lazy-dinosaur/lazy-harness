@@ -1,6 +1,7 @@
 # TDD — Jcode Agent Adapter Regression
 
-Status: active
+Status: retired-history
+Superseded by: `.lazy-harness/tests/jcode-decommission.md`
 Date: 2026-08-01
 Layer: TDD
 Related ADR: `.lazy-harness/decisions/0056-multi-runtime-thin-adapters.md`
@@ -8,7 +9,7 @@ Related SDD: `.lazy-harness/spec/platform/jcode-agent-adapter.md`
 
 ## Rule digest
 
-- Status: active
+- Status: deprecated
 - Layer: TDD
 - Scope: framework-global
 - Confidence: high

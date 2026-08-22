@@ -49,18 +49,6 @@ type FileSnapshot = {
   mode?: number
 }
 
-type CommandResult = {
-  ok: boolean
-  status: number
-  payload: Record<string, unknown>
-  stderr: string
-}
-
-type JcodeActivation = {
-  install: Record<string, unknown>
-  doctor?: Record<string, unknown>
-  ready: boolean
-}
 
 const START = '<!-- lazy-harness-agent-activation:start -->'
 const END = '<!-- lazy-harness-agent-activation:end -->'
@@ -105,7 +93,7 @@ function usage(exitCode = 0): never {
   const out = exitCode === 0 ? console.log : console.error
   out(`Usage: lazy agent activate [--target DIR] [--dry-run] [--format=md|json]
 
-Create project-local Pi/OMP activation files and explicitly trust this exact root for the machine Jcode bootstrap.
+Create project-local Pi/OMP activation files and skill settings for this exact root.
 
 The target must already contain .lazy-harness/bin/lazy. Run lazy init first for new projects.`)
   process.exit(exitCode)
@@ -259,41 +247,13 @@ function applyPlans(files: FilePlan[], exclude: ExcludePlan): void {
   if (exclude.path && exclude.added.length > 0 && exclude.next !== undefined) atomicWrite(exclude.path, exclude.next)
 }
 
-function adapterLazyPath(target: string): string {
-  const marker = join(target, '.lazy-harness', 'state', 'synced-from-commit')
-  try {
-    const parsed = JSON.parse(readFileSync(marker, 'utf8')) as { sourceRoot?: unknown }
-    if (typeof parsed.sourceRoot === 'string') {
-      const candidate = resolve(parsed.sourceRoot, '.lazy-harness', 'bin', 'lazy')
-      if (existsSync(candidate)) return candidate
-    }
-  } catch {
-    // Standalone activation falls back to the framework copy executing this command.
-  }
-  return resolve(import.meta.dir, '..', 'bin', 'lazy')
-}
 
-function runJcode(target: string, command: 'install' | 'doctor', dryRun = false): CommandResult {
-  const lazy = resolve(import.meta.dir, '..', 'bin', 'lazy')
-  const argv = ['jcode', command, '--target', target, '--adapter-lazy', adapterLazyPath(target), '--format=json']
-  if (dryRun && command === 'install') argv.push('--dry-run')
-  const result = spawnSync(lazy, argv, { encoding: 'utf8', env: process.env })
-  let payload: Record<string, unknown> = {}
-  try {
-    payload = JSON.parse(result.stdout || '{}') as Record<string, unknown>
-  } catch {
-    payload = { ok: false, error: 'invalid Jcode command JSON', stdout: result.stdout.trim() }
-  }
-  const status = result.status ?? 1
-  return { ok: status === 0 && payload.ok === true, status, payload, stderr: result.stderr.trim() }
-}
-
-function printResult(target: string, files: FileAction[], exclude: ExcludeAction, jcode: JcodeActivation, args: Args): void {
+function printResult(target: string, files: FileAction[], exclude: ExcludeAction, args: Args): void {
   const ok = true
   const fileResults = files.map(({ path, action }) => ({ path, action }))
   const excludeResult = { path: exclude.path, added: exclude.added, skipped: exclude.skipped }
   if (args.format === 'json') {
-    console.log(JSON.stringify({ ok, target, dryRun: args.dryRun, files: fileResults, gitInfoExclude: excludeResult, jcode }, null, 2))
+    console.log(JSON.stringify({ ok, target, dryRun: args.dryRun, files: fileResults, gitInfoExclude: excludeResult }, null, 2))
     return
   }
   if (!args.quiet) {
@@ -304,15 +264,13 @@ function printResult(target: string, files: FileAction[], exclude: ExcludeAction
     for (const file of files) console.log(`- ${file.action}: ${file.path}`)
     if (exclude.path) console.log(`- git_info_exclude: ${exclude.path} added=${exclude.added.join(',') || 'none'}`)
     else console.log(`- git_info_exclude: skipped (${exclude.skipped})`)
-    console.log(`- jcode_install: ${String(jcode.install.ok === true)}`)
-    console.log(`- jcode_ready: ${jcode.ready}`)
+    console.log('- runtimes: Pi (stable), OMP (Experimental)')
   }
 }
-
-function failResult(target: string, error: unknown, jcode: Record<string, unknown> | undefined, args: Args): void {
+function failResult(target: string, error: unknown, args: Args): void {
   const message = error instanceof Error ? error.message : String(error)
   if (args.format === 'json') {
-    console.log(JSON.stringify({ ok: false, target, dryRun: args.dryRun, error: message, jcode }, null, 2))
+    console.log(JSON.stringify({ ok: false, target, dryRun: args.dryRun, error: message }, null, 2))
   } else {
     console.error(`lazy agent activate: ${message}`)
   }
@@ -333,37 +291,26 @@ function main(): void {
     ]
     exclude = planGitExclude(target)
   } catch (error) {
-    failResult(target, error, undefined, args)
+    failResult(target, error, args)
     return
   }
 
   if (args.dryRun) {
-    const install = runJcode(target, 'install', true)
-    if (!install.ok) {
-      failResult(target, install.stderr || install.payload.error || 'Jcode install dry-run failed', install.payload, args)
-      return
-    }
-    printResult(target, files, exclude, { install: install.payload, ready: false }, args)
+    printResult(target, files, exclude, args)
     return
   }
-
   const managedPaths = files.filter((file) => file.action !== 'unchanged').map((file) => file.path)
   if (exclude.path && exclude.added.length > 0) managedPaths.push(exclude.path)
   const snapshots = managedPaths.map(snapshotFile)
   const candidateDirs = [join(target, '.pi'), join(target, '.omp')]
   const createdDirs = candidateDirs.filter((path) => !existsSync(path))
-  let installPayload: Record<string, unknown> | undefined
   try {
     applyPlans(files, exclude)
-    const install = runJcode(target, 'install')
-    installPayload = install.payload
-    if (!install.ok) throw new Error(install.stderr || String(install.payload.error ?? 'Jcode install failed'))
-    const doctor = runJcode(target, 'doctor')
-    printResult(target, files, exclude, { install: install.payload, doctor: doctor.payload, ready: doctor.ok }, args)
+    printResult(target, files, exclude, args)
   } catch (error) {
     restoreSnapshots(snapshots)
     removeCreatedDirs(createdDirs)
-    failResult(target, error, installPayload, args)
+    failResult(target, error, args)
   }
 }
 

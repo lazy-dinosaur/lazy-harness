@@ -22,7 +22,7 @@ Related SDD: `.lazy-harness/spec/platform/project-command-boundary.md`
 - Applies when:
   - changing the shared pre-tool helper chain
   - changing promoted project command policy parsing or Git promotion preflight
-  - claiming Pi/OMP/Jcode parity for a structural command hard stop
+  - claiming Pi/OMP parity for a structural command hard stop
 - Must:
   - prove both block and allow cases
   - prove all normalized runtime shell aliases receive the same result
@@ -93,7 +93,7 @@ The fixture creates local `refs/remotes/origin/staging` directly, so it proves G
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh`
 - Fixture flow:
   1. Create a temporary lazy-harness host and promoted block policy.
-  2. Exercise identical normalized payloads for Pi/OMP/Jcode-compatible shell names.
+  2. Exercise identical normalized payloads for Pi/OMP-compatible shell names.
   3. Assert narrow block, allow, and policy-demotion rollback behavior.
   4. Assert newline-separated commands, redirection exclusion, and merge-mainline parent selection.
   5. Initialize a local Git topology with synthetic `origin/staging`.

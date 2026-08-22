@@ -1,4 +1,4 @@
-# ADR 0051 - Jcode-Parity Grammar Re-Grounding for OMP/Pi (load_harness_dir Replacement)
+# ADR 0051 - Pi/OMP Grammar Re-Grounding (Historical Jcode-Parity Origin)
 
 Status: accepted
 Date: 2026-06-25
@@ -14,7 +14,7 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`, `.lazy-harne
 - Layer: ADR
 - Scope: framework-global
 - Aliases:
-  - jcode 패리티
+  - Pi OMP grammar grounding
   - grammar 재접지
   - load_harness_dir 대체
 - Applies when:
@@ -22,7 +22,7 @@ Related ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md`, `.lazy-harne
   - changing the `before_agent_start` reminder, the `context` re-grounding body, or the capture gates
   - diagnosing why an agent read source/tests and acted without consulting the governing record, or ended a turn without capturing decisions
 - Must:
-  - replicate jcode's full-grammar drive organically via `on-message-received` at turn start and one bounded `on-context.sh` reminder after the first successful file-operation batch of each normal turn; later same-turn file operations must not restart re-grounding
+  - keep the proven full-grammar drive organically via `on-message-received` at turn start and one bounded `on-context.sh` reminder after the first successful file-operation batch of each normal turn; later same-turn file operations must not restart re-grounding
   - keep the `on-context.sh` body forcing relevant-record search (reading code/tests is NOT record-grounding; `lazy map` + governing `.lazy-harness/<layer>` record before action, §2.1/§2.5) and turn-end capture (decisions/user-corrections/repeated-mistake-fixes/host-learnings → record, §2.4)
   - keep the keyword-gated capture STOP gates conservative and drive capture through re-grounding (Option C)
   - state honestly that this is organic (advisory reminder), not a hard guarantee
@@ -117,14 +117,14 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-context.sh` — five-line pointer-only mutation-boundary reminder.
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — pointer-only first-grounding packet.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `workUnitEvidenceByRoot`, governing-record hashes, `REGROUND_MUTATION_TOOLS`, explicit-steer reset, jcode-shape `agent_end`, trace, and native ask support.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `workUnitEvidenceByRoot`, governing-record hashes, `REGROUND_MUTATION_TOOLS`, explicit-steer reset, canonical lifecycle `agent_end`, trace, and native ask support.
 - Key symbols:
   - `observeWorkUnitEvidence` / `workUnitEvidenceValid` — recognize overview + direct governing-record reads and verify hashes before later-turn reuse.
   - `context` handler + `pendingRegroundByRoot`/`regroundBodyByRoot` — mutation-only pointer injection with retry, not per-read re-grounding.
   - `agentEndTracePath` / `writeAgentEndTrace` — opt-in runtime-root diagnostics that preserve payload and continuation semantics
 - Commits: `1ccfd05` (re-grounding wiring), `62fc284` (jcode-shape agent_end payload), `791d659` (native `ask` option gates), `069d603` (option-gate-discipline false positives), `3617769` (relevant-record search mandate), `deb9d53` (turn-end capture mandate), `3bb06d5` (SDD record + fixture)
 - Tests / protection:
-  - `.lazy-harness/scripts/self-test.py` — pi-package assertions protect re-grounding plus jcode-shape `agent_end` projection and content-free trace behavior
+  - `.lazy-harness/scripts/self-test.py` — pi-package assertions protect re-grounding plus canonical lifecycle `agent_end` projection and content-free trace behavior
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/pi-agent-package.md`
   - ADR: `.lazy-harness/decisions/0050-pi-omp-only-runtime.md` (decommission that removed `load_harness_dir`), `.lazy-harness/decisions/0041-organic-hybrid-rule-guidance.md` (organic, not hard-gate)
@@ -136,7 +136,7 @@ Replicate jcode's grammar drive **organically through the lifecycle hooks**, wit
 
 ## Rule placement
 
-- Rule: OMP/Pi replicate jcode's grammar drive organically through turn-start grounding plus at most one successful mid-turn context reminder per normal turn. File operations before the first callback collapse; later same-turn operations do not re-trigger; failed hooks may retry; explicit steer starts a fresh evidence boundary. Read-debt is not tightened and capture STOP gates stay conservative.
+- Rule: OMP/Pi keep the full grammar live through turn-start grounding plus at most one successful mid-turn context reminder per normal turn. File operations before the first callback collapse; later same-turn operations do not re-trigger; failed hooks may retry; explicit steer starts a fresh evidence boundary. Read-debt is not tightened and capture STOP gates stay conservative.
 - Scope: framework-global
 - Primary record: `.lazy-harness/decisions/0051-jcode-parity-grammar-regrounding.md`
 - Why not AGENTS.md: runtime/extension behavior decision with source/tests and an implementation map; AGENTS.md carries only the compact grammar.

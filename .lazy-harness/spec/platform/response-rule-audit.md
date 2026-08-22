@@ -219,7 +219,7 @@ exit = 0
 - Status: `verified`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — writes sanitized static harness-first search-debt rows for non-empty user-message turns without user-text semantic classification.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus lifecycle/tool-events/capability evidence and emits conservative response audit feedback, including missed operating-rule discouragedAction advisories.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-response-rule-audit.py` — reads packet/digest journals plus canonical lifecycle/capability evidence and emits conservative response audit feedback, including missed operating-rule discouragedAction advisories.
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — runs the audit helper in the legacy response.completed chain.
   - `.lazy-harness/scripts/lifecycle-check.py` — runs the same audit helper in shadow/orchestrator lifecycle checks.
   - `.lazy-harness/scripts/self-test.py` — protects journal privacy, ignored surfaced PR rule detection, missing record-completion detection, and silent clean turns.

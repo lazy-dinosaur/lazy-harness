@@ -5,7 +5,7 @@
 - **Superseded by**: .lazy-harness/decisions/0050-pi-omp-only-runtime.md
 - **Date**: 2026-05-13
 - **Related**: ADR 0024 (AI-first framework redesign), ADR 0027 (standalone source-of-truth repository), ADR 0028 (progressive knowledge graph backbone)
-- **Docs**: `.lazy-harness/JCODE-INTEGRATION.md`, root `README.md`
+- **Docs**: historical integration guide removed by ADR 0059; root `README.md` carries the current runtime boundary
 
 ## Rule digest
 
@@ -28,7 +28,7 @@
 - Related records:
   - `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`
   - `.lazy-harness/decisions/0025-portability-single-entry-point.md`
-  - `.lazy-harness/JCODE-INTEGRATION.md`
+  - `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 
 ## Context
 
@@ -116,7 +116,7 @@ Update policy:
   - `python3 .lazy-harness/scripts/self-test.py` protects pointer-only templates, stale markerless repair, message.received hook wiring, bash safety-only hook, non-blocking dev hook policy, and skill wrappers.
 - Cross-layer links:
   - ADR: `.lazy-harness/decisions/0016-lifecycle-hook-strategy.md`, `.lazy-harness/decisions/0025-portability-single-entry-point.md`
-  - Docs: `.lazy-harness/JCODE-INTEGRATION.md`
+  - Current boundary: `.lazy-harness/decisions/0059-pi-primary-jcode-decommission.md`
 - Machine index:
   - graph ids: `kg_adr0029_jcode_wiring_source`, `kg_adr0029_jcode_wiring_tests`
   - generated index key: `pending`
