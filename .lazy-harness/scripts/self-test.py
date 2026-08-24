@@ -2055,13 +2055,15 @@ def check_pi_package_layout_and_contract() -> None:
     manifest = pkg_root / "package.json"
     extension = pkg_root / "extensions" / "lazy-harness" / "index.ts"
     prompt = pkg_root / "prompts" / "lazy-harness.md"
+    record_reader = pkg_root / "agents" / "record-reader.md"
+    record_reader_admission = pkg_root / "scripts" / "record-reader-admission.ts"
     readme = pkg_root / "README.md"
     root_readme = ROOT / "README.md"
     installer = ROOT / "install.sh"
     wrapper = LAZY / "scripts" / "pi-package.ts"
     activation = LAZY / "scripts" / "agent-activate.ts"
     lazy_entrypoint = LAZY / "bin" / "lazy"
-    for path in [manifest, extension, prompt, readme, root_readme, installer, wrapper, activation, lazy_entrypoint]:
+    for path in [manifest, extension, prompt, record_reader, record_reader_admission, readme, root_readme, installer, wrapper, activation, lazy_entrypoint]:
         if not path.exists():
             fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
 
@@ -2072,12 +2074,897 @@ def check_pi_package_layout_and_contract() -> None:
         fail("Pi package manifest missing pi-package keyword")
     if "omp-plugin" not in data.get("keywords", []):
         fail("Pi package manifest missing omp-plugin keyword")
+    if data.get("scripts", {}).get("record-reader:admission") != "bun scripts/record-reader-admission.ts":
+        fail("Pi package manifest missing record-reader:admission script")
     for manifest_key in ["pi", "omp"]:
         agent_manifest = data.get(manifest_key) if isinstance(data.get(manifest_key), dict) else {}
         for key, expected in {"extensions": "./extensions", "skills": "./skills", "prompts": "./prompts"}.items():
             values = agent_manifest.get(key)
             if not isinstance(values, list) or expected not in values:
                 fail(f"Pi package manifest missing {manifest_key}.{key} entry {expected!r}")
+    pi_subagent_resources = data.get("pi-subagents") if isinstance(data.get("pi-subagents"), dict) else {}
+    pi_nested_subagents = data.get("pi", {}).get("subagents") if isinstance(data.get("pi"), dict) and isinstance(data.get("pi", {}).get("subagents"), dict) else {}
+    for label, resources in [("pi-subagents", pi_subagent_resources), ("pi.subagents", pi_nested_subagents)]:
+        if "./agents" not in resources.get("agents", []):
+            fail(f"Pi package manifest missing {label}.agents entry './agents'")
+
+    record_reader_text = record_reader.read_text(encoding="utf-8")
+
+    def reader_section(text: str, heading: str) -> str:
+        marker = f"## {heading}"
+        start = text.find(marker)
+        if start < 0:
+            return ""
+        start += len(marker)
+        end = text.find("\n## ", start)
+        return text[start:] if end < 0 else text[start:end]
+
+    def record_reader_profile_issues(text: str) -> list[str]:
+        issues: list[str] = []
+        frontmatter = text.split("---", 2)[1] if text.count("---") >= 2 else ""
+        tools_match = re.search(r"^tools:\s*(.+)$", frontmatter, re.MULTILINE)
+        tools = [item.strip() for item in tools_match.group(1).split(",")] if tools_match else []
+        if tools != ["read", "grep", "bash"]:
+            issues.append("frontmatter tools must equal read, grep, bash")
+
+        common = reader_section(text, "Common Work Packet")
+        retrieval = reader_section(text, "Common retrieval contract")
+        candidate = reader_section(text, "Mode: `candidate-map`")
+        evidence = reader_section(text, "Mode: `claim-evidence`")
+        scope = reader_section(text, "Scope and safety")
+        output = reader_section(text, "Output")
+        required_by_section = {
+            "profile": (text, [
+                "name: record-reader",
+                "package: lazy-harness",
+                "LAZY_HARNESS_ROLE: record-reader/v2",
+                "systemPromptMode: replace",
+                "inheritProjectContext: false",
+                "output: false",
+                "operate in exactly one explicit Work Packet mode",
+                "Never infer the mode from objective text",
+            ]),
+            "common": (common, [
+                "packetVersion: record-reader/v2",
+                "admissionSchemaVersion: record-reader-admission/v2",
+                "contractDigest",
+                "mode: candidate-map | claim-evidence",
+                "workUnitId",
+                "packetId",
+                "parentPacketId",
+                "canonical snapshot",
+                "overview fingerprint",
+                "Parent evidence epoch",
+                "`N*` concrete nodes",
+                "governingRecordsReadByParent",
+                "targetOutputCharacters",
+                "hardOutputCharacters",
+                "Experimental role ceilings are mandatory",
+                "`candidate-map`: at most 6 directly read records",
+                "`claim-evidence`: at most 8 directly read records",
+                "output soft target at most 6,000",
+                "hard cap at most 12,000",
+                "Exceeding the soft target",
+                "return status `overflow` with bounded split detail",
+                "Do not run a complete overview in either mode",
+                "disable native supervisor/intercom coordination",
+                "`contact_supervisor` is absent",
+                "runtime soft and hard tool-call limits both to the packet's exact `budget.toolCalls` value",
+                "final internal `structured_output` submission",
+                "compact-v2 `outputSchema`",
+                "Archived `record-reader-admission/v1` remains validation-only",
+                "receipt alone does not claim run/capture attestation",
+                "payload stores each direct path/hash/range list once as `R*`",
+                "range indexes",
+                "independently rebuilds the schema",
+                "hard-cap overflow",
+                "deterministic admission",
+            ]),
+            "retrieval": (retrieval, [
+                "exactly three separate `bash` calls",
+                "`pwd`, then `git rev-parse --show-toplevel`, then `git rev-parse HEAD`",
+                "Never combine these probes in one shell command or use shell separators",
+                "git hash-object -- <canonical-record-path>",
+                "every operational budget is hard",
+                "return `overflow` with split detail rather than truncating or claiming success",
+            ]),
+            "candidate-map": (candidate, [
+                "`F*` facet and `I*` inventory catalogs",
+                "`N*` canonical node and `V*` verification catalogs",
+                "single compact `coverage` map",
+                "unverified",
+                "`evidence` as `R*` plus range-index references",
+                "Do not repeat facets/inventory",
+                "compact `records`",
+                "`parentRead` record ids",
+                "normalized `D*` dependencies",
+                "proposed `B*` bundles",
+                "`candidate-map` must never return `complete`",
+                "Parent must approve or rewrite every bundle",
+            ]),
+            "claim-evidence": (evidence, [
+                "candidateMapId",
+                "evidenceBundleId",
+                "approved `Q*` ids",
+                "assigned `F*` ids",
+                "approved `N*` seed ids",
+                "Parent-approved shared evidence owner ids",
+                "`claims` with `C*` id",
+                "`newQuestions`",
+                "overlap/dependency changes",
+                "`parentRead`",
+                "top-level verification",
+                "`complete` is bundle-local",
+                "requires `needs-remap`",
+                "`blockedDependencies` requires `blocked-by-dependency`",
+                "never recursively schedules work",
+            ]),
+            "scope": (scope, [
+                "git hash-object -- <canonical-record-path>",
+                "Do not read product/framework source",
+                "Do not write, edit, patch, create, delete, commit, push, run tests, invoke subagents",
+                "Return a non-success status instead of expanding scope",
+            ]),
+            "output": (output, [
+                "compact structured value",
+                "internal `structured_output` tool",
+                "exact `contractDigest`",
+                "Preserve complete semantic evidence",
+                "soft-target exceedance",
+                "12,000 hard cap",
+                "Never present any packet as satisfying Parent read debt",
+            ]),
+        }
+        for label, (section_text, phrases) in required_by_section.items():
+            if not section_text:
+                issues.append(f"missing section: {label}")
+                continue
+            for phrase in phrases:
+                if phrase not in section_text:
+                    issues.append(f"{label} missing: {phrase}")
+
+        candidate_status = re.search(r"Candidate-map statuses are ([^.]+)\.", candidate)
+        if not candidate_status or "`complete`" in candidate_status.group(1):
+            issues.append("candidate-map status set must exclude complete")
+        evidence_status = re.search(r"Claim-evidence statuses are ([^.]+)\.", evidence)
+        if not evidence_status or "`complete`" not in evidence_status.group(1) or "`needs-remap`" not in evidence_status.group(1):
+            issues.append("claim-evidence status set must include complete and needs-remap")
+        return issues
+
+    profile_issues = record_reader_profile_issues(record_reader_text)
+    if profile_issues:
+        fail("Pi package Record Reader profile contract invalid: " + json.dumps(profile_issues, ensure_ascii=False))
+
+    negative_profile_mutations = {
+        "extra-write-tool": record_reader_text.replace("tools: read, grep, bash", "tools: read, grep, bash, write", 1),
+        "missing-mode": record_reader_text.replace("mode: candidate-map | claim-evidence", "mode: candidate-map", 1),
+        "missing-snapshot": record_reader_text.replace("canonical snapshot", "snapshot", 1),
+        "candidate-false-complete": record_reader_text.replace("`candidate-map` must never return `complete`", "`candidate-map` may return `complete`", 1),
+        "candidate-budget-raised": record_reader_text.replace("at most 6 directly read records", "at most 60 directly read records", 1),
+        "evidence-budget-raised": record_reader_text.replace("at most 8 directly read records", "at most 80 directly read records", 1),
+        "remap-removed": record_reader_text.replace("requires `needs-remap`", "allows `incomplete`", 1),
+        "overview-fallback": record_reader_text.replace("Do not run a complete overview in either mode", "Run a complete overview in either mode", 1),
+        "separate-root-probes-removed": record_reader_text.replace("exactly three separate `bash` calls", "one combined `bash` call", 1),
+        "compound-root-probe-allowed": record_reader_text.replace("Never combine these probes in one shell command or use shell separators", "Combine these probes in one shell command with separators", 1),
+        "supervisor-bridge-allowed": record_reader_text.replace("disable native supervisor/intercom coordination", "enable native supervisor/intercom coordination", 1),
+        "early-soft-nudge-allowed": record_reader_text.replace("runtime soft and hard tool-call limits both to the packet's exact `budget.toolCalls` value", "runtime tool-call soft may be lower", 1),
+        "structured-output-optional": record_reader_text.replace("compact-v2 `outputSchema`", "optional output schema", 1),
+        "scope-binding-removed": record_reader_text.replace("governingRecordsReadByParent", "parentReadHistory", 1),
+        "range-binding-removed": record_reader_text.replace("range indexes", "free-form ranges", 1),
+        "schema-revalidation-removed": record_reader_text.replace("independently rebuilds the schema", "trusts transport", 1),
+        "role-ceiling-admission-removed": record_reader_text.replace("hard cap at most 12,000", "hard cap unbounded", 1),
+        "machine-admission-removed": record_reader_text.replace("deterministic admission", "manual prose review", 1),
+    }
+    for label, mutated_profile in negative_profile_mutations.items():
+        if not record_reader_profile_issues(mutated_profile):
+            fail("Pi package Record Reader negative profile mutation escaped validation: " + label)
+    unexpected_agents = sorted(path.name for path in (pkg_root / "agents").glob("*.md") if path.name != "record-reader.md")
+    if unexpected_agents:
+        fail("Pi package must expose one Record Reader profile only: " + json.dumps(unexpected_agents))
+
+    admission_contract = {
+        "schemaVersion": "record-reader-admission/v1",
+        "mode": "candidate-map",
+        "identity": {
+            "packetVersion": "record-reader/v2",
+            "mode": "candidate-map",
+            "modelRoute": "test/high",
+            "workUnitId": "wu-test",
+            "packetId": "packet-test",
+            "parentPacketId": "parent-test",
+            "root": "/tmp/test-root",
+            "revision": "abc123",
+            "canonicalSnapshotId": "sha256:snapshot",
+            "overviewFingerprint": "sha256:overview",
+            "parentEvidenceEpoch": "epoch-test",
+        },
+        "objective": "Assess Record Reader authority and admission boundaries.",
+        "concreteNodes": [".lazy-harness/decisions/0055.md"],
+        "allowedLayers": ["decisions", "spec"],
+        "governingRecordsReadByParent": [".lazy-harness/decisions/0055.md", ".lazy-harness/spec/platform/pi-agent-package.md"],
+        "riskConstraints": ["Parent authority must not transfer"],
+        "budget": {
+            "outputCharacters": 6000,
+            "records": 2,
+            "toolCalls": 14,
+            "questions": 2,
+            "seedNodes": 3,
+            "dependencyEdges": 2,
+            "proposedBundles": 1,
+        },
+        "objectiveFacetIds": ["F1"],
+        "inventoryEntryIds": ["I1"],
+        "explicitExclusionIds": [],
+    }
+    admission_output = {
+        **admission_contract["identity"],
+        "status": "proposal-ready",
+        "statusJustification": "All supplied coverage has direct provenance and no blocking gap.",
+        "recordsRead": [
+            {"path": ".lazy-harness/decisions/0055.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]},
+            {"path": ".lazy-harness/spec/platform/pi-agent-package.md", "contentHash": "b" * 40, "ranges": ["Reader"]},
+        ],
+        "consideredNodes": [".lazy-harness/decisions/0055.md"],
+        "notRead": [],
+        "parentMustRead": [".lazy-harness/decisions/0055.md", ".lazy-harness/spec/platform/pi-agent-package.md"],
+        "implementationVerificationNeeded": ["packages/lazy-harness-pi/agents/record-reader.md"],
+        "overflow": None,
+        "evidenceQuestions": [{
+            "questionId": "Q1",
+            "state": "unverified",
+            "question": "Does the contract preserve authority?",
+            "facets": ["F1"],
+            "inventoryEntries": ["I1"],
+            "cueOrigins": ["ADR map"],
+            "provenance": [{"path": ".lazy-harness/decisions/0055.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]}],
+            "seedNodes": [".lazy-harness/decisions/0055.md"],
+            "allowedLayers": ["decisions"],
+            "overlapKeys": ["authority"],
+            "risks": ["Parent debt remains"],
+            "implementationVerificationNeeded": ["packages/lazy-harness-pi/agents/record-reader.md"],
+        }],
+        "coverageDispositions": [
+            {"inputId": "F1", "disposition": "assigned", "questionIds": ["Q1"], "reason": "direct"},
+            {"inputId": "I1", "disposition": "assigned", "questionIds": ["Q1"], "reason": "direct"},
+        ],
+        "unmappedFacets": [],
+        "rejectedNodes": [],
+        "overlapGroups": [],
+        "cycles": [],
+        "proposedBundles": [{
+            "bundleId": "B1",
+            "questionIds": ["Q1"],
+            "seedNodes": [".lazy-harness/decisions/0055.md"],
+            "allowedLayers": ["decisions"],
+            "dependencies": [],
+            "sharedEvidenceOwners": ["B1"],
+            "reason": "single closure",
+        }],
+        "dependencies": [],
+        "proposedExclusions": [],
+        "gaps": [],
+        "routingRecommendation": "single-reader",
+    }
+
+    claim_contract = {
+        "schemaVersion": "record-reader-admission/v1",
+        "mode": "claim-evidence",
+        "identity": {**admission_contract["identity"], "mode": "claim-evidence", "packetId": "claim-test", "candidateMapId": "map-test", "evidenceBundleId": "B1"},
+        "objective": admission_contract["objective"],
+        "concreteNodes": admission_contract["concreteNodes"],
+        "allowedLayers": admission_contract["allowedLayers"],
+        "governingRecordsReadByParent": admission_contract["governingRecordsReadByParent"],
+        "riskConstraints": admission_contract["riskConstraints"],
+        "explicitExclusionIds": [],
+        "budget": {"outputCharacters": 8000, "records": 2, "toolCalls": 14, "claims": 2},
+        "approvedQuestionIds": ["Q1"],
+        "assignedFacetIds": ["F1"],
+        "approvedSeedNodes": [".lazy-harness/decisions/0055.md"],
+        "terminalDependencyIds": [],
+        "sharedEvidenceOwners": ["B1"],
+    }
+    claim_output = {
+        **claim_contract["identity"],
+        "status": "complete",
+        "statusJustification": "The approved bundle is directly supported with no remap trigger.",
+        "recordsRead": admission_output["recordsRead"],
+        "consideredNodes": admission_output["consideredNodes"],
+        "notRead": [],
+        "parentMustRead": admission_output["parentMustRead"],
+        "implementationVerificationNeeded": admission_output["implementationVerificationNeeded"],
+        "overflow": None,
+        "approvedQuestionIds": ["Q1"],
+        "assignedFacets": ["F1"],
+        "dependencies": [],
+        "sharedEvidenceOwner": "B1",
+        "claims": [{
+            "claimId": "C1",
+            "questionIds": ["Q1"],
+            "facets": ["F1"],
+            "text": "Parent authority remains explicit.",
+            "provenance": [{"path": ".lazy-harness/decisions/0055.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]}],
+        }],
+        "conflictsSupersession": [],
+        "sharedEvidenceUsed": [],
+        "gaps": [],
+        "newEvidenceQuestions": [],
+        "overlapObserved": [],
+        "dependencyChanges": [],
+    }
+
+    def clone_json(value):
+        return json.loads(json.dumps(value))
+
+    with tempfile.TemporaryDirectory(prefix="lazy-record-reader-admission-") as admission_dir_raw:
+        admission_dir = pathlib.Path(admission_dir_raw)
+        contract_path = admission_dir / "contract.json"
+        output_path = admission_dir / "output.json"
+
+        def run_admission(contract_value: dict, output_value=None) -> subprocess.CompletedProcess[str]:
+            contract_path.write_text(json.dumps(contract_value), encoding="utf-8")
+            command = ["bun", str(record_reader_admission), "validate" if output_value is not None else "schema", "--contract", str(contract_path)]
+            if output_value is not None:
+                output_path.write_text(json.dumps(output_value), encoding="utf-8")
+                command.extend(["--output", str(output_path)])
+            return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
+
+        for label, contract_value in [("candidate", admission_contract), ("claim", claim_contract)]:
+            schema_run = run_admission(contract_value)
+            if schema_run.returncode != 0:
+                fail("Record Reader " + label + " schema generation failed:\n" + schema_run.stdout + schema_run.stderr)
+            schema = json.loads(schema_run.stdout)
+            if schema.get("properties", {}).get("canonicalSnapshotId", {}).get("const") != "sha256:snapshot":
+                fail("Record Reader admission schema must bind exact identity with const")
+            if "parentMustRead" not in schema.get("required", []):
+                fail("Record Reader admission schema must require parentMustRead")
+            if label == "claim" and schema.get("properties", {}).get("newEvidenceQuestions", {}).get("items", {}).get("type") != "object":
+                fail("Record Reader claim remap questions must carry structured provenance")
+
+        for label, contract_value, output_value in [
+            ("candidate", admission_contract, admission_output),
+            ("claim", claim_contract, claim_output),
+        ]:
+            valid_run = run_admission(contract_value, output_value)
+            if valid_run.returncode != 0:
+                fail("Valid Record Reader " + label + " packet failed admission:\n" + valid_run.stdout + valid_run.stderr)
+            receipt = json.loads(valid_run.stdout)
+            if receipt.get("valid") is not True or receipt.get("success") is not True:
+                fail("Valid Record Reader " + label + " packet did not receive successful admission")
+            if receipt.get("outputMeasurement") != "compact-json-unicode-code-points/v1":
+                fail("Record Reader receipt must identify deterministic output measurement")
+
+        authorized_contract = clone_json(admission_contract)
+        authorized_contract["explicitExclusionIds"] = ["F1"]
+        authorized_output = clone_json(admission_output)
+        authorized_output["evidenceQuestions"][0]["facets"] = []
+        authorized_output["coverageDispositions"][0] = {"inputId": "F1", "disposition": "excluded", "questionIds": [], "reason": "Parent exclusion"}
+        if run_admission(authorized_contract, authorized_output).returncode != 0:
+            fail("Parent-authored candidate exclusion was not admitted")
+
+        remap_output = clone_json(claim_output)
+        remap_output["status"] = "needs-remap"
+        remap_output["statusJustification"] = "A directly observed exception requires Parent remap."
+        remap_output["newEvidenceQuestions"] = [{
+            "questionId": "NQ1",
+            "question": "Does the exception change the approved bundle?",
+            "reason": "New exception",
+            "cueOrigins": ["ADR correction"],
+            "provenance": [{"path": ".lazy-harness/decisions/0055.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]}],
+        }]
+        remap_run = run_admission(claim_contract, remap_output)
+        if remap_run.returncode != 0 or json.loads(remap_run.stdout).get("success") is not False:
+            fail("Provenance-bearing claim needs-remap packet was not admitted as non-success")
+
+        invalid_contracts = {}
+        for key, over in [("outputCharacters", 6001), ("records", 7), ("toolCalls", 15), ("questions", 7), ("seedNodes", 13), ("dependencyEdges", 9), ("proposedBundles", 4)]:
+            candidate = clone_json(admission_contract)
+            candidate["budget"][key] = over
+            invalid_contracts["candidate-ceiling-" + key] = candidate
+        for field in ["objective", "concreteNodes", "allowedLayers", "governingRecordsReadByParent", "riskConstraints"]:
+            missing_scope = clone_json(admission_contract)
+            missing_scope.pop(field)
+            invalid_contracts["missing-common-" + field] = missing_scope
+        missing_candidate_inputs = clone_json(admission_contract)
+        missing_candidate_inputs.pop("objectiveFacetIds")
+        invalid_contracts["missing-candidate-inputs"] = missing_candidate_inputs
+        missing_exclusions = clone_json(admission_contract)
+        missing_exclusions.pop("explicitExclusionIds")
+        invalid_contracts["missing-parent-exclusions"] = missing_exclusions
+        missing_claim_inputs = clone_json(claim_contract)
+        missing_claim_inputs.pop("approvedQuestionIds")
+        invalid_contracts["missing-claim-inputs"] = missing_claim_inputs
+        for field in ["approvedSeedNodes", "terminalDependencyIds", "sharedEvidenceOwners"]:
+            missing_claim_scope = clone_json(claim_contract)
+            missing_claim_scope.pop(field)
+            invalid_contracts["missing-claim-" + field] = missing_claim_scope
+        for field in ["candidateMapId", "evidenceBundleId"]:
+            missing_claim_identity = clone_json(claim_contract)
+            missing_claim_identity["identity"].pop(field)
+            invalid_contracts["missing-claim-identity-" + field] = missing_claim_identity
+        oversized_candidate = clone_json(admission_contract)
+        oversized_candidate["objectiveFacetIds"] = [f"F{index}" for index in range(17)]
+        oversized_candidate["inventoryEntryIds"] = [f"I{index}" for index in range(16)]
+        invalid_contracts["candidate-coverage-cardinality"] = oversized_candidate
+        oversized_claim = clone_json(claim_contract)
+        oversized_claim["approvedQuestionIds"] = [f"Q{index}" for index in range(17)]
+        invalid_contracts["claim-question-cardinality"] = oversized_claim
+        over_claim = clone_json(claim_contract)
+        over_claim["budget"]["claims"] = 7
+        invalid_contracts["claim-ceiling"] = over_claim
+        boundary_candidate = clone_json(admission_contract)
+        boundary_candidate["objectiveFacetIds"] = [f"F{index}" for index in range(16)]
+        boundary_candidate["inventoryEntryIds"] = [f"I{index}" for index in range(16)]
+        boundary_claim = clone_json(claim_contract)
+        boundary_claim["approvedQuestionIds"] = [f"Q{index}" for index in range(16)]
+        boundary_claim["assignedFacetIds"] = [f"F{index}" for index in range(16)]
+        for label, contract_value in [("candidate", boundary_candidate), ("claim", boundary_claim)]:
+            if run_admission(contract_value).returncode != 0:
+                fail("Record Reader " + label + " maximum satisfiable cardinality contract was rejected")
+        for label, contract_value in invalid_contracts.items():
+            invalid_contract_run = run_admission(contract_value)
+            if invalid_contract_run.returncode == 0:
+                fail("Invalid Record Reader admission contract escaped rejection: " + label)
+
+        invalid_outputs = {
+            "identity": {**admission_output, "canonicalSnapshotId": "sha256:wrong"},
+            "missing-parent-must-read": {key: value for key, value in admission_output.items() if key != "parentMustRead"},
+            "false-success-gap": {**admission_output, "gaps": ["blocking"]},
+            "uncovered-input": {**admission_output, "coverageDispositions": admission_output["coverageDispositions"][:1]},
+            "extra-property": {**admission_output, "unexpected": True},
+        }
+        unauthorized = clone_json(admission_output)
+        unauthorized["coverageDispositions"][0] = {"inputId": "F1", "disposition": "excluded", "questionIds": [], "reason": "Reader invented"}
+        invalid_outputs["unauthorized-exclusion"] = unauthorized
+        ignored_exclusion_contract = clone_json(admission_contract)
+        ignored_exclusion_contract["explicitExclusionIds"] = ["F1"]
+        invalid_outputs["ignored-parent-exclusion"] = (ignored_exclusion_contract, admission_output)
+        malformed = clone_json(admission_output)
+        malformed["evidenceQuestions"][0]["provenance"] = [{}]
+        invalid_outputs["malformed-provenance"] = malformed
+        duplicate_parent = clone_json(admission_output)
+        duplicate_parent["parentMustRead"] = [admission_output["parentMustRead"][0], admission_output["parentMustRead"][0]]
+        invalid_outputs["duplicate-parent-must-read"] = duplicate_parent
+        unbacked = clone_json(admission_output)
+        unbacked["evidenceQuestions"][0]["provenance"][0]["contentHash"] = "c" * 40
+        invalid_outputs["unbacked-provenance"] = unbacked
+        unread_range = clone_json(admission_output)
+        unread_range["evidenceQuestions"][0]["provenance"][0]["ranges"] = ["Invented range"]
+        invalid_outputs["unread-provenance-range"] = unread_range
+        bad_remap = clone_json(remap_output)
+        bad_remap["newEvidenceQuestions"] = ["missing provenance"]
+        invalid_outputs["claim-remap-shape"] = (claim_contract, bad_remap)
+        empty_claims = clone_json(claim_output)
+        empty_claims["claims"] = []
+        invalid_outputs["claim-empty-complete"] = (claim_contract, empty_claims)
+        untracked_seed = clone_json(claim_output)
+        untracked_seed["consideredNodes"] = []
+        invalid_outputs["claim-untracked-seed"] = (claim_contract, untracked_seed)
+        changed_dependency = clone_json(claim_output)
+        changed_dependency["dependencies"] = ["unapproved"]
+        invalid_outputs["claim-unapproved-dependency"] = (claim_contract, changed_dependency)
+        changed_owner = clone_json(claim_output)
+        changed_owner["sharedEvidenceOwner"] = "unapproved-owner"
+        invalid_outputs["claim-unapproved-owner"] = (claim_contract, changed_owner)
+
+        tiny_contract = clone_json(admission_contract)
+        tiny_contract["budget"]["outputCharacters"] = 10
+        invalid_outputs["output-overflow"] = (tiny_contract, admission_output)
+        for label, output_value in invalid_outputs.items():
+            contract_value = admission_contract
+            if isinstance(output_value, tuple):
+                contract_value, output_value = output_value
+            invalid_run = run_admission(contract_value, output_value)
+            if invalid_run.returncode == 0:
+                fail("Invalid Record Reader packet escaped machine admission: " + label)
+            receipt = json.loads(invalid_run.stdout)
+            if receipt.get("admittedStatus") != "invalid-packet" or not receipt.get("violations"):
+                fail("Invalid Record Reader packet lacks deterministic rejection receipt: " + label)
+
+        unicode_output = clone_json(admission_output)
+        unicode_output["statusJustification"] += " 🦖"
+        unicode_count = len(json.dumps(unicode_output, ensure_ascii=False, separators=(",", ":")))
+        unicode_contract = clone_json(admission_contract)
+        unicode_contract["budget"]["outputCharacters"] = unicode_count
+        unicode_run = run_admission(unicode_contract, unicode_output)
+        if unicode_run.returncode != 0 or json.loads(unicode_run.stdout).get("outputCharacters") != unicode_count:
+            fail("Record Reader Unicode code-point boundary accounting mismatch")
+        unicode_contract["budget"]["outputCharacters"] = unicode_count - 1
+        if run_admission(unicode_contract, unicode_output).returncode == 0:
+            fail("Record Reader Unicode output overflow escaped admission")
+        def with_compact_digest(contract_value: dict) -> dict:
+            value = clone_json(contract_value)
+            value["contractDigest"] = ""
+            contract_path.write_text(json.dumps(value), encoding="utf-8")
+            digest_run = subprocess.run(
+                ["bun", str(record_reader_admission), "digest", "--contract", str(contract_path)],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            if digest_run.returncode != 0 or not digest_run.stdout.strip().startswith("sha256:"):
+                fail("Compact Record Reader contract digest failed:\n" + digest_run.stdout + digest_run.stderr)
+            value["contractDigest"] = digest_run.stdout.strip()
+            return value
+
+        compact_identity = {**admission_contract["identity"], "packetId": "compact-candidate"}
+        compact_contract = with_compact_digest({
+            "schemaVersion": "record-reader-admission/v2",
+            "mode": "candidate-map",
+            "identity": compact_identity,
+            "objective": "Map compact evidence without transferring Parent authority.",
+            "facets": [{"id": "F1", "description": "Parent authority remains explicit."}],
+            "inventoryEntries": [{"id": "I1", "description": "Package contract evidence."}],
+            "nodes": [
+                {"id": "N1", "node": ".lazy-harness/decisions/0055.md"},
+                {"id": "N2", "node": ".lazy-harness/spec/platform/pi-agent-package.md"},
+            ],
+            "verificationCandidates": [{"id": "V1", "target": "packages/lazy-harness-pi/agents/record-reader.md"}],
+            "allowedLayers": ["decisions", "spec"],
+            "governingRecordsReadByParent": [".lazy-harness/decisions/0055.md"],
+            "riskConstraints": ["Do not transfer Parent read debt."],
+            "explicitExclusionIds": [],
+            "budget": {
+                "targetOutputCharacters": 6000, "hardOutputCharacters": 12000,
+                "records": 2, "toolCalls": 14, "questions": 2, "seedNodes": 2,
+                "dependencyEdges": 2, "proposedBundles": 1,
+            },
+        })
+        compact_output = {
+            "contractDigest": compact_contract["contractDigest"],
+            "status": "proposal-ready",
+            "statusJustification": "All compact inputs are covered without a gap.",
+            "records": [
+                {"id": "R1", "path": ".lazy-harness/decisions/0055.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]},
+                {"id": "R2", "path": ".lazy-harness/spec/platform/pi-agent-package.md", "contentHash": "b" * 40, "ranges": ["Reader"]},
+            ],
+            "nodes": {
+                "considered": ["N1", "N2"],
+                "notRead": [],
+                "rejected": [],
+            },
+            "parentRead": ["R1", "R2"],
+            "verification": ["V1"],
+            "overflow": None,
+            "questions": [{
+                "id": "Q1", "text": "Which evidence preserves Parent authority?",
+                "evidence": [{"recordId": "R1", "rangeIndexes": [0]}],
+                "seeds": ["N1"], "risks": ["Do not transfer read debt."], "verification": ["V1"],
+            }],
+            "coverage": {"F1": ["Q1"], "I1": ["Q1"]},
+            "overlap": [], "cycles": [], "dependencies": [],
+            "bundles": [{
+                "id": "B1", "questions": ["Q1"], "seeds": ["N1"],
+                "dependencies": [], "owner": "Parent", "reason": "Shared authority evidence.",
+            }],
+            "proposedExclusions": [], "gaps": [], "routing": "single-reader",
+        }
+        compact_schema_run = run_admission(compact_contract)
+        if compact_schema_run.returncode != 0:
+            fail("Compact candidate schema generation failed:\n" + compact_schema_run.stdout + compact_schema_run.stderr)
+        compact_schema_path = admission_dir / "compact-candidate-schema.json"
+        compact_schema_path.write_text(compact_schema_run.stdout, encoding="utf-8")
+        compact_valid_run = run_admission(compact_contract, compact_output)
+        if compact_valid_run.returncode != 0:
+            fail("Valid compact candidate failed admission:\n" + compact_valid_run.stdout + compact_valid_run.stderr)
+        compact_receipt = json.loads(compact_valid_run.stdout)
+        if compact_receipt.get("schemaVersion") != "record-reader-admission-receipt/v2" or compact_receipt.get("success") is not True or compact_receipt.get("overTarget") is not False:
+            fail("Compact candidate receipt did not preserve v2 success/target semantics")
+
+        compact_tampered_contract = clone_json(compact_contract)
+        compact_tampered_contract["objective"] += " tampered"
+        if run_admission(compact_tampered_contract).returncode == 0:
+            fail("Compact contract mutation without digest refresh escaped rejection")
+        compact_duplicate_catalog_raw = clone_json(compact_contract)
+        compact_duplicate_catalog_raw["facets"].append(clone_json(compact_duplicate_catalog_raw["facets"][0]))
+        compact_duplicate_catalog = with_compact_digest(compact_duplicate_catalog_raw)
+        if run_admission(compact_duplicate_catalog).returncode == 0:
+            fail("Compact duplicate catalog id escaped rejection")
+        for label, mutate in [
+            ("top", lambda value: value.__setitem__("unknownConstraint", True)),
+            ("identity", lambda value: value["identity"].__setitem__("unknownIdentity", "x")),
+            ("budget", lambda value: value["budget"].__setitem__("unknownBudget", 1)),
+            ("catalog", lambda value: value["facets"][0].__setitem__("unknownField", "x")),
+        ]:
+            unknown_contract_raw = clone_json(compact_contract)
+            mutate(unknown_contract_raw)
+            unknown_contract = with_compact_digest(unknown_contract_raw)
+            if run_admission(unknown_contract).returncode == 0:
+                fail("Compact unknown contract grammar escaped rejection: " + label)
+        one_record_contract_raw = clone_json(compact_contract)
+        one_record_contract_raw["budget"]["records"] = 1
+        one_record_contract = with_compact_digest(one_record_contract_raw)
+        if run_admission(one_record_contract).returncode == 0:
+            fail("Compact one-record contract that cannot satisfy parentRead escaped admission")
+        compact_sha256_output = clone_json(compact_output)
+        compact_sha256_output["records"][0]["contentHash"] = "a" * 64
+        if run_admission(compact_contract, compact_sha256_output).returncode != 0:
+            fail("Compact valid 64-character hash was rejected")
+
+        compact_exclusion_raw = clone_json(compact_contract)
+        compact_exclusion_raw["explicitExclusionIds"] = ["F1"]
+        compact_exclusion_contract = with_compact_digest(compact_exclusion_raw)
+        compact_exclusion_output = clone_json(compact_output)
+        compact_exclusion_output["contractDigest"] = compact_exclusion_contract["contractDigest"]
+        compact_exclusion_output["coverage"] = {"F1": "excluded", "I1": ["Q1"]}
+        if run_admission(compact_exclusion_contract, compact_exclusion_output).returncode != 0:
+            fail("Compact Parent-authored exclusion was not admitted")
+        compact_ignored_exclusion = clone_json(compact_output)
+        compact_ignored_exclusion["contractDigest"] = compact_exclusion_contract["contractDigest"]
+        if run_admission(compact_exclusion_contract, compact_ignored_exclusion).returncode == 0:
+            fail("Compact ignored Parent exclusion escaped admission")
+
+        compact_soft_contract_raw = clone_json(compact_contract)
+        compact_soft_contract_raw["budget"]["targetOutputCharacters"] = 100
+        compact_soft_contract = with_compact_digest(compact_soft_contract_raw)
+        compact_soft_output = {**compact_output, "contractDigest": compact_soft_contract["contractDigest"]}
+        compact_soft_run = run_admission(compact_soft_contract, compact_soft_output)
+        if compact_soft_run.returncode != 0:
+            fail("Compact output above soft target but below hard cap must remain valid")
+        compact_soft_receipt = json.loads(compact_soft_run.stdout)
+        if compact_soft_receipt.get("overTarget") is not True or not compact_soft_receipt.get("warnings"):
+            fail("Compact soft-target exceedance must be visible without invalidating evidence")
+
+        compact_hard_contract_raw = clone_json(compact_contract)
+        compact_hard_contract_raw["budget"]["targetOutputCharacters"] = 100
+        compact_hard_contract_raw["budget"]["hardOutputCharacters"] = len(json.dumps(compact_output, ensure_ascii=False, separators=(",", ":"))) - 1
+        compact_hard_contract = with_compact_digest(compact_hard_contract_raw)
+        compact_hard_output = {**compact_output, "contractDigest": compact_hard_contract["contractDigest"]}
+        if run_admission(compact_hard_contract, compact_hard_output).returncode == 0:
+            fail("Compact output above hard cap escaped admission")
+
+        compact_invalid_cases = {}
+        wrong_digest = clone_json(compact_output)
+        wrong_digest["contractDigest"] = "sha256:" + "0" * 64
+        compact_invalid_cases["digest"] = wrong_digest
+        unknown_record = clone_json(compact_output)
+        unknown_record["questions"][0]["evidence"][0]["recordId"] = "R9"
+        compact_invalid_cases["record-ref"] = unknown_record
+        bad_range = clone_json(compact_output)
+        bad_range["questions"][0]["evidence"][0]["rangeIndexes"] = [1]
+        compact_invalid_cases["range-index"] = bad_range
+        missing_node = clone_json(compact_output)
+        missing_node["nodes"]["considered"] = ["N1"]
+        compact_invalid_cases["node-coverage"] = missing_node
+        bad_coverage = clone_json(compact_output)
+        bad_coverage["coverage"]["F1"] = ["Q9"]
+        compact_invalid_cases["coverage-ref"] = bad_coverage
+        bad_verification = clone_json(compact_output)
+        bad_verification["verification"] = ["V9"]
+        compact_invalid_cases["verification-ref"] = bad_verification
+        bad_parent_read = clone_json(compact_output)
+        bad_parent_read["parentRead"] = ["R1", "R9"]
+        compact_invalid_cases["parent-read-ref"] = bad_parent_read
+        duplicate_node_detail = clone_json(compact_output)
+        duplicate_node_detail["nodes"]["notRead"] = [{"id": "N2", "reasonCode": "budget"}, {"id": "N2", "reasonCode": "budget"}]
+        compact_invalid_cases["duplicate-node-detail"] = duplicate_node_detail
+        path_escape = clone_json(compact_output)
+        path_escape["records"][0]["path"] = ".lazy-harness/decisions/../../packages/source.ts"
+        compact_invalid_cases["path-escape"] = path_escape
+        impossible_hash = clone_json(compact_output)
+        impossible_hash["records"][0]["contentHash"] = "a" * 41
+        compact_invalid_cases["hash-length"] = impossible_hash
+        dispositionless_node = clone_json(compact_output)
+        dispositionless_node["records"][1]["path"] = ".lazy-harness/spec/platform/another.md"
+        compact_invalid_cases["node-disposition"] = dispositionless_node
+        missing_top_verification = clone_json(compact_output)
+        missing_top_verification["verification"] = []
+        compact_invalid_cases["question-verification"] = missing_top_verification
+        for label, output_value in compact_invalid_cases.items():
+            if run_admission(compact_contract, output_value).returncode == 0:
+                fail("Invalid compact candidate escaped admission: " + label)
+
+        compact_overflow = clone_json(compact_output)
+        compact_overflow["status"] = "overflow"
+        compact_overflow["overflow"] = {"reason": "Accurate closure exceeds budget.", "limit": "hardOutputCharacters"}
+        compact_overflow_run = run_admission(compact_contract, compact_overflow)
+        if compact_overflow_run.returncode != 0 or json.loads(compact_overflow_run.stdout).get("success") is not False:
+            fail("Compact overflow status/detail pair was not admitted as non-success")
+        compact_wrong_overflow = clone_json(compact_overflow)
+        compact_wrong_overflow["status"] = "incomplete"
+        if run_admission(compact_contract, compact_wrong_overflow).returncode == 0:
+            fail("Compact non-null overflow with non-overflow status escaped admission")
+
+        scale_contract_raw = clone_json(compact_contract)
+        scale_contract_raw["facets"] = [{"id": f"F{i}", "description": f"Facet {i}"} for i in range(1, 8)]
+        scale_contract_raw["inventoryEntries"] = [{"id": f"I{i}", "description": f"Inventory {i}"} for i in range(1, 9)]
+        scale_contract_raw["nodes"] = [{"id": f"N{i}", "node": f".lazy-harness/decisions/00{i}.md"} for i in range(1, 7)]
+        scale_contract_raw["verificationCandidates"] = [{"id": f"V{i}", "target": f"packages/source-{i}.ts"} for i in range(1, 7)]
+        scale_contract_raw["budget"].update({"questions": 4, "seedNodes": 6, "dependencyEdges": 4})
+        scale_contract = with_compact_digest(scale_contract_raw)
+        scale_questions = []
+        for i in range(1, 5):
+            scale_questions.append({
+                "id": f"Q{i}", "text": f"Decision question {i} preserves complete evidence and Parent authority.",
+                "evidence": [{"recordId": "R1", "rangeIndexes": [0]}],
+                "seeds": [f"N{min(i, 6)}"], "risks": [f"Risk {i}"], "verification": [f"V{min(i, 6)}"],
+            })
+        scale_coverage = {}
+        for index, input_id in enumerate([*[f"F{i}" for i in range(1, 8)], *[f"I{i}" for i in range(1, 9)]]):
+            scale_coverage[input_id] = [f"Q{index % 4 + 1}"]
+        scale_output = {
+            **compact_output,
+            "contractDigest": scale_contract["contractDigest"],
+            "records": [
+                {"id": "R1", "path": ".lazy-harness/decisions/001.md", "contentHash": "a" * 40, "ranges": ["Rule digest"]},
+                {"id": "R2", "path": ".lazy-harness/decisions/002.md", "contentHash": "b" * 40, "ranges": ["Decision"]},
+            ],
+            "nodes": {
+                "considered": [f"N{i}" for i in range(1, 7)],
+                "notRead": [{"id": f"N{i}", "reasonCode": "budget"} for i in range(3, 7)],
+                "rejected": [],
+            },
+            "verification": [f"V{i}" for i in range(1, 7)],
+            "questions": scale_questions,
+            "coverage": scale_coverage,
+            "overlap": [{"questions": ["Q1", "Q2", "Q3", "Q4"], "reason": "Shared evidence affinity."}],
+            "bundles": [{
+                "id": "B1", "questions": ["Q1", "Q2", "Q3", "Q4"],
+                "seeds": [f"N{i}" for i in range(1, 7)], "dependencies": [],
+                "owner": "Parent", "reason": "One shared closure.",
+            }],
+        }
+        scale_run = run_admission(scale_contract, scale_output)
+        if scale_run.returncode != 0:
+            fail("Compact integration-scale fixture failed admission:\n" + scale_run.stdout + scale_run.stderr)
+        scale_receipt = json.loads(scale_run.stdout)
+        if scale_receipt.get("outputCharacters", 6001) > 6000 or scale_receipt.get("overTarget") is not False:
+            fail("Compact integration-scale fixture must fit the 6000-character soft target")
+
+        compact_closed_cycle = clone_json(scale_output)
+        compact_closed_cycle["cycles"] = [{"questions": ["Q1", "Q2"], "reason": "Collapsed into B1."}]
+        if run_admission(scale_contract, compact_closed_cycle).returncode != 0:
+            fail("Compact proposal-ready cycle co-located in one bundle was rejected")
+
+        split_contract_raw = clone_json(scale_contract)
+        split_contract_raw["budget"]["proposedBundles"] = 2
+        split_contract = with_compact_digest(split_contract_raw)
+        split_overlap = clone_json(scale_output)
+        split_overlap["contractDigest"] = split_contract["contractDigest"]
+        split_overlap["bundles"] = [
+            {"id": "B1", "questions": ["Q1", "Q2"], "seeds": ["N1", "N2"], "dependencies": [], "owner": "Parent", "reason": "lane one"},
+            {"id": "B2", "questions": ["Q3", "Q4"], "seeds": ["N3", "N4"], "dependencies": [], "owner": "Parent", "reason": "lane two"},
+        ]
+        if run_admission(split_contract, split_overlap).returncode == 0:
+            fail("Compact unresolved overlap split across bundles escaped proposal-ready admission")
+        duplicate_owner = clone_json(scale_output)
+        duplicate_owner["contractDigest"] = split_contract["contractDigest"]
+        duplicate_owner["bundles"].append({
+            "id": "B2", "questions": ["Q1"], "seeds": ["N1"],
+            "dependencies": [], "owner": "Parent", "reason": "duplicate lane",
+        })
+        if run_admission(split_contract, duplicate_owner).returncode == 0:
+            fail("Compact duplicate question/overlap ownership escaped proposal-ready admission")
+
+        orphan_dependency = clone_json(scale_output)
+        orphan_dependency["dependencies"] = [{"id": "D1", "from": "Q1", "to": "Q2", "reason": "Q2 depends on Q1"}]
+        if run_admission(scale_contract, orphan_dependency).returncode == 0:
+            fail("Compact proposal-ready orphan dependency escaped admission")
+        owned_dependency = clone_json(orphan_dependency)
+        owned_dependency["bundles"][0]["dependencies"] = ["D1"]
+        if run_admission(scale_contract, owned_dependency).returncode != 0:
+            fail("Compact dependency owned by a bundle containing both endpoints was rejected")
+
+        seed_contract_raw = clone_json(compact_contract)
+        seed_contract_raw["budget"]["seedNodes"] = 1
+        seed_contract = with_compact_digest(seed_contract_raw)
+        seed_overflow = clone_json(compact_output)
+        seed_overflow["contractDigest"] = seed_contract["contractDigest"]
+        seed_overflow["bundles"][0]["seeds"] = ["N2"]
+        if run_admission(seed_contract, seed_overflow).returncode == 0:
+            fail("Compact aggregate unique seed overflow escaped admission")
+
+        compact_claim_raw = {
+            "schemaVersion": "record-reader-admission/v2",
+            "mode": "claim-evidence",
+            "identity": {**compact_identity, "mode": "claim-evidence", "packetId": "compact-claim", "candidateMapId": "M1", "evidenceBundleId": "B1"},
+            "objective": "Load one compact Parent-approved evidence bundle.",
+            "facets": [{"id": "F1", "description": "Parent authority."}],
+            "inventoryEntries": [],
+            "nodes": [{"id": "N1", "node": ".lazy-harness/decisions/0055.md"}],
+            "verificationCandidates": [{"id": "V1", "target": "packages/lazy-harness-pi/agents/record-reader.md"}],
+            "allowedLayers": ["decisions", "spec"],
+            "governingRecordsReadByParent": [".lazy-harness/decisions/0055.md"],
+            "riskConstraints": [], "explicitExclusionIds": [],
+            "budget": {
+                "targetOutputCharacters": 6000, "hardOutputCharacters": 12000,
+                "records": 2, "toolCalls": 14, "claims": 2,
+            },
+            "approvedQuestionIds": ["Q1"], "assignedFacetIds": ["F1"],
+            "approvedSeedNodeIds": ["N1"], "terminalDependencyIds": ["D1"],
+            "sharedEvidenceOwnerIds": ["Parent"],
+        }
+        compact_claim_contract = with_compact_digest(compact_claim_raw)
+        compact_claim_schema_run = run_admission(compact_claim_contract)
+        if compact_claim_schema_run.returncode != 0:
+            fail("Compact claim schema generation failed:\n" + compact_claim_schema_run.stdout + compact_claim_schema_run.stderr)
+        compact_claim_schema_path = admission_dir / "compact-claim-schema.json"
+        compact_claim_schema_path.write_text(compact_claim_schema_run.stdout, encoding="utf-8")
+        compact_claim_output = {
+            "contractDigest": compact_claim_contract["contractDigest"],
+            "status": "complete", "statusJustification": "Approved compact bundle is closed.",
+            "records": compact_output["records"],
+            "nodes": {"considered": ["N1"], "notRead": [], "rejected": []},
+            "parentRead": ["R1", "R2"], "verification": ["V1"], "overflow": None,
+            "sharedEvidenceOwner": "Parent",
+            "claims": [{
+                "id": "C1", "questions": ["Q1"], "facets": ["F1"],
+                "text": "Parent authority remains explicit.",
+                "evidence": [{"recordId": "R1", "rangeIndexes": [0]}],
+                "risks": [], "verification": ["V1"],
+            }],
+            "conflicts": [], "blockingConflicts": [], "sharedEvidenceUsed": ["R1"],
+            "gaps": [], "newQuestions": [], "overlapObserved": [], "dependencyChanges": [],
+            "blockedDependencies": [],
+        }
+        compact_claim_run = run_admission(compact_claim_contract, compact_claim_output)
+        if compact_claim_run.returncode != 0 or json.loads(compact_claim_run.stdout).get("success") is not True:
+            fail("Valid compact claim failed admission:\n" + compact_claim_run.stdout + compact_claim_run.stderr)
+        compact_claim_remap = clone_json(compact_claim_output)
+        compact_claim_remap["newQuestions"] = [{
+            "id": "NQ1", "text": "New exception?", "reason": "Direct evidence opened scope.",
+            "evidence": [{"recordId": "R1", "rangeIndexes": [0]}],
+            "seeds": ["N1"], "verification": [],
+        }]
+        if run_admission(compact_claim_contract, compact_claim_remap).returncode == 0:
+            fail("Compact complete claim with a remap question escaped admission")
+        compact_claim_remap_valid = clone_json(compact_claim_remap)
+        compact_claim_remap_valid["status"] = "needs-remap"
+        compact_claim_remap_run = run_admission(compact_claim_contract, compact_claim_remap_valid)
+        if compact_claim_remap_run.returncode != 0 or json.loads(compact_claim_remap_run.stdout).get("success") is not False:
+            fail("Compact needs-remap claim with direct trigger was not admitted as non-success")
+        compact_claim_wrong_remap = clone_json(compact_claim_remap)
+        compact_claim_wrong_remap["status"] = "incomplete"
+        if run_admission(compact_claim_contract, compact_claim_wrong_remap).returncode == 0:
+            fail("Compact remap trigger with incomplete status escaped admission")
+        compact_claim_conflict = clone_json(compact_claim_output)
+        compact_claim_conflict["status"] = "conflict"
+        compact_claim_conflict["blockingConflicts"] = ["Unresolved canonical contradiction."]
+        if run_admission(compact_claim_contract, compact_claim_conflict).returncode != 0:
+            fail("Compact conflict packet with blocking evidence was rejected")
+        compact_claim_blocked = clone_json(compact_claim_output)
+        compact_claim_blocked["status"] = "blocked-by-dependency"
+        compact_claim_blocked["blockedDependencies"] = ["D1"]
+        if run_admission(compact_claim_contract, compact_claim_blocked).returncode != 0:
+            fail("Compact blocked-by-dependency packet with dependency id was rejected")
+        compact_claim_unknown_block = clone_json(compact_claim_blocked)
+        compact_claim_unknown_block["blockedDependencies"] = ["D2"]
+        if run_admission(compact_claim_contract, compact_claim_unknown_block).returncode == 0:
+            fail("Compact unapproved blocked dependency escaped admission")
+
+        compact_candidate_output_path = admission_dir / "compact-candidate-output.json"
+        compact_claim_output_path = admission_dir / "compact-claim-output.json"
+        compact_shape_invalid_path = admission_dir / "compact-shape-invalid.json"
+        compact_candidate_output_path.write_text(json.dumps(compact_output), encoding="utf-8")
+        compact_claim_output_path.write_text(json.dumps(compact_claim_output), encoding="utf-8")
+        compact_shape_invalid = {**compact_output, "unexpected": True}
+        compact_shape_invalid_path.write_text(json.dumps(compact_shape_invalid), encoding="utf-8")
+        typebox_candidates = []
+        package_root_env = os.environ.get("PI_CODING_AGENT_PACKAGE_ROOT")
+        if package_root_env:
+            typebox_candidates.append(pathlib.Path(package_root_env) / "node_modules/typebox/build/compile/index.mjs")
+        typebox_candidates.extend([
+            pathlib.Path.home() / ".pi/agent/npm/node_modules/typebox/build/compile/index.mjs",
+            pathlib.Path.home() / ".bun/install/global/node_modules/typebox/build/compile/index.mjs",
+        ])
+        typebox_compile = next((path for path in typebox_candidates if path.exists()), None)
+        if typebox_compile is not None:
+            typebox_smoke = admission_dir / "compact-typebox-smoke.ts"
+            typebox_smoke.write_text(
+                "import { Compile } from " + json.dumps(typebox_compile.as_uri()) + ";\n"
+                "import { readFileSync } from 'node:fs';\n"
+                "const [candidateSchemaPath, claimSchemaPath, candidateOutputPath, claimOutputPath, invalidOutputPath] = process.argv.slice(2);\n"
+                "const candidate = Compile(JSON.parse(readFileSync(candidateSchemaPath, 'utf8')));\n"
+                "const claim = Compile(JSON.parse(readFileSync(claimSchemaPath, 'utf8')));\n"
+                "if (!candidate.Check(JSON.parse(readFileSync(candidateOutputPath, 'utf8')))) throw new Error('candidate Check failed');\n"
+                "if (!claim.Check(JSON.parse(readFileSync(claimOutputPath, 'utf8')))) throw new Error('claim Check failed');\n"
+                "if (candidate.Check(JSON.parse(readFileSync(invalidOutputPath, 'utf8')))) throw new Error('invalid candidate Check passed');\n"
+                "console.log('compact TypeBox schemas ok');\n",
+                encoding="utf-8",
+            )
+            typebox_run = subprocess.run(
+                ["bun", str(typebox_smoke), str(compact_schema_path), str(compact_claim_schema_path), str(compact_candidate_output_path), str(compact_claim_output_path), str(compact_shape_invalid_path)],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            if typebox_run.returncode != 0:
+                fail("Compact Pi TypeBox schema compilation failed:\n" + typebox_run.stdout + typebox_run.stderr)
 
     pi_settings = ROOT / ".pi" / "settings.json"
     if pi_settings.exists():
@@ -2160,6 +3047,26 @@ def check_pi_package_layout_and_contract() -> None:
         "toolCallEpochsByRoot",
         "rearmEvidenceAfterSteer",
         "workUnitEvidenceByRoot.delete(root)",
+        "RECORD_READER_ROLE_MARKER",
+        "RECORD_READER_PROFILE",
+        "recordReaderReminder",
+        "recordReaderToolDenial",
+        "candidate-map proposes non-authoritative coverage",
+        "claim-evidence loads one Parent-approved evidence bundle",
+        "git hash-object",
+        "Blocked: complete overview",
+        "disable native supervisor/intercom coordination",
+        "never call contact_supervisor",
+        "Runtime tool-call soft and hard limits must both equal the packet tool budget",
+        "6000 soft target and 12000 hard cap",
+        "compact admission v2",
+        "contractDigest",
+        "normalized F/I/N/V/R/Q/B references",
+        "deterministic admission",
+        "PI_SUBAGENT_STRUCTURED_OUTPUT_CAPTURE",
+        "PI_SUBAGENT_STRUCTURED_OUTPUT_SCHEMA",
+        "structured_output",
+        "profile=${profile}",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
@@ -2225,6 +3132,24 @@ def check_pi_package_layout_and_contract() -> None:
         'omp plugin link "$LAZY_HARNESS_PI_PACKAGE"',
         'omp -e "$LAZY_HARNESS_PI_PACKAGE" --help',
         "The package is not installed by default after a clean reset",
+        "lazy-harness.record-reader",
+        "evidence-loader profile",
+        "candidate-map",
+        "claim-evidence",
+        "full identity",
+        "needs-remap",
+        "Automatic decomposition",
+        "native supervisor/intercom coordination",
+        "Runtime tool-call soft/hard limits",
+        "final call for `structured_output`",
+        "6,000-code-point soft target",
+        "12,000 hard cap",
+        "record-reader-admission/v2",
+        "contractDigest",
+        "Archived v1 remains validation-only",
+        "record-reader-admission.ts",
+        "structured_output",
+        " digest --contract ",
         'pi install "$LAZY_HARNESS_PI_PACKAGE" --no-approve',
         'pi install -l "$LAZY_HARNESS_PI_PACKAGE" --approve',
         "Cross-platform prerequisites",
@@ -2679,6 +3604,69 @@ def check_pi_package_layout_and_contract() -> None:
             "if((await handlers.get('input')({text:'   ',source:'user',streamingBehavior:'steer'},ctx)) !== undefined) throw new Error('empty steer must not be transformed/re-armed');\n"
             "const afterEmptyWrite=await handlers.get('tool_call')({toolCallId:'after-empty-write',toolName:'write',input:{file_path:'empty.txt',content:'allowed'}},ctx);\n"
             "if(afterEmptyWrite?.block) throw new Error('empty steer incorrectly invalidated evidence');\n"
+            "await handlers.get('before_agent_start')({prompt:'parent prepares reader packet',systemPrompt:'base'},ctx);\n"
+            "const parentReaderMap={toolCallId:'parent-reader-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --complete --format=md'}};\n"
+            "if((await handlers.get('tool_call')(parentReaderMap,ctx))?.block) throw new Error('Parent overview before Reader was blocked');\n"
+            "await handlers.get('tool_result')({...parentReaderMap,content:'overview'},ctx);\n"
+            "const parentReaderRecord={toolCallId:'parent-reader-record',toolName:'read',input:{path:'.lazy-harness/spec/platform/pi-agent-package.md'}};\n"
+            "if((await handlers.get('tool_call')(parentReaderRecord,ctx))?.block) throw new Error('Parent governing read before Reader was blocked');\n"
+            "await handlers.get('tool_result')({...parentReaderRecord,content:'governing'},ctx);\n"
+            "const parentPendingMutation={toolCallId:'parent-pending-mutation',toolName:'write',input:{file_path:'parent-pending.txt',content:'pending'}};\n"
+            "if((await handlers.get('tool_call')(parentPendingMutation,ctx))?.block) throw new Error('Parent pending mutation before Reader was blocked');\n"
+            "await handlers.get('tool_result')({...parentPendingMutation,content:'ok'},ctx);\n"
+            "const rrMarker='LAZY_HARNESS_ROLE: record-reader/v2';\n"
+            "const rrBefore=await handlers.get('before_agent_start')({prompt:'retrieve canonical records',systemPrompt:rrMarker},ctx);\n"
+            "if(!String(rrBefore?.message?.content).includes('profile=record-reader/v2')) throw new Error('Record Reader profile marker missing');\n"
+            "if(!String(rrBefore?.systemPrompt).includes('Lazy-Harness role profile: record-reader/v2')) throw new Error('Record Reader role reminder missing');\n"
+            "if(!String(rrBefore?.systemPrompt).includes('Parent alone owns complete overview discovery') || !String(rrBefore.systemPrompt).includes('candidate-map') || !String(rrBefore.systemPrompt).includes('three separate shell calls') || !String(rrBefore.systemPrompt).includes('disable native supervisor/intercom coordination') || !String(rrBefore.systemPrompt).includes('Runtime tool-call soft and hard limits') || !String(rrBefore.systemPrompt).includes('compact admission v2') || !String(rrBefore.systemPrompt).includes('contractDigest') || !String(rrBefore.systemPrompt).includes('structured_output')) throw new Error('Record Reader two-mode/root-probe/transport/compact-admission responsibility boundary missing');\n"
+            "if(String(rrBefore?.systemPrompt).includes('Requirements-first change gate') || String(rrBefore?.systemPrompt).includes('Work unit 시작 시 한 번 검색')) throw new Error('Record Reader received full Parent grammar');\n"
+            "if((await handlers.get('context')({messages:[{role:'user',content:'reader'}]},ctx)) !== undefined) throw new Error('Record Reader consumed Parent pending context lifecycle');\n"
+            "for (const command of ['pwd','git rev-parse --show-toplevel','git rev-parse HEAD']) { const probe=await handlers.get('tool_call')({toolCallId:'rr-probe-'+command,toolName:'bash',input:{command}},ctx); if(probe?.block) throw new Error('Record Reader separate root probe was blocked: '+command+' '+probe.reason); }\n"
+            "const rrCompoundProbe=await handlers.get('tool_call')({toolCallId:'rr-compound-probe',toolName:'bash',input:{command:'pwd && git rev-parse --show-toplevel && git rev-parse HEAD'}},ctx);\n"
+            "if(!rrCompoundProbe?.block || !String(rrCompoundProbe.reason).includes('record-reader scope')) throw new Error('Record Reader compound root probe was not role-blocked');\n"
+            "const rrMap=await handlers.get('tool_call')({toolCallId:'rr-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map .lazy-harness/spec/platform/pi-agent-package.md --format=md --limit=8'}},ctx);\n"
+            "if(rrMap?.block) throw new Error('Record Reader concrete map drill was blocked: '+rrMap.reason);\n"
+            "const rrRecord=await handlers.get('tool_call')({toolCallId:'rr-record',toolName:'read',input:{path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
+            "if(rrRecord?.block) throw new Error('Record Reader canonical record read was blocked: '+rrRecord.reason);\n"
+            "const rrHash=await handlers.get('tool_call')({toolCallId:'rr-hash',toolName:'bash',input:{command:'git hash-object -- .lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
+            "if(rrHash?.block) throw new Error('Record Reader canonical content hash was blocked: '+rrHash.reason);\n"
+            "const rrUnownedStructured=await handlers.get('tool_call')({toolCallId:'rr-unowned-structured',toolName:'structured_output',input:{value:{status:'incomplete'}}},ctx);\n"
+            "if(!rrUnownedStructured?.block) throw new Error('Record Reader accepted structured_output without Pi Subagents runtime ownership');\n"
+            "const rrSchemaPath="+json.dumps(str(runtime_smoke / "record-reader-output-schema.json"))+"; const rrCapturePath="+json.dumps(str(runtime_smoke / "record-reader-output.json"))+";\n"
+            "await Bun.write(rrSchemaPath,'{}'); process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_SCHEMA=rrSchemaPath; process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_CAPTURE=rrCapturePath;\n"
+            "const rrStructured=await handlers.get('tool_call')({toolCallId:'rr-structured',toolName:'structured_output',input:{value:{status:'incomplete'}}},ctx);\n"
+            "if(rrStructured?.block) throw new Error('Record Reader internal structured_output protocol tool was blocked: '+rrStructured.reason);\n"
+            "delete process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_SCHEMA; delete process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_CAPTURE;\n"
+            "await handlers.get('tool_result')({toolCallId:'rr-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map .lazy-harness/spec/platform/pi-agent-package.md --format=md --limit=8'},content:'reader map'},ctx);\n"
+            "await handlers.get('tool_result')({toolCallId:'rr-record',toolName:'read',input:{path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'reader record'},ctx);\n"
+            "const rrGrep=await handlers.get('tool_call')({toolCallId:'rr-grep',toolName:'grep',input:{pattern:'record reader',path:'.lazy-harness/spec',context:2,limit:20}},ctx);\n"
+            "if(rrGrep?.block) throw new Error('Record Reader scoped canonical grep was blocked: '+rrGrep.reason);\n"
+            "for (const [label, ev] of [\n"
+            " ['source-read',{toolCallId:'rr-source',toolName:'read',input:{path:'packages/lazy-harness-pi/package.json'}}],\n"
+            " ['supervisor',{toolCallId:'rr-supervisor',toolName:'contact_supervisor',input:{reason:'progress_update',message:'routine update'}}],\n"
+            " ['write',{toolCallId:'rr-write',toolName:'write',input:{path:'result.md',content:'x'}}],\n"
+            " ['broad-shell',{toolCallId:'rr-shell',toolName:'bash',input:{command:'rg -n policy .lazy-harness'}}],\n"
+            " ['git-status',{toolCallId:'rr-git-status',toolName:'bash',input:{command:'git status --short'}}],\n"
+            " ['reader-overview',{toolCallId:'rr-overview',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --complete --format=md'}}],\n"
+            " ['map-escape',{toolCallId:'rr-map-escape',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map ../outside --format=md --limit=8'}}],\n"
+            " ['source-hash',{toolCallId:'rr-source-hash',toolName:'bash',input:{command:'git hash-object -- packages/lazy-harness-pi/package.json'}}],\n"
+            " ['root-grep',{toolCallId:'rr-root-grep',toolName:'grep',input:{pattern:'policy',path:'.lazy-harness',context:2,limit:20}}],\n"
+            " ['source-grep',{toolCallId:'rr-source-grep',toolName:'grep',input:{pattern:'policy',path:'.lazy-harness/scripts',context:2,limit:20}}],\n"
+            " ['oversized-grep',{toolCallId:'rr-big-grep',toolName:'grep',input:{pattern:'policy',path:'.lazy-harness/spec',context:4,limit:101}}],\n"
+            "]) { const r=await handlers.get('tool_call')(ev,ctx); if(!r?.block || !String(r.reason).includes('record-reader scope')) throw new Error('Record Reader '+label+' was not role-blocked'); }\n"
+            "const rrOmp=await handlers.get('before_agent_start')({prompt:'retrieve canonical records',systemPrompt:['base-block',rrMarker]},ctx);\n"
+            "if(!Array.isArray(rrOmp?.systemPrompt) || !rrOmp.systemPrompt.includes('base-block') || !rrOmp.systemPrompt.some((part)=>part.includes('record-reader/v2'))) throw new Error('OMP Record Reader prompt array contract failed');\n"
+            "if(rrOmp.systemPrompt.some((part)=>part.includes('Requirements-first change gate'))) throw new Error('OMP Record Reader received full Parent grammar');\n"
+            "const rrSteer=await handlers.get('input')({text:'recheck supplied nodes',source:'user',streamingBehavior:'steer'},ctx);\n"
+            "if(rrSteer?.action!=='transform' || !String(rrSteer.text).includes('record-reader/v2') || !String(rrSteer.text).includes('Parent alone owns complete overview discovery') || !String(rrSteer.text).includes('candidate-map')) throw new Error('Record Reader steer lost the two-mode role contract');\n"
+            "if(String(rrSteer.text).includes('REMINDER. Ground this work unit once')) throw new Error('Record Reader steer entered Parent lifecycle');\n"
+            "process.env.LAZY_PI_AGENT_END_TRACE='1';\n"
+            "process.env.LAZY_RUNTIME_ROOT="+json.dumps(str(runtime_smoke / "reader-runtime"))+";\n"
+            "await handlers.get('agent_end')({messages:[{role:'user',content:'reader task'},{role:'assistant',content:'reader packet'}]},ctx);\n"
+            "if(await Bun.file("+json.dumps(str(runtime_smoke / "reader-runtime" / "logs" / "pi-agent-end-trace.jsonl"))+").exists()) throw new Error('Record Reader entered Parent agent_end lifecycle');\n"
+            "delete process.env.LAZY_PI_AGENT_END_TRACE; delete process.env.LAZY_RUNTIME_ROOT;\n"
+            "const parentAfterReader=await handlers.get('before_agent_start')({prompt:'parent integrates reader packet',systemPrompt:'base'},ctx);\n"
+            "if(!String(parentAfterReader?.message?.content).includes('status=reused-work-unit')) throw new Error('Reader cleared or satisfied Parent work-unit evidence');\n"
             "console.log('pi shell alias read-debt smoke ok');\n",
             encoding="utf-8",
         )

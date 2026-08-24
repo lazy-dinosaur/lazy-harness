@@ -2,8 +2,8 @@ import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-age
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXTENSION_NAME = "lazy-harness";
@@ -17,10 +17,14 @@ const MAX_AGENT_END_TRACE_CONTENT_KINDS = 12;
 const MAX_AGENT_END_TRACE_TOOL_NAMES = 40;
 const MAX_AGENT_END_TRACE_ROWS = 50;
 const MAX_AGENT_END_TRACE_METADATA_CHARS = 128;
+const RECORD_READER_ROLE_MARKER = "LAZY_HARNESS_ROLE: record-reader/v2";
+const RECORD_READER_PROFILE = "record-reader/v2";
 
 type JsonObject = Record<string, unknown>;
 type ReadDebtStatus = "armed" | "reused-work-unit" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
 type HookResult = { stdout: string; stderr: string; status: number | null; signal?: string | null; error?: string };
+type LazyAgentRole = "record-reader";
+type ActivePacket = { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string; role?: LazyAgentRole };
 
 type RecentToolCall = {
   name: string;
@@ -40,7 +44,7 @@ type WorkUnitEvidence = {
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const workUnitEvidenceByRoot = new Map<string, WorkUnitEvidence>();
-const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
+const activePacketsByRoot = new Map<string, ActivePacket>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
 // Every normal turn and non-extension mid-turn steer advances a root-scoped
@@ -402,7 +406,94 @@ function appendSystemPromptBody(systemPrompt: unknown, body: string): string | s
   return current ? `${current}\n\n${body}` : body;
 }
 
+function lazyAgentRole(systemPrompt: unknown): LazyAgentRole | undefined {
+  return systemPromptIncludesBody(systemPrompt, RECORD_READER_ROLE_MARKER) ? "record-reader" : undefined;
+}
 
+function recordReaderReminder(root: string): string {
+  return [
+    `Lazy-Harness role profile: ${RECORD_READER_PROFILE}`,
+    `Root: ${root}`,
+    "Use the package-owned Record Reader system prompt as the complete role contract.",
+    "Require one explicit Work Packet mode: candidate-map proposes non-authoritative coverage; claim-evidence loads one Parent-approved evidence bundle.",
+    "The Parent alone owns complete overview discovery, candidate-map approval, fixed-point reopening, semantic authority, and all read debt.",
+    "Run identity probes as three separate shell calls: pwd, git rev-parse --show-toplevel, then git rev-parse HEAD; compound commands are blocked.",
+    "The execution transport must disable native supervisor/intercom coordination for this role; never call contact_supervisor.",
+    "Runtime tool-call soft and hard limits must both equal the packet tool budget, including one reserved final structured_output call; output uses a separate 6000 soft target and 12000 hard cap.",
+    "New runs use compact admission v2: the model echoes one contractDigest and normalized F/I/N/V/R/Q/B references; deterministic admission binds the full Parent envelope, one record/range table, one coverage authority, soft-target warnings, hard-cap overflow, and success closure; finish with Pi Subagents' runtime-owned structured_output tool.",
+    "Do not run an overview, read product/framework source, mutate files, invoke subagents, or claim that a packet proves global completeness.",
+  ].join("\n");
+}
+
+function recordReaderShellAllowed(root: string, args: JsonObject): boolean {
+  const command = shellCommand(args).trim();
+  if (!command || /[;&|><`$()]/.test(command)) return false;
+  const concreteMap = command.match(/^\.lazy-harness\/bin\/lazy\s+map\s+([A-Za-z0-9_./:#-]+)\s+--format=md\s+--limit=8$/i);
+  if (concreteMap) {
+    const node = concreteMap[1];
+    if (!node.startsWith("-") && !node.startsWith("/") && !node.split("/").includes("..")) return true;
+  }
+  const contentHash = command.match(/^git\s+hash-object\s+--\s+(.+)$/i);
+  if (contentHash && recordReaderCanonicalPath(root, contentHash[1], true)) return true;
+  return /^(?:pwd|git\s+rev-parse\s+(?:HEAD|--show-toplevel))$/i.test(command);
+}
+
+function recordReaderCanonicalPath(root: string, raw: string, requireBody: boolean): string | undefined {
+  if (!raw.trim()) return undefined;
+  let absolute: string;
+  try {
+    absolute = realpathSync(resolve(root, raw));
+  } catch {
+    return undefined;
+  }
+  const rel = relative(root, absolute).replace(/\\/g, "/");
+  if (rel.startsWith("../") || rel === "..") return undefined;
+  const canonical = /^\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)(?:\/[A-Za-z0-9_./-]+)?$/;
+  if (!canonical.test(rel)) return undefined;
+  if (requireBody && !/\.(?:md|xml|json)$/.test(rel)) return undefined;
+  return rel;
+}
+
+function recordReaderRecordPathAllowed(root: string, args: JsonObject): boolean {
+  const raw = String(args.path || args.file_path || args.filePath || "");
+  return recordReaderCanonicalPath(root, raw, true) !== undefined;
+}
+
+function recordReaderGrepAllowed(root: string, args: JsonObject): boolean {
+  const raw = String(args.path || "");
+  if (!recordReaderCanonicalPath(root, raw, false)) return false;
+  const pattern = String(args.pattern || "");
+  if (!pattern.trim() || pattern.length > 240 || /[\r\n]/.test(pattern)) return false;
+  const context = Number(args.context ?? 0);
+  const limit = Number(args.limit ?? 100);
+  if (!Number.isFinite(context) || context < 0 || context > 3) return false;
+  if (!Number.isFinite(limit) || limit < 1 || limit > 100) return false;
+  const glob = String(args.glob || "").trim();
+  if (glob && !/^(?:\*\*\/)?\*\.(?:md|xml|json)$/.test(glob)) return false;
+  return true;
+}
+
+function recordReaderStructuredOutputAllowed(): boolean {
+  const capturePath = String(process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_CAPTURE || "").trim();
+  const schemaPath = String(process.env.PI_SUBAGENT_STRUCTURED_OUTPUT_SCHEMA || "").trim();
+  return isAbsolute(capturePath) && isAbsolute(schemaPath) && existsSync(schemaPath);
+}
+
+function recordReaderToolDenial(root: string, name: string, args: JsonObject): string | undefined {
+  const lower = name.toLowerCase();
+  if (lower === "structured_output" && recordReaderStructuredOutputAllowed()) return undefined;
+  if (lower === "read" && recordReaderRecordPathAllowed(root, args)) return undefined;
+  if (lower === "grep" && recordReaderGrepAllowed(root, args)) return undefined;
+  if (lower === "bash" && recordReaderShellAllowed(root, args)) return undefined;
+  return [
+    "[lazy-harness record-reader scope] tool blocked by the records-only role profile.",
+    `Root: ${root}`,
+    `Tool: ${name}`,
+    "Allowed: Pi Subagents' internal `structured_output` protocol tool only while its absolute schema/capture runtime paths are active, exact concrete-node `.lazy-harness/bin/lazy map <node> --format=md --limit=8`, root/revision probes, exact canonical-record `git hash-object`, bounded grep inside one canonical record layer, and direct canonical record-body reads under domain/spec/behavior/tests/decisions/ssot/planning/plans.",
+    "Blocked: complete overview, source reads, mutation, general shell search, root-wide grep, file output, subagents, and external tools.",
+    "Return `invalid-packet`, `needs-remap`, `overflow`, or another explicit non-success status instead of expanding scope.",
+  ].join("\n");
+}
 function shellCommand(args: JsonObject): string {
   return String(args.command || args.cmd || args.text || "");
 }
@@ -688,12 +779,22 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     if (event.streamingBehavior === "steer" && event.source !== "extension") {
       const steerText = String(event.text || "");
       if (steerText.trim()) {
-        rearmEvidenceAfterSteer(root); // invalidate all evidence collected for the previous instruction
-        workUnitEvidenceByRoot.delete(root); // explicit steer starts a fresh work unit
-        pendingRegroundByRoot.delete(root);
-        regroundBodyByRoot.delete(root);
+        const role = activePacketsByRoot.get(root)?.role;
         const sessionId = `pi:${stableHash(root)}`;
         const messageId = `pi:${stableHash(`${Date.now()}:${steerText}`)}`;
+        if (role) {
+          const readDebtStatus: ReadDebtStatus = "armed";
+          activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus, role });
+          const body = recordReaderReminder(root);
+          return {
+            action: "transform" as const,
+            text: `${steerText}\n\n<system-reminder>\n${body}\n</system-reminder>`,
+          };
+        }
+        rearmEvidenceAfterSteer(root); // invalidate Parent evidence for the previous instruction
+        workUnitEvidenceByRoot.delete(root); // explicit steer starts a fresh work unit for the Parent
+        pendingRegroundByRoot.delete(root);
+        regroundBodyByRoot.delete(root);
         const payload: JsonObject = {
           event: "message.received", source: EXTENSION_NAME, session_id: sessionId,
           message_id: messageId, working_dir: root, last_user_message: steerText, recent_tool_calls: [],
@@ -720,6 +821,21 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
+
+    const role = lazyAgentRole(event.systemPrompt);
+    if (role) {
+      const sessionId = `pi:${stableHash(cwd)}`;
+      const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
+      // Reader children must not establish, invalidate, or satisfy Parent
+      // work-unit evidence, even in a sequential same-process fake runtime.
+      const readDebtStatus: ReadDebtStatus = "armed";
+      activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus, role });
+      const profile = RECORD_READER_PROFILE;
+      const inject = recordReaderReminder(root);
+      const message = { customType: EXTENSION_NAME, content: `${armStatusMessage(root, readDebtStatus)} profile=${profile}`, display: true };
+      if (systemPromptIncludesBody(event.systemPrompt, inject)) return { message };
+      return { message, systemPrompt: appendSystemPromptBody(event.systemPrompt, inject) };
+    }
 
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
@@ -793,6 +909,11 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const normalized = normalizePiTool(event.toolName, event.input || {});
+    if (packet.role) {
+      const reason = recordReaderToolDenial(root, normalized.name, normalized.args);
+      if (reason) return { block: true, reason };
+      return undefined;
+    }
     if (!readDebtArmed(packet.readDebtStatus) && isActionTool(normalized.name, normalized.args)) {
       return { block: true, reason: readDebtNotArmedReason(root, normalized.name, packet.readDebtStatus, packet.readDebtDetail) };
     }
@@ -820,6 +941,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.on("tool_result", async (event: any, ctx: any) => {
     const root = findLazyRootFromEvent(event, ctx);
     if (!root) return undefined;
+    if (activePacketsByRoot.get(root)?.role) return undefined;
     if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const normalized = normalizePiTool(event.toolName, event.input || {});
     if (!event.isError) observeWorkUnitEvidence(root, normalized.name, normalized.args);
@@ -849,6 +971,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     try {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));
       if (!root) return undefined;
+      if (activePacketsByRoot.get(root)?.role) return undefined;
       if (!pendingRegroundByRoot.get(root)) return undefined;
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
@@ -878,7 +1001,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
-
+    if (packet.role) return undefined;
     const messages = Array.isArray(event.messages) ? event.messages : [];
     const currentEpoch = currentEvidenceEpoch(root);
     const recentToolCalls = recentToolCallsForRoot(root)

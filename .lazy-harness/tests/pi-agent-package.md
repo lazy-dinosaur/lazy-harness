@@ -30,6 +30,7 @@ Layer: TDD
   - project-local activation must merge `.pi/settings.json` with project-owned skill paths (`../.claude/skills`, `../.codex/skills`, `../.agents/skills`) and `enableSkillCommands: true` without relying on global wildcard behavior
   - expose `lazy-architecture-refactor` through the shared `skills/` resource with separate map/source approval gates, exact digest confirmation, stop rules, and no enforcement
   - keep fake-runtime regression fixtures hermetic: copy the extension beside bounded Pi/TypeBox peer stubs instead of assuming repository-local or machine-global peer resolution
+  - protect the single v2 role plus archived v1 validation and compact-v2 generation: static mutations cover Parent envelope/digest, probes, bridge/tool budget, 6k soft/12k hard output, normalized ids/tables, status-detail symmetry, and Parent authority. Admission fixtures cover v1 compatibility; v2 digest/closed grammar, candidate/claim schemas, canonical paths/hash lengths, refs/range indexes, exact coverage/node/seed/overlap/dependency/remap closure, soft warning, hard rejection, and integration-scale-under-target. When the installed Pi TypeBox peer is discoverable, both compact schemas must compile through its real `Compile` API. Fake runtime retains the unchanged records-only boundary.
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
 - Record completion:
@@ -49,7 +50,7 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 
 | Case | Trigger | Expected |
 |---|---|---|
-| `pi_omp_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keywords include `pi-package` and `omp-plugin`; both `pi.*` and `omp.*` resource sections point to package-local extensions, skills, and prompts |
+| `pi_omp_package_manifest_resources` | Parse `packages/lazy-harness-pi/package.json` | Manifest name is `@lazy-dinosaur/lazy-harness-pi`; keywords include `pi-package` and `omp-plugin`; both `pi.*` and `omp.*` resource sections point to package-local extensions, skills, and prompts; `pi.subagents.agents` plus top-level `pi-subagents.agents` expose `./agents` |
 | `pi_clean_default_no_project_settings` | Inspect source checkout | `.pi/settings.json` is absent by default after factory reset; project-local Pi attachment is generated only by an intentional install command |
 | `pi_fake_runtime_hermetic_peers` | Run extension fake-runtime smokes from a clean checkout where Pi exists only as a runtime/global package | The fixture copies current extension source beside bounded `SessionManager` and TypeBox stubs; Bun never depends on machine-global peer lookup or a repository-local Pi install |
 | `pi_install_guidance` | Inspect package README and SDD | Global bootstrap and project-local activation commands are documented, including that the package is not installed by default after a clean reset |
@@ -76,7 +77,13 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_extension_move_rescopes_root_state` | Fake OMP/Pi runtime keeps stale `ctx.cwd` but changes `ctx.sessionManager.getCwd()` after `/move` | Hook payloads, `LAZY_HOST_ROOT`, recent tool evidence, and `/lazy-*` command execution re-scope to the live session cwd |
 | `pi_extension_steer_rearms_fresh_evidence` | Fake Pi runtime establishes valid evidence, starts a second read, receives a non-extension `streamingBehavior:'steer'`, then delivers the old read result and attempts a write | The transformed steer reminder says earlier evidence is stale; the old result is ignored; the write blocks; a read call/result started after the steer restores permission; no command-name or steer-text classifier is involved |
 | `pi_extension_agent_end_bounded_continuation` | Inspect extension source | `agent_end` drives any advisory inject body as a continuation via `sendUserMessage(body, { deliverAs: "followUp" })` (a bare `sendUserMessage` at turn-end throws `Agent is already processing`, so `followUp` queues it after the current turn); the same unresolved advisory is capped at `MAX_ADVISORY_CONTINUATIONS` turns and alternating advisory chains are capped at `MAX_ADVISORY_CHAIN_CONTINUATIONS`, then suppresses chat/display messages and only emits transient UI notification/log; an empty body resets the per-root counter, and a new human prompt distinct from the queued advisory body resets the cap while synthetic follow-up turns keep it |
-| `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root | Reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
+| `pi_extension_reminder_carries_interactive_grammar` | Fake runtime calls `before_agent_start` in a harness root without a package role marker | Parent/ordinary reminder body includes the interactive grammar (record↔code conflict / option gate / requirements-first), not only the search/read-debt protocol |
+| `pi_record_reader_v2_profile` | Establish Parent evidence, start Reader, inspect compact reminder, exercise role tools/steer/agent_end, then resume Parent | V2 gets no Parent AGENTS; reminder requires bridge-off, equal tool budget, compact admission v2, contractDigest, normalized refs, 6k soft/12k hard output policy, and internal structured_output; existing tool/lifecycle denials and Parent isolation remain unchanged |
+| `pi_record_reader_common_packet_contract` | Section-aware profile validator plus adversarial mutations | Requires full Parent envelope, compact catalogs/digest, separate probes, bridge/equal tool limits, normalized record/range references, soft/hard output semantics, no trimming, and exact tools |
+| `pi_record_reader_candidate_map_contract` | Validate compact candidate section and mutate false-complete/ceilings | One coverage authority, unverified Q ids, R/range-index evidence, N/V refs, normalized overlap/dependency/bundle output, Parent approval, and no `complete` remain protected |
+| `pi_record_reader_claim_evidence_remap_contract` | Validate compact claim section/status and mutate remap/ceiling clauses | Approved Q/F/N/D/owner scope, compact claims, newQuestions/overlap/dependency remap, bundle-local complete, and no recursive scheduling remain protected |
+| `pi_record_reader_machine_admission` | Run archived v1, compact v2 digest/schema/candidate/claim/scale/adversarial/status fixtures, plus installed-peer TypeBox compile when available | V1 stays valid; v2 closes contract grammar, canonical provenance, normalized coverage/node/seed/overlap/dependency/remap/status refs; >6k warns, >12k rejects; integration-scale stays <=6k |
+| `pi_record_reader_context_isolation` | Seed Parent pending mutation state, enter Reader role, and invoke fake runtime `context` | Reader returns no Parent re-ground message and does not execute the Parent context hook; later Parent start follows its normal work-unit lifecycle |
 | `pi_extension_context_regrounds_once_per_work_unit` | Fake runtime grounds with overview + direct record read, performs reads then mutations, starts another normal turn, changes a governing record, and explicitly steers | Reads/searches produce no context injection; the first successful mutation produces one pointer-only reminder; a later normal turn reuses valid hashes with `status=reused-work-unit`; changed/deleted governing records and explicit steer re-arm fresh grounding. |
 | `pi_context_code_organization_profile` | Resolve framework and host-only source policies/capabilities explicitly before a coherent source batch | Canonical registry matches remain available without being injected automatically after file reads; record-only context receives no source-adaptation block. |
 | `pi_extension_context_noop_without_mutation` | Fake runtime fires `context` after reads/searches but without a successful mutation result | `context` returns `undefined`; read-only evidence never causes prompt replay. |
@@ -129,21 +136,23 @@ omp plugin list
 
 ## Layer completeness
 
-- Primary canonical record: `.lazy-harness/tests/project-rule-placement-gate-loop.md`; this package TDD is an independent adapter regression delta.
-- SDD: `.lazy-harness/spec/platform/pi-agent-package.md` defines normal-turn evidence epochs and active-turn-only `agent_end` projection.
-- BDD: no separate canonical record; the user-visible false placement follow-up is the primary TDD regression correction.
-- SSOT: no package runtime-path/schema delta; `.lazy-harness/ssot/gate-fingerprint-state.md` owns the related project-rule fingerprint narrowing.
-- DDD: no domain terminology or business invariant delta.
-- TDD: this record protects the package bridge; the primary TDD record protects the end-to-end placement regression.
-- ADR: no new decision; existing Pi/OMP bridge and lifecycle decisions remain unchanged.
+- Primary package contract: `.lazy-harness/spec/platform/pi-agent-package.md`; this TDD aggregates independent wrapper, lifecycle, option-gate, tracing, move/root isolation, and Record Reader regressions.
+- SDD: Pi package SDD owns adapter/runtime behavior; Search/Read Debt SDD retains Parent evidence ownership.
+- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` owns the current Reader candidate-map → evidence-bundle → fixed-point-remap flow. Older project-rule-placement correction behavior remains in its primary TDD record.
+- SSOT: runtime-path details remain in runtime/gate-fingerprint SSOT records; the package-local admission contract is an SDD-owned transport schema, not a permanent project memory/queue/model-default store.
+- DDD: no independent business/domain terminology delta; Reader mode/admission labels are package protocol.
+- TDD: this record protects archived v1 validation, compact v2 schema/admission, profile/runtime surfaces, and no-live-run boundary. Semantic evidence remains Parent-owned.
+- ADR: ADR 0055 owns Reader authority, omission control, freshness, admission trust boundary, and separate pilot decisions; existing Pi/OMP lifecycle decisions remain in force.
 
 ## Implementation map
 
-- `packages/lazy-harness-pi/package.json` — fixture for explicit `pi` and `omp` package manifest resource paths.
+- `packages/lazy-harness-pi/package.json` — fixture for explicit `pi` and `omp` package resources plus package-owned Record Reader agent discovery.
+- `packages/lazy-harness-pi/agents/record-reader.md` — compact-v2 Parent envelope/digest, F/I/N/V/R/Q/B/D references, one coverage/provenance authority, soft/hard output policy, two-mode remap/overflow, and unchanged Parent/tool boundaries.
 - `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
 - `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
 - `.lazy-harness/scripts/agent-activate.ts` — fixture for project-local Pi/OMP activation prompt files, project-local skill settings, and `.git/info/exclude` entries.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, normal-turn and steer evidence epochs, late-result exclusion, current-turn-only `agent_end` projection, and opt-in content-free tracing.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped Parent evidence plus role-aware Reader prompt/tool/lifecycle isolation: bridge-off/equal-budget/dynamic-admission reminder, Pi Subagents schema/capture-gated `structured_output`, concrete map/read/hash/grep allowance, prohibited/unowned-tool denial, late-result exclusion, current-turn-only `agent_end`, and opt-in tracing.
+- `packages/lazy-harness-pi/scripts/record-reader-admission.ts` — one facade for archived v1 plus compact v2 digest/schema/validation, normalized reference closure, exact coverage/node/claim checks, soft-target warnings, hard-cap rejection, and deterministic receipts.
 - `.pi/settings.json` — optional generated project-local Pi settings; activation ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` load with `enableSkillCommands`, while local package install may add package attachment; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge events plus `/lazy-check`, `/lazy-validate`, and explicit fresh/full `/lazy-test` commands.
@@ -155,11 +164,24 @@ omp plugin list
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for pre-context batching, failed-hook pending retry, at-most-once-per-turn injection, same-turn suppression after a cached body, and reset on fresh turn/steer.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
 - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.
-- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` plus `_check_pi_agent_end_current_turn_scope` — regression implementation, including hermetic fake peer modules, live-session `/move` re-scope, post-steer re-arming, current-turn canonical lifecycle projection, failed-call structure, trace privacy/default-off/runtime-root assertions, and queued follow-up preservation.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` plus `_check_pi_agent_end_current_turn_scope` — regression implementation, including hermetic peers, section-aware contract/negative mutations, admission schema/valid-invalid fixtures, fake-runtime internal structured_output and records-only boundary, Reader-to-Parent isolation, move/steer/current-turn lifecycle, trace privacy, and queued follow-up preservation.
 - Machine index:
   - `kg_pi_agent_end_structural_trace_impl_20260714`
   - `kg_pi_agent_end_structural_trace_test_20260714`
   - `kg_pi_context_once_per_turn_20260818`
+  - `kg_record_reader_evidence_profile_test_20260823`
+  - `kg_record_reader_two_mode_decision_20260823`
+  - `kg_record_reader_two_mode_contract_impl_20260823`
+  - `kg_record_reader_two_mode_contract_test_20260823`
+  - `kg_record_reader_separate_probe_impl_20260823`
+  - `kg_record_reader_separate_probe_test_20260823`
+  - `kg_record_reader_transport_isolation_test_20260823`
+  - `kg_record_reader_compact_output_budget_decision_20260824`
+  - `kg_record_reader_compact_contract_implementation_20260824`
+  - `kg_record_reader_compact_contract_test_20260824`
+  - `kg_record_reader_compact_contract_initial_review_20260824`
+  - `kg_record_reader_compact_contract_review_remediation_20260824`
+  - `kg_record_reader_compact_contract_review_closure_20260824`
 
 ## Rule placement
 
@@ -213,3 +235,14 @@ omp plugin list
 - ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because the earlier per-file-op surfacing decision was narrowed after dogfood evidence.
 - SSOT: none because policy/capability registry ownership, schema, and levels did not change.
 - Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md` as the primary work-unit narrative.
+
+## Discovery capture — Record Reader evidence-loader
+
+- Primary canonical record: `.lazy-harness/spec/platform/pi-agent-package.md`; the Planning record preserves experiment history and rollout bounds.
+- DDD: no independent delta; existing searchable-record-memory vocabulary already covers scoped evidence.
+- SDD: updated for compact v2 Parent envelope/digest, normalized evidence/coverage, archived v1 compatibility, and separate output target/cap.
+- BDD: no independent flow change; only the wire representation is normalized and Parent approval/remap behavior is unchanged.
+- SSOT: no independent durable project schema/path/model-default delta; admission contracts/outputs are per-run artifacts, not canonical memory.
+- TDD: adds compact digest/candidate/claim/scale/reference/soft-hard fixtures while retaining v1 and fake-runtime coverage.
+- ADR: ADR 0055 owns the user-confirmed accuracy-first soft-target/hard-cap compact-contract decision.
+- Planning: records measured duplication, compact size estimates, implementation approval, and a separate future live-run gate.

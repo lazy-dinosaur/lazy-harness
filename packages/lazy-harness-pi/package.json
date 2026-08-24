@@ -5,19 +5,26 @@
   "type": "module",
   "description": "Pi Coding Agent package for lazy-harness prompt/runtime lifecycle integration.",
   "scripts": {
-    "import:antigravity-mcp": "bun scripts/import-antigravity-mcp.ts"
+    "import:antigravity-mcp": "bun scripts/import-antigravity-mcp.ts",
+    "record-reader:admission": "bun scripts/record-reader-admission.ts"
   },
   "keywords": ["pi-package", "omp-plugin", "lazy-harness", "agent", "extension"],
   "license": "MIT",
   "pi": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
-    "prompts": ["./prompts"]
+    "prompts": ["./prompts"],
+    "subagents": {
+      "agents": ["./agents"]
+    }
   },
   "omp": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"]
+  },
+  "pi-subagents": {
+    "agents": ["./agents"]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
