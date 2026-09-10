@@ -65,6 +65,31 @@ export interface GraphHint {
   source?: string
   target?: string
   path?: string
+  sourcePath?: string
+  targetPath?: string
+  subject?: string
+  predicate?: string
+  object?: unknown
+  status?: string
+  supersededBy?: string
+  supersedes?: string[]
+}
+
+// Preserve authored graph shape/state; derived hints are not canonical facts.
+export function projectGraphHint(row: GraphRow): GraphHint {
+  const hint: GraphHint = { id: String(row.id || '') }
+  for (const key of ['relation', 'source', 'target', 'path', 'sourcePath', 'targetPath', 'subject', 'predicate', 'status', 'supersededBy'] as const) {
+    if (typeof row[key] === 'string') hint[key] = row[key]
+  }
+  if (!hint.relation && typeof row.type === 'string') hint.relation = row.type
+  if (Object.hasOwn(row, 'object')) hint.object = row.object
+  if (Array.isArray(row.supersedes)) hint.supersedes = row.supersedes.filter((value): value is string => typeof value === 'string')
+  return hint
+}
+
+export function graphPathValues(row: GraphRow | GraphHint): string[] {
+  return [row.path, row.source, row.target, row.sourcePath, row.targetPath, row.subject, row.object]
+    .filter((value): value is string => typeof value === 'string')
 }
 
 export interface RecordEntry {
@@ -131,6 +156,7 @@ export interface RecordIndex {
   source: {
     root: string
     method: 'record-index-v1'
+    graphProjection: 'spo-state-v1'
     tool: string
     canonicalInputs: string[]
   }
@@ -205,8 +231,11 @@ function parseArgs(argv: string[]): Args {
     else usage()
   }
   args.root = path.resolve(args.root)
-  if (!args.output) args.output = path.join(args.root, '.lazy-harness', 'generated', 'record-index.json')
-  else args.output = path.resolve(args.output)
+  if (args.output) {
+    args.output = path.resolve(args.output)
+  } else {
+    args.output = path.join(args.root, '.lazy-harness', 'generated', 'record-index.json')
+  }
   return args
 }
 
@@ -591,9 +620,7 @@ function parseGraph(root: string): { path: string | null; rows: GraphRow[]; inva
 }
 
 function graphRelatesTo(row: GraphRow, recordPath: string): boolean {
-  return [row.path, row.source, row.target, row.sourcePath, row.targetPath]
-    .filter((v): v is string => typeof v === 'string')
-    .some((value) => normalizePath(value) === recordPath)
+  return graphPathValues(row).some((value) => normalizePath(value) === recordPath)
 }
 
 function mergeGraph(records: RecordEntry[], graphRows: GraphRow[]): void {
@@ -601,17 +628,11 @@ function mergeGraph(records: RecordEntry[], graphRows: GraphRow[]): void {
     for (const row of graphRows) {
       if (!row.id || !graphRelatesTo(row, record.recordPath)) continue
       record.graphIds = uniqueSorted([...record.graphIds, row.id])
-      const hint: GraphHint = {
-        id: row.id,
-        ...(typeof row.relation === 'string' ? { relation: row.relation } : {}),
-        ...(typeof row.type === 'string' ? { relation: row.type } : {}),
-        ...(typeof row.source === 'string' ? { source: row.source } : {}),
-        ...(typeof row.target === 'string' ? { target: row.target } : {}),
-        ...(typeof row.path === 'string' ? { path: row.path } : {}),
-      }
-      record.graphHints.push(hint)
-      for (const value of [row.path, row.source, row.target, row.sourcePath, row.targetPath]) {
-        if (typeof value === 'string' && normalizePath(value) !== record.recordPath) classifyHint(value, record.implementationHints)
+      record.graphHints.push(projectGraphHint(row))
+      // Historical rows remain traversable, but cannot describe current implementation.
+      if (row.status === 'superseded' || row.status === 'rejected') continue
+      for (const value of graphPathValues(row)) {
+        if (normalizePath(value) !== record.recordPath) classifyHint(value, record.implementationHints)
       }
     }
     record.graphHints.sort((a, b) => a.id.localeCompare(b.id))
@@ -643,6 +664,7 @@ export function buildRecordIndex(root: string): RecordIndex {
   const source = {
     root,
     method: 'record-index-v1' as const,
+    graphProjection: 'spo-state-v1' as const,
     tool: '.lazy-harness/scripts/record-index.ts',
     canonicalInputs: canonicalInputs(root),
   }

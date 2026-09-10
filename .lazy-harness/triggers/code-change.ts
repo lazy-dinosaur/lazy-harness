@@ -92,7 +92,8 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
 
   if (opts.layer !== 'bdd') {
     const { Project } = loadTsMorph();
-    nonBddDetectors = loadNonBddDetectors();
+    const detectors = loadNonBddDetectors();
+    nonBddDetectors = detectors;
     const project = new Project({
       tsConfigFilePath: existsSync(opts.tsconfig) ? opts.tsconfig : undefined,
       skipAddingFilesFromTsConfig: false,
@@ -115,7 +116,7 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
           const currentContracts = nonBddDetectors.sdd.extractContracts(sourceFile);
           if (opts.newOnly) {
             const previousKeys = nonBddDetectors.sdd.getPreviousContractKeys(project, filePath, warnings);
-            contracts.push(...currentContracts.filter((contract) => !previousKeys.has(nonBddDetectors.sdd.contractKey(contract))));
+            contracts.push(...currentContracts.filter((contract) => !previousKeys.has(detectors.sdd.contractKey(contract))));
           } else {
             contracts.push(...currentContracts);
           }
@@ -125,7 +126,7 @@ export function runCodeChangeTrigger(options: Partial<CliOptions> = {}): Trigger
           const currentUtilities = nonBddDetectors.ssot.extractSsotUtilities(sourceFile);
           if (opts.newOnly) {
             const previousKeys = nonBddDetectors.ssot.getPreviousSsotKeys(project, filePath, warnings);
-            ssotUtilities.push(...currentUtilities.filter((utility) => !previousKeys.has(nonBddDetectors.ssot.ssotKey(utility))));
+            ssotUtilities.push(...currentUtilities.filter((utility) => !previousKeys.has(detectors.ssot.ssotKey(utility))));
           } else {
             ssotUtilities.push(...currentUtilities);
           }

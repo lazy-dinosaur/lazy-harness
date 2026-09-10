@@ -9,7 +9,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { buildRecordIndex, type FeatureEntry, type RecordEntry, type RecordIndex } from './record-index.ts'
+import { buildRecordIndex, graphPathValues, projectGraphHint, type GraphHint, type FeatureEntry, type RecordEntry, type RecordIndex } from './record-index.ts'
 
 type OutputFormat = 'json' | 'md'
 
@@ -68,13 +68,8 @@ interface RecordMatch {
   referencedBy: string[]
 }
 
-interface GraphMatch {
-  id: string
-  relation?: string
+interface GraphMatch extends GraphHint {
   kind?: string
-  path?: string
-  source?: string
-  target?: string
   matchCount: number
   matched: MatchDetail[]
 }
@@ -276,6 +271,7 @@ function validateRecordIndex(value: unknown): value is RecordIndex {
   const index = value as Partial<RecordIndex>
   return index.schemaVersion === '1.0'
     && index.source?.method === 'record-index-v1'
+    && index.source?.graphProjection === 'spo-state-v1'
     && Array.isArray(index.records)
     && Array.isArray(index.projectProfile?.features)
 }
@@ -479,7 +475,7 @@ function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
   addMatches(matched, query, 'record.symbols', hints.symbolHints)
   addMatches(matched, query, 'record.testFiles', hints.testHints)
   addMatches(matched, query, 'record.graphIds', record.graphIds)
-  addMatches(matched, query, 'record.graphHints', record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.path, hint.source, hint.target].filter((value): value is string => Boolean(value))))
+  addMatches(matched, query, 'record.graphHints', record.graphHints.flatMap(rowStrings))
   addAggregateFallbackMatches(matched, query, 'record.aggregateTokenFallback', [
     record.recordPath,
     record.title,
@@ -499,7 +495,7 @@ function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
     ...hints.symbolHints,
     ...hints.testHints,
     ...record.graphIds,
-    ...record.graphHints.flatMap((hint) => [hint.id, hint.relation, hint.path, hint.source, hint.target]),
+    ...record.graphHints.flatMap(rowStrings),
   ])
   if (!matched.length) return null
   return {
@@ -540,18 +536,17 @@ function graphMatch(query: string, row: GraphRow): GraphMatch | null {
   if (typeof row.path === 'string') addExactMatches(matched, query, 'graph.pathExact', row.path)
   if (typeof row.source === 'string') addExactMatches(matched, query, 'graph.sourceExact', row.source)
   if (typeof row.target === 'string') addExactMatches(matched, query, 'graph.targetExact', row.target)
+  for (const key of ['subject', 'object', 'sourcePath', 'targetPath'] as const) {
+    if (typeof row[key] === 'string') addExactMatches(matched, query, `graph.${key}Exact`, row[key])
+  }
   for (const [key, value] of Object.entries(row)) {
     for (const text of rowStrings(value)) addMatches(matched, query, `graph.${key}`, text)
   }
   addAggregateFallbackMatches(matched, query, 'graph.aggregateTokenFallback', rowStrings(row))
   if (!matched.length) return null
   return {
-    id: String(row.id || ''),
-    relation: typeof row.relation === 'string' ? row.relation : typeof row.type === 'string' ? row.type : undefined,
+    ...projectGraphHint(row),
     kind: typeof row.kind === 'string' ? row.kind : undefined,
-    path: typeof row.path === 'string' ? row.path : undefined,
-    source: typeof row.source === 'string' ? row.source : undefined,
-    target: typeof row.target === 'string' ? row.target : undefined,
     matchCount: matched.length,
     matched,
   }
@@ -581,7 +576,7 @@ function buildDrilldown(root: string, features: FeatureMatch[], records: RecordM
   }
   for (const row of graphRows) {
     if (row.id) out.graphIds.push(row.id)
-    for (const value of [row.path, row.source, row.target]) if (value) addPath(value, out, root)
+    for (const value of graphPathValues(row)) addPath(value, out, root)
   }
   return {
     recordPaths: uniq(out.recordPaths),
@@ -640,12 +635,8 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false, 
   const { index, cache } = loadRecordIndex(root, fresh)
   const graphSourceRows = graphRows(root)
   const graphMatches = graphSourceRows.map((row) => ({
-    id: String(row.id || ''),
-    relation: typeof row.relation === 'string' ? row.relation : typeof row.type === 'string' ? row.type : undefined,
+    ...projectGraphHint(row),
     kind: typeof row.kind === 'string' ? row.kind : undefined,
-    path: typeof row.path === 'string' ? row.path : undefined,
-    source: typeof row.source === 'string' ? row.source : undefined,
-    target: typeof row.target === 'string' ? row.target : undefined,
     matchCount: 0,
     matched: [],
   }))
@@ -664,7 +655,7 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false, 
     }))
   const relationCounts = new Map<string, number>()
   for (const row of graphMatches) {
-    const relation = row.relation || row.kind || 'row'
+    const relation = row.predicate || row.relation || row.kind || 'row'
     relationCounts.set(relation, (relationCounts.get(relation) || 0) + 1)
   }
   const featureSource = complete ? index.projectProfile.features : index.projectProfile.features.slice(0, limit)
@@ -692,7 +683,7 @@ export function buildRecordMapOverview(root: string, limit = 20, fresh = false, 
     }
     for (const row of graphMatches) {
       if (row.id) drilldown.graphIds.push(row.id)
-      for (const value of [row.path, row.source, row.target]) if (value) addPath(value, drilldown, root)
+      for (const value of graphPathValues(row)) addPath(value, drilldown, root)
     }
   }
   return {
@@ -774,10 +765,12 @@ function renderMarkdown(result: RecordMapResult): string {
   lines.push('', '## Graph rows')
   if (!result.graphRows.length) lines.push('- -')
   for (const row of result.graphRows) {
-    lines.push(`- \`${row.id || '(no id)'}\` (${row.relation || row.kind || 'row'}, matches=${row.matchCount})`)
-    if (row.path) lines.push(`  - path: \`${row.path}\``)
-    if (row.source) lines.push(`  - source: \`${row.source}\``)
-    if (row.target) lines.push(`  - target: \`${row.target}\``)
+    lines.push(`- \`${row.id || '(no id)'}\` (${row.predicate || row.relation || row.kind || 'row'}, matches=${row.matchCount})`)
+    for (const key of ['path', 'source', 'target', 'sourcePath', 'targetPath', 'subject', 'predicate', 'status', 'supersededBy'] as const) {
+      if (row[key]) lines.push(`  - ${key}: \`${row[key]}\``)
+    }
+    if (Object.hasOwn(row, 'object')) lines.push(`  - object: \`${typeof row.object === 'string' ? row.object : JSON.stringify(row.object)}\``)
+    if (row.supersedes?.length) lines.push(`  - supersedes: ${row.supersedes.map((id) => `\`${id}\``).join(', ')}`)
   }
   lines.push('', '## Drill-down candidates')
   lines.push('- Records:')

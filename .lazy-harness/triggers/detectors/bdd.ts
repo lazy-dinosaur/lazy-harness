@@ -196,7 +196,7 @@ function buildBddAsk(name: string, scenario: TriggerScenarioStep, crossRef: Trig
         description: '사람이 given/when/then, actor, expected behavior 를 직접 지정',
       },
     ],
-    crossRef,
+    crossRef: { ...crossRef },
     notes: [
       'ADR 0018: BDD scenario 는 DDD noun / SDD verb·endpoint 와 cross-reference',
       'ADR 0019: force gate. 후보는 silent skip 하지 않고 structured ask 로 확인',

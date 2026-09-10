@@ -184,21 +184,22 @@ function registryItemId(item: unknown): string {
     ? String((item as Record<string, unknown>).id)
     : ''
 }
+function readSeedRegistry(path: string, key: 'capabilities' | 'policies'): Record<string, unknown> {
+  const data = JSON.parse(readFileSync(path, 'utf8'))
+  if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data[key])) {
+    throw new Error(`Invalid ${key} registry (expected ${key} array): ${path}`)
+  }
+  return data
+}
+
 function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchanged' {
+  const srcData = readSeedRegistry(src, 'capabilities')
   if (!existsSync(dest)) {
     copyFile(src, dest)
     return 'updated'
   }
 
-  let srcData: Record<string, unknown>
-  let destData: Record<string, unknown>
-  try {
-    srcData = JSON.parse(readFileSync(src, 'utf8')) as Record<string, unknown>
-    destData = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
-  } catch (err) {
-    log(`  ⚠ could not merge capabilities seed: ${(err as Error).message}`)
-    return 'unchanged'
-  }
+  const destData = readSeedRegistry(dest, 'capabilities')
 
   const srcCaps = Array.isArray(srcData.capabilities) ? srcData.capabilities : []
   const destCaps = Array.isArray(destData.capabilities) ? destData.capabilities : []
@@ -227,20 +228,13 @@ function mergeCapabilitiesSeed(src: string, dest: string): 'updated' | 'unchange
 }
 
 function mergePoliciesSeed(src: string, dest: string): 'updated' | 'unchanged' {
+  const srcData = readSeedRegistry(src, 'policies')
   if (!existsSync(dest)) {
     copyFile(src, dest)
     return 'updated'
   }
 
-  let srcData: Record<string, unknown>
-  let destData: Record<string, unknown>
-  try {
-    srcData = JSON.parse(readFileSync(src, 'utf8')) as Record<string, unknown>
-    destData = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
-  } catch (err) {
-    log(`  ⚠ could not merge policies seed: ${(err as Error).message}`)
-    return 'unchanged'
-  }
+  const destData = readSeedRegistry(dest, 'policies')
 
   const srcPolicies = Array.isArray(srcData.policies) ? srcData.policies : []
   const destPolicies = Array.isArray(destData.policies) ? destData.policies : []
@@ -349,17 +343,16 @@ function detectDrift(sourceRoot: string, targetRoot: string): DriftStatus {
       message: 'Host has no state/synced-from-commit (was this initialized by lazy-init?)'
     }
   }
-  if (hostSha === sourceSha) {
-    // Same commit, but check working-tree for uncommitted source changes that
-    // would otherwise be silently skipped by the equal-fast-path.
-    if (isSourceWorkingTreeDirty(sourceRoot)) {
-      return {
-        status: 'ahead',
-        hostSha,
-        sourceSha,
-        message: 'Source working-tree has uncommitted .lazy-harness changes (dirty)'
-      }
+  // Dirty source must not enter either the equal fast path or automatic behind sync.
+  if (isSourceWorkingTreeDirty(sourceRoot)) {
+    return {
+      status: 'ahead',
+      hostSha,
+      sourceSha,
+      message: 'Source working-tree has uncommitted .lazy-harness changes (dirty)'
     }
+  }
+  if (hostSha === sourceSha) {
     return { status: 'equal', hostSha, sourceSha, message: 'Already in sync' }
   }
   // Try to use git to determine relationship
@@ -471,6 +464,24 @@ function loadManifest(sourceRoot: string): InitManifest {
 // Category A sync (same logic as lazy-init but with diff awareness)
 // ─────────────────────────────────────────────────────────────
 
+function preflightCategoryA(sourceRoot: string, targetRoot: string, items: ManifestItem[]): void {
+  // Refuse incomplete inputs before copying, pruning, or touching host-owned registries.
+  for (const item of items) {
+    const src = join(sourceRoot, '.lazy-harness', item.path)
+    const dest = join(targetRoot, '.lazy-harness', item.targetPath ?? item.path)
+    if (!existsSync(src)) throw new Error(`Missing required Category A source: ${src}`)
+    const file = item.path === 'AGENTS.md' || item.kind === 'file'
+    if (file ? !statSync(src).isFile() : !statSync(src).isDirectory()) {
+      throw new Error(`Invalid Category A source kind: ${src}`)
+    }
+    const key = isCapabilitiesSeedItem(item) ? 'capabilities' : isPoliciesSeedItem(item) ? 'policies' : undefined
+    if (key) {
+      readSeedRegistry(src, key)
+      if (existsSync(dest)) readSeedRegistry(dest, key)
+    }
+  }
+}
+
 function syncCategoryA(
   sourceRoot: string,
   targetRoot: string,
@@ -482,7 +493,7 @@ function syncCategoryA(
 
   let updated = 0
   let unchanged = 0
-  let missing = 0
+  const missing = 0
 
   log('\n[Category A] Framework 본체 sync')
 
@@ -493,10 +504,7 @@ function syncCategoryA(
     ) {
       const src = join(sourceLazy, item.path)
       const dest = join(targetLazy, item.targetPath ?? item.path)
-      if (!existsSync(src)) {
-        missing++
-        continue
-      }
+      if (!existsSync(src)) throw new Error(`Missing required Category A source: ${src}`)
       if (isCapabilitiesSeedItem(item)) {
         const result = mergeCapabilitiesSeed(src, dest)
         if (result === 'updated') updated++
@@ -523,10 +531,7 @@ function syncCategoryA(
     }
 
     const srcDir = join(sourceLazy, item.path)
-    if (!existsSync(srcDir)) {
-      missing++
-      continue
-    }
+    if (!existsSync(srcDir)) throw new Error(`Missing required Category A source: ${srcDir}`)
     const managedFiles = new Set<string>()
     const files = walkFiles(srcDir)
     for (const f of files) {
@@ -697,6 +702,7 @@ function main(): void {
 
   // Sync
   const manifest = loadManifest(sourceRoot)
+  preflightCategoryA(sourceRoot, targetRoot, manifest.categories.A.items)
   const result = syncCategoryA(
     sourceRoot,
     targetRoot,
@@ -732,4 +738,9 @@ function main(): void {
   }
 }
 
-main()
+try {
+  main()
+} catch (error) {
+  console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
+  process.exit(3)
+}

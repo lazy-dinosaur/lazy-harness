@@ -113,7 +113,7 @@ interface PlanResult {
   warnings: string[]
   appliedWrites?: Array<{
     path: string
-    action: 'written' | 'appended' | 'skipped'
+    action: 'written' | 'appended' | 'conflict-recorded' | 'skipped'
     summary: string
   }>
 }

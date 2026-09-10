@@ -538,6 +538,9 @@ function addCapability(root: string, registry: Registry, opts: Record<string, st
   const dryRun = opts['dry-run'] === true
   const allowMissingSourceRecord = opts['allow-missing-source-record'] === true
   const cap = capabilityFromOptions(opts)
+  // The add CLI has no policyIds option; re-registration must not erase those links.
+  const existing = registry.capabilities.find((entry) => entry.id === cap.id)
+  if (existing?.policyIds !== undefined) cap.policyIds = existing.policyIds
   const issues = validateCapabilityShape(root, cap, allowMissingSourceRecord)
   const errors = issues.filter((issue) => issue.severity === 'error')
   if (errors.length) {
@@ -549,8 +552,8 @@ function addCapability(root: string, registry: Registry, opts: Record<string, st
     process.exit(1)
   }
   const status = upsertCapability(registry, cap)
-  const normalized = saveRegistry(root, registry, dryRun)
-  upsertGraphEntry(root, cap, status, dryRun)
+  const normalized = status === 'unchanged' ? normalizeRegistry(registry) : saveRegistry(root, registry, dryRun)
+  if (status !== 'unchanged') upsertGraphEntry(root, cap, status, dryRun)
   if (format === 'json') {
     printJson({ ok: true, status: dryRun ? 'dry-run' : status, capability: cap, registry: dryRun ? normalized : undefined, issues })
   } else if (dryRun) {

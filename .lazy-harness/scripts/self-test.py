@@ -203,6 +203,24 @@ def check_doctor_c17_negative() -> None:
     print("✓ doctor C17 negative fixture ok")
 
 
+def check_implementation_correctness_repairs() -> None:
+    """Exercise real CLI/semantic boundaries, not only mocked checker results."""
+    for test_file in (
+        "record-graph-projection.test.py",
+        "test_lazy_sync_integrity.py",
+        "doctor-package-health.test.py",
+        "capability-preservation.test.py",
+    ):
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "tests" / "lazy-harness" / test_file)],
+            cwd=ROOT, env=env_without_lazy_runtime(), text=True, capture_output=True,
+            timeout=180, check=False,
+        )
+        if completed.returncode != 0:
+            fail(f"{test_file} failed (exit {completed.returncode}):\n" + completed.stdout + completed.stderr)
+    print("✓ implementation correctness CLI and semantic regressions ok")
+
+
 def check_doctor_package_health() -> None:
     completed = subprocess.run(
         ["python3", ".lazy-harness/scripts/doctor.py", "--profile", "full", "--format", "json", *doctor_scope_args()],
@@ -12785,6 +12803,7 @@ def main() -> None:
         (check_doctor_smoke, "BOTH"),
         (check_doctor_c17_negative, "BOTH"),
         (check_doctor_package_health, "BOTH"),
+        (check_implementation_correctness_repairs, "FRAMEWORK_ONLY"),
         (check_package_health_generate_remediation_heuristic, "BOTH"),
         (check_xml, "BOTH"),
         (check_xml_compat_parser, "BOTH"),
