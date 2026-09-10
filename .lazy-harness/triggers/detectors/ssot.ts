@@ -196,7 +196,7 @@ function buildSsotAsk(utility: SsotUtilityCandidate, crossRef: TriggerCrossRef):
         label: '직접 입력 / skip',
       },
     ],
-    crossRef,
+    crossRef: { ...crossRef },
     notes: [
       `kind=${utility.kind}`,
       `domainHint=${domainHint}`,

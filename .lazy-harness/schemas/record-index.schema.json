@@ -16,6 +16,7 @@
       "properties": {
         "root": { "type": "string", "minLength": 1 },
         "method": { "type": "string", "enum": ["record-index-v1"] },
+        "graphProjection": { "type": "string", "enum": ["spo-state-v1"] },
         "tool": { "type": "string", "minLength": 1 },
         "canonicalInputs": {
           "type": "array",
@@ -111,7 +112,15 @@
         "relation": { "type": "string" },
         "source": { "type": "string" },
         "target": { "type": "string" },
-        "path": { "type": "string" }
+        "path": { "type": "string" },
+        "sourcePath": { "type": "string" },
+        "targetPath": { "type": "string" },
+        "subject": { "type": "string" },
+        "predicate": { "type": "string" },
+        "object": {},
+        "status": { "type": "string" },
+        "supersededBy": { "type": "string" },
+        "supersedes": { "type": "array", "items": { "type": "string" } }
       }
     },
     "recordEntry": {

@@ -417,7 +417,9 @@ def check_package_health() -> CheckResult:
         if not generate_command and should_try_generate(combined, diagnostics, pkg):
             details = ["generated-artifact drift suspected but no generate/prisma generate command was found", *details[:19]]
         return fail("D07", "package health typecheck failed", details)
-    return warn("D07", "package health environment warning", combined.splitlines()[:20])
+    # A nonzero command without a recognized environment diagnostic is a failure,
+    # including empty output and non-TypeScript build/tool errors.
+    return fail("D07", "package health typecheck failed", [f"typecheck:node exited {completed.returncode}", *combined.splitlines()[:19]])
 
 
 def check_unicode_replacement_chars() -> CheckResult:
