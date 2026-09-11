@@ -29,6 +29,7 @@ Layer: TDD
   - surface a visible per-start `lazy-harness read-debt` marker with runtime marker/root/status/phase/tool-guard (`status=armed`, `status=not-armed(synthetic-turn)`, `status=not-armed(hook-empty)`, `status=not-armed(hook-timeout)`, `status=not-armed(hook-error)`) plus concise hook detail for failures; synthetic/steering starts are debug-only and must not create read-debt journal rows, large hook payloads must be handed to Python helpers by temp-file/ref rather than argv/env to avoid ARG_MAX hook-empty/error loops, and lazy-root action tools still block with `read-debt not armed` plus status/detail when the turn did not arm
   - project-local activation must merge `.pi/settings.json` with project-owned skill paths (`../.claude/skills`, `../.codex/skills`, `../.agents/skills`) and `enableSkillCommands: true` without relying on global wildcard behavior
   - expose `lazy-architecture-refactor` through the shared `skills/` resource with separate map/source approval gates, exact digest confirmation, stop rules, and no enforcement
+  - typecheck the complete Pi extension and real SDK integration test with Node22 declarations and execute that integration suite on Node22; keep Bun CLI/test ambients separate
   - keep fake-runtime regression fixtures hermetic: copy the extension beside bounded Pi/TypeBox peer stubs instead of assuming repository-local or machine-global peer resolution
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
@@ -213,3 +214,110 @@ omp plugin list
 - ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because the earlier per-file-op surfacing decision was narrowed after dogfood evidence.
 - SSOT: none because policy/capability registry ownership, schema, and levels did not change.
 - Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md` as the primary work-unit narrative.
+
+## Pi target typecheck closure
+
+This is the primary TDD record for the isolated B type follow-up, not semantic
+capture acceptance or live adoption. The prior five-diagnostic mixed Node/Bun
+command is retained as failing evidence, not relabeled as a canonical Pi check.
+
+- `appendSystemPromptBody` overloads preserve string → string and string[] →
+  string[]; the Pi `before_agent_start` event is contextually typed by its SDK.
+  The implementation still filters OMP blocks exactly as before. Existing fake
+  Pi/OMP prompt-shape assertions and both move paths remain protected.
+- `MoveProjectDetails` explicitly describes both existing tool results through
+  `AgentToolResult`, including boolean autoSwitch and optional switchedSessionFile.
+  No registration, session-switch or tool-return runtime behavior changes.
+- `bun run typecheck:pi` checks all extension sources plus the actual
+  `pi-capture-evidence.test.ts` and transitive SDK declarations using the Pi
+  workspace's pinned Node22 types. No skipLibCheck, ambient shim, library exclusion
+  or global compiler is used. `bun run test:pi-capture` actually executes Node's
+  native TypeScript stripping and node:test, not Bun with Node-only typechecking.
+- The existing 25 capture cases retain their full real ExtensionRunner/read/write/
+  hook assertions. Only test hooks/assert API, portable import.meta path and timeout
+  syntax move from Bun to Node. No model calls or third-party native insert/replace
+  coverage is implied. `check_analysis_discovery_capture_helper` runs the canonical
+  Pi typecheck and test scripts; the framework registry remains 89 checks.
+- Genai 1.52.0 imports MCP client types despite its optional ^1.25.2 peer;
+  the source development manifest explicitly supplies compatible SDK 1.30.0.
+  This adds no MCP runtime enablement, connection or installed-module patch.
+- Node22 @types/node 22.19.19 matches Pi's own development declarations and retains
+  PlatformPath. Root @types/node 26.5.0 remains only Bun1.3.14 supporting declarations.
+  Workspaces + the Pi config's explicit typeRoots prevent cross-target mixing.
+- gaxios7.3.1 assumes callable global fetch has no required preconnect property.
+  Bun's full global fetch does require it; public gaxios7 and even8 declarations
+  remain incompatible. The SDK-on-Bun integration-test mode is no longer claimed;
+  no upstream declaration repair is claimed. Production Node22 is the test target.
+- `typecheck:bun` and its D07 historical `typecheck:node` alias are unchanged;
+  the semantic-invalid/valid and absent/decoy-global-tsc protections are unchanged.
+  `typecheck:bun-tests` checks the real Bun affected-test source and Bun package CLI.
+  Detector sample test files with intentionally unbound test globals remain input
+  fixtures for source analysis, not executable test targets.
+
+### Target closure layer completeness
+
+| Layer | Judgment |
+| --- | --- |
+| SDD | Independent target contract: Pi SDK integration executes/checks on Node22; see `.lazy-harness/spec/platform/pi-agent-package.md`. Prompt/move runtime behavior is unchanged. |
+| BDD | No independent delta: all capture outcomes and primary-answer/advisory separation remain unchanged. |
+| SSOT | Independent dependency/config delta is owned by `package.json`, `packages/lazy-harness-pi/package.json`, `bun.lock` and Pi `tsconfig.json`; this section records why the existing Node/Bun support split needs two declaration roots and the optional MCP peer. No state/ownership policy change. |
+| DDD | No independent delta: no domain terminology/business rule changes. |
+
+### Target closure implementation map
+
+- `package.json` — `typecheck:pi`, `test:pi-capture`, `typecheck:bun-tests` commands;
+  unchanged D07 Bun alias and local compiler.
+- `packages/lazy-harness-pi/tsconfig.json` — complete extension + SDK integration
+  coverage with Node22 type root, module-preserve/bundler resolution with the node condition and declaration checking.
+- `packages/lazy-harness-pi/package.json`, `bun.lock` — locked Node22 workspace types;
+  root manifest locks the supported MCP declaration peer.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` —
+  `appendSystemPromptBody`, `MoveProjectDetails`, `before_agent_start`, tool execute.
+- `tests/lazy-harness/pi-capture-evidence.test.ts` — unchanged structural scenarios
+  on native node:test / node:assert with actual SDK dispatch and full hooks.
+- `.lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper` —
+  invokes both canonical Pi scripts without adding/removing top-level checks.
+- `.lazy-harness/tests/test-strategy.xml` — discoverable runtime-specific commands.
+- Graph: `kg_b_pi_target_typecheck_closure`.
+
+### Declaration consumer limitation
+
+Pi's official extensions documentation specifies jiti, and shipped
+`dist/core/extensions/loader.js#loadExtensionModule` uses createJiti with SDK
+aliases/virtual modules; it does not compile extension modules with NodeNext.
+The canonical semantic check uses module preserve / bundler / customConditions
+node with the complete SDK declaration graph. Native Node22 execution is checked
+separately, rather than inferred from permissive import resolution.
+A preserved failed NodeNext checkpoint exposes 39 Pi-AI generated model declaration
+JSON imports missing attributes; the corresponding emitted JS correctly uses
+`with { type: "json" }`. No NodeNext certification or upstream declaration repair
+is claimed. The root manifest also declares Pi-AI0.85.1 explicitly because the
+integration test directly imports its AssistantMessage type; no transitive hoisting
+is assumed after a clean workspace install.
+
+### Review P1 — Node validation cache identity
+
+The Node-executed Pi typecheck and integration suite make Node an actual
+full-regression dependency. `validation-governor.py#toolchain_fingerprint` now
+includes the existing `command_signature("node")`: resolved executable path,
+version output, or explicit missing signature. Previously changing/removing only
+Node left a successful evidence key reusable. No runtime support policy changes.
+
+`self-test.py#_check_node_validation_cache`, invoked by the existing
+`check_bounded_validation_governor_cli`, stores synthetic successful cache evidence
+and checks real signature/key/cache functions under isolated version-only executable
+PATHs. Same-version/different-path, same-path/different-version, and missing Node
+must all miss; unchanged and restored Node reuse are positive controls. This
+fixture does not impersonate a passing Pi suite. The top-level registry stays89.
+
+| Layer | Review-fix judgment |
+| --- | --- |
+| SDD | Independent cache identity correction in `.lazy-harness/spec/platform/bounded-validation-governor.md`: include Node beside Python/Bun/Git. |
+| BDD | No independent delta; existing valid-cache reuse and stale-cache rerun behavior is preserved. |
+| SSOT | `.lazy-harness/tests/test-strategy.xml` names the corrected toolchain inputs; cache storage/schema and dependency/runtime support policies are unchanged. |
+| DDD | No domain delta. |
+
+Implementation map: governor `toolchain_fingerprint` / `command_signature`;
+self-test `_check_node_validation_cache` / `check_bounded_validation_governor_cli`;
+`.lazy-harness/tests/bounded-validation-governor.md#protected-fixtures`.
+Graph: `kg_b_pi_node_cache_identity`.

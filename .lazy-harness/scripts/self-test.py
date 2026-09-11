@@ -849,76 +849,33 @@ def check_layer_completeness_helper() -> None:
 
 
 def check_analysis_discovery_capture_helper() -> None:
-    """ADR 0034 — non-trivial analysis/planning discoveries must be captured."""
-    blocked_payload = {
-        "assistant_response": (
-            "I analyzed the redesign and found DDD, SDD, BDD, TDD, ADR, SSOT, and Planning impacts.\n"
-            "Implementation plan:\n"
-            "1. Update contracts.\n"
-            "2. Add regression tests.\n"
-            "3. Record backlog.\n"
-        ),
-        "recent_tool_calls": [],
+    """Capture necessity is LLM-owned; raw words/args are never storage proof."""
+    polluted = {
+        "assistant_response": "Unchanged DDD SDD BDD analysis plan. 맞습니다. 제가 잘못.",
+        "last_user_message": "Quoted correction: 아니 하네스 수정",
+        "recent_tool_calls": [{"name": "functions.replace", "args_preview": ".lazy-harness/planning/example.md", "is_error": True}],
     }
-    blocked = run_analysis_discovery_capture_helper(blocked_payload)
-    if "Analysis discovery capture gate" not in blocked or "DDD" not in blocked or "SSOT" not in blocked:
-        fail("analysis discovery capture helper did not block uncaptured analysis:\n" + blocked)
+    missing = json.loads(run_analysis_discovery_capture_helper(polluted))
+    if missing.get("status") != "unverified" or "STOP" in json.dumps(missing):
+        fail("missing capture judgement must be unverified, not keyword STOP or no-record")
+    for status in ("pending", "no-record-asserted", "unverified"):
+        capture = {"schemaVersion": "1.0", "root": str(ROOT), "epoch": 1,
+                   "status": status, "reason": "explicit LLM decision / runtime evidence",
+                   "semanticStatus": "llm-judgement-not-verified", "approvalStatus": "not-evaluated", "facts": []}
+        payload = {**polluted, "source": "lazy-harness", "working_dir": str(ROOT), "capture_validation": capture}
+        actual = json.loads(run_analysis_discovery_capture_helper(payload))
+        if actual != capture:
+            fail("capture helper changed typed transport state")
+    fixture = ROOT / "tests" / "lazy-harness" / "pi-capture-evidence.test.ts"
+    if fixture.exists():
+        typed = subprocess.run(["bun", "run", "typecheck:pi"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if typed.returncode != 0:
+            fail("Pi Node target typecheck failed:\n" + typed.stdout + typed.stderr)
+        completed = subprocess.run(["bun", "run", "test:pi-capture"], cwd=ROOT, text=True, capture_output=True, check=False)
+        if completed.returncode != 0:
+            fail("real Pi capture adapter regression failed:\n" + completed.stdout + completed.stderr)
+    print("✓ analysis/correction capture typed transport and adapter ok")
 
-    judgement_payload = {
-        "assistant_response": (
-            "## Discovery capture\n"
-            "- DDD: none because no domain fact changed.\n"
-            "- SDD: none because no contract changed.\n"
-            "- BDD: none because no behavior changed.\n"
-            "- TDD: none because no regression changed.\n"
-            "- ADR: none because no decision changed.\n"
-            "- SSOT: none because no source of truth changed.\n"
-            "- Planning: none because no backlog remains.\n"
-        ),
-        "recent_tool_calls": [],
-    }
-    judgement = run_analysis_discovery_capture_helper(judgement_payload)
-    if judgement.strip():
-        fail("analysis discovery capture helper should pass with explicit judgement:\n" + judgement)
-
-    planning_payload = {
-        "assistant_response": blocked_payload["assistant_response"],
-        "recent_tool_calls": [{
-            "name": "Write",
-            "args_preview": ".lazy-harness/planning/example-backlog.md",
-        }],
-    }
-    planning = run_analysis_discovery_capture_helper(planning_payload)
-    if planning.strip():
-        fail("analysis discovery capture helper should pass when planning is updated:\n" + planning)
-
-    for tool_name in ("replace", "functions.replace", "Edit"):
-        mutation_payload = {
-            "assistant_response": blocked_payload["assistant_response"],
-            "recent_tool_calls": [{
-                "name": tool_name,
-                "args_preview": ".lazy-harness/planning/example-backlog.md",
-            }],
-        }
-        mutation = run_analysis_discovery_capture_helper(mutation_payload)
-        if mutation.strip():
-            fail(
-                f"analysis discovery capture helper should pass for {tool_name} capture evidence:\n"
-                + mutation
-            )
-
-    candidate_payload = {
-        "assistant_response": blocked_payload["assistant_response"],
-        "recent_tool_calls": [{
-            "name": "Edit",
-            "args_preview": ".lazy-harness/knowledge/candidates.jsonl",
-        }],
-    }
-    candidate = run_analysis_discovery_capture_helper(candidate_payload)
-    if candidate.strip():
-        fail("analysis discovery capture helper should pass when candidates are updated:\n" + candidate)
-
-    print("✓ analysis discovery capture helper ok")
 
 
 def check_project_rule_placement_helper() -> None:
@@ -1714,6 +1671,70 @@ def check_fast_validation_tier_cli() -> None:
     print("✓ fast validation tier CLI ok")
 
 
+def _check_node_validation_cache(governor) -> None:
+    """Exercise real signature/cache functions with isolated version-only executables."""
+    shell = shutil.which("sh")
+    if shell is None:
+        fail("Node cache regression requires a shell for version-only fixture executables")
+    old_path = os.environ.get("PATH")
+    old_runtime = os.environ.get("LAZY_RUNTIME_ROOT")
+    with tempfile.TemporaryDirectory(prefix="validate-node-cache-") as directory:
+        root = pathlib.Path(directory)
+        common, node_a, node_b = (root / name for name in ("common", "node-a", "node-b"))
+        for path in (common, node_a, node_b):
+            path.mkdir()
+
+        def version_command(path: pathlib.Path, version: str) -> None:
+            path.write_text(f"#!{shell}\nprintf '%s\\n' '{version}'\n", encoding="utf-8")
+            path.chmod(0o755)
+
+        # No ambient executable directories: only Node changes between cases.
+        version_command(common / "bun", "bun-fixture-unchanged")
+        version_command(common / "git", "git-fixture-unchanged")
+        version_command(node_a / "node", "v22.23.2")
+        version_command(node_b / "node", "v22.23.2")
+        step = governor["ValidationStep"]("node-cache-fixture", "full-regression", ["fixture-lazy", "test"])
+        result = governor["StepResult"](step.name, step.kind, step.command, "passed", exitCode=0)
+        try:
+            os.environ["LAZY_RUNTIME_ROOT"] = str(root / "runtime")
+            os.environ["PATH"] = os.pathsep.join((str(node_a), str(common)))
+            fingerprint = {"toolchainHash": governor["toolchain_fingerprint"]()}
+            key = governor["evidence_key"](step, "framework", fingerprint)
+            governor["store_step_result"](step, key, fingerprint, result)
+            cache = governor["load_cache"]()
+            if governor["cached_step_result"](step, key, cache) is None:
+                fail("unchanged Node fixture must reuse its stored successful evidence")
+            failures = []
+            for label, node_dir, version in (
+                ("path-change", node_b, "v22.23.2"),
+                ("version-change", node_a, "v22.23.3"),
+                ("missing", None, ""),
+            ):
+                if node_dir is not None:
+                    version_command(node_dir / "node", version)
+                os.environ["PATH"] = os.pathsep.join([str(node_dir), str(common)] if node_dir else [str(common)])
+                changed = {"toolchainHash": governor["toolchain_fingerprint"]()}
+                changed_key = governor["evidence_key"](step, "framework", changed)
+                reused = governor["cached_step_result"](step, changed_key, cache) is not None
+                print(json.dumps({"fixture": "node-validation-cache", "case": label,
+                                  "signatureChanged": changed != fingerprint, "cacheReused": reused}))
+                if changed_key == key or reused:
+                    failures.append(label)
+            version_command(node_a / "node", "v22.23.2")
+            os.environ["PATH"] = os.pathsep.join((str(node_a), str(common)))
+            restored_key = governor["evidence_key"](step, "framework", {"toolchainHash": governor["toolchain_fingerprint"]()})
+            if restored_key != key or governor["cached_step_result"](step, restored_key, cache) is None:
+                fail("restored identical Node fixture must reuse its original successful evidence")
+            if failures:
+                fail("Node changes must invalidate successful validation evidence: " + ", ".join(failures))
+        finally:
+            for name, value in (("PATH", old_path), ("LAZY_RUNTIME_ROOT", old_runtime)):
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+
 def check_bounded_validation_governor_cli() -> None:
     """`lazy validate` keeps validation explicit, bounded, and release-gated."""
     sdd = LAZY / "spec" / "platform" / "bounded-validation-governor.md"
@@ -1968,6 +1989,7 @@ def check_bounded_validation_governor_cli() -> None:
         fail("lazy validate zero budget should skip with deadline-exhausted: " + exhausted.stdout)
 
     governor = runpy.run_path(str(script), run_name="lazy_validation_governor_import")
+    _check_node_validation_cache(governor)
     current_fingerprint = governor["workspace_fingerprint"]()
     for required_key in ("hostRootHash", "dependencyHash", "toolchainHash"):
         if not current_fingerprint.get(required_key):
@@ -2675,7 +2697,7 @@ def check_pi_package_layout_and_contract() -> None:
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('a later file op in the same turn must not restart re-grounding');\n"
             "const nextTurn=await handlers.get('before_agent_start')({prompt:'next human turn',systemPrompt:'base'},ctx);\n"
             "if(!nextTurn?.message?.content?.includes('status=reused-work-unit')) throw new Error('next normal turn should reuse valid work-unit grounding');\n"
-            "if(nextTurn?.systemPrompt) throw new Error('reused work unit must not replay system prompt content');\n"
+            "if(nextTurn?.systemPrompt?.includes('Ground this work unit once')) throw new Error('reused work unit must not replay grounding; capture guidance may remain');\n"
             "if((await handlers.get('context')({messages:[]},ctx)) !== undefined) throw new Error('normal turn reuse must not inject a fresh context reminder');\n"
             "const preSteerWrite=await handlers.get('tool_call')({toolCallId:'pre-steer-write',toolName:'write',input:{file_path:'pre-steer.txt',content:'ok'}},ctx);\n"
             "if(preSteerWrite?.block) throw new Error('valid pre-steer evidence should allow mutation: '+preSteerWrite.reason);\n"
@@ -2773,7 +2795,9 @@ def check_pi_package_layout_and_contract() -> None:
             "await handlers.get('tool_call')({toolCallId:'ground-record',toolName:'multi_tool_use.parallel',input:nestedGrounding},ctx);\n"
             "await handlers.get('tool_result')({toolCallId:'ground-record',toolName:'multi_tool_use.parallel',input:nestedGrounding,content:'read'},ctx);\n"
             "const reused=await handlers.get('before_agent_start')({prompt:'same work unit',systemPrompt:'base'},ctx);\n"
-            "if(!reused?.message?.content?.includes('status=reused-work-unit') || reused.systemPrompt) throw new Error('valid fingerprint grounding was not reused');\n"
+            "if(!reused?.message?.content?.includes('status=reused-work-unit')) throw new Error('valid fingerprint grounding was not reused');\n"
+            "if(reused.systemPrompt?.includes('Ground this work unit once')) throw new Error('reused fingerprint grounding must not replay grounding');\n"
+            "if(!reused.systemPrompt?.includes('<record-judgement>')) throw new Error('reused work unit lost capture judgement guidance');\n"
             "writeFileSync(" + json.dumps(str(retry_record)) + ",'# changed governing record\\n');\n"
             "const invalidated=await handlers.get('before_agent_start')({prompt:'same work unit after record change',systemPrompt:'base'},ctx);\n"
             "if(!invalidated?.message?.content?.includes('status=armed')) throw new Error('changed governing record did not invalidate work-unit grounding');\n"
@@ -4907,8 +4931,10 @@ def check_response_completed_no_auto_route_telemetry() -> None:
         )
         if correction_completed.returncode != 0:
             fail("user correction capture fixture hook failed:\n" + correction_completed.stdout + correction_completed.stderr)
-        if "User correction capture gate" not in correction_completed.stdout:
-            fail("user correction acknowledgement without durable capture must STOP:\n" + correction_completed.stdout + correction_completed.stderr)
+        if "User correction capture gate" in correction_completed.stdout:
+            fail("raw correction words must not classify capture necessity:\n" + correction_completed.stdout)
+        # Required capture / failed receipts are exercised by the actual Pi adapter
+        # suite above; this legacy payload has no explicit judgement packet.
 
         correction_captured_payload = {
             **correction_payload,

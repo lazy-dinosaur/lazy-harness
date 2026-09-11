@@ -15,6 +15,14 @@ cd "$ROOT_CANDIDATE" || exit 0
 
 PAYLOAD=$(cat || echo '{}')
 
+# Keep capture separate from first-STOP selection so another safety advisory
+# cannot hide pending capture. Only adapters providing the typed field opt in.
+CAPTURE_RESULT=""
+if printf '%s' "$PAYLOAD" | python3 -c 'import json,sys; p=json.load(sys.stdin); sys.exit(not (isinstance(p,dict) and "capture_validation" in p))' 2>/dev/null; then
+  CAPTURE_RESULT=$(bash .lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh "$PAYLOAD")
+fi
+export CAPTURE_RESULT
+
 if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
   # shellcheck disable=SC1091
   . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
@@ -64,12 +72,14 @@ emit_inject() {
 import json
 import os
 
-print(json.dumps({
-    "inject": {
-        "body": os.environ.get("HOOK_BODY", ""),
-        "format": "system_reminder",
-    }
-}, ensure_ascii=False))
+result = {}
+body = os.environ.get("HOOK_BODY", "")
+if body:
+    result["inject"] = {"body": body, "format": "system_reminder"}
+capture = os.environ.get("CAPTURE_RESULT", "")
+if capture:
+    result["capture"] = json.loads(capture)
+print(json.dumps(result, ensure_ascii=False))
 PY
 }
 
@@ -85,7 +95,11 @@ try:
         result = json.load(fh)
 except Exception:
     raise SystemExit(2)
-print(str(result.get("injectJson") or ""))
+output = json.loads(result.get("injectJson") or "{}")
+capture = os.environ.get("CAPTURE_RESULT", "")
+if capture:
+    output["capture"] = json.loads(capture)
+print(json.dumps(output, ensure_ascii=False) if output else "")
 PY
 }
 
@@ -269,8 +283,6 @@ for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-bdd-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh \
-  .lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh \
-  .lazy-harness/hooks/lifecycle/helpers/check-user-correction-capture.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh \
   .lazy-harness/hooks/lifecycle/helpers/check-operating-rule-storage.py \
   .lazy-harness/hooks/lifecycle/helpers/check-impl-map-status-drift.py \
@@ -309,6 +321,7 @@ for helper in \
   exit 0
 done
 
+[ -n "$CAPTURE_RESULT" ] && emit_inject ""
 HOOK_END_NS=$(now_ns)
 [ "$LIFECYCLE_ENGINE" = "compare" ] && write_compare_log "" ""
 log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 false

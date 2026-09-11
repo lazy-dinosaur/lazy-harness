@@ -322,3 +322,39 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - ADR: updated in `.lazy-harness/decisions/0048-operating-rule-storage-apply-repair.md` because dogfood narrowed the earlier R3 cadence decision.
 - SSOT: none because no registry schema, level, ownership, or storage boundary changed.
 - Planning: updated in `.lazy-harness/planning/workflow-churn-reduction-plan.md`; the existing work-unit record remains primary.
+
+## Source typecheck targets
+
+The complete shipped `extensions/**/*.ts` and actual Pi capture integration suite
+are checked together by `bun run typecheck:pi`, using module-preserve/bundler resolution with the node condition, pinned
+Node22 declarations, and full transitive library checking. Execute the same suite
+with `bun run test:pi-capture` on Node22.23.2 (native TypeScript stripping). The
+package's existing Node >=22.19 SDK engine is not upgraded; this recorded smoke is
+limited to the tested Node22 release. No Pi-SDK-on-Bun compatibility is promised.
+Bun1.3.14 remains the actual lazy CLI and Bun-owned test runtime, with unchanged
+`typecheck:bun` / historical `typecheck:node` and separate `typecheck:bun-tests`.
+
+Root `package.json` workspaces plus `bun.lock` install the Pi workspace's Node22
+types separately from Bun's Node26 supporting types. The explicit MCP SDK dev peer
+satisfies genai's published declaration import; it does not configure an MCP server.
+No runtime source is changed to use Node26-only APIs. The primary contract/reason
+and four-row matrix live in `.lazy-harness/tests/pi-agent-package.md#pi-target-typecheck-closure`.
+
+Implementation map: `packages/lazy-harness-pi/tsconfig.json`, both package manifests,
+`bun.lock`, and `.lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper`
+make these checks reproducible. Graph: `kg_b_pi_target_typecheck_closure`.
+
+### Declaration consumer limitation
+
+Pi's official extensions documentation specifies jiti, and shipped
+`dist/core/extensions/loader.js#loadExtensionModule` uses createJiti with SDK
+aliases/virtual modules; it does not compile extension modules with NodeNext.
+The canonical semantic check uses module preserve / bundler / customConditions
+node with the complete SDK declaration graph. Native Node22 execution is checked
+separately, rather than inferred from permissive import resolution.
+A preserved failed NodeNext checkpoint exposes 39 Pi-AI generated model declaration
+JSON imports missing attributes; the corresponding emitted JS correctly uses
+`with { type: "json" }`. No NodeNext certification or upstream declaration repair
+is claimed. The root manifest also declares Pi-AI0.85.1 explicitly because the
+integration test directly imports its AssistantMessage type; no transitive hoisting
+is assumed after a clean workspace install.
