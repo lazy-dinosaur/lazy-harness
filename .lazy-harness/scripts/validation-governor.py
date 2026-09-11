@@ -144,6 +144,7 @@ def toolchain_fingerprint() -> str:
         "pythonExecutable": str(pathlib.Path(sys.executable).resolve()),
         "pythonVersion": sys.version,
         "bun": command_signature("bun"),
+        "node": command_signature("node"),
         "git": command_signature("git"),
     }
     return sha256_text(json.dumps(payload, sort_keys=True, ensure_ascii=False))

@@ -56,6 +56,7 @@ Date: 2026-06-18
 | `validate_cache_evidence_only` | Classify `.lazy-harness/evidence/**` after a green full run | Evidence capsule body changes remain full-regression-irrelevant while the fast tier still runs. |
 | `validate_cache_relevant_change` | Classify source, test, spec, policy, graph, and canonical record paths | Any relevant change remains in the fingerprint and causes a cache miss. |
 | `validate_cache_environment_namespace` | Change host-root, dependency, or toolchain fingerprint fields | Evidence key changes; shared runtime cache cannot reuse another host/toolchain's result. |
+| `validate_cache_node_runtime` | Keep all other inputs fixed and change only Node executable path, version, or availability | Existing successful evidence misses for all three changes; an unchanged/restored Node signature still reuses. Test-owned version-only executables exercise actual signature, evidence-key, store/load and cache-lookup functions without running fake product tests. |
 | `validate_cache_disabled` | `lazy validate --plan standard --evidence-cache=off --format=json` after cache exists | Full-regression step is not `reused`, and `evidenceReused: false`. |
 | `validate_cache_runtime_state` | default runtime cache path | Cache is stored under `.lazy-harness/state/validation-evidence-cache.json` or `$LAZY_RUNTIME_ROOT/state/validation-evidence-cache.json`, and the default path is ignored by the active git ignore rules in both source and installed hosts. |
 | `validation_orchestration_guidance` | Resolve capability/policy and inspect Pi prompt/commands | Edit loops batch coherent mutations; closure uses one `lazy validate --plan standard`; direct `lazy test` is explicitly fresh/full. |
@@ -82,7 +83,7 @@ Date: 2026-06-18
 12. Cache disable flags force full-regression execution even when evidence exists.
 13. Capability/policy, AGENTS, Pi prompt, skill, and test-strategy surfaces explicitly prohibit validation after each micro-edit, omit `iterating_after_edit`, batch coherent mutations before one fast checkpoint, and keep one final standard boundary.
 14. Parallel execution caps workers at four, rejects out-of-range CLI/environment values, uses audited resource phases and isolated worker runtime roots, preserves deterministic output, and keeps serial fallback.
-15. Evidence keys bind to resolved host root, dependency manifests/locks, and Python/Bun/Git signatures; uncertainty remains a miss.
+15. Evidence keys bind to resolved host root, dependency manifests/locks, and Python/Bun/Node/Git signatures; uncertainty remains a miss.
 16. Installed hosts without `packages/lazy-harness-pi` pass the bounded-validation self-test when all distributed `.lazy-harness` surfaces are valid; framework source checkouts still require the Pi prompt and lazy-test skill guards.
 
 ## Implementation map
@@ -114,6 +115,7 @@ Date: 2026-06-18
   - `self-test.py#run_check_captured`
   - `self-test.py#main`
   - `self-test.py#check_bounded_validation_governor_cli`
+  - `self-test.py#_check_node_validation_cache` — isolated Node path/version/missing cache invalidation regression.
 - Validation commands:
   - `python3 -m py_compile .lazy-harness/scripts/validation-governor.py`
   - `.lazy-harness/bin/lazy validate --plan fast --files .lazy-harness/fixtures/project-map-v2/example-node.json --format=json`

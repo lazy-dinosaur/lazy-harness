@@ -28,6 +28,9 @@
   <project-commands>
     <command id="bun-tests">bun test</command>
     <command id="typescript-build-check">bun run typecheck:node</command>
+    <command id="bun-test-typecheck">bun run typecheck:bun-tests</command>
+    <command id="pi-node-typecheck">bun run typecheck:pi</command>
+    <command id="pi-sdk-integration">bun run test:pi-capture</command>
   </project-commands>
   <affectedTestRouting command="bun run test:run {tests}" />
 
@@ -36,7 +39,7 @@
     <boundary>Do not run product-wide lint, build, E2E, or unrelated downstream tests unless the user requests them or changed product code requires them.</boundary>
     <boundary>Do not rerun full regression merely because an evidence capsule was updated.</boundary>
     <boundary>Source, tests, contracts, policies, graph, planning, and canonical layer records remain full-regression fingerprint inputs.</boundary>
-    <boundary>Full-regression cache evidence is namespaced by resolved host root, dependency manifests/locks, and Python/Bun/Git toolchain signatures.</boundary>
+    <boundary>Full-regression cache evidence is namespaced by resolved host root, dependency manifests/locks, and Python/Bun/Node/Git toolchain signatures.</boundary>
     <boundary>On green validation, report only status, check count, and elapsed time in conversation; keep detailed output in runtime capture unless failure or explicitly requested.</boundary>
   </boundaries>
 

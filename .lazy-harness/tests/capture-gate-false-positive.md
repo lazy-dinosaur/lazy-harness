@@ -19,25 +19,149 @@ Related planning: `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
   - STOP 게이트 중복
 - Applies when:
   - the analysis-discovery-capture STOP gate fires and the agent believes capture already happened in-turn
-  - improving or testing `check-analysis-discovery-capture.sh` heuristics
-  - evaluating post-hoc gate heuristics against in-turn record mutations
-  - verifying Pi `replace` / `functions.replace` tool-name recognition against legacy `Edit`
+  - testing analysis/correction LLM judgement plus successful current structural capture
+  - evaluating real Pi callback, response hook and independent primary-answer delivery
+  - verifying write/edit/insert/replace and namespaced transports
 - Must:
   - when the gate fires, VERIFY capture completeness against records (not memory) before claiming false positive
-  - keep this scenario as the regression case for any heuristic improvement: a turn that appends analysis results to a `.lazy-harness` record (and even commits it) must be distinguishable from a chat-only turn
+  - distinguish current successful relevant record capture, failed/missing/unrelated proof, reuse, pending and no-record assertions; silence alone is not success
   - preserve both regressions: the verified before/after Pi mutation-transport matrix, the historical post-fix live recurrence, and the fresh source-linked controlled case that stays silent
   - keep counting recurrences via `lazy retro feedback --kind capture-gate-false-positive`
 - Must not:
   - infer the post-fix live root cause from helper-only synthetic fixtures
-  - change helper thresholds, the Pi adapter, or the continuation path before a separately approved payload-trace seam
+  - treat IDs, fingerprints or no-record assertions as proof of semantic adequacy or execution approval
+  - deploy the isolated B candidate without separate integration approval
 - Record completion:
-  - heuristic changes to the gate update this TDD, the hook helper, and the analysis-discovery-capture backlog together
+  - keep this as the primary B regression narrative; update the capture SDD only for independent packet/delivery deltas
 - Related records:
   - `.lazy-harness/spec/platform/analysis-discovery-capture-gate.md`
   - `.lazy-harness/planning/analysis-discovery-capture-backlog.md`
   - `.lazy-harness/spec/platform/retro-loop.md`
 
-## Regression scenario (from live occurrences, 2026-07-04 session)
+## B source-path repair — isolated candidate
+
+The user approved real source repair after the corrected four-model pilot, not
+another toy-prompt trial. Selected design1 keeps LLM-owned necessity/relevance,
+mandatory durable capture, fact reasons/ownership and current approval; runtime
+checks only actual structural evidence. Analysis and user-correction capture now
+share that route; no other safety helper is removed. This section supersedes the
+historical keyword STOP expectations below, not their recorded observations.
+
+- Base: merged A `47db0958934b9d58151fd20ac976293f2c7764cc`, latest origin/main
+  at isolated clone preparation. No dirty original or old experiment baseline imported.
+- Adapter: typed `CaptureEvidence` joins real started/result callbacks to bounded
+  canonical readback/fingerprints; no model-invented runtime fields.
+- Response: complete raw main answer stays unchanged on valid, malformed, ambiguous
+  or nonterminal markers. Capture assessment is a separate non-triggering custom
+  message, not the caller's replacement answer or a new completion tool.
+- Unchanged status: explicit no-record assertion does not force rewrite/reapproval.
+  Missing packet is explicit unverified, never no-record. Required proof remains
+  unverified on failed/missing/unrelated callbacks or changed bytes.
+- Reuse: current canonical read plus current semantic judgement, without duplicate
+  write. Bounded receipts survive unrelated last-40 projection; steer/session and
+  work-unit invalidation clear them. Exact limits are in the capture SDD.
+
+### Source-linked protection
+
+`tests/lazy-harness/pi-capture-evidence.test.ts` exercises official Pi
+ExtensionRunner dispatch, actual Pi read/write tools and real response hook/helper
+processes. Third-party insert/replace names use mock completion events with real
+fixture file mutation, not a claim of installed provider/native-question integration.
+Tests include status/correction pollution, successful capture, failed insert/replace,
+missing/args-only/unrelated receipts, epoch/steer, long history, current-read reuse,
+changed bytes, malformed markers, trailing output-format text and separate delivery.
+Existing destructive/option negatives use inert payloads; no hazardous command runs.
+The standard self-test calls the source-side fixture; installed hosts without this
+source test file run the shared transport checks only.
+
+Baseline-negative export must preserve Git executable modes as well as bytes.
+The first preparation mistakenly exported helper files as 0644, so initial missing
+assessment failures are retained but are not capture-behavior evidence. Corrected
+0755 baseline shows actual keyword STOP on unchanged status and no structural
+assessment after actual successful write/read. Independent evidence logs retain
+that preparation defect rather than replacing it with the corrected run.
+
+### Validation boundary
+
+The first focused source batch passed 20 adapter tests / 346 assertions. Later
+root/error-delivery fixtures and bounded-history test refinement are checked by
+the final standard gate, not retroactively included in that first count. The local
+Bun source typecheck passed. At that prior B checkpoint, Pi SDK-target semantic checking reported five existing
+diagnostics, independently reproduced against the untouched base export: two old
+adapter signature mismatches and three locked dependency declaration diagnostics.
+No dependency patch, skipLibCheck or ambient type suppression is used. Full final
+state and gate outputs belong to the isolated external review evidence, not a
+claim of live adoption or semantic-counterexample resolution.
+
+The subsequent target-only follow-up is recorded in
+`.lazy-harness/tests/pi-agent-package.md#pi-target-typecheck-closure`: all capture
+cases now execute with actual Node22 and node:test, rather than claiming that
+Node-only checking proves the previous Bun-hosted SDK test mode. Prior B results
+and diagnostic evidence remain historical, not overwritten.
+
+### Independent-review P2 correction
+
+Review identified two concrete structural defects, reproduced through the real Pi
+callback/full-hook fixture before correction: an extra closing marker was accepted
+as `no-record-asserted`, and successful write → duplicate ID restart → failed
+result retained an `evidence-linked` receipt. Both new regressions failed on the
+previous frozen source; prior evidence is retained unchanged.
+
+The parser now requires exactly one opening and one closing boundary. A duplicate
+ID invalidates matching issued write/read receipts as well as a pending call;
+unrelated receipts remain available. The bounded receipt scan also recognizes a
+retained ID after recent-ID eviction. These changes enforce the existing SDD,
+not new semantic or approval authority. The tests preserve the complete raw answer,
+assert explicit unverified after failure with unchanged bytes, and retain valid
+single-envelope/fresh-ID success controls. The final adapter suite has 25 cases;
+exact-state results are kept in isolated review evidence, not inferred from the
+previous 20-case green or the 300-second standard timeout.
+
+The subsequent standard run ended with two failed checks, not a timeout. Read-only
+triage found statically confirmed stale-contract expectations in the context-retry
+fixture (forbidding any reused-work-unit system prompt) and lifecycle parity
+fixture (requiring a prose-derived capture STOP). The governor retained only the
+self-test tail, so these are not claimed as observed precise first-failure causes.
+The approved fixture-only follow-up preserves reused fingerprint status, forbids
+renewed grounding and positively requires capture guidance. Parity retains the
+identical raw prose and all legacy/shadow/side-effect comparisons, but requires no
+keyword-derived semantic STOP. Typed required/pending/success and other safety
+controls remain protected by the existing adapter suite; a silent raw-prose case
+alone is not evidence of successful capture. No production behavior was changed
+in this follow-up, and prior failed validation evidence remains intact.
+
+This review correction adds no independent SDD/BDD/SSOT/DDD delta; the existing
+four-row matrix and implementation links below still govern. Final validation
+uses the same standard checks with an explicitly approved 600-second budget,
+not a release matrix or a changed permanent/default setting.
+
+### Layer completeness — current B candidate
+
+| Layer | Judgement |
+|---|---|
+| SDD | Independent packet/receipt/delivery delta in `spec/platform/analysis-discovery-capture-gate.md`; replaces the legacy cue-STOP contract only on two capture routes. |
+| BDD | No independent product flow delta; main-answer/advisory transport is owned by the capture SDD and tested here. |
+| SSOT | No independent ownership/config delta; CLI Tool Boundary already assigns semantic authority to the LLM. |
+| DDD | No independent domain rule or vocabulary delta. |
+
+### Current implementation map
+
+- Status: `needs-review`
+- Primary source: `packages/lazy-harness-pi/extensions/lazy-harness/index.ts`,
+  `packages/lazy-harness-pi/extensions/lazy-harness/capture-evidence.ts`.
+- Lifecycle: `.lazy-harness/hooks/lifecycle/on-response-completed.sh`, both capture
+  helpers, `.lazy-harness/scripts/lifecycle-check.py`.
+- Tests: `tests/lazy-harness/pi-capture-evidence.test.ts`,
+  `.lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper`.
+- Graph: `kg_b_capture_structural_impl`, `kg_b_capture_structural_test`.
+- Limits: structural green cannot establish semantic relevance, truthful no-record,
+  retention of all facts/reasons/ownership or real execution authorization. No new
+  model sessions, C expansion, live sync or general superiority claim in this batch.
+
+## Historical regression scenario (live occurrences, 2026-07-04)
+
+The following sections preserve earlier observations and validation versions;
+their legacy silence/keyword expectations are superseded by the B candidate above.
 
 Three same-session occurrences (retro feedback ids `fb-mr6dziod-05`, `fb-mr6e1fxn-aq`, `fb-mr6e9dol-0l` — first pattern to reach the 3-repeat threshold):
 

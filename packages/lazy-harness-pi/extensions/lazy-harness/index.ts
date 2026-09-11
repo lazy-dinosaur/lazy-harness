@@ -1,10 +1,11 @@
-import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager, type AgentToolResult, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CAPTURE_GUIDANCE, CaptureEvidence } from "./capture-evidence.ts";
 
 const EXTENSION_NAME = "lazy-harness";
 const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-steering-20260701";
@@ -21,6 +22,13 @@ const MAX_AGENT_END_TRACE_METADATA_CHARS = 128;
 type JsonObject = Record<string, unknown>;
 type ReadDebtStatus = "armed" | "reused-work-unit" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
 type HookResult = { stdout: string; stderr: string; status: number | null; signal?: string | null; error?: string };
+type MoveProjectDetails = {
+  targetPath: string;
+  autoSwitch: boolean;
+  switched: boolean;
+  switchedSessionFile?: string;
+  worktreeOutput: string;
+};
 
 type RecentToolCall = {
   name: string;
@@ -393,6 +401,9 @@ function systemPromptIncludesBody(systemPrompt: unknown, body: string): boolean 
   return String(systemPrompt || "").includes(body);
 }
 
+// Preserve the input runtime's prompt shape: Pi uses strings, OMP uses blocks.
+function appendSystemPromptBody(systemPrompt: string, body: string): string;
+function appendSystemPromptBody(systemPrompt: string[], body: string): string[];
 function appendSystemPromptBody(systemPrompt: unknown, body: string): string | string[] {
   if (Array.isArray(systemPrompt)) {
     const parts = systemPrompt.filter((part): part is string => typeof part === "string");
@@ -670,6 +681,10 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
 }
 
 export default function lazyHarnessPi(pi: ExtensionAPI) {
+  const captureEvidence = new CaptureEvidence();
+  const clearCapture = () => captureEvidence.reset("");
+  pi.on("session_start", clearCapture);
+  pi.on("session_shutdown", clearCapture);
   pi.on("input", async (event: any, ctx: any) => {
     const root = findLazyRootForInvocation(event, ctx);
     if (!root) return undefined;
@@ -689,6 +704,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const steerText = String(event.text || "");
       if (steerText.trim()) {
         rearmEvidenceAfterSteer(root); // invalidate all evidence collected for the previous instruction
+        captureEvidence.reset(root);
         workUnitEvidenceByRoot.delete(root); // explicit steer starts a fresh work unit
         pendingRegroundByRoot.delete(root);
         regroundBodyByRoot.delete(root);
@@ -716,7 +732,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     return undefined;
   });
 
-  pi.on("before_agent_start", async (event: any, ctx: any) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
@@ -742,9 +758,13 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     if (workUnitEvidenceValid(root)) {
       const readDebtStatus: ReadDebtStatus = "reused-work-unit";
       activePacketsByRoot.set(root, { root, sessionId, messageId, readDebtStatus });
-      return { message: { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtStatus), display: true } };
+      return {
+        message: { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtStatus), display: true },
+        systemPrompt: systemPromptIncludesBody(event.systemPrompt, CAPTURE_GUIDANCE) ? event.systemPrompt : appendSystemPromptBody(event.systemPrompt, CAPTURE_GUIDANCE),
+      };
     }
     workUnitEvidenceByRoot.delete(root);
+    captureEvidence.reset(root);
 
     const payload: JsonObject = {
       event: "message.received",
@@ -769,12 +789,12 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     // Force-load the FULL .lazy-harness/AGENTS.md grammar into the
     // system prompt every session (OMP/Pi otherwise only load a compact pointer). Deduped by the
     // grammar title marker so it lands once and persists; fail-open to reminder-only on any error.
-    let inject = body;
+    let inject = `${body}\n\n${CAPTURE_GUIDANCE}`;
     const agentsPath = join(root, ".lazy-harness", "AGENTS.md");
     if (existsSync(agentsPath) && !systemPromptIncludesBody(event.systemPrompt, "Lazy-Harness AI")) {
       try {
         const grammar = readFileSync(agentsPath, "utf8").trim();
-        if (grammar) inject = `${grammar}\n\n${body}`;
+        if (grammar) inject = `${grammar}\n\n${inject}`;
       } catch { /* fail-open: reminder only */ }
     }
 
@@ -814,14 +834,17 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       if (reason) return { block: true, reason };
     }
     markToolCallStarted(root, event);
+    captureEvidence.start(root, cwd, currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args);
     return undefined;
   });
 
   pi.on("tool_result", async (event: any, ctx: any) => {
     const root = findLazyRootFromEvent(event, ctx);
     if (!root) return undefined;
-    if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const normalized = normalizePiTool(event.toolName, event.input || {});
+    captureEvidence.complete(root, resolveInvocationCwd(event, ctx), currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args,
+      event.is_error === true ? true : event.isError, event.content);
+    if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     if (!event.isError) observeWorkUnitEvidence(root, normalized.name, normalized.args);
     rememberToolCall(root, {
       ...normalized,
@@ -893,19 +916,30 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       message_id: packet.messageId,
       working_dir: root,
       recent_tool_calls: recentToolCalls,
-      // Canonical response-completed helpers walk the assistant response
-      // prose and last user message (e.g. discovery-capture satisfaction #2).
+      // Never edit the caller-visible answer, even for valid/malformed envelopes.
+      // Capture evidence is independent of the lossy last-40 diagnostic projection.
+      capture_validation: captureEvidence.evaluate(root, currentEpoch, assistantResponse),
       assistant_response: assistantResponse,
       last_user_message: lastUserMessage,
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-response-completed.sh");
-    if (!existsSync(script)) {
-      writeAgentEndTrace(root, payload, messages, recentToolCalls, { stdout: "", stderr: "", status: 127, error: "hook-missing" }, undefined);
-      return undefined;
-    }
-    const hook = runHook(script, payload, root);
+    const hook: HookResult = existsSync(script)
+      ? runHook(script, payload, root)
+      : { stdout: "", stderr: "", status: 127, error: "hook-missing" };
     const body = hookInjectBody(hook.stdout);
+    const capture = parseJsonMaybe(hook.stdout)?.capture;
+    if (typeof pi.sendMessage === "function") {
+      const assessment: JsonObject = hook.status === 0 && capture && typeof capture === "object" && !Array.isArray(capture)
+        ? capture as JsonObject
+        : { status: "unverified", reason: "capture response hook unavailable or missing assessment", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated" };
+      pi.sendMessage({
+        customType: "lazy-harness-capture",
+        content: `Capture evidence: ${String(assessment.status)} — ${String(assessment.reason)}. Semantic relevance and approval are not runtime-verified.`,
+        display: assessment.status === "unverified" || assessment.status === "pending",
+        details: assessment,
+      }, { triggerTurn: false });
+    }
     writeAgentEndTrace(root, payload, messages, recentToolCalls, hook, body);
     if (!body) {
       lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
@@ -961,7 +995,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       prompt: Type.Optional(Type.String({ description: "Optional prompt to send after switching session." })),
       autoSwitch: Type.Optional(Type.Boolean({ description: "Switch to the target project after preparation when ctx.switchSession is available. Defaults to true." })),
     }),
-    async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, _onUpdate: any, ctx: any) {
+    async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<AgentToolResult<MoveProjectDetails>> {
       const root = findLazyRootForInvocation(undefined, ctx);
       if (!root) throw new Error("lazy-harness root not found from current cwd");
       const target = resolveTargetPath(ctx, params.createWorktree ? params.worktreePath : params.targetPath);

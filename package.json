@@ -8,12 +8,20 @@
     "@types/node": "26.5.0",
     "ts-morph": "28.0.0",
     "typebox": "1.3.7",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@earendil-works/pi-ai": "0.85.1"
   },
   "scripts": {
     "test:run": "sh -c 'bun test \"$@\" && echo \"1 passed\"' --",
     "build:node": "bun build .lazy-harness/scripts/*.ts --target=bun --outdir \"$(mktemp -d)\" > /dev/null",
     "typecheck:node": "bun run typecheck:bun",
-    "typecheck:bun": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun .lazy-harness/scripts/*.ts"
-  }
+    "typecheck:bun": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun .lazy-harness/scripts/*.ts",
+    "typecheck:pi": "node node_modules/typescript/bin/tsc -p packages/lazy-harness-pi/tsconfig.json",
+    "test:pi-capture": "node --test tests/lazy-harness/pi-capture-evidence.test.ts",
+    "typecheck:bun-tests": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun tests/lazy-harness/affected/*.ts packages/lazy-harness-pi/scripts/*.ts"
+  },
+  "workspaces": [
+    "packages/lazy-harness-pi"
+  ]
 }
