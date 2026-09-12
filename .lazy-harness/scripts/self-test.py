@@ -1735,6 +1735,19 @@ def _check_node_validation_cache(governor) -> None:
                     os.environ[name] = value
 
 
+def check_host_document_validation_scope() -> None:
+    """Protect host-owned prose boundaries without skipping the BOTH runtime checks."""
+    result = subprocess.run(
+        [sys.executable, "-B", str(ROOT / "tests" / "lazy-harness" / "host-document-validation-scope.test.py")],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if result.returncode != 0:
+        fail("host document validation scope regression failed:\n" + result.stdout + result.stderr)
+    print("✓ host document validation scope ok")
+
+
+
 def check_bounded_validation_governor_cli() -> None:
     """`lazy validate` keeps validation explicit, bounded, and release-gated."""
     sdd = LAZY / "spec" / "platform" / "bounded-validation-governor.md"
@@ -1778,7 +1791,6 @@ def check_bounded_validation_governor_cli() -> None:
         fail("bounded validation policy must not trigger after every edit")
     host_surface_expectations = {
         LAZY / "AGENTS.md": "coherent mutation batch",
-        LAZY / "tests" / "test-strategy.xml": "never after every micro-edit",
     }
     source_package = ROOT / "packages" / "lazy-harness-pi"
     source_surface_expectations = {
@@ -1786,6 +1798,9 @@ def check_bounded_validation_governor_cli() -> None:
         source_package / "skills" / "lazy-test" / "SKILL.md": "Do not validate after each micro-edit",
     }
     surface_expectations = dict(host_surface_expectations)
+    # Category B test strategy belongs to the host; framework prose is not its schema.
+    if ACTIVE_SCOPE == "framework":
+        surface_expectations[LAZY / "tests" / "test-strategy.xml"] = "never after every micro-edit"
     if source_package.exists():
         surface_expectations.update(source_surface_expectations)
     for surface, phrase in surface_expectations.items():
@@ -10421,7 +10436,7 @@ def check_policy_machinery_v2() -> None:
     capability_ssot_path = LAZY / "ssot" / "capability-registry.md"
     rulebook_sdd_path = LAZY / "spec" / "platform" / "project-operating-rulebook.md"
 
-    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, policy_block_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path, generated_readme_path):
+    for path in (sdd_path, tdd_path, audit_path, adr_path, policy_ssot_path, policy_registry_path, policy_schema_path, policy_cli_path, policy_warn_helper_path, policy_block_helper_path, response_hook_path, lifecycle_check_path, fixture_path, manifest_path, capability_ssot_path, rulebook_sdd_path):
         if not path.exists():
             fail(f"Policy Machinery V2 missing file: {path.relative_to(ROOT)}")
 
@@ -10431,7 +10446,6 @@ def check_policy_machinery_v2() -> None:
     adr = adr_path.read_text(encoding="utf-8")
     policy_ssot = policy_ssot_path.read_text(encoding="utf-8")
     policy_cli = policy_cli_path.read_text(encoding="utf-8")
-    generated_readme = generated_readme_path.read_text(encoding="utf-8")
     policy_warn_helper = policy_warn_helper_path.read_text(encoding="utf-8")
     policy_block_helper = policy_block_helper_path.read_text(encoding="utf-8")
     response_hook = response_hook_path.read_text(encoding="utf-8")
@@ -10530,9 +10544,14 @@ def check_policy_machinery_v2() -> None:
     for expected in ("writeFileSync(outputPath, content", "requested.startsWith('.lazy-harness/generated/')", "GENERATED VIEW, NON-CANONICAL"):
         if expected not in policy_cli:
             fail("policy CLI missing generated rulebook constrained-write invariant: " + expected)
-    for expected in ("policy-rulebook.md", "Canonical behavior policy semantics live in", "lazy policy render-rulebook --write", "Do not edit `policy-rulebook.md` as a source of truth"):
-        if expected not in generated_readme:
-            fail("generated README missing policy rulebook guidance: " + expected)
+    # The installed Category B README is host-owned, not framework policy guidance.
+    if ACTIVE_SCOPE == "framework":
+        if not generated_readme_path.exists():
+            fail(f"Policy Machinery V2 missing file: {generated_readme_path.relative_to(ROOT)}")
+        generated_readme = generated_readme_path.read_text(encoding="utf-8")
+        for expected in ("policy-rulebook.md", "Canonical behavior policy semantics live in", "lazy policy render-rulebook --write", "Do not edit `policy-rulebook.md` as a source of truth"):
+            if expected not in generated_readme:
+                fail("generated README missing policy rulebook guidance: " + expected)
     for expected in ("never classifies raw user/assistant text", "policy_context", "WARN. Policy Machinery warn-only runtime", "acknowledgedPolicyWarnings"):
         if expected not in policy_warn_helper:
             fail("policy warn helper missing safety invariant: " + expected)
@@ -11037,6 +11056,12 @@ Fixture implementation map.
     with tempfile.TemporaryDirectory(prefix="policy-write-roundtrip-") as tmp:
         temp_root = pathlib.Path(tmp)
         required_fixture_paths = {
+            ".lazy-harness/AGENTS.md",
+            ".lazy-harness/bin/lazy",
+            ".lazy-harness/scripts/lazy-sync.ts",
+            ".lazy-harness/scripts/runtime-paths.ts",
+            ".lazy-harness/scripts/manifest-path-matcher.ts",
+            ".lazy-harness/scripts/agent-activate.ts",
             ".lazy-harness/ssot/policies.json",
             ".lazy-harness/ssot/capabilities.json",
             ".lazy-harness/rules/README.md",
@@ -11056,7 +11081,6 @@ Fixture implementation map.
             ".lazy-harness/spec/platform/record-write-update-policy.md",
             ".lazy-harness/spec/platform/layer-completeness-gate.md",
             ".lazy-harness/tests/record-decision-broker.md",
-            ".lazy-harness/generated/README.md",
         }
         for rel in required_fixture_paths:
             src = ROOT / rel
@@ -11131,6 +11155,29 @@ Fixture implementation map.
         if "temp-write-roundtrip-policy" not in render_temp_json.get("content", "") or not (temp_root / ".lazy-harness/generated/policy-rulebook.md").exists():
             fail("rendered generated rulebook must include saved policy")
 
+        # Exercise real sync against this complete, minimal fixture source. Installed
+        # hosts have relocated Category A files and are not framework source trees.
+        fixture_manifest = temp_root / ".lazy-harness/manifests/init-categories.json"
+        fixture_manifest.parent.mkdir(parents=True, exist_ok=True)
+        fixture_manifest.write_text(json.dumps({
+            "version": "1.0",
+            "categories": {"A": {"items": [
+                {"path": rel.removeprefix(".lazy-harness/"), "kind": "file"}
+                for rel in sorted(required_fixture_paths)
+            ]}},
+        }) + "\n", encoding="utf-8")
+        fixture_env = env_without_lazy_runtime(
+            HOME=str(temp_root / "fixture-home"),
+            GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
+        )
+        subprocess.run(["git", "init", "-q", str(temp_root)], check=True, capture_output=True, env=fixture_env)
+        subprocess.run(
+            ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+             "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
+             "commit", "--allow-empty", "-qm", "Initialize disposable policy fixture"],
+            cwd=temp_root, check=True, capture_output=True, env=fixture_env,
+        )
+
         sync_host = temp_root / "sync-host"
         (sync_host / ".lazy-harness/ssot").mkdir(parents=True, exist_ok=True)
         host_only_unsynced_policy = {
@@ -11153,10 +11200,14 @@ Fixture implementation map.
             ) + "\n",
             encoding="utf-8",
         )
-        sync_result = subprocess.run(["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(ROOT), "--target", str(sync_host), "--force", "--quiet"], cwd=ROOT, text=True, capture_output=True, check=False)
+        sync_result = subprocess.run(["bun", ".lazy-harness/scripts/lazy-sync.ts", "--from", str(temp_root), "--target", str(sync_host), "--force", "--quiet"], cwd=ROOT, text=True, capture_output=True, check=False, env=fixture_env)
         if sync_result.returncode != 0:
             fail("lazy-sync policy seed merge roundtrip failed:\n" + sync_result.stdout + sync_result.stderr)
         merged_registry = json.loads((sync_host / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"))
+        merged_by_id = {policy["id"]: policy for policy in merged_registry["policies"]}
+        for existing_policy in (policy_payload, host_only_unsynced_policy):
+            if merged_by_id.get(existing_policy["id"]) != existing_policy:
+                fail("lazy-sync policy seed merge overwrote a target-owned policy: " + existing_policy["id"])
         merged_ids = {policy.get("id") for policy in merged_registry.get("policies", [])}
         for expected_id in (
             "host-only-unsynced-source-policy",
@@ -12849,6 +12900,7 @@ def main() -> None:
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
+        (check_host_document_validation_scope, "FRAMEWORK_ONLY"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_jcode_decommission, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
