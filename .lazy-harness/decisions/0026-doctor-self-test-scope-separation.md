@@ -101,6 +101,13 @@ scope=host 일 때 framework-only check 들은 silently skip 하고 `[skipped: f
 
 측정: 이 check 는 `bun lazy-sync.ts --from <ROOT> --target <temp> --force` 로 host 의 전체 managed 트리를 매 실행마다 sync/prune 한다. 비용이 host 크기에 선형 → 371-record host(medivance)에서 **309초 (host pre-push self-test 441초의 72%)**, framework 소스에선 3초. 이 check 는 framework 코드(lazy-sync prune/preserve/merge 로직)를 검증하며, 그 코드는 모든 host 에 동일하게 sync 되므로 host 에서의 재검증은 redundant + O(host-size)다. FRAMEWORK_ONLY 기준("host 에 무의미한 framework 검증")에 부합하는 경계 사례로 재분류한다. host 는 framework 소스 self-test 에서 이 검증을 이미 받는다. (대안으로 `--from` 을 최소 fixture source 로 바꿔 host 에서 constant-time 으로 유지하는 방법도 있으나, 사용자 승인 결정은 FRAMEWORK_ONLY skip.) Record completion 규칙에 따라 이 amendment 로 명시 분류를 기록한다.
 
+### Host-owned document prose boundary amendment
+
+User confirmed scope separation instead of adding required framework prose to Category B seeds. `check_bounded_validation_governor_cli` and `check_policy_machinery_v2` remain **BOTH**. Only exact framework-source prose assertions on `tests/test-strategy.xml` and `generated/README.md` are **framework-scope**: their installed counterparts are host-owned/customizable, not framework documentation contracts. Framework-managed guidance and functional checks still run on hosts; XML parsing and release/deadline protections are unchanged.
+
+`check_host_document_validation_scope` is **FRAMEWORK_ONLY** because it runs source-owned regression fixtures, including proof that both original checks retain their BOTH classification. Primary regression/implementation map: `.lazy-harness/tests/host-document-validation-scope.md`; executable protection: `tests/lazy-harness/host-document-validation-scope.test.py`.
+
+
 ### CLI
 
 ```

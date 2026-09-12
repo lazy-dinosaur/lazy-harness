@@ -122,6 +122,12 @@
           "description": "본 manifest 자체. host 도 갖고 있어야 lazy-sync 가 동작."
         },
         {
+          "path": "decisions/0026-doctor-self-test-scope-separation.md",
+          "kind": "file",
+          "description": "Framework/host validation scope contract referenced by the host document scope regression record; host decisions remain host-owned.",
+          "targetPath": "framework/operational-adrs/0026-doctor-self-test-scope-separation.md"
+        },
+        {
           "path": "decisions/0030-implementation-map-three-layer-storage.md",
           "kind": "file",
           "description": "Operational framework ADR referenced by AGENTS: implementation maps require Markdown, JSONL graph facts, and generated index cache. Synced under framework/operational-adrs in hosts so host decisions/ remains host-owned.",
@@ -277,6 +283,11 @@
           "path": "tests/bounded-validation-governor.md",
           "kind": "file",
           "description": "TDD fixtures for lazy validate CLI behavior, fast plan, release opt-in, budget cap, dry-run, and deadline exhaustion."
+        },
+        {
+          "path": "tests/host-document-validation-scope.md",
+          "kind": "file",
+          "description": "Regression contract separating framework prose assertions from host-owned Category B documents while retaining BOTH runtime checks."
         },
         {
           "path": "spec/platform/package-health-generate-remediation.md",
