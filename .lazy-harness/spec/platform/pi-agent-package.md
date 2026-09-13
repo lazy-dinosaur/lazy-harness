@@ -15,8 +15,10 @@ Layer: SDD
 - Applies when:
   - installing, smoke-testing, or debugging the Pi/OMP lazy-harness package or its extension bridge
   - wiring `before_agent_start`/`tool_call` events or `lazy pi`/`lazy omp` wrapper commands
+  - exposing the dedicated Harness Reader through Pi Subagents or changing Reader result/join and non-interactive final-output delivery
 - Must:
   - declare both `pi` and `omp` manifest sections; OMP must not depend on Pi fallback
+  - in the approved Reader target, expose one dedicated `lazy-harness.record-reader` resource through the Pi package and keep its result delivery compatible with the Parent join barrier
   - keep separate `lazy pi`/`lazy omp` wrapper UX over one shared package core
   - normalize Pi shell aliases to `bash` before the guard, and resolve root from the live session cwd
   - preserve both Pi string and OMP string-array system prompts; scope runtime evidence by lazy root
@@ -29,6 +31,8 @@ Layer: SDD
   - when source code changes, let the agent explicitly resolve the exact mechanical source-work intent once before the coherent mutation batch. The framework Code Organization Profile remains a recommend-level baseline, host additions remain preserved, and no context hook may infer architecture/profile or replay resolver results after reads
   - re-ground and RE-ARM MID-TURN steered user input: Pi's default Enter steers mid-turn and skips `before_agent_start`, so a steered instruction would otherwise inherit the previous topic's read-debt evidence and lose the §2.1 record-search push. For every non-extension, non-empty `event.streamingBehavior === "steer"`, the `input` handler must (1) advance a root-scoped evidence epoch, (2) clear prior recent-tool evidence, (3) transform the text with a compact steer re-ground reminder that fresh post-steer map/read evidence is required and prior approvals may be stale per ADR 0038, and (4) force the next `context` call to re-inject the harness re-grounding body. Every allowed `tool_call` is tagged with its start epoch; a `tool_result` from an older epoch must not repopulate evidence after the steer. This is generic transport enforcement: no steer-text classification, command allowlist, or semantic debt row. Empty and extension-injected inputs remain exempt (ADR 0051 2026-07-03 amendment; fresh-evidence hardening user-approved 2026-07-08).
   - project the canonical lifecycle payload that `on-response-completed.sh` helpers expect: every current-turn `recent_tool_calls` entry carries string `args_preview`, `edit_target`, `evidence_epoch`, and `is_error`; `agent_end` carries `assistant_response` + `last_user_message` from `event.messages`. Normal turn starts advance the root evidence epoch, and `agent_end` must filter out older epochs. This preserves structural failed-call evidence without letting stale calls satisfy or trigger lifecycle helpers
+  - distinguish Reader process completion from Reader content delivery: a wait/status acknowledgement without the content-bearing `LAZY_HARNESS_READER_RESULT` packet does not close the join
+  - preserve the complete Parent primary answer across post-response advisories. In `ctx.mode === "print"`, where Pi text mode emits only the last assistant message, an advisory continuation must produce a complete replacement answer or use a delivery path that cannot reduce stdout to advisory-only content
   - keep `agent_end` diagnostics opt-in, fail-open, runtime-local, and content-free: `LAZY_PI_AGENT_END_TRACE=1` may append structural message roles/content kinds, byte counts/hashes, recent tool names, hook status/fingerprints, and advisory fingerprints to `$LAZY_RUNTIME_ROOT/logs/pi-agent-end-trace.jsonl`; default behavior writes nothing and the trace must never contain conversation prose, tool arguments, or tool results
   - keep OMP's native interactive `ask` selector active under tool discovery mode so harness option gates (AGENTS §2.3) render as native selectable choices, not plain A/B/C text
   - surface a short visible per-start read-debt marker (`lazy-harness read-debt`, runtime marker, root, `status=armed|not-armed(synthetic-turn)|not-armed(hook-empty)|not-armed(hook-timeout)|not-armed(hook-error)`, `phase=armed|debug`, optional `hook=<detail>`, `tool-guard=ready`) so users can distinguish extension-loaded/armed turns from stale, synthetic/steering, timed-out, hook-failed, or empty-hook sessions. The hook payload may include large conversation context, so `on-message-received.sh` must not pass the raw payload through argv/env; it must use a temp-file/ref path handoff for Python helpers to avoid ARG_MAX (`argument list too long`) failures. Synthetic/steering turns must remain debug-only: do not create a read-debt journal row, but do display the not-armed status/reminder. If a lazy-root action tool runs while the turn was not armed, block with a read-debt-not-armed reason that includes the status/detail
@@ -36,6 +40,7 @@ Layer: SDD
   - surface pending host record migration at turn-start (user-approved resume-surfacing decision, 2026-07-05; graph probe added same day): the `on-message-received.sh` reminder appends a deterministic `Host record migration PENDING` line via `helpers/host_migration_state.py` (bounded fail-open probes: `lazy record-lint --format=json` + `lazy graph-hygiene --migration-plan --format=json`, each timeout < extension hook budget) when any count > 0, pointing at the guided `lazy-record-quality`/`lazy-memory-backfill`/`lazy-graph-migrate` resume paths — closes the gap where `[Next steps]` stdout was visible only to whoever ran `lazy update` and host agents never saw pending backfill/graph state (retro `fb-mr7g01i9-ui`). Host-state-derived only, never user-text classification; never rewrites records or graph rows
 - Must not:
   - duplicate canonical policy in the extension, block read-only overview/parallel, or commit generated `.pi/`/`.omp/` by default
+  - treat generic child completion as successful Reader join, or let a post-response advisory erase the substantive Parent answer in non-interactive text mode
 - Record completion:
   - changes to the package manifest, wrapper UX, or adapter bridge update this SDD and `check_pi_package_layout_and_contract`
   - CO-CHANGE COMPLETENESS (user-confirmed rule, 2026-07-05): any framework surface change (CLI command/flag/format rename or removal, contract/schema change, help-text change) must update ALL referencing distributed artifacts IN THE SAME CHANGE — `packages/lazy-harness-pi/skills/*/SKILL.md`, `packages/lazy-harness-pi/prompts/**`, extension bridge, `bin/lazy` help text, and parser dual-forms (`--flag value` / `--flag=value`) — so a downstream `lazy update` + live-linked Pi package always deliver a mutually consistent state. Precedent defects: `--format=jcode-prompt` left in lazy-impl-map-migrate after the `agent-prompt` rename; `init [--target=DIR]` help vs space-only parser (both fixed 5d88a31).
@@ -214,20 +219,43 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
 - Global install must avoid cross-repo evidence contamination: runtime state such as `recent_tool_calls` and active packet IDs is scoped by detected lazy root.
 - OMP Phase 2 compatibility: `before_agent_start` must preserve both official Pi string `systemPrompt` values and OMP string-array `systemPrompt` blocks. When OMP sends `systemPrompt: string[]`, append the lazy reminder as a new prompt block instead of coercing the array to a comma-joined string.
 
+## Dedicated Reader and primary-answer delivery — isolated implementation, integration pending
+
+The isolated `work/reader-runtime-v1` implementation adds `packages/lazy-harness-pi/agents/record-reader.md` and registers `./agents` through `pi.subagents.agents` plus `pi-subagents.agents`. This is a Pi Subagents adapter resource and creates no unsupported OMP-subagent claim. Main integration remains separately approval-gated.
+
+The Parent supplies root, revision, explicit model, evidence epoch, task, lowered read budgets, and derived `maxLinesPerRead=floor(maxRequestedLines/maxReadCalls)`. Dedicated Reader launch must omit `toolBudget`; the runtime rejects explicit overrides because they count discovery/probes as well as reads. Body-read budgets remain task-envelope fields, not total-tool limits. The Reader owns canonical record loading and reports cumulative/maximum observed limits. Agent Contract v1 with `acceptance:false`, `output:false`, and `artifacts:false` preserves read-only completion.
+
+`ReaderRunState`, launch validation, run/completion observation, and `lazy_reader_join` form the barrier while Parent works its source/test lane. Join requires content marker, matching run/root revision/epoch/model/task budgets, canonical paths, positive and internally consistent read/path counters, exact derived per-read cap, `maxObservedReadLimit <= maxLinesPerRead`, and zero failed calls. Failed complete joins discard pre-join evidence before direct fallback. Process completion alone never joins.
+
+The isolated native follow-up explicitly loads the host guard via the Reader's supported agent-relative `subagentOnlyExtensions`. Child tool admission charges count/requested lines before each body read, retains charges for failed reads, denies over-cap calls before execution, and counts denied/failed tools. Runtime `pi.appendEntry` ledger entries in the native child session—not model prose—supply terminal counters, successful canonical paths and fingerprints. Native notification details carry outer run/session-file identity. Join defaults to the adapter-owned run and runtime counters; explicitly supplied identity/counter mismatches fail into bounded fallback. The effective canonical path set always comes from all successful terminal-ledger reads. Omitted, empty or partial legacy `recordPaths` cannot narrow evidence; unread/outside, duplicate or malformed supplied paths still fail. Every actual path is rehashed before caching, including paths omitted by the Parent. Successful details expose the effective `recordPaths`. Root/revision/epoch/model/task/session binding remains mandatory. Missing guard/ledger or storage errors cannot produce a complete join. This is structural accounting, not semantic coverage certification.
+
+The separately approved upstream copy flushes held notifications, suspends batching during headless drain, drains owned terminal result files and in-flight deliveries, and queues content through supported `sendMessage(..., { triggerTurn:true, deliverAs:'followUp' })` before SDK termination. No sleeps, status polling, or repeated nudge is added. Installed runtime and main remain unchanged; exact upstream source/tests and preserved offline reproduction are in `.lazy-harness/evidence/reader-coordination-repair-and-comparison.md`.
+
+Pi non-interactive text mode reads only `session.state.messages[last]`; headless JSON callers also observe the final substantive candidate. `preservesHeadlessPrimaryAnswer` uses typed `ExtensionContext.mode` (`print|json`) to emit unresolved response.completed advisories to stderr through `printModeAdvisory`, not a steering follow-up. TUI/RPC and unknown adapters retain bounded `followUp` behavior. Native Reader notifications and pending completion drain remain required content continuations, not advisories; user steers and required tool-action blocks are unchanged. Session recovery is diagnostic, not successful delivery.
+
+`parseReaderResultPacket` is shared by native synchronous receipt adaptation and async notification observation. RESULT root/revision/epoch allow bare values or one balanced backtick pair with exact post-parse equality; duplicate/conflicting/missing/malformed fields or status are rejected. Launch-task parsing is separate. Async remains the default grammar; explicit synchronous launch binds the actual launch toolCallId, outer run ID, one successful Reader result and session file, using only delivered tool content, never details-only finalOutput. `complete`, `incomplete`, and `conflict` remain distinct; non-complete cannot be upgraded by caller assertions or cached. Full trusted terminal ledger/hash/epoch/model/task/read-budget authority is unchanged.
+
 ## Implementation map
 
-- `packages/lazy-harness-pi/package.json` — shared Pi/OMP package manifest with explicit `pi` and `omp` resource declarations.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation plus `/lazy-check`, `/lazy-validate`, and explicit fresh/full `/lazy-test` command surfaces.
+- `packages/lazy-harness-pi/package.json` — registers shared Pi/OMP resources plus the dedicated Pi Subagents `./agents` resource.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — event bridge implementation, Reader run/join state, print-mode advisory separation, plus `/lazy-check`, `/lazy-validate`, and explicit fresh/full `/lazy-test` command surfaces.
   - `resolveInvocationCwd` keeps hook and `/lazy-*` command root selection aligned with the live Pi/OMP session cwd after runtime `/move` re-scopes the session.
   - `systemPromptIncludesBody` / `appendSystemPromptBody` preserve official Pi string prompts and OMP string-array prompt blocks during `before_agent_start` reminder injection.
   - `ReadDebtStatus` / `classifyReadDebtStatus` / `steeringReminder` distinguish armed human turns from synthetic, hook-empty, hook-timeout, and hook-error turns; synthetic turns get a no-journal steering reminder and not-armed action block status/detail.
   - `workUnitEvidenceByRoot` / `observeWorkUnitEvidence` / `workUnitEvidenceValid` cache one overview plus governing-record content hashes, reuse them across later normal turns, and invalidate on record drift or explicit steer.
   - the `context` handler + `REGROUND_MUTATION_TOOLS` trigger one pointer-only reminder after the first successful mutation, never after reads/searches; failed hooks retain pending state only for that mutation boundary.
   - `evidenceEpochByRoot` / `toolCallEpochsByRoot` still isolate active-turn response payloads and reject late pre-steer results without classifying user text.
+  - `ReaderRunState`, `readerTaskField`, `readerLaunchValidationError`, `parseReaderRunId`, and `lazy_reader_join` enforce root/revision/epoch/model/task identity, lowered cumulative budgets, derived per-read cap/max-observed limit, failed-tool, fallback, and record fingerprints.
+  - `RECORD_READER_ROLE_MARKER` / `readerRuntimeRoots` bypass Parent reminder/context/response lifecycle in the child but retain `isReaderRuntimeToolAllowed`, which permits only canonical record read/grep and exact map/root/revision shell commands.
+  - `preservesHeadlessPrimaryAnswer` / `printModeAdvisory` preserve headless print/JSON primary output with observable non-steering stderr advisories; TUI/RPC retain bounded follow-up.
+  - `reader-result.ts#parseReaderResultPacket` / `receiveReaderResult` validate one unambiguous RESULT packet and bind actual sync/async content identity/status.
+  - `packages/lazy-harness-pi/tests/reader-result.test.ts` and `reader-primary-answer-cli.test.ts` protect packet/ledger negatives and actual native CLI delivery through production capture/placement hooks; primary TDD `.lazy-harness/tests/reader-result-primary-answer.md`.
   - `ensureAskToolActive` keeps the native option selector available; `writeAgentEndTrace` remains opt-in and content-free.
-- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — first-grounding pointer body and sanitized debt row; no inventory/catalog replay.
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — Reader-first first-grounding pointer plus direct fallback and sanitized debt row.
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — Python/TypeScript parity: native `read`/`grep`/`find` and simple shell `grep`/`rg` remain available, while chaining/redirection/substitution, shell `find`/`tree`, write-capable git output, `rg --pre` (including quoted/escaped), and unsafe filters stay actions.
 - `.lazy-harness/hooks/lifecycle/on-context.sh` — five-line pointer-only mutation-boundary reminder; performs no map, record, catalog, or resolver subprocess.
 - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — explicit/on-demand registry discovery and resolver rendering; no longer imported by turn/context reminder bodies.
+- `packages/lazy-harness-pi/agents/record-reader.md` — dedicated map-first canonical record loader with no source, mutation, validation, recursion, output-file, or proof/admission authority.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — skills exposed to Pi.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — prompt template with fast edit-loop, focused-check, one-final-standard-boundary, and no evidence-only rerun guidance.
 - `packages/lazy-harness-pi/README.md` — separate Pi/OMP install/smoke/trust docs.
@@ -241,11 +269,23 @@ omp plugin uninstall @lazy-dinosaur/lazy-harness-pi
   - Fake runtime smoke covers official Pi string `systemPrompt` and OMP string-array `systemPrompt` before-agent-start paths.
   - Fake runtime root isolation covers live `sessionManager.getCwd()` re-scope after `/move`, root-scoped recent tool evidence, and `/lazy-*` command cwd selection.
   - Fake runtime steer smoke covers prior-evidence invalidation, late pre-steer result exclusion, immediate action denial, and recovery after a fresh post-steer map/read result.
-  - Fake runtime `agent_end` smoke covers current-turn-only tool projection (including failed current calls and late/previous-turn exclusion), canonical lifecycle payload fields, trace default-off behavior, runtime-root placement, no-raw-content fingerprints, and unchanged `followUp` advisory delivery.
+  - Fake runtime smoke covers dedicated Reader child tool boundary, exact/derived budgets, positive ledger/max-observed/failed-call rejection, safe Parent source `rg`, adversarial shell/nested actions, failed-join evidence truncation, fallback, paths, reuse, steer, print stderr, and TUI/RPC follow-up. Headless JSON preservation is protected through the actual production-hook CLI regression.
+  - Final `lazy validate --plan standard` attempt 2 passed (`173.797s`, full self-test `173.216s`) after preserving attempt 1's D06/reminder failure and fix.
+  - Independent blockers-only re-review returned `No issues found` / isolated `OK`.
+  - `.lazy-harness/evidence/dedicated-reader-runtime-v1-20260906.md` — static validation/review/preservation capsule.
+  - `.lazy-harness/evidence/dedicated-reader-live-canary-r2-20260906.md` — live R2 delivery/join/output pass, budget/source-lane incomplete, and selected static correction.
 - Machine index:
   - `kg_pi_agent_end_structural_trace_impl_20260714`
   - `kg_pi_agent_end_structural_trace_test_20260714`
   - `kg_pi_context_once_per_turn_20260818`
+  - `kg_reader_runtime_role_20260904`
+  - `kg_reader_runtime_join_bridge_20260904`
+  - `kg_reader_runtime_join_test_20260904`
+  - `kg_reader_adversarial_guard_ledger_20260907`
+  - `kg_reader_adversarial_static_closure_20260907`
+  - `kg_reader_runtime_lifecycle_isolation_20260906`
+  - `kg_reader_live_canary_r2_20260906`
+  - `kg_reader_per_read_cap_guard_parity_20260906`
 - `.lazy-harness/decisions/0043-pi-native-package-in-source-repo.md` — repo placement decision.
 - `.lazy-harness/decisions/0047-pi-omp-shared-package-separate-install-ux.md` — shared package with separate install UX decision.
 
@@ -358,3 +398,39 @@ JSON imports missing attributes; the corresponding emitted JS correctly uses
 is claimed. The root manifest also declares Pi-AI0.85.1 explicitly because the
 integration test directly imports its AssistantMessage type; no transitive hoisting
 is assumed after a clean workspace install.
+
+## Discovery capture — dedicated Reader/output design
+
+- DDD: none; existing Reader/Parent/join vocabulary is sufficient.
+- SDD: updated here for package resource registration, content-bearing join, Agent Contract v1 read-only completion, and print-mode primary-answer preservation.
+- BDD: updated in `.lazy-harness/behavior/llm-owned-record-retrieval.md` for user/agent-visible result and output behavior.
+- TDD: superseded design checkpoint; the linked Reader fixtures are now focused-green in the isolated worktree, with live model/main integration still pending.
+- ADR: updated in ADR 0055 because the user reaffirmed Reader ownership after the generic-delegate run.
+- SSOT: none; package settings/runtime state remain unchanged.
+- Planning: isolated implementation is focused-green; live model smoke, main integration, commit/push/release remain unapproved.
+
+## Discovery capture — dedicated Reader/output implementation
+
+- DDD: existing Reader/Parent/join vocabulary is updated separately only for implementation status.
+- SDD: updated here for implemented package resource, launch/join/budget bridge, and print-mode primary-output behavior.
+- BDD: updated with implemented result-content and caller-output scenarios.
+- TDD: updated in `.lazy-harness/tests/pi-agent-package.md` and `.lazy-harness/tests/pre-action-search-evidence-guard.md` with focused green fixtures.
+- ADR: implementation status updated in ADR 0055; ownership decision is unchanged.
+- SSOT: transitional enforcement status updated without a new settings/schema owner.
+- Planning: isolated implementation is independently reviewed `OK` and standard-green (`76.201s`); new live model smoke, main integration, commit/push/release remain unapproved.
+
+
+## R4 notification transport correction
+
+`observeReaderPacket` observes native `role:custom`, `customType:subagent-notify` messages in the context handler before its mutation-reminder early return. It accepts only the dedicated Reader completion header, complete content marker, and exact active root/revision/evidence epoch. One Reader launch per epoch prevents two same-epoch results being confused. `lazy_reader_join` requires this observed content, not a legacy `subagent_wait` liveness receipt. Budget/path/failure validation and terminal fallback remain intact. This adapter does not make bg_wait liveness authoritative or admit user/assistant text as a native notification.
+
+Implemented by `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#observeReaderPacket/readerLaunchValidationError` and the context/join handlers. Protected by `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract`: notification-only success without wait, wait-only/stale-notification failure, duplicate launch rejection, and preserved ledger/path tests after real notification delivery. Parent source guidance requires native path discovery before body reads.
+
+
+## R5 path and native-tool preflight correction
+
+Reader native read/grep operands may be canonical relative paths or absolute paths beneath the exact active root. `readerToolPath` strips only the exact root-plus-separator prefix; existing layer/traversal restrictions remain. Sibling/outside roots, Parent source paths, and dot/traversal segments still fail. Join packet recordPaths remain canonical relative identifiers; this change concerns native tool operands only.
+
+A canary that requires native Parent grep/find must explicitly enable them. Pi's default coding tools do not imply native grep/find availability. The intended explicit CLI allowlist is `--tools read,grep,find,bash,subagent,lazy_reader_join`; extension tools must be included because the allowlist covers them too. Before any future live run, a zero-model SDK session with the same package/config/tool selection must verify `getActiveToolNames()` includes all required tools. Do not change global defaults or weaken Reader boundaries to compensate for a launcher omission.
+
+Implementation: `index.ts#readerToolPath/isReaderRuntimeToolAllowed`; regression: `self-test.py#check_pi_package_layout_and_contract`; zero-model runtime evidence: `/tmp/lh-reader-tool-preflight-88q_8qyl/result.json`.

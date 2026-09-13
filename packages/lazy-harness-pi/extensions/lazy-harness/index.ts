@@ -1,4 +1,5 @@
-import { SessionManager, type AgentToolResult, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager, type AgentToolResult, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { parseReaderResultPacket, type ReaderResultStatus } from "./reader-result.ts";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -18,8 +19,15 @@ const MAX_AGENT_END_TRACE_CONTENT_KINDS = 12;
 const MAX_AGENT_END_TRACE_TOOL_NAMES = 40;
 const MAX_AGENT_END_TRACE_ROWS = 50;
 const MAX_AGENT_END_TRACE_METADATA_CHARS = 128;
+const RECORD_READER_AGENT = "lazy-harness.record-reader";
+const RECORD_READER_ROLE_MARKER = "LAZY_HARNESS_ROLE: record-reader/reader-join-v1";
+const RECORD_READER_RESULT_PREFIX = "LAZY_HARNESS_READER_RESULT:";
+const MAX_READER_READ_CALLS = 8;
+const MAX_READER_REQUESTED_LINES = 1600;
+const RECORD_READER_PATH_RE = /^\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)\/[A-Za-z0-9_./-]+\.(?:md|xml|json)$/;
 
 type JsonObject = Record<string, unknown>;
+type TextToolResult = { content: { type: "text"; text: string }[]; details: JsonObject };
 type ReadDebtStatus = "armed" | "reused-work-unit" | "not-armed-synthetic" | "not-armed-hook-empty" | "not-armed-hook-timeout" | "not-armed-hook-error";
 type HookResult = { stdout: string; stderr: string; status: number | null; signal?: string | null; error?: string };
 type MoveProjectDetails = {
@@ -46,8 +54,39 @@ type WorkUnitEvidence = {
   recordHashes: Map<string, string>;
 };
 
+type ReaderRunState = {
+  evidenceEpoch: number;
+  launchToolCallId: string;
+  runId?: string;
+  ledgerSessionFile?: string;
+  completed: boolean;
+  contentReceived: boolean;
+  resultStatus?: ReaderResultStatus;
+  packetError?: string;
+  joined: boolean;
+  fallbackAllowed: boolean;
+  revision: string;
+  model: string;
+  maxReadCalls: number;
+  maxRequestedLines: number;
+  maxLinesPerRead: number;
+  taskDigest: string;
+  failureReason?: string;
+};
+
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
 const workUnitEvidenceByRoot = new Map<string, WorkUnitEvidence>();
+const readerRunByRoot = new Map<string, ReaderRunState>();
+const readerRuntimeRoots = new Set<string>();
+const READER_LEDGER_ENTRY = "lazy-harness-reader-ledger-v1";
+type ReaderLedger = {
+  root: string; revision: string; evidenceEpoch: number; model: string; taskDigest: string; sessionId: string;
+  maxReadCalls: number; maxRequestedLines: number; maxLinesPerRead: number;
+  readCalls: number; requestedLines: number; maxObservedReadLimit: number; failedToolCalls: number;
+  recordHashes: Record<string, string>; terminal: boolean;
+};
+type ReaderMeter = { ledger: ReaderLedger; pending: Map<string, string | undefined>; settled: Set<string> };
+const readerMeters = new Map<string, ReaderMeter>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
 const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
@@ -64,11 +103,198 @@ const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
 const REGROUND_MUTATION_TOOLS = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
 const MUTATION_TOOL_NAMES = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
-const READ_ONLY_SHELL_RE = /^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?(?:(?:\.lazy-harness\/bin\/lazy|lazy)\s+map|pwd|ls|tree|cat|grep|rg|find|git\s+(?:status|diff|show|log|rev-parse))\b/is;
+const READ_ONLY_SHELL_RE = /^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?(?:(?:\.lazy-harness\/bin\/lazy|lazy)\s+map|pwd|ls|cat|grep|rg|git\s+(?:status|rev-parse))\b/is;
 const ACTION_NAME_RE = /(?:^|[_:.\-])(write|edit|patch|apply_patch|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])/i;
+const READER_STATUS_ARG_KEYS = new Set(["action", "id", "includeProgress", "view", "lines"]);
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
+}
+
+function currentRevision(root: string): string | undefined {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", timeout: 5000 });
+  return result.status === 0 ? String(result.stdout || "").trim() || undefined : undefined;
+}
+
+function isRecordReaderAgent(args: JsonObject): boolean {
+  return String(args.agent || "") === RECORD_READER_AGENT;
+}
+
+function readerTaskField(task: string, name: string): string | undefined {
+  return task.match(new RegExp(`^${name}:\\s*(.+)$`, "mi"))?.[1]?.trim();
+}
+
+function readerLaunchValidationError(root: string, args: JsonObject): string | undefined {
+  if (!isRecordReaderAgent(args)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(args, "action")) return "dedicated Reader launch must omit action; management operations are not launches";
+  const existing = readerRunByRoot.get(root);
+  if (existing?.evidenceEpoch === currentEvidenceEpoch(root)) return "only one dedicated Reader launch is allowed per evidence epoch";
+  if (args.async !== true && args.async !== false) return "dedicated Reader must explicitly select async:true or async:false";
+  if (args.context !== "fresh") return "dedicated Reader must use fresh context";
+  if (args.acceptance !== false) return "dedicated Reader must set acceptance:false";
+  if (args.output !== false) return "dedicated Reader must set output:false";
+  if (args.artifacts !== false) return "dedicated Reader must set artifacts:false";
+  if (args.toolBudget !== undefined) return "dedicated Reader must omit toolBudget: it counts all tools, not body reads; use maxReadCalls/maxRequestedLines/maxLinesPerRead in the task";
+  const model = String(args.model || "").trim();
+  if (!model) return "dedicated Reader model must be explicit";
+  const contract = args.agentContract && typeof args.agentContract === "object" ? args.agentContract as JsonObject : {};
+  if (contract.version !== 1) return "dedicated Reader must use agentContract.version=1";
+  const cwd = String(args.cwd || root);
+  if (resolve(cwd) !== resolve(root)) return `dedicated Reader cwd must equal the active lazy root: ${root}`;
+  const task = String(args.task || "");
+  if (readerTaskField(task, "model") !== model) return "Reader task model does not match the explicit launch model";
+  const revision = currentRevision(root);
+  if (!revision || readerTaskField(task, "root") !== root) return "Reader task root does not match the active lazy root";
+  if (readerTaskField(task, "revision") !== revision) return "Reader task revision does not match the active root HEAD";
+  if (Number(readerTaskField(task, "evidenceEpoch")) !== currentEvidenceEpoch(root)) return "Reader task evidenceEpoch does not match the active turn";
+  if (!readerTaskField(task, "task")) return "Reader task must include a non-empty task field";
+  const maxReadCalls = Number(readerTaskField(task, "maxReadCalls"));
+  const maxRequestedLines = Number(readerTaskField(task, "maxRequestedLines"));
+  const maxLinesPerRead = Number(readerTaskField(task, "maxLinesPerRead"));
+  if (!Number.isInteger(maxReadCalls) || maxReadCalls <= 0 || maxReadCalls > MAX_READER_READ_CALLS) return `Reader maxReadCalls must be 1..${MAX_READER_READ_CALLS}`;
+  if (!Number.isInteger(maxRequestedLines) || maxRequestedLines <= 0 || maxRequestedLines > MAX_READER_REQUESTED_LINES) return `Reader maxRequestedLines must be 1..${MAX_READER_REQUESTED_LINES}`;
+  const expectedPerRead = Math.floor(maxRequestedLines / maxReadCalls);
+  if (!Number.isInteger(maxLinesPerRead) || maxLinesPerRead !== expectedPerRead || maxLinesPerRead <= 0) return `Reader maxLinesPerRead must equal floor(maxRequestedLines/maxReadCalls)=${expectedPerRead}`;
+  return undefined;
+}
+
+function readerLaunchState(root: string, args: JsonObject, launchToolCallId: string): ReaderRunState {
+  const task = String(args.task || "");
+  const revision = currentRevision(root);
+  if (!revision) throw new Error("cannot resolve Reader launch revision");
+  return {
+    evidenceEpoch: currentEvidenceEpoch(root),
+    launchToolCallId,
+    completed: false,
+    contentReceived: false,
+    joined: false,
+    fallbackAllowed: false,
+    revision,
+    model: String(args.model),
+    maxReadCalls: Number(readerTaskField(task, "maxReadCalls")),
+    maxRequestedLines: Number(readerTaskField(task, "maxRequestedLines")),
+    maxLinesPerRead: Number(readerTaskField(task, "maxLinesPerRead")),
+    taskDigest: stableHash(readerTaskField(task, "task")),
+  };
+}
+
+// Native async notification is the delivery boundary; a legacy wait receipt is
+// neither required nor sufficient. One launch per epoch disambiguates packets.
+function observeReaderPacket(root: string, messages: unknown): void {
+  const run = readerRunByRoot.get(root);
+  if (!run?.runId || run.fallbackAllowed || run.evidenceEpoch !== currentEvidenceEpoch(root) || !Array.isArray(messages)) return;
+  for (const message of messages) {
+    if (message?.role !== "custom" || message.customType !== "subagent-notify" || typeof message.content !== "string") continue;
+    const identities = message.details?.completions;
+    if (!Array.isArray(identities)) continue;
+    const owned = identities.filter((item: any) => item?.runId === run.runId);
+    if (owned.length !== 1 || owned[0].agent !== RECORD_READER_AGENT || typeof owned[0].sessionFile !== "string" || !owned[0].sessionFile) continue;
+    const text = message.content;
+    if (!text.startsWith(`Background task completed: **${RECORD_READER_AGENT}**`)) continue;
+    receiveReaderResult(root, run, text, owned[0].sessionFile);
+  }
+}
+
+function receiveReaderResult(root: string, run: ReaderRunState, text: string, sessionFile: string): void {
+  const packet = parseReaderResultPacket(text);
+  if (!packet || packet.root !== root || packet.revision !== run.revision || packet.evidenceEpoch !== String(run.evidenceEpoch)) {
+    run.packetError = "Reader result packet has malformed, duplicate, missing, or mismatched identity/status";
+    return;
+  }
+  if (run.contentReceived && (run.ledgerSessionFile !== sessionFile || run.resultStatus !== packet.status)) {
+    run.packetError = "Reader result delivery conflicts with the observed session/status";
+    return;
+  }
+  run.ledgerSessionFile = sessionFile;
+  run.resultStatus = packet.status;
+  run.contentReceived = true;
+  run.completed = true;
+}
+
+function readerFallbackError(root: string, message: string): Error {
+  const run = readerRunByRoot.get(root);
+  if (run) {
+    run.joined = false;
+    run.fallbackAllowed = true;
+    run.failureReason = message;
+  }
+  workUnitEvidenceByRoot.delete(root);
+  return new Error(`${message}; bounded direct Parent fallback enabled`);
+}
+
+function startReaderMeter(root: string, task: string, sessionId: string): ReaderMeter | undefined {
+  const maxReadCalls = Number(readerTaskField(task, "maxReadCalls"));
+  const maxRequestedLines = Number(readerTaskField(task, "maxRequestedLines"));
+  const maxLinesPerRead = Number(readerTaskField(task, "maxLinesPerRead"));
+  const evidenceEpoch = Number(readerTaskField(task, "evidenceEpoch"));
+  const revision = readerTaskField(task, "revision");
+  const model = readerTaskField(task, "model");
+  const objective = readerTaskField(task, "task");
+  if (readerTaskField(task, "root") !== root || !revision || revision !== currentRevision(root) || !model || !objective || !sessionId
+    || !Number.isInteger(evidenceEpoch) || evidenceEpoch < 0
+    || !Number.isInteger(maxReadCalls) || maxReadCalls < 1 || maxReadCalls > MAX_READER_READ_CALLS
+    || !Number.isInteger(maxRequestedLines) || maxRequestedLines < 1 || maxRequestedLines > MAX_READER_REQUESTED_LINES
+    || maxLinesPerRead < 1 || maxLinesPerRead !== Math.floor(maxRequestedLines / maxReadCalls)) return undefined;
+  return { ledger: { root, revision, evidenceEpoch, model, taskDigest: stableHash(objective), sessionId,
+    maxReadCalls, maxRequestedLines, maxLinesPerRead, readCalls: 0, requestedLines: 0,
+    maxObservedReadLimit: 0, failedToolCalls: 0, recordHashes: {}, terminal: false }, pending: new Map(), settled: new Set() };
+}
+
+function persistReaderMeter(pi: ExtensionAPI, meter: ReaderMeter): boolean {
+  try {
+    pi.appendEntry(READER_LEDGER_ENTRY, { ...meter.ledger, recordHashes: { ...meter.ledger.recordHashes } });
+    return true;
+  } catch {
+    meter.ledger.failedToolCalls += 1;
+    return false;
+  }
+}
+
+function readDeliveredReaderLedger(root: string, run: ReaderRunState): ReaderLedger {
+  try {
+    if (!run.ledgerSessionFile) throw new Error("missing session identity");
+    const entries = readFileSync(run.ledgerSessionFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    const header = entries[0];
+    const ledger = entries.filter((entry) => entry.type === "custom" && entry.customType === READER_LEDGER_ENTRY).at(-1)?.data as ReaderLedger | undefined;
+    if (!ledger || header?.type !== "session" || header.id !== ledger.sessionId || ledger.terminal !== true
+      || !ledger.recordHashes || typeof ledger.recordHashes !== "object" || Array.isArray(ledger.recordHashes)
+      || ledger.root !== root || ledger.revision !== run.revision || ledger.evidenceEpoch !== run.evidenceEpoch
+      || ledger.model !== run.model || ledger.taskDigest !== run.taskDigest) throw new Error("mismatched or nonterminal ledger");
+    return ledger;
+  } catch {
+    throw readerFallbackError(root, "runtime-owned Reader ledger is unavailable, stale, or mismatched");
+  }
+}
+
+function canonicalReaderRecordPath(root: string, input: string): string | undefined {
+  const normalized = String(input || "").replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  if (!RECORD_READER_PATH_RE.test(normalized) || parts.some((part) => !part || part === "." || part === "..")) return undefined;
+  const layer = parts[1];
+  const allowedLayers = new Set(["domain", "spec", "behavior", "tests", "decisions", "ssot", "planning", "plans"]);
+  if (parts[0] !== ".lazy-harness" || !layer || !allowedLayers.has(layer)) return undefined;
+  const absolute = resolve(root, normalized);
+  const layerRoot = resolve(root, ".lazy-harness", layer);
+  return absolute.startsWith(`${layerRoot}/`) ? normalized : undefined;
+}
+
+function parseReaderRunId(event: any): string | undefined {
+  const details = event?.details;
+  const runId = details?.runId;
+  const asyncId = details?.asyncId;
+  if (runId !== undefined && asyncId !== undefined && runId !== asyncId) return undefined;
+  const id = runId ?? asyncId;
+  return typeof id === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : undefined;
+}
+
+// SDK mode is a typed output capability. hasUI alone would conflate RPC with
+// headless output on older adapters; unknown runtimes retain their prior flow.
+function preservesHeadlessPrimaryAnswer(ctx: Pick<ExtensionContext, "mode">): boolean {
+  return ctx.mode === "print" || ctx.mode === "json";
+}
+
+function printModeAdvisory(body: string): void {
+  process.stderr.write(`[lazy-harness post-response advisory; primary stdout preserved]\n${body.trim()}\n`);
 }
 
 const RECORD_EVIDENCE_PATH_RE = /\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)\/[A-Za-z0-9_./-]+\.(?:md|xml|json)/g;
@@ -419,25 +645,117 @@ function shellCommand(args: JsonObject): string {
 }
 
 function isReadOnlyShell(args: JsonObject): boolean {
-  const command = shellCommand(args);
-  if (!command.trim()) return false;
-  if (/\b(rm|mv|cp|mkdir|touch|tee|python3?\s+-|node\s+-|bun\s+(?:run|x|test)|npm|pnpm|yarn|gh\s+(?:pr\s+(?:create|edit|merge)|issue\s+create))\b/i.test(command)) return false;
-  return READ_ONLY_SHELL_RE.test(command);
+  const command = shellCommand(args).trim();
+  if (!command) return false;
+  let body = command;
+  if (/^cd\s+/i.test(command)) {
+    const match = command.match(/^cd\s+(.+?)\s*&&\s*(.+)$/is);
+    if (!match || /[<>&|;$()`\n]/.test(match[1] || "")) return false;
+    body = match[2] || "";
+  }
+  const normalizedFlags = body.replace(/\\(.)/gs, "$1").replace(/["']/g, "");
+  if (/[;&<>]|\|\||\$|`|\n/.test(body) || /(?:^|\s)--pre(?:=|\s)/i.test(normalizedFlags)) return false;
+  if (/\b(rm|mv|cp|mkdir|touch|tee|python3?\s+-|node\s+-|bun\s+(?:run|x|test)|npm|pnpm|yarn|gh\s+(?:pr\s+(?:create|edit|merge)|issue\s+create))\b/i.test(body)) return false;
+  const [first, ...filters] = body.split("|").map((part) => part.trim());
+  if (!first || !READ_ONLY_SHELL_RE.test(first)) return false;
+  return filters.every((part) => /^(?:head|tail|wc)(?:\s|$)/i.test(part));
 }
 
-function isActionTool(name: string, args: JsonObject): boolean {
+function isReaderAllowedShell(args: JsonObject): boolean {
+  const command = shellCommand(args).trim();
+  if (command === ".lazy-harness/bin/lazy map --overview --complete --format=md") return true;
+  if (command === "pwd" || command === "git rev-parse --show-toplevel" || command === "git rev-parse HEAD") return true;
+  return /^\.lazy-harness\/bin\/lazy map [A-Za-z0-9_./:#-]+ --format=md --limit=8$/.test(command);
+}
+
+function readerToolPath(root: string, input: string): string {
+  const path = input.replace(/\\/g, "/");
+  const prefix = `${resolve(root).replace(/\\/g, "/")}/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+function isReaderRuntimeToolAllowed(root: string, name: string, args: JsonObject): boolean {
+  const leaf = name.toLowerCase().split(/[.:]/).pop() || name.toLowerCase();
+  if (leaf === "read") {
+    const path = readerToolPath(root, String(args.path || args.file_path || ""));
+    return Boolean(canonicalReaderRecordPath(root, path));
+  }
+  if (leaf === "grep") {
+    const rawPaths = Array.isArray(args.paths) ? args.paths : [args.path];
+    const paths = rawPaths.filter((path) => typeof path === "string" && path.length > 0).map(String);
+    return paths.length > 0 && paths.every((path) => {
+      const normalized = readerToolPath(root, path).replace(/\/$/, "");
+      return /^\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)(?:\/|$)/.test(normalized)
+        && !normalized.split("/").some((part) => part === "." || part === "..");
+    });
+  }
+  if (["bash", "cmd", "command", "shell", "terminal"].includes(leaf)) return isReaderAllowedShell(args);
+  return false;
+}
+
+type ReaderStatusInspectionContext = {
+  root: string;
+  runId: string;
+  evidenceEpoch: number;
+  currentEpoch: number;
+  pending: boolean;
+};
+
+export function permitsOwnedReaderStatusInspection(root: string, name: string, args: JsonObject, context: ReaderStatusInspectionContext): boolean {
+  if (name.toLowerCase() !== "subagent" || String(args.action || "") !== "status") return false;
+  if (Object.keys(args).some((key) => !READER_STATUS_ARG_KEYS.has(key))) return false;
+  if (args.includeProgress !== undefined && typeof args.includeProgress !== "boolean") return false;
+  if (args.view !== undefined && args.view !== "transcript") return false;
+  if (args.lines !== undefined && (!Number.isInteger(args.lines) || Number(args.lines) <= 0 || Number(args.lines) > 500)) return false;
+  return Boolean(
+    context.pending === true
+    && Number.isInteger(context.evidenceEpoch) && context.evidenceEpoch >= 0
+    && Number.isInteger(context.currentEpoch) && context.currentEpoch >= 0
+    && context.root === root
+    && context.runId
+    && String(args.id || "") === context.runId
+    && context.evidenceEpoch === context.currentEpoch
+  );
+}
+
+function readerStatusInspectionContext(root: string): ReaderStatusInspectionContext {
+  const run = readerRunByRoot.get(root);
+  return {
+    root,
+    runId: run?.runId || "",
+    evidenceEpoch: run?.evidenceEpoch ?? -1,
+    currentEpoch: currentEvidenceEpoch(root),
+    pending: Boolean(run?.runId && !run.joined && !run.fallbackAllowed),
+  };
+}
+
+function isOwnedReaderStatusInspection(root: string, name: string, args: JsonObject): boolean {
+  return permitsOwnedReaderStatusInspection(root, name, args, readerStatusInspectionContext(root));
+}
+
+function isActionTool(name: string, args: JsonObject, ownedReaderStatus = false): boolean {
   const lower = name.toLowerCase();
-  if (["read", "grep", "find", "ls"].includes(lower)) return false;
-  if (lower === "batch" && Array.isArray((args as Record<string, unknown>).tool_calls)) {
-    return ((args as Record<string, unknown>).tool_calls as unknown[]).some((call) => {
+  const leaf = lower.split(/[.:]/).pop() || lower;
+  if (lower === "subagent" && (String(args.action || "") === "list" || isRecordReaderAgent(args) || ownedReaderStatus)) return false;
+  if (lower === "subagent_wait" || lower === "lazy_reader_join") return false;
+  if (["read", "grep", "find", "ls"].includes(leaf)) return false;
+  if (["batch", "multi_tool_use.parallel"].includes(lower)) {
+    const nested = (args.tool_calls ?? args.toolCalls ?? args.tool_uses) as unknown;
+    if (!Array.isArray(nested)) return false;
+    return nested.some((call) => {
       const c = (call && typeof call === "object" ? call : {}) as Record<string, unknown>;
-      const nestedName = String(c.tool || c.name || c.toolName || "");
-      const nestedArgs = (c.parameters && typeof c.parameters === "object" ? c.parameters : c.input && typeof c.input === "object" ? c.input : {}) as JsonObject;
+      const nestedName = String(c.recipient_name || c.tool || c.name || c.toolName || "");
+      const nestedArgs = (
+        c.parameters && typeof c.parameters === "object" ? c.parameters
+          : c.input && typeof c.input === "object" ? c.input
+            : c.args && typeof c.args === "object" ? c.args : {}
+      ) as JsonObject;
       return isActionTool(nestedName, nestedArgs);
     });
   }
   if (MUTATION_TOOL_NAMES.has(lower)) return true;
-  if (lower === "bash") return !isReadOnlyShell(args);
+  if (["bash", "cmd", "command", "shell", "terminal"].includes(leaf)) return !isReadOnlyShell(args);
+  if (lower === "subagent" || lower === "swarm") return true;
   if (ACTION_NAME_RE.test(name)) return true;
   if (lower.startsWith("mcp__")) return true;
   return false;
@@ -490,7 +808,7 @@ function steeringReminder(root: string, status: ReadDebtStatus, detail?: string)
     `Root: ${root}`,
     detail ? `Hook detail: ${detail}` : undefined,
     "Do not make host-specific claims or mutations from memory.",
-    "If project detail is needed, run `.lazy-harness/bin/lazy map --overview --complete --format=md`, drill into a concrete feature id / record path / graph id / source path / test path copied from the map, and read real records/source/tests before proceeding.",
+    "If project detail is needed, prefer one dedicated `lazy-harness.record-reader` plus content join while Parent inspects source/tests; use direct map/read only when Reader is unavailable or non-complete.",
     "Action tools remain guarded until a human turn arms read-debt or sufficient map/read evidence exists.",
   ].filter(Boolean).join("\n");
 }
@@ -498,7 +816,8 @@ function steeringReminder(root: string, status: ReadDebtStatus, detail?: string)
 function armStatusMessage(root: string, status: ReadDebtStatus, detail?: string): string {
   const detailSuffix = detail ? ` hook=${detail.replace(/\s+/g, "_").slice(0, 80)}` : "";
   const phase = readDebtArmed(status) ? "phase=armed" : "phase=debug";
-  return `lazy-harness read-debt: ${EXTENSION_RUNTIME_MARKER} root=${root} status=${readDebtLabel(status)} ${phase}${detailSuffix} tool-guard=ready`;
+  const revision = currentRevision(root) ?? "unknown";
+  return `lazy-harness read-debt: ${EXTENSION_RUNTIME_MARKER} root=${root} revision=${revision} evidence-epoch=${currentEvidenceEpoch(root)} status=${readDebtLabel(status)} ${phase}${detailSuffix} tool-guard=ready`;
 }
 
 function readDebtNotArmedReason(root: string, name: string, status: ReadDebtStatus, detail?: string): string {
@@ -601,6 +920,7 @@ function advanceEvidenceEpoch(root: string): number {
 function rearmEvidenceAfterSteer(root: string): number {
   const nextEpoch = advanceEvidenceEpoch(root);
   recentToolCallsByRoot.set(root, []);
+  readerRunByRoot.delete(root);
   return nextEpoch;
 }
 
@@ -688,6 +1008,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.on("input", async (event: any, ctx: any) => {
     const root = findLazyRootForInvocation(event, ctx);
     if (!root) return undefined;
+    if (readerRuntimeRoots.has(root)) return undefined;
     lastInputByRoot.set(root, {
       text: String(event.text || ""),
       streamingBehavior: typeof event.streamingBehavior === "string" ? event.streamingBehavior : undefined,
@@ -736,6 +1057,19 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
+    if (systemPromptIncludesBody(event.systemPrompt, RECORD_READER_ROLE_MARKER)) {
+      readerRuntimeRoots.add(root);
+      const sessionId = String(ctx?.sessionManager?.getSessionId?.() || "");
+      if (!readerMeters.has(root)) {
+        // Native child launch wraps the caller task as `Task: ${attemptTask}`.
+        // Unwrap only that transport prefix before parsing identity/objective.
+        const task = event.prompt.startsWith("Task: ") ? event.prompt.slice(6) : event.prompt;
+        const meter = startReaderMeter(root, task, sessionId);
+        if (meter) { readerMeters.set(root, meter); persistReaderMeter(pi, meter); }
+      }
+      return undefined;
+    }
+    readerRuntimeRoots.delete(root);
 
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
@@ -765,6 +1099,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     }
     workUnitEvidenceByRoot.delete(root);
     captureEvidence.reset(root);
+    readerRunByRoot.delete(root);
 
     const payload: JsonObject = {
       event: "message.received",
@@ -807,13 +1142,45 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
+    if (readerRuntimeRoots.has(root)) {
+      const normalized = normalizePiTool(event.toolName, event.input || {});
+      const meter = readerMeters.get(root);
+      const id = String(event.toolCallId || "");
+      if (!meter || meter.ledger.sessionId !== ctx?.sessionManager?.getSessionId?.()) return { block: true, reason: "[lazy-harness Reader boundary] missing runtime-owned launch budget/identity" };
+      const ledger = meter.ledger;
+      const leaf = normalized.name.toLowerCase().split(/[.:]/).pop();
+      let allowed = isReaderRuntimeToolAllowed(root, normalized.name, normalized.args) && !ledger.terminal && Boolean(id) && !meter.pending.has(id) && !meter.settled.has(id);
+      let path: string | undefined;
+      if (leaf === "read") {
+        const limit = Number(normalized.args.limit);
+        allowed = allowed && Number.isInteger(limit) && limit > 0 && limit <= ledger.maxLinesPerRead
+          && ledger.readCalls < ledger.maxReadCalls && ledger.requestedLines + limit <= ledger.maxRequestedLines;
+        if (allowed) {
+          ledger.readCalls += 1;
+          ledger.requestedLines += limit;
+          ledger.maxObservedReadLimit = Math.max(ledger.maxObservedReadLimit, limit);
+          path = readerToolPath(root, String(normalized.args.path || normalized.args.file_path || ""));
+        }
+      }
+      if (allowed) meter.pending.set(id, path);
+      else { ledger.failedToolCalls += 1; meter.settled.add(id); }
+      if (!persistReaderMeter(pi, meter)) return { block: true, reason: "[lazy-harness Reader boundary] runtime ledger persistence failed; return incomplete" };
+      return allowed ? undefined : { block: true, reason: "[lazy-harness Reader boundary] canonical lane or launch read budget exceeded; return incomplete without retry" };
+    }
 
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const normalized = normalizePiTool(event.toolName, event.input || {});
-    if (!readDebtArmed(packet.readDebtStatus) && isActionTool(normalized.name, normalized.args)) {
+    const readerLaunchError = readerLaunchValidationError(root, normalized.args);
+    if (readerLaunchError) return { block: true, reason: `[lazy-harness Reader launch] ${readerLaunchError}` };
+    const activeReader = readerRunByRoot.get(root);
+    const ownedReaderStatus = isOwnedReaderStatusInspection(root, normalized.name, normalized.args);
+    if (activeReader && activeReader.evidenceEpoch === currentEvidenceEpoch(root) && !activeReader.joined && !activeReader.fallbackAllowed && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
+      return { block: true, reason: "[lazy-harness Reader join pending] wait for the content-bearing Reader packet, then call lazy_reader_join before action." };
+    }
+    if (!readDebtArmed(packet.readDebtStatus) && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
       return { block: true, reason: readDebtNotArmedReason(root, normalized.name, packet.readDebtStatus, packet.readDebtDetail) };
     }
 
@@ -825,6 +1192,9 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       working_dir: root,
       tool: normalized,
       recent_tool_calls: recentToolCallsForRoot(root).slice(-40),
+      ...(normalized.name.toLowerCase() === "subagent" && String(normalized.args.action || "") === "status"
+        ? { reader_status_inspection: readerStatusInspectionContext(root) }
+        : {}),
     };
 
     const script = join(root, ".lazy-harness", "hooks", "lifecycle", "on-tool-execute-before.sh");
@@ -833,6 +1203,13 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const reason = denyReason(hook.stdout, hook.stderr);
       if (reason) return { block: true, reason };
     }
+    if (isRecordReaderAgent(normalized.args)) {
+      readerRunByRoot.set(root, readerLaunchState(root, normalized.args, String(event.toolCallId || "")));
+      workUnitEvidenceByRoot.delete(root);
+    }
+    // Status is coordination-only. Its result may contain transcript text, so do
+    // not admit it to evidence epochs, recent-call caches, or record fingerprints.
+    if (ownedReaderStatus) return undefined;
     markToolCallStarted(root, event);
     captureEvidence.start(root, cwd, currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args);
     return undefined;
@@ -841,10 +1218,56 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
   pi.on("tool_result", async (event: any, ctx: any) => {
     const root = findLazyRootFromEvent(event, ctx);
     if (!root) return undefined;
+    if (readerRuntimeRoots.has(root)) {
+      const meter = readerMeters.get(root);
+      const id = String(event.toolCallId || "");
+      if (!meter || !meter.pending.has(id)) return undefined;
+      const path = meter.pending.get(id);
+      meter.pending.delete(id);
+      meter.settled.add(id);
+      if (event.isError) meter.ledger.failedToolCalls += 1;
+      else if (path) {
+        const digest = hashFile(join(root, path));
+        if (digest) meter.ledger.recordHashes[path] = digest;
+        else meter.ledger.failedToolCalls += 1;
+      }
+      persistReaderMeter(pi, meter);
+      return undefined;
+    }
     const normalized = normalizePiTool(event.toolName, event.input || {});
     captureEvidence.complete(root, resolveInvocationCwd(event, ctx), currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args,
       event.is_error === true ? true : event.isError, event.content);
     if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
+    const activeReader = readerRunByRoot.get(root);
+    const normalizedName = normalized.name.toLowerCase();
+    if (normalizedName === "subagent" && isRecordReaderAgent(normalized.args)) {
+      if (event.isError) {
+        readerFallbackError(root, "dedicated Reader launch failed");
+      } else if (activeReader && activeReader.launchToolCallId === String(event.toolCallId || "")) {
+        const runId = parseReaderRunId(event);
+        if (runId) {
+          activeReader.runId = runId;
+          if (normalized.args.async === false) {
+            const results = event.details?.results;
+            const result = Array.isArray(results) && results.length === 1 ? results[0] : undefined;
+            if (event.details?.mode !== "single" || result?.agent !== RECORD_READER_AGENT || result.exitCode !== 0 || result.error
+              || typeof result.sessionFile !== "string" || !result.sessionFile) {
+              activeReader.packetError = "synchronous Reader result lacks successful runtime run/session identity";
+            } else {
+              // Only actual Parent tool content is delivery. details.finalOutput
+              // and session-file prose must never substitute for missing content.
+              const text = Array.isArray(event.content) ? event.content.filter((part: any) => part?.type === "text" && typeof part.text === "string").map((part: any) => part.text).join("\n") : "";
+              receiveReaderResult(root, activeReader, text, result.sessionFile);
+            }
+          }
+        } else readerFallbackError(root, "dedicated Reader launch result did not expose a run id");
+      }
+    } else if (normalizedName === "subagent_wait" && activeReader && String(normalized.args.id || "") === String(activeReader.runId || "")) {
+      let completionBlob = "";
+      try { completionBlob = JSON.stringify({ content: event.content, details: event.details }); } catch { completionBlob = String(event.content || ""); }
+      activeReader.completed = !event.isError && /(?:\"state\":\"complete\"|Outcome:\s*1\s+complete)/i.test(completionBlob);
+      if (!activeReader.completed) readerFallbackError(root, "dedicated Reader wait did not complete successfully");
+    }
     if (!event.isError) observeWorkUnitEvidence(root, normalized.name, normalized.args);
     rememberToolCall(root, {
       ...normalized,
@@ -872,6 +1295,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     try {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));
       if (!root) return undefined;
+      if (readerRuntimeRoots.has(root)) return undefined;
+      observeReaderPacket(root, event.messages);
       if (!pendingRegroundByRoot.get(root)) return undefined;
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
@@ -898,6 +1323,24 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
+    if (readerRuntimeRoots.has(root)) {
+      const meter = readerMeters.get(root);
+      if (meter) {
+        // SDK schema/unknown-tool failures can bypass both extension tool hooks.
+        // Reconcile the actual turn results before sealing, never model prose.
+        for (const message of Array.isArray(event.messages) ? event.messages : []) {
+          const id = String(message?.toolCallId || "");
+          if (message?.role === "toolResult" && message.isError && id && !meter.settled.has(id)) {
+            meter.ledger.failedToolCalls += 1;
+            meter.pending.delete(id);
+            meter.settled.add(id);
+          }
+        }
+        meter.ledger.terminal = meter.pending.size === 0;
+        persistReaderMeter(pi, meter);
+      }
+      return undefined;
+    }
     const packet = activePacketsByRoot.get(root)
       ? activePacketsByRoot.get(root)!
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
@@ -929,20 +1372,36 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       : { stdout: "", stderr: "", status: 127, error: "hook-missing" };
     const body = hookInjectBody(hook.stdout);
     const capture = parseJsonMaybe(hook.stdout)?.capture;
-    if (typeof pi.sendMessage === "function") {
-      const assessment: JsonObject = hook.status === 0 && capture && typeof capture === "object" && !Array.isArray(capture)
-        ? capture as JsonObject
-        : { status: "unverified", reason: "capture response hook unavailable or missing assessment", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated" };
+    const assessment: JsonObject = hook.status === 0 && capture && typeof capture === "object" && !Array.isArray(capture)
+      ? capture as JsonObject
+      : { schemaVersion: "1.0", root, epoch: currentEpoch, status: "unverified", reason: "capture response hook unavailable or missing assessment", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated", facts: [] };
+    const captureNotice = `Capture evidence: ${String(assessment.status)} — ${String(assessment.reason)}. Semantic relevance and approval are not runtime-verified.`;
+    const captureNeedsAttention = assessment.status === "unverified" || assessment.status === "pending";
+    if (preservesHeadlessPrimaryAnswer(ctx)) {
+      // Plain custom entries are runtime state, not conversation messages. Even
+      // triggerTurn:false custom messages hide Pi's last-assistant text output.
+      pi.appendEntry("lazy-harness-capture", assessment);
+      if (captureNeedsAttention) printModeAdvisory(captureNotice);
+    } else if (typeof pi.sendMessage === "function") {
       pi.sendMessage({
         customType: "lazy-harness-capture",
-        content: `Capture evidence: ${String(assessment.status)} — ${String(assessment.reason)}. Semantic relevance and approval are not runtime-verified.`,
-        display: assessment.status === "unverified" || assessment.status === "pending",
+        content: captureNotice,
+        display: captureNeedsAttention,
         details: assessment,
       }, { triggerTurn: false });
     }
     writeAgentEndTrace(root, payload, messages, recentToolCalls, hook, body);
     if (!body) {
       lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
+      return undefined;
+    }
+    if (preservesHeadlessPrimaryAnswer(ctx)) {
+      // This response.completed hook is advisory metadata, not Reader content,
+      // a user steer, or a tool action block. Do not schedule a replacement
+      // assistant answer in either headless output format. Native drain remains
+      // owned by the native extension, including on pending/waiting turns.
+      printModeAdvisory(body);
+      lastAdvisoryByRoot.delete(root);
       return undefined;
     }
     // Drive a continuation so the agent addresses the response-completed advisory.
@@ -972,6 +1431,115 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const promptIndex = rest.indexOf("--prompt");
       const prompt = promptIndex >= 0 ? rest.slice(promptIndex + 1).join(" ") : undefined;
       await switchToProjectSession(ctx, target, prompt);
+    },
+  });
+
+  // Explicit Reader join barrier. Process completion alone never marks joined;
+  // the Parent calls this only after consuming the content-bearing Reader packet.
+  if (typeof (pi as any).registerTool === "function") pi.registerTool({
+    name: "lazy_reader_join",
+    label: "Lazy Reader Join",
+    description: "Close a dedicated lazy-harness.record-reader join after its result content reaches the Parent, or explicitly enter bounded fallback for a non-complete result.",
+    promptSnippet: "Join the dedicated Reader result before planning, mutation, or host-specific completion.",
+    promptGuidelines: [
+      "Call only after the Reader result content is present in Parent context; subagent_wait completion alone is insufficient.",
+      "Use status=complete only for an exact matching complete packet within cumulative budgets. Non-complete status enables bounded direct fallback.",
+      "Omit runId and numeric accounting fields to use adapter-owned launch identity and actual child ledger. Never copy a child session/execution UUID or trust self-reported counters; explicit mismatches reject the join.",
+    ],
+    parameters: Type.Object({
+      runId: Type.Optional(Type.String({ description: "Defaults to the adapter-owned active Reader run. Explicit mismatches are rejected; never use a child execution/session id." })),
+      status: Type.Union([Type.Literal("complete"), Type.Literal("incomplete"), Type.Literal("conflict"), Type.Literal("failed")]),
+      resultMarker: Type.Optional(Type.String({ description: "Exact LAZY_HARNESS_READER_RESULT marker observed in the content packet." })),
+      revision: Type.String({ description: "Reader packet Git revision." }),
+      evidenceEpoch: Type.Number({ description: "Reader packet evidence epoch from the turn-start marker." }),
+      readCalls: Type.Optional(Type.Number({ description: "Defaults to runtime-owned admitted body-read count." })),
+      requestedLines: Type.Optional(Type.Number({ description: "Defaults to runtime-owned charged lines, including failed reads." })),
+      maxReadCalls: Type.Optional(Type.Number({ description: "Defaults to launch read-call ceiling." })),
+      maxRequestedLines: Type.Optional(Type.Number({ description: "Defaults to launch requested-line ceiling." })),
+      maxLinesPerRead: Type.Optional(Type.Number({ description: "Defaults to launch per-read line ceiling." })),
+      maxObservedReadLimit: Type.Optional(Type.Number({ description: "Defaults to largest admitted read limit." })),
+      failedToolCalls: Type.Optional(Type.Number({ description: "Defaults to runtime-owned failure count; complete requires zero." })),
+      recordPaths: Type.Optional(Type.Array(Type.String(), { maxItems: 16, description: "Normally omit: all successful runtime-ledger paths are joined automatically. Legacy reported subsets are accepted; unread or duplicate paths are rejected." })),
+    }),
+    async execute(_toolCallId: string, params: any, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<TextToolResult> {
+      const root = findLazyRootForInvocation(undefined, ctx);
+      if (!root) throw new Error("lazy-harness root not found from current cwd");
+      const run = readerRunByRoot.get(root);
+      if (!run) throw new Error("no dedicated Reader launch is active for this root");
+      if (run.joined) throw new Error("dedicated Reader run is already joined");
+      if (run.fallbackAllowed) throw new Error(`dedicated Reader run entered terminal fallback: ${run.failureReason || "non-complete result"}`);
+      if (run.evidenceEpoch !== currentEvidenceEpoch(root) || Number(params.evidenceEpoch) !== run.evidenceEpoch) {
+        throw readerFallbackError(root, "Reader evidence epoch is stale");
+      }
+      if (!run.runId || (params.runId !== undefined && String(params.runId) !== run.runId)) throw readerFallbackError(root, "Reader run id does not match the active launch");
+      const revision = currentRevision(root);
+      if (!revision || revision !== run.revision || String(params.revision) !== run.revision) throw readerFallbackError(root, "Reader revision does not match the launch and active root HEAD");
+      if (run.packetError) throw readerFallbackError(root, run.packetError);
+      const status = run.resultStatus && run.resultStatus !== "complete" ? run.resultStatus : String(params.status || "");
+      if (status !== "complete") {
+        run.failureReason = `Reader result is ${status}`;
+        run.fallbackAllowed = true;
+        run.joined = false;
+        workUnitEvidenceByRoot.delete(root);
+        return {
+          content: [{ type: "text", text: `Reader result is ${status}; dedicated join remains incomplete and bounded Parent fallback is enabled.` }],
+          details: { joined: false, fallbackAllowed: true, status, runId: run.runId, revision, evidenceEpoch: run.evidenceEpoch },
+        };
+      }
+      if (!run.contentReceived) throw readerFallbackError(root, "content-bearing Reader completion notification has not been observed");
+      if (String(params.resultMarker || "") !== `${RECORD_READER_RESULT_PREFIX} complete`) {
+        throw readerFallbackError(root, "content-bearing complete Reader marker was not supplied");
+      }
+      const ledger = readDeliveredReaderLedger(root, run);
+      const fields = ["readCalls", "requestedLines", "maxReadCalls", "maxRequestedLines", "maxLinesPerRead", "maxObservedReadLimit", "failedToolCalls"] as const;
+      if (fields.some((field) => params[field] !== undefined && params[field] !== ledger[field])) throw readerFallbackError(root, "Reader self-report does not match runtime-owned accounting");
+      const budgetValues = fields.map((field) => ledger[field]);
+      if (budgetValues.some((value) => !Number.isInteger(value) || value < 0)) throw readerFallbackError(root, "Reader budget fields must be non-negative integers");
+      const [readCalls, requestedLines, maxReadCalls, maxRequestedLines, maxLinesPerRead, maxObservedReadLimit, failedToolCalls] = budgetValues;
+      if (readCalls <= 0 || requestedLines <= 0 || maxObservedReadLimit <= 0) throw readerFallbackError(root, "complete Reader ledger requires positive read counters");
+      if (maxObservedReadLimit > requestedLines || requestedLines > readCalls * maxLinesPerRead) throw readerFallbackError(root, "Reader complete packet has an internally impossible read ledger");
+      if (
+        maxReadCalls !== run.maxReadCalls
+        || maxRequestedLines !== run.maxRequestedLines
+        || maxLinesPerRead !== run.maxLinesPerRead
+        || maxLinesPerRead !== Math.floor(maxRequestedLines / maxReadCalls)
+        || maxReadCalls > MAX_READER_READ_CALLS
+        || maxRequestedLines > MAX_READER_REQUESTED_LINES
+      ) {
+        throw readerFallbackError(root, "Reader packet budget ceilings do not match the launch envelope");
+      }
+      if (readCalls > maxReadCalls || requestedLines > maxRequestedLines || maxObservedReadLimit > maxLinesPerRead || failedToolCalls !== 0) {
+        throw readerFallbackError(root, "Reader complete packet violates cumulative read or failed-tool budget");
+      }
+      const recordPaths = Object.keys(ledger.recordHashes);
+      if (params.recordPaths !== undefined) {
+        const reportedPaths = params.recordPaths;
+        if (!Array.isArray(reportedPaths) || reportedPaths.length > 16 || reportedPaths.some((path: unknown) => typeof path !== "string")) {
+          throw readerFallbackError(root, "Reader reported paths must be a bounded string array");
+        }
+        if (new Set(reportedPaths).size !== reportedPaths.length) throw readerFallbackError(root, "Reader reported paths contain duplicates");
+        if (reportedPaths.some((path: string) => !Object.prototype.hasOwnProperty.call(ledger.recordHashes, path))) {
+          throw readerFallbackError(root, "Reader reported path is outside runtime-owned successful reads");
+        }
+      }
+      if (recordPaths.length === 0) throw readerFallbackError(root, "complete Reader join requires at least one canonical record path");
+      if (recordPaths.length > readCalls) throw readerFallbackError(root, "Reader complete packet reports more record paths than read calls");
+      if (new Set(recordPaths).size !== recordPaths.length) throw readerFallbackError(root, "complete Reader join contains duplicate record paths");
+      const recordHashes = new Map<string, string>();
+      for (const rawPath of recordPaths) {
+        const path = canonicalReaderRecordPath(root, rawPath);
+        if (!path) throw readerFallbackError(root, `Reader record path is outside the canonical record lane: ${rawPath}`);
+        const digest = hashFile(join(root, path));
+        if (!digest || digest !== ledger.recordHashes[path]) throw readerFallbackError(root, `Reader record path is missing, changed, or unreadable: ${path}`);
+        recordHashes.set(path, digest);
+      }
+      workUnitEvidenceByRoot.set(root, { mapped: true, recordHashes });
+      run.joined = true;
+      run.fallbackAllowed = false;
+      return {
+        content: [{ type: "text", text: `Reader join complete for ${run.runId}; ${recordHashes.size} canonical record fingerprint(s) cached.` }],
+        details: { joined: true, fallbackAllowed: false, status, runId: run.runId, revision, evidenceEpoch: run.evidenceEpoch, model: run.model, taskDigest: run.taskDigest, recordCount: recordHashes.size, recordPaths: [...recordHashes.keys()], readCalls, requestedLines, maxReadCalls, maxRequestedLines, maxLinesPerRead, maxObservedReadLimit, failedToolCalls },
+      };
     },
   });
 

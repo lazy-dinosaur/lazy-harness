@@ -117,7 +117,7 @@ session_id = payload.get('session_id') or payload.get('sessionId')
 turn_count = payload.get('turn_count') or payload.get('turnCount')
 epoch = int(time.time())
 
-search_hint = 'lazy map overview/drill-down + direct reads of concrete records/source/tests'
+search_hint = 'dedicated Reader map/read join; bounded direct map/read fallback when Reader is unavailable or non-complete'
 packet_hash_seed = json.dumps({
     'messageIdHash': stable_hash(message_id),
     'sessionIdHash': stable_hash(session_id),
@@ -228,7 +228,8 @@ def harness_inventory_lines() -> list[str]:
 body = '\n'.join([
     'REMINDER. Ground this work unit once before mutation or a host-specific completion claim.',
     f'- Mode: {level}; static transport; no user-text classification; generated indexes are navigation only.',
-    '- First grounding only: run `lazy map --overview --complete`, drill into one copied concrete node, then read only the governing digest and exact linked source/test needed for this work unit.',
+    '- First grounding only: prefer one dedicated `lazy-harness.record-reader` for complete map/canonical-record loading while Parent inspects source/tests; consume its content packet and close `lazy_reader_join` before action.',
+    '- Fallback only: when Reader is unavailable or non-complete, run `lazy map --overview --complete`, drill one copied concrete node, and read the governing evidence directly.',
     '- Reuse unchanged grounding across later messages. Re-ground only for a genuinely new scope, an explicit steer, or a changed/deleted governing record; do not repeat map/read just because a new turn started.',
     '- Batch coherent mutations. Never validate between micro-edits; use one focused checkpoint when needed and one final `lazy validate --plan standard`.',
     '- Before a new decision, use the native option gate; capture confirmed durable knowledge once at work-unit closure.',
@@ -245,6 +246,6 @@ print(json.dumps({
 PY
 status=$?
 if [ "$status" -ne 0 ]; then
-  printf '%s\n' '{"action":"allow","inject":{"body":"REMINDER. Ground this work unit once before mutation or a host-specific completion claim.\n- Hook fallback: run one lazy map overview, drill into a concrete node, and read only the governing evidence before mutation.\n","format":"system_reminder"}}'
+  printf '%s\n' '{"action":"allow","inject":{"body":"REMINDER. Ground this work unit once before mutation or a host-specific completion claim.\n- Preferred: launch the dedicated Reader, consume its result content, and close the join while Parent handles source/tests.\n- Fallback: if Reader is unavailable or non-complete, run one lazy map overview, drill a concrete node, and read governing evidence directly.\n","format":"system_reminder"}}'
 fi
 exit 0
