@@ -231,6 +231,33 @@ test("capture remains separate when another safety advisory requests continuatio
   assert.equal(deliveries.at(-1)?.triggerTurn, false);
 });
 
+test("development 58fbcbf hook mismatch is repaired by the exact upstream two-file capture delta", { timeout: 60000 }, async () => {
+  const hook = join(root, ".lazy-harness/hooks/lifecycle/on-response-completed.sh");
+  const helper = join(root, ".lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh");
+  const hookBytes = readFileSync(hook);
+  const helperBytes = readFileSync(helper);
+  const legacy = join(source, "tests/lazy-harness/fixtures/capture-legacy-58fbcbf");
+  try {
+    writeFileSync(hook, readFileSync(join(legacy, "on-response-completed.sh")));
+    writeFileSync(helper, readFileSync(join(legacy, "check-analysis-discovery-capture.sh")));
+    const old = await end(envelope("no-record"));
+    assert.equal(old.status, "unverified");
+    assert.match(String(old.reason), /missing assessment/);
+    // These are exactly the upstream hook/helper bytes, not settings or invented JSON.
+    writeFileSync(hook, hookBytes);
+    writeFileSync(helper, helperBytes);
+    assert.equal((await end(envelope("no-record"))).status, "no-record-asserted");
+    await mutate("write");
+    await read(record);
+    assert.equal((await end(envelope("required"))).status, "evidence-linked");
+    assert.equal((await end("primary answer without capture")).status, "unverified");
+    assert.equal((await end("primary\n<record-judgement>invalid</record-judgement>")).status, "unverified");
+  } finally {
+    writeFileSync(hook, hookBytes);
+    writeFileSync(helper, helperBytes);
+  }
+});
+
 test("response helper failure remains explicitly unverified without rewriting primary answer", { timeout: 60000 }, async () => {
   const hook = join(root, ".lazy-harness/hooks/lifecycle/on-response-completed.sh");
   const bytes = readFileSync(hook);

@@ -19,6 +19,7 @@ Layer: TDD (regression case for interview gate dedup)
   - gate on new unseen question fingerprints only (`forceGate = questions.length > 0`); ask once per fingerprint
   - derive `needsInterview` from newly-pushed questions, not merely a question defined on the plan
   - still report `failed` accurately and re-fire the gate for a brand-new fingerprint
+  - preserve complete edited repository identity through affected matching, strategy, execution, result and queue fingerprint; never guess executable repositories from ambiguous space-joined targets
   - recognize a source file's tests across co-located/`__tests__`/`tests` dirs with separator-insensitive (PascalCase↔kebab↔snake) and infix (`.contract`, `.unit`) matching via the shared `scripts/test-match.ts`, so files that DO have tests never false-positive either 5d-3 gate
 - Must not:
   - re-ask the same fingerprint every turn while the source path stays in `recent_tool_calls`
@@ -90,6 +91,48 @@ A third false-positive: editing a RECORD that *quotes* a source path (e.g. this 
 Fix (two layers): (1) existence guard — both gates skip a source file when `!existsSync(file)` (kind `ignored`, reason `not-found`). (2) **edit-target-only extraction (fundamental, user-chosen)** — the extension (`index.ts`) computes `edit_target` (the file actually written/edited: `file_path`/`path`/`filePath`, or `[PATH#TAG]` patch headers) and both gate hooks scan `call.edit_target`, NOT the `args_preview` body. So editing a record that merely *quotes* `src/foo.tsx` yields `edit_target` = the record `.md` → no source extracted → no fire. Real source edits still fire; quoted / cross-repo / non-existent paths never do.
 
 Host-parity follow-up: the existence guard (1) interacted with the static `tdd-cross-verify-stop` lifecycle-parity fixture, which edits `.lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts` — a framework self-test fixture NOT synced to hosts. Before the guard the gate fired regardless of existence; after it, the gate stays silent on hosts (file absent) → `lifecycle-parity --fail-on-mismatch` → `check_lifecycle_fixture_intake_cli` flips green→fail on hosts (the mid-session flip seen in dogfood). Fix: the parity fixture is now self-contained via a `sourceFiles` map — `prepare_env` writes the stub source into the copied host before replay (mirrors `decisionsFixture`/`decisionsFallback`), so `existsSync` passes and the gate fires on source AND hosts.
+
+## Task366 — repository routing and development capture compatibility
+
+User-approved repair is isolated source work followed by independent review before main/deployment admission. The external desktop/backend report is not locally reproduced; the operative synthetic regression supplies two actual repositories with identical relative names, directory/file spaces and commas, distinct test strategies and real Bun tests. The session host supplies the canonical runner and shared question queue; each edited repository supplies matching paths, configuration and explicit test cwd. All inherited `GIT_*` selectors are removed before discovery and test execution. Queue fingerprints/crossRefs and runner results now carry the owning root, preventing same-relative-path collisions. Existing questions retain historical IDs; a root-qualified identity may require one fresh question after upgrade.
+
+The helper resolves a complete `edit_target`, not a suffix in prose. Multiple calls preserve multiple identities. Missing or ambiguous legacy space-joined source fields produce an explicit unresolved-target advisory rather than guessed execution or silent success. Matching tests and strategy/package paths cannot escape the owning root via symlinks. A non-Git initialized session host retains relative-path support. This supersedes only the older blanket statement that cross-repository edits never fire: genuine edited foreign repositories are routed, not skipped; quoted record bodies still do not trigger the gate.
+
+The capture defect is mixed-version development layout, not a missing new release implementation. Remote main `80cf3be485d22a8036723e415f8b4e95f897786f` already contains the typed response hook/helper; accepted Reader release `5d3220215cb1b1df29ca8e60bffd39191ea990db` retains those bytes. The new regression swaps exact `58fbcbf` development hook/helper fixtures into an actual Pi SDK fixture, observes the missing-assessment warning, then restores the exact upstream two-file delta. Valid no-record and write/read evidence become linked while missing/invalid judgement remains unverified. The final answer/envelope is not rewritten, settings are not treated as hook compatibility, and Reader/full-ledger semantics are unchanged.
+
+Implementation/protection additions:
+- `.lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh`: complete-target resolution, owner grouping, clean Git env, canonical runner invocation and truthful failures.
+- `.lazy-harness/scripts/affected-test-runner.ts`: `assertOwnedPath`, explicit `runConfiguredTests` cwd/env, `repositoryRoot` in result/crossRef/fingerprint.
+- `tests/lazy-harness/affected-repository-routing.test.py`: full response hook → helper → real runner → real configured Bun tests, poisoned Git environment, distinct repositories/configs, failure, queue dedup, ambiguity, non-Git layout and symlink boundaries; invoked by `check_affected_test_runner`.
+- `tests/lazy-harness/pi-capture-evidence.test.ts`: actual SDK development-style compatibility case plus existing valid/invalid/primary-answer protections.
+- `tests/lazy-harness/fixtures/capture-legacy-58fbcbf/`: exact historical hook/helper bytes for regression only, not shipped hooks.
+- Packaging already distributes `hooks/**` and `scripts/**`; source-only regression fixtures stay source-only. No manifest expansion or Pi/native API change.
+
+Discovery capture: this TDD is the primary durable repair capsule. Detailed commands, first failures, source/dependency hashes, full patches and pending main/deployment admission live outside source in `/tmp/lh-gate-capture-main-deploy-r1/evidence/`. Production/development roots and settings are unchanged in phase1. The registered unreviewed `479531b` worktree is comparison evidence only; no adoption, edits or ownership-clearance claim. The accepted Reader46-path lineage is retained exactly by the candidate baseline, not replaced with dirty development bytes. Separately pending37 legacy graph rows are untouched; guided migration remains separately approvable.
+
+| Layer | Task366 judgment |
+|---|---|
+| SDD | Existing absolute edit identity and typed capture contract repaired; additive internal result root documented here, no independent public API design |
+| BDD | No app flow delta; existing primary-answer and truthful notice behavior retained |
+| SSOT | No live ownership/config/binding changes; candidate uses accepted deployed lineage and preserves host queue ownership |
+| DDD | No independent vocabulary/business-rule delta |
+
+### Task366 R2 — independent review corrections
+
+The first candidate's green six-case routing/28-case SDK/90-check standard receipts are retained, not release admission: independent review returned BLOCKED with two P1s. Absolute owner routing ignored `LAZY_LIFECYCLE_SANDBOX_CONTEXT=1`, escaping the framework-only lifecycle sandbox and duplicating real tests in compare mode. Whole-field extension filtering also silently ignored a joined source→record field ending in `.md`.
+
+The affected helper now checks complete existing identity before extension filtering. Unresolved legacy fields containing a source suffix emit an ambiguity/missing-target advisory in either source→record or record→source order, without extracting an executable path. Genuine existing single records, including source-like names, remain silent. Sandbox context produces explicit `not-executed: lifecycle sandbox` output before owner discovery/runner execution; it never asserts tests passed or writes an affected-test question. Compare mode keeps its existing live-output authority and metadata-only logging: this deliberate non-executing shadow can differ from successful live output, so that mismatch is not production replacement readiness.
+
+`tests/lazy-harness/affected-repository-routing.test.py` now copies the full actual framework lifecycle topology, including `lifecycle-check.py`, all preceding helpers and runtime adapters; none are stubbed or disabled. New cases cover both mixed-field orders, genuine single records, direct `lifecycle-check.py --sandbox` with zero real test receipts, and full compare with exactly one live receipt per owner. The sandbox/compare cases include two external repositories and an absolute source in the original session repository. The prior routing/configuration/failure/queue/space/symlink cases and unchanged capture suite remain protected.
+
+R2 evidence and updated patch/manifests live in `/tmp/lh-gate-capture-main-deploy-r1/r2-evidence/`; original source/patch/receipts and actual structured blocked review are frozen there separately. `479531b` remains protected comparison-only with unresolved ownership; coordinator `01a078f8` is not its owner. No original development/main/host/settings/native/Reader change or separate37-row migration is included.
+
+| Layer | R2 judgment |
+|---|---|
+| SDD | Existing side-effect-safe sandbox/compare and edit-identity contracts restored; no independent API or engine change |
+| BDD | No app flow delta; shadow non-execution is truthful while existing live output remains authoritative |
+| SSOT | Existing sandbox flag/root and host queue ownership retained; no live binding/configuration change |
+| DDD | No independent domain vocabulary or business rule delta |
 
 ## Implementation map
 

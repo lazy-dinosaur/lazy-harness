@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { candidateTestPaths, matchingTests } from './test-match';
 
@@ -41,6 +41,7 @@ interface FilePlan {
 }
 
 interface TestRunResult {
+  repositoryRoot: string;
   command: string[];
   exitCode: number;
   stdout: string;
@@ -50,6 +51,7 @@ interface TestRunResult {
 interface AffectedTestResult {
   ok: boolean;
   mode: 'affected-test-runner';
+  repositoryRoot: string;
   checked: number;
   runnableTests: string[];
   forceGate: boolean;
@@ -149,6 +151,7 @@ function detectStrategy(strategyPath?: string): AffectedTestResult['framework'] 
   const candidates = [strategyPath, '.lazy-harness/tests/test-strategy.xml'].filter(Boolean) as string[];
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
+    assertOwnedPath(candidate, realpathSync(process.cwd()));
     const text = readFileSync(candidate, 'utf8');
     const routing = text.match(/<affectedTestRouting\b[^>]*>/)?.[0]
       ?? text.match(/<affectedTests\b[^>]*command="[^"]+"[^>]*>/)?.[0]
@@ -174,6 +177,7 @@ function detectStrategy(strategyPath?: string): AffectedTestResult['framework'] 
 
 function detectPackageScript(): AffectedTestResult['framework'] {
   if (!existsSync('package.json')) return { detected: false, runner: 'unknown', reason: 'package.json not found' };
+  assertOwnedPath('package.json', realpathSync(process.cwd()));
   try {
     const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string> };
     const scripts = packageJson.scripts ?? {};
@@ -261,7 +265,8 @@ function appendQuestions(queue: string, questions: AffectedQuestion[]): void {
 
 function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-framework', now: string): AffectedQuestion {
   const suggestedPath = candidateTestPaths(file)[0];
-  const fingerprint = hashFingerprint({ source: 'affected-test-runner', reason, file });
+  const repositoryRoot = realpathSync(process.cwd());
+  const fingerprint = hashFingerprint({ source: 'affected-test-runner', repositoryRoot, reason, file });
   const reasonLabel = reason === 'missing-test' ? '대응 test/spec 파일이 없습니다' : '테스트 실행 명령이 명확하지 않습니다';
   return {
     id: `Q-${fingerprint}`,
@@ -298,7 +303,7 @@ function testStrategyQuestion(file: string, reason: 'missing-test' | 'missing-fr
         effects: [],
       },
     ],
-    crossRef: { check: 'affected-test-runner', reason, file, suggestedPath, candidates: candidateTestPaths(file) },
+    crossRef: { check: 'affected-test-runner', repositoryRoot, reason, file, suggestedPath, candidates: candidateTestPaths(file) },
     createdAt: now,
   };
 }
@@ -350,12 +355,16 @@ function buildTestCommand(framework: AffectedTestResult['framework'], tests: str
 }
 
 function runConfiguredTests(framework: AffectedTestResult['framework'], tests: string[]): TestRunResult {
+  const repositoryRoot = realpathSync(process.cwd());
   const command = buildTestCommand(framework, tests);
   if (command.length === 0) {
-    return { command: [], exitCode: 1, stdout: '', stderr: 'No affected test command configured' };
+    return { repositoryRoot, command: [], exitCode: 1, stdout: '', stderr: 'No affected test command configured' };
   }
-  const completed = spawnSync(command[0], command.slice(1), { encoding: 'utf8' });
+  for (const test of tests) assertOwnedPath(test, repositoryRoot);
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+  const completed = spawnSync(command[0], command.slice(1), { cwd: repositoryRoot, env, encoding: 'utf8' });
   return {
+    repositoryRoot,
     command,
     exitCode: completed.status ?? 1,
     stdout: completed.stdout ?? '',
@@ -363,7 +372,16 @@ function runConfiguredTests(framework: AffectedTestResult['framework'], tests: s
   };
 }
 
+function assertOwnedPath(file: string, repositoryRoot: string): void {
+  const resolved = existsSync(file) ? realpathSync(file) : path.resolve(file);
+  const relative = path.relative(repositoryRoot, resolved);
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Affected path escapes repository ${repositoryRoot}: ${file}`);
+  }
+}
+
 export function runAffectedTests(files: string[], options: { queue?: string; run?: boolean; strategy?: string } = {}): AffectedTestResult {
+  const repositoryRoot = realpathSync(process.cwd());
   const now = new Date().toISOString();
   const queue = options.queue;
   const framework = detectTestCommand(options.strategy);
@@ -371,6 +389,7 @@ export function runAffectedTests(files: string[], options: { queue?: string; run
   const questions: AffectedQuestion[] = [];
   const existing = queue ? existingFingerprints(queue) : new Set<string>();
   for (const file of uniqueFiles(files)) {
+    assertOwnedPath(file, repositoryRoot);
     if (!SOURCE_EXT_RE.test(file)) {
       filePlans.push({ file, kind: 'ignored', matchingTests: [], reason: 'unsupported-extension' });
       continue;
@@ -418,6 +437,7 @@ export function runAffectedTests(files: string[], options: { queue?: string; run
   return {
     ok: !forceGate,
     mode: 'affected-test-runner',
+    repositoryRoot,
     checked,
     runnableTests,
     forceGate,

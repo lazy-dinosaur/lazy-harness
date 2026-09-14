@@ -5450,7 +5450,9 @@ def check_affected_test_runner() -> None:
         if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("questions") == []:
             fail("affected-test-runner missing fixture changed: " + json.dumps(missing, ensure_ascii=False))
         question = missing["questions"][0]
-        if question.get("id") != "Q-8e866d44709ff49c" or question.get("source") != "affected-test-runner":
+        if (not re.fullmatch(r"Q-[0-9a-f]{16}", question.get("id", ""))
+                or question.get("crossRef", {}).get("repositoryRoot") != str(ROOT.resolve())
+                or question.get("source") != "affected-test-runner"):
             fail("affected-test-runner question identity changed: " + json.dumps(question, ensure_ascii=False))
         labels = [option.get("label", "") for option in question.get("options", [])]
         if not any("프로젝트 테스트 전략" in label for label in labels) or not any("skip/defer" in label for label in labels):
@@ -5487,6 +5489,12 @@ def check_affected_test_runner() -> None:
             fresh_source.unlink(missing_ok=True)
     finally:
         queue.unlink(missing_ok=True)
+    routing_fixture = ROOT / "tests/lazy-harness/affected-repository-routing.test.py"
+    if routing_fixture.exists():
+        routed = subprocess.run([sys.executable, str(routing_fixture)], cwd=ROOT,
+                                env=env_without_lazy_runtime(), text=True, capture_output=True)
+        if routed.returncode != 0:
+            fail("affected repository routing regression failed:\n" + routed.stdout + routed.stderr)
     print("✓ 5d-3 affected test runner ok")
 
 def check_aftershock_reanalysis() -> None:

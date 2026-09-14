@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T06:09:45.152599+00:00",
+  "generatedAt": "2026-09-14T06:16:18.460582+00:00",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -2704,6 +2704,64 @@
         }
       ],
       "updatedAt": "2026-09-13T06:09:45.152599+00:00"
+    },
+    {
+      "id": "kg_task366_routing_regression",
+      "createdAt": "2026-09-14T06:16:18.460582+00:00",
+      "updatedAt": "2026-09-14T06:16:18.460582+00:00",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/tdd-cross-verify-forcegate-loop.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/affected-repository-routing.test.py",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
+          "quote": "Complete edit identity groups owning repositories; canonical runner runs with owner cwd and sanitized Git environment."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/affected-repository-routing.test.py"
+        }
+      ]
+    },
+    {
+      "id": "kg_task366_capture_regression",
+      "createdAt": "2026-09-14T06:16:18.460582+00:00",
+      "updatedAt": "2026-09-14T06:16:18.460582+00:00",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/tdd-cross-verify-forcegate-loop.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/fixtures/capture-legacy-58fbcbf/on-response-completed.sh",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "tests/lazy-harness/pi-capture-evidence.test.ts",
+          "quote": "Actual SDK regression restores exact upstream capture hook/helper against historical development-style layout without rewriting primary answers."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": "tests/lazy-harness/pi-capture-evidence.test.ts"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/fixtures/capture-legacy-58fbcbf/on-response-completed.sh"
+        }
+      ]
     }
   ]
 }
