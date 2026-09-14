@@ -160,6 +160,12 @@ Implementation map addendum:
 
 Host-scope self-test must not require framework source-only package fixtures such as `packages/lazy-harness-pi/skills/lazy-impl-map-migrate/SKILL.md`, framework source registry parity such as source capability `policyIds`, source-only feature ids from `project/feature-navigation.xml`, or framework source readiness outcomes for host-owned policy/rulebook registries. It may validate generated host-local Jcode wrappers, synced concrete record traversal, framework seed policy availability, and read-only policy CLI schema/boundaries, but source package/registry/feature/readiness parity remains `framework` scope only. This preserves ADR 0026's rule that host validation does not depend on framework-own files that are not synced into hosts.
 
+## Reader status fixture scope amendment (Task367)
+
+`check_read_debt_permit_generic_external_action` remains **BOTH**. Only its source-package Reader status parity block is **framework-scope**; `packages/lazy-harness-pi/fixtures/reader-status-inspection.json` is strictly required there, never resolved from a global fallback or installed into hosts to satisfy validation. Generic guard behavior and the status-transcript-not-evidence negative still execute on hosts.
+
+`check_reader_status_fixture_scope` is **FRAMEWORK_ONLY** because it runs source-owned regression code (`tests/lazy-harness/reader-status-fixture-scope.test.py`) against disposable initialized hosts and source fixtures. It protects the BOTH registration, package-free host execution, symlinked Git worktree/`LAZY_HOST_ROOT`, positive and negative status cases, and missing required fixture failure. Primary capsule and exact Implementation map: `.lazy-harness/tests/pi-agent-package.md` (Task367 section).
+
 ## Notes
 
 이 ADR 은 lazy-init MVP dogfooding 의 *0 번째* finding 이다. 실제로 host 박기 직전에 발견됐기 때문에 lazy-init MVP 의 일부로 통합된다. 정상적인 dogfooding finding 이라면 host 박은 후에 발견되어 다음 cycle 로 미뤄질 수도 있었지만, 이 issue 는 lazy-init 의 첫 사용자 경험을 직접 깨뜨리므로 MVP 안에서 해결한다.

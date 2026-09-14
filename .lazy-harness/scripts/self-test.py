@@ -12944,6 +12944,18 @@ def check_tool_execute_before_hook() -> None:
     print(f"✓ N2.5 tool-execute-before hook ok ({len(cases)} scenarios)")
 
 
+def check_reader_status_fixture_scope() -> None:
+    """Protect source-only Reader fixture scope with package-free host execution."""
+    result = subprocess.run(
+        [sys.executable, "-B", str(ROOT / "tests" / "lazy-harness" / "reader-status-fixture-scope.test.py")],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+        env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+    )
+    if result.returncode != 0:
+        fail("Reader status fixture scope regression failed:\n" + result.stdout + result.stderr)
+    print("✓ Reader status fixture scope ok")
+
+
 def check_read_debt_permit_generic_external_action() -> None:
     """Search-debt guard must block unknown external MCP action until root-bound search evidence exists."""
     helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
@@ -12966,30 +12978,34 @@ def check_read_debt_permit_generic_external_action() -> None:
             "fallbackSearchCount": 2,
         }
         (state / "search-read-debt.jsonl").write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
-        status_fixture = json.loads((ROOT / "packages" / "lazy-harness-pi" / "fixtures" / "reader-status-inspection.json").read_text(encoding="utf-8"))
-        owned_run = status_fixture["ownedRunId"]
         status_hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
-        for case in status_fixture["cases"]:
-            encoded = json.dumps(case, ensure_ascii=False).replace("$OWNED_RUN", owned_run).replace("$OTHER_ROOT", str(temp) + "-other").replace("$ROOT", str(temp))
-            resolved_case = json.loads(encoded)
-            status_result = subprocess.run(
-                [str(status_hook), json.dumps({
-                    "event": "tool.execute.before",
-                    "message_id": message_id,
-                    "working_dir": str(temp),
-                    "tool": {"name": "subagent", "args": resolved_case["args"]},
-                    "reader_status_inspection": resolved_case["context"],
-                    "recent_tool_calls": [],
-                }, ensure_ascii=False)],
-                cwd=temp,
-                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            allowed = not status_result.stdout.strip()
-            if allowed != bool(resolved_case["allowed"]):
-                fail(f"Python/hook Reader status fixture mismatch: {resolved_case['id']} stdout={status_result.stdout!r} stderr={status_result.stderr!r}")
+        # ADR 0026: package parity fixtures are source-only, not installed host inputs.
+        # Keep the generic guard and status-as-evidence negative below in BOTH scopes.
+        if ACTIVE_SCOPE == "framework":
+            status_fixture = json.loads((ROOT / "packages" / "lazy-harness-pi" / "fixtures" / "reader-status-inspection.json").read_text(encoding="utf-8"))
+            for case in status_fixture["cases"]:
+                encoded = json.dumps(case, ensure_ascii=False).replace("$OWNED_RUN", status_fixture["ownedRunId"]).replace("$OTHER_ROOT", str(temp) + "-other").replace("$ROOT", str(temp))
+                resolved_case = json.loads(encoded)
+                status_result = subprocess.run(
+                    [str(status_hook), json.dumps({
+                        "event": "tool.execute.before",
+                        "message_id": message_id,
+                        "working_dir": str(temp),
+                        "tool": {"name": "subagent", "args": resolved_case["args"]},
+                        "reader_status_inspection": resolved_case["context"],
+                        "recent_tool_calls": [],
+                    }, ensure_ascii=False)],
+                    cwd=temp,
+                    env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                allowed = not status_result.stdout.strip()
+                expected_status = 0 if resolved_case["allowed"] else 1
+                if status_result.returncode != expected_status or allowed != bool(resolved_case["allowed"]):
+                    fail(f"Python/hook Reader status fixture mismatch: {resolved_case['id']} stdout={status_result.stdout!r} stderr={status_result.stderr!r}")
+        owned_run = "11111111-1111-4111-8111-111111111111"
         fake_status_evidence = [{
             "name": "subagent",
             "args": {"action": "status", "id": owned_run, "view": "transcript", "lines": 80},
@@ -13278,6 +13294,7 @@ def main() -> None:
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
         (check_host_document_validation_scope, "FRAMEWORK_ONLY"),
+        (check_reader_status_fixture_scope, "FRAMEWORK_ONLY"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_jcode_decommission, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
