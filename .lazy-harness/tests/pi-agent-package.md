@@ -504,3 +504,38 @@ User-approved isolated repair of the six-category benchmark slot16: six actual s
 | DDD | No independent delta: no new domain terms or business rules. |
 
 Discovery capture: one bounded repair, primary TDD here; no installed/main integration or live paid benchmark implied.
+
+## Task367 — Reader source-fixture / installed-host scope regression
+
+### Delegated authority (separate from withdrawn Task364)
+
+Task367 is a new narrow delegation, not renewal of Task364. Coordinator01a018f4 message426dd98a-fd91-4290-90ba-bf42586f1d3d reported the explicit user selection `오류 수정 후 PR 진행`. This batch implements only the missing Reader fixture/host-scope repair against immutable `5d86e820534ec78ad2c86f6b1a95277112745307` in an independent clone. No original development tree, shared ref, release, settings, live host, or application index mutation is authorized here; publication and official delivery require serialized supervisor handoff. Coordinator retains application delivery ownership and the previously reported application suite results are not rerun or claimed as this batch's evidence.
+
+The named delivery checkout's `.lazy-harness` was read-only verified as a symlink from `/home/lazydino/dev/medivance.fix-naver-booking-master-access/.lazy-harness` to `/home/lazydino/dev/medivance/.lazy-harness`. A future official sync must preserve that identity, host-owned records, application changes/index, and unrelated native/release/candidate trees.
+
+### Failure and bounded correction
+
+The published `check_read_debt_permit_generic_external_action` was registered BOTH but unconditionally loaded source-only `packages/lazy-harness-pi/fixtures/reader-status-inspection.json`. A disposable officially initialized Git host with no `packages/` reproduced `FileNotFoundError`; it was not missing an installed artifact. ADR 0026 already forbids this dependency. Only the shared package parity assertions now require explicit framework scope; their fixture read remains strict (missing/malformed data fails). No package copy, global source fallback, dummy fixture, or absent-file PASS was introduced.
+
+The generic external-action check stays BOTH, including status-transcript-not-evidence, unknown MCP action denial, safe source search, unsafe shell denial, fresh fallback, errored join invalidation, keyword/removed-find rejection, map allowance, and required-read distinction. The framework parity loop additionally requires the hook's documented exit status (allow=0, deny=1), rather than treating empty output after a failed hook as allowance. The first focused run exposed an overly strict draft check that rejected intentional deny status 1; that failed receipt is retained, and the assertion now follows the actual hook contract.
+
+### Operative regression / Implementation map
+
+- `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action` — explicit framework-only package parity block; generic checks remain BOTH.
+- `.lazy-harness/scripts/self-test.py#check_reader_status_fixture_scope` — FRAMEWORK_ONLY runner registered in the existing full/light self-test gate; no concurrency-policy expansion.
+- `tests/lazy-harness/reader-status-fixture-scope.test.py#ReaderStatusFixtureScopeTests` — real initialized package-free host, orphan Git worktree with symlinked harness, explicit `LAZY_HOST_ROOT` even with a source script, real positive/negative status cases, inverted expectation failures, strict missing required fixture, broken generic guard refusal, and registry classifications.
+- `packages/lazy-harness-pi/fixtures/reader-status-inspection.json` — unchanged source-owned shared TypeScript/Python status cases; not a host distribution artifact.
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` and `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — unchanged runtime behavior exercised through actual subprocesses.
+- Scope authority: `.lazy-harness/decisions/0026-doctor-self-test-scope-separation.md`; validation authority: `.lazy-harness/tests/test-strategy.xml`.
+- Machine map: `kg_task367_reader_status_fixture_scope` in `.lazy-harness/knowledge/graph.jsonl`, projected narrowly into `.lazy-harness/generated/implementation-index.json`; no existing graph row migration.
+
+### Layer completeness
+
+| Layer | Independent delta | Disposition |
+|---|---|---|
+| SDD | no | Existing scope and Reader ownership contract unchanged; test provenance corrected. |
+| BDD | no | No product or runtime user-flow change; installed validation no longer requires source packages. |
+| SSOT | no | No distribution, settings, dependency, or host-root ownership change. |
+| DDD | no | No new terms or domain invariant. |
+
+Discovery capture: primary TDD capsule here; ADR amendment only records required check classification. Validation receipts, patch hashes, dependency attestation and publication plan are isolated task artifacts under `~/.cache/lazy-harness/task367-host-fixture/evidence/`, not host knowledge copies. The previously reported 37-row legacy graph migration remains pending and out of this delegation; no migration or provider benchmark was performed.

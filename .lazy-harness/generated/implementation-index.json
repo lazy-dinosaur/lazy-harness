@@ -2762,6 +2762,35 @@
           "target": "tests/lazy-harness/fixtures/capture-legacy-58fbcbf/on-response-completed.sh"
         }
       ]
+    },
+    {
+      "id": "kg_task367_reader_status_fixture_scope",
+      "createdAt": "2026-09-14T07:59:20Z",
+      "updatedAt": "2026-09-14T07:59:20Z",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/pi-agent-package.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/reader-status-fixture-scope.test.py",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "check_read_debt_permit_generic_external_action keeps BOTH generic guards and scopes package parity to framework; check_reader_status_fixture_scope is registered FRAMEWORK_ONLY."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/self-test.py"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0026-doctor-self-test-scope-separation.md"
+        }
+      ]
     }
   ]
 }
