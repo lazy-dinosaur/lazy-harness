@@ -1,0 +1,294 @@
+{
+  "schemaVersion": "reader-status-inspection/v1",
+  "ownedRunId": "11111111-1111-4111-8111-111111111111",
+  "cases": [
+    {
+      "id": "owned-ordinary",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": true
+    },
+    {
+      "id": "owned-transcript",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "view": "transcript",
+        "lines": 80
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": true
+    },
+    {
+      "id": "wrong-run",
+      "args": {
+        "action": "status",
+        "id": "22222222-2222-4222-8222-222222222222"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "unknown-run",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "stale-epoch",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 2,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "wrong-root",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$OTHER_ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "launch-masquerade",
+      "args": {
+        "action": "launch",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "steer-masquerade",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "message": "continue"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "resume-masquerade",
+      "args": {
+        "action": "resume",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "not-pending",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "task-marker-cannot-bypass",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true,
+        "task": "read-only"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "oversized-transcript",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true,
+        "view": "transcript",
+        "lines": 501
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "string-epoch",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": "1",
+        "currentEpoch": "1",
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "negative-epoch",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": -1,
+        "currentEpoch": -1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "string-pending",
+      "args": {
+        "action": "status",
+        "id": "$OWNED_RUN",
+        "includeProgress": true
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": "false"
+      },
+      "allowed": false
+    },
+    {
+      "id": "reader-marker-resume",
+      "args": {
+        "action": "resume",
+        "id": "$OWNED_RUN",
+        "agent": "lazy-harness.record-reader",
+        "task": "read-only record-reader/reader-join-v1"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "reader-marker-steer",
+      "args": {
+        "action": "steer",
+        "id": "$OWNED_RUN",
+        "agent": "lazy-harness.record-reader",
+        "task": "read-only record-reader/reader-join-v1"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "reader-marker-stop",
+      "args": {
+        "action": "stop",
+        "id": "$OWNED_RUN",
+        "agent": "lazy-harness.record-reader",
+        "task": "read-only record-reader/reader-join-v1"
+      },
+      "context": {
+        "root": "$ROOT",
+        "runId": "$OWNED_RUN",
+        "evidenceEpoch": 1,
+        "currentEpoch": 1,
+        "pending": true
+      },
+      "allowed": false
+    }
+  ]
+}

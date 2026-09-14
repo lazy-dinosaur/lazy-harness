@@ -19,6 +19,7 @@ Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_appl
 - Applies when:
   - editing the pre-action source-edit guard or its legacy search-performed compatibility helper
   - an edit is blocked despite prior harness-first record search/read, or patch-style mutation must be gated
+  - replacing the direct Parent debt guard with Harness Reader completion/join
 - Must:
   - unblock source edits once valid root-bound `.lazy-harness` search/read evidence exists, including nested batch reads
   - recognize brace-syntax record scopes and treat `apply_patch`/namespaced patch as the same source-edit action
@@ -26,8 +27,11 @@ Related candidate: `candidate_pre_action_legacy_search_performed_false_deny_appl
   - after a non-extension mid-turn steer, deny later actions until fresh post-steer map/read evidence exists, and never count late results from pre-steer tool calls
   - allow Pi/OMP to reuse a valid overview + governing-record fingerprint packet across normal message boundaries without journaling a new per-message debt row
   - invalidate reuse when a cached governing record changes or disappears
+  - keep Reader-join regressions explicit and require focused/full validation before any main integration claim
+  - require result content and matching run/root revision/evidence epoch/launch budgets in the Reader join; a completion-only wait acknowledgement remains insufficient
 - Must not:
   - false-deny edits after evidence exists, or let patch-style source mutation bypass the search gate
+  - claim main/live Reader behavior from isolated fake-runtime fixtures alone
 - Record completion:
   - changes to the guard semantics update this TDD plus the search-read-debt and pre-response SDDs
 - Related records:
@@ -66,34 +70,56 @@ Observed failure modes:
 - a tool result whose tool call started before the steer does not satisfy post-steer debt,
 - a fresh post-steer map/read result restores action permission.
 
+## Reader-join replacement regression — isolated implementation
+
+The user-approved isolated Reader-join implementation adds focused scenarios proving:
+
+- one Reader starts at the work-unit boundary and searches/reads relevant canonical DDD/SDD/BDD/TDD/ADR/SSOT/Planning records,
+- the Parent may inspect source/tests with native `read`/`grep`/`find` or strictly simple shell `grep`/`rg` while Reader runs; chaining, redirection, substitution, find/tree, write-output options, unsafe filters, and nested namespaced forms remain actions,
+- plan/mutation/completion waits for the content-bearing Reader response, not merely child process completion,
+- `complete` allows action without duplicate Parent record reads,
+- `incomplete`, `conflict`, failure, obvious layer omission, or a record edit requires bounded Parent follow-up,
+- a mid-turn steer invalidates an earlier Reader result,
+- the Reader does not inspect source code, mutate, decide, validate, or fan out,
+- no candidate-admission, exact-tool-sequence, audit, or agreement proof apparatus is required for ordinary completion.
+- one matching `complete` packet allows action without duplicate Parent reads, while non-complete or errored-complete joins discard all pre-join evidence so fallback requires fresh direct grounding,
+- launch and join bind `maxLinesPerRead=floor(maxRequestedLines/maxReadCalls)` plus `maxObservedReadLimit`; complete also requires positive internally consistent read/path counters and zero failed calls,
+- the Reader result reaches the Parent through the supported result channel before synthesis, and an advisory-only post-response message cannot count as the caller-visible completed answer.
+
+These protections are focused-green in `work/reader-runtime-v1`. Existing direct-debt fixtures remain the unavailable/non-complete fallback and main integration is unapproved.
 ## Layer completeness
 
-- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence.
-- SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md` defines generic guard and post-steer evidence epoch semantics.
-- BDD: `.lazy-harness/behavior/llm-owned-record-retrieval.md` requires fresh post-steer evidence without text/command classification.
-- SSOT: harness enforcement and CLI semantic-authority boundaries remain unchanged.
-- ADR: no new decision. ADR 0041 and existing hard-stop promotion policy still apply; the user approved this narrow generic steer boundary.
-
+- DDD: updated — Harness Reader, Parent code lane, and Reader join terms.
+- SDD: updated — current debt transport plus accepted Reader-join supersession direction.
+- BDD: updated — parallel Reader/Parent flow and join barrier.
+- TDD: updated here with implemented Reader join/fallback scenarios while preserving current direct fixtures.
+- SSOT: updated — mandatory recall remains, debt transport is transitional.
+- ADR: updated — Reader owns harness retrieval.
+- Planning: isolated implementation is focused-green; live model and integration approval remain pending.
 ## Implementation map
 
-- Status: `verified`
+- Status: `live-r2-incomplete; adversarial reader-ledger/child-boundary/safe-shell/fallback regression reviewed-ok-and-standard-green`
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-tool-execute-before.sh` — pre-action wrapper that chains generic read-debt permit and legacy search-performed compatibility helper.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — legacy source-edit compatibility helper fixed to parse payloads safely, flatten nested recent tool calls, recognize current record scopes/brace syntax, and cover patch/apply_patch/namespaced patch source edits.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — modern static search/read-debt generic evidence guard that remains the primary search/read-debt mechanism.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — advances root evidence epochs on steering and filters tool results by their start epoch before exposing recent evidence to the guard.
-  - `.lazy-harness/scripts/self-test.py` — `check_tool_execute_before_hook` regression scenarios.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh` — accepts only successful exact joins and discards pre-join evidence after incomplete or errored-complete outcomes.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — exact join evidence, failed-join evidence truncation, fresh fallback, and conservative native/simple Parent source-read classification.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Reader child tool boundary, strict Parent shell classification, derived cap/max-observed/positive-ledger validation, and run/join/fallback/steer/fingerprint state.
+  - `.lazy-harness/scripts/self-test.py` — package/guard regressions including child mutation block, safe source `rg`, adversarial shell forms, cap mismatch, over-observed/failed/zero ledger, and failed-complete truncation.
   - `.lazy-harness/manifests/init-categories.json` — syncs this TDD record to hosts.
 - Flow:
-  1. `message.received` journals search/read debt for the current turn.
-  2. Before action, `on-tool-execute-before.sh` runs `check-read-debt-permit.py` first.
-  3. The compatibility `check-search-performed.sh` applies only to source-code edits and source-code patch/apply_patch/namespaced patch calls.
-  4. The compatibility helper must accept prior root-bound `.lazy-harness` read/search evidence, including nested batch evidence.
-  5. If no evidence exists, source code mutation still denies with the standard lazy-harness gate message.
-  6. A non-extension mid-turn steer clears prior evidence; only results from tool calls started in the new epoch may re-satisfy the guard.
+  1. `message.received` advertises dedicated Reader first and direct fallback second while retaining sanitized debt.
+  2. Parent launches exact Reader envelope; extension blocks action while its content join is pending.
+  3. `subagent_wait` completion updates liveness only; `lazy_reader_join` verifies content marker, run/revision/epoch, budgets, failed calls, and canonical record paths.
+  4. Successful join is visible to both generic and legacy guard paths and caches record fingerprints without duplicate Parent reads.
+  5. Non-complete/unavailable/stale/budget-failed states retain direct map/read fallback.
+  6. A non-extension steer clears Reader and direct evidence for the earlier instruction.
 - Tests / protection:
-  - `python3 .lazy-harness/scripts/self-test.py --scope framework`
-  - Direct reproduction checks for brace grep allow, batch read allow, apply_patch no-search deny, namespaced apply_patch no-search deny, and Pi steer fresh-evidence re-arming.
+  - focused `check_pi_package_layout_and_contract`, `check_read_debt_permit_generic_external_action`, and `check_tool_execute_before_hook` — passed after the R2-selected correction.
+  - focused `check_tool_execute_before_hook` — `19` scenarios passed, including complete allow, incomplete/error-complete deny, and nested parallel mutation deny.
+  - `lazy validate --plan standard` attempt 2 passed, including full self-test (`173.216s`); attempt 1 failure/fix is retained.
+  - independent blockers-only re-review returned `No issues found` / isolated `OK`.
+  - `.lazy-harness/evidence/dedicated-reader-runtime-v1-20260906.md`
+  - `.lazy-harness/evidence/dedicated-reader-live-canary-r2-20260906.md`
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
   - SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
@@ -121,3 +147,33 @@ Observed failure modes:
 - ADR: none; the change applies ADR 0041 without a command-specific policy branch.
 - SSOT: harness enforcement policy and CLI semantic-authority boundary remain linked and unchanged.
 - Planning: steer hardening promoted from `candidate-steer-readdebt-rearm-fresh-evidence-20260708` into accepted regression coverage.
+
+## Discovery capture — Harness Reader ownership correction
+
+- DDD: updated.
+- SDD: updated.
+- BDD: updated.
+- TDD: updated here; new scenarios are planned, not passing claims.
+- ADR: updated.
+- SSOT: updated.
+- Planning: updated.
+
+## Discovery capture — Reader join regression design
+
+- DDD: no independent delta; existing terms cover Reader, Parent lane, and join.
+- SDD: updated in search-read-debt and Pi package contracts.
+- BDD: updated with content-bearing join and caller-visible final-answer scenarios.
+- TDD: updated here with result-content, identity/epoch, budget, fallback, and answer-delivery cases; they are explicitly non-executable until implementation approval.
+- ADR: updated to reaffirm the Reader target.
+- SSOT: no independent delta; transitional enforcement remains deployed.
+- Planning: isolated implementation is focused-green; main source remains unchanged.
+
+## Discovery capture — Reader join regression implementation
+
+- DDD: no independent semantic delta.
+- SDD: implemented contract is reflected in search-read-debt and Pi package records.
+- BDD: scenarios 9c/9d now have isolated focused protection.
+- TDD: updated here with exact guard and barrier implementation evidence.
+- ADR: ownership unchanged; isolated status updated.
+- SSOT: exact complete join now satisfies branch enforcement; fallback remains.
+- Planning: live model, standard validation, review, and integration remain gated.

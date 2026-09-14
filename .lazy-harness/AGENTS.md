@@ -36,8 +36,10 @@ record 와 코드가 충돌하면 record 가 의도, 코드는 현실 — 사용
 
 ### 2.1 Work unit 시작 시 한 번 검색 (필수)
 
-새 runtime work unit 에서 host 디테일이 필요하고 mutation 또는 host-specific 완료 주장을 하려면 `lazy map --overview` 를 한 번 실행하고, map 에 나온 concrete node 하나를 drill-down 한 뒤 governing record 와 필요한 exact source/test 만 읽는다. 같은 work unit 의 이후 일반 발화에서는 읽은 record content fingerprint 가 그대로면 그 증거를 재사용하며, 새 turn 이라는 이유만으로 overview/map/read 를 반복하지 않는다.
-새 session, non-extension steer, 실제 새 scope, governing record 변경/삭제만 재접지를 요구한다. 새 scope 판단은 LLM 소유이며 hook 이 user text 를 분류하면 안 된다. map 결과는 cue-only/read proof 가 아니고, raw user text/긴 자연어/invented `--query` 를 넘기지 않는다.
+새 runtime work unit 에서 host 디테일이 필요하고 전용 `lazy-harness.record-reader` 가 실행 가능하면 Parent 는 work-unit 시작에 Reader 하나를 explicit `openai-codex/gpt-5.6-luna:low`, Agent Contract v1, `acceptance:false`, fresh/read-only, active root `cwd`, `output:false`, `artifacts:false` 로 launch 한다 (별도 승인된 task-specific child model override 만 허용). Reader task 는 exact top-level `root:`, `revision:`, `model:`, `evidenceEpoch:`, `maxReadCalls:`, `maxRequestedLines:`, `maxLinesPerRead: floor(maxRequestedLines/maxReadCalls)`, `task:` 를 포함하고 record node 를 preselect 하지 않는다. `toolBudget` 은 반드시 생략한다: 전체 도구 호출 제한이므로 map/probe/drill 을 body-read 예산으로 잘못 차감한다. Reader 가 canonical record 를 읽는 동안 Parent 는 native `read`/`grep`/`find` 를 우선 사용한다. `.lazy-harness/scripts/` 는 Parent 구현 source lane 이다. Parent body read 전 native find/grep 으로 존재하는 source path 를 찾고 파일명을 추정하지 않는다. Shell 은 단순 명령만 사용하고 `2>/dev/null` 포함 모든 redirection/compound/display pipeline 을 금지한다. Parent 는 actual complete result content 뒤 run/revision/epoch, canonical paths, allowed/used count/lines, per-read cap/max observed limit, failed-call count 로 `lazy_reader_join` 을 닫는다. process `complete`/wait acknowledgement 만으로는 join 이 아니다.
+한 lane 이 실패해도 Reader 가 pending 이면 새 작업만 중단하고 child notification 을 drain 한 뒤 final response 를 한 번만 낸다. Native async `subagent-notify` 가 adapter 의 기존 completion path 다. Parent 독립 작업이 더 없으면 user-facing terminal answer 없이 runtime 에 control 을 yield 해 notification 을 받는다. 시간을 보내려고 status/shell polling 하지 않는다. 현재 root/epoch 의 owned Reader status/transcript 는 목적 있는 one-shot 진단에만 쓰며 content evidence/join 이 아니다. No-fallback canary 는 drain 뒤 실패 보고만 하고 incomplete join/추가 final 을 만들지 않는다. 일반 작업의 non-complete 결과는 아래 bounded fallback 을 따른다.
+`complete` join 뒤에는 Reader 가 읽은 record 를 debt 해소 목적으로 다시 읽지 않는다. Reader 가 없거나 실패/누락/충돌/budget 초과/root·revision·epoch mismatch 이거나 exact record 를 수정해야 할 때만 Parent 가 아래 direct map/read fallback 을 수행한다. 같은 work unit 의 이후 일반 발화에서는 joined/직접 읽은 governing evidence fingerprint 가 그대로면 재사용한다.
+새 session, non-extension steer, 실제 새 scope, governing record 변경/삭제만 Reader/join 또는 direct fallback 재접지를 요구한다. 새 scope 판단은 LLM 소유이며 hook 이 user text 를 분류하면 안 된다. map 결과는 cue-only/read proof 가 아니고, raw user text/긴 자연어/invented `--query` 를 넘기지 않는다.
 
 ```bash
 .lazy-harness/bin/lazy map --overview --complete --format=md
@@ -126,7 +128,7 @@ record 가 host 의 의도이고 코드는 현실이다. 먼저 Rule digest 와 
 새 work unit 또는 실제 새 scope 에서 host detail 이 필요할 때만 다음 시퀀스를 수행한다. 같은 work unit 의 follow-up 은 unchanged evidence 를 재사용한다:
 
 1. **모름 자각**: 현재 scope 의 host detail 을 모르면 추정하지 않는다.
-2. **조사**: §2.1 의 overview 1회 → concrete node → governing digest/Implementation map → 필요한 exact source/test 순서로 bounded read 한다.
+2. **조사**: 실행 가능한 전용 Reader 가 있으면 Reader map/read + Parent source/test 병렬 lane → content-bearing join 순서로 진행한다. Reader 가 없거나 non-complete 이면 §2.1 의 direct overview 1회 → concrete node → governing digest/Implementation map → 필요한 exact source/test bounded fallback 을 수행한다.
 3. **분류**: record 근거가 있으면 진행하고, 하나의 코드 후보만 있으면 단답 확인, 여러 후보면 §2.3 option gate, 근거가 없으면 정보를 요청한다.
 4. **확인·누적**: 사용자 확인으로 override 를 얻고, durable delta 만 §2.4 에 따라 한 primary record 로 수렴한다.
 

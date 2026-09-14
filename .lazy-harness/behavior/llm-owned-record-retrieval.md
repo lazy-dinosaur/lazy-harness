@@ -18,28 +18,31 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
   - 검색 행동 규약
   - retrieval behavior
   - 메타데이터 큐
+  - Harness Reader retrieval
+  - Reader/Parent parallel join
 - Applies when:
-  - an agent/searcher uses searchable record memory before answering, planning, or editing
-  - an agent/searcher starts a retrieval flow with `lazy map --overview`
-  - an agent/searcher runs `lazy map <feature-id|record-path|graph-id|source-path>` to inspect a concrete map node
-  - `## Index header` or other metadata suggests records/source/tests
+  - a dedicated Harness Reader starts retrieval for a Parent work unit
+  - the Reader inventories and searches stored harness records before Parent action
+  - the Parent concurrently investigates source/tests or immediately needed behavior
   - retrieved metadata conflicts, is incomplete, or could be mistaken for semantic authority
 - Must:
-  - use metadata as a starting cue only
-  - prefer `lazy map --overview` as the first inventory call for a new work unit, not for every normal message
-  - treat `lazy map` output as drill-down candidates, not evidence that anything was read
-  - read the real governing record body/Rule digest/Implementation map before the first mutation or host-specific completion claim
-  - reuse directly read governing-record evidence across later normal messages while its content fingerprint remains unchanged
-  - inspect source/tests when a plan or mutation depends on implementation facts
-  - ask a 3-5 option gate when meanings/layers still conflict after evidence reads
-  - create or update durable records after user confirmation when missing host knowledge is found
-  - after a non-extension mid-turn steer, treat prior work-unit evidence as stale for later actions and gather fresh root-bound map/read evidence
+  - launch one dedicated Reader at the beginning of a Reader-managed work unit
+  - make that Reader run `lazy map --overview`, select task-relevant records across DDD/SDD/BDD/TDD/ADR/SSOT/Planning, and read the real canonical bodies
+  - let the Parent concurrently inspect source/tests, implementation reality, or immediately needed behavior
+  - require the Parent to await and consume the Reader response before planning, mutation, or host-specific completion
+  - treat a completion-only wait/status acknowledgement as insufficient: the content-bearing Reader result with `complete|incomplete|conflict` status must reach the Parent before the join is satisfied
+  - preserve the Parent's substantive user-facing answer when a post-response advisory creates a continuation; an advisory-only final output is not a completed Reader-managed work unit
+  - return applicable policies, facts, conflicts, missing information, record paths, and `complete|incomplete|conflict` status
+  - use metadata as cue-only navigation inside the Reader; canonical record bodies remain the evidence
+  - ask an option gate or perform bounded Parent follow-up when the Reader reports conflict/incomplete or fails
+  - update durable records after user confirmation when missing host knowledge is found
+  - after a non-extension mid-turn steer, invalidate an earlier Reader result before later action
 - Must not:
   - answer or mutate based only on cache/header existence
-  - treat batched `lazy map --overview` output as proof that dependent follow-up calls were evidence-informed or read-satisfying
-  - treat metadata field names as requiredRead, confidence, risk, gate, or next-action output
-  - skip DDD/BDD impact when a new retrieval concept or behavior appears
-  - rerun overview, reread unchanged records, or replay mapped record/catalog output solely because a normal message or read operation occurred
+  - require the Parent to preselect concrete record nodes for the Reader
+  - require routine Parent rereads of Reader-covered records to satisfy search/read debt
+  - treat the Reader as source-code investigator, semantic decision maker, writer, validator, or proof/audit system
+  - rerun overview, reread unchanged records, or replay mapped record/catalog output solely because a normal message occurred
 - Record completion:
   - changes to retrieval behavior update this BDD, DDD terminology, SDD contract, TDD fixtures, tasks, and HTML report together.
 
@@ -137,48 +140,136 @@ And must read the changed canonical records/source/tests directly before relying
 And must run focused validation when implementation or record truth changed
 And must not treat generated graph state as fresher than the canonical files.
 
+### Scenario 9 — Reader searches harness memory while Parent inspects code
+
+Given a Parent starts a host-dependent work unit
+When it launches one dedicated Harness Reader
+Then the Reader inventories all stored `.lazy-harness` layers and selects/reads the task-relevant canonical policy and fact records
+And the Parent concurrently inspects source/tests or immediately needed behavior
+And the Parent does not preselect the Reader's record nodes.
+
+### Scenario 9a — Reader completion is the join barrier, not read debt
+
+Given the Reader returns applicable policies, facts, conflicts, missing information, record paths, and `complete` status
+When the Parent reaches planning, mutation, or a host-specific completion claim
+Then it waits for and consumes that response
+And it does not reread the same records merely to clear a Parent debt journal
+But it directly reads a record when the response is incomplete/conflicted, the Reader failed, or that exact record will be edited.
+
+### Scenario 9b — Reader does not own implementation reality
+
+Given the Reader's lane is canonical harness records
+When implementation facts matter
+Then the Parent's concurrent lane reads source/tests and reconciles code reality with the Reader's policies/facts after the join
+And the Reader does not mutate, decide, validate, or fan out.
+
+### Scenario 9c — Reader result content, not completion acknowledgement, closes the join
+
+Given the Parent launched one asynchronous dedicated Reader
+And the runtime reports that the child process completed
+When the Parent reaches the join barrier
+Then a `done`/`complete` acknowledgement without the Reader's content is not sufficient
+And the Parent waits until the content-bearing Reader result is present in its context
+And only that result's `complete`, `incomplete`, or `conflict` status controls the normal/fallback path.
+
+### Scenario 9d — Post-response advisory cannot erase the joined Parent answer
+
+Given the Reader result reached the Parent
+And the Parent synthesized a substantive user-facing answer after the join
+When `agent_end` emits a post-response advisory in headless text/print or JSON mode
+Then the caller-visible final output still contains the complete substantive answer
+And any advisory resolution is integrated into that answer or delivered out of band
+But an advisory-only last assistant message must not replace the primary answer.
+And the unresolved advisory remains observable on stderr without another assistant turn
+And native Reader content continuation/drain, pending waits, user steers and required action blocks are not suppressed
+And TUI/RPC behavior remains unchanged.
+And a headless typed capture assessment is persisted as runtime metadata, not appended as the last conversation message
+And pending/unverified capture remains visible on stderr with semantic relevance and approval explicitly not runtime-verified
+And even `triggerTurn:false` capture must not hide the primary text output; interactive capture keeps its non-steering custom message.
+
+### Scenario 9d.1 — Quoted Reader identity has transport-independent status
+
+Given a native Reader RESULT has bare identity values or one balanced backtick pair
+When its actual content reaches the Parent through a synchronous tool receipt or async notification
+Then exact root/revision/epoch identity and the full trusted terminal ledger remain authoritative
+And duplicate, conflicting, missing or malformed identity/status is rejected
+And `incomplete` or `conflict` remains that distinct bounded-fallback outcome even if the caller asks for complete
+And details-only finalOutput or wait/status acknowledgements never become delivered evidence.
+
+### Scenario 9e — Parent read-only source lane stays available while Reader is pending
+
+Given the dedicated Reader is running and its content join is not yet complete
+When the Parent inspects implementation source/tests using native read/grep/find or one simple read-only shell command
+Then the Reader pending barrier does not classify that inspection as an action
+And actual mutation remains blocked until join or explicit fallback.
+
+### Scenario 9f — Owned status is inspection, not completion
+
+Given the current root/evidence epoch has one pending owned Reader run
+When the Parent has a purposeful reason to inspect its ordinary status or bounded transcript
+Then that exact run's one-shot read-only status call is available without prior canonical evidence
+But wrong, unknown, stale, cross-root, launch, resume, steer, or mutation-like operations remain under the existing action boundary
+And status/transcript text cannot satisfy canonical evidence, native content receipt, `lazy_reader_join`, or legacy evidence caches
+And when no independent Parent work remains, the Parent yields runtime control for native async notification instead of status/shell polling or a premature user-facing final.
+
+### Scenario 9g — Derived per-read cap makes the Reader total mechanically simple
+
+Given the Parent selected `maxReadCalls` and `maxRequestedLines`
+When it launches the Reader
+Then `maxLinesPerRead` equals `floor(maxRequestedLines / maxReadCalls)` in the task and launch state
+And every Reader body read uses an explicit limit no larger than that cap
+And the result reports `maxObservedReadLimit` for join validation.
+
 ## Usability checks
 
 - The behavior should make it obvious to an agent that metadata is a navigation aid, not an answer.
 - The behavior should reduce repeated broad grep work without replacing evidence reads.
 - The behavior should surface ambiguity early instead of silently ranking candidate meanings.
 
+## R3 correction — pending failure and one final response
+
+If Parent source inspection fails while the Reader is pending, stop new source work but drain the already-running child before the final response. A no-fallback canary consumes the packet and reports terminal failure once, without an incomplete join or a premature final response. Normal work retains bounded fallback. Prefer native source tools; `.lazy-harness/scripts/` is implementation source, while canonical record directories remain Reader-owned. Do not add shell redirection, including `2>/dev/null`.
+
+This is guidance implemented in `.lazy-harness/AGENTS.md` and `packages/lazy-harness-pi/prompts/lazy-harness.md`, not a new runtime suppression of arbitrary Parent output. Live success remains unproven until separately observed.
+
 ## Implementation map
 
-- Status: `verified`
+- Status: `live-r2-incomplete; adversarial static correction reviewed-ok-and-standard-green-in-isolated-worktree; new-live-approval-and-main-integration-pending`
+- Core repair protection: `.lazy-harness/tests/reader-result-primary-answer.md`, `packages/lazy-harness-pi/tests/reader-result.test.ts` and `packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts` exercise shared RESULT parsing and real production capture/placement after multi-claim answers in actual headless CLI text/JSON.
 - Primary files:
   - `.lazy-harness/behavior/llm-owned-record-retrieval.md` — this BDD behavior record.
   - `.lazy-harness/domain/searchable-record-memory.md` — DDD terms used by the scenarios.
   - `.lazy-harness/scripts/record-index.ts` — indexes top-level Related layer links into cue-only related-record metadata.
   - `.lazy-harness/scripts/record-map.ts` — read-only `lazy map` implementation that lists cue-only candidates.
   - `.lazy-harness/scripts/retrieval-coverage-audit.ts` — read-only coverage audit that surfaces related-record candidates plus structural coverage gaps.
-  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` — injects static search/read debt reminder.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py` — retired compatibility no-op for the old overview batch hard block.
-  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` — guards mutation until evidence exists.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — advances a root-scoped evidence epoch on non-extension steering and excludes late pre-steer tool results.
+  - `.lazy-harness/hooks/lifecycle/on-message-received.sh` and `.lazy-harness/AGENTS.md` — advertise Reader-first grounding and bounded direct fallback.
+  - `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` / `check-search-performed.sh` — accept exact joins and keep safe Parent source inspection available while Reader/search debt is pending.
+  - `packages/lazy-harness-pi/agents/record-reader.md` — dedicated canonical-record-only Reader.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — validates Reader launch, narrowly classifies owned current status outside canonical evidence bookkeeping, tracks native content completion, closes explicit content join, caches record fingerprints, invalidates on steer, and preserves print-mode primary output.
+  - `.lazy-harness/evidence/dedicated-reader-runtime-v1-20260906.md` — isolated validation/review evidence.
+  - `.lazy-harness/evidence/dedicated-reader-live-canary-r2-20260906.md` — live delivery/join pass plus budget/source-lane incomplete evidence and selected correction.
   - `.lazy-harness/planning/searchable-record-context-retrieval-tasks.md` — schedules the layer package.
 - Key symbols:
   - `buildRecordMap` (`.lazy-harness/scripts/record-map.ts`) — emits candidate records/source/tests/graph ids without semantic-authority fields.
   - `extractTopLevelRelatedRecords` (`.lazy-harness/scripts/record-index.ts`) — parses `Related <Layer>:` links as cue-only related-record paths.
   - `buildAudit` (`.lazy-harness/scripts/retrieval-coverage-audit.ts`) — includes related-record paths during coverage audit without becoming semantic authority.
-  - `rearmEvidenceAfterSteer` / `toolResultBelongsToCurrentEvidenceEpoch` (`packages/lazy-harness-pi/extensions/lazy-harness/index.ts`) — invalidate prior-instruction evidence and accept only results from tool calls started in the current evidence epoch.
+  - `ReaderRunState` / `readerLaunchValidationError` / `parseReaderRunId` / `lazy_reader_join` (`index.ts`) — implement launch identity, content-not-ack join, derived per-read cap/max-observed validation, budget/failure fallback, and fingerprint reuse.
+  - `rearmEvidenceAfterSteer` / `toolResultBelongsToCurrentEvidenceEpoch` (`index.ts`) — invalidate prior Reader/direct evidence and accept only current-epoch results.
   - `check-overview-batch-order.py` — compatibility helper that intentionally emits no deny output; batching policy is advisory while mutation safety stays in `check-read-debt-permit.py`.
 - Flow:
-  1. Static reminder tells the agent to inspect real records/source/tests.
-  2. `lazy map --overview` shows whole structure before concrete node selection.
-  3. Standalone sequential overview remains preferred, but read-only batch/parallel tool shapes are allowed and must not be treated as evidence reads by themselves.
-  4. Repeated `lazy map <feature-id|record-path|graph-id|source-path>` calls on copied concrete nodes may suggest dispersed candidate records or files.
-  5. Agent reads canonical evidence across the dispersed candidates and resolves or gates ambiguity.
+  1. For the accepted target, Parent launches one Reader at work-unit start.
+  2. Reader runs complete harness overview, relevant drill-down, and real record reads across applicable canonical layers.
+  3. Parent concurrently reads source/tests or immediately needed behavior.
+  4. Parent joins the Reader response before planning/mutation/completion.
+  5. `complete` supplies work-unit harness context without duplicate Parent debt reads; `incomplete`/`conflict`/failure triggers bounded follow-up or option gate.
   6. Confirmed missing knowledge is persisted into records.
-  7. Search-time and final verification-time checks include related layer records so “SDD/TDD only” does not silently pass when DDD/BDD/SSOT are linked.
-  8. In dynamic write/read loops, map/index/graph cues may narrow candidate paths, but canonical records/source/tests and validation remain the source of truth after mutation.
-  9. A non-extension mid-turn steer advances the evidence epoch; mutation stays blocked until fresh post-steer map/read evidence exists.
-- Tests / protection:
+  7. Isolated implementation lets a successful Reader join satisfy the transitional debt bridge; direct Parent map/read remains the non-complete/unavailable fallback until main integration.
+  8. A non-extension mid-turn steer invalidates the prior Reader result for later action.
   - `.lazy-harness/tests/pre-action-search-evidence-guard.md` — protects evidence before action.
   - `.lazy-harness/tests/record-index-header.md` — includes `lazy map` drill-down output and no-semantic-authority checks.
   - `.lazy-harness/tests/retrieval-coverage-audit.md` — protects cross-layer related-record candidates and missing-completeness checks.
-  - `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — protects removal of the overview-batch hard block while preserving generic mutation evidence denial.
-  - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — protects post-steer evidence invalidation, late-result exclusion, and fresh-evidence recovery.
+  - `.lazy-harness/scripts/self-test.py#check_tool_execute_before_hook` — protects complete Reader join allow versus incomplete join deny alongside direct fallback.
+  - `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — protects package registration, launch envelope, pending barrier, completion-not-join, cumulative budget, explicit join, fingerprint reuse, steer invalidation, and print output separation.
 - Cross-layer links:
   - DDD: `.lazy-harness/domain/searchable-record-memory.md`
   - SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md`
@@ -191,12 +282,13 @@ And must not treat generated graph state as fresher than the canonical files.
 
 ## Layer completeness impact
 
-- DDD: `.lazy-harness/domain/searchable-record-memory.md` defines instruction-scoped evidence.
-- BDD: this record covers expected agent/searcher behavior, including mid-turn steer freshness.
-- SDD: `.lazy-harness/spec/platform/search-read-debt-contract.md` and Pi package SDD define the evidence epoch contract.
-- TDD: pre-action and Pi package fixtures protect post-steer invalidation and fresh-evidence recovery; retrieval-audit fixtures protect related-layer candidate surfacing.
-- SSOT: CLI boundary remains canonical for code/tool authority.
-- ADR: required only for unresolved cache naming or authority trade-offs.
+- DDD: updated — `.lazy-harness/domain/searchable-record-memory.md` defines Harness Reader, Parent code lane, and Reader join.
+- BDD: updated — this record owns the user/agent-visible parallel flow.
+- SDD: updated — `.lazy-harness/spec/platform/search-read-debt-contract.md` records target Reader-join supersession and current transitional hooks.
+- TDD: updated — Reader join/fallback and package delivery fixtures are focused-green in the isolated worktree; live model smoke remains pending.
+- SSOT: updated — mandatory recall remains, with Reader completion as the target mechanism.
+- ADR: updated — ADR 0055 supersedes Parent-global/child-scoped read-debt ownership.
+- Planning: updated — v3 proof remediation is superseded.
 
 ## Rule placement
 
@@ -206,3 +298,63 @@ And must not treat generated graph state as fresher than the canonical files.
 - Why not SDD only: the behavior is user/agent flow, not merely a component contract.
 - Why not `.jcode`: shared lazy-harness framework behavior.
 - Confirmation: user-corrected on 2026-06-06 that BDD is required before SDD/TDD-only planning.
+- Confirmation: user-corrected on 2026-08-26 that the Reader owns stored harness retrieval while the Parent concurrently owns code/behavior investigation and joins before action.
+- Confirmation: user-reaffirmed after the 2026-09-04 topology run that subagent-based reading is the selected architecture; delivery/output defects require the implementation to conform to the Reader design rather than reverting retrieval to the Parent.
+
+## Discovery capture — Harness Reader ownership correction
+
+- DDD: updated.
+- SDD: updated.
+- BDD: updated here.
+- TDD: updated with planned protections.
+- ADR: updated.
+- SSOT: updated.
+- Planning: updated; isolated runtime implementation is focused-green, while live model smoke and main integration remain unapproved.
+
+## Discovery capture — Reader result/output correction
+
+- DDD: none; Harness Reader, Parent code lane, and join are already defined terms.
+- SDD: candidate/updated in the linked search-read-debt and Pi package contracts for content-bearing join and primary-answer preservation.
+- BDD: updated here with result-content and caller-output scenarios.
+- TDD: candidate/updated in the linked pre-action and Pi package regressions; scenarios remain non-executable until implementation approval.
+- ADR: updated in ADR 0055 to reaffirm the selected Reader architecture.
+- SSOT: none; no deployed ownership, settings, or runtime state changed.
+- Planning: updated in the orchestration pilot; direct Parent is only the non-complete/unavailable fallback.
+
+## Discovery capture — Reader behavior implementation
+
+- DDD: implementation status only; terms unchanged.
+- SDD: updated with actual Reader/join/debt/output behavior.
+- BDD: updated here because scenarios 9–9d now have an isolated focused-green implementation.
+- TDD: updated with passing focused fixtures; no live model or integrated-main claim.
+- ADR: ownership unchanged; implementation status updated.
+- SSOT: direct debt remains a transitional fallback in the isolated implementation.
+- Planning: isolated slice implemented; validation/review and integration gates remain.
+
+## Native delayed-content and accounting follow-up — isolated only
+
+Given the Parent finishes its independent turn before the Reader delivers,
+when the native headless runtime drains work,
+then it also flushes held content and awaits owned terminal result delivery,
+and the Pi SDK continues with that content to a substantive answer without polling, sleeps, or repeated nudges.
+
+Given a Reader requests a seventh body read under a six-read launch,
+then the guard denies it before execution and records a failure; a failed admitted read retains its count and requested lines.
+When the model reports inaccurate counters or confuses child execution identity with the outer run,
+then Parent may omit join identity/counters and use runtime-owned defaults; explicitly supplied mismatches, stale/sibling notifications, or missing ledger enable bounded fallback rather than weakening the join.
+Semantic record selection and answer quality remain LLM judgments, not consequences of count conformance.
+
+Implementation map: `packages/lazy-harness-pi/agents/record-reader.md`, `packages/lazy-harness-pi/extensions/lazy-harness/index.ts`; native copy sources/tests and offline SDK evidence are linked in `.lazy-harness/evidence/reader-coordination-repair-and-comparison.md`. Primary TDD: `.lazy-harness/tests/pi-agent-package.md`; contract: `.lazy-harness/spec/platform/pi-agent-package.md`. Installed runtime/main integration remain separately gated.
+
+## Runtime-owned path handoff — isolated regression
+
+Given the Reader successfully reads six canonical files and its trusted terminal ledger records all six,
+when Parent omits `recordPaths` or reports only five distinct successful paths,
+then complete join verifies and caches all six, exposes the effective paths, and does not fall back solely for omission.
+An empty legacy list also cannot erase the successful read set.
+When a supplied path was not read, escapes the canonical lane, is duplicated or malformed,
+or any ledger-recorded file changed/disappeared (even one absent from the Parent list),
+then the join remains fail-closed into bounded fallback. Existing run/root/epoch/model/task and budget/failure guards still apply.
+This does not certify semantic completeness or whole-file reading.
+
+Implementation map: `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#lazy_reader_join`; `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract`; primary TDD `.lazy-harness/tests/pi-agent-package.md`; path contract `.lazy-harness/spec/platform/search-read-debt-contract.md`.

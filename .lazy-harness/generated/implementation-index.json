@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T09:41:30Z",
+  "generatedAt": "2026-09-14T06:16:18.460582+00:00",
   "records": [
     {
       "id": "kg_adr0032_decides_user_correction_convergence",
@@ -15,7 +15,7 @@
       "evidence": [
         {
           "type": "user-confirmation",
-          "quote": "모르는게 있거나 하면 레코드 뒤져보고 없으면 등록하고 해야하는데 ... 행동양식이 아직 부족한거지??"
+          "quote": "\ubaa8\ub974\ub294\uac8c \uc788\uac70\ub098 \ud558\uba74 \ub808\ucf54\ub4dc \ub4a4\uc838\ubcf4\uace0 \uc5c6\uc73c\uba74 \ub4f1\ub85d\ud558\uace0 \ud574\uc57c\ud558\ub294\ub370 ... \ud589\ub3d9\uc591\uc2dd\uc774 \uc544\uc9c1 \ubd80\uc871\ud55c\uac70\uc9c0??"
         }
       ],
       "links": [
@@ -42,14 +42,14 @@
       "kind": "implementation",
       "subject": ".lazy-harness/AGENTS.md",
       "predicate": "implements",
-      "object": "ADR 0032 user-correction convergence behavior in §2.5.",
+      "object": "ADR 0032 user-correction convergence behavior in \u00a72.5.",
       "status": "confirmed",
       "confidence": "code-evidence",
       "evidence": [
         {
           "type": "doc",
           "path": ".lazy-harness/AGENTS.md",
-          "quote": "사용자 정정 수렴 규칙 (ADR 0032)"
+          "quote": "\uc0ac\uc6a9\uc790 \uc815\uc815 \uc218\ub834 \uaddc\uce59 (ADR 0032)"
         }
       ],
       "links": [
@@ -106,7 +106,7 @@
       "evidence": [
         {
           "type": "user-confirmation",
-          "quote": "우리 프로젝트의 목표가 lazy-harness 라는 프레임워크 제작"
+          "quote": "\uc6b0\ub9ac \ud504\ub85c\uc81d\ud2b8\uc758 \ubaa9\ud45c\uac00 lazy-harness \ub77c\ub294 \ud504\ub808\uc784\uc6cc\ud06c \uc81c\uc791"
         }
       ],
       "links": [
@@ -143,7 +143,7 @@
       "evidence": [
         {
           "type": "user-correction",
-          "quote": "우리가 하는건 하네스 튜닝이잔아 맞지?"
+          "quote": "\uc6b0\ub9ac\uac00 \ud558\ub294\uac74 \ud558\ub124\uc2a4 \ud29c\ub2dd\uc774\uc794\uc544 \ub9de\uc9c0?"
         }
       ],
       "links": [
@@ -176,7 +176,7 @@
       "evidence": [
         {
           "type": "user-correction",
-          "quote": "자기가 잘 목차도 나누고 코드분석도 했는데 ... ddd sdd tdd bdd ssot 이런게 많이 발견됬을탠데 전혀 기록을 못하고 있어서 ... 계획도 짜놓고 작성을 안해놓으니까 이게 문제"
+          "quote": "\uc790\uae30\uac00 \uc798 \ubaa9\ucc28\ub3c4 \ub098\ub204\uace0 \ucf54\ub4dc\ubd84\uc11d\ub3c4 \ud588\ub294\ub370 ... ddd sdd tdd bdd ssot \uc774\ub7f0\uac8c \ub9ce\uc774 \ubc1c\uacac\ub42c\uc744\ud0e0\ub370 \uc804\ud600 \uae30\ub85d\uc744 \ubabb\ud558\uace0 \uc788\uc5b4\uc11c ... \uacc4\ud68d\ub3c4 \uc9dc\ub193\uace0 \uc791\uc131\uc744 \uc548\ud574\ub193\uc73c\ub2c8\uae4c \uc774\uac8c \ubb38\uc81c"
         }
       ],
       "links": [
@@ -339,7 +339,7 @@
       "evidence": [
         {
           "type": "user-confirmation",
-          "quote": ".jcode 의 경우는 기본 룰인거고 여기서 확장되서 커스텀되는 모든건 .lazy-harness 내부로 가야지"
+          "quote": ".jcode \uc758 \uacbd\uc6b0\ub294 \uae30\ubcf8 \ub8f0\uc778\uac70\uace0 \uc5ec\uae30\uc11c \ud655\uc7a5\ub418\uc11c \ucee4\uc2a4\ud140\ub418\ub294 \ubaa8\ub4e0\uac74 .lazy-harness \ub0b4\ubd80\ub85c \uac00\uc57c\uc9c0"
         }
       ],
       "links": [
@@ -1012,7 +1012,7 @@
       "path": ".lazy-harness/hooks/lifecycle/helpers/check-project-rule-placement.sh",
       "relation": "fixes",
       "target": "project rule placement gate does not loop on non-applicable/no-record judgement",
-      "source": "screenshot showed repeated 기록하지 않음 / Scope non-applicable response amplification",
+      "source": "screenshot showed repeated \uae30\ub85d\ud558\uc9c0 \uc54a\uc74c / Scope non-applicable response amplification",
       "updatedAt": "2026-05-19T06:15:07.705526+00:00"
     },
     {
@@ -1021,7 +1021,7 @@
       "layer": "TDD",
       "path": ".lazy-harness/scripts/self-test.py",
       "relation": "protects",
-      "target": "non-applicable/no-record project rule placement judgement and Korean 기록하지 않음 false positive",
+      "target": "non-applicable/no-record project rule placement judgement and Korean \uae30\ub85d\ud558\uc9c0 \uc54a\uc74c false positive",
       "source": "project-rule-placement-gate-loop regression addendum 2026-05-19",
       "updatedAt": "2026-05-19T06:15:07.705526+00:00"
     },
@@ -1671,7 +1671,7 @@
       "layer": "SDD",
       "path": ".lazy-harness/AGENTS.md",
       "relation": "operationalizes",
-      "source": "AGENTS §2.3-a separates requirement gathering, plan proposal, execution approval, and implementation; stale approvals block mutating work",
+      "source": "AGENTS \u00a72.3-a separates requirement gathering, plan proposal, execution approval, and implementation; stale approvals block mutating work",
       "target": "Requirements-first change gate and stale approval semantics",
       "updatedAt": "2026-05-21T15:50:00Z"
     },
@@ -2297,6 +2297,471 @@
       "target": "CLI helpers are explicit tools; LLM/searcher owns intent, importance, read priority, write-need, risk, gate, and next-action judgment after evidence",
       "source": "user-confirmed correction 2026-06-06",
       "updatedAt": "2026-06-06T07:08:00Z"
+    },
+    {
+      "id": "kg_reader_native_lifecycle_runtime_ledger_followup",
+      "createdAt": "2026-09-08T07:56:16.100657+00:00",
+      "updatedAt": "2026-09-08T07:56:16.100657+00:00",
+      "layer": "tdd",
+      "kind": "implementation",
+      "subject": "tdd:pi-agent-package#native-lifecycle-runtime-ledger",
+      "predicate": "implemented_by",
+      "object": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+          "quote": "parseReaderRunId reads structured details; startReaderMeter/persistReaderMeter enforce declared admission budget and store native session ledger; readDeliveredReaderLedger and lazy_reader_join bind owned identity/counters."
+        },
+        {
+          "type": "code",
+          "path": "packages/lazy-harness-pi/agents/record-reader.md",
+          "quote": "Agent-relative subagentOnlyExtensions explicitly loads the host guard."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/pi-agent-package.md"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/tests/pi-agent-package.md"
+        },
+        {
+          "rel": "reported_in",
+          "target": ".lazy-harness/evidence/reader-coordination-repair-and-comparison.md"
+        }
+      ],
+      "provenance": {
+        "source": "user-approved isolated native follow-up; source inspection and offline SDK tests",
+        "confirmedBy": "sole-writer-offline-tests",
+        "confirmedAt": "2026-09-08T07:56:16.100657+00:00"
+      }
+    },
+    {
+      "id": "kg_reader_automatic_ledger_path_handoff",
+      "createdAt": "2026-09-09T01:41:58.631948+00:00",
+      "updatedAt": "2026-09-09T01:41:58.631948+00:00",
+      "layer": "tdd",
+      "kind": "implementation",
+      "subject": "tdd:pi-agent-package#trusted-full-ledger-path-handoff",
+      "predicate": "implemented_by",
+      "object": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+          "quote": "lazy_reader_join derives effective paths from Object.keys(ledger.recordHashes), validates optional legacy subsets and rehashes/caches all successful paths."
+        },
+        {
+          "type": "test",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "check_pi_package_layout_and_contract exercises omitted/five-of-six paths, unread/duplicate assertions, changed omitted hashes and full-cache invalidation."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/search-read-debt-contract.md"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/tests/pi-agent-package.md"
+        },
+        {
+          "rel": "reported_in",
+          "target": ".lazy-harness/evidence/reader-coordination-repair-and-comparison.md"
+        }
+      ],
+      "provenance": {
+        "source": "user-approved automatic path handoff; source inspection,31SDKtests and review e2b8c33c",
+        "confirmedBy": "user-and-independent-review",
+        "confirmedAt": "2026-09-09T01:41:58.631948+00:00"
+      }
+    },
+    {
+      "id": "kg_reader_result_primary_answer_repair",
+      "createdAt": "2026-09-10T05:16:07.121641+00:00",
+      "updatedAt": "2026-09-10T05:16:07.121641+00:00",
+      "layer": "tdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/tests/reader-result-primary-answer.md",
+      "predicate": "implemented_by",
+      "object": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "packages/lazy-harness-pi/extensions/lazy-harness/reader-result.ts",
+          "quote": "parseReaderResultPacket admits only bare or one balanced backtick identity pair and unique exact identity/status fields."
+        },
+        {
+          "type": "code",
+          "path": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+          "quote": "receiveReaderResult binds actual sync/async content; preservesHeadlessPrimaryAnswer uses typed print/json mode without changing native drain or TUI/RPC."
+        }
+      ],
+      "links": [
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/search-read-debt-contract.md"
+        },
+        {
+          "rel": "protected_by",
+          "target": "packages/lazy-harness-pi/tests/reader-result.test.ts"
+        },
+        {
+          "rel": "protected_by",
+          "target": "packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts"
+        }
+      ],
+      "provenance": {
+        "source": "user-approved isolated two-core repair and source inspection",
+        "confirmedBy": "user-approved-direction",
+        "confirmedAt": "2026-09-10T05:16:07.121641+00:00"
+      }
+    },
+    {
+      "id": "kg_a_implementation_correctness_repairs",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/a-implementation-correctness-repairs.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/record-graph-projection.test.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": ".lazy-harness/scripts/self-test.py",
+          "quote": "check_implementation_correctness_repairs invokes the four source-owned CLI regression tests in framework scope."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/record-index.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/record-map.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/lazy-sync.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/doctor.py"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/capability.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/self-test.py"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/capability-preservation.test.py"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/doctor-package-health.test.py"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/record-graph-projection.test.py"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/test_lazy_sync_integrity.py"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "approvalRecord": ".lazy-harness/tests/a-implementation-correctness-repairs.md"
+      }
+    },
+    {
+      "id": "kg_a_type_integration_continuation",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/a-implementation-correctness-repairs.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/doctor-package-health.test.py",
+      "status": "confirmed",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "tests/lazy-harness/doctor-package-health.test.py",
+          "quote": "Semantic fixture resolves project-local TypeScript bin and excludes global compiler PATH; source-only type alignment preserves observed runtime shapes."
+        }
+      ],
+      "links": [
+        {
+          "rel": "configured_by",
+          "target": "package.json"
+        },
+        {
+          "rel": "configured_by",
+          "target": "bun.lock"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/document-resource-ingestion.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/triggers/code-change.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/triggers/detectors/bdd.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/triggers/detectors/ssot.ts"
+        }
+      ],
+      "provenance": {
+        "source": "manual-implementation-map",
+        "approvalRecord": ".lazy-harness/tests/a-implementation-correctness-repairs.md"
+      }
+    },
+    {
+      "id": "kg_b_capture_structural_impl",
+      "layer": "sdd",
+      "kind": "implementation",
+      "subject": ".lazy-harness/spec/platform/analysis-discovery-capture-gate.md",
+      "predicate": "implemented_by",
+      "object": "packages/lazy-harness-pi/extensions/lazy-harness/capture-evidence.ts",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "CaptureEvidence owns bounded callback receipts; Pi index.ts sends independent capture_validation to response hook. Isolated candidate, not live adoption.",
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/hooks/lifecycle/on-response-completed.sh"
+        }
+      ]
+    },
+    {
+      "id": "kg_b_capture_structural_test",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/capture-gate-false-positive.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/pi-capture-evidence.test.ts",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "Official Pi ExtensionRunner dispatch plus actual read/write tools and full response hook protect structural capture and answer/advisory separation, not semantic truth.",
+      "links": [
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper"
+        }
+      ]
+    },
+    {
+      "id": "kg_b_pi_target_typecheck_closure",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/pi-agent-package.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/pi-capture-evidence.test.ts",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "Node22 Pi extension and real SDK integration target; Bun CLI ambients remain separate. No upstream gaxios declaration fix or SDK-on-Bun claim.",
+      "links": [
+        {
+          "rel": "configured_by",
+          "target": "package.json"
+        },
+        {
+          "rel": "configured_by",
+          "target": "packages/lazy-harness-pi/package.json"
+        },
+        {
+          "rel": "configured_by",
+          "target": "packages/lazy-harness-pi/tsconfig.json"
+        },
+        {
+          "rel": "configured_by",
+          "target": "bun.lock"
+        },
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/pi-agent-package.md"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/self-test.py#check_analysis_discovery_capture_helper"
+        }
+      ]
+    },
+    {
+      "id": "kg_b_pi_node_cache_identity",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/pi-agent-package.md",
+      "predicate": "protected_by",
+      "object": ".lazy-harness/scripts/self-test.py#_check_node_validation_cache",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "Node executable path, version or missing state invalidates prior Pi full-regression success; unchanged/restored runtime remains reusable.",
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/validation-governor.py#toolchain_fingerprint"
+        },
+        {
+          "rel": "specified_by",
+          "target": ".lazy-harness/spec/platform/bounded-validation-governor.md"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/tests/bounded-validation-governor.md"
+        }
+      ]
+    },
+    {
+      "id": "kg_host_document_validation_scope",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/host-document-validation-scope.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/host-document-validation-scope.test.py#DocumentScopeTests",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "User selected framework/host prose-scope separation while preserving BOTH functional checks and host-owned Category B documents. Guard-level fixtures distinguish prose assertions from runtime functional coverage.",
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/self-test.py#check_bounded_validation_governor_cli"
+        },
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/scripts/self-test.py#check_policy_machinery_v2"
+        },
+        {
+          "rel": "protected_by",
+          "target": ".lazy-harness/scripts/self-test.py#check_host_document_validation_scope"
+        },
+        {
+          "rel": "decided_by",
+          "target": ".lazy-harness/decisions/0026-doctor-self-test-scope-separation.md"
+        },
+        {
+          "rel": "configured_by",
+          "target": ".lazy-harness/manifests/init-categories.json"
+        }
+      ]
+    },
+    {
+      "id": "kg_upstream_reader_combined_regression",
+      "createdAt": "2026-09-13T06:09:45.152599+00:00",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/reader-result-primary-answer.md",
+      "predicate": "protected_by",
+      "object": "packages/lazy-harness-pi/tests/reader-primary-answer-cli.test.ts",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "source": "Approved isolated upstream80cf3be + Reader working delta: actual native CLI verifies full Reader ledger/content and primary answer alongside non-steering upstream capture and placement stderr; execution receipts live in one capsule.",
+      "links": [
+        {
+          "rel": "protected_by",
+          "target": "packages/lazy-harness-pi/tests/reader-result.test.ts"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/pi-capture-evidence.test.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts"
+        },
+        {
+          "rel": "implemented_by",
+          "target": "packages/lazy-harness-pi/extensions/lazy-harness/capture-evidence.ts"
+        },
+        {
+          "rel": "reported_in",
+          "target": ".lazy-harness/evidence/upstream-reader-integration.md"
+        }
+      ],
+      "updatedAt": "2026-09-13T06:09:45.152599+00:00"
+    },
+    {
+      "id": "kg_task366_routing_regression",
+      "createdAt": "2026-09-14T06:16:18.460582+00:00",
+      "updatedAt": "2026-09-14T06:16:18.460582+00:00",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/tdd-cross-verify-forcegate-loop.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/affected-repository-routing.test.py",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
+          "quote": "Complete edit identity groups owning repositories; canonical runner runs with owner cwd and sanitized Git environment."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/affected-repository-routing.test.py"
+        }
+      ]
+    },
+    {
+      "id": "kg_task366_capture_regression",
+      "createdAt": "2026-09-14T06:16:18.460582+00:00",
+      "updatedAt": "2026-09-14T06:16:18.460582+00:00",
+      "layer": "tdd",
+      "kind": "test",
+      "subject": ".lazy-harness/tests/tdd-cross-verify-forcegate-loop.md",
+      "predicate": "protected_by",
+      "object": "tests/lazy-harness/fixtures/capture-legacy-58fbcbf/on-response-completed.sh",
+      "status": "implemented",
+      "confidence": "code-evidence",
+      "evidence": [
+        {
+          "type": "code",
+          "path": "tests/lazy-harness/pi-capture-evidence.test.ts",
+          "quote": "Actual SDK regression restores exact upstream capture hook/helper against historical development-style layout without rewriting primary answers."
+        }
+      ],
+      "links": [
+        {
+          "rel": "implemented_by",
+          "target": "tests/lazy-harness/pi-capture-evidence.test.ts"
+        },
+        {
+          "rel": "protected_by",
+          "target": "tests/lazy-harness/fixtures/capture-legacy-58fbcbf/on-response-completed.sh"
+        }
+      ]
     }
   ]
 }

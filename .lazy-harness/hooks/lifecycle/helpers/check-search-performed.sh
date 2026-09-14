@@ -48,7 +48,13 @@ tool_args = tool.get("args", {}) or {}
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "edit", "write", "multiedit",
                "patch", "apply_patch", "Patch", "ApplyPatch",
                "mcp__filesystem__write_file", "mcp__filesystem__edit_file"}
-if tool_name not in WRITE_TOOLS and not re.search(r"(?:^|[.:_\-])(patch|apply_patch)$", tool_name_l):
+WRAPPER_TOOLS = {"batch", "multi_tool_use.parallel"}
+
+def is_write_name(name: str) -> bool:
+    lower = str(name or "").lower()
+    return name in WRITE_TOOLS or bool(re.search(r"(?:^|[.:_\-])(write|edit|patch|apply_patch)$", lower))
+
+if not is_write_name(tool_name) and tool_name_l not in WRAPPER_TOOLS:
     sys.exit(0)
 
 CODE_PATTERN = re.compile(r"(?:^src/|^\.lazy-harness/triggers/fixtures/).+\.(?:ts|tsx|js|jsx)$")
@@ -83,6 +89,19 @@ def target_paths(args: dict) -> list[str]:
         val = args.get(key)
         if isinstance(val, str) and val:
             paths.extend(patch_paths(val))
+    nested = args.get("tool_calls") or args.get("toolCalls") or args.get("tool_uses") or []
+    if isinstance(nested, list):
+        for call in nested:
+            if not isinstance(call, dict):
+                continue
+            name = str(call.get("recipient_name") or call.get("tool") or call.get("name") or call.get("toolName") or "")
+            child_args = {}
+            for child_key in ("parameters", "input", "args"):
+                if isinstance(call.get(child_key), dict):
+                    child_args = call[child_key]
+                    break
+            if is_write_name(name) or name.lower() in WRAPPER_TOOLS:
+                paths.extend(target_paths(child_args))
     return [p for p in paths if p]
 
 # 대상 파일이 source code 인지 확인 (record 자체 편집은 면제 — record 누적이 의도된 작업)
@@ -103,7 +122,27 @@ cache_dir = Path(".lazy-harness/.cache/session")
 cache_dir.mkdir(parents=True, exist_ok=True)
 cache_path = cache_dir / f"{session_id}.json"
 
-if cache_path.exists():
+# A non-complete or errored-complete Reader join starts a fresh direct-fallback
+# evidence boundary. Invalidate both prior calls and legacy session cache before
+# applying the cache fast path.
+recent = payload.get("recent_tool_calls", []) or []
+reader_terminal_boundary = False
+for index in range(len(recent) - 1, -1, -1):
+    call = recent[index] if isinstance(recent[index], dict) else {}
+    name = str(call.get("name") or call.get("tool") or "")
+    if name != "lazy_reader_join":
+        continue
+    join_args = call.get("args") if isinstance(call.get("args"), dict) else {}
+    if bool(call.get("is_error")) or str(join_args.get("status") or "") != "complete":
+        recent = recent[index + 1:]
+        reader_terminal_boundary = True
+    break
+if reader_terminal_boundary:
+    try:
+        cache_path.unlink(missing_ok=True)
+    except Exception:
+        pass
+elif cache_path.exists():
     try:
         cache = json.loads(cache_path.read_text())
         if cache.get("search_performed"):
@@ -112,7 +151,6 @@ if cache_path.exists():
         pass
 
 # Tool-call 이력에서 검색 흔적 탐지
-recent = payload.get("recent_tool_calls", []) or []
 search_record_dirs = ("domain", "spec", "behavior", "tests", "decisions", "ssot", "planning", "plans", "project", "knowledge")
 
 def walk_values(value):
@@ -145,10 +183,10 @@ def flatten_calls(calls):
         if not isinstance(call, dict):
             continue
         yield call
-        for key in ("args", "parameters", "arguments"):
+        for key in ("args", "parameters", "input", "arguments"):
             value = call.get(key)
             if isinstance(value, dict):
-                nested = value.get("tool_calls") or value.get("toolCalls") or []
+                nested = value.get("tool_calls") or value.get("toolCalls") or value.get("tool_uses") or []
                 if isinstance(nested, list):
                     yield from flatten_calls(nested)
 
@@ -169,13 +207,22 @@ def is_read_or_search(name: str, blob: str) -> bool:
     if any(token in name for token in ("read", "grep", "agentgrep", "glob", "search", "list", "directory", "tree", "find", "ls")):
         return True
     if name in ("bash", "functions.bash"):
-        return bool(re.search(r"\b(grep|rg|find|tree|ls|git\s+grep|git\s+ls-files)\b|reference-resolver", blob, re.IGNORECASE))
+        return bool(re.search(r"\b(grep|rg|find|tree|ls|git\s+grep|git\s+ls-files)\b|reference-resolver|(?:\.lazy-harness/bin/lazy|\blazy)\s+map\b", blob, re.IGNORECASE))
     return False
 
 search_seen = False
 for call in flatten_calls(recent):
     name = call_name(call)
     blob = args_blob(call)
+    if name == "lazy_reader_join":
+        join_args = call.get("args") if isinstance(call.get("args"), dict) else call.get("parameters") if isinstance(call.get("parameters"), dict) else {}
+        if (
+            not bool(call.get("is_error"))
+            and str(join_args.get("status") or "") == "complete"
+            and str(join_args.get("resultMarker") or "") == "LAZY_HARNESS_READER_RESULT: complete"
+        ):
+            search_seen = True; break
+        continue
     if hit_record_dir(blob) and is_read_or_search(name, blob):
         search_seen = True; break
 

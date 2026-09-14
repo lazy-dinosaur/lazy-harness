@@ -2110,13 +2110,14 @@ def check_pi_package_layout_and_contract() -> None:
     manifest = pkg_root / "package.json"
     extension = pkg_root / "extensions" / "lazy-harness" / "index.ts"
     prompt = pkg_root / "prompts" / "lazy-harness.md"
+    reader = pkg_root / "agents" / "record-reader.md"
     readme = pkg_root / "README.md"
     root_readme = ROOT / "README.md"
     installer = ROOT / "install.sh"
     wrapper = LAZY / "scripts" / "pi-package.ts"
     activation = LAZY / "scripts" / "agent-activate.ts"
     lazy_entrypoint = LAZY / "bin" / "lazy"
-    for path in [manifest, extension, prompt, readme, root_readme, installer, wrapper, activation, lazy_entrypoint]:
+    for path in [manifest, extension, prompt, reader, readme, root_readme, installer, wrapper, activation, lazy_entrypoint]:
         if not path.exists():
             fail(f"Pi package missing required file: {path.relative_to(ROOT)}")
 
@@ -2133,7 +2134,38 @@ def check_pi_package_layout_and_contract() -> None:
             values = agent_manifest.get(key)
             if not isinstance(values, list) or expected not in values:
                 fail(f"Pi package manifest missing {manifest_key}.{key} entry {expected!r}")
+    pi_manifest = data.get("pi") if isinstance(data.get("pi"), dict) else {}
+    pi_subagents = pi_manifest.get("subagents") if isinstance(pi_manifest.get("subagents"), dict) else {}
+    if "./agents" not in (pi_subagents.get("agents") or []):
+        fail("Pi package manifest missing pi.subagents.agents './agents'")
+    package_subagents = data.get("pi-subagents") if isinstance(data.get("pi-subagents"), dict) else {}
+    if "./agents" not in (package_subagents.get("agents") or []):
+        fail("Pi package manifest missing pi-subagents.agents './agents'")
 
+    reader_text = reader.read_text(encoding="utf-8")
+    for phrase in [
+        "name: record-reader",
+        "package: lazy-harness",
+        "systemPromptMode: replace",
+        "acceptanceRole: read-only",
+        "LAZY_HARNESS_ROLE: record-reader/reader-join-v1",
+        "map --overview --complete",
+        "LAZY_HARNESS_READER_RESULT: complete",
+        "evidenceEpoch",
+        "recordsRead",
+        "maxReadCalls",
+        "maxRequestedLines",
+        "maxLinesPerRead",
+        "maxObservedReadLimit",
+        "failedToolCalls",
+        "Do not read implementation/product source",
+        "Do not write/edit/patch",
+    ]:
+        if phrase not in reader_text:
+            fail("Pi package record-reader missing contract phrase: " + phrase)
+    for forbidden in ["record-reader-admission", "candidate-map", "claim-evidence", "semanticAuthorization", "independentSemanticReviewRequired"]:
+        if forbidden in reader_text:
+            fail("Dedicated Reader must not revive proof/admission machinery: " + forbidden)
     pi_settings = ROOT / ".pi" / "settings.json"
     if pi_settings.exists():
         tracked = subprocess.run(["git", "ls-files", "--error-unmatch", ".pi/settings.json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -2215,13 +2247,30 @@ def check_pi_package_layout_and_contract() -> None:
         "toolCallEpochsByRoot",
         "rearmEvidenceAfterSteer",
         "workUnitEvidenceByRoot.delete(root)",
+        "RECORD_READER_AGENT",
+        "RECORD_READER_ROLE_MARKER",
+        "readerRunByRoot",
+        "readerRuntimeRoots",
+        "lazy_reader_join",
+        "content-bearing Reader packet",
+        "preservesHeadlessPrimaryAnswer",
+        "ctx.mode === \"print\" || ctx.mode === \"json\"",
+        "parseReaderResultPacket",
+        "receiveReaderResult",
+        "printModeAdvisory",
+        "readerTaskField",
+        "readerFallbackError",
+        "canonicalReaderRecordPath",
+        "multi_tool_use.parallel",
+        "maxLinesPerRead",
+        "maxObservedReadLimit",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in extension_text]
     if missing:
         fail("Pi package extension missing bridge contract phrases: " + json.dumps(missing, ensure_ascii=False))
 
     hook_text = (LAZY / "hooks" / "lifecycle" / "on-message-received.sh").read_text(encoding="utf-8")
-    for phrase in ["PAYLOAD_FILE", "PAYLOAD_REF=\"@file:$PAYLOAD_FILE\"", "payload_ref.startswith('@file:')"]:
+    for phrase in ["PAYLOAD_FILE", "PAYLOAD_REF=\"@file:$PAYLOAD_FILE\"", "payload_ref.startswith('@file:')", "lazy-harness.record-reader", "lazy_reader_join"]:
         if phrase not in hook_text:
             fail("on-message-received hook must pass large payloads by temp-file/ref, not argv/env: " + phrase)
 
@@ -2243,16 +2292,34 @@ def check_pi_package_layout_and_contract() -> None:
 
     prompt_text = prompt.read_text(encoding="utf-8")
     for phrase in [
-        "new work unit",
+        "Omit `toolBudget` entirely",
+        "including `2>/dev/null`",
+        "drain its notification before emitting one final answer",
+        "without an incomplete join",
+        "new host-dependent work unit",
+        "lazy-harness.record-reader",
+        "Parent lane for source/tests",
+        "LAZY_HARNESS_READER_RESULT: complete|incomplete|conflict",
+        "lazy_reader_join",
+        "process-complete acknowledgement alone is insufficient",
+        "model:",
+        "task model must equal",
+        "maxReadCalls:",
+        "maxRequestedLines:",
+        "maxLinesPerRead:",
+        "maxObservedReadLimit",
+        "native `read`/`grep`/`find`",
+        "failed-tool count",
         "map --overview --complete",
         "governing digest",
-        "Reuse unchanged governing-record evidence",
+        "Reuse unchanged joined/grounding evidence",
         "Never pass raw user text",
         "Finish a coherent mutation batch before validation",
         "at most one focused/affected check per changed-behavior batch",
         "one final `lazy validate --plan standard`",
         "Reserve direct `lazy test`",
         "green validation output to status/count/time",
+        "post-response advisory must not replace",
     ]:
         if phrase not in prompt_text:
             fail("Pi package prompt missing map-first guidance: " + phrase)
@@ -2294,6 +2361,20 @@ def check_pi_package_layout_and_contract() -> None:
         "lazy-harness read-debt",
         "phase=armed|debug",
         "hook=<detail>",
+        "lazy-harness.record-reader",
+        "Agent Contract v1",
+        "lazy_reader_join",
+        "process-complete acknowledgement alone is not a join",
+        "model:",
+        "task model must equal launch model",
+        "maxReadCalls:",
+        "maxRequestedLines:",
+        "maxLinesPerRead",
+        "max observed limit",
+        "native/simple read-only tools",
+        "failed-call count",
+        "substantive Parent response remains primary stdout",
+        "advisory is emitted to stderr",
     ]:
         if phrase not in readme_text:
             fail("Pi package README missing clean install guidance: " + phrase)
@@ -2930,6 +3011,104 @@ def check_pi_package_layout_and_contract() -> None:
     finally:
         shutil.rmtree(move_tool_smoke, ignore_errors=True)
 
+    reader_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-reader-join-"))
+    try:
+        reader_root = reader_smoke / "repo"
+        (reader_root / ".lazy-harness" / "bin").mkdir(parents=True)
+        (reader_root / ".lazy-harness" / "hooks" / "lifecycle").mkdir(parents=True)
+        (reader_root / ".lazy-harness" / "spec").mkdir(parents=True)
+        (reader_root / ".lazy-harness" / "bin" / "lazy").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        (reader_root / ".lazy-harness" / "spec" / "fixture.md").write_text("# Reader fixture\n", encoding="utf-8")
+        message_hook = reader_root / ".lazy-harness" / "hooks" / "lifecycle" / "on-message-received.sh"
+        message_hook.write_text("#!/usr/bin/env bash\ncat >/dev/null\nprintf '{\"inject\":{\"body\":\"REMINDER. Launch lazy-harness.record-reader and close lazy_reader_join.\"}}'\n", encoding="utf-8")
+        message_hook.chmod(0o755)
+        tool_hook = reader_root / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
+        tool_hook.write_text("#!/usr/bin/env bash\ncat >/dev/null\n", encoding="utf-8")
+        tool_hook.chmod(0o755)
+        response_hook = reader_root / ".lazy-harness" / "hooks" / "lifecycle" / "on-response-completed.sh"
+        response_hook.write_text("#!/usr/bin/env bash\ncat >/dev/null\n", encoding="utf-8")
+        response_hook.chmod(0o755)
+        subprocess.run(["git", "init", "-q"], cwd=reader_root, check=True)
+        subprocess.run(["git", "config", "user.name", "Reader Fixture"], cwd=reader_root, check=True)
+        subprocess.run(["git", "config", "user.email", "reader@invalid.local"], cwd=reader_root, check=True)
+        subprocess.run(["git", "add", "."], cwd=reader_root, check=True)
+        subprocess.run(["git", "commit", "-qm", "reader fixture"], cwd=reader_root, check=True)
+        revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=reader_root, text=True, capture_output=True, check=True).stdout.strip()
+        reader_script = reader_smoke / "reader-join.ts"
+        reader_script.write_text(
+            "import { readFileSync, writeFileSync } from 'node:fs';\n"
+            "import lazyHarnessPi, { permitsOwnedReaderStatusInspection } from " + json.dumps(str(extension)) + ";\n"
+            "const hash=(v)=>new Bun.CryptoHasher('sha256').update(v).digest('hex').slice(0,16);const handlers=new Map();const tools=new Map();\n"
+            "const pi={on(e,h){handlers.set(e,h)},registerCommand(){},registerTool(t){tools.set(t.name,t)},async exec(){return {stdout:'',stderr:'',exitCode:0}}};\n"
+            "lazyHarnessPi(pi);\n"
+            "const root=" + json.dumps(str(reader_root)) + ";const revision=" + json.dumps(revision) + ";\n"
+            "const statusFixture=JSON.parse(readFileSync(" + json.dumps(str(ROOT / "packages" / "lazy-harness-pi" / "fixtures" / "reader-status-inspection.json")) + ",'utf8'));\n"
+            "for(const c of statusFixture.cases){const encoded=JSON.stringify(c).replaceAll('$OWNED_RUN',statusFixture.ownedRunId).replaceAll('$OTHER_ROOT',root+'-other').replaceAll('$ROOT',root);const resolved=JSON.parse(encoded);const allowed=permitsOwnedReaderStatusInspection(root,'subagent',resolved.args,resolved.context);if(allowed!==c.allowed)throw new Error('pure TS Reader status fixture mismatch: '+c.id);}\n"
+            "const ctx={cwd:root,mode:'tui',signal:undefined,ui:{notify(){}},sessionManager:{getCwd(){return root},getSessionId(){return 'child-session'}}};\n"
+            "const childHandlers=new Map();const childPi={appendEntry(){},on(e,h){childHandlers.set(e,h)},registerCommand(){},registerTool(){},async exec(){return {stdout:'',stderr:'',exitCode:0}}};lazyHarnessPi(childPi);const childBefore=await childHandlers.get('before_agent_start')({prompt:`root: ${root}\nrevision: ${revision}\nmodel: fixture/reader-low\nevidenceEpoch: 1\nmaxReadCalls: 8\nmaxRequestedLines: 1600\nmaxLinesPerRead: 200\ntask: child boundary`,systemPrompt:'LAZY_HARNESS_ROLE: record-reader/reader-join-v1'},ctx);if(childBefore!==undefined) throw new Error('Reader child received Parent lifecycle injection');const childWrite=await childHandlers.get('tool_call')({toolCallId:'child-write',toolName:'write',input:{file_path:'src/forbidden.ts',content:'x'}},ctx);if(!childWrite?.block||!String(childWrite.reason).includes('Reader boundary')) throw new Error('Reader child mutation was not blocked by dedicated boundary');const childOverview=await childHandlers.get('tool_call')({toolCallId:'child-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --complete --format=md'}},ctx);if(childOverview!==undefined) throw new Error('Reader exact overview was blocked');const childCanonical=await childHandlers.get('tool_call')({toolCallId:'child-read',toolName:'read',input:{path:'.lazy-harness/spec/fixture.md',limit:100}},ctx);if(childCanonical!==undefined) throw new Error('Reader canonical read was blocked');const childSource=await childHandlers.get('tool_call')({toolCallId:'child-source',toolName:'read',input:{path:'packages/source.ts',limit:100}},ctx);if(!childSource?.block) throw new Error('Reader source read bypassed dedicated boundary');const childCompound=await childHandlers.get('tool_call')({toolCallId:'child-compound',toolName:'bash',input:{command:'pwd; touch src/a.ts'}},ctx);if(!childCompound?.block) throw new Error('Reader compound bash bypassed dedicated boundary');\n"
+            "for(const [toolName,path,allowed] of [['read',root+'/.lazy-harness/spec/fixture.md',true],['grep',root+'/.lazy-harness/spec',true],['read',root+'-other/.lazy-harness/spec/fixture.md',false],['grep',root+'-other/.lazy-harness/spec',false],['read',root+'/.lazy-harness/spec/../AGENTS.md',false],['grep',root+'/.lazy-harness/spec/../../scripts',false],['read',root+'/packages/source.ts',false]]){const result=await childHandlers.get('tool_call')({toolCallId:'absolute-path-'+toolName+path,toolName,input:{path,limit:100,pattern:'fixture'}},ctx);if(Boolean(result?.block)===allowed)throw new Error('Reader absolute path boundary mismatch: '+path);}\n"
+            "const before=await handlers.get('before_agent_start')({prompt:'reader work',systemPrompt:'base'},ctx);\n"
+            "if(!String(before?.message?.content).includes('evidence-epoch=1')||!String(before?.message?.content).includes('revision='+revision)) throw new Error('turn marker lacks Reader identity');\n"
+            "if(!tools.has('lazy_reader_join')) throw new Error('lazy_reader_join not registered');\n"
+            "const listCall={toolCallId:'list',toolName:'subagent',input:{action:'list'}};if((await handlers.get('tool_call')(listCall,ctx))?.block) throw new Error('subagent list blocked');await handlers.get('tool_result')({...listCall,content:'lazy-harness.record-reader',isError:false},ctx);\n"
+            "const readerModel='fixture/reader-low';const readerTask=(epoch,rev=revision,maxReadCalls=2,maxRequestedLines=320)=>`root: ${root}\\nrevision: ${rev}\\nmodel: ${readerModel}\\nevidenceEpoch: ${epoch}\\nmaxReadCalls: ${maxReadCalls}\\nmaxRequestedLines: ${maxRequestedLines}\\nmaxLinesPerRead: ${Math.floor(maxRequestedLines/maxReadCalls)}\\ntask: inspect Reader records`;\n"
+            "const baseLaunch=(task)=>({agent:'lazy-harness.record-reader',model:readerModel,task,async:true,context:'fresh',acceptance:false,output:false,artifacts:false,cwd:root});\n"
+            "const invalid={toolCallId:'invalid',toolName:'subagent',input:baseLaunch(readerTask(1))};const invalidResult=await handlers.get('tool_call')(invalid,ctx);if(!invalidResult?.block||!String(invalidResult.reason).includes('agentContract.version=1')) throw new Error('invalid Reader envelope not blocked');\n"
+            "const wrongRevision={toolCallId:'wrong-revision',toolName:'subagent',input:{...baseLaunch(readerTask(1,'wrong')),agentContract:{version:1}}};const wrongRevisionResult=await handlers.get('tool_call')(wrongRevision,ctx);if(!wrongRevisionResult?.block||!String(wrongRevisionResult.reason).includes('revision')) throw new Error('Reader launch revision was not bound');\n"
+            "const wrongCap={toolCallId:'wrong-cap',toolName:'subagent',input:{...baseLaunch(readerTask(1).replace('maxLinesPerRead: 160','maxLinesPerRead: 200')),agentContract:{version:1}}};const wrongCapResult=await handlers.get('tool_call')(wrongCap,ctx);if(!wrongCapResult?.block||!String(wrongCapResult.reason).includes('maxLinesPerRead')) throw new Error('derived per-read cap was not bound');\n"
+            "for(const toolBudget of [{hard:6,block:'*'},{hard:20,block:['read']},null]){const bad=await handlers.get('tool_call')({toolCallId:'total-tool-cap',toolName:'subagent',input:{...baseLaunch(readerTask(1)),agentContract:{version:1},toolBudget}},ctx);if(!bad?.block||!String(bad.reason).includes('omit toolBudget'))throw new Error('Reader accepted a total-tool budget override');}\n"
+            "const launchInput={...baseLaunch(readerTask(1)),agentContract:{version:1}};\n"
+            "for(const action of ['resume','steer','stop',null]){const bad=await handlers.get('tool_call')({toolCallId:'management-as-launch',toolName:'subagent',input:{...launchInput,action}},ctx);if(!bad?.block||!String(bad.reason).includes('omit action'))throw new Error('management operation with valid Reader envelope was accepted as launch');}\n"
+            "const launch={toolCallId:'launch',toolName:'subagent',input:launchInput};if((await handlers.get('tool_call')(launch,ctx))?.block) throw new Error('valid Reader launch blocked');await handlers.get('tool_result')({...launch,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'11111111-1111-4111-8111-111111111111',asyncId:'11111111-1111-4111-8111-111111111111'},isError:false},ctx);\n"
+            "for(const c of statusFixture.cases.filter(c=>c.context.root==='$ROOT'&&c.context.runId==='$OWNED_RUN'&&c.context.evidenceEpoch===1&&c.context.currentEpoch===1&&c.context.pending===true)){const input=JSON.parse(JSON.stringify(c.args).replaceAll('$OWNED_RUN',statusFixture.ownedRunId));const call={toolCallId:'status-'+c.id,toolName:'subagent',input};const result=await handlers.get('tool_call')(call,ctx);if(Boolean(result?.block)===c.allowed)throw new Error('TS Reader status fixture mismatch: '+c.id);if(c.allowed)await handlers.get('tool_result')({...call,content:'LAZY_HARNESS_READER_RESULT: complete\\n.lazy-harness/spec/fixture.md',isError:false},ctx);}\n"
+            "const safeSourceRg={toolCallId:'source-rg',toolName:'bash',input:{command:'rg -n Reader packages --glob \\'*.ts\\'',timeout:30}};if((await handlers.get('tool_call')(safeSourceRg,ctx))?.block) throw new Error('safe Parent source rg blocked while Reader pending');await handlers.get('tool_result')({...safeSourceRg,content:'packages/example.ts:1:Reader',isError:false},ctx);\n"
+            "const unsafeCompound=await handlers.get('tool_call')({toolCallId:'unsafe-compound',toolName:'bash',input:{command:'rg Reader packages; printf x > src/a.ts'}},ctx);if(!unsafeCompound?.block||!String(unsafeCompound.reason).includes('Reader join pending')) throw new Error('compound shell mutation bypassed Reader join');\n"
+            "const unsafeNested=await handlers.get('tool_call')({toolCallId:'unsafe-nested',toolName:'multi_tool_use.parallel',input:{tool_uses:[{recipient_name:'functions.bash',parameters:{command:'rg Reader packages; printf x > src/a.ts'}}]}},ctx);if(!unsafeNested?.block||!String(unsafeNested.reason).includes('Reader join pending')) throw new Error('nested namespaced Bash mutation bypassed Reader join');\n"
+            "const unsafeFind=await handlers.get('tool_call')({toolCallId:'unsafe-find',toolName:'bash',input:{command:'find src -delete'}},ctx);if(!unsafeFind?.block||!String(unsafeFind.reason).includes('Reader join pending')) throw new Error('find -delete bypassed Reader join');\n"
+            "const unsafeSort=await handlers.get('tool_call')({toolCallId:'unsafe-sort',toolName:'bash',input:{command:'rg Reader packages | sort -o src/a.ts'}},ctx);if(!unsafeSort?.block||!String(unsafeSort.reason).includes('Reader join pending')) throw new Error('write-capable pipeline filter bypassed Reader join');\n"
+            "const unsafeNestedFind=await handlers.get('tool_call')({toolCallId:'unsafe-nested-find',toolName:'multi_tool_use.parallel',input:{tool_uses:[{recipient_name:'functions.bash',parameters:{command:'find src -delete'}}]}},ctx);if(!unsafeNestedFind?.block||!String(unsafeNestedFind.reason).includes('Reader join pending')) throw new Error('nested find -delete bypassed Reader join');\n"
+            "const unsafeGitOutput=await handlers.get('tool_call')({toolCallId:'unsafe-git-output',toolName:'bash',input:{command:'git diff --output=src/a.ts'}},ctx);if(!unsafeGitOutput?.block||!String(unsafeGitOutput.reason).includes('Reader join pending')) throw new Error('git diff --output bypassed Reader join');\n"
+            "const unsafeTreeOutput=await handlers.get('tool_call')({toolCallId:'unsafe-tree-output',toolName:'bash',input:{command:'tree -o src/a.ts'}},ctx);if(!unsafeTreeOutput?.block||!String(unsafeTreeOutput.reason).includes('Reader join pending')) throw new Error('tree -o bypassed Reader join');\n"
+            "const unsafeRgPre=await handlers.get('tool_call')({toolCallId:'unsafe-rg-pre',toolName:'bash',input:{command:'rg --pre=cat Reader packages'}},ctx);if(!unsafeRgPre?.block||!String(unsafeRgPre.reason).includes('Reader join pending')) throw new Error('rg --pre bypassed Reader join');\n"
+            "const unsafeQuotedRgPre=await handlers.get('tool_call')({toolCallId:'unsafe-quoted-rg-pre',toolName:'bash',input:{command:`rg '--pre=/tmp/write-script' Reader packages`}},ctx);if(!unsafeQuotedRgPre?.block||!String(unsafeQuotedRgPre.reason).includes('Reader join pending')) throw new Error('quoted rg --pre bypassed Reader join');\n"
+            "const unsafeEscapedRgPre=await handlers.get('tool_call')({toolCallId:'unsafe-escaped-rg-pre',toolName:'bash',input:{command:String.raw`rg \\-\\-pre=/tmp/write-script Reader packages`}},ctx);if(!unsafeEscapedRgPre?.block||!String(unsafeEscapedRgPre.reason).includes('Reader join pending')) throw new Error('escaped rg --pre bypassed Reader join');\n"
+            "const unsafeCdRedirect=await handlers.get('tool_call')({toolCallId:'unsafe-cd-redirect',toolName:'bash',input:{command:'cd /tmp > src/a.ts && rg Reader packages'}},ctx);if(!unsafeCdRedirect?.block||!String(unsafeCdRedirect.reason).includes('Reader join pending')) throw new Error('unsafe cd redirection bypassed Reader join');\n"
+            "const unsafeCdSubstitution=await handlers.get('tool_call')({toolCallId:'unsafe-cd-substitution',toolName:'bash',input:{command:'cd \"$(touch src/a.ts)\" && rg Reader packages'}},ctx);if(!unsafeCdSubstitution?.block||!String(unsafeCdSubstitution.reason).includes('Reader join pending')) throw new Error('unsafe cd substitution bypassed Reader join');\n"
+            "const preJoin=await handlers.get('tool_call')({toolCallId:'prejoin',toolName:'write',input:{file_path:'src/a.ts',content:'x'}},ctx);if(!preJoin?.block||!String(preJoin.reason).includes('Reader join pending')) throw new Error('action did not wait for Reader join');\n"
+            "const nestedPending=await handlers.get('tool_call')({toolCallId:'nested-pending',toolName:'multi_tool_use.parallel',input:{tool_uses:[{recipient_name:'functions.write',parameters:{path:'src/a.ts',content:'x'}}]}},ctx);if(!nestedPending?.block||!String(nestedPending.reason).includes('Reader join pending')) throw new Error('nested parallel mutation bypassed Reader join');\n"
+            "const sessionFile=root+'/child-ledger.jsonl';const notify=async(epoch)=>{const ids={1:'11111111-1111-4111-8111-111111111111',3:'22222222-2222-4222-8222-222222222222',4:'33333333-3333-4333-8333-333333333333',6:'55555555-5555-4555-8555-555555555555',7:'66666666-6666-4666-8666-666666666666',8:'77777777-7777-4777-8777-777777777777'};const data={root,revision,evidenceEpoch:epoch,model:readerModel,taskDigest:hash('inspect Reader records'),sessionId:'child-session',terminal:true,readCalls:2,requestedLines:320,maxReadCalls:2,maxRequestedLines:320,maxLinesPerRead:160,maxObservedReadLimit:160,failedToolCalls:0,recordHashes:{'.lazy-harness/spec/fixture.md':hash(readFileSync(root+'/.lazy-harness/spec/fixture.md'))}};writeFileSync(sessionFile,[{type:'session',id:'child-session'},{type:'custom',customType:'lazy-harness-reader-ledger-v1',data}].map(JSON.stringify).join('\\n'));return handlers.get('context')({messages:[{role:'custom',customType:'subagent-notify',details:{completions:[{runId:ids[epoch],agent:'lazy-harness.record-reader',sessionFile}]},content:`Background task completed: **lazy-harness.record-reader**\\n\\nLAZY_HARNESS_READER_RESULT: complete\\nroot: ${root}\\nrevision: ${revision}\\nevidenceEpoch: ${epoch}\\n`}]},ctx);};await notify(1);\n"
+            "const joinInput={runId:'11111111-1111-4111-8111-111111111111',status:'complete',resultMarker:'LAZY_HARNESS_READER_RESULT: complete',revision,evidenceEpoch:1,readCalls:2,requestedLines:320,maxReadCalls:2,maxRequestedLines:320,maxLinesPerRead:160,maxObservedReadLimit:160,failedToolCalls:0,recordPaths:['.lazy-harness/spec/fixture.md']};\n"
+            "const joinCall={toolCallId:'join',toolName:'lazy_reader_join',input:joinInput};if((await handlers.get('tool_call')(joinCall,ctx))?.block) throw new Error('join tool blocked');const joined=await tools.get('lazy_reader_join').execute('join',{...joinInput,runId:undefined},undefined,undefined,ctx);if(!joined.details?.joined||joined.details?.maxReadCalls!==2) throw new Error('content join did not close with launch budget');await handlers.get('tool_result')({...joinCall,content:joined.content,details:joined.details,isError:false},ctx);\n"
+            "const postJoin=await handlers.get('tool_call')({toolCallId:'postjoin',toolName:'write',input:{file_path:'src/a.ts',content:'x'}},ctx);if(postJoin?.block) throw new Error('joined Parent action stayed blocked: '+postJoin.reason);\n"
+            "const reused=await handlers.get('before_agent_start')({prompt:'same work',systemPrompt:'base'},ctx);if(!String(reused?.message?.content).includes('status=reused-work-unit')) throw new Error('Reader fingerprints were not reusable');\n"
+            "await handlers.get('input')({text:'new instruction',source:'user',streamingBehavior:'steer'},ctx);let staleRejected=false;try{await tools.get('lazy_reader_join').execute('stale',joinInput,undefined,undefined,ctx);}catch{staleRejected=true}if(!staleRejected) throw new Error('steer did not invalidate Reader join');\n"
+            "const launch2Input={...baseLaunch(readerTask(3)),agentContract:{version:1}};const launch2={toolCallId:'launch2',toolName:'subagent',input:launch2Input};if((await handlers.get('tool_call')(launch2,ctx))?.block) throw new Error('second Reader launch blocked');await handlers.get('tool_result')({...launch2,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'22222222-2222-4222-8222-222222222222',asyncId:'22222222-2222-4222-8222-222222222222'},isError:false},ctx);const wait2={toolCallId:'wait2',toolName:'subagent_wait',input:{id:'22222222-2222-4222-8222-222222222222'}};await handlers.get('tool_call')(wait2,ctx);await handlers.get('tool_result')({...wait2,content:'Outcome: 1 complete',details:{completions:[{state:'complete'}]},isError:false},ctx);\n"
+            "await notify(3);const join2={...joinInput,runId:'22222222-2222-4222-8222-222222222222',evidenceEpoch:3,maxReadCalls:8,maxRequestedLines:1600,maxLinesPerRead:200};let loweredBudgetRejected=false;try{await tools.get('lazy_reader_join').execute('bad-budget',join2,undefined,undefined,ctx);}catch{loweredBudgetRejected=true}if(!loweredBudgetRejected) throw new Error('Reader packet raised Parent launch budget');const afterBudgetFallback=await handlers.get('tool_call')({toolCallId:'budget-fallback',toolName:'write',input:{file_path:'src/b.ts',content:'x'}},ctx);if(afterBudgetFallback?.block) throw new Error('terminal budget failure stranded Parent fallback');\n"
+            "const before3=await handlers.get('before_agent_start')({prompt:'third reader attempt',systemPrompt:'base'},ctx);if(!String(before3?.message?.content).includes('evidence-epoch=4')) throw new Error('third Reader epoch missing');const launch3Input={...baseLaunch(readerTask(4)),agentContract:{version:1}};const launch3={toolCallId:'launch3',toolName:'subagent',input:launch3Input};await handlers.get('tool_call')(launch3,ctx);await handlers.get('tool_result')({...launch3,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'33333333-3333-4333-8333-333333333333',asyncId:'33333333-3333-4333-8333-333333333333'},isError:false},ctx);const wait3={toolCallId:'wait3',toolName:'subagent_wait',input:{id:'33333333-3333-4333-8333-333333333333'}};await handlers.get('tool_call')(wait3,ctx);await handlers.get('tool_result')({...wait3,content:'Outcome: 1 complete',details:{completions:[{state:'complete'}]},isError:false},ctx);\n"
+            "await notify(4);const join3={...joinInput,runId:'33333333-3333-4333-8333-333333333333',evidenceEpoch:4,recordPaths:['.lazy-harness/spec/../AGENTS.md']};let traversalRejected=false;try{await tools.get('lazy_reader_join').execute('bad-path',join3,undefined,undefined,ctx);}catch{traversalRejected=true}if(!traversalRejected) throw new Error('Reader canonical path allowed traversal');const afterPathFallback=await handlers.get('tool_call')({toolCallId:'path-fallback',toolName:'write',input:{file_path:'src/c.ts',content:'x'}},ctx);if(afterPathFallback?.block) throw new Error('terminal path failure stranded Parent fallback');\n"
+            "const before4=await handlers.get('before_agent_start')({prompt:'unparseable launch',systemPrompt:'base'},ctx);const launch4Input={...baseLaunch(readerTask(5)),agentContract:{version:1}};const launch4={toolCallId:'launch4',toolName:'subagent',input:launch4Input};await handlers.get('tool_call')(launch4,ctx);await handlers.get('tool_result')({...launch4,content:'Async Reader launched without an id',isError:false},ctx);const afterUnparseable=await handlers.get('tool_call')({toolCallId:'id-fallback',toolName:'write',input:{file_path:'src/d.ts',content:'x'}},ctx);if(afterUnparseable?.block) throw new Error('unparseable launch result stranded Parent fallback');\n"
+            "await handlers.get('before_agent_start')({prompt:'observed-limit attempt',systemPrompt:'base'},ctx);const launch5Input={...baseLaunch(readerTask(6)),agentContract:{version:1}};const launch5={toolCallId:'launch5',toolName:'subagent',input:launch5Input};await handlers.get('tool_call')(launch5,ctx);await handlers.get('tool_result')({...launch5,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'55555555-5555-4555-8555-555555555555',asyncId:'55555555-5555-4555-8555-555555555555'},isError:false},ctx);const wait5={toolCallId:'wait5',toolName:'subagent_wait',input:{id:'55555555-5555-4555-8555-555555555555'}};await handlers.get('tool_call')(wait5,ctx);await handlers.get('tool_result')({...wait5,content:'Outcome: 1 complete',details:{completions:[{state:'complete'}]},isError:false},ctx);await notify(6);const join5={...joinInput,runId:'55555555-5555-4555-8555-555555555555',evidenceEpoch:6,maxObservedReadLimit:161};let observedRejected=false;try{await tools.get('lazy_reader_join').execute('observed-over-cap',join5,undefined,undefined,ctx);}catch{observedRejected=true}if(!observedRejected) throw new Error('maxObservedReadLimit above cap joined complete');const afterObservedFallback=await handlers.get('tool_call')({toolCallId:'observed-fallback',toolName:'write',input:{file_path:'src/e.ts',content:'x'}},ctx);if(afterObservedFallback?.block) throw new Error('observed-limit failure stranded fallback');\n"
+            "await handlers.get('before_agent_start')({prompt:'failed-call attempt',systemPrompt:'base'},ctx);const launch6Input={...baseLaunch(readerTask(7)),agentContract:{version:1}};const launch6={toolCallId:'launch6',toolName:'subagent',input:launch6Input};await handlers.get('tool_call')(launch6,ctx);await handlers.get('tool_result')({...launch6,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'66666666-6666-4666-8666-666666666666',asyncId:'66666666-6666-4666-8666-666666666666'},isError:false},ctx);const wait6={toolCallId:'wait6',toolName:'subagent_wait',input:{id:'66666666-6666-4666-8666-666666666666'}};await handlers.get('tool_call')(wait6,ctx);await handlers.get('tool_result')({...wait6,content:'Outcome: 1 complete',details:{completions:[{state:'complete'}]},isError:false},ctx);await notify(7);const join6={...joinInput,runId:'66666666-6666-4666-8666-666666666666',evidenceEpoch:7,failedToolCalls:1};let failedCallRejected=false;try{await tools.get('lazy_reader_join').execute('failed-call',join6,undefined,undefined,ctx);}catch{failedCallRejected=true}if(!failedCallRejected) throw new Error('nonzero failedToolCalls joined complete');const afterFailedFallback=await handlers.get('tool_call')({toolCallId:'failed-fallback',toolName:'write',input:{file_path:'src/f.ts',content:'x'}},ctx);if(afterFailedFallback?.block) throw new Error('failed-call rejection stranded fallback');\n"
+            "await handlers.get('before_agent_start')({prompt:'impossible-ledger attempt',systemPrompt:'base'},ctx);const launch7Input={...baseLaunch(readerTask(8)),agentContract:{version:1}};const launch7={toolCallId:'launch7',toolName:'subagent',input:launch7Input};await handlers.get('tool_call')(launch7,ctx);await handlers.get('tool_result')({...launch7,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'77777777-7777-4777-8777-777777777777',asyncId:'77777777-7777-4777-8777-777777777777'},isError:false},ctx);const wait7={toolCallId:'wait7',toolName:'subagent_wait',input:{id:'77777777-7777-4777-8777-777777777777'}};await handlers.get('tool_call')(wait7,ctx);await handlers.get('tool_result')({...wait7,content:'Outcome: 1 complete',details:{completions:[{state:'complete'}]},isError:false},ctx);await notify(8);const join7={...joinInput,runId:'77777777-7777-4777-8777-777777777777',evidenceEpoch:8,readCalls:0,requestedLines:0,maxObservedReadLimit:0};let impossibleRejected=false;try{await tools.get('lazy_reader_join').execute('impossible-ledger',join7,undefined,undefined,ctx);}catch{impossibleRejected=true}if(!impossibleRejected) throw new Error('impossible zero-read ledger joined complete');const afterImpossibleFallback=await handlers.get('tool_call')({toolCallId:'impossible-fallback',toolName:'write',input:{file_path:'src/g.ts',content:'x'}},ctx);if(afterImpossibleFallback?.block) throw new Error('impossible-ledger rejection stranded fallback');\n"
+            "await handlers.get('before_agent_start')({prompt:'wait only',systemPrompt:'base'},ctx);const last={toolCallId:'last',toolName:'subagent',input:{...baseLaunch(readerTask(9)),agentContract:{version:1}}};await handlers.get('tool_call')(last,ctx);await handlers.get('tool_result')({...last,content:'Unrelated session 00000000-0000-4000-8000-000000000000',details:{runId:'99999999-9999-4999-8999-999999999999',asyncId:'99999999-9999-4999-8999-999999999999'},isError:false},ctx);if(!(await handlers.get('tool_call')({...last,toolCallId:'duplicate'},ctx))?.block)throw new Error('duplicate epoch launch accepted');await notify(8);const onlyWait={toolCallId:'only-wait',toolName:'subagent_wait',input:{id:'99999999-9999-4999-8999-999999999999'}};await handlers.get('tool_call')(onlyWait,ctx);await handlers.get('tool_result')({...onlyWait,content:'Outcome: 1 complete',isError:false},ctx);const fakeStatus={toolCallId:'fake-status-last',toolName:'subagent',input:{action:'status',id:'99999999-9999-4999-8999-999999999999',view:'transcript',lines:80}};if((await handlers.get('tool_call')(fakeStatus,ctx))?.block)throw new Error('owned one-shot transcript inspection blocked');await handlers.get('tool_result')({...fakeStatus,content:'LAZY_HARNESS_READER_RESULT: complete\\n.lazy-harness/spec/fixture.md',isError:false},ctx);let absent=false;try{await tools.get('lazy_reader_join').execute('no-packet',{...joinInput,runId:'99999999-9999-4999-8999-999999999999',evidenceEpoch:9},undefined,undefined,ctx);}catch(e){absent=String(e).includes('notification');}if(!absent)throw new Error('wait, status transcript, or stale packet replaced actual notification');\n"
+            "for (const mode of ['omitted','partial','unread','changed-omitted','duplicates']) {\n"
+            "const started=await handlers.get('before_agent_start')({prompt:'handoff '+mode,systemPrompt:'base'},ctx);const epoch=Number(String(started?.message?.content).match(/evidence-epoch=(\\d+)/)?.[1]);if(!epoch)throw new Error('handoff epoch missing');\n"
+            "const id='handoff-'+mode;const launch={toolCallId:id,toolName:'subagent',input:{...baseLaunch(readerTask(epoch,revision,6,1200)),agentContract:{version:1}}};if((await handlers.get('tool_call')(launch,ctx))?.block)throw new Error('handoff launch blocked');await handlers.get('tool_result')({...launch,details:{runId:id,asyncId:id},content:'launched',isError:false},ctx);\n"
+            "const paths=Array.from({length:6},(_,i)=>'.lazy-harness/spec/handoff-'+i+'.md');for(const path of paths)writeFileSync(root+'/'+path,'canonical '+path);const recordHashes=Object.fromEntries(paths.map(path=>[path,hash(readFileSync(root+'/'+path))]));const data={root,revision,evidenceEpoch:epoch,model:readerModel,taskDigest:hash('inspect Reader records'),sessionId:'handoff-child',terminal:true,readCalls:6,requestedLines:1200,maxReadCalls:6,maxRequestedLines:1200,maxLinesPerRead:200,maxObservedReadLimit:200,failedToolCalls:0,recordHashes};writeFileSync(sessionFile,[{type:'session',id:'handoff-child'},{type:'custom',customType:'lazy-harness-reader-ledger-v1',data}].map(JSON.stringify).join('\\n'));\n"
+            "await handlers.get('context')({messages:[{role:'custom',customType:'subagent-notify',details:{completions:[{runId:id,agent:'lazy-harness.record-reader',sessionFile}]},content:`Background task completed: **lazy-harness.record-reader**\\n\\nLAZY_HARNESS_READER_RESULT: complete\\nroot: ${root}\\nrevision: ${revision}\\nevidenceEpoch: ${epoch}\\n`}]},ctx);\n"
+            "const params={status:'complete',resultMarker:'LAZY_HARNESS_READER_RESULT: complete',revision,evidenceEpoch:epoch,recordPaths:mode==='omitted'?undefined:mode==='unread'?['.lazy-harness/spec/fixture.md']:mode==='duplicates'?[paths[0],paths[0]]:paths.slice(0,5)};if(mode==='changed-omitted')writeFileSync(root+'/'+paths[5],'changed since read');\n"
+            "if(mode==='omitted'||mode==='partial'){const result=await tools.get('lazy_reader_join').execute(id,params,undefined,undefined,ctx);if(!result.details.joined||result.details.recordCount!==6||JSON.stringify(result.details.recordPaths)!==JSON.stringify(paths))throw new Error('handoff omitted or partial paths lost ledger evidence');if(mode==='partial'){writeFileSync(root+'/'+paths[5],'changed after join');const reuse=await handlers.get('before_agent_start')({prompt:'handoff hash change',systemPrompt:'base'},ctx);if(String(reuse?.message?.content).includes('status=reused-work-unit'))throw new Error('omitted path fingerprint was not cached');}}\n"
+            "else{let rejected=false;try{await tools.get('lazy_reader_join').execute(id,params,undefined,undefined,ctx);}catch(e){rejected=String(e).includes('bounded direct Parent fallback enabled');}if(!rejected)throw new Error('unsafe handoff assertion accepted: '+mode);}\n"
+            "}\n"
+            "console.log('pi dedicated Reader join barrier ok');\n",
+            encoding="utf-8",
+        )
+        completed = subprocess.run(["bun", str(reader_script)], cwd=ROOT, text=True, capture_output=True, check=False, env=env_without_lazy_runtime())
+        if completed.returncode != 0:
+            fail("Pi dedicated Reader join smoke failed:\n" + completed.stdout + completed.stderr)
+    finally:
+        shutil.rmtree(reader_smoke, ignore_errors=True)
+
     payload_smoke = pathlib.Path(tempfile.mkdtemp(prefix="lazy-pi-agent-end-payload-"))
     try:
         proot = payload_smoke / "repo"
@@ -2958,7 +3137,7 @@ def check_pi_package_layout_and_contract() -> None:
             "import lazyHarnessPi from " + json.dumps(str(extension)) + ";\n"
             "const handlers = new Map();\n"
             "const sent = [];\n"
-            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}}, sendUserMessage(msg,opts){sent.push({msg,opts})}, sendMessage(){} };\n"
+            "const pi = { on(e,h){handlers.set(e,h)}, registerCommand(){}, async exec(){return {stdout:'',stderr:'',exitCode:0}}, sendUserMessage(msg,opts){sent.push({msg,opts})}, sendMessage(){}, appendEntry(){} };\n"
             "lazyHarnessPi(pi);\n"
             "const proot=" + json.dumps(str(proot)) + ";\n"
             "const ctx={cwd:proot, signal:undefined, ui:{notify(){}}};\n"
@@ -2982,9 +3161,14 @@ def check_pi_package_layout_and_contract() -> None:
             "process.env.LAZY_TEST_EMIT_ADVISORY='1';\n"
             "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
             "if(sent.length!==1 || sent[0].msg!=='TRACE_ADVISORY_BODY' || sent[0].opts?.deliverAs!=='followUp') throw new Error('agent_end advisory was not queued as one followUp');\n"
+            "let printErr='';const originalStderrWrite=process.stderr.write.bind(process.stderr);(process.stderr as any).write=(chunk)=>{printErr+=String(chunk);return true};const sentBeforePrint=sent.length;\n"
+            "try{await handlers.get('agent_end')({type:'agent_end',messages:msgs},{...ctx,mode:'print'});}finally{(process.stderr as any).write=originalStderrWrite;}\n"
+            "if(sent.length!==sentBeforePrint) throw new Error('print mode queued a followUp that could replace primary stdout');\n"
+            "if(!printErr.includes('primary stdout preserved')||!printErr.includes('TRACE_ADVISORY_BODY')) throw new Error('print mode did not surface advisory out of band');\n"
+            "for(const mode of ['tui','rpc']){const modeCtx={...ctx,mode};await handlers.get('before_agent_start')({prompt:'reset-'+mode,systemPrompt:'base'},modeCtx);const beforeMode=sent.length;await handlers.get('agent_end')({type:'agent_end',messages:msgs},modeCtx);if(sent.length!==beforeMode+1||sent.at(-1)?.opts?.deliverAs!=='followUp') throw new Error(mode+' advisory delivery changed');}\n"
             "if(!existsSync(tracePath)) throw new Error('opt-in agent_end structural trace missing from runtime root');\n"
             "const traceRows=readFileSync(tracePath,'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse);\n"
-            "const trace=traceRows[traceRows.length-1];\n"
+            "const trace=[...traceRows].reverse().find((row)=>row.recentToolNames?.includes('write'))??traceRows[traceRows.length-1];\n"
             "if(trace.schemaVersion!=='pi-agent-end-trace/v1' || trace.messageCount!==2) throw new Error('agent_end trace metadata mismatch');\n"
             "if(trace.messageShapes.map((m)=>m.role).join(',')!=='user,assistant') throw new Error('agent_end trace role projection mismatch');\n"
             "if(trace.messageShapes[1].contentKinds[0]!=='text') throw new Error('agent_end trace content-kind projection mismatch');\n"
@@ -5266,7 +5450,9 @@ def check_affected_test_runner() -> None:
         if missing.get("ok") is not False or missing.get("forceGate") is not True or missing.get("questions") == []:
             fail("affected-test-runner missing fixture changed: " + json.dumps(missing, ensure_ascii=False))
         question = missing["questions"][0]
-        if question.get("id") != "Q-8e866d44709ff49c" or question.get("source") != "affected-test-runner":
+        if (not re.fullmatch(r"Q-[0-9a-f]{16}", question.get("id", ""))
+                or question.get("crossRef", {}).get("repositoryRoot") != str(ROOT.resolve())
+                or question.get("source") != "affected-test-runner"):
             fail("affected-test-runner question identity changed: " + json.dumps(question, ensure_ascii=False))
         labels = [option.get("label", "") for option in question.get("options", [])]
         if not any("프로젝트 테스트 전략" in label for label in labels) or not any("skip/defer" in label for label in labels):
@@ -5303,6 +5489,12 @@ def check_affected_test_runner() -> None:
             fresh_source.unlink(missing_ok=True)
     finally:
         queue.unlink(missing_ok=True)
+    routing_fixture = ROOT / "tests/lazy-harness/affected-repository-routing.test.py"
+    if routing_fixture.exists():
+        routed = subprocess.run([sys.executable, str(routing_fixture)], cwd=ROOT,
+                                env=env_without_lazy_runtime(), text=True, capture_output=True)
+        if routed.returncode != 0:
+            fail("affected repository routing regression failed:\n" + routed.stdout + routed.stderr)
     print("✓ 5d-3 affected test runner ok")
 
 def check_aftershock_reanalysis() -> None:
@@ -12595,6 +12787,68 @@ def check_tool_execute_before_hook() -> None:
                 ]}}
             ],
         }, 0, ""),
+        ("reader-complete-join-then-edit-allow", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_join",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [{
+                "name": "lazy_reader_join",
+                "args": {
+                    "status": "complete",
+                    "resultMarker": "LAZY_HARNESS_READER_RESULT: complete",
+                    "recordPaths": [".lazy-harness/spec/platform/search-read-debt-contract.md"],
+                },
+                "is_error": False,
+            }],
+        }, 0, ""),
+        ("reader-incomplete-join-then-edit-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_incomplete",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [{
+                "name": "lazy_reader_join",
+                "args": {
+                    "status": "incomplete",
+                    "resultMarker": "LAZY_HARNESS_READER_RESULT: incomplete",
+                    "recordPaths": [".lazy-harness/spec/platform/search-read-debt-contract.md"],
+                },
+                "is_error": False,
+            }],
+        }, 1, "lazy-harness gate"),
+        ("reader-errored-complete-join-discards-prior-map", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_error",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
+                {"name": "lazy_reader_join", "args": {"status": "complete", "resultMarker": "LAZY_HARNESS_READER_RESULT: complete"}, "is_error": True},
+            ],
+        }, 1, "lazy-harness gate"),
+        ("reader-legacy-cache-seed-map-allow", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_cache_reset",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [{"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"}],
+        }, 0, ""),
+        ("reader-legacy-incomplete-clears-cache-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_cache_reset",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
+                {"name": "lazy_reader_join", "args": {"status": "incomplete", "resultMarker": "LAZY_HARNESS_READER_RESULT: incomplete"}, "is_error": False},
+            ],
+        }, 1, "lazy-harness gate"),
+        ("reader-legacy-postfailure-map-recovers", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_reader_cache_reset",
+            "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
+            "recent_tool_calls": [
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
+                {"name": "lazy_reader_join", "args": {"status": "incomplete", "resultMarker": "LAZY_HARNESS_READER_RESULT: incomplete"}, "is_error": False},
+                {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
+            ],
+        }, 0, ""),
         ("batch-overview-with-node-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_batch_overview",
@@ -12629,6 +12883,14 @@ def check_tool_execute_before_hook() -> None:
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_functions_apply_patch",
             "tool": {"name": "functions.apply_patch", "args": {"patch_text": "*** Begin Patch\n*** Update File: src/main/services/foo.ts\n@@\n-old\n+new\n*** End Patch"}},
+            "recent_tool_calls": [],
+        }, 1, "lazy-harness gate"),
+        ("parallel-nested-write-no-search-deny", {
+            "event": "tool.execute.before",
+            "session_id": session_prefix + "case2_parallel_write",
+            "tool": {"name": "multi_tool_use.parallel", "args": {"tool_uses": [
+                {"recipient_name": "functions.write", "parameters": {"path": "src/main/services/foo.ts", "content": "x"}},
+            ]}},
             "recent_tool_calls": [],
         }, 1, "lazy-harness gate"),
         ("record-edit-exempt", {
@@ -12690,6 +12952,7 @@ def check_read_debt_permit_generic_external_action() -> None:
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-"))
     try:
         subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
+        shutil.copytree(LAZY / "hooks", temp / ".lazy-harness" / "hooks")
         state = temp / ".git" / "lazy-harness" / "runtime" / "default" / "state"
         state.mkdir(parents=True)
         message_id = "generic-message-1"
@@ -12703,6 +12966,53 @@ def check_read_debt_permit_generic_external_action() -> None:
             "fallbackSearchCount": 2,
         }
         (state / "search-read-debt.jsonl").write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+        status_fixture = json.loads((ROOT / "packages" / "lazy-harness-pi" / "fixtures" / "reader-status-inspection.json").read_text(encoding="utf-8"))
+        owned_run = status_fixture["ownedRunId"]
+        status_hook = temp / ".lazy-harness" / "hooks" / "lifecycle" / "on-tool-execute-before.sh"
+        for case in status_fixture["cases"]:
+            encoded = json.dumps(case, ensure_ascii=False).replace("$OWNED_RUN", owned_run).replace("$OTHER_ROOT", str(temp) + "-other").replace("$ROOT", str(temp))
+            resolved_case = json.loads(encoded)
+            status_result = subprocess.run(
+                [str(status_hook), json.dumps({
+                    "event": "tool.execute.before",
+                    "message_id": message_id,
+                    "working_dir": str(temp),
+                    "tool": {"name": "subagent", "args": resolved_case["args"]},
+                    "reader_status_inspection": resolved_case["context"],
+                    "recent_tool_calls": [],
+                }, ensure_ascii=False)],
+                cwd=temp,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            allowed = not status_result.stdout.strip()
+            if allowed != bool(resolved_case["allowed"]):
+                fail(f"Python/hook Reader status fixture mismatch: {resolved_case['id']} stdout={status_result.stdout!r} stderr={status_result.stderr!r}")
+        fake_status_evidence = [{
+            "name": "subagent",
+            "args": {"action": "status", "id": owned_run, "view": "transcript", "lines": 80},
+            "args_preview": json.dumps({"action": "status", "id": owned_run, "view": "transcript", "lines": 80}),
+            "result_preview": "LAZY_HARNESS_READER_RESULT: complete .lazy-harness/spec/platform/search-read-debt-contract.md",
+            "is_error": False,
+        }]
+        fake_status_write = subprocess.run(
+            [str(status_hook), json.dumps({
+                "event": "tool.execute.before",
+                "message_id": message_id,
+                "working_dir": str(temp),
+                "tool": {"name": "Edit", "args": {"file_path": "src/main.ts"}},
+                "recent_tool_calls": fake_status_evidence,
+            }, ensure_ascii=False)],
+            cwd=temp,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "search-debt gate" not in fake_status_write.stdout:
+            fail("status-only fake complete transcript enabled join/write or legacy evidence:\n" + fake_status_write.stdout + fake_status_write.stderr)
         base_payload = {
             "message_id": message_id,
             "tool": {"name": "mcp__external__get_context", "args": {"id": "fixture"}},
@@ -12717,6 +13027,73 @@ def check_read_debt_permit_generic_external_action() -> None:
         )
         if "search-debt gate" not in no_search.stdout or "map-first traversal/read evidence" not in no_search.stdout:
             fail("generic external action should be guarded until map-first traversal/read evidence exists:\n" + no_search.stdout + no_search.stderr)
+        readonly_source = subprocess.run(
+            ["python3", str(helper), json.dumps({
+                "message_id": message_id,
+                "tool": {"name": "bash", "args": {"command": "rg -n Reader packages --glob '*.ts'"}},
+                "recent_tool_calls": [],
+            }, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if readonly_source.stdout.strip():
+            fail("safe read-only source rg must remain available while Reader/search debt is pending:\n" + readonly_source.stdout + readonly_source.stderr)
+        for unsafe_command in ["find src -delete", "git diff --output=src/a.ts", "tree -o src/a.ts", "rg --pre 'rm -f src/a.ts' Reader packages", "cd /tmp > src/a.ts && rg Reader packages", "cd '$(touch src/a.ts)' && rg Reader packages", "rg '--pre=/tmp/write-script' Reader packages", r"rg \-\-pre=/tmp/write-script Reader packages"]:
+            unsafe_source = subprocess.run(
+                ["python3", str(helper), json.dumps({
+                    "message_id": message_id,
+                    "tool": {"name": "bash", "args": {"command": unsafe_command}},
+                    "recent_tool_calls": [],
+                }, ensure_ascii=False)],
+                cwd=ROOT,
+                env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if "search-debt gate" not in unsafe_source.stdout:
+                fail("write-capable shell must not be classified read-only: " + unsafe_command + "\n" + unsafe_source.stdout + unsafe_source.stderr)
+        fallback_calls = [
+            {"name": "bash", "args": {"command": "rg -n Reader packages"}, "args_preview": "rg -n Reader packages", "is_error": False},
+            {"name": "lazy_reader_join", "args": {"status": "incomplete", "resultMarker": "LAZY_HARNESS_READER_RESULT: incomplete"}, "is_error": False},
+        ]
+        fallback_blocked = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": fallback_calls}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "search-debt gate" not in fallback_blocked.stdout:
+            fail("pre-join source rg must not satisfy post-incomplete fallback debt:\n" + fallback_blocked.stdout + fallback_blocked.stderr)
+        fallback_with_map = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [*fallback_calls, {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"}]}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if fallback_with_map.stdout.strip():
+            fail("fresh direct fallback map after incomplete Reader should satisfy search debt:\n" + fallback_with_map.stdout + fallback_with_map.stderr)
+        failed_complete_calls = [
+            {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md", "is_error": False},
+            {"name": "lazy_reader_join", "args": {"status": "complete", "resultMarker": "LAZY_HARNESS_READER_RESULT: complete"}, "is_error": True},
+        ]
+        failed_complete_blocked = subprocess.run(
+            ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": failed_complete_calls}, ensure_ascii=False)],
+            cwd=ROOT,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp)),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if "search-debt gate" not in failed_complete_blocked.stdout:
+            fail("errored complete join must discard earlier map evidence:\n" + failed_complete_blocked.stdout + failed_complete_blocked.stderr)
         with_search = subprocess.run(
             ["python3", str(helper), json.dumps({**base_payload, "recent_tool_calls": [{"name": "agentgrep", "query": "feature"}]}, ensure_ascii=False)],
             cwd=ROOT,

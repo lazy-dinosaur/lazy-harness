@@ -17,6 +17,7 @@ Layer: TDD
 - Must:
   - keep separate `lazy pi` and `lazy omp` wrapper command arrays plus explicit `package.json#omp` resources
   - bridge `before_agent_start`/`tool_call`/`tool_result`/`agent_end` to canonical hooks (incl. `agent_end` → `on-response-completed.sh` post-turn audit driven as a bounded continuation: `pi.sendUserMessage(body, { deliverAs: "followUp" })`, loop-capped by `MAX_ADVISORY_CONTINUATIONS` plus `MAX_ADVISORY_CHAIN_CONTINUATIONS`, falling back to non-steering display without a custom transport label); preserve OMP string-array `systemPrompt` blocks
+  - protect the dedicated Reader resource, exact launch envelope, content-not-ack join, cumulative budgets/failures, direct fallback, and non-interactive primary-answer preservation implemented in the isolated worktree
   - re-scope hook root, recent-tool evidence, and `/lazy-*` execution to live session cwd after `/move`
   - ensure `lazy_move_project` switches directly through `ctx.switchSession` when available; it must not treat `sendUserMessage('/lazy-move ...', { deliverAs: 'followUp' })` as command execution, because that only queues an agent-visible user message
   - cache one overview plus directly read governing-record hashes for the active Pi/OMP work unit; valid later normal turns emit `reused-work-unit` and do not replay the system reminder
@@ -33,6 +34,7 @@ Layer: TDD
   - keep fake-runtime regression fixtures hermetic: copy the extension beside bounded Pi/TypeBox peer stubs instead of assuming repository-local or machine-global peer resolution
 - Must not:
   - invent a second policy engine or let OMP silently fall back to Pi-only packaging
+  - count a generic child completion acknowledgement as Reader content delivery or treat an advisory-only print-mode message as a complete Parent answer
 - Record completion:
   - changes to package wrappers, extension bridge, or activation prompts update this TDD plus its SDD/ADR
 - Related records:
@@ -89,6 +91,38 @@ The in-repo Pi/OMP package must remain installable through separate Pi and OMP w
 | `pi_package_skills` | Inspect package skills | core wrappers plus `lazy-architecture-refactor` expose valid `SKILL.md` resources to both Pi and OMP |
 | `architecture_refactor_skill_contract` | Inspect `lazy-architecture-refactor/SKILL.md` | required records, exact map digest, confirmation ref, separate source gate, single-batch boundary, stop rules, no enforcement, and no canary source edit are explicit |
 
+## Dedicated Reader topology fixtures — standard-verified in isolated worktree
+
+The user-approved isolated implementation passed focused fixtures, final standard/full self-test, and independent blocker re-review; live model smoke and main integration remain pending:
+
+| Case | Trigger | Expected |
+|---|---|---|
+| `pi_package_record_reader_resource` | Inspect package manifest and `agents/` | Exactly one `lazy-harness.record-reader` is exposed through Pi Subagents; proof/admission machinery is absent |
+| `pi_reader_parent_lifecycle_isolation` | Dedicated Reader replacement system prompt contains `RECORD_READER_ROLE_MARKER` | Reader bypasses Parent reminder/context/response handlers but retains a dedicated child tool guard; Parent on the same root remains active |
+| `pi_reader_child_tool_boundary` | Reader calls tools after role detection | Only canonical record read/grep and exact overview/drill/pwd/revision bash are allowed; source reads, mutation, compound bash, and arbitrary commands block |
+| `pi_reader_parent_parallel_lanes` | Start a Reader-managed work unit | Native `read`/`grep`/`find` and simple shell `grep`/`rg` (head/tail/wc filters only) remain available; chained/redirection/substitution/write-option/nested shell mutations block |
+| `pi_reader_derived_per_read_cap` | Launch with count/total limits such as `6/1200` | Task/state require `maxLinesPerRead=200`; mismatched cap, over-observed limit, failed calls, or impossible zero/inconsistent ledger cannot join complete and must enable fallback |
+| `pi_reader_wait_ack_not_join` | Async Reader process reports `complete` without result content in Parent context | Plan/mutation/completion remains blocked; liveness acknowledgement alone is not a join |
+| `pi_reader_content_join` | Matching run/root revision/epoch packet arrives with complete marker, canonical paths, in-budget counters, and zero failures | `lazy_reader_join` caches record fingerprints and permits action without duplicate Parent reads |
+| `pi_reader_noncomplete_fallback` | Packet is missing, `incomplete`, `conflict`, failed, over-budget, mismatched, or invalidated by steer | Join fails or bounded Parent fallback remains; no silent success |
+| `pi_reader_agent_contract_v1_read_only` | Reader completes without edits under Agent Contract v1 and `acceptance:false` | Runtime accepts the read-only result; no legacy no-edit completion failure |
+| `pi_print_advisory_preserves_primary_answer` | In exact `ctx.mode === "print"`, `agent_end` receives an advisory after Parent synthesis | No follow-up assistant turn is queued; primary stdout survives and advisory text is emitted to stderr |
+| `pi_tui_json_rpc_advisory_delivery` | Same advisory under non-print modes | Existing bounded `followUp` behavior remains; print-specific stderr separation does not alter these modes |
+
+Validation/review capsules: `.lazy-harness/evidence/dedicated-reader-runtime-v1-20260906.md` and `.lazy-harness/evidence/dedicated-reader-live-canary-r2-20260906.md`.
+
+Live R2 confirms agent discovery, Reader lifecycle isolation, content-before-join, honest incomplete handling, no duplicate Parent record reads, source preservation, and print stdout/stderr separation. It also reproduces `1,350/1,200` Reader lines and Python false-block of Parent source `rg`; the user selected and isolated source implements derived per-read cap plus guard parity without a model rerun.
+
+### Layer completeness — Reader topology regression
+
+| Layer | Independent delta | Disposition |
+|---|---|---|
+| DDD | no | Existing Harness Reader/Parent lane/join terms are sufficient |
+| SDD | yes | Pi package and search-read-debt contracts define resource, content join, budget/fallback, and print output |
+| BDD | yes | LLM-owned retrieval adds result-content and caller-output scenarios |
+| SSOT | yes | Enforcement SSOT records exact successful Reader join plus direct fallback; no persistent settings owner changed |
+| ADR | yes | ADR 0055 reaffirms subagent Reader as target rather than Parent fallback |
+
 ## Automated coverage
 
 Implemented by:
@@ -144,19 +178,21 @@ omp plugin list
 - `.lazy-harness/scripts/pi-package.ts` — fixture for runtime-aware `lazy pi` and `lazy omp` wrapper command construction and safe dry-run behavior.
 - `.lazy-harness/bin/lazy` — fixture for wrapper dispatch and fresh per-invocation `LAZY_PI_TARGET_REPO` / `LAZY_OMP_TARGET_REPO` handoff.
 - `.lazy-harness/scripts/agent-activate.ts` — fixture for project-local Pi/OMP activation prompt files, project-local skill settings, and `.git/info/exclude` entries.
-- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for root-scoped recent tool state, live session cwd resolution after runtime `/move`, read-debt status/detail markers, normal-turn and steer evidence epochs, late-result exclusion, current-turn-only `agent_end` projection, and opt-in content-free tracing.
+- `packages/lazy-harness-pi/agents/record-reader.md` and `package.json` — dedicated canonical-record-only role and Pi Subagents registration.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — role isolation plus dedicated child tool boundary, strict Parent safe-shell classifier, launch-bound cap/max-observed/positive-ledger join, fallback/steer/fingerprint lifecycle, and print stderr separation.
 - `.pi/settings.json` — optional generated project-local Pi settings; activation ensures project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` load with `enableSkillCommands`, while local package install may add package attachment; absent in clean default.
 - `~/.pi/agent/settings.json` — optional generated global package install path; not committed to the repository and absent after factory reset.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for hook bridge events plus `/lazy-check`, `/lazy-validate`, and explicit fresh/full `/lazy-test` commands.
 - `packages/lazy-harness-pi/prompts/lazy-harness.md` — fixture for fast edit-loop, focused-check, and one-final-standard-boundary guidance.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#appendSystemPromptBody` — fixture for official Pi string prompt and OMP string-array prompt compatibility.
-- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — fixture for the per-turn reminder carrying the interactive grammar.
+- `.lazy-harness/hooks/lifecycle/on-message-received.sh` — Reader-first/content-join/direct-fallback first-grounding reminder.
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py` and `check-search-performed.sh` — strict safe-shell parity and truncation of all pre-join evidence after non-complete or errored-complete join.
 - `.lazy-harness/hooks/lifecycle/on-context.sh` — fixture for mechanical source-intent derivation and source-only host policy/capability guidance.
 - `.lazy-harness/hooks/lifecycle/helpers/operating_rule_catalog.py` — fixture for bounded catalog enumeration, canonical resolver rendering, discovery-only copy, and explicit no-chain/no-rerun guidance.
 - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — fixture for pre-context batching, failed-hook pending retry, at-most-once-per-turn injection, same-turn suppression after a cached body, and reset on fresh turn/steer.
 - `packages/lazy-harness-pi/skills/*/SKILL.md` — fixture for shared Pi/OMP skill availability.
 - `packages/lazy-harness-pi/skills/lazy-architecture-refactor/SKILL.md` — approval-gated architecture map and one-seam source-refactor contract.
-- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` plus `_check_pi_agent_end_current_turn_scope` — regression implementation, including hermetic fake peer modules, live-session `/move` re-scope, post-steer re-arming, current-turn canonical lifecycle projection, failed-call structure, trace privacy/default-off/runtime-root assertions, and queued follow-up preservation.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract`, `check_read_debt_permit_generic_external_action`, and `check_tool_execute_before_hook` — child boundary, exact/derived budgets, max-observed/failed/impossible ledgers, safe source lane, adversarial shell/nested forms, failed-join evidence truncation, fallback/path/steer/output, and complete/incomplete guard coverage.
 - Machine index:
   - `kg_pi_agent_end_structural_trace_impl_20260714`
   - `kg_pi_agent_end_structural_trace_test_20260714`
@@ -321,3 +357,150 @@ Implementation map: governor `toolchain_fingerprint` / `command_signature`;
 self-test `_check_node_validation_cache` / `check_bounded_validation_governor_cli`;
 `.lazy-harness/tests/bounded-validation-governor.md#protected-fixtures`.
 Graph: `kg_b_pi_node_cache_identity`.
+
+## Discovery capture — Reader topology TDD design
+
+- DDD: none; no new term required.
+- SDD: updated in Pi package and search-read-debt contracts.
+- BDD: updated with content-bearing join and primary-answer preservation.
+- TDD: updated here with focused-green fixtures and the immutable failing live witness; a corrected live model run is still pending.
+- ADR: updated to reaffirm dedicated Reader ownership.
+- SSOT: none; runtime/config storage unchanged.
+- Planning: isolated implementation is focused-green; live model, main integration, commit/push/release remain unapproved.
+
+## Discovery capture — Reader topology TDD implementation
+
+- DDD — `none`: no independent domain rule changed.
+- SDD — `updated`: implemented package/join/debt/output and post-R2 adversarial guard contracts.
+- BDD — `none`: existing Reader content/final-output scenarios remain sufficient.
+- TDD — `updated`: implemented fixtures cover child boundary, ledger, shell, fallback cache, and immutable live failure without overclaim.
+- ADR — `none`: ownership and direct-fallback decision are unchanged.
+- SSOT — `updated`: exact complete join and failed-join reset semantics are captured in enforcement policy.
+- Planning — `updated`: static implementation, independent blocker re-review (`No issues found`, isolated `OK`), and standard validation (`76.201s`) are complete; new live model and integration remain gated.
+
+## R3 launch-budget remediation regression
+
+- The valid Reader launch omits `toolBudget`. Explicit all-tool or read-only block budgets, including null, are rejected before a child starts; this prevents conflating six body reads with six total calls.
+- Existing valid-launch and pending-source-rg fixtures remain green requirements. Redirection is still rejected, not silently stripped or allowed.
+- Distributed Parent prompt must say to omit `toolBudget`, prohibit `2>/dev/null`, drain a pending notification before one final, and avoid incomplete join in a terminal no-fallback canary.
+- Implementation: `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#readerLaunchValidationError`; `packages/lazy-harness-pi/prompts/lazy-harness.md`; `.lazy-harness/AGENTS.md`; protection: `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract`.
+
+### Discovery capture / layer completeness
+
+| Layer | Judgment | Reason |
+|---|---|---|
+| DDD | none | No domain delta. |
+| SDD | updated | Pi package launch rejects the incompatible budget override. |
+| BDD | updated | Pending-failure guidance drains before a single final response. |
+| TDD | updated | Executable launch rejection and prompt regressions above. |
+| ADR | none | Reader ownership unchanged. |
+| SSOT | none | No config/storage ownership change. |
+| Planning | updated | User approved fixing R3 problems; historical terminal result remains immutable. |
+
+## R4 actual-notification regression
+
+- Matching native Reader completion content closes the content-receipt barrier without `subagent_wait`.
+- Legacy wait completion or stale-epoch notification cannot substitute for delivered content.
+- A second Reader launch in the same evidence epoch is rejected.
+- Invalid budgets/paths/counters still fail after a matching notification, not merely because notification was absent.
+- Source: `index.ts#observeReaderPacket`, launch/context/join handlers; test: `self-test.py#check_pi_package_layout_and_contract`.
+- Discovery capture: SDD/TDD updated; DDD/BDD/ADR/SSOT none (restore selected content-bearing join behavior); Planning updated through R4 evidence. Actual source-path guessing and retry violations remain live-model behavior risks, not silently fixed by static tests.
+
+## R5 absolute operands and tool-surface regression
+
+Fixtures accept same-root absolute canonical read and grep operands, while rejecting sibling-prefix roots, source paths, and traversal. Existing relative operand tests remain. Join identifiers remain relative. Protection: `self-test.py#check_pi_package_layout_and_contract`, `index.ts#readerToolPath/isReaderRuntimeToolAllowed`.
+
+Actual SDK zero-model initialization verifies explicit read/grep/find/bash/subagent/lazy_reader_join availability; no prompt/model request occurs. This validates tool activation, not model behavior or final answer quality. Evidence `/tmp/lh-reader-tool-preflight-88q_8qyl/check.ts` and `result.json`.
+
+Discovery capture/layer completeness: SDD updated (native operand normalization and launcher preflight), TDD updated (fixtures and SDK evidence), Planning updated (R5 terminal and remaining run boundary); DDD/BDD/ADR/SSOT none (no new domain, user flow, ownership, or persistent configuration).
+
+## Reader status coordination repair regression
+
+The shared `packages/lazy-harness-pi/fixtures/reader-status-inspection.json` table drives both the package fake runtime and the Python lifecycle hook. It permits ordinary/transcript status only for the exact pending Reader run at the current root/evidence epoch. Wrong/unknown run, stale epoch, wrong root, non-pending state, launch/resume, and mutation-like status extras remain denied. The package fixture additionally proves that a status result containing a fake complete marker and canonical path cannot replace native `subagent-notify` content; the hook fixture proves the same result cannot seed modern or legacy evidence before a write. Existing native content join and fresh bounded fallback cases remain the positive completion/recovery controls.
+
+### Layer completeness matrix
+
+| Layer | Independent delta | Disposition |
+|---|---|---|
+| SDD | yes | Search/read-debt contract now defines trusted owned-status classification and bookkeeping exclusion. |
+| BDD | yes | LLM-owned retrieval distinguishes purposeful inspection/native yield from polling and content join. |
+| SSOT | no | No configuration, schema, persistent owner, or authorization registry changed. |
+| DDD | no | Existing Reader/run/join vocabulary is sufficient. |
+
+### Implementation map — status coordination repair
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#isOwnedReaderStatusInspection` — independently validates exact operation, owned run, pending state, root-scoped current epoch, and read-only argument shape; trusted state is projected outside model-owned tool args for the hook.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts#readerStatusInspectionContext` — projects root/run/evidence/current-epoch/pending transport state; allowed status skips tool-call epoch, recent-call, and fingerprint bookkeeping.
+- `.lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py#is_owned_reader_status_inspection` — independently evaluates the same shared cases before exempting status from pre-grounding action classification.
+- `packages/lazy-harness-pi/fixtures/reader-status-inspection.json` — one bounded TS/Python parity table.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` and `#check_read_debt_permit_generic_external_action` — actual adapter and actual hook invocation, fake-status non-evidence, native content join, denials, and existing incomplete-fallback protection.
+- Cross-layer: `.lazy-harness/spec/platform/search-read-debt-contract.md`; `.lazy-harness/behavior/llm-owned-record-retrieval.md`.
+
+Discovery capture: primary TDD updated for the confirmed regression; SDD and BDD carry independent contract/agent-flow deltas; SSOT/DDD have no independent delta; ADR/Planning are unchanged because ownership, architecture, budgets, live comparison, and integration gates did not change.
+
+Review follow-up: management operations carrying the Reader marker and an otherwise valid launch envelope are rejected before state creation (`action` must be absent on native launch, including rejecting null). Python handles action-bearing controls before free-text search-handoff exemptions. Fixtures include marker-bearing resume/steer/stop, malformed status task markers, oversized transcripts, and invalid epoch/pending metadata. This protects operation semantics, not exact natural-language task spelling.
+
+## Native lifecycle, identity, and actual accounting regression — isolated follow-up
+
+User approved the host plus an isolated upstream copy, not installed dependency mutation or another paid comparison. Primary canonical record: this TDD. Preserve the earlier waiting-only terminal, ID substitution, over-budget read, and inaccurate self-report witnesses.
+
+| Protection | Expected |
+|---|---|
+| Real SDK delayed content | Parent finishes independent turn first; pending notification and unscanned terminal-result paths both deliver content and cause exactly one substantive continuation, not merely process exit. |
+| Real SDK child guard | Native agent discovery resolves agent-relative `subagentOnlyExtensions`; SDK loads the guard under the explicit built-in allowlist. |
+| Concurrent seventh read | Six admissions charge 1,200 lines under 6/1,200; seventh is denied before read execution and failure count becomes one. |
+| Failed body read / over-limit | Failed admitted read charges count/lines; over-limit request is denied before read; model zero-failure prose cannot replace actual ledger. |
+| ID confusion / spoof / stale / sibling | Arbitrary first UUID ignored; omitted join identity/counters bind to runtime-owned values; supplied child ID/counter mismatch, stale ledger, and sibling notification reject complete. |
+| Fallback | Missing/nonterminal ledger and noncomplete results preserve fresh bounded Parent fallback; existing Python modern/legacy debt regressions remain. |
+
+### Layer completeness matrix
+
+| Layer | Independent delta | Disposition |
+|---|---|---|
+| SDD | yes | Pi package and search/read-debt define structural notification identity, runtime-owned session ledger, optional join defaults, and content-drain contract. |
+| BDD | yes | Delayed content triggers substantive continuation; admission failures and identity confusion recover without polling or self-report authority. |
+| SSOT | no | Existing native session state owns the ledger; no new persistent configuration owner, global setting, or canonical storage location. |
+| DDD | no | Existing Reader/run/join terms suffice; no domain-rule change. |
+
+### Implementation map — native follow-up
+
+- `packages/lazy-harness-pi/agents/record-reader.md` — supported child-only guard loading.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `parseReaderRunId`, `startReaderMeter`, `persistReaderMeter`, `readDeliveredReaderLedger`, `observeReaderPacket`, child tool handlers, and `lazy_reader_join`; admission/result/terminal runtime ledger and default owned binding.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — structural launch IDs, notification metadata, ledger fixture, default join ID and existing adversarial/fallback checks.
+- `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action` — existing fresh direct fallback and status-not-evidence protections.
+- Approved upstream copy `/tmp/lh-reader-native-followup-hf9m835b/pi-subagents`: `src/runs/background/{auto-drain,completion-batcher,notify,result-watcher}.ts` and `src/extension/index.ts` are inspected lifecycle seams (completion-batcher itself unchanged); `test/reader-delivery-sdk.test.ts` and `test/reader-accounting-sdk.test.ts` execute offline against the real installed SDK with scripted, zero-cost providers.
+- `.lazy-harness/evidence/reader-coordination-repair-and-comparison.md` — exact reproduction, commands, approval, result and isolation capsule.
+
+Discovery capture: TDD primary with independent SDD/BDD deltas above; SSOT/DDD/ADR no independent delta. Runtime entries are transport/accounting, not an admission/proof stack or semantic completeness oracle. Historic live failures remain unchanged; no new live trial, main integration, or default-readiness claim. Legacy graph migration (37 rows) remains a separate user-guided backlog, not silently rewritten here.
+
+
+### Native launcher and review follow-up
+
+- SDK pre-hook schema/unknown-tool errors are reconciled from actual child agent_end results, deduplicated against settled IDs; invalid-read then valid-read cannot seal a zero-failure ledger or join complete.
+- Already-held notification batches are tested in addition to completions arriving during drain.
+- `test/reader-native-launcher.test.ts` in the approved upstream copy runs actual CLI, detached native runner, child SDK, host guard, notification and Parent join against a scripted provider with network denial. It initially exposed an unpublished active-run marker and the native `Task: ` transport prefix. Source repairs publish the initial running index before runner authorization, clean it on startup failure, and unwrap the documented prefix before meter parsing. Retained end-to-end assertions now pass: delayed child, machine ledger, default-owned join and substantive continuation.
+- Additional implementation seam: upstream `src/runs/background/async-execution.ts#spawnRunner/persistPreProceedStartupFailure`. No installed-package modification. Existing four-row layer matrix still applies.
+- Review81958866 BLOCK findings repaired; focused follow-up5838725e OK. Final focused tests19/19,160 assertions; strict host tsc PASS. Upstream targeted transitive check has236 baseline/236 candidate diagnostics, no introduced diagnostics; full upstream type cleanliness is NOT claimed.
+
+## Trusted full-ledger path handoff regression
+
+User-approved isolated repair of the six-category benchmark slot16: six actual successful reads versus five submitted paths must not require duplicate Parent retrieval. Effective join paths come from all own keys of the trusted terminal ledger; optional legacy assertions may be omitted/empty or a distinct subset, never a source of additional evidence. Unread/outside/duplicate/malformed supplied paths still fail. All effective paths remain canonical-checked and rehashed; omissions cannot hide a changed/deleted file or remove its cached fingerprint. Root/revision/epoch/model/task/session, completion, read-budget and failure checks remain mandatory.
+
+### Implementation map
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — `lazy_reader_join` derives the full path set, validates optional assertions and rehashes all files before caching; details return actual paths.
+- `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` — shipped fixture covers six-read/five-path and omitted-path success, unread/duplicate refusal, changed omitted-path refusal and post-join invalidation when an omitted file changes. Existing identity/budget/traversal/notification tests remain.
+- `packages/lazy-harness-pi/prompts/lazy-harness.md` and `packages/lazy-harness-pi/README.md` — recommend omission of runtime-owned run/counter/path fields rather than manual recopying.
+- Isolated SDK test `/tmp/lh-reader-native-followup-hf9m835b/pi-subagents/test/reader-accounting-sdk.test.ts` — actual child SDK six-distinct-read ledger, omitted/empty/subset success, unread/duplicate/outside/traversal/absolute/malformed assertions and changed/deleted omitted-file failure. This is supplementary local evidence, not a shipped test dependency.
+- Contract: `.lazy-harness/spec/platform/search-read-debt-contract.md`, `.lazy-harness/spec/platform/pi-agent-package.md`; behavior: `.lazy-harness/behavior/llm-owned-record-retrieval.md`; evidence: `.lazy-harness/evidence/reader-coordination-repair-and-comparison.md`.
+
+### Layer completeness
+
+| Layer | Judgment |
+|---|---|
+| SDD | Independent delta: authoritative path derivation, legacy subset compatibility and effective-path response documented in join contract. |
+| BDD | Independent delta: path omission alone no longer forces Parent fallback; unsafe assertions still do. |
+| SSOT | No independent delta: runtime ledger storage/ownership and canonical-record authority unchanged. |
+| DDD | No independent delta: no new domain terms or business rules. |
+
+Discovery capture: one bounded repair, primary TDD here; no installed/main integration or live paid benchmark implied.
