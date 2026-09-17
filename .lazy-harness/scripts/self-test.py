@@ -4775,6 +4775,32 @@ def check_purpose_scoped_retrieval_cli() -> None:
         fail("lazy map concrete node output missing inspect mode")
     if concrete_record not in [record.get("recordPath") for record in node_json.get("records", [])]:
         fail("lazy map should traverse concrete synced record paths")
+    if node_json.get("counts", {}).get("records") != 1 or node_json.get("counts", {}).get("features") != 0:
+        fail("exact record-path drill must return one focused record without fuzzy feature noise")
+    if not any("Focused" in str(note) for note in node_json.get("notes", [])):
+        fail("exact record-path drill must explain its focused output")
+    related = node_json.get("relatedRecords", [])
+    if not related:
+        fail("focused drill must list compact fuzzy neighbors for mis-selection checks")
+    for entry in related:
+        if not set(entry.keys()) <= {"recordPath", "title", "status", "aliases"}:
+            fail("focused drill neighbors must stay compact (recordPath/title/status/aliases only): " + repr(entry))
+        if len(entry.get("aliases", [])) > 2:
+            fail("focused drill neighbors must cap aliases at two: " + repr(entry))
+        if entry["recordPath"] == concrete_record:
+            fail("focused drill neighbors must exclude the focused record itself")
+    fuzzy_map = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "purpose-scoped-retrieval", "--format=json", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if fuzzy_map.returncode != 0:
+        fail("keyword drill must keep working alongside focused exact-path drills:\n" + fuzzy_map.stdout + fuzzy_map.stderr)
+    fuzzy_json = json.loads(fuzzy_map.stdout)
+    if len(fuzzy_json.get("records", [])) < 2:
+        fail("keyword drill must keep multi-record fuzzy results")
 
     overview = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=md", "--limit=8"],
@@ -12225,6 +12251,8 @@ def check_message_received_hook_context_injection() -> None:
             or "map-first traversal/read evidence" not in no_search
             or "keyword grep/rg/find search is not enough" not in no_search
             or "not a project/tool allowlist" not in no_search
+            or "fallback, new scope" not in no_search
+            or "re-grounding a work unit already grounded" not in no_search
         ):
             fail("direct-search debt should block action before real search evidence:\n" + no_search)
         cache_only = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/record-index.ts --write"}])
@@ -12233,6 +12261,12 @@ def check_message_received_hook_context_injection() -> None:
         listed = run_permit([{"name": "bash", "args_preview": "tree .lazy-harness | head -200"}])
         if listed.strip():
             fail("root-bound tree inventory evidence should satisfy direct-search debt:\n" + listed)
+        map_script_drill = run_permit([{"name": "bash", "args_preview": "bun .lazy-harness/scripts/record-map.ts .lazy-harness/spec/platform/purpose-scoped-retrieval.md --format=md"}])
+        if map_script_drill.strip():
+            fail("direct record-map.ts drill invocation should satisfy direct-search debt:\n" + map_script_drill)
+        map_script_overview = run_permit([{"name": "bash", "args_preview": "python3 -B .lazy-harness/scripts/record-map.ts --overview --complete --format=md"}])
+        if map_script_overview.strip():
+            fail("direct record-map.ts overview invocation should satisfy direct-search debt:\n" + map_script_overview)
         directory_tree = run_permit([{"name": "mcp__filesystem__directory_tree", "arguments": {"path": ".lazy-harness"}}])
         if directory_tree.strip():
             fail("filesystem directory_tree inventory evidence should satisfy direct-search debt:\n" + directory_tree)
