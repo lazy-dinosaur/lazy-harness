@@ -63,6 +63,7 @@ interface RecordMatch {
   symbols: string[]
   routes: string[]
   components: string[]
+  digest: { appliesWhen: string[]; must: string[]; mustNot: string[] }
   graphIds: string[]
   relatedRecords: string[]
   referencedBy: string[]
@@ -514,6 +515,11 @@ function recordMatch(query: string, record: RecordEntry): RecordMatch | null {
     symbols: hints.symbolHints,
     routes: hints.routeHints,
     components: hints.componentHints,
+    digest: {
+      appliesWhen: record.digest.appliesWhen.slice(0, 2),
+      must: record.digest.must.slice(0, 3),
+      mustNot: record.digest.mustNot.slice(0, 1),
+    },
     graphIds: record.graphIds,
     relatedRecords: record.digest.relatedRecords,
     referencedBy: [],
@@ -791,6 +797,13 @@ function renderMarkdown(result: RecordMapResult): string {
   for (const record of result.records) {
     lines.push(`- \`${record.recordPath}\` — ${record.title} (${record.layer}/${record.status}, matches=${record.matchCount})`)
     if (record.aliases.length) lines.push(`  - aliases: ${record.aliases.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.digest && (record.digest.appliesWhen.length || record.digest.must.length || record.digest.mustNot.length)) {
+      const digestParts: string[] = []
+      if (record.digest.appliesWhen.length) digestParts.push(`applies: ${record.digest.appliesWhen.join('; ')}`)
+      if (record.digest.must.length) digestParts.push(`must: ${record.digest.must.join('; ')}`)
+      if (record.digest.mustNot.length) digestParts.push(`mustNot: ${record.digest.mustNot.join('; ')}`)
+      lines.push(`  - digest: ${digestParts.join(' | ')}`)
+    }
     if (record.components.length) lines.push(`  - components: ${record.components.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.sourceFiles.length) lines.push(`  - source: ${record.sourceFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
