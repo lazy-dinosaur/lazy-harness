@@ -4787,6 +4787,8 @@ def check_purpose_scoped_retrieval_cli() -> None:
             fail("focused drill neighbors must stay compact (recordPath/title/status/aliases only): " + repr(entry))
         if len(entry.get("aliases", [])) > 2:
             fail("focused drill neighbors must cap aliases at two: " + repr(entry))
+        if entry["recordPath"] == concrete_record:
+            fail("focused drill neighbors must exclude the focused record itself")
     focused_digest = node_json["records"][0].get("digest")
     if not focused_digest or set(focused_digest.keys()) != {"appliesWhen", "must", "mustNot"}:
         fail("focused drill must expose the record Rule digest (digest-first loading): " + repr(focused_digest))
@@ -4794,8 +4796,6 @@ def check_purpose_scoped_retrieval_cli() -> None:
         fail("focused drill digest must stay compact (appliesWhen<=2, must<=3, mustNot<=1): " + repr(focused_digest))
     if not (focused_digest["appliesWhen"] or focused_digest["must"] or focused_digest["mustNot"]):
         fail("records with a Rule digest must surface it in focused drill output")
-        if entry["recordPath"] == concrete_record:
-            fail("focused drill neighbors must exclude the focused record itself")
     fuzzy_map = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "map", "purpose-scoped-retrieval", "--format=json", "--limit=8"],
         cwd=ROOT,
