@@ -101,6 +101,7 @@ interface RecordMapResult {
   features: FeatureMatch[]
   records: RecordMatch[]
   graphRows: GraphMatch[]
+  relatedRecords?: Array<{ recordPath: string; title: string; status: string; aliases?: string[] }>
   drilldown: Drilldown
 }
 
@@ -603,6 +604,40 @@ function loadBacklinkEntries(root: string): Record<string, { referencedBy?: stri
 
 export function buildRecordMap(root: string, query: string, limit = 8, fresh = false): RecordMapResult {
   const { index, cache } = loadRecordIndex(root, fresh)
+  const focusedEntry = looksLikeRecordPath(query) ? index.records.find((record) => sameTraversalKey(query, record.recordPath)) : undefined
+  const focusedRecord = focusedEntry ? recordMatch(query, focusedEntry) : null
+  if (focusedRecord) {
+    const graph = sortMatches(graphRows(root).map((row) => graphMatch(query, row)).filter((value): value is GraphMatch => Boolean(value)).filter((row) => row.matched.some((detail) => detail.field.endsWith('Exact'))), (item) => item.id || item.path || '').slice(0, limit)
+    focusedRecord.matched = focusedRecord.matched.filter((detail) => detail.field === 'record.pathExact')
+    focusedRecord.referencedBy = loadBacklinkEntries(root)[focusedRecord.recordPath]?.referencedBy ?? []
+    const relatedRecords = sortMatches(index.records.map((record) => recordMatch(query, record)).filter((value): value is RecordMatch => Boolean(value)), (item) => item.recordPath)
+      .filter((record) => !sameTraversalKey(query, record.recordPath))
+      .slice(0, Math.min(5, limit))
+      .map((record) => ({ recordPath: record.recordPath, title: record.title, status: record.status, aliases: record.aliases.slice(0, 2) }))
+    return {
+      schemaVersion: '1.0',
+      mode: 'record-map.inspect',
+      query,
+      root,
+      source: {
+        method: 'record-map-v1',
+        tool: '.lazy-harness/scripts/record-map.ts',
+        recordIndexMethod: index.source.method,
+        recordIndexCache: cache,
+      },
+      counts: { features: 0, records: 1, graphRows: graph.length },
+      notes: [
+        'Focused: the query exactly matches one record path, so only that record and its exact graph rows are returned; fuzzy related nodes are omitted.',
+        'Pass a feature id, alias, title fragment, or keyword query (not an exact record path) to list related nodes again.',
+        'Cues only: read real record bodies, Implementation maps, source, and tests before relying on a match.',
+      ],
+      features: [],
+      records: [focusedRecord],
+      relatedRecords,
+      graphRows: graph,
+      drilldown: buildDrilldown(root, [], [focusedRecord], graph),
+    }
+  }
   const features = sortMatches(index.projectProfile.features.map((feature) => featureMatch(query, feature)).filter((value): value is FeatureMatch => Boolean(value)), (item) => item.id).slice(0, limit)
   const records = sortMatches(index.records.map((record) => recordMatch(query, record)).filter((value): value is RecordMatch => Boolean(value)), (item) => item.recordPath).slice(0, limit)
   const backlinks = loadBacklinkEntries(root)
@@ -761,6 +796,14 @@ function renderMarkdown(result: RecordMapResult): string {
     if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.graphIds.length) lines.push(`  - graph: ${record.graphIds.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
     if (record.referencedBy.length) lines.push(`  - referenced by: ${record.referencedBy.slice(0, 8).map((item) => `\`${item}\``).join(', ')}${record.referencedBy.length > 8 ? ` (+${record.referencedBy.length - 8} more)` : ''}`)
+  }
+  if (result.relatedRecords?.length) {
+    lines.push('', '## Related records (compact)')
+    lines.push('- fuzzy neighbors for mis-selection checks; drill the exact path for details')
+    for (const record of result.relatedRecords) {
+      const aliasText = record.aliases?.length ? `; aka: ${record.aliases.map((item) => '\`' + item + '\`').join(', ')}` : ''
+      lines.push(`- \`${record.recordPath}\` — ${record.title} (${record.status}${aliasText})`)
+    }
   }
   lines.push('', '## Graph rows')
   if (!result.graphRows.length) lines.push('- -')

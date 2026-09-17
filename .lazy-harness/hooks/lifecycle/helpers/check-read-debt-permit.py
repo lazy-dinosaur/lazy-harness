@@ -78,7 +78,9 @@ ACTION_NAME_RE = re.compile(
 )
 
 LAZY_MAP_COMMAND_RE = re.compile(
-    r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+map(?:\s|$)",
+    r"(?:^|\s)(?:\.lazy-harness/bin/lazy|(?:^|\s)lazy)\s+map(?:\s|$)"
+    r"|(?:^|\s)(?:\.lazy-harness/)?scripts/record-map\.ts(?:\s|$)"
+    r"|(?:^|\s)record-map\.ts(?:\s|$)",
     re.IGNORECASE,
 )
 LAZY_FIND_COMMAND_RE = re.compile(
@@ -441,7 +443,8 @@ def main() -> int:
         print("")
         print("Do this first:")
         print("  - preferred: launch `lazy-harness.record-reader`, consume its result packet, then close `lazy_reader_join`")
-        print("  - fallback: run `.lazy-harness/bin/lazy map --overview --complete --format=md`")
+        print("  - fallback, new scope: run `.lazy-harness/bin/lazy map --overview --complete --format=md`")
+        print("  - fallback, re-grounding a work unit already grounded this session (cheaper): drill the exact governing record path or feature id, e.g. `.lazy-harness/bin/lazy map .lazy-harness/<layer>/<record>.md --format=md`")
         print("  - drill one concrete node from that map and read canonical records/files before rerunning the action")
         print("")
         print("Allowed now: lazy map traversal, root-bound inventory/list/read, and concrete record/source/test reads. Action/mutation tools stay blocked until evidence exists.")
