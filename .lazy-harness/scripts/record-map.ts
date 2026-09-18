@@ -794,9 +794,15 @@ function renderMarkdown(result: RecordMapResult): string {
   }
   lines.push('', '## Records')
   if (!result.records.length) lines.push('- -')
-  for (const record of result.records) {
+  const detailedRecordCount = result.relatedRecords?.length ? 1 : 2
+  result.records.forEach((record, recordIndex) => {
+    if (recordIndex >= detailedRecordCount) {
+      const aliasText = record.aliases.length ? `; aka: ${record.aliases.slice(0, 2).map((item) => '\`' + item + '\`').join(', ')}` : ''
+      lines.push(`- \`${record.recordPath}\` — ${record.title} (${record.layer}/${record.status}${aliasText})`)
+      return
+    }
     lines.push(`- \`${record.recordPath}\` — ${record.title} (${record.layer}/${record.status}, matches=${record.matchCount})`)
-    if (record.aliases.length) lines.push(`  - aliases: ${record.aliases.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
+    if (record.aliases.length) lines.push(`  - aliases: ${record.aliases.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}`)
     if (record.digest && (record.digest.appliesWhen.length || record.digest.must.length || record.digest.mustNot.length)) {
       const digestParts: string[] = []
       if (record.digest.appliesWhen.length) digestParts.push(`applies: ${record.digest.appliesWhen.join('; ')}`)
@@ -804,12 +810,12 @@ function renderMarkdown(result: RecordMapResult): string {
       if (record.digest.mustNot.length) digestParts.push(`mustNot: ${record.digest.mustNot.join('; ')}`)
       lines.push(`  - digest: ${digestParts.join(' | ')}`)
     }
-    if (record.components.length) lines.push(`  - components: ${record.components.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
-    if (record.sourceFiles.length) lines.push(`  - source: ${record.sourceFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
-    if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
-    if (record.graphIds.length) lines.push(`  - graph: ${record.graphIds.slice(0, 8).map((item) => `\`${item}\``).join(', ')}`)
-    if (record.referencedBy.length) lines.push(`  - referenced by: ${record.referencedBy.slice(0, 8).map((item) => `\`${item}\``).join(', ')}${record.referencedBy.length > 8 ? ` (+${record.referencedBy.length - 8} more)` : ''}`)
-  }
+    if (record.components.length) lines.push(`  - components: ${record.components.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}`)
+    if (record.sourceFiles.length) lines.push(`  - source: ${record.sourceFiles.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}`)
+    if (record.testFiles.length) lines.push(`  - tests: ${record.testFiles.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}`)
+    if (record.graphIds.length) lines.push(`  - graph: ${record.graphIds.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}`)
+    if (record.referencedBy.length) lines.push(`  - referenced by: ${record.referencedBy.slice(0, 8).map((item) => '\`' + item + '\`').join(', ')}${record.referencedBy.length > 8 ? ` (+${record.referencedBy.length - 8} more)` : ''}`)
+  })
   if (result.relatedRecords?.length) {
     lines.push('', '## Related records (compact)')
     lines.push('- fuzzy neighbors for mis-selection checks; drill the exact path for details')

@@ -31,7 +31,7 @@
 | **Dogfooding host** | `~/dev/medivance` — `.lazy-harness/` installed copy, git-clean after sync |
 | **Legacy scaffold** | (removed 2026-05-17 — `medivance.experimental-lazy-harness` worktree + branch 모두 삭제) |
 | **Origin push** | ✅ public repo: `https://github.com/lazy-dinosaur/lazy-harness` (`origin/main`) |
-| **ADRs** | **59** (0001~0059; ADR 0055 owns agent-neutral orchestration, ADR 0059 makes Pi stable primary, keeps OMP Experimental, and decommissions active Jcode integration while retaining history) |
+| **ADRs** | **60** (0001~0060, ADR 0060 codifies batched checkpoint orchestration for delegated deployments; ADR 0055 owns agent-neutral orchestration, ADR 0059 makes Pi stable primary, keeps OMP Experimental, and decommissions active Jcode integration while retaining history) |
 | **Decisions logged** | 28+ entries |
 | **Framework self-test** | ✅ `~/dev/lazy-harness`: `lazy-harness self-test ok (scope=framework, ran=23, skipped=0)` |
 | **Medivance sync validation** | ✅ `~/dev/medivance`: synced to source `caa2a2b` on 2026-05-20, `lazy-harness self-test ok (scope=host, ran=30, skipped=11)` |
