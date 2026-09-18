@@ -50,6 +50,9 @@ Self-test must prove:
 - message.received prompt teaches map-first retrieval, forbids raw user text / invented `--query` for `lazy map`, and forbids keyword grep/rg/find fallback.
 - search/read debt helpers no longer treat `lazy find`, grep, rg, find, agentgrep, or generic query tools as search evidence.
 - required-read debt still requires concrete read evidence; map overview is search evidence only.
+- exact record-path drill returns one focused record (`counts.records == 1`, `features == 0`) with a `Focused` note; compact fuzzy `relatedRecords` never contain the focused record itself, stay one-liners (`recordPath/title/status/aliases` only, aliases ≤ 2), and every neighbor exists in the real record index (no fabrication). The no-self and compactness guards live inside the `for entry in related:` loop of `check_purpose_scoped_retrieval_cli` — they must remain loop children, never re-indented under the Rule-digest block (2026-09-17 incident: PR8 dead-coded them via indent shift and was only caught by deployment audit; restored by PR9).
+- focused drill exposes the record `Rule digest` (appliesWhen ≤ 2, must ≤ 3, mustNot ≤ 1) sourced verbatim from the record body's `## Rule digest` section (digest-first loading).
+- keyword drill keeps multi-record fuzzy results; in markdown only the top two records render full detail and tail records render compact one-liners.
 
 ## Layer completeness gate
 

@@ -4808,6 +4808,25 @@ def check_purpose_scoped_retrieval_cli() -> None:
     fuzzy_json = json.loads(fuzzy_map.stdout)
     if len(fuzzy_json.get("records", [])) < 2:
         fail("keyword drill must keep multi-record fuzzy results")
+    fuzzy_md = subprocess.run(
+        [str(LAZY / "bin" / "lazy"), "map", "purpose-scoped-retrieval", "--format=md", "--limit=8"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if fuzzy_md.returncode != 0:
+        fail("keyword drill md must keep working:\n" + fuzzy_md.stdout + fuzzy_md.stderr)
+    md_lines = fuzzy_md.stdout.splitlines()
+    records_start = md_lines.index("## Records")
+    records_end = next(i for i, ln in enumerate(md_lines[records_start + 1:], records_start + 1) if ln.startswith("## "))
+    records_block = md_lines[records_start:records_end]
+    if len([ln for ln in records_block if ln.startswith("  - source:")]) > 2:
+        fail("keyword drill md must render only the top two records in full detail; tail records stay compact one-liners")
+    if not [ln for ln in md_lines if ln.startswith("- `") and "; aka:" in ln]:
+        fail("keyword drill md compact tail records must carry status+alias selection signals")
+    if not all(record.get("sourceFiles") is not None for record in fuzzy_json["records"]):
+        fail("keyword drill JSON must stay complete; only markdown rendering is tiered")
 
     overview = subprocess.run(
         [str(LAZY / "bin" / "lazy"), "map", "--overview", "--format=md", "--limit=8"],
