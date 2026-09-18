@@ -62,7 +62,7 @@ Removed entrypoint:
 1. Run `lazy map --overview` to inspect layer counts, feature anchors, graph relation inventory, generated indexes, and drill-down candidates.
 2. LLM chooses concrete nodes from the returned map: feature id, canonical record path, graph id, source path, or test path.
 3. Run `lazy map <node>` for nearby records/source/tests/graph ids.
-4. Read record bodies, Rule digest, Implementation map, graph links, source files, and tests.
+4. Exact record-path drills return the record's Rule digest inline; treat it as the first-line judgment basis and open the record body only when the digest is insufficient for the decision at hand. Keyword drills expose digests for the top two matches.
 5. If the map is empty or ambiguous, ask a 3-5 option gate or state the missing prerequisite; do not run keyword grep/rg/find fallback.
 
 ## Complete discovery mode

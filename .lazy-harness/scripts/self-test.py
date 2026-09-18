@@ -4821,7 +4821,17 @@ def check_purpose_scoped_retrieval_cli() -> None:
     records_start = md_lines.index("## Records")
     records_end = next(i for i, ln in enumerate(md_lines[records_start + 1:], records_start + 1) if ln.startswith("## "))
     records_block = md_lines[records_start:records_end]
-    if len([ln for ln in records_block if ln.startswith("  - source:")]) > 2:
+    # full-detail records emit detail sublines ("  - ...") after their header; compact one-liners emit none
+    full_detail_headers = 0
+    for idx, ln in enumerate(records_block):
+        if not ln.startswith("- `"):
+            continue
+        nxt = idx + 1
+        while nxt < len(records_block) and records_block[nxt].startswith("  - "):
+            nxt += 1
+        if nxt > idx + 1:
+            full_detail_headers += 1
+    if full_detail_headers > 2:
         fail("keyword drill md must render only the top two records in full detail; tail records stay compact one-liners")
     if not [ln for ln in md_lines if ln.startswith("- `") and "; aka:" in ln]:
         fail("keyword drill md compact tail records must carry status+alias selection signals")

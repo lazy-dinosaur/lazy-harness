@@ -767,6 +767,12 @@
           "targetPath": "framework/operational-adrs/0059-pi-primary-jcode-decommission.md"
         },
         {
+          "path": "decisions/0060-checkpoint-batching-orchestration.md",
+          "kind": "file",
+          "description": "Active operational ADR: batched checkpoint orchestration for delegated deployments — no in-child waiting, parallel quiet-window pre-securing, workload-based timeouts.",
+          "targetPath": "framework/operational-adrs/0060-checkpoint-batching-orchestration.md"
+        },
+        {
           "path": "decisions/0028-progressive-knowledge-graph-backbone.md",
           "kind": "file",
           "description": "Operational framework ADR referenced by synced spec/ssot (progressive-knowledge-graph, knowledge-graph-storage): progressive knowledge graph backbone. Synced under framework/operational-adrs so host decisions/ remains host-owned.",

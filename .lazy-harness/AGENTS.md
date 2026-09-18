@@ -55,7 +55,7 @@ Pi/OMP `memory` 도 프로젝트/team 규칙의 canonical store 가 아니다. �
 
 ### 2.2 발견된 governing evidence 를 필요한 만큼 Read
 
-record 가 host 의 의도이고 코드는 현실이다. 먼저 Rule digest 와 Implementation map 을 읽고, 현재 결정에 필요한 본문 구간·exact source/test symbol 만 추가로 읽는다. 관련 없거나 이미 fingerprint 가 동일한 record 를 다시 읽지 않는다. record↔code 충돌만 사용자에게 확인한다. Aliases/Surface terms 는 탐색 cue 이며 generated index 는 canonical proof 가 아니다.
+record 가 host 의 의도이고 코드는 현실이다. `lazy map` drill 결과에 Rule digest 가 함께 나오므로 그것을 먼저 판단 근거로 삼고, digest 로 부족할 때만 본문 구간·exact source/test symbol 을 추가로 읽는다. 관련 없거나 이미 fingerprint 가 동일한 record 를 다시 읽지 않는다. record↔code 충돌만 사용자에게 확인한다. Aliases/Surface terms 는 탐색 cue 이며 generated index 는 canonical proof 가 아니다.
 
 ### 2.3 결정 분기 시 옵션 질문 (자유 문답 금지)
 
