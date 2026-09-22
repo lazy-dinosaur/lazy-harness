@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { candidateTestPaths, matchingTests } from './test-match';
 
@@ -151,7 +151,7 @@ function detectStrategy(strategyPath?: string): AffectedTestResult['framework'] 
   const candidates = [strategyPath, '.lazy-harness/tests/test-strategy.xml'].filter(Boolean) as string[];
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
-    assertOwnedPath(candidate, realpathSync(process.cwd()));
+    assertOwnedStrategy(candidate, realpathSync(process.cwd()));
     const text = readFileSync(candidate, 'utf8');
     const routing = text.match(/<affectedTestRouting\b[^>]*>/)?.[0]
       ?? text.match(/<affectedTests\b[^>]*command="[^"]+"[^>]*>/)?.[0]
@@ -370,6 +370,42 @@ function runConfiguredTests(framework: AffectedTestResult['framework'], tests: s
     stdout: completed.stdout ?? '',
     stderr: completed.stderr ?? '',
   };
+}
+
+// Shared records are not shared execution roots. Only the default strategy may
+// cross the caller boundary through an explicit, same-repository harness link.
+function assertOwnedStrategy(file: string, repositoryRoot: string): void {
+  try {
+    assertOwnedPath(file, repositoryRoot);
+    return;
+  } catch (ownershipError) {
+    const harness = path.join(repositoryRoot, '.lazy-harness');
+    const defaultStrategy = path.join(harness, 'tests', 'test-strategy.xml');
+    if (path.resolve(file) !== defaultStrategy || !lstatSync(harness).isSymbolicLink()) throw ownershipError;
+
+    const sharedHarness = realpathSync(harness);
+    const sharedRoot = path.dirname(sharedHarness);
+    if (path.basename(sharedHarness) !== '.lazy-harness') throw ownershipError;
+    // No second symlink may route the trusted default strategy out of its harness.
+    assertOwnedPath(file, sharedHarness);
+
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+    const git = (cwd: string, args: string[]): string => {
+      const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+      if (result.status !== 0) throw ownershipError;
+      return result.stdout;
+    };
+    const commonDirectory = (root: string): string => {
+      const top = git(root, ['rev-parse', '--show-toplevel']).trim();
+      if (realpathSync(top) !== root) throw ownershipError;
+      return realpathSync(path.resolve(root, git(root, ['rev-parse', '--git-common-dir']).trim()));
+    };
+    if (commonDirectory(repositoryRoot) !== commonDirectory(sharedRoot)) throw ownershipError;
+    const registered = git(repositoryRoot, ['worktree', 'list', '--porcelain', '-z'])
+      .split('\0').filter((entry) => entry.startsWith('worktree '))
+      .map((entry) => realpathSync(entry.slice('worktree '.length)));
+    if (!registered.includes(repositoryRoot) || !registered.includes(sharedRoot)) throw ownershipError;
+  }
 }
 
 function assertOwnedPath(file: string, repositoryRoot: string): void {

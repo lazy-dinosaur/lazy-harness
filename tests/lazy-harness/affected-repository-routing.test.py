@@ -192,6 +192,85 @@ test("owning repository and real failure propagation", () => {
         for owner in self.owners:
             self.assertFalse((owner / 'executed.jsonl').exists())
 
+    def shared_worktree(self):
+        owner = self.owners[0]
+        clean_env = {k: v for k, v in self.env.items() if not k.startswith('GIT_')}
+        subprocess.run(['git', 'add', '.'], cwd=owner, env=clean_env, check=True)
+        subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                        '-c', 'commit.gpgsign=false', 'commit', '-qm', 'fixture'],
+                       cwd=owner, env=clean_env, check=True)
+        worktree = self.base / 'linked worktree with spaces'
+        subprocess.run(['git', 'worktree', 'add', '--detach', str(worktree), 'HEAD'],
+                       cwd=owner, env=clean_env, check=True, capture_output=True)
+        shutil.rmtree(worktree / '.lazy-harness')
+        (worktree / '.lazy-harness').symlink_to(owner / '.lazy-harness', target_is_directory=True)
+        return worktree
+
+    def direct_runner(self, root, file=None, strategy=None):
+        command = ['bun', str(SOURCE / '.lazy-harness/scripts/affected-test-runner.ts'),
+                   '--file', file or self.relative]
+        if strategy is not None:
+            command += ['--strategy', str(strategy)]
+        return subprocess.run(command, cwd=root, env=self.env, text=True, capture_output=True)
+
+    def test_shared_strategy_uses_caller_cwd_and_propagates_failure(self):
+        worktree = self.shared_worktree()
+        result = self.direct_runner(worktree)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        body = json.loads(result.stdout)
+        self.assertEqual(body['framework']['runner'], 'test-strategy')
+        self.assertEqual(body['run']['repositoryRoot'], str(worktree))
+        self.assertEqual(json.loads((worktree / 'executed.jsonl').read_text()),
+                         {'cwd': str(worktree), 'root': str(worktree), 'script': 'verify-0'})
+        self.assertFalse((self.owners[0] / 'executed.jsonl').exists())
+        (worktree / 'fail-test').touch()
+        failure = self.hook([{'name': 'Edit', 'edit_target': str(worktree / self.relative)}])
+        self.assertIn('5d-3 Affected Test Gate', failure)
+        self.assertIn('"exitCode": 1', failure)
+        self.assertIn(str(worktree), failure)
+
+    def test_shared_harness_from_unrelated_repository_is_rejected(self):
+        worktree = self.shared_worktree()
+        (worktree / '.lazy-harness').unlink()
+        (worktree / '.lazy-harness').symlink_to(self.owners[1] / '.lazy-harness', target_is_directory=True)
+        result = self.direct_runner(worktree)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Affected path escapes repository', result.stderr)
+        self.assertFalse((worktree / 'executed.jsonl').exists())
+
+    def test_same_repository_arbitrary_strategy_is_not_approved(self):
+        worktree = self.shared_worktree()
+        result = self.direct_runner(worktree, strategy=self.owners[0] / '.lazy-harness/tests/test-strategy.xml')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((worktree / 'executed.jsonl').exists())
+
+    def test_shared_strategy_nested_escape_is_rejected_without_fallback(self):
+        worktree = self.shared_worktree()
+        strategy = self.owners[0] / '.lazy-harness/tests/test-strategy.xml'
+        strategy.unlink()
+        strategy.symlink_to(self.owners[1] / '.lazy-harness/tests/test-strategy.xml')
+        (worktree / 'package.json').write_text(json.dumps({'scripts': {'test': 'bun test'}}))
+        result = self.direct_runner(worktree)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Affected path escapes repository', result.stderr)
+        self.assertFalse((worktree / 'executed.jsonl').exists())
+
+    def test_shared_strategy_does_not_allow_source_or_test_escape(self):
+        worktree = self.shared_worktree()
+        for relative in [self.relative, self.relative.replace('.ts', '.test.ts')]:
+            with self.subTest(relative=relative):
+                local = worktree / relative
+                original = local.read_bytes()
+                local.unlink()
+                local.symlink_to(self.owners[1] / relative)
+                result = self.direct_runner(worktree)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Affected path escapes repository', result.stderr)
+                self.assertFalse((worktree / 'executed.jsonl').exists())
+                local.unlink()
+                local.write_bytes(original)
+
+
 
 if __name__ == '__main__':
     unittest.main()

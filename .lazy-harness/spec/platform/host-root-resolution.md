@@ -55,6 +55,9 @@ user runs pre-push / lazy test in PR worktree
 6. Lifecycle hooks must prefer `LAZY_HOST_ROOT` before `git rev-parse --show-toplevel`, because some hook/test contexts can make git refuse worktree discovery.
 7. If no caller git root with `.lazy-harness` exists, fallback to the script-location parent keeps direct framework execution working.
 8. Subcommands and hooks must still execute from the resolved host root so relative paths are host-local.
+9. Affected-test strategy loading may cross the caller boundary only for the default `.lazy-harness/tests/test-strategy.xml` reached through an explicit `.lazy-harness` directory symlink. The resolved directory must be `.lazy-harness` directly under another registered worktree of the same Git common directory; verify both roots with inherited `GIT_*` selectors removed. This explicit link is the approved shared-strategy opt-in, not permission for arbitrary same-repository external paths.
+10. The resolved strategy must remain inside that shared harness; nested escaping symlinks and arbitrary external `--strategy` paths are rejected. Source, matching tests and package configuration retain strict caller-worktree containment. Invalid external strategy configuration fails closed; missing strategy retains existing package-script fallback.
+11. Shared strategy discovery never changes execution cwd, result repository identity or test-failure propagation: affected tests still run in the original caller worktree.
 
 ## Non-goals
 
@@ -80,6 +83,9 @@ Self-test must cover a temporary git worktree whose `.lazy-harness` is a symlink
 
 - Status: `verified`
 - Primary files:
+  - `.lazy-harness/scripts/affected-test-runner.ts` — `assertOwnedStrategy` applies the default-only shared-harness exception; `assertOwnedPath` retains source/test ownership; `runConfiguredTests` retains caller cwd and failure status.
+  - `tests/lazy-harness/affected-repository-routing.test.py` — local/shared strategy, external and nested escape, space-containing worktree, poisoned Git env and actual failed-test gate coverage.
+  - `.lazy-harness/tests/tdd-cross-verify-forcegate-loop.md` — affected gate regression contract including the shared-strategy exception.
   - `.lazy-harness/spec/platform/host-root-resolution.md` — this SDD contract.
   - `.lazy-harness/bin/lazy` — prefers explicit `LAZY_HOST_ROOT`, otherwise resolves caller git root and exports `LAZY_HOST_ROOT`.
   - `.lazy-harness/hooks/pre-commit-guard.sh` — sets `LAZY_HOST_ROOT=$REPO_ROOT` and clears inherited git hook env for commit validation.
