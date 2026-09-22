@@ -134,6 +134,25 @@ R2 evidence and updated patch/manifests live in `/tmp/lh-gate-capture-main-deplo
 | SSOT | Existing sandbox flag/root and host queue ownership retained; no live binding/configuration change |
 | DDD | No independent domain vocabulary or business rule delta |
 
+## Shared harness strategy exception
+
+User-approved exception to the earlier strategy-containment statement: allow only the default strategy reached via an explicit same-repository `.lazy-harness` symlink as defined by `.lazy-harness/spec/platform/host-root-resolution.md`. `detectStrategy` previously applied source-path containment to shared durable strategy configuration and threw before package fallback or test execution. `assertOwnedStrategy` now checks common Git directory, both registered worktrees, exact harness placement and strategy containment without weakening `assertOwnedPath` for source/tests. Invalid configuration remains fail-closed; no catch-and-fallback bypass.
+
+Required protection in `tests/lazy-harness/affected-repository-routing.test.py`:
+- Existing local strategy and missing-strategy package fallback remain valid.
+- Shared strategy runs real Bun tests in a space-containing caller worktree despite poisoned inherited Git selectors.
+- Unrelated repository harness, arbitrary same-repository external strategy, nested strategy escape, external source and matched test symlinks are rejected before execution.
+- A real failure under the shared strategy reaches the lifecycle affected gate with the caller identity and failed exit status.
+
+| Layer | Judgement |
+|---|---|
+| SDD | Independent strategy-loading exception; update `spec/platform/host-root-resolution.md` |
+| BDD | No independent delta; existing gate success/failure flow retained |
+| SSOT | No independent delta; no config schema or source ownership change |
+| DDD | No independent domain delta |
+
+Implementation map: `affected-test-runner.ts#assertOwnedStrategy`, `#detectStrategy`, `#assertOwnedPath`, `#runConfiguredTests` and the Python routing fixture own this narrow behavior. Execution and deployment receipts belong to the existing Planning capsule, not repeated layer narratives.
+
 ## Implementation map
 
 - Affected scripts:
