@@ -84,3 +84,38 @@ def test_legacy_review_queue_entry_releases_clear_facts(dsn, host):
     assert pg.review_resolve(dsn, host, entry["entry_id"], 1, "reject", "이건 빼")["entry_state"] == "eligible"
     assert digest_driver.run_digestion(dsn, body["work_unit_id"], judge_record)["status"] == "absorbed"
     assert texts(dsn, host) == ["eps"]
+
+
+def test_digest_mismatch_parks_only_that_fact(dsn, host):
+    body = two_facts(host, "eta", "theta")
+    entry = pg.register(dsn, body)
+    assert pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="eta"), fixture(text="theta")]})[0]["state"] == "provisional"
+    unit = body["work_unit_id"]
+    pg.complete(dsn, unit)
+    def flaky(packet):
+        text = packet["state"]["candidate_fact"]
+        return {"answers": (unsure(text) if text == "theta" else fixture(text=text))["answers"]}
+    outcome = digest_driver.run_digestion(dsn, unit, flaky)
+    assert outcome["status"] == "processed" and outcome["deferred"] == 1
+    assert texts(dsn, host) == ["eta"]
+    items = knowledge_cli.review_cmd(dsn, {"host_id": host})["items"]
+    assert [(i["fact"], i["why_waiting"][0]) for i in items] == [("theta", "작업 중 검사와 소화 재검사 판정이 다름")]
+    assert digest_driver.run_digestion(dsn, unit, flaky) == {"status": "noop"}
+    done = pg.review_resolve(dsn, host, entry["entry_id"], 1, "approve", "넣어")
+    assert done["entry_state"] == "eligible"
+    assert digest_driver.run_digestion(dsn, unit, flaky)["status"] == "absorbed"
+    assert texts(dsn, host) == ["eta", "theta"]
+    assert knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] == []
+
+
+def test_digest_mismatch_only_fact_parks_entry_and_reject_closes_nothing_new(dsn, host):
+    body = judgement(host, text="iota")
+    entry = pg.register(dsn, body)
+    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="iota")]})
+    pg.complete(dsn, body["work_unit_id"])
+    unsure_judge = lambda packet: {"answers": unsure(packet["state"]["candidate_fact"])["answers"]}
+    assert digest_driver.run_digestion(dsn, body["work_unit_id"], unsure_judge)["status"] == "deferred_to_review"
+    state = next(r["state"] for r in pg.rows(dsn, "ledger_entry") if str(r["entry_id"]) == entry["entry_id"])
+    assert state == "review_queue"
+    assert pg.review_resolve(dsn, host, entry["entry_id"], 0, "reject", "빼")["entry_state"] == "closed"
+    assert texts(dsn, host) == []

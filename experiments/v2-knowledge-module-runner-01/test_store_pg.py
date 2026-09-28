@@ -76,12 +76,12 @@ def process(dsn, judgement_body, response):
     return entry, result, str(receipts[0]["receipt_id"])
 
 
-def test_policy_scope_and_seed(dsn, host):
+def test_policy_is_fixed_harness_default(dsn, host):
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         assert pg.policies(cur, host) == policy.DEFAULT_POLICY
         cur.execute("""insert into knowledge.acceptance_policy(host_id,version,ordinal,rule_id,when_json,then_action)
                        values (%s,2,1,'LOCAL','{}'::jsonb,'hold'),(%s,1,1,'OLD','{}'::jsonb,'reject')""", (host, host))
-        assert pg.policies(cur, host) == [{"id": "LOCAL", "when": {}, "then": "hold"}]
+        assert pg.policies(cur, host) == policy.DEFAULT_POLICY  # per-host rows never override
 
 
 def test_register_batch_complete_add_update_cas_and_queue(dsn, host):

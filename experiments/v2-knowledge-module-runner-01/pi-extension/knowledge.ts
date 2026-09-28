@@ -30,7 +30,26 @@ export default function (pi: ExtensionAPI) {
       }
     }
   };
-  pi.on("session_start", async (_event, ctx) => restore(ctx));
+  // Guide, not enforcement (digestion module owns it): tell the worker when human review is pending.
+  // Blocking/gating the agent belongs to the behavior (rule) module.
+  let announced = -1;
+  const announceReview = (ctx: ExtensionContext) => {
+    void invoke("review", { action: "list" }, ctx.cwd).then((result) => {
+      const items = Array.isArray(result.items) ? result.items as { fact?: string; why_waiting?: string[] }[] : null;
+      if (!items) return;
+      const count = items.length;
+      if (count > 0 && count > announced) {
+        pi.sendMessage({
+          customType: "knowledge-review", display: true, details: { pending: count },
+          content: `[knowledge-review] 사용자 확인을 기다리는 지식 ${count}개. knowledge_review 로 사용자에게 물어볼 수 있어(결정은 사용자가 한다).\n` +
+            items.map((i) => `- ${i.fact ?? ""} (${(i.why_waiting ?? []).join(", ")})`).join("\n"),
+        }, { deliverAs: "nextTurn" });
+      }
+      announced = count;
+    });
+  };
+  pi.on("session_start", async (_event, ctx) => { restore(ctx); announceReview(ctx); });
+  pi.on("agent_end", async (_event, ctx) => announceReview(ctx));
   pi.on("session_tree", async (_event, ctx) => restore(ctx));
 
   type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit" | "review";

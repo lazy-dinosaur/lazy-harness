@@ -218,7 +218,8 @@ def domain_cmd(dsn, data):
 
 
 REASON_TEXT = {"durability": "오래 쓸 지식인지 애매", "is_supported": "근거가 충분한지 애매",
-               "is_new": "이미 있는 지식과 겹치는지 애매", "should_record": "기록할 가치가 있는지 애매"}
+               "is_new": "이미 있는 지식과 겹치는지 애매", "should_record": "기록할 가치가 있는지 애매",
+               "digest_mismatch": "작업 중 검사와 소화 재검사 판정이 다름", "impact": "앞으로의 판단에 영향이 있는지 애매"}
 
 
 def review_cmd(dsn, data):

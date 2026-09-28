@@ -150,13 +150,9 @@ def rows(dsn, table):
 
 
 def policies(cur, host_id):
-    cur.execute("select count(*) from knowledge.acceptance_policy where host_id=%s", (host_id,))
-    scope = host_id if cur.fetchone()[0] else None
-    cur.execute("""select rule_id, when_json, then_action from knowledge.acceptance_policy
-                   where host_id is not distinct from %s and version=(select max(version) from knowledge.acceptance_policy
-                   where host_id is not distinct from %s) order by ordinal""", (scope, scope))
-    return [{"id": r["rule_id"], "when": {k: tuple(v) if isinstance(v, list) and k != "review_reasons" else v
-            for k, v in r["when_json"].items()}, "then": r["then_action"]} for r in _rows(cur)]
+    """Acceptance rules are fixed harness behavior (user-confirmed 2026-09-28): no per-host override.
+    knowledge.acceptance_policy rows (seeded copy, any host rows) are ignored; the code defaults win."""
+    return policy.DEFAULT_POLICY
 
 
 def _transition(cur, entry, state, actor, receipt_ref=None):
@@ -169,13 +165,20 @@ def _transition(cur, entry, state, actor, receipt_ref=None):
 
 RECORDISH = ("record", "update_record", "deprecate_record")
 REVIEW_RULE = "worktime_review"
+DIGEST_RULE = "digestion_review"
 REVIEWABLE = ("review_queue", "provisional", "eligible", "absorbed", "retained_as_evidence")
 
 
 def _review_answers(cur, entry_id):
     cur.execute("""select fact_index,answer from knowledge.confirmation_queue
-                   where entry_id=%s and rule_id=%s and status='answered'""", (entry_id, REVIEW_RULE))
+                   where entry_id=%s and rule_id=any(%s) and status='answered'""", (entry_id, [REVIEW_RULE, DIGEST_RULE]))
     return {index: json.loads(answer).get("decision") for index, answer in cur.fetchall()}
+
+
+def _pending_digest(cur, entry_id):
+    cur.execute("""select fact_index from knowledge.confirmation_queue
+                   where entry_id=%s and rule_id=%s and status='pending'""", (entry_id, DIGEST_RULE))
+    return {row[0] for row in cur.fetchall()}
 
 
 def _absorbed_facts(cur, entry_id):
@@ -194,10 +197,20 @@ def review_list(dsn, host):
                     and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=r.entry_id
                       and q.fact_index=r.fact_index and q.rule_id=%s and q.status='answered')
                     order by e.created_at,r.fact_index""", (host, list(REVIEWABLE), REVIEW_RULE))
+        rows = _rows(cur)
+        # Digestion recheck disagreed with the worktime check: parked per fact, never per unit.
+        cur.execute("""select e.entry_id::text,e.work_unit_id::text,e.state::text,e.judgement_body,q.fact_index,q.reason
+                    from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                    join knowledge.work_unit w on w.work_unit_id=e.work_unit_id
+                    where e.host_id=%s and q.rule_id=%s and q.status='pending' and w.status<>'abandoned'
+                    order by q.created_at,q.fact_index""", (host, DIGEST_RULE))
+        for row in _rows(cur):
+            reason = json.loads(row.pop("reason"))
+            rows.append({**row, "review_reasons": ["digest_mismatch: route_review"] + list(reason.get("reasons") or [])})
         return [{"entry_id": row["entry_id"], "fact_index": row["fact_index"], "work_unit_id": row["work_unit_id"],
                  "entry_state": row["state"], "review_reasons": row["review_reasons"],
                  **{k: row["judgement_body"]["facts"][row["fact_index"]].get(k) for k in ("kind", "subject", "fact", "evidence_source")}}
-                for row in _rows(cur)]
+                for row in rows]
 
 
 def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=None):
@@ -214,26 +227,31 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         if entry["state"] not in REVIEWABLE or entry["unit_status"] == "abandoned":
             raise ValueError(f"entry is not reviewable in state {entry['state']}")
         receipts = {r["fact_index"]: r for r in _receipts(cur, entry_id, "worktime")}
-        if fact_index not in receipts or receipts[fact_index]["combined"] != "needs_review":
+        answers, parked, done = _review_answers(cur, entry_id), _pending_digest(cur, entry_id), _absorbed_facts(cur, entry_id)
+        waiting = lambda i: receipts[i]["combined"] == "needs_review" or i in parked
+        if fact_index not in receipts or not waiting(fact_index) or fact_index in done:
             raise ValueError("fact is not waiting for review")
-        answers = _review_answers(cur, entry_id)
         if fact_index in answers:
             raise ValueError("fact already resolved")
-        cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
-                    values (%s,%s,%s,%s,'answered',%s,now())""",
-                    (entry_id, fact_index, REVIEW_RULE, _json(receipts[fact_index]["review_reasons"]),
-                     _json({"decision": decision, "quote": quote, "locator": locator})))
+        answer = _json({"decision": decision, "quote": quote, "locator": locator})
+        if fact_index in parked:
+            cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
+                        where entry_id=%s and fact_index=%s and rule_id=%s and status='pending'""",
+                        (answer, entry_id, fact_index, DIGEST_RULE))
+        else:
+            cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
+                        values (%s,%s,%s,%s,'answered',%s,now())""",
+                        (entry_id, fact_index, REVIEW_RULE, _json(receipts[fact_index]["review_reasons"]), answer))
         answers[fact_index] = decision
         ready = "eligible" if entry["unit_status"] == "completed" else "provisional"
-        pending = [i for i, r in receipts.items() if r["combined"] == "needs_review" and i not in answers]
+        pending = [i for i in receipts if waiting(i) and i not in answers]
+        digestible = [i for i in receipts if i not in done and answers.get(i) != "reject"
+                      and (answers.get(i) == "approve" or not waiting(i))]
         target = None
-        if decision == "approve" and entry["state"] in ("review_queue", "absorbed", "retained_as_evidence"):
+        if digestible and entry["state"] in ("review_queue", "absorbed", "retained_as_evidence"):
             target = ready
-        elif entry["state"] == "review_queue":
-            if any(r["combined"] in RECORDISH or answers.get(i) == "approve" for i, r in receipts.items()):
-                target = ready
-            elif not pending:
-                target = "closed"
+        elif entry["state"] == "review_queue" and not pending:
+            target = "closed"
         if target:
             _transition(cur, entry, target, "human")
         return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision,
@@ -562,11 +580,13 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             candidates = []
             for entry in _rows(cur):
                 answers, done = _review_answers(cur, entry["entry_id"]), _absorbed_facts(cur, entry["entry_id"])
+                parked = _pending_digest(cur, entry["entry_id"])
                 for receipt in _receipts(cur, entry["entry_id"], "worktime"):
                     index = receipt["fact_index"]
-                    if index in done or (receipt["combined"] == "needs_review" and answers.get(index) != "approve"):
-                        continue  # already digested, or still waiting for / rejected in human review
-                    receipt["human_approved"] = receipt["combined"] == "needs_review"
+                    waiting = receipt["combined"] == "needs_review" or index in parked
+                    if index in done or answers.get(index) == "reject" or (waiting and answers.get(index) != "approve"):
+                        continue  # already digested, rejected, or still waiting for a human decision
+                    receipt["human_approved"] = answers.get(index) == "approve"
                     candidates.append((entry, receipt, entry["judgement_body"]["facts"][index]))
             targets = {}
             for entry, receipt, fact in candidates:
@@ -592,7 +612,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                 return {"status": "noop"}
             if not fixtures:
                 return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates], "consistency_flags": flags}
-            prepared = []
+            prepared, deferred = [], []
             for entry, old, fact in candidates:
                 fixture = fixtures.get(old["receipt_id"])
                 if not fixture or not runner.lint(fixture["packet"])["ok"]:
@@ -612,7 +632,9 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     raise Recheck(old["receipt_id"])
                 decision = runner.decide(fixture["packet"], fixture["answers"], operation=fact.get("operation", "add"))
                 if decision["combined"] != old["combined"] and not old["human_approved"]:
-                    return {"status": "needs_review", "receipt_ids": [old["receipt_id"]], "consistency_flags": flags}
+                    # Park only this fact for a human; the rest of the unit keeps digesting.
+                    deferred.append((entry, old, decision))
+                    continue
                 source = fact.get("evidence_source")
                 if source == "user_confirmed" and fixture.get("utterance_status"):
                     source = policy.apply_utterance_status(source, fixture["utterance_status"])
@@ -623,7 +645,16 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     verdict = {"rule_id": REVIEW_RULE, "action": "absorb"}
                 prepared.append((entry, old, fact, fixture, current, verdict))
             if not apply:
-                return {"status": "proposal", "consistency_flags": flags, "count": len(prepared)}
+                return {"status": "proposal", "consistency_flags": flags, "count": len(prepared), "deferred": len(deferred)}
+            for entry, old, decision in deferred:
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
+                            values (%s,%s,%s,%s)""", (entry["entry_id"], old["fact_index"], DIGEST_RULE,
+                            _json({"worktime": old["combined"], "recheck": decision["combined"],
+                                   "reasons": decision["review_reasons"]})))
+            moving = {entry["entry_id"] for entry, *_ in prepared}
+            for entry in {e["entry_id"]: e for e, _, _ in deferred}.values():
+                if entry["entry_id"] not in moving and entry["state"] != "review_queue":
+                    _transition(cur, entry, "review_queue", "digester")
             actions = []
             embedding_pending = False
             for entry, old, fact, fixture, current, verdict in prepared:
@@ -685,7 +716,9 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                 _transition(cur, entry, {"absorb": "absorbed", "retain_as_evidence": "retained_as_evidence",
                                           "reject": "closed"}.get(action, "review_queue"), "acceptance", receipt_id)
                 actions.append(action)
-            return {"status": "absorbed" if actions and all(a == "absorb" for a in actions) else "processed", "count": len(prepared), "embedding_pending": embedding_pending}
+            status = ("deferred_to_review" if not actions else
+                      "absorbed" if all(a == "absorb" for a in actions) and not deferred else "processed")
+            return {"status": status, "count": len(prepared), "deferred": len(deferred), "embedding_pending": embedding_pending}
     except Recheck as error:
         return {"status": "needs_recheck", "receipt_ids": [error.receipt], "consistency_flags": []}
 
