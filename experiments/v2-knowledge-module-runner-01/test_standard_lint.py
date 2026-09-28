@@ -70,3 +70,15 @@ def test_claim_quote_ignores_plain_acronyms_but_checks_code_identifiers():
     for ident in ("`isEdit: true`", "AddScheduleModal", "hospitalId", "SUPPLY_UNIT_PRESET_NAMES", "src/main/unit.ts", "v1.6.14"):
         bad = runner.lint(w.build_packet({**base, "fact": f"{ident} 규칙을 갱신한다"}, "x"))
         assert [e for e in bad["errors"] if e["code"] == "E_CLAIM_QUOTE"], ident
+
+
+def test_evidence_ref_type_must_match_db_check():
+    strict = lambda **change: {e["code"] for e in runner.lint_fact({**BASE, **change}, strict_refs=True)["errors"]}
+    assert "E_REF" in strict(evidence_refs=[{"type": "code", "locator": "a.py:1", "quote": "x"}])
+    detail = next(e["detail"] for e in runner.lint_fact({**BASE, "evidence_refs": [{"type": "assistant_utterance", "locator": "s", "quote": "q"}]},
+                                                        strict_refs=True)["errors"] if e["code"] == "E_REF")
+    assert "code_test" in detail and "user_utterance" in detail
+    assert "E_REF" in strict(evidence_refs=[{"type": "code_test", "locator": "", "quote": "x"}])
+    assert "E_REF" not in strict(evidence_refs=[{"type": "code_test", "locator": "a.py:1", "quote": "x"}])
+    assert "E_REF" not in codes(evidence_refs=["legacy string ref"])  # file store keeps string refs
+    assert "allowed:" in next(e["detail"] for e in runner.lint_fact({**BASE, "kind": "rule"})["errors"] if e["code"] == "E_KIND")

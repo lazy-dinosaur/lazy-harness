@@ -170,3 +170,7 @@ G7 빈틈 ①② 해소(schema-delta '사실 단위 검수'). 남은 것: G7 대
 ### 검수 대기 알림 — 소화 모듈 가이드 (사용자 확정 2026-09-28)
 
 검수 대기 알림 훅은 상태를 알려 주는 가이드라 소화 모듈(knowledge.ts)이 가진다. '검수 대기를 남긴 채 완료 금지' 같은 차단은 행동(규칙) 모듈이 만들 때 다루며 대기 수는 소화 모듈에 물어 얻는다. 경계: schema-delta '모듈 경계 — 무엇을 움직이나'.
+
+### 하네스 규칙 층 첫 실사용(2026-09-28)
+
+v2 전용 세션(-ne -nc -ns, knowledge.ts+harness-rules.ts)에서 'domain describe 설명 길이 제한을 300자로 늘려줘'. 확인됨: 지식 창으로 작업 AI 가 검색 없이 describe·ensure 200자 제한을 알았고, 답변 끝 기록 누락 검사가 자동으로 걸려 작업 AI 가 기록을 시도함. 드러난 문제와 처리(사용자 'a로 우선 하자'): ① knowledge_record 6회 모두 실패 — 근거 종류(code, assistant_utterance)를 lint 가 검사하지 않아 DB CheckViolation 만 돌아옴 → DB 경로 lint(strict_refs)가 근거 종류·locator·quote 를 검사하고 허용 목록을 알려 줌(옛 파일 저장 경로는 문자열 근거 유지), CLI 오류에 원인(detail) 포함. ② 기록 누락 검사가 capture_audit 종류 이름(rule/behavior)을 그대로 보여 E_KIND 를 유도 → record kind 로 바꿔 보여 줌. ③ 허용값 미명시 → knowledge.ts 스키마를 허용값 목록(operation·kind·evidence_source·ref type)으로, E_KIND/E_SOURCE 오류에 허용 목록. ④ 같은 결정이 요청·계획·결과에서 반복 → capture_audit.dedupe(임베딩 코사인 .935 이상 묶음, 어시스턴트 문장 우선; 실측 같은 결정 .937~.973, 다른 결정 ≤ .921, 표본 1개라 추가 보정 필요), 사과·자기 행동 설명을 비지식으로. ⑤ 범위를 사용자에게 묻지 않고 통보(ensure 미변경) — v2 에 '애매하면 묻기' 기본 규칙이 없음: 하네스 규칙 층 다음 후보(미구현). 또 v1 확장·AGENTS.md 가 같이 켜지면 map-first 로 동작해 v2 효과를 구분 못 함 — v1→v2 전환 때 v1 끄는 방법 필요.

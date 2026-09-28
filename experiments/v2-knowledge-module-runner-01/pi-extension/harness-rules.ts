@@ -12,6 +12,9 @@ const CLI = "/home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-
 const WORK_UNIT = "knowledge-work-unit";
 const PATH_RE = /(?:[\w.-]+\/)+[\w.-]+\.[A-Za-z0-9]{1,6}|\b[\w-]+\.(?:ts|tsx|js|py|md|sql|json|go|rs|ya?ml|toml|sh|css|html)\b/g;
 const ALIAS_RE = /\[([^\[\]\s]+-\d+)\]/g;
+// capture_audit sentence kinds -> knowledge_record kinds (the check must not suggest names record rejects)
+const RECORD_KIND: Record<string, string> = { rule: "constraint", behavior: "fact", decision: "decision", code_role: "fact",
+  test_guard: "fact", term: "term" };
 
 type Msg = { role?: string; content?: unknown; customType?: string };
 
@@ -123,9 +126,9 @@ export default function (pi: ExtensionAPI) {
     if (missing.length === 0) return;
     return {
       entries: [{ type: "custom_message", customType: "harness-record-check", display: true,
-        content: "[harness-record-check] 이번 턴에서 기록되지 않은 지식으로 보이는 문장이 있다. 각 항목을 knowledge_record 로 기록하거나(원문 인용), "
-          + "지식이 아니면(진행 안내·확정 안 된 제안·질문) 건너뛰어라. 사용자에게 답할 필요는 없다.\n"
-          + missing.slice(0, 12).map((m) => `- (${m.kind ?? "?"}) ${m.text ?? ""}`).join("\n") }],
+        content: "[harness-record-check] 이번 턴에서 기록되지 않은 지식으로 보이는 문장이 있다. 같은 내용은 한 사실로 합쳐 knowledge_record 로 기록하거나(원문 인용), "
+          + "지식이 아니면(진행 안내·확정 안 된 제안·질문·자기 행동 설명) 건너뛰어라. 괄호 안은 권장 kind. 사용자에게 답할 필요는 없다.\n"
+          + missing.slice(0, 12).map((m) => `- (${RECORD_KIND[m.kind ?? ""] ?? "fact"}) ${m.text ?? ""}`).join("\n") }],
       continue: true,
     };
   });

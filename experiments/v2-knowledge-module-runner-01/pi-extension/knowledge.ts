@@ -4,10 +4,17 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const CLI = "/home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01/knowledge_cli.py";
 const ENTRY = "knowledge-work-unit";
-const ref = Type.Object({ type: Type.String(), locator: Type.String(), quote: Type.String() });
+const lits = (values: string[]) => Type.Union(values.map((v) => Type.Literal(v)));
+// Must match runner.py FACT_KINDS / EVIDENCE_SOURCES / EVIDENCE_REF_TYPES (and the DB check).
+const ref = Type.Object({
+  type: lits(["code_test", "official_doc", "user_utterance", "observed_output", "ai_inference"]),
+  locator: Type.String(), quote: Type.String() });
 const fact = Type.Object({
-  operation: Type.String(), kind: Type.String(), subject: Type.String(), fact: Type.String(),
-  evidence_source: Type.String(), reason: Type.String(), why: Type.Optional(Type.String()),
+  operation: lits(["add", "update", "deprecate"]),
+  kind: lits(["fact", "decision", "rationale", "rejected", "constraint", "procedure", "term", "question"]),
+  subject: Type.String(), fact: Type.String(),
+  evidence_source: lits(["user_confirmed", "user_tentative", "official_doc", "code_test", "observed_output", "ai_inference"]),
+  reason: Type.String(), why: Type.Optional(Type.String()),
   evidence_refs: Type.Array(ref), keywords: Type.Optional(Type.Array(Type.String())),
   target_ref: Type.Optional(Type.String()),
 });

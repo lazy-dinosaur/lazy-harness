@@ -43,6 +43,8 @@ EVIDENCE_SOURCES = {"user_confirmed", "user_tentative", "official_doc", "code_te
 # Fragment storage standard v1 (spec/platform/v2-fragment-knowledge-store.md §1.1) — minimal structural gate
 # for worker-authored facts. Only the failure causes observed in cycle-01 are enforced here; meaning is Jev's job.
 MULTI_EVIDENCE_KINDS = {"decision", "constraint"}
+# Must match knowledge.valid_evidence_refs (migrations/0001): lint rejects what the DB would reject, with the allowed list.
+EVIDENCE_REF_TYPES = {"code_test", "official_doc", "user_utterance", "observed_output", "ai_inference"}
 QUESTION_TAIL = re.compile(r"(\?|？|그지|맞지|잔아|잖아|아닌가|할까|을까|인가)\s*[.!~]*\s*$")
 
 REQUIRED_STATE = {
@@ -156,18 +158,37 @@ def normalize_fact(fact):
 
 
 # Codes that stay blocking (meaning/trust). Form-only codes are repaired or reported as warnings.
-BLOCKING_CODES = {"E_KIND", "E_SOURCE", "E_GROUP", "E_SUBJECT", "E_WHY", "E_USER_REF", "E_KEYWORD"}
+BLOCKING_CODES = {"E_KIND", "E_SOURCE", "E_GROUP", "E_SUBJECT", "E_WHY", "E_USER_REF", "E_KEYWORD", "E_REF"}
 WARNING_CODES = {"E_EVIDENCE_COUNT"}
 
 
-def lint_fact(fact):
+def lint_fact(fact, strict_refs=False):
     """Validate judgement facts separately from Jev wire packets.
     'errors' block registration; 'warnings' are reported only (Jev is_supported judges evidence sufficiency)."""
     errors = []
     if "kind" in fact and fact["kind"] not in FACT_KINDS:
-        errors.append({"code": "E_KIND", "where": "kind", "detail": "unknown fact kind"})
+        errors.append({"code": "E_KIND", "where": "kind", "detail": "unknown fact kind; allowed: " + ", ".join(sorted(FACT_KINDS))})
     if "evidence_source" in fact and fact["evidence_source"] not in EVIDENCE_SOURCES:
-        errors.append({"code": "E_SOURCE", "where": "evidence_source", "detail": "unknown evidence source"})
+        errors.append({"code": "E_SOURCE", "where": "evidence_source",
+                       "detail": "unknown evidence source; allowed: " + ", ".join(sorted(EVIDENCE_SOURCES))})
+    # strict_refs: the DB-backed path (knowledge.valid_evidence_refs); the legacy file store keeps plain-string refs.
+    raw_refs = fact.get("evidence_refs", []) if strict_refs else []
+    if strict_refs and not isinstance(raw_refs, list):
+        errors.append({"code": "E_REF", "where": "evidence_refs", "detail": "evidence_refs must be a list"})
+        raw_refs = []
+    for index, ref in enumerate(raw_refs):
+        where = f"evidence_refs.{index}"
+        if not isinstance(ref, dict):
+            errors.append({"code": "E_REF", "where": where, "detail": "each evidence ref must be an object {type, locator, quote}"})
+            continue
+        if ref.get("type") not in EVIDENCE_REF_TYPES:
+            errors.append({"code": "E_REF", "where": where + ".type",
+                           "detail": f"unknown evidence ref type {ref.get('type')!r}; allowed: " + ", ".join(sorted(EVIDENCE_REF_TYPES))
+                                     + " (code/test lines -> code_test, your own earlier answer -> observed_output or ai_inference)"})
+        if not isinstance(ref.get("locator"), str) or not ref["locator"].strip():
+            errors.append({"code": "E_REF", "where": where + ".locator", "detail": "locator must be a nonempty string"})
+        if not isinstance(ref.get("quote"), str):
+            errors.append({"code": "E_REF", "where": where + ".quote", "detail": "quote must be a string"})
     if "group" in fact and (not isinstance(fact["group"], str) or not fact["group"].strip()):
         errors.append({"code": "E_GROUP", "where": "group", "detail": "group must be a nonempty string"})
     subject = fact.get("subject")

@@ -17,7 +17,8 @@ KQ = ("items[{i}] 는 이번 작업의 한 문장(또는 코드 변경 요약 �
       "담고 있는가? 인사·동의만 하는 말, 진행 상황·계획 안내, 검증 결과 보고, 되묻는 질문, 사용자가 거부한 제안은 false.")
 KQ_EX = KQ + (" 예(true): 'Unit 행이 하나라도 있으면 자동 시딩을 멈춘다', '`X.test.ts` 는 순서를 보호한다', "
               "'마이그레이션이 아니라 신규 병원 기본값으로 한정한다'. 예(false): '좋아, 동의해', '테스트를 돌려 보겠습니다', '모두 통과했습니다'.")
-NOTK = "인사·동의만 하는 말·진행·계획 안내·검증 결과 보고·되묻는 질문·거부되거나 확정 안 된 제안·작업 방식 메타"
+NOTK = ("인사·동의만 하는 말·진행·계획 안내·검증 결과 보고·되묻는 질문·거부되거나 확정 안 된 제안·작업 방식 메타"
+        "·사과나 자기 행동 설명(예: '통보만 했습니다', '물었어야 했습니다')")
 KIND_Q = "items[{i}] 는 어떤 종류의 문장인가?"
 KIND_C = {"rule": "지켜야 할 규칙·금지·조건·예외", "behavior": "화면·기능의 동작·반응·흐름 단계·값·순서",
           "decision": "확정된 결정과 그 이유·기각안·범위 한정", "code_role": "코드 경로·함수·파일의 역할", "test_guard": "테스트가 보호하는 동작",
@@ -80,7 +81,31 @@ def _not_knowledge(a):
     return float(p.get("not_knowledge", 1.0 if a.get("choice") == "not_knowledge" else 0.0))
 
 
-def audit(transcript, recorded_facts, judge):
+# multilingual-e5 cosines are compressed: G7 turn sample (2026-09-28) same decision .937-.973, different decisions <= .921.
+DUP_COSINE = 0.935
+
+
+def dedupe(missing, encode=None):
+    """Collapse near-identical missing items (the same decision said in the request, the plan and the report).
+    Keeps the assistant's statement over the user's request and the longer text; embedding-free fallback keeps all."""
+    if len(missing) < 2:
+        return missing
+    if encode is None:
+        import embed
+        encode = embed.encode_passages
+    try:
+        vectors = encode([m["text"] for m in missing])
+    except Exception:
+        return missing
+    rank = sorted(range(len(missing)), key=lambda i: (missing[i]["from"] != "assistant", -len(missing[i]["text"])))
+    kept = []
+    for i in rank:
+        if all(sum(a * b for a, b in zip(vectors[i], vectors[j])) < DUP_COSINE for j in kept):
+            kept.append(i)
+    return [missing[i] for i in sorted(kept)]
+
+
+def audit(transcript, recorded_facts, judge, encode=None):
     units = split_units(transcript)
     if not units:
         return {"ok": True, "units": 0, "missing": [], "truncated": False}
@@ -101,6 +126,7 @@ def audit(transcript, recorded_facts, judge):
             p = q2[i].get("probabilities") or {}
             kind = max((k for k in p if k != "not_knowledge"), key=p.get, default=q2[i].get("choice"))
             missing.append({"id": f"u{i}", "from": role, "text": text, "kind": kind, "votes": sum(votes)})
+    missing = dedupe(missing, encode)
     return {"ok": True, "units": len(units), "missing": missing, "truncated": truncated,
             "instruction": "For EVERY missing item: record it with knowledge_record (quote the original words verbatim; "
                            "user_confirmed only for non-question user confirmations). Skip ONLY when it is not knowledge "

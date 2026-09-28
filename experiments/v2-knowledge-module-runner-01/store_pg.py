@@ -414,7 +414,7 @@ def batch(dsn, window, fixtures, *, entry_ids=None):
             for index, fact in enumerate(entry["judgement_body"].get("facts", [])):
                 operation = fact.get("operation", "add")
                 current = _target(cur, fact) if operation in ("update", "deprecate") else None
-                errors = runner.lint_fact(fact)["errors"]
+                errors = runner.lint_fact(fact, strict_refs=True)["errors"]
                 if operation not in ("add", "update", "deprecate"):
                     errors.append({"code": "E_SCHEMA", "where": f"facts.{index}.operation", "detail": "unknown operation"})
                 if operation in ("update", "deprecate") and current is None:

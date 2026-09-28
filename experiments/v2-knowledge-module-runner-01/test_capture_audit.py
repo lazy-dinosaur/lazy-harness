@@ -81,3 +81,13 @@ def test_cli_audit_reads_recorded_facts_of_the_work_unit(dsn, host, monkeypatch)
     assert out["ok"] and seen["recorded"] == ["빈 병원에만 시딩한다"] and seen["n"] == 1
     import store_pg as pg
     pg.abandon(dsn, rec["work_unit_id"], "test: capture audit cleanup")
+
+
+def test_dedupe_keeps_assistant_statement_and_distinct_items():
+    items = [{"id": "u0", "from": "user", "text": "설명 제한을 300자로 늘려줘", "kind": "rule", "votes": 3},
+             {"id": "u1", "from": "assistant", "text": "설명 제한을 300자로 늘렸습니다.", "kind": "behavior", "votes": 3},
+             {"id": "u2", "from": "assistant", "text": "생성 제한은 그대로 둡니다.", "kind": "decision", "votes": 2}]
+    vec = {"설명 제한을 300자로 늘려줘": [1.0, 0.0], "설명 제한을 300자로 늘렸습니다.": [0.99, 0.141], "생성 제한은 그대로 둡니다.": [0.0, 1.0]}
+    kept = ca.dedupe(items, lambda texts: [vec[t] for t in texts])
+    assert [i["id"] for i in kept] == ["u1", "u2"]
+    assert ca.dedupe(items, lambda texts: (_ for _ in ()).throw(RuntimeError("down"))) == items

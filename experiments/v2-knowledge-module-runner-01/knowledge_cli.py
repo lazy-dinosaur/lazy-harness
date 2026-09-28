@@ -60,7 +60,7 @@ def lint_update_fact(dsn, host, raw):
     fact = dict(raw)
     fact["evidence_quote"] = " / ".join(r["quote"] for r in fact.get("evidence_refs", []) if isinstance(r, dict) and isinstance(r.get("quote"), str))
     fact, _ = runner.normalize_fact(fact)
-    errors = list(runner.lint_fact(fact)["errors"])
+    errors = list(runner.lint_fact(fact, strict_refs=True)["errors"])
     try:
         packet = worktime_driver.build_packet(fact, worktime_driver._target_excerpt(dsn, host, fact))
         errors += runner.lint(packet)["errors"]
@@ -96,7 +96,7 @@ def record(dsn, data):
         fact, fixes = runner.normalize_fact(fact)  # form-only repairs (subject, keywords); meaning untouched
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
-        checked = runner.lint_fact(fact)
+        checked = runner.lint_fact(fact, strict_refs=True)
         for error in checked["errors"]:
             errors.append({**error, "where": f"facts.{index}.{error['where']}"})
         for warning in checked.get("warnings", []):
@@ -287,7 +287,8 @@ def main():
     except ValueError as exc:
         result = {"ok": False, "error": "ValueError", "detail": str(exc)[:200]}
     except Exception as exc:
-        result = {"ok": False, "error": type(exc).__name__}
+        # Report the cause (first line, e.g. which DB check failed) so the caller can correct its input.
+        result = {"ok": False, "error": type(exc).__name__, "detail": (str(exc).strip().splitlines() or [""])[0][:300]}
     print(json.dumps(result, ensure_ascii=False, default=str))
 
 
