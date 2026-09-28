@@ -247,7 +247,7 @@ def review_cmd(dsn, data):
     return store_pg.review_resolve(dsn, host, unit_id(data.get("entry_id")), index, data.get("decision"), quote, locator)
 
 
-COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review")
+COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review", "window")
 
 
 def main():
@@ -276,6 +276,12 @@ def main():
             result = domain_cmd(dsn, data)
         elif command == "review":
             result = review_cmd(dsn, data)
+        elif command == "window":
+            import window, worker_tools
+            cfg = config.require("jev_api_key", "jev_base_url", "jev_model")
+            host = data.get("host_id") or config.load()["default_host"]
+            result = window.build(dsn, required(host, "host_id"), data.get("question"), data.get("queries"),
+                                  worker_tools.make_ask(cfg))
         else:
             result = record(dsn, data) if command == "record" else (complete(dsn, data) if command == "complete" else snapshot(dsn, unit_id(data.get("work_unit_id"))))
     except ValueError as exc:
