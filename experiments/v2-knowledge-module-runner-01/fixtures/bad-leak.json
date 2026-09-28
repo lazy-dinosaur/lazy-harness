@@ -1,0 +1,17 @@
+{
+  "state": {
+    "narrative": "Private token SUPERSECRET appears.",
+    "candidate_fact": "A fact exists.",
+    "evidence_quote": "A fact exists."
+  },
+  "questions": {
+    "q": {
+      "type": "choice",
+      "instructions": "Choose the fact.",
+      "criteria": {
+        "supported": null,
+        "none_or_uncertain": null
+      }
+    }
+  }
+}

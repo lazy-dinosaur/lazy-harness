@@ -1,0 +1,11 @@
+[Unit]
+Description=lazy-harness v2 local E5 embedding service (isolated from v1)
+
+[Service]
+Type=simple
+Environment=LH_EMBED_PORT=8765
+ExecStart=%h/.local/share/lazy-harness-v2/e5-small/venv/bin/python /home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01/embed_server.py --host 127.0.0.1
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

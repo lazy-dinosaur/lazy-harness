@@ -1,0 +1,108 @@
+"""Capture audit (spec/platform/v2-fragment-knowledge-store.md §13.2 revision): after the worker records facts at the end
+of a work unit, Jev checks every sentence / code line of the work transcript and returns what looks like durable
+knowledge that no recorded fact carries yet. The worker answers each item (record via knowledge_record, or skip).
+
+Decision question = union of three single questions (write-01 q_compare: Q0·Q2·Q4 union had the fewest misses, F1 .959):
+  Q0 KQ noul, Q4 KQ + examples noul, Q2 content-kind choice (not_knowledge < .5).
+Coverage question CQ (noul) against the facts already recorded. Layer (ddd..ssot) is attached as a kind tag only;
+partitioning is NOT decided here (capture-01: domain = work area, not a layer name).
+Jev access is injected (`judge`) so tests run offline."""
+import json
+import re
+import time
+from urllib.request import Request, urlopen
+
+KQ = ("items[{i}] 는 이번 작업의 한 문장(또는 코드 변경 요약 한 줄)이다. conversation 흐름상 이 문장이 미래 작업자가 알아야 할 "
+      "제품·시스템 지식(확정된 결정·규칙·금지·동작·조건·코드 경로의 역할·테스트가 보호하는 것, 사용자가 요구·동의했거나 거부하지 않은 방침)을 "
+      "담고 있는가? 인사·동의만 하는 말, 진행 상황·계획 안내, 검증 결과 보고, 되묻는 질문, 사용자가 거부한 제안은 false.")
+KQ_EX = KQ + (" 예(true): 'Unit 행이 하나라도 있으면 자동 시딩을 멈춘다', '`X.test.ts` 는 순서를 보호한다', "
+              "'마이그레이션이 아니라 신규 병원 기본값으로 한정한다'. 예(false): '좋아, 동의해', '테스트를 돌려 보겠습니다', '모두 통과했습니다'.")
+NOTK = "인사·동의만 하는 말·진행·계획 안내·검증 결과 보고·되묻는 질문·거부되거나 확정 안 된 제안·작업 방식 메타"
+KIND_Q = "items[{i}] 는 어떤 종류의 문장인가?"
+KIND_C = {"rule": "지켜야 할 규칙·금지·조건·예외", "behavior": "화면·기능의 동작·반응·흐름 단계·값·순서",
+          "decision": "확정된 결정과 그 이유·기각안·범위 한정", "code_role": "코드 경로·함수·파일의 역할", "test_guard": "테스트가 보호하는 동작",
+          "term": "용어 정의", "not_knowledge": NOTK}
+CQ = "items[{i}] 의 지식 내용이 facts 중 어느 하나 이상에 담겨 있는가? 조건·값·식별자까지 같아야 한다. 일부만 담겼거나 비슷한 주제만이면 false."
+CHUNK = 20
+MAX_UNITS = 400
+
+
+def make_judge(cfg, http=urlopen):
+    """judge(state, texts, question, criteria=None) -> list[answer dict]; noul when criteria is None, else choice."""
+    def judge(state, texts, question, criteria=None):
+        out = []
+        for k in range(0, len(texts), CHUNK):
+            chunk = texts[k:k + CHUNK]
+            qs = {f"m{j}": {"type": "choice" if criteria else "noul", "instructions": question.format(i=j),
+                            "criteria": criteria or {"true": "예", "false": "아니오"}} for j in range(len(chunk))}
+            body = {"model": cfg["jev_model"], "state": {**state, "items": [{"i": j, "text": t[:600]} for j, t in enumerate(chunk)]},
+                    "questions": qs}
+            data = None
+            for _ in (1, 2):
+                try:
+                    req = Request(cfg["jev_base_url"].rstrip("/") + "/v1/systemone", data=json.dumps(body, ensure_ascii=False).encode(),
+                                  headers={"Authorization": "Bearer " + cfg["jev_api_key"], "Content-Type": "application/json"}, method="POST")
+                    with http(req, timeout=120) as resp:
+                        data = json.load(resp)
+                    if set(data.get("answers", {})) != set(qs):
+                        raise ValueError("answer keys mismatch")
+                    break
+                except (OSError, ValueError, KeyError, TypeError):
+                    data = None
+                    time.sleep(1)
+            if data is None:
+                raise RuntimeError("Jev judgement failed after two attempts")
+            out += [data["answers"][f"m{j}"] for j in range(len(chunk))]
+        return out
+    return judge
+
+
+def split_units(transcript):
+    """transcript: [{role: user|assistant|code, text}] -> list of (role, sentence). Code lines are kept whole."""
+    units = []
+    for m in transcript if isinstance(transcript, list) else []:
+        if not isinstance(m, dict) or not isinstance(m.get("text"), str):
+            continue
+        role = m.get("role")
+        if role == "code":
+            units += [("code", l.strip("- ").strip()) for l in m["text"].splitlines() if len(l.strip("- ").strip()) > 3]
+        elif role in ("user", "assistant"):
+            units += [(role, s.strip()) for s in re.split(r"(?<=[.!?。])\s+|\n+", m["text"]) if len(s.strip()) > 3]
+    return units
+
+
+def _noul(a):
+    return float(a.get("noul", 0.0))
+
+
+def _not_knowledge(a):
+    p = a.get("probabilities") or {}
+    return float(p.get("not_knowledge", 1.0 if a.get("choice") == "not_knowledge" else 0.0))
+
+
+def audit(transcript, recorded_facts, judge):
+    units = split_units(transcript)
+    if not units:
+        return {"ok": True, "units": 0, "missing": [], "truncated": False}
+    truncated = len(units) > MAX_UNITS
+    units = units[-MAX_UNITS:]
+    texts = [u for _, u in units]
+    conv = "\n".join(f"{r}: {u}" for r, u in units)[-8000:]
+    state = {"conversation": conv}
+    q0 = judge(state, texts, KQ)
+    q4 = judge(state, texts, KQ_EX)
+    q2 = judge(state, texts, KIND_Q, KIND_C)
+    facts = [f for f in (recorded_facts or []) if isinstance(f, str) and f.strip()]
+    cq = judge({"facts": facts[-120:]}, texts, CQ) if facts else [{"noul": 0.0}] * len(texts)
+    missing = []
+    for i, (role, text) in enumerate(units):
+        votes = [_noul(q0[i]) >= .5, _noul(q4[i]) >= .5, _not_knowledge(q2[i]) < .5]
+        if any(votes) and _noul(cq[i]) < .5:
+            p = q2[i].get("probabilities") or {}
+            kind = max((k for k in p if k != "not_knowledge"), key=p.get, default=q2[i].get("choice"))
+            missing.append({"id": f"u{i}", "from": role, "text": text, "kind": kind, "votes": sum(votes)})
+    return {"ok": True, "units": len(units), "missing": missing, "truncated": truncated,
+            "instruction": "For EVERY missing item: record it with knowledge_record (quote the original words verbatim; "
+                           "user_confirmed only for non-question user confirmations). Skip ONLY when it is not knowledge "
+                           "(greeting, bare agreement, progress/plan notice, verification report, question, unconfirmed proposal). "
+                           "Do NOT skip because it seems already recorded: duplicates are removed later by digestion (is_new)."}

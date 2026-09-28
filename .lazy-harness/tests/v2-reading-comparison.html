@@ -1,0 +1,265 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>읽기 비교 최종 결과 — 채택 보류</title><style>body{max-width:1000px;margin:40px auto;padding:0 24px;font:17px/1.8 system-ui;color:#24364a;background:#f8fafc}table{width:100%;border-collapse:collapse;background:white}td,th{border:1px solid #d6dfe8;padding:12px;text-align:left}h1,h2{line-height:1.4}code{overflow-wrap:anywhere}details{margin-top:32px;padding:20px;background:white}a{color:#2465b8}</style><h1>원기록과 소화본 읽기 비교 — 최종 결과</h1>
+<p><strong>이번 결과로는 소화 방식의 채택을 권할 수 없습니다.</strong> 사전 기준을 완전히 만족한 응답은 원기록 A <strong>1/3</strong>, 소화본 B <strong>0/3</strong>입니다. 내용이 맞더라도 근거 연결·필수 내용·출력 약속을 놓치면 통과시키지 않았습니다.</p>
+<table>
+<thead>
+<tr>
+<th>질문</th>
+<th>원기록 A</th>
+<th>소화본 B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>현재 입력 처리</td>
+<td>내용·근거 모두 통과</td>
+<td>내용은 맞지만 해당 주장에 연결한 근거가 불충분</td>
+</tr>
+<tr>
+<td>상한150 변경 대응</td>
+<td>계획 표현 일부 누락·기록 ID 오기</td>
+<td>후속 작업/조건 일부 누락·읽지 않은 원문을 인용</td>
+</tr>
+<tr>
+<td>세 기록의 해시 대조</td>
+<td>비교 내용은 맞지만 인용·최초/최종 일치 규칙 실패</td>
+<td>필요한 자료는 정확히 요청했지만 필수 필드 누락으로 거절되어 대조 미완료</td>
+</tr>
+</tbody>
+</table>
+<h2>비용은 어땠나?</h2>
+<table>
+<thead>
+<tr>
+<th>범위</th>
+<th style="text-align: right;">보고된 비용(USD)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A: 원기록 읽기3회</td>
+<td style="text-align: right;">$0.0136662</td>
+</tr>
+<tr>
+<td>B: 소화본 읽기3회, 재개 포함</td>
+<td style="text-align: right;">$0.01246992</td>
+</tr>
+<tr>
+<td>B: 기존 소화본 생성비</td>
+<td style="text-align: right;">$0.00495008</td>
+</tr>
+<tr>
+<td><strong>B 합계</strong></td>
+<td style="text-align: right;"><strong>$0.01742</strong></td>
+</tr>
+</tbody>
+</table>
+<p>이 표본에서는 소화비까지 포함한 B가 <strong>약27.5% 더 컸습니다.</strong> 실패한 응답도 비용에 포함했습니다. 준비·개발·검수·연결시험·부모 비용은 별도이며 미집계입니다. 캐시와 출력 길이도 달라, 이를 소화 자체의 일반 효과로 단정할 수 없습니다.</p>
+<h2>무엇을 배웠나?</h2>
+<ul>
+<li>실제 자료 전달, 같은 대화에서 재개, 최초 답 보존, 남은 시간 전달, 실패 원문 회수를 확인했습니다.</li>
+<li><strong>내용을 아는 것과 정확한 근거를 연결하는 것은 달랐습니다.</strong> S1 두 답과 S3A의 비교 내용은 맞았지만, 모든 답이 인용·형식 약속까지 지키지는 못했습니다.</li>
+<li>검사 도구도 틀릴 수 있었습니다. 모델 이름 해석과 배열 안내를 실제 연결시험에서 보완했고, 최종 검수에서는 요청 목록을 잘못 보여준 평가 자료를 원본으로 바로잡았습니다. 실패 기록은 없애지 않았습니다.</li>
+<li>이는 <strong>소화 이후 읽기의 보조시험</strong>입니다. V1식 기록 생성과 태스크 우선 기록 생성의 직접 비교, 지속 지식 갱신, 실제 코딩 효율은 아직 검증하지 않았습니다.</li>
+</ul>
+<p><strong>결론: 채택 보류.</strong> 소화가 무용하다는 뜻은 아닙니다. 이번 입력·모델·규격에서는 품질 유지와 비용 절감을 함께 입증하지 못했다는 뜻입니다. 결과를 좋게 만들기 위한 답 수정이나 본시험 재실행은 하지 않았습니다.</p><p><a href="file:///home/lazydino/dev/lazy-harness.v2/.lazy-harness/evidence/v2-reading-comparison-01-evaluation.json">기계 판독 결과 JSON</a> · <a href="file:///home/lazydino/dev/lazy-harness.v2/.lazy-harness/tests/v2-reading-comparison.md">결과 정본 Markdown</a></p><details><summary>상세 기록과 준비 과정 보기</summary><h1>TDD — V2 reading comparison preparation</h1>
+<h2>Rule digest</h2>
+<ul>
+<li>Status: advisory</li>
+<li>Layer: TDD</li>
+<li>Scope: host-project</li>
+<li>Applies when: Preparing or reviewing the approved staged V2 raw-record/digest pilot.</li>
+<li>Must: Preserve original research inputs/results; test deterministic offline mechanics before parent-controlled synthetic smoke and six-trial execution. Do not treat structural validation as semantic grading or model-runtime proof.</li>
+<li>Must not: Launch study models during preparation, repair original B or malformed answers, install/modify profiles or policies, or use a model/protocol fallback.</li>
+</ul>
+<h2>Governing scope</h2>
+<p><code>.lazy-harness/planning/v2-record-reading-comparison-plan.md</code> is primary planning authority, read in full including its final staged-exchange approval. The historical supervisor callback proposal is superseded. Preparation is confined to new <code>experiments/v2-reading-comparison/**</code> plus this TDD. Parent owns Planning/graph updates; existing dirty files are preserved.</p>
+<p>Parent clarified the effective role is existing native <code>delegate</code>: independent minimal Git/input roots plus identical explicit read-only instructions and post-run complete trace verification, <strong>not</strong> an OS/tool-capability sandbox. Mutation-capable tools and normal runtime context may remain available. No unsupported per-call tools/fallback override or new profile is created. Fallback suppression and absence of research-context leakage require parent preflight evidence; missing metadata remains unknown.</p>
+<h2>Protected contracts</h2>
+<ul>
+<li>Source-request/final envelope and answers are runtime-validated without repair: exact keys/types/statuses, unique bounded requests, evidence basis/reference availability, answer limits and duplicate item IDs.</li>
+<li>One exact-ID lookup batch, at most three unique syntactically valid IDs; unknown IDs return only not_found. Recognizable malformed requests receive fixed invalid_request and consume the opportunity. Source data is copied, never executed. Second requests fail without another child.</li>
+<li>Initial answer and original initial runtime output are preserved before lookup; final initial_answer and requested IDs must match. Without lookup the two answers match.</li>
+<li>Per-trial300-second wall-clock budget; resume receives only the remaining time. Actual run IDs/references/artifacts and available native metadata are preserved for both stages. Six trials sequential S1A,S1B,S2B,S2A,S3A,S3B, &lt;=12 child executions.</li>
+<li>Invalid environment/observed exposure outranks timeout; timeout outranks final format/content. No-final output, format failure, missing required items, and semantic-review pending are distinct.</li>
+<li>Original A/B byte hashes and per-source canonical-content hashes; evaluator key derived from raw final complete→verify→receipt with three hashes per file; key frozen before child input creation. Original B is byte-identical, not improved.</li>
+<li>Default generated scripts block pending preflight. Synthetic smoke contains no study answers; both generated scripts are self-contained standard JavaScript + runs.run only. Preparation CLI never invokes models and refuses existing output roots.</li>
+<li>Blinded/manual assessment packets remove arm/cost/order labels while preserving original results privately; deterministic checks never assign semantic pass.</li>
+</ul>
+<h2>Implementation map</h2>
+<ul>
+<li><code>experiments/v2-reading-comparison/protocol.mjs</code>: <code>lookup</code>, <code>answerErrors</code>, <code>envelopeErrors</code>, <code>parseOutput</code>, <code>verdict</code>, <code>remaining</code>, <code>inspectRuntime</code>; shared pure mechanics compiled verbatim into sandbox scripts.</li>
+<li><code>experiments/v2-reading-comparison/study.mjs</code>: <code>scenarios</code>, <code>order</code>, <code>prompt</code>, <code>answerKey</code>; current questions, identical arm instructions, evaluator-only expected meanings and raw chain derivation.</li>
+<li><code>experiments/v2-reading-comparison/workflow-body.js</code>: chronological initial→snapshot→lookup→retained resume→assessment loop; actual native result retention and known-invalid stop.</li>
+<li><code>experiments/v2-reading-comparison/prepare.mjs</code>: <code>loadSources</code>, <code>prepare</code>, <code>compile</code>, <code>preflight</code>, <code>verifyInputs</code>; exclusive output/independent input roots, hashes and workflow generation; no model launch.</li>
+<li><code>experiments/v2-reading-comparison/assess.mjs</code>: <code>assessmentPackets</code>; preserves original collection and private provenance, produces deterministic manual-review packet and input rechecks.</li>
+<li><code>experiments/v2-reading-comparison/failure-audit.mjs</code>: parent-only <code>auditFailure</code>/<code>auditFiles</code>, exact receipt→workflow step→original session linkage, raw byte/hash retention and conservative timeout-only classification; never compiled into child input.</li>
+<li><code>experiments/v2-reading-comparison/runner.test.mjs</code>: dependency-free node:test fake runs/clock, original-session/native-metadata fixtures and offline preparation integration; actual model smoke is separate.</li>
+<li><code>experiments/v2-reading-comparison/README.md</code>: commands, native source evidence, parent preflight and interpretation limits.</li>
+<li>Sources: <code>experiments/v2-luna-reader-01/records.json</code>, <code>experiments/v2-luna-reader-01/knowledge-candidate.json</code> (read only).</li>
+<li>Cross-layer: governing Planning above; <code>.lazy-harness/tests/test-strategy.xml</code>; <code>.lazy-harness/spec/platform/code-organization-profile.md</code> (creating_source_file policy/capability resolved, observe-only changed-source review).</li>
+<li>Machine graph/index: parent-owned update pending; no automatic graph or generated-index promotion by this worker.</li>
+</ul>
+<h2>Validation evidence</h2>
+<p>Previous Fix2 bounded repair checkpoint: <code>node --test experiments/v2-reading-comparison/runner.test.mjs</code> — <strong>18 passed, 0 failed, 0 skipped, 120.685934 ms</strong>. Prior preparation checkpoint: 15 passed. Added receipt/inspection clock fixtures cover initial and resumed final receipt at299999ms with inspection completion at300001ms, format/invalid precedence, and an initial source request whose remaining resume budget expires during inspection (one launch only). <code>resultElapsedMs</code> now determines final deadline; total <code>elapsedMs</code> and <code>workflowProcessingMs</code> retain inspection cost. That prior checkpoint was 18 tests; its log has been superseded by the current failure-audit checkpoint. Tests include fake runs/clock and offline temporary-input generation, not actual models. No broad legacy harness regression or model CLI/workflow invocation. The user explicitly excludes unrelated policy-order full regression as a study blocker; standard validation would run that unrelated suite and is outside this approved focused checkpoint.</p>
+<p>Current failure-audit checkpoint: same <code>node --test</code> command initially <strong>23 passed / 1 failed / 0 skipped, 90.823036 ms</strong> (<code>experiments/v2-reading-comparison/focused-test.initial.tap</code>). Failure: Node/V8 native Error.stack is a lazy accessor, so its original stack was not captured. Corrected only native engine getter handling; arbitrary overridden stack accessors remain uninvoked and a negative fixture protects this. Supervisor explicitly approved one corrective rerun: <strong>24 passed / 0 failed / 0 skipped, 95.523453 ms</strong> (<code>experiments/v2-reading-comparison/focused-test.tap</code>). No real runtime smoke/model launch or broad harness suite. Tests are offline fixtures, not six study trials.</p>
+<h2>SDD/BDD/SSOT/DDD judgments</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Judgment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SDD</td>
+<td>Experiment-only request/output/retained exchange contract already owned by approved Planning; no independent product API delta.</td>
+</tr>
+<tr>
+<td>BDD</td>
+<td>Experiment-only staged lookup and three scenarios already specified in Planning; no independent product-visible behavior delta.</td>
+</tr>
+<tr>
+<td>SSOT</td>
+<td>No independent config/ownership/policy delta; generated manifests are experiment evidence, not canonical runtime settings.</td>
+</tr>
+<tr>
+<td>DDD</td>
+<td>No independent domain vocabulary or business-rule delta; historical timeout requirements are read-only study inputs.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>SDD: Experiment-only request/output/retained exchange contract already owned by approved Planning; no independent product API delta.</li>
+<li>BDD: Experiment-only staged lookup and three scenarios already specified in Planning; no independent product-visible behavior delta.</li>
+<li>SSOT: No independent config/ownership/policy delta; generated manifests are experiment evidence, not canonical runtime settings.</li>
+<li>DDD: No independent domain vocabulary or business-rule delta; historical timeout requirements are read-only study inputs.</li>
+</ul>
+<h2>Historical native output blocker — prior repair scope (superseded below)</h2>
+<p>Supervisor narrowed this repair after source inspection: complete Fix2 only; do not redesign Fix1. No native-shaped success claim/fixture was fabricated for an unsupported raw channel. Existing format fixtures are offline protocol fixtures only.</p>
+<p>Installed package <code>/home/lazydino/.pi/agent/local-packages/pi-subagents-readfix-1/node_modules/pi-subagents</code> evidence:</p>
+<ul>
+<li><code>src/workflows/scripted-workflow.ts:2348–2358</code>: ordinary runs.run rejects failed children with a generic Error; only detached failure receives a typed marker. Mapping returned ok:false alone cannot solve native structured-output failures.</li>
+<li><code>src/runs/background/subagent-runner.ts:1235–1248,1324–1348</code>: missing structured_output invocation fails the native run. Current outputSchema still invokes that requirement; format/no-output may be misclassified as infrastructure by the existing catch.</li>
+<li><code>src/runs/foreground/subagent-executor.ts:3150–3181,4202–4295</code>: awaited async projection returns completed.output as finalOutput/top-level output and does not copy original messages.</li>
+<li><code>src/runs/background/subagent-runner.ts:1461–1471</code> strips acceptance reports before persistence/display; <code>src/runs/shared/single-output.ts:finalizeSingleOutput</code> appends an inline saved-output footer. No verified original raw channel was established. No stripping, model JSON repair, error-string guessing, package change, or transport fallback was implemented.</li>
+</ul>
+<p>Parent must resolve this exact output/failure contract and obtain further review before native static validation/smoke. Fix2's offline tests do not remove Fix1's BLOCK verdict.</p>
+<h2>Approved failure-original audit implementation</h2>
+<p>The final 사용자 승인: 실패 원본 기록 사후 판정 in governing Planning supersedes the earlier Fix2-only restriction. Native object outputSchema successes remain; both stages explicitly require structured_output. Generic runs.run rejection and ambiguous/missing native payloads preserve trial/stage/stable key, raw exception properties/stack/cause, timing and any returned stage payload; collection stops with pending_native_failure_audit without an infrastructure/format/no-output guess. Successful receipt-time Fix2 and exhausted-resume-budget behavior remain protected.</p>
+<p>Parent-only audit requires trusted original receipt workflow/key/latestRunId/continuation to match workflow status key/run/session and the operator's exact original session path before reading it. Full raw collection/metadata/session bytes and hashes are preserved without output scraping or repair. Only a linked failed timedOut step with consistent timestamps can receive provisional timeout classification; arbitrary native causes, normal model completion, format and no-output remain unresolved without further trustworthy evidence. Neither missing structured_output nor a failed status is normal-completion proof. No retry or automatic continuation; no runtime/package/profile/CLI changes. Source citations and audit commands are in experiment README.</p>
+<p>Protected fixtures added: generic thrown initial/resume native errors; ambiguous metadata/missing payload stop; workflow/key/run/session mismatch rejects before read; original source/session bytes retained; known native timeout; ambiguous timestamps; no format/no-output attribution from error strings, displayed prose or missing structured_output; parent-only file report preservation and no overwrite. These are synthetic source-shaped metadata and session fixtures, not actual native run evidence.</p>
+<p>Four-layer judgments for this approved narrow change:</p>
+<ul>
+<li>SDD: experiment-only snapshot/offline audit boundary implements approved Planning; no independent product API delta.</li>
+<li>BDD: stop-and-parent-audit flow implements approved Planning; no independent product-visible flow delta.</li>
+<li>SSOT: no config/profile/package/ownership delta; operator trust and original runtime artifacts remain authority, not model paths.</li>
+<li>DDD: no independent domain rule/vocabulary delta.</li>
+</ul>
+<p>Discovery capture: this TDD is the sole worker-updated primary implementation/regression record; parent owns Planning/graph changes. No additional canonical promotion. Pending host migration remains separate: record-lint issues=1/advisories=0, legacy graph rows=37; guided migration can be resumed only with separate user approval, never auto-rewritten here.</p>
+<h2>Limitations / remaining gates</h2>
+<p>Fake runs/clock prove generator logic, not native session fidelity, actual provider resolution or timeout cancellation. Parent must independently review code, confirm effective delegate model/fallback/tools/extensions/context, validate generated scripts through native tooling, run synthetic request→lookup→same-context resume smoke, inspect complete artifact traces and before/after input hashes, and perform blinded/manual meaning grading. Native metadata may omit messages/thinking; absence is pending, never success. Known invalidity stops later trials; artifact-only violations discovered later invalidate collection. Input top-level/hash checks are not a full filesystem or tool trace audit. Output schema is intentionally generic object-only; strict trial validation belongs to the runner, not native schema repair.</p>
+<p>No actual six-trial result, semantic quality comparison, runtime smoke success or cost-saving conclusion is claimed. No profile/policy/installation/network/DB/commit change.</p>
+<h2>Discovery capture / Rule placement</h2>
+<p>Primary implementation/regression record: this TDD; parent retains primary Planning and graph ownership. Approved contracts are implemented only in the experiment, not promoted into product rules or additional layers. Source organization preserves one chronological workflow owner and one shared pure validation authority; no untouched refactoring. Separate legacy graph migration remains outside this task and was surfaced to parent.</p>
+<h2>실제 합성 smoke01 — stopped_invalid, 재개 미실행</h2>
+<ul>
+<li>workflow <code>accea2b1-ed47-41c2-8e71-d746855ff63c</code>, child <code>6ff86f6b-ed1c-4be5-a909-be9df9355ddb</code>. 최초 structured source_request는 반환됐으나 runner가 model_mismatch/model_fallback으로 중단. retained resume는 미실행; smoke 성공으로 세지 않는다.</li>
+<li>Parent가 원본 session의 model_change=<code>openai-codex/gpt-5.6-luna</code>, thinking_level_change=<code>medium</code> 및 assistant model을 확인했다. 실제 모델 변경/fallback 증거는 없고, native 결과 model/attemptedModels의 <code>:medium</code> suffix를 허용하지 않는 inspectRuntime 비교가 오탐 원인이다. 기존 invalid 원결과는 덮어쓰지 않는다.</li>
+<li>별도 contract 문제: Planning은 item.evidence 배열을 요구하지만 common prompt는 evidence를 객체 표기로 설명했다. 실제 반환도 객체였고 item_shape 오류가 났다. 미제공 synthetic-card를 direct 근거로 든 표현도 원문에 보존한다. 답변을 배열로 고치거나 근거 유형을 사후 교정하지 않는다.</li>
+<li>전체 원본 session에 모델 도구 호출은 read(input.json)1회와 structured_output1회. 입력 SHA256 불변. 생성 root <code>/tmp/reading-smoke-U2T8bX</code>에는 pi-lens startup 로그 <code>.pi-lens-probe-home/</code>도 생겼다. 확장 로그와 모델 파일쓰기 위반을 혼동하지 않으며 runtime tree/동등성 확인은 별도로 남긴다.</li>
+<li>원본 status/receipt/session/collection, 당시 runner와 tracked diff/status: <code>.local/v2-reading-runtime-iInlC0/smoke-01-evidence/</code>. 약11.068초,2 model turns, child 비용$0.001641. 준비 비용이며 본시험 비용 아님.</li>
+<li>후보 보완: 정확한 model+thinking 표현을 native contract대로 비교하고, 공통 prompt의 evidence 배열 명시를 canonical과 일치시킨다. 실제 payload 기반 회귀 검증 후 새로운 synthetic smoke로 재검증 필요. 현재 코드/원출력 자동 수정·재실행 없음.</li>
+<li>Discovery capture: TDD updated; SDD candidate(기존 출력 contract 표현 정렬), BDD no independent delta, SSOT no independent delta, DDD no independent delta, ADR no independent delta, Planning 기존 본시험 gate 유지. 모의검사/정적 독립 검수가 놓친 실제 연동 결함으로 보존한다.</li>
+</ul>
+<h3>사용자 승인 후 최소 보완 및 smoke02 준비</h3>
+<ul>
+<li>사용자 선택 ‘최소 수정 후 재검증’에 따라 parent가 protocol.mjs의 model/attemptedModels 비교에 정확한 Luna:medium 표기만 추가했다. 다른 suffix/provider/model은 계속 거부하고, 실제 thinking field가 없으면 pending을 유지한다.</li>
+<li>study.mjs의 공통 출력 안내에 item.evidence 배열을 명시했다. 원출력과 검증기는 느슨하게 바꾸지 않았다.</li>
+<li>실제 smoke01 runtime 반환값을 <code>experiments/v2-reading-comparison/fixtures/smoke-01-native-runtime.json</code>에 source hash와 함께 보존하고 두 회귀검사를 추가했다. focused checkpoint26pass/0fail/86.204386ms, 로그 <code>.local/v2-reading-runtime-iInlC0/smoke-02-focused.tap</code>. lens cache는 해당 파일 진단이 없어 LSP 통과 증거로 세지 않는다.</li>
+<li>새 generated root <code>.local/v2-reading-runtime-iInlC0/smoke-02/</code>. 변경2곳에 대한 독립 targeted review가 ready일 때만 새 합성 smoke를 실행하도록 같은 workflow에 묶었다. native 정적 validate ok. 기존24검사/이전review를 최신 변경의 검수로 대체하지 않는다. 본시험 gate는 smokePassed=false 유지.</li>
+</ul>
+<h3>실제 합성 smoke02 — 재개 연결 확인, 근거 검사 실패</h3>
+<ul>
+<li>workflow <code>0f2b5e30-4295-4ab8-9fcb-091855233776</code>; targeted reviewer <code>7b717c7b-dfd2-4af5-beff-4a4038e5eeea</code> ready 뒤 initial <code>912bc16a-27bc-4719-b367-940b9ecfd52e</code> → resume <code>4f4a168f-6635-41b0-ac32-3071bb6f424c</code> 완료.</li>
+<li>모델 오탐/배열 문제는 재현되지 않았다. 그러나 최초 답이 아직 받지 않은 synthetic-card를 direct 근거로 인용해 unread_direct_ref 발생. runner는 invalid_request를 회신했고, 모델은 재개 후 색을 모른다고 답했다. 요청 거절→동일 문맥 재개는 관찰했지만 exact source 전달→정답 연결 성공은 아님.</li>
+<li>최초답 불변, 같은 native sessionFile/실제 Luna medium 유지, input SHA256 불변을 확인했다. 최초 timeout300000ms에서 재개287443ms로 감소. 전체25.864초, model turns3, 양 단계 비용 합계$0.00253884(child-only, 검수 제외). 기록의 errors3개는 동일 최초 근거 오류 재검사 및 최종 source_response 인용 검사를 포함하므로 독립 실패3건으로 세지 않는다.</li>
+<li>전체 기록의 도구 호출은 read(input.json)1회와 structured_output2회. original workflow status/receipt/collection/session/inspection: <code>.local/v2-reading-runtime-iInlC0/smoke-02-evidence/</code>. 재개 workflow step에는 sessionFile이 누락돼 초기 수집 스크립트 KeyError 발생; 원본 runtime.results.sessionFile로 분석만 수행했다. status를 보정하거나 audit linkage gate를 우회하지 않았다.</li>
+<li>현재 판정 fail/format_or_boundary. smokePassed=false 유지, 본시험0개. 원출력·채점 기준을 바꾸지 않는다.</li>
+<li>다음 후보(미승인): 합성 연결시험의 최초 요청만 유효한 고정 JSON(items=[] 등)으로 명시해 자료 전달 경로를 따로 확인한다. 이는 본시험 질문/근거 규칙 완화가 아니며, 이번 자유 출력의 근거 실패는 별도 보존한다. Planning 후보이며 독립 도메인/설정/제품 flow 변경 없음.</li>
+</ul>
+<h3>사용자 승인: 고정 요청의 합성 연결시험03</h3>
+<ul>
+<li>사용자가 고정 요청으로 연결 확인을 선택했다. source-request의 최초 items=[]를 명시하고, 자료 도착 뒤 최종 color 항목을 답하게 하는 통제시험이다. 자발적 근거 판단 성공으로 해석하지 않는다.</li>
+<li>본시험 common prompt/원본/검증 코드 변경 없음. parent-only <code>.local/v2-reading-runtime-iInlC0/build-fixed-smoke.mjs</code>가 기존 prepare/compile로 새 root와 fixed-manifest를 생성했다. 최초 고정 요청의 envelopeErrors=[] 확인, native script validate ok.</li>
+<li>script <code>.local/v2-reading-runtime-iInlC0/smoke-03/fixed-request.workflow.js</code>, 입력 root <code>/tmp/reading-smoke-exr9zg</code>. 원래 자유 출력 smoke01/02는 보존한다.</li>
+</ul>
+<h3>합성 연결시험03 결과 및 실패 회수 확인 준비</h3>
+<ul>
+<li>workflow <code>9c7ac062-ef01-4539-a190-b44204e6153f</code>에서 고정 요청→synthetic-card(color=violet) 전달→같은 native session 재개→정확한 color/direct 인용을 확인했다. errors/invalid=[]; 부모가 최종 의미와 전달 원문 대조. 최초답/입력 불변, Luna medium 유지, read1회+structured_output2회.</li>
+<li>전체19.431초, 재개 예산289682ms, model turns3, 양단계 비용$0.00215992(child-only). 증거 <code>.local/v2-reading-runtime-iInlC0/smoke-03-evidence/</code>. 고정 요청을 사용했으므로 자발적 근거 선택 능력 또는 A/B 품질 성공으로 일반화하지 않는다.</li>
+<li>기존 승인된 원본 실패 회수 사전검증을 위해 별도 합성 native deadline5초 표본1회를 준비했다. <code>.local/v2-reading-runtime-iInlC0/timeout-smoke-01/timeout.workflow.js</code>만 test-only remaining budget5000으로 생성; runner/본시험300초는 변경하지 않았다. native validate ok. 이 표본은 모델에 실패를 가장시키는 것이 아니라 실제 타이머 종료와 원본 artifact 연결을 확인한다. 일찍 정상 종료하면 timeout 증거로 세지 않고 자동 반복하지 않는다.</li>
+<li>본시험 gate는 아직 미개방. 실패 원문 회수·runtime metadata 동등성 확인을 마친 뒤 판정한다.</li>
+</ul>
+<h3>실제 timeout 원본 회수 확인 및 본 비교01 착수</h3>
+<ul>
+<li>예상된5초 timeout child <code>dc711221-49e6-4a7f-9e39-a7a8401a8f30</code>, workflow <code>c240604c-e6cc-4db3-a747-318a2b6fc761</code>가 pending_native_failure_audit로 중단되고 예외/시각을 보존했다. auditFiles가 원본 receipt/key/run/session을 연결하고 원본 session bytes를 회수했다.</li>
+<li>자동 classifier는 workflow status에 endedAt/timedOut이 없어서 unresolved를 유지했다. Parent가 별도의 원본 child status에서 동일 run/parent/key/session, 명시 timedOut=true, failed, 시작/종료 시각 구간, processTerminal observed를 대조해 incomplete/timeout으로 별도 판단했다. 원래 status/audit를 보정하지 않았다. 증거 <code>.local/v2-reading-runtime-iInlC0/timeout-smoke-01-evidence/{audit,parent-classification}.json</code>. 보편 자동 분류 성공 주장은 아니다.</li>
+<li>성공/실패 제어 시험과 최초·재개 tools/systemPrompt/context/launchResolvedExtensions 동등성을 확인했다. 기존 승인에 따라6개 본 비교를 준비했다. 준비 한계와 실행 전 결정: <code>.local/v2-reading-runtime-iInlC0/study-preflight-evidence.md</code>. 본시험은 고정 요청을 쓰지 않으며 원래 공통 질문/근거 규칙을 유지한다.</li>
+<li>새 root <code>.local/v2-reading-runtime-iInlC0/study-01/</code>에 정답표·원본 입력 hash·6개 격리 cwd·script 생성, native validate ok. 순서 S1A/S1B/S2B/S2A/S3A/S3B; 최대12 child 실행. 수집 후 원본 trace·의미 정확성·비용을 판정하며 장애/미확정은 중단한다.</li>
+</ul>
+<h3>본 비교01 수집 완료 — 독립 의미 검수 중</h3>
+<ul>
+<li>workflow <code>da4eb3d0-b0c7-4831-940f-c2e302b1034c</code>에서6조건/7child 실행 완료. S3B만 원문 요청 후 재개했고, 필수 evidence 필드 누락으로 invalid_request 응답을 받았다. 원답·실패를 고치거나 재실행하지 않았다.</li>
+<li>구조 검사: S1A/S1B는 의미 검수 대기; S2A/S2B/S3A/S3B는 인용/필드/최초답 보존 규칙 오류로 fail. 중복 초기·최종 검사 오류 수를 독립 실패 수로 세지 않는다. 독립 content 판정은 아직 없음.</li>
+<li>Parent 원본 trace/child metadata 검사에서7실행의 동일 delegate/tool/context/launch extension 구성, 실제 Luna medium, 허용된 read(input.json)/structured_output 호출,6개 입력 SHA256 불변을 확인했다. 외부 연구 접근·모델 fallback·파일 수정의 관찰 증거 없음. OS 격리/ambient extension 부재의 증명은 아니다.</li>
+<li>비용(실패 및 S3B 재개 포함, reported child usage): A3회$0.0136662; B읽기3회$0.01246992; 이전 소화비$0.00495008을 더한 B합계$0.01742. 준비·검수·부모 비용은 별도/미집계이며0으로 취급하지 않는다. 아직 소화 채택·절감 성공 결론 없음.</li>
+<li>원본과 runtime audit: <code>.local/v2-reading-runtime-iInlC0/study-01-evidence/</code>; 독립 검수 packet: <code>study-01-assessment/blinded-packets.json</code>; 사전정답: <code>study-01/answer-key.json</code>. 새 reviewer workflow <code>af2ef4de-7b96-4afe-8497-8e0b2579072f</code>가 비용/arm mapping을 보지 않고 의미·근거를 검수 중(내용으로 arm 추론 가능).</li>
+</ul>
+<h3>独立 의미 검수 후 부모 교차 확인</h3>
+<ul>
+<li>reviewer <code>2cabd381-ca7f-43b4-986f-0adf7d4ebfec</code>는 S1 두 답의 내용 정확성, S3 원문 답의 해시 비교 내용 정확성을 확인했고 S2 두 답/S3 소화본 답의 미완결 및 contract 실패를 구별했다. 최종 채택 기준 충족 주장은 불가.</li>
+<li>부모가 검수 packet의 정보 손실을 발견: assess.mjs는 requested_source_ids를 요청 원문이 아니라 lookup.items에서 뽑아, 거절 응답이면 빈 배열로 보인다. 실제 S3B 첫 출력은 정확한3개 ID를 요청했고 재개도 그대로 보존했다. 거절 원인은 evidence 필수 필드 누락이다. 원본을 별도 <code>study-01-assessment/request-projection-clarification.json</code>에 제공했으며 원래 packet/응답은 덮어쓰지 않았다.</li>
+<li>S1B의 six_cases가 인용한 pointer에 기본값60이 없고 다른 item의 pointer에는 있는 점에 대해, 전체 답 내용 정확성과 item별 근거 충족을 구별해 재판정을 요청했다. 동일 reviewer retained challenge workflow <code>6b355500-9734-486b-a1db-da1ba93a4eaf</code>. 판정 숫자 최종 확정 전이며, 읽기 모델 재실행/정답 교정 아님.</li>
+<li>Discovery capture: TDD에 evaluator projection 회귀 후보와 판정 불확실성을 보존. 본시험 출력 contract/도메인/설정 변경 없음; 새로운 기준을 사후 추가하지 않는다.</li>
+</ul>
+<h2>본 비교01 최종 결론 — 채택 보류</h2>
+<ul>
+<li>독립 검수와 retained 정정 검수 완료: <code>2cabd381-ca7f-43b4-986f-0adf7d4ebfec</code>, <code>01e18e7e-396a-4cde-91e7-f4bd74e62b34</code>. S3B 요청 목록 결함 주장은 철회했고 S1B는 내용 정확성과 별개로 item별 근거 미충족을 적용했다.</li>
+<li><strong>사전 기준 완전 통과: A 1/3, B 0/3, 전체1/6.</strong> 틀린 값을 답한 경우와 형식/근거 실패·필수 내용 미완결을 구분하며, 모든 답의 내용이 틀렸다는 뜻이 아니다.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>상황</th>
+<th>A 원기록</th>
+<th>B 소화본</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1 현재 입력 처리</td>
+<td>내용·근거·형식 통과</td>
+<td>내용은 맞음. six_cases가 인용한 pointer에는 기본값60이 없어 해당 주장 근거 실패</td>
+</tr>
+<tr>
+<td>S2 상한150 변경</td>
+<td>핵심 방향은 맞지만 새 계획 보존 표현 누락 및 잘못된 완료 ID 인용</td>
+<td>핵심 방향은 맞지만 필수 조건/후속 계획·이유 일부 누락, 읽지 않은 원문을 direct로 인용</td>
+</tr>
+<tr>
+<td>S3 세 기록 해시 대조</td>
+<td>해시·연결 내용은 맞음. inference ref 및 조회 없는 최초/최종 답 일치 규칙 실패</td>
+<td>필요한3개 ID는 정확히 요청. 근거 필드 누락으로 요청 거절되어 해시 대조 미완결</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A reported 읽기비$0.0136662. B reported 읽기비(재개 포함)$0.01246992 + 기존 소화비$0.00495008 = <strong>$0.01742</strong>. 이 표본에서는 소화비 포함 B가 약27.5% 더 컸다. 실패 표본을 비용 합계에서 제외하지 않았다.</li>
+<li>준비/개발/검수/smoke/부모 비용은 위 금액에 포함되지 않으며 총액은 미집계다. 캐시·단가·출력 길이가 달라 이 차이를 소화 자체의 순수 효과나 일반 절감률로 해석하지 않는다.</li>
+<li>결론: <strong>현재 규격·입력·모델의 이3쌍에서는 품질 유지와 비용 절감을 동시에 입증하지 못했다. 소화 채택 판단은 보류한다.</strong> 소화가 원천적으로 무용하다는 결론도 아니다.</li>
+<li>확인한 것: 원기록/소화본을 분리한 실제6조건 실행, 동일 Luna medium·tool/context 구성, 정확한 source 전달/retained resume 제어시험, 실패 원문 회수와 부모 판정. 미확인: V1식 기록 생성 vs task-first 직접 비교, 반복 도메인, 지속 갱신·철회, 실제 코딩 효율, 장기 소화비 상각, 격리/병합/복구의 일반 성능.</li>
+<li>남은 구현 후보: assess.mjs의 requested_source_ids 투영은 실제 요청 원문과 다를 수 있다. 이번 최종 판정은 별도 원본 확인으로 교정했지만 코드 자체는 미수정이다. 새 시험 전에 고칠 후보이며 기존 출력/packet을 덮어쓰지 않는다.</li>
+<li>Implementation map 추가: <code>fixtures/smoke-01-native-runtime.json</code>은 실제 suffix 사례와 원형식 실패를 보존; <code>runner.test.mjs</code>의 actual smoke01 / evidence arrays 검사가 회귀 보호. <code>.local/.../audit-study.mjs</code>는 이번 원본 trace/비용 집계용 재현 artifact이며 제품 기능이 아니다.</li>
+<li>Layer completeness: SDD=기존 실험 계약 적용/투영 회귀 후보, BDD=no independent delta, SSOT=no independent delta, DDD=no independent delta. Primary=TDD 결과, Planning에는 결론 링크만 둔다. 새 정책·데이터 소유권·제품 설계 채택은 없다.</li>
+</ul></details></html>

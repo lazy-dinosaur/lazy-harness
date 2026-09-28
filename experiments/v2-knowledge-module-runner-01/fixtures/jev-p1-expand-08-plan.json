@@ -1,0 +1,219 @@
+{
+  "experiment": "jev-p1-expand-08",
+  "status": "frozen-pre-call",
+  "anonymization_map": [
+    {
+      "from_category": "named project/product and repository identifiers",
+      "to": "PROJECT-M"
+    },
+    {
+      "from_category": "medical organization, treatment, and clinical terminology",
+      "to": "organization, item, processing target, user, or authored value"
+    },
+    {
+      "from_category": "record/source paths and experiment identifiers",
+      "to": "SPEC-N or RUN-N"
+    },
+    {
+      "from_category": "implementation identifiers and schema fields",
+      "to": "Entity-A or field-N"
+    },
+    {
+      "from_category": "persisted-row removal and lifecycle terminology",
+      "to": "retained-row state transition"
+    }
+  ],
+  "cases": [
+    {
+      "id": "D1",
+      "source_file": "SPEC-1",
+      "state": {
+        "narrative": "A stored item has a normal removal transition and a later purge transition.",
+        "candidate_fact": "Purge marks the item inactive and purged while retaining its database row.",
+        "evidence_quote": "represent purge as `flagA=false`, `flagB=true` while retaining the database row",
+        "existing_records_excerpt": "Related policy describes a separate retirement lifecycle and its cleanup, distinct from ordinary removal."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "yes",
+        "reason": "This is an explicitly stated canonical lifecycle invariant in the source record."
+      }
+    },
+    {
+      "id": "D2",
+      "source_file": "SPEC-2",
+      "state": {
+        "narrative": "The workspace has distinct ownership boundaries for application code, private records, and an external service.",
+        "candidate_fact": "This checkout is the source repository for the desktop product.",
+        "evidence_quote": "This repository is the source repository for **PROJECT-M**, a desktop product.",
+        "existing_records_excerpt": "Related ownership guidance states that the application backend is a separate server boundary and is read-only from this workspace."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "yes",
+        "reason": "The repository role is recorded as a user-confirmed canonical identity fact."
+      }
+    },
+    {
+      "id": "D3",
+      "source_file": "SPEC-3",
+      "state": {
+        "narrative": "Message sender identity follows distinct rules for signed-in users and shared workstations.",
+        "candidate_fact": "Sender/read identity selection prioritizes the signed-in user, then the shared location, then the physical device, and finally an unknown fallback.",
+        "evidence_quote": "Sender selection is person-first: `idField1 ?? idField2 ?? idField3 ?? 'unknown'`",
+        "existing_records_excerpt": "Related guidance says a shared-location display entry merges aliases for historical sender resolution, while current room authorization uses the location identity."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "yes",
+        "reason": "This is a stable, explicitly recorded identity invariant."
+      }
+    },
+    {
+      "id": "D4",
+      "source_file": "SPEC-4",
+      "state": {
+        "narrative": "An authored item can be partially saved before it is complete.",
+        "candidate_fact": "Submission requires all visible fields marked required to be complete, while partial drafts are allowed.",
+        "evidence_quote": "require all visible `field-required-marker`-marked fields complete on submit; allow partial draft",
+        "existing_records_excerpt": "Related output guidance requires preserving every authored value in full across print and download, including readable continuation pages."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "yes",
+        "reason": "The submit-versus-draft rule is a persistent domain constraint stated in the record."
+      }
+    },
+    {
+      "id": "T1",
+      "source_file": "RUN-1",
+      "state": {
+        "narrative": "A run ledger shows that one scenario finished and worker time remained.",
+        "candidate_fact": "Scenario E5 was completed in a run container.",
+        "evidence_quote": "\"completed\": [\n    \"SCEN-1\"\n  ]",
+        "existing_records_excerpt": "The experiment plan summarizes an embedding-scale scenario suite and its intended resource-bounded runs."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "transient_progress",
+        "should_record": "no",
+        "reason": "Completion of a particular experimental run is transient execution status, not a durable project invariant."
+      }
+    },
+    {
+      "id": "T2",
+      "source_file": "RUN-2",
+      "state": {
+        "narrative": "A monitored scenario process ended after a resource guard was reached.",
+        "candidate_fact": "The run exited with code -15 after the RSS/available-memory/wall-time guard fired.",
+        "evidence_quote": "\"exit_code\": -15,\n  \"error\": \"GuardError('resource-guard guard')\"",
+        "existing_records_excerpt": "The experiment plan describes bounded scenario execution with memory, disk, and runtime limits."
+      },
+      "expected": {
+        "is_new": "yes",
+        "is_supported": "supported",
+        "durability": "transient_progress",
+        "should_record": "no",
+        "reason": "This describes one monitored execution outcome rather than enduring product or policy knowledge."
+      }
+    },
+    {
+      "id": "X1",
+      "source_file": "SPEC-1",
+      "state": {
+        "narrative": "A stored item has an ordinary removal state and a subsequent purge state.",
+        "candidate_fact": "Purge sets the item inactive and purged while retaining its row.",
+        "evidence_quote": "represent purge as `flagA=false`, `flagB=true` while retaining the database row",
+        "existing_records_excerpt": "The existing policy explicitly states that purge marks a row inactive and purged while retaining the database row."
+      },
+      "expected": {
+        "is_new": "no",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "ambiguous — 이미 기록된 사실의 재보존 가치는 문면상 양방 해석 가능, 코드 결합은 is_new 로 결정",
+        "reason": "The same fact is already included in the supplied existing-record excerpt; whether it merits another preservation record is semantically ambiguous, while novelty determines the combination."
+      }
+    },
+    {
+      "id": "X2",
+      "source_file": "SPEC-2",
+      "state": {
+        "narrative": "The checkout has a defined product identity and separate ownership for private authoring infrastructure.",
+        "candidate_fact": "This checkout is the desktop product source repository.",
+        "evidence_quote": "This repository is the source repository for **PROJECT-M**, a desktop product.",
+        "existing_records_excerpt": "The canonical identity statement says that this checkout is the desktop product source repository, not the framework source repository."
+      },
+      "expected": {
+        "is_new": "no",
+        "is_supported": "supported",
+        "durability": "durable_fact",
+        "should_record": "ambiguous — 이미 기록된 사실의 재보존 가치는 문면상 양방 해석 가능, 코드 결합은 is_new 로 결정",
+        "reason": "The exact repository-role fact already appears in the excerpt; duplicate preservation value admits both readings, but novelty is no."
+      }
+    }
+  ],
+  "self_check": {
+    "anonymized": true,
+    "claim_quote_surface_match": true,
+    "no_prescriptive_narrative": true,
+    "notes": "Identifiers and domain-specific terms in packet strings are generalized via category-level substitution labels; source_file values are non-transmitted placeholders. No Jev/API call was made. Parent review should inspect semantic fidelity and residual re-identification risk, particularly technical field spellings in evidence quotes."
+  },
+  "parent_lint": {
+    "residual_map_applied": [
+      [
+        "isActive",
+        "flagA"
+      ],
+      [
+        "isPurged",
+        "flagB"
+      ],
+      [
+        "sessionUserId",
+        "idField1"
+      ],
+      [
+        "pcLocationId",
+        "idField2"
+      ],
+      [
+        "deviceId",
+        "idField3"
+      ],
+      [
+        ".req",
+        "field-required-marker"
+      ],
+      [
+        "\"e5\"",
+        "\"SCEN-1\""
+      ],
+      [
+        "e5",
+        "SCEN-1"
+      ],
+      [
+        "RSS/available-RAM/wall-time",
+        "resource-guard"
+      ],
+      [
+        "RuntimeError",
+        "GuardError"
+      ]
+    ],
+    "findings": [
+      "Luna 자진 신고대로 실제 필드명/시나리오ID/런타임 문자열 잔존 → Parent 치환표 추가 적용",
+      "self_check.anonymized=True 였으나 보고서에서 스스로 부인 — self_check 를 보고서와 일치시키는 lint 규칙 필요(후속)",
+      "X1/X2 should_record gold 는 ambiguous 텍스트 유지, 코드 결합은 is_new 로 결정"
+    ]
+  }
+}

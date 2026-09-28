@@ -1,0 +1,324 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V2 연구 영역과 시험 지도</title><style>
+:root{color-scheme:light;--ink:#182c39;--muted:#596d7b;--line:#dbe3e7;--accent:#087c73}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:#f5f7f8;color:var(--ink);font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;line-height:1.85}a{color:var(--accent);text-underline-offset:4px}header{padding:65px max(6vw,24px);background:#142d39;color:#eef6f7}header small{letter-spacing:.18em;color:#8de0c5}header h1{font-size:clamp(30px,4vw,54px);line-height:1.3;max-width:900px;margin:18px 0}header p{max-width:850px;color:#c5d7de}header .tags{display:flex;gap:10px;flex-wrap:wrap}.tags span{font-size:13px;border:1px solid #4a6471;border-radius:30px;padding:4px 14px}main{display:grid;grid-template-columns:260px minmax(0,1000px);gap:42px;max-width:1400px;margin:42px auto;padding:0 26px}aside{position:sticky;top:24px;align-self:start;max-height:92vh;overflow:auto;font-size:13px}aside ul{list-style:none;padding-left:12px}aside>div>ul{padding:0}aside li{margin:9px 0}aside a{text-decoration:none;color:var(--muted)}aside a:hover{color:var(--accent)}article{min-width:0;background:white;border:1px solid var(--line);border-radius:18px;padding:clamp(20px,4vw,56px)}article h1{font-size:27px}h2{font-size:25px;line-height:1.5;margin-top:60px;padding-top:25px;border-top:2px solid var(--line)}h3{font-size:19px;margin-top:32px}p,li{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow-x:auto;margin:24px 0}th,td{padding:13px 15px;border:1px solid var(--line);text-align:left;min-width:140px;vertical-align:top}th{background:#eaf3f1;color:#14564e}tr:nth-child(even){background:#f8fafb}strong{color:#12695e}code{background:#eef2f5;padding:2px 5px;border-radius:4px;font-size:.9em}button{background:#e4f5ee;color:#16584d;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}.note{padding:20px 24px;background:#eef8f3;border-left:4px solid #299b7d;margin-bottom:32px}.note p{margin:4px 0}footer{padding:30px;text-align:center;color:var(--muted);font-size:13px}@media(max-width:900px){main{display:block;padding:0 14px;margin-top:18px}aside{position:static;max-height:none;margin-bottom:22px}aside .toc ul ul{display:none}article{border-radius:12px}header{padding:38px 24px}}@media print{aside,button{display:none}main{display:block;margin:0;padding:0}article{border:0;padding:0}header{padding:20px;background:white;color:black}header p,header small{color:#333}table{display:table;font-size:10px}h2{break-after:avoid}a{color:inherit}}
+pre{overflow:auto;padding:18px;background:#edf3f6;line-height:1.65}pre code{padding:0;background:none}</style></head><body>
+<header><small>LAZY-HARNESS / RESEARCH &amp; TEST MAP</small><h1>무엇을 연구하고,<br>어떻게 작게 시험할까?</h1><p>업무 객체부터 기록·준수·소화·읽기·격리·복구까지.<br>9개 연구 책임과 단계별 시험을 나눈 보고서입니다.</p><div class="tags"><span>코드 단위 테스트</span><span>실제 모델 평가</span><span>통합·장애 시험</span><span>실행 전 검토안</span></div></header>
+<main><aside><button onclick="window.print()">인쇄 / PDF 저장</button><h3>문서 목차</h3><div class="toc">
+<ul>
+<li><a href="#rule-digest">Rule digest</a></li>
+<li><a href="#1">1. 결론</a></li>
+<li><a href="#2">2. 결정 수준과 현재 구현</a><ul>
+<li><a href="#_1">사용자 확인 방향</a></li>
+<li><a href="#_2">최근 제안과 미정</a></li>
+<li><a href="#_3">이미 있는 실험 기반</a></li>
+</ul>
+</li>
+<li><a href="#3">3. 연구 책임 지도</a></li>
+<li><a href="#4">4. 시험 종류: 무엇을 증명할 수 있나?</a></li>
+<li><a href="#5">5. 영역별 단위 시험과 연구 질문</a><ul>
+<li><a href="#a-prd">A. 업무 객체·PRD·태스크 모델</a></li>
+<li><a href="#b">B. 실행 기록·행동 이력 확보</a></li>
+<li><a href="#c">C. 준수·완료 게이트</a></li>
+<li><a href="#d">D. 영역 배정·관련 정보 찾기</a></li>
+<li><a href="#e">E. 소화·지식 스키마·의사결정 연결</a></li>
+<li><a href="#f">F. 읽기·미소화 정보 활용</a></li>
+<li><a href="#g">G. 기준 상태·격리·갱신·병합</a></li>
+<li><a href="#h-db">H. DB·처리 상태·복구</a></li>
+<li><a href="#i">I. 런타임·데몬·모델 조율</a></li>
+</ul>
+</li>
+<li><a href="#6">6. 첫 시험 묶음 제안</a></li>
+<li><a href="#7">7. 공정한 비교와 증거 보존</a></li>
+<li><a href="#8">8. 연구 자료의 활용 위치</a></li>
+<li><a href="#9">9. 누락 없이 검토해야 할 경계</a></li>
+<li><a href="#rule-placement">Rule placement</a></li>
+<li><a href="#discovery-capture-layer-assessment">Discovery capture / Layer assessment</a></li>
+<li><a href="#implementation-map">Implementation map</a></li>
+</ul>
+</div>
+</aside><article><div class="note"><p><b>첫 연구 단위 제안</b></p><p>업무 객체 하나 → Sol의 기록 준수 → Luna의 소화·읽기.</p><p>아래 시험은 후보이며 실행 결과가 아닙니다. <a href="v2-research-test-map.md">원문 보고서</a> 전체 내용을 담았습니다.</p></div><h1 id="v2">V2 연구 영역과 시험 지도</h1>
+<h2 id="rule-digest">Rule digest</h2>
+<ul>
+<li>Status: advisory</li>
+<li>Layer: Planning</li>
+<li>Scope: host-project</li>
+<li>Aliases:</li>
+<li>V2 연구 시험 지도</li>
+<li>업무 객체 단위 시험</li>
+<li>Applies when: V2 연구를 작은 실험으로 분리하고 다음 시험 범위를 선택할 때.</li>
+<li>Must: 사용자 방향과 구현 후보를 구별한다. 코드 단위 테스트, 실제 모델 평가, 통합·동시성 시험의 증거를 혼동하지 않는다. 이 보고서로 제품 스키마·실험 예산·실행을 승인하지 않는다.</li>
+</ul>
+<h2 id="1">1. 결론</h2>
+<p>연구는 <strong>업무를 정의하고 수행하는 계층 → 기록을 보존하는 계층 → 지식을 유지·읽는 계층 → 실행과 격리를 관리하는 계층</strong>으로 나눌 수 있다. 이는 서비스 배포도나 실제 지식 파티션 목록이 아닌 연구 책임 분해다.</p>
+<p>첫 연구 단위의 추천은 <strong>업무 객체 하나, 작은 태스크, 연결된 실행 근거, 완료 조건</strong>이다. 정상 진행·계획 변경·실패를 같은 계약으로 표현하고, Sol이 중복 보고서 없이 그 계약을 준수할 수 있는지 먼저 평가한다. 이후 Luna 소화·읽기를 연결한다. 추천 순서이며 실행 승인이나 스키마 채택은 아니다.</p>
+<p>핵심 질문은 세 가지다.
+1. 작업 계획과 실행 상태를 갱신하는 것 자체로 충분한 작업 기록이 남는가?
+2. 그 기록을 소화해 현재 지식을 정확하게 유지하고 다음 작업에 활용할 수 있는가?
+3. 이 연결이 기존 방식보다 누락·중단·전체 비용을 줄이는가?</p>
+<h2 id="2">2. 결정 수준과 현재 구현</h2>
+<h3 id="_1">사용자 확인 방향</h3>
+<ul>
+<li>파티션 ID와 지식 ID를 중심으로 사실을 구조화한다. 주체·설명·타입의 구체 의미는 설계 중이다.</li>
+<li>기존 지식을 추가만 하지 않고 수정·통합·철회하는 소화를 지향한다.</li>
+<li>작업의 파생 기준 상태, 격리, 갱신·병합 관계에 따라 지식도 관리해야 한다.</li>
+<li>실제 작업자: GPT5.6 Sol medium. 내부 기록 읽기·작성·소화: GPT5.6 Luna medium. 조율: GPT6 Astra low/medium 중 미정. 표기는 사용자 명칭이며 provider/model ID 가용성 확인 전이다.</li>
+<li>하네스 준수를 실제로 확보해야 한다. 작은 단위부터 단독·연결·전체 흐름을 검증한다.</li>
+</ul>
+<h3 id="_2">최근 제안과 미정</h3>
+<ul>
+<li>업무 객체를 계획·실행·기록의 공통 기준으로 하여 중복 서술을 줄이는 것은 사용자 제안/연구 가설이다.</li>
+<li>행동 ‘원장’ 명칭은 재검토 중이다. 불변성·정정·보존 계약은 아직 확정하지 않았다.</li>
+<li>별도 임시 지식 저장소는 필수가 아니다. 현재 지식과 관련 미소화 이력을 읽는 흐름이 후보이다.</li>
+<li>PostgreSQL은 허용 후보이며 DB 생성·물리 테이블·트랜잭션 계약은 미정이다.</li>
+<li>업무 완료 훅, 기록 툴, 자동 라우팅, 데몬, 검색 방식은 설계 후보이다.</li>
+</ul>
+<h3 id="_3">이미 있는 실험 기반</h3>
+<p><code>experiments/v2-sandbox/</code>는 명시적 set/propose 합성 입력, append/integrate/scoped 비교, 독립 run, 결과 보존, reset 세대, 타입-aware 채점과 임계값을 지원한다. 이전 18개 단위 테스트 및 framework 88개 회귀 통과는 이 기반과 당시 변경의 증거다.</p>
+<p><strong>이 기반은 실제 모델 소화·업무 준수·공유 DB 동시성·분기 지식 병합을 구현하거나 입증하지 않았다.</strong> 아래 시험 목록을 기존 테스트 이름이나 구현된 기능으로 읽으면 안 된다.</p>
+<h2 id="3">3. 연구 책임 지도</h2>
+<pre><code class="language-text">[요구·PRD / 업무 객체]
+       ↓ 태스크·완료 조건
+[Sol의 실행] → [도구 증거 + 결정/예외 기록]
+       ↑                 ↓
+[준수·완료 확인] ← [업무 상태와 연결된 이력]
+                         ↓
+                 [영역 배정 + Luna 소화]
+                         ↕
+                 [영역별 현재 지식]
+                         ↓
+       [Luna 읽기 ← 관련 미소화 이력]
+                         ↓
+                  [다음 작업에 사용]
+
+공통 축: 기준 상태·격리·병합 / 저장·복구 / 런타임·비용·권한
+</code></pre>
+<p>영역 배정과 소화는 같은 모델 호출에서 수행할 수 있다. 읽기와 소화는 다른 책임이지만 항상 별도 프로세스일 필요는 없다. 업무·태스크 계층과 지식 책임 파티션도 동일한 트리가 아니다.</p>
+<h2 id="4">4. 시험 종류: 무엇을 증명할 수 있나?</h2>
+<table>
+<thead>
+<tr>
+<th>시험 수준</th>
+<th>방법</th>
+<th>증명 범위 / 한계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>코드 단위 테스트</td>
+<td>모델 없이 고정 입력과 기대 상태 비교</td>
+<td>필드·참조·전이·채점 규칙. 실제 모델 이해를 증명하지 못함</td>
+</tr>
+<tr>
+<td>실제 모델 평가</td>
+<td>고정 과제, 숨겨진 기대 결과, 모델 호출 기록</td>
+<td>해당 조건의 의미 이해·준수·비용. 반복과 분포 평가 필요</td>
+</tr>
+<tr>
+<td>계약·통합 시험</td>
+<td>모델 stub 또는 실제 모델과 저장/툴을 연결</td>
+<td>경계 간 데이터 전달과 반영. stub 성공과 실제 모델 성공을 별도 보고</td>
+</tr>
+<tr>
+<td>장애·동시성 시험</td>
+<td>제어된 순서, 장애 지점, 재전달 주입</td>
+<td>일관성·중복·복구. 단순 병렬 프로세스 실행과 다름</td>
+</tr>
+<tr>
+<td>종단 간 비교</td>
+<td>계획부터 다음 작업 활용까지 수행</td>
+<td>전체 효용. 원인 분리를 위해 앞 단계 증거가 필요</td>
+</tr>
+</tbody>
+</table>
+<p>명확한 사실·상태는 코드로 채점하고, 설명 의미는 사전 채점표와 사람 검수로 평가한다. LLM 채점은 보조로 쓸 수 있으나 유일한 정답 판정자로 삼지 않는 것이 후보이다.</p>
+<h2 id="5">5. 영역별 단위 시험과 연구 질문</h2>
+<h3 id="a-prd">A. 업무 객체·PRD·태스크 모델</h3>
+<p><strong>책임:</strong> 무엇을 왜 어디까지 할지, 어떤 기준 상태에서 시작했는지, 어디까지 진행됐는지 표현한다.</p>
+<ul>
+<li>코드 단위: 업무/태스크 참조, 허용 상태 전이, 계획 버전 연결, 완료 조건 누락 처리, 취소·보류·재개 계약.</li>
+<li>예시: 검증 근거가 없는 태스크의 완료 요청 → 거부 또는 검토 대기라는 사전 합의 결과. 실패했다고 업무 계획 자체를 자동 변경하지 않음.</li>
+<li>예외 시험: 태스크 완료 후 완료 조건 변경 → 이전 증거가 새 조건을 충족하는지 재평가. 완료 이력은 지우지 않음.</li>
+<li>모델 연구: 동일 요구를 Sol이 쪼갤 때 작업 범위 누락, 불필요하게 잘게 쪼개기, 의존성 누락, 검증 불가능한 완료 조건 비율.</li>
+<li>미정: 최소 필드, PRD 필수 정도, task 크기, 병렬 태스크 의존성, 완료 판단 주체.</li>
+</ul>
+<h3 id="b">B. 실행 기록·행동 이력 확보</h3>
+<p><strong>책임:</strong> 실행 결과는 도구에서, 이유·새 결정·미해결은 작업자에게서 얻어 업무에 연결한다.</p>
+<ul>
+<li>코드 단위: 이벤트 ID/작업 ID 연결, 중복 제출, 순서, 잘못된 참조, 시도와 성공 구분, 출력 제한·민감 정보 처리 계약.</li>
+<li>계약 시험: 한 번의 태스크 갱신 요청이 현재 상태와 이력에 일관되게 반영되는가. 오류 시 부분 반영이 남는가.</li>
+<li>모델 연구: 업무 객체 갱신 방식과 별도 작업 보고서 방식에서 목적·이유·결과·예외의 보존률과 중복 서술 토큰 비교.</li>
+<li>반례: 파일 diff는 있으나 설계 이유는 없음; 테스트 실행 시작만 있고 종료 결과가 없음; 기록 전에 프로세스 종료.</li>
+<li>미정: Sol 최소 입력과 Luna 최초 작성의 경계, 수집 범위, 기록 보존·정정 방식.</li>
+</ul>
+<h3 id="c">C. 준수·완료 게이트</h3>
+<p><strong>책임:</strong> 규칙을 제시하는 데 그치지 않고 실제 기록·검증 절차를 따르게 한다.</p>
+<ul>
+<li>코드 단위: 기록 미제출·저장 실패·근거 불일치 시 완료/인계 요청 처리. 정상 제출은 통과. 반복 확인의 중복 상태 방지.</li>
+<li>실제 모델 연구: 안내만 제공 / 구조화 툴 / 완료 확인 장치 등의 조건별 미준수율, 재촉 횟수, 총 비용 비교. 정확한 비교 조건은 미정.</li>
+<li>반례: 무의미한 ‘완료함’ 기록으로 형식 통과; 과거 테스트 결과를 새 변경 증거로 재사용; 승인 없는 완료 조건 완화.</li>
+<li>핵심: 저장 성공·필드 존재는 코드로 확인할 수 있으나 의미 누락 없음은 보장하지 못한다.</li>
+<li>미정: 어느 경계를 막는지, 긴급 중단·실패 인계 예외, 누가 해제하는지. 새로운 훅 도입은 미승인.</li>
+</ul>
+<h3 id="d">D. 영역 배정·관련 정보 찾기</h3>
+<p><strong>책임:</strong> 어떤 지식을 읽고 어디에 반영할지 구별한다.</p>
+<ul>
+<li>코드 단위: 존재하지 않는 파티션 참조, 읽기/쓰기 허용 범위, 미분류 보존, 배정 결과의 형식 검사.</li>
+<li>모델 연구: 같은 ‘세션’이 인증/결제 문맥에 등장, 여러 영역에 관련된 정책, 어느 영역에도 확실히 속하지 않는 기록.</li>
+<li>평가: 관련 영역 recall, 잘못된 쓰기 영역 비율, 불필요 복제, 보류와 추가 조회 비용.</li>
+<li>반례: 관련 영역 두 개를 모두 수정 권한이 있는 것으로 오인; 새 용어마다 파티션 생성.</li>
+<li>미정: 분할·합병 기준, 다중 책임, 영역 생성 권한. 독립 라우터는 필수 아님. 자체 검색 알고리즘 구현은 이 연구의 전제가 아님.</li>
+</ul>
+<h3 id="e">E. 소화·지식 스키마·의사결정 연결</h3>
+<p><strong>책임:</strong> 기록과 기존 근거를 대조해 추가·수정·통합·철회·보류를 판단한다.</p>
+<ul>
+<li>코드 단위: 변경안 필드·타입·대상 버전·근거 참조·중복 반영 검사. 원자적으로 반영할 범위는 합의 후 시험.</li>
+<li>모델 연구: 신규 사실, 값 변경, 예외, 동의어, 상충 주장, 제안→시도→실패→복원.</li>
+<li>예시: 30분으로 바꾸려다 60분으로 복원 → 동일 대상·범위에서 현재 지식은 60분, 이전 시도는 근거 이력에 남음.</li>
+<li>평가: 중요한 주장 보존, 잘못된 채택, 근거 연결 정확도, 예외 손실, 과도한 보류, 소화 비용.</li>
+<li>미정: 주체·타입·관계의 의미, 객체 ID, 조건·시간 표현, 결정 모델과 지식 모델의 경계. 모든 항목을 단일 정확 문자열로 채점하면 안 됨.</li>
+</ul>
+<h3 id="f">F. 읽기·미소화 정보 활용</h3>
+<p><strong>책임:</strong> 현재 지식에 아직 반영되지 않은 관련 이력까지 고려해 필요한 정보를 제공한다.</p>
+<ul>
+<li>코드 단위: 작업 범위·지식 버전·처리 경계 필터, 이미 반영된 이벤트 중복 포함, 권한 밖 기록 제외.</li>
+<li>모델 연구: 같은 질문을 소화 전/후에 질의. 완료 주장과 실제 검증 결과 충돌, 폐기된 값, 조건부 예외, 근거 없음에 대한 보류.</li>
+<li>비교 후보: 지식만 / 관련 이력만 / 지식+관련 미소화 이력. 조건별 접근 가능 정보 차이를 명시.</li>
+<li>평가: 정답·근거·최신성·누출·읽기 토큰·지연. 읽기 오류가 검색 누락인지 해석 오류인지 분리.</li>
+<li>미정: 관련 로그 선별법, 답변 근거 형식, 다른 작업 이력 공개 범위, 신선도 요구.</li>
+</ul>
+<h3 id="g">G. 기준 상태·격리·갱신·병합</h3>
+<p><strong>책임:</strong> 작업이 어떤 상태에서 시작했고 무엇을 자체 변경했는지 보존한다.</p>
+<ul>
+<li>코드 단위: 기준 상태 참조, 작업별 변경 가시성, 잘못된 기준 버전 거부, 지식 상태와 코드 revision 연결.</li>
+<li>통합 예시: S0에서 A/B 파생 → A 병합으로 S1 → B는 여전히 S0 기반. B의 갱신/병합에서 양쪽 변경을 비교.</li>
+<li>모델 연구: 코드 merge는 성공했지만 같은 정책에 대한 지식이 상충하는 사례. 로컬 사실을 공통 상태로 오인하는지.</li>
+<li>장애 시험: 코드 반영과 지식 반영 중간 실패, 미커밋 상태, 지식 소화 지연, 기준 snapshot 누락.</li>
+<li>미정: 논리 snapshot/delta 방식, merge·rebase 처리, 다중 영역 원자성. Git 독립 ID를 유지하되 Git 메타데이터를 근거로 연결할 수 있음.</li>
+</ul>
+<h3 id="h-db">H. DB·처리 상태·복구</h3>
+<p><strong>책임:</strong> 로그/업무/지식/처리 정보를 안전하게 보존·조회한다.</p>
+<ul>
+<li>코드 단위: 저장/조회, 참조 제약, 실패 분류. DB가 필요한 검증은 순수 단위가 아니라 DB 통합 시험으로 표시.</li>
+<li>통합: 트랜잭션 rollback, 중복 키, 오래된 버전의 갱신, 로그 저장 후 알림 누락.</li>
+<li>장애·동시성: 지식 반영 직후 처리 위치 저장 전 종료; 같은 이벤트 재전달; 같은 영역 두 writer; 다른 영역 독립 처리.</li>
+<li>검증 결과는 ‘최종 값만 같다’가 아니라 중복 관계·결정·부수 효과가 없는지까지 확인.</li>
+<li>미정: PostgreSQL/SQLite, isolation level, cursor/receipt, retention, backup. SQLite 성공을 PostgreSQL 동시성 증거로 대체하지 않음.</li>
+</ul>
+<h3 id="i">I. 런타임·데몬·모델 조율</h3>
+<p><strong>책임:</strong> 저장 성공, 처리 요청, 읽기 응답, 모델 호출·예산·취소를 연결한다.</p>
+<ul>
+<li>코드 단위: fake 모델/시계로 배치·timeout·재시도·취소·예산 상한·일감 없음 처리.</li>
+<li>통합: 기록 저장 확인 뒤 작업자 진행 가능, 데몬 재시작 후 미처리 발견, 읽기 요청의 응답·오류 전달.</li>
+<li>실제 모델 연구: 매번 명시적 위임 / 기록 이벤트 기반 배치 처리의 전체 호출·토큰·지연·누락 비교.</li>
+<li>미정: 호출 인터페이스, 모델 ID, 실행 위치, 배치 크기, polling/event, backpressure. 데몬 상주와 모델 상시 추론은 다름.</li>
+</ul>
+<h2 id="6">6. 첫 시험 묶음 제안</h2>
+<p>한 번에 전체 구조를 만들지 않는다. 다음은 dependency 순서의 후보이다.</p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>최소 산출물</th>
+<th>합격 판단의 종류</th>
+<th>다음 단계 전 확인</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0 계약 예시</td>
+<td>업무 1개·태스크·최소 로그·지식 조각·상태 전이 예시</td>
+<td>사람의 의미 검수</td>
+<td>필드·완료·예외 기준 합의</td>
+</tr>
+<tr>
+<td>P1 기계적 계약</td>
+<td>고정 fixture와 fake 실행 결과</td>
+<td>결정적 테스트</td>
+<td>잘못된 제출을 거부하고 정상 경로 통과</td>
+</tr>
+<tr>
+<td>P2 Sol 기록 준수</td>
+<td>작은 실제 코드 작업과 갱신 이력</td>
+<td>모델 평가 + 실제 코드 테스트</td>
+<td>계획·결정·예외 보존, 중복 서술과 중단 비용</td>
+</tr>
+<tr>
+<td>P3 Luna 소화/읽기</td>
+<td>P2 기록과 별도 고정 fixture</td>
+<td>사실별 채점 + 근거 검수</td>
+<td>요구·실제 상태·보류 구별</td>
+</tr>
+<tr>
+<td>P4 격리/병합</td>
+<td>두 작업의 기준 상태와 변경분</td>
+<td>통합·의미 충돌 평가</td>
+<td>교차 작업 누출·오승격 없음</td>
+</tr>
+<tr>
+<td>P5 데몬·공유 DB</td>
+<td>복구 가능한 처리 연결</td>
+<td>장애·동시성 시험</td>
+<td>중복·부분 반영·과부하 처리</td>
+</tr>
+</tbody>
+</table>
+<p>P2 오류를 P3 모델 능력 탓으로 돌리지 않도록, P3에는 사람이 미리 검수한 고정 기록도 별도로 투입한다. 반대로 사람이 보완한 기록으로 얻은 결과를 ‘작업자가 원래 잘 기록했다’고 보고하지 않는다.</p>
+<h2 id="7">7. 공정한 비교와 증거 보존</h2>
+<ul>
+<li>비교 시 요구·초기 코드·지식·태스크 난이도·모델 설정·예산을 맞춘다. 조작하는 축은 처음에는 하나로 제한한다.</li>
+<li>plan-informed 조건만 더 많은 정답 정보를 받지 않도록 PRD의 정보량을 통제한다. 계획 자체의 품질 평가는 별도 과제다.</li>
+<li>테스트 정답·미래 정정·평가자 의견은 작업/소화 모델에 숨긴다. 전용 새 문맥에서 읽기 시험을 수행한다.</li>
+<li>모델 비결정성을 고려해 반복 결과와 최악 사례를 보고한다. 최소 반복 수·합격률은 사전에 합의한다. 소수 표본으로 p95나 규모 확장성을 주장하지 않는다.</li>
+<li>토큰·비용에는 계획, 기록, 소화, 읽기, 조율, 재시도, 사람 보완 후 재실행까지 포함한다. 청구/캐시 단가를 모르면 토큰과 지연만 보고하고 금액을 추정 확정하지 않는다.</li>
+<li>run ID, 입력/코드/프롬프트 버전, 실제 model ID·설정, 툴 receipt, 모델 출력, 채점표, 실패·취소를 보존한다. 민감 정보 수집 제한은 실행 전 정한다.</li>
+<li>초기 사례가 평가용으로 튜닝되면 별도 holdout 사례를 둔다. 런타임 오류와 모델 판단 실패를 구분해 집계한다.</li>
+<li>숫자 합격선은 이 보고서에서 임의 확정하지 않는다. 권한 밖 반영·정답 누출 등은 별도 안전 실패 항목으로 합의할 후보이다.</li>
+</ul>
+<h2 id="8">8. 연구 자료의 활용 위치</h2>
+<ul>
+<li>W3C RDF/OWL/SHACL: E의 의미·관계·구조 검사 구별. 표준 채택이 실험 전제는 아님.</li>
+<li>Palantir Action: A/C의 입력·검증·상태 변경 계약 참고. Palantir 플랫폼 복제나 실행 채택 아님.</li>
+<li>Python Wiki Compiler: B/H의 결정적 처리와 E의 의미 판단 분리, 단계별 테스트 참고. 어휘 연결로 의미 소화를 대체하지 않음.</li>
+<li>A-MEM/Mem0/Zep/Sleep-time Compute/LongMemEval: E/F의 갱신·시간·보류·비용 평가 참고.</li>
+<li>CQRS/Orleans/Restate/Kafka: G/H/I의 읽기·쓰기 분리, 처리 위치·복구 원리 참고. 자연어 소화의 결정적 재현을 보장하지 않음.</li>
+<li>출처 링크와 원문/검색 발췌/미재현 경계는 <a href="v2-vision-feasibility-research.md">연구 정본</a>에 보존되어 있다.</li>
+</ul>
+<h2 id="9">9. 누락 없이 검토해야 할 경계</h2>
+<ol>
+<li>업무 계획은 의도이고 실행 증거는 실제 결과다. 두 표현을 하나로 혼동하지 않는다.</li>
+<li>완료 체크는 의미의 진실 보증이 아니다. 변경된 완료 조건에 과거 검증을 그대로 재사용하지 않는다.</li>
+<li>업무를 닫는 것, 작업 지식을 소화하는 것, 공통 지식으로 병합하는 것은 서로 다른 경계다.</li>
+<li>로그를 한 번 제출하게 하는 것과 DB 내부를 한 테이블로 만드는 것은 다른 결정이다.</li>
+<li>기준 commit만으로 dirty 상태·정책·지식 소화 지연까지 식별할 수 없다.</li>
+<li>log/원장 명칭보다 정정·보존·처리 계약이 중요하다.</li>
+<li>별도 임시 지식이 없어도 미소화 읽기 범위와 처리 경계는 필요하다.</li>
+<li>기록 내용의 지시가 실행 권한으로 승격되면 안 된다. 프롬프트만으로 OS/DB 격리를 보장하지 않는다.</li>
+</ol>
+<h2 id="rule-placement">Rule placement</h2>
+<ul>
+<li>Rule: V2 연구 책임 분해와 단계별 시험 후보·증거 경계를 정리한 요청 보고서.</li>
+<li>Scope: transient-plan</li>
+<li>Primary record: <code>.lazy-harness/planning/v2-research-test-map.md</code>.</li>
+<li>Why not AGENTS.md: 실행 규칙이나 최종 제품 계약을 추가하지 않는 연구 계획이다.</li>
+<li>Why not local notes: 프로젝트 연구이며 개인 런타임 설정이 아니다.</li>
+<li>Confirmation: user-confirmed — 보고서 작성 요청. 각 실험 실행·스키마·합격선 채택은 미승인.</li>
+</ul>
+<h2 id="discovery-capture-layer-assessment">Discovery capture / Layer assessment</h2>
+<ul>
+<li>Planning: 이 보고서에 연구 분해와 실험 후보를 보존하고 구상 정본에서 참조한다. 현재 구상의 정본은 기존 연구 문서 유지.</li>
+<li>SDD: candidate — 업무 상태/기록 툴/반영 계약, 아직 채택하지 않음.</li>
+<li>BDD: candidate — 계획 변경·실패·인계·병합의 시험 시나리오.</li>
+<li>SSOT: no independent delta — DB·모델 실행 ID·운영 정책 채택 없음.</li>
+<li>DDD: candidate — 업무/태스크/현재 지식/행동 이력 의미 경계.</li>
+<li>TDD: candidate — 새 테스트 코드는 작성·실행하지 않음. 기존 샌드박스 회귀 계약을 대체하지 않음.</li>
+<li>ADR: none — 기술 선택 결정 없음.</li>
+</ul>
+<h2 id="implementation-map">Implementation map</h2>
+<ul>
+<li>이 보고서는 연구 계획 산출물이며 신규 런타임 함수·클래스·서비스는 없다. 추정 graph edge를 생성하지 않는다.</li>
+<li>구상 정본: <a href="v2-vision-feasibility-research.md">V2 research</a>, 특히 §15–16.</li>
+<li>검수 설명서: <a href="v2-review.html">V2 review HTML</a>. 업무 객체·기준 상태 후속 대화 전 스냅샷이므로 최신 내용을 전부 담고 있지는 않다.</li>
+<li>기존 실험 계약: <a href="../tests/v2-sandbox-bootstrap.md">V2 sandbox bootstrap</a>.</li>
+<li>기존 실험 파일: <code>experiments/v2-sandbox/sandbox.py</code>, <code>test_sandbox.py</code>, <code>test_scoring.py</code> — 명시적 합성 replay/채점/격리 기반. 본문의 A–I 제품 모듈 구현으로 매핑하지 않는다.</li>
+<li>검증 정책: <a href="../tests/test-strategy.xml">test-strategy.xml</a> — 문서 제작 검증과 미래 연구용 모델 평가를 구별한다.</li>
+</ul></article></main><footer>V2 연구·시험 보고서 · 외부 스크립트/폰트 없음 · 실험·스키마 채택 승인 아님</footer></body></html>

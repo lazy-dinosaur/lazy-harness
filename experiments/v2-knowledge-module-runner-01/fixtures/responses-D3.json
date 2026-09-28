@@ -1,0 +1,30 @@
+{
+  "is_new": {
+    "type": "noul",
+    "noul": 0.83
+  },
+  "is_supported": {
+    "type": "choice",
+    "choice": "supported",
+    "confidence": 0.47,
+    "probabilities": {
+      "supported": 0.47,
+      "insufficient": 0.41,
+      "contradicted": 0.12,
+      "none_or_uncertain": 0
+    }
+  },
+  "durability": {
+    "type": "choice",
+    "choice": "durable_fact",
+    "confidence": 0.82,
+    "probabilities": {
+      "durable_fact": 0.82,
+      "none_or_uncertain": 0.18
+    }
+  },
+  "should_record": {
+    "type": "noul",
+    "noul": 0.66
+  }
+}

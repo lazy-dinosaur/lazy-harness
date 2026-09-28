@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lazy-Harness V2 · 구상과 실현 가능성</title>
+<style>
+:root{color-scheme:light;--ink:#182c39;--muted:#596d7b;--line:#dbe3e7;--accent:#087c73}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:#f5f7f8;color:var(--ink);font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;line-height:1.85}a{color:var(--accent);text-underline-offset:4px}header{padding:65px max(6vw,24px);background:#142d39;color:#eef6f7}header small{letter-spacing:.18em;color:#8de0c5}header h1{font-size:clamp(30px,4vw,54px);line-height:1.3;max-width:900px;margin:18px 0}header p{max-width:850px;color:#c5d7de}header .tags{display:flex;gap:10px;flex-wrap:wrap}.tags span{font-size:13px;border:1px solid #4a6471;border-radius:30px;padding:4px 14px}main{display:grid;grid-template-columns:260px minmax(0,1000px);gap:42px;max-width:1400px;margin:42px auto;padding:0 26px}aside{position:sticky;top:24px;align-self:start;max-height:92vh;overflow:auto;font-size:13px}aside ul{list-style:none;padding-left:12px}aside>div>ul{padding:0}aside li{margin:9px 0}aside a{text-decoration:none;color:var(--muted)}aside a:hover{color:var(--accent)}article{min-width:0;background:white;border:1px solid var(--line);border-radius:18px;padding:clamp(20px,4vw,56px)}article h1{font-size:27px}h2{font-size:25px;line-height:1.5;margin-top:60px;padding-top:25px;border-top:2px solid var(--line)}h3{font-size:19px;margin-top:32px}p,li{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow-x:auto;margin:24px 0}th,td{padding:13px 15px;border:1px solid var(--line);text-align:left;min-width:140px;vertical-align:top}th{background:#eaf3f1;color:#14564e}tr:nth-child(even){background:#f8fafb}strong{color:#12695e}code{background:#eef2f5;padding:2px 5px;border-radius:4px;font-size:.9em}button{background:#e4f5ee;color:#16584d;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}.note{padding:20px 24px;background:#eef8f3;border-left:4px solid #299b7d;margin-bottom:32px}.note p{margin:4px 0}footer{padding:30px;text-align:center;color:var(--muted);font-size:13px}@media(max-width:900px){main{display:block;padding:0 14px;margin-top:18px}aside{position:static;max-height:none;margin-bottom:22px}aside .toc ul ul{display:none}article{border-radius:12px}header{padding:38px 24px}}@media print{aside,button{display:none}main{display:block;margin:0;padding:0}article{border:0;padding:0}header{padding:20px;background:white;color:black}header p,header small{color:#333}table{display:table;font-size:10px}h2{break-after:avoid}a{color:inherit}}
+</style></head><body>
+<header><small>LAZY-HARNESS / V2 RESEARCH NOTE</small><h1>책임을 나누고,<br>지식을 유지하고,<br>필요한 만큼 조합한다.</h1><p>사용자 구상부터 선행 연구, 가능한 접근과 아직 풀어야 할 문제까지.<br>구현 배치도가 아닌 <b>구상·타당성 검토 보고서</b>입니다.</p><div class="tags"><span>사용자 확인 방향</span><span>확장 비전</span><span>구현 후보 · 미채택</span><span>검증 필요</span></div></header>
+<main><aside><button onclick="window.print()">인쇄 / PDF 저장</button><h3>문서 목차</h3><div class="toc">
+<ul>
+<li><a href="#rule-digest">Rule digest</a></li>
+<li><a href="#0">0. 요약과 연구 범위</a></li>
+<li><a href="#1">1. 사용자 구상: 확인된 방향</a></li>
+<li><a href="#2">2. 사용자가 제시한 확장 비전: 아직 보장·구현 확정 아님</a></li>
+<li><a href="#3">3. 용어 정리와 이전 설명의 교정</a></li>
+<li><a href="#4">4. 실현 가능성: 주장별 판정</a></li>
+<li><a href="#5">5. 책임 모델: 구현 수단을 분리한 후보</a></li>
+<li><a href="#6">6. 가능한 구현 접근: 모두 미채택</a><ul>
+<li><a href="#a">A. 문서 중심 + 얇은 작업 원장</a></li>
+<li><a href="#b">B. 원장 + 읽기용 현재 상태 + 영역별 소비자</a></li>
+<li><a href="#c-durable-execution">C. 가상 액터 / durable execution 기반</a></li>
+<li><a href="#d">D. 점진적 지식 그래프 / 의미 규격 추가</a></li>
+<li><a href="#e">E. 영역 실행 계약 + 제한된 도구</a></li>
+</ul>
+</li>
+<li><a href="#7">7. 상황별 검토: 아직 미정인 지점이 드러나는 곳</a><ul>
+<li><a href="#_1">정상 수정</a></li>
+<li><a href="#_2">요구 변경 후 되돌림</a></li>
+<li><a href="#_3">두 작업의 상충 변경</a></li>
+<li><a href="#_4">소화 도중 장애</a></li>
+<li><a href="#_5">정책 변경과 일회성 평가</a></li>
+<li><a href="#_6">부모를 찾지 않는 자식</a></li>
+<li><a href="#_7">새 영역·분할</a></li>
+<li><a href="#_8">여러 레포지토리 조합</a></li>
+</ul>
+</li>
+<li><a href="#8">8. 성능·품질: 기대와 반증 기준</a></li>
+<li><a href="#9">9. 검증 실험 제안 — 실행 미승인</a></li>
+<li><a href="#10">10. 의사결정 순서 제안 — 채택 아님</a></li>
+<li><a href="#11">11. 자료와 적용 범위</a></li>
+<li><a href="#12">12. 최종 판단</a></li>
+<li><a href="#rule-placement">Rule placement</a></li>
+<li><a href="#13">13. 소화 사례에서 시작하는 온톨로지 후보</a><ul>
+<li><a href="#_9">원래 문제와 수단의 우선순위 — 사용자 재확인</a></li>
+<li><a href="#_10">확인된 범위와 미확정 경계</a></li>
+<li><a href="#_11">사례: 제안 → 적용 → 되돌림</a></li>
+<li><a href="#_12">사례에서 필요한 의미 구분</a></li>
+<li><a href="#_13">세 책임을 분리</a></li>
+<li><a href="#discovery-capture">Discovery capture — 이 후속 논의</a></li>
+</ul>
+</li>
+<li><a href="#14-mvp-knap">14. 영역 객체 MVP 검증안과 Knap 검토 — 미채택 제안</a><ul>
+<li><a href="#mvp">MVP의 질문과 최소 범위</a></li>
+<li><a href="#_14">하나의 실행 순환</a></li>
+<li><a href="#_15">비교와 실패 판정</a></li>
+<li><a href="#knap">Knap: 공식 자료에서 확인한 기능</a></li>
+<li><a href="#discovery-capture-rule-placement">Discovery capture / Rule placement</a></li>
+</ul>
+</li>
+<li><a href="#discovery-capture_1">Discovery capture</a></li>
+<li><a href="#implementation-map">Implementation map</a></li>
+</ul>
+</div>
+</aside><article><div class="note"><p><b>핵심 판단</b></p><p>기술적으로 가능한 방향입니다. 다만 결합된 시스템의 성능·정확도는 아직 검증되지 않았습니다.</p><p>이 페이지는 <a href="v2-vision-feasibility-research.md">원본 연구 문서</a>의 전체 내용을 담은 파생 읽기 화면입니다.</p></div><h1 id="v2">하네스 V2 — 사용자 구상과 실현 가능성 연구</h1>
+<p>Date: 2026-09-12
+Status: advisory
+Layer: Planning</p>
+<h2 id="rule-digest">Rule digest</h2>
+<ul>
+<li>Status: advisory</li>
+<li>Layer: Planning</li>
+<li>Scope: host-project</li>
+<li>Aliases: V2 구상 연구, 영역 전문가, 원장 소화, 조합 가능한 하네스</li>
+<li>Applies when: 이 대화의 V2 구상을 검토하거나 후속 요구사항을 구체화할 때.</li>
+<li>Must: 사용자 확인 방향, 사용자의 확장 가설, 연구 사실, AI 제안을 구분한다. 라우터·DB·언어·폴더·프로세스 배치를 채택안으로 바꾸지 않는다. 성능·품질 향상은 측정 전에는 가설로 표시한다.</li>
+</ul>
+<h2 id="0">0. 요약과 연구 범위</h2>
+<p><strong>판정: 기술적으로 성립하는 방향이며 여러 선행 패턴으로 부분 구현이 가능하다. 그러나 그 결합이 기존 방식보다 빠르고 정확하다는 것은 아직 검증되지 않았다.</strong></p>
+<p>구상의 중심은 특정 그래프 DB나 라우터가 아니다. 작업에서 나온 기록을 보존하고, 책임이 있는 영역이 지식을 유지하며, 필요한 문맥만 읽고 일할 수 있도록 만드는 것이다. 확장 비전은 이런 영역을 조합해 개인 프로젝트에서 여러 레포지토리까지 같은 원리로 운영하는 것이다.</p>
+<p>문서는 이 대화와 공개 자료를 토대로 한 bounded desk research다. 체계적 문헌고찰, 독립 재현 실험, 성능 벤치마크, 보안 감사는 수행하지 않았다. 소스의 제품 성능 주장은 자체 환경의 관찰이지 V2 보장으로 인용하지 않는다. V2 런타임 구현·패키지 설치·설계 채택 승인은 아니다.</p>
+<h2 id="1">1. 사용자 구상: 확인된 방향</h2>
+<p>다음은 구현 명세가 아닌 사용자 확인 개념이다.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>방향</th>
+<th>대화 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1</td>
+<td>지식과 책임 영역을 식별하고 필요한 영역을 병렬 읽기</td>
+<td>“읽을때 병렬처리 가능 + 지식의 파티션화 + 소화와 흡수”</td>
+</tr>
+<tr>
+<td>C2</td>
+<td>영역 안의 지식도 ID로 식별하는 방향</td>
+<td>“파티션으로 나뉜곳 안에 여러 지식들이 아이디를 가지고 있고 병렬로 탐색”</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>기존 지식 + 내 작업의 미소화 기록으로 임시 이해 구성</td>
+<td>“지식을 검색하는거 + 액션원장 만을 통해서도 이해가 가능… 임시 지식” 이후 확인</td>
+</tr>
+<tr>
+<td>C4</td>
+<td>임시 기록을 디스크에 보존하고 Git 없이도 작업 격리 가능</td>
+<td>“git 이나 워크트리 없이도 격리된 임시 기록들을 가지고 있는 방법”</td>
+</tr>
+<tr>
+<td>C5</td>
+<td>작업 중 발견·요구·결정·정책·결과 등을 남기고 나중에 소화</td>
+<td>“작업에 대한 기록 혹은 의사결정 혹은 정책 등을 작성”</td>
+</tr>
+<tr>
+<td>C6</td>
+<td>소화는 기존 지식의 수정·정리이며 무조건 문서 추가가 아님</td>
+<td>“무조건적인 문서추가가 아니고… 수정하면서 특정 영역을 벗어나지 않게”</td>
+</tr>
+<tr>
+<td>C7</td>
+<td>영역별 모델 액터는 소화 워커이며 영역 내 순차·배치, 독립 영역 간 병렬</td>
+<td>“모델이 순서대로 처리… 배치… 소화시키는걸 워커 단위”</td>
+</tr>
+<tr>
+<td>C8</td>
+<td>쓰기 처리 큐와 깨울 수 있는 데몬이라는 원리</td>
+<td>“큐는 작성을 위한거”, “데몬들은 깨울수 있어야한다”</td>
+</tr>
+<tr>
+<td>C9</td>
+<td>개념·관계와 영역 규격은 필요에 따라 발전</td>
+<td>“파티션마다 규격도 동적으로 정해져야”</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>Git과 하네스는 별개, Git 상태는 관찰 가능한 신호</td>
+<td>“git 이랑 하네스를 분리해서 봐야해”</td>
+</tr>
+<tr>
+<td>C11</td>
+<td>책임을 먼저 정의하고 라우터 같은 해결책은 나중에 선택</td>
+<td>“라우터는 지금은 잊어버려… 중요한건 철학과 책임 분배”</td>
+</tr>
+</tbody>
+</table>
+<p>주의: 파티션은 앞서 적극 논의한 방향이지만 사용자는 이후 온톨로지로 일부 역할을 대체할 가능성도 질문했다. 따라서 고정 파티션 트리·ID 규격·배치 개수를 최종 채택한 것으로 간주하지 않는다.</p>
+<h2 id="2">2. 사용자가 제시한 확장 비전: 아직 보장·구현 확정 아님</h2>
+<ul>
+<li><strong>영역 전문가:</strong> 각 영역의 지식·행동 규약을 가지고 에이전트를 스폰한다.</li>
+<li><strong>사람의 일관된 창구:</strong> 사람은 오케스트레이터를 통해 결과·근거를 보고 요구나 정책을 정정한다.</li>
+<li><strong>중앙 문맥 축소:</strong> 중앙이 모든 코드와 지식을 알기보다 책임 영역이 자기 문맥을 처리한다.</li>
+<li><strong>계층적 조합:</strong> 영역이 기능·폴더·레포지토리 규모로 조합되고 필요하면 하위 영역으로 분화한다.</li>
+<li><strong>부모 비탐색:</strong> 특정 폴더에서 스폰한 에이전트가 상위 폴더를 임의 탐색하지 않고 자기 작업을 수행한다.</li>
+<li><strong>개발자 간 품질 편차 축소:</strong> 개인 프롬프트 숙련도보다 영역의 규약·지식·평가 기준에 기대어 일한다.</li>
+<li><strong>개인에서 대형으로 확장:</strong> 블록의 책임과 외부 접점을 유지하면서 실행 규모를 바꾼다.</li>
+</ul>
+<p>이 비전은 “계층을 늘리면 자동으로 빨라진다”, “정책만 주면 균일한 품질”, “부모 정책을 무시해도 된다”를 뜻하지 않는다. 이 세 주장은 연구로도 보장되지 않는다.</p>
+<h2 id="3">3. 용어 정리와 이전 설명의 교정</h2>
+<table>
+<thead>
+<tr>
+<th>용어</th>
+<th>이 문서에서의 의미</th>
+<th>혼동하면 안 되는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>원장</td>
+<td>주장·행동·확인·결과가 발생했다는 이력</td>
+<td>기록된 주장이 항상 참이라는 보증</td>
+</tr>
+<tr>
+<td>현재 지식</td>
+<td>근거를 소화해 현재 읽기 좋게 유지하는 표현</td>
+<td>원본 근거와 독립적인 무근거 진실원</td>
+</tr>
+<tr>
+<td>온톨로지</td>
+<td>개념·관계·의미를 명시한 모델</td>
+<td>원장 또는 자동 검색기</td>
+</tr>
+<tr>
+<td>지식 그래프</td>
+<td>대상·사실·관계를 연결한 표현</td>
+<td>반드시 별도 그래프 DB</td>
+</tr>
+<tr>
+<td>RAG</td>
+<td>찾아온 외부 근거를 생성에 사용하는 패턴</td>
+<td>임베딩 전용 제품 또는 원본 청크 검색만</td>
+</tr>
+<tr>
+<td>책임 영역</td>
+<td>어떤 지식을 누가 관리하는지의 경계</td>
+<td>물리 디스크 샤드나 폴더와 항상 동일한 것</td>
+</tr>
+<tr>
+<td>액터</td>
+<td>상태·메시지·처리 책임을 가진 실행 주체</td>
+<td>별도로 학습된 모델 또는 영역마다 상주하는 모델 프로세스</td>
+</tr>
+<tr>
+<td>규격·템플릿</td>
+<td>의미 또는 표현 형식을 공유하는 계약</td>
+<td>모든 영역에 똑같은 필드를 강제하는 고정 분류</td>
+</tr>
+</tbody>
+</table>
+<p>온톨로지에는 실제 개체와 사실도 포함할 수 있다. “온톨로지는 스키마만, 지식 그래프는 사실만”이라는 절대 구분은 부정확하다.[S2] 문서 템플릿과 백링크만으로 온톨로지가 자동으로 생기지는 않는다. 관계의 의미와 개념 정의를 공유한다면 가벼운 온톨로지 역할을 할 수 있다.</p>
+<p>책임 트리와 의미 그래프도 다르다. 승인·환불을 다른 책임 영역으로 나누어도 의미 관계는 가지를 가로지를 수 있다. 상호 의존성이 많은 영역을 트리 구조만으로 검색하면 필요한 근거를 누락할 수 있다.</p>
+<h2 id="4">4. 실현 가능성: 주장별 판정</h2>
+<table>
+<thead>
+<tr>
+<th>주장</th>
+<th>판정</th>
+<th>조건·한계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>독립 영역 병렬 읽기</td>
+<td>구현 가능</td>
+<td>조회 집합의 완전성, 접근 권한, 결과 통합과 읽은 버전의 명시가 필요</td>
+</tr>
+<tr>
+<td>같은 영역 순차 소화</td>
+<td>구현 가능</td>
+<td>실제 직렬 처리/반영 경계가 있어야 함. async interleaving 여부도 고려[S7]</td>
+</tr>
+<tr>
+<td>순차 처리면 모든 충돌 제거</td>
+<td>성립하지 않음</td>
+<td>과거 지식에 기반한 상충 요청은 순차여도 의미 충돌. 재평가·버전 검사가 후보[S8]</td>
+</tr>
+<tr>
+<td>지식 + 내 원장으로 임시 이해</td>
+<td>실현 가능한 가설</td>
+<td>관련 사건 선별, 시도/확정/철회 구분, 이미 반영된 기록 중복 해석 방지가 필요</td>
+</tr>
+<tr>
+<td>폴더 격리만으로 안전한 권한 제한</td>
+<td>성립하지 않음</td>
+<td>일반 shell/파일 도구가 상위·외부에 접근 가능하면 프롬프트는 보안 경계 아님[S10]</td>
+</tr>
+<tr>
+<td>부모 비탐색으로 독립 동작</td>
+<td>조건부 가능</td>
+<td>적용 규약과 외부 계약을 사전에 제공하거나 승인된 참조로 조회해야 함</td>
+</tr>
+<tr>
+<td>영역 전문가로 품질 편차 축소</td>
+<td>유망한 가설</td>
+<td>최신 규약, 실제 도구 제한, 결과 검증이 함께 필요. 모델 능력 차이는 남음</td>
+</tr>
+<tr>
+<td>중앙은 UI만 담당</td>
+<td>배치 선택으로 가능</td>
+<td>조정·충돌·평가 책임이 사라지는 것이 아니라 다른 위치로 이동</td>
+</tr>
+<tr>
+<td>작은 영역에서 대형 레포 조합</td>
+<td>조건부 가능</td>
+<td>주소·계약·실패 전파·비용 통제 필요. 계층 자체는 성능 보장 아님[S11]</td>
+</tr>
+<tr>
+<td>온톨로지로 자동 성능 향상</td>
+<td>보장 불가</td>
+<td>의미적 범위 축소는 도움 가능. 추론/관계 유지/탐색 비용은 증가 가능</td>
+</tr>
+<tr>
+<td>행동 로그로 소화 결과 완전 재현</td>
+<td>그대로는 불가</td>
+<td>모델·프롬프트·외부 지식이 바뀌면 결과가 달라짐. 채택 결과를 보존하는 방법 검토[S9]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5">5. 책임 모델: 구현 수단을 분리한 후보</h2>
+<p>사용자 중심의 세 역할은 <strong>읽기 / 작업 중 기록 / 소화·정리</strong>다. 아래는 이를 설명하기 위한 책임 목록이며 모듈·프로세스 개수가 아니다.</p>
+<table>
+<thead>
+<tr>
+<th>책임</th>
+<th>목적</th>
+<th>경계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>작업 구분</td>
+<td>누구의 어떤 작업 기록인지 식별</td>
+<td>Git 특정 개념에 의존하지 않음</td>
+</tr>
+<tr>
+<td>기록 보존</td>
+<td>사건·근거·확인 상태를 잃지 않음</td>
+<td>기록 저장과 지식 채택을 동일시하지 않음</td>
+</tr>
+<tr>
+<td>필요한 문맥 제공</td>
+<td>기존 지식과 내 미소화 기록으로 답변/작업 지원</td>
+<td>불확실·상충 정보와 타 작업 정보의 혼입 방지</td>
+</tr>
+<tr>
+<td>지식 유지</td>
+<td>기존 지식을 근거에 맞게 수정·통합</td>
+<td>무조건 추가 또는 최신 주장 자동 덮어쓰기 아님</td>
+</tr>
+<tr>
+<td>소유권 유지</td>
+<td>변경 가능한 영역을 명시</td>
+<td>읽기 관련성과 쓰기 권한을 혼동하지 않음</td>
+</tr>
+<tr>
+<td>의미 관리</td>
+<td>개념·관계를 일관되게 해석·진화</td>
+<td>정책 강제 또는 저장 순서와 다른 책임</td>
+</tr>
+<tr>
+<td>결과 평가와 제어</td>
+<td>사람이 근거를 보고 정정·중단 가능</td>
+<td>일회성 피드백을 영구 정책으로 자동 승격하지 않음</td>
+</tr>
+</tbody>
+</table>
+<p>라우터, 코드 룩업, 임베딩, 읽기 에이전트는 “필요 영역 찾기”를 수행할 수 있는 대체 또는 조합 수단이다. 책임과 구현을 일대일 고정하지 않는다.</p>
+<h2 id="6">6. 가능한 구현 접근: 모두 미채택</h2>
+<h3 id="a">A. 문서 중심 + 얇은 작업 원장</h3>
+<ul>
+<li>영역 설명과 ID, 링크된 문서, 작업별 기록을 파일 또는 단일 로컬 DB로 관리.</li>
+<li>정리 작업을 요청할 때 해당 범위의 모델을 실행.</li>
+<li>장점: 개인 환경에서 관찰·수정·디버깅이 쉽고 LLM Wiki와 비교하기 좋음.[S1]</li>
+<li>한계: 파일 동시 쓰기·원자적 반영·조회 범위·권한을 별도로 다뤄야 함.</li>
+<li>적합성: 의미와 기록 단위를 먼저 검증하는 작은 실험 후보.</li>
+</ul>
+<h3 id="b">B. 원장 + 읽기용 현재 상태 + 영역별 소비자</h3>
+<ul>
+<li>기록은 누적하고 읽기용 표현은 비동기로 유지하는 CQRS/Event Sourcing 유사 접근.[S8]</li>
+<li>장점: 쓰기와 읽기 확장 분리, 처리 위치 추적, 장애 분석.</li>
+<li>한계: eventual consistency, 중복 전달, schema 변경과 재처리. 자연어 소화는 결정적 reducer가 아님.</li>
+<li>DB는 append-only 테이블을 가진 일반 DB도 후보이며 Kafka 필수 아님.</li>
+</ul>
+<h3 id="c-durable-execution">C. 가상 액터 / durable execution 기반</h3>
+<ul>
+<li>영역 ID와 실행 위치를 분리하고 필요 시 실행 주체를 활성화.</li>
+<li>Orleans는 가상 액터·상태·스케줄링, Restate는 journal과 완료 단계 재사용의 참고가 됨.[S7][S9]</li>
+<li>장점: 영역당 상주 모델을 항상 띄우지 않고도 논리적 전문성을 유지할 수 있음.</li>
+<li>한계: 도메인 지식 품질과 그래프 의미는 프레임워크가 대신 해결하지 않음.</li>
+</ul>
+<h3 id="d">D. 점진적 지식 그래프 / 의미 규격 추가</h3>
+<ul>
+<li>A-MEM의 기존 기억 갱신, Graphiti의 시간성과 근거 연결, OWL의 명시적 의미 모델을 참고.[S2][S4][S5]</li>
+<li>장점: 문서 간 관계와 변화를 명시해 다중 근거 읽기를 지원.</li>
+<li>한계: 개체 병합 오류, 추출비용, 거짓 관계 증폭, graph schema evolution.</li>
+<li>A/B/C와 병용 가능. 별도 그래프 DB 또는 엄격한 OWL 채택은 미정.</li>
+</ul>
+<h3 id="e">E. 영역 실행 계약 + 제한된 도구</h3>
+<ul>
+<li>자식은 부모 파일을 임의 탐색하지 않고 승인된 입력·규약·도구 권한으로 실행하는 후보.</li>
+<li>object-capability의 “필요한 권한만 명시적으로 전달” 원리가 관련됨.[S10]</li>
+<li>가능한 기반: 범위 제한 도구, 프로세스/컨테이너 sandbox, 명시적 외부 참조.</li>
+<li>주의: 문자열 파티션 ID 자체는 보안 capability가 아님. 도구 집행과 권한 위조 방지가 필요.</li>
+</ul>
+<p>이 목록은 구매·채택 추천표가 아니다. 여러 책임을 한 프로세스로 시작하거나 필요에 따라 분산할 수 있다.</p>
+<h2 id="7">7. 상황별 검토: 아직 미정인 지점이 드러나는 곳</h2>
+<h3 id="_1">정상 수정</h3>
+<p>사용자가 요구 확인 → 작업 중 기록 → 구현·검증 결과 기록 → 소화 전에는 내 기록을 함께 읽음 → 적절한 계기에 기존 지식 갱신.
+미정: 발행 단위, 소화 계기, 결과 채택 조건.</p>
+<h3 id="_2">요구 변경 후 되돌림</h3>
+<p>30분 만료로 수정 시도 → 검증 실패 → 기존 60분으로 복원.
+기대: 최신 행동 한 건이나 수정 의도만으로 30분을 현재 사실로 답하지 않음. 원장은 사건의 증거이지 성공 보증이 아님.</p>
+<h3 id="_3">두 작업의 상충 변경</h3>
+<p>A와 B가 같은 과거 지식을 읽고 서로 다른 결정을 기록.
+기대: 순차 반영만으로 마지막 기록을 진실로 선택하지 않음. 권위·시점·범위를 대조하거나 미해결로 표시.</p>
+<h3 id="_4">소화 도중 장애</h3>
+<p>수정 후 처리 위치 보존 전에 중단.
+기대: 재실행해 중복 문서·관계·정책이 생기지 않음. 방법(원자성/멱등성/채택 패치 보존)은 미정.</p>
+<h3 id="_5">정책 변경과 일회성 평가</h3>
+<p>“이번 수정은 다시 해줘”와 “앞으로 이 영역은 리뷰 필수”를 구별.
+기대: 첫 발언이 모든 미래 작업 정책으로 확대되지 않음. 확인·적용 범위가 필요.</p>
+<h3 id="_6">부모를 찾지 않는 자식</h3>
+<p>인증 폴더에서 시작하되 공통 보안 정책과 결제 영역 계약이 관련됨.
+기대: 부모 탐색을 금지하면서 필수 계약을 누락하지 않음. 어떤 규약이 주어졌는지 확인 가능해야 함.</p>
+<h3 id="_7">새 영역·분할</h3>
+<p>새 지식이 쌓임.
+기대: 검색 실패나 크기만으로 새 파티션 생성하지 않음. 독립 책임·결합도·공유 변경 빈도가 판단 후보. ID 연속성·기존 참조·미처리 기록 인계는 미정.</p>
+<h3 id="_8">여러 레포지토리 조합</h3>
+<p>서로 다른 영역이 공유 API를 변경.
+기대: 책임 트리만으로 의미 의존성을 누락하지 않음. 계약 버전·검증 결과·통합 책임을 노출. 중앙이 얇아져도 통합 책임은 남음.</p>
+<h2 id="8">8. 성능·품질: 기대와 반증 기준</h2>
+<p>병렬 탐색은 독립 작업이 충분하고 IO/모델 자원이 허용할 때 지연을 줄일 수 있다. 총비용은 늘 수도 있다. Anthropic의 공개 경험은 병렬 리서치 이점과 높은 토큰 비용, 코드 작업의 의존성 한계를 동시에 보고한다.[S11] 보고된 배수는 특정 기준의 결과이므로 V2 예상치로 사용하지 않는다.</p>
+<p>대략적인 모델(측정치 아님):
+- 순차 시간 ≈ 각 독립 작업 시간의 합.
+- 병렬 시간 ≈ 가장 느린 작업 + 배분·통합·대기 비용.
+- 전체 모델 비용 = 읽기 + 소화 + 실패 재처리 + 중앙/영역 간 문맥 전달.</p>
+<p>소화 부하가 처리 용량을 넘으면 미소화 원장이 계속 늘고 읽기 비용이 다시 커진다. 평균 입력률/처리율뿐 아니라 특정 영역에 몰리는 부하, tail latency, 중복 읽기를 측정해야 한다.</p>
+<p>온톨로지에는 의미적 정확도와 탐색 범위 축소의 잠재 이점이 있으나 복잡한 추론을 켜면 계산비용도 늘 수 있다. 스키마를 선언한 것과 그것이 코드/툴에서 강제되는 것은 별개다.</p>
+<h2 id="9">9. 검증 실험 제안 — 실행 미승인</h2>
+<p>기존 방식을 동일한 사건·질문·모델 예산으로 비교할 것. 현재 하네스의 코드를 바꾸거나 벤치마크를 실제 수행하지 않았다.</p>
+<ol>
+<li><strong>단일 영역:</strong> 짧은 작업 기록을 기존 지식에 반영하고 질문으로 재확인. 생성된 문서 수보다 의미 보존과 정확도를 측정.</li>
+<li><strong>두 독립 영역:</strong> 같은 문제를 순차/병렬 처리해 지연·비용·누락 비교.</li>
+<li><strong>미소화 overlay:</strong> 소화 전후에 같은 질문을 던져 내 작업 최신성 및 타 작업 누출 검사.</li>
+<li><strong>충돌·실패 주입:</strong> 상충 요구, 되돌림, 중복 전달, 소화 중 장애, 의미가 모호한 기록.</li>
+<li><strong>계층 조합:</strong> 하위 영역이 부모 비탐색으로 필요한 규약을 준수하는지, cross-area 계약을 놓치지 않는지 확인.</li>
+</ol>
+<p>측정 후보:
+- 필요한 근거/영역을 찾는 recall, 잘못된 사실률, 미확정의 확정 오인율.
+- 모를 때 보류하는 비율과 불필요 보류율.
+- 이미 반영된 기록의 재처리·중복률, 타 작업 기록 노출.
+- p50/p95 읽기 시간, 소화 지연, 작업당 전체 토큰/비용.
+- 원래 규약 대비 실제 테스트·리뷰 통과와 사람의 정정 횟수.</p>
+<p>LongMemEval의 정보 추출·다중 세션·시간 추론·지식 갱신·abstention 축을 참고할 수 있다.[S12] 대화 벤치마크를 코드 안전성 시험으로 대체해서는 안 된다. 통과 임계값은 사용자와 사전에 결정할 문제다.</p>
+<h2 id="10">10. 의사결정 순서 제안 — 채택 아님</h2>
+<ol>
+<li>한 작업 사례의 기록 입력과 읽기 기대 결과부터 합의.</li>
+<li>의미상 무엇이 사실·제안·확정·실패인지 구분.</li>
+<li>격리 범위와 지식 수정 책임을 합의.</li>
+<li>소화 전/후 읽기와 완료의 의미를 합의.</li>
+<li>그 후 파티션·온톨로지 수준·툴·실행 수단을 비교.</li>
+<li>실제 계측 후 영역 분할과 분산 범위를 확대.</li>
+</ol>
+<p>지금 결정하지 않아도 되는 것: Kafka 채택, Elixir 채택, 그래프 DB, 항상 상주하는 전문가 모델, 중앙 라우터 모델, 서비스 개수, 전역 고정 레이어.</p>
+<h2 id="11">11. 자료와 적용 범위</h2>
+<p>아래는 원문·공식 문서 중심이다. S1/S2는 이번 대화에서 원문을 직접 조회했고, 그 외 자료는 공식 검색 결과의 본문 발췌와 기존 같은 대화의 논문 조사에 근거한 요약이다. 모든 논문의 전체 본문을 정독·재현했다고 주장하지 않는다.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>자료</th>
+<th>관련성 / 한계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td><a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy — LLM Wiki</a></td>
+<td>원본·LLM 유지 위키·규격, index/log, 증분 정리. 아이디어 문서이며 분산 소유권/품질 보증 연구 아님</td>
+</tr>
+<tr>
+<td>S2</td>
+<td><a href="https://www.w3.org/TR/owl2-primer/">W3C OWL 2 Primer</a></td>
+<td>클래스·관계·개체·공리의 의미. 별도 제품 도입을 요구하는 자료 아님</td>
+</tr>
+<tr>
+<td>S3</td>
+<td><a href="https://arxiv.org/abs/2005.11401">RAG, 2020</a></td>
+<td>검색과 생성 결합. 온톨로지와 경쟁하는 저장 포맷이 아님</td>
+</tr>
+<tr>
+<td>S4</td>
+<td><a href="https://arxiv.org/abs/2502.12110">A-MEM, 2025</a></td>
+<td>노트·연결 생성·기존 기억 진화. 워크트리 격리나 영역 소유권 보장 아님</td>
+</tr>
+<tr>
+<td>S5</td>
+<td><a href="https://arxiv.org/abs/2501.13956">Zep temporal knowledge graph, 2025</a></td>
+<td>episode 근거·시간성·관계 갱신. 최신 주장을 무조건 권위로 삼는 정책을 그대로 채택하면 안 됨</td>
+</tr>
+<tr>
+<td>S6</td>
+<td><a href="https://arxiv.org/abs/2504.13171">Sleep-time Compute, 2025</a></td>
+<td>질문 전 문맥 재구성. 미래 질문 예측 가능성과 비용 상각 조건이 중요</td>
+</tr>
+<tr>
+<td>S7</td>
+<td><a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Orleans-MSR-TR-2014-41.pdf">Orleans 논문</a>, <a href="https://dotnet.github.io/orleans/docs/grains/request-scheduling/">request scheduling</a></td>
+<td>ID 기반 가상 액터와 스케줄링. 단일 스레드와 요청 전체 직렬화는 interleaving 설정에 따라 다름</td>
+</tr>
+<tr>
+<td>S8</td>
+<td><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing">Event Sourcing</a>, <a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs">CQRS</a></td>
+<td>원장과 projection, 재처리·동시성·eventual consistency. 자연어 편집의 의미 정확성은 별개</td>
+</tr>
+<tr>
+<td>S9</td>
+<td><a href="https://docs.restate.dev/ai/patterns/durable-agents">Restate durable agents</a></td>
+<td>완료 모델 호출 결과의 journal/replay. 임의 외부 부작용을 자동 exactly-once로 만드는 것으로 과장하지 않음</td>
+</tr>
+<tr>
+<td>S10</td>
+<td><a href="https://people.eecs.berkeley.edu/~daw/talks/TRUST07.pdf">David Wagner, object capabilities 강연</a></td>
+<td>명시적 권한 전달과 least authority. 프롬프트 기반 역할 부여만으로 보안 격리가 생기지 않음</td>
+</tr>
+<tr>
+<td>S11</td>
+<td><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Anthropic multi-agent research system</a></td>
+<td>독립 병렬 탐색·문맥 분산의 효과와 비용/코드 의존성 한계. 기업 자체 경험</td>
+</tr>
+<tr>
+<td>S12</td>
+<td><a href="https://arxiv.org/abs/2410.10813">LongMemEval</a></td>
+<td>기억 갱신·시간·보류 평가. 코드 작업 전용 benchmark 아님</td>
+</tr>
+<tr>
+<td>S13</td>
+<td><a href="https://arxiv.org/abs/2504.19413">Mem0, 2025</a></td>
+<td>추출·기존 기억 갱신·검색 비용 비교. 제품 주장과 평가 조건을 구분해야 함</td>
+</tr>
+<tr>
+<td>S14</td>
+<td><a href="https://notes.stephenholiday.com/Kafka.pdf">Kafka 초기 논문, 2011</a></td>
+<td>파티션·배치·소비 위치 원리. 현대 Kafka 기능 전체의 근거로 사용하지 않음</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12">12. 최종 판단</h2>
+<ul>
+<li><strong>말이 되는가?</strong> 예. 책임 경계, 사건 보존, 읽기/쓰기 분리, 소화된 표현, 계층 조합은 각각 선행 연구와 구현 패턴이 있다.</li>
+<li><strong>가능한 방법이 있는가?</strong> 예. 파일 기반 위키부터 로컬 원장+읽기 표현, 가상 액터와 제한된 도구까지 선택 폭이 있다. 처음부터 분산 인프라는 필수가 아니다.</li>
+<li><strong>전체가 검증되었는가?</strong> 아니오. 특히 의미 기반 자동 분할, 작은 모델의 편집 정확도, 미소화 기록의 안전한 해석, 영역 전문가의 품질 균일화는 V2 실험이 필요하다.</li>
+<li><strong>핵심 난점은?</strong> 메시지를 병렬로 전달하는 것보다 “새 기록이 무엇을 바꾸며 어느 범위에서 참인가”를 잃지 않는 것이다.</li>
+<li><strong>중앙을 얇게 할 수 있는가?</strong> 가능하나 통합·평가·실패 대응 책임의 위치를 별도로 정해야 한다.</li>
+</ul>
+<h2 id="rule-placement">Rule placement</h2>
+<ul>
+<li>Rule: 사용자 구상/확장 가설/연구 근거/AI 제안을 분리한 V2 타당성 보고서.</li>
+<li>Scope: transient-plan</li>
+<li>Primary record: <code>.lazy-harness/planning/v2-vision-feasibility-research.md</code>.</li>
+<li>Why not AGENTS.md: 운영 규칙을 추가하는 작업이 아닌 요구사항·연구 기록이다.</li>
+<li>Why not local notes: 개인 런타임 선호가 아닌 프로젝트 V2 구상이다.</li>
+<li>Confirmation: user-confirmed — “지금까지…문서로 싹 정리하고 연구” 승인. 본문 제안의 채택이나 구현 승인은 아니다.</li>
+</ul>
+<h2 id="13">13. 소화 사례에서 시작하는 온톨로지 후보</h2>
+<h3 id="_9">원래 문제와 수단의 우선순위 — 사용자 재확인</h3>
+<ul>
+<li>사용자 보고: 이전 하네스에서 문서가 계속 증가하면서 검색과 작업이 느려지는 문제가 있었다. 이 문장은 사용자 경험의 기록이며 병목 계측 결과가 아니다.</li>
+<li>사용자 확인: 처음 영역 분할·책임 위임·확장성을 구상한 목적은 그 누적과 탐색/작업 비용 문제를 해결하는 것이었다.</li>
+<li>온톨로지 도입 자체가 목표가 아니다. 스키마·소화 논의도 이 원래 문제와 연결해서 평가해야 한다. 확장성을 당장 구현하지 않는 것과 원래 목적을 폐기하는 것은 다르다.</li>
+<li>‘이전 하네스가 지식 그래프 형식만으로 구축되었는가’는 사용자의 확인 질문이며, 이번 대화에서 구현 전반을 재검증한 사실로 기록하지 않는다.</li>
+<li>사용자 정정: 영역 객체·에이전트는 의미와 책임을 묶는 개념적 모델이며, 영역마다 독립 에이전트 서비스를 만들 필요는 없다. 프로세스·서비스 분리를 전제로 한 비용 비판을 이 구상의 필연적 단점으로 평가하지 않는다. 실행 배치는 미정이며 이 정정은 구현 승인이 아니다.</li>
+<li>사용자 확인: 하네스 버전 변경이므로 V2 설계에서 현행 하네스 지식과의 호환성은 요구하지 않는다. 기존 문서 형식·ID·그래프 구조에 맞추기 위한 호환 계층이나 마이그레이션은 MVP 필수 범위가 아니다. 이 확인은 기존 데이터 삭제나 런타임 구현 승인이 아니며, DB·스키마의 구체 선택도 확정하지 않는다.</li>
+<li>Discovery capture: Planning updated — 사용자 문제 정의·동기 정정을 이 primary record에 통합. DDD/SDD/BDD/TDD/ADR/SSOT none — 새 구조·정책·벤치마크 결과 없음.</li>
+</ul>
+<h3 id="_10">확인된 범위와 미확정 경계</h3>
+<ul>
+<li>사용자 확인: 확장성은 후순위로 두고 스키마·툴·소화 판단에 집중한다.</li>
+<li>사용자 선택: ‘소화 사례부터’ 개념과 관계를 도출한다. 최소 스키마 선설계나 기존 기록 변환부터 시작하지 않는다.</li>
+<li>아래 만료 시간 사례는 설명용 가상 사례다. 개념명·필드·반영 조건의 채택 또는 런타임 구현 승인은 아니다.</li>
+</ul>
+<h3 id="_11">사례: 제안 → 적용 → 되돌림</h3>
+<p>기존 공유 지식은 ‘인증 세션의 만료 시간은 60분’이라고 가정한다. 동일 환경·설정 범위에 대한 사건만 비교한다.</p>
+<table>
+<thead>
+<tr>
+<th>입력 기록</th>
+<th>소화 시 해석 후보</th>
+<th>현재 지식에 대한 처리 후보</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1: 30분으로 바꾸자는 요구</td>
+<td>변경 제안</td>
+<td>제안과 그 근거는 보존하되 현재 설정을 바꾸지 않음</td>
+</tr>
+<tr>
+<td>E2: 설정을 30분으로 변경하고 검증 통과</td>
+<td>적용을 주장하는 기록 + 검증 근거</td>
+<td>관련 설정 버전·범위·실제 결과를 확인한 뒤 반영 후보 생성. 테스트 통과만으로 정책 확정하지 않음</td>
+</tr>
+<tr>
+<td>E3: 문제로 같은 설정을 60분으로 복원</td>
+<td>E2 변경을 되돌렸다는 기록</td>
+<td>복원 근거 확인 후 현재 표현은 60분, 과거 30분 적용 이력은 보존</td>
+</tr>
+<tr>
+<td>E4: 근거 없이 ‘현재 30분’이라고 기록</td>
+<td>기존 근거와 상충하는 주장</td>
+<td>도착 순서만으로 덮어쓰지 않고 상충·보류 상태로 남기는 후보</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_12">사례에서 필요한 의미 구분</h3>
+<ul>
+<li>대상과 범위: 어떤 세션/설정/환경에 대한 이야기인가.</li>
+<li>주장: 대상의 어떤 속성이 어떤 값이라는 말인가.</li>
+<li>사건과 근거: 누가 언제 무엇을 제안·적용·검증·복원했다고 기록했는가. 기록된 시점과 실제 발생 시점은 다를 수 있다.</li>
+<li>관계: 무엇을 뒷받침하거나 반박하고, 어떤 변경을 되돌리는가.</li>
+<li>현재 지식: 근거와 소화 정책에 따라 채택된 현재 표현. 원본 사건과 동일하지 않다.</li>
+</ul>
+<h3 id="_13">세 책임을 분리</h3>
+<ol>
+<li>온톨로지: 위 개념과 관계의 의미를 정의한다. 모든 새 기록마다 정의를 바꾸지 않는다.</li>
+<li>소화 정책·툴: 관련 지식/근거 검색, 반영 후보 생성, 검증, 채택 또는 보류를 담당한다. 어떤 근거와 권한이 충분한지는 미정이다.</li>
+<li>맵·인덱스: 대상·범위·관계·근거로 관련 정보를 찾도록 유지한다. 별도 진실원이나 채택 권한이 아니다.</li>
+</ol>
+<p>같은 대상과 범위로 읽은 현재 버전에 대해 변경안을 검증하고 반영하는 방식은 후보이며, 구체적인 트랜잭션·버전 계약은 채택하지 않는다. E2/E3 재처리와 중간 실패 복구는 기존 §7·§9의 검증 범위를 재사용한다.</p>
+<h3 id="discovery-capture">Discovery capture — 이 후속 논의</h3>
+<ul>
+<li>Planning: updated — 사용자 우선순위·사례 우선 접근 및 가상 사례를 이 primary record에 통합.</li>
+<li>DDD: candidate — 대상/주장/사건/근거/관계 구분. 명칭·스키마 미확정.</li>
+<li>SDD: candidate — 검색/검증/반영/인덱스 책임 구분. API 미확정.</li>
+<li>BDD: candidate — 제안/적용/복원/상충의 소화 예시.</li>
+<li>TDD: candidate — 기존 변경·실패·재처리 검증 범위 재사용, 실행 없음.</li>
+<li>ADR: none — 기술 채택 없음.</li>
+<li>SSOT: none — 실제 운영 정책·권한 변경 없음.</li>
+<li>Rule placement: 기존 Planning 연구의 구체화이며 운영 규칙으로 승격하지 않는다.</li>
+</ul>
+<h2 id="14-mvp-knap">14. 영역 객체 MVP 검증안과 Knap 검토 — 미채택 제안</h2>
+<p>사용자 요청: 영역 객체 구상을 검증할 MVP 접근과 knap.md를 조사한다. 구현·패키지 설치 승인이 아니다.</p>
+<h3 id="mvp">MVP의 질문과 최소 범위</h3>
+<ul>
+<li>검증 질문: 같은 작업 이력을 처리할 때, 무조건 누적 방식보다 현재 지식의 중복·읽기 부담을 줄이면서 정확성과 근거를 유지하는가?</li>
+<li>후보 범위: 로컬 단일 실행기, 논리 영역 2개(인증·결제), 영역별 정의/책임/지식 ID. 독립 에이전트 서비스·분산 큐·자동 영역 분할 제외.</li>
+<li>영역 2개는 배포 확장을 시험하기 위한 것이 아니라, 동일 단어의 다른 의미와 영역 간 참조를 시험하기 위한 것이다.</li>
+<li>데이터 후보: 사람이 기대 결과를 적은 작업 기록 20~30개. 제안→적용→복원, 동일 개념의 다른 이름, 상충 주장, 동일 입력 재처리, 영역 간 참조를 포함. 수량은 제안이며 합의된 통과 기준이 아니다.</li>
+</ul>
+<h3 id="_14">하나의 실행 순환</h3>
+<ol>
+<li>작업 원장을 저장하고 task/event ID로 구별한다.</li>
+<li>소화자는 해당 영역과 관련 외부 지식·현재 버전을 조회한다.</li>
+<li>모델은 근거 ID를 포함한 추가/수정/연결/철회/보류 변경안을 반환한다. 개념 정의 변경은 사실 변경과 구별한다.</li>
+<li>코드가 형식·참조·쓰기 범위·대상 버전·중복 적용을 검사한다. 검사 통과는 의미적 진실 보증이 아니다.</li>
+<li>최초 실험에서는 사람이 변경안과 기대 결과를 대조해 승인 또는 거부한다. 인간 승인 효과를 모델 자체 정확도와 분리해 측정한다.</li>
+<li>승인된 변경을 현재 지식과 검색용 표현에 반영하고, 다음 질의를 기존 지식+해당 작업의 미소화 기록으로 답한다.</li>
+</ol>
+<p>툴의 논리 책임 후보: 관련 지식 조회, 근거 조회, 변경안 검증, 승인 변경 반영. 이름·API·저장소는 미확정. 의미 검색 구현을 새로 발명하지 않고 기존 SearchProvider 또는 승인된 검색 도구를 사용한다.</p>
+<h3 id="_15">비교와 실패 판정</h3>
+<ul>
+<li>같은 기록/질문을 A(문서 누적)와 B(영역 책임+지식 통합)에 입력한다. 가능하면 C(영역 없이 통합)를 추가해 소화의 효과와 영역 분할의 효과를 구별한다.</li>
+<li>모델·질문·검색 예산·실행 환경을 맞추고, 전체 처리 비용은 소화 비용까지 포함한다. 기존 하네스 실측을 하지 않았다면 A를 기존 하네스와 동일하다고 부르지 않는다.</li>
+<li>측정: 근거 포함 정답률, 잘못된 확정/불필요 보류, 중복된 현재 주장, 질의당 읽은 문서/토큰, 지연, 소화 비용, 사람 수정량.</li>
+<li>안전성 예시: 복원 후 폐기된 값을 현재 사실로 답하지 않음; 재처리로 새 중복이 생기지 않음; 다른 영역의 동음 개념을 합치지 않음; 원장/근거는 추적 가능함.</li>
+<li>원장 크기는 보존 때문에 증가할 수 있다. 줄이려는 것은 현재 지식의 불필요 중복과 매번 읽는 양이지 모든 저장량이 아니다.</li>
+<li>초기 결과가 좋아도 20~30개 사례로 규모 증가 시 성능을 입증할 수 없다. 규모 주장은 별도의 누적량별 부하 실험 전까지 유보한다.</li>
+</ul>
+<h3 id="knap">Knap: 공식 자료에서 확인한 기능</h3>
+<ul>
+<li>직접 확인: https://knap.md 및 https://knap.md/cli ; API 문서 https://knap.md/api 는 조회했으며 이번 요약의 주요 근거는 홈페이지와 CLI 본문이다.</li>
+<li>공식 설명상 Knap은 구조화된 데이터를 Markdown으로 렌더링하는 템플릿 언어다. 변수·필터·조건·반복·YAML frontmatter·wikilink 출력을 지원한다. 공식 저장소 링크는 https://github.com/obsidianmd/knap 이다.</li>
+<li>지식 그래프 저장·검색·개체 병합·소화 판단 도구로 설명되어 있지 않다. linked Markdown 출력은 가능하지만 그래프 엔진 자체와 구별한다.</li>
+<li>적합 후보 위치: 소화되어 채택된 구조화 지식 → Knap 템플릿 → 사람이 읽는 Markdown 뷰. 온톨로지나 정본 저장 형식의 대체가 아니다.</li>
+<li>CLI render는 성공 후 지정 파일을 생성/덮어쓴다. batch는 기본적으로 기존 파일을 거부하고 --overwrite를 지원한다. 배치 쓰기 중 파일시스템 실패 시 일부 출력만 남을 수 있다고 공식 문서에 명시되어 있어 원자적 지식 반영 장치로 사용할 수 없다.</li>
+<li>validate는 템플릿 구문/필터 등을 검사하며 변수 존재나 실행 데이터 값·사실의 정확성을 검사하지 않는다.</li>
+<li>출력 파일을 지식 ID별로 갱신하는 방식은 후보다. 사건마다 batch로 새 문서를 생성하면 원래 문서 증식 문제를 해결하지 못한다.</li>
+<li>생성 Markdown을 쓰기 가능한 정본과 동시에 운영하면 동기화 문제가 생길 수 있다. MVP에서 사용한다면 정본과 파생 뷰 구분부터 결정해야 한다.</li>
+<li>로컬 설치·실행·코드 감사·성능 재현은 하지 않았다. 사용자에게 다른 동명의 프로젝트 링크가 있다면 이 도구와 구별해 재검토한다.</li>
+</ul>
+<h3 id="discovery-capture-rule-placement">Discovery capture / Rule placement</h3>
+<ul>
+<li>Planning updated: 연구 요청에 따라 MVP·Knap 적합성 후보를 이 primary record에 통합.</li>
+<li>DDD/SDD/BDD/TDD candidate: 영역 의미·툴 책임·실행 사례·평가 기준의 제안이며 canonical 계약이나 테스트로 미승격.</li>
+<li>ADR/SSOT none: Knap·저장 형식·실행 구조 채택 없음. 운영 규칙 추가 없음.</li>
+<li>다음 단계는 사용자의 범위 선택 및 실행 승인이다. 이 보고서 작성은 런타임 구현 승인이 아니다.</li>
+</ul>
+<h2 id="discovery-capture_1">Discovery capture</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>판단</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Planning</td>
+<td>updated — 이 문서가 구상·연구·미정 목록의 primary record</td>
+</tr>
+<tr>
+<td>DDD</td>
+<td>candidate — 영역, 작업, 지식, 사건의 정의는 구현 도메인 모델로 미승격</td>
+</tr>
+<tr>
+<td>SDD</td>
+<td>candidate — 읽기/기록/소화 책임 후보, API 계약 미확정</td>
+</tr>
+<tr>
+<td>BDD</td>
+<td>candidate — 상황별 기대 결과는 검토 예시</td>
+</tr>
+<tr>
+<td>TDD</td>
+<td>candidate — 실험·평가 제안, 테스트 코드나 회귀 확정 없음</td>
+</tr>
+<tr>
+<td>ADR</td>
+<td>none — 기술 선택/아키텍처 채택 없음</td>
+</tr>
+<tr>
+<td>SSOT</td>
+<td>none — 소유권·설정·운영 정책 변경 없음</td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementation-map">Implementation map</h2>
+<ul>
+<li>이 문서는 런타임 구현을 갖지 않는 연구 산출물이다. 함수·클래스·구현 graph edge를 추정 생성하지 않는다.</li>
+<li>기존 시각 자료: <a href="visuals/harness-v2/README.md">확정 개념 시각화 설명</a>, <a href="visuals/harness-v2/index.html">Archify HTML</a>.</li>
+<li>시각 자료는 이전 시점의 개념 스냅샷이며, 후속 “라우터는 구현 후보” 정정과 영역 조합 연구를 대신하지 않는다. 이번 연구로 HTML을 재생성하지 않았다.</li>
+<li>역사적 방향 기록: <a href="lazy-harness-v2-direction-purpose.md">V2 direction</a>. 기존 계획을 자동 폐기·덮어쓰지 않는다.</li>
+<li>후속 실행은 위 미정 항목 중 사용자가 선택한 범위에 대해서만 별도 승인한다.</li>
+</ul></article></main><footer>연구 문서 HTML · 외부 스크립트/폰트 의존 없음 · 아키텍처 채택 또는 구현 승인 아님</footer></body></html>

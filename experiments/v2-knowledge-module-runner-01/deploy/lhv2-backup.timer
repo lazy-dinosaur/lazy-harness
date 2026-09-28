@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily lazy-harness v2 knowledge backup
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=15min
+# Catch up a missed day after power-off or suspend.
+Persistent=true
+Unit=lhv2-backup.service
+
+[Install]
+WantedBy=timers.target

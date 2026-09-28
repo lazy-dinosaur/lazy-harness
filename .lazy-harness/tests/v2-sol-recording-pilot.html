@@ -1,0 +1,207 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>실제 Sol 연구 결과 · 작업하며 기록 남기기</title><style>
+:root{color-scheme:light;--ink:#182c39;--muted:#596d7b;--line:#dbe3e7;--accent:#087c73}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:#f5f7f8;color:var(--ink);font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;line-height:1.85}a{color:var(--accent);text-underline-offset:4px}header{padding:65px max(6vw,24px);background:#142d39;color:#eef6f7}header small{letter-spacing:.18em;color:#8de0c5}header h1{font-size:clamp(30px,4vw,54px);line-height:1.3;max-width:900px;margin:18px 0}header p{max-width:850px;color:#c5d7de}header .tags{display:flex;gap:10px;flex-wrap:wrap}.tags span{font-size:13px;border:1px solid #4a6471;border-radius:30px;padding:4px 14px}main{display:grid;grid-template-columns:260px minmax(0,1000px);gap:42px;max-width:1400px;margin:42px auto;padding:0 26px}aside{position:sticky;top:24px;align-self:start;max-height:92vh;overflow:auto;font-size:13px}aside ul{list-style:none;padding-left:12px}aside>div>ul{padding:0}aside li{margin:9px 0}aside a{text-decoration:none;color:var(--muted)}aside a:hover{color:var(--accent)}article{min-width:0;background:white;border:1px solid var(--line);border-radius:18px;padding:clamp(20px,4vw,56px)}article h1{font-size:27px}h2{font-size:25px;line-height:1.5;margin-top:60px;padding-top:25px;border-top:2px solid var(--line)}h3{font-size:19px;margin-top:32px}p,li{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow-x:auto;margin:24px 0}th,td{padding:13px 15px;border:1px solid var(--line);text-align:left;min-width:140px;vertical-align:top}th{background:#eaf3f1;color:#14564e}tr:nth-child(even){background:#f8fafb}strong{color:#12695e}code{background:#eef2f5;padding:2px 5px;border-radius:4px;font-size:.9em}button{background:#e4f5ee;color:#16584d;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}.note{padding:20px 24px;background:#eef8f3;border-left:4px solid #299b7d;margin-bottom:32px}.note p{margin:4px 0}footer{padding:30px;text-align:center;color:var(--muted);font-size:13px}@media(max-width:900px){main{display:block;padding:0 14px;margin-top:18px}aside{position:static;max-height:none;margin-bottom:22px}aside .toc ul ul{display:none}article{border-radius:12px}header{padding:38px 24px}}@media print{aside,button{display:none}main{display:block;margin:0;padding:0}article{border:0;padding:0}header{padding:20px;background:white;color:black}header p,header small{color:#333}table{display:table;font-size:10px}h2{break-after:avoid}a{color:inherit}}
+pre{overflow:auto;padding:18px;background:#edf3f6;line-height:1.65}pre code{padding:0;background:none}</style></head><body>
+<header><small>V2 / ACTUAL SOL MEDIUM PILOT</small><h1>코드를 고치면서,<br>기록도 남길 수 있었을까?</h1><p>Sol에게 작은 실제 작업을 맡겼습니다.<br>무엇을 했고 무엇을 아직 모르는지 쉽게 정리했습니다.</p><div class="tags"><span>실제 코드 수정</span><span>7개 진행 기록</span><span>짧은 의미 기록 3문장</span><span>단일 표본 · 절감률 미측정</span></div></header>
+<main><aside><button onclick="window.print()">인쇄 / PDF 저장</button><h3>목차</h3><div class="toc">
+<ul>
+<li><a href="#sol-01">Sol 실제 작업·기록 시험 01</a><ul>
+<li><a href="#rule-digest">Rule digest</a></li>
+<li><a href="#_1">승인과 범위</a></li>
+<li><a href="#_2">기록 계약 후보</a></li>
+<li><a href="#_3">사전 평가 기준</a></li>
+<li><a href="#_4">실행 상태</a></li>
+<li><a href="#_5">결과를 쉬운 말로 요약</a><ul>
+<li><a href="#1">1. 어떤 일을 맡겼나?</a></li>
+<li><a href="#2-sol">2. Sol은 어떻게 진행했나?</a></li>
+<li><a href="#3">3. 실제로 남은 기록</a></li>
+<li><a href="#4-parent">4. parent가 별도로 확인한 것</a></li>
+<li><a href="#5">5. 시간과 비용</a></li>
+<li><a href="#6">6. 이번에 말할 수 있는 결론과 없는 결론</a></li>
+<li><a href="#_6">다음 후보</a></li>
+</ul>
+</li>
+<li><a href="#_7">실행 증거</a></li>
+<li><a href="#layer-completeness-discovery-capture">Layer completeness / Discovery capture</a></li>
+<li><a href="#rule-placement">Rule placement</a></li>
+<li><a href="#implementation-map">Implementation map</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</aside><article><div class="note"><p><b>먼저 결론</b></p><p>이번 작은 작업에서는 별도 보고서 없이도 실패 이유·수정 방침·검증 결과·완료 상태가 남았습니다. 실제 테스트와 코드도 별도로 확인했습니다.</p><p>하지만 한 번 잘 된 것이므로 언제나 누락이 없거나 더 저렴하다고 결론내릴 수는 없습니다.</p></div><h1 id="sol-01">Sol 실제 작업·기록 시험 01</h1>
+<h2 id="rule-digest">Rule digest</h2>
+<ul>
+<li>Status: advisory</li>
+<li>Layer: TDD</li>
+<li>Scope: host-project</li>
+<li>Aliases:</li>
+<li>Sol 실제 기록 시험</li>
+<li>업무 객체 기록 준수 P2</li>
+<li>Applies when: 첫 실제 Sol 업무 객체/기록 시험을 실행하거나 결과를 평가할 때.</li>
+<li>Must: 단일 표본의 기록 수행 가능성과 비용 절감·일반 준수율을 구별한다. 테스트 영수증은 실제 subprocess 결과로 생성하며, 프롬프트 기반 파일 경계를 보안 격리로 과장하지 않는다.</li>
+</ul>
+<h2 id="_1">승인과 범위</h2>
+<p>사용자가 읽기 전용 실행 경로 확인 성공 후 연구 진행을 승인했다. 한 번의 fresh Sol medium 작업으로 작은 실제 Python 코드를 수정하고 기록을 남기는 시험이다. 전체 하네스 제품 구현·설치 변경·DB·네트워크·Luna 소화 실행은 제외한다.</p>
+<ul>
+<li>대상: <code>experiments/v2-sol-recording-01/</code>.</li>
+<li>모델: <code>openai-codex/gpt-5.6-sol:medium</code>, 한 writer만 실행.</li>
+<li>시간 범위: child 최대 10분. 중단 시 결과를 실패/미완료로 보존하며 다른 모델로 대체하지 않는다.</li>
+<li>목적: 세션 만료 설정 읽기 함수의 정확한 정수·범위 검사 및 테스트 구현.</li>
+<li>PRD/태스크는 parent가 사전 제공한다. Sol의 계획 생성 능력을 평가하는 시험은 아니다.</li>
+<li>정상 작업과 시작 코드의 알려진 테스트 실패를 포함한다. 요구 변경·격리 병합·동시성은 이번 범위에 없다.</li>
+</ul>
+<h2 id="_2">기록 계약 후보</h2>
+<p><code>task.json</code>은 목적·범위·완료 조건을 담는다. Sol은 <code>record.py start</code>, <code>verify</code>, <code>decision/note</code>, <code>complete</code>를 사용한다. 현재 진행 상태는 이벤트에서 표시하고 별도 완료 보고서는 요구하지 않는다.</p>
+<p><code>verify</code>는 고정 unittest 명령을 실제로 실행해 exit code·출력·시간·소스 SHA-256을 receipts에 남긴다. <code>complete</code>는 현재 파일 해시에 대응하는 최근 통과 기록과 메모 존재를 확인한다. 이 장치는 모델이 직접 pass 문자열을 제출하는 앞선 모형의 한계를 줄인다.</p>
+<p>그러나 child가 shell 접근을 갖기 때문에 파일 접근 금지 지시는 보안 경계가 아니다. parent는 task/recorder 보존 해시, 세션 tool trace, 이력과 receipt, 별도의 정답 검사를 대조한다. 파일 기반 단일 writer 도구이며 트랜잭션·재시작 복구·강한 위조 방지·숨은 의도 복원은 구현하지 않았다. 테스트 성공은 의미상 메모의 충실함을 보장하지 않는다.</p>
+<h2 id="_3">사전 평가 기준</h2>
+<ol>
+<li>코드: 기본값 60, 정확한 int 1..240, bool/float/str/None/범위 밖 거부, dict 아닌 입력 거부, 입력 불변.</li>
+<li>기록: 시작, 실제 baseline 실패, 실패 원인 또는 선택 이유, 최종 검증, 미해결 상태, 완료 연결을 확인한다.</li>
+<li>무결성: task.json/record.py 보존, 모든 receipt 해시 및 대응 코드 상태 확인. 범위 밖 변경은 별도 실패로 표시한다.</li>
+<li>준수: parent의 중간 재촉 없이 수행했는지, 별도 장문 완료 보고서/직접 receipt 조작이 있었는지 세션에서 확인한다.</li>
+<li>사용량: 실제 resolved model/thinking, 호출 수·턴·툴·토큰·비용·시간을 도구 증거로 보고한다. 단일 조건이므로 절감률은 산출하지 않는다.</li>
+</ol>
+<p>고정 정답 검사는 child 완료 뒤 parent가 수행한다. 평가자 결과를 child에 미리 주거나 실패 결과를 몰래 보정하지 않는다. 실행 실패·일반 작업 테스트 실패·기록 부족을 구별한다.</p>
+<h2 id="_4">실행 상태</h2>
+<p>첫 실제 Sol 시험 완료. 아래는 도구 실행 기록과 parent의 독립 확인을 대조한 결과다. 전체 framework 표준 검증 결과는 별도이며, 단일 표본의 가능성 확인을 일반적인 준수율로 확대하지 않는다.</p>
+<h2 id="_5">결과를 쉬운 말로 요약</h2>
+<p><strong>Sol이 실제 코드를 고치면서 짧은 기록을 남겼고, 별도 장문 보고서 없이도 무엇을 왜 했는지 확인할 수 있었다.</strong> 다만 요구와 기록 방법을 처음부터 자세히 제공한 아주 작은 작업 한 번의 결과다.</p>
+<h3 id="1">1. 어떤 일을 맡겼나?</h3>
+<ul>
+<li>세션 만료 설정을 읽는 작은 함수를 고치게 했다.</li>
+<li>설정이 없으면 60분, 올바른 정수 1~240만 허용하도록 요구했다.</li>
+<li>True 같은 참/거짓 값이나 문자열을 숫자로 몰래 바꾸지 말고 거부하도록 했다.</li>
+<li>코드와 테스트 파일 두 개만 수정할 수 있게 했다. 기존 제품 코드는 건드리는 과제가 아니었다.</li>
+</ul>
+<h3 id="2-sol">2. Sol은 어떻게 진행했나?</h3>
+<ol>
+<li>업무 설명과 기록 도구를 읽고, 현재 하네스가 요구하는 문서 확인을 수행했다.</li>
+<li>시작을 기록한 뒤 원래 코드의 테스트를 실제 실행했다. True가 숫자 1로 바뀌는 문제로 실패했다.</li>
+<li>실패 이유와 수정 방침을 짧게 기록했다.</li>
+<li>함수와 테스트를 수정했다.</li>
+<li>테스트를 다시 실행해 5개 테스트가 통과했다.</li>
+<li>남은 문제가 없다는 메모를 남기고 태스크를 완료했다. 최종 응답은 태스크 ID와 상태 두 줄뿐이었다.</li>
+</ol>
+<p>중간에 parent가 기록을 다시 쓰라고 재촉하거나 코드를 보정하지 않았다. 이 표본의 child tool trace에서 source edit는 허용된 두 파일뿐이며, 별도 write는 런타임이 지정한 두 줄 상태 출력이었다. 기록·실행 결과 파일은 record.py가 생성했다.</p>
+<h3 id="3">3. 실제로 남은 기록</h3>
+<p>총 7개: 시작 → 실패한 검증 → 실패 설명 → 수정 결정 → 성공한 검증 → 남은 일 메모 → 완료.</p>
+<p>Sol이 작성한 의미 기록은 다음 세 문장이다.
+- “기준 테스트는 bool이 int로 변환되어 통과값 1이 되는 문제로 실패했다.”
+- “bool 하위형 문제와 자동 변환을 막기 위해 값의 타입이 정확히 int인지 확인한 뒤 1..240 범위를 검사한다.”
+- “요구된 허용·거부 경계와 입력 불변 테스트가 통과했으며 남은 문제는 없다.”</p>
+<p>처음 두 문장은 원인과 이유, 마지막은 작업자의 미해결 판단이다. 마지막 문장을 절대적 무결점 보증으로 읽으면 안 된다. 실제 테스트 출력과 코드 상태를 가리키는 식별값은 도구가 자동으로 남겼다.</p>
+<h3 id="4-parent">4. parent가 별도로 확인한 것</h3>
+<ul>
+<li>Sol이 작성한 테스트 5개는 실제 실행 기록에서 통과했다.</li>
+<li>parent의 독립 코드 검사 266개 항목이 통과했다. 이 중 240개는 허용 범위의 정수를 하나씩 확인한 것이므로, 266개의 서로 다른 업무를 시험했다는 뜻은 아니다.</li>
+<li>기록 순서·파일 보존·실행 결과 연결을 포함하면 총 280개 확인 항목이 통과했다. 정확한 7개 이벤트 순서 검사는 이 표본의 관찰 결과 확인이지 모든 업무의 고정 규칙은 아니다.</li>
+<li>task.json과 record.py의 파일 해시는 실행 전과 같았다.</li>
+<li>시작 때의 실패 기록은 원래 코드, 마지막 성공 기록은 최종 코드에 연결돼 있었다.</li>
+<li>최종 응답은 <code>task_id: T1</code> / <code>status: complete</code>로 끝났으며 별도 작업 보고서를 중복 작성하지 않았다.</li>
+<li>완료 후 source/test primary LSP 진단은 0개였다.</li>
+</ul>
+<h3 id="5">5. 시간과 비용</h3>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>관측값</th>
+<th>해석</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>실행 모델</td>
+<td>gpt-5.6-sol, medium</td>
+<td>subagent status와 세션에서 확인</td>
+</tr>
+<tr>
+<td>child 실행 시간</td>
+<td>약 96.7초</td>
+<td>준비·평가·HTML 작성 시간은 제외</td>
+</tr>
+<tr>
+<td>모델 응답 횟수</td>
+<td>11</td>
+<td>한 작업에서 여러 번 도구를 쓰며 진행</td>
+</tr>
+<tr>
+<td>도구 호출</td>
+<td>14</td>
+<td>읽기·문서 확인·기록·수정·검증·짧은 결과 저장 포함</td>
+</tr>
+<tr>
+<td>새 입력 토큰</td>
+<td>32,141</td>
+<td>child 세션 usage 합계</td>
+</tr>
+<tr>
+<td>출력 토큰</td>
+<td>1,678</td>
+<td>child 세션 usage 합계</td>
+</tr>
+<tr>
+<td>캐시에서 읽은 토큰</td>
+<td>249,216</td>
+<td>재사용 문맥도 비용 집계에 포함</td>
+</tr>
+<tr>
+<td>도구 보고 비용</td>
+<td>약 $0.336</td>
+<td>보고된 usage 기준, 청구서 검증 아님. parent 비용 제외</td>
+</tr>
+</tbody>
+</table>
+<p>문서 확인과 런타임 문맥도 이 비용에 들어 있다. 이전 읽기 확인용 canary와 실패한 실행 준비, parent의 준비·평가 비용은 포함하지 않았다. 따라서 전체 연구 비용이나 기록 방식의 절감률로 사용하면 안 된다.</p>
+<h3 id="6">6. 이번에 말할 수 있는 결론과 없는 결론</h3>
+<p><strong>말할 수 있는 것:</strong> 이 작은 사례에서 Sol은 주어진 업무 객체와 기록 도구를 따라 실제 수정·검증·이유 기록·완료를 수행했다. 실패부터 완료까지의 흐름을 별도 보고서 없이 확인할 수 있었다.</p>
+<p><strong>아직 말할 수 없는 것:</strong> 항상 누락 없이 기록한다, 다른 방식보다 싸거나 빠르다, 복잡한 계획 변경도 잘 처리한다, Luna가 이 기록만으로 충분히 소화한다, 악의적 위조나 동시 작업에도 안전하다.</p>
+<p>특히 이번에는 ‘왜 이렇게 해야 하는지’가 잘 적힌 과제를 제공했고 기록 시점도 상세히 지시했다. 애매한 요구, 새로운 결정, 작업 도중 정정, 여러 태스크, 실제 사용자 승인 경계는 다음 시험의 별도 조건이다.</p>
+<h3 id="_6">다음 후보</h3>
+<ul>
+<li>같은 수준의 다른 작은 과제로 한 번 더 관찰하되, 중간 요구 변경 또는 보류 중 하나만 추가해 기록이 유지되는지 본다.</li>
+<li>또는 이번 task.json·이벤트·검증 근거를 Luna에 주고 무엇을 왜 바꿨는지 질문한다. 먼저 코드/대화 원문을 추가로 보지 않고도 답할 수 있는지 평가한다.</li>
+<li>비교 조건과 추가 호출은 이번 결과를 검수한 뒤 결정한다. 이번 보고가 다음 실험의 자동 승인은 아니다.</li>
+</ul>
+<h2 id="_7">실행 증거</h2>
+<ul>
+<li>workflow: <code>59029a8e-4937-4a54-adfc-5ba4c734d30d</code>; child: <code>496c5007-2c6c-4c0c-8e5f-0fef22a0a9b4</code>, completed/process terminal observed.</li>
+<li>outputReference: <code>/home/lazydino/.pi/agent/sessions/--home-lazydino-dev-lazy-harness--/subagent-artifacts/outputs/59029a8e-4937-4a54-adfc-5ba4c734d30d/sol-recording-pilot-01-status.md</code>.</li>
+<li><a href="../evidence/v2-sol-recording-evaluation.json">parent 평가 JSON</a>: 요구별 결과, 기록 무결성, tool trace와 child usage.</li>
+<li><a href="../evidence/v2-sol-recording-preflight.json">recorder 사전 검사</a>: 7/7, 원본 입력은 변경하지 않고 임시 복제에서 확인.</li>
+<li><code>experiments/v2-sol-recording-01/events.jsonl</code> 및 <code>receipts/*.json</code>: Sol의 실제 진행/실행 결과.</li>
+<li><a href="v2-sol-recording-pilot.html">HTML 결과 보고서</a>: 이 문서의 파생 화면.</li>
+<li>최종 framework 표준 검증: <strong>실패</strong>. 129.008초, scoped fast-static-check는 통과했지만 full-self-test에서 <code>Policy Registry policies must be deterministic id-sorted</code>가 실패했다. fullRegression=false이며 전체 통과로 보고하지 않는다.</li>
+<li>로그: <code>/tmp/v2-sol-recording-standard.json</code>. 기존 수정 중인 정책 파일과 관련된 정렬 검증 실패로 표시됐지만 이번 턴에 원인 diff나 수정 범위를 추가 조사하지 않았다. 기록 실험 자체의 결과와 분리하며, 승인 없이 policies.json을 재정렬하지 않는다.</li>
+</ul>
+<h2 id="layer-completeness-discovery-capture">Layer completeness / Discovery capture</h2>
+<ul>
+<li>SDD: candidate captured here — 이 실험 전용 태스크/기록 CLI 계약. 제품 API 미채택.</li>
+<li>BDD: captured here — 실제 코드 수정 중 baseline 실패 확인·진행 기록·완료 시나리오.</li>
+<li>SSOT: no independent delta — DB·설치·운영 정책 변경 없음. 명시한 모델 선택을 재사용.</li>
+<li>DDD: no independent delta — 업무/기록 구상의 첫 검증이며 도메인 정의 추가 없음.</li>
+<li>TDD: 이 문서를 primary record로 사용. Planning에는 링크만 추가. ADR none.</li>
+</ul>
+<h2 id="rule-placement">Rule placement</h2>
+<ul>
+<li>Rule: 사용자 승인된 단일 Sol 실제 작업·기록 시험의 절차와 평가 경계.</li>
+<li>Scope: transient-plan</li>
+<li>Primary record: <code>.lazy-harness/tests/v2-sol-recording-pilot.md</code>.</li>
+<li>Why not AGENTS.md: 일반 작업 규칙으로 승격하지 않는 실험이다.</li>
+<li>Why not local notes: 프로젝트 연구 산출물이다.</li>
+<li>Confirmation: user-confirmed — 연구 진행 승인, 결과/제품 채택은 아직 없음.</li>
+</ul>
+<h2 id="implementation-map">Implementation map</h2>
+<ul>
+<li><code>experiments/v2-sol-recording-01/task.json</code>: 읽기 전용 과제·기록 규격.</li>
+<li><code>experiments/v2-sol-recording-01/timeout_config.py</code>: <code>resolve_timeout</code>, child 수정 대상.</li>
+<li><code>experiments/v2-sol-recording-01/test_timeout_config.py</code>: <code>TimeoutTests</code>, child 테스트 대상.</li>
+<li><code>experiments/v2-sol-recording-01/record.py</code>: <code>hashes</code>, <code>load_events</code>, <code>append</code>, <code>verify</code>, <code>main</code>. CLI → 실제 unittest → receipt → 이벤트 → 완료 전 확인.</li>
+<li><code>.local/evaluate-v2-sol-recording.py</code>: parent-only post-run 요구 검사·기록 해시·child 사용량/툴 추출. 280개 확인, 이 중 코드 동작 266개. 결과 JSON에 세부 보존.</li>
+<li><code>.local/render-v2-sol-result.py</code>: 결과 Markdown의 HTML 파생 렌더링.</li>
+<li>보호/증거: 준비 검사 7개, child 테스트 5개, parent 사후 평가 280항목과 tool trace. 실제 모델 단일 표본이며 일반 준수율은 미검증.</li>
+<li>Graph: <code>.lazy-harness/knowledge/graph.jsonl</code>의 <code>kg_v2_sol_recording_pilot</code>.</li>
+<li>연구 연결: <a href="../planning/v2-research-test-map.md">연구 시험 지도</a>, <a href="v2-task-contract-pilot.md">이전 고정 입력 시험</a>.</li>
+</ul></article></main><footer>실제 단일 과제 관찰 · Luna 소화 및 비교 실험은 아직 미실행</footer></body></html>

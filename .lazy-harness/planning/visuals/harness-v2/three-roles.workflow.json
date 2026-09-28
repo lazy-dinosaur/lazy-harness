@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "하네스 V2 · 읽기, 기록, 소화",
+    "quality_profile": "showcase",
+    "animation": "none",
+    "views": [
+      { "id": "reading-view", "label": "읽기", "focus": ["knowledge", "ledger", "reading"], "note": "기존 지식과 내 작업의 미소화 기록을 함께 읽는다. 필요한 영역은 병렬 탐색한다." },
+      { "id": "recording-view", "label": "임시 기록", "focus": ["recording", "ledger"], "note": "작업에서 나온 내용을 디스크에 남긴다. 발행 시점과 기록 단위는 미정이다." },
+      { "id": "digestion-view", "label": "소화·정리", "focus": ["ledger", "digestion", "knowledge"], "note": "책임 영역에 배분하고 담당 액터가 기존 지식을 수정·통합한다. 물리적 배치는 미정이다." }
+    ]
+  },
+  "lanes": [
+    { "id": "work", "label": "작업 중 · 개념 관계이며 실행 단계나 서비스 배치가 아님" },
+    { "id": "evidence", "label": "기록과 소화 · 깨우는 조건과 처리 단위는 미정" },
+    { "id": "understanding", "label": "지식과 읽기 · 파티션 ID 안의 지식 ID들을 탐색" }
+  ],
+  "nodes": [
+    { "id": "recording", "lane": "work", "col": 2, "type": "external", "label": "작업 중 임시 기록", "sublabel": "발견 · 요구 · 결정 · 결과", "width": 300 },
+    { "id": "ledger", "lane": "evidence", "col": 2, "type": "external", "label": "내 작업의 원장", "sublabel": "격리된 작업 기록 · 디스크 보존", "width": 300 },
+    { "id": "digestion", "lane": "evidence", "col": 0, "type": "external", "label": "소화·정리", "sublabel": "라우터 배분 · 담당 영역 액터", "tag": "영역 내 순차 · 영역 간 병렬", "width": 300 },
+    { "id": "knowledge", "lane": "understanding", "col": 0, "type": "external", "label": "기존 지식", "sublabel": "파티션 ID · 지식 ID", "tag": "담당 영역에서 유지·수정", "width": 300 },
+    { "id": "reading", "lane": "understanding", "col": 2, "type": "external", "label": "읽기", "sublabel": "지식 + 내 기록으로 임시 이해", "tag": "관련 영역 병렬 탐색", "width": 300 }
+  ],
+  "edges": [
+    { "id": "record-ledger", "from": "recording", "to": "ledger", "label": "작업 내용을 기록" },
+    { "id": "ledger-digest", "from": "ledger", "to": "digestion", "label": "소화의 근거" },
+    { "id": "digest-knowledge", "from": "digestion", "to": "knowledge", "label": "기존 내용 수정·통합" },
+    { "id": "knowledge-read", "from": "knowledge", "to": "reading", "label": "관련 지식을 읽음" },
+    { "id": "ledger-read", "from": "ledger", "to": "reading", "label": "미소화 기록도 읽음" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "확인된 방향", "items": ["Git·워크트리에 종속되지 않는 작업 격리", "영역별 책임 · 동적으로 발전하는 지식", "무조건 문서 추가가 아닌 수정·정리"] },
+    { "dot": "amber", "title": "후보 · 미채택", "items": ["임베딩 · 전문 읽기 에이전트", "레이어 구분을 소화 내부에서 처리"] },
+    { "dot": "slate", "title": "미정 · 추가 결정 필요", "items": ["파티션 생성 · 규격 · 툴 · 원장 형식", "소화 시점 · DB · 큐 · 모델 배치"] }
+  ]
+}

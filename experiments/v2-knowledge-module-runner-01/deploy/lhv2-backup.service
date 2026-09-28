@@ -1,0 +1,7 @@
+[Unit]
+Description=lazy-harness v2 knowledge schema daily backup (pg_dump, keep 14)
+
+[Service]
+Type=oneshot
+# DB URL is read from ~/.config/lazy-harness-v2/knowledge.json (mode 600); dumps go to ~/.local/share/lazy-harness-v2/backups.
+ExecStart=/usr/bin/python3 /home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01/backup.py backup

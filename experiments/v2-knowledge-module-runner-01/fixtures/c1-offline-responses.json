@@ -1,0 +1,5 @@
+{
+  "U1": {"differs_from_target": {"type":"noul","noul":0.73}, "correction_evidence":{"type":"choice","choice":"refutes","probabilities":{"refutes":0.88,"consistent":0.08,"insufficient":0.03,"none_or_uncertain":0.01}}},
+  "A1": {"differs_from_target": {"type":"noul","noul":0.25}, "correction_evidence":{"type":"choice","choice":"consistent","probabilities":{"consistent":0.94,"refutes":0.03,"insufficient":0.02,"none_or_uncertain":0.01}}},
+  "D1": {"invalidation_evidence":{"type":"choice","choice":"invalidates","probabilities":{"invalidates":1.0,"still_valid":0,"insufficient":0,"none_or_uncertain":0}}, "replacement_exists":{"type":"choice","choice":"replacement_provided","probabilities":{"replacement_provided":0.98,"no_replacement_needed":0.01,"missing_replacement":0.01,"none_or_uncertain":0}}}
+}

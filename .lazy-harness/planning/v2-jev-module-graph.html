@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지식 관리 모듈 — 손그림 그래프</title>
+<style>
+ body{background:#fdfcf7;margin:0;padding:20px;font-family:'Segoe Print','Comic Sans MS','Nanum Pen Script',cursive}
+ h1{font-size:24px;color:#333;margin:6px 0 0 14px}
+ .sub{margin:0 0 8px 16px;color:#888;font-size:13px;font-family:sans-serif}
+ svg{width:100%;height:auto}
+ text{font-family:'Segoe Print','Comic Sans MS',cursive;fill:#2b2b2b}
+ .t{font-size:15px;font-weight:bold}.s{font-size:11px;fill:#666}.lbl{font-size:11px;fill:#8a6d3b}
+ .box{fill:#fff;stroke:#2b2b2b;stroke-width:1.8}
+ .green{fill:#eaf7ea;stroke:#3c8c4e}.orange{fill:#fdf3e2;stroke:#c98a2b}.blue{fill:#e8f1fb;stroke:#3c6e9c}.purple{fill:#f3ebfa;stroke:#7d5ba6}.red{fill:#fdeaea;stroke:#b85555}
+ path.e{fill:none;stroke:#555;stroke-width:1.7;stroke-linecap:round}
+ path.dash{stroke-dasharray:6 5}
+</style>
+</head>
+<body>
+<h1>지식 관리 모듈 — 결정 그래프 ✏️</h1>
+<p class="sub">2026-09-24 · 초록=검증 완료 · 주황=설계 대기 · 파랑=저장 정본 · 보라=온톨로지 · 빨강=안전 경계</p>
+<svg viewBox="0 0 1440 920">
+<defs>
+ <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+  <path d="M1,1.5 L9,5 L1.3,8.7" fill="none" stroke="#555" stroke-width="1.6" stroke-linecap="round"/>
+ </marker>
+</defs>
+
+<!-- ══════ 메인 파이프라인 (윗줄) ══════ -->
+<g transform="rotate(-0.4 120 120)"><rect class="box green" x="30" y="90" width="140" height="64" rx="14"/>
+ <text class="t" x="52" y="116">작업자 🛠</text><text class="s" x="44" y="138">작업 + judgement</text></g>
+<path class="e" d="M172,120 C 200,116 210,122 236,119" marker-end="url(#ar)"/>
+
+<g transform="rotate(0.5 310 120)"><rect class="box green" x="240" y="88" width="146" height="66" rx="14"/>
+ <text class="t" x="258" y="114">Luna 패킷 ✍</text><text class="s" x="252" y="136">원자화·인용·익명화</text></g>
+<path class="e" d="M388,120 C 414,124 422,116 448,120" marker-end="url(#ar)"/>
+
+<g transform="rotate(-0.6 525 120)"><rect class="box green" x="452" y="90" width="140" height="64" rx="14"/>
+ <text class="t" x="472" y="114">러너 lint 🔍</text><text class="s" x="466" y="136">6종 오류코드</text></g>
+<path class="e" d="M594,118 C 620,114 630,122 656,119" marker-end="url(#ar)"/>
+
+<g transform="rotate(0.4 735 120)"><rect class="box green" x="660" y="88" width="150" height="66" rx="14"/>
+ <text class="t" x="686" y="112">Jev 판정 ⚖</text><text class="s" x="672" y="134">한 호출 다질문·분포</text></g>
+<path class="e" d="M812,120 C 838,124 846,116 872,120" marker-end="url(#ar)"/>
+
+<g transform="rotate(-0.5 950 120)"><rect class="box green" x="876" y="90" width="150" height="64" rx="14"/>
+ <text class="t" x="896" y="112">코드 결합 🧮</text><text class="s" x="884" y="134">중복≫transient≫회부</text></g>
+<path class="e" d="M1028,118 C 1054,114 1062,122 1088,119" marker-end="url(#ar)"/>
+
+<g transform="rotate(0.6 1170 122)"><rect class="box green" x="1092" y="88" width="156" height="68" rx="14"/>
+ <text class="t" x="1112" y="112">임시원장 📒</text><text class="s" x="1100" y="132">proposed→provisional</text><text class="s" x="1112" y="147">상태 append-only</text></g>
+
+<!-- 회부 루프 (lint/Jev → Luna 로 되돌아가는 곡선) -->
+<path class="e dash" d="M520,90 C 480,40 380,40 330,84" marker-end="url(#ar)" stroke="#b85555"/>
+<text class="lbl" x="380" y="52" fill="#b85555">rejected_input 회부</text>
+<path class="e dash" d="M735,156 C 700,215 420,220 320,158" marker-end="url(#ar)" stroke="#b85555"/>
+<text class="lbl" x="470" y="212" fill="#b85555">needs_review → 보충 (상한 2회)</text>
+
+<!-- ══════ 완료·소화 (중간줄) ══════ -->
+<path class="e" d="M1170,158 C 1176,196 1160,218 1120,240" marker-end="url(#ar)"/>
+
+<g transform="rotate(-0.5 1010 280)"><rect class="box green" x="930" y="246" width="176" height="70" rx="14"/>
+ <text class="t" x="948" y="272">완료 추적 ⏱</text><text class="s" x="940" y="292">CompletionSource</text><text class="s" x="940" y="307">merge/confirm/acceptance</text></g>
+<path class="e" d="M928,282 C 890,284 872,280 838,282" marker-end="url(#ar)"/>
+<text class="lbl" x="856" y="272">completed</text>
+
+<g transform="rotate(0.5 740 284)"><rect class="box green" x="650" y="248" width="186" height="72" rx="14"/>
+ <text class="t" x="672" y="274">소화자 🍽</text><text class="s" x="662" y="294">자격 판정 → 제안서</text><text class="s" x="662" y="309">과일반화 감지·완화</text></g>
+<path class="e" d="M648,284 C 610,286 594,282 560,284" marker-end="url(#ar)"/>
+<text class="lbl" x="584" y="274">absorbed</text>
+
+<!-- ══════ 저장 정본 (파랑 클러스터) ══════ -->
+<g transform="rotate(-0.4 440 300)"><rect class="box blue" x="330" y="250" width="228" height="104" rx="16"/>
+ <text class="t" x="352" y="278">조각 (fragment) 📦 = 정본</text>
+ <text class="s" x="344" y="300">16필드 · revision CAS · host 경계</text>
+ <text class="s" x="344" y="317">history append-only · 삭제 없음</text>
+ <text class="s" x="344" y="334">L→정본 대응 기록 (J→L 원칙)</text></g>
+<path class="e" d="M330,330 C 290,350 260,368 230,388" marker-end="url(#ar)"/>
+<g transform="rotate(0.6 150 430)"><rect class="box blue" x="60" y="396" width="184" height="66" rx="14"/>
+ <text class="t" x="80" y="422">임베딩 🧭 (파생)</text><text class="s" x="72" y="443">언제든 재생성 · 검색층</text></g>
+<path class="e dash" d="M152,396 C 170,300 220,190 300,150" marker-end="url(#ar)" stroke="#3c6e9c"/>
+<text class="lbl" x="150" y="240" fill="#3c6e9c">기존 기록 발췌 공급 (is_new 상한)</text>
+<path class="e" d="M246,430 C 300,440 350,442 404,436" marker-end="url(#ar)"/>
+<g transform="rotate(-0.5 490 434)"><rect class="box blue" x="408" y="404" width="166" height="60" rx="14"/>
+ <text class="t" x="428" y="430">다음 AI 활용 🤖</text><text class="s" x="424" y="450">전역 검색 → 조각 뷰</text></g>
+
+<!-- ══════ 온톨로지 (보라 클러스터, 우하) ══════ -->
+<g transform="rotate(0.3 1120 480)"><rect class="box purple" x="940" y="400" width="360" height="180" rx="18"/>
+ <text class="t" x="962" y="428">온톨로지 🧩</text>
+ <text class="s" x="962" y="452">✔ 원장 검수 v0 (support/scope/hold/boundary)</text>
+ <text class="s" x="962" y="470">✔ 기록 필요성 v0.2 (is_new/durability/should_record)</text>
+ <text class="s" x="962" y="488">✔ 소화 자격 (P4 실측)</text>
+ <text class="s" x="962" y="512">▢ 조각 kind/layer 분류 — layer 게이트 자동화 후보</text>
+ <text class="s" x="962" y="530">▢ relation 유형 · ▢ 충돌 탐지 · ▢ 승격 판정</text>
+ <text class="s" x="962" y="558">규약 8규칙: 1질문1조건·규범/서술 분리·escape·fan-out…</text></g>
+<path class="e dash" d="M1000,398 C 950,360 850,330 790,322" marker-end="url(#ar)" stroke="#7d5ba6"/>
+<path class="e dash" d="M960,420 C 880,340 800,220 760,158" marker-end="url(#ar)" stroke="#7d5ba6"/>
+<text class="lbl" x="836" y="352" fill="#7d5ba6">질문 템플릿 공급</text>
+
+<!-- ══════ pi-fabric (주황 클러스터, 하단) ══════ -->
+<g transform="rotate(-0.3 400 640)"><rect class="box orange" x="120" y="580" width="560 " height="150" rx="18"/>
+ <text class="t" x="142" y="610">pi-fabric 액터 반영 (다음 마일스톤) 🏗</text>
+ <text class="s" x="142" y="636">파티션 A [워커A] → 자기 원장만 소화   |   파티션 B [워커B] → 자기 원장만 소화</text>
+ <text class="s" x="142" y="656">단일 작성자/파티션 = 원장 동시성 위험 설계 회피</text>
+ <text class="s" x="142" y="676">자동 반영 트리거 + acceptance 는 정책(회부=정지) 유지</text>
+ <text class="s" x="142" y="702">순서: 조사 → 버전 핀 → v2 dependency 채택 → 통합 위 운영 실측</text></g>
+<path class="e dash" d="M430,578 C 450,540 480,500 505,468" marker-end="url(#ar)" stroke="#c98a2b"/>
+
+<!-- ══════ 안전 경계 (빨강, 우하단) ══════ -->
+<g transform="rotate(0.4 1090 700)"><rect class="box red" x="880" y="640" width="420" height="110" rx="18"/>
+ <text class="t" x="902" y="668">안전 경계 🚧 (불변)</text>
+ <text class="s" x="902" y="692">Jev 답 ≠ 권한 · 정본 자동 반영 없음 · 실패 ≠ no-record</text>
+ <text class="s" x="902" y="710">원본 실패 보존 · whole-batch 원자성 · acceptance 별도</text>
+ <text class="s" x="902" y="728">평평한 분포 = 결함 신호 (4회 재현) → 자동 진행 금지</text></g>
+
+<!-- 성적 메모 (좌상단 포스트잇) -->
+<g transform="rotate(-2 120 020)"><rect x="1180" y="790" width="230" height="108" rx="6" fill="#fff9c4" stroke="#d4c35a"/>
+ <text class="s" x="1196" y="814" style="font-size:12px">📊 검증 성적</text>
+ <text class="s" x="1196" y="834">replay 18/25→24/30 (수정 인과)</text>
+ <text class="s" x="1196" y="851">record-need 12/12 · P1 25/30</text>
+ <text class="s" x="1196" y="868">durability 누적 11/11+8/8</text>
+ <text class="s" x="1196" y="885">P4 사람 개입 0회 완주</text></g>
+<g transform="rotate(1.5 200 850)"><rect x="120" y="790" width="250" height="100" rx="6" fill="#fff9c4" stroke="#d4c35a"/>
+ <text class="s" x="136" y="814" style="font-size:12px">💰 비용</text>
+ <text class="s" x="136" y="834">Jev: 입력 토큰만 $0.042/M</text>
+ <text class="s" x="136" y="851">판정 1회 ≈ 0.01센트 단위</text>
+ <text class="s" x="136" y="868">세션 전체 실험 ≈ $1~3 추정</text></g>
+</svg>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지식 관리 모듈 — 결정 지도 (2026-09-24)</title>
+<style>
+ body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:#0f1420;color:#e8ecf4;margin:0;padding:32px;line-height:1.55}
+ h1{font-size:26px;margin:0 0 4px} h2{font-size:19px;margin:36px 0 12px;color:#7fd1ff;border-bottom:1px solid #2a3550;padding-bottom:6px}
+ .sub{color:#8b96ad;font-size:13px;margin-bottom:20px}
+ .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:14px 0}
+ .node{background:#1a2338;border:1px solid #33415f;border-radius:10px;padding:10px 14px;min-width:130px;flex:1}
+ .node b{color:#ffd479;font-size:14px;display:block;margin-bottom:4px}
+ .node small{color:#aab6cc;font-size:12px}
+ .node.done{border-color:#3fae6a;background:#15271e}
+ .node.pending{border-color:#a2793a;background:#2a2213}
+ .arrow{align-self:center;color:#5d6d8f;font-size:18px;padding:0 2px}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid #2a3550;padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:#1a2338;color:#9fc6ff} td{background:#141b2c}
+ .tag{display:inline-block;border-radius:5px;padding:1px 8px;font-size:11.5px;margin:1px}
+ .ok{background:#194b2e;color:#7fe0a7}.warn{background:#4b3a19;color:#e0c67f}.info{background:#1a3a54;color:#7fc4e0}
+ .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+ .card{background:#151d30;border:1px solid #2a3550;border-radius:12px;padding:14px 18px}
+ .card h3{margin:0 0 8px;font-size:15px;color:#ffd479}
+ ul{margin:6px 0;padding-left:20px} li{margin:3px 0;font-size:13.5px}
+ .num{color:#7fd1ff;font-weight:700}
+</style>
+</head>
+<body>
+<h1>지식 관리 모듈 — 결정 지도</h1>
+<div class="sub">2026-09-24 세션 · P0~P5 완주 · 모든 실험 증거는 active root <code>.lazy-harness/evidence/jev-*</code> 에 보존</div>
+
+<h2>① 전체 파이프라인 (확정 흐름)</h2>
+<div class="flow">
+ <div class="node done"><b>작업자</b><small>실작업 + judgement 등록<br>(v1 record-judgement 원형)</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>Luna 패킷</b><small>원자화·인용·익명화<br>규약 준수 생성</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>러너 lint</b><small>6종 오류코드<br>위반 시 작성자 회부</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>Jev 판정</b><small>한 호출 다질문<br>확률분포 로그</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>코드 결합</b><small>우선순위 분기<br>record/skip/회부</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>임시원장</b><small>상태 머신<br>provisional</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>완료 추적</b><small>CompletionSource<br>git 비의존</small></div><div class="arrow">▶</div>
+ <div class="node done"><b>소화자</b><small>자격 판정 → 제안서<br>과일반화 완화</small></div><div class="arrow">▶</div>
+ <div class="node pending"><b>조각 정본</b><small>fragment + 임베딩(파생)<br>스키마 델타 설계 대기</small></div>
+</div>
+
+<h2>② 확정된 핵심 결정</h2>
+<table>
+ <tr><th>결정</th><th>내용</th><th>상태</th></tr>
+ <tr><td>역할 분담</td><td>설계=Parent · 제작=Sol medium 위임 · <b>모듈 런타임=Luna+Jev만</b> · 결합/권한=코드 · 검증=사용자+Parent</td><td><span class="tag ok">확정</span></td></tr>
+ <tr><td>질문 규약</td><td>8규칙: 1질문 1문면조건 / 규범·서술 분리 / escape 필수 / noul true·false / 한 판단 한 형식 / 수치·ID는 코드 / fan-out / 조건부 지시 금지 + wire 스키마 + 치환표 익명화</td><td><span class="tag ok">draft, 전조항 실측</span></td></tr>
+ <tr><td>온톨로지 2종</td><td>원장 검수 v0 (support/scope/hold/boundary+대상·단계 명시) · 기록 필요성 v0.2 (is_new/durability/should_record)</td><td><span class="tag ok">검증</span></td></tr>
+ <tr><td>결합 우선순위</td><td>확실한 중복→skip ≫ 확실한 transient→no_record ≫ 회부 ≫ 전축 확실시만 record</td><td><span class="tag ok">코드+회귀</span></td></tr>
+ <tr><td>이벤트 계약</td><td>judgement 이벤트 트리거 · dedup 키 · 원장 상태 머신 · 실패≠no-record · 보충 상한 2회</td><td><span class="tag info">SDD draft</span></td></tr>
+ <tr><td>저장 형식</td><td><b>조각(fragment)=유일 정본</b> + 벡터 임베딩=파생 검색층 · history append-only · host 경계 강제</td><td><span class="tag info">기존 검증 + 델타 대기</span></td></tr>
+ <tr><td>반영 경로</td><td>pi-fabric 액터 모델 · 파티션별 워커 자기 소화(단일 작성자) · 자동 트리거 + acceptance는 정책 · 조사→핀→dependency 채택</td><td><span class="tag warn">구상 확정, 조사 전</span></td></tr>
+</table>
+
+<h2>③ 검증 성적 (P0~P5)</h2>
+<table>
+ <tr><th>실험</th><th>내용</th><th>성적</th></tr>
+ <tr><td>replay-02→03</td><td>규약 결함 발견 → 수정 → 재검</td><td>18/25 → <span class="num">24/30</span> (인과 재현)</td></tr>
+ <tr><td>record-need-06</td><td>실제 v1 처분 3건 재현</td><td><span class="num">12/12</span></td></tr>
+ <tr><td>e2e-05</td><td>Luna가 규약만 읽고 unseen 사례 패킷</td><td><span class="num">12/14</span> + 규약 공백 4 발견</td></tr>
+ <tr><td>p1-expand-08</td><td>타 프로젝트 unseen 8사례</td><td><span class="num">25/30</span> · durability 8/8 · 중복검출 0.08/0.11</td></tr>
+ <tr><td>p4-pilot-09</td><td>실전 1건 전 구간 (lint회부→보충→record→소화→absorbed)</td><td>사람 개입 0회로 제안서까지</td></tr>
+ <tr><td>일관 관측</td><td>고신뢰(≥0.85) 답 사실상 전부 일치 · <b>평평한 분포 = 입력 결함 신호 4회 재현</b></td><td><span class="tag ok">핵심 성질</span></td></tr>
+</table>
+
+<h2>④ 온톨로지 적용 지도 (현재 + 후보)</h2>
+<div class="grid">
+ <div class="card"><h3>검증 완료</h3><ul>
+  <li><b>원장 검수 v0</b> — 근거지지/범위/보류/처리방식</li>
+  <li><b>기록 필요성 v0.2</b> — 신규성/지속성/보존가치</li>
+  <li><b>소화 자격</b> — v0 재사용 (P4 실측)</li>
+ </ul></div>
+ <div class="card"><h3>적용 후보 (미설계)</h3><ul>
+  <li><b>조각 kind/layer 분류</b> — domain/spec/behavior/test/decision/ssot 선택을 Jev choice로 (§2.4 layer 게이트 자동화)</li>
+  <li><b>relation 유형</b> — implemented_by/protected_by/supersedes… enum 판정</li>
+  <li><b>충돌 탐지</b> — 신규 조각 vs 기존 조각 contradicted 검사</li>
+  <li><b>candidate→confirmed 승격</b> — 소화 자격의 조각 스키마 접합판</li>
+ </ul></div>
+</div>
+
+<h2>⑤ 남은 일 (순서 확정)</h2>
+<div class="flow">
+ <div class="node pending"><b>1. 스키마 델타 SDD</b><small>ledger_entry/work_unit/영수증<br>+ 조각 계약 접합 (설계=Parent)</small></div><div class="arrow">▶</div>
+ <div class="node pending"><b>2. pi-fabric 조사</b><small>출처/버전/액터 계약<br>→ 핀 → dependency 채택</small></div><div class="arrow">▶</div>
+ <div class="node pending"><b>3. 통합 + 실측</b><small>파티션 워커 매핑<br>운영 성능/주입 내성</small></div><div class="arrow">▶</div>
+ <div class="node pending"><b>4. 운영 통계</b><small>threshold 보정<br>자동 반영 정책 확정</small></div>
+</div>
+<div class="sub" style="margin-top:24px">안전 불변: 정본 자동 반영 없음 · Jev 답 ≠ 권한 · 원본 실패 보존 · whole-batch 원자성 · acceptance 경계 유지 · 일반 신뢰성 주장 없음(상관 표본)</div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[Unit]
+Description=Periodic lazy-harness v2 knowledge DB digester
+
+[Timer]
+OnBootSec=1min
+# 15s (user 2026-09-25: experience matters). Idle ticks cost only a few DB queries; overlapping ticks exit on the advisory lock.
+OnUnitActiveSec=15s
+# systemd default accuracy is 1min; keep ticks near the configured interval.
+AccuracySec=1s
+# Catch up missed runs after power-off or suspend.
+Persistent=true
+Unit=lhv2-digester.service
+
+[Install]
+WantedBy=timers.target
