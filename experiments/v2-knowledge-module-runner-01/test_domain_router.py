@@ -48,6 +48,16 @@ def test_merged_name_resolves_to_survivor():
     assert dr.route(doms, "reservation", "x", choose_fixed({})) == ("예약", "exact")
 
 
+@pytest.mark.parametrize("description", [None, "", "가" * 201, "가" * 300, "가" * 301])
+def test_ensure_description_limit_and_no_overwrite(dsn, host, description):
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        dr.ensure(cur, host, "예약", description)
+        expected = (description or "")[:300]
+        assert dr.load(cur, host)["예약"]["description"] == expected
+        dr.ensure(cur, host, "예약", "새 설명")
+        assert dr.load(cur, host)["예약"]["description"] == expected
+
+
 def test_management_and_backfill(dsn, host):
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         dr.ensure(cur, host, "예약", "예약 시간 규칙")

@@ -20,12 +20,19 @@ def test_invalid_domain(domain):
     cur.execute.assert_not_called()
 
 
-@pytest.mark.parametrize("description", [None, "", " \n", 1, [], {}, "가" * 201])
+@pytest.mark.parametrize("description", [None, "", " \n", 1, [], {}, "가" * 301])
 def test_invalid_description(description):
     cur = Mock()
     with pytest.raises(ValueError, match="description must"):
         dr.describe(cur, "host", "예약", description)
     cur.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("length", [200, 201, 300])
+def test_valid_description(length):
+    cur = Mock(rowcount=1)
+    dr.describe(cur, "host", " 예약 ", " " + "가" * length + " ")
+    assert cur.execute.call_args.args[1] == ("가" * length, "host", "예약")
 
 
 def test_describe_cli_and_isolation(dsn, host, monkeypatch, capsys):
@@ -48,11 +55,11 @@ def test_describe_cli_and_isolation(dsn, host, monkeypatch, capsys):
     monkeypatch.setattr(cli.config, "require", lambda *args: {"db_url": dsn})
     monkeypatch.setattr(cli.sys, "argv", ["knowledge_cli.py", "domain"])
     monkeypatch.setattr(cli.sys, "stdin", io.StringIO(json.dumps({
-        "action": "describe", "domain": " 예약 ", "description": " " + "가" * 200 + " "})))
+        "action": "describe", "domain": " 예약 ", "description": " " + "가" * 300 + " "})))
     cli.main()
     result = json.loads(capsys.readouterr().out)
     rows = {r["domain"]: r for r in result["domains"]}
-    assert rows["예약"]["description"] == "가" * 200
+    assert rows["예약"]["description"] == "가" * 300
     assert rows["예약"]["status"] == "active" and rows["예약"]["merged_into"] is None
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         assert dr.load(cur, other)["예약"]["description"] == "old"
@@ -69,7 +76,7 @@ def test_describe_cli_and_isolation(dsn, host, monkeypatch, capsys):
         rows = dr.load(cur, host)
         assert rows["병합"]["description"] == "merged-old"
         assert rows["폐기"]["description"] == "retired-old"
-        assert rows["예약"]["description"] == "가" * 200
+        assert rows["예약"]["description"] == "가" * 300
     assert cli.domain_cmd(dsn, {"host_id": other, "action": "describe", "domain": "예약", "description": "x"})["domains"][0]["description"] == "x"
     monkeypatch.setattr(cli.sys, "stdin", io.StringIO('{"action":"describe","domain":"예약","description":false}'))
     cli.main()

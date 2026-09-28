@@ -51,6 +51,32 @@ def test_completion_and_idempotent_digest(dsn, host):
     assert sources[0]["evidence"] == {"ref": "local"} and sources[0]["received_at"]
 
 
+@pytest.mark.parametrize("length", [200, 201, 300, 301])
+def test_generated_domain_description_limit(dsn, host, monkeypatch, length):
+    import domain_router
+
+    text = "가" * length
+    body, _, response = staged(dsn, host, text=text)
+    seen = []
+    route = domain_router.route_unit
+
+    def spy(domains, proposed, facts, choose, confirm=None):
+        seen.append(domains)  # Retain the routing cache to inspect its generated description.
+        return route(domains, proposed, facts, choose, confirm=confirm)
+
+    monkeypatch.setattr(domain_router, "route_unit", spy)
+    pg.complete(dsn, body["work_unit_id"])
+    assert digest_driver.run_digestion(
+        dsn, body["work_unit_id"], lambda packet: {"answers": response["answers"]}
+    )["status"] == "absorbed"
+    expected = {"domain": text[:300]}
+    assert len(seen) == 1
+    assert seen[0]["domain"]["description"] == text[:300]
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        domains = domain_router.load(cur, host)
+    assert {name: row["description"] for name, row in domains.items()} == expected
+
+
 def test_concurrent_digest_only_one_fragment(dsn, host):
     body, _, response = staged(dsn, host)
     pg.complete(dsn, body["work_unit_id"])

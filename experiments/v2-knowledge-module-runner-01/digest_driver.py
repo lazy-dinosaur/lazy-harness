@@ -66,7 +66,7 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None)
         facts = [rc["judgement_body"]["facts"][rc["fact_index"]].get("fact", "") for _, rc in items]
         name, how = domain_router.route_unit(domains, key, facts, choose or (lambda text, options: {}), confirm=confirm)
         if name not in domains:
-            domains[name] = {"description": (facts[0] if facts else "")[:200], "status": "active", "merged_into": None}
+            domains[name] = {"description": (facts[0] if facts else "")[:300], "status": "active", "merged_into": None}
         for receipt_id, _ in items:
             routed[receipt_id] = {"domain": name, "how": how}
     # Jev/network calls must not hold a DB transaction open. Digest's final

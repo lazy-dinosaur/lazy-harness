@@ -668,7 +668,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         # domain routed by digest_driver (domain_router); falls back to the worker's partition_key
                         domain = (fixture.get("domain_routed") or {}).get("domain") or entry["partition_key"]
                         cur.execute("""insert into knowledge.domain_type(host_id, domain, description) values (%s,%s,%s)
-                                    on conflict (host_id, domain) do nothing""", (entry["host_id"], domain, fact.get("fact", "")[:200]))
+                                    on conflict (host_id, domain) do nothing""", (entry["host_id"], domain, fact.get("fact", "")[:300]))
                         fragment = store.build_fragment({**entry, "partition_key": domain}, old["fact_index"], fact.get("keywords", []),
                                                         [old["receipt_id"], receipt_id], store.now(), next_seq(cur, entry["host_id"], domain))
                         ref = fragment["id"]

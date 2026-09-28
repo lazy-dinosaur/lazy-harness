@@ -76,6 +76,27 @@ def process(dsn, judgement_body, response):
     return entry, result, str(receipts[0]["receipt_id"])
 
 
+@pytest.mark.parametrize("length", [200, 201, 300, 301])
+def test_digest_domain_description_limit_and_preservation(dsn, host, length):
+    import domain_router
+
+    text = "가" * length
+    body = judgement(host, text=text)
+    response = fixture(text=text)
+    _, _, receipt = process(dsn, body, response)
+    assert pg.digest(dsn, body["work_unit_id"], True, {receipt: response})["status"] == "absorbed"
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        assert domain_router.load(cur, host)["domain"]["description"] == text[:300]
+        domain_router.describe(cur, host, "domain", "나" * 300)
+
+    body = judgement(host, text="later fact")
+    response = fixture(text="later fact")
+    _, _, receipt = process(dsn, body, response)
+    assert pg.digest(dsn, body["work_unit_id"], True, {receipt: response})["status"] == "absorbed"
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        assert domain_router.load(cur, host)["domain"]["description"] == "나" * 300
+
+
 def test_policy_is_fixed_harness_default(dsn, host):
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         assert pg.policies(cur, host) == policy.DEFAULT_POLICY

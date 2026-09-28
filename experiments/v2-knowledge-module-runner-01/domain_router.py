@@ -106,7 +106,7 @@ def make_confirm(cfg):
 
 def ensure(cur, host, domain, description):
     cur.execute("""insert into knowledge.domain_type(host_id, domain, description) values (%s,%s,%s)
-                on conflict (host_id, domain) do nothing""", (host, domain, (description or "")[:200]))
+                on conflict (host_id, domain) do nothing""", (host, domain, (description or "")[:300]))
 
 
 def make_choose(cfg, http=None):
@@ -157,8 +157,8 @@ def describe(cur, host, domain, description):
     if not isinstance(description, str) or not description.strip():
         raise ValueError("description must be a non-empty string")
     domain, description = domain.strip(), description.strip()
-    if len(description) > 200:
-        raise ValueError("description must be at most 200 characters")
+    if len(description) > 300:
+        raise ValueError("description must be at most 300 characters")
     cur.execute("""update knowledge.domain_type set description=%s, updated_at=now()
                 where host_id=%s and domain=%s and status='active'""", (description, host, domain))
     if cur.rowcount != 1:
