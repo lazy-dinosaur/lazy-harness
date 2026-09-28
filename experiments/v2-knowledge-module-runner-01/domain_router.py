@@ -150,6 +150,21 @@ def merge(cur, host, src, dst):
                 where host_id=%s and domain=%s""", (dst, host, src))
 
 
+def describe(cur, host, domain, description):
+    """Update only an existing active domain; never follow merges or reclassify fragments."""
+    if not isinstance(domain, str) or not domain.strip():
+        raise ValueError("domain must be a non-empty string")
+    if not isinstance(description, str) or not description.strip():
+        raise ValueError("description must be a non-empty string")
+    domain, description = domain.strip(), description.strip()
+    if len(description) > 200:
+        raise ValueError("description must be at most 200 characters")
+    cur.execute("""update knowledge.domain_type set description=%s, updated_at=now()
+                where host_id=%s and domain=%s and status='active'""", (description, host, domain))
+    if cur.rowcount != 1:
+        raise ValueError("unknown or inactive domain")
+
+
 def retire(cur, host, domain):
     cur.execute("""update knowledge.domain_type set status='retired', updated_at=now()
                 where host_id=%s and domain=%s and merged_into is null""", (host, domain))

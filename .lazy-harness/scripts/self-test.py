@@ -11025,6 +11025,19 @@ Fixture implementation map.
                 policy for policy in temp_policy_registry.get("policies", []) if policy.get("id") in framework_policy_ids
             ]
             (temp_root / ".lazy-harness/ssot/policies.json").write_text(json.dumps(temp_policy_registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        # Retained host-local policies may refer to records outside the portable
+        # fixture list. Copy their dependencies without hardcoding a host policy.
+        fixture_registry = json.loads((temp_root / ".lazy-harness/ssot/policies.json").read_text(encoding="utf-8"))
+        for policy in fixture_registry.get("policies", []):
+            rel = pathlib.Path(policy["sourceRecord"])
+            src = (ROOT / rel).resolve()
+            if rel.is_absolute() or ".." in rel.parts or not src.is_relative_to(ROOT):
+                fail(f"policy fixture sourceRecord escapes host root: {rel}")
+            if not src.is_file():
+                fail(f"policy fixture sourceRecord missing in source host: {rel}")
+            dst = temp_root / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
         policy_payload = {
             "id": "temp-write-roundtrip-policy",
             "title": "Temp write roundtrip policy",

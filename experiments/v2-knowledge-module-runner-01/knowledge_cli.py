@@ -190,13 +190,15 @@ def audit(dsn, data):
 
 
 def domain_cmd(dsn, data):
-    """knowledge_cli domain: list | show {domain} | merge {src,dst} | retire {domain}."""
+    """knowledge_cli domain: list | show {domain} | merge {src,dst} | retire {domain} | describe {domain,description}."""
     import domain_router
     host = data.get("host_id") or config.load()["default_host"]
     required(host, "host_id (set default_host in knowledge.json)")
     action = data.get("action", "list")
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        if action == "merge":
+        if action == "describe":
+            domain_router.describe(cur, host, data.get("domain"), data.get("description"))
+        elif action == "merge":
             domain_router.merge(cur, host, required(data.get("src"), "src"), required(data.get("dst"), "dst"))
         elif action == "retire":
             domain_router.retire(cur, host, required(data.get("domain"), "domain"))
@@ -204,7 +206,7 @@ def domain_cmd(dsn, data):
             return {"domain": required(data.get("domain"), "domain"),
                     "fragments": domain_router.fragments(cur, host, data["domain"])}
         elif action != "list":
-            raise ValueError("action must be list|show|merge|retire")
+            raise ValueError("action must be list|show|merge|retire|describe")
         return {"domains": domain_router.list_domains(cur, host)}
 
 

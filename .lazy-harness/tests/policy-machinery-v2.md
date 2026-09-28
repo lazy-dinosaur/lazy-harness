@@ -40,6 +40,28 @@ Related roadmap: `.lazy-harness/planning/lazy-harness-v2-implementation-roadmap.
 - Record completion:
   - Phase 3 runtime/schema work must add focused tests before changing implementation.
 
+## Source-host policy fixture dependency regression
+
+사용자 승인: 정책을 유지하고 테스트의 근거 문서 복사 처리를 수정하는 A안 (`a로 해줘`).
+
+- 원인: `check_policy_machinery_v2`의 policy-write-roundtrip 임시 호스트가 실제 policies.json은 복사하면서 고정 파일 목록 밖의 sourceRecord는 누락했다. `plain-language-research-reports`의 `.lazy-harness/planning/v2-vision-feasibility-research.md`가 재현 사례다.
+- 보호: 기존 scope별 정책 필터를 유지하고, 임시 레지스트리에 남은 모든 정책의 sourceRecord를 현재 호스트 루트 안에서만 찾아 복사한다. 특정 프로젝트의 정책·문서를 하드코딩하지 않는다.
+- 실제 sourceRecord 누락이나 절대/부모 경로·루트 밖 symlink는 실패한다. 잘못된 정책을 제거해 통과시키지 않는다.
+- Implementation map: `.lazy-harness/scripts/self-test.py`의 `check_policy_machinery_v2` → scope별 fixture registry → sourceRecord 복사 → 기존 upsert dry-run/confirm/audit/resolve/warn/render/sync 검사. 정책 정본과 런타임 동작은 변경하지 않는다.
+
+### Layer completeness — this regression
+
+| Layer | 판단 |
+|---|---|
+| SDD | no independent delta — 공개 정책 계약 유지 |
+| BDD | no independent delta — 사용자 흐름 유지 |
+| SSOT | no independent delta — 정책/설정 정본 유지 |
+| DDD | no independent delta — 용어·업무 규칙 유지 |
+
+### Discovery capture
+
+DDD/SDD/BDD/ADR/SSOT/Planning: none (독립 변경·새 backlog 없음). TDD: updated (본 절). 기존 실패 분석을 본 회귀 보호 기록으로 수렴한다.
+
 ## Regression cases
 
 | Case | Evidence | Expected |
