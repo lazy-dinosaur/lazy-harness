@@ -44,10 +44,16 @@ LIMIT_RULE = ("- **정리본은 8,000자 안으로 쓴다.** 넘칠 것 같으�
 VERBATIM_RULE = "- 조각 문장의 조건·값·순서·동작(무엇을 제한·제외·비우는지 등)을 가능한 한 원문 그대로 옮기고, 여러 조각을 한 문장으로 뭉뚱그리지 않는다.\n"
 
 
+SPLIT_RULE = ("- 이름·설명이 비슷한 기능(화면·API·컴포넌트)이 여럿이면 기능별로 나눠 각각 빠짐없이 정리하고, "
+              "지금 하려는 일이 가리키는 기능을 먼저 쓴다(이름이 비슷한 다른 기능은 따로 적는다).\n")
+
+
 def _prompt():
     """8,000-char rule on by default (scale-02 stability, 2026-09-28: same-setting runs vary 80.4~90.7%; the cap
     averaged 82.4% vs 84.5% without it — inside the range, -2.1%p — with ~30% smaller briefs). LH_BRIEF_LIMIT=0 turns it off."""
     p = PROMPT
+    if os.environ.get("LH_BRIEF_SPLIT") == "1":  # scale-02 split experiment switch (R07: similar features mixed up)
+        p = p.replace("\n\n절(이 순서로", "\n" + SPLIT_RULE + "\n절(이 순서로", 1)
     if os.environ.get("LH_BRIEF_VERBATIM") == "1":  # scale-02 diag experiment switch (R07: collected but dropped by the writer)
         p = p.replace("\n\n절(이 순서로", "\n" + VERBATIM_RULE + "\n절(이 순서로", 1)
     if os.environ.get("LH_BRIEF_LIMIT", "1") != "0":

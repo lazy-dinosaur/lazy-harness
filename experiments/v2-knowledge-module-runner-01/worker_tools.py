@@ -153,15 +153,28 @@ def _view(kind):
     return "other"
 
 
-def _render(frags, flagged=frozenset()):
-    """Four views, each grouped by domain; conflict-flagged lines are marked."""
+def _domain_rank(relevant):
+    """Domains ordered by how many Jev-selected fragments they hold, ties by first discovery (scale-02 rank: ordering by
+    total fragment count buried the asked-about domain inside large wide collections)."""
+    score, first = {}, {}
+    for i, f in enumerate(relevant):
+        d = f.get("domain") or "-"
+        score[d] = score.get(d, 0) + 1
+        first.setdefault(d, i)
+    return sorted(score, key=lambda d: (-score[d], first[d])), score
+
+
+def _render(frags, flagged=frozenset(), rank=None):
+    """Four views, each grouped by domain; conflict-flagged lines are marked. rank: domain order (most relevant first)."""
     lines = []
     for key, label, _kinds in VIEWS:
         part = [f for f in frags if _view(f.get("kind")) == key]
         if not part:
             continue
         lines += [f"## {label} ({len(part)})", ""]
-        for d, _n in _domain_counts(part):
+        present = [d for d, _n in _domain_counts(part)]
+        order = [d for d in (rank or []) if d in present] + [d for d in present if d not in (rank or [])]
+        for d in order:
             lines.append(f"### 영역 {d}")
             for f in sorted((x for x in part if (x.get("domain") or "-") == d), key=lambda x: x.get("seq") or 0):
                 mark = "⚠ 충돌 후보 " if str(f["id"]) in flagged else ""
@@ -222,7 +235,7 @@ def collect_wide(dsn, host, question, queries, ask, change=None):
         flagged = {str(f["id"]) for f, s in zip(relevant, scores) if s >= THRESHOLD}
     counts = _domain_counts(wide)
     lines = [f"# 모은 지식: {question.strip()}", "", "영역 목록: " + ", ".join(f"{d}({n})" for d, n in counts), ""]
-    lines += _render(wide, flagged)
+    lines += _render(wide, flagged)  # scale-02 rank (relevance-ordered domains) tried and not adopted: R07 1.0/12
     return "\n".join(lines) + "\n", {"relevant": len(relevant), "collected": len(wide), "conflicts": len(flagged)}
 
 

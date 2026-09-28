@@ -14,6 +14,8 @@ and do not touch v1 paths (`~/.config/lazy-harness/`, `~/.local/share/lazy-harne
 | E5-small model + venv | `~/.local/share/lazy-harness-v2/e5-small/` |
 | Embedding service | systemd user unit `lhv2-embed.service` (127.0.0.1:8765) |
 | Digestion poller | `lhv2-digester.service` + `lhv2-digester.timer` (every 15 s, catches up after power-off/suspend) |
+| Daily backup | `lhv2-backup.service` + `lhv2-backup.timer` (knowledge schema, newest 14 in `~/.local/share/lazy-harness-v2/backups`) |
+| Brief writer | headless `pi -p` sub-agent (model `LH_BRIEF_MODEL`, default `openai-codex/gpt-6-luna:medium`) — needs the `pi` CLI with that provider logged in |
 
 Code lives in this folder. Run every command below from it after setting `MODULE_DIR="$(pwd)"` (absolute path of this folder).
 
@@ -129,7 +131,17 @@ Expect one JSON line; with an empty ledger all counts are 0 and no Jev call is m
 
 `pi -e /home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01/pi-extension/knowledge.ts`
 
-전역 설치나 v1 설정 변경 없이 실행한다. `knowledge_record` 는 proposed 원장 등록, `knowledge_complete` 는 사용자 확정 발언 원문으로 완료 신호, `knowledge_status` 는 이 세션 상태 조회다. 흡수는 상주 poller 만 수행한다. knowledge.json 에 `default_host` 를 등록하거나 record 시 `host_id` 를 전달한다. DB URL 이 필요하며 Jev 호출은 이 도구에서 하지 않는다.
+전역 설치나 v1 설정 변경 없이 실행한다. knowledge.json 에 `default_host` 를 등록하거나 호출 시 `host_id` 를 전달한다. 도구(모두 이 확장이 등록):
+
+| 도구 | 용도 |
+|---|---|
+| `knowledge_brief` | 작업 전·변경 전. 즉시 brief_id 를 돌려주고, 넓게 모은 지식을 Luna 하위 에이전트(`pi -p`, read 도구만)가 네 칸(이전 결정·이유 / 현재 구현 / 유지할 것 / 충돌)으로 정리해 끝나면 'knowledge-brief' 메시지로 전달. 그동안 작업 AI 는 코드를 읽는다. 기본 8,000자 상한(`LH_BRIEF_LIMIT=0` 으로 끔) |
+| `knowledge_search` / `knowledge_more` | 작업 중 작은 질문. 판정된 조각만 네 칸으로, `change` 를 주면 충돌 후보 표시, '더 있음' 색인의 영역·묶음을 more 로 받음 |
+| `knowledge_record` / `knowledge_complete` / `knowledge_status` | 원장 등록(add/update/deprecate — deprecate 는 사용자 확정 원문 필수), 사용자 확정 발언으로 완료 신호, 세션 상태. 흡수는 상주 poller 만 |
+| `knowledge_audit` | 완료 전 대화에서 기록 안 된 지식 후보 검수(Jev) |
+| `knowledge_fix_plan` / `knowledge_fix_submit` | 확정된 변경으로 옛 내용이 된 조각 목록 → 항목별 update/deprecate/keep |
+
+관리 명령(사람이 실행): `knowledge_cli.py domain` (list/show/merge/retire), `cleanup.py` (비슷한 조각 합치기 — 포함·같음만, 기본 미리보기, `--apply`, `--revert RUN_ID`), `backup.py` (backup/restore/verify).
 
 ## Behaviour the agent must know
 
