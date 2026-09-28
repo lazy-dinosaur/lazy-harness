@@ -33,7 +33,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => restore(ctx));
   pi.on("session_tree", async (_event, ctx) => restore(ctx));
 
-  type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit";
+  type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit" | "review";
   const LONG = new Set<Command>(["search", "more", "brief", "fix_plan", "fix_submit", "audit"]);
   // user/assistant text of the current branch (tool results and thinking excluded), newest last
   const transcript = (ctx: ExtensionContext, limit: number) => {
@@ -78,6 +78,17 @@ export default function (pi: ExtensionAPI) {
         }
         return output(result);
       });
+    },
+  });
+  pi.registerTool({
+    name: "knowledge_review", label: "Knowledge review",
+    description: "Handle recorded facts that the checker could not decide (fact level; other facts of the same record are digested normally). action=list returns items {entry_id, fact_index, fact, why_waiting}. Show each item to the user in plain words with why it waits and ask: approve (absorb as user-confirmed), revise, or reject. Then call action=resolve with entry_id, fact_index, decision approve|reject and user_quote = the user's non-question answer verbatim. For revise: resolve with reject, then knowledge_record the corrected fact. Never decide for the user.",
+    parameters: Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("resolve")]),
+      entry_id: Type.Optional(Type.String()), fact_index: Type.Optional(Type.Number()),
+      decision: Type.Optional(Type.Union([Type.Literal("approve"), Type.Literal("reject")])),
+      user_quote: Type.Optional(Type.String()), locator: Type.Optional(Type.String()), host_id: Type.Optional(Type.String()) }),
+    async execute(_id, params, _signal, _update, ctx) {
+      return serialized(async () => output(await invoke("review", params, ctx.cwd)));
     },
   });
   pi.registerTool({

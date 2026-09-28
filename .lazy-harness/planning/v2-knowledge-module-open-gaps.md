@@ -158,3 +158,7 @@ G7 중 확인: v2 는 작업 AI 자율 기록 + 마무리 audit 만 있고 v1 �
 ### G7 실사용 결과(2026-09-28)
 
 대화형 pi 세션(lazy-harness.v2, pi -e knowledge.ts)에서 `knowledge_cli domain describe` 구현 + 자기 검사(self-test) 수정. 확인됨: knowledge_brief 가 즉시 started 를 돌려주고 정리본이 별도 'knowledge-brief' 메시지로 도착(비동기 전달 동작), 관련 조각 0개일 때 작업 AI 가 '제약 없음' 으로 단정하지 않고 코드로 확인, knowledge_record 로 원장 2건(사실 3·5) 등록, 사용자 '좋아 이걸로 하자' 로 knowledge_complete → 작업 단위 completed, 전체 lazy test 통과(88). 드러난 빈틈: ① 원장 2건이 항목 단위 review_queue(사실 하나가 durability 애매하면 항목 전체) → 완료도 정본 반영 0 건(조각 7 그대로) ② review_queue 를 처리할 사용자·작업 AI 도구 없음(내부 resubmit 함수만) ③ 관련 조각 0개여도 Luna 를 불러 약 30초 대기 ④ 기록은 사용자 안내로 이뤄졌음(자율 기록 강제 없음 — 규칙 모듈로). 자기 검사 실패(로컬 규칙 근거 문서 미복사)는 A안(sourceRecord 복사)으로 해결.
+
+### 검수 대기 처리 — 사실 단위 + knowledge_review (구현 2026-09-28)
+
+G7 빈틈 ①② 해소(schema-delta '사실 단위 검수'). 남은 것: G7 대기 원장 2건(사실 3개)을 작업 세션에서 knowledge_review 로 사용자 확인 처리해 정본 반영까지 실사용 확인. 소화 단계의 queue_for_human(P08/P09 잠정 결정) 대기는 이 도구 범위 밖. test_poller 순서 의존 실패는 별도 정리 후보.

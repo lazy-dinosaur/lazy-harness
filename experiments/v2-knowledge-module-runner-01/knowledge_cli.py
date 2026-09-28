@@ -154,6 +154,13 @@ def complete(dsn, data):
     result["entry_states"] = state["entry_states"]
     if state["entry_states"]["provisional"] == 0 and state["entry_states"]["proposed"]:
         result["notice"] = "작업 중 검수 대기 중 — 소화자가 곧 처리"
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select host_id from knowledge.work_unit where work_unit_id=%s", (uid,))
+        host = cur.fetchone()[0]
+    waiting = [i for i in store_pg.review_list(dsn, host) if i["work_unit_id"] == uid]
+    if waiting:
+        result["review_pending"] = len(waiting)
+        result["review_notice"] = "애매한 사실이 있어 정본 반영 전 사용자 확인 필요 — knowledge_review list 후 사용자에게 물어서 처리"
     return result
 
 
@@ -210,7 +217,36 @@ def domain_cmd(dsn, data):
         return {"domains": domain_router.list_domains(cur, host)}
 
 
-COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain")
+REASON_TEXT = {"durability": "오래 쓸 지식인지 애매", "is_supported": "근거가 충분한지 애매",
+               "is_new": "이미 있는 지식과 겹치는지 애매", "should_record": "기록할 가치가 있는지 애매"}
+
+
+def review_cmd(dsn, data):
+    """knowledge_cli review: list | resolve {entry_id, fact_index, decision approve|reject, user_quote, locator?}."""
+    host = data.get("host_id") or config.load()["default_host"]
+    required(host, "host_id (set default_host in knowledge.json)")
+    action = data.get("action", "list")
+    if action == "list":
+        items = store_pg.review_list(dsn, host)
+        for item in items:
+            item["why_waiting"] = [REASON_TEXT.get(str(r).split(":")[0], str(r)) for r in item["review_reasons"] or []]
+        return {"items": items}
+    if action != "resolve":
+        raise ValueError("action must be list|resolve")
+    quote = required(data.get("user_quote"), "user_quote")
+    if runner.QUESTION_TAIL.search(quote.strip()):
+        return {"ok": False, "errors": [{"code": "E_CONFIRM", "where": "user_quote",
+                  "detail": "Ask the user first; a question is not a decision"}]}
+    index = data.get("fact_index")
+    if not isinstance(index, int) or isinstance(index, bool):
+        raise ValueError("fact_index must be an integer")
+    locator = data.get("locator")
+    if locator is not None and not isinstance(locator, str):
+        raise ValueError("locator must be a string")
+    return store_pg.review_resolve(dsn, host, unit_id(data.get("entry_id")), index, data.get("decision"), quote, locator)
+
+
+COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review")
 
 
 def main():
@@ -237,6 +273,8 @@ def main():
             result = audit(dsn, data)
         elif command == "domain":
             result = domain_cmd(dsn, data)
+        elif command == "review":
+            result = review_cmd(dsn, data)
         else:
             result = record(dsn, data) if command == "record" else (complete(dsn, data) if command == "complete" else snapshot(dsn, unit_id(data.get("work_unit_id"))))
     except ValueError as exc:
