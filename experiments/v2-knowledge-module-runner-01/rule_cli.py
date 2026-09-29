@@ -7,7 +7,23 @@ import sys
 import config
 import rules_store as rs
 
-COMMANDS = ("create", "update", "delete", "list", "history")
+COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject")
+LEVEL_KO = {"must": "반드시", "should": "권장"}
+BLOCK_HEAD = ("[harness-rules] 이 프로젝트에서 지켜야 할 규칙 (하네스가 요청마다 붙임, 지식과 별개). "
+              "h-* 는 하네스 기본 규칙, p-* 는 이 프로젝트 규칙. 답변 끝에 지켰는지 판정된다.")
+
+
+def render_block(rules):
+    """Rule block text (all active rules, short). Separate path from the knowledge window."""
+    if not rules:
+        return {"text": "", "ids": [], "tokens": 0}
+    lines = [BLOCK_HEAD]
+    for r in rules:
+        line = f"- [{r['id']}] ({LEVEL_KO.get(r.get('level'), r.get('level'))}) {r['when']} → {r['must']}"
+        extra = [f"예외: {r['unless']}" for _ in [0] if r.get("unless")] + [f"기준: 지식 '{r['ref']}'" for _ in [0] if r.get("ref")]
+        lines.append(line + (f" ({' / '.join(extra)})" if extra else ""))
+    text = "\n".join(lines)
+    return {"text": text, "ids": [r["id"] for r in rules], "tokens": max(1, len(text) // 2)}
 
 
 def _review(dsn, host):
@@ -23,6 +39,14 @@ def run(dsn, host, command, data, review_factory=_review):
         return {"rules": rs.list_rules(dsn, host)}
     if command == "history":
         return {"history": rs.history(dsn, data.get("id"))}
+    if command == "block":
+        return render_block(rs.list_rules(dsn, host))
+    if command == "inject":
+        turn = data.get("turn_ref")
+        if not isinstance(turn, str) or not turn.strip():
+            raise ValueError("turn_ref required")
+        return {"ok": True, "injection_id": rs.record_injection(dsn, host, turn, data.get("rule_ids") or [],
+                                                                 data.get("aliases") or [], int(data.get("tokens") or 0))}
     if command == "create":
         review = review_factory(dsn, host) if review_factory else None
         return rs.create(dsn, host, data.get("rule"), data.get("quote"), review=review, confirm_quote=data.get("confirm_quote"))

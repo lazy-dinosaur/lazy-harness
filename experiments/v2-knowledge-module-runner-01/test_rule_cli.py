@@ -44,3 +44,14 @@ def test_review_unjudgeable_and_skip_dry_run(dsn, host):
     assert any("판정하기 어려움" in f for f in held["flags"])
     few = rule_review.make_review(ask, two("met", "unsure"), lambda: ["t1"])
     assert rs.create(dsn, host, RULE, "테스트", review=few)["ok"]  # too few judged turns -> no dry run
+
+
+def test_rule_block_and_injection(dsn, host):
+    assert rule_cli.run(dsn, host, "block", {}) == {"text": "", "ids": [], "tokens": 0}
+    rid = rule_cli.run(dsn, host, "create", {"rule": {**RULE, "unless": "문서만 바꾼 경우", "ref": "디자인 시스템"},
+                                            "quote": "테스트 돌려"}, review_factory=None)["id"]
+    block = rule_cli.run(dsn, host, "block", {})
+    assert block["ids"] == [rid] and block["text"].startswith("[harness-rules]")
+    assert f"[{rid}] (반드시) 코드 파일을 수정했을 때 → 관련 테스트를 실행해 통과시킨다 (예외: 문서만 바꾼 경우 / 기준: 지식 '디자인 시스템')" in block["text"]
+    out = rule_cli.run(dsn, host, "inject", {"turn_ref": "s1#1", "rule_ids": block["ids"], "aliases": ["design-1"], "tokens": block["tokens"]})
+    assert out["ok"] and rs.injected(dsn, host, "s1#1") == {"rules": [rid], "knowledge": ["design-1"]}

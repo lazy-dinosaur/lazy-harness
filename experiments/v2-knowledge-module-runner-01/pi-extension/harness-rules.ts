@@ -70,6 +70,13 @@ export default function (pi: ExtensionAPI) {
 
   let prompt = "";
   let windowText = "";
+  let windowAliases: string[] = [];
+  let ruleText = "";
+  let ruleIds: string[] = [];
+  let ruleTokens = 0;
+  const sessionTag = Math.random().toString(36).slice(2, 10);
+  let turnNo = 0;
+  let injectedTurn = -1;
   let subjects = new Set<string>();
   let refreshing: Promise<void> | undefined;
   let checkedThisRun = false;
@@ -91,6 +98,7 @@ export default function (pi: ExtensionAPI) {
   const build = async (ctx: ExtensionContext, question: string, queries: string[]) => {
     const result = await invoke("window", { question, queries: queries.slice(0, 7) }, ctx.cwd);
     if (typeof result.text === "string") windowText = result.text;
+    if (Array.isArray(result.aliases)) windowAliases = result.aliases as string[];
   };
 
   const recentSubjects = (ctx: ExtensionContext): string[] => {
@@ -117,6 +125,12 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     prompt = event.prompt ?? "";
     checkedThisRun = false;
+    turnNo += 1;
+    // rule block: separate path from the knowledge window (rule module, all active rules)
+    const block = await ruleCli("block", {}, ctx.cwd);
+    ruleText = typeof block.text === "string" ? block.text : "";
+    ruleIds = Array.isArray(block.ids) ? block.ids as string[] : [];
+    ruleTokens = typeof block.tokens === "number" ? block.tokens : 0;
     if (prompt.trim().length < 4) return;
     subjects = new Set(recentSubjects(ctx));
     await build(ctx, prompt, [...subjects].map((s) => s.split("/").pop() ?? s));
@@ -134,8 +148,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   // 3. every model request: attach the window to this request only
-  pi.on("context", async (event) => {
-    if (!windowText) return;
+  pi.on("context", async (event, ctx) => {
+    if (!windowText && !ruleText) return;
     const messages = event.messages as Msg[];
     const present = new Set<string>();
     for (const m of messages) for (const a of textOf(m.content).matchAll(ALIAS_RE)) present.add(a[1]);
@@ -143,15 +157,25 @@ export default function (pi: ExtensionAPI) {
       const a = /^- (?:⚠ 충돌 후보 )?\[([^\[\]\s]+-\d+)\]/.exec(line);
       return !a || !present.has(a[1]);
     });
-    if (!lines.some((l) => /^- (?:⚠ 충돌 후보 )?\[/.test(l))) return;
-    const block = { type: "text" as const, text: lines.join("\n") };
+    const parts: { type: "text"; text: string }[] = [];
+    if (ruleText) parts.push({ type: "text", text: ruleText });
+    const hasKnowledge = lines.some((l) => /^- (?:⚠ 충돌 후보 )?\[/.test(l));
+    if (hasKnowledge) parts.push({ type: "text", text: lines.join("\n") });
+    if (!parts.length) return;
+    if (injectedTurn !== turnNo) {  // injection record: once per user turn, code-known (no Jev)
+      injectedTurn = turnNo;
+      const sent = hasKnowledge ? windowAliases.filter((a) => !present.has(a)) : [];
+      void ruleCli("inject", { turn_ref: `${sessionTag}#${turnNo}`, rule_ids: ruleIds, aliases: sent,
+        tokens: ruleTokens + (hasKnowledge ? Math.floor(lines.join("\n").length / 2) : 0) }, ctx.cwd);
+    }
+    const block = parts;
     const out = messages.slice();
     const last = out[out.length - 1];
     if (last && (last.role === "user" || last.role === "toolResult" || last.role === "custom")) {
       const content = typeof last.content === "string" ? [{ type: "text" as const, text: last.content }] : Array.isArray(last.content) ? last.content : [];
-      out[out.length - 1] = { ...last, content: [...content, block] };
+      out[out.length - 1] = { ...last, content: [...content, ...block] };
     } else {
-      out.push({ role: "custom", customType: "knowledge-window", content: [block], display: false, timestamp: Date.now() } as Msg);
+      out.push({ role: "custom", customType: "harness-context", content: block, display: false, timestamp: Date.now() } as Msg);
     }
     return { messages: out as typeof event.messages };
   });

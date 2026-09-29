@@ -222,3 +222,7 @@ rule_check.py 에 check_with_refs(1단계 조건 → ref 가 있고 조건이 �
 ### 0006 메인 DB 적용(2026-09-29)
 
 사용자 '적용해줘'. 적용 전 backup.py 로 knowledge 스키마 백업(knowledge-20260929T054951Z.dump, 조각 18). psql -1 로 migrations/0006_rules.sql 적용 → rules.rule/rule_history/judgement_receipt/injection 생성, 네 테이블 모두 RLS on, 기존 조각 18 → 18 그대로. 지문 86dff254…(migrations/0006_applied.sha256, INSTALL 표 6번). backup.py 가 rules 스키마도 덤프·행 수 집계하도록 확장(test_backup 통과, 적용 후 새 백업 knowledge-20260929T055034Z). 실제 DB 에서 rule_cli list 가 빈 목록을 돌려줌(규칙 도구 동작 준비). 하네스 기본 규칙(h-*)은 아직 등록 전(5단계).
+
+### 구현 3단계 규칙 블록·주입 기록(2026-09-29)
+
+rule_cli block(활성 규칙 전부를 '[harness-rules]' 블록 텍스트로: [id] (반드시/권장) when → must (예외/기준)) · inject(턴별 주입 기록). harness-rules.ts: before_agent_start 에서 규칙 블록을 받고, context 훅에서 지식 창과 별도 텍스트 조각으로 요청마다 붙이며(대화 기록에 저장 안 함), 사용자 턴당 한 번 규칙 id·전달한 지식 alias·토큰을 rules.injection 에 기록(turn_ref = 세션 태그#턴 번호). 테스트 8 통과, 실제 DB 에서 block 은 규칙 없어 빈 텍스트. 실제 세션 확인은 7단계.
