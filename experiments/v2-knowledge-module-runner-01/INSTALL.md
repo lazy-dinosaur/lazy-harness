@@ -92,6 +92,7 @@ Apply the migrations in order to the database from step 3 (skip any already appl
 | 3 | `migrations/0003_apply_form.sql` (0003 without the transaction wrapper) | `ae7b95c299b0d73ea94200b091ae345d9c52f58535ef01eb9f049aff59a4fc16` |
 | 4 | `migrations/0004_apply_form.sql` (work-unit baseline) | `7fc9e71a4a5733b663186bd0cea67a385ae7ce747184d1c6e19427614d0b4baf` |
 | 5 | `migrations/0005_apply_form.sql` (domain list `knowledge.domain_type`, RLS on, backfilled from existing fragments) | `59ec969903646d8b1e272477d83be221f880fc4544e37d6009d45750cb727773` |
+| 6 | `migrations/0006_rules.sql` (rule module schema `rules`: rule, rule_history, judgement_receipt, injection; RLS on; apply with `psql -1`) | `86dff2547e1138731ec5c9829bffb812ceeae964d77c60db4c156abf0ca4ab10` |
 
 Apply with `psql "$DB_URL" -v ON_ERROR_STOP=1 -f FILE` or the Supabase MCP `apply_migration` tool. Register the host once:
 `insert into knowledge.host(host_id,name,repo_locator,cross_search_allowed) values ('<host-id>','<name>','<repo path>',false) on conflict do nothing;`

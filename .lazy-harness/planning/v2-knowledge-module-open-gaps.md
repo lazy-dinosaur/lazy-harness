@@ -218,3 +218,7 @@ rule_check.py 에 check_with_refs(1단계 조건 → ref 가 있고 조건이 �
 ### 구현 2단계 규칙 도구(2026-09-29)
 
 사용자 '좋아 진행해주도록해'. rule_review.py(Jev: 충돌·중복·기본 약화 + 최근 판정 턴 3개 이상이면 시험 판정으로 판정 어려움·너무 넓음; 기본 규칙이 없으면 기본 약화 표시 안 함), rule_cli.py(create/update/delete/list/history), harness-rules.ts 에 rule_create/rule_update/rule_delete/rule_list 도구. 일회용 DB 테스트 7 통과(가짜 Jev). 주의: 메인 DB 에는 0006 rules 스키마가 아직 없어 실제 세션에서 도구는 실패한다(적용은 사용자 확인 대기).
+
+### 0006 메인 DB 적용(2026-09-29)
+
+사용자 '적용해줘'. 적용 전 backup.py 로 knowledge 스키마 백업(knowledge-20260929T054951Z.dump, 조각 18). psql -1 로 migrations/0006_rules.sql 적용 → rules.rule/rule_history/judgement_receipt/injection 생성, 네 테이블 모두 RLS on, 기존 조각 18 → 18 그대로. 지문 86dff254…(migrations/0006_applied.sha256, INSTALL 표 6번). backup.py 가 rules 스키마도 덤프·행 수 집계하도록 확장(test_backup 통과, 적용 후 새 백업 knowledge-20260929T055034Z). 실제 DB 에서 rule_cli list 가 빈 목록을 돌려줌(규칙 도구 동작 준비). 하네스 기본 규칙(h-*)은 아직 등록 전(5단계).

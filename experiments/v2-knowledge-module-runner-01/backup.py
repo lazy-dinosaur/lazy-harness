@@ -27,13 +27,13 @@ IMAGE = "public.ecr.aws/supabase/postgres:17.6.1.134"
 
 def _counts(dsn):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
-                       where n.nspname='knowledge' and c.relkind='r' order by 1""")
-        tables = [r[0] for r in cur.fetchall()]
+        cur.execute("""select n.nspname, c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                       where n.nspname in ('knowledge','rules') and c.relkind='r' order by 1, 2""")
+        tables = cur.fetchall()
         out = {}
-        for t in tables:
-            cur.execute(f'select count(*) from knowledge."{t}"')
-            out[t] = cur.fetchone()[0]
+        for schema, t in tables:
+            cur.execute(f'select count(*) from {schema}."{t}"')
+            out[t if schema == "knowledge" else f"{schema}.{t}"] = cur.fetchone()[0]
         return out
 
 
@@ -57,7 +57,7 @@ def backup(dsn=None, folder=DIR):
     tmp = path.with_suffix(".part")
     old = os.umask(0o077)
     try:
-        r = subprocess.run(["pg_dump", "--schema=knowledge", "-Fc", "--no-owner", "--no-privileges", "-f", str(tmp), "-d", dsn],
+        r = subprocess.run(["pg_dump", "--schema=knowledge", "--schema=rules", "-Fc", "--no-owner", "--no-privileges", "-f", str(tmp), "-d", dsn],
                            capture_output=True, text=True)
     finally:
         os.umask(old)
