@@ -1,4 +1,7 @@
-"""Pinned, offline E5 embeddings; model files + venv live in knowledge.json embed.model_dir (v2 namespace)."""
+"""E5 embeddings. Provider (knowledge.json embed.provider / LH_EMBED_PROVIDER):
+  local      = pinned offline e5-small via the loopback HTTP service (tests; model files in embed.model_dir)
+  openrouter = intfloat/multilingual-e5-large via OpenRouter (schema-delta '임베딩 모델 전환', 2026-09-29)
+Rows are keyed by MODEL_ID, so both can coexist in one DB (0008 removed the fixed vector dimension)."""
 import hashlib
 import json
 import os
@@ -7,7 +10,27 @@ import urllib.request
 from functools import lru_cache
 from pathlib import Path
 
-MODEL_ID = "intfloat/multilingual-e5-small@614241f622f53c4eeff9890bdc4f31cfecc418b3"
+LOCAL_MODEL_ID = "intfloat/multilingual-e5-small@614241f622f53c4eeff9890bdc4f31cfecc418b3"
+REMOTE_MODEL = "intfloat/multilingual-e5-large"
+REMOTE_MODEL_ID = REMOTE_MODEL + "@openrouter"
+
+
+def _provider():
+    value = os.environ.get("LH_EMBED_PROVIDER")
+    if not value:
+        try:
+            import config
+            value = config.load().get("embed_provider")
+        except Exception:  # noqa: BLE001
+            value = None
+    value = (value or "local").strip().lower()
+    if value not in ("local", "openrouter"):
+        raise RuntimeError("embed.provider must be local|openrouter")
+    return value
+
+
+PROVIDER = _provider()
+MODEL_ID = REMOTE_MODEL_ID if PROVIDER == "openrouter" else LOCAL_MODEL_ID
 # Model + venv location comes from knowledge.json embed.model_dir (default ~/.local/share/lazy-harness-v2/e5-small).
 def _model_dir():
     try:
@@ -67,11 +90,39 @@ class EmbeddingUnavailable(RuntimeError):
     pass
 
 
+def _remote(texts, role):
+    import time
+    import config
+    cfg = config.require("jev_api_key", "jev_base_url")
+    body = json.dumps({"model": REMOTE_MODEL, "input": [role + ": " + text for text in texts]}, ensure_ascii=False).encode("utf-8")
+    last = None
+    for attempt in range(4):
+        request = urllib.request.Request(cfg["jev_base_url"].rstrip("/") + "/v1/embeddings", data=body, method="POST",
+                                         headers={"Authorization": "Bearer " + cfg["jev_api_key"], "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                result = json.load(response)
+            data = sorted(result["data"], key=lambda item: item["index"])
+            if len(data) != len(texts):
+                raise ValueError("embedding count mismatch")
+            return [item["embedding"] for item in data]
+        except urllib.error.HTTPError as error:
+            if error.code < 500 and error.code != 429:
+                raise ValueError(error.read().decode("utf-8")[:300]) from error
+            last = error
+        except (urllib.error.URLError, TimeoutError, OSError, KeyError, ValueError) as error:
+            last = error
+        time.sleep(1 + attempt)
+    raise EmbeddingUnavailable(f"remote embedding unavailable: {type(last).__name__}")
+
+
 def _encode(texts, role):
     if not texts:
         return []
     if not all(isinstance(text, str) for text in texts):
         raise ValueError("E5 inputs must be strings")
+    if PROVIDER == "openrouter":
+        return _remote(texts, role)
     request = urllib.request.Request(
         os.environ.get("LH_EMBED_URL", "http://127.0.0.1:8765").rstrip("/") + "/embed",
         data=json.dumps({"texts": texts, "role": role}).encode("utf-8"),
@@ -93,8 +144,16 @@ def encode_passages(texts):
             for vector in _encode(texts[start:start + 64], "passage")]
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=512)
 def encode_query(text):
     return _encode([text], "query")[0]
+
+
+def encode_queries(texts):
+    """Batch query embeddings: one call for all distinct texts (remote latency is per call, not per text)."""
+    unique = list(dict.fromkeys(texts))
+    vectors = _encode(unique, "query") if unique else []
+    out = dict(zip(unique, vectors))
+    return [out[text] for text in texts]
 
 

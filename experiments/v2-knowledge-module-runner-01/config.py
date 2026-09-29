@@ -23,6 +23,8 @@ FIELDS = {
     # OpenRouter latest alias (verified 2026-09-25: resolves to typesafe/jev-1.13-20260917; "typesafe/jev-latest" is 400)
     ("jev", "model"): ("LH_JEV_MODEL", "~typesafe/jev-latest"),
     ("embed_url",): ("LH_EMBED_URL", "http://127.0.0.1:8765"),
+    # local = pinned e5-small HTTP service (tests, offline); openrouter = intfloat/multilingual-e5-large via OpenRouter
+    ("embed", "provider"): ("LH_EMBED_PROVIDER", "local"),
     ("embed", "model_dir"): ("LH_EMBED_MODEL_DIR", str(DEFAULT_MODEL_DIR)),
 }
 

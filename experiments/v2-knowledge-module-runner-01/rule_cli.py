@@ -69,13 +69,17 @@ def ref_fetch(dsn, host):
     import store_pg
     def fetch(ref, diff, k):
         with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-            cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and domain=%s", (host, ref))
-            items = [{"alias": a, "text": t} for a, t in cur.fetchall()]
-        if len(items) <= k:
-            return items
-        vecs = embed.encode_passages([i["text"] for i in items])
-        q = embed.encode_query(diff[:2000])
-        return [i for i, _ in sorted(zip(items, vecs), key=lambda p: -sum(a * b for a, b in zip(q, p[1])))[:k]]
+            cur.execute("select count(*) from knowledge.fragment where host_id=%s and active and domain=%s", (host, ref))
+            if cur.fetchone()[0] <= k:
+                cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and domain=%s order by seq", (host, ref))
+                return [{"alias": a, "text": t} for a, t in cur.fetchall()]
+            q = store_pg._vector(embed.encode_query(diff[:1500]))
+            cur.execute("""select f.alias, f.text from knowledge.fragment f
+                           join knowledge.fragment_embedding e on e.fragment_id=f.id and e.revision=f.revision
+                             and e.model_id=%s and e.embed_variant='ctx-v1'
+                           where f.host_id=%s and f.active and f.domain=%s
+                           order by e.embedding <=> %s::extensions.vector limit %s""", (embed.MODEL_ID, host, ref, q, k))
+            return [{"alias": a, "text": t} for a, t in cur.fetchall()]
     return fetch
 
 

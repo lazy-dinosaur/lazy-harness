@@ -12,7 +12,7 @@ and do not touch v1 paths (`~/.config/lazy-harness/`, `~/.local/share/lazy-harne
 | Config (secrets) | `~/.config/lazy-harness-v2/knowledge.json` (mode 600) |
 | Poller state (retry hints only) | `~/.local/state/lazy-harness-v2/` |
 | E5-small model + venv | `~/.local/share/lazy-harness-v2/e5-small/` |
-| Embedding service | systemd user unit `lhv2-embed.service` (127.0.0.1:8765) |
+| Embeddings | `embed.provider` in knowledge.json: `openrouter` = intfloat/multilingual-e5-large via OpenRouter (default in use, uses `jev_api_key`/`jev_base_url`); `local` = pinned e5-small via `lhv2-embed.service` (127.0.0.1:8765, optional; tests start their own) |
 | Digestion poller | `lhv2-digester.service` + `lhv2-digester.timer` (every 15 s, catches up after power-off/suspend) |
 | Daily backup | `lhv2-backup.service` + `lhv2-backup.timer` (knowledge schema, newest 14 in `~/.local/share/lazy-harness-v2/backups`) |
 | Brief writer | headless `pi -p` sub-agent (model `LH_BRIEF_MODEL`, default `openai-codex/gpt-6-luna:medium`) — needs the `pi` CLI with that provider logged in |
@@ -93,6 +93,8 @@ Apply the migrations in order to the database from step 3 (skip any already appl
 | 4 | `migrations/0004_apply_form.sql` (work-unit baseline) | `7fc9e71a4a5733b663186bd0cea67a385ae7ce747184d1c6e19427614d0b4baf` |
 | 5 | `migrations/0005_apply_form.sql` (domain list `knowledge.domain_type`, RLS on, backfilled from existing fragments) | `59ec969903646d8b1e272477d83be221f880fc4544e37d6009d45750cb727773` |
 | 6 | `migrations/0006_rules.sql` (rule module schema `rules`: rule, rule_history, judgement_receipt, injection; RLS on; apply with `psql -1`) | `86dff2547e1138731ec5c9829bffb812ceeae964d77c60db4c156abf0ca4ab10` |
+| 7 | `migrations/0007_harness_rules_out.sql` (harness rules are code: receipts get `origin`, stored h-* rules retired; `psql -1`) | `d2806854cb46f6ce8a84c3ffff67407b59266d4c3266821c9c13836b263a4f60` |
+| 8 | `migrations/0008_embedding_any_dim.sql` (vector column and `search_hybrid` without fixed dimension; models coexist by `model_id`; `psql -1`) | `d5ce9b3594b402090e208384d177ef907a4b976d63374347394ac067ddbc9c2e` |
 
 Apply with `psql "$DB_URL" -v ON_ERROR_STOP=1 -f FILE` or the Supabase MCP `apply_migration` tool. Register the host once:
 `insert into knowledge.host(host_id,name,repo_locator,cross_search_allowed) values ('<host-id>','<name>','<repo path>',false) on conflict do nothing;`
@@ -109,7 +111,8 @@ for f in lhv2-embed.service lhv2-digester.service lhv2-digester.timer lhv2-backu
   sed "s#/home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01#$MODULE_DIR#g" "$MODULE_DIR/deploy/$f" > ~/.config/systemd/user/$f
 done
 systemctl --user daemon-reload
-systemctl --user enable --now lhv2-embed.service
+# only when embed.provider = local:
+# systemctl --user enable --now lhv2-embed.service
 systemctl --user enable --now lhv2-digester.timer
 systemctl --user enable --now lhv2-backup.timer
 ```

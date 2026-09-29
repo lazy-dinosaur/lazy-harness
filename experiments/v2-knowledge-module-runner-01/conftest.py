@@ -10,8 +10,9 @@ from urllib.parse import urlparse
 
 import pytest
 
-import store_pg as pg
-import embed
+os.environ["LH_EMBED_PROVIDER"] = "local"  # before embed is imported: MODEL_ID follows the provider
+import store_pg as pg  # noqa: E402
+import embed  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -85,7 +86,8 @@ def dsn():
                           SQL.with_name("0004_work_unit_baseline.sql"),
                           SQL.with_name("0005_domain_type.sql"),
                           SQL.with_name("0006_rules.sql"),
-                          SQL.with_name("0007_harness_rules_out.sql")):
+                          SQL.with_name("0007_harness_rules_out.sql"),
+                          SQL.with_name("0008_embedding_any_dim.sql")):
             migrated = docker("exec", "-i", NAME, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres",
                               "-d", "postgres", "-f", "-", input=migration.read_text())
             assert migrated.returncode == 0, migrated.stderr

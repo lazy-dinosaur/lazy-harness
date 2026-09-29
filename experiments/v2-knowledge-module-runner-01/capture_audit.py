@@ -81,7 +81,8 @@ def _not_knowledge(a):
     return float(p.get("not_knowledge", 1.0 if a.get("choice") == "not_knowledge" else 0.0))
 
 
-# multilingual-e5 cosines are compressed: G7 turn sample (2026-09-28) same decision .937-.973, different decisions <= .921.
+# multilingual-e5 cosines are compressed: G7 turn sample (2026-09-28, e5-small) same decision .937-.973, different decisions <= .921.
+# e5-large re-check (emb-01/dup-result.json, 2026-09-29): same .904-.962, different .821-.970 - overlap like e5-small; kept.
 DUP_COSINE = 0.935
 
 
