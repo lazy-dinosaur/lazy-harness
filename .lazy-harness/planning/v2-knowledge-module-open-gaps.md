@@ -226,3 +226,7 @@ rule_check.py 에 check_with_refs(1단계 조건 → ref 가 있고 조건이 �
 ### 구현 3단계 규칙 블록·주입 기록(2026-09-29)
 
 rule_cli block(활성 규칙 전부를 '[harness-rules]' 블록 텍스트로: [id] (반드시/권장) when → must (예외/기준)) · inject(턴별 주입 기록). harness-rules.ts: before_agent_start 에서 규칙 블록을 받고, context 훅에서 지식 창과 별도 텍스트 조각으로 요청마다 붙이며(대화 기록에 저장 안 함), 사용자 턴당 한 번 규칙 id·전달한 지식 alias·토큰을 rules.injection 에 기록(turn_ref = 세션 태그#턴 번호). 테스트 8 통과, 실제 DB 에서 block 은 규칙 없어 빈 텍스트. 실제 세션 확인은 7단계.
+
+### 구현 4단계 사후 판정(2026-09-29)
+
+rule_cli judge: 활성 규칙 전부를 두 단계 판정 → ref 가 있고 조건이 맞으면 지식 도메인(ref=도메인 이름)의 활성 조각을 diff 와 로컬 임베딩 유사도로 최대 10개 골라 항목 판정 → 주입 기록으로 전달 여부 표시 → 규칙별 영수증 저장 → 확신 있는 위반만 규칙별로 묶은 알림. rule_cli dispute + rule_dispute 도구(재확인 후 사실이 아니면 이유 기록). harness-rules.ts 답변 끝: 이번 턴의 edit/write 경로·bash 명령·그 파일들의 git diff 를 코드가 모아 judge 를 기록 누락 검사와 병렬로 부르고, 두 알림을 한 번의 이어가기로 합침(턴당 1회). rule_check.alert 는 규칙별로 묶음(rules-03 개선점). 테스트 13 통과(가짜 Jev), 실제 DB 는 규칙 0개라 빈 결과. 남은 것: 2단계 항목 판정 시간 측정, 실제 세션 확인(7단계), 하네스 기본 규칙 등록(5단계).

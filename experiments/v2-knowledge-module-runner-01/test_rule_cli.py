@@ -55,3 +55,29 @@ def test_rule_block_and_injection(dsn, host):
     assert f"[{rid}] (반드시) 코드 파일을 수정했을 때 → 관련 테스트를 실행해 통과시킨다 (예외: 문서만 바꾼 경우 / 기준: 지식 '디자인 시스템')" in block["text"]
     out = rule_cli.run(dsn, host, "inject", {"turn_ref": "s1#1", "rule_ids": block["ids"], "aliases": ["design-1"], "tokens": block["tokens"]})
     assert out["ok"] and rs.injected(dsn, host, "s1#1") == {"rules": [rid], "knowledge": ["design-1"]}
+
+
+def test_judge_saves_receipts_and_groups_alert(dsn, host):
+    assert rule_cli.run(dsn, host, "judge", {"turn_ref": "s#1", "evidence": {}}, judges=(None, None))["rules"] == 0
+    r1 = rule_cli.run(dsn, host, "create", {"rule": RULE, "quote": "테스트 돌려"}, review_factory=None)["id"]
+    r2 = rule_cli.run(dsn, host, "create", {"rule": {"when": "UI 를 바꿨을 때", "must": "디자인 시스템을 따른다", "level": "must",
+                                                        "ref": "디자인 시스템"}, "quote": "디자인 지켜"}, review_factory=None)["id"]
+    rs.record_injection(dsn, host, "s#2", [r1, r2], ["design-1"], 100)
+    answers = {"관련 테스트를 실행해 통과시킨다": ("met", "not_done"), "디자인 시스템을 따른다": ("met", "done")}
+    def ask2(state, n):
+        out = []
+        for r in state["rules"]:
+            c, d = answers[r["must"]]
+            out += [{"type": "choice", "choice": c, "probabilities": {k: (.9 if k == c else .05) for k in ("met", "not_met", "unsure")}},
+                    {"type": "choice", "choice": d, "probabilities": {k: (.9 if k == d else .05) for k in ("done", "not_done", "unsure")}}]
+        return out, {}
+    def ask_items(state, n):
+        return [{"type": "choice", "choice": "violated", "probabilities": {"violated": .9, "followed": .05, "not_related": .05}}] * n, {}
+    fetch = lambda ref, diff, k: [{"alias": "design-1", "text": "색은 토큰만"}]
+    out = rule_cli.judge(dsn, host, {"turn_ref": "s#2", "evidence": {"user": "버튼 색 바꿔", "files": ["a.tsx"], "diff": "+ color: '#fff'"}},
+                         ask2, ask_items, fetch)
+    assert sorted(out["continue"]) == sorted([r1, r2]) and set(out["receipts"]) == {r1, r2}
+    text = out["alert"]
+    assert text.index(r1) < text.index("이번 턴 규칙 블록에 있었음") < text.index(r2) < text.index("[design-1]")  # grouped per rule
+    assert "지식 창으로 전달됨" in text
+    assert rule_cli.run(dsn, host, "dispute", {"receipt_id": out["receipts"][r1], "reason": "문서만 바꿈"})["ok"]

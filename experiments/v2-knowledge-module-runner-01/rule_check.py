@@ -264,27 +264,29 @@ def mark_delivery(verdicts, rules, injected):
     return verdicts
 
 
-_alert_two = alert
-
-
 def alert(verdicts, rules, evidence_summary):
-    text = _alert_two(verdicts, rules, evidence_summary)
-    if not text:
-        return text
-    extra = []
+    """Continuation text for confident violations, grouped per rule: rule, both steps, delivery, violated items,
+    added lines; then what Jev looked at."""
+    lines = []
     for v, r in zip(verdicts, rules):
         if v["label"] != "violated" or not v["confident"]:
             continue
+        head = f"- {r['id']}: {r['when']} → {r['must']}"
+        extra = " / ".join(x for x in (f"예외: {r['unless']}" if r.get("unless") else "", f"이유: {r['why']}" if r.get("why") else "") if x)
+        lines += [head + (f" ({extra})" if extra else ""),
+                  f"  · 조건 충족: {COND_KO[v['cond'][0]]} ({v['cond'][1]})  · 해야 할 것 수행: {DONE_KO[v['done'][0]]} ({v['done'][1]})"]
         if "rule_delivered" in v:
-            extra.append(f"  · {r['id']}: " + ("이번 턴 규칙 블록에 있었음" if v["rule_delivered"] else "이번 턴에 전달되지 않음(하네스 확인 필요)"))
+            lines.append("  · " + ("이번 턴 규칙 블록에 있었음" if v["rule_delivered"] else "이번 턴에 전달되지 않음(하네스 확인 필요)"))
         for it in v.get("items", []):
             sent = " (지식 창으로 전달됨)" if it["alias"] in v.get("knowledge_delivered", []) else ""
-            extra.append(f"  · 어긴 항목: [{it['alias']}] {it['text']} ({it['p']}){sent}")
+            lines.append(f"  · 어긴 항목: [{it['alias']}] {it['text']} ({it['p']}){sent}")
         if v.get("items") and v.get("diff"):
             shown = [l for l in v["diff"].splitlines() if l.startswith("+") and not l.startswith("+++")][:4]
-            extra += [f"    {l}" for l in shown]
-    head, _, tail = text.rpartition("\n→ ")
-    return head + ("\n" + "\n".join(extra) if extra else "") + "\n→ " + tail
+            lines += [f"    {l}" for l in shown]
+    if not lines:
+        return ""
+    return ("[harness-rule-check] 규칙 위반 가능성\n" + "\n".join(lines) + f"\n· Jev 가 본 근거: {evidence_summary}\n"
+            "→ 사실이면 고치고, 사실이 아니면 rule_dispute 로 이유를 한 줄 남기고 넘어가.")
 
 
 def to_continue(verdicts, rules):

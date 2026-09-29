@@ -7,7 +7,7 @@ import sys
 import config
 import rules_store as rs
 
-COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject")
+COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject", "judge", "dispute")
 LEVEL_KO = {"must": "반드시", "should": "권장"}
 BLOCK_HEAD = ("[harness-rules] 이 프로젝트에서 지켜야 할 규칙 (하네스가 요청마다 붙임, 지식과 별개). "
               "h-* 는 하네스 기본 규칙, p-* 는 이 프로젝트 규칙. 답변 끝에 지켰는지 판정된다.")
@@ -34,11 +34,69 @@ def _review(dsn, host):
                                    lambda: rule_review.recent_evidence(dsn, host))
 
 
-def run(dsn, host, command, data, review_factory=_review):
+def _judges():
+    import rule_check
+    cfg = config.require("jev_api_key", "jev_base_url", "jev_model")
+    return rule_check.make_ask_two(cfg), rule_check.make_ask_items(cfg)
+
+
+def ref_fetch(dsn, host):
+    """fetch(ref, diff, k): active fragments of knowledge domain `ref`, ranked by local embedding similarity to the diff."""
+    import embed
+    import store_pg
+    def fetch(ref, diff, k):
+        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and domain=%s", (host, ref))
+            items = [{"alias": a, "text": t} for a, t in cur.fetchall()]
+        if len(items) <= k:
+            return items
+        vecs = embed.encode_passages([i["text"] for i in items])
+        q = embed.encode_query(diff[:2000])
+        return [i for i, _ in sorted(zip(items, vecs), key=lambda p: -sum(a * b for a, b in zip(q, p[1])))[:k]]
+    return fetch
+
+
+def evidence_text(ev):
+    parts = [f"사용자: {ev.get('user', '')[:1500]}"]
+    if ev.get("files"):
+        parts.append("바뀐 파일: " + ", ".join(ev["files"][:30]))
+    if ev.get("commands"):
+        parts.append("실행한 명령: " + " / ".join(c[:200] for c in ev["commands"][:15]))
+    if ev.get("answer"):
+        parts.append(f"어시스턴트 최종: {ev['answer'][:1500]}")
+    return "\n".join(parts)
+
+
+def judge(dsn, host, data, ask2, ask_items, fetch=None):
+    """Post-turn rule judgment (step 4): two-step over all active rules, ref items against the diff,
+    delivery marks from the injection record, receipts saved; returns the grouped alert for confident violations."""
+    import rule_check
+    rules = rs.list_rules(dsn, host)
+    if not rules:
+        return {"ok": True, "rules": 0, "alert": "", "continue": []}
+    ev = data.get("evidence") or {}
+    text = evidence_text(ev)
+    verdicts, usage = rule_check.check_with_refs(text, ev.get("diff") or "", rules, ask2, ask_items, fetch or ref_fetch(dsn, host))
+    turn = data.get("turn_ref") or "unknown"
+    rule_check.mark_delivery(verdicts, rules, rs.injected(dsn, host, turn))
+    ids = rs.save_receipts(dsn, host, turn, rules, verdicts, {**ev, "diff": (ev.get("diff") or "")[:4000]})
+    cont, notice = rule_check.to_continue(verdicts, rules)
+    alert = rule_check.alert(verdicts, rules, text.splitlines()[0][:120])
+    receipts = {r["id"]: rid for r, rid in zip(rules, ids)}
+    return {"ok": True, "rules": len(rules), "alert": alert, "continue": [r["id"] for r in cont],
+            "unsure": [r["id"] for r in notice], "receipts": {k: receipts[k] for k in [r["id"] for r in cont]},
+            "usage": usage}
+
+
+def run(dsn, host, command, data, review_factory=_review, judges=None):
     if command == "list":
         return {"rules": rs.list_rules(dsn, host)}
     if command == "history":
         return {"history": rs.history(dsn, data.get("id"))}
+    if command == "judge":
+        return judge(dsn, host, data, *(judges or _judges()))
+    if command == "dispute":
+        return rs.dispute(dsn, data.get("receipt_id"), data.get("reason"))
     if command == "block":
         return render_block(rs.list_rules(dsn, host))
     if command == "inject":

@@ -62,6 +62,12 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, _signal, _update, ctx) { return out(await ruleCli("delete", params, ctx.cwd)); },
   });
   pi.registerTool({
+    name: "rule_dispute", label: "Rule dispute",
+    description: "When a [harness-rule-check] violation is not true after you re-checked it, record why in one line (receipt_id from the check). Fix it instead when it is true.",
+    parameters: Type.Object({ receipt_id: Type.String(), reason: Type.String() }),
+    async execute(_id, params, _signal, _update, ctx) { return out(await ruleCli("dispute", params, ctx.cwd)); },
+  });
+  pi.registerTool({
     name: "rule_list", label: "Rule list",
     description: "List active rules (harness base h-* and project p-*). Use before changing or deleting a rule.",
     parameters: Type.Object({}),
@@ -194,15 +200,38 @@ export default function (pi: ExtensionAPI) {
       if (text) turn.push({ role: m.role, text });
     }
     if (!turn.some((t) => t.role === "assistant")) return;
-    const result = await invoke("audit", { transcript: turn, work_unit_id: workUnit(ctx) }, ctx.cwd);
+    // rule judgment evidence: code-collected facts of this turn (files touched, commands run, diff)
+    const files = new Set<string>(), commands: string[] = [];
+    for (const m of msgs.slice(start)) {
+      if (m.role !== "assistant" || !Array.isArray(m.content)) continue;
+      for (const c of m.content as { type?: string; name?: string; arguments?: Record<string, unknown> }[]) {
+        if (c?.type !== "toolCall") continue;
+        const a = c.arguments ?? {};
+        if (typeof a.path === "string" && /edit|write/i.test(c.name ?? "")) files.add(a.path);
+        if (typeof a.command === "string") commands.push(a.command);
+      }
+    }
+    const diff = files.size ? await new Promise<string>((resolve) => execFile("git", ["diff", "--no-color", "--", ...files],
+      { cwd: ctx.cwd, timeout: 15000, maxBuffer: 2 * 1024 * 1024 }, (_e, stdout) => resolve(String(stdout ?? "").slice(0, 20000)))) : "";
+    const lastAnswer = [...turn].reverse().find((t) => t.role === "assistant")?.text ?? "";
+    const [result, judged] = await Promise.all([
+      invoke("audit", { transcript: turn, work_unit_id: workUnit(ctx) }, ctx.cwd),
+      ruleCli("judge", { turn_ref: `${sessionTag}#${turnNo}`, evidence: { user: prompt, answer: lastAnswer, files: [...files], commands, diff } }, ctx.cwd),
+    ]);
     const missing = Array.isArray(result.missing) ? result.missing as { text?: string; kind?: string }[] : [];
-    if (missing.length === 0) return;
-    return {
-      entries: [{ type: "custom_message", customType: "harness-record-check", display: true,
+    const entries: { type: "custom_message"; customType: string; display: boolean; content: string }[] = [];
+    if (typeof judged.alert === "string" && judged.alert) {
+      const receipts = (judged.receipts ?? {}) as Record<string, string>;
+      entries.push({ type: "custom_message", customType: "harness-rule-check", display: true,
+        content: judged.alert + "\nreceipt_id: " + Object.entries(receipts).map(([k, v]) => `${k}=${v}`).join(", ") });
+    }
+    if (missing.length) {
+      entries.push({ type: "custom_message", customType: "harness-record-check", display: true,
         content: "[harness-record-check] 이번 턴에서 기록되지 않은 지식으로 보이는 문장이 있다. 같은 내용은 한 사실로 합쳐 knowledge_record 로 기록하거나(원문 인용), "
           + "지식이 아니면(진행 안내·확정 안 된 제안·질문·자기 행동 설명) 건너뛰어라. 괄호 안은 권장 kind. 사용자에게 답할 필요는 없다.\n"
-          + missing.slice(0, 12).map((m) => `- (${RECORD_KIND[m.kind ?? ""] ?? "fact"}) ${m.text ?? ""}`).join("\n") }],
-      continue: true,
-    };
+          + missing.slice(0, 12).map((m) => `- (${RECORD_KIND[m.kind ?? ""] ?? "fact"}) ${m.text ?? ""}`).join("\n") });
+    }
+    if (!entries.length) return;
+    return { entries, continue: true };
   });
 }
