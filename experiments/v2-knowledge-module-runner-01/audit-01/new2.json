@@ -1,0 +1,22 @@
+{
+ "reqset": {
+  "fp_user_request": 4,
+  "n_user_request": 19,
+  "fp_other_no": 0,
+  "n_other_no": 8,
+  "miss_record": 0,
+  "n_record": 13,
+  "wrong": [
+   "FP 코드는 바꾸지 말고 알려줘.",
+   "FP 로그인 버튼 색 좀 바꿔줘",
+   "FP 고칠 때 다른 파일은 건드리지 마",
+   "FP 한국어로 답해줘"
+  ]
+ },
+ "write01": {
+  "record": 310,
+  "no": 49,
+  "fn": 12,
+  "fp": 8
+ }
+}

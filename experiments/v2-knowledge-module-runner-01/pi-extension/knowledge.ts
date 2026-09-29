@@ -46,14 +46,16 @@ export default function (pi: ExtensionAPI) {
       if (!items) return;
       const count = items.length;
       if (count > 0 && count > announced) {
-        pi.sendMessage({
+        // The lookup is async: the session may already be closed (headless -p exit, window closed). Drop the
+        // notice then; it is re-announced on the next session_start.
+        try { pi.sendMessage({
           customType: "knowledge-review", display: true, details: { pending: count },
           content: `[knowledge-review] 사용자 확인을 기다리는 지식 ${count}개. knowledge_review 로 사용자에게 물어볼 수 있어(결정은 사용자가 한다).\n` +
             items.map((i) => `- ${i.fact ?? ""} (${(i.why_waiting ?? []).join(", ")})`).join("\n"),
-        }, { deliverAs: "nextTurn" });
+        }, { deliverAs: "nextTurn" }); } catch { return; }
       }
       announced = count;
-    });
+    }).catch(() => undefined);
   };
   pi.on("session_start", async (_event, ctx) => { restore(ctx); announceReview(ctx); });
   pi.on("agent_end", async (_event, ctx) => announceReview(ctx));
@@ -147,12 +149,13 @@ export default function (pi: ExtensionAPI) {
       // Not serialized with the other knowledge tools: it must not block them while the sub-agent runs.
       void invoke("brief", params, ctx.cwd).then((result) => {
         const ok = typeof result.brief === "string";
-        pi.sendMessage({
+        // async sub-agent: the session may already be closed; a lost brief is harmless (the worker can ask again)
+        try { pi.sendMessage({
           customType: "knowledge-brief", display: true, details: { brief_id: briefId, ...result, brief: undefined },
           content: ok ? `[knowledge-brief ${briefId}] ${params.question}\n\n${result.brief as string}`
                       : `[knowledge-brief ${briefId}] failed: ${JSON.stringify(result)}`,
-        }, { triggerTurn: true, deliverAs: "steer" });
-      });
+        }, { triggerTurn: true, deliverAs: "steer" }); } catch { /* stale session */ }
+      }).catch(() => undefined);
       return output({ ok: true, brief_id: briefId, status: "started",
         notice: "The brief arrives later as a 'knowledge-brief' message. Read the relevant source code now." });
     },

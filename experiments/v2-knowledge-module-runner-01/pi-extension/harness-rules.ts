@@ -196,9 +196,12 @@ export default function (pi: ExtensionAPI) {
       });
       if (!lines.length) return;
       for (const l of lines) { const m = /\[([^\[\]\s]+-\d+)\]/.exec(l); if (m) delivered.add(m[1]); }
-      pi.sendMessage({ customType: "harness-context", display: false,
-        content: `[knowledge-window 보충] 작업 대상이 바뀌어 추가로 관련된 지식:\n${lines.join("\n")}` }, { deliverAs: "steer" });
-    }).finally(() => { refreshing = undefined; });
+      // async refresh: the session may be gone by now (closed window, headless exit) -> drop the supplement
+      try {
+        pi.sendMessage({ customType: "harness-context", display: false,
+          content: `[knowledge-window 보충] 작업 대상이 바뀌어 추가로 관련된 지식:\n${lines.join("\n")}` }, { deliverAs: "steer" });
+      } catch { /* stale session */ }
+    }).catch(() => undefined).finally(() => { refreshing = undefined; });
   });
 
   // 4. answer end: unrecorded knowledge of this turn -> one continuation

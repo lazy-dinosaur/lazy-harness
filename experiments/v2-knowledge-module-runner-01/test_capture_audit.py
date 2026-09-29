@@ -56,8 +56,24 @@ def test_union_any_single_vote_is_enough():
         if criteria:
             return [{"choice": "behavior", "probabilities": {"behavior": .7, "not_knowledge": .3}} for _ in texts]
         return [{"noul": 0.1} for _ in texts]
-    out = ca.audit([{"role": "user", "text": "버튼을 누르면 모달이 열린다."}], [], judge)
+    out = ca.audit([{"role": "assistant", "text": "버튼을 누르면 모달이 열린다."}], [], judge)
     assert len(out["missing"]) == 1 and out["missing"][0]["votes"] == 1 and out["missing"][0]["kind"] == "behavior"
+
+
+def test_user_sentence_needs_persist_check():
+    """A flagged USER sentence is kept only when PQ (still knowledge after this request?) >= PQ_KEEP; assistant ones skip PQ."""
+    asked = []
+    def judge(state, texts, question, criteria=None):
+        if question is ca.PQ:
+            asked.extend(texts)
+            return [{"noul": 0.9 if "1000" in t else 0.1} for t in texts]
+        if criteria:
+            return [{"choice": "rule", "probabilities": {"rule": .9, "not_knowledge": .1}} for _ in texts]
+        return [{"noul": 0.9} for _ in texts]
+    out = ca.audit([{"role": "user", "text": "한국어로 답해줘"}, {"role": "user", "text": "설명은 1000자로 늘려줘"},
+                    {"role": "assistant", "text": "설명 제한을 1000자로 늘렸다."}], [], judge, encode=lambda ts: [[1.0 if i == j else 0.0 for j in range(3)] for i in range(len(ts))])
+    assert [m["text"] for m in out["missing"]] == ["설명은 1000자로 늘려줘", "설명 제한을 1000자로 늘렸다."]
+    assert asked == ["한국어로 답해줘", "설명은 1000자로 늘려줘"]
 
 
 def test_empty_transcript():
