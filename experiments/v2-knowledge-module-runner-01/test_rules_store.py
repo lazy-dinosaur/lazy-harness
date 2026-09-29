@@ -66,3 +66,17 @@ def test_injection_and_receipts(dsn, host):
     assert rs.dispute(dsn, receipt, "이 파일은 문서라 예외")["ok"]
     with pytest.raises(ValueError):
         rs.dispute(dsn, receipt, "두 번째")
+
+
+def test_sync_base_rules_idempotent_with_history(dsn, host):
+    first = rs.sync_base(dsn)
+    assert first["created"] and not first["updated"]
+    ids = [r["id"] for r in rs.list_rules(dsn, host) if r["id"].startswith("h-")]
+    assert "h-1" in ids and "h-2" in ids
+    assert rs.sync_base(dsn) == {"created": [], "updated": [], "unchanged": sorted(first["created"])}
+    with pytest.raises(ValueError):
+        rs.update(dsn, host, "h-2", {"must": "묻지 않는다"}, "바꿔")
+    assert rs.history(dsn, "h-1")[0]["source"]["quote"].startswith("harness base")
+    # shared session DB: retire synced base rules so later tests see only their own project rules
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("update rules.rule set status='deleted' where host_id is null")

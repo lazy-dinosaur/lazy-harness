@@ -7,7 +7,7 @@ import sys
 import config
 import rules_store as rs
 
-COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject", "judge", "dispute")
+COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject", "judge", "dispute", "sync_base")
 LEVEL_KO = {"must": "반드시", "should": "권장"}
 BLOCK_HEAD = ("[harness-rules] 이 프로젝트에서 지켜야 할 규칙 (하네스가 요청마다 붙임, 지식과 별개). "
               "h-* 는 하네스 기본 규칙, p-* 는 이 프로젝트 규칙. 답변 끝에 지켰는지 판정된다.")
@@ -95,6 +95,8 @@ def run(dsn, host, command, data, review_factory=_review, judges=None):
         return {"history": rs.history(dsn, data.get("id"))}
     if command == "judge":
         return judge(dsn, host, data, *(judges or _judges()))
+    if command == "sync_base":
+        return rs.sync_base(dsn)
     if command == "dispute":
         return rs.dispute(dsn, data.get("receipt_id"), data.get("reason"))
     if command == "block":

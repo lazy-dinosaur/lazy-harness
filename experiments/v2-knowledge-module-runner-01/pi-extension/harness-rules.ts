@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { dirname, isAbsolute, relative, resolve as resolvePath } from "node:path";
+import { homedir } from "node:os";
 import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -72,6 +74,28 @@ export default function (pi: ExtensionAPI) {
     description: "List active rules (harness base h-* and project p-*). Use before changing or deleting a rule.",
     parameters: Type.Object({}),
     async execute(_id, _params, _signal, _update, ctx) { return out(await ruleCli("list", {}, ctx.cwd)); },
+  });
+
+  // Harness base rule h-1 (code check, block): general tools must not read or search outside the project folder.
+  // "Outside" = sibling projects / ancestors of the project root (the case seen in real use: find .. over other
+  // projects' AGENTS.md). System paths (/usr, /tmp, ...) are not project knowledge and are left alone.
+  const outsideProject = (cwd: string, p: string): boolean => {
+    const abs = resolvePath(cwd, p.startsWith("~/") ? homedir() + p.slice(1) : p);
+    const rel = relative(cwd, abs);
+    if (!rel || (!rel.startsWith("..") && !isAbsolute(rel))) return false;
+    const parent = dirname(cwd);
+    const relParent = relative(parent, abs);
+    return !relParent.startsWith("..") && !isAbsolute(relParent);
+  };
+  const BASH_OUT = /(?:^|[\s;&|(])(?:cd|find|ls|grep|rg|cat|head|tail|tree|fd)\s+(?:-\S+\s+)*(\.\.(?:\/[^\s;&|)]*)?|~\/[^\s;&|)]+|\/home\/[^\s;&|)]+)/g;
+  pi.on("tool_call", async (event, ctx) => {
+    const input = (event as { input?: Record<string, unknown> }).input ?? {};
+    const paths: string[] = [];
+    for (const k of ["path", "file_path", "cwd", "directory"]) if (typeof input[k] === "string") paths.push(input[k] as string);
+    if (typeof input.command === "string") for (const m of (input.command as string).matchAll(BASH_OUT)) paths.push(m[1]);
+    const bad = paths.find((p) => outsideProject(ctx.cwd, p));
+    if (!bad) return;
+    return { block: true, reason: `[h-1] 프로젝트 폴더 밖(${bad})은 일반 도구로 읽거나 뒤지지 않는다. 다른 프로젝트·팀 문서는 사용자가 원할 때 소화 전용 도구로만 가져온다.` };
   });
 
   let prompt = "";

@@ -218,12 +218,18 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
     if decision not in ("approve", "reject"):
         raise ValueError("decision must be approve|reject")
     with connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select e.entry_id::text,e.state::text,e.host_id,w.status::text as unit_status
+        cur.execute("""select e.entry_id::text,e.state::text,e.host_id,w.status::text as unit_status,w.completion_sources
                     from knowledge.ledger_entry e join knowledge.work_unit w on w.work_unit_id=e.work_unit_id
                     where e.entry_id=%s for update of e""", (entry_id,))
         entry = _row(cur)
         if not entry or entry["host_id"] != host:
             raise ValueError("entry not found for host")
+        # Harness base rule (schema-delta '검수 승인은 그 사실을 보여 준 뒤의 답'): a completion confirmation
+        # cannot approve a waiting fact; the answer must follow showing that fact to the user.
+        norm = lambda t: " ".join(str(t or "").split())
+        used = {norm((s.get("evidence") or {}).get("quote")) for s in (entry.pop("completion_sources") or []) if isinstance(s, dict)}
+        if decision == "approve" and norm(quote) and norm(quote) in used:
+            raise ValueError("the completion confirmation cannot approve a waiting fact; show the fact to the user and quote their answer")
         if entry["state"] not in REVIEWABLE or entry["unit_status"] == "abandoned":
             raise ValueError(f"entry is not reviewable in state {entry['state']}")
         receipts = {r["fact_index"]: r for r in _receipts(cur, entry_id, "worktime")}

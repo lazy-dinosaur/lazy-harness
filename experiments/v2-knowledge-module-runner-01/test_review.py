@@ -119,3 +119,14 @@ def test_digest_mismatch_only_fact_parks_entry_and_reject_closes_nothing_new(dsn
     assert state == "review_queue"
     assert pg.review_resolve(dsn, host, entry["entry_id"], 0, "reject", "빼")["entry_state"] == "closed"
     assert texts(dsn, host) == []
+
+
+def test_completion_quote_cannot_approve_review(dsn, host):
+    body = two_facts(host, "kappa", "lambda")
+    entry = pg.register(dsn, body)
+    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="kappa"), unsure("lambda")]})
+    pg.register_completion_sources(dsn, body["work_unit_id"], ["user_confirm"])
+    pg.signal_completion(dsn, body["work_unit_id"], "user_confirm", evidence={"quote": "좋아 이걸로 하자"})
+    with pytest.raises(ValueError):
+        pg.review_resolve(dsn, host, entry["entry_id"], 1, "approve", "좋아  이걸로 하자")
+    assert pg.review_resolve(dsn, host, entry["entry_id"], 1, "reject", "좋아 이걸로 하자")["decision"] == "reject"
