@@ -1,9 +1,0 @@
-{
-  "note": "Harness base rules (fixed, shipped with the harness; synced into rules.rule with host_id null). Edit only in the harness source; projects cannot change them.",
-  "rules": [
-    {"id": "h-1", "when": "항상", "must": "프로젝트 폴더 밖(다른 프로젝트·상위 폴더)의 파일을 일반 도구로 읽거나 뒤지지 않는다. 밖의 문서는 사용자가 원할 때 소화 전용 도구로만 가져온다",
-     "level": "must", "why": "lazy-harness 만 정본(다른 하네스·팀 규칙에 오염되지 않음)", "code_check": {"type": "path_outside_project"}},
-    {"id": "h-2", "when": "요청의 범위 해석에 따라 코드·지식 결과가 크게 갈리거나 큰 변경을 할 때", "must": "진행 전에 사용자에게 묻고, 큰 변경은 계획을 보여 주고 승인받는다",
-     "unless": "사소한 선택(이름·순서 등)이거나 사용자가 이미 범위를 정한 경우", "level": "must", "why": "묻지 않고 범위를 정하면 되돌리는 비용이 큼(실사용 ensure 사례)"}
-  ]
-}

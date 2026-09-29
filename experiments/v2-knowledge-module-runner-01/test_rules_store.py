@@ -37,8 +37,7 @@ def test_schema_and_source_guards(dsn, host):
         rs.update(dsn, host, "h-900", {"must": "밖도 읽음"}, "바꿔")
     with pytest.raises(ValueError):
         rs.delete(dsn, host, "h-900", "지워")
-    assert "h-900" in [r["id"] for r in rs.list_rules(dsn, host)]
-    assert "h-900" not in [r["id"] for r in rs.list_rules(dsn, host, include_base=False)]
+    assert "h-900" not in [r["id"] for r in rs.list_rules(dsn, host)]  # DB base rows are never project rules
     with pg.connect(dsn) as conn, conn.cursor() as cur, pytest.raises(pg.driver.Error):
         cur.execute("""insert into rules.rule(rule_id,host_id,when_text,must_text,level,source)
                        values ('h-901',%s,'항상','x','must','{}')""", (host,))
@@ -47,7 +46,7 @@ def test_schema_and_source_guards(dsn, host):
 def test_review_flags_need_user_confirmation(dsn, host):
     review = lambda rule, existing: ["conflict with p-1"]
     held = rs.create(dsn, host, RULE, "테스트 돌려", review=review)
-    assert held["needs_user"] and rs.list_rules(dsn, host, include_base=False) == []
+    assert held["needs_user"] and rs.list_rules(dsn, host) == []
     done = rs.create(dsn, host, RULE, "테스트 돌려", review=review, confirm_quote="그래도 넣어")
     assert done["ok"] and rs.history(dsn, done["id"])[0]["source"]["confirm"] == "그래도 넣어"
 
@@ -59,7 +58,7 @@ def test_injection_and_receipts(dsn, host):
     got = rs.injected(dsn, host, "turn-1")
     assert got["rules"] == [rid] and sorted(got["knowledge"]) == ["design-1", "design-2"]
     assert rs.injected(dsn, host, "turn-2") == {"rules": [], "knowledge": []}
-    rule = rs.list_rules(dsn, host, include_base=False)[0]
+    rule = rs.list_rules(dsn, host)[0]
     v = {"label": "violated", "confident": True, "cond": ["met", 0.9], "done": ["not_done", 0.9],
          "items": [{"alias": "design-1", "text": "t", "p": 0.9}], "rule_delivered": True}
     [receipt] = rs.save_receipts(dsn, host, "turn-1", [rule], [v], {"files": ["a.tsx"]})
@@ -68,15 +67,13 @@ def test_injection_and_receipts(dsn, host):
         rs.dispute(dsn, receipt, "두 번째")
 
 
-def test_sync_base_rules_idempotent_with_history(dsn, host):
-    first = rs.sync_base(dsn)
-    assert first["created"] and not first["updated"]
-    ids = [r["id"] for r in rs.list_rules(dsn, host) if r["id"].startswith("h-")]
-    assert "h-1" in ids and "h-2" in ids
-    assert rs.sync_base(dsn) == {"created": [], "updated": [], "unchanged": sorted(first["created"])}
-    with pytest.raises(ValueError):
-        rs.update(dsn, host, "h-2", {"must": "묻지 않는다"}, "바꿔")
-    assert rs.history(dsn, "h-1")[0]["source"]["quote"].startswith("harness base")
-    # shared session DB: retire synced base rules so later tests see only their own project rules
+def test_harness_receipts_need_no_rule_row(dsn, host):
+    import harness_rules
+    v = {"label": "violated", "confident": True, "cond": ["met", 0.9], "done": ["not_done", 0.9], "items": []}
+    [rid] = rs.save_receipts(dsn, host, "turn-h", harness_rules.rules(), [v], {"user": "x"})
     with pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("update rules.rule set status='deleted' where host_id is null")
+        cur.execute("select origin, rule_id from rules.judgement_receipt where receipt_id=%s", (rid,))
+        assert cur.fetchone() == ("harness", "H-1")
+        with pytest.raises(pg.driver.Error):
+            cur.execute("""insert into rules.judgement_receipt(receipt_id,host_id,turn_ref,rule_id,rule_version,label,confident,cond,done,evidence,origin)
+                           values (gen_random_uuid(),%s,'t','p-1',1,'followed',true,'[]','[]','{}','harness')""", (host,))

@@ -7,10 +7,33 @@ import sys
 import config
 import rules_store as rs
 
-COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject", "judge", "dispute", "sync_base")
+COMMANDS = ("create", "update", "delete", "list", "history", "block", "inject", "judge", "dispute")
 LEVEL_KO = {"must": "반드시", "should": "권장"}
 BLOCK_HEAD = ("[harness-rules] 이 프로젝트에서 지켜야 할 규칙 (하네스가 요청마다 붙임, 지식과 별개). "
               "h-* 는 하네스 기본 규칙, p-* 는 이 프로젝트 규칙. 답변 끝에 지켰는지 판정된다.")
+
+
+SELECT_MIN = 0.83  # e5 cosine; inj-01 'select' mode only
+
+
+def select_rules(rules, question):
+    """Keep the project rules whose when/must are close to the request (local embedding, no Jev)."""
+    import embed
+    if not rules or not isinstance(question, str) or not question.strip():
+        return rules
+    q = embed.encode_query(question[:1000])
+    vecs = embed.encode_passages([f"{r['when']} {r['must']}" for r in rules])
+    return [r for r, v in zip(rules, vecs) if sum(a * b for a, b in zip(q, v)) >= SELECT_MIN]
+
+
+def harness_guide():
+    """v2 base guidance: harness rules are told here (not in the project rule block)."""
+    import harness_rules
+    lines = ["[harness-guide] lazy-harness 기본 규칙 (하네스 특성, 고정). 지침은 lazy-harness 만 따른다."]
+    for r in harness_rules.SEMANTIC + harness_rules.CODE_ENFORCED:
+        extra = f" (예외: {r['unless']})" if r.get("unless") else ""
+        lines.append(f"- [{r['id']}] {r['when']} → {r['must']}{extra}")
+    return "\n".join(lines)
 
 
 def render_block(rules):
@@ -71,9 +94,8 @@ def judge(dsn, host, data, ask2, ask_items, fetch=None):
     """Post-turn rule judgment (step 4): two-step over all active rules, ref items against the diff,
     delivery marks from the injection record, receipts saved; returns the grouped alert for confident violations."""
     import rule_check
-    rules = rs.list_rules(dsn, host)
-    if not rules:
-        return {"ok": True, "rules": 0, "alert": "", "continue": []}
+    import harness_rules
+    rules = harness_rules.rules() + [dict(r, origin="project") for r in rs.list_rules(dsn, host)]
     ev = data.get("evidence") or {}
     text = evidence_text(ev)
     verdicts, usage = rule_check.check_with_refs(text, ev.get("diff") or "", rules, ask2, ask_items, fetch or ref_fetch(dsn, host))
@@ -95,12 +117,15 @@ def run(dsn, host, command, data, review_factory=_review, judges=None):
         return {"history": rs.history(dsn, data.get("id"))}
     if command == "judge":
         return judge(dsn, host, data, *(judges or _judges()))
-    if command == "sync_base":
-        return rs.sync_base(dsn)
     if command == "dispute":
         return rs.dispute(dsn, data.get("receipt_id"), data.get("reason"))
     if command == "block":
-        return render_block(rs.list_rules(dsn, host))
+        rules = rs.list_rules(dsn, host)
+        if data.get("select"):
+            rules = select_rules(rules, data.get("question"))
+        out = render_block(rules)
+        out["guide"] = harness_guide()
+        return out
     if command == "inject":
         turn = data.get("turn_ref")
         if not isinstance(turn, str) or not turn.strip():

@@ -51,10 +51,10 @@ def _row_rule(row):
     return rule
 
 
-def list_rules(dsn, host, include_base=True):
+def list_rules(dsn, host):
+    """Active project rules of the host. Harness rules are code (harness_rules.py), never DB rows."""
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select * from rules.rule where status='active' and (host_id=%s or (%s and host_id is null))
-                       order by (host_id is not null), created_at, rule_id""", (host, include_base))
+        cur.execute("""select * from rules.rule where status='active' and host_id=%s order by created_at, rule_id""", (host,))
         return [_row_rule(r) for r in store_pg._rows(cur)]
 
 
@@ -130,43 +130,6 @@ def history(dsn, rule_id):
         return store_pg._rows(cur)
 
 
-BASE_FILE = __import__("pathlib").Path(__file__).with_name("base_rules.json")
-
-
-def sync_base(dsn, path=BASE_FILE):
-    """Upsert the shipped harness base rules (host_id null, h-*). Changes are versioned in rule_history."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    created, updated, unchanged = [], [], []
-    source = {"quote": "harness base rules (" + path.name + ")"}
-    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        for rule in data["rules"]:
-            rid = rule["id"]
-            if not rid.startswith("h-"):
-                raise ValueError("base rule ids must start with h-")
-            body = {k: rule.get(k) for k in FIELDS}
-            errs = schema_errors({k: v for k, v in body.items() if v is not None})
-            if errs:
-                raise ValueError(f"{rid}: {errs}")
-            cur.execute("select * from rules.rule where rule_id=%s for update", (rid,))
-            row = store_pg._row(cur)
-            vals = [json.dumps(body[k]) if k == "code_check" and body[k] is not None else body[k] for k in FIELDS]
-            if row is None:
-                cur.execute(f"insert into rules.rule(rule_id,host_id,source,{','.join(COLUMN[k] for k in FIELDS)}) values (%s,null,%s::jsonb,{','.join(['%s'] * len(FIELDS))})",
-                            [rid, json.dumps(source)] + vals)
-                _history(cur, rid, 1, "create", {k: v for k, v in body.items() if v is not None}, source)
-                created.append(rid)
-                continue
-            current = {k: row.get(COLUMN[k]) for k in FIELDS}
-            if current == body and row["status"] == "active":
-                unchanged.append(rid)
-                continue
-            cur.execute(f"update rules.rule set {', '.join(COLUMN[k] + '=%s' for k in FIELDS)}, status='active', version=version+1, "
-                        "updated_at=now(), source=%s::jsonb where rule_id=%s returning version", vals + [json.dumps(source), rid])
-            _history(cur, rid, cur.fetchone()[0], "update", {k: v for k, v in body.items() if v is not None}, source)
-            updated.append(rid)
-    return {"created": sorted(created), "updated": sorted(updated), "unchanged": sorted(unchanged)}
-
-
 def record_injection(dsn, host, turn_ref, rule_ids, aliases, tokens):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""insert into rules.injection(host_id,turn_ref,rule_ids,knowledge_aliases,tokens) values (%s,%s,%s,%s,%s)
@@ -189,10 +152,10 @@ def save_receipts(dsn, host, turn_ref, rules, verdicts, evidence):
         for r, v in zip(rules, verdicts):
             rid = str(uuid4())
             cur.execute("""insert into rules.judgement_receipt(receipt_id,host_id,turn_ref,rule_id,rule_version,label,confident,
-                           cond,done,items,evidence,rule_delivered) values (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s::jsonb,%s)""",
+                           cond,done,items,evidence,rule_delivered,origin) values (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s::jsonb,%s::jsonb,%s,%s)""",
                         (rid, host, turn_ref, r["id"], r.get("version", 1), v["label"], bool(v["confident"]),
                          json.dumps(v["cond"]), json.dumps(v["done"]), json.dumps(v.get("items", []), ensure_ascii=False),
-                         json.dumps(evidence, ensure_ascii=False), v.get("rule_delivered")))
+                         json.dumps(evidence, ensure_ascii=False), v.get("rule_delivered"), r.get("origin", "project")))
             ids.append(rid)
     return ids
 

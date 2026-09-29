@@ -29,8 +29,9 @@ def test_review_flags_conflict_and_broad(dsn, host):
     review = rule_review.make_review(ask, two("met", "not_done"), lambda: ["t1", "t2", "t3"])
     first = rs.create(dsn, host, RULE, "테스트 돌려", review=review)
     assert first["needs_user"] and any("너무 넓어서" in f for f in first["flags"])
-    assert not any("기본 규칙" in f for f in first["flags"])  # no base rules registered -> no weakens flag
-    quiet = rule_review.make_review(ask, two("not_met", "done"), lambda: ["t1", "t2", "t3"])
+    assert any("기본 규칙" in f for f in first["flags"])  # hard-coded harness rules are always checked
+    calm = lambda state: {**ask(state), "weakens_base": .1}
+    quiet = rule_review.make_review(calm, two("not_met", "done"), lambda: ["t1", "t2", "t3"])
     ok = rs.create(dsn, host, RULE, "테스트 돌려", review=quiet)
     assert ok["ok"] and ok["flags"] == []
     again = rs.create(dsn, host, {**RULE, "must": "테스트 없이 커밋한다"}, "빨리", review=quiet)
@@ -47,7 +48,9 @@ def test_review_unjudgeable_and_skip_dry_run(dsn, host):
 
 
 def test_rule_block_and_injection(dsn, host):
-    assert rule_cli.run(dsn, host, "block", {}) == {"text": "", "ids": [], "tokens": 0}
+    empty = rule_cli.run(dsn, host, "block", {})
+    assert {k: empty[k] for k in ("text", "ids", "tokens")} == {"text": "", "ids": [], "tokens": 0}
+    assert empty["guide"].startswith("[harness-guide]") and "H-1" in empty["guide"]  # harness guide always present
     rid = rule_cli.run(dsn, host, "create", {"rule": {**RULE, "unless": "문서만 바꾼 경우", "ref": "디자인 시스템"},
                                             "quote": "테스트 돌려"}, review_factory=None)["id"]
     block = rule_cli.run(dsn, host, "block", {})
@@ -58,12 +61,13 @@ def test_rule_block_and_injection(dsn, host):
 
 
 def test_judge_saves_receipts_and_groups_alert(dsn, host):
-    assert rule_cli.run(dsn, host, "judge", {"turn_ref": "s#1", "evidence": {}}, judges=(None, None))["rules"] == 0
     r1 = rule_cli.run(dsn, host, "create", {"rule": RULE, "quote": "테스트 돌려"}, review_factory=None)["id"]
     r2 = rule_cli.run(dsn, host, "create", {"rule": {"when": "UI 를 바꿨을 때", "must": "디자인 시스템을 따른다", "level": "must",
                                                         "ref": "디자인 시스템"}, "quote": "디자인 지켜"}, review_factory=None)["id"]
     rs.record_injection(dsn, host, "s#2", [r1, r2], ["design-1"], 100)
-    answers = {"관련 테스트를 실행해 통과시킨다": ("met", "not_done"), "디자인 시스템을 따른다": ("met", "done")}
+    import harness_rules
+    answers = {"관련 테스트를 실행해 통과시킨다": ("met", "not_done"), "디자인 시스템을 따른다": ("met", "done"),
+               harness_rules.SEMANTIC[0]["must"]: ("met", "not_done")}
     def ask2(state, n):
         out = []
         for r in state["rules"]:
@@ -76,7 +80,9 @@ def test_judge_saves_receipts_and_groups_alert(dsn, host):
     fetch = lambda ref, diff, k: [{"alias": "design-1", "text": "색은 토큰만"}]
     out = rule_cli.judge(dsn, host, {"turn_ref": "s#2", "evidence": {"user": "버튼 색 바꿔", "files": ["a.tsx"], "diff": "+ color: '#fff'"}},
                          ask2, ask_items, fetch)
-    assert sorted(out["continue"]) == sorted([r1, r2]) and set(out["receipts"]) == {r1, r2}
+    assert sorted(out["continue"]) == sorted(["H-1", r1, r2]) and set(out["receipts"]) == {"H-1", r1, r2}
+    assert "[하네스 기본 규칙] H-1" in out["alert"]
+    assert all(not i.startswith("H-") for i in rule_cli.run(dsn, host, "block", {})["ids"])  # block = project rules only
     text = out["alert"]
     assert text.index(r1) < text.index("이번 턴 규칙 블록에 있었음") < text.index(r2) < text.index("[design-1]")  # grouped per rule
     assert "지식 창으로 전달됨" in text

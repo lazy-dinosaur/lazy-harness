@@ -5,6 +5,7 @@ to every turn). Flags stop the write until the user confirms."""
 import json
 from urllib.request import Request, urlopen
 
+import harness_rules
 import rule_check
 import store_pg
 
@@ -41,7 +42,7 @@ def make_review(ask, ask2, evidence_source, min_turns=3):
     """ask(state) -> {conflict, duplicate, weakens_base: noul}; ask2 = rule_check two-step asker;
     evidence_source() -> recent turn evidences. Dry run needs at least min_turns judged turns."""
     def review(rule, existing):
-        base = [r for r in existing if r["id"].startswith("h-")]
+        base = harness_rules.for_review()
         proj = [r for r in existing if r["id"].startswith("p-")]
         view = lambda r: {k: r[k] for k in ("id", "when", "must", "unless") if r.get(k)}
         scores = ask({"candidate": {k: rule[k] for k in ("when", "must", "unless") if rule.get(k)},

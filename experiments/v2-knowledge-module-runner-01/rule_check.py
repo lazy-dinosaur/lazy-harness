@@ -259,7 +259,7 @@ def mark_delivery(verdicts, rules, injected):
     Code-known, no Jev: tells whether a violation happened despite delivery (agent) or without it (harness)."""
     rs, ks = set(injected.get("rules") or []), set(injected.get("knowledge") or [])
     for v, r in zip(verdicts, rules):
-        v["rule_delivered"] = r["id"] in rs
+        v["rule_delivered"] = None if r.get("origin") == "harness" else r["id"] in rs
         v["knowledge_delivered"] = [i["alias"] for i in v.get("items", []) if i["alias"] in ks]
     return verdicts
 
@@ -271,11 +271,11 @@ def alert(verdicts, rules, evidence_summary):
     for v, r in zip(verdicts, rules):
         if v["label"] != "violated" or not v["confident"]:
             continue
-        head = f"- {r['id']}: {r['when']} → {r['must']}"
+        head = f"- {'[하네스 기본 규칙] ' if r.get('origin') == 'harness' else ''}{r['id']}: {r['when']} → {r['must']}"
         extra = " / ".join(x for x in (f"예외: {r['unless']}" if r.get("unless") else "", f"이유: {r['why']}" if r.get("why") else "") if x)
         lines += [head + (f" ({extra})" if extra else ""),
                   f"  · 조건 충족: {COND_KO[v['cond'][0]]} ({v['cond'][1]})  · 해야 할 것 수행: {DONE_KO[v['done'][0]]} ({v['done'][1]})"]
-        if "rule_delivered" in v:
+        if v.get("rule_delivered") is not None:
             lines.append("  · " + ("이번 턴 규칙 블록에 있었음" if v["rule_delivered"] else "이번 턴에 전달되지 않음(하네스 확인 필요)"))
         for it in v.get("items", []):
             sent = " (지식 창으로 전달됨)" if it["alias"] in v.get("knowledge_delivered", []) else ""

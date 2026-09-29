@@ -98,15 +98,17 @@ export default function (pi: ExtensionAPI) {
     return { block: true, reason: `[h-1] 프로젝트 폴더 밖(${bad})은 일반 도구로 읽거나 뒤지지 않는다. 다른 프로젝트·팀 문서는 사용자가 원할 때 소화 전용 도구로만 가져온다.` };
   });
 
+  // LHV2_INJECT=none only for baseline experiments (judgment without injection); default injects (sys placement)
+  const INJECT = (process.env.LHV2_INJECT ?? "sys").toLowerCase();
+  let delivered = new Set<string>();
+  let guideText = "";
   let prompt = "";
   let windowText = "";
   let windowAliases: string[] = [];
   let ruleText = "";
   let ruleIds: string[] = [];
-  let ruleTokens = 0;
   const sessionTag = Math.random().toString(36).slice(2, 10);
   let turnNo = 0;
-  let injectedTurn = -1;
   let subjects = new Set<string>();
   let refreshing: Promise<void> | undefined;
   let checkedThisRun = false;
@@ -151,63 +153,52 @@ export default function (pi: ExtensionAPI) {
     return id;
   };
 
-  // 1. turn start
+  // 1. turn start (schema-delta '주입 위치 — 규칙은 시스템 안내, 지식은 턴 시작 메시지'; inj-01):
+  //    harness guide (top) + project rule block go into a system prompt section (stable -> cache kept);
+  //    the knowledge window goes in once per user turn as a message (never re-attached per request).
   pi.on("before_agent_start", async (event, ctx) => {
     prompt = event.prompt ?? "";
     checkedThisRun = false;
     turnNo += 1;
-    // rule block: separate path from the knowledge window (rule module, all active rules)
+    delivered = new Set<string>();
+    if (INJECT === "none") return;
     const block = await ruleCli("block", {}, ctx.cwd);
     ruleText = typeof block.text === "string" ? block.text : "";
+    guideText = typeof block.guide === "string" ? block.guide : "";
     ruleIds = Array.isArray(block.ids) ? block.ids as string[] : [];
-    ruleTokens = typeof block.tokens === "number" ? block.tokens : 0;
-    if (prompt.trim().length < 4) return;
-    subjects = new Set(recentSubjects(ctx));
-    await build(ctx, prompt, [...subjects].map((s) => s.split("/").pop() ?? s));
+    const opts = (event as { systemPromptOptions?: { sections?: Record<string, string> } }).systemPromptOptions;
+    if (opts) opts.sections = { ...(opts.sections ?? {}), "lazy-harness-rules": [guideText, ruleText].filter((t) => t && t.trim()).join("\n\n") };
+    windowText = "";
+    windowAliases = [];
+    if (prompt.trim().length >= 4) {
+      subjects = new Set(recentSubjects(ctx));
+      await build(ctx, prompt, [...subjects].map((s) => s.split("/").pop() ?? s));
+    }
+    for (const a of windowAliases) delivered.add(a);
+    void ruleCli("inject", { turn_ref: `${sessionTag}#${turnNo}`, rule_ids: ruleIds, aliases: windowAliases,
+      tokens: Math.floor((guideText.length + ruleText.length + windowText.length) / 2) }, ctx.cwd);
+    if (!windowText.trim()) return;
+    return { message: { customType: "harness-context", content: windowText, display: false } };
   });
 
-  // 2. subject shift (any tool, not a tool list)
+  // 2. subject shift (any tool, not a tool list): only knowledge lines not yet delivered this turn, as one message
   pi.on("turn_end", async (_event, ctx) => {
-    if (!prompt || refreshing) return;
+    if (!prompt || refreshing || INJECT === "none") return;
     const now = recentSubjects(ctx);
     const fresh = now.filter((s) => !subjects.has(s));
     if (fresh.length === 0) return;
     for (const s of fresh) subjects.add(s);
     const names = fresh.map((s) => s.split("/").pop() ?? s);
-    refreshing = build(ctx, `${prompt.slice(0, 600)}\n작업 대상: ${fresh.join(", ")}`, names).finally(() => { refreshing = undefined; });
-  });
-
-  // 3. every model request: attach the window to this request only
-  pi.on("context", async (event, ctx) => {
-    if (!windowText && !ruleText) return;
-    const messages = event.messages as Msg[];
-    const present = new Set<string>();
-    for (const m of messages) for (const a of textOf(m.content).matchAll(ALIAS_RE)) present.add(a[1]);
-    const lines = windowText.split("\n").filter((line) => {
-      const a = /^- (?:⚠ 충돌 후보 )?\[([^\[\]\s]+-\d+)\]/.exec(line);
-      return !a || !present.has(a[1]);
-    });
-    const parts: { type: "text"; text: string }[] = [];
-    if (ruleText) parts.push({ type: "text", text: ruleText });
-    const hasKnowledge = lines.some((l) => /^- (?:⚠ 충돌 후보 )?\[/.test(l));
-    if (hasKnowledge) parts.push({ type: "text", text: lines.join("\n") });
-    if (!parts.length) return;
-    if (injectedTurn !== turnNo) {  // injection record: once per user turn, code-known (no Jev)
-      injectedTurn = turnNo;
-      const sent = hasKnowledge ? windowAliases.filter((a) => !present.has(a)) : [];
-      void ruleCli("inject", { turn_ref: `${sessionTag}#${turnNo}`, rule_ids: ruleIds, aliases: sent,
-        tokens: ruleTokens + (hasKnowledge ? Math.floor(lines.join("\n").length / 2) : 0) }, ctx.cwd);
-    }
-    const block = parts;
-    const out = messages.slice();
-    const last = out[out.length - 1];
-    if (last && (last.role === "user" || last.role === "toolResult" || last.role === "custom")) {
-      const content = typeof last.content === "string" ? [{ type: "text" as const, text: last.content }] : Array.isArray(last.content) ? last.content : [];
-      out[out.length - 1] = { ...last, content: [...content, ...block] };
-    } else {
-      out.push({ role: "custom", customType: "harness-context", content: block, display: false, timestamp: Date.now() } as Msg);
-    }
-    return { messages: out as typeof event.messages };
+    refreshing = build(ctx, `${prompt.slice(0, 600)}\n작업 대상: ${fresh.join(", ")}`, names).then(() => {
+      const lines = windowText.split("\n").filter((line) => {
+        const m = /^- (?:⚠ 충돌 후보 )?\[([^\[\]\s]+-\d+)\]/.exec(line);
+        return m && !delivered.has(m[1]);
+      });
+      if (!lines.length) return;
+      for (const l of lines) { const m = /\[([^\[\]\s]+-\d+)\]/.exec(l); if (m) delivered.add(m[1]); }
+      pi.sendMessage({ customType: "harness-context", display: false,
+        content: `[knowledge-window 보충] 작업 대상이 바뀌어 추가로 관련된 지식:\n${lines.join("\n")}` }, { deliverAs: "steer" });
+    }).finally(() => { refreshing = undefined; });
   });
 
   // 4. answer end: unrecorded knowledge of this turn -> one continuation
