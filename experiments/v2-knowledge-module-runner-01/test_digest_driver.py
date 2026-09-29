@@ -88,6 +88,26 @@ def test_concurrent_digest_only_one_fragment(dsn, host):
     assert len([a for a in pg.rows(dsn, "absorption") if str(a["work_unit_id"]) == body["work_unit_id"]]) == 1
 
 
+def test_same_pass_add_identical_to_update_is_retained(dsn, host, monkeypatch):
+    """An add recorded mid-work that equals an update applied in the same digestion becomes evidence, not a fragment."""
+    import store_pg as pg2
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""insert into knowledge.fragment(host_id,alias,domain,seq,text,kind,group_id,source)
+                    values (%s,'dup-1','dup',1,'설명은 300자로 자른다','fact','dup:g','{"evidence_refs": []}'::jsonb) returning id::text""", (host,))
+        target = cur.fetchone()[0]
+    add = {"operation": "add", "fact": "설명은 최대 1000자로 자른다."}
+    upd = {"operation": "update", "fact": "설명은 1000자로 자른다", "target_ref": target}
+    other = {"operation": "add", "fact": "설명은 수정 때 1000자를 넘으면 거부한다"}
+    prepared = [({}, {"human_approved": False}, add, None, None, {"rule_id": "P", "action": "absorb"}),
+                ({}, {"human_approved": False}, upd, None, None, {"rule_id": "P", "action": "absorb"}),
+                ({}, {"human_approved": False}, other, None, None, {"rule_id": "P", "action": "absorb"})]
+    import dedup
+    batch = [f["fact"] for _, _, f, _, _, v in prepared if v["action"] == "absorb" and f.get("operation") == "update"]
+    assert dedup.find_duplicate(add["fact"], batch) == 0
+    assert dedup.find_duplicate(other["fact"], batch) is None
+    assert pg2.BATCH_DUP_RULE == "digest_batch_duplicate"
+
+
 def test_abandon_expires_without_absorption(dsn, host):
     body, provisional, _ = staged(dsn, host)
     proposed_body = judgement(host)

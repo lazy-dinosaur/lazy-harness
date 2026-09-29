@@ -165,6 +165,7 @@ def _transition(cur, entry, state, actor, receipt_ref=None):
 
 RECORDISH = ("record", "update_record", "deprecate_record")
 REVIEW_RULE = "worktime_review"
+BATCH_DUP_RULE = "digest_batch_duplicate"
 DIGEST_RULE = "digestion_review"
 REVIEWABLE = ("review_queue", "provisional", "eligible", "absorbed", "retained_as_evidence")
 
@@ -663,6 +664,18 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     _transition(cur, entry, "review_queue", "digester")
             actions = []
             embedding_pending = False
+            # Same-pass duplicates (audit-01 flow: an add recorded mid-work was judged new against the old fragment, and
+            # the update of that fragment in this same pass made it identical -> two fragments). The texts this pass is
+            # about to make canonical are the reference; an identical add is kept as evidence instead of a new fragment.
+            import dedup
+            batch = [fact["fact"] for _, _, fact, _, _, verdict in prepared
+                     if verdict["action"] == "absorb" and fact.get("operation") == "update"]
+            for k, (entry, old, fact, fixture, current, verdict) in enumerate(prepared):
+                if verdict["action"] == "absorb" and fact.get("operation", "add") == "add" and not old["human_approved"]:
+                    if dedup.find_duplicate(fact["fact"], batch) is not None:
+                        prepared[k] = (entry, old, fact, fixture, current, {"rule_id": BATCH_DUP_RULE, "action": "retain_as_evidence"})
+                    else:
+                        batch.append(fact["fact"])
             for entry, old, fact, fixture, current, verdict in prepared:
                 receipt_id = _receipt(cur, entry, old["fact_index"], fact, fixture, "digestion", current)
                 action, operation = verdict["action"], fact.get("operation", "add")
