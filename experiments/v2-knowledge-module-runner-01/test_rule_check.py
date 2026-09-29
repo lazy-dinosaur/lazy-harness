@@ -41,3 +41,26 @@ def test_only_confident_violation_continues():
     assert cont == ["b"] and notice == ["d"]  # 'c' violated but low margin -> no continuation
     with pytest.raises(ValueError):
         rc.check("ev", RULES, fake_ask(LABELS), batch=0)
+
+
+def fake_two(answers):
+    def ask2(state, n):
+        rules = state["rules"]
+        out = []
+        for r in rules:
+            c, d = answers[r["must"]]
+            out.append({"type": "choice", "choice": c, "probabilities": {k: (.9 if k == c else .05) for k in rc.COND}})
+            out.append({"type": "choice", "choice": d, "probabilities": {k: (.9 if k == d else .05) for k in rc.DONE}})
+        return out, {"input_tokens": 50, "output_tokens": 5, "cost": 0.0}
+    return ask2
+
+
+def test_two_step_labels_and_alert():
+    rules = [{"id": "p-1", "when": "w1", "must": "m1"}, {"id": "p-2", "when": "w2", "must": "m2", "unless": "u2"},
+             {"id": "p-3", "when": "w3", "must": "m3"}, {"id": "p-4", "when": "w4", "must": "m4"}]
+    ans = {"m1": ("met", "done"), "m2": ("not_met", "not_done"), "m3": ("met", "not_done"), "m4": ("unsure", "done")}
+    verdicts, usage = rc.check_two_step("ev", rules, fake_two(ans))
+    assert [v["label"] for v in verdicts] == ["followed", "not_applicable", "violated", "unsure"]
+    assert usage["requests"] == 1 and verdicts[2]["confident"]
+    text = rc.alert(verdicts, rules, "ev-summary")
+    assert "p-3" in text and "m3" in text and "p-1" not in text and "ev-summary" in text
