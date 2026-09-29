@@ -219,7 +219,18 @@ def domain_cmd(dsn, data):
 
 REASON_TEXT = {"durability": "오래 쓸 지식인지 애매", "is_supported": "근거가 충분한지 애매",
                "is_new": "이미 있는 지식과 겹치는지 애매", "should_record": "기록할 가치가 있는지 애매",
-               "digest_mismatch": "작업 중 검사와 소화 재검사 판정이 다름", "impact": "앞으로의 판단에 영향이 있는지 애매"}
+               "digest_mismatch": "작업 중 검사와 소화 재검사 판정이 다름", "impact": "앞으로의 판단에 영향이 있는지 애매",
+               "scope": "근거가 담은 범위와 주장 범위가 같은지 애매", "scope_expanded": "주장이 근거보다 넓음(근거에 없는 내용 포함)",
+               "correction_evidence": "고침을 뒷받침하는 근거가 충분한지 애매", "differs_from_target": "기존 조각과 실제로 다른지 애매",
+               "invalidation_evidence": "폐기 근거가 충분한지 애매", "replacement_exists": "대체할 지식이 있는지 애매",
+               "missing v0.3 response": "판정 응답 빠짐"}
+
+
+def _reason_text(reason):
+    r = str(reason)
+    if r.startswith("scope: expanded"):
+        return REASON_TEXT["scope_expanded"]
+    return REASON_TEXT.get(r.split(":")[0], REASON_TEXT.get(r, r))
 
 
 def review_cmd(dsn, data):
@@ -230,7 +241,7 @@ def review_cmd(dsn, data):
     if action == "list":
         items = store_pg.review_list(dsn, host)
         for item in items:
-            item["why_waiting"] = [REASON_TEXT.get(str(r).split(":")[0], str(r)) for r in item["review_reasons"] or []]
+            item["why_waiting"] = [_reason_text(r) for r in item["review_reasons"] or []]
         return {"items": items}
     if action != "resolve":
         raise ValueError("action must be list|resolve")

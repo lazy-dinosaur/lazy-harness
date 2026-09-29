@@ -74,13 +74,16 @@ for k, prompt in enumerate(TURNS, 1):
 
 print("DIFF " + sh("git", "-C", str(WT), "diff").stdout[:2500], flush=True)
 print("UNITS " + json.dumps(q("select work_unit_id::text, status::text from knowledge.work_unit where created_at > now() - interval '1 hour'"), default=str), flush=True)
-print("LEDGER " + json.dumps(q("select work_unit_id::text, state::text, left(facts::text, 700) from knowledge.ledger_entry where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
-for i in range(4):
+print("LEDGER " + json.dumps(q("select work_unit_id::text, state::text, left(judgement_body::text, 900) from knowledge.ledger_entry where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
+for i in range(5):
     p = subprocess.run(["/usr/bin/python3", str(R / "poller.py"), "--once", "--judge", "jev", "--state", str(ROOT / "poller-state.json")],
                        env=env, capture_output=True, text=True, timeout=900)
     print(f"POLL{i} rc={p.returncode} " + (p.stdout[-800:] + p.stderr[-400:]).replace("\n", " | "), flush=True)
     time.sleep(3)
-print("ABSORB " + json.dumps(q("select decision::text, decided_by, action, left(proposal::text, 300) from knowledge.absorption where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
+print("ABSORB " + json.dumps(q("select fact_index, decision::text, decided_by, action, fragment_ref from knowledge.absorption where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
+sys.path.insert(0, str(R)); os.environ["LH_KNOWLEDGE_CONFIG"] = str(cp)
+import knowledge_cli
+print("REVIEW " + json.dumps([{k: i.get(k) for k in ("fact", "why_waiting")} for i in knowledge_cli.review_cmd(dsn, {"action": "list"})["items"]], ensure_ascii=False), flush=True)
 print("LEDGER2 " + json.dumps(q("select state::text, count(*) from knowledge.ledger_entry where created_at > now() - interval '1 hour' group by 1"), default=str), flush=True)
 print("FRAGS " + json.dumps(q("select alias, revision, active, text from knowledge.fragment where text ~ '(300|1000)자' order by alias"), ensure_ascii=False, default=str), flush=True)
 print("UNITS2 " + json.dumps(q("select work_unit_id::text, status::text from knowledge.work_unit where created_at > now() - interval '1 hour'"), default=str), flush=True)

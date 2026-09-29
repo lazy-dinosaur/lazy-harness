@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import time
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -368,9 +369,59 @@ def _load_plan(plan_id):
     return json.loads(p.read_text())
 
 
-def _update_fact(ch, item, text):
+MAX_CODE_REFS = 4
+
+
+def _added_lines(cwd):
+    """[(repo-relative path, new line number, text)] added in the working tree vs HEAD (tracked files)."""
+    if not cwd:
+        return []
+    try:
+        top = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
+        if top.returncode:
+            return []
+        diff = subprocess.run(["git", "-C", top.stdout.strip(), "diff", "-U0", "--no-color", "HEAD"],
+                              capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    out, path, line = [], None, 0
+    for raw in diff.stdout.splitlines():
+        if raw.startswith("+++ "):
+            path = raw[6:] if raw.startswith("+++ b/") else None
+        elif raw.startswith("@@"):
+            m = re.search(r"\+(\d+)", raw)
+            line = int(m.group(1)) if m else 0
+        elif raw.startswith("+") and path:
+            out.append((path, line, raw[1:]))
+            line += 1
+    return out
+
+
+def _code_refs(ch, text, added):
+    """Changed code that shows the confirmed new value (live-01/audit-01: without it digestion judged 'claim broader than
+    evidence' because only the user's words and the old fragment backed file/function claims). Lines carrying the new
+    value, preferring files the rewritten text names; nothing when the code does not show the change (stays in review)."""
+    new = str(ch.get("new") or "").strip()
+    if not new or not added:
+        return []
+    # code rarely carries the prose form of the value ('1000자' -> '[:1000]'): match the whole new value or its
+    # code-like tokens (numbers, identifiers) that the old value did not have
+    old_tokens = set(re.findall(r"[A-Za-z0-9_.]+", str(ch.get("old") or "")))
+    needles = {new} | {t for t in re.findall(r"[A-Za-z0-9_.]+", new) if t not in old_tokens and (len(t) > 1 or t.isdigit())}
+    hits = [(p, n, t) for p, n, t in added if t.strip() and any(x in t for x in needles)]
+    named = [h for h in hits if Path(h[0]).name in text or Path(h[0]).stem in text]
+    picked, seen = [], set()
+    for p, n, t in named + [h for h in hits if not h[0].split("/")[-1].startswith("test_")] + hits:
+        if (p, n) in seen or len(picked) >= MAX_CODE_REFS:
+            continue
+        seen.add((p, n))
+        picked.append({"type": "code_test", "locator": f"{p}:{n}", "quote": t.strip()[:300]})
+    return picked
+
+
+def _update_fact(ch, item, text, code_refs=()):
     refs = [{"type": "user_utterance", "locator": "change/user_quote", "quote": ch["user_quote"]},
-            {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}]
+            {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}, *code_refs]
     if ch.get("forms_quote"):
         refs.insert(1, {"type": "user_utterance", "locator": "change/forms_quote", "quote": ch["forms_quote"]})
     return {"operation": "update", "kind": "fact", "subject": text.split()[0] if text.split() else ch["subject"],
@@ -436,10 +487,12 @@ def fix_submit(dsn, plan_id, answers, ask, record, *, partition_key, work_unit_i
         retry += [{"alias": al, "reason": "old content still present", "text": items[al]["text"], "previous_attempt": got[al]["text"]}
                   for al in accepted if al in still]
         accepted = [al for al in accepted if al not in still]
+    added = _added_lines(cwd) if accepted else []
+    code = {al: _code_refs(ch, got[al]["text"], added) for al in accepted}
     if accepted and precheck is not None:
         passed = []
         for al in accepted:
-            errs = precheck(_update_fact(ch, items[al], got[al]["text"]))
+            errs = precheck(_update_fact(ch, items[al], got[al]["text"], code[al]))
             if errs:
                 idents = [e["detail"].replace(" absent from evidence_quote", "") for e in errs if e.get("code") == "E_CLAIM_QUOTE"]
                 reason = (f"identifier not in the confirmed change or the original fragment: {', '.join(idents)} — "
@@ -462,7 +515,7 @@ def fix_submit(dsn, plan_id, answers, ask, record, *, partition_key, work_unit_i
                 ok.append(al)
         deps = ok
     recorded = None
-    facts = ([_update_fact(ch, items[al], got[al]["text"]) for al in accepted] +
+    facts = ([_update_fact(ch, items[al], got[al]["text"], code[al]) for al in accepted] +
              [_deprecate_fact(ch, items[al], got[al]["why"]) for al in deps])
     if facts:
         recorded = record({"partition_key": partition_key, "host_id": plan["host_id"], "facts": facts,

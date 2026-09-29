@@ -18,6 +18,30 @@ def seed(dsn, host, texts, group="g1"):
         pg.backfill_embeddings(dsn, host, v)
 
 
+def test_code_refs_pick_changed_lines_with_new_value(tmp_path):
+    import subprocess
+    g = lambda *a: subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+    g("init", "-q"); g("config", "user.email", "t@t"); g("config", "user.name", "t")
+    (tmp_path / "router.py").write_text("LIMIT = 300\nother = 1\n")
+    (tmp_path / "test_router.py").write_text("assert LIMIT == 300\n")
+    g("add", "."); g("commit", "-qm", "base")
+    (tmp_path / "router.py").write_text("LIMIT = 1000\nother = 1\n")
+    (tmp_path / "test_router.py").write_text("assert LIMIT == 1000\n")
+    added = wt._added_lines(tmp_path)
+    assert ("router.py", 1, "LIMIT = 1000") in added
+    ch = {"new": "1000"}
+    refs = wt._code_refs(ch, "router.py 의 LIMIT 는 1000", added)
+    assert refs[0] == {"type": "code_test", "locator": "router.py:1", "quote": "LIMIT = 1000"}
+    assert {r["locator"] for r in refs} == {"router.py:1", "test_router.py:1"}
+    assert wt._code_refs({"new": "2000"}, "x", added) == []  # code does not show the change -> no code evidence
+    # prose value: '1000자' matches the code token 1000 that the old value '300자' did not have
+    assert wt._code_refs({"old": "300자", "new": "1000자"}, "router.py", added)[0]["locator"] == "router.py:1"
+    assert wt._added_lines(None) == [] and wt._added_lines(tmp_path / "nope") == []
+    fact = wt._update_fact({"user_quote": "1000으로", "subject": "s", "old": "300", "new": "1000"},
+                           {"alias": "a-1", "text": "LIMIT 는 300", "id": "x"}, "LIMIT 는 1000", refs)
+    assert [r["type"] for r in fact["evidence_refs"]] == ["user_utterance", "official_doc", "code_test", "code_test"]
+
+
 def fake_ask(old_marker="HOSPITAL_SCHEDULE", still_marker="HOSPITAL_SCHEDULE"):
     calls = []
     def ask(state, texts, question):
