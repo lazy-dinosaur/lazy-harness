@@ -172,6 +172,121 @@ def alert(verdicts, rules, evidence_summary):
             "→ 사실이면 고치고, 사실이 아니면 이유를 한 줄 적고 넘어가.")
 
 
+ITEM_C = {"violated": "diff 의 변경이 이 항목을 어긴다", "followed": "diff 의 변경이 이 항목과 관련 있고 지켰다",
+          "not_related": "diff 의 변경은 이 항목과 관련이 없다"}
+ITEM_Q = ("items[{i}] 는 이 프로젝트 컨벤션의 한 항목이다. diff(이번 턴에 바뀐 코드, + 는 추가 - 는 삭제)만 보고, "
+          "추가·변경된 코드가 이 항목을 어겼는지 고른다. 다른 항목은 고려하지 않는다.")
+DIFF_CAP = 6000
+
+
+def cap_diff(diff, cap=DIFF_CAP):
+    """Keep changed lines first (+/-), then context, up to cap characters."""
+    if not diff:
+        return ""
+    lines = diff.splitlines()
+    changed = [l for l in lines if l[:1] in "+-" and not l.startswith(("+++", "---"))]
+    head = [l for l in lines if l.startswith(("+++", "---", "diff ", "@@"))]
+    out, size = [], 0
+    for l in head + changed:
+        if size + len(l) + 1 > cap:
+            out.append(f"… (diff {len(diff) - size}자 생략)")
+            break
+        out.append(l); size += len(l) + 1
+    return "\n".join(out)
+
+
+def make_ask_items(cfg, http=urlopen, timeout=90):
+    def ask(state, n):
+        qs = {f"m{j}": {"type": "choice", "instructions": ITEM_Q.format(i=j), "criteria": ITEM_C} for j in range(n)}
+        body = {"model": cfg["jev_model"], "state": state, "questions": qs}
+        last = None
+        for attempt in (1, 2, 3):
+            try:
+                req = Request(cfg["jev_base_url"].rstrip("/") + "/v1/systemone", data=json.dumps(body, ensure_ascii=False).encode(),
+                              headers={"Authorization": "Bearer " + cfg["jev_api_key"], "Content-Type": "application/json"}, method="POST")
+                with http(req, timeout=timeout) as resp:
+                    data = json.load(resp)
+                if set(data.get("answers", {})) != set(qs):
+                    raise ValueError("answer keys mismatch")
+                u = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+                return [data["answers"][f"m{j}"] for j in range(n)], u
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                last = exc
+                time.sleep(attempt)
+        raise RuntimeError(f"Jev item check failed: {last}")
+    return ask
+
+
+def check_with_refs(evidence, diff, rules, ask2, ask_items, fetch, max_items=10, diff_cap=DIFF_CAP):
+    """Stage 1: two-step over all rules. Stage 2: for rules whose condition is met and that carry a ref, fetch
+    up to max_items knowledge items related to the diff (fetch(ref, diff, k) -> [{alias,text}]) and judge them
+    in one Jev request. Any confident 'violated' item makes the rule violated. Skipped when there is no diff."""
+    verdicts, usage = check_two_step(evidence, rules, ask2)
+    usage["item_requests"] = 0
+    diff = cap_diff(diff, diff_cap)
+    if not diff:
+        return verdicts, usage
+    for v, r in zip(verdicts, rules):
+        if not r.get("ref") or v["cond"][0] != "met":
+            continue
+        items = fetch(r["ref"], diff, max_items)[:max_items]
+        if not items:
+            continue
+        answers, u = ask_items({"diff": diff, "rule": {k: r[k] for k in ("when", "must") if r.get(k)},
+                                "items": [{"i": j, "text": it["text"]} for j, it in enumerate(items)]}, len(items))
+        usage["item_requests"] += 1
+        usage["input_tokens"] += u.get("input_tokens") or 0
+        usage["cost"] += u.get("cost") or 0.0
+        bad = []
+        for it, a in zip(items, answers):
+            lab, prob, margin = _pick(a, tuple(ITEM_C))
+            if lab == "violated" and margin >= MARGIN:
+                bad.append({**it, "p": prob})
+        v["items_checked"] = [it["alias"] for it in items]
+        v["items"] = bad
+        v["diff"] = diff
+        if bad:
+            v.update(label="violated", done=("not_done", max(b["p"] for b in bad)), confident=True)
+        elif v["label"] == "violated":
+            pass  # stage 1 found a violation outside the referenced items; keep it
+        else:
+            v.update(label="followed", done=("done", v["done"][1]))
+    return verdicts, usage
+
+
+def mark_delivery(verdicts, rules, injected):
+    """injected = {'rules': [rule ids in this turn's rule block], 'knowledge': [aliases in the knowledge window]}.
+    Code-known, no Jev: tells whether a violation happened despite delivery (agent) or without it (harness)."""
+    rs, ks = set(injected.get("rules") or []), set(injected.get("knowledge") or [])
+    for v, r in zip(verdicts, rules):
+        v["rule_delivered"] = r["id"] in rs
+        v["knowledge_delivered"] = [i["alias"] for i in v.get("items", []) if i["alias"] in ks]
+    return verdicts
+
+
+_alert_two = alert
+
+
+def alert(verdicts, rules, evidence_summary):
+    text = _alert_two(verdicts, rules, evidence_summary)
+    if not text:
+        return text
+    extra = []
+    for v, r in zip(verdicts, rules):
+        if v["label"] != "violated" or not v["confident"]:
+            continue
+        if "rule_delivered" in v:
+            extra.append(f"  · {r['id']}: " + ("이번 턴 규칙 블록에 있었음" if v["rule_delivered"] else "이번 턴에 전달되지 않음(하네스 확인 필요)"))
+        for it in v.get("items", []):
+            sent = " (지식 창으로 전달됨)" if it["alias"] in v.get("knowledge_delivered", []) else ""
+            extra.append(f"  · 어긴 항목: [{it['alias']}] {it['text']} ({it['p']}){sent}")
+        if v.get("items") and v.get("diff"):
+            shown = [l for l in v["diff"].splitlines() if l.startswith("+") and not l.startswith("+++")][:4]
+            extra += [f"    {l}" for l in shown]
+    head, _, tail = text.rpartition("\n→ ")
+    return head + ("\n" + "\n".join(extra) if extra else "") + "\n→ " + tail
+
+
 def to_continue(verdicts, rules):
     """Only confident 'violated' continues the turn; 'unsure' is a notice."""
     return ([rules[i] for i, v in enumerate(verdicts) if v["label"] == "violated" and v["confident"]],

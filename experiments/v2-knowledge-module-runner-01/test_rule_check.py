@@ -64,3 +64,31 @@ def test_two_step_labels_and_alert():
     assert usage["requests"] == 1 and verdicts[2]["confident"]
     text = rc.alert(verdicts, rules, "ev-summary")
     assert "p-3" in text and "m3" in text and "p-1" not in text and "ev-summary" in text
+
+
+def test_ref_items_only_when_condition_met_and_code_changed():
+    rules = [{"id": "p-ui", "when": "UI", "must": "ds", "ref": "design"}, {"id": "p-doc", "when": "doc", "must": "x", "ref": "design"}]
+    two = fake_two({"ds": ("met", "done"), "x": ("not_met", "not_done")})
+    fetched = []
+    def fetch(ref, diff, k):
+        fetched.append(ref)
+        return [{"alias": "design-1", "text": "color token only"}, {"alias": "design-2", "text": "button component"}]
+    def ask_items(state, n):
+        assert "diff" in state and len(state["items"]) == n == 2
+        a = [{"type": "choice", "choice": "violated", "probabilities": {"violated": .9, "followed": .05, "not_related": .05}},
+             {"type": "choice", "choice": "not_related", "probabilities": {"violated": .05, "followed": .05, "not_related": .9}}]
+        return a, {"input_tokens": 10, "output_tokens": 1, "cost": 0.0}
+    vs, usage = rc.check_with_refs("ev", "+ color: '#fff'", rules, two, ask_items, fetch)
+    assert fetched == ["design"] and usage["item_requests"] == 1
+    assert vs[0]["label"] == "violated" and [i["alias"] for i in vs[0]["items"]] == ["design-1"]
+    assert vs[1]["label"] == "not_applicable"
+    vs2, u2 = rc.check_with_refs("ev", "", rules, two, ask_items, fetch)
+    assert u2["item_requests"] == 0 and vs2[0]["label"] == "followed"  # no code change -> item check skipped
+    rc.mark_delivery(vs, rules, {"rules": ["p-ui"], "knowledge": ["design-1"]})
+    text = rc.alert(vs, rules, "ev")
+    assert "design-1" in text and "color token only" in text and "이번 턴 규칙 블록에 있었음" in text and "전달됨" in text
+
+
+def test_diff_is_capped():
+    big = "+" + "a" * 20000
+    assert len(rc.cap_diff(big, 3000)) <= 3000 + 40
