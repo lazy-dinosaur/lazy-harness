@@ -419,7 +419,30 @@ def _code_refs(ch, text, added):
     return picked
 
 
-def _update_fact(ch, item, text, code_refs=()):
+def _key_line(ch, item, answer):
+    """0009 protocol line for an update: this fragment's key, the confirmed change old -> new."""
+    if not answer.get("key"):
+        return None
+    return {"key": str(answer["key"]).strip(), "old": ch["old"], "new": ch["new"], "kind": "change", "source": "user",
+            "target_ref": item["id"], "new_key": bool(answer.get("new_key"))}
+
+
+def _key_retry(dsn, host, items, got, ch, accepted):
+    """Keys are checked like record lines: malformed or unknown keys come back with similar existing keys."""
+    import ledger_lines
+    bad = {}
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        for al in accepted:
+            line = _key_line(ch, items[al], got[al])
+            if line is None:
+                continue
+            errs = ledger_lines.lint([line]) or ledger_lines.check_keys(cur, host, [line])
+            if errs:
+                bad[al] = errs
+    return bad
+
+
+def _update_fact(ch, item, text, code_refs=(), line=None):
     refs = [{"type": "user_utterance", "locator": "change/user_quote", "quote": ch["user_quote"]},
             {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}, *code_refs]
     if ch.get("forms_quote"):
@@ -427,7 +450,7 @@ def _update_fact(ch, item, text, code_refs=()):
     return {"operation": "update", "kind": "fact", "subject": text.split()[0] if text.split() else ch["subject"],
             "fact": text, "target_ref": item["id"], "evidence_source": "user_confirmed",
             "reason": f"사용자가 확정한 변경({ch['subject']}: {ch['old']} → {ch['new']})을 이 조각에 반영한다.",
-            "evidence_refs": refs}
+            "evidence_refs": refs, **({"lines": [line]} if line else {})}
 
 
 def _deprecate_fact(ch, item, why):
@@ -489,10 +512,15 @@ def fix_submit(dsn, plan_id, answers, ask, record, *, partition_key, work_unit_i
         accepted = [al for al in accepted if al not in still]
     added = _added_lines(cwd) if accepted else []
     code = {al: _code_refs(ch, got[al]["text"], added) for al in accepted}
+    bad_keys = _key_retry(dsn, plan["host_id"], items, got, ch, accepted) if accepted else {}
+    retry += [{"alias": al, "reason": "key: " + "; ".join(e["detail"] for e in errs), "similar": sorted({k for e in errs for k in e.get("similar", [])}),
+               "text": items[al]["text"], "previous_attempt": got[al]["text"]} for al, errs in bad_keys.items()]
+    accepted = [al for al in accepted if al not in bad_keys]
+    line = {al: _key_line(ch, items[al], got[al]) for al in accepted}
     if accepted and precheck is not None:
         passed = []
         for al in accepted:
-            errs = precheck(_update_fact(ch, items[al], got[al]["text"], code[al]))
+            errs = precheck(_update_fact(ch, items[al], got[al]["text"], code[al], line[al]))
             if errs:
                 idents = [e["detail"].replace(" absent from evidence_quote", "") for e in errs if e.get("code") == "E_CLAIM_QUOTE"]
                 reason = (f"identifier not in the confirmed change or the original fragment: {', '.join(idents)} — "
@@ -515,7 +543,7 @@ def fix_submit(dsn, plan_id, answers, ask, record, *, partition_key, work_unit_i
                 ok.append(al)
         deps = ok
     recorded = None
-    facts = ([_update_fact(ch, items[al], got[al]["text"], code[al]) for al in accepted] +
+    facts = ([_update_fact(ch, items[al], got[al]["text"], code[al], line[al]) for al in accepted] +
              [_deprecate_fact(ch, items[al], got[al]["why"]) for al in deps])
     if facts:
         recorded = record({"partition_key": partition_key, "host_id": plan["host_id"], "facts": facts,

@@ -1,0 +1,1538 @@
+{
+ "summary": {
+  "C": {
+   "acc": 0.433,
+   "loses_knowledge": 5,
+   "leaves_contradiction_or_dup": 7,
+   "flips": 0
+  },
+  "P": {
+   "acc": 0.733,
+   "loses_knowledge": 4,
+   "leaves_contradiction_or_dup": 1,
+   "flips": 2
+  },
+  "J": {
+   "acc": 0.533,
+   "loses_knowledge": 4,
+   "leaves_contradiction_or_dup": 0,
+   "flips": 1
+  },
+  "D": {
+   "acc": 0.667,
+   "loses_knowledge": 8,
+   "leaves_contradiction_or_dup": 4,
+   "flips": 3
+  },
+  "cost": {
+   "P": 0.833,
+   "D": 1.503
+  },
+  "secs_median": {
+   "P": 3.1,
+   "D": 9.4
+  }
+ },
+ "cases": {
+  "C01": {
+   "gold": "merge",
+   "kind": "같은 변경 다른 표현",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "conflict"
+  },
+  "C02": {
+   "gold": "merge",
+   "kind": "같은 변경 순서 반대",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C03": {
+   "gold": "merge",
+   "kind": "값 표기 다름",
+   "C": "separate",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C04": {
+   "gold": "merge",
+   "kind": "값 표기 다름",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1,000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1,000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C05": {
+   "gold": "separate",
+   "kind": "같은 주제 다른 부분",
+   "C": "separate",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 30개까지 보여 준다",
+      "new": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 30개까지 보여 준다",
+      "new": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C06": {
+   "gold": "separate",
+   "kind": "같은 영역 다른 규칙",
+   "C": "separate",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "도메인 설명은 마크다운을 허용하지 않는다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "도메인 설명은 마크다운을 허용하지 않는다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C07": {
+   "gold": "separate",
+   "kind": "우연히 같은 숫자",
+   "C": "merge",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "검색 결과는 최대 1000개까지 가져온다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "검색 결과는 최대 1000개까지 가져온다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C08": {
+   "gold": "separate",
+   "kind": "우연히 같은 숫자",
+   "C": "merge",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "캐시는 1000초 뒤 만료된다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "캐시는 1000초 뒤 만료된다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C09": {
+   "gold": "combine",
+   "kind": "같은 조각 다른 부분",
+   "C": "combine",
+   "P1": "combine",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe는 설명이 300자를 넘으면 오류로 거부한다",
+      "new": "describe는 설명이 1000자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe는 설명의 앞뒤 공백을 제거한다",
+      "new": "describe는 설명의 앞뒤 공백과 줄바꿈을 제거한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "combine",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백과 줄바꿈을 제거한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C10": {
+   "gold": "replace",
+   "kind": "같은 조각 겹치는 수정",
+   "C": "conflict",
+   "P1": "replace",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": null,
+      "new": "describe 는 앞뒤 공백을 제거한다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 1000자를 넘으면 오류로 거부한다",
+      "new": "describe 는 설명이 800자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": null,
+      "new": "describe 는 앞뒤 공백을 제거한다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe는 설명이 300자를 넘으면 오류로 거부한다",
+      "new": "describe는 설명이 1000자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": "describe는 설명의 앞뒤 공백을 제거한다",
+      "new": "describe는 설명의 앞뒤 공백을 제거한다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe는 설명이 1000자를 넘으면 오류로 거부한다",
+      "new": "describe는 설명이 800자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": "describe는 설명의 앞뒤 공백을 제거한다",
+      "new": "describe는 설명의 앞뒤 공백을 제거한다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C11": {
+   "gold": "replace",
+   "kind": "마음을 바꿈",
+   "C": "separate",
+   "P1": "replace",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 800자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 800자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C12": {
+   "gold": "replace",
+   "kind": "마음을 바꿈(반대 순서)",
+   "C": "separate",
+   "P1": "replace",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 500자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 500자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C13": {
+   "gold": "replace",
+   "kind": "자기 기록 정정",
+   "C": "merge",
+   "P1": "replace",
+   "D1": "conflict",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명은 생성 때만 1000자로 자른다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명은 생성 때만 1000자로 자른다",
+      "new": "도메인 설명은 생성·수정 모두 1000자로 자른다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "conflict",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명은 생성 때만 1000자로 자른다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명은 생성 때만 1000자로 자른다",
+      "new": "도메인 설명은 생성·수정 모두 1000자로 자른다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C14": {
+   "gold": "replace",
+   "kind": "부정(의도 있음)",
+   "C": "separate",
+   "P1": "replace",
+   "D1": "conflict",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "add.생성_시_초과분_처리",
+      "old": null,
+      "new": "생성 시 초과분은 잘라 저장한다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "add.생성_시_초과분_처리",
+      "old": "생성 시 초과분은 잘라 저장한다",
+      "new": "생성 시 초과분은 자르지 않고 오류로 거부한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "conflict",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F41",
+      "old": "add: 생성 시 초과분은 잘라 저장한다",
+      "new": "add는 생성 시 길이 제한을 넘는 입력을 잘라 저장한다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": "add: 생성 시 초과분은 자르지 않고 오류로 거부한다",
+      "new": "add는 생성 시 길이 제한을 넘는 입력을 자르지 않고 오류로 거부한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C15": {
+   "gold": "conflict",
+   "kind": "부정(의도 없음)",
+   "C": "separate",
+   "P1": "conflict",
+   "D1": "conflict",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "생성 시 300자를 넘는 설명은 오류로 거부된다",
+      "new": "생성 시 설명이 300자를 넘으면 초과분을 잘라 저장한다",
+      "kind": "observation"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "생성 시 설명이 300자를 넘으면 초과분을 잘라 저장한다",
+      "new": "생성 시 300자를 넘는 설명은 오류로 거부된다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "conflict",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "생성 시 초과분은 잘라 저장한다",
+      "new": "생성 시 설명이 300자를 넘으면 초과분을 잘라 저장한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "생성 시 초과 설명은 오류로 거부된다",
+      "new": "생성 시 설명이 300자를 넘으면 오류로 거부한다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C16": {
+   "gold": "replace",
+   "kind": "범위만 좁힘",
+   "C": "combine",
+   "P1": "replace",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 생성 길이는 300자",
+      "new": "도메인 설명 생성 길이는 1000자",
+      "kind": "change"
+     },
+     {
+      "key": "F16",
+      "old": "도메인 설명 수정 길이는 300자",
+      "new": "도메인 설명 수정 길이는 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 수정 길이는 1000자",
+      "new": "도메인 설명 수정 길이는 300자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성 1000자, 수정 300자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C17": {
+   "gold": "merge",
+   "kind": "구체화",
+   "C": "separate",
+   "P1": "replace",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C18": {
+   "gold": "merge",
+   "kind": "세부 추가",
+   "C": "merge",
+   "P1": "replace",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     },
+     {
+      "key": "F41",
+      "old": null,
+      "new": "생성 시 설명이 1000자를 넘으면 초과분을 자른다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 수정 시 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 생성 때 초과분을 자르고 수정 때 오류로 거부하며, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C19": {
+   "gold": "conflict",
+   "kind": "출처 모순(사용자 vs 코드)",
+   "C": "separate",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이 제한을 1000자로 변경한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "domain_router는 설명을 800자에서 자른다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "conflict",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "설명 제한은 1000자다",
+      "new": "사용자는 도메인 설명 길이 제한을 1000자로 변경하도록 요청했다.",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "domain_router 는 설명을 800자에서 자른다",
+      "new": "현재 코드에서 domain_router는 도메인 설명을 800자에서 자른다.",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C20": {
+   "gold": "separate",
+   "kind": "관계없음",
+   "C": "separate",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F40",
+      "old": null,
+      "new": "예약 목록은 날짜 오름차순으로 정렬한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "로그인 버튼은 파란색이다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F40",
+      "old": "예약 목록은 날짜 오름차순으로 정렬한다",
+      "new": "예약 목록은 날짜 오름차순으로 정렬한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "로그인 버튼은 파란색이다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C21": {
+   "gold": "separate",
+   "kind": "관계없음(같은 화면)",
+   "C": "separate",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F40",
+      "old": "예약 목록은 날짜 오름차순으로 정렬한다",
+      "new": "예약 목록은 날짜 내림차순으로 정렬한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "예약 목록 페이지 크기는 20개다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F40",
+      "old": "예약 목록은 날짜 오름차순으로 정렬한다",
+      "new": "예약 목록은 날짜 내림차순으로 정렬한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "예약 목록 페이지 크기는 20개다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C22": {
+   "gold": "merge",
+   "kind": "식별자로 같은 변경",
+   "C": "merge",
+   "P1": "separate",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "MAX_DESC를 1000으로 변경하여 도메인 설명 길이를 생성·수정 모두 1000자로 늘렸다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "MAX_DESC",
+      "old": null,
+      "new": "MAX_DESC 값을 1000으로 바꿨다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C23": {
+   "gold": "separate",
+   "kind": "같은 값 다른 사실",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 30개까지 보여 준다",
+      "new": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "new": "검색 결과는 모바일에서도 동일하게 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 30개까지 보여 준다",
+      "new": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F30",
+      "old": "검색 결과는 한 페이지에 50개까지 보여 준다",
+      "new": "검색 결과는 모바일에서도 동일하게 한 페이지에 50개까지 보여 준다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "merge",
+   "J2": "merge"
+  },
+  "C24": {
+   "gold": "merge",
+   "kind": "규칙·동작 표현 차이",
+   "C": "merge",
+   "P1": "replace",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명은 생성·수정 모두 1000자를 넘으면 저장할 수 없다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명은 생성·수정 모두 1000자를 넘으면 저장을 거부한다",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe는 설명이 300자를 넘으면 오류로 거부한다",
+      "new": "describe는 설명이 1000자를 넘으면 오류로 거부한다",
+      "kind": "change"
+     },
+     {
+      "key": "F9",
+      "old": "describe는 설명의 앞뒤 공백을 제거한다",
+      "new": "describe는 설명의 앞뒤 공백을 제거한다",
+      "kind": "observation"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C25": {
+   "gold": "separate",
+   "kind": "앞 기록이 더 많은 내용",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     },
+     {
+      "key": "F41",
+      "old": null,
+      "new": "이름 길이는 50자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     },
+     {
+      "key": "도메인 이름 길이",
+      "old": null,
+      "new": "도메인 이름 길이는 50자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  },
+  "C26": {
+   "gold": "replace",
+   "kind": "임시값 후 최종값",
+   "C": "separate",
+   "P1": "replace",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 5자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 5자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 5자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 5자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C27": {
+   "gold": "separate",
+   "kind": "같은 값 다른 대상",
+   "C": "merge",
+   "P1": "separate",
+   "D1": "separate",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "도메인 이름 길이는 1000자로 제한한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "separate",
+   "D2": "separate",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F41",
+      "old": null,
+      "new": "도메인 이름 길이는 1000자로 제한한다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "separate",
+   "J2": "separate"
+  },
+  "C28": {
+   "gold": "replace",
+   "kind": "단위 변경",
+   "C": "merge",
+   "P1": "replace",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     },
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000바이트를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     },
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000바이트",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "replace",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 300자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     },
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F9",
+      "old": "describe 는 설명이 1000자를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "new": "describe 는 설명이 1000바이트를 넘으면 오류로 거부하고, 앞뒤 공백을 제거한다",
+      "kind": "change"
+     },
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000바이트",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "replace",
+   "J2": "replace"
+  },
+  "C29": {
+   "gold": "merge",
+   "kind": "완전히 같은 문장",
+   "C": "merge",
+   "P1": "merge",
+   "D1": "merge",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "merge",
+   "D2": "merge",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "merge",
+   "J2": "merge"
+  },
+  "C30": {
+   "gold": "separate",
+   "kind": "조건 추가(예외)",
+   "C": "separate",
+   "P1": "combine",
+   "D1": "replace",
+   "Dlines1": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 일반 사용자는 1000자까지이며, 관리자는 제한이 없다",
+      "kind": "change"
+     }
+    ]
+   },
+   "P2": "combine",
+   "D2": "replace",
+   "Dlines2": {
+    "earlier": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 300자",
+      "new": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "kind": "change"
+     }
+    ],
+    "new": [
+     {
+      "key": "F16",
+      "old": "도메인 설명 길이는 생성·수정 모두 1000자",
+      "new": "도메인 설명 길이는 생성·수정 모두 일반 사용자는 1000자이며, 관리자는 제한이 없다",
+      "kind": "change"
+     }
+    ]
+   },
+   "J1": "conflict",
+   "J2": "conflict"
+  }
+ }
+}

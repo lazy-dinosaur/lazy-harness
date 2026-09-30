@@ -30,6 +30,10 @@ for _ in range(60):
 time.sleep(5)
 dump = sorted(backup.DIR.glob("knowledge-*.dump"))[-1]
 print(json.dumps({"restore": {k: v for k, v in backup.restore(dump, dsn).items() if k != "expected"}}, default=str)[:400], flush=True)
+for mig in sorted((R / "migrations").glob("0009_*.sql")):  # not yet on the main DB: apply to the disposable copy
+    out = subprocess.run(["docker", "exec", "-i", NAME, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres", "-f", "-"],
+                         input=mig.read_text(), capture_output=True, text=True)
+    print(json.dumps({"migration": mig.name, "rc": out.returncode, "err": out.stderr[-300:]}), flush=True)
 
 main = json.loads(config.config_path().read_text()) if hasattr(config, "config_path") else json.loads((Path.home() / ".config/lazy-harness-v2/knowledge.json").read_text())
 main["db_url"] = dsn
@@ -80,7 +84,9 @@ for i in range(5):
                        env=env, capture_output=True, text=True, timeout=900)
     print(f"POLL{i} rc={p.returncode} " + (p.stdout[-800:] + p.stderr[-400:]).replace("\n", " | "), flush=True)
     time.sleep(3)
-print("ABSORB " + json.dumps(q("select fact_index, decision::text, decided_by, action, fragment_ref from knowledge.absorption where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
+print("ABSORB " + json.dumps(q("select fact_index, decision::text, decided_by, rule_id, action, fragment_ref from knowledge.absorption where created_at > now() - interval '1 hour'"), ensure_ascii=False, default=str), flush=True)
+print("LINES " + json.dumps(q("select l.key, l.old_value, l.new_value, l.kind, l.source, e.state::text from knowledge.ledger_line l join knowledge.ledger_entry e on e.entry_id=l.entry_id order by l.line_id"), ensure_ascii=False, default=str), flush=True)
+print("KEYS " + json.dumps(q("select key from knowledge.fact_key order by created_at"), ensure_ascii=False, default=str), flush=True)
 sys.path.insert(0, str(R)); os.environ["LH_KNOWLEDGE_CONFIG"] = str(cp)
 import knowledge_cli
 print("REVIEW " + json.dumps([{k: i.get(k) for k in ("fact", "why_waiting")} for i in knowledge_cli.review_cmd(dsn, {"action": "list"})["items"]], ensure_ascii=False), flush=True)

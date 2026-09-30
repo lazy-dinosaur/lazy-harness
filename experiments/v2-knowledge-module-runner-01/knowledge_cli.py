@@ -122,6 +122,20 @@ def record(dsn, data):
         except (KeyError, TypeError, ValueError) as exc:
             errors.append({"code": "E_PACKET", "where": f"facts.{index}", "detail": type(exc).__name__})
         normalized.append(fact)
+    # 0009 ledger protocol: each fact carries lines (one key's change/observation each); required from the pi tool.
+    import ledger_lines
+    for index, fact in enumerate(normalized):
+        if fact.get("lines") is None:
+            if data.get("require_lines"):
+                errors.append({"code": "E_LINES", "where": f"facts.{index}.lines",
+                               "detail": "lines required: [{key '대상/속성', old, new, kind change|observation, source user|code|doc|worker}]"})
+            continue
+        errors += [{**e, "where": f"facts.{index}.{e['where']}"} for e in ledger_lines.lint(fact["lines"])]
+    if not errors and any(f.get("lines") for f in normalized):
+        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            for index, fact in enumerate(normalized):
+                if fact.get("lines"):
+                    errors += [{**e, "where": f"facts.{index}.{e['where']}"} for e in ledger_lines.check_keys(cur, host, fact["lines"])]
     if errors:
         return {"ok": False, "errors": errors, "warnings": warnings, "repairs": repairs}
     uid = unit_id(data["work_unit_id"]) if data.get("work_unit_id") else str(uuid4())

@@ -1,0 +1,1683 @@
+{
+ "summary": {
+  "acc": 0.833,
+  "loses_knowledge": 1,
+  "leaves_contradiction_or_dup": 3,
+  "flips": 3,
+  "lint_retries": 2,
+  "cost": 2.564,
+  "secs_median_pair": 10.6
+ },
+ "cases": {
+  "C01": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C02": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C03": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C04": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C05": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "검색결과/페이지크기",
+      "old": "30개",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "검색결과/페이지크기",
+      "old": "30개",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C06": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/마크다운허용",
+      "old": "",
+      "new": "허용하지 않음",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/마크다운허용",
+      "old": "",
+      "new": "허용하지 않음",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C07": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "검색결과/최대조회개수",
+      "old": "",
+      "new": "1000개",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "검색결과/최대조회개수",
+      "old": "",
+      "new": "1000개",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C08": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "캐시/만료시간",
+      "old": "",
+      "new": "1000초",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "캐시/만료시간",
+      "old": "",
+      "new": "1000초",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C09": {
+   "gold": "combine",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "",
+      "new": "앞뒤 공백 제거",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "설명이 300자를 넘으면 오류로 거부",
+      "new": "설명이 300자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백 제거",
+      "new": "앞뒤 공백과 줄바꿈 제거",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "conflict",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "",
+      "new": "앞뒤 공백 제거",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "설명이 300자를 넘으면 오류로 거부",
+      "new": "설명이 300자를 넘으면 오류로 거부",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백 제거",
+      "new": "앞뒤 공백과 줄바꿈 제거",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C10": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "설명이 300자를 넘으면 오류로 거부",
+      "new": "설명이 1000자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백을 제거한다",
+      "new": "앞뒤 공백을 제거한다",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "800자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백을 제거한다",
+      "new": "앞뒤 공백을 제거한다",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "conflict",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "",
+      "new": "앞뒤 공백 제거",
+      "kind": "observation",
+      "source": "doc",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "800자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백을 제거한다",
+      "new": "앞뒤 공백을 제거한다",
+      "kind": "observation",
+      "source": "doc",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C11": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "1000자",
+      "new": "800자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "replace",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "1000자",
+      "new": "800자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C12": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "1000자",
+      "new": "500자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "replace",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "1000자",
+      "new": "500자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C13": {
+   "gold": "replace",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "오류로 거부",
+      "new": "생성·수정 모두 1000자로 자름",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "오류로 거부",
+      "new": "초과분 잘라냄",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/적용범위",
+      "old": "",
+      "new": "생성·수정 모두",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C14": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과분을 잘라 저장",
+      "kind": "observation",
+      "source": "code",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 길이 제한을 초과하면 자르지 않고 오류로 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "replace",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과분을 잘라 저장",
+      "kind": "observation",
+      "source": "code",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 길이 초과분을 자르지 않고 오류로 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C15": {
+   "gold": "conflict",
+   "E1": "conflict",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과분을 잘라 저장",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과 설명은 오류로 거부",
+      "kind": "observation",
+      "source": "code",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "conflict",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과분을 잘라 저장한다",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "생성 시 초과 설명은 오류로 거부된다",
+      "kind": "observation",
+      "source": "code",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C16": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/생성길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/수정길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/생성길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/수정길이제한",
+      "old": "300자",
+      "new": "300자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "생성·수정 모두 300자",
+      "new": "생성·수정 모두 1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/생성길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/수정길이제한",
+      "old": "300자",
+      "new": "300자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C17": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C18": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자 초과 시 생성은 초과분을 자르고 수정은 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자 초과 시 생성은 초과분을 자르고 수정은 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C19": {
+   "gold": "conflict",
+   "E1": "conflict",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "",
+      "new": "800자",
+      "kind": "observation",
+      "source": "code",
+      "temporary": true
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "800자에서 자름",
+      "kind": "observation",
+      "source": "code",
+      "temporary": true
+     }
+    ]
+   },
+   "E2": "conflict",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "",
+      "new": "800자",
+      "kind": "observation",
+      "source": "code",
+      "temporary": true
+     },
+     {
+      "key": "도메인설명/초과처리",
+      "old": "",
+      "new": "800자에서 자름",
+      "kind": "observation",
+      "source": "code",
+      "temporary": true
+     }
+    ]
+   }
+  },
+  "C20": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "예약목록/정렬",
+      "old": "",
+      "new": "날짜 오름차순",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "로그인버튼/색상",
+      "old": "",
+      "new": "파란색",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "예약목록/정렬",
+      "old": "",
+      "new": "날짜 오름차순",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "로그인버튼/색상",
+      "old": "",
+      "new": "파란색",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C21": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "예약목록/정렬",
+      "old": "날짜 오름차순",
+      "new": "날짜 내림차순",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "예약목록/페이지크기",
+      "old": "",
+      "new": "20개",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "예약목록/정렬",
+      "old": "날짜 오름차순",
+      "new": "날짜 내림차순",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "예약목록/페이지크기",
+      "old": "",
+      "new": "20개",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C22": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C23": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "검색결과/페이지크기",
+      "old": "30개",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "모바일검색결과/페이지크기",
+      "old": "",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "모바일검색결과/페이지크기",
+      "old": "",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "검색결과/페이지크기",
+      "old": "30개",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "모바일검색결과/페이지크기",
+      "old": "",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "모바일검색결과/페이지크기",
+      "old": "",
+      "new": "50개",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C24": {
+   "gold": "merge",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자를 넘으면 저장 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자를 넘으면 오류로 거부",
+      "new": "1000자를 넘으면 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "앞뒤 공백 제거",
+      "new": "앞뒤 공백 제거",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "replace",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자 초과 시 오류로 거부",
+      "new": "1000자 초과 시 저장 거부",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/초과처리",
+      "old": "300자 초과 시 오류로 거부",
+      "new": "1000자 초과 시 오류로 거부",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인설명/공백처리",
+      "old": "",
+      "new": "앞뒤 공백 제거",
+      "kind": "observation",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C25": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인이름/길이제한",
+      "old": "",
+      "new": "50자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     },
+     {
+      "key": "도메인이름/길이제한",
+      "old": "",
+      "new": "50자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C26": {
+   "gold": "replace",
+   "E1": "replace",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "5자",
+      "kind": "change",
+      "source": "user",
+      "temporary": true
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "5자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "replace",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "5자",
+      "kind": "change",
+      "source": "worker",
+      "temporary": true
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C27": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인이름/길이제한",
+      "old": "",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인이름/길이제한",
+      "old": "",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C28": {
+   "gold": "replace",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000바이트",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000바이트",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000바이트",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000바이트",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C29": {
+   "gold": "merge",
+   "E1": "merge",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "merge",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  },
+  "C30": {
+   "gold": "separate",
+   "E1": "separate",
+   "lines1": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "관리자설명/길이제한",
+      "old": "",
+      "new": "제한 없음",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   },
+   "E2": "separate",
+   "lines2": {
+    "earlier": [
+     {
+      "key": "도메인설명/길이제한",
+      "old": "300자",
+      "new": "1000자",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     },
+     {
+      "key": "관리자설명/길이제한",
+      "old": "",
+      "new": "제한 없음",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ],
+    "new": [
+     {
+      "key": "관리자설명/길이제한",
+      "old": "",
+      "new": "제한 없음",
+      "kind": "change",
+      "source": "user",
+      "temporary": false
+     }
+    ]
+   }
+  }
+ }
+}
