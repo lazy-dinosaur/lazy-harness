@@ -127,8 +127,9 @@ def test_register_batch_complete_add_update_cas_and_queue(dsn, host):
         file_receipt = store.rows(directory, "check_receipt")[0]["receipt_id"]
         assert store.digest(directory, add["work_unit_id"], True, {file_receipt: add_fixture})["status"] == "absorbed"
         file_absorption = store.rows(directory, "absorption")[0]
-        assert (batch_result["facts"][0]["combined"], absorption["rule_id"], absorption["action"]) == (
-            file_result["facts"][0]["combined"], file_absorption["rule_id"], file_absorption["action"])
+        # the file store (legacy, not used by the pi tools) keeps policy P10; the DB path applies ledger commands
+        assert (batch_result["facts"][0]["combined"], absorption["action"]) == (
+            file_result["facts"][0]["combined"], file_absorption["action"])
 
     update = judgement(host, "update", ref, "changed")
     response = fixture("update", "changed", "new", 1)

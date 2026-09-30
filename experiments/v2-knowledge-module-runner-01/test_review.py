@@ -33,60 +33,30 @@ def texts(dsn, host_id):
     return sorted(r["text"] for r in pg.rows(dsn, "fragment") if r["host_id"] == host_id)
 
 
-def test_mixed_entry_digests_clear_fact_then_approved_fact(dsn, host):
+def test_mixed_entry_digests_both_facts(dsn, host):
     body = two_facts(host)
     entry = pg.register(dsn, body)
-    outcome = pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="alpha"), unsure("beta")]})[0]
-    assert outcome["state"] == "provisional"
+    assert pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="alpha"), unsure("beta")]})[0]["state"] == "provisional"
     unit = body["work_unit_id"]
     pg.complete(dsn, unit)
     assert digest_driver.run_digestion(dsn, unit, judge_record)["status"] == "absorbed"
-    assert texts(dsn, host) == ["alpha"]
-    items = knowledge_cli.review_cmd(dsn, {"host_id": host})["items"]
-    assert [(i["fact"], i["fact_index"]) for i in items] == [("beta", 1)]
-    assert items[0]["why_waiting"] == ["오래 쓸 지식인지 애매"]
-    asked = knowledge_cli.review_cmd(dsn, {"host_id": host, "action": "resolve", "entry_id": entry["entry_id"],
-                                          "fact_index": 1, "decision": "approve", "user_quote": "이거 넣을까?"})
-    assert asked["ok"] is False
-    done = knowledge_cli.review_cmd(dsn, {"host_id": host, "action": "resolve", "entry_id": entry["entry_id"],
-                                         "fact_index": 1, "decision": "approve", "user_quote": "응 넣어"})
-    assert done["entry_state"] == "eligible" and done["pending_in_entry"] == 0
-    with pytest.raises(ValueError):
-        pg.review_resolve(dsn, host, entry["entry_id"], 1, "reject", "아니")
-    assert digest_driver.run_digestion(dsn, unit, judge_record)["status"] == "absorbed"
     assert texts(dsn, host) == ["alpha", "beta"]
-    deciders = sorted(r["decided_by"] for r in pg.rows(dsn, "absorption") if str(r["entry_id"]) == entry["entry_id"])
-    assert deciders == ["acceptance_policy", "human"]
     assert digest_driver.run_digestion(dsn, unit, judge_record) == {"status": "noop"}
+
+
+def test_unsure_quality_no_longer_holds_a_command(dsn, host):
+    """A ledger record is the user's command: an unsure quality answer does not send it to review."""
+    body = two_facts(host, "gamma", "delta")
+    entry = pg.register(dsn, body)
+    assert pg.batch(dsn, 1, {entry["entry_id"]: [unsure("gamma"), unsure("delta")]})[0]["state"] == "provisional"
+    pg.complete(dsn, body["work_unit_id"])
+    assert digest_driver.run_digestion(dsn, body["work_unit_id"], judge_record)["status"] == "absorbed"
+    assert texts(dsn, host) == ["delta", "gamma"]
     assert knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] == []
 
 
-def test_all_unsure_entry_rejected_closes_without_fragment(dsn, host):
-    body = two_facts(host, "gamma", "delta")
-    entry = pg.register(dsn, body)
-    assert pg.batch(dsn, 1, {entry["entry_id"]: [unsure("gamma"), unsure("delta")]})[0]["state"] == "review_queue"
-    pg.complete(dsn, body["work_unit_id"])
-    first = pg.review_resolve(dsn, host, entry["entry_id"], 0, "reject", "빼")
-    assert first["entry_state"] == "review_queue" and first["pending_in_entry"] == 1
-    assert pg.review_resolve(dsn, host, entry["entry_id"], 1, "reject", "그것도 빼")["entry_state"] == "closed"
-    assert texts(dsn, host) == []
-    with pytest.raises(ValueError):
-        pg.review_resolve(dsn, "other-host", entry["entry_id"], 0, "approve", "응")
-
-
-def test_legacy_review_queue_entry_releases_clear_facts(dsn, host):
-    body = two_facts(host, "eps", "zeta")
-    entry = pg.register(dsn, body)
-    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="eps"), unsure("zeta")]})
-    with pg.connect(dsn) as conn, conn.cursor() as cur:  # entry-level review_queue from before the split
-        cur.execute("update knowledge.ledger_entry set state='review_queue' where entry_id=%s", (entry["entry_id"],))
-    pg.complete(dsn, body["work_unit_id"])
-    assert pg.review_resolve(dsn, host, entry["entry_id"], 1, "reject", "이건 빼")["entry_state"] == "eligible"
-    assert digest_driver.run_digestion(dsn, body["work_unit_id"], judge_record)["status"] == "absorbed"
-    assert texts(dsn, host) == ["eps"]
-
-
-def test_digest_mismatch_parks_only_that_fact(dsn, host):
+def test_digest_disagreement_does_not_park(dsn, host):
+    """No second-opinion review: an unsure digestion recheck still applies the command."""
     body = two_facts(host, "eta", "theta")
     entry = pg.register(dsn, body)
     assert pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="eta"), fixture(text="theta")]})[0]["state"] == "provisional"
@@ -95,36 +65,41 @@ def test_digest_mismatch_parks_only_that_fact(dsn, host):
     def flaky(packet):
         text = packet["state"]["candidate_fact"]
         return {"answers": (unsure(text) if text == "theta" else fixture(text=text))["answers"]}
-    outcome = digest_driver.run_digestion(dsn, unit, flaky)
-    assert outcome["status"] == "processed" and outcome["deferred"] == 1
-    assert texts(dsn, host) == ["eta"]
-    items = knowledge_cli.review_cmd(dsn, {"host_id": host})["items"]
-    assert [(i["fact"], i["why_waiting"][0]) for i in items] == [("theta", "작업 중 검사와 소화 재검사 판정이 다름")]
-    assert digest_driver.run_digestion(dsn, unit, flaky) == {"status": "noop"}
-    done = pg.review_resolve(dsn, host, entry["entry_id"], 1, "approve", "넣어")
-    assert done["entry_state"] == "eligible"
     assert digest_driver.run_digestion(dsn, unit, flaky)["status"] == "absorbed"
     assert texts(dsn, host) == ["eta", "theta"]
     assert knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] == []
 
 
-def test_digest_mismatch_only_fact_parks_entry_and_reject_closes_nothing_new(dsn, host):
-    body = judgement(host, text="iota")
-    entry = pg.register(dsn, body)
-    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="iota")]})
-    pg.complete(dsn, body["work_unit_id"])
-    unsure_judge = lambda packet: {"answers": unsure(packet["state"]["candidate_fact"])["answers"]}
-    assert digest_driver.run_digestion(dsn, body["work_unit_id"], unsure_judge)["status"] == "deferred_to_review"
-    state = next(r["state"] for r in pg.rows(dsn, "ledger_entry") if str(r["entry_id"]) == entry["entry_id"])
-    assert state == "review_queue"
-    assert pg.review_resolve(dsn, host, entry["entry_id"], 0, "reject", "빼")["entry_state"] == "closed"
-    assert texts(dsn, host) == []
+def test_canon_contradiction_is_logged_and_answered(dsn, host):
+    """After digestion a contradiction with the canon is logged (canon untouched) and shown at the next session."""
+    first = judgement(host, text="limit is 300 chars")
+    e1 = pg.register(dsn, first)
+    pg.batch(dsn, 1, {e1["entry_id"]: [fixture(text="limit is 300 chars")]})
+    pg.complete(dsn, first["work_unit_id"])
+    assert digest_driver.run_digestion(dsn, first["work_unit_id"], judge_record)["status"] == "absorbed"
+    second = judgement(host, text="limit is 1000 chars")
+    e2 = pg.register(dsn, second)
+    pg.batch(dsn, 1, {e2["entry_id"]: [fixture(text="limit is 1000 chars")]})
+    pg.complete(dsn, second["work_unit_id"])
+    assert digest_driver.run_digestion(dsn, second["work_unit_id"], judge_record)["status"] == "absorbed"
+    contra = lambda state, texts_, q: [{"noul": 0.9 if "300" in t else 0.1} for t in texts_]
+    out = pg.scan_contradictions(dsn, second["work_unit_id"], contra)
+    assert out["scanned"] == 1 and out["contradictions"] >= 1
+    assert pg.scan_contradictions(dsn, second["work_unit_id"], contra)["scanned"] == 0  # logged once
+    assert set(texts(dsn, host)) >= {"limit is 300 chars", "limit is 1000 chars"}  # canon untouched
+    items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"]
+    assert items and "정본에서 이 사실과 모순" in items[0]["why_waiting"][0]
+    for it in items:
+        assert pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], "approve", "1000자가 맞아")["kind"] == "contradiction"
+    assert [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"] == []
 
 
 def test_completion_quote_cannot_approve_review(dsn, host):
     body = two_facts(host, "kappa", "lambda")
     entry = pg.register(dsn, body)
-    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="kappa"), unsure("lambda")]})
+    pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text="kappa"), fixture(text="lambda")]})
+    with pg.connect(dsn) as conn, conn.cursor() as cur:  # a fact that waits for the user (the guard is what is tested)
+        cur.execute("update knowledge.check_receipt set combined='needs_review' where entry_id=%s and fact_index=1", (entry["entry_id"],))
     pg.register_completion_sources(dsn, body["work_unit_id"], ["user_confirm"])
     pg.signal_completion(dsn, body["work_unit_id"], "user_confirm", evidence={"quote": "좋아 이걸로 하자"})
     with pytest.raises(ValueError):

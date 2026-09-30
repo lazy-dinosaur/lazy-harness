@@ -16,14 +16,7 @@ const fact = Type.Object({
   evidence_source: lits(["user_confirmed", "user_tentative", "official_doc", "code_test", "observed_output", "ai_inference"]),
   reason: Type.String(), why: Type.Optional(Type.String()),
   evidence_refs: Type.Array(ref), keywords: Type.Optional(Type.Array(Type.String())),
-  target_ref: Type.Optional(Type.String()),
-  // 0009 ledger protocol: one line = one key's change or observation (the fact sentence stays for readers)
-  lines: Type.Array(Type.Object({
-    key: Type.String({ description: "'대상/속성', e.g. 도메인설명/길이제한; reuse an existing key when the target is the same" }),
-    old: Type.Optional(Type.String()), new: Type.String({ description: "one value, e.g. 1000자" }),
-    kind: lits(["change", "observation"]), source: lits(["user", "code", "doc", "worker"]),
-    temporary: Type.Optional(Type.Boolean()), new_key: Type.Optional(Type.Boolean()),
-  })),
+  target_ref: Type.Optional(Type.String({ description: "update/deprecate: the fragment token exactly as shown when you read it, e.g. knowledge-module-16@2" })),
 });
 
 export default function (pi: ExtensionAPI) {
@@ -102,11 +95,11 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "knowledge_record", label: "Knowledge record",
-    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject appears verbatim in fact. Every fact also carries lines: one line per target key ('대상/속성') with old -> new, kind change (the user/work changed it) or observation (what code/docs show now), source; split a sentence with two targets into two lines. An unknown key comes back as E_KEY_UNKNOWN with similar keys: reuse one, or resend with new_key: true if it is really a new target. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. Quote original words verbatim; correct lint errors and retry.",
+    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject appears verbatim in fact. Knowledge you read is listed as [alias@revision]: to change or retire that knowledge use operation update/deprecate with target_ref = that token (add is only for knowledge that is not there yet). Records are applied as written; the only question back is a contradiction with an earlier record of this work: when the result lists contradictions, show them to the user and ask which is right, then append the fix. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. Quote original words verbatim; correct lint errors and retry.",
     parameters: Type.Object({ facts: Type.Array(fact), partition_key: Type.String(), host_id: Type.Optional(Type.String()) }),
     async execute(_id, params, _signal, _update, ctx) {
       return serialized(async () => {
-        const result = await invoke("record", { ...params, work_unit_id: workUnitId, cwd: ctx.cwd, require_lines: true }, ctx.cwd);
+        const result = await invoke("record", { ...params, work_unit_id: workUnitId, cwd: ctx.cwd, check_contradictions: true }, ctx.cwd);
         if (typeof result.work_unit_id === "string" && !workUnitId) {
           workUnitId = result.work_unit_id;
           pi.appendEntry(ENTRY, { work_unit_id: workUnitId });
@@ -117,7 +110,7 @@ export default function (pi: ExtensionAPI) {
   });
   pi.registerTool({
     name: "knowledge_review", label: "Knowledge review",
-    description: "Handle recorded facts that the checker could not decide (fact level; other facts of the same record are digested normally). action=list returns items {entry_id, fact_index, fact, why_waiting}. Show each item to the user in plain words with why it waits and ask: approve (absorb as user-confirmed), revise, or reject. Then call action=resolve with entry_id, fact_index, decision approve|reject and user_quote = the user's non-question answer verbatim. For revise: resolve with reject, then knowledge_record the corrected fact. Never decide for the user.",
+    description: "Handle recorded facts that the checker could not decide (fact level; other facts of the same record are digested normally). action=list returns items {entry_id, fact_index, fact, why_waiting}. Show each item to the user in plain words with why it waits and ask: approve (absorb as user-confirmed), revise, or reject. Then call action=resolve with entry_id, fact_index, decision approve|reject and user_quote = the user's non-question answer verbatim. For revise: resolve with reject, then knowledge_record the corrected fact. Never decide for the user. Items of kind contradiction are canonical facts that contradict each other after digestion: show both, ask which is right, write the fix as a normal record (update/deprecate the wrong one), then resolve the item with the user's answer.",
     parameters: Type.Object({ action: Type.Union([Type.Literal("list"), Type.Literal("resolve")]),
       entry_id: Type.Optional(Type.String()), fact_index: Type.Optional(Type.Number()),
       decision: Type.Optional(Type.Union([Type.Literal("approve"), Type.Literal("reject")])),
@@ -189,11 +182,10 @@ export default function (pi: ExtensionAPI) {
   });
   pi.registerTool({
     name: "knowledge_fix_submit", label: "Knowledge fix submit",
-    description: "Answer EVERY item of a fix plan exactly once: {alias, action: update|deprecate|keep, text (update: full corrected fragment, change only the old part), why (deprecate: why it is no longer valid — needs the user's confirmation in the plan; keep: why it still holds), key (update: the '대상/속성' ledger key of this change; reuse a key you already used in this work unit for the same target; new_key: true only for a really new target)}. Rejected or still-old rewrites come back in retry; fix those and submit them again. deprecate is held for now.",
+    description: "Answer EVERY item of a fix plan exactly once: {alias, action: update|deprecate|keep, text (update: full corrected fragment, change only the old part), why (deprecate: why it is no longer valid — needs the user's confirmation in the plan; keep: why it still holds)}. Rejected or still-old rewrites come back in retry; fix those and submit them again. deprecate is held for now.",
     parameters: Type.Object({
       plan_id: Type.String(), partition_key: Type.String(),
-      answers: Type.Array(Type.Object({ alias: Type.String(), action: Type.String(), text: Type.Optional(Type.String()), why: Type.Optional(Type.String()),
-        key: Type.Optional(Type.String()), new_key: Type.Optional(Type.Boolean()) })),
+      answers: Type.Array(Type.Object({ alias: Type.String(), action: Type.String(), text: Type.Optional(Type.String()), why: Type.Optional(Type.String()) })),
     }),
     async execute(_id, params, _signal, _update, ctx) {
       return serialized(async () => {

@@ -172,7 +172,7 @@ REVIEWABLE = ("review_queue", "provisional", "eligible", "absorbed", "retained_a
 
 def _review_answers(cur, entry_id):
     cur.execute("""select fact_index,answer from knowledge.confirmation_queue
-                   where entry_id=%s and rule_id=any(%s) and status='answered'""", (entry_id, [REVIEW_RULE, DIGEST_RULE, "ledger_key_rule"]))
+                   where entry_id=%s and rule_id=any(%s) and status='answered'""", (entry_id, [REVIEW_RULE, DIGEST_RULE]))
     return {index: json.loads(answer).get("decision") for index, answer in cur.fetchall()}
 
 
@@ -196,10 +196,11 @@ def review_list(dsn, host):
                     where e.host_id=%s and r.stage='worktime' and r.combined='needs_review'
                     and e.state::text = any(%s) and w.status<>'abandoned'
                     and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=r.entry_id
-                      and q.fact_index=r.fact_index and q.rule_id=any(%s) and q.status='answered')
-                    order by e.created_at,r.fact_index""", (host, list(REVIEWABLE), [REVIEW_RULE, "ledger_key_rule"]))
+                      and q.fact_index=r.fact_index and q.rule_id=%s and q.status='answered')
+                    order by e.created_at,r.fact_index""", (host, list(REVIEWABLE), REVIEW_RULE))
         rows = _rows(cur)
         # Digestion recheck disagreed with the worktime check: parked per fact, never per unit.
+        seen_stale = set()
         cur.execute("""select e.entry_id::text,e.work_unit_id::text,e.state::text,e.judgement_body,q.fact_index,q.reason
                     from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     join knowledge.work_unit w on w.work_unit_id=e.work_unit_id
@@ -207,11 +208,33 @@ def review_list(dsn, host):
                     order by q.created_at,q.fact_index""", (host, DIGEST_RULE))
         for row in _rows(cur):
             reason = json.loads(row.pop("reason"))
-            rows.append({**row, "review_reasons": ["digest_mismatch: route_review"] + list(reason.get("reasons") or [])})
-        return [{"entry_id": row["entry_id"], "fact_index": row["fact_index"], "work_unit_id": row["work_unit_id"],
+            reasons_ = list(reason.get("reasons") or [])
+            if any(str(x).startswith("stale_base") for x in reasons_):
+                if row["work_unit_id"] in seen_stale:
+                    continue  # one question per change (the whole work unit), not one per fragment or record
+                seen_stale.add(row["work_unit_id"])
+            rows.append({**row, "review_reasons": reasons_})
+        items = [{"entry_id": row["entry_id"], "fact_index": row["fact_index"], "work_unit_id": row["work_unit_id"],
                  "entry_state": row["state"], "review_reasons": row["review_reasons"],
                  **{k: row["judgement_body"]["facts"][row["fact_index"]].get(k) for k in ("kind", "subject", "fact", "evidence_source")}}
                 for row in rows]
+        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text from knowledge.confirmation_queue q
+                    join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                    where e.host_id=%s and q.rule_id='canon_contradiction' and q.status='pending' order by q.created_at""", (host,))
+        for eid, idx, reason, wu in cur.fetchall():
+            r = json.loads(reason)
+            cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and alias = any(%s)",
+                        (host, [r["alias"], r["with"]]))
+            now = dict(cur.fetchall())
+            if now.get(r["alias"]) != r["text"] or now.get(r["with"]) != r["with_text"]:
+                cur.execute("""update knowledge.confirmation_queue set status='answered',answered_at=now(),
+                            answer=%s where entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='pending'
+                            and reason=%s""", (_json({"decision": "resolved", "by": "later change of one side"}), eid, idx, reason))
+                continue
+            items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
+                          "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {r['text']}",
+                          "review_reasons": [f"canon_contradiction: [{r['with']}] {r['with_text']}"]})
+        return items
 
 
 def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=None):
@@ -231,6 +254,15 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         used = {norm((s.get("evidence") or {}).get("quote")) for s in (entry.pop("completion_sources") or []) if isinstance(s, dict)}
         if decision == "approve" and norm(quote) and norm(quote) in used:
             raise ValueError("the completion confirmation cannot approve a waiting fact; show the fact to the user and quote their answer")
+        cur.execute("""select confirmation_id from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
+                    and rule_id='canon_contradiction' and status='pending' order by confirmation_id limit 1""", (entry_id, fact_index))
+        canon = cur.fetchone()
+        if canon:  # a logged canon contradiction: the user's answer closes it (the fix itself is a new record)
+            cur.execute("update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now() where confirmation_id=%s",
+                        (_json({"decision": decision, "quote": quote, "locator": locator}), canon[0]))
+            return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision, "entry_state": entry["state"],
+                    "pending_in_entry": 0, "kind": "contradiction",
+                    "next": "Now write the fix the user chose: knowledge_record update/deprecate of the wrong fragment ([alias@revision])."}
         if entry["state"] not in REVIEWABLE or entry["unit_status"] == "abandoned":
             raise ValueError(f"entry is not reviewable in state {entry['state']}")
         receipts = {r["fact_index"]: r for r in _receipts(cur, entry_id, "worktime")}
@@ -245,6 +277,17 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
             cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
                         where entry_id=%s and fact_index=%s and rule_id=%s and status='pending'""",
                         (answer, entry_id, fact_index, DIGEST_RULE))
+            # a stale-base answer is about the whole change: it answers every stale-base question of the work unit
+            cur.execute("""select q.entry_id::text, q.fact_index from knowledge.confirmation_queue q
+                        join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                        where e.work_unit_id=(select work_unit_id from knowledge.ledger_entry where entry_id=%s)
+                        and q.rule_id=%s and q.status='pending' and q.reason like '%%stale_base%%'""", (entry_id, DIGEST_RULE))
+            for other_entry, other in cur.fetchall():
+                cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
+                            where entry_id=%s and fact_index=%s and rule_id=%s and status='pending'""",
+                            (answer, other_entry, other, DIGEST_RULE))
+                if other_entry == entry_id:
+                    answers[other] = decision
         else:
             cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
                         values (%s,%s,%s,%s,'answered',%s,now())""",
@@ -352,9 +395,6 @@ def register(dsn, judgement):
         entry["judgement_body"] = judgement
         cur.execute('insert into knowledge.ledger_entry_event(entry_id,"to",actor) values (%s,%s,%s)',
                     (entry_id, "proposed", "worker"))
-        if any(f.get("lines") for f in judgement.get("facts", [])):  # 0009 protocol lines, same transaction
-            import ledger_lines
-            ledger_lines.store(cur, host, entry_id, judgement["facts"])
         return entry
 
 
@@ -387,7 +427,7 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
     cached = cur.fetchone()
     if cached:
         return cached[0]
-    decision = runner.decide(packet, answers, operation=fact.get("operation", "add"))
+    decision = _command(runner.decide(packet, answers, operation=fact.get("operation", "add")), fact.get("operation", "add"))
     receipt_id = str(uuid4())
     cur.execute("""insert into knowledge.question_template(template_id,template_version,questions)
                    values (%s,%s,%s::jsonb) on conflict do nothing""",
@@ -443,7 +483,7 @@ def batch(dsn, window, fixtures, *, entry_ids=None):
                     outcomes.append({"fact_index": index, "pending_fixture": True})
                 else:
                     receipt_id = _receipt(cur, entry, index, fact, fixture, "worktime", current)
-                    decision = runner.decide(fixture["packet"], fixture["answers"], operation=operation)
+                    decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=operation), operation)
                     outcomes.append({"fact_index": index, "receipt_id": receipt_id, "combined": decision["combined"]})
             if not outcomes or any("errors" in o for o in outcomes):
                 state = "rejected_input"
@@ -572,32 +612,66 @@ def resubmit(dsn, entry_id, actor="luna", limit=2):
         return {"status": "proposed", "supplement_count": entry["supplement_count"] + 1}
 
 
-KEY_RULE = "ledger_key_rule"
+def _command(decision, operation):
+    """schema-delta '사용자에게 묻는 것은 모순뿐': a ledger record is the user's command. update/deprecate apply
+    unless Jev is sure it changes nothing (duplicate); add is added unless it duplicates. No 'is it right?' review."""
+    if decision["combined"] == "duplicate_skip":
+        return decision
+    combined = {"update": "update_record", "deprecate": "deprecate_record"}.get(operation, "record")
+    return {**decision, "combined": combined, "review_reasons": []}
 
 
-def _lines(cur, entry_ids):
-    """0009 protocol lines by (entry_id, fact_index)."""
-    out = {}
-    if not entry_ids:
-        return out
-    cur.execute("""select entry_id::text,fact_index,key,new_value,kind,temporary,created_at from knowledge.ledger_line
-                where entry_id=any(%s::uuid[]) order by line_id""", (list(set(entry_ids)),))
-    for e, i, key, new, kind, temp, at in cur.fetchall():
-        out.setdefault((e, i), []).append({"key": key, "new": new, "kind": kind, "temporary": temp, "at": at})
-    return out
+CANON_Q = ("items[{i}] 는 정본의 다른 사실이다. state.fact 와 items[{i}] 가 동시에 참일 수 없는가? "
+           "둘 중 하나가 참이면 다른 하나가 반드시 거짓인 경우에만 true 다(같은 대상의 같은 속성에 서로 다른 값·규칙). 같은 값을 말함, 같은 대상의 다른 측면(예: 하나는 길이 제한, 하나는 라우팅 용도), 하나가 다른 하나를 보완·구체화, 서로 다른 대상이면 false.")
+CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
-def _is_group(entry):
-    """A fix_submit entry: every fact updates or deprecates a fragment for one confirmed change."""
-    facts = entry["judgement_body"].get("facts", [])
-    return bool(facts) and all(f.get("operation") in ("update", "deprecate") for f in facts)
+def scan_contradictions(dsn, unit_id, judge):
+    """After digestion (schema-delta '사용자에게 묻는 것은 모순뿐'): every fragment this unit made canonical is compared
+    with nearby canonical fragments; contradictions stay in the canon and are logged in confirmation_queue
+    (rule canon_contradiction) so the next session asks the user. judge(state, texts, question) -> [{noul}]."""
+    import capture_audit
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select a.entry_id::text, a.fact_index, a.fragment_ref::text, e.host_id from knowledge.absorption a
+                    join knowledge.ledger_entry e on e.entry_id=a.entry_id
+                    where a.work_unit_id=%s and a.decision::text='absorbed' and a.fragment_ref is not null
+                    and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=a.entry_id
+                                    and q.fact_index=a.fact_index and q.rule_id in ('canon_scanned','canon_contradiction'))""",
+                    (unit_id,))
+        todo = cur.fetchall()
+    found = 0
+    for eid, idx, fid, host in todo:
+        with connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("select alias, text, active from knowledge.fragment where id=%s", (fid,))
+            row = cur.fetchone()
+        bad = []
+        if row and row[2]:
+            hits = [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False) if str(h["id"]) != fid]
+            if hits:
+                answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
+                bad = [h for h, a in zip(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        with connect(dsn) as conn, conn.cursor() as cur:
+            for h in bad:
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
+                            values (%s,%s,'canon_contradiction',%s)""",
+                            (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"]})))
+            if not bad:
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
+                            values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
+        found += len(bad)
+    return {"scanned": len(todo), "contradictions": found}
+
+
+def _atomic(entry):
+    body = entry["judgement_body"]
+    return bool(body.get("atomic")) or any(f.get("operation") in ("update", "deprecate") for f in body.get("facts", []))
 
 
 def digest(dsn, unit_id, apply=False, fixtures=None):
     # One transaction covers both the fresh recheck and every resulting write.
     class Recheck(Exception):
-        def __init__(self, receipt):
-            self.receipt = receipt
+        def __init__(self, receipt, why="recheck"):
+            self.receipt, self.why = receipt, why
     try:
         with connect(dsn) as conn, conn.cursor() as cur:
             cur.execute("""select status::text,host_id,baseline_history_id,baseline_code_ref
@@ -609,48 +683,56 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         judgement_version,judgement_body,state::text from knowledge.ledger_entry
                         where work_unit_id=%s and state in ('eligible','provisional') order by created_at for update""", (unit_id,))
             candidates = []
-            entries = _rows(cur)
-            # 0009 key rules (schema-delta '원장 규약·스키마 0009'): a fact waiting for a human blocks every fact that
-            # shares one of its keys (any work unit) and the rest of its change group; waits are recomputed each pass
-            # (DB only, no rows), so they release by themselves once the blocker is resolved.
-            waiting_refs = {(i["entry_id"], i["fact_index"]) for i in review_list(dsn, unit["host_id"])}
-            lines = _lines(cur, [e["entry_id"] for e in entries] + [e for e, _ in waiting_refs])
-            _v = lambda s: __import__("dedup").normalize(str(s or "")).replace(",", "")
-            # A waiting fragment change holds every fact on its key (7th flow: a same-value add went through while the
-            # change it restated waited -> 300 and 1000 together). A waiting add holds only other values of its key.
-            cur.execute("select entry_id::text,judgement_body from knowledge.ledger_entry where entry_id=any(%s::uuid[])",
-                        (list({e for e, _ in waiting_refs}),))
-            wbody = dict(cur.fetchall())
-            blocked, hard = {}, set()
-            for ref in waiting_refs:
-                op = (wbody.get(ref[0], {}).get("facts") or [{}] * (ref[1] + 1))[ref[1]].get("operation", "add")
-                for l in lines.get(ref, []):
-                    blocked.setdefault(l["key"], set()).add(_v(l["new"]))
-                    if op in ("update", "deprecate"):
-                        hard.add(l["key"])
-            blocks = lambda ls: sorted({l["key"] for l in ls if l["key"] in hard or (l["key"] in blocked and blocked[l["key"]] - {_v(l["new"])})})
-            blocked_groups = {e for e, _ in waiting_refs}
-            waiting_same = {ref: lines.get(ref, []) for ref in waiting_refs}
-            waits = []
-            for entry in entries:
+            rows_ = []
+            change_waits = False
+            for entry in _rows(cur):
                 answers, done = _review_answers(cur, entry["entry_id"]), _absorbed_facts(cur, entry["entry_id"])
                 parked = _pending_digest(cur, entry["entry_id"])
-                for receipt in _receipts(cur, entry["entry_id"], "worktime"):
+                cur.execute("""select fact_index from knowledge.confirmation_queue where entry_id=%s and rule_id=%s
+                            and status='answered' and reason like '%%stale_base%%' and answer like '%%"approve"%%'""",
+                            (entry["entry_id"], DIGEST_RULE))
+                stale_ok = {r[0] for r in cur.fetchall()}
+                recs = _receipts(cur, entry["entry_id"], "worktime")
+                facts_ = entry["judgement_body"]["facts"]
+                for r in recs:
+                    i = r["fact_index"]
+                    waits = i in parked or (r["combined"] == "needs_review" and answers.get(i) != "approve")
+                    if waits and i not in done and answers.get(i) != "reject" and facts_[i].get("operation") in ("update", "deprecate"):
+                        change_waits = True
+                rows_.append((entry, answers, done, parked, stale_ok, recs))
+            for entry, answers, done, parked, stale_ok, recs in rows_:
+                for receipt in recs:
                     index = receipt["fact_index"]
-                    waiting = receipt["combined"] == "needs_review" or index in parked
-                    if index in done or answers.get(index) == "reject" or (waiting and answers.get(index) != "approve"):
-                        continue  # already digested, rejected, or still waiting for a human decision
+                    fact = entry["judgement_body"]["facts"][index]
+                    if index in done or answers.get(index) == "reject" or index in parked:
+                        continue  # digested, rejected, or an open question on this fact
+                    if receipt["combined"] == "needs_review" and answers.get(index) != "approve":
+                        continue  # still waiting for the user
+                    if change_waits:
+                        continue  # the unit is one commit: nothing of it goes in while a change of it waits
                     receipt["human_approved"] = answers.get(index) == "approve"
-                    hit = blocks(lines.get((entry["entry_id"], index), []))
-                    if not receipt["human_approved"] and (hit or (_is_group(entry) and entry["entry_id"] in blocked_groups)):
-                        waits.append({"entry_id": entry["entry_id"], "fact_index": index, "keys": hit})
-                        continue  # waits for the blocker (same key or same change group); not judged, not written
-                    candidates.append((entry, receipt, entry["judgement_body"]["facts"][index]))
-            targets = {}
-            for entry, receipt, fact in candidates:
+                    receipt["stale_ok"] = index in stale_ok
+                    candidates.append((entry, receipt, fact))
+            last = {}
+            for k, (entry, receipt, fact) in enumerate(candidates):
                 if fact.get("target_ref"):
-                    targets.setdefault(fact["target_ref"], []).append(fact["operation"])
-            flags = [{"target_ref": ref, "operations": sorted(ops)} for ref, ops in targets.items() if len(ops) > 1]
+                    last[fact["target_ref"]] = k
+            superseded = [c for k, c in enumerate(candidates) if c[2].get("target_ref") and last[c[2]["target_ref"]] != k]
+            candidates = [c for k, c in enumerate(candidates) if not (c[2].get("target_ref") and last[c[2]["target_ref"]] != k)]
+            if superseded:
+                for entry, receipt, fact in superseded:
+                    cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
+                                values (%s,%s,%s,%s,'answered',%s,now())""", (entry["entry_id"], receipt["fact_index"], DIGEST_RULE,
+                                _json({"reasons": ["superseded_in_unit: 같은 작업의 나중 기록이 같은 조각을 다시 바꿈"]}),
+                                _json({"decision": "reject", "superseded": True, "quote": None, "locator": None})))
+                for e_id in {e["entry_id"] for e, _, _ in superseded}:
+                    cur.execute("select entry_id::text,state::text,judgement_body from knowledge.ledger_entry where entry_id=%s", (e_id,))
+                    ent = _row(cur)
+                    ans_, done_ = _review_answers(cur, e_id), _absorbed_facts(cur, e_id)
+                    if ent["state"] in ("eligible", "provisional") and all(
+                            i in ans_ or i in done_ for i in range(len(ent["judgement_body"].get("facts", [])))):
+                        _transition(cur, ent, "closed", "digester")
+            flags = []
             history_max = _history_max(cur, unit["host_id"])
             cur.execute("select repo_locator from knowledge.host where host_id=%s", (unit["host_id"],))
             repo_root = cur.fetchone()[0]
@@ -658,10 +740,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             stale = [r["receipt_id"] for _, r, f in candidates if
                      (r["target_fragment_id"] and
                       (not _target(cur, f) or _target(cur, f)["revision"] != r["target_revision_seen"])) or
-                     (f.get("operation", "add") == "add" and changed) or
-                     any(ref.get("type") == "code_test" and
-                         code_changed_since(repo_root, unit["baseline_code_ref"], ref.get("locator")) is True
-                         for ref in f.get("evidence_refs", []) if isinstance(ref, dict))]
+                     (f.get("operation", "add") == "add" and changed)]
             if stale and not fixtures:
                 return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates], "consistency_flags": flags}
             if flags:
@@ -674,22 +753,33 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             for entry, old, fact in candidates:
                 fixture = fixtures.get(old["receipt_id"])
                 if not fixture or not runner.lint(fixture["packet"])["ok"]:
-                    raise Recheck(old["receipt_id"])
+                    raise Recheck(old["receipt_id"], "no fixture or packet lint")
                 current = _target(cur, fact) if fact.get("operation", "add") in ("update", "deprecate") else None
                 if (fact.get("operation") in ("update", "deprecate") and
                     (not current or fixture.get("target_revision_seen") != current["revision"] or
                      fixture["packet"].get("state", {}).get("target_excerpt") != current["text"])):
-                    raise Recheck(old["receipt_id"])
-                if any(ref.get("type") == "code_test" and
-                       code_changed_since(repo_root, unit["baseline_code_ref"], ref.get("locator")) is True
-                       for ref in fact.get("evidence_refs", []) if isinstance(ref, dict)):
-                    raise Recheck(old["receipt_id"])
+                    raise Recheck(old["receipt_id"], "target revision/text changed since the check")
                 if old["receipt_id"] in stale and fixture.get("baseline_history_seen") != history_max:
-                    raise Recheck(old["receipt_id"])
+                    raise Recheck(old["receipt_id"], "canon changed (history)")
                 if old["receipt_id"] in stale and fact.get("operation", "add") == "add" and not fixture.get("fresh_excerpt"):
-                    raise Recheck(old["receipt_id"])
-                decision = runner.decide(fixture["packet"], fixture["answers"], operation=fact.get("operation", "add"))
-                if decision["combined"] != old["combined"] and not old["human_approved"]:
+                    raise Recheck(old["receipt_id"], "add excerpt stale")
+                # expected version (EventStoreDB expectedVersion): the fragment changed after the worker read it
+                exp = fact.get("expected_revision")
+                if exp and current and current["revision"] != int(exp) and not old.get("stale_ok"):
+                    import merge3
+                    cur.execute("select snapshot->>'text' from knowledge.fragment_history where fragment_id=%s and revision=%s",
+                                (current["id"], int(exp)))
+                    base = cur.fetchone()
+                    merged, err = merge3.merge(base[0], current["text"], fact["fact"]) if base and base[0] is not None else (None, "no base")
+                    if err is None and fact.get("operation") == "update":
+                        fact = {**fact, "fact": merged}  # both changes kept (git 3-way merge)
+                    else:
+                        deferred.append((entry, old, {"combined": "needs_review",
+                                                      "review_reasons": [f"stale_base: r{exp} 을 읽었는데 지금 r{current['revision']}"]}))
+                        continue
+                decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=fact.get("operation", "add")),
+                                    fact.get("operation", "add"))
+                if False:  # no second-opinion review: the digestion judgement only filters duplicates
                     # Park only this fact for a human; the rest of the unit keeps digesting.
                     deferred.append((entry, old, decision))
                     continue
@@ -702,40 +792,11 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                 if old["human_approved"]:
                     verdict = {"rule_id": REVIEW_RULE, "action": "absorb"}
                 prepared.append((entry, old, fact, fixture, current, verdict))
-            # facts parked in this pass block their keys and their change group too
-            if deferred:
-                parked_refs = {(e["entry_id"], o["fact_index"]) for e, o, _ in deferred}
-                pk = {l["key"] for ref in parked_refs for l in lines.get(ref, [])}
-                pg_ = {e["entry_id"] for e, o, _ in deferred if _is_group(e)}
-                keep = []
-                for item in prepared:
-                    entry, old = item[0], item[1]
-                    own = {l["key"] for l in lines.get((entry["entry_id"], old["fact_index"]), [])}
-                    if not old["human_approved"] and ((own & pk) or entry["entry_id"] in pg_):
-                        waits.append({"entry_id": entry["entry_id"], "fact_index": old["fact_index"], "keys": sorted(own & pk)})
-                    else:
-                        keep.append(item)
-                prepared = keep
-            # updates first, then adds; an add whose key was just updated is evidence (same value, or older than the change)
-            prepared.sort(key=lambda it: it[2].get("operation", "add") == "add")
-            import dedup
-            applied = {}
-            for k, (entry, old, fact, fixture, current, verdict) in enumerate(prepared):
-                own = lines.get((entry["entry_id"], old["fact_index"]), [])
-                if verdict["action"] != "absorb":
-                    continue
-                if fact.get("operation") == "update":
-                    applied.update({l["key"]: l for l in own})
-                elif fact.get("operation", "add") == "add" and not old["human_approved"] and any(l["key"] in applied for l in own):
-                    hit = [l for l in own if l["key"] in applied]
-                    same = all(dedup.normalize(l["new"]).replace(",", "") == dedup.normalize(applied[l["key"]]["new"]).replace(",", "") for l in hit)
-                    older = all(l["at"] <= applied[l["key"]]["at"] for l in hit)
-                    if (same or older) and len(hit) == len(own):
-                        prepared[k] = (entry, old, fact, fixture, current, {"rule_id": KEY_RULE, "action": "retain_as_evidence"})
-                    else:
-                        prepared[k] = (entry, old, fact, fixture, current, {"rule_id": KEY_RULE, "action": "queue_for_human"})
+            if any(o_fact.get("operation") in ("update", "deprecate")
+                   for e, o, _ in deferred for o_fact in [e["judgement_body"]["facts"][o["fact_index"]]]):
+                prepared = []  # the unit is one commit: all or nothing
             if not apply:
-                return {"status": "proposal", "consistency_flags": flags, "count": len(prepared), "deferred": len(deferred), "waiting": len(waits)}
+                return {"status": "proposal", "consistency_flags": flags, "count": len(prepared), "deferred": len(deferred)}
             for entry, old, decision in deferred:
                 cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
                             values (%s,%s,%s,%s)""", (entry["entry_id"], old["fact_index"], DIGEST_RULE,
@@ -818,22 +879,11 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                 _transition(cur, entry, {"absorb": "absorbed", "retain_as_evidence": "retained_as_evidence",
                                           "reject": "closed"}.get(action, "review_queue"), "acceptance", receipt_id)
                 actions.append(action)
-            done_vals = {}
-            for entry, old, fact, fixture, current, verdict in prepared:
-                if verdict["action"] == "absorb" and fact.get("operation") == "update":
-                    for l in lines.get((entry["entry_id"], old["fact_index"]), []):
-                        done_vals.setdefault(l["key"], set()).add(_v(l["new"]))
-            for (e_id, f_idx), ls in waiting_same.items():
-                if ls and all(l["key"] in done_vals and _v(l["new"]) in done_vals[l["key"]] for l in ls):
-                    cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
-                                values (%s,%s,%s,%s,'answered',%s,now())""", (e_id, f_idx, KEY_RULE, _json({"restates": sorted(done_vals)}),
-                                _json({"decision": "reject", "merged": "same key and value made canonical", "quote": None, "locator": None})))
             status = ("deferred_to_review" if not actions else
                       "absorbed" if all(a == "absorb" for a in actions) and not deferred else "processed")
-            return {"status": status, "count": len(prepared), "deferred": len(deferred), "embedding_pending": embedding_pending,
-                    "waiting": len(waits)}
+            return {"status": status, "count": len(prepared), "deferred": len(deferred), "embedding_pending": embedding_pending}
     except Recheck as error:
-        return {"status": "needs_recheck", "receipt_ids": [error.receipt], "consistency_flags": []}
+        return {"status": "needs_recheck", "receipt_ids": [error.receipt], "consistency_flags": [], "why": error.why}
 
 
 def stats(dsn):

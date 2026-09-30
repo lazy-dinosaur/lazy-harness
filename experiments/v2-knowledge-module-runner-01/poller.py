@@ -90,7 +90,7 @@ def _pending_hosts(dsn, variant):
 
 
 def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEFAULT_STATE,
-         max_attempts=5, base_delay=30, now=None, choose=None, confirm=None):
+         max_attempts=5, base_delay=30, now=None, choose=None, confirm=None, contra_judge=None):
     if min(max_units, window, max_attempts, base_delay) < 1:
         raise ValueError("limits and delay must be positive")
     now = time.time() if now is None else now
@@ -122,6 +122,11 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 remaining -= unit["entries"]
                 try:
                     outcome = digest_driver.run_digestion(dsn, unit["work_unit_id"], judge, choose=choose, confirm=confirm)
+                    if contra_judge is not None and outcome.get("status") in ("absorbed", "processed"):
+                        try:  # canon contradictions are logged for the next session; never block digestion
+                            store_pg.scan_contradictions(dsn, unit["work_unit_id"], contra_judge)
+                        except Exception:
+                            pass
                     if outcome["status"] in ("needs_review", "needs_recheck"):
                         _failure(hints, key, now, max_attempts, base_delay)
                     else:
@@ -206,7 +211,8 @@ def main():
                               utterance_judge=_utterance_judge, max_units=args.max_units,
                               window=args.window, state=args.state,
                               choose=__import__("domain_router").make_choose(cfg),
-                              confirm=__import__("domain_router").make_confirm(cfg))))
+                              confirm=__import__("domain_router").make_confirm(cfg),
+                              contra_judge=__import__("capture_audit").make_judge(cfg))))
     except Exception as exc:
         # No exception message: driver errors may contain connection credentials.
         print(json.dumps({"error": type(exc).__name__}))

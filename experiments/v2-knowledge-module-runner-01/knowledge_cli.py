@@ -78,11 +78,28 @@ def record(dsn, data):
         return {"ok": False, "errors": [{"code": "E_FACTS", "where": "facts", "detail": "nonempty facts array required"}]}
     errors, warnings, repairs = [], [], []
     normalized = []
+    added = None  # git diff lines of the working tree, read once when an update needs code evidence
     for index, raw in enumerate(facts):
         if not isinstance(raw, dict):
             errors.append({"code": "E_SCHEMA", "where": f"facts.{index}", "detail": "fact must be an object"})
             continue
         fact = dict(raw)
+        # target_ref: the fragment token shown when knowledge was read, [alias@revision]; resolved here, no guessing
+        tref = fact.get("target_ref")
+        if isinstance(tref, str) and tref.strip() and not re.fullmatch(r"[0-9a-fA-F-]{36}", tref.strip()):
+            m = re.fullmatch(r"\[?\s*([^\s@\[\]]+)(?:@(\d+))?\s*\]?", tref.strip())
+            row = None
+            if m:
+                with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                    cur.execute("select id::text,revision from knowledge.fragment where host_id=%s and alias=%s and active", (host, m.group(1)))
+                    row = cur.fetchone()
+            if not row:
+                errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_ref",
+                               "detail": "target_ref must be a fragment token as shown in the knowledge window/search, e.g. knowledge-module-16@2"})
+                continue
+            fact["target_ref"] = row[0]
+            if m.group(2):
+                fact.setdefault("expected_revision", int(m.group(2)))
         refs = fact.get("evidence_refs")
         if not isinstance(refs, list):
             refs = []
@@ -93,6 +110,20 @@ def record(dsn, data):
         if not isinstance(fact.get("fact"), str) or not isinstance(fact.get("reason"), str) or not fact["reason"].strip():
             errors.append({"code": "E_SCHEMA", "where": f"facts.{index}", "detail": "fact and nonempty reason are required"})
             continue
+        if fact.get("operation") in ("update", "deprecate") and fact.get("target_ref") and data.get("cwd"):
+            import worker_tools
+            if added is None:
+                added = worker_tools._added_lines(data.get("cwd"))
+            with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute("select text from knowledge.fragment where id::text=%s", (fact["target_ref"],))
+                row = cur.fetchone()
+            if row:
+                seen = {(r.get("type"), r.get("locator"), r.get("quote")) for r in refs if isinstance(r, dict)}
+                for r in worker_tools._code_refs({"old": row[0], "new": fact["fact"]}, fact["fact"], added):
+                    if (r["type"], r["locator"], r["quote"]) not in seen:
+                        refs.append(r); seen.add((r["type"], r["locator"], r["quote"]))
+                fact["evidence_refs"] = refs
+                fact["evidence_quote"] = " / ".join(r["quote"] for r in refs if isinstance(r, dict) and isinstance(r.get("quote"), str))
         fact, fixes = runner.normalize_fact(fact)  # form-only repairs (subject, keywords); meaning untouched
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
@@ -122,29 +153,49 @@ def record(dsn, data):
         except (KeyError, TypeError, ValueError) as exc:
             errors.append({"code": "E_PACKET", "where": f"facts.{index}", "detail": type(exc).__name__})
         normalized.append(fact)
-    # 0009 ledger protocol: each fact carries lines (one key's change/observation each); required from the pi tool.
-    import ledger_lines
-    for index, fact in enumerate(normalized):
-        if fact.get("lines") is None:
-            if data.get("require_lines"):
-                errors.append({"code": "E_LINES", "where": f"facts.{index}.lines",
-                               "detail": "lines required: [{key '대상/속성', old, new, kind change|observation, source user|code|doc|worker}]"})
-            continue
-        errors += [{**e, "where": f"facts.{index}.{e['where']}"} for e in ledger_lines.lint(fact["lines"])]
-    if not errors and any(f.get("lines") for f in normalized):
-        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-            for index, fact in enumerate(normalized):
-                if fact.get("lines"):
-                    errors += [{**e, "where": f"facts.{index}.{e['where']}"} for e in ledger_lines.check_keys(cur, host, fact["lines"])]
     if errors:
         return {"ok": False, "errors": errors, "warnings": warnings, "repairs": repairs}
     uid = unit_id(data["work_unit_id"]) if data.get("work_unit_id") else str(uuid4())
     body = {"work_unit_id": uid, "host_id": host, "partition_key": partition,
-            "judgement_id": str(uuid4()), "version": 1, "baseline_code_ref": baseline_ref(data.get("cwd")),
+            "judgement_id": str(uuid4()), "version": 1, "baseline_code_ref": baseline_ref(data.get("cwd")), "atomic": bool(data.get("atomic")),
             "facts": normalized}
     entry = store_pg.register(dsn, body)
-    return {"work_unit_id": uid, "entry_id": entry["entry_id"], "state": "proposed",
-            "baseline": snapshot(dsn, uid)["baseline"], "warnings": warnings, "repairs": repairs}
+    out = {"work_unit_id": uid, "entry_id": entry["entry_id"], "state": "proposed",
+           "baseline": snapshot(dsn, uid)["baseline"], "warnings": warnings, "repairs": repairs}
+    cfg = config.load()
+    if data.get("check_contradictions") and all(cfg.get(k) for k in ("jev_api_key", "jev_base_url", "jev_model")):
+        found = contradictions(dsn, host, uid, normalized, cfg)
+        if found:
+            out["contradictions"] = found
+            out["ask_user"] = ("이 기록이 이 작업에서 앞서 기록한 사실과 모순된다. 사용자에게 보여 주고 어느 쪽이 맞는지 물어라. "
+                              "바뀐 쪽이 맞으면 앞 기록을 고치는 기록을 덧붙이고, 아니면 이 기록을 고쳐 다시 적는다.")
+    return out
+
+
+CONTRA_Q = ("items[{i}] 는 이 작업에서 앞서 기록한 사실이다. state.change 와 동시에 참일 수 없는가? "
+            "둘 중 하나가 참이면 다른 하나가 반드시 거짓인 경우에만 true 다(같은 대상의 같은 속성에 서로 다른 값·규칙). 같은 값을 말함, 같은 대상의 다른 측면(예: 하나는 길이 제한, 하나는 라우팅 용도), 하나가 다른 하나를 보완·구체화, 서로 다른 대상이면 false.")
+
+
+def contradictions(dsn, host, uid, facts, cfg, judge=None):
+    """[{fact_index, with, text}]: earlier records of this work unit (the temporary ledger) that this record contradicts.
+    The worker asks the user right away. Contradictions with the canon are found after digestion (store_pg.scan_contradictions)."""
+    import capture_audit
+    judge = judge or capture_audit.make_judge(cfg)
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select judgement_body from knowledge.ledger_entry where work_unit_id=%s
+                    and state::text not in ('closed','expired','rejected_input') order by created_at""", (uid,))
+        earlier = [(f.get("fact", ""), f.get("target_ref")) for (b,) in cur.fetchall() for f in b.get("facts", [])]
+    out = []
+    for i, f in enumerate(facts):
+        tgt = f.get("target_ref")
+        cands = [("이 작업의 앞 기록", t) for t, r in earlier if t and t != f["fact"] and not (tgt and r == tgt)][-8:]
+        if not cands:
+            continue
+        state = {"change": {"operation": f.get("operation", "add"), "fact": f["fact"]}}
+        for (label, text), a in zip(cands, judge(state, [t for _, t in cands], CONTRA_Q)):
+            if capture_audit._noul(a) >= store_pg.CONTRA_KEEP:
+                out.append({"fact_index": i, "with": label, "text": text[:300]})
+    return out
 
 
 def complete(dsn, data):
@@ -237,13 +288,17 @@ REASON_TEXT = {"durability": "오래 쓸 지식인지 애매", "is_supported": "
                "scope": "근거가 담은 범위와 주장 범위가 같은지 애매", "scope_expanded": "주장이 근거보다 넓음(근거에 없는 내용 포함)",
                "correction_evidence": "고침을 뒷받침하는 근거가 충분한지 애매", "differs_from_target": "기존 조각과 실제로 다른지 애매",
                "invalidation_evidence": "폐기 근거가 충분한지 애매", "replacement_exists": "대체할 지식이 있는지 애매",
-               "missing v0.3 response": "판정 응답 빠짐"}
+               "missing v0.3 response": "판정 응답 빠짐",
+               "stale_base": "읽은 뒤 다른 작업이 먼저 바꿈 — 어느 쪽이 맞나",
+               "atomic_wait": "같은 변경의 다른 수정이 확인을 기다림"}
 
 
 def _reason_text(reason):
     r = str(reason)
     if r.startswith("scope: expanded"):
         return REASON_TEXT["scope_expanded"]
+    if r.startswith("canon_contradiction:"):
+        return "정본에서 이 사실과 모순:" + r.split(":", 1)[1]
     return REASON_TEXT.get(r.split(":")[0], REASON_TEXT.get(r, r))
 
 

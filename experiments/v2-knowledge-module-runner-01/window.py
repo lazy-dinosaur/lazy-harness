@@ -12,7 +12,8 @@ import worker_tools
 PRIORITY = {"constraint": 0, "decision": 1, "rationale": 2, "rejected": 3, "fact": 4, "procedure": 5, "term": 6, "question": 7}
 CAP = 5000
 HEADER = ("[knowledge-window] 지금 작업과 관련된 프로젝트 지식 (하네스가 자동으로 붙임, 요청마다 갱신). "
-          "지식은 의도, 코드는 현실 — 다르면 사용자에게 확인. 더 필요하면 knowledge_search / knowledge_more.")
+          "지식은 의도, 코드는 현실 — 다르면 사용자에게 확인. 더 필요하면 knowledge_search / knowledge_more. "
+          "각 조각은 [alias@revision] — 그 지식을 바꾸면 knowledge_record 의 update/deprecate target_ref 에 그대로 적는다.")
 
 
 def tokens(text):

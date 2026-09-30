@@ -15,11 +15,11 @@ def test_brief_returns_writer_text_and_removes_temp(dsn, host):
         f = Path(prompt.split("파일: ")[1].split("\n")[0])
         seen["doc"], seen["path"], seen["mode"] = f.read_text(), f, oct(f.stat().st_mode & 0o777)
         seen["prompt"] = prompt
-        return "## 이전 결정·이유\n- x [D-002]"
+        return "## 이전 결정·이유\n- x [D-002@1]"
     out = brief.brief(dsn, host, "일정 종류 이름을 바꾼다", ["일정 종류"], need_ask, change="이름을 CLINIC 으로", runner=runner)
     assert out["brief"].startswith("## 이전 결정") and out["relevant"] == 3
     assert out["collected"] == 4  # working domain D expanded: the unjudged D-004 is collected for the writer
-    assert "⚠ 충돌 후보 [D-003]" in seen["doc"] and "[D-004]" in seen["doc"] and seen["mode"] == "0o600"
+    assert "⚠ 충돌 후보 [D-003@1]" in seen["doc"] and "[D-004@1]" in seen["doc"] and seen["mode"] == "0o600"
     assert "하려는 변경: 이름을 CLINIC 으로" in seen["prompt"]
     assert not seen["path"].exists() and not seen["path"].parent.exists()  # temp removed
 

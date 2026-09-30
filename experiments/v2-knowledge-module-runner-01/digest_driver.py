@@ -31,10 +31,6 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None)
             if receipt is None:
                 return {"status": "needs_recheck", "receipt_ids": [receipt_id]}
             fact = receipt["judgement_body"]["facts"][receipt["fact_index"]]
-            if any(ref.get("type") == "code_test" and store_pg.code_changed_since(
-                    receipt["repo_locator"], receipt["baseline_code_ref"], ref.get("locator")) is True
-                    for ref in fact.get("evidence_refs", []) if isinstance(ref, dict)):
-                return {"status": "needs_recheck", "receipt_ids": [receipt_id]}
             packet = copy.deepcopy(receipt["packet"])
             cur.execute("""select coalesce(max(h.history_id),0) from knowledge.fragment_history h
                         join knowledge.fragment f on f.id=h.fragment_id where f.host_id=%s""", (receipt["host_id"],))

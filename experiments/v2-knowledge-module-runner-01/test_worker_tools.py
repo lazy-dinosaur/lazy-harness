@@ -99,11 +99,11 @@ def test_search_returns_needed_only_in_four_views_with_more_index(dsn, host, sea
     seed_kinds(dsn, host, ROWS, groups={4: "D:g2"})  # D-004 is in another group -> not needed, not returned
     out = wt.search(dsn, host, "일정 종류를 바꾸려면?", ["일정 종류"], need_ask)
     doc = out["document"]
-    assert out["relevant"] == 3 and "[D-004]" not in doc  # not needed -> not returned
+    assert out["relevant"] == 3 and "[D-004@1]" not in doc  # not needed -> not returned
     assert doc.index("## 이전 결정·이유 (1)") < doc.index("## 현재 구현 (1)") < doc.index("## 유지해야 할 것 (1)")
     assert out["more"]["domains"] == {"D": 1} and "- 영역 D: 1개 더" in doc and "충돌 후보" not in doc
     got = wt.more(dsn, out["search_id"], domain="D")
-    assert got["count"] == 1 and "[D-004]" in got["document"]
+    assert got["count"] == 1 and "[D-004@1]" in got["document"]
     assert wt.more(dsn, out["search_id"], domain="D")["count"] == 0  # already returned
     with pytest.raises(ValueError):
         wt.more(dsn, out["search_id"])
@@ -112,13 +112,13 @@ def test_search_returns_needed_only_in_four_views_with_more_index(dsn, host, sea
 def test_search_brings_group_siblings(dsn, host, searches):
     seed_kinds(dsn, host, ROWS)  # all four in group D:g1
     out = wt.search(dsn, host, "일정 종류를 바꾸려면?", ["일정 종류"], need_ask)
-    assert out["relevant"] == 3 and out["returned"] == 4 and "[D-004]" in out["document"]
+    assert out["relevant"] == 3 and out["returned"] == 4 and "[D-004@1]" in out["document"]
 
 
 def test_search_flags_conflicts_with_planned_change(dsn, host, searches):
     seed_kinds(dsn, host, ROWS)
     out = wt.search(dsn, host, "일정 종류 이름 변경", ["일정 종류"], need_ask, change="일정 종류 이름을 CLINIC_WIDE_SCHEDULE 로 바꾼다")
-    assert out["conflicts"] == 1 and "- ⚠ 충돌 후보 [D-003]" in out["document"]
+    assert out["conflicts"] == 1 and "- ⚠ 충돌 후보 [D-003@1]" in out["document"]
 
 
 def test_search_layer_guide_and_validation(dsn, host, searches):

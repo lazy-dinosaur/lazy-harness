@@ -51,12 +51,13 @@ def test_deprecate_absorbs_to_inactive_with_history(dsn, host):
     assert all(r["id"] != ref for r in pg.search(dsn, host, "병원 일정 종류", 8))
 
 
-def test_deprecate_rejected_when_still_valid(dsn, host):
+def test_deprecate_is_a_command_even_when_jev_thinks_still_valid(dsn, host):
+    """schema-delta '사용자에게 묻는 것은 모순뿐': a user-confirmed deprecate applies; Jev does not second-guess it."""
     ref = seed_one(dsn, host, "병원 일정 종류는 HOSPITAL_SCHEDULE 이다.")
     run(dsn, host, dep_fact(ref), "consistent")
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("select active from knowledge.fragment where id=%s", (ref,))
-        assert cur.fetchone()[0] is True
+        assert cur.fetchone()[0] is False
 
 
 def test_deprecate_needs_user_confirmation(dsn, host):

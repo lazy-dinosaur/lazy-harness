@@ -14,7 +14,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 const CLI = "/home/lazydino/dev/lazy-harness.v2/experiments/v2-knowledge-module-runner-01/knowledge_cli.py";
 const WORK_UNIT = "knowledge-work-unit";
 const PATH_RE = /(?:[\w.-]+\/)+[\w.-]+\.[A-Za-z0-9]{1,6}|\b[\w-]+\.(?:ts|tsx|js|py|md|sql|json|go|rs|ya?ml|toml|sh|css|html)\b/g;
-const ALIAS_RE = /\[([^\[\]\s]+-\d+)\]/g;
+const ALIAS_RE = /\[([^\[\]\s@]+-\d+)(?:@\d+)?\]/g;
 // capture_audit sentence kinds -> knowledge_record kinds (the check must not suggest names record rejects)
 const RECORD_KIND: Record<string, string> = { rule: "constraint", behavior: "fact", decision: "decision", code_role: "fact",
   test_guard: "fact", term: "term" };
@@ -191,11 +191,11 @@ export default function (pi: ExtensionAPI) {
     const names = fresh.map((s) => s.split("/").pop() ?? s);
     refreshing = build(ctx, `${prompt.slice(0, 600)}\n작업 대상: ${fresh.join(", ")}`, names).then(() => {
       const lines = windowText.split("\n").filter((line) => {
-        const m = /^- (?:⚠ 충돌 후보 )?\[([^\[\]\s]+-\d+)\]/.exec(line);
+        const m = /^- (?:⚠ 충돌 후보 )?\[([^\[\]\s@]+-\d+)(?:@\d+)?\]/.exec(line);
         return m && !delivered.has(m[1]);
       });
       if (!lines.length) return;
-      for (const l of lines) { const m = /\[([^\[\]\s]+-\d+)\]/.exec(l); if (m) delivered.add(m[1]); }
+      for (const l of lines) { const m = /\[([^\[\]\s@]+-\d+)(?:@\d+)?\]/.exec(l); if (m) delivered.add(m[1]); }
       // async refresh: the session may be gone by now (closed window, headless exit) -> drop the supplement
       try {
         pi.sendMessage({ customType: "harness-context", display: false,
