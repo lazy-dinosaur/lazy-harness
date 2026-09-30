@@ -138,7 +138,7 @@ def record(dsn, data, *, same=None, embed_fn=None):
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
         if isinstance(fact.get("subject"), str) and fact["subject"].strip() and fact.get("operation", "add") != "deprecate":
-            name, how = resolve(fact["subject"])
+            name, how = resolve(fact["subject"], fact.get("fact"))
             if name != fact["subject"] and name in subject_dict.rewrite(fact["fact"], fact["subject"], name):
                 written = fact["subject"]
                 fact.update(fact=subject_dict.rewrite(fact["fact"], written, name), subject=name, subject_as_written=written)

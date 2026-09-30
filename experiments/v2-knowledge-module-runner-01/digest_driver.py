@@ -83,11 +83,11 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                            on e.entry_id=r.entry_id where r.receipt_id=%s""", (receipt_id,))
             after = cur.fetchone()[0]
             try:
-                vector = efn([subject_dict.norm(name)])[0]
+                vector = efn([subject_dict.core(name)])[0]
             except embed.EmbeddingUnavailable:
                 continue
             cands = subject_dict.nearest(cur, receipt["host_id"], vector, after=after)
-        best = subject_dict.decide(name, cands, same)
+        best = subject_dict.decide(name, cands, same, fact.get("fact"))
         subject_routed[receipt_id] = ({"subject_id": best["subject_id"], "name": best["name"]} if best
                                       else {"vector": list(vector)})
     # Jev/network calls must not hold a DB transaction open. Digest's final

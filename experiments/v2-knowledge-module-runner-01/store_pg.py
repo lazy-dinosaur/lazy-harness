@@ -675,6 +675,10 @@ def _assign_subject(cur, host, fact, fixture):
     if not isinstance(name, str) or not name.strip():
         return None, fact
     routed = (fixture or {}).get("subject_routed") or {}
+    if not routed.get("subject_id"):
+        hit = subject_dict.lookup(cur, host, name)  # a spelling (or its core without 화면/기능/…) is already known
+        if hit:
+            routed = {"subject_id": hit["subject_id"], "name": hit["name"]}
     if routed.get("subject_id"):
         subject_dict.add_alias(cur, host, name, routed["subject_id"])
         text = subject_dict.rewrite(fact["fact"], name, routed["name"])
