@@ -73,11 +73,13 @@ def test_digest_disagreement_does_not_park(dsn, host):
 def test_canon_contradiction_is_logged_and_answered(dsn, host):
     """After digestion a contradiction with the canon is logged (canon untouched) and shown at the next session."""
     first = judgement(host, text="limit is 300 chars")
+    first["facts"][0]["subject"] = "limit"  # same subject: the scan compares within one subject
     e1 = pg.register(dsn, first)
     pg.batch(dsn, 1, {e1["entry_id"]: [fixture(text="limit is 300 chars")]})
     pg.complete(dsn, first["work_unit_id"])
     assert digest_driver.run_digestion(dsn, first["work_unit_id"], judge_record)["status"] == "absorbed"
     second = judgement(host, text="limit is 1000 chars")
+    second["facts"][0]["subject"] = "limit"
     e2 = pg.register(dsn, second)
     pg.batch(dsn, 1, {e2["entry_id"]: [fixture(text="limit is 1000 chars")]})
     pg.complete(dsn, second["work_unit_id"])

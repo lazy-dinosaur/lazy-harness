@@ -95,11 +95,11 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "knowledge_record", label: "Knowledge record",
-    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject appears verbatim in fact. Knowledge you read is listed as [alias@revision]: to change or retire that knowledge use operation update/deprecate with target_ref = that token (add is only for knowledge that is not there yet). Records are applied as written; the only question back is a contradiction with an earlier record of this work: when the result lists contradictions, show them to the user and ask which is right, then append the fix. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. Quote original words verbatim; correct lint errors and retry.",
+    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject appears verbatim in fact. Knowledge you read is listed as [alias@revision]: to change or retire that knowledge use operation update/deprecate with target_ref = that token (add is only for knowledge that is not there yet). Records are applied as written; the only question back is a contradiction with an earlier record of this work: when the result lists contradictions, show them to the user and ask which is right, then append the fix. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. Subjects are matched to existing knowledge: when the result lists subjects (from -> to), the fact was stored under the existing name; if that is a different thing, tell the user and record the correction. Quote original words verbatim; correct lint errors and retry.",
     parameters: Type.Object({ facts: Type.Array(fact), partition_key: Type.String(), host_id: Type.Optional(Type.String()) }),
     async execute(_id, params, _signal, _update, ctx) {
       return serialized(async () => {
-        const result = await invoke("record", { ...params, work_unit_id: workUnitId, cwd: ctx.cwd, check_contradictions: true }, ctx.cwd);
+        const result = await invoke("record", { ...params, work_unit_id: workUnitId, cwd: ctx.cwd, check_contradictions: true, resolve_subjects: true }, ctx.cwd);
         if (typeof result.work_unit_id === "string" && !workUnitId) {
           workUnitId = result.work_unit_id;
           pi.appendEntry(ENTRY, { work_unit_id: workUnitId });

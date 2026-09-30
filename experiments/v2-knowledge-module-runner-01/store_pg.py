@@ -142,7 +142,7 @@ def backfill_embeddings(dsn, host, variant="plain", limit=None):
 
 def rows(dsn, table):
     if table not in {"host", "fragment", "fragment_history", "work_unit", "work_unit_event", "ledger_entry",
-                     "ledger_entry_event", "check_receipt", "absorption", "confirmation_queue", "question_template"}:
+                     "ledger_entry_event", "check_receipt", "absorption", "confirmation_queue", "question_template", "subject"}:
         raise ValueError("unknown table")
     with connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(f"select * from knowledge.{table}")
@@ -642,11 +642,17 @@ def scan_contradictions(dsn, unit_id, judge):
     found = 0
     for eid, idx, fid, host in todo:
         with connect(dsn) as conn, conn.cursor() as cur:
-            cur.execute("select alias, text, active from knowledge.fragment where id=%s", (fid,))
+            cur.execute("select alias, text, active, subject_id::text from knowledge.fragment where id=%s", (fid,))
             row = cur.fetchone()
+            group = []
+            if row and row[2] and row[3]:  # same subject (schema-delta: contradiction = same subject id; contra02 false alarms 8 -> 3)
+                cur.execute("""select id::text, alias, text from knowledge.fragment where host_id=%s and subject_id=%s
+                               and active and id<>%s order by updated_at desc limit 30""", (host, row[3], fid))
+                group = [{"id": r[0], "alias": r[1], "text": r[2]} for r in cur.fetchall()]
         bad = []
         if row and row[2]:
-            hits = [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False) if str(h["id"]) != fid]
+            hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
+                                         if str(h["id"]) != fid]  # fragments from before the subject dictionary
             if hits:
                 answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
                 bad = [h for h, a in zip(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
@@ -660,6 +666,22 @@ def scan_contradictions(dsn, unit_id, judge):
                             values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
         found += len(bad)
     return {"scanned": len(todo), "contradictions": found}
+
+
+def _assign_subject(cur, host, fact, fixture):
+    """Digestion is the dictionary's only writer: reuse the routed subject (and its name) or register the name."""
+    import subject_dict
+    name = fact.get("subject")
+    if not isinstance(name, str) or not name.strip():
+        return None, fact
+    routed = (fixture or {}).get("subject_routed") or {}
+    if routed.get("subject_id"):
+        subject_dict.add_alias(cur, host, name, routed["subject_id"])
+        text = subject_dict.rewrite(fact["fact"], name, routed["name"])
+        if routed["name"] != name and routed["name"] in text:
+            fact, _ = runner.normalize_fact({**fact, "fact": text, "subject": routed["name"], "subject_as_written": name})
+        return routed["subject_id"], fact
+    return subject_dict.register(cur, host, name, routed.get("vector")), fact
 
 
 def _atomic(entry):
@@ -832,15 +854,21 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         domain = (fixture.get("domain_routed") or {}).get("domain") or entry["partition_key"]
                         cur.execute("""insert into knowledge.domain_type(host_id, domain, description) values (%s,%s,%s)
                                     on conflict (host_id, domain) do nothing""", (entry["host_id"], domain, fact.get("fact", "")[:300]))
-                        fragment = store.build_fragment({**entry, "partition_key": domain}, old["fact_index"], fact.get("keywords", []),
+                        subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture)
+                        facts_now = list(entry["judgement_body"]["facts"])
+                        facts_now[old["fact_index"]] = fact
+                        fragment = store.build_fragment({**entry, "partition_key": domain,
+                                                         "judgement_body": {**entry["judgement_body"], "facts": facts_now}},
+                                                        old["fact_index"], fact.get("keywords", []),
                                                         [old["receipt_id"], receipt_id], store.now(), next_seq(cur, entry["host_id"], domain))
                         ref = fragment["id"]
                         cur.execute("""insert into knowledge.fragment(id,host_id,alias,domain,seq,text,keywords,kind,group_id,
-                                    revision,active,confidence,source,valid_from,superseded_at)
-                                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)""",
+                                    revision,active,confidence,source,valid_from,superseded_at,subject_id)
+                                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)""",
                                     (ref, fragment["host_id"], fragment["alias"], fragment["domain"], fragment["seq"],
                                      fragment["text"], fragment["keywords"], fragment["kind"], fragment["group_id"],
-                                     1, True, fragment["confidence"], _json(fragment["source"]), fragment["valid_from"], None))
+                                     1, True, fragment["confidence"], _json(fragment["source"]), fragment["valid_from"], None,
+                                     subject_id))
                         latest = 1
                         try:
                             vector = embed.encode_passages([fragment["text"]])[0]
@@ -849,11 +877,15 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         else:
                             _upsert_embedding(cur, ref, latest, vector)
                     else:
+                        subject_id = None
+                        if operation == "update":
+                            subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture)
                         cur.execute("""update knowledge.fragment set revision=revision+1,
                                     text=case when %s='update' then %s else text end,
-                                    active=case when %s='deprecate' then false else active end
+                                    active=case when %s='deprecate' then false else active end,
+                                    subject_id=coalesce(%s::uuid, subject_id)
                                     where id=%s and revision=%s returning revision""",
-                                    (operation, fact["fact"], operation, ref, current["revision"]))
+                                    (operation, fact["fact"], operation, subject_id, ref, current["revision"]))
                         updated = cur.fetchone()
                         if not updated:
                             raise Recheck(old["receipt_id"])

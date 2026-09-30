@@ -10,7 +10,7 @@ import runner
 import store_pg
 
 
-def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None):
+def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None, same=None, embed_fn=None):
     """choose(fact_text, options) -> {key: prob} routes adds to a domain (domain_router); None = exact/new only."""
     preview = store_pg.digest(dsn, unit_id, False)
     if preview["status"] != "needs_recheck":
@@ -65,6 +65,31 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None)
             domains[name] = {"description": (facts[0] if facts else "")[:300], "status": "active", "merged_into": None}
         for receipt_id, _ in items:
             routed[receipt_id] = {"domain": name, "how": how}
+    # Subjects: a name not in the dictionary is compared with subjects registered after its record (the record-time
+    # check could not see them); store_pg.digest registers or reuses inside its transaction (single writer).
+    import embed
+    import subject_dict
+    efn = embed_fn or embed.encode_queries
+    subject_routed = {}
+    for receipt_id, receipt, packet, revision, history_seen in packets:
+        fact = receipt["judgement_body"]["facts"][receipt["fact_index"]]
+        name = fact.get("subject")
+        if fact.get("operation", "add") == "deprecate" or not isinstance(name, str) or not name.strip():
+            continue
+        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            if subject_dict.lookup(cur, receipt["host_id"], name):
+                continue
+            cur.execute("""select e.created_at from knowledge.check_receipt r join knowledge.ledger_entry e
+                           on e.entry_id=r.entry_id where r.receipt_id=%s""", (receipt_id,))
+            after = cur.fetchone()[0]
+            try:
+                vector = efn([subject_dict.norm(name)])[0]
+            except embed.EmbeddingUnavailable:
+                continue
+            cands = subject_dict.nearest(cur, receipt["host_id"], vector, after=after)
+        best = subject_dict.decide(name, cands, same)
+        subject_routed[receipt_id] = ({"subject_id": best["subject_id"], "name": best["name"]} if best
+                                      else {"vector": list(vector)})
     # Jev/network calls must not hold a DB transaction open. Digest's final
     # transaction rechecks the target revision before committing any writes.
     for receipt_id, receipt, packet, revision, history_seen in packets:
@@ -83,6 +108,8 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None)
             fixture["utterance_status"] = judged["utterance_status"]
         if receipt_id in routed:
             fixture["domain_routed"] = routed[receipt_id]
+        if receipt_id in subject_routed:
+            fixture["subject_routed"] = subject_routed[receipt_id]
         fixtures[receipt_id] = fixture
         judgments[receipt_id] = judged
     result = store_pg.digest(dsn, unit_id, apply, fixtures)

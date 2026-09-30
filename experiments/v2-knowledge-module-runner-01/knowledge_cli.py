@@ -69,7 +69,7 @@ def lint_update_fact(dsn, host, raw):
     return errors
 
 
-def record(dsn, data):
+def record(dsn, data, *, same=None, embed_fn=None):
     host = data.get("host_id") or config.load()["default_host"]
     required(host, "host_id (set default_host in knowledge.json)")
     partition = required(data.get("partition_key"), "partition_key")
@@ -78,6 +78,16 @@ def record(dsn, data):
         return {"ok": False, "errors": [{"code": "E_FACTS", "where": "facts", "detail": "nonempty facts array required"}]}
     errors, warnings, repairs = [], [], []
     normalized = []
+    # subjects (schema-delta '주어는 기록할 때 맞추고 소화할 때 등록'): the dictionary is read here, never written
+    import subject_dict
+    if same is None and data.get("resolve_subjects"):
+        cfg_ = config.load()
+        if all(cfg_.get(k) for k in ("jev_api_key", "jev_base_url", "jev_model")):
+            import worker_tools
+            same = worker_tools.make_ask(cfg_)
+    resolve = subject_dict.resolver(store_pg.connect, dsn, host,
+                                    unit_id(data["work_unit_id"]) if data.get("work_unit_id") else None, same, embed_fn)
+    subjects = []
     added = None  # git diff lines of the working tree, read once when an update needs code evidence
     for index, raw in enumerate(facts):
         if not isinstance(raw, dict):
@@ -127,6 +137,15 @@ def record(dsn, data):
         fact, fixes = runner.normalize_fact(fact)  # form-only repairs (subject, keywords); meaning untouched
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
+        if isinstance(fact.get("subject"), str) and fact["subject"].strip() and fact.get("operation", "add") != "deprecate":
+            name, how = resolve(fact["subject"])
+            if name != fact["subject"] and name in subject_dict.rewrite(fact["fact"], fact["subject"], name):
+                written = fact["subject"]
+                fact.update(fact=subject_dict.rewrite(fact["fact"], written, name), subject=name, subject_as_written=written)
+                fact, _ = runner.normalize_fact(fact)  # keywords follow the new text
+                subjects.append({"fact_index": index, "from": written, "to": name, "how": how})
+            if how in subject_dict.NEW:
+                fact["subject_new"] = True
         checked = runner.lint_fact(fact, strict_refs=True)
         for error in checked["errors"]:
             errors.append({**error, "where": f"facts.{index}.{error['where']}"})
@@ -162,6 +181,9 @@ def record(dsn, data):
     entry = store_pg.register(dsn, body)
     out = {"work_unit_id": uid, "entry_id": entry["entry_id"], "state": "proposed",
            "baseline": snapshot(dsn, uid)["baseline"], "warnings": warnings, "repairs": repairs}
+    if subjects:
+        out["subjects"] = subjects
+        out["subjects_note"] = "주어를 기존 지식의 이름으로 맞춰 저장했다(from → to). 다른 대상인데 맞춰졌으면 사용자에게 보여 주고 고쳐 다시 기록하라."
     cfg = config.load()
     if data.get("check_contradictions") and all(cfg.get(k) for k in ("jev_api_key", "jev_base_url", "jev_model")):
         found = contradictions(dsn, host, uid, normalized, cfg)

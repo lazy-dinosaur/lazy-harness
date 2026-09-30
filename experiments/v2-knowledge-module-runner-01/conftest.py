@@ -87,7 +87,8 @@ def dsn():
                           SQL.with_name("0005_domain_type.sql"),
                           SQL.with_name("0006_rules.sql"),
                           SQL.with_name("0007_harness_rules_out.sql"),
-                          SQL.with_name("0008_embedding_any_dim.sql")):
+                          SQL.with_name("0008_embedding_any_dim.sql"),
+                          SQL.with_name("0009_subject_dictionary.sql")):
             migrated = docker("exec", "-i", NAME, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres",
                               "-d", "postgres", "-f", "-", input=migration.read_text())
             assert migrated.returncode == 0, migrated.stderr
