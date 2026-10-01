@@ -62,6 +62,37 @@ alter table knowledge.ledger_entry add constraint ledger_entry_fact_forms_valid
 
 alter table knowledge.fragment add column form jsonb check (knowledge.valid_fact_form(form));
 
+-- Structure backfill (review 2026-10-01, plan for the main DB): filling form/subject_id of an existing fragment is not a
+-- content change, so it must not need a revision bump. Same trigger as 0001, plus: an UPDATE that changes only form,
+-- subject_id or updated_at keeps the revision and writes no history row.
+create or replace function knowledge.track_fragment_change() returns trigger
+language plpgsql set search_path = '' as $$
+declare
+  absorption_setting text := nullif(current_setting('knowledge.absorption_id', true), '');
+  history_actor text := nullif(current_setting('knowledge.actor', true), '');
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'fragment DELETE is forbidden; deprecate with active=false UPDATE';
+  elsif tg_op = 'INSERT' then
+    insert into knowledge.fragment_history(fragment_id, revision, snapshot, actor, absorption_id, op)
+    values (new.id, new.revision, to_jsonb(new), history_actor, absorption_setting::uuid, 'create');
+  else
+    if new.revision = old.revision
+       and (to_jsonb(new) - array['form', 'subject_id', 'updated_at']) = (to_jsonb(old) - array['form', 'subject_id', 'updated_at']) then
+      return new;  -- structure metadata only
+    end if;
+    if new.revision <> old.revision + 1 then
+      raise exception 'fragment revision must advance by exactly one';
+    end if;
+    insert into knowledge.fragment_history(fragment_id, revision, snapshot, actor, absorption_id, op)
+    values (old.id, new.revision, to_jsonb(old), history_actor, absorption_setting::uuid,
+            case when old.active and not new.active then 'deprecate' else 'update' end);
+    new.updated_at := now();
+  end if;
+  return new;
+end;
+$$;
+
 create table knowledge.fragment_leaf (
   fragment_id uuid not null references knowledge.fragment(id),
   revision integer not null check (revision > 0),

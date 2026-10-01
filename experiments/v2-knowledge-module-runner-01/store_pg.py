@@ -237,9 +237,16 @@ def review_list(dsn, host):
                             answer=%s where entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='pending'
                             and reason=%s""", (_json({"decision": "resolved", "by": "later change of one side"}), eid, idx, reason))
                 continue
+            # flow3 r4 (2026-10-01): one question per fragment, listing every fragment it contradicts (P2 raised 9 items)
+            reason_line = f"canon_contradiction: [{r['with']}] {fact_text.view(r['with_text'])}"
+            same = next((it for it in items if it.get("kind") == "contradiction" and it["entry_id"] == eid and it["fact_index"] == idx), None)
+            if same:
+                if reason_line not in same["review_reasons"]:
+                    same["review_reasons"].append(reason_line)
+                continue
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
                           "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
-                          "review_reasons": [f"canon_contradiction: [{r['with']}] {fact_text.view(r['with_text'])}"]})
+                          "review_reasons": [reason_line]})
         return items
 
 
@@ -261,11 +268,11 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         if decision == "approve" and norm(quote) and norm(quote) in used:
             raise ValueError("the completion confirmation cannot approve a waiting fact; show the fact to the user and quote their answer")
         cur.execute("""select confirmation_id from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
-                    and rule_id='canon_contradiction' and status='pending' order by confirmation_id limit 1""", (entry_id, fact_index))
-        canon = cur.fetchone()
-        if canon:  # a logged canon contradiction: the user's answer closes it (the fix itself is a new record)
-            cur.execute("update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now() where confirmation_id=%s",
-                        (_json({"decision": decision, "quote": quote, "locator": locator}), canon[0]))
+                    and rule_id='canon_contradiction' and status='pending' order by confirmation_id""", (entry_id, fact_index))
+        canon = [r[0] for r in cur.fetchall()]
+        if canon:  # one answer for the grouped question closes every listed contradiction (the fix is a new record)
+            cur.execute("update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now() where confirmation_id = any(%s)",
+                        (_json({"decision": decision, "quote": quote, "locator": locator}), canon))
             return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision, "entry_state": entry["state"],
                     "pending_in_entry": 0, "kind": "contradiction",
                     "next": "Now write the fix the user chose: knowledge_record update/deprecate of the wrong fragment ([alias@revision])."}
