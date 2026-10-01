@@ -144,3 +144,28 @@ def test_prune_drops_hints_of_objects_no_longer_pending():
              "scan:s1": {"stuck": True}, "scan:s2": {"stuck": True}, "other": {"x": 1}}
     poller._prune(hints, entries=["a"], units=[], scans=["s2"])
     assert hints == {"entry:a": {"attempts": 1}, "scan:s2": {"stuck": True}, "other": {"x": 1}}
+
+
+def test_stuck_scans_do_not_starve_healthy_ones(dsn, tmp_path, monkeypatch):
+    """astra P13 cross-review: 250 blocked units (stuck + backoff) ahead of the healthy ones span two pages; the tick
+    runs exactly SCAN_PER_TICK healthy scans in FIFO order and prunes the hint of a unit no longer unscanned."""
+    blocked = [f"a{i:04d}" for i in range(250)]
+    healthy = [f"b{i:04d}" for i in range(8)]
+    done = "z-done"
+    state = tmp_path / "hints.json"
+    hints = {"scan:" + u: {"attempts": 5, "next": 0, "stuck": True} for u in blocked[:200]}
+    hints.update({"scan:" + u: {"attempts": 1, "next": 10 ** 12, "stuck": False} for u in blocked[200:]})
+    hints["scan:" + done] = {"attempts": 1, "next": 0, "stuck": False}
+    state.write_text(json.dumps(hints))
+    allu = blocked + healthy  # FIFO key order
+    monkeypatch.setattr(poller, "_candidates", lambda dsn: ([], []))
+    monkeypatch.setattr(poller.store_pg, "units_to_scan",
+                        lambda dsn, limit=5, after=None, with_key=False:
+                        [(u, u) for u in allu if after is None or u > after][:limit])
+    monkeypatch.setattr(poller.store_pg, "unscanned", lambda dsn, ids: set(ids) & set(allu))
+    ran = []
+    monkeypatch.setattr(poller.store_pg, "scan_contradictions", lambda dsn, u, j: ran.append(u))
+    poller.tick(dsn, judge=None, state=state, contra_judge=lambda *a: [])
+    assert ran == healthy[:poller.SCAN_PER_TICK]
+    left = json.loads(state.read_text())
+    assert "scan:" + done not in left and all("scan:" + u in left for u in blocked)

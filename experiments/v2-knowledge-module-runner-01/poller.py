@@ -14,6 +14,7 @@ import templates
 import worktime_driver
 
 LOCK_KEY = 0x4C484B4449473031  # LHKDIG01; reserved for this poller
+SCAN_PER_TICK = 5
 DEFAULT_STATE = Path("~/.local/state/lazy-harness-v2/poller-state.json").expanduser()
 
 
@@ -67,10 +68,25 @@ def _failure(state, key, now, max_attempts, base_delay):
 
 def _prune(hints, entries, units, scans):
     """Drop hints whose object is no longer pending (2026-10-01: four 'stuck' scan hints and stale entry hints stayed
-    after their units were scanned/absorbed, so the poller reported stuck items that no longer existed)."""
+    after their units were scanned/absorbed, so the poller reported stuck items that no longer existed).
+    scans = the set of hinted scan units that are still unscanned (exact DB check, store_pg.unscanned)."""
     live = ({"entry:" + e for e in entries} | {"unit:" + u["work_unit_id"] for u in units} | {"scan:" + s for s in scans})
     for key in [k for k in hints if k.split(":", 1)[0] in ("entry", "unit", "scan") and k not in live]:
         hints.pop(key, None)
+
+
+def _runnable_scans(dsn, hints, now, skipped, budget):
+    """Page through unscanned units in a stable order until `budget` runnable ones are found (stuck/backoff skipped)."""
+    out, after = [], None
+    while len(out) < budget:
+        page = store_pg.units_to_scan(dsn, limit=200, after=after, with_key=True)
+        if not page:
+            break
+        for uid_, _ in page:
+            if len(out) < budget and not _blocked(hints, "scan:" + uid_, now, skipped):
+                out.append(uid_)
+        after = page[-1][1]
+    return out
 
 
 def _candidates(dsn):
@@ -118,8 +134,9 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
         try:
             hints = _load(state)
             units, entries = _candidates(dsn)
-            scans = store_pg.units_to_scan(dsn) if contra_judge is not None else []
-            _prune(hints, entries, units, scans if contra_judge is not None else [k.split(":", 1)[1] for k in hints if k.startswith("scan:")])
+            hinted_scans = [k.split(":", 1)[1] for k in hints if k.startswith("scan:")]
+            # astra P13 cross-review: scan hints are pruned by an exact DB check, never by a limited candidate list
+            _prune(hints, entries, units, store_pg.unscanned(dsn, hinted_scans) if contra_judge is not None else hinted_scans)
             remaining = window
             for unit in units:
                 if result["units"] >= max_units or remaining < unit["entries"]:
@@ -133,11 +150,7 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 try:
                     outcome = digest_driver.run_digestion(dsn, unit["work_unit_id"], judge, choose=choose, confirm=confirm,
                                                           same=subject_same)
-                    if contra_judge is not None and outcome.get("status") in ("absorbed", "processed"):
-                        try:  # canon contradictions are logged for the next session; never block digestion
-                            store_pg.scan_contradictions(dsn, unit["work_unit_id"], contra_judge)
-                        except Exception:
-                            pass
+                    # canon scans run below in one budgeted scheduler (astra P13 cross-review: they bypassed the budget)
                     if outcome["status"] in ("needs_review", "needs_recheck"):
                         _failure(hints, key, now, max_attempts, base_delay)
                     else:
@@ -147,10 +160,8 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     _failure(hints, key, now, max_attempts, base_delay)
                 _save(state, hints)
             if contra_judge is not None:  # review P1: retry canon scans that did not finish after their commit
-                for uid_ in scans:
+                for uid_ in _runnable_scans(dsn, hints, now, skipped, SCAN_PER_TICK):  # just digested units included
                     key = "scan:" + uid_
-                    if _blocked(hints, key, now, skipped):
-                        continue
                     try:
                         store_pg.scan_contradictions(dsn, uid_, contra_judge)
                         hints.pop(key, None)

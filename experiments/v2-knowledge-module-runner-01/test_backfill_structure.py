@@ -66,6 +66,6 @@ def test_grouped_contradiction_question(dsn, host):
     items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"
              and "1000" in i["fact"]]
     assert len(items) == 1 and len(items[0]["review_reasons"]) == 2, items
-    pg.review_resolve(dsn, host, items[0]["entry_id"], items[0]["fact_index"], "approve", "1000이 맞아", "t")
+    pg.review_resolve(dsn, host, items[0]["entry_id"], items[0]["fact_index"], "approve", "1000이 맞아", "t", items[0]["question_ids"])
     assert not [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"
                 and "1000" in i["fact"]]

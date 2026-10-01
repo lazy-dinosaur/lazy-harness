@@ -106,7 +106,7 @@ def main(tag):
             break
         for it in items:
             decision = "reject" if tag == "P2" and "800" in (it.get("fact") or "") else "approve"
-            store_pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], decision, "응 그렇게 해" if decision == "approve" else "아니 그건 아니야", "test/user")
+            store_pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], decision, "응 그렇게 해" if decision == "approve" else "아니 그건 아니야", "test/user", it.get("question_ids"))
         poll(env)
         items = snapshot(dsn, host, f"{tag} after-answer{rnd}")
     print(tag, "CONTRADICTIONS", json.dumps(q(dsn, "select rule_id, status::text, left(reason, 300) from knowledge.confirmation_queue where rule_id='canon_contradiction' order by created_at"), ensure_ascii=False), flush=True)

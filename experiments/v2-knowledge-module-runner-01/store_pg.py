@@ -224,10 +224,10 @@ def review_list(dsn, host):
                  **{k: row["judgement_body"]["facts"][row["fact_index"]].get(k) for k in ("kind", "subject", "fact", "evidence_source")}}
                 for row in rows]
         import fact_text  # the question the user sees is Korean; the stored text stays in operator form
-        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text from knowledge.confirmation_queue q
-                    join knowledge.ledger_entry e on e.entry_id=q.entry_id
+        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
+                    from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     where e.host_id=%s and q.rule_id='canon_contradiction' and q.status='pending' order by q.created_at""", (host,))
-        for eid, idx, reason, wu in cur.fetchall():
+        for eid, idx, reason, wu, qid in cur.fetchall():
             r = json.loads(reason)
             cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and alias = any(%s)",
                         (host, [r["alias"], r["with"]]))
@@ -243,14 +243,16 @@ def review_list(dsn, host):
             if same:
                 if reason_line not in same["review_reasons"]:
                     same["review_reasons"].append(reason_line)
+                same["question_ids"].append(qid)
                 continue
+            # astra direction review P1 (2026-10-01): the answer is bound to the questions shown (question_ids)
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
                           "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
-                          "review_reasons": [reason_line]})
+                          "review_reasons": [reason_line], "question_ids": [qid]})
         return items
 
 
-def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=None):
+def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=None, question_ids=None):
     """Record a human approve/reject for one needs_review fact and move the entry so digestion can proceed."""
     if decision not in ("approve", "reject"):
         raise ValueError("decision must be approve|reject")
@@ -267,15 +269,30 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         used = {norm((s.get("evidence") or {}).get("quote")) for s in (entry.pop("completion_sources") or []) if isinstance(s, dict)}
         if decision == "approve" and norm(quote) and norm(quote) in used:
             raise ValueError("the completion confirmation cannot approve a waiting fact; show the fact to the user and quote their answer")
-        cur.execute("""select confirmation_id from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
-                    and rule_id='canon_contradiction' and status='pending' order by confirmation_id""", (entry_id, fact_index))
-        canon = [r[0] for r in cur.fetchall()]
-        if canon:  # one answer for the grouped question closes every listed contradiction (the fix is a new record)
-            cur.execute("update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now() where confirmation_id = any(%s)",
-                        (_json({"decision": decision, "quote": quote, "locator": locator}), canon))
+        # astra P13 cross-review (2026-10-01): question_ids always mean a contradiction answer, never another review; the
+        # shown rows are locked and closed atomically only while still pending, else the whole answer is refused.
+        if question_ids is not None:
+            shown = {int(q) for q in question_ids}
+            if not shown:
+                raise ValueError("contradiction: question_ids is empty")
+            cur.execute("""select confirmation_id from knowledge.confirmation_queue where confirmation_id = any(%s)
+                        and entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='pending'
+                        for update""", (sorted(shown), entry_id, fact_index))
+            cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
+                        where confirmation_id = any(%s) and entry_id=%s and fact_index=%s
+                        and rule_id='canon_contradiction' and status='pending' returning confirmation_id""",
+                        (_json({"decision": decision, "quote": quote, "locator": locator}), sorted(shown), entry_id, fact_index))
+            if {r[0] for r in cur.fetchall()} != shown:
+                raise ValueError("contradiction question changed since it was listed; list again and ask the user")
+            cur.execute("select count(*) from knowledge.confirmation_queue where entry_id=%s and status='pending'", (entry_id,))
+            left = cur.fetchone()[0]  # every pending question of the entry, any fact or rule
             return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision, "entry_state": entry["state"],
-                    "pending_in_entry": 0, "kind": "contradiction",
+                    "pending_in_entry": left, "kind": "contradiction",
                     "next": "Now write the fix the user chose: knowledge_record update/deprecate of the wrong fragment ([alias@revision])."}
+        cur.execute("""select 1 from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
+                    and rule_id='canon_contradiction' and status='pending' limit 1""", (entry_id, fact_index))
+        if cur.fetchone():
+            raise ValueError("contradiction: pass question_ids exactly as listed by review list")
         if entry["state"] not in REVIEWABLE or entry["unit_status"] == "abandoned":
             raise ValueError(f"entry is not reviewable in state {entry['state']}")
         receipts = {r["fact_index"]: r for r in _receipts(cur, entry_id, "worktime")}
@@ -662,6 +679,14 @@ CANON_Q = ("items[{i}] 는 정본의 다른 사실이다. state.fact 와 items[{
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
+def _judged(items, answers):
+    """astra direction review P1 (2026-10-01): zip() silently dropped the items a short judge answer did not cover and the
+    fragment was still marked scanned. A count mismatch fails the scan; the poller retries it."""
+    if not isinstance(answers, list) or len(answers) != len(items):
+        raise ValueError(f"judge returned {len(answers) if isinstance(answers, list) else 'no list'} answers for {len(items)} items")
+    return zip(items, answers)
+
+
 def _vector_contradictions(dsn, host, fid, text, asked, judge):
     """Top-6 hybrid neighbours not already compared by subject; skipped when both carry a form under different conditions.
     Judged on the Korean view of both facts."""
@@ -681,7 +706,7 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
     if not hits:
         return []
     answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in hits], CANON_Q)
-    return [{"alias": h["alias"], "text": h["text"]} for h, a in zip(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    return [{"alias": h["alias"], "text": h["text"]} for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
 
 
 def _leaf_pairs(cur, host, fid):
@@ -746,7 +771,7 @@ def scan_contradictions(dsn, unit_id, judge):
                 by_own.setdefault(own, []).append({"alias": alias, "text": full, "shown": other})
             for own, others in by_own.items():
                 answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
-                bad += [o for o, a in zip(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+                bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
             # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
             # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
             bad += _vector_contradictions(dsn, host, fid, row[1], {a for _, _, a, _ in leaf_pairs}, judge)
@@ -755,7 +780,8 @@ def scan_contradictions(dsn, unit_id, judge):
                                          if str(h["id"]) != fid]  # fragments from before the subject dictionary
             if hits:
                 answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
-                bad = [h for h, a in zip(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+                bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        bad = list({h["alias"]: h for h in bad}.values())
         with connect(dsn) as conn, conn.cursor() as cur:
             for h in bad:
                 cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
@@ -832,15 +858,32 @@ def _canon_duplicate(cur, host, fact, changing=frozenset()):
     return None
 
 
-def units_to_scan(dsn, limit=5):
-    """Units with absorbed fragments the canon scan has not marked (a scan that failed after the commit, review P1)."""
+_UNSCANNED = """from knowledge.absorption a where a.decision::text='absorbed' and a.fragment_ref is not null
+               and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=a.entry_id
+                               and q.fact_index=a.fact_index and q.rule_id in ('canon_scanned','canon_contradiction'))"""
+
+
+def units_to_scan(dsn, limit=5, after=None, with_key=False):
+    """Units with absorbed fragments the canon scan has not marked, oldest absorption first (FIFO: a new unit never
+    overtakes an older one, astra P13 round 3). Page with after=(key) of the last row; with_key returns (unit, key)."""
     with connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select distinct a.work_unit_id::text from knowledge.absorption a
-                       where a.decision::text='absorbed' and a.fragment_ref is not null
-                       and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=a.entry_id
-                                       and q.fact_index=a.fact_index and q.rule_id in ('canon_scanned','canon_contradiction'))
-                       limit %s""", (limit,))
-        return [r[0] for r in cur.fetchall()]
+        cur.execute("""select u, to_char(t, 'YYYYMMDDHH24MISSUS') || '/' || u as k from (
+                         select a.work_unit_id::text as u, min(a.created_at) as t """ + _UNSCANNED + """
+                         group by a.work_unit_id) x
+                       where (%s::text is null or to_char(t, 'YYYYMMDDHH24MISSUS') || '/' || u > %s)
+                       order by k limit %s""", (after, after, limit))
+        rows = cur.fetchall()
+        return [(r[0], r[1]) for r in rows] if with_key else [r[0] for r in rows]
+
+
+def unscanned(dsn, unit_ids):
+    """The subset of unit_ids that still has an unscanned absorbed fragment (exact check for hint pruning)."""
+    if not unit_ids:
+        return set()
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select distinct a.work_unit_id::text " + _UNSCANNED + " and a.work_unit_id = any(%s::uuid[])",
+                    (list(unit_ids),))  # uuid compare (uses the column index)
+        return {r[0] for r in cur.fetchall()}
 
 
 def _atomic(entry):

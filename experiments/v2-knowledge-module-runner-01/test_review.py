@@ -92,7 +92,7 @@ def test_canon_contradiction_is_logged_and_answered(dsn, host):
     items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"]
     assert items and "정본에서 이 사실과 모순" in items[0]["why_waiting"][0]
     for it in items:
-        assert pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], "approve", "1000자가 맞아")["kind"] == "contradiction"
+        assert pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], "approve", "1000자가 맞아", None, it["question_ids"])["kind"] == "contradiction"
     assert [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"] == []
 
 

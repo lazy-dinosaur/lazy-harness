@@ -132,7 +132,8 @@ def main(tag):
         for it in items:
             decision = "reject" if tag == "P2" and "800" in (it.get("fact") or "") else "approve"
             store_pg.review_resolve(dsn, host, it["entry_id"], it["fact_index"], decision,
-                                    "응 그렇게 해" if decision == "approve" else "아니 그건 아니야", "test/user")
+                                    "응 그렇게 해" if decision == "approve" else "아니 그건 아니야", "test/user",
+                                    it.get("question_ids"))
         poll(env)
         items = snapshot(dsn, host, f"{tag} after-answer{rnd}")
     print(tag, "STRUCTURE", json.dumps({

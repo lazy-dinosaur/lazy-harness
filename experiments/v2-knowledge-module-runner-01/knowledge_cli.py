@@ -415,7 +415,10 @@ def review_cmd(dsn, data):
     locator = data.get("locator")
     if locator is not None and not isinstance(locator, str):
         raise ValueError("locator must be a string")
-    return store_pg.review_resolve(dsn, host, unit_id(data.get("entry_id")), index, data.get("decision"), quote, locator)
+    qids = data.get("question_ids")
+    if qids is not None and (not isinstance(qids, list) or not all(isinstance(q, int) and not isinstance(q, bool) for q in qids)):
+        raise ValueError("question_ids must be a list of integers as listed")
+    return store_pg.review_resolve(dsn, host, unit_id(data.get("entry_id")), index, data.get("decision"), quote, locator, qids)
 
 
 COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review", "window")
