@@ -129,7 +129,12 @@ def check(text):
         errs.append("BECAUSE 는 맨 끝에 한 번 쓴다")
     if "THEN" in ops:
         then_at = ops.index("THEN")
-        if any(o == "OR" for o in ops[then_at + 1:] if o not in ("EXCEPT WHEN",)) and "EXCEPT WHEN" not in ops[then_at + 1:]:
+        result_ops = []
+        for o in ops[then_at + 1:]:
+            if o in ("EXCEPT WHEN", "BECAUSE"):
+                break  # OR inside the exception condition is allowed
+            result_ops.append(o)
+        if "OR" in result_ops:  # astra direction review P0: 'IF C THEN A OR B EXCEPT WHEN D' passed and parse dropped the OR
             errs.append("THEN 뒤 결과는 AND 로만 잇는다(또는은 조건에만)")
     plain_ops = [o for o in (ops[ops.index("THEN") + 1:] if "THEN" in ops else ops)
                  if o in ("AND", "OR")] if head not in ("IF", "BEFORE", "AFTER") else []
@@ -227,6 +232,8 @@ def parse(text):
             continue
         if kind == "leaf":
             then.append(val)
+        elif kind == "op" and val == "OR" and form["kind"] != "plain":
+            mixed = True  # a conditional result never holds 'one of': keep the text whole instead of losing the OR
         elif kind == "op" and val in ("AND", "OR") and form["kind"] == "plain":
             if join and join != val:
                 mixed = True  # 'A AND (B OR C)': results cannot be a flat list without losing the OR

@@ -14,9 +14,17 @@ _ENDING = re.compile(r"(이다|입니다|한다|된다|다)$")
 def normalize(text):
     """astra review P0-4 (2026-10-01): the decimal point and qualifiers (최대/모두/현재) carry meaning — '1.5' is not '15',
     '최대 3회' is not '3회'. Only spacing, quotes, brackets and the sentence ending are ignored."""
-    t = re.sub(r"(?<=\d)\.(?=\d)", "§", str(text or ""))
-    t = re.sub(r"[\s`'\"·,.!?()\[\]]+", "", t)
-    return _ENDING.sub("", t)
+    # astra direction review P0 (2026-10-01): '`a.b`' and '`ab`' were equal. Code spans are kept verbatim and a dot
+    # between word characters (domain_router.py, 1.5) is kept.
+    parts = re.split(r"(`[^`]*`)", str(text or ""))
+    out = []
+    for part in parts:
+        if part.startswith("`") and part.endswith("`") and len(part) >= 2:
+            out.append(re.sub(r"\s+", "", part[1:-1]))  # inside a code span every character but spacing counts
+            continue
+        t = re.sub(r"(?<=\w)\.(?=\w)", "§", part)
+        out.append(re.sub(r"[\s'\"·,.!?()\[\]]+", "", t))
+    return _ENDING.sub("", "".join(out))
 
 
 def _shape(text):
