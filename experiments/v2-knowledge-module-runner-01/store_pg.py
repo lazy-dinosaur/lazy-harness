@@ -653,6 +653,28 @@ CANON_Q = ("items[{i}] 는 정본의 다른 사실이다. state.fact 와 items[{
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
+def _vector_contradictions(dsn, host, fid, text, asked, judge):
+    """Top-6 hybrid neighbours not already compared by subject; skipped when both carry a form under different conditions.
+    Judged on the Korean view of both facts."""
+    import capture_audit
+    import fact_form
+    import fact_text
+    hits = [h for h in search(dsn, host, fact_text.view(text), limit=6, mode="hybrid", expand=False)
+            if str(h["id"]) != fid and h["alias"] not in asked]
+    if not hits:
+        return []
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select form from knowledge.fragment where id=%s", (fid,))
+        own = cur.fetchone()[0]
+        cur.execute("select id::text, form from knowledge.fragment where id = any(%s::uuid[])", ([str(h["id"]) for h in hits],))
+        forms = dict(cur.fetchall())
+    hits = [h for h in hits if not own or not forms.get(str(h["id"])) or fact_form.comparable(own, forms[str(h["id"])])]
+    if not hits:
+        return []
+    answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in hits], CANON_Q)
+    return [{"alias": h["alias"], "text": h["text"]} for h, a in zip(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+
+
 def _leaf_pairs(cur, host, fid):
     """0010 + contra05: this fragment's result leaves vs other active fragments' result leaves of the same subject,
     compared only under the same condition or when either side is unconditional (rules under different conditions
@@ -716,6 +738,9 @@ def scan_contradictions(dsn, unit_id, judge):
             for own, others in by_own.items():
                 answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
                 bad += [o for o, a in zip(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+            # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
+            # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
+            bad += _vector_contradictions(dsn, host, fid, row[1], {a for _, _, a, _ in leaf_pairs}, judge)
         elif row and row[2]:
             hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
                                          if str(h["id"]) != fid]  # fragments from before the subject dictionary

@@ -296,3 +296,8 @@ def display(form, leaf):
     if form.get("except"):
         out += " EXCEPT WHEN " + expr_text(form["except"])
     return out
+
+
+def comparable(a, b):
+    """Two facts can contradict only under the same condition, or when either holds always."""
+    return unconditional(a) or unconditional(b) or condition_key(a) == condition_key(b)

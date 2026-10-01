@@ -96,3 +96,37 @@ def test_contradiction_scan_compares_leaves_under_the_same_condition(dsn, host):
     import knowledge_cli
     items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"]
     assert len(items) == 1 and "영구 보관" in items[0]["fact"], items
+
+
+def test_canon_scan_also_compares_vector_neighbours_under_another_subject(dsn, host):
+    """flow3 r3: the same concept under another subject is caught through the vector neighbours."""
+    from test_store_pg import judgement
+
+    def absorb(text, subject):
+        body = judgement(host, text=text)
+        body["facts"][0]["subject"] = subject
+        entry = pg.register(dsn, body)
+        pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text=text)]}, entry_ids=[entry["entry_id"]])
+        pg.complete(dsn, body["work_unit_id"])
+        judge = lambda packet: {"answers": fixture(text=packet["state"]["candidate_fact"])["answers"]}
+        assert digest_driver.run_digestion(dsn, body["work_unit_id"], judge)["status"] == "absorbed"
+        return body["work_unit_id"]
+
+    absorb("도메인 설명은 최대 300자까지 저장된다", "도메인 설명")
+    unit = absorb("설명 길이 제한은 최대 1000자다", "설명 길이 제한")
+    contra = lambda state, texts, q: [{"noul": 0.9 if "300자" in t else 0.1} for t in texts]
+    assert pg.scan_contradictions(dsn, unit, contra)["contradictions"] == 1
+
+
+def test_cut_subject_is_rejected(dsn, host):
+    import knowledge_cli
+    f = {"operation": "add", "kind": "fact", "subject": "도메인", "fact": "도메인 설명 길이는 1000자다", "reason": "r",
+         "evidence_source": "user_confirmed", "keywords": ["도메인"],
+         "evidence_refs": [{"type": "user_utterance", "locator": "t", "quote": "도메인 설명 길이는 1000자다"}]}
+    out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [f]})
+    assert [e["code"] for e in out["errors"]] == ["E_SUBJECT"], out
+    t2 = "store_pg.py와 digest_driver.py의 자동 생성 설명은 1000자로 잘린다"
+    out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [{
+        **f, "subject": "store_pg.py와", "fact": t2, "keywords": ["store_pg.py"],
+        "evidence_refs": [{"type": "user_utterance", "locator": "t", "quote": t2}]}]})
+    assert "E_SUBJECT" in [e["code"] for e in out["errors"]], out

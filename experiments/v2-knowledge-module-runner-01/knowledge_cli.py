@@ -155,6 +155,12 @@ def record(dsn, data, *, same=None, embed_fn=None):
             if re.search(r"\S(와|과) \S", subj_) or len(subj_) > 30:  # flow3: descriptive subjects split the dictionary
                 warnings.append({"code": "W_SUBJECT", "where": f"facts.{index}.subject",
                                  "detail": "주어는 짧은 대상 이름 하나로 쓴다(나열·설명은 문장 안에). 예: 'store_pg.py' 와 'digest_driver.py' 를 따로"})
+            head = runner.SUBJECT_HEAD.match((fact_form.parse(fact["fact"]).get("then") or [""])[0] + " ") if isinstance(fact.get("fact"), str) else None
+            if subj_ and (subj_.rstrip().endswith(("와", "과", "및", ",")) or
+                          (head and head.group(1).strip() != subj_ and head.group(1).strip().startswith(subj_ + " "))):
+                # flow3 r3: '도메인' for '도메인 설명 길이는 …', 'store_pg.py와' — a cut subject joins the wrong things in the dictionary
+                errors.append({"code": "E_SUBJECT", "where": f"facts.{index}.subject",
+                               "detail": "주어는 문장 주제어 전체(" + (head.group(1).strip() if head else subj_) + ")를 쓴다. 잘린 이름이나 '와/과'로 끝나는 이름은 안 된다"})
             form_errors = fact_form.check(fact.get("fact"))
             for detail in form_errors:
                 errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
@@ -275,7 +281,7 @@ def _then_leaves(f):
 
 def _comparable(a, b):
     import fact_form
-    return fact_form.unconditional(a) or fact_form.unconditional(b) or fact_form.condition_key(a) == fact_form.condition_key(b)
+    return fact_form.comparable(a, b)
 
 
 def complete(dsn, data):

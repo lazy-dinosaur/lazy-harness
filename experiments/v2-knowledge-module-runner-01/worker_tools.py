@@ -426,7 +426,10 @@ def _update_fact(ch, item, text, code_refs=()):
             {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}, *code_refs]
     if ch.get("forms_quote"):
         refs.insert(1, {"type": "user_utterance", "locator": "change/forms_quote", "quote": ch["forms_quote"]})
-    return {"operation": "update", "kind": "fact", "subject": text.split()[0] if text.split() else ch["subject"],
+    import runner as _runner
+    head = _runner.SUBJECT_HEAD.match(text + " ")  # the whole topic phrase, not its first word (E_SUBJECT, flow3 r3)
+    return {"operation": "update", "kind": "fact",
+            "subject": head.group(1).strip() if head else (text.split()[0] if text.split() else ch["subject"]),
             "fact": text, "target_ref": item["id"], "evidence_source": "user_confirmed",
             "reason": f"사용자가 확정한 변경({ch['subject']}: {ch['old']} → {ch['new']})을 이 조각에 반영한다.",
             "evidence_refs": refs, **({"expected_revision": item["revision"]} if item.get("revision") else {})}

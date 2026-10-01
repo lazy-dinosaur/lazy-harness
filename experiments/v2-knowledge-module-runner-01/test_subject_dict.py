@@ -95,7 +95,7 @@ def test_digestion_rechecks_names_registered_after_the_record(dsn, host):
 
     # canon contradiction scan compares within the subject, not every similar sentence
     assert absorb(dsn, body_of(host, "채팅은 30분 뒤 닫힌다", "채팅"), same=same, embed_fn=fake_embed)["status"] == "absorbed"
-    contra = lambda state, texts, q: [{"noul": 0.9 if "30분" in t else 0.1} for t in texts]
+    contra = lambda state, texts, q: [{"noul": 0.9 if "예약관리는 30분" in t else 0.1} for t in texts]
     out = pg.scan_contradictions(dsn, second["work_unit_id"], contra)
     assert out == {"scanned": 1, "contradictions": 1}, out
     logged = [q for q in pg.rows(dsn, "confirmation_queue") if q["rule_id"] == "canon_contradiction" and q["entry_id"] == e2["entry_id"]]
