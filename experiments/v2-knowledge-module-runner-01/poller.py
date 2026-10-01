@@ -15,6 +15,7 @@ import worktime_driver
 
 LOCK_KEY = 0x4C484B4449473031  # LHKDIG01; reserved for this poller
 SCAN_PER_TICK = 5
+RECHECK_PER_TICK = 2  # of SCAN_PER_TICK: at least 3 scans of newly absorbed units run every tick
 DEFAULT_STATE = Path("~/.local/state/lazy-harness-v2/poller-state.json").expanduser()
 
 
@@ -160,7 +161,16 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     _failure(hints, key, now, max_attempts, base_delay)
                 _save(state, hints)
             if contra_judge is not None:  # review P1: retry canon scans that did not finish after their commit
-                for uid_ in _runnable_scans(dsn, hints, now, skipped, SCAN_PER_TICK):  # just digested units included
+                # one budget for all canon checks (astra 0012 review P2): rechecks first, scans take the rest
+                try:  # 0012: contradictions whose side changed are judged again (an answer alone never resolves)
+                    # rechecks get at most RECHECK_PER_TICK, so new units are always scanned (astra 0012 round 3)
+                    rc = store_pg.recheck_contradictions(dsn, contra_judge, limit=RECHECK_PER_TICK)
+                    result["rechecked"] = rc["rechecked"]
+                    skipped["failed"] += rc["failed"]
+                except Exception:
+                    rc = {"rechecked": 0}
+                    skipped["failed"] += 1
+                for uid_ in _runnable_scans(dsn, hints, now, skipped, max(0, SCAN_PER_TICK - rc["rechecked"])):
                     key = "scan:" + uid_
                     try:
                         store_pg.scan_contradictions(dsn, uid_, contra_judge)

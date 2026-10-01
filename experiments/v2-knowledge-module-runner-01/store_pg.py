@@ -233,9 +233,11 @@ def review_list(dsn, host):
                         (host, [r["alias"], r["with"]]))
             now = dict(cur.fetchall())
             if now.get(r["alias"]) != r["text"] or now.get(r["with"]) != r["with_text"]:
+                # 0012: a changed side does not prove the contradiction is gone; withdraw the question, judge again
                 cur.execute("""update knowledge.confirmation_queue set status='answered',answered_at=now(),
-                            answer=%s where entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='pending'
-                            and reason=%s""", (_json({"decision": "resolved", "by": "later change of one side"}), eid, idx, reason))
+                            answer=%s, resolution='recheck' where confirmation_id=%s and status='pending'
+                            and resolution='open' and reason=%s""",
+                            (_json({"decision": "withdrawn", "by": "a side changed after it was asked"}), qid, reason))
                 continue
             # flow3 r4 (2026-10-01): one question per fragment, listing every fragment it contradicts (P2 raised 9 items)
             reason_line = f"canon_contradiction: [{r['with']}] {fact_text.view(r['with_text'])}"
@@ -249,6 +251,18 @@ def review_list(dsn, host):
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
                           "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
                           "review_reasons": [reason_line], "question_ids": [qid]})
+        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id, q.answer
+                    from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                    where e.host_id=%s and q.rule_id='canon_contradiction' and q.status='answered' and q.resolution='open'
+                    order by q.answered_at""", (host,))
+        for eid, idx, reason, wu, qid, answer in cur.fetchall():
+            r = json.loads(reason)
+            items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon",
+                          "kind": "contradiction_fix_due", "subject": None, "evidence_source": None,
+                          "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
+                          "review_reasons": [f"fix_due: [{r['with']}] {fact_text.view(r['with_text'])} — 사용자 답: "
+                                             + str((json.loads(answer or '{}')).get('quote'))],
+                          "question_ids": [qid]})
         return items
 
 
@@ -276,6 +290,18 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
             if not shown:
                 raise ValueError("contradiction: question_ids is empty")
             cur.execute("""select confirmation_id from knowledge.confirmation_queue where confirmation_id = any(%s)
+                        and entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='answered'
+                        and resolution='open' for update""", (sorted(shown), entry_id, fact_index))
+            due = {r[0] for r in cur.fetchall()}
+            if due and due == shown:  # astra 0012 review P2: the fix is due; the user may still say it is not one
+                if decision != "reject":
+                    raise ValueError("already answered; write the fix record (the contradiction resolves when it is judged again)")
+                cur.execute("""update knowledge.confirmation_queue set resolution='resolved', resolved_at=now(),
+                            resolution_evidence=%s where confirmation_id = any(%s) and resolution='open'""",
+                            (_json({"by": "user", "correction": True, "quote": quote, "locator": locator}), sorted(shown)))
+                return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision, "entry_state": entry["state"],
+                        "pending_in_entry": None, "kind": "contradiction", "next": "Not a contradiction: resolved."}
+            cur.execute("""select confirmation_id from knowledge.confirmation_queue where confirmation_id = any(%s)
                         and entry_id=%s and fact_index=%s and rule_id='canon_contradiction' and status='pending'
                         for update""", (sorted(shown), entry_id, fact_index))
             cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
@@ -284,11 +310,17 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
                         (_json({"decision": decision, "quote": quote, "locator": locator}), sorted(shown), entry_id, fact_index))
             if {r[0] for r in cur.fetchall()} != shown:
                 raise ValueError("contradiction question changed since it was listed; list again and ask the user")
+            if decision == "reject":  # the user says the two facts do not contradict: that is a resolution with evidence
+                cur.execute("""update knowledge.confirmation_queue set resolution='resolved', resolved_at=now(),
+                            resolution_evidence=%s where confirmation_id = any(%s)""",
+                            (_json({"by": "user", "quote": quote, "locator": locator}), sorted(shown)))
             cur.execute("select count(*) from knowledge.confirmation_queue where entry_id=%s and status='pending'", (entry_id,))
             left = cur.fetchone()[0]  # every pending question of the entry, any fact or rule
             return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision, "entry_state": entry["state"],
                     "pending_in_entry": left, "kind": "contradiction",
-                    "next": "Now write the fix the user chose: knowledge_record update/deprecate of the wrong fragment ([alias@revision])."}
+                    "next": ("Not a contradiction: resolved." if decision == "reject" else
+                             "Now write the fix the user chose: knowledge_record update/deprecate of the wrong fragment "
+                             "([alias@revision]). The contradiction stays open until that change is digested and judged again.")}
         cur.execute("""select 1 from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
                     and rule_id='canon_contradiction' and status='pending' limit 1""", (entry_id, fact_index))
         if cur.fetchone():
@@ -754,6 +786,12 @@ def scan_contradictions(dsn, unit_id, judge):
     found = 0
     for eid, idx, fid, host in todo:
         with connect(dsn) as conn, conn.cursor() as cur:
+            # astra 0012 round 3: a 'no contradiction' result is also a judgement of texts that may change meanwhile;
+            # the canon history cursor before judging must be unchanged when the result is written
+            # astra 0012 round 5: history ids are not commit-ordered; compare the (id, revision) of every active canon
+            # fragment of the host before judging and under the final lock instead
+            cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active", (host,))
+            seen_canon = dict(cur.fetchall())
             cur.execute("select alias, text, active, subject_id::text from knowledge.fragment where id=%s", (fid,))
             row = cur.fetchone()
             group = []
@@ -783,15 +821,169 @@ def scan_contradictions(dsn, unit_id, judge):
                 bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
         bad = list({h["alias"]: h for h in bad}.values())
         with connect(dsn) as conn, conn.cursor() as cur:
+            # astra 0012 round 4: lock the host's active canon rows (FOR SHARE blocks any writer's UPDATE until this
+            # commit), then check the cursor: a change before the lock is seen, a change after it waits for this write.
+            # New fragments are not blocked; they are scanned with their own unit.
+            cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active for share", (host,))
+            if dict(cur.fetchall()) != seen_canon:  # FOR SHARE waits for an uncommitted writer, then sees its revision
+                raise ValueError("the canon changed during the contradiction judge calls; scan again")
             for h in bad:
-                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
-                            values (%s,%s,'canon_contradiction',%s)""",
-                            (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"]})))
+                cur.execute("select id::text, revision, text, active from knowledge.fragment where host_id=%s and alias=%s for share",
+                            (host, h["alias"]))
+                other_ = cur.fetchone()
+                cur.execute("select revision, text, active from knowledge.fragment where id=%s for share", (fid,))
+                own_rev, own_text, own_active = cur.fetchone()
+                # astra 0012 round 2: record the revision of the text that was judged; a side changed during the judge
+                # call fails this scan (rolled back, retried by the poller) instead of storing old text + new revision
+                if not other_ or other_[2] != h["text"] or not other_[3] or own_text != row[1] or not own_active:
+                    raise ValueError("a side changed during the contradiction judge call; scan again")
+                # 0012: the pair is identified by fragment ids and the revisions judged; one live question per pair
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,resolution)
+                            values (%s,%s,'canon_contradiction',%s,'open') on conflict do nothing""",
+                            (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"],
+                                              "id": fid, "rev": own_rev, "with_id": other_[0] if other_ else None,
+                                              "with_rev": other_[1] if other_ else None})))
             if not bad:
                 cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
                             values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
         found += len(bad)
     return {"scanned": len(todo), "contradictions": found}
+
+
+def _strict_noul(answer):
+    """A judge score must be a finite number in [0, 1]; a missing or NaN score is a failure, never 'not contradicting'
+    (astra 0012 review P1-3)."""
+    import math
+    v = answer.get("noul") if isinstance(answer, dict) else None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0 <= v <= 1:
+        raise ValueError(f"judge score must be a number in [0,1], got {v!r}")
+    return float(v)
+
+
+_RECHECK_DUE = """from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+    where q.rule_id='canon_contradiction'
+    and (q.rechecked_at is null or q.rechecked_at < now() - interval '5 minutes')  -- a failing row waits (astra 0012 r3)
+    and (q.resolution='recheck' or (q.resolution='open' and exists (
+      select 1 from knowledge.fragment f where f.host_id=e.host_id and (
+        (f.id::text = (q.reason::jsonb)->>'id' and (f.revision::text <> (q.reason::jsonb)->>'rev' or not f.active)) or
+        (f.id::text = (q.reason::jsonb)->>'with_id' and (f.revision::text <> (q.reason::jsonb)->>'with_rev' or not f.active)) or
+        ((q.reason::jsonb)->>'id' is null and f.alias = (q.reason::jsonb)->>'alias' and (f.text <> (q.reason::jsonb)->>'text' or not f.active)) or
+        ((q.reason::jsonb)->>'with_id' is null and f.alias = (q.reason::jsonb)->>'with' and (f.text <> (q.reason::jsonb)->>'with_text' or not f.active))))))"""
+
+
+def _side(cur, host, fid, alias):
+    """(id, text, revision, active, alias) of one side by fragment id (fragments are never deleted), else by alias (rows
+    from before 0012). None when the alias is gone: that is unknown, never 'retired' (astra 0012 review P1-4)."""
+    if fid:
+        cur.execute("select id::text, text, revision, active, alias from knowledge.fragment where id=%s and host_id=%s for share",
+                    (fid, host))
+    else:
+        cur.execute("select id::text, text, revision, active, alias from knowledge.fragment where alias=%s and host_id=%s for share",
+                    (alias, host))
+    return cur.fetchone()
+
+
+def _merged_into(cur, host, side):
+    """astra 0012 round 2: cleanup merges a fragment by rewriting the survivor and retiring the other in one transaction
+    (same actor 'cleanup:*', same changed_at). -> the active survivor side, 'untracked' for a merge whose survivor is not
+    found, or None when the retirement was a plain deprecation."""
+    cur.execute("""select actor, changed_at from knowledge.fragment_history where fragment_id=%s and op='deprecate'
+                   order by revision desc limit 1""", (side[0],))
+    dep = cur.fetchone()
+    if not dep or not (dep[0] or "").startswith("cleanup:"):
+        return None
+    cur.execute("""select h.fragment_id::text from knowledge.fragment_history h join knowledge.fragment f on f.id=h.fragment_id
+                   where h.actor=%s and h.changed_at=%s and h.op='update' and h.fragment_id<>%s and f.host_id=%s and f.active""",
+                (dep[0], dep[1], side[0], host))
+    rows = cur.fetchall()
+    return _side(cur, host, rows[0][0], None) if len(rows) == 1 else "untracked"
+
+
+def recheck_contradictions(dsn, judge, limit=5):
+    """0012: judge again the contradictions whose side changed (or retired) since they were judged, oldest-checked first.
+    Retired side -> resolved; judged not contradicting -> resolved with the revisions judged; still contradicting ->
+    this row is superseded (keeps its answer) and a new question is asked with the current texts. Applied with a
+    revision CAS: a side that changed during the judge call is retried later. A failing row never blocks the others.
+    An answer alone never resolves. -> counts."""
+    import fact_text
+    out = {"rechecked": 0, "resolved": 0, "reopened": 0, "failed": 0, "retried": 0}
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select q.confirmation_id " + _RECHECK_DUE +
+                    " order by q.rechecked_at nulls first, q.confirmation_id limit %s", (limit,))
+        due = [r[0] for r in cur.fetchall()]
+    for qid in due:
+        out["rechecked"] += 1
+        try:
+            with connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute("""select q.reason, q.resolution, e.host_id from knowledge.confirmation_queue q
+                               join knowledge.ledger_entry e on e.entry_id=q.entry_id where q.confirmation_id=%s""", (qid,))
+                reason, resolution, host = cur.fetchone()
+                cur.execute("update knowledge.confirmation_queue set rechecked_at=now() where confirmation_id=%s", (qid,))
+                r = json.loads(reason)
+                a, b = _side(cur, host, r.get("id"), r["alias"]), _side(cur, host, r.get("with_id"), r["with"])
+                merged = {}
+                for name in ("a", "b"):
+                    side = a if name == "a" else b
+                    if side is not None and not side[3]:
+                        succ = _merged_into(cur, host, side)
+                        if succ == "untracked":
+                            side = None  # merged but the survivor is unknown: stays unresolved
+                        elif succ is not None:
+                            merged[name] = side[4]
+                            side = succ
+                    if name == "a":
+                        a = side
+                    else:
+                        b = side
+            if a is None or b is None or a[0] == b[0]:
+                out["failed"] += 1  # a side cannot be found or both merged into one: stays as is, never 'retired'
+                continue
+            seen = (a[2], b[2])
+            if not a[3] or not b[3]:  # plainly deprecated (not a merge)
+                verdict, evidence = "resolved", {"by": "a side retired", "ids": [a[0], b[0]], "revisions": list(seen)}
+            else:
+                answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
+                [(_, ans)] = list(_judged([b], answers))
+                score = _strict_noul(ans)
+                verdict = "open" if score >= CONTRA_KEEP else "resolved"
+                evidence = {"by": "rejudged", "ids": [a[0], b[0]], "revisions": list(seen), "noul": score}
+            with connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute("select resolution, reason from knowledge.confirmation_queue where confirmation_id=%s for update", (qid,))
+                now_res, now_reason = cur.fetchone()
+                a2, b2 = _side(cur, host, a[0], r["alias"]), _side(cur, host, b[0], r["with"])
+                if now_res not in ("open", "recheck") or now_reason != reason or (a2[2], b2[2]) != seen:
+                    out["retried"] += 1  # changed during the judge call: judged again on a later tick
+                    continue
+                if verdict == "resolved":
+                    cur.execute("""update knowledge.confirmation_queue set resolution='resolved', resolved_at=now(),
+                                resolution_evidence=%s, status=case when status='pending'
+                                then 'answered'::knowledge.confirmation_status else status end,
+                                answered_at=coalesce(answered_at, now()) where confirmation_id=%s""", (_json(evidence), qid))
+                    out["resolved"] += 1
+                    continue
+                if merged:
+                    evidence["merged"] = merged
+                same_text = not merged and r["text"] == a[1] and r["with_text"] == b[1]
+                if same_text and resolution == "recheck":  # still the same pair, nothing new to ask: back to open
+                    cur.execute("update knowledge.confirmation_queue set resolution='open' where confirmation_id=%s", (qid,))
+                    continue
+                # still contradicting with new text: keep this row (and its answer); ask a new question
+                cur.execute("""select entry_id, fact_index from knowledge.confirmation_queue where confirmation_id=%s""", (qid,))
+                entry_id_, fact_index_ = cur.fetchone()
+                cur.execute("""update knowledge.confirmation_queue set resolution='superseded', resolved_at=now(),
+                            resolution_evidence=%s, status=case when status='pending'
+                            then 'answered'::knowledge.confirmation_status else status end,
+                            answered_at=coalesce(answered_at, now()) where confirmation_id=%s""",
+                            (_json({**evidence, "by": "asked again with the current texts"}), qid))
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,resolution)
+                            values (%s,%s,'canon_contradiction',%s,'open') on conflict do nothing returning confirmation_id""",
+                            (entry_id_, fact_index_, _json({**r, "alias": a[4], "with": b[4], "text": a[1], "with_text": b[1],
+                                                            "id": a[0], "rev": seen[0], "with_id": b[0], "with_rev": seen[1],
+                                                            "previous": qid})))
+                out["reopened"] += 1
+        except Exception:
+            out["failed"] += 1  # this row only; rechecked_at moved it to the back of the queue
+    return out
 
 
 def _assign_subject(cur, host, fact, fixture):

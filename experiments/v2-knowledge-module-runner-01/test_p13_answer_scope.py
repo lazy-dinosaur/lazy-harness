@@ -34,8 +34,8 @@ def test_answer_closes_only_the_questions_shown(dsn, host):
     assert len(shown["question_ids"]) == 1
     # a new contradiction of the same fragment is found after the user was asked
     with pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
-                       select entry_id,fact_index,rule_id, jsonb_set(reason::jsonb,'{with}','"late"')::text
+        cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,resolution)
+                       select entry_id,fact_index,rule_id, jsonb_set(reason::jsonb,'{with}','"late"')::text, 'open'
                        from knowledge.confirmation_queue where confirmation_id=%s""", (shown["question_ids"][0],))
     with pytest.raises(ValueError):  # no ids: the answer is not bound to what was shown
         pg.review_resolve(dsn, host, shown["entry_id"], shown["fact_index"], "approve", "1000이 맞아", "t")
@@ -44,7 +44,8 @@ def test_answer_closes_only_the_questions_shown(dsn, host):
         cur.execute("""select count(*) from knowledge.confirmation_queue where entry_id=%s and fact_index=%s
                        and rule_id='canon_contradiction' and status='pending'""", (shown["entry_id"], shown["fact_index"]))
         assert cur.fetchone()[0] == 1  # the late one is still asked
-        cur.execute("""update knowledge.confirmation_queue set status='answered' where entry_id=%s and rule_id='canon_contradiction'""",
+        cur.execute("""update knowledge.confirmation_queue set status='answered', resolution='resolved', resolved_at=now(),
+                       resolution_evidence='{"by":"test"}' where entry_id=%s and rule_id='canon_contradiction'""",
                     (shown["entry_id"],))  # leave the shared DB clean
 
 
