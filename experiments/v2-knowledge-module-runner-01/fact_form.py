@@ -18,6 +18,48 @@ GUIDE = ("연결은 영어 연산자로 쓴다: IF 조건 THEN 결과, A AND B, 
          "각 조각은 주어 하나와 서술 하나의 한국어 문장이고 부정은 문장 안에 둔다.")
 
 
+# flow3 (2026-10-01): parents bypassed E_FORM with noun lists of actions ('X 판단과 Y 저장 및 Z 유지이다'), several facts in
+# one sentence. An action noun followed by 과/와 or 및 is such a list; '-하여/-되어/-해서' chain two predicates.
+ACTION_NOUN = ("저장", "거부", "판단", "유지", "확인", "제거", "검증", "검사", "절단", "사용", "생성", "수정", "갱신",
+               "보장", "불변", "삭제", "추가", "변경", "처리", "적용", "차단", "허용", "정렬", "반환", "호출", "전달",
+               "표시", "기록", "실행", "재시도", "무시", "자르기", "생략", "복구", "초기화", "보존", "대체", "반영")
+NOMINALIZED = re.compile(r"(음|기)$")
+CHAIN_PRED = ("하여", "되어", "해서", "돼서")
+CHAIN_PRED_OK = ("위하여", "위해서", "대하여", "대해서", "의하여", "의해서", "통하여", "통해서")
+
+
+def _action(stem):
+    return stem.endswith(ACTION_NOUN) or (len(stem) >= 2 and NOMINALIZED.search(stem) is not None and stem not in ("마음", "처음", "다음"))
+
+
+LIGHT_VERB = ("보장한다", "적용한다", "수행한다", "담당한다", "제공한다", "가진다", "갖는다", "한다", "이룬다")
+
+
+def noun_list(leaf):
+    """A '-하여' predicate chain, or actions listed as the predicate: after the subject, two or more action-noun joints
+    ('판단과 … 저장 및 … 유지이다'), or one joint closed by a copula or a light verb ('저장과 … 불변을 보장한다').
+    A list in the subject ('재시도와 coalescing은') or as the object of a real verb ('전달과 상태를 유지한다') is one fact."""
+    toks = re.findall(r"[가-힣]+", leaf)
+    for i, t in enumerate(toks):
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        if t.endswith(CHAIN_PRED) and not t.endswith(CHAIN_PRED_OK) and not nxt.startswith("있"):
+            return t
+    start = max([i + 1 for i, t in enumerate(toks) if (t.endswith(("은", "는")) and len(t) >= 2) or t in ("것이", "것은")] or [0])
+    joints = []
+    for i in range(start, len(toks)):
+        t = toks[i]
+        if t.endswith(("과", "와")) and len(t) >= 3 and _action(t[:-1]):
+            joints.append(t)
+        elif t == "및" and i > 0 and _action(toks[i - 1]):
+            joints.append(toks[i - 1] + " 및")
+    if not joints:
+        return None
+    last = toks[-1] if toks else ""
+    if len(joints) >= 2 or last.endswith(("이다", "였다", "이었다")) or last in LIGHT_VERB or last.endswith(LIGHT_VERB[:6]):
+        return joints[0]
+    return None
+
+
 def chain_token(leaf):
     """Clause connective inside a leaf, or None. Noun-modifying '~할 때' is allowed; conditions use IF."""
     for t in re.findall(r"[가-힣]+", leaf):
@@ -57,6 +99,12 @@ def check(text):
         c = chain_token(leaf)
         if c:
             errs.append(f"'{leaf[:40]}' 안에 절을 잇는 '{c}' 가 있다. " + GUIDE)
+            continue
+        n = noun_list(leaf)
+        if n:
+            errs.append(f"'{leaf[:40]}' 은 동작을 '{n}' 로 나열해 사실 여러 개를 한 문장에 담았다. "
+                        "동작마다 주어+동사 문장으로 쓰고 AND 로 잇거나 따로 기록한다. "
+                        "예: 'X는 설명을 저장한다 AND X는 기존 설명을 유지한다'. " + GUIDE)
     head = ops[0] if ops else None
     if head in ("IF", "BEFORE", "AFTER") and parts[0][1]:
         errs.append(f"{head} 는 문장 맨 앞에 쓴다")

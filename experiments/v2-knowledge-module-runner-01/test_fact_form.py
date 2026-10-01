@@ -51,3 +51,18 @@ def test_record_rejects_a_fact_that_is_not_in_the_form(dsn, host):
 
 
 from test_store_pg import host  # noqa: E402,F401 (fixture)
+
+
+def test_action_noun_lists_are_rejected_but_lists_of_things_pass():
+    """flow3 (2026-10-01): parents bypassed E_FORM with noun lists of actions."""
+    for t in ["X의 동작은 설명을 통한 라우팅 판단과 최초 생성 시 1000자 설명 저장 및 기존 설명 유지이다",
+              "X는 최초 생성 시 최대 1000자 저장과 기존 설명 불변을 보장한다",
+              "X의 입력 검증은 문자열 타입 확인과 빈 입력 거부 및 1000자 초과 설명의 오류 거부이다",
+              "X는 1000자 이하 제한을 검증하여 위반 입력을 오류로 거부한다"]:
+        assert any("나열" in e or "하여" in e for e in fact_form.check(t)), (t, fact_form.check(t))
+    for t in ["SquareChat 방 음소거는 메시지 전달과 unread 상태를 유지한다",
+              "채팅의 제한된 1회 재시도와 최신 1건 coalescing은 좁은 회귀 수정이다",
+              "X는 설명의 앞뒤 공백과 줄바꿈 제거 후 300자 제한을 검사한다",
+              "IF SquareChat 방이 음소거되어 있다 THEN SquareChat은 소리를 내지 않는다",
+              "X는 성능을 위하여 캐시를 쓴다"]:
+        assert fact_form.check(t) == [], (t, fact_form.check(t))

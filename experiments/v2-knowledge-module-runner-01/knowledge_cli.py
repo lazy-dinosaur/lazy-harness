@@ -151,6 +151,10 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 fact["subject_new"] = True
         if fact.get("operation", "add") != "deprecate":  # schema-delta '지식 문장 형식': operators between Korean leaves
             import fact_form
+            subj_ = fact.get("subject") if isinstance(fact.get("subject"), str) else ""
+            if re.search(r"\S(와|과) \S", subj_) or len(subj_) > 30:  # flow3: descriptive subjects split the dictionary
+                warnings.append({"code": "W_SUBJECT", "where": f"facts.{index}.subject",
+                                 "detail": "주어는 짧은 대상 이름 하나로 쓴다(나열·설명은 문장 안에). 예: 'store_pg.py' 와 'digest_driver.py' 를 따로"})
             form_errors = fact_form.check(fact.get("fact"))
             for detail in form_errors:
                 errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
