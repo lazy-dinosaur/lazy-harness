@@ -278,6 +278,7 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         if fact_index in answers:
             raise ValueError("fact already resolved")
         answer = _json({"decision": decision, "quote": quote, "locator": locator})
+        bulk = {}  # other entries of the unit answered by this one stale-base answer
         if fact_index in parked:
             cur.execute("""update knowledge.confirmation_queue set status='answered',answer=%s,answered_at=now()
                         where entry_id=%s and fact_index=%s and rule_id=%s and status='pending'""",
@@ -293,6 +294,8 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
                             (answer, other_entry, other, DIGEST_RULE))
                 if other_entry == entry_id:
                     answers[other] = decision
+                else:
+                    bulk.setdefault(other_entry, {})[other] = decision
         else:
             cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
                         values (%s,%s,%s,%s,'answered',%s,now())""",
@@ -309,8 +312,27 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
             target = "closed"
         if target:
             _transition(cur, entry, target, "human")
+        for other_entry, decided in bulk.items():  # flow3 P2: reopen them too, or their changes never reach the canon
+            _reopen(cur, other_entry, decided, ready)
         return {"entry_id": entry_id, "fact_index": fact_index, "decision": decision,
                 "entry_state": entry["state"], "pending_in_entry": len(pending)}
+
+
+def _reopen(cur, entry_id, decided, ready):
+    """Move an entry whose waiting facts were answered (decided: {fact_index: decision}) so digestion picks it up."""
+    cur.execute("select entry_id::text,state::text from knowledge.ledger_entry where entry_id=%s for update", (entry_id,))
+    entry = _row(cur)
+    receipts = {r["fact_index"]: r for r in _receipts(cur, entry_id, "worktime")}
+    answers, parked, done = _review_answers(cur, entry_id), _pending_digest(cur, entry_id), _absorbed_facts(cur, entry_id)
+    answers.update(decided)
+    waiting = lambda i: receipts[i]["combined"] == "needs_review" or i in parked or i in decided
+    pending = [i for i in receipts if waiting(i) and i not in answers]
+    digestible = [i for i in receipts if i not in done and answers.get(i) != "reject"
+                  and (answers.get(i) == "approve" or not waiting(i))]
+    if digestible and entry["state"] in ("review_queue", "absorbed", "retained_as_evidence"):
+        _transition(cur, entry, ready, "human")
+    elif entry["state"] == "review_queue" and not pending:
+        _transition(cur, entry, "closed", "human")
 
 
 def _history_max(cur, host):

@@ -100,3 +100,17 @@ def test_digestion_rechecks_names_registered_after_the_record(dsn, host):
     assert out == {"scanned": 1, "contradictions": 1}, out
     logged = [q for q in pg.rows(dsn, "confirmation_queue") if q["rule_id"] == "canon_contradiction" and q["entry_id"] == e2["entry_id"]]
     assert len(logged) == 1 and "예약관리는 30분" in str(logged[0]["reason"])
+
+
+def test_flow3_r2_wrong_merges_and_broken_rewrites_are_blocked():
+    always = lambda state, texts, q: [0.99 for _ in texts]
+    assert subject_dict.decide("도메인 설명 길이", [{"name": "도메인 설명", "subject_id": "x"}], always) is None
+    assert subject_dict.decide("domain describe", [{"name": "도메인 설명", "subject_id": "x"}], always) is None
+    assert subject_dict.decide("예약 관리 기능", [{"name": "예약관리", "subject_id": "x"}], always)["name"] == "예약관리"
+    r = subject_dict.rewrite
+    assert r("도메인 설명 길이는 1000자다", "도메인 설명", "도메인 설명 길이") == "도메인 설명 길이는 1000자다"
+    assert r("CALL 화면은 소리를 낸다", "CALL 화면", "CALL") == "CALL은 소리를 낸다"
+    assert r("자동 생성 설명은 잘린다", "자동 생성 설명", "예약관리") == "예약관리는 잘린다"
+    assert r("IF A가 없다 THEN 예약 관리 기능에서 취소된다 AND 예약 관리 기능은 닫힌다", "예약 관리 기능", "예약관리") == \
+        "IF A가 없다 THEN 예약관리에서 취소된다 AND 예약관리는 닫힌다"
+    assert r("x.py의 ensure는 자른다", "ensure", "domain_router.ensure") == "x.py의 domain_router.ensure는 자른다"

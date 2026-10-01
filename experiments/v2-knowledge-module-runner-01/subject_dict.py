@@ -13,7 +13,7 @@ import re
 import embed
 
 COS_MIN = 0.83   # e5 candidate floor for the same-entity question
-SAME_KEEP = 0.7  # Jev same-entity probability to reuse an existing name
+SAME_KEEP = 0.9  # Jev same-entity probability to reuse an existing name (flow3 r2: 0.7 merged 'domain describe' into '도메인 설명')
 TOP = 5
 # generic tails that do not change the entity; 테스트/SDD/문서/규칙 are NOT here (they name a different thing)
 TAIL = re.compile(r"(?:\s*(?:화면|기능|페이지|함수|동작|창))+$")
@@ -78,8 +78,21 @@ def nearest(cur, host, vector, after=None, k=TOP):
     return out
 
 
+CODE_LIKE = re.compile(r"[A-Za-z_`./]")
+
+
+def _compatible(a, b):
+    """flow3 r2 (2026-10-01): never ask Jev to merge a name into one that contains it ('도메인 설명' / '도메인 설명 길이' are
+    two things) or a code identifier into a Korean concept ('domain describe' / '도메인 설명')."""
+    x, y = re.sub(r"\s+", "", core(a)), re.sub(r"\s+", "", core(b))
+    if x != y and (x in y or y in x):
+        return False
+    return bool(CODE_LIKE.search(a)) == bool(CODE_LIKE.search(b))
+
+
 def decide(name, cands, same, sentence=None):
     """same(state, texts, question) -> [probability]; Jev sees both subjects with their sentences (JSON)."""
+    cands = [c for c in (cands or []) if _compatible(name, c["name"])]
     if not cands or same is None:
         return None
     state = {"new": {"name": name, "sentences": [sentence[:200]] if isinstance(sentence, str) and sentence else []}}
@@ -89,8 +102,43 @@ def decide(name, cands, same, sentence=None):
     return cands[k] if k is not None and best >= SAME_KEEP else None
 
 
+PARTICLES = (("으로", "로"), ("은", "는"), ("이", "가"), ("을", "를"), ("과", "와"))
+
+
+def _jong(word):
+    w = re.sub(r"[`'\"\s)]+$", "", word)
+    ch = w[-1:] if w else ""
+    if not ch:
+        return False
+    o = ord(ch) - 0xAC00
+    if 0 <= o < 11172:
+        return o % 28 != 0
+    if ch.isdigit():
+        return ch in "013678"
+    return ch.lower() in "lmn" or w.lower().endswith("ng")
+
+
+def _particle(new, p):
+    for a, b in PARTICLES:
+        if p in (a, b):
+            if a == "으로":
+                return "로" if (not _jong(new) or new.rstrip("`").endswith(("ㄹ", "l", "L"))) else "으로"
+            return a if _jong(new) else b
+    return p
+
+
 def rewrite(text, old, new):
-    return text.replace(old, new, 1) if old and new and old != new and old in text else text
+    """Replace the subject where it stands as a word (whole name, any particle fixed for the new name). An occurrence that
+    already reads as the longer new name is left alone: '도메인 설명 길이는' would become '도메인 설명 길이 길이는' (flow3 r2)."""
+    if not old or not new or old == new or old not in text:
+        return text
+    pat = re.compile(r"(?<![0-9A-Za-z가-힣_])" + re.escape(old) +
+                     r"(으로|로|은|는|이|가|을|를|과|와|에서|에게|에|의|도|만|부터|까지|보다|처럼)?(?![0-9A-Za-z가-힣_])")
+    def one(m):
+        if len(new) > len(old) and text.startswith(new, m.start()):
+            return m.group(0)
+        return new + (_particle(new, m.group(1)) if m.group(1) else "")
+    return pat.sub(one, text)
 
 
 def add_alias(cur, host, alias, subject_id):
