@@ -11,11 +11,12 @@ create function knowledge.valid_form_expr(e jsonb, depth int default 0) returns 
 language plpgsql immutable set search_path = '' as $$
 declare a jsonb;
 begin
-  if depth > 8 or e is null or jsonb_typeof(e) <> 'object' then return false; end if;
+  if depth > 8 or e is null or jsonb_typeof(e) is distinct from 'object' then return false; end if;
   if e ? 'leaf' then
-    return jsonb_typeof(e->'leaf') = 'string' and length(btrim(e->>'leaf')) > 0;
+    return coalesce(jsonb_typeof(e->'leaf') = 'string' and length(btrim(e->>'leaf')) > 0, false);
   end if;
-  if (e->>'op') not in ('AND', 'OR') or jsonb_typeof(e->'args') <> 'array' or jsonb_array_length(e->'args') < 2 then
+  if coalesce(e->>'op', '') not in ('AND', 'OR') or jsonb_typeof(e->'args') is distinct from 'array'
+     or jsonb_array_length(e->'args') < 2 then
     return false;
   end if;
   for a in select value from jsonb_array_elements(e->'args') loop
@@ -30,20 +31,21 @@ language plpgsql immutable set search_path = '' as $$
 declare t jsonb;
 begin
   if f is null then return true; end if;
-  if jsonb_typeof(f) <> 'object' or (f->>'kind') not in ('plain', 'if', 'before', 'after') then return false; end if;
-  if jsonb_typeof(f->'then') <> 'array' or jsonb_array_length(f->'then') < 1 then return false; end if;
+  -- review P1 (2026-10-01): a missing key is SQL NULL and must fail, not pass ('{}' was accepted)
+  if jsonb_typeof(f) is distinct from 'object' or coalesce(f->>'kind', '') not in ('plain', 'if', 'before', 'after') then return false; end if;
+  if jsonb_typeof(f->'then') is distinct from 'array' or jsonb_array_length(f->'then') < 1 then return false; end if;
   if (f->>'join') is not null and (f->>'join') not in ('AND', 'OR') then return false; end if;
   for t in select value from jsonb_array_elements(f->'then') loop
-    if jsonb_typeof(t) <> 'string' or length(btrim(t #>> '{}')) = 0 then return false; end if;
+    if jsonb_typeof(t) is distinct from 'string' or length(btrim(t #>> '{}')) = 0 then return false; end if;
   end loop;
   if (f->>'kind') = 'if' and not knowledge.valid_form_expr(f->'if') then return false; end if;
   if (f->>'kind') <> 'if' and f ? 'if' then return false; end if;
   if f ? 'even_if' and ((f->>'kind') <> 'if' or not knowledge.valid_form_expr(f->'even_if')) then return false; end if;
   if f ? 'except' and not knowledge.valid_form_expr(f->'except') then return false; end if;
-  if (f->>'kind') in ('before', 'after') and (jsonb_typeof(f->'anchor') <> 'string' or length(btrim(f->>'anchor')) = 0) then
+  if (f->>'kind') in ('before', 'after') and (jsonb_typeof(f->'anchor') is distinct from 'string' or coalesce(length(btrim(f->>'anchor')), 0) = 0) then
     return false;
   end if;
-  if f ? 'because' and jsonb_typeof(f->'because') <> 'string' then return false; end if;
+  if f ? 'because' and jsonb_typeof(f->'because') is distinct from 'string' then return false; end if;
   return true;
 end;
 $$;

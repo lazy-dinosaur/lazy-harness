@@ -25,7 +25,7 @@ def test_condition_endings():
 def test_rules_render_naturally_and_keep_leaves():
     t, how = ko("IF 보관 위치가 없다 OR 보관 위치가 비활성 상태다 THEN 첨부 파일은 고아 첨부로 분류된다 AND 첨부 파일은 목록에 보이지 않는다")
     assert how == "natural" and t == ("보관 위치가 없거나 보관 위치가 비활성 상태이면 첨부 파일은 고아 첨부로 분류된다. "
-                                      "첨부 파일은 목록에 보이지 않는다."), t
+                                      "보관 위치가 없거나 보관 위치가 비활성 상태이면 첨부 파일은 목록에 보이지 않는다."), t
     t, how = ko("IF MCP가 정보를 제공할 수 있다 EVEN IF REST PAT가 실패한다 THEN 에이전트는 MCP를 활성 경로로 쓴다")
     assert how == "natural" and t == "REST PAT가 실패하더라도 MCP가 정보를 제공할 수 있으면 에이전트는 MCP를 활성 경로로 쓴다.", t
     t, how = ko("IF 사용자가 버튼을 누른다 THEN 창은 닫힌다 EXCEPT WHEN 관리자가 잠금을 걸었다")
@@ -57,7 +57,7 @@ def test_repeated_topic_and_before_read_naturally():
     t, how = ko("IF 사람은 부서에 들어온다 THEN 사람은 접근을 얻는다")
     assert (t, how) == ("사람은 부서에 들어오면 접근을 얻는다.", "natural"), t
     t, how = ko("IF 창은 숨겨져 있다 THEN 창은 알림을 보이지 않는다 AND 창은 소리를 낸다")
-    assert (t, how) == ("창은 숨겨져 있으면 알림을 보이지 않는다. 창은 소리를 낸다.", "natural"), t
+    assert (t, how) == ("창은 숨겨져 있으면 알림을 보이지 않는다. 창은 숨겨져 있으면 소리를 낸다.", "natural"), t
     t, how = ko("BEFORE `chat.markAsRead`는 읽음 상태를 갱신한다 THEN 행을 잠근다")
     assert (t, how) == ("먼저 행을 잠근다. 그다음 `chat.markAsRead`는 읽음 상태를 갱신한다.", "natural"), t
 

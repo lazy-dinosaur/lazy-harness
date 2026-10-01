@@ -806,7 +806,7 @@ def _write_form(cur, host, fragment_id, revision, fact, subject_id):
                        values (%s,%s,%s,%s,%s,%s,%s)""", (fragment_id, revision, ord_, leaf["role"], leaf["text"], sid, leaf["polarity"]))
 
 
-def _canon_duplicate(cur, host, fact):
+def _canon_duplicate(cur, host, fact, changing=frozenset()):
     """Alias of an active canonical fact of the same subject that is the same fact (dedup.same_fact), else None.
     Read only; the subject is looked up, never registered here."""
     import dedup
@@ -815,12 +815,25 @@ def _canon_duplicate(cur, host, fact):
     hit = subject_dict.lookup(cur, host, name) if isinstance(name, str) and name.strip() else None
     if not hit:
         return None
-    cur.execute("""select alias, text from knowledge.fragment where host_id=%s and subject_id=%s and active
+    cur.execute("""select id::text, alias, text from knowledge.fragment where host_id=%s and subject_id=%s and active
                    order by updated_at desc limit 200""", (host, hit["subject_id"]))
-    for alias, text in cur.fetchall():
+    for fid, alias, text in cur.fetchall():
+        if fid in changing:
+            continue  # updated or deprecated in this same pass (review P1): not part of the canon after the commit
         if dedup.same_fact(fact.get("fact"), text):
             return alias
     return None
+
+
+def units_to_scan(dsn, limit=5):
+    """Units with absorbed fragments the canon scan has not marked (a scan that failed after the commit, review P1)."""
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select distinct a.work_unit_id::text from knowledge.absorption a
+                       where a.decision::text='absorbed' and a.fragment_ref is not null
+                       and not exists (select 1 from knowledge.confirmation_queue q where q.entry_id=a.entry_id
+                                       and q.fact_index=a.fact_index and q.rule_id in ('canon_scanned','canon_contradiction'))
+                       limit %s""", (limit,))
+        return [r[0] for r in cur.fetchall()]
 
 
 def _atomic(entry):
@@ -989,6 +1002,12 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         continue
                 decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=fact.get("operation", "add")),
                                     fact.get("operation", "add"))
+                if decision["combined"] == "duplicate_skip" and fact.get("operation") in ("update", "deprecate"):
+                    import dedup
+                    # review P1 (2026-10-01): a change is a command; it is skipped only when the code sees no change
+                    if fact["operation"] == "deprecate" or not (current and dedup.same_fact(fact["fact"], current["text"])):
+                        decision = {**decision, "combined": {"update": "update_record", "deprecate": "deprecate_record"}[fact["operation"]],
+                                    "review_reasons": []}
                 if False:  # no second-opinion review: the digestion judgement only filters duplicates
                     # Park only this fact for a human; the rest of the unit keeps digesting.
                     deferred.append((entry, old, decision))
@@ -1026,9 +1045,11 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             import dedup
             batch = [fact["fact"] for _, _, fact, _, _, verdict in prepared
                      if verdict["action"] == "absorb" and fact.get("operation") == "update"]
+            changing = {str(fact.get("target_ref")) for _, _, fact, _, _, verdict in prepared
+                        if verdict["action"] == "absorb" and fact.get("operation") in ("update", "deprecate")}
             for k, (entry, old, fact, fixture, current, verdict) in enumerate(prepared):
                 if verdict["action"] == "absorb" and fact.get("operation", "add") == "add" and not old["human_approved"]:
-                    if _canon_duplicate(cur, entry["host_id"], fact):
+                    if _canon_duplicate(cur, entry["host_id"], fact, changing):
                         prepared[k] = (entry, old, fact, fixture, current, {"rule_id": CANON_DUP_RULE, "action": "retain_as_evidence"})
                     elif dedup.find_duplicate(fact["fact"], batch) is not None:
                         prepared[k] = (entry, old, fact, fixture, current, {"rule_id": BATCH_DUP_RULE, "action": "retain_as_evidence"})

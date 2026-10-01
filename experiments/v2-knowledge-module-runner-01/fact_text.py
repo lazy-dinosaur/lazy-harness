@@ -189,16 +189,19 @@ def to_korean(form):
         dropped = []
         if kind == "if":
             last_cond = fact_form._expr_leaves(form["if"])[-1]
-            first, d = _drop_topic(last_cond, then[0])
-            if d and form.get("join") != "OR":
-                results[0] = _sentence(first)
-                dropped.append(d)
+            if form.get("join") != "OR":
+                for k_, t_ in enumerate(then):  # every result under the condition drops the repeated topic
+                    first, d = _drop_topic(last_cond, t_)
+                    if d:
+                        results[k_] = _sentence(first)
+                        dropped.append(d)
             lead = _cond(form["if"], "면")
             if form.get("even_if"):
                 lead = _cond(form["even_if"], "더라도") + " " + lead
-            body = lead + " " + results[0] + (" " + " ".join(results[1:]) if results[1:] else "")
+            body = lead + " " + results[0]
             if len(results) > 1:
-                body = lead + " " + " ".join(r.rstrip(".") + "." for r in results)
+                # review P1 (2026-10-01): 'C면 A다. B다.' reads B as unconditional — each result repeats the condition
+                body = " ".join(lead + " " + r for r in results)
         elif kind == "after":
             body = _sentence(form["anchor"]) + " 그 뒤 " + " ".join(results)
         elif kind == "before":

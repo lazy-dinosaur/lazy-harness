@@ -62,7 +62,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_tree", async (_event, ctx) => restore(ctx));
 
   type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit" | "review";
-  const LONG = new Set<Command>(["search", "more", "brief", "fix_plan", "fix_submit", "audit"]);
+  const LONG = new Set<Command>(["search", "more", "brief", "fix_plan", "fix_submit", "audit", "record"]);  // record calls Jev (review P1)
   // user/assistant text of the current branch (tool results and thinking excluded), newest last
   const transcript = (ctx: ExtensionContext, limit: number) => {
     const out: { role: string; text: string }[] = [];

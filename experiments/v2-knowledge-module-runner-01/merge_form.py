@@ -44,6 +44,8 @@ def _then(base, theirs, mine):
     new_t, new_m = [x for x in theirs if x not in B], [x for x in mine if x not in B]
     if (gone_t & gone_m) and new_t and new_m and new_t != new_m:
         raise Conflict  # the same sentence rewritten on both sides
+    if (gone_t & gone_m) and bool(new_t) != bool(new_m):
+        raise Conflict  # deleted on one side, rewritten on the other (review P1, 2026-10-01): not both
     out = [x for x in base if x not in gone_t and x not in gone_m]
     for x in new_t + new_m:
         if x not in out:

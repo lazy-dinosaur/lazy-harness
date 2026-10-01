@@ -136,6 +136,17 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     skipped["failed"] += 1
                     _failure(hints, key, now, max_attempts, base_delay)
                 _save(state, hints)
+            if contra_judge is not None:  # review P1: retry canon scans that did not finish after their commit
+                for uid_ in store_pg.units_to_scan(dsn):
+                    key = "scan:" + uid_
+                    if _blocked(hints, key, now, skipped):
+                        continue
+                    try:
+                        store_pg.scan_contradictions(dsn, uid_, contra_judge)
+                        hints.pop(key, None)
+                    except Exception:
+                        _failure(hints, key, now, max_attempts, base_delay)
+                _save(state, hints)
             selected = []
             for entry_id in entries:
                 if len(selected) >= remaining:
