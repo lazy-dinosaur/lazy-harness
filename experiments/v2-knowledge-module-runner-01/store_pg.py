@@ -142,7 +142,8 @@ def backfill_embeddings(dsn, host, variant="plain", limit=None):
 
 def rows(dsn, table):
     if table not in {"host", "fragment", "fragment_history", "work_unit", "work_unit_event", "ledger_entry",
-                     "ledger_entry_event", "check_receipt", "absorption", "confirmation_queue", "question_template", "subject"}:
+                     "ledger_entry_event", "check_receipt", "absorption", "confirmation_queue", "question_template", "subject",
+                     "fragment_leaf"}:
         raise ValueError("unknown table")
     with connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(f"select * from knowledge.{table}")
@@ -688,6 +689,31 @@ def _assign_subject(cur, host, fact, fixture):
     return subject_dict.register(cur, host, name, routed.get("vector")), fact
 
 
+def _form_of(fact):
+    """0010: the stored form follows the text (a 3-way merge may have changed the text after the record parsed it)."""
+    import fact_form
+    return fact_form.parse(fact["fact"])
+
+
+def _write_form(cur, host, fragment_id, revision, fact, subject_id):
+    """0010: one fragment_leaf row per sentence; a leaf's subject is the fact subject when the leaf states it, otherwise
+    the leaf's own head noun matched or registered in the dictionary (digestion is its only writer)."""
+    import fact_form
+    import subject_dict
+    form = _form_of(fact)
+    subject = fact.get("subject") if isinstance(fact.get("subject"), str) else ""
+    for ord_, leaf in enumerate(fact_form.leaves(form)):
+        sid = None
+        if subject and subject in leaf["text"]:
+            sid = subject_id
+        else:
+            head = runner.SUBJECT_HEAD.match(leaf["text"] + " ")
+            if head and head.group(1).strip():
+                sid = subject_dict.register(cur, host, head.group(1).strip())
+        cur.execute("""insert into knowledge.fragment_leaf(fragment_id,revision,ord,role,text,subject_id,polarity)
+                       values (%s,%s,%s,%s,%s,%s,%s)""", (fragment_id, revision, ord_, leaf["role"], leaf["text"], sid, leaf["polarity"]))
+
+
 def _atomic(entry):
     body = entry["judgement_body"]
     return bool(body.get("atomic")) or any(f.get("operation") in ("update", "deprecate") for f in body.get("facts", []))
@@ -867,13 +893,14 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                                                         [old["receipt_id"], receipt_id], store.now(), next_seq(cur, entry["host_id"], domain))
                         ref = fragment["id"]
                         cur.execute("""insert into knowledge.fragment(id,host_id,alias,domain,seq,text,keywords,kind,group_id,
-                                    revision,active,confidence,source,valid_from,superseded_at,subject_id)
-                                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)""",
+                                    revision,active,confidence,source,valid_from,superseded_at,subject_id,form)
+                                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s::jsonb)""",
                                     (ref, fragment["host_id"], fragment["alias"], fragment["domain"], fragment["seq"],
                                      fragment["text"], fragment["keywords"], fragment["kind"], fragment["group_id"],
                                      1, True, fragment["confidence"], _json(fragment["source"]), fragment["valid_from"], None,
-                                     subject_id))
+                                     subject_id, _json(_form_of(fact))))
                         latest = 1
+                        _write_form(cur, entry["host_id"], ref, 1, fact, subject_id)
                         try:
                             vector = embed.encode_passages([fragment["text"]])[0]
                         except embed.EmbeddingUnavailable:
@@ -887,13 +914,17 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         cur.execute("""update knowledge.fragment set revision=revision+1,
                                     text=case when %s='update' then %s else text end,
                                     active=case when %s='deprecate' then false else active end,
-                                    subject_id=coalesce(%s::uuid, subject_id)
+                                    subject_id=coalesce(%s::uuid, subject_id),
+                                    form=case when %s='update' then %s::jsonb else form end
                                     where id=%s and revision=%s returning revision""",
-                                    (operation, fact["fact"], operation, subject_id, ref, current["revision"]))
+                                    (operation, fact["fact"], operation, subject_id, operation,
+                                     _json(_form_of(fact)) if operation == "update" else None, ref, current["revision"]))
                         updated = cur.fetchone()
                         if not updated:
                             raise Recheck(old["receipt_id"])
                         latest = updated[0]
+                        if operation == "update":
+                            _write_form(cur, entry["host_id"], ref, latest, fact, subject_id)
                         if operation == "update":
                             try:
                                 vector = embed.encode_passages([fact["fact"]])[0]

@@ -143,13 +143,19 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 written = fact["subject"]
                 fact.update(fact=subject_dict.rewrite(fact["fact"], written, name), subject=name, subject_as_written=written)
                 fact, _ = runner.normalize_fact(fact)  # keywords follow the new text
+                if "form" in fact:
+                    import fact_form
+                    fact["form"] = fact_form.parse(fact["fact"])
                 subjects.append({"fact_index": index, "from": written, "to": name, "how": how})
             if how in subject_dict.NEW:
                 fact["subject_new"] = True
         if fact.get("operation", "add") != "deprecate":  # schema-delta '지식 문장 형식': operators between Korean leaves
             import fact_form
-            for detail in fact_form.check(fact.get("fact")):
+            form_errors = fact_form.check(fact.get("fact"))
+            for detail in form_errors:
                 errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
+            if not form_errors:
+                fact["form"] = fact_form.parse(fact["fact"])  # 0010: the ledger stores the structure (DB checks its shape)
         checked = runner.lint_fact(fact, strict_refs=True)
         for error in checked["errors"]:
             errors.append({**error, "where": f"facts.{index}.{error['where']}"})

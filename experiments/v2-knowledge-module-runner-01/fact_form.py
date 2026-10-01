@@ -73,3 +73,133 @@ def check(text):
         if any(o == "OR" for o in ops[then_at + 1:] if o not in ("EXCEPT WHEN",)) and "EXCEPT WHEN" not in ops[then_at + 1:]:
             errs.append("THEN 뒤 결과는 AND 로만 잇는다(또는은 조건에만)")
     return errs
+
+
+NEG = re.compile(r"(않|없|아니|금지|못하|못 )")
+_TOK = re.compile(r"\b(EVEN IF|EXCEPT WHEN|IF|THEN|AND|OR|BEFORE|AFTER|BECAUSE)\b|([()])")
+
+
+def _tokens(text):
+    out, pos = [], 0
+    for m in _TOK.finditer(text):
+        chunk = text[pos:m.start()].strip().rstrip(".").strip()
+        if chunk:
+            out.append(("leaf", chunk))
+        out.append(("op", m.group(1)) if m.group(1) else ("paren", m.group(2)))
+        pos = m.end()
+    chunk = text[pos:].strip().rstrip(".").strip()
+    if chunk:
+        out.append(("leaf", chunk))
+    return out
+
+
+def _expr(toks, i, stops):
+    """AND binds tighter than OR; parentheses group. -> (expr, next index)."""
+    def atom(i):
+        if i < len(toks) and toks[i] == ("paren", "("):
+            e, i = _or(i + 1)
+            if i < len(toks) and toks[i] == ("paren", ")"):
+                i += 1
+            return e, i
+        if i < len(toks) and toks[i][0] == "leaf":
+            return {"leaf": toks[i][1]}, i + 1
+        return None, i
+
+    def _and(i):
+        args = []
+        e, i = atom(i)
+        if e:
+            args.append(e)
+        while i < len(toks) and toks[i] == ("op", "AND"):
+            e, i = atom(i + 1)
+            if e:
+                args.append(e)
+        return (args[0] if len(args) == 1 else {"op": "AND", "args": args}) if args else None, i
+
+    def _or(i):
+        args = []
+        e, i = _and(i)
+        if e:
+            args.append(e)
+        while i < len(toks) and toks[i] == ("op", "OR"):
+            e, i = _and(i + 1)
+            if e:
+                args.append(e)
+        return (args[0] if len(args) == 1 else {"op": "OR", "args": args}) if args else None, i
+    return _or(i)
+
+
+def parse(text):
+    """Operator string -> form {kind, if?, even_if?, then[], join?, except?, anchor?, because?}. Total: text that does
+    not follow the form becomes one plain leaf (check() is what rejects it at record time)."""
+    body, because = text, None
+    m = re.search(r"\bBECAUSE\b", text)
+    if m:
+        body, because = text[:m.start()], text[m.end():].strip().rstrip(".").strip() or None
+    toks = _tokens(body)
+    form = {"kind": "plain"}
+    i = 0
+    if toks and toks[0] == ("op", "IF"):
+        form["kind"] = "if"
+        form["if"], i = _expr(toks, 1, ())
+        if i < len(toks) and toks[i] == ("op", "EVEN IF"):
+            form["even_if"], i = _expr(toks, i + 1, ())
+        if i < len(toks) and toks[i] == ("op", "THEN"):
+            i += 1
+    elif toks and toks[0] in (("op", "BEFORE"), ("op", "AFTER")):
+        form["kind"] = toks[0][1].lower()
+        form["anchor"] = toks[1][1] if len(toks) > 1 and toks[1][0] == "leaf" else ""
+        i = 3 if len(toks) > 2 and toks[2] == ("op", "THEN") else 2
+    then, join = [], None
+    while i < len(toks):
+        kind, val = toks[i]
+        if kind == "op" and val == "EXCEPT WHEN":
+            form["except"], i = _expr(toks, i + 1, ())
+            continue
+        if kind == "leaf":
+            then.append(val)
+        elif kind == "op" and val in ("AND", "OR") and form["kind"] == "plain":
+            join = join or val
+        i += 1
+    form["then"] = then or [text.strip().rstrip(".").strip() or text]
+    if join == "OR" and len(then) > 1:
+        form["join"] = "OR"
+    if because:
+        form["because"] = because
+    for k in ("if", "even_if", "except"):
+        if k in form and not form[k]:
+            del form[k]
+    if form["kind"] == "if" and "if" not in form:
+        form = {"kind": "plain", "then": form["then"], **({"because": because} if because else {})}
+    if form["kind"] in ("before", "after") and not form.get("anchor"):
+        form = {"kind": "plain", "then": form["then"], **({"because": because} if because else {})}
+    return form
+
+
+def _expr_leaves(e):
+    if not e:
+        return []
+    if "leaf" in e:
+        return [e["leaf"]]
+    return [x for a in e.get("args", []) for x in _expr_leaves(a)]
+
+
+def leaves(form):
+    """-> [{role, text, polarity}] in a stable order (ord = index)."""
+    out = []
+    for role in ("if", "even_if"):
+        out += [{"role": role, "text": t} for t in _expr_leaves(form.get(role))]
+    if form.get("anchor"):
+        out.append({"role": "anchor", "text": form["anchor"]})
+    out += [{"role": "then", "text": t} for t in form.get("then", [])]
+    out += [{"role": "except", "text": t} for t in _expr_leaves(form.get("except"))]
+    for leaf in out:
+        leaf["polarity"] = "neg" if NEG.search(leaf["text"]) else "pos"
+    return out
+
+
+def condition_key(form):
+    """Comparable condition of a fact: two facts can contradict only under the same condition (or none)."""
+    import json
+    return json.dumps({k: form.get(k) for k in ("kind", "if", "even_if", "anchor", "except") if form.get(k)},
+                      ensure_ascii=False, sort_keys=True)
