@@ -1,5 +1,6 @@
 """PostgreSQL storage for the offline knowledge runner (DSN supplied explicitly)."""
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -275,8 +276,9 @@ def review_resolve(dsn, host, entry_id, fact_index, decision, quote, locator=Non
         waiting = lambda i: receipts[i]["combined"] == "needs_review" or i in parked
         if fact_index not in receipts or not waiting(fact_index) or fact_index in done:
             raise ValueError("fact is not waiting for review")
-        if fact_index in answers:
+        if fact_index in answers and fact_index not in parked:
             raise ValueError("fact already resolved")
+        # a fact asked again (another unit changed the fragment after the approval, P0-3) takes the new answer
         answer = _json({"decision": decision, "quote": quote, "locator": locator})
         bulk = {}  # other entries of the unit answered by this one stale-base answer
         if fact_index in parked:
@@ -847,10 +849,14 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             for entry in _rows(cur):
                 answers, done = _review_answers(cur, entry["entry_id"]), _absorbed_facts(cur, entry["entry_id"])
                 parked = _pending_digest(cur, entry["entry_id"])
-                cur.execute("""select fact_index from knowledge.confirmation_queue where entry_id=%s and rule_id=%s
-                            and status='answered' and reason like '%%stale_base%%' and answer like '%%"approve"%%'""",
-                            (entry["entry_id"], DIGEST_RULE))
-                stale_ok = {r[0] for r in cur.fetchall()}
+                cur.execute("""select fact_index, reason from knowledge.confirmation_queue where entry_id=%s and rule_id=%s
+                            and status='answered' and reason like '%%stale_base%%' and answer like '%%"approve"%%'
+                            order by answered_at""", (entry["entry_id"], DIGEST_RULE))
+                stale_ok = {}  # fact_index -> the revision the user approved against (astra review P0-3)
+                for i, why in cur.fetchall():
+                    m = re.search(r"지금 r(\d+)", why or "")
+                    if m:
+                        stale_ok[i] = int(m.group(1))
                 recs = _receipts(cur, entry["entry_id"], "worktime")
                 facts_ = entry["judgement_body"]["facts"]
                 for r in recs:
@@ -859,6 +865,20 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     if waits and i not in done and answers.get(i) != "reject" and facts_[i].get("operation") in ("update", "deprecate"):
                         change_waits = True
                 rows_.append((entry, answers, done, parked, stale_ok, recs))
+            # astra review P0-1: a waiting change parked in review_queue, or an entry not checked yet, still belongs to
+            # this commit; reading only eligible/provisional let a later pass commit the rest of the unit.
+            cur.execute("""select entry_id::text, state::text, judgement_body from knowledge.ledger_entry
+                        where work_unit_id=%s and state in ('proposed','review_queue')""", (unit_id,))
+            for eid_, st_, body_ in cur.fetchall():
+                if st_ == "proposed":
+                    return {"status": "waiting", "why": "an entry of the unit is not checked yet"}
+                answers_, done_, parked_ = _review_answers(cur, eid_), _absorbed_facts(cur, eid_), _pending_digest(cur, eid_)
+                for r_ in _receipts(cur, eid_, "worktime"):
+                    i_ = r_["fact_index"]
+                    waits_ = i_ in parked_ or (r_["combined"] == "needs_review" and answers_.get(i_) != "approve")
+                    if (waits_ and i_ not in done_ and answers_.get(i_) != "reject"
+                            and body_["facts"][i_].get("operation") in ("update", "deprecate")):
+                        change_waits = True
             for entry, answers, done, parked, stale_ok, recs in rows_:
                 for receipt in recs:
                     index = receipt["fact_index"]
@@ -870,15 +890,41 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     if change_waits:
                         continue  # the unit is one commit: nothing of it goes in while a change of it waits
                     receipt["human_approved"] = answers.get(index) == "approve"
-                    receipt["stale_ok"] = index in stale_ok
+                    receipt["stale_ok"] = stale_ok.get(index)
                     candidates.append((entry, receipt, fact))
             last = {}
             for k, (entry, receipt, fact) in enumerate(candidates):
                 if fact.get("target_ref"):
                     last[fact["target_ref"]] = k
+            # astra review P0-2: updates of one fragment in one unit all read the same revision; merging them in record
+            # order keeps every change (an earlier change of another part is not lost to 'last wins'). Overlapping
+            # edits go to the user once; an approved answer takes the last record as written.
+            import merge_form
+            groups = {}
+            for k, (entry, receipt, fact) in enumerate(candidates):
+                if fact.get("target_ref"):
+                    groups.setdefault(fact["target_ref"], []).append(k)
+            overlap = set()
+            for tgt, ks in groups.items():
+                if len(ks) < 2 or any(candidates[k][2].get("operation") != "update" for k in ks) or candidates[ks[-1]][1]["human_approved"]:
+                    continue
+                exp = candidates[ks[-1]][2].get("expected_revision")
+                cur.execute("""select coalesce((select snapshot->>'text' from knowledge.fragment_history where fragment_id=%s and revision=%s),
+                               (select text from knowledge.fragment where id=%s))""", (tgt, exp, tgt))
+                base_text = cur.fetchone()[0]
+                acc = candidates[ks[0]][2]["fact"]
+                for k in ks[1:]:
+                    acc, err = merge_form.merge(base_text, acc, candidates[k][2]["fact"])
+                    if err:
+                        break
+                if err:
+                    overlap.add(candidates[ks[-1]][1]["receipt_id"])
+                else:
+                    e_, r_, f_ = candidates[ks[-1]]
+                    candidates[ks[-1]] = (e_, r_, {**f_, "fact": acc})
             superseded = [c for k, c in enumerate(candidates) if c[2].get("target_ref") and last[c[2]["target_ref"]] != k]
             candidates = [c for k, c in enumerate(candidates) if not (c[2].get("target_ref") and last[c[2]["target_ref"]] != k)]
-            if superseded:
+            def write_superseded():
                 for entry, receipt, fact in superseded:
                     cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answer,answered_at)
                                 values (%s,%s,%s,%s,'answered',%s,now())""", (entry["entry_id"], receipt["fact_index"], DIGEST_RULE,
@@ -922,9 +968,13 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     raise Recheck(old["receipt_id"], "canon changed (history)")
                 if old["receipt_id"] in stale and fact.get("operation", "add") == "add" and not fixture.get("fresh_excerpt"):
                     raise Recheck(old["receipt_id"], "add excerpt stale")
+                if old["receipt_id"] in overlap:
+                    deferred.append((entry, old, {"combined": "needs_review",
+                                                  "review_reasons": ["in_unit_overlap: 이 작업에서 같은 조각의 같은 부분을 두 번 다르게 바꿈 — 마지막 기록이 맞나"]}))
+                    continue
                 # expected version (EventStoreDB expectedVersion): the fragment changed after the worker read it
                 exp = fact.get("expected_revision")
-                if exp and current and current["revision"] != int(exp) and not old.get("stale_ok"):
+                if exp and current and current["revision"] != int(exp) and old.get("stale_ok") != current["revision"]:
                     import merge3
                     cur.execute("select snapshot->>'text' from knowledge.fragment_history where fragment_id=%s and revision=%s",
                                 (current["id"], int(exp)))
@@ -955,8 +1005,10 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             if any(o_fact.get("operation") in ("update", "deprecate")
                    for e, o, _ in deferred for o_fact in [e["judgement_body"]["facts"][o["fact_index"]]]):
                 prepared = []  # the unit is one commit: all or nothing
-            if not apply:
+            if not apply:  # the preview writes nothing (astra review P0-2)
                 return {"status": "proposal", "consistency_flags": flags, "count": len(prepared), "deferred": len(deferred)}
+            if prepared:
+                write_superseded()  # only in a pass that commits the surviving record
             for entry, old, decision in deferred:
                 cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
                             values (%s,%s,%s,%s)""", (entry["entry_id"], old["fact_index"], DIGEST_RULE,

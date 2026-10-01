@@ -178,6 +178,11 @@ def record(dsn, data, *, same=None, embed_fn=None):
         if operation in ("update", "deprecate") and not fact.get("target_ref"):
             errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_ref", "detail": f"{operation} needs target_ref"})
             continue
+        if operation in ("update", "deprecate") and not fact.get("expected_revision"):
+            # astra review P0-3: without the read revision a concurrent change is overwritten without a merge
+            errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_ref",
+                           "detail": f"{operation} needs the revision you read: target_ref as [alias@revision] from the knowledge window"})
+            continue
         if operation == "deprecate" and fact.get("evidence_source") != "user_confirmed":
             # G2: removing knowledge needs the user's verbatim confirmation (lint_fact then checks it is a non-question).
             errors.append({"code": "E_DEPRECATE_CONFIRM", "where": f"facts.{index}.evidence_source",

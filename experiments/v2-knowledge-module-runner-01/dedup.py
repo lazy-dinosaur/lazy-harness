@@ -12,8 +12,10 @@ _ENDING = re.compile(r"(이다|입니다|한다|된다|다)$")
 
 
 def normalize(text):
-    t = re.sub(r"[\s`'\"·,.!?()\[\]]+", "", str(text or ""))
-    t = _FILLER.sub("", t)
+    """astra review P0-4 (2026-10-01): the decimal point and qualifiers (최대/모두/현재) carry meaning — '1.5' is not '15',
+    '최대 3회' is not '3회'. Only spacing, quotes, brackets and the sentence ending are ignored."""
+    t = re.sub(r"(?<=\d)\.(?=\d)", "§", str(text or ""))
+    t = re.sub(r"[\s`'\"·,.!?()\[\]]+", "", t)
     return _ENDING.sub("", t)
 
 

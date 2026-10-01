@@ -2,8 +2,10 @@
 import dedup
 
 
-def test_same_sentence_ignoring_filler_and_ending():
-    assert dedup.find_duplicate("도메인 설명 길이는 생성·수정 모두 최대 1000자이다.", ["x", "도메인 설명 길이는 생성·수정 모두 1000자"]) == 1
+def test_same_sentence_ignoring_spacing_quotes_and_ending():
+    # astra review P0-4 (2026-10-01): qualifiers carry meaning — '최대 1000자' is not '1000자'
+    assert dedup.find_duplicate("도메인 설명 길이는 생성·수정 모두 최대 1000자이다.", ["x", "도메인 설명 길이는 생성·수정 모두 1000자"]) is None
+    assert dedup.find_duplicate("도메인 설명 길이는 생성 · 수정 모두 1000자이다.", ["x", "도메인 설명 길이는 생성·수정 모두 1000자"]) == 1
     assert dedup.find_duplicate("`ensure` 는 1000자로 자른다.", ["ensure는 1000자로 자른다"]) == 0
 
 

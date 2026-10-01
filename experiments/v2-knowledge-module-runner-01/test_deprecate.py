@@ -19,7 +19,7 @@ def seed_one(dsn, host, text):
 
 def dep_fact(ref, quote="좋아 그 규칙은 이제 없애자"):
     return {"operation": "deprecate", "kind": "fact", "subject": "병원 일정",
-            "fact": "병원 일정 종류 구분은 더 이상 쓰이지 않는다", "target_ref": ref,
+            "fact": "병원 일정 종류 구분은 더 이상 쓰이지 않는다", "target_ref": ref, "expected_revision": 1,  # read revision (P0-3)
             "evidence_source": "user_confirmed", "reason": "사용자가 규칙 폐지를 확정했다.",
             "evidence_refs": [{"type": "user_utterance", "locator": "chat", "quote": quote},
                               {"type": "official_doc", "locator": "fragment/D-001", "quote": "병원 일정 종류는 HOSPITAL_SCHEDULE 이다."}]}
