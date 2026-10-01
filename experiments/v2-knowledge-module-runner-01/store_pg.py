@@ -627,6 +627,35 @@ CANON_Q = ("items[{i}] 는 정본의 다른 사실이다. state.fact 와 items[{
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
+def _leaf_pairs(cur, host, fid):
+    """0010 + contra05: this fragment's result leaves vs other active fragments' result leaves of the same subject,
+    compared only under the same condition or when either side is unconditional (rules under different conditions
+    are not asked). -> [(own display, other display, other alias)], or None when the fragment has no leaves."""
+    import fact_form
+    cur.execute("""select l.text, l.subject_id::text, f.form from knowledge.fragment_leaf l join knowledge.fragment f
+                   on f.id=l.fragment_id and l.revision=f.revision where f.id=%s and l.role='then' order by l.ord""", (fid,))
+    own = cur.fetchall()
+    if not own or own[0][2] is None:
+        return None
+    form = own[0][2]
+    subjects = sorted({s for _, s, _ in own if s})
+    if not subjects:
+        return None
+    cur.execute("""select f.alias, f.form, l.text, l.subject_id::text from knowledge.fragment_leaf l
+                   join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
+                   where f.host_id=%s and f.active and f.id<>%s and l.role='then' and l.subject_id = any(%s::uuid[])
+                   order by f.updated_at desc limit 60""", (host, fid, subjects))
+    mine, free = fact_form.condition_key(form), fact_form.unconditional(form)
+    pairs = []
+    for alias, oform, otext, osid in cur.fetchall():
+        if not oform or not (free or fact_form.unconditional(oform) or fact_form.condition_key(oform) == mine):
+            continue
+        for text, sid, _ in own:
+            if sid == osid:
+                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias))
+    return pairs
+
+
 def scan_contradictions(dsn, unit_id, judge):
     """After digestion (schema-delta '사용자에게 묻는 것은 모순뿐'): every fragment this unit made canonical is compared
     with nearby canonical fragments; contradictions stay in the canon and are logged in confirmation_queue
@@ -650,8 +679,16 @@ def scan_contradictions(dsn, unit_id, judge):
                 cur.execute("""select id::text, alias, text from knowledge.fragment where host_id=%s and subject_id=%s
                                and active and id<>%s order by updated_at desc limit 30""", (host, row[3], fid))
                 group = [{"id": r[0], "alias": r[1], "text": r[2]} for r in cur.fetchall()]
+            leaf_pairs = _leaf_pairs(cur, host, fid) if row and row[2] else None
         bad = []
-        if row and row[2]:
+        if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
+            by_own = {}
+            for own, other, alias in leaf_pairs:
+                by_own.setdefault(own, []).append({"alias": alias, "text": other})
+            for own, others in by_own.items():
+                answers = judge({"fact": own}, [o["text"] for o in others], CANON_Q)
+                bad += [o for o, a in zip(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        elif row and row[2]:
             hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
                                          if str(h["id"]) != fid]  # fragments from before the subject dictionary
             if hits:

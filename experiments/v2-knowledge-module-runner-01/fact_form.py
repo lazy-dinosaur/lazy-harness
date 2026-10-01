@@ -203,3 +203,31 @@ def condition_key(form):
     import json
     return json.dumps({k: form.get(k) for k in ("kind", "if", "even_if", "anchor", "except") if form.get(k)},
                       ensure_ascii=False, sort_keys=True)
+
+
+def unconditional(form):
+    """A plain fact holds always: it can contradict a rule under any condition."""
+    return (form or {}).get("kind", "plain") == "plain" and not (form or {}).get("except")
+
+
+def expr_text(e, top=True):
+    if not e:
+        return ""
+    if "leaf" in e:
+        return e["leaf"]
+    body = f" {e['op']} ".join(expr_text(a, False) for a in e.get("args", []))
+    return body if top else "(" + body + ")"
+
+
+def display(form, leaf):
+    """One result leaf with its condition, as the judge reads it."""
+    form = form or {}
+    head = ""
+    if form.get("kind") == "if":
+        head = "IF " + expr_text(form.get("if")) + (" EVEN IF " + expr_text(form["even_if"]) if form.get("even_if") else "")
+    elif form.get("kind") in ("before", "after"):
+        head = form["kind"].upper() + " " + form.get("anchor", "")
+    out = (head + " THEN " if head else "") + leaf
+    if form.get("except"):
+        out += " EXCEPT WHEN " + expr_text(form["except"])
+    return out
