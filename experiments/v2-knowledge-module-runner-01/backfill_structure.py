@@ -48,8 +48,12 @@ def apply(cur, host, rows):
             continue  # already structured
         sid = subject_dict.register(cur, host, r["subject"]) if r["subject"] else None
         fact = {"fact": r["text"], "subject": r["subject"]}
-        cur.execute("update knowledge.fragment set form=%s::jsonb, subject_id=%s where id=%s",
-                    (json.dumps(fact_form.parse(r["text"]), ensure_ascii=False), sid, r["id"]))
+        # revision CAS (astra direction review P1): fill only the revision that was planned, and only once
+        cur.execute("""update knowledge.fragment set form=%s::jsonb, subject_id=coalesce(subject_id, %s)
+                       where id=%s and revision=%s and form is null returning 1""",
+                    (json.dumps(fact_form.parse(r["text"]), ensure_ascii=False), sid, r["id"], r["revision"]))
+        if not cur.fetchone():
+            continue  # changed since the plan: run the plan again
         pg._write_form(cur, host, r["id"], r["revision"], fact, sid)
         done += 1
     return done

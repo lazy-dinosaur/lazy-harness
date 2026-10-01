@@ -38,6 +38,11 @@ def test_backfill_structures_old_fragments_without_new_revisions(dsn, host):
         import pytest
         with pytest.raises(pg.driver.Error):
             cur.execute("update knowledge.fragment set text='x' where id=%s", (a,))
+    # 0011: structure is filled once without a revision; changing it afterwards is a meaning change with history
+    for sql in ("update knowledge.fragment set form='{\"kind\":\"plain\",\"then\":[\"x\"]}'::jsonb where id=%s",
+                "update knowledge.fragment set subject_id=null where id=%s"):
+        with pg.connect(dsn) as conn, conn.cursor() as cur, pytest.raises(pg.driver.Error):
+            cur.execute(sql, (a,))
 
 
 def test_grouped_contradiction_question(dsn, host):
