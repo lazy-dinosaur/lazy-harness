@@ -137,3 +137,10 @@ def test_item_and_unit_limits(dsn, host, tmp_path):
     assert result["skipped"]["limit"] >= 1
     assert poller.tick(dsn, answer, max_units=2, window=3, state=tmp_path / "state.json")["entries"] == 1
     assert len(fragments(dsn, host)) == 2
+
+
+def test_prune_drops_hints_of_objects_no_longer_pending():
+    hints = {"entry:a": {"attempts": 1}, "entry:b": {"attempts": 1}, "unit:u": {"stuck": True},
+             "scan:s1": {"stuck": True}, "scan:s2": {"stuck": True}, "other": {"x": 1}}
+    poller._prune(hints, entries=["a"], units=[], scans=["s2"])
+    assert hints == {"entry:a": {"attempts": 1}, "scan:s2": {"stuck": True}, "other": {"x": 1}}

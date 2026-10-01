@@ -65,6 +65,14 @@ def _failure(state, key, now, max_attempts, base_delay):
                   "stuck": count >= max_attempts}
 
 
+def _prune(hints, entries, units, scans):
+    """Drop hints whose object is no longer pending (2026-10-01: four 'stuck' scan hints and stale entry hints stayed
+    after their units were scanned/absorbed, so the poller reported stuck items that no longer existed)."""
+    live = ({"entry:" + e for e in entries} | {"unit:" + u["work_unit_id"] for u in units} | {"scan:" + s for s in scans})
+    for key in [k for k in hints if k.split(":", 1)[0] in ("entry", "unit", "scan") and k not in live]:
+        hints.pop(key, None)
+
+
 def _candidates(dsn):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select w.work_unit_id::text, count(*)::int as entries from knowledge.work_unit w
@@ -110,6 +118,8 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
         try:
             hints = _load(state)
             units, entries = _candidates(dsn)
+            scans = store_pg.units_to_scan(dsn) if contra_judge is not None else []
+            _prune(hints, entries, units, scans if contra_judge is not None else [k.split(":", 1)[1] for k in hints if k.startswith("scan:")])
             remaining = window
             for unit in units:
                 if result["units"] >= max_units or remaining < unit["entries"]:
@@ -137,7 +147,7 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     _failure(hints, key, now, max_attempts, base_delay)
                 _save(state, hints)
             if contra_judge is not None:  # review P1: retry canon scans that did not finish after their commit
-                for uid_ in store_pg.units_to_scan(dsn):
+                for uid_ in scans:
                     key = "scan:" + uid_
                     if _blocked(hints, key, now, skipped):
                         continue
