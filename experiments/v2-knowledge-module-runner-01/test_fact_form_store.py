@@ -92,3 +92,7 @@ def test_contradiction_scan_compares_leaves_under_the_same_condition(dsn, host):
     logged = [q for q in pg.rows(dsn, "confirmation_queue") if q["rule_id"] == "canon_contradiction"
               and "영구 보관" in str(q["reason"])]
     assert len(logged) == 1 and "30일" in str(logged[0]["reason"])
+    # the item stays open until one side really changes (it is not closed by comparing a leaf with the whole text)
+    import knowledge_cli
+    items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "contradiction"]
+    assert len(items) == 1 and "영구 보관" in items[0]["fact"], items
