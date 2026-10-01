@@ -10,6 +10,7 @@ Measured in structure-01 pilot5: meaning kept 96% (random 100) and 96% (chat 172
 import re
 
 OPS = re.compile(r"\b(EVEN IF|EXCEPT WHEN|IF|THEN|AND|OR|BEFORE|AFTER|BECAUSE)\b")
+GROUP_PAREN = re.compile(r"(?:(?<=\s)|^)\((?=\S)|(?<=\S)\)(?=\s|$)")
 MEN_NOUNS = {"화면", "측면", "전면", "표면", "단면", "내면", "방면", "국면", "정면", "후면", "서면", "지면", "바닥면", "이면", "라면"}
 CHAIN_END = ("하고", "되고", "이고", "않고", "있고", "없고", "았고", "었고", "했고", "됐고", "하며", "되며", "이며", "으며",
              "지만", "거나", "어도", "아도", "해도", "여도", "돼도")
@@ -34,7 +35,7 @@ def split(text):
         parts.append((op, text[pos:m.start()]))
         op, pos = m.group(1), m.end()
     parts.append((op, text[pos:]))
-    return [(o, re.sub(r"[()]", " ", s).strip().rstrip(".").strip()) for o, s in parts]
+    return [(o, GROUP_PAREN.sub(" ", s).strip().rstrip(".").strip()) for o, s in parts]
 
 
 def check(text):
@@ -42,7 +43,8 @@ def check(text):
     if not isinstance(text, str) or not text.strip():
         return ["fact 가 비어 있다"]
     errs = []
-    if text.count("(") != text.count(")"):
+    groups = [t[1] for t in _tokens(text) if t[0] == "paren"]
+    if groups.count("(") != groups.count(")"):
         errs.append("괄호가 짝이 맞지 않는다")
     parts = split(text)
     ops = [o for o, _ in parts if o]
@@ -72,16 +74,26 @@ def check(text):
         then_at = ops.index("THEN")
         if any(o == "OR" for o in ops[then_at + 1:] if o not in ("EXCEPT WHEN",)) and "EXCEPT WHEN" not in ops[then_at + 1:]:
             errs.append("THEN 뒤 결과는 AND 로만 잇는다(또는은 조건에만)")
+    plain_ops = [o for o in (ops[ops.index("THEN") + 1:] if "THEN" in ops else ops)
+                 if o in ("AND", "OR")] if head not in ("IF", "BEFORE", "AFTER") else []
+    if "AND" in plain_ops and "OR" in plain_ops:
+        errs.append("조건 없는 사실에 AND 와 OR 를 섞지 않는다. 함께 성립하는 것과 둘 중 하나인 것을 따로 기록한다")
     return errs
 
 
 NEG = re.compile(r"(않|없|아니|금지|못하|못 )")
-_TOK = re.compile(r"\b(EVEN IF|EXCEPT WHEN|IF|THEN|AND|OR|BEFORE|AFTER|BECAUSE)\b|([()])")
+# grouping parentheses stand free (space or edge outside); parentheses inside code such as array_append(...) or
+# `a`(`b`) are leaf text (render-ko-01 found them split away)
+_TOK = re.compile(r"\b(EVEN IF|EXCEPT WHEN|IF|THEN|AND|OR|BEFORE|AFTER|BECAUSE)\b|((?:(?<=\s)|^)\((?=\S)|(?<=\S)\)(?=\s|$))")
+_TICK = re.compile(r"`[^`]*`")
 
 
 def _tokens(text):
     out, pos = [], 0
+    ticks = [(m.start(), m.end()) for m in _TICK.finditer(text)]
     for m in _TOK.finditer(text):
+        if any(a <= m.start() < b for a, b in ticks):
+            continue  # operators and parentheses inside `code` are text
         chunk = text[pos:m.start()].strip().rstrip(".").strip()
         if chunk:
             out.append(("leaf", chunk))
@@ -150,7 +162,7 @@ def parse(text):
         form["kind"] = toks[0][1].lower()
         form["anchor"] = toks[1][1] if len(toks) > 1 and toks[1][0] == "leaf" else ""
         i = 3 if len(toks) > 2 and toks[2] == ("op", "THEN") else 2
-    then, join = [], None
+    then, join, mixed = [], None, False
     while i < len(toks):
         kind, val = toks[i]
         if kind == "op" and val == "EXCEPT WHEN":
@@ -159,8 +171,13 @@ def parse(text):
         if kind == "leaf":
             then.append(val)
         elif kind == "op" and val in ("AND", "OR") and form["kind"] == "plain":
+            if join and join != val:
+                mixed = True  # 'A AND (B OR C)': results cannot be a flat list without losing the OR
             join = join or val
         i += 1
+    if mixed:  # legacy text that check() now rejects: keep it whole so no OR is lost
+        then = [body.strip().rstrip(".").strip()]
+        join = None
     form["then"] = then or [text.strip().rstrip(".").strip() or text]
     if join == "OR" and len(then) > 1:
         form["join"] = "OR"

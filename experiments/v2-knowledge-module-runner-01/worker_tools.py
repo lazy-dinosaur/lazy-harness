@@ -22,6 +22,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 import collect
+import fact_text
 import runner
 import store_pg
 
@@ -180,7 +181,7 @@ def _render(frags, flagged=frozenset(), rank=None):
             for f in sorted((x for x in part if (x.get("domain") or "-") == d), key=lambda x: x.get("seq") or 0):
                 mark = "⚠ 충돌 후보 " if str(f["id"]) in flagged else ""
                 ref = f"{f['alias']}@{f['revision']}" if f.get("revision") else f["alias"]
-                lines.append(f"- {mark}[{ref}] {f['text']}")
+                lines.append(f"- {mark}[{ref}] {fact_text.view(f['text'])}")  # stored operator form shown in Korean
             lines.append("")
     return lines
 

@@ -219,6 +219,7 @@ def review_list(dsn, host):
                  "entry_state": row["state"], "review_reasons": row["review_reasons"],
                  **{k: row["judgement_body"]["facts"][row["fact_index"]].get(k) for k in ("kind", "subject", "fact", "evidence_source")}}
                 for row in rows]
+        import fact_text  # the question the user sees is Korean; the stored text stays in operator form
         cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text from knowledge.confirmation_queue q
                     join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     where e.host_id=%s and q.rule_id='canon_contradiction' and q.status='pending' order by q.created_at""", (host,))
@@ -233,8 +234,8 @@ def review_list(dsn, host):
                             and reason=%s""", (_json({"decision": "resolved", "by": "later change of one side"}), eid, idx, reason))
                 continue
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
-                          "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {r['text']}",
-                          "review_reasons": [f"canon_contradiction: [{r['with']}] {r['with_text']}"]})
+                          "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
+                          "review_reasons": [f"canon_contradiction: [{r['with']}] {fact_text.view(r['with_text'])}"]})
         return items
 
 
