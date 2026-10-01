@@ -17,12 +17,33 @@ def normalize(text):
     return _ENDING.sub("", t)
 
 
+def _shape(text):
+    """Operator fact -> (condition key, join, sorted normalized result sentences); None when it does not parse."""
+    import fact_form
+    if not isinstance(text, str) or fact_form.check(text):
+        return None
+    form = fact_form.parse(text)
+    leaves = sorted(normalize(t) for t in form.get("then", []))
+    if not all(leaves):
+        return None
+    return fact_form.condition_key(form), form.get("join"), form.get("because") and normalize(form["because"]), tuple(leaves)
+
+
+def same_fact(a, b):
+    """Same sentence after normalize(), or the same structure: equal condition and the same result sentences in any
+    order ('IF A THEN B AND C' == 'IF A THEN C AND B'). A different condition or any different leaf is not the same."""
+    na, nb = normalize(a), normalize(b)
+    if na and na == nb:
+        return True
+    sa, sb = _shape(a), _shape(b)
+    return sa is not None and sa == sb
+
+
 def find_duplicate(text, candidates):
-    """Index of the first candidate that is the same sentence after normalize(), else None."""
-    n = normalize(text)
-    if not n:
+    """Index of the first candidate that is the same fact (same_fact), else None."""
+    if not normalize(text):
         return None
     for i, c in enumerate(candidates or []):
-        if n == normalize(c):
+        if same_fact(text, c):
             return i
     return None

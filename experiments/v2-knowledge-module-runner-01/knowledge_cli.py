@@ -216,11 +216,34 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select judgement_body from knowledge.ledger_entry where work_unit_id=%s
                     and state::text not in ('closed','expired','rejected_input') order by created_at""", (uid,))
-        earlier = [(f.get("fact", ""), f.get("target_ref")) for (b,) in cur.fetchall() for f in b.get("facts", [])]
+        earlier = [f for (b,) in cur.fetchall() for f in b.get("facts", []) if f.get("fact")]
+    import fact_form
+    import fact_text
     out = []
     for i, f in enumerate(facts):
         tgt = f.get("target_ref")
-        cands = [("이 작업의 앞 기록", t) for t, r in earlier if t and t != f["fact"] and not (tgt and r == tgt)][-8:]
+        others = [e for e in earlier if e["fact"] != f["fact"] and not (tgt and e.get("target_ref") == tgt)]
+        if f.get("form"):
+            # schema-delta '잎 단위 모순 검사': the same rule as the canon scan, inside this work unit
+            pairs = {}
+            for own in _then_leaves(f):
+                for e in others:
+                    if e.get("form") and not _comparable(f["form"], e["form"]):
+                        continue
+                    for other in (_then_leaves(e) if e.get("form") else [(None, e["fact"], None)]):
+                        if other[0] is None or other[0] == own[0]:
+                            shown = other[1] if other[2] is None else fact_form.display(e["form"], other[1])
+                            pairs.setdefault(fact_form.display(f["form"], own[1]), []).append((shown, e["fact"]))
+            for own, cands in pairs.items():
+                cands = cands[-30:]
+                state = {"change": {"operation": f.get("operation", "add"), "fact": own}}
+                for (shown, whole), a in zip(cands, judge(state, [s for s, _ in cands], CONTRA_Q)):
+                    if capture_audit._noul(a) >= store_pg.CONTRA_KEEP:
+                        hit = {"fact_index": i, "with": "이 작업의 앞 기록", "text": fact_text.view(whole)[:300]}
+                        if hit not in out:
+                            out.append(hit)
+            continue
+        cands = [("이 작업의 앞 기록", e["fact"]) for e in others][-8:]  # facts without a form (deprecate, legacy)
         if not cands:
             continue
         state = {"change": {"operation": f.get("operation", "add"), "fact": f["fact"]}}
@@ -228,6 +251,27 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
             if capture_audit._noul(a) >= store_pg.CONTRA_KEEP:
                 out.append({"fact_index": i, "with": label, "text": text[:300]})
     return out
+
+
+def _then_leaves(f):
+    """[(subject key, leaf, form)] of a recorded fact's result sentences; the key is the fact subject when the leaf states
+    it, otherwise the leaf's head noun (both through subject_dict.core, nothing is registered at record time)."""
+    import subject_dict
+    subj = f.get("subject") if isinstance(f.get("subject"), str) else ""
+    out = []
+    for leaf in f["form"].get("then", []):
+        if subj and subj in leaf:
+            key = subject_dict.core(subj)
+        else:
+            head = runner.SUBJECT_HEAD.match(leaf + " ")
+            key = subject_dict.core(head.group(1).strip()) if head else None
+        out.append((key, leaf, f["form"]))
+    return out
+
+
+def _comparable(a, b):
+    import fact_form
+    return fact_form.unconditional(a) or fact_form.unconditional(b) or fact_form.condition_key(a) == fact_form.condition_key(b)
 
 
 def complete(dsn, data):
