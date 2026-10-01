@@ -66,6 +66,11 @@ def existing_excerpt(dsn, host, fact, pending=None):
     if pending:
         hits = [{**h, "text": pending[str(h.get("id"))]} if str(h.get("id")) in pending else h for h in hits]
         hits = [h for h in hits if h.get("text")]
+        # a fragment this work rewrites into the add's subject was ranked on its old text: show it anyway
+        subject = fact.get("subject") if isinstance(fact.get("subject"), str) else ""
+        seen = {str(h.get("id")) for h in hits}
+        hits += [{"id": fid, "text": text} for fid, text in pending.items()
+                 if text and fid not in seen and subject.strip() and subject.strip() in text]
     fallback = any(hit.get("warning") for hit in hits)
     if not hits:
         # search returns no metadata on an empty result set; check the local encoder
@@ -78,7 +83,7 @@ def existing_excerpt(dsn, host, fact, pending=None):
     prefix = "[text fallback: embedding service unavailable] " if fallback else ""
     if not hits:
         return prefix + "이 host 의 정본에 관련 조각이 없다."
-    return prefix + "\n".join(hit["text"][:240] for hit in hits)
+    return prefix + "\n".join(hit["text"][:600] for hit in hits)  # atomic facts are short; 240 cut conditions off
 
 
 def _proposed(dsn, window, entry_ids=None):

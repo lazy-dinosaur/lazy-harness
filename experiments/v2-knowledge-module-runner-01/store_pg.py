@@ -966,14 +966,21 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                      (r["target_fragment_id"] and
                       (not _target(cur, f) or _target(cur, f)["revision"] != r["target_revision_seen"])) or
                      (f.get("operation", "add") == "add" and changed)]
+            # astra direction review P1 (2026-10-01): one final change plan. The adds of this unit are judged against
+            # the canon this commit leaves: merged updates, deprecations, nothing superseded or overlapping.
+            rewrites = {str(f["target_ref"]): (f["fact"] if f.get("operation") == "update" else None)
+                        for _, r, f in candidates if f.get("target_ref") and f.get("operation") in ("update", "deprecate")
+                        and r["receipt_id"] not in overlap}
             if stale and not fixtures:
-                return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates], "consistency_flags": flags}
+                return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates],
+                        "consistency_flags": flags, "rewrites": rewrites}
             if flags:
                 return {"status": "needs_review", "consistency_flags": flags}
             if not candidates:
                 return {"status": "noop"}
             if not fixtures:
-                return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates], "consistency_flags": flags}
+                return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates],
+                        "consistency_flags": flags, "rewrites": rewrites}
             prepared, deferred = [], []
             for entry, old, fact in candidates:
                 fixture = fixtures.get(old["receipt_id"])

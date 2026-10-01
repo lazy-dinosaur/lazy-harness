@@ -20,10 +20,8 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
         return {"status": "noop"}
     fixtures, judgments, packets = {}, {}, []
     import worktime_driver
+    pending = preview.get("rewrites") or {}  # the unit's final change plan (store_pg.digest), shared with the commit
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select judgement_body from knowledge.ledger_entry where work_unit_id=%s
-                    and state not in ('rejected_input','expired','closed') order by created_at""", (unit_id,))
-        pending = worktime_driver.pending_rewrites([f for (body,) in cur.fetchall() for f in body.get("facts", [])])
         for receipt_id in receipt_ids:
             cur.execute("""select r.packet, r.jev_model_requested, r.jev_model_actual,
                         e.judgement_body, r.fact_index, e.host_id, e.partition_key, w.baseline_code_ref, h.repo_locator
