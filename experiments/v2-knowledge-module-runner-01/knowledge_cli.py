@@ -146,6 +146,10 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 subjects.append({"fact_index": index, "from": written, "to": name, "how": how})
             if how in subject_dict.NEW:
                 fact["subject_new"] = True
+        if fact.get("operation", "add") != "deprecate":  # schema-delta '지식 문장 형식': operators between Korean leaves
+            import fact_form
+            for detail in fact_form.check(fact.get("fact")):
+                errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
         checked = runner.lint_fact(fact, strict_refs=True)
         for error in checked["errors"]:
             errors.append({**error, "where": f"facts.{index}.{error['where']}"})
