@@ -6,6 +6,8 @@ import re
 import urllib.request
 from pathlib import Path
 
+FORM_OPERATORS = {"EVEN", "IF", "EXCEPT", "WHEN", "THEN", "AND", "OR", "BEFORE", "AFTER", "BECAUSE"}
+
 ESCAPE = re.compile(r"none[_ -]?or[_ -]?uncertain", re.I)
 CONDITIONAL = re.compile(r"이면 |라면 |않으면|인 경우.{0,80}고르")
 PRESCRIPTIVE = re.compile(r"해야 한다|필요하다|금지한다")
@@ -114,7 +116,9 @@ def lint(packet, denylist=()):
             add("E_EVALUATIVE", where + ".narrative", "evaluative narrative")
         quote = str(state.get("evidence_quote", ""))
         claim = str(state.get("candidate_fact", state.get("statement", "")))
-        tokens = set(BACKTICK.findall(claim)) | claim_identifiers(claim)
+        # IF/THEN/AND/OR… are fact_form structure, not content: a split fact keeps the quoted words, not the operators
+        # (2026-10-01 main canon split was rejected with 'IF absent from evidence_quote').
+        tokens = (set(BACKTICK.findall(claim)) | claim_identifiers(claim)) - FORM_OPERATORS
         for token in sorted(tokens):
             if token not in quote:
                 add("E_CLAIM_QUOTE", where + ".candidate_fact", f"{token} absent from evidence_quote")

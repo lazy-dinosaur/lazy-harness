@@ -19,7 +19,11 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
     if not receipt_ids:
         return {"status": "noop"}
     fixtures, judgments, packets = {}, {}, []
+    import worktime_driver
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select judgement_body from knowledge.ledger_entry where work_unit_id=%s
+                    and state not in ('rejected_input','expired','closed') order by created_at""", (unit_id,))
+        pending = worktime_driver.pending_rewrites([f for (body,) in cur.fetchall() for f in body.get("facts", [])])
         for receipt_id in receipt_ids:
             cur.execute("""select r.packet, r.jev_model_requested, r.jev_model_actual,
                         e.judgement_body, r.fact_index, e.host_id, e.partition_key, w.baseline_code_ref, h.repo_locator
@@ -36,9 +40,8 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                         join knowledge.fragment f on f.id=h.fragment_id where f.host_id=%s""", (receipt["host_id"],))
             history_seen = cur.fetchone()[0]
             if fact.get("operation", "add") == "add":
-                import worktime_driver
                 packet["state"]["existing_records_excerpt"] = worktime_driver.existing_excerpt(
-                    dsn, receipt["host_id"], fact)
+                    dsn, receipt["host_id"], fact, pending)
             revision = None
             if fact.get("operation", "add") in ("update", "deprecate"):
                 cur.execute("select text,revision from knowledge.fragment where id=%s and host_id=%s",

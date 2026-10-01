@@ -98,3 +98,15 @@ def test_packet_lint_before_any_judge_call_and_cost_kept(dsn, host):
     receipt = next(r for r in pg.rows(dsn, "check_receipt") if str(r["entry_id"]) == entry["entry_id"])
     assert float(receipt["cost_usd"]) == 0.001 and receipt["input_tokens"] == 10
     pg.abandon(dsn, ok["work_unit_id"], "test cleanup")
+
+
+def test_existing_excerpt_sees_the_canon_as_the_work_leaves_it(dsn, host, monkeypatch):
+    """2026-10-01 split: an add split out of a fragment must not be a duplicate of that fragment's old text."""
+    hits = [{"id": "f1", "text": "A는 X이고 B는 Y다"}, {"id": "f2", "text": "C는 Z다"}, {"id": "f3", "text": "D는 W다"}]
+    monkeypatch.setattr(work.store_pg, "search", lambda *a, **k: [dict(h) for h in hits])
+    facts = [{"operation": "update", "target_ref": "f1", "fact": "A는 X다"},
+             {"operation": "deprecate", "target_ref": "f3", "fact": "D는 W다"},
+             {"operation": "add", "fact": "B는 Y다"}]
+    excerpt = work.existing_excerpt(dsn, host, facts[2], work.pending_rewrites(facts))
+    assert "B는 Y" not in excerpt and "A는 X다" in excerpt and "C는 Z다" in excerpt and "D는 W" not in excerpt
+    assert "B는 Y" in work.existing_excerpt(dsn, host, facts[2])  # without the work's rewrites: old text

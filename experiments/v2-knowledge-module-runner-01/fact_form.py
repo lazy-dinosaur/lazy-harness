@@ -12,7 +12,7 @@ import re
 OPS = re.compile(r"\b(EVEN IF|EXCEPT WHEN|IF|THEN|AND|OR|BEFORE|AFTER|BECAUSE)\b")
 GROUP_PAREN = re.compile(r"(?:(?<=\s)|^)\((?=\S)|(?<=\S)\)(?=\s|$)")
 MEN_NOUNS = {"화면", "측면", "전면", "표면", "단면", "내면", "방면", "국면", "정면", "후면", "서면", "지면", "바닥면", "이면", "라면"}
-CHAIN_END = ("하고", "되고", "이고", "않고", "있고", "없고", "았고", "었고", "했고", "됐고", "하며", "되며", "이며", "으며",
+CHAIN_END = ("하고", "되고", "이고", "않고", "있고", "없고", "았고", "었고", "했고", "됐고", "하며", "되며", "이며", "으며", "니며",
              "지만", "거나", "어도", "아도", "해도", "여도", "돼도")
 GUIDE = ("연결은 영어 연산자로 쓴다: IF 조건 THEN 결과, A AND B, A OR B, EVEN IF, EXCEPT WHEN, BEFORE/AFTER … THEN, BECAUSE 이유. "
          "각 조각은 주어 하나와 서술 하나의 한국어 문장이고 부정은 문장 안에 둔다.")
@@ -60,10 +60,19 @@ def noun_list(leaf):
     return None
 
 
+# 2026-10-01 main canon split: '맡고 스키마를', '쓰고, 임시 기록은' passed — a verb stem + 고 followed by another clause.
+GO_NOUNS = {"최고", "참고", "광고", "창고", "경고", "보고", "재고", "원고", "신고", "사고", "공고", "금고", "적고", "고"}
+
+
 def chain_token(leaf):
     """Clause connective inside a leaf, or None. Noun-modifying '~할 때' is allowed; conditions use IF."""
-    for t in re.findall(r"[가-힣]+", leaf):
+    for m in re.finditer(r"[가-힣]+", leaf):
+        t = m.group(0)
         if t.endswith(CHAIN_END):
+            return t
+        rest = leaf[m.end():]
+        if (t.endswith("고") and t not in GO_NOUNS and len(t) >= 2 and not t.endswith(("하고", "에고"))
+                and re.match(r",?\s+(?:\S+\s+){0,2}\S+(은|는|이|가|을|를)\s", rest + " ")):
             return t
         if t.endswith("면") and len(t) >= 2 and t not in MEN_NOUNS and not t.endswith("화면"):
             return t

@@ -66,3 +66,22 @@ def test_action_noun_lists_are_rejected_but_lists_of_things_pass():
               "IF SquareChat 방이 음소거되어 있다 THEN SquareChat은 소리를 내지 않는다",
               "X는 성능을 위하여 캐시를 쓴다"]:
         assert fact_form.check(t) == [], (t, fact_form.check(t))
+
+
+def test_claim_quote_ignores_form_operators():
+    import runner
+    case = {"state": {"narrative": "n", "evidence_quote": "host_id 생략 시 설정의 default_host를 사용한다",
+                      "candidate_fact": "IF host_id가 생략됐다 THEN domain_cmd는 설정의 default_host를 사용한다"}}
+    packet = {"template_id": "record-need", "state": case["state"], "questions": {}}
+    assert not [e for e in runner.lint(packet)["errors"] if e["code"] == "E_CLAIM_QUOTE"]
+    packet["state"]["candidate_fact"] += " `cfg_unknown`"
+    assert [e for e in runner.lint(packet)["errors"] if e["code"] == "E_CLAIM_QUOTE"]  # real identifiers are still checked
+
+
+def test_chain_token_catches_go_and_nimyeo_connectives():
+    import fact_form
+    assert fact_form.check("계획·백로그는 별도 계획 모듈이 맡고 스키마를 분리한다.")
+    assert fact_form.check("원장 등록은 흡수 트리거가 아니며, 원장 항목은 남는다.")
+    assert fact_form.check("세션은 정본만 지식으로 쓰고, 임시 기록은 섞이지 않는다.")
+    assert not fact_form.check("도메인 설명은 최고 1000자다")
+    assert not fact_form.check("보고서를 참고 자료로 쓴다")

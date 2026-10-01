@@ -45,8 +45,27 @@ def build_packet(fact, existing_excerpt):
     raise NotImplementedError(f"worktime operation {operation} has no supported wire template")
 
 
-def existing_excerpt(dsn, host, fact):
+def pending_rewrites(facts):
+    """{fragment_id: text after this work, or None if deprecated} for the update/deprecate facts of one work.
+
+    2026-10-01 main canon split: adds split out of a fragment were judged duplicates of that fragment's old text,
+    which the same work was rewriting (11 of 17 adds silently rejected). An add is compared with the canon as the
+    work leaves it."""
+    out = {}
+    for f in facts:
+        ref = f.get("target_ref")
+        if ref and f.get("operation") == "update":
+            out[str(ref)] = f.get("fact")
+        elif ref and f.get("operation") == "deprecate":
+            out[str(ref)] = None
+    return out
+
+
+def existing_excerpt(dsn, host, fact, pending=None):
     hits = store_pg.search(dsn, host, fact["fact"], limit=5, mode="hybrid", expand=False)
+    if pending:
+        hits = [{**h, "text": pending[str(h.get("id"))]} if str(h.get("id")) in pending else h for h in hits]
+        hits = [h for h in hits if h.get("text")]
     fallback = any(hit.get("warning") for hit in hits)
     if not hits:
         # search returns no metadata on an empty result set; check the local encoder
@@ -86,11 +105,13 @@ def run_worktime(dsn, window, judge, *, utterance_judge=None, entry_ids=None):
     fixtures, failures, utterances = {}, [], {}
     for entry in _proposed(dsn, window, entry_ids):
         prepared = []
+        pending = pending_rewrites(entry["judgement_body"].get("facts", []))
         for index, fact in enumerate(entry["judgement_body"].get("facts", [])):
             try:
                 excerpt = (_target_excerpt(dsn, entry["host_id"], fact)
                            if fact.get("operation") == "update" else
-                           existing_excerpt(dsn, entry["host_id"], fact))
+                           existing_excerpt(dsn, entry["host_id"], fact,
+                                            pending if fact.get("operation", "add") == "add" else None))
                 packet = build_packet(fact, excerpt)
                 # Lint before any paid call: batch rejects the whole entry on a packet lint error,
                 # so judging the other facts first would only waste Jev calls (cycle-02 finding).
