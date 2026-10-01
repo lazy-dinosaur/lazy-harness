@@ -878,7 +878,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     cur.execute("select snapshot->>'text' from knowledge.fragment_history where fragment_id=%s and revision=%s",
                                 (current["id"], int(exp)))
                     base = cur.fetchone()
-                    merged, err = merge3.merge(base[0], current["text"], fact["fact"]) if base and base[0] is not None else (None, "no base")
+                    import merge_form  # leaf level first (schema-delta '잎 단위 3자 병합'), word level for text without a form
+                    merged, err = merge_form.merge(base[0], current["text"], fact["fact"]) if base and base[0] is not None else (None, "no base")
                     if err is None and fact.get("operation") == "update":
                         fact = {**fact, "fact": merged}  # both changes kept (git 3-way merge)
                     else:
