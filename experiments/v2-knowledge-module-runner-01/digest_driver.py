@@ -60,7 +60,10 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
         by_key.setdefault(receipt["partition_key"], []).append((receipt_id, receipt))
     for key, items in by_key.items():  # one routing decision per work unit and proposed name
         facts = [rc["judgement_body"]["facts"][rc["fact_index"]].get("fact", "") for _, rc in items]
-        name, how = domain_router.route_unit(domains, key, facts, choose or (lambda text, options: {}), confirm=confirm)
+        subjects = [rc["judgement_body"]["facts"][rc["fact_index"]].get("subject") for _, rc in items]
+        name, how = _subject_domain(dsn, items[0][1]["host_id"], subjects, domains)
+        if name is None:
+            name, how = domain_router.route_unit(domains, key, facts, choose or (lambda text, options: {}), confirm=confirm)
         if name not in domains:
             domains[name] = {"description": (facts[0] if facts else "")[:300], "status": "active", "merged_into": None}
         for receipt_id, _ in items:
@@ -114,6 +117,25 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
         judgments[receipt_id] = judged
     result = store_pg.digest(dsn, unit_id, apply, fixtures)
     return {**result, "judgments": judgments}
+
+
+def _subject_domain(dsn, host, subjects, domains):
+    """schema-delta '도메인 라우팅은 주어 기준': when the unit's known subjects already live in exactly one active domain
+    (following merges), that domain is the answer in code -> (domain, 'subject'); otherwise (None, None) and Jev routes."""
+    import domain_router
+    import subject_dict
+    found = set()
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        ids = {hit["subject_id"] for s in subjects if isinstance(s, str) and s.strip()
+               for hit in [subject_dict.lookup(cur, host, s)] if hit}
+        if not ids:
+            return None, None
+        cur.execute("""select distinct domain from knowledge.fragment where host_id=%s and active
+                       and subject_id = any(%s::uuid[])""", (host, sorted(ids)))
+        for (d,) in cur.fetchall():
+            found.add(domain_router.resolve(domains, d))
+    active = {d for d in found if d in domains and domains[d]["status"] == "active"}
+    return (active.pop(), "subject") if len(active) == 1 else (None, None)
 
 
 def _jev_judge(packet):

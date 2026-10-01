@@ -106,6 +106,8 @@ def _upsert_embedding(cur, fragment_id, revision, vector, variant="plain"):
 
 
 def _embedding_input(kind, domain, siblings, text, variant):
+    import fact_text  # schema-delta '임베딩은 한국어 보기로': questions are Korean, operator text is the stored form
+    text = fact_text.view(text)
     if variant == "plain":
         return text
     # Stable, bounded DB-derived context; never changes the stored fragment body.
@@ -961,7 +963,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         latest = 1
                         _write_form(cur, entry["host_id"], ref, 1, fact, subject_id)
                         try:
-                            vector = embed.encode_passages([fragment["text"]])[0]
+                            vector = embed.encode_passages([_embedding_input(None, None, [], fragment["text"], "plain")])[0]
                         except embed.EmbeddingUnavailable:
                             embedding_pending = True
                         else:
@@ -986,7 +988,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                             _write_form(cur, entry["host_id"], ref, latest, fact, subject_id)
                         if operation == "update":
                             try:
-                                vector = embed.encode_passages([fact["fact"]])[0]
+                                vector = embed.encode_passages([_embedding_input(None, None, [], fact["fact"], "plain")])[0]
                             except embed.EmbeddingUnavailable:
                                 embedding_pending = True
                             else:
