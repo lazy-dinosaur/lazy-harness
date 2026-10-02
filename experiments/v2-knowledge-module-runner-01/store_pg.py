@@ -879,6 +879,45 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
     return found  # kind 'exception' rows are parent hints, not contradictions (astra exc review: vector-only exceptions)
 
 
+LINK_LIMIT = 10
+
+
+def _names_in(name, text):
+    """name appears in text as a whole name: not inside a longer word (Hangul/latin/digit around it); a Korean particle
+    may follow ('출고API는', '반품API의')."""
+    import re
+    return re.search(r"(?<![0-9A-Za-z가-힣_])" + re.escape(name) + r"(?![0-9A-Za-z_])", text or "") is not None
+
+
+def _linked_subjects(cur, host, subjects):
+    """Subjects tied to these ones by the canon itself: an active fragment of another subject names one of these subjects
+    as a whole name, or a fragment of these subjects names another known subject (names of 3+ characters). Ordered by
+    the latest such fragment; at most LINK_LIMIT in total."""
+    if not subjects:
+        return []
+    cur.execute("select name from knowledge.subject where subject_id = any(%s::uuid[])", (subjects,))
+    names = [n for (n,) in cur.fetchall() if len(n.strip()) >= 3]
+    found = {}
+    if names:
+        cur.execute("""select f.subject_id::text, f.text, f.updated_at from knowledge.fragment f
+                       where f.host_id=%s and f.active and f.subject_id is not null
+                       and not (f.subject_id = any(%s::uuid[]))
+                       and exists (select 1 from unnest(%s::text[]) n where position(n in f.text) > 0)
+                       order by f.updated_at desc limit 200""", (host, subjects, names))
+        for sid, text, at in cur.fetchall():
+            if any(_names_in(n, text) for n in names):
+                found.setdefault(sid, at)
+    cur.execute("""select s.subject_id::text, s.name, f.text, f.updated_at from knowledge.subject s
+                   join knowledge.fragment f on f.host_id=%s and f.active and f.subject_id = any(%s::uuid[])
+                     and position(s.name in f.text) > 0
+                   where s.host_id=%s and not (s.subject_id = any(%s::uuid[])) and length(btrim(s.name)) >= 3
+                   order by f.updated_at desc limit 200""", (host, subjects, host, subjects))
+    for sid, name, text, at in cur.fetchall():
+        if _names_in(name, text):
+            found.setdefault(sid, at)
+    return [sid for sid, _ in sorted(found.items(), key=lambda kv: kv[1], reverse=True)][:LINK_LIMIT]
+
+
 def _leaf_pairs(cur, host, fid):
     """0010 + contra05: this fragment's result leaves vs other active fragments' result leaves of the same subject,
     compared only under the same condition or when either side is unconditional (rules under different conditions
@@ -893,6 +932,10 @@ def _leaf_pairs(cur, host, fid):
     subjects = sorted({s for _, s, _ in own if s})
     if not subjects:
         return None
+    # contra07 (2026-10-02): the same thing under another name ('출고API는 식별자가 POST /v3/shipments다', '회수접수는
+    # 반품API의 기능명이다') was never compared: subjects linked by a canon fact that names the other one are compared
+    # too; the judge still decides each pair
+    linked = [x for x in _linked_subjects(cur, host, subjects) if x not in subjects]
     # astra warn review: a leaf kept with a Korean connective may hold a second fact about another subject; such a
     # fragment is compared with the result leaves of every subject (bounded), not only its own subject's
     wide = any(fact_form.warnings(t) for t, _, _ in own)
@@ -902,6 +945,15 @@ def _leaf_pairs(cur, host, fid):
                    and (%s or l.subject_id = any(%s::uuid[]))
                    order by f.updated_at desc limit 60""", (host, fid, wide, subjects))
     rows = cur.fetchall()
+    linked_rows = []
+    if linked and not wide:  # a separate budget: linked subjects never push out same-subject leaves (astra link review)
+        cur.execute("""select f.alias, f.form, l.text, l.subject_id::text, f.text from knowledge.fragment_leaf l
+                       join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
+                       where f.host_id=%s and f.active and f.id<>%s and l.role='then'
+                       and l.subject_id = any(%s::uuid[]) order by f.updated_at desc limit 30""", (host, fid, linked))
+        linked_rows = cur.fetchall()
+        rows += linked_rows
+    linked_ids = {id(r_) for r_ in linked_rows}
     if not wide:
         # astra warn review r2: an existing canon leaf kept with a warning may hold a fact about this subject under
         # another subject; recent warned leaves of other subjects are compared too (both directions)
@@ -921,7 +973,7 @@ def _leaf_pairs(cur, host, fid):
         if rel is None:
             continue
         for text, sid, _ in own:
-            if sid == osid or wide or id(row_) in warned_ids:
+            if sid == osid or wide or id(row_) in warned_ids or id(row_) in linked_ids:
                 pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel))
     return pairs
 
