@@ -11,7 +11,7 @@ from test_store_pg import fixture, host, judgement  # noqa: F401 (fixtures)
 def test_same_fact_by_structure():
     assert dedup.same_fact("IF A가 없다 THEN B는 닫힌다 AND C는 비워진다", "IF A가 없다 THEN C는 비워진다 AND B는 닫힌다")
     assert not dedup.same_fact("IF A가 없다 THEN B는 닫힌다", "IF A가 있다 THEN B는 닫힌다")
-    assert not dedup.same_fact("첨부 파일은 7일 보관된다", "첨부 파일은 30일 보관된다")
+    assert not dedup.same_fact("첨부 파일은 7일 보관된다", "첨부 파일은 항상 30일 보관된다")
     assert not dedup.same_fact("B는 닫힌다 AND C는 비워진다", "B는 닫힌다")
     assert dedup.same_fact("화면은 목록을 보여 준다.", "화면은 목록을 보여 준다")
     assert dedup.find_duplicate("IF A가 없다 THEN C는 비워진다 AND B는 닫힌다", ["x", "IF A가 없다 THEN B는 닫힌다 AND C는 비워진다"]) == 1
@@ -28,7 +28,7 @@ def settle(dsn, entry_id, text):
 
 
 def test_in_unit_contradiction_compares_leaves_under_the_same_condition(dsn, host):
-    first = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [fact("첨부 파일은 30일 보관된다")]})
+    first = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [fact("첨부 파일은 항상 30일 보관된다")]})
     uid = first["work_unit_id"]
     rule = "IF 보관 위치가 없다 THEN 첨부 파일은 7일 보관된다"
     second = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "work_unit_id": uid, "facts": [fact(rule)]})
@@ -43,11 +43,11 @@ def test_in_unit_contradiction_compares_leaves_under_the_same_condition(dsn, hos
     import fact_form
     new["form"] = fact_form.parse(new["fact"])
     out = knowledge_cli.contradictions(dsn, host, uid, [new], {}, judge=judge)
-    # compared with the unconditional 30-day fact of the same subject only: not the 7-day rule (other condition),
+    # compared with the 'always' 30-day fact of the same subject only (user 2026-10-02: a plain default is not): not the 7-day rule (other condition),
     # not the notification setting (other subject)
-    assert asked == [("IF 사용자가 고정한다 THEN 첨부 파일은 영구 보관된다", ["첨부 파일은 30일 보관된다"])], asked
-    assert out == [{"fact_index": 0, "with": "이 작업의 앞 기록", "text": "첨부 파일은 30일 보관된다"}], out
-    for r, t in ((first, "첨부 파일은 30일 보관된다"), (second, rule), (other, "알림 설정은 30일 보관된다")):
+    assert asked == [("IF 사용자가 고정한다 THEN 첨부 파일은 영구 보관된다", ["첨부 파일은 항상 30일 보관된다"])], asked
+    assert out == [{"fact_index": 0, "with": "이 작업의 앞 기록", "text": "첨부 파일은 항상 30일 보관된다"}], out
+    for r, t in ((first, "첨부 파일은 항상 30일 보관된다"), (second, rule), (other, "알림 설정은 30일 보관된다")):
         settle(dsn, r["entry_id"], t)
 
 

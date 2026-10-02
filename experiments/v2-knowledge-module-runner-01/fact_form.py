@@ -287,8 +287,35 @@ def condition_key(form):
 
 
 def unconditional(form):
-    """A plain fact holds always: it can contradict a rule under any condition."""
+    """A fact without a condition (IF/BEFORE/AFTER/EXCEPT WHEN)."""
     return (form or {}).get("kind", "plain") == "plain" and not (form or {}).get("except")
+
+
+# user 2026-10-02: a plain fact is a default ('수수료는 0원이다'); only a fact that says 'always' explicitly ('무조건 수수료는
+# 0원이다') contradicts a conditional opposite. The words that mean 'always / with no exception':
+# a whole word (start or space before, space/end after), so '절대경로' or '늘린다' are not 'always' (astra exc review)
+ALWAYS = re.compile(r"(?:^|\s)(무조건|항상|항시|언제나|언제든지|늘|반드시|절대|절대로|예외\s*없이|"
+                    r"어떤\s*경우에도|어떤\s*경우에나|어떠한\s*경우에도|모든\s*경우에)(?=\s|$)")
+# '항상 무료인 것은 아니다' denies the 'always': not an always-fact
+NOT_ALWAYS = re.compile(r"(것은|건|게)\s*아니다\.?$|지는\s*않다\.?$")
+
+
+def explicit_always(form):
+    """A fact without a condition that says 'always' in a result sentence."""
+    return unconditional(form) and any(ALWAYS.search(t) and not NOT_ALWAYS.search(t.strip())
+                                       for t in (form or {}).get("then", []))
+
+
+def relation(a, b):
+    """How two facts are compared: 'compare' (same condition, both plain, or a plain 'always' vs a rule) -> can
+    contradict; 'exception' (a plain default vs a conditional rule) -> both may stand, the rule may be an exception
+    of the default; None (different conditions) -> not compared."""
+    if condition_key(a) == condition_key(b):
+        return "compare"
+    ua, ub = unconditional(a), unconditional(b)
+    if ua != ub:
+        return "compare" if explicit_always(a if ua else b) else "exception"
+    return None
 
 
 def expr_text(e, top=True):
@@ -315,5 +342,5 @@ def display(form, leaf):
 
 
 def comparable(a, b):
-    """Two facts can contradict only under the same condition, or when either holds always."""
-    return unconditional(a) or unconditional(b) or condition_key(a) == condition_key(b)
+    """Two facts can contradict only under the same condition, or when a plain one says 'always' (relation())."""
+    return relation(a, b) == "compare"

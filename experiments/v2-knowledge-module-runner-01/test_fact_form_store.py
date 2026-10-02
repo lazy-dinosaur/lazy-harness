@@ -66,7 +66,8 @@ def test_db_rejects_a_malformed_form(dsn, host):
 
 
 def test_contradiction_scan_compares_leaves_under_the_same_condition(dsn, host):
-    """contra05: same subject, same condition or one side unconditional; rules under other conditions are not asked."""
+    """contra05 + user 2026-10-02: same subject, same condition, or a plain fact that says always (항상); a plain default
+    vs a rule is an exception (not asked as a contradiction); rules under other conditions are not asked."""
     from test_store_pg import judgement
 
     def absorb(text):
@@ -79,7 +80,7 @@ def test_contradiction_scan_compares_leaves_under_the_same_condition(dsn, host):
         assert digest_driver.run_digestion(dsn, body["work_unit_id"], judge)["status"] == "absorbed"
         return body["work_unit_id"]
 
-    absorb("첨부 파일은 30일 보관된다")
+    absorb("첨부 파일은 항상 30일 보관된다")
     absorb("IF 보관 위치가 없다 THEN 첨부 파일은 7일 보관된다")
     unit = absorb("IF 사용자가 고정한다 THEN 첨부 파일은 영구 보관된다")
     asked = []
@@ -88,7 +89,7 @@ def test_contradiction_scan_compares_leaves_under_the_same_condition(dsn, host):
         asked.append((state["fact"], list(texts)))
         return [{"noul": 0.9 if "30일" in t else 0.1} for t in texts]
     assert pg.scan_contradictions(dsn, unit, contra) == {"scanned": 1, "contradictions": 1}
-    assert asked == [("IF 사용자가 고정한다 THEN 첨부 파일은 영구 보관된다", ["첨부 파일은 30일 보관된다"])], asked
+    assert asked == [("IF 사용자가 고정한다 THEN 첨부 파일은 영구 보관된다", ["첨부 파일은 항상 30일 보관된다"])], asked
     logged = [q for q in pg.rows(dsn, "confirmation_queue") if q["rule_id"] == "canon_contradiction"
               and "영구 보관" in str(q["reason"])]
     assert len(logged) == 1 and "30일" in str(logged[0]["reason"])

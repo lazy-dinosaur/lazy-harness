@@ -44,7 +44,7 @@ export default function (pi: ExtensionAPI) {
     void invoke("review", { action: "list" }, ctx.cwd).then((result) => {
       const items = Array.isArray(result.items) ? result.items as { fact?: string; why_waiting?: string[] }[] : null;
       if (!items) return;
-      const count = items.length;
+      const count = items.filter((i) => (i as { for?: string }).for !== "parent").length;  // exception links are for the parent
       if (count > 0 && count > announced) {
         // The lookup is async: the session may already be closed (headless -p exit, window closed). Drop the
         // notice then; it is re-announced on the next session_start.

@@ -251,6 +251,25 @@ def review_list(dsn, host):
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
                           "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
                           "review_reasons": [reason_line], "question_ids": [qid]})
+        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
+                    from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                    where e.host_id=%s and q.rule_id='canon_exception' and q.status='pending' order by q.created_at""", (host,))
+        for eid, idx, reason, wu, qid in cur.fetchall():
+            r = json.loads(reason)
+            cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and alias = any(%s)",
+                        (host, [r["alias"], r["with"]]))
+            now = dict(cur.fetchall())
+            if now.get(r["alias"]) != r["text"] or now.get(r["with"]) != r["with_text"]:
+                cur.execute("""update knowledge.confirmation_queue set status='answered', answered_at=now(), answer=%s
+                            where confirmation_id=%s and status='pending'""",
+                            (_json({"decision": "withdrawn", "by": "a side changed"}), qid))
+                continue
+            items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon",
+                          "kind": "exception_link", "for": "parent", "subject": None, "evidence_source": None,
+                          "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
+                          "review_reasons": [f"exception_link: [{r['with']}] {fact_text.view(r['with_text'])} — 기본값과 예외. "
+                                             "기본값 조각을 'X EXCEPT WHEN 조건' 으로 고치면 하나로 읽힌다 (사용자에게 묻지 않는다)"],
+                          "question_ids": [qid]})
         cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id, q.answer
                     from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     where e.host_id=%s and q.rule_id='canon_contradiction' and q.status='answered' and q.resolution='open'
@@ -741,11 +760,16 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
         own = cur.fetchone()[0]
         cur.execute("select id::text, form from knowledge.fragment where id = any(%s::uuid[])", ([str(h["id"]) for h in hits],))
         forms = dict(cur.fetchall())
-    hits = [h for h in hits if not own or not forms.get(str(h["id"])) or fact_form.comparable(own, forms[str(h["id"])])]
-    if not hits:
-        return []
-    answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in hits], CANON_Q)
-    return [{"alias": h["alias"], "text": h["text"]} for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    rel = {str(h["id"]): (fact_form.relation(own, forms[str(h["id"])]) if own and forms.get(str(h["id"])) else "compare")
+           for h in hits}
+    found = []
+    for kind, q in (("compare", CANON_Q), ("exception", EXC_Q)):
+        group = [h for h in hits if rel[str(h["id"])] == kind]
+        if group:
+            answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in group], q)
+            found += [{"alias": h["alias"], "text": h["text"], "kind": kind}
+                      for h, a in _judged(group, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    return found  # kind 'exception' rows are parent hints, not contradictions (astra exc review: vector-only exceptions)
 
 
 def _leaf_pairs(cur, host, fid):
@@ -766,15 +790,19 @@ def _leaf_pairs(cur, host, fid):
                    join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
                    where f.host_id=%s and f.active and f.id<>%s and l.role='then' and l.subject_id = any(%s::uuid[])
                    order by f.updated_at desc limit 60""", (host, fid, subjects))
-    mine, free = fact_form.condition_key(form), fact_form.unconditional(form)
     pairs = []
     for alias, oform, otext, osid, ofull in cur.fetchall():
-        if not oform or not (free or fact_form.unconditional(oform) or fact_form.condition_key(oform) == mine):
+        rel = fact_form.relation(form, oform) if oform else None
+        if rel is None:
             continue
         for text, sid, _ in own:
             if sid == osid:
-                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull))
+                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel))
     return pairs
+
+
+EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해, 하나는 조건 없는 기본값이고 다른 하나는 특정 조건에서"
+         " 다른 값·규칙을 말하는가(기본값의 예외)? 같은 값을 말함, 다른 속성, 다른 대상이면 false.")
 
 
 def scan_contradictions(dsn, unit_id, judge):
@@ -807,19 +835,27 @@ def scan_contradictions(dsn, unit_id, judge):
                                and active and id<>%s order by updated_at desc limit 30""", (host, row[3], fid))
                 group = [{"id": r[0], "alias": r[1], "text": r[2]} for r in cur.fetchall()]
             leaf_pairs = _leaf_pairs(cur, host, fid) if row and row[2] else None
-        bad = []
+        bad, exceptions = [], []
         if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
-            by_own = {}
-            for own, other, alias, full in leaf_pairs:
+            by_own, by_own_exc = {}, {}
+            for own, other, alias, full, rel in leaf_pairs:
                 # the log keeps the other fragment's whole stored text: review_list closes an item when that text changes
                 # (flow3 2026-10-01: logging the leaf display closed real contradictions at once)
-                by_own.setdefault(own, []).append({"alias": alias, "text": full, "shown": other})
+                (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
+                    {"alias": alias, "text": full, "shown": other})
             for own, others in by_own.items():
                 answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
                 bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+            # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
+            # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
+            for own, others in by_own_exc.items():
+                answers = judge({"fact": own}, [o["shown"] for o in others], EXC_Q)
+                exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
             # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
             # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
-            bad += _vector_contradictions(dsn, host, fid, row[1], {a for _, _, a, _ in leaf_pairs}, judge)
+            vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, judge)
+            bad += [v for v in vec if v["kind"] == "compare"]
+            exceptions += [v for v in vec if v["kind"] == "exception"]
         elif row and row[2]:
             hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
                                          if str(h["id"]) != fid]  # fragments from before the subject dictionary
@@ -850,11 +886,38 @@ def scan_contradictions(dsn, unit_id, judge):
                             (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"],
                                               "id": fid, "rev": own_rev, "with_id": other_[0] if other_ else None,
                                               "with_rev": other_[1] if other_ else None})))
+            for h in list({h["alias"]: h for h in exceptions}.values()):
+                _add_exception(cur, host, eid, idx, row[0], row[1], h["alias"], h["text"])
             if not bad:
                 cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
                             values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
         found += len(bad)
     return {"scanned": len(todo), "contradictions": found}
+
+
+def _add_exception(cur, host, eid, idx, alias, text, with_alias, with_text):
+    """One pending exception hint per pair, in either direction (astra exc review: concurrent / two-sided duplicates)."""
+    pair = sorted([alias, with_alias])
+    cur.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"lh-exc/{host}/{pair[0]}/{pair[1]}",))
+    cur.execute("""select q.confirmation_id, q.reason from knowledge.confirmation_queue q
+                   join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                   where e.host_id=%s and q.rule_id='canon_exception' and q.status='pending'
+                   and ((q.reason::jsonb->>'alias')=%s and (q.reason::jsonb->>'with')=%s
+                        or (q.reason::jsonb->>'alias')=%s and (q.reason::jsonb->>'with')=%s)""",
+                (host, alias, with_alias, with_alias, alias))
+    texts = {alias: text, with_alias: with_text}
+    for qid, reason in cur.fetchall():
+        r = json.loads(reason)
+        if texts.get(r["alias"]) == r["text"] and texts.get(r["with"]) == r["with_text"]:
+            return False  # the same hint for the same texts is already pending
+        # an older hint for older texts: withdrawn and replaced (astra exc review r2)
+        cur.execute("""update knowledge.confirmation_queue set status='answered', answered_at=now(), answer=%s
+                    where confirmation_id=%s and status='pending'""",
+                    (_json({"decision": "withdrawn", "by": "replaced by a hint for the current texts"}), qid))
+    cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
+                values (%s,%s,'canon_exception',%s)""",
+                (eid, idx, _json({"alias": alias, "text": text, "with": with_alias, "with_text": with_text})))
+    return True
 
 
 def _strict_noul(answer):
@@ -949,11 +1012,26 @@ def recheck_contradictions(dsn, judge, limit=5):
             if not a[3] or not b[3]:  # plainly deprecated (not a merge)
                 verdict, evidence = "resolved", {"by": "a side retired", "ids": [a[0], b[0]], "revisions": list(seen)}
             else:
-                answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
-                [(_, ans)] = list(_judged([b], answers))
-                score = _strict_noul(ans)
-                verdict = "open" if score >= CONTRA_KEEP else "resolved"
-                evidence = {"by": "rejudged", "ids": [a[0], b[0]], "revisions": list(seen), "noul": score}
+                import fact_form
+                with connect(dsn) as conn, conn.cursor() as cur:
+                    cur.execute("select id::text, form from knowledge.fragment where id = any(%s::uuid[])", ([a[0], b[0]],))
+                    fm = dict(cur.fetchall())
+                rel = fact_form.relation(fm[a[0]], fm[b[0]]) if fm.get(a[0]) and fm.get(b[0]) else "compare"
+                if rel != "compare":
+                    # astra exc review: e.g. an 'always' fact rewritten as a plain default -> default and exception now;
+                    # a hint only when the judge confirms it is an exception (a different value), as a scan would (r2)
+                    verdict = "resolved"
+                    evidence = {"by": "no longer comparable", "relation": rel, "ids": [a[0], b[0]], "revisions": list(seen)}
+                    if rel == "exception":
+                        answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], EXC_Q)
+                        [(_, ans)] = list(_judged([b], answers))
+                        evidence["is_exception"] = _strict_noul(ans) >= CONTRA_KEEP
+                else:
+                    answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
+                    [(_, ans)] = list(_judged([b], answers))
+                    score = _strict_noul(ans)
+                    verdict = "open" if score >= CONTRA_KEEP else "resolved"
+                    evidence = {"by": "rejudged", "ids": [a[0], b[0]], "revisions": list(seen), "noul": score}
             with connect(dsn) as conn, conn.cursor() as cur:
                 cur.execute("select resolution, reason from knowledge.confirmation_queue where confirmation_id=%s for update", (qid,))
                 now_res, now_reason = cur.fetchone()
@@ -961,6 +1039,10 @@ def recheck_contradictions(dsn, judge, limit=5):
                 if now_res not in ("open", "recheck") or now_reason != reason or (a2[2], b2[2]) != seen:
                     out["retried"] += 1  # changed during the judge call: judged again on a later tick
                     continue
+                if verdict == "resolved" and evidence.get("is_exception"):
+                    cur.execute("select entry_id, fact_index from knowledge.confirmation_queue where confirmation_id=%s", (qid,))
+                    e_, i_ = cur.fetchone()
+                    _add_exception(cur, host, e_, i_, a[4], a[1], b[4], b[1])  # now a parent hint, not a question
                 if verdict == "resolved":
                     cur.execute("""update knowledge.confirmation_queue set resolution='resolved', resolved_at=now(),
                                 resolution_evidence=%s, status=case when status='pending'
