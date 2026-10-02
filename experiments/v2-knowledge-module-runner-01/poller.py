@@ -15,7 +15,6 @@ import worktime_driver
 
 LOCK_KEY = 0x4C484B4449473031  # LHKDIG01; reserved for this poller
 SCAN_PER_TICK = 5
-MAX_UNIT_FACTOR = 4  # a unit runs alone up to 4 x window entries (Jev calls, one transaction)
 IDLE_DELAY = 60  # seconds before a unit that made no progress is tried again
 RECHECK_PER_TICK = 2  # of SCAN_PER_TICK: at least 3 scans of newly absorbed units run every tick
 DEFAULT_STATE = Path("~/.local/state/lazy-harness-v2/poller-state.json").expanduser()
@@ -148,12 +147,9 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
             reserve = max(1, window // 5)
             remaining = window - reserve
             for unit in units:
-                # a unit is one commit: one larger than the window still runs when it is the first of the tick
-                # (contra06: a 150-entry unit with window 50 was skipped forever), up to MAX_UNIT_FACTOR x window;
-                # a bigger unit is reported (skipped.oversize), never run unbounded
-                if unit["entries"] > MAX_UNIT_FACTOR * window:
-                    skipped["oversize"] = skipped.get("oversize", 0) + 1
-                    continue
+                # a unit is one commit: one larger than the window runs when it is the first of the tick; its judge
+                # calls are spread over ticks (budget = remaining), the commit happens in the pass that has them all
+                # (contra06: 150 entries skipped forever; contra07: 220 entries > the old 4 x window cap, never digested)
                 if result["units"] >= max_units or (remaining < unit["entries"] and result["units"] > 0):
                     skipped["limit"] += 1
                     continue
@@ -161,14 +157,25 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 if _blocked(hints, key, now, skipped):
                     continue
                 result["units"] += 1
-                spent = min(remaining, unit["entries"])
-                remaining -= spent
+                # a unit larger than what is left takes at most half of it, so units behind it still run (astra big review)
+                spent = unit["entries"] if unit["entries"] <= remaining else max(1, remaining // 2)
+                remaining = max(0, remaining - spent)  # never into worktime's reserved share
                 try:
                     outcome = digest_driver.run_digestion(dsn, unit["work_unit_id"], judge, choose=choose, confirm=confirm,
-                                                          same=subject_same)
+                                                          same=subject_same, budget=max(1, spent))
                     # canon scans run below in one budgeted scheduler (astra P13 cross-review: they bypassed the budget)
                     if outcome["status"] in ("needs_review", "needs_recheck"):
                         _failure(hints, key, now, max_attempts, base_delay)
+                    elif outcome["status"] == "partial":
+                        before = hints.get(key, {}).get("remaining")
+                        if before is not None and outcome["remaining"] >= before:
+                            # no progress (the canon moved and saved judgements no longer match): wait, budget back
+                            result["units"] -= 1
+                            remaining += spent
+                            hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True,
+                                          "remaining": outcome["remaining"]}
+                        else:
+                            hints[key] = {"attempts": 0, "next": 0, "stuck": False, "remaining": outcome["remaining"]}
                     elif outcome["status"] in ("noop", "waiting"):
                         # no progress (e.g. a change waits for a human): give the budget back and wait before the next
                         # try without counting toward stuck (astra stall review P1-1)
@@ -242,6 +249,14 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 except embed.EmbeddingUnavailable:
                     skipped["embedding_unavailable"] += 1
                     break
+            try:  # subjects registered without an embedding (astra big review r3)
+                with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                    cur.execute("select distinct host_id from knowledge.subject")
+                    subject_hosts = [r[0] for r in cur.fetchall()]
+                for host in subject_hosts:
+                    result["embeddings"] += store_pg.backfill_subject_embeddings(dsn, host, limit=50)
+            except embed.EmbeddingUnavailable:
+                skipped["embedding_unavailable"] += 1
             result["stuck"] = sum(bool(v.get("stuck")) for v in hints.values() if isinstance(v, dict))
             return result
         finally:

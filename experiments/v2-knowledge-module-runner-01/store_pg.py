@@ -548,6 +548,113 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
     return receipt_id
 
 
+def embed_unit(dsn, unit_id):
+    """Embed the active fragments this unit absorbed that have no embedding for their current revision, after the commit
+    and outside it (astra big review: embedding calls held the digestion transaction). -> count embedded; on an
+    embedding outage nothing is written and the poller's embedding pass retries."""
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select distinct f.id::text, f.revision, f.text from knowledge.absorption a
+                       join knowledge.fragment f on f.id=a.fragment_ref
+                       left join knowledge.fragment_embedding e on e.fragment_id=f.id and e.revision=f.revision
+                         and e.model_id=%s and e.embed_variant='plain'
+                       where a.work_unit_id=%s and f.active and e.fragment_id is null""", (embed.MODEL_ID, unit_id))
+        rows = cur.fetchall()
+    done = 0
+    if rows:
+        try:
+            vectors = embed.encode_passages([_embedding_input(None, None, [], t, "plain") for _, _, t in rows])
+        except embed.EmbeddingUnavailable:
+            vectors = None
+        if vectors is not None:
+            with connect(dsn) as conn, conn.cursor() as cur:
+                for (fid, rev, _), vector in zip(rows, vectors):
+                    cur.execute("select 1 from knowledge.fragment where id=%s and revision=%s", (fid, rev))
+                    if cur.fetchone():  # still that revision
+                        _upsert_embedding(cur, fid, rev, vector)
+            done = len(rows)
+    _embed_subjects(dsn, unit_id)  # independent of the passages (astra big review r3)
+    return done
+
+
+def backfill_subject_embeddings(dsn, host, limit=50):
+    """Poller retry: subjects of the host registered without an embedding (digestion registers them without one; an
+    embedding outage after the commit leaves them missing, and subject_dict.nearest skips them). -> count."""
+    import subject_dict
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select s.subject_id::text, s.name from knowledge.subject s
+                       left join knowledge.subject_embedding se on se.subject_id=s.subject_id and se.model_id=%s
+                       where s.host_id=%s and se.subject_id is null order by s.created_at limit %s""",
+                    (embed.MODEL_ID, host, limit))
+        rows = cur.fetchall()
+    if not rows:
+        return 0
+    vectors = embed.encode_queries([subject_dict.core(n) for _, n in rows])  # EmbeddingUnavailable -> caller
+    with connect(dsn) as conn, conn.cursor() as cur:
+        for (sid, _), v in zip(rows, vectors):
+            cur.execute("""insert into knowledge.subject_embedding(subject_id,model_id,embedding) values (%s,%s,%s::extensions.vector)
+                           on conflict (subject_id,model_id) do nothing""", (sid, embed.MODEL_ID, subject_dict._vec(v)))
+    return len(rows)
+
+
+def _embed_subjects(dsn, unit_id):
+    """Subjects of the unit's fragments and leaves registered without an embedding (inside the digestion transaction)."""
+    import subject_dict
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select distinct s.subject_id::text, s.name from knowledge.absorption a
+                       join knowledge.fragment f on f.id=a.fragment_ref
+                       join knowledge.fragment_leaf l on l.fragment_id=f.id
+                       join knowledge.subject s on s.subject_id in (f.subject_id, l.subject_id)
+                       left join knowledge.subject_embedding se on se.subject_id=s.subject_id and se.model_id=%s
+                       where a.work_unit_id=%s and se.subject_id is null""", (embed.MODEL_ID, unit_id))
+        rows = cur.fetchall()
+    if not rows:
+        return 0
+    try:
+        vectors = embed.encode_queries([subject_dict.core(n) for _, n in rows])
+    except embed.EmbeddingUnavailable:
+        return 0
+    with connect(dsn) as conn, conn.cursor() as cur:
+        for (sid, _), v in zip(rows, vectors):
+            cur.execute("""insert into knowledge.subject_embedding(subject_id,model_id,embedding) values (%s,%s,%s::extensions.vector)
+                           on conflict (subject_id,model_id) do nothing""", (sid, embed.MODEL_ID, subject_dict._vec(v)))
+    return len(rows)
+
+
+def cached_digestion_answers(dsn, items):
+    """contra07 (2026-10-02): a large unit is judged over several passes. -> {worktime receipt id: saved judgement} for the
+    items [(worktime receipt id, packet)] whose exact packet (same facts, same canon excerpt) was already judged at
+    digestion. A packet that changed (the canon moved) is judged again."""
+    out = {}
+    with connect(dsn) as conn, conn.cursor() as cur:
+        for rid, packet in items:
+            cur.execute("""select r2.answers, r2.jev_model_requested, r2.jev_model_actual from knowledge.check_receipt r1
+                           join knowledge.check_receipt r2 on r2.entry_id=r1.entry_id and r2.fact_index=r1.fact_index
+                             and r2.stage='digestion' and r2.packet=%s::jsonb
+                           where r1.receipt_id=%s order by r2.created_at desc limit 1""", (_json(packet), rid))
+            row = cur.fetchone()
+            if row:
+                out[rid] = {"answers": row[0], "jev_model_requested": row[1], "jev_model_actual": row[2]}
+    return out
+
+
+def save_digestion_answers(dsn, saved):
+    """Store judgements of a partial pass as digestion receipts (no canon write); the final pass reuses them.
+    saved = {worktime receipt id: fixture with packet/answers/models}."""
+    with connect(dsn) as conn, conn.cursor() as cur:
+        for rid, fixture in saved.items():
+            cur.execute("""select e.entry_id::text, e.host_id, e.partition_key, e.work_unit_id::text, e.judgement_id,
+                           e.judgement_version, e.judgement_body, r.fact_index from knowledge.check_receipt r
+                           join knowledge.ledger_entry e on e.entry_id=r.entry_id where r.receipt_id=%s""", (rid,))
+            row = _row(cur)
+            if not row:
+                continue
+            idx = row.pop("fact_index")
+            fact = row["judgement_body"]["facts"][idx]
+            current = _target(cur, fact) if fact.get("operation", "add") in ("update", "deprecate") else None
+            _receipt(cur, row, idx, fact, fixture, "digestion", current)
+    return len(saved)
+
+
 def batch(dsn, window, fixtures, *, entry_ids=None):
     if window < 1:
         raise ValueError("window must be positive")
@@ -1110,7 +1217,7 @@ def _assign_subject(cur, host, fact, fixture):
         if routed["name"] != name and routed["name"] in text:
             fact, _ = runner.normalize_fact({**fact, "fact": text, "subject": routed["name"], "subject_as_written": name})
         return routed["subject_id"], fact
-    return subject_dict.register(cur, host, name, routed.get("vector")), fact
+    return subject_dict.register(cur, host, name, routed.get("vector"), allow_embed=False), fact
 
 
 def _form_of(fact):
@@ -1133,7 +1240,7 @@ def _write_form(cur, host, fragment_id, revision, fact, subject_id):
         else:
             head = runner.SUBJECT_HEAD.match(leaf["text"] + " ")
             if head and head.group(1).strip():
-                sid = subject_dict.register(cur, host, head.group(1).strip())
+                sid = subject_dict.register(cur, host, head.group(1).strip(), allow_embed=False)
         cur.execute("""insert into knowledge.fragment_leaf(fragment_id,revision,ord,role,text,subject_id,polarity)
                        values (%s,%s,%s,%s,%s,%s,%s)""", (fragment_id, revision, ord_, leaf["role"], leaf["text"], sid, leaf["polarity"]))
 
@@ -1448,12 +1555,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                                      subject_id, _json(_form_of(fact))))
                         latest = 1
                         _write_form(cur, entry["host_id"], ref, 1, fact, subject_id)
-                        try:
-                            vector = embed.encode_passages([_embedding_input(None, None, [], fragment["text"], "plain")])[0]
-                        except embed.EmbeddingUnavailable:
-                            embedding_pending = True
-                        else:
-                            _upsert_embedding(cur, ref, latest, vector)
+                        embedding_pending = True  # embedded after the commit (embed_unit), never inside this transaction
                     else:
                         subject_id = None
                         if operation == "update":
@@ -1473,12 +1575,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         if operation == "update":
                             _write_form(cur, entry["host_id"], ref, latest, fact, subject_id)
                         if operation == "update":
-                            try:
-                                vector = embed.encode_passages([_embedding_input(None, None, [], fact["fact"], "plain")])[0]
-                            except embed.EmbeddingUnavailable:
-                                embedding_pending = True
-                            else:
-                                _upsert_embedding(cur, ref, latest, vector)
+                            embedding_pending = True  # embedded after the commit (embed_unit)
                 decision = {"absorb": "absorbed", "retain_as_evidence": "retained_as_evidence", "reject": "rejected"}.get(action, "retained_as_evidence")
                 cur.execute("""insert into knowledge.absorption(absorption_id,work_unit_id,entry_id,fact_index,
                             digestion_receipt_id,proposal,decision,decided_by,rule_id,action,fragment_ref,fragment_revision_after)

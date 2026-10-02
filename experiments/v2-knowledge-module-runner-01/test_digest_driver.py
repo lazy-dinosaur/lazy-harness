@@ -161,3 +161,55 @@ def test_digestion_receipt_keeps_provider_cost(dsn, host):
     assert digest_driver.run_digestion(dsn, unit, judge)["status"] == "absorbed"
     rows = [r for r in pg.rows(dsn, "check_receipt") if r["stage"] == "digestion" and r["input_tokens"] == 7]
     assert rows and float(rows[0]["cost_usd"]) == 0.002
+
+
+def test_no_embedding_call_inside_the_digest_transaction(dsn, host, monkeypatch):
+    """astra big review: embeddings are computed after the commit (store_pg.embed_unit), never inside digest()."""
+    import embed
+    import store_pg as pg_
+    from test_store_pg import fixture as fx, judgement as jm
+    body = jm(host, text="임베딩 시점 시험은 하나다")
+    body["facts"][0]["subject"] = "임베딩 시점 시험"
+    e = pg_.register(dsn, body)
+    pg_.batch(dsn, 1, {e["entry_id"]: [fx(text="임베딩 시점 시험은 하나다")]}, entry_ids=[e["entry_id"]])
+    pg_.complete(dsn, body["work_unit_id"])
+    real = embed.encode_passages
+    inside = {"on": False}
+    real_digest = pg_.digest
+
+    def guarded_digest(*a, **k):
+        inside["on"] = True
+        try:
+            return real_digest(*a, **k)
+        finally:
+            inside["on"] = False
+
+    def guarded_encode(texts):
+        assert not inside["on"], "embedding called inside digest()"
+        return real(texts)
+    real_q = embed.encode_queries
+
+    def guarded_queries(texts):  # subject embeddings too (astra big review r2)
+        assert not inside["on"], "subject embedding called inside digest()"
+        return real_q(texts)
+    monkeypatch.setattr(pg_, "digest", guarded_digest)
+    monkeypatch.setattr(embed, "encode_passages", guarded_encode)
+    monkeypatch.setattr(embed, "encode_queries", guarded_queries)
+    out = digest_driver.run_digestion(dsn, body["work_unit_id"], lambda p: {"answers": fx(text=p["state"]["candidate_fact"])["answers"]})
+    assert out["status"] in ("absorbed", "processed")
+    frag = [r for r in pg_.rows(dsn, "fragment") if r["host_id"] == host][0]
+    with pg_.connect(dsn) as conn, conn.cursor() as cur:  # embedded after the commit
+        cur.execute("select count(*) from knowledge.fragment_embedding where fragment_id=%s", (frag["id"],))
+        assert cur.fetchone()[0] >= 1
+
+
+def test_missing_subject_embeddings_are_filled_later(dsn, host):
+    """astra big review r3: a subject registered without an embedding (outage) is filled by the poller's retry."""
+    import store_pg as pg_
+    import subject_dict
+    with pg_.connect(dsn) as conn, conn.cursor() as cur:
+        sid = subject_dict.register(cur, host, "임베딩 누락 주어", allow_embed=False)
+    assert pg_.backfill_subject_embeddings(dsn, host) >= 1
+    with pg_.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select count(*) from knowledge.subject_embedding where subject_id=%s", (sid,))
+        assert cur.fetchone()[0] == 1

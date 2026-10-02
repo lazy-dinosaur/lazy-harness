@@ -10,8 +10,10 @@ import runner
 import store_pg
 
 
-def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None, same=None, embed_fn=None):
-    """choose(fact_text, options) -> {key: prob} routes adds to a domain (domain_router); None = exact/new only."""
+def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None, same=None, embed_fn=None, budget=None):
+    """choose(fact_text, options) -> {key: prob} routes adds to a domain (domain_router); None = exact/new only.
+    budget: at most this many new judge calls in this pass (contra07: a 220-fact unit was never digested). Judgements of a
+    partial pass are saved as digestion receipts; the commit stays one transaction in the pass that has them all."""
     preview = store_pg.digest(dsn, unit_id, False)
     if preview["status"] != "needs_recheck":
         return preview
@@ -50,6 +52,20 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                 packet["state"]["target_excerpt"] = target["text"]
                 revision = target["revision"]
             packets.append((receipt_id, receipt, packet, revision, history_seen))
+    cached = store_pg.cached_digestion_answers(dsn, [(rid, pk) for rid, _, pk, _, _ in packets])
+    todo = [p_ for p_ in packets if p_[0] not in cached]
+    if apply and budget is not None and len(todo) > budget:
+        saved = {}
+        for receipt_id, receipt, packet, revision, history_seen in todo[:max(1, budget)]:
+            judged = judge(packet)
+            if not isinstance(judged, dict) or not isinstance(judged.get("answers"), dict):
+                raise ValueError("judge must return {'answers': <typed answer map>, ...}")
+            saved[receipt_id] = {"packet": packet, "answers": judged["answers"],
+                                 "jev_model_requested": judged.get("jev_model_requested", receipt["jev_model_requested"]),
+                                 "jev_model_actual": judged.get("jev_model_actual", receipt["jev_model_actual"]),
+                                 **{k: judged[k] for k in ("input_tokens", "output_tokens", "cost_usd", "usage_source") if k in judged}}
+        store_pg.save_digestion_answers(dsn, saved)
+        return {"status": "partial", "judged": len(saved), "remaining": len(todo) - len(saved)}
     # Domain routing (read the list, then call Jev outside any transaction).
     import domain_router
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
@@ -75,29 +91,35 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
     import subject_dict
     efn = embed_fn or embed.encode_queries
     subject_routed = {}
+    # astra big review: one decision per new subject name (the earliest record's candidates), not per fact -- a large
+    # unit with few subjects makes few judge calls at its final pass
+    by_name = {}
     for receipt_id, receipt, packet, revision, history_seen in packets:
         fact = receipt["judgement_body"]["facts"][receipt["fact_index"]]
         name = fact.get("subject")
         if fact.get("operation", "add") == "deprecate" or not isinstance(name, str) or not name.strip():
             continue
+        by_name.setdefault((receipt["host_id"], subject_dict.core(name)), []).append((receipt_id, receipt, fact, name))
+    for (host_, core_), group in by_name.items():
         with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-            if subject_dict.lookup(cur, receipt["host_id"], name):
+            if subject_dict.lookup(cur, host_, group[0][3]):
                 continue
-            cur.execute("""select e.created_at from knowledge.check_receipt r join knowledge.ledger_entry e
-                           on e.entry_id=r.entry_id where r.receipt_id=%s""", (receipt_id,))
+            cur.execute("""select min(e.created_at) from knowledge.check_receipt r join knowledge.ledger_entry e
+                           on e.entry_id=r.entry_id where r.receipt_id = any(%s::uuid[])""", ([g[0] for g in group],))
             after = cur.fetchone()[0]
             try:
-                vector = efn([subject_dict.core(name)])[0]
+                vector = efn([core_])[0]
             except embed.EmbeddingUnavailable:
                 continue
-            cands = subject_dict.nearest(cur, receipt["host_id"], vector, after=after)
-        best = subject_dict.decide(name, cands, same, fact.get("fact"))
-        subject_routed[receipt_id] = ({"subject_id": best["subject_id"], "name": best["name"]} if best
-                                      else {"vector": list(vector)})
+            cands = subject_dict.nearest(cur, host_, vector, after=after)
+        best = subject_dict.decide(group[0][3], cands, same, group[0][2].get("fact"))
+        for receipt_id, _, _, _ in group:
+            subject_routed[receipt_id] = ({"subject_id": best["subject_id"], "name": best["name"]} if best
+                                          else {"vector": list(vector)})
     # Jev/network calls must not hold a DB transaction open. Digest's final
     # transaction rechecks the target revision before committing any writes.
     for receipt_id, receipt, packet, revision, history_seen in packets:
-        judged = judge(packet)
+        judged = cached.get(receipt_id) or judge(packet)  # saved by an earlier partial pass for this same packet
         if not isinstance(judged, dict) or not isinstance(judged.get("answers"), dict):
             raise ValueError("judge must return {'answers': <typed answer map>, ...}")
         fixture = {"packet": packet, "answers": judged["answers"],
@@ -117,6 +139,8 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
         fixtures[receipt_id] = fixture
         judgments[receipt_id] = judged
     result = store_pg.digest(dsn, unit_id, apply, fixtures)
+    if apply and result.get("status") in ("absorbed", "processed"):
+        store_pg.embed_unit(dsn, unit_id)  # outside the commit transaction (astra big review); the poller retries misses
     return {**result, "judgments": judgments}
 
 

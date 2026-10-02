@@ -28,6 +28,8 @@ def test_embedding_lifecycle_scope_and_permissions(dsn):
     entry, _, receipt = process(dsn, add, fixture(text="조각 벡터 확인"))
     assert pg.digest(dsn, add["work_unit_id"], True,
                      {receipt: fixture(text="조각 벡터 확인")})["status"] == "absorbed"
+    # embeddings are written after the commit, outside digest()'s transaction (astra big review)
+    assert pg.embed_unit(dsn, add["work_unit_id"]) == 1
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select f.id::text,f.revision,e.revision,f.group_id from knowledge.fragment f
                     join knowledge.fragment_embedding e on f.id=e.fragment_id
@@ -44,11 +46,12 @@ def test_embedding_lifecycle_scope_and_permissions(dsn):
     assert pg.backfill_embeddings(dsn, host) == 1
     assert pg.backfill_embeddings(dsn, host) == 0
     assert pg.search(dsn, host, "조각 벡터 확인", mode="hybrid")[0]["vector_rank"] == 1
-    # The ordinary update path advances the embedding revision in the digest transaction.
+    # The ordinary update path advances the embedding revision right after the commit (embed_unit, astra big review).
     update = judgement(host, "update", ident, "수정된 조각 벡터", source="code_test")
     response = fixture("update", "수정된 조각 벡터", "조각 벡터 확인", 2)
     _, _, receipt = process(dsn, update, response)
     assert pg.digest(dsn, update["work_unit_id"], True, {receipt: response})["status"] == "absorbed"
+    assert pg.embed_unit(dsn, update["work_unit_id"]) == 1
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("select f.revision,e.revision from knowledge.fragment f join knowledge.fragment_embedding e on f.id=e.fragment_id where f.id=%s", (ident,))
         assert cur.fetchone() == (3, 3)

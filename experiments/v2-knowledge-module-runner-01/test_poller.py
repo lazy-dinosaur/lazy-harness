@@ -188,7 +188,7 @@ def test_unit_larger_than_the_window_is_checked_then_digested(dsn, tmp_path, mon
     pg.complete(dsn, unit)
     state = tmp_path / "s.json"
     judge = lambda packet: {"answers": fixture(text=packet["state"]["candidate_fact"])["answers"]}
-    for _ in range(6):
+    for _ in range(20):  # judge calls are spread over ticks within the window budget
         poller.tick(dsn, judge, window=2, state=state)
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("select state::text from knowledge.ledger_entry where work_unit_id=%s", (unit,))
@@ -215,8 +215,56 @@ def test_a_unit_without_progress_gives_the_budget_back(dsn, tmp_path, monkeypatc
     assert hints["unit:big"]["idle"] and not hints["unit:big"]["stuck"]
 
 
-def test_oversize_unit_is_reported_not_run(dsn, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "_candidates", lambda dsn: ([{"work_unit_id": "huge", "entries": 50 * poller.MAX_UNIT_FACTOR + 1}], []))
-    monkeypatch.setattr(poller.digest_driver, "run_digestion", lambda *a, **k: (_ for _ in ()).throw(AssertionError("ran")))
-    out = poller.tick(dsn, judge=None, window=50, state=tmp_path / "s.json")
-    assert out["skipped"]["oversize"] == 1
+def test_large_unit_is_judged_over_passes_and_committed_once(dsn, tmp_path):
+    """contra07 (2026-10-02): a 220-fact unit exceeded the old 4 x window cap and was never digested. Judge calls are
+    spread over ticks (saved as digestion receipts); the commit happens once, in the pass that has every judgement."""
+    owner = "large-" + __import__("uuid").uuid4().hex[:8]
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("insert into knowledge.host(host_id,name,repo_locator) values (%s,%s,'t')", (owner, owner))
+    unit = None
+    for n in range(9):
+        body = judgement(owner, text=f"대형 작업 사실 {n} 번이다")
+        if unit:
+            body["work_unit_id"] = unit
+        unit = body["work_unit_id"]
+        pg.register(dsn, body)
+    pg.complete(dsn, unit)
+    calls = []
+
+    def judge(packet):
+        calls.append(packet["state"].get("candidate_fact"))
+        return {"answers": fixture(text=packet["state"]["candidate_fact"])["answers"]}
+    state = tmp_path / "s.json"
+    absorbed_after = []
+    for _ in range(12):
+        poller.tick(dsn, judge, window=4, state=state)
+        with pg.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("select count(*) from knowledge.fragment where host_id=%s", (owner,))
+            absorbed_after.append(cur.fetchone()[0])
+    assert absorbed_after[-1] == 9
+    assert all(n in (0, 9) for n in absorbed_after), absorbed_after  # never a part of the unit (one commit)
+    mine = [c for c in calls if c and c.startswith("대형 작업")]
+    assert len(mine) == 18, mine  # 9 worktime checks + 9 digestion judgements: each judged once, reused at the commit
+
+
+def test_partial_without_progress_waits_and_gives_the_budget_back(dsn, tmp_path, monkeypatch):
+    """astra big review: a large unit whose saved judgements stop matching (the canon moved) must not hold every tick."""
+    monkeypatch.setattr(poller, "_candidates", lambda dsn: ([{"work_unit_id": "big", "entries": 300},
+                                                            {"work_unit_id": "small", "entries": 2}], []))
+    ran = []
+
+    def fake(dsn, unit, judge, **k):
+        ran.append((unit, k.get("budget")))
+        return {"status": "partial", "judged": 5, "remaining": 100} if unit == "big" else {"status": "absorbed"}
+    monkeypatch.setattr(poller.digest_driver, "run_digestion", fake)
+    state = tmp_path / "s.json"
+    poller.tick(dsn, judge=None, window=50, state=state, now=1000)
+    assert ran[0][0] == "big" and ran[0][1] < 40 and ("small", 2) in ran  # half the budget, the small unit still ran
+    ran.clear()
+    poller.tick(dsn, judge=None, window=50, state=state, now=1001)
+    assert ran[0][0] == "big"
+    hints = json.loads(state.read_text())
+    assert hints["unit:big"]["idle"]  # remaining did not drop: wait IDLE_DELAY
+    ran.clear()
+    poller.tick(dsn, judge=None, window=50, state=state, now=1002)
+    assert [u for u, _ in ran] == ["small"]

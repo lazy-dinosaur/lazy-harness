@@ -147,8 +147,9 @@ def add_alias(cur, host, alias, subject_id):
                        on conflict (host_id, alias) do nothing""", (host, key, subject_id))
 
 
-def register(cur, host, name, vector=None):
-    """Digestion only. Returns subject_id (existing when any spelling already maps to it)."""
+def register(cur, host, name, vector=None, allow_embed=True):
+    """Digestion only. Returns subject_id (existing when any spelling already maps to it). allow_embed=False inside the
+    digestion transaction: no embedding service call there (astra big review r2); store_pg.embed_unit fills it after."""
     hit = lookup(cur, host, name)
     if hit:
         return hit["subject_id"]
@@ -156,7 +157,7 @@ def register(cur, host, name, vector=None):
                    on conflict (host_id,name) do update set name=excluded.name returning subject_id::text""", (host, name))
     sid = cur.fetchone()[0]
     add_alias(cur, host, name, sid)
-    if vector is None:
+    if vector is None and allow_embed:
         try:
             vector = embed.encode_queries([core(name)])[0]
         except embed.EmbeddingUnavailable:
