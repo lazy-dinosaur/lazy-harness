@@ -15,6 +15,8 @@ import worktime_driver
 
 LOCK_KEY = 0x4C484B4449473031  # LHKDIG01; reserved for this poller
 SCAN_PER_TICK = 5
+MAX_UNIT_FACTOR = 4  # a unit runs alone up to 4 x window entries (Jev calls, one transaction)
+IDLE_DELAY = 60  # seconds before a unit that made no progress is tried again
 RECHECK_PER_TICK = 2  # of SCAN_PER_TICK: at least 3 scans of newly absorbed units run every tick
 DEFAULT_STATE = Path("~/.local/state/lazy-harness-v2/poller-state.json").expanduser()
 
@@ -95,6 +97,10 @@ def _candidates(dsn):
         cur.execute("""select w.work_unit_id::text, count(*)::int as entries from knowledge.work_unit w
                     join knowledge.ledger_entry e on e.work_unit_id=w.work_unit_id
                     where w.status='completed' and e.state='eligible'
+                    -- contra06 (2026-10-02): a unit with unchecked entries cannot digest yet ('waiting'); counting it used
+                    -- the whole window every tick, so its own worktime never ran (150-entry unit stalled at 50 eligible)
+                    and not exists (select 1 from knowledge.ledger_entry p where p.work_unit_id=w.work_unit_id
+                                    and p.state='proposed')
                     group by w.work_unit_id,w.completed_at
                     order by w.completed_at,w.work_unit_id""")
         units = store_pg._rows(cur)
@@ -138,22 +144,37 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
             hinted_scans = [k.split(":", 1)[1] for k in hints if k.startswith("scan:")]
             # astra P13 cross-review: scan hints are pruned by an exact DB check, never by a limited candidate list
             _prune(hints, entries, units, store_pg.unscanned(dsn, hinted_scans) if contra_judge is not None else hinted_scans)
-            remaining = window
+            # worktime keeps a reserved share of the window so a digestion backlog never starves checking (astra stall review)
+            reserve = max(1, window // 5)
+            remaining = window - reserve
             for unit in units:
-                if result["units"] >= max_units or remaining < unit["entries"]:
+                # a unit is one commit: one larger than the window still runs when it is the first of the tick
+                # (contra06: a 150-entry unit with window 50 was skipped forever), up to MAX_UNIT_FACTOR x window;
+                # a bigger unit is reported (skipped.oversize), never run unbounded
+                if unit["entries"] > MAX_UNIT_FACTOR * window:
+                    skipped["oversize"] = skipped.get("oversize", 0) + 1
+                    continue
+                if result["units"] >= max_units or (remaining < unit["entries"] and result["units"] > 0):
                     skipped["limit"] += 1
                     continue
                 key = "unit:" + unit["work_unit_id"]
                 if _blocked(hints, key, now, skipped):
                     continue
                 result["units"] += 1
-                remaining -= unit["entries"]
+                spent = min(remaining, unit["entries"])
+                remaining -= spent
                 try:
                     outcome = digest_driver.run_digestion(dsn, unit["work_unit_id"], judge, choose=choose, confirm=confirm,
                                                           same=subject_same)
                     # canon scans run below in one budgeted scheduler (astra P13 cross-review: they bypassed the budget)
                     if outcome["status"] in ("needs_review", "needs_recheck"):
                         _failure(hints, key, now, max_attempts, base_delay)
+                    elif outcome["status"] in ("noop", "waiting"):
+                        # no progress (e.g. a change waits for a human): give the budget back and wait before the next
+                        # try without counting toward stuck (astra stall review P1-1)
+                        result["units"] -= 1
+                        remaining += spent
+                        hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True}
                     else:
                         hints.pop(key, None)
                 except Exception:
@@ -178,6 +199,7 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     except Exception:
                         _failure(hints, key, now, max_attempts, base_delay)
                 _save(state, hints)
+            remaining += reserve  # the reserved share is worktime's
             selected = []
             for entry_id in entries:
                 if len(selected) >= remaining:

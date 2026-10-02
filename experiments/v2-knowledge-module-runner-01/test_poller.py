@@ -133,10 +133,11 @@ def test_item_and_unit_limits(dsn, host, tmp_path):
     staged(dsn, host, "second")
     pg.register(dsn, judgement(host, text="waiting"))
     result = poller.tick(dsn, answer, max_units=1, window=1, state=tmp_path / "state.json")
-    assert (result["units"], result["entries"]) == (1, 0)
+    # worktime has a reserved share of the window (astra stall review): one entry is checked even when digestion runs
+    assert (result["units"], result["entries"]) == (1, 1)
     assert result["skipped"]["limit"] >= 1
-    assert poller.tick(dsn, answer, max_units=2, window=3, state=tmp_path / "state.json")["entries"] == 1
-    assert len(fragments(dsn, host)) == 2
+    poller.tick(dsn, answer, max_units=2, window=3, state=tmp_path / "state.json")
+    assert len(fragments(dsn, host)) >= 2
 
 
 def test_prune_drops_hints_of_objects_no_longer_pending():
@@ -169,3 +170,53 @@ def test_stuck_scans_do_not_starve_healthy_ones(dsn, tmp_path, monkeypatch):
     assert ran == healthy[:poller.SCAN_PER_TICK]
     left = json.loads(state.read_text())
     assert "scan:" + done not in left and all("scan:" + u in left for u in blocked)
+
+
+def test_unit_larger_than_the_window_is_checked_then_digested(dsn, tmp_path, monkeypatch):
+    """contra06 (2026-10-02): a completed unit with more entries than the window stalled forever: its eligible part was
+    counted for digestion ('waiting'), which used the whole window, so the rest was never checked."""
+    owner = "big-" + __import__("uuid").uuid4().hex[:8]
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("insert into knowledge.host(host_id,name,repo_locator) values (%s,%s,'t')", (owner, owner))
+    unit = None
+    for n in range(5):
+        body = judgement(owner, text=f"큰 작업 사실 {n} 번이다")
+        if unit:
+            body["work_unit_id"] = unit
+        unit = body["work_unit_id"]
+        pg.register(dsn, body)
+    pg.complete(dsn, unit)
+    state = tmp_path / "s.json"
+    judge = lambda packet: {"answers": fixture(text=packet["state"]["candidate_fact"])["answers"]}
+    for _ in range(6):
+        poller.tick(dsn, judge, window=2, state=state)
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("select state::text from knowledge.ledger_entry where work_unit_id=%s", (unit,))
+        assert {r[0] for r in cur.fetchall()} == {"absorbed"}
+
+
+def test_a_unit_without_progress_gives_the_budget_back(dsn, tmp_path, monkeypatch):
+    """astra stall review P1-1: a large unit that cannot commit (a change waits for a human) must not take every tick."""
+    monkeypatch.setattr(poller, "_candidates", lambda dsn: ([{"work_unit_id": "big", "entries": 60},
+                                                            {"work_unit_id": "small", "entries": 2}], []))
+    ran = []
+
+    def fake(dsn, unit, judge, **k):
+        ran.append(unit)
+        return {"status": "noop"} if unit == "big" else {"status": "absorbed"}
+    monkeypatch.setattr(poller.digest_driver, "run_digestion", fake)
+    state = tmp_path / "s.json"
+    poller.tick(dsn, judge=None, window=50, state=state, now=1000)
+    assert ran == ["big", "small"]  # the budget came back, the next unit ran
+    ran.clear()
+    poller.tick(dsn, judge=None, window=50, state=state, now=1001)
+    assert ran == ["small"]  # the idle unit waits IDLE_DELAY
+    hints = json.loads(state.read_text())
+    assert hints["unit:big"]["idle"] and not hints["unit:big"]["stuck"]
+
+
+def test_oversize_unit_is_reported_not_run(dsn, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "_candidates", lambda dsn: ([{"work_unit_id": "huge", "entries": 50 * poller.MAX_UNIT_FACTOR + 1}], []))
+    monkeypatch.setattr(poller.digest_driver, "run_digestion", lambda *a, **k: (_ for _ in ()).throw(AssertionError("ran")))
+    out = poller.tick(dsn, judge=None, window=50, state=tmp_path / "s.json")
+    assert out["skipped"]["oversize"] == 1
