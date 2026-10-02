@@ -512,7 +512,7 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
     cached = cur.fetchone()
     if cached:
         return cached[0]
-    decision = _command(runner.decide(packet, answers, operation=fact.get("operation", "add")), fact.get("operation", "add"))
+    decision = _command(runner.decide(packet, answers, operation=fact.get("operation", "add")), fact.get("operation", "add"), packet)
     receipt_id = str(uuid4())
     cur.execute("""insert into knowledge.question_template(template_id,template_version,questions)
                    values (%s,%s,%s::jsonb) on conflict do nothing""",
@@ -568,7 +568,8 @@ def batch(dsn, window, fixtures, *, entry_ids=None):
                     outcomes.append({"fact_index": index, "pending_fixture": True})
                 else:
                     receipt_id = _receipt(cur, entry, index, fact, fixture, "worktime", current)
-                    decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=operation), operation)
+                    decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=operation), operation,
+                                        fixture["packet"])
                     outcomes.append({"fact_index": index, "receipt_id": receipt_id, "combined": decision["combined"]})
             if not outcomes or any("errors" in o for o in outcomes):
                 state = "rejected_input"
@@ -697,10 +698,16 @@ def resubmit(dsn, entry_id, actor="luna", limit=2):
         return {"status": "proposed", "supplement_count": entry["supplement_count"] + 1}
 
 
-def _command(decision, operation):
+def _command(decision, operation, packet=None):
     """schema-delta '사용자에게 묻는 것은 모순뿐': a ledger record is the user's command. update/deprecate apply
-    unless Jev is sure it changes nothing (duplicate); add is added unless it duplicates. No 'is it right?' review."""
+    unless Jev is sure it changes nothing (duplicate); no 'is it right?' review.
+    contra06 (2026-10-02, user 'a'): a judge's duplicate alone never drops an add -- it closed v1/v2 and different-condition
+    facts silently. The add is recorded and marked possible_duplicate; only the code's exact match (_canon_duplicate /
+    same-pass dedup at digestion) keeps it as evidence instead of a new fragment; cleanup merges the rest later.
+    Worktime and digestion share this one rule."""
     if decision["combined"] == "duplicate_skip":
+        if operation == "add":
+            return {**decision, "combined": "record", "review_reasons": [], "possible_duplicate": True}
         return decision
     combined = {"update": "update_record", "deprecate": "deprecate_record"}.get(operation, "record")
     return {**decision, "combined": combined, "review_reasons": []}
@@ -1250,19 +1257,13 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                                                       "review_reasons": [f"stale_base: r{exp} 을 읽었는데 지금 r{current['revision']}"]}))
                         continue
                 decision = _command(runner.decide(fixture["packet"], fixture["answers"], operation=fact.get("operation", "add")),
-                                    fact.get("operation", "add"))
+                                    fact.get("operation", "add"), fixture["packet"])
                 if decision["combined"] == "duplicate_skip" and fact.get("operation") in ("update", "deprecate"):
                     import dedup
                     # review P1 (2026-10-01): a change is a command; it is skipped only when the code sees no change
                     if fact["operation"] == "deprecate" or not (current and dedup.same_fact(fact["fact"], current["text"])):
                         decision = {**decision, "combined": {"update": "update_record", "deprecate": "deprecate_record"}[fact["operation"]],
                                     "review_reasons": []}
-                if (decision["combined"] == "duplicate_skip" and fact.get("operation", "add") == "add"
-                        and fact.get("evidence_source") == "user_confirmed"):
-                    # 2026-10-01 main canon split: 11 user-confirmed adds were dropped as Jev duplicates with no trace.
-                    # A duplicate is not a contradiction, so the user is not asked: a confirmed fact is added unless the
-                    # code finds the same fact (_canon_duplicate below keeps it as evidence of that fragment).
-                    decision = {**decision, "combined": "record", "review_reasons": []}
                 if False:  # no second-opinion review: the digestion judgement only filters duplicates
                     # Park only this fact for a human; the rest of the unit keeps digesting.
                     deferred.append((entry, old, decision))
@@ -1333,6 +1334,10 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                                                          "judgement_body": {**entry["judgement_body"], "facts": facts_now}},
                                                         old["fact_index"], fact.get("keywords", []),
                                                         [old["receipt_id"], receipt_id], store.now(), next_seq(cur, entry["host_id"], domain))
+                        if ((old.get("packet") and old.get("answers") is not None and  # the worktime judge said duplicate
+                             runner.decide(old["packet"], old["answers"], operation="add")["combined"] == "duplicate_skip") or
+                                runner.decide(fixture["packet"], fixture["answers"], operation="add")["combined"] == "duplicate_skip"):
+                            fragment["source"]["possible_duplicate"] = True  # the judge said duplicate; cleanup merges
                         ref = fragment["id"]
                         cur.execute("""insert into knowledge.fragment(id,host_id,alias,domain,seq,text,keywords,kind,group_id,
                                     revision,active,confidence,source,valid_from,superseded_at,subject_id,form)

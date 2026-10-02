@@ -61,10 +61,15 @@ def test_exact_same_fact_is_kept_as_evidence_pointing_at_the_fragment(dsn, host)
     assert _no_review(dsn, host)
 
 
-def test_other_evidence_judged_duplicate_is_still_skipped(dsn, host):
-    _absorb(dsn, host, "추론 시험 사실은 하나다", _new, subject="추론 시험")
-    unit = _absorb(dsn, host, "추론 시험 사실은 둘이다", _dup, source="code_test", subject="추론 시험")
-    assert _active(dsn, host) == ["추론 시험 사실은 하나다"], [(a["decision"], a["rule_id"]) for a in _absorptions(dsn, unit)]
+def test_any_evidence_judged_duplicate_is_added_and_marked(dsn, host):
+    """contra06 (2026-10-02, user 'a'): a judge's duplicate alone never drops an add, whatever the evidence; the
+    fragment is marked possible_duplicate for cleanup. v1/v2 facts the worktime check closed silently are kept."""
+    _absorb(dsn, host, "v1 리마인더 API는 재시도 횟수를 최대 1회로 제한한다", _new, source="code_test", subject="v1 리마인더 API")
+    _absorb(dsn, host, "v2 리마인더 API는 재시도 횟수를 최대 3회로 제한한다", _dup, source="code_test", subject="v2 리마인더 API")
+    assert "v2 리마인더 API는 재시도 횟수를 최대 3회로 제한한다" in _active(dsn, host)
+    frag = [r for r in pg.rows(dsn, "fragment") if r["host_id"] == host and "v2" in r["text"]][0]
+    assert frag["source"].get("possible_duplicate") is True
+    assert _no_review(dsn, host)  # a duplicate is never a question to the user
 
 
 def test_dedup_keeps_identifier_punctuation():
@@ -81,3 +86,31 @@ def test_conditional_or_result_is_rejected_and_never_flattened():
     assert fact_form.parse(t)["then"] == ["B는 된다 OR C는 된다"] or len(fact_form.parse(t)["then"]) == 1
     ok = "IF A가 있다 THEN B는 된다 EXCEPT WHEN D가 있다 OR E가 있다"
     assert not fact_form.check(ok)  # OR inside the exception condition stays allowed
+
+
+def test_worktime_duplicate_is_eligible_absorbed_and_marked(dsn, host):
+    """astra dupA review: the worktime check saying duplicate no longer closes an add."""
+    body = judgement(host, text="작업 중 중복 시험은 하나다", source="code_test")
+    body["facts"][0]["subject"] = "작업 중 중복 시험"
+    e = pg.register(dsn, body)
+    dup = copy.deepcopy(fixture(text="작업 중 중복 시험은 하나다"))
+    dup["answers"]["is_new"] = {"type": "noul", "noul": 0.02}
+    pg.batch(dsn, 1, {e["entry_id"]: [dup]}, entry_ids=[e["entry_id"]])
+    assert [r["state"] for r in pg.rows(dsn, "ledger_entry") if r["entry_id"] == e["entry_id"]] in (["eligible"], ["provisional"])
+    pg.complete(dsn, body["work_unit_id"])
+    digest_driver.run_digestion(dsn, body["work_unit_id"], _new)  # digestion says new; the worktime duplicate still marks
+    frag = [r for r in pg.rows(dsn, "fragment") if r["host_id"] == host and r["text"] == "작업 중 중복 시험은 하나다"]
+    assert frag and frag[0]["source"].get("possible_duplicate") is True
+
+
+def test_reopen_skips_what_the_code_finds_in_canon():
+    import reopen_duplicates
+    rows = [("e1", 0, {"fact": "재처리 시험은 둘이다"}, "digestion P03"),
+            ("e2", 0, {"fact": "재처리 시험은 하나다."}, "worktime duplicate")]
+    got = {c["fact"]: c["in_canon_as"] for c in reopen_duplicates.classify(rows, [("k-1", "재처리 시험은 하나다")])}
+    assert got == {"재처리 시험은 둘이다": None, "재처리 시험은 하나다.": "k-1"}
+
+
+def test_reopen_query_runs(dsn, host):
+    import reopen_duplicates
+    assert reopen_duplicates.candidates(dsn, host) == []

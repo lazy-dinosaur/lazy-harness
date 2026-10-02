@@ -66,6 +66,10 @@ def register(root, judgement):
     return entry
 
 
+# the acceptance rule a receipt was made under; a receipt from an older rule is not reused (astra dupA review)
+RULE_VERSION = "2026-10-02 add never dropped by a judge alone"
+
+
 def dedup_key(entry, fact, packet, model, fact_index, stage):
     # schema-delta §3 / event-contract §2: fact 단위 + 검수 단계(worktime/digestion)별 키.
     # packet_digest: 보충(작성 모델 재변환)은 judgement 는 그대로 두고 패킷만 바꾸므로,
@@ -75,7 +79,7 @@ def dedup_key(entry, fact, packet, model, fact_index, stage):
     source = [entry["judgement_id"], entry["judgement_version"], fact_index,
               hashlib.sha256(json.dumps(fact.get("evidence_refs", entry["judgement_body"].get("evidence_refs", [])),
                                         sort_keys=True).encode()).hexdigest(),
-              packet["template_id"], packet["template_version"], model, stage, packet_digest]
+              packet["template_id"], packet["template_version"], model, stage, packet_digest, RULE_VERSION]
     return hashlib.sha256(json.dumps(source, ensure_ascii=False).encode()).hexdigest()
 
 

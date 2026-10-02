@@ -41,12 +41,17 @@ def pairs(dsn, host, min_sim=MIN_SIM, limit=MAX_PAIRS, variant=VARIANT):
         cur.execute("""select a.id::text, a.alias, a.seq, a.text, b.id::text, b.alias, b.seq, b.text, a.domain,
                               1 - (ea.embedding operator(extensions.<=>) eb.embedding) as sim
                        from knowledge.fragment a join knowledge.fragment b
-                         on a.host_id=b.host_id and a.domain=b.domain and a.id < b.id
+                         on a.host_id=b.host_id and a.id < b.id
                        join knowledge.fragment_embedding ea on ea.fragment_id=a.id and ea.embed_variant=%s and ea.revision=a.revision
                        join knowledge.fragment_embedding eb on eb.fragment_id=b.id and eb.embed_variant=%s and eb.revision=b.revision
                        where a.host_id=%s and a.active and b.active
-                         and 1 - (ea.embedding operator(extensions.<=>) eb.embedding) >= %s
-                       order by sim desc limit %s""", (variant, variant, host, min_sim, limit))
+                         -- contra06 (2026-10-02): a fragment the judge called a duplicate (source.possible_duplicate) is
+                         -- paired at a lower similarity and across domains; the merge guards decide as for any pair
+                         and ((a.domain=b.domain and 1 - (ea.embedding operator(extensions.<=>) eb.embedding) >= %s)
+                              or (coalesce((a.source->>'possible_duplicate')::boolean, false)
+                                  or coalesce((b.source->>'possible_duplicate')::boolean, false))
+                                 and 1 - (ea.embedding operator(extensions.<=>) eb.embedding) >= %s)
+                       order by sim desc limit %s""", (variant, variant, host, min_sim, DEPRECATE_MIN, limit))
         return [{"a": {"id": r[0], "alias": r[1], "seq": r[2], "text": r[3]},
                  "b": {"id": r[4], "alias": r[5], "seq": r[6], "text": r[7]}, "domain": r[8], "sim": round(r[9], 4)}
                 for r in cur.fetchall()]
