@@ -89,8 +89,29 @@ def split(text):
     return [(o, GROUP_PAREN.sub(" ", s).strip().rstrip(".").strip()) for o, s in parts]
 
 
+def warnings(text):
+    """Korean checks inside each leaf, as advice to the writer (never a refusal): a clause connective or an action noun
+    list may mean two facts in one sentence."""
+    if not isinstance(text, str) or not text.strip():
+        return []
+    out = []
+    for o, leaf in split(text):
+        if o == "BECAUSE" or not leaf:
+            continue  # the reason is free text
+        c = chain_token(leaf)
+        if c:
+            out.append(f"'{leaf[:40]}' 안에 절을 잇는 어미 '{c}' 가 있는 것 같다. 사실이 둘이면 AND 로 나눠 쓴다. " + GUIDE)
+            continue
+        n = noun_list(leaf)
+        if n:
+            out.append(f"'{leaf[:40]}' 은 동작을 '{n}' 로 나열한 것 같다. 동작마다 주어+동사 문장으로 쓰고 "
+                       "AND 로 잇는다. 예: 'X는 설명을 저장한다 AND X는 기존 설명을 유지한다'. " + GUIDE)
+    return out
+
+
 def check(text):
-    """-> list of error details (empty = the fact follows the form)."""
+    """-> list of error details on the English operator structure (empty = the fact follows the form). Korean leaf
+    checks are warnings(), never errors."""
     if not isinstance(text, str) or not text.strip():
         return ["fact 가 비어 있다"]
     errs = []
@@ -103,17 +124,8 @@ def check(text):
         if not leaf and not (k == 0 and ops and ops[0] in ("IF", "BEFORE", "AFTER")):
             errs.append(f"{o or '처음'} 뒤에 문장이 없다")
             continue
-        if o == "BECAUSE" or not leaf:
-            continue  # the reason is free text
-        c = chain_token(leaf)
-        if c:
-            errs.append(f"'{leaf[:40]}' 안에 절을 잇는 '{c}' 가 있다. " + GUIDE)
-            continue
-        n = noun_list(leaf)
-        if n:
-            errs.append(f"'{leaf[:40]}' 은 동작을 '{n}' 로 나열해 사실 여러 개를 한 문장에 담았다. "
-                        "동작마다 주어+동사 문장으로 쓰고 AND 로 잇거나 따로 기록한다. "
-                        "예: 'X는 설명을 저장한다 AND X는 기존 설명을 유지한다'. " + GUIDE)
+        # user 2026-10-02 ('A'): the record is refused only on the English operator structure. Korean checks inside a leaf
+        # (clause connectives, action noun lists) are regex guesses ('입고/출고' nouns were refused) -> warnings()
     head = ops[0] if ops else None
     if head in ("IF", "BEFORE", "AFTER") and parts[0][1]:
         errs.append(f"{head} 는 문장 맨 앞에 쓴다")

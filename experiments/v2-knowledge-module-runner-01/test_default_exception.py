@@ -119,3 +119,33 @@ def test_recheck_gives_no_hint_when_the_values_now_agree(dsn, host):
     same_value = lambda state, texts, q: [{"noul": 0.0} for _ in texts]
     assert pg.recheck_contradictions(dsn, same_value)["resolved"] == 1
     assert _kinds(dsn, host) == []
+
+
+def test_a_warned_leaf_is_compared_across_subjects(dsn, host):
+    """astra warn review: '편집 창은 닫히지 않고 입력은 비워진다' (kept with a W_FORM warning) must still be compared with
+    a fact about '입력', not only with facts of its own subject."""
+    import digest_driver
+    from test_store_pg import fixture, judgement
+
+    def absorb(text, subject):
+        body = judgement(host, text=text)
+        body["facts"][0]["subject"] = subject
+        e = pg.register(dsn, body)
+        pg.batch(dsn, 1, {e["entry_id"]: [fixture(text=text)]}, entry_ids=[e["entry_id"]])
+        pg.complete(dsn, body["work_unit_id"])
+        digest_driver.run_digestion(dsn, body["work_unit_id"], lambda p: {"answers": fixture(text=p["state"]["candidate_fact"])["answers"]})
+        return body["work_unit_id"]
+    absorb("입력 칸은 비워지지 않는다", "입력 칸")
+    unit = absorb("범위 설명은 닫히지 않고 입력 칸은 비워진다", "범위 설명")
+    seen = []
+
+    def judge(state, texts, q):
+        seen.extend(texts)
+        pair = state["fact"] + " | " + " ".join(texts)
+        return [{"noul": 0.9 if ("비워지지" in t) != ("비워지지" in state["fact"]) else 0.0} for t in texts]
+    assert pg.scan_contradictions(dsn, unit, judge)["contradictions"] == 1, seen
+    # reverse order (astra warn review r2): the warned leaf is already canon, the plain fact comes later
+    absorb("알림 창은 닫히지 않고 입력 상자는 비워지지 않는다", "알림 창")
+    later = absorb("입력 상자는 비워진다", "입력 상자")
+    seen.clear()
+    assert pg.scan_contradictions(dsn, later, judge)["contradictions"] >= 1, seen

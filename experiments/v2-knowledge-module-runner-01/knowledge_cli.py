@@ -164,6 +164,8 @@ def record(dsn, data, *, same=None, embed_fn=None):
             form_errors = fact_form.check(fact.get("fact"))
             for detail in form_errors:
                 errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
+            for detail in fact_form.warnings(fact.get("fact")):  # advice only (user 2026-10-02)
+                warnings.append({"code": "W_FORM", "where": f"facts.{index}.fact", "detail": detail})
             if not form_errors:
                 fact["form"] = fact_form.parse(fact["fact"])  # 0010: the ledger stores the structure (DB checks its shape)
         checked = runner.lint_fact(fact, strict_refs=True)
@@ -246,7 +248,7 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
                     if e.get("form") and not _comparable(f["form"], e["form"]):
                         continue
                     for other in (_then_leaves(e) if e.get("form") else [(None, e["fact"], None)]):
-                        if other[0] is None or other[0] == own[0]:
+                        if other[0] is None or other[0] == own[0] or "*" in (own[0], other[0]):
                             shown = other[1] if other[2] is None else fact_form.display(e["form"], other[1])
                             pairs.setdefault(fact_form.display(f["form"], own[1]), []).append((shown, e["fact"]))
             for own, cands in pairs.items():
@@ -274,7 +276,13 @@ def _then_leaves(f):
     import subject_dict
     subj = f.get("subject") if isinstance(f.get("subject"), str) else ""
     out = []
+    import fact_form
     for leaf in f["form"].get("then", []):
+        if fact_form.warnings(leaf):
+            # astra warn review: a leaf the parent kept with a Korean connective may state two facts with two subjects;
+            # it is compared with every leaf (key '*') so its second fact is not skipped
+            out.append(("*", leaf, f["form"]))
+            continue
         if subj and subj in leaf:
             key = subject_dict.core(subj)
         else:

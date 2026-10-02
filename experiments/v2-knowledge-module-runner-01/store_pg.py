@@ -786,17 +786,35 @@ def _leaf_pairs(cur, host, fid):
     subjects = sorted({s for _, s, _ in own if s})
     if not subjects:
         return None
+    # astra warn review: a leaf kept with a Korean connective may hold a second fact about another subject; such a
+    # fragment is compared with the result leaves of every subject (bounded), not only its own subject's
+    wide = any(fact_form.warnings(t) for t, _, _ in own)
     cur.execute("""select f.alias, f.form, l.text, l.subject_id::text, f.text from knowledge.fragment_leaf l
                    join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
-                   where f.host_id=%s and f.active and f.id<>%s and l.role='then' and l.subject_id = any(%s::uuid[])
-                   order by f.updated_at desc limit 60""", (host, fid, subjects))
+                   where f.host_id=%s and f.active and f.id<>%s and l.role='then'
+                   and (%s or l.subject_id = any(%s::uuid[]))
+                   order by f.updated_at desc limit 60""", (host, fid, wide, subjects))
+    rows = cur.fetchall()
+    if not wide:
+        # astra warn review r2: an existing canon leaf kept with a warning may hold a fact about this subject under
+        # another subject; recent warned leaves of other subjects are compared too (both directions)
+        cur.execute("""select f.alias, f.form, l.text, l.subject_id::text, f.text from knowledge.fragment_leaf l
+                       join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
+                       where f.host_id=%s and f.active and f.id<>%s and l.role='then'
+                       and not (l.subject_id = any(%s::uuid[])) order by f.updated_at desc limit 200""", (host, fid, subjects))
+        warned = [r_ for r_ in cur.fetchall() if fact_form.warnings(r_[2])][:30]
+        rows += warned
+        warned_ids = {id(r_) for r_ in warned}
+    else:
+        warned_ids = set()
     pairs = []
-    for alias, oform, otext, osid, ofull in cur.fetchall():
+    for row_ in rows:
+        alias, oform, otext, osid, ofull = row_
         rel = fact_form.relation(form, oform) if oform else None
         if rel is None:
             continue
         for text, sid, _ in own:
-            if sid == osid:
+            if sid == osid or wide or id(row_) in warned_ids:
                 pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel))
     return pairs
 

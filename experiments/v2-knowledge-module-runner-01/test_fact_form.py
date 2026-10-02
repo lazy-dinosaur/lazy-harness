@@ -23,10 +23,11 @@ def test_operator_forms_pass():
     ok("limit is 300 chars")
 
 
-def test_connectives_and_bad_structure_are_rejected():
-    bad("편집 창은 닫히지 않고 입력만 비운다.", "않고")
-    bad("보관 위치가 없으면 첨부 파일은 고아로 분류된다", "없으면")
-    bad("IF 사용자가 누른다 THEN 창은 닫히거나 숨는다", "닫히거나")
+def test_connectives_warn_and_bad_structure_is_rejected():
+    # user 2026-10-02: Korean connectives inside a leaf are warnings (advice), only the operator structure refuses
+    for t, token in (("편집 창은 닫히지 않고 입력만 비운다.", "않고"), ("보관 위치가 없으면 첨부 파일은 고아로 분류된다", "없으면"),
+                     ("IF 사용자가 누른다 THEN 창은 닫히거나 숨는다", "닫히거나")):
+        assert fact_form.check(t) == [] and any(token in w for w in fact_form.warnings(t)), (t, fact_form.warnings(t))
     bad("IF 사용자가 누른다", "THEN")
     bad("창은 닫힌다 THEN 입력은 비워진다", "THEN 은")
     bad("IF 사용자가 누른다 THEN 창은 닫힌다 OR 창은 숨는다", "AND 로만")
@@ -39,8 +40,15 @@ def test_record_rejects_a_fact_that_is_not_in_the_form(dsn, host):
     fact = {"operation": "add", "kind": "fact", "subject": "편집 창", "fact": "편집 창은 닫히지 않고 입력만 비운다",
             "reason": "r", "evidence_source": "user_confirmed", "keywords": ["편집 창"],
             "evidence_refs": [{"type": "user_utterance", "locator": "test/local", "quote": "편집 창은 닫히지 않고 입력만 비운다"}]}
-    out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [fact]})
-    assert out["ok"] is False and [e["code"] for e in out["errors"]] == ["E_FORM"], out
+    bad_structure = {**fact, "fact": "IF 편집 창이 열린다", "evidence_refs": [{"type": "user_utterance", "locator": "test/local",
+                                                                    "quote": "IF 편집 창이 열린다"}]}
+    out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [bad_structure]})
+    assert out["ok"] is False and "E_FORM" in [e["code"] for e in out["errors"]], out
+    out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [fact]})  # a connective: kept, warned
+    assert out.get("entry_id") and "W_FORM" in [w["code"] for w in out["warnings"]], out
+    from test_store_pg import fixture as fx
+    import store_pg as pg_
+    pg_.batch(dsn, 1, {out["entry_id"]: [fx(text=fact["fact"])]}, entry_ids=[out["entry_id"]])
     good = {**fact, "fact": "편집 창은 닫히지 않는다 AND 편집 창은 입력만 비운다",
             "evidence_refs": [{"type": "user_utterance", "locator": "test/local", "quote": "편집 창은 닫히지 않는다 AND 편집 창은 입력만 비운다"}]}
     out = knowledge_cli.record(dsn, {"host_id": host, "partition_key": "D", "facts": [good]})
@@ -53,19 +61,19 @@ def test_record_rejects_a_fact_that_is_not_in_the_form(dsn, host):
 from test_store_pg import host  # noqa: E402,F401 (fixture)
 
 
-def test_action_noun_lists_are_rejected_but_lists_of_things_pass():
-    """flow3 (2026-10-01): parents bypassed E_FORM with noun lists of actions."""
+def test_action_noun_lists_warn_but_lists_of_things_pass():
+    """flow3 (2026-10-01): parents bypassed E_FORM with noun lists of actions; since 2026-10-02 a warning."""
     for t in ["X의 동작은 설명을 통한 라우팅 판단과 최초 생성 시 1000자 설명 저장 및 기존 설명 유지이다",
               "X는 최초 생성 시 최대 1000자 저장과 기존 설명 불변을 보장한다",
               "X의 입력 검증은 문자열 타입 확인과 빈 입력 거부 및 1000자 초과 설명의 오류 거부이다",
               "X는 1000자 이하 제한을 검증하여 위반 입력을 오류로 거부한다"]:
-        assert any("나열" in e or "하여" in e for e in fact_form.check(t)), (t, fact_form.check(t))
+        assert any("나열" in e or "하여" in e for e in fact_form.warnings(t)), (t, fact_form.warnings(t))
     for t in ["SquareChat 방 음소거는 메시지 전달과 unread 상태를 유지한다",
               "채팅의 제한된 1회 재시도와 최신 1건 coalescing은 좁은 회귀 수정이다",
               "X는 설명의 앞뒤 공백과 줄바꿈 제거 후 300자 제한을 검사한다",
               "IF SquareChat 방이 음소거되어 있다 THEN SquareChat은 소리를 내지 않는다",
               "X는 성능을 위하여 캐시를 쓴다"]:
-        assert fact_form.check(t) == [], (t, fact_form.check(t))
+        assert fact_form.check(t) == [] and fact_form.warnings(t) == [], (t, fact_form.warnings(t))
 
 
 def test_claim_quote_ignores_form_operators():
@@ -80,8 +88,10 @@ def test_claim_quote_ignores_form_operators():
 
 def test_chain_token_catches_go_and_nimyeo_connectives():
     import fact_form
-    assert fact_form.check("계획·백로그는 별도 계획 모듈이 맡고 스키마를 분리한다.")
-    assert fact_form.check("원장 등록은 흡수 트리거가 아니며, 원장 항목은 남는다.")
-    assert fact_form.check("세션은 정본만 지식으로 쓰고, 임시 기록은 섞이지 않는다.")
-    assert not fact_form.check("도메인 설명은 최고 1000자다")
-    assert not fact_form.check("보고서를 참고 자료로 쓴다")
+    assert fact_form.warnings("계획·백로그는 별도 계획 모듈이 맡고 스키마를 분리한다.")
+    assert fact_form.warnings("원장 등록은 흡수 트리거가 아니며, 원장 항목은 남는다.")
+    assert fact_form.warnings("세션은 정본만 지식으로 쓰고, 임시 기록은 섞이지 않는다.")
+    assert not fact_form.warnings("도메인 설명은 최고 1000자다")
+    assert not fact_form.warnings("보고서를 참고 자료로 쓴다")
+    # contra07 (2026-10-02): '입고/출고' nouns were refused; now never refused (at most a warning)
+    assert not fact_form.check("부산센터는 모든 입고 팔레트에 식별표를 부착한다.")
