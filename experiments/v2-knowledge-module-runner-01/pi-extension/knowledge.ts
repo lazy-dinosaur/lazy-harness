@@ -16,6 +16,7 @@ const fact = Type.Object({
   evidence_source: lits(["user_confirmed", "user_tentative", "official_doc", "code_test", "observed_output", "ai_inference"]),
   reason: Type.String(), why: Type.Optional(Type.String()),
   evidence_refs: Type.Array(ref), keywords: Type.Optional(Type.Array(Type.String())),
+  aliases: Type.Optional(Type.Array(Type.String(), { maxItems: 10, description: "other names of the very same thing as subject (code identifier, endpoint, feature name defined as it); never a related thing" })),
   target_ref: Type.Optional(Type.String({ description: "update/deprecate: the fragment token exactly as shown when you read it, e.g. knowledge-module-16@2" })),
 });
 
