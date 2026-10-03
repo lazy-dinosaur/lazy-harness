@@ -137,6 +137,15 @@ def record(dsn, data, *, same=None, embed_fn=None):
         fact, fixes = runner.normalize_fact(fact)  # form-only repairs (subject, keywords); meaning untouched
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
+        if "aliases" in fact:  # stage 1 (2026-10-03): other names of the same thing, declared by the parent
+            al = fact["aliases"]
+            subj_norm = subject_dict.norm(fact.get("subject") or "")
+            if (not isinstance(al, list) or len(al) > 10 or any(not isinstance(a, str) or not a.strip() for a in al)
+                    or any(subject_dict.norm(a) == subj_norm for a in al)
+                    or len({subject_dict.norm(a) for a in al}) != len(al)):
+                errors.append({"code": "E_ALIASES", "where": f"facts.{index}.aliases",
+                               "detail": "aliases 는 이 사실의 주어와 같은 대상의 다른 이름 목록이다(문자열 10개 이하, 주어와 다르고 중복 없음)"})
+                continue
         if isinstance(fact.get("subject"), str) and fact["subject"].strip() and fact.get("operation", "add") != "deprecate":
             name, how = resolve(fact["subject"], fact.get("fact"))
             if name != fact["subject"] and name in subject_dict.rewrite(fact["fact"], fact["subject"], name):
@@ -236,6 +245,16 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
         earlier = [f for (b,) in cur.fetchall() for f in b.get("facts", []) if f.get("fact")]
     import fact_form
     import fact_text
+    import subject_dict
+    resolved = {}
+
+    def key_of(name):  # astra alias r1: a declared alias and its subject compare as one subject (read only)
+        c = subject_dict.core(name)
+        if name not in resolved:
+            with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                hit = subject_dict.lookup(cur, host, name)
+            resolved[name] = ("id:" + hit["subject_id"]) if hit else c
+        return resolved[name]
     out = []
     for i, f in enumerate(facts):
         tgt = f.get("target_ref")
@@ -243,11 +262,11 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
         if f.get("form"):
             # schema-delta '잎 단위 모순 검사': the same rule as the canon scan, inside this work unit
             pairs = {}
-            for own in _then_leaves(f):
+            for own in _then_leaves(f, key_of):
                 for e in others:
                     if e.get("form") and not _comparable(f["form"], e["form"]):
                         continue
-                    for other in (_then_leaves(e) if e.get("form") else [(None, e["fact"], None)]):
+                    for other in (_then_leaves(e, key_of) if e.get("form") else [(None, e["fact"], None)]):
                         if other[0] is None or other[0] == own[0] or "*" in (own[0], other[0]):
                             shown = other[1] if other[2] is None else fact_form.display(e["form"], other[1])
                             pairs.setdefault(fact_form.display(f["form"], own[1]), []).append((shown, e["fact"]))
@@ -270,7 +289,7 @@ def contradictions(dsn, host, uid, facts, cfg, judge=None):
     return out
 
 
-def _then_leaves(f):
+def _then_leaves(f, key_of=None):
     """[(subject key, leaf, form)] of a recorded fact's result sentences; the key is the fact subject when the leaf states
     it, otherwise the leaf's head noun (both through subject_dict.core, nothing is registered at record time)."""
     import subject_dict
@@ -284,10 +303,10 @@ def _then_leaves(f):
             out.append(("*", leaf, f["form"]))
             continue
         if subj and subj in leaf:
-            key = subject_dict.core(subj)
+            key = key_of(subj) if key_of else subject_dict.core(subj)
         else:
             head = runner.SUBJECT_HEAD.match(leaf + " ")
-            key = subject_dict.core(head.group(1).strip()) if head else None
+            key = (key_of(head.group(1).strip()) if key_of else subject_dict.core(head.group(1).strip())) if head else None
         out.append((key, leaf, f["form"]))
     return out
 

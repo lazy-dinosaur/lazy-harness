@@ -91,7 +91,8 @@ def dsn():
                           SQL.with_name("0009_subject_dictionary.sql"),
                           SQL.with_name("0010_fact_form.sql"),
                           SQL.with_name("0011_structure_fill_once.sql"),
-                          SQL.with_name("0012_contradiction_resolution.sql")):
+                          SQL.with_name("0012_contradiction_resolution.sql"),
+                          SQL.with_name("0013_declared_alias.sql")):
             migrated = docker("exec", "-i", NAME, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres",
                               "-d", "postgres", "-f", "-", input=migration.read_text())
             assert migrated.returncode == 0, migrated.stderr

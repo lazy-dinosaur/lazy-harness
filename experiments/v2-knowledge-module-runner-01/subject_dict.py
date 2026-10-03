@@ -48,13 +48,41 @@ def cos(u, v):
 def lookup(cur, host, name):
     """Known spelling, or its core without a generic tail."""
     for key in dict.fromkeys((norm(name), core(name))):
-        cur.execute("""select s.subject_id::text, s.name from knowledge.subject_alias a
+        # a declared alias matches its exact spelling only; tail stripping (화면/기능/…) is for spelling aliases (astra alias r1)
+        cur.execute("""select s.subject_id::text, s.name, a.kind from knowledge.subject_alias a
                        join knowledge.subject s on s.subject_id=a.subject_id
-                       where a.host_id=%s and a.alias=%s""", (host, key))
+                       where a.host_id=%s and a.alias=%s and (%s or a.kind = 'spelling')""",
+                    (host, key, key == norm(name)))
         row = cur.fetchone()
         if row:
-            return {"subject_id": row[0], "name": row[1]}
+            return {"subject_id": row[0], "name": row[1], "kind": row[2]}
     return None
+
+
+def _lock_name(cur, host, name):
+    """Locks for every dictionary key a writer reads or inserts -- the spelling and its core ('X 화면' shares 'x' with
+    'X') -- in one sorted order, so writers never interleave on a shared key (astra alias r1, r3)."""
+    for key in sorted({norm(name), core(name)}):
+        cur.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"lh-alias/{host}/{key}",))
+
+
+def add_declared_alias(cur, host, alias, subject_id, fragment_id, revision):
+    """Stage 1 (2026-10-03): register a parent-declared other name of the same thing, keyed by norm() only (no tail
+    stripping for declared names). -> ('added'|'same'|'conflict', the existing subject or None). Never merges two
+    existing subjects: a name already mapped to another subject is a conflict for approval."""
+    _lock_name(cur, host, alias)
+    hit = lookup(cur, host, alias)
+    if hit and hit["subject_id"] == subject_id:
+        if hit.get("kind") == "declared":  # re-declared: the evidence moves to this fragment revision (astra alias r1)
+            cur.execute("""update knowledge.subject_alias set source_fragment_id=%s, source_revision=%s
+                           where host_id=%s and alias=%s and kind='declared'""", (fragment_id, revision, host, norm(alias)))
+        return "same", hit
+    if hit:
+        return "conflict", hit
+    cur.execute("""insert into knowledge.subject_alias(host_id,alias,subject_id,kind,source_fragment_id,source_revision)
+                   values (%s,%s,%s,'declared',%s,%s) on conflict (host_id, alias) do nothing returning 1""",
+                (host, norm(alias), subject_id, fragment_id, revision))
+    return ("added", None) if cur.fetchone() else ("conflict", lookup(cur, host, alias))
 
 
 def sentences(cur, subject_id, k=2):
@@ -142,6 +170,7 @@ def rewrite(text, old, new):
 
 
 def add_alias(cur, host, alias, subject_id):
+    _lock_name(cur, host, alias)  # every dictionary writer takes the spelling lock (astra alias r2)
     for key in dict.fromkeys((norm(alias), core(alias))):
         cur.execute("""insert into knowledge.subject_alias(host_id,alias,subject_id) values (%s,%s,%s)
                        on conflict (host_id, alias) do nothing""", (host, key, subject_id))
@@ -150,6 +179,7 @@ def add_alias(cur, host, alias, subject_id):
 def register(cur, host, name, vector=None, allow_embed=True):
     """Digestion only. Returns subject_id (existing when any spelling already maps to it). allow_embed=False inside the
     digestion transaction: no embedding service call there (astra big review r2); store_pg.embed_unit fills it after."""
+    _lock_name(cur, host, name)
     hit = lookup(cur, host, name)
     if hit:
         return hit["subject_id"]
@@ -186,6 +216,8 @@ def resolver(connect, dsn, host, unit=None, same=None, embed_fn=None):
     def resolve(name, sentence=None):
         with connect(dsn) as conn, conn.cursor() as cur:
             hit = lookup(cur, host, name)
+        if hit and hit.get("kind") == "declared":
+            return name, "declared_alias"  # the written name stays in the text; the subject id is resolved at digestion
         if hit:
             return hit["name"], ("exact" if hit["name"] == name else "alias")
         c = core(name)

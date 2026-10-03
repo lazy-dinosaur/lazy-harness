@@ -251,6 +251,29 @@ def review_list(dsn, host):
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon", "kind": "contradiction",
                           "subject": None, "evidence_source": None, "fact": f"[{r['alias']}] {fact_text.view(r['text'])}",
                           "review_reasons": [reason_line], "question_ids": [qid]})
+        # declared aliases whose evidence fragment changed or was retired: re-check them (never split automatically)
+        cur.execute("""select a.alias, s.name, f.alias, f.active, f.revision, a.source_revision from knowledge.subject_alias a
+                       join knowledge.subject s on s.subject_id=a.subject_id
+                       join knowledge.fragment f on f.id=a.source_fragment_id
+                       where a.host_id=%s and a.kind='declared' and (not f.active or f.revision <> a.source_revision)""", (host,))
+        for alias_, sname, falias, factive, frev, srev in cur.fetchall():
+            items.append({"entry_id": None, "fact_index": None, "work_unit_id": None, "entry_state": "canon",
+                          "kind": "alias_recheck", "for": "parent", "subject": sname, "evidence_source": None,
+                          "fact": f"별칭 '{alias_}' → '{sname}'",
+                          "review_reasons": [f"alias_recheck: 근거 [{falias}] 가 " + ("폐기됐다" if not factive else f"r{srev} → r{frev} 로 바뀌었다")
+                                             + ". 아직 같은 대상이면 aliases 를 다시 선언하고, 아니면 사용자에게 분리를 물는다"],
+                          "question_ids": []})
+        cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
+                    from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                    where e.host_id=%s and q.rule_id='alias_conflict' and q.status='pending' order by q.created_at""", (host,))
+        for eid, idx, reason, wu, qid in cur.fetchall():
+            r = json.loads(reason)
+            items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon",
+                          "kind": "alias_conflict", "for": "parent", "subject": r.get("subject"), "evidence_source": None,
+                          "fact": f"별칭 '{r.get('alias')}' → '{r.get('subject')}'",
+                          "review_reasons": [f"alias_conflict: '{r.get('alias')}' 은 이미 다른 주어 '{r.get('other')}' 의 이름이다. "
+                                             "같은 대상이면 두 주어 병합이 필요하다(사용자 승인, 2단계); 아니면 aliases 를 고친다"],
+                          "question_ids": [qid]})
         cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
                     from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     where e.host_id=%s and q.rule_id='canon_exception' and q.status='pending' order by q.created_at""", (host,))
@@ -1207,10 +1230,14 @@ def _assign_subject(cur, host, fact, fixture):
     if not isinstance(name, str) or not name.strip():
         return None, fact
     routed = (fixture or {}).get("subject_routed") or {}
-    if not routed.get("subject_id"):
-        hit = subject_dict.lookup(cur, host, name)  # a spelling (or its core without 화면/기능/…) is already known
-        if hit:
-            routed = {"subject_id": hit["subject_id"], "name": hit["name"]}
+    # astra alias r2: the dictionary as it is now (under the spelling lock) wins over a routing decided before this
+    # transaction -- another digestion may have declared this name an alias of another subject meanwhile
+    subject_dict._lock_name(cur, host, name)
+    hit = subject_dict.lookup(cur, host, name)  # a spelling (or its core without 화면/기능/…) is already known
+    if hit and hit.get("kind") == "declared":
+        return hit["subject_id"], fact  # a declared other name: same subject id, the text keeps the written name
+    if hit:
+        routed = {"subject_id": hit["subject_id"], "name": hit["name"]}
     if routed.get("subject_id"):
         subject_dict.add_alias(cur, host, name, routed["subject_id"])
         text = subject_dict.rewrite(fact["fact"], name, routed["name"])
@@ -1218,6 +1245,22 @@ def _assign_subject(cur, host, fact, fixture):
             fact, _ = runner.normalize_fact({**fact, "fact": text, "subject": routed["name"], "subject_as_written": name})
         return routed["subject_id"], fact
     return subject_dict.register(cur, host, name, routed.get("vector"), allow_embed=False), fact
+
+
+def _register_aliases(cur, host, entry_id, fact_index, fact, subject_id, fragment_id, revision):
+    """Stage 1: the fact's declared aliases become declared aliases of its subject; a name already mapped to another
+    subject is logged as 'alias_conflict' (a parent hint; merging two subjects is stage 2, with approval)."""
+    import subject_dict
+    if not subject_id:
+        return
+    for alias in fact.get("aliases") or []:
+        outcome, hit = subject_dict.add_declared_alias(cur, host, alias, subject_id, fragment_id, revision)
+        if outcome == "conflict":
+            cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
+                        values (%s,%s,'alias_conflict',%s)""",
+                        (entry_id, fact_index, _json({"alias": alias, "subject": fact.get("subject"),
+                                                      "subject_id": subject_id, "other": hit and hit["name"],
+                                                      "other_id": hit and hit["subject_id"], "fragment": fragment_id})))
 
 
 def _form_of(fact):
@@ -1554,6 +1597,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                                      1, True, fragment["confidence"], _json(fragment["source"]), fragment["valid_from"], None,
                                      subject_id, _json(_form_of(fact))))
                         latest = 1
+                        # declared aliases first, so a leaf written under an alias gets the same subject (astra alias r1)
+                        _register_aliases(cur, entry["host_id"], entry["entry_id"], old["fact_index"], fact, subject_id, ref, 1)
                         _write_form(cur, entry["host_id"], ref, 1, fact, subject_id)
                         embedding_pending = True  # embedded after the commit (embed_unit), never inside this transaction
                     else:
@@ -1573,6 +1618,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                             raise Recheck(old["receipt_id"])
                         latest = updated[0]
                         if operation == "update":
+                            _register_aliases(cur, entry["host_id"], entry["entry_id"], old["fact_index"], fact,
+                                              subject_id, ref, latest)
                             _write_form(cur, entry["host_id"], ref, latest, fact, subject_id)
                         if operation == "update":
                             embedding_pending = True  # embedded after the commit (embed_unit)
