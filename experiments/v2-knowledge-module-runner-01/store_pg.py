@@ -194,7 +194,9 @@ def _absorbed_facts(cur, entry_id):
 
 def review_list(dsn, host):
     """Worktime needs_review facts still waiting for a human decision (fact level)."""
+    import subject_merge
     with connect(dsn) as conn, conn.cursor() as cur:
+        subject_merge.lock_host(cur, host, exclusive=False)  # astra merge r2 P1-4: host lock before any question row
         cur.execute("""select e.entry_id::text,e.work_unit_id::text,e.state::text,e.judgement_body,r.fact_index,r.review_reasons
                     from knowledge.check_receipt r join knowledge.ledger_entry e on e.entry_id=r.entry_id
                     join knowledge.work_unit w on w.work_unit_id=e.work_unit_id
@@ -266,13 +268,44 @@ def review_list(dsn, host):
         cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
                     from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
                     where e.host_id=%s and q.rule_id='alias_conflict' and q.status='pending' order by q.created_at""", (host,))
-        for eid, idx, reason, wu, qid in cur.fetchall():
+        import subject_dict
+        import subject_merge
+        conflicts = cur.fetchall()
+        for eid, idx, reason, wu, qid in conflicts:
             r = json.loads(reason)
+            ra, rname_a = subject_merge.root(cur, r.get("subject_id"))
+            rb, rname_b = subject_merge.root(cur, r.get("other_id"))
+            if ((ra, rb) != (r.get("subject_id"), r.get("other_id"))
+                    or subject_merge.members(cur, ra) != r.get("members_a", [ra])
+                    or subject_merge.members(cur, rb) != r.get("members_b", [rb])):
+                # stage 2 (astra merge review P0-2): a question is about the two subject sets shown; once either changed
+                # the old answer must not reach further -- withdraw it, and ask again about the current subjects if apart
+                cur.execute("""update knowledge.confirmation_queue set status='answered', answered_at=now(), answer=%s
+                               where confirmation_id=%s and status='pending' returning 1""",
+                            (_json({"decision": "withdrawn", "by": "a subject was merged after it was asked"}), qid))
+                if not cur.fetchone() or not ra or not rb or ra == rb:
+                    continue  # another listing withdrew it first, or the two are one subject now
+                r = {**r, "subject_id": ra, "subject": rname_a, "other_id": rb, "other": rname_b, "previous": qid,
+                     "members_a": subject_merge.members(cur, ra), "members_b": subject_merge.members(cur, rb)}
+                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
+                               values (%s,%s,'alias_conflict',%s) on conflict do nothing returning confirmation_id""",
+                            (eid, idx, _json(r)))
+                got = cur.fetchone()
+                if not got:
+                    continue
+                qid = got[0]
+            cur.execute("select name from knowledge.subject where subject_id=%s", (r.get("subject_id"),))
+            sname = (cur.fetchone() or [r.get("subject")])[0]
+            cur.execute("select name from knowledge.subject where subject_id=%s", (r.get("other_id"),))
+            oname = (cur.fetchone() or [r.get("other")])[0]
+            said = lambda sid: "; ".join(fact_text.view(t) for t in subject_dict.sentences(cur, sid)) or "(문장 없음)"
+            # stage 2: the user decides (same merges the two subjects, different closes it, defer keeps it)
             items.append({"entry_id": eid, "fact_index": idx, "work_unit_id": wu, "entry_state": "canon",
-                          "kind": "alias_conflict", "for": "parent", "subject": r.get("subject"), "evidence_source": None,
-                          "fact": f"별칭 '{r.get('alias')}' → '{r.get('subject')}'",
-                          "review_reasons": [f"alias_conflict: '{r.get('alias')}' 은 이미 다른 주어 '{r.get('other')}' 의 이름이다. "
-                                             "같은 대상이면 두 주어 병합이 필요하다(사용자 승인, 2단계); 아니면 aliases 를 고친다"],
+                          "kind": "alias_conflict", "subject": sname, "evidence_source": None,
+                          "fact": f"'{sname}' 와 '{oname}' 는 같은 대상인가? (별칭 '{r.get('alias')}' 선언)",
+                          "review_reasons": [f"alias_conflict: '{sname}': {said(r.get('subject_id'))} / '{oname}': "
+                                             f"{said(r.get('other_id'))}. 같다 → 두 주어를 합친다(되돌릴 수 있음), "
+                                             "다르다 → 그대로, 보류 → 다음에 다시"],
                           "question_ids": [qid]})
         cur.execute("""select q.entry_id::text, q.fact_index, q.reason, e.work_unit_id::text, q.confirmation_id
                     from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
@@ -550,6 +583,10 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
     packet, answers = fixture["packet"], fixture["answers"]
     model = fixture.get("jev_model_actual", "offline-fixture")
     key = store.dedup_key(entry, fact, packet, model, index, stage)
+    if stage == "digestion" and fixture.get("subject_generation_seen") is not None:
+        # astra merge r3 P1-1: a judgement made under another subject generation is a different receipt
+        import hashlib
+        key = hashlib.sha256(f"{key}/gen{fixture['subject_generation_seen']}".encode()).hexdigest()
     cur.execute("select receipt_id::text from knowledge.check_receipt where dedup_key=%s", (key,))
     cached = cur.fetchone()
     if cached:
@@ -561,13 +598,14 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
                 (packet["template_id"], packet["template_version"], _json(packet["questions"])))
     cur.execute("""insert into knowledge.check_receipt(receipt_id,entry_id,fact_index,stage,template_id,template_version,
                 jev_model_requested,jev_model_actual,dedup_key,packet,answers,combined,review_reasons,
-                target_fragment_id,target_revision_seen,input_tokens,output_tokens,cost_usd,usage_source)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s::jsonb,%s,%s,%s,%s,%s,%s)""",
+                target_fragment_id,target_revision_seen,input_tokens,output_tokens,cost_usd,usage_source,subject_generation)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s::jsonb,%s,%s,%s,%s,%s,%s,%s)""",
                 (receipt_id, entry["entry_id"], index, stage, packet["template_id"], packet["template_version"],
                  fixture.get("jev_model_requested", model), model, key, _json(packet), _json(answers),
                  decision["combined"], _json(decision["review_reasons"]), current["id"] if current else None,
                  current["revision"] if current else None, fixture.get("input_tokens"), fixture.get("output_tokens"),
-                 fixture.get("cost_usd"), fixture.get("usage_source", "unreported-by-tool")))
+                 fixture.get("cost_usd"), fixture.get("usage_source", "unreported-by-tool"),
+                 fixture.get("subject_generation_seen")))
     return receipt_id
 
 
@@ -650,13 +688,15 @@ def cached_digestion_answers(dsn, items):
     out = {}
     with connect(dsn) as conn, conn.cursor() as cur:
         for rid, packet in items:
-            cur.execute("""select r2.answers, r2.jev_model_requested, r2.jev_model_actual from knowledge.check_receipt r1
+            cur.execute("""select r2.answers, r2.jev_model_requested, r2.jev_model_actual, r2.subject_generation
+                           from knowledge.check_receipt r1
                            join knowledge.check_receipt r2 on r2.entry_id=r1.entry_id and r2.fact_index=r1.fact_index
                              and r2.stage='digestion' and r2.packet=%s::jsonb
                            where r1.receipt_id=%s order by r2.created_at desc limit 1""", (_json(packet), rid))
             row = cur.fetchone()
             if row:
-                out[rid] = {"answers": row[0], "jev_model_requested": row[1], "jev_model_actual": row[2]}
+                out[rid] = {"answers": row[0], "jev_model_requested": row[1], "jev_model_actual": row[2],
+                            "subject_generation": row[3]}
     return out
 
 
@@ -902,7 +942,7 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
     return found  # kind 'exception' rows are parent hints, not contradictions (astra exc review: vector-only exceptions)
 
 
-def _leaf_pairs(cur, host, fid):
+def _leaf_pairs(cur, host, fid, limit=60):
     """0010 + contra05: this fragment's result leaves vs other active fragments' result leaves of the same subject,
     compared only under the same condition or when either side is unconditional (rules under different conditions
     are not asked). -> [(own display, other display, other alias)], or None when the fragment has no leaves."""
@@ -923,7 +963,7 @@ def _leaf_pairs(cur, host, fid):
                    join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
                    where f.host_id=%s and f.active and f.id<>%s and l.role='then'
                    and (%s or l.subject_id = any(%s::uuid[]))
-                   order by f.updated_at desc limit 60""", (host, fid, wide, subjects))
+                   order by f.updated_at desc limit %s""", (host, fid, wide, subjects, limit))
     rows = cur.fetchall()
     if not wide:
         # astra warn review r2: an existing canon leaf kept with a warning may hold a fact about this subject under
@@ -953,11 +993,101 @@ EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해
          " 다른 값·규칙을 말하는가(기본값의 예외)? 같은 값을 말함, 다른 속성, 다른 대상이면 false.")
 
 
+def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=60, mark_scanned=True):
+    """One canonical fragment against nearby canon (shared by unit scans and stage-2 rescans). -> (contradictions,
+    subject generation judged under)."""
+    import capture_audit
+    import subject_merge
+    with connect(dsn) as conn, conn.cursor() as cur:
+        # astra 0012 round 3: a 'no contradiction' result is also a judgement of texts that may change meanwhile;
+        # the canon history cursor before judging must be unchanged when the result is written
+        # astra 0012 round 5: history ids are not commit-ordered; compare the (id, revision) of every active canon
+        # fragment of the host before judging and under the final lock instead
+        subject_merge.ensure_generation(cur, host)  # stage 2: a merge/undo during the judge calls fails this scan
+        gen0 = subject_merge.generation(cur, host)
+        cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active", (host,))
+        seen_canon = dict(cur.fetchall())
+        cur.execute("select alias, text, active, subject_id::text from knowledge.fragment where id=%s", (fid,))
+        row = cur.fetchone()
+        group = []
+        if row and row[2] and row[3]:  # same subject (schema-delta: contradiction = same subject id; contra02 false alarms 8 -> 3)
+            cur.execute("""select id::text, alias, text, form is null from knowledge.fragment where host_id=%s and subject_id=%s
+                           and active and id<>%s order by updated_at desc limit %s""", (host, row[3], fid, group_limit))
+            group = [{"id": r[0], "alias": r[1], "text": r[2], "no_form": r[3]} for r in cur.fetchall()]
+        leaf_pairs = _leaf_pairs(cur, host, fid, limit=leaf_limit) if row and row[2] else None
+    bad, exceptions = [], []
+    if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
+        by_own, by_own_exc = {}, {}
+        for own, other, alias, full, rel in leaf_pairs:
+            # the log keeps the other fragment's whole stored text: review_list closes an item when that text changes
+            # (flow3 2026-10-01: logging the leaf display closed real contradictions at once)
+            (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
+                {"alias": alias, "text": full, "shown": other})
+        for own, others in by_own.items():
+            answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
+            bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
+        # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
+        for own, others in by_own_exc.items():
+            answers = judge({"fact": own}, [o["shown"] for o in others], EXC_Q)
+            exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
+        # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
+        vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, judge)
+        bad += [v for v in vec if v["kind"] == "compare"]
+        exceptions += [v for v in vec if v["kind"] == "exception"]
+        # astra merge r2 P1-5: a same-subject fragment without a stored form (pre-structure) has no leaves to pair; it is
+        # compared by its whole text, so a merge rescan never skips it
+        plain = [g for g in group if g["no_form"] and g["alias"] not in {p_[2] for p_ in leaf_pairs}]
+        if plain:
+            answers = judge({"fact": row[1]}, [g["text"] for g in plain], CANON_Q)
+            bad += [g for g, a in _judged(plain, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    elif row and row[2]:
+        hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
+                                     if str(h["id"]) != fid]  # fragments from before the subject dictionary
+        if hits:
+            answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
+            bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    bad = list({h["alias"]: h for h in bad}.values())
+    with connect(dsn) as conn, conn.cursor() as cur:
+        subject_merge.lock_host(cur, host, exclusive=False)  # lock order: host dictionary lock before rows
+        # astra 0012 round 4: lock the host's active canon rows (FOR SHARE blocks any writer's UPDATE until this
+        # commit), then check the cursor: a change before the lock is seen, a change after it waits for this write.
+        # New fragments are not blocked; they are scanned with their own unit.
+        cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active for share", (host,))
+        if dict(cur.fetchall()) != seen_canon:  # FOR SHARE waits for an uncommitted writer, then sees its revision
+            raise ValueError("the canon changed during the contradiction judge calls; scan again")
+        if subject_merge.generation(cur, host, share=True) != gen0:  # astra merge review P1-5: revisions do not move on a merge
+            raise ValueError("the subject dictionary changed (merge or undo) during the judge calls; scan again")
+        for h in bad:
+            cur.execute("select id::text, revision, text, active from knowledge.fragment where host_id=%s and alias=%s for share",
+                        (host, h["alias"]))
+            other_ = cur.fetchone()
+            cur.execute("select revision, text, active from knowledge.fragment where id=%s for share", (fid,))
+            own_rev, own_text, own_active = cur.fetchone()
+            # astra 0012 round 2: record the revision of the text that was judged; a side changed during the judge
+            # call fails this scan (rolled back, retried by the poller) instead of storing old text + new revision
+            if not other_ or other_[2] != h["text"] or not other_[3] or own_text != row[1] or not own_active:
+                raise ValueError("a side changed during the contradiction judge call; scan again")
+            # 0012: the pair is identified by fragment ids and the revisions judged; one live question per pair
+            cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,resolution)
+                        values (%s,%s,'canon_contradiction',%s,'open') on conflict do nothing""",
+                        (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"],
+                                          "id": fid, "rev": own_rev, "with_id": other_[0] if other_ else None,
+                                          "with_rev": other_[1] if other_ else None})))
+        for h in list({h["alias"]: h for h in exceptions}.values()):
+            _add_exception(cur, host, eid, idx, row[0], row[1], h["alias"], h["text"])
+        if not bad and mark_scanned:
+            cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
+                        values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
+    return len(bad), gen0
+
+
 def scan_contradictions(dsn, unit_id, judge):
     """After digestion (schema-delta '사용자에게 묻는 것은 모순뿐'): every fragment this unit made canonical is compared
     with nearby canonical fragments; contradictions stay in the canon and are logged in confirmation_queue
     (rule canon_contradiction) so the next session asks the user. judge(state, texts, question) -> [{noul}]."""
-    import capture_audit
+    import capture_audit  # noqa: F401 (used by _scan_fragment)
     with connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select a.entry_id::text, a.fact_index, a.fragment_ref::text, e.host_id from knowledge.absorption a
                     join knowledge.ledger_entry e on e.entry_id=a.entry_id
@@ -968,79 +1098,45 @@ def scan_contradictions(dsn, unit_id, judge):
         todo = cur.fetchall()
     found = 0
     for eid, idx, fid, host in todo:
-        with connect(dsn) as conn, conn.cursor() as cur:
-            # astra 0012 round 3: a 'no contradiction' result is also a judgement of texts that may change meanwhile;
-            # the canon history cursor before judging must be unchanged when the result is written
-            # astra 0012 round 5: history ids are not commit-ordered; compare the (id, revision) of every active canon
-            # fragment of the host before judging and under the final lock instead
-            cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active", (host,))
-            seen_canon = dict(cur.fetchall())
-            cur.execute("select alias, text, active, subject_id::text from knowledge.fragment where id=%s", (fid,))
-            row = cur.fetchone()
-            group = []
-            if row and row[2] and row[3]:  # same subject (schema-delta: contradiction = same subject id; contra02 false alarms 8 -> 3)
-                cur.execute("""select id::text, alias, text from knowledge.fragment where host_id=%s and subject_id=%s
-                               and active and id<>%s order by updated_at desc limit 30""", (host, row[3], fid))
-                group = [{"id": r[0], "alias": r[1], "text": r[2]} for r in cur.fetchall()]
-            leaf_pairs = _leaf_pairs(cur, host, fid) if row and row[2] else None
-        bad, exceptions = [], []
-        if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
-            by_own, by_own_exc = {}, {}
-            for own, other, alias, full, rel in leaf_pairs:
-                # the log keeps the other fragment's whole stored text: review_list closes an item when that text changes
-                # (flow3 2026-10-01: logging the leaf display closed real contradictions at once)
-                (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
-                    {"alias": alias, "text": full, "shown": other})
-            for own, others in by_own.items():
-                answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
-                bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
-            # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
-            # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
-            for own, others in by_own_exc.items():
-                answers = judge({"fact": own}, [o["shown"] for o in others], EXC_Q)
-                exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
-            # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
-            # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
-            vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, judge)
-            bad += [v for v in vec if v["kind"] == "compare"]
-            exceptions += [v for v in vec if v["kind"] == "exception"]
-        elif row and row[2]:
-            hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
-                                         if str(h["id"]) != fid]  # fragments from before the subject dictionary
-            if hits:
-                answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
-                bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
-        bad = list({h["alias"]: h for h in bad}.values())
-        with connect(dsn) as conn, conn.cursor() as cur:
-            # astra 0012 round 4: lock the host's active canon rows (FOR SHARE blocks any writer's UPDATE until this
-            # commit), then check the cursor: a change before the lock is seen, a change after it waits for this write.
-            # New fragments are not blocked; they are scanned with their own unit.
-            cur.execute("select id::text, revision from knowledge.fragment where host_id=%s and active for share", (host,))
-            if dict(cur.fetchall()) != seen_canon:  # FOR SHARE waits for an uncommitted writer, then sees its revision
-                raise ValueError("the canon changed during the contradiction judge calls; scan again")
-            for h in bad:
-                cur.execute("select id::text, revision, text, active from knowledge.fragment where host_id=%s and alias=%s for share",
-                            (host, h["alias"]))
-                other_ = cur.fetchone()
-                cur.execute("select revision, text, active from knowledge.fragment where id=%s for share", (fid,))
-                own_rev, own_text, own_active = cur.fetchone()
-                # astra 0012 round 2: record the revision of the text that was judged; a side changed during the judge
-                # call fails this scan (rolled back, retried by the poller) instead of storing old text + new revision
-                if not other_ or other_[2] != h["text"] or not other_[3] or own_text != row[1] or not own_active:
-                    raise ValueError("a side changed during the contradiction judge call; scan again")
-                # 0012: the pair is identified by fragment ids and the revisions judged; one live question per pair
-                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,resolution)
-                            values (%s,%s,'canon_contradiction',%s,'open') on conflict do nothing""",
-                            (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"],
-                                              "id": fid, "rev": own_rev, "with_id": other_[0] if other_ else None,
-                                              "with_rev": other_[1] if other_ else None})))
-            for h in list({h["alias"]: h for h in exceptions}.values()):
-                _add_exception(cur, host, eid, idx, row[0], row[1], h["alias"], h["text"])
-            if not bad:
-                cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
-                            values (%s,%s,'canon_scanned','{}','answered',now())""", (eid, idx))
-        found += len(bad)
+        found += _scan_fragment(dsn, host, eid, idx, fid, judge)[0]
     return {"scanned": len(todo), "contradictions": found}
+
+
+def rescan_fragments(dsn, judge, limit=3):
+    """Stage 2: fragments queued by a subject merge or undo are compared again with the (now joined) subject, with
+    wider candidate limits (astra merge review P1-6). A judgement made under an older generation fails and retries."""
+    done, failed = 0, 0
+    if limit < 1:
+        return {"rescanned": 0, "failed": 0}
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select fragment_id::text, host_id from knowledge.fragment_rescan where done_at is null
+                       group by 1, 2 order by min(requested_at) limit %s""", (limit,))
+        todo = cur.fetchall()
+    for fid, host in todo:
+        with connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("""select a.entry_id::text, a.fact_index from knowledge.absorption a
+                           where a.fragment_ref=%s and a.decision::text='absorbed' order by a.created_at desc limit 1""", (fid,))
+            hit = cur.fetchone()
+        try:
+            if hit:  # a fragment with no absorption (pre-ledger) is still compared when its neighbours are rescanned
+                # no candidate cap (astra merge r1 P1-6): every fragment of the joined subject is compared
+                _, gen = _scan_fragment(dsn, host, hit[0], hit[1], fid, judge, group_limit=None, leaf_limit=None,
+                                        mark_scanned=False)
+                outcome = "scanned"
+            else:
+                # a pre-ledger fragment has no entry to hang a question on; it is still compared as the neighbour of every
+                # rescanned fragment of the subject (two pre-ledger fragments stay unpaired -- known gap, open-gaps)
+                outcome = "no_entry"
+                with connect(dsn) as conn, conn.cursor() as cur:
+                    cur.execute("select coalesce((select generation from knowledge.subject_generation where host_id=%s), 0)", (host,))
+                    gen = cur.fetchone()[0]
+            with connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute("""update knowledge.fragment_rescan set done_at=now(), outcome=%s where fragment_id=%s
+                               and done_at is null and generation <= %s""", (outcome, fid, gen))
+            done += 1
+        except Exception:
+            failed += 1
+    return {"rescanned": done, "failed": failed}
 
 
 def _add_exception(cur, host, eid, idx, alias, text, with_alias, with_text):
@@ -1124,6 +1220,7 @@ def recheck_contradictions(dsn, judge, limit=5):
     revision CAS: a side that changed during the judge call is retried later. A failing row never blocks the others.
     An answer alone never resolves. -> counts."""
     import fact_text
+    import subject_merge
     out = {"rechecked": 0, "resolved": 0, "reopened": 0, "failed": 0, "retried": 0}
     with connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("select q.confirmation_id " + _RECHECK_DUE +
@@ -1136,6 +1233,7 @@ def recheck_contradictions(dsn, judge, limit=5):
                 cur.execute("""select q.reason, q.resolution, e.host_id from knowledge.confirmation_queue q
                                join knowledge.ledger_entry e on e.entry_id=q.entry_id where q.confirmation_id=%s""", (qid,))
                 reason, resolution, host = cur.fetchone()
+                gen0 = subject_merge.generation(cur, host)  # astra merge r1 P1-5: a merge/undo meanwhile retries
                 cur.execute("update knowledge.confirmation_queue set rechecked_at=now() where confirmation_id=%s", (qid,))
                 r = json.loads(reason)
                 a, b = _side(cur, host, r.get("id"), r["alias"]), _side(cur, host, r.get("with_id"), r["with"])
@@ -1181,10 +1279,12 @@ def recheck_contradictions(dsn, judge, limit=5):
                     verdict = "open" if score >= CONTRA_KEEP else "resolved"
                     evidence = {"by": "rejudged", "ids": [a[0], b[0]], "revisions": list(seen), "noul": score}
             with connect(dsn) as conn, conn.cursor() as cur:
+                subject_merge.lock_host(cur, host, exclusive=False)
                 cur.execute("select resolution, reason from knowledge.confirmation_queue where confirmation_id=%s for update", (qid,))
                 now_res, now_reason = cur.fetchone()
                 a2, b2 = _side(cur, host, a[0], r["alias"]), _side(cur, host, b[0], r["with"])
-                if now_res not in ("open", "recheck") or now_reason != reason or (a2[2], b2[2]) != seen:
+                if (now_res not in ("open", "recheck") or now_reason != reason or (a2[2], b2[2]) != seen
+                        or subject_merge.generation(cur, host, share=True) != gen0):
                     out["retried"] += 1  # changed during the judge call: judged again on a later tick
                     continue
                 if verdict == "resolved" and evidence.get("is_exception"):
@@ -1234,10 +1334,15 @@ def _assign_subject(cur, host, fact, fixture):
     # transaction -- another digestion may have declared this name an alias of another subject meanwhile
     subject_dict._lock_name(cur, host, name)
     hit = subject_dict.lookup(cur, host, name)  # a spelling (or its core without 화면/기능/…) is already known
-    if hit and hit.get("kind") == "declared":
-        return hit["subject_id"], fact  # a declared other name: same subject id, the text keeps the written name
+    if hit and hit.get("kind") in ("declared", "merged"):
+        return hit["subject_id"], fact  # a declared or merged other name: same subject id, the text keeps the written name
     if hit:
         routed = {"subject_id": hit["subject_id"], "name": hit["name"]}
+    if routed.get("subject_id"):  # stage 2: a routing decided before a merge goes to the surviving subject
+        import subject_merge
+        rid, rname = subject_merge.root(cur, routed["subject_id"])
+        if rid and rid != routed["subject_id"]:
+            return rid, fact  # the routed name was merged away: keep the written text, use the survivor's id
     if routed.get("subject_id"):
         subject_dict.add_alias(cur, host, name, routed["subject_id"])
         text = subject_dict.rewrite(fact["fact"], name, routed["name"])
@@ -1251,6 +1356,7 @@ def _register_aliases(cur, host, entry_id, fact_index, fact, subject_id, fragmen
     """Stage 1: the fact's declared aliases become declared aliases of its subject; a name already mapped to another
     subject is logged as 'alias_conflict' (a parent hint; merging two subjects is stage 2, with approval)."""
     import subject_dict
+    import subject_merge
     if not subject_id:
         return
     for alias in fact.get("aliases") or []:
@@ -1260,7 +1366,10 @@ def _register_aliases(cur, host, entry_id, fact_index, fact, subject_id, fragmen
                         values (%s,%s,'alias_conflict',%s)""",
                         (entry_id, fact_index, _json({"alias": alias, "subject": fact.get("subject"),
                                                       "subject_id": subject_id, "other": hit and hit["name"],
-                                                      "other_id": hit and hit["subject_id"], "fragment": fragment_id})))
+                                                      "other_id": hit and hit["subject_id"], "fragment": fragment_id,
+                                                      # stage 2: the answer binds to these two subject sets
+                                                      "members_a": subject_merge.members(cur, subject_id),
+                                                      "members_b": subject_merge.members(cur, hit and hit["subject_id"])})))
 
 
 def _form_of(fact):
@@ -1347,11 +1456,17 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             self.receipt, self.why = receipt, why
     try:
         with connect(dsn) as conn, conn.cursor() as cur:
+            import subject_merge
+            cur.execute("select host_id from knowledge.work_unit where work_unit_id=%s", (unit_id,))
+            host_row = cur.fetchone()
+            if host_row:  # astra merge r1 P1-4: the host dictionary lock first, exclusive -- digestion writes the dictionary
+                subject_merge.lock_host(cur, host_row[0], exclusive=True)
             cur.execute("""select status::text,host_id,baseline_history_id,baseline_code_ref
                         from knowledge.work_unit where work_unit_id=%s for update""", (unit_id,))
             unit = _row(cur)
             if not unit or unit["status"] != "completed":
                 return {"status": "not_completed"}
+            subject_gen = subject_merge.generation(cur, unit["host_id"])
             cur.execute("""select entry_id::text,host_id,partition_key,work_unit_id::text,judgement_id,
                         judgement_version,judgement_body,state::text from knowledge.ledger_entry
                         where work_unit_id=%s and state in ('eligible','provisional') order by created_at for update""", (unit_id,))
@@ -1485,6 +1600,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     raise Recheck(old["receipt_id"], "target revision/text changed since the check")
                 if old["receipt_id"] in stale and fixture.get("baseline_history_seen") != history_max:
                     raise Recheck(old["receipt_id"], "canon changed (history)")
+                if fixture.get("subject_generation_seen") != subject_gen:  # missing, or a merge/undo since (astra merge r3 P1-2)
+                    raise Recheck(old["receipt_id"], "subject dictionary changed (merge or undo)")
                 if old["receipt_id"] in stale and fact.get("operation", "add") == "add" and not fixture.get("fresh_excerpt"):
                     raise Recheck(old["receipt_id"], "add excerpt stale")
                 if old["receipt_id"] in overlap:

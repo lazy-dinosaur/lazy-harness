@@ -417,11 +417,14 @@ def _reason_text(reason):
         return REASON_TEXT["scope_expanded"]
     if r.startswith("canon_contradiction:"):
         return "정본에서 이 사실과 모순:" + r.split(":", 1)[1]
+    if r.startswith("alias_conflict:"):
+        return "두 주어가 같은 대상인지 사용자 확인 필요:" + r.split(":", 1)[1]
     return REASON_TEXT.get(r.split(":")[0], REASON_TEXT.get(r, r))
 
 
 def review_cmd(dsn, data):
-    """knowledge_cli review: list | resolve {entry_id, fact_index, decision approve|reject, user_quote, locator?}."""
+    """knowledge_cli review: list | resolve {entry_id, fact_index, decision approve|reject, user_quote, locator?}
+    | resolve alias_conflict {decision same|different|defer, question_ids [one], user_quote} | undo_merge {merge_id, user_quote}."""
     host = data.get("host_id") or config.load()["default_host"]
     required(host, "host_id (set default_host in knowledge.json)")
     action = data.get("action", "list")
@@ -430,12 +433,20 @@ def review_cmd(dsn, data):
         for item in items:
             item["why_waiting"] = [_reason_text(r) for r in item["review_reasons"] or []]
         return {"items": items}
-    if action != "resolve":
-        raise ValueError("action must be list|resolve")
+    if action not in ("resolve", "undo_merge"):
+        raise ValueError("action must be list|resolve|undo_merge")
     quote = required(data.get("user_quote"), "user_quote")
     if runner.QUESTION_TAIL.search(quote.strip()):
         return {"ok": False, "errors": [{"code": "E_CONFIRM", "where": "user_quote",
                   "detail": "Ask the user first; a question is not a decision"}]}
+    import subject_merge  # stage 2 (2026-10-03): merging two subjects only on the user's answer, undoable
+    if action == "undo_merge":
+        return subject_merge.undo_merge(dsn, host, unit_id(data.get("merge_id")), quote, data.get("locator"))
+    if data.get("decision") in ("same", "different", "defer"):
+        qids = data.get("question_ids")
+        if not (isinstance(qids, list) and len(qids) == 1 and isinstance(qids[0], int) and not isinstance(qids[0], bool)):
+            raise ValueError("alias_conflict: question_ids must be the one id listed")
+        return subject_merge.answer_conflict(dsn, host, qids[0], data["decision"], quote, data.get("locator"))
     index = data.get("fact_index")
     if not isinstance(index, int) or isinstance(index, bool):
         raise ValueError("fact_index must be an integer")

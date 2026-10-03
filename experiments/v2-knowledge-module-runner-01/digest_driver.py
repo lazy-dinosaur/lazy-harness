@@ -23,6 +23,7 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
     fixtures, judgments, packets = {}, {}, []
     import worktime_driver
     pending = preview.get("rewrites") or {}  # the unit's final change plan (store_pg.digest), shared with the commit
+    subject_gen_seen = None  # stage 2: the subject generation when the first packet was read
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         for receipt_id in receipt_ids:
             cur.execute("""select r.packet, r.jev_model_requested, r.jev_model_actual,
@@ -39,6 +40,10 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
             cur.execute("""select coalesce(max(h.history_id),0) from knowledge.fragment_history h
                         join knowledge.fragment f on f.id=h.fragment_id where f.host_id=%s""", (receipt["host_id"],))
             history_seen = cur.fetchone()[0]
+            if subject_gen_seen is None:  # a merge/undo before the commit forces a recheck
+                cur.execute("select generation from knowledge.subject_generation where host_id=%s", (receipt["host_id"],))
+                gen_row = cur.fetchone()
+                subject_gen_seen = gen_row[0] if gen_row else 0
             if fact.get("operation", "add") == "add":
                 packet["state"]["existing_records_excerpt"] = worktime_driver.existing_excerpt(
                     dsn, receipt["host_id"], fact, pending)
@@ -53,6 +58,8 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                 revision = target["revision"]
             packets.append((receipt_id, receipt, packet, revision, history_seen))
     cached = store_pg.cached_digestion_answers(dsn, [(rid, pk) for rid, _, pk, _, _ in packets])
+    # astra merge r2 P1-2: a judgement cached by an earlier pass is reused only under the same subject generation
+    cached = {k: v for k, v in cached.items() if v.get("subject_generation") == subject_gen_seen}
     todo = [p_ for p_ in packets if p_[0] not in cached]
     if apply and budget is not None and len(todo) > budget:
         saved = {}
@@ -63,6 +70,7 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
             saved[receipt_id] = {"packet": packet, "answers": judged["answers"],
                                  "jev_model_requested": judged.get("jev_model_requested", receipt["jev_model_requested"]),
                                  "jev_model_actual": judged.get("jev_model_actual", receipt["jev_model_actual"]),
+                                 "subject_generation_seen": subject_gen_seen,
                                  **{k: judged[k] for k in ("input_tokens", "output_tokens", "cost_usd", "usage_source") if k in judged}}
         store_pg.save_digestion_answers(dsn, saved)
         return {"status": "partial", "judged": len(saved), "remaining": len(todo) - len(saved)}
@@ -126,6 +134,7 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                    "jev_model_requested": judged.get("jev_model_requested", receipt["jev_model_requested"]),
                    "jev_model_actual": judged.get("jev_model_actual", receipt["jev_model_actual"]),
                    "target_revision_seen": revision, "baseline_history_seen": history_seen,
+                   "subject_generation_seen": subject_gen_seen,
                    "fresh_excerpt": packet["template_id"] == "record-need"}
         for key in ("input_tokens", "output_tokens", "cost_usd", "usage_source"):
             if key in judged:  # keep provider-reported usage on the digestion receipt too

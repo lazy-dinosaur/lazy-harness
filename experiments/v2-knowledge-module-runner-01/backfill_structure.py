@@ -41,6 +41,8 @@ def plan(cur, host):
 
 def apply(cur, host, rows):
     import store_pg as pg
+    import subject_merge
+    subject_merge.lock_host(cur, host, exclusive=True)  # astra merge r1 P1-4: dictionary writers take the host lock first
     done = 0
     for r in rows:
         cur.execute("select form is not null from knowledge.fragment where id=%s", (r["id"],))

@@ -64,7 +64,8 @@ def fixture(operation="add", text="new", excerpt=None, revision=None):
                  for key, answer in answers.items()}
     return {"packet": {"template_id": template[0], "template_version": template[1],
                        "state": state, "questions": questions}, "answers": answers,
-            "target_revision_seen": revision}
+            "target_revision_seen": revision,
+            "subject_generation_seen": 0}  # stage 2: judged under the host's subject generation (a fresh test host: 0)
 
 
 def process(dsn, judgement_body, response):

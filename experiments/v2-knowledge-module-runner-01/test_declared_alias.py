@@ -42,7 +42,8 @@ def test_alias_already_another_subject_is_a_conflict_not_a_merge(dsn, host):
     b = _frag(dsn, host, "반품API는 우편번호를 필수로 요구한다")
     assert a["subject_id"] != b["subject_id"]  # never merged in stage 1
     items = [i for i in knowledge_cli.review_cmd(dsn, {"host_id": host})["items"] if i.get("kind") == "alias_conflict"]
-    assert len(items) == 1 and items[0]["for"] == "parent" and "회수접수" in items[0]["review_reasons"][0]
+    # stage 2: the user is asked (no longer a parent-only hint); the question names both subjects
+    assert len(items) == 1 and items[0].get("for") != "parent" and "회수접수" in items[0]["fact"]
 
 
 def test_record_validates_aliases(dsn, host):

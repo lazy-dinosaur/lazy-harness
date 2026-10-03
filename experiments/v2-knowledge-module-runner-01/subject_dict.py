@@ -49,7 +49,10 @@ def lookup(cur, host, name):
     """Known spelling, or its core without a generic tail."""
     for key in dict.fromkeys((norm(name), core(name))):
         # a declared alias matches its exact spelling only; tail stripping (화면/기능/…) is for spelling aliases (astra alias r1)
-        cur.execute("""select s.subject_id::text, s.name, a.kind from knowledge.subject_alias a
+        # stage 2: a name moved by a subject merge reads as 'merged' -- same subject, the text keeps the written name
+        cur.execute("""select s.subject_id::text, s.name,
+                       case when a.merged_by is not null and a.kind = 'spelling' then 'merged' else a.kind end
+                       from knowledge.subject_alias a
                        join knowledge.subject s on s.subject_id=a.subject_id
                        where a.host_id=%s and a.alias=%s and (%s or a.kind = 'spelling')""",
                     (host, key, key == norm(name)))
@@ -61,7 +64,10 @@ def lookup(cur, host, name):
 
 def _lock_name(cur, host, name):
     """Locks for every dictionary key a writer reads or inserts -- the spelling and its core ('X 화면' shares 'x' with
-    'X') -- in one sorted order, so writers never interleave on a shared key (astra alias r1, r3)."""
+    'X') -- in one sorted order, so writers never interleave on a shared key (astra alias r1, r3). Stage 2: every
+    dictionary writer (digestion, backfill) already holds the host dictionary lock exclusive from its transaction start,
+    so name locks never interleave across writers; a subject merge or its undo takes it exclusive too (astra merge r1)."""
+    cur.execute("select pg_advisory_xact_lock_shared(hashtextextended(%s, 0))", (f"lh-dict/{host}",))
     for key in sorted({norm(name), core(name)}):
         cur.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"lh-alias/{host}/{key}",))
 
@@ -94,11 +100,17 @@ def sentences(cur, subject_id, k=2):
 def nearest(cur, host, vector, after=None, k=TOP):
     """Existing subjects whose core vector is within COS_MIN; after: only subjects registered later than this time."""
     v = _vec(vector)
-    cur.execute("""select s.subject_id::text, s.name, 1 - (e.embedding operator(extensions.<=>) %s::extensions.vector)
-                   from knowledge.subject s
-                   join knowledge.subject_embedding e on e.subject_id=s.subject_id and e.model_id=%s
-                   where s.host_id=%s and (%s::timestamptz is null or s.created_at > %s::timestamptz)
-                   order by e.embedding operator(extensions.<=>) %s::extensions.vector limit %s""",
+    # stage 2: a merged subject's vector stays (no rewrite, easy undo); it resolves to the survivor, one candidate per root
+    # (astra merge r1 P2-8: the closest vector per root first, then the limit)
+    cur.execute("""select root_id, name, sim from (
+                     select distinct on (r.subject_id) r.subject_id::text as root_id, r.name,
+                            1 - (e.embedding operator(extensions.<=>) %s::extensions.vector) as sim
+                     from knowledge.subject s
+                     join knowledge.subject_embedding e on e.subject_id=s.subject_id and e.model_id=%s
+                     join knowledge.subject r on r.subject_id = coalesce(s.merged_into, s.subject_id)
+                     where s.host_id=%s and (%s::timestamptz is null or s.created_at > %s::timestamptz)
+                     order by r.subject_id, e.embedding operator(extensions.<=>) %s::extensions.vector) x
+                   order by sim desc limit %s""",
                 (v, embed.MODEL_ID, host, after, after, v, k))
     out = [{"subject_id": r[0], "name": r[1], "cos": float(r[2])} for r in cur.fetchall() if float(r[2]) >= COS_MIN]
     for c in out:
@@ -216,7 +228,7 @@ def resolver(connect, dsn, host, unit=None, same=None, embed_fn=None):
     def resolve(name, sentence=None):
         with connect(dsn) as conn, conn.cursor() as cur:
             hit = lookup(cur, host, name)
-        if hit and hit.get("kind") == "declared":
+        if hit and hit.get("kind") in ("declared", "merged"):
             return name, "declared_alias"  # the written name stays in the text; the subject id is resolved at digestion
         if hit:
             return hit["name"], ("exact" if hit["name"] == name else "alias")

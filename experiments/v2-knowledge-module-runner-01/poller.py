@@ -198,7 +198,15 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 except Exception:
                     rc = {"rechecked": 0}
                     skipped["failed"] += 1
-                for uid_ in _runnable_scans(dsn, hints, now, skipped, max(0, SCAN_PER_TICK - rc["rechecked"])):
+                try:  # stage 2: fragments queued by a subject merge/undo; at most half of what is left, new units keep the rest
+                    rs = store_pg.rescan_fragments(dsn, contra_judge, limit=max(0, SCAN_PER_TICK - rc["rechecked"]) // 2)
+                    result["rescanned"] = rs["rescanned"]
+                    skipped["failed"] += rs["failed"]
+                except Exception:
+                    rs = {"rescanned": 0}
+                    skipped["failed"] += 1
+                for uid_ in _runnable_scans(dsn, hints, now, skipped,
+                                            max(0, SCAN_PER_TICK - rc["rechecked"] - rs["rescanned"])):
                     key = "scan:" + uid_
                     try:
                         store_pg.scan_contradictions(dsn, uid_, contra_judge)
