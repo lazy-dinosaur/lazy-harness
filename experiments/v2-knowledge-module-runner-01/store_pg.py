@@ -879,46 +879,6 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
     return found  # kind 'exception' rows are parent hints, not contradictions (astra exc review: vector-only exceptions)
 
 
-LINK_LIMIT = 10
-
-
-def _names_in(name, text):
-    """name appears in text as a whole name: not inside a longer word (Hangul/latin/digit around it); a Korean particle
-    may follow ('출고API는', '반품API의')."""
-    import re
-    return re.search(r"(?<![0-9A-Za-z가-힣_])" + re.escape(name) + r"(?![0-9A-Za-z_])", text or "") is not None
-
-
-def _linked_subjects(cur, host, subjects):
-    """Subjects tied to these ones by the canon itself: an active fragment of another subject names one of these subjects
-    as a whole name, or a fragment of these subjects names another known subject (names of 3+ characters). Ordered by
-    the latest such fragment; at most LINK_LIMIT in total."""
-    if not subjects:
-        return []
-    cur.execute("select name from knowledge.subject where subject_id = any(%s::uuid[])", (subjects,))
-    names = [n for (n,) in cur.fetchall() if len(n.strip()) >= 3]
-    found = {}
-    if names:
-        cur.execute("""select f.subject_id::text, f.text, f.updated_at, f.id::text, f.revision from knowledge.fragment f
-                       where f.host_id=%s and f.active and f.subject_id is not null
-                       and not (f.subject_id = any(%s::uuid[]))
-                       and exists (select 1 from unnest(%s::text[]) n where position(n in f.text) > 0)
-                       order by f.updated_at desc limit 200""", (host, subjects, names))
-        for sid, text, at, efid, erev in cur.fetchall():
-            if any(_names_in(n, text) for n in names):
-                found.setdefault(sid, (at, {"text": text, "id": efid, "rev": erev}))
-    cur.execute("""select s.subject_id::text, s.name, f.text, f.updated_at, f.id::text, f.revision from knowledge.subject s
-                   join knowledge.fragment f on f.host_id=%s and f.active and f.subject_id = any(%s::uuid[])
-                     and position(s.name in f.text) > 0
-                   where s.host_id=%s and not (s.subject_id = any(%s::uuid[])) and length(btrim(s.name)) >= 3
-                   order by f.updated_at desc limit 200""", (host, subjects, host, subjects))
-    for sid, name, text, at, efid, erev in cur.fetchall():
-        if _names_in(name, text):
-            found.setdefault(sid, (at, {"text": text, "id": efid, "rev": erev}))
-    # -> [(subject id, the canon sentence that names one of them)]
-    return [(sid, v[1]) for sid, v in sorted(found.items(), key=lambda kv: kv[1][0], reverse=True)][:LINK_LIMIT]
-
-
 def _leaf_pairs(cur, host, fid):
     """0010 + contra05: this fragment's result leaves vs other active fragments' result leaves of the same subject,
     compared only under the same condition or when either side is unconditional (rules under different conditions
@@ -933,14 +893,6 @@ def _leaf_pairs(cur, host, fid):
     subjects = sorted({s for _, s, _ in own if s})
     if not subjects:
         return None
-    # contra07 (2026-10-02): the same thing under another name ('출고API는 식별자가 POST /v3/shipments다', '회수접수는
-    # 반품API의 기능명이다') was never compared: subjects linked by a canon fact that names the other one are compared
-    # too; the judge still decides each pair
-    linked_ev = {x: ev for x, ev in _linked_subjects(cur, host, subjects) if x not in subjects}
-    linked = list(linked_ev)
-    cur.execute("select subject_id::text, name from knowledge.subject where subject_id = any(%s::uuid[])",
-                ((linked + subjects) or [None],))
-    subject_names = dict(cur.fetchall())
     # astra warn review: a leaf kept with a Korean connective may hold a second fact about another subject; such a
     # fragment is compared with the result leaves of every subject (bounded), not only its own subject's
     wide = any(fact_form.warnings(t) for t, _, _ in own)
@@ -950,15 +902,6 @@ def _leaf_pairs(cur, host, fid):
                    and (%s or l.subject_id = any(%s::uuid[]))
                    order by f.updated_at desc limit 60""", (host, fid, wide, subjects))
     rows = cur.fetchall()
-    linked_rows = []
-    if linked and not wide:  # a separate budget: linked subjects never push out same-subject leaves (astra link review)
-        cur.execute("""select f.alias, f.form, l.text, l.subject_id::text, f.text from knowledge.fragment_leaf l
-                       join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
-                       where f.host_id=%s and f.active and f.id<>%s and l.role='then'
-                       and l.subject_id = any(%s::uuid[]) order by f.updated_at desc limit 30""", (host, fid, linked))
-        linked_rows = cur.fetchall()
-        rows += linked_rows
-    linked_ids = {id(r_) for r_ in linked_rows}
     if not wide:
         # astra warn review r2: an existing canon leaf kept with a warning may hold a fact about this subject under
         # another subject; recent warned leaves of other subjects are compared too (both directions)
@@ -966,10 +909,7 @@ def _leaf_pairs(cur, host, fid):
                        join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
                        where f.host_id=%s and f.active and f.id<>%s and l.role='then'
                        and not (l.subject_id = any(%s::uuid[])) order by f.updated_at desc limit 200""", (host, fid, subjects))
-        # a leaf already fetched as a linked-subject leaf is not added again here: the SAME_Q verdict decides it, a
-        # duplicate without the link would bypass a 'not the same' verdict (astra same review r2)
-        linked_keys = {(r_[0], r_[2]) for r_ in linked_rows}
-        warned = [r_ for r_ in cur.fetchall() if fact_form.warnings(r_[2]) and (r_[0], r_[2]) not in linked_keys][:30]
+        warned = [r_ for r_ in cur.fetchall() if fact_form.warnings(r_[2])][:30]
         rows += warned
         warned_ids = {id(r_) for r_ in warned}
     else:
@@ -980,60 +920,10 @@ def _leaf_pairs(cur, host, fid):
         rel = fact_form.relation(form, oform) if oform else None
         if rel is None:
             continue
-        # every leaf of a linked subject carries the link, also when fetched by the wide (warned) query, so a 'not the
-        # same' verdict always applies (astra same review r3)
-        linked_row = osid in linked_ev
         for text, sid, _ in own:
-            # a linked pair is compared only if the judge says the two subjects are the same thing (scan); the link
-            # names this leaf's own subject (astra same review: a fragment-level subject was wrong for multi-subject)
-            # a leaf that itself states the other subject ('범위 설명은 닫히지 않고 입력 칸은 비워진다') is a second fact about it:
-            # compared directly, no SAME_Q; only a link made by some other canon sentence needs the 'same thing' check
-            # both directions (astra same review r4): the other leaf may state this leaf's subject
-            states_it = ((osid in subject_names and _names_in(subject_names[osid], text)) or
-                         (sid in subject_names and _names_in(subject_names[sid], otext)))
-            link = (osid, linked_ev[osid], sid) if linked_row and sid and sid != osid and not states_it else None
-            if sid == osid or wide or id(row_) in warned_ids or link or (linked_row and states_it):
-                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel, link))
+            if sid == osid or wide or id(row_) in warned_ids:
+                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel))
     return pairs
-
-
-SAME_Q = ("state.fact 의 주어와 items[{i}] 의 주어는 같은 대상을 가리키는 다른 이름인가(코드 식별자, 기능명, 별칭, 표기 차이)? "
-          "근거 문장에서 한쪽이 다른 쪽에 적용되거나(적용 센터·적용 정책) 설정 키·상위 정책·하위 항목처럼 관련만 있으면 false.")
-
-
-def _link_key(own_sid, sid):
-    return "|".join(sorted([own_sid, sid]))
-
-
-def _link_verdicts(dsn, host, links, judge):
-    """contra07 r4-6: a name mentioned in the canon is not the same thing ('서울센터 4겹' vs '포장정책 2겹' were asked as
-    contradictions). links = [(linked sid, evidence {text,id,rev}, own leaf sid)]. -> ({(own, linked): same?}, [new
-    verdicts]). A stored verdict ('subject_link') is reused only while its evidence fragment is still active at that
-    revision (astra same review: no stale verdicts); others are asked once with SAME_Q, outside any transaction."""
-    import capture_audit
-    out, new = {}, []
-    with connect(dsn) as conn, conn.cursor() as cur:
-        ids = sorted({x for sid, _, own in links for x in (sid, own)})
-        cur.execute("select subject_id::text, name from knowledge.subject where subject_id = any(%s::uuid[])", (ids,))
-        names = dict(cur.fetchall())
-        for sid, ev, own in links:
-            cur.execute("""select q.reason from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
-                           join knowledge.fragment f on f.id::text = (q.reason::jsonb->'evidence'->>'id')
-                             and f.revision::text = (q.reason::jsonb->'evidence'->>'rev') and f.active
-                           where e.host_id=%s and q.rule_id='subject_link' and (q.reason::jsonb->>'pair')=%s
-                           order by q.confirmation_id desc limit 1""", (host, _link_key(own, sid)))
-            row = cur.fetchone()
-            if row:
-                out[(own, sid)] = bool(json.loads(row[0]).get("same"))
-    for sid, ev, own in links:
-        if (own, sid) in out:
-            continue
-        answers = judge({"fact": f"주어 '{names.get(own)}'. 근거 문장: {ev['text']}"}, [f"주어 '{names.get(sid)}'"], SAME_Q)
-        [(_, a)] = list(_judged([sid], answers))
-        out[(own, sid)] = capture_audit._noul(a) >= CONTRA_KEEP
-        new.append({"pair": _link_key(own, sid), "same": out[(own, sid)], "names": [names.get(own), names.get(sid)],
-                    "evidence": ev})
-    return out, new
 
 
 EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해, 하나는 조건 없는 기본값이고 다른 하나는 특정 조건에서"
@@ -1070,15 +960,10 @@ def scan_contradictions(dsn, unit_id, judge):
                                and active and id<>%s order by updated_at desc limit 30""", (host, row[3], fid))
                 group = [{"id": r[0], "alias": r[1], "text": r[2]} for r in cur.fetchall()]
             leaf_pairs = _leaf_pairs(cur, host, fid) if row and row[2] else None
-        bad, exceptions, link_new = [], [], []
+        bad, exceptions = [], []
         if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
-            asked_aliases = {p_[2] for p_ in leaf_pairs}  # rejected links stay out of the vector path too (astra same review)
-            links = list({(p_[5][2], p_[5][0]): p_[5] for p_ in leaf_pairs if p_[5]}.values())
-            if links:
-                same, link_new = _link_verdicts(dsn, host, links, judge)
-                leaf_pairs = [p_ for p_ in leaf_pairs if not p_[5] or same.get((p_[5][2], p_[5][0]))]
             by_own, by_own_exc = {}, {}
-            for own, other, alias, full, rel, _link in leaf_pairs:
+            for own, other, alias, full, rel in leaf_pairs:
                 # the log keeps the other fragment's whole stored text: review_list closes an item when that text changes
                 # (flow3 2026-10-01: logging the leaf display closed real contradictions at once)
                 (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
@@ -1093,7 +978,7 @@ def scan_contradictions(dsn, unit_id, judge):
                 exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
             # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
             # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
-            vec = _vector_contradictions(dsn, host, fid, row[1], asked_aliases, judge)
+            vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, judge)
             bad += [v for v in vec if v["kind"] == "compare"]
             exceptions += [v for v in vec if v["kind"] == "exception"]
         elif row and row[2]:
@@ -1126,15 +1011,6 @@ def scan_contradictions(dsn, unit_id, judge):
                             (eid, idx, _json({"alias": row[0], "text": row[1], "with": h["alias"], "with_text": h["text"],
                                               "id": fid, "rev": own_rev, "with_id": other_[0] if other_ else None,
                                               "with_rev": other_[1] if other_ else None})))
-            for v in link_new:  # subject-link verdicts (cache for the next scans): one per pair and evidence revision
-                cur.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"lh-link/{host}/{v['pair']}",))
-                cur.execute("""select 1 from knowledge.confirmation_queue where rule_id='subject_link'
-                               and (reason::jsonb->>'pair')=%s and (reason::jsonb->'evidence'->>'id')=%s
-                               and (reason::jsonb->'evidence'->>'rev')=%s limit 1""",
-                            (v["pair"], v["evidence"]["id"], str(v["evidence"]["rev"])))
-                if not cur.fetchone():
-                    cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason,status,answered_at)
-                                values (%s,%s,'subject_link',%s,'answered',now())""", (eid, idx, _json(v)))
             for h in list({h["alias"]: h for h in exceptions}.values()):
                 _add_exception(cur, host, eid, idx, row[0], row[1], h["alias"], h["text"])
             if not bad:
