@@ -904,6 +904,12 @@ def _command(decision, operation, packet=None):
 
 CANON_Q = ("items[{i}] 는 정본의 다른 사실이다. state.fact 와 items[{i}] 가 동시에 참일 수 없는가? "
            "둘 중 하나가 참이면 다른 하나가 반드시 거짓인 경우에만 true 다(같은 대상의 같은 속성에 서로 다른 값·규칙). 같은 값을 말함, 같은 대상의 다른 측면(예: 하나는 길이 제한, 하나는 라우팅 용도), 하나가 다른 하나를 보완·구체화, 서로 다른 대상이면 false.")
+# real01 (2026-10-03, user 'a'): a pair made the same subject by a declared or merged alias was judged 'different subjects'
+# ('printer.ts' vs 'src/main/ipc/printer.ts', 0.14) -- the judge is told those names are one thing
+SAME_NAMES_NOTE = (" state.same_subject_names 의 이름들은 모두 같은 대상을 가리킨다(별칭) — 이름이 달라도 같은 대상으로 본다."
+                   " 목록에 없는 이름이나 그 대상의 하위 부분·설정·관련 대상까지 같다는 뜻은 아니다.")
+SAME_NAMES_MAX = 8  # astra names review P2: per judge call, the subject name and at most 7 other names, those written
+SAME_NAMES_CHARS = 400  # in that call's texts first, within a total length (a name is never cut)
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
@@ -993,6 +999,68 @@ EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해
          " 다른 값·규칙을 말하는가(기본값의 예외)? 같은 값을 말함, 다른 속성, 다른 대상이면 false.")
 
 
+def _same_names(cur, subject_id):
+    """The subject's name first, then its declared or merged other names (spelling variants are left out: they read
+    alike). The per-call selection is _pick_names."""
+    cur.execute("select name from knowledge.subject where subject_id=%s", (subject_id,))
+    row = cur.fetchone()
+    if not row:
+        return []
+    cur.execute("""select alias from knowledge.subject_alias where subject_id=%s and (kind='declared' or merged_by is not null)
+                   order by alias""", (subject_id,))
+    return [row[0]] + sorted({r[0] for r in cur.fetchall()} - {row[0]})
+
+
+JUDGE_TEXT_CUT = 600  # capture_audit.make_judge sends at most this many characters of each compared text
+
+
+def _written(names, texts):
+    # astra names review r5 P2: only the part of each text the judge actually receives counts
+    blob = " ".join(t[:JUDGE_TEXT_CUT] for t in texts).lower()
+    return [n for n in names if n.lower() in blob]
+
+
+def _pick_names(names, texts):
+    """astra names review r2-r4: for one judge call, every name written in its texts is kept (they are bounded by the
+    texts themselves, which the judge cuts at 600 characters each -- a written name is never dropped); the subject name
+    and other names are added only within the count and total length bounds; a name is never cut."""
+    written = _written(names, texts)
+    out, size = list(written), sum(map(len, written))
+    for n in [n for n in names[:1] if n not in written] + sorted(n for n in names[1:] if n not in written):
+        if len(out) >= SAME_NAMES_MAX or size + len(n) > SAME_NAMES_CHARS:
+            continue
+        out.append(n)
+        size += len(n)
+    return out
+
+
+def _fits(names):
+    return len(names) <= SAME_NAMES_MAX and sum(map(len, names)) <= SAME_NAMES_CHARS
+
+
+def _names_judge(judge, names):
+    """judge wrapper: the same-subject names (picked for this call's texts) and the note go with every question."""
+    if len(names) < 2:
+        return judge
+
+    def wrapped(state, texts, q):
+        texts = list(texts)
+        own = [str(state.get("fact", ""))]
+        # astra names review r3 P2: when the names written in this call do not fit, split the compared texts so each
+        # call carries every name its own texts use
+        if len(texts) > 1 and not _fits(_written(names, own + texts)):
+            mid = len(texts) // 2
+            return wrapped(state, texts[:mid], q) + wrapped(state, texts[mid:], q)
+        picked = _pick_names(names, own + texts)
+        answers = (judge(state, texts, q) if len(picked) < 2
+                   else judge({**state, "same_subject_names": picked}, texts, q + SAME_NAMES_NOTE))
+        # astra names review r4 P1: each real call answers exactly its own texts, so split answers never shift
+        if not isinstance(answers, list) or len(answers) != len(texts):
+            raise ValueError("judge returned a different number of answers than texts")
+        return answers
+    return wrapped
+
+
 def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=60, mark_scanned=True):
     """One canonical fragment against nearby canon (shared by unit scans and stage-2 rescans). -> (contradictions,
     subject generation judged under)."""
@@ -1015,6 +1083,8 @@ def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=6
                            and active and id<>%s order by updated_at desc limit %s""", (host, row[3], fid, group_limit))
             group = [{"id": r[0], "alias": r[1], "text": r[2], "no_form": r[3]} for r in cur.fetchall()]
         leaf_pairs = _leaf_pairs(cur, host, fid, limit=leaf_limit) if row and row[2] else None
+        names = _same_names(cur, row[3]) if row and row[2] and row[3] else []
+    njudge = _names_judge(judge, names)
     bad, exceptions = [], []
     if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
         by_own, by_own_exc = {}, {}
@@ -1024,29 +1094,29 @@ def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=6
             (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
                 {"alias": alias, "text": full, "shown": other})
         for own, others in by_own.items():
-            answers = judge({"fact": own}, [o["shown"] for o in others], CANON_Q)
+            answers = njudge({"fact": own}, [o["shown"] for o in others], CANON_Q)
             bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
         # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
         # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
         for own, others in by_own_exc.items():
-            answers = judge({"fact": own}, [o["shown"] for o in others], EXC_Q)
+            answers = njudge({"fact": own}, [o["shown"] for o in others], EXC_Q)
             exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
         # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
         # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
-        vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, judge)
+        vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, njudge)
         bad += [v for v in vec if v["kind"] == "compare"]
         exceptions += [v for v in vec if v["kind"] == "exception"]
         # astra merge r2 P1-5: a same-subject fragment without a stored form (pre-structure) has no leaves to pair; it is
         # compared by its whole text, so a merge rescan never skips it
         plain = [g for g in group if g["no_form"] and g["alias"] not in {p_[2] for p_ in leaf_pairs}]
         if plain:
-            answers = judge({"fact": row[1]}, [g["text"] for g in plain], CANON_Q)
+            answers = njudge({"fact": row[1]}, [g["text"] for g in plain], CANON_Q)
             bad += [g for g, a in _judged(plain, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
     elif row and row[2]:
         hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
                                      if str(h["id"]) != fid]  # fragments from before the subject dictionary
         if hits:
-            answers = judge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
+            answers = njudge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
             bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
     bad = list({h["alias"]: h for h in bad}.values())
     with connect(dsn) as conn, conn.cursor() as cur:
@@ -1254,6 +1324,13 @@ def recheck_contradictions(dsn, judge, limit=5):
             if a is None or b is None or a[0] == b[0]:
                 out["failed"] += 1  # a side cannot be found or both merged into one: stays as is, never 'retired'
                 continue
+            # astra names review P1/r2 P1: the recheck judges with the same alias context as the scan -- the names of the
+            # scanned fragment's own subject, whatever the other side's subject is
+            with connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute("select subject_id::text from knowledge.fragment where id=%s", (a[0],))
+                sid_a = (cur.fetchone() or [None])[0]
+                names = _same_names(cur, sid_a) if sid_a else []
+            njudge = _names_judge(judge, names)
             seen = (a[2], b[2])
             if not a[3] or not b[3]:  # plainly deprecated (not a merge)
                 verdict, evidence = "resolved", {"by": "a side retired", "ids": [a[0], b[0]], "revisions": list(seen)}
@@ -1269,11 +1346,11 @@ def recheck_contradictions(dsn, judge, limit=5):
                     verdict = "resolved"
                     evidence = {"by": "no longer comparable", "relation": rel, "ids": [a[0], b[0]], "revisions": list(seen)}
                     if rel == "exception":
-                        answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], EXC_Q)
+                        answers = njudge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], EXC_Q)
                         [(_, ans)] = list(_judged([b], answers))
                         evidence["is_exception"] = _strict_noul(ans) >= CONTRA_KEEP
                 else:
-                    answers = judge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
+                    answers = njudge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
                     [(_, ans)] = list(_judged([b], answers))
                     score = _strict_noul(ans)
                     verdict = "open" if score >= CONTRA_KEEP else "resolved"

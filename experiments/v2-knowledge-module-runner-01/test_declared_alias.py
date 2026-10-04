@@ -2,6 +2,8 @@
 (aliases); digestion registers them as declared aliases of the fact's subject; a later fact written under an alias keeps
 its text but gets the same subject id, so the same-subject scan compares them. A name already mapped to another subject is
 a conflict for approval (never merged in stage 1)."""
+import pytest
+
 import digest_driver
 import knowledge_cli
 import store_pg as pg
@@ -138,3 +140,75 @@ def test_spelling_and_tail_variant_share_one_subject_under_concurrency(dsn, host
         a = subject_dict.lookup(cur, host, "동시 대상")["subject_id"]
         b = subject_dict.lookup(cur, host, "동시 대상 화면")["subject_id"]
     assert a == b == out["동시 대상"] == out["동시 대상 화면"]
+
+
+def test_the_judge_is_told_the_names_of_one_subject(dsn, host):
+    """real01: 'printer.ts' vs 'src/main/ipc/printer.ts' were one subject but judged as different things (0.14)."""
+    _absorb(dsn, host, "printer.ts는 여백 상수를 0으로 유지한다", "printer.ts", aliases=["src/main/ipc/printer.ts"])
+    later = _absorb(dsn, host, "src/main/ipc/printer.ts는 여백 상수를 5로 사용한다", "src/main/ipc/printer.ts")
+    seen = []
+
+    def judge(state, texts, q):
+        seen.append((state, q))
+        return [{"noul": 0.0} for _ in texts]
+    pg.scan_contradictions(dsn, later, judge)
+    names = [s.get("same_subject_names") for s, _ in seen if s.get("same_subject_names")]
+    assert names and "printer.ts" in names[0] and subject_dict.norm("src/main/ipc/printer.ts") in names[0]
+    assert all("same_subject_names" in q for s, q in seen if s.get("same_subject_names"))
+
+
+def test_the_recheck_keeps_the_alias_context(dsn, host):
+    """astra names review P1: a contradiction found with the names must not be resolved by a recheck without them."""
+    _absorb(dsn, host, "printer.ts는 여백 상수를 0으로 유지한다", "printer.ts", aliases=["src/main/ipc/printer.ts"])
+    later = _absorb(dsn, host, "src/main/ipc/printer.ts는 여백 상수를 5로 사용한다", "src/main/ipc/printer.ts")
+    # a judge that sees a contradiction only when told the names are one thing
+    judge = lambda state, texts, q: [{"noul": 0.9 if state.get("same_subject_names") else 0.1} for _ in texts]
+    assert pg.scan_contradictions(dsn, later, judge)["contradictions"] >= 1
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""update knowledge.confirmation_queue set resolution='recheck' where rule_id='canon_contradiction'
+                       and entry_id in (select entry_id from knowledge.ledger_entry where host_id=%s)""", (host,))
+    out = pg.recheck_contradictions(dsn, judge, limit=50)
+    assert out["rechecked"] > 0 and out["resolved"] == 0 and out["failed"] == 0 and out["retried"] == 0, out
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select count(*) from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                       where e.host_id=%s and q.rule_id='canon_contradiction' and q.resolution='open'""", (host,))
+        assert cur.fetchone()[0] >= 1  # still an open contradiction
+
+
+def test_names_are_picked_per_call_within_the_bounds():
+    """astra names review r2 P2: the names written in this call's texts survive a long alias list."""
+    names = ["printer.ts"] + [f"alias-{k:02d}-" + "x" * 40 for k in range(20)] + ["src/main/ipc/printer.ts"]
+    picked = pg._pick_names(names, ["src/main/ipc/printer.ts는 여백 상수를 5로 사용한다"])
+    assert "printer.ts" in picked and "src/main/ipc/printer.ts" in picked
+    assert len(picked) <= pg.SAME_NAMES_MAX and sum(map(len, picked)) <= pg.SAME_NAMES_CHARS
+    long_head = ["가" * 500, "printer.ts"]  # an over-long subject name never breaks the bound
+    assert pg._pick_names(long_head, ["printer.ts는 켜진다"]) == ["printer.ts"]
+    assert pg._written(["late.ts"], ["가" * 700 + " late.ts는 켜진다"]) == []  # past the judge's cut: not counted
+    many = ["p.ts"] + [f"n{k}" for k in range(12)]  # names written in the text are never dropped, even past the bound
+    text = " ".join(f"n{k}는 켜진다" for k in range(12))
+    assert set(pg._written(many, [text])) <= set(pg._pick_names(many, [text]))
+
+
+def test_the_wrapper_splits_a_call_so_every_text_keeps_its_names():
+    """astra names review r3 P2: eight texts each written under a different alias -> every call carries its names."""
+    names = ["printer.ts"] + [f"src/p{k}/printer-{k:02d}.ts" for k in range(12)]
+    texts = [f"src/p{k}/printer-{k:02d}.ts는 여백 상수를 {k}로 쓴다" for k in range(12)]
+    calls = []
+
+    def judge(state, ts, q):
+        calls.append((state.get("same_subject_names") or [], ts))
+        return [{"noul": 0.0} for _ in ts]
+    out = pg._names_judge(judge, names)({"fact": "printer.ts는 여백 상수를 0으로 쓴다"}, texts, pg.CANON_Q)
+    assert len(out) == len(texts)
+    # answers stay with their texts across the split (each answer names its text)
+    tagged = pg._names_judge(lambda st, ts, q: [{"noul": 0.0, "t": t} for t in ts], names)(
+        {"fact": "printer.ts는 여백 상수를 0으로 쓴다"}, texts, pg.CANON_Q)
+    assert [a["t"] for a in tagged] == texts
+    # a call that answers the wrong number of texts is refused, never offset by another call
+    bad = iter([1, 3, 1, 3, 1, 3, 1, 3])
+    with pytest.raises(ValueError, match="number of answers"):
+        pg._names_judge(lambda st, ts, q: [{"noul": 0.0}] * next(bad), names)(
+            {"fact": "printer.ts는 여백 상수를 0으로 쓴다"}, texts, pg.CANON_Q)
+    for picked, ts in calls:
+        assert all(n in picked for n in pg._written(names, ts))
+        assert len(picked) <= pg.SAME_NAMES_MAX and sum(map(len, picked)) <= pg.SAME_NAMES_CHARS
