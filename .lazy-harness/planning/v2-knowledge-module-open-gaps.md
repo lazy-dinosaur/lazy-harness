@@ -651,4 +651,10 @@ D3(커밋된 원장 규약만, 정본 키 목록 없이 원장 키 + 비슷한 �
   같은 범위를 IF 로 쓴 반대('IF 행은 WRITING THEN 열 수 있다') 0.57 — 조건이 기본 규칙의 대상 자체면 예외가 아니라 모순.
   r19 는 'IF 존재 EVEN IF 비어 있다 THEN 권위' vs 'IF 존재하지만 비어 있다 THEN 권위 아님' 0.09 — EVEN IF 조건을 같은 조건으로 보지 못함.
   후보: 조건이 기본 규칙의 범위와 같은지 판별, EVEN IF 조건 정규화. 심기 프롬프트에 예외 규칙을 명시.
+- real01 애매한 2건 — medivance 코드로 확인 (2026-10-03, 사용자 '코드로 확인해보던가', 읽기만, medivance 73083787f):
+  (1) 병합 질문 'treatmentDocument.ts' vs 'treatmentDocument router' 는 같은 대상 — src/main/trpc/routers/treatmentDocument.ts 가
+  treatmentDocumentRouter 를 내보내고 router.ts 가 treatmentDocument 로 단다. 블라인드 모의 사용자의 'different' 는 틀림
+  (파일과 그 파일이 정의하는 라우터를 다른 대상으로 봄 — 모의 사용자 프롬프트의 '파일은 관련 대상' 해석 문제).
+  (2) 의도 밖 경보 useActionEngine 은 오탐 — 훅은 시작 2초·30초마다 retryPendingReservationSourceSyncs 만 부르고
+  reconcileMissingReservationTreatmentDocuments 는 부르지 않아 두 사실이 함께 참이다(1회 정밀도 14/15).
 - 남은 것: 주제 밀집 표본(medivance 채팅 조각)으로 사전 병합과 코드 모순 판정 측정, 원문 문장 보관 여부, 러너 기록 경로·스키마 반영.
