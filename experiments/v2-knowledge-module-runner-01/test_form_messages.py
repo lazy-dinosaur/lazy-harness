@@ -17,8 +17,28 @@ def test_a_rule_then_another_rule_asks_to_keep_the_condition_scope():
 
 
 def test_operator_words_in_code_are_not_advised_and_other_errors_stay():
-    # no rewrite advice for operator words inside code (check() itself still splits on them -- a known gap of split())
-    assert not any("사실 두 개" in e or "규칙 둘" in e for e in fact_form.check("설명은 `A AND IF c THEN r` 이다"))
+    # operator words inside code are text: no error at all (split() skips backticks like _tokens)
+    assert fact_form.check("설명은 `A AND IF c THEN r` 이다") == []
+    assert fact_form.check("IF 설정은 `x OR y` 이다 THEN 서버는 `a AND b` 를 쓴다") == []
+    assert fact_form.parse("설명은 `A AND IF c THEN r` 이다") == {"kind": "plain", "then": ["설명은 `A AND IF c THEN r` 이다"]}
+
+
+def test_every_operator_inside_code_is_text_and_a_real_because_still_works():
+    """astra tick review: all operators in backticks are text; a BECAUSE outside code is still the reason."""
+    for op in ("AND", "OR", "IF", "THEN", "EVEN IF", "EXCEPT WHEN", "BEFORE", "AFTER", "BECAUSE"):
+        t = f"설명은 `x {op} y` 이다"
+        assert fact_form.check(t) == [], op
+        assert fact_form.parse(t) == {"kind": "plain", "then": [t]}, op
+        assert fact_form.warnings(t) == fact_form.warnings("설명은 `x y` 이다"), op
+    f = fact_form.parse("설명은 `a BECAUSE b` 이다 BECAUSE 스펙이 정한다")
+    assert f["then"] == ["설명은 `a BECAUSE b` 이다"] and f["because"] == "스펙이 정한다"
+
+
+def test_an_unclosed_backtick_protects_nothing():
+    """An unclosed backtick is not code: operator words after it are operators (split and parse agree)."""
+    t = "설명은 `x AND y 이다"
+    assert fact_form.check(t) == []
+    assert fact_form.parse(t)["then"] == ["설명은 `x", "y 이다"]
     e = fact_form.check("A는 켜진다 AND IF B는 꺼진다")  # no THEN: that error stays next to the advice
     assert "IF 뒤에 THEN 결과가 없다" in e, e
     e = fact_form.check("EVEN IF A는 켜진다 THEN B는 꺼진다 AND")

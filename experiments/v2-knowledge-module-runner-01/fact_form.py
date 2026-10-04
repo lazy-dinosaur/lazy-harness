@@ -80,9 +80,13 @@ def chain_token(leaf):
 
 
 def split(text):
-    """-> list of (op or None, leaf text); parentheses are grouping only."""
+    """-> list of (op or None, leaf text); parentheses are grouping only. Operator words inside `code` are text (2026-10-03,
+    user 'a': a code identifier with AND/IF/THEN in backticks was refused; _tokens already skipped them)."""
     parts, pos, op = [], 0, None
+    ticks = [(m.start(), m.end()) for m in _TICK.finditer(text)]
     for m in OPS.finditer(text):
+        if any(a <= m.start() < b for a, b in ticks):
+            continue
         parts.append((op, text[pos:m.start()]))
         op, pos = m.group(1), m.end()
     parts.append((op, text[pos:]))
@@ -261,7 +265,9 @@ def parse(text):
     """Operator string -> form {kind, if?, even_if?, then[], join?, except?, anchor?, because?}. Total: text that does
     not follow the form becomes one plain leaf (check() is what rejects it at record time)."""
     body, because = text, None
-    m = re.search(r"\bBECAUSE\b", text)
+    # astra tick review P1: a BECAUSE inside `code` is text, as in split() and _tokens()
+    ticks = [(t.start(), t.end()) for t in _TICK.finditer(text)]
+    m = next((x for x in re.finditer(r"\bBECAUSE\b", text) if not any(a <= x.start() < b for a, b in ticks)), None)
     if m:
         body, because = text[:m.start()], text[m.end():].strip().rstrip(".").strip() or None
     toks = _tokens(body)
