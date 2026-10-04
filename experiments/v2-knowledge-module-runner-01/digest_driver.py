@@ -24,6 +24,7 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
     import worktime_driver
     pending = preview.get("rewrites") or {}  # the unit's final change plan (store_pg.digest), shared with the commit
     subject_gen_seen = None  # stage 2: the subject generation when the first packet was read
+    query_vectors = {}  # receipt id -> the add's query vector (None = embedding service down)
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         for receipt_id in receipt_ids:
             cur.execute("""select r.packet, r.jev_model_requested, r.jev_model_actual,
@@ -45,8 +46,16 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                 gen_row = cur.fetchone()
                 subject_gen_seen = gen_row[0] if gen_row else 0
             if fact.get("operation", "add") == "add":
+                # migration parallel load: the query vector is kept so the commit can rebuild the same excerpt under
+                # the host lock with no service call (store_pg._excerpt_now); None = the service was down -> text
+                import embed
+                try:
+                    qvec = embed.encode_query(fact["fact"])
+                except embed.EmbeddingUnavailable:
+                    qvec = None
+                query_vectors[receipt_id] = qvec
                 packet["state"]["existing_records_excerpt"] = worktime_driver.existing_excerpt(
-                    dsn, receipt["host_id"], fact, pending)
+                    dsn, receipt["host_id"], fact, pending, vector=qvec, mode=None if qvec is not None else "text")
             revision = None
             if fact.get("operation", "add") in ("update", "deprecate"):
                 cur.execute("select text,revision from knowledge.fragment where id=%s and host_id=%s",
@@ -135,6 +144,9 @@ def run_digestion(dsn, unit_id, judge, *, apply=True, choose=None, confirm=None,
                    "jev_model_actual": judged.get("jev_model_actual", receipt["jev_model_actual"]),
                    "target_revision_seen": revision, "baseline_history_seen": history_seen,
                    "subject_generation_seen": subject_gen_seen,
+                   **({"query_vector": list(query_vectors[receipt_id]) if query_vectors[receipt_id] is not None else None,
+                       "excerpt_mode": "hybrid" if query_vectors[receipt_id] is not None else "text"}
+                      if receipt_id in query_vectors else {}),
                    "fresh_excerpt": packet["template_id"] == "record-need"}
         for key in ("input_tokens", "output_tokens", "cost_usd", "usage_source"):
             if key in judged:  # keep provider-reported usage on the digestion receipt too

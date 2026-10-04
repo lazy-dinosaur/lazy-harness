@@ -62,10 +62,17 @@ def _blocked(state, key, now, skipped):
     return False
 
 
+def _kept(prev):
+    """The conflict count a unit carries until it is digested (astra parallel review r3: partial/idle hints reset it)."""
+    return {"conflicts": prev["conflicts"]} if prev and "conflicts" in prev else {}
+
+
 def _failure(state, key, now, max_attempts, base_delay):
-    count = state.get(key, {}).get("attempts", 0) + 1
+    prev = state.get(key, {})
+    count = prev.get("attempts", 0) + 1
     state[key] = {"attempts": count, "next": now + base_delay * 2 ** (count - 1),
-                  "stuck": count >= max_attempts}
+                  "stuck": count >= max_attempts,
+                  **({"conflicts": prev["conflicts"]} if "conflicts" in prev else {})}  # the cap survives a backoff
 
 
 def _prune(hints, entries, units, scans):
@@ -119,9 +126,40 @@ def _pending_hosts(dsn, variant):
         return [r[0] for r in cur.fetchall()]
 
 
+MAX_CONFLICTS = 20  # 'canon changed' rechecks of one unit retried at once before the normal backoff
+
+
+def _pool(workers, fn, items):
+    """Run fn(item) for each item, `workers` at a time (1 = in order, as before). -> [(item, result or exception)].
+    Migration parallel load (user 'a', 2026-10-03): Jev judging happens outside transactions, so several units or entry
+    chunks are judged at once; every commit still takes the host dictionary lock and the subject-generation checks.
+    Contract (astra parallel review P1): with workers > 1 the DB commit order of units is NOT the candidate order -- an
+    update/deprecate is protected by its target-revision CAS (the later one is rechecked), adds by the excerpt check.
+    The injected judge / contra_judge / same functions must be thread-safe (the Jev and embedding clients are per call)."""
+    if workers <= 1 or len(items) <= 1:
+        out = []
+        for it in items:
+            try:
+                out.append((it, fn(it)))
+            except Exception as exc:  # noqa: BLE001 -- recorded per item as before
+                out.append((it, exc))
+        return out
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futs = [(it, ex.submit(fn, it)) for it in items]
+        out = []
+        for it, f in futs:
+            try:
+                out.append((it, f.result()))
+            except Exception as exc:  # noqa: BLE001
+                out.append((it, exc))
+        return out
+
+
 def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEFAULT_STATE,
-         max_attempts=5, base_delay=30, now=None, choose=None, confirm=None, contra_judge=None, subject_same=None):
-    if min(max_units, window, max_attempts, base_delay) < 1:
+         max_attempts=5, base_delay=30, now=None, choose=None, confirm=None, contra_judge=None, subject_same=None,
+         workers=1):
+    if min(max_units, window, max_attempts, base_delay, workers) < 1:
         raise ValueError("limits and delay must be positive")
     now = time.time() if now is None else now
     result = {"units": 0, "entries": 0, "embeddings": 0, "stuck": 0,
@@ -146,6 +184,7 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
             # worktime keeps a reserved share of the window so a digestion backlog never starves checking (astra stall review)
             reserve = max(1, window // 5)
             remaining = window - reserve
+            planned = []  # (unit, key, spent) in order; judged in the pool, outcomes applied below in this order
             for unit in units:
                 # a unit is one commit: one larger than the window runs when it is the first of the tick; its judge
                 # calls are spread over ticks (budget = remaining), the commit happens in the pass that has them all
@@ -160,34 +199,47 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 # a unit larger than what is left takes at most half of it, so units behind it still run (astra big review)
                 spent = unit["entries"] if unit["entries"] <= remaining else max(1, remaining // 2)
                 remaining = max(0, remaining - spent)  # never into worktime's reserved share
-                try:
-                    outcome = digest_driver.run_digestion(dsn, unit["work_unit_id"], judge, choose=choose, confirm=confirm,
-                                                          same=subject_same, budget=max(1, spent))
-                    # canon scans run below in one budgeted scheduler (astra P13 cross-review: they bypassed the budget)
-                    if outcome["status"] in ("needs_review", "needs_recheck"):
-                        _failure(hints, key, now, max_attempts, base_delay)
-                    elif outcome["status"] == "partial":
-                        before = hints.get(key, {}).get("remaining")
-                        if before is not None and outcome["remaining"] >= before:
-                            # no progress (the canon moved and saved judgements no longer match): wait, budget back
-                            result["units"] -= 1
-                            remaining += spent
-                            hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True,
-                                          "remaining": outcome["remaining"]}
-                        else:
-                            hints[key] = {"attempts": 0, "next": 0, "stuck": False, "remaining": outcome["remaining"]}
-                    elif outcome["status"] in ("noop", "waiting"):
-                        # no progress (e.g. a change waits for a human): give the budget back and wait before the next
-                        # try without counting toward stuck (astra stall review P1-1)
-                        result["units"] -= 1
-                        remaining += spent
-                        hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True}
-                    else:
-                        hints.pop(key, None)
-                except Exception:
+                planned.append((unit, key, spent))
+            digested = _pool(workers, lambda pl: digest_driver.run_digestion(
+                dsn, pl[0]["work_unit_id"], judge, choose=choose, confirm=confirm, same=subject_same,
+                budget=max(1, pl[2])), planned)
+            for (unit, key, spent), outcome in digested:
+                if isinstance(outcome, Exception):
                     skipped["failed"] += 1
                     _failure(hints, key, now, max_attempts, base_delay)
-                _save(state, hints)
+                    continue
+                # canon scans run below in one budgeted scheduler (astra P13 cross-review: they bypassed the budget)
+                if (outcome["status"] == "needs_recheck" and outcome.get("why") == "canon changed (history)"
+                        and hints.get(key, {}).get("conflicts", 0) < MAX_CONFLICTS):
+                    # another unit landed first and changed what this add was judged on: not a failure -- judged
+                    # again on the next tick without counting toward stuck; bounded (astra parallel review: outside
+                    # writes could otherwise keep it retrying forever), then the normal backoff applies
+                    prev = hints.get(key, {})
+                    hints[key] = {"attempts": prev.get("attempts", 0), "next": 0, "stuck": False,
+                                  "conflicts": prev.get("conflicts", 0) + 1}
+                elif outcome["status"] in ("needs_review", "needs_recheck"):
+                    _failure(hints, key, now, max_attempts, base_delay)
+                elif outcome["status"] == "partial":
+                    before = hints.get(key, {}).get("remaining")
+                    if before is not None and outcome["remaining"] >= before:
+                        # no progress (the canon moved and saved judgements no longer match): wait, budget back
+                        result["units"] -= 1
+                        remaining += spent
+                        hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True,
+                                      "remaining": outcome["remaining"], **_kept(hints.get(key))}
+                    else:
+                        hints[key] = {"attempts": 0, "next": 0, "stuck": False, "remaining": outcome["remaining"],
+                                      **_kept(hints.get(key))}
+                elif outcome["status"] in ("noop", "waiting"):
+                    # no progress (e.g. a change waits for a human): give the budget back and wait before the next
+                    # try without counting toward stuck (astra stall review P1-1)
+                    result["units"] -= 1
+                    remaining += spent
+                    hints[key] = {"attempts": 0, "next": now + IDLE_DELAY, "stuck": False, "idle": True,
+                                  **_kept(hints.get(key))}
+                else:
+                    hints.pop(key, None)
+            _save(state, hints)
             if contra_judge is not None:  # review P1: retry canon scans that did not finish after their commit
                 # one budget for all canon checks (astra 0012 review P2): rechecks first, scans take the rest
                 try:  # 0012: contradictions whose side changed are judged again (an answer alone never resolves)
@@ -205,14 +257,14 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 except Exception:
                     rs = {"rescanned": 0}
                     skipped["failed"] += 1
-                for uid_ in _runnable_scans(dsn, hints, now, skipped,
-                                            max(0, SCAN_PER_TICK - rc["rechecked"] - rs["rescanned"])):
+                scans = list(_runnable_scans(dsn, hints, now, skipped,
+                                             max(0, SCAN_PER_TICK * workers - rc["rechecked"] - rs["rescanned"])))
+                for uid_, outcome in _pool(workers, lambda u: store_pg.scan_contradictions(dsn, u, contra_judge), scans):
                     key = "scan:" + uid_
-                    try:
-                        store_pg.scan_contradictions(dsn, uid_, contra_judge)
-                        hints.pop(key, None)
-                    except Exception:
+                    if isinstance(outcome, Exception):
                         _failure(hints, key, now, max_attempts, base_delay)
+                    else:
+                        hints.pop(key, None)
                 _save(state, hints)
             remaining += reserve  # the reserved share is worktime's
             selected = []
@@ -224,10 +276,17 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                     selected.append(entry_id)
             if selected:
                 try:
-                    outcome = worktime_driver.run_worktime(dsn, len(selected), judge,
-                                    utterance_judge=utterance_judge, entry_ids=selected)
-                    failures = {r["entry_id"] for r in outcome["failures"]}
-                    statuses = {r["entry_id"]: r["state"] for r in outcome["results"]}
+                    # entries are checked independently: split into `workers` chunks judged at once
+                    chunks = [selected[k::workers] for k in range(min(workers, len(selected)))]
+                    runs = _pool(workers, lambda ch: worktime_driver.run_worktime(
+                        dsn, len(ch), judge, utterance_judge=utterance_judge, entry_ids=ch), chunks)
+                    failures, statuses = set(), {}
+                    for ch, outcome in runs:
+                        if isinstance(outcome, Exception):
+                            failures |= set(ch)  # counted below per entry
+                            continue
+                        failures |= {r["entry_id"] for r in outcome["failures"]}
+                        statuses.update({r["entry_id"]: r["state"] for r in outcome["results"]})
                     for entry_id in selected:
                         key = "entry:" + entry_id
                         if entry_id in failures or statuses.get(entry_id) in (None, "proposed", "review_queue"):
@@ -287,6 +346,7 @@ def main():
     parser.add_argument("--max-units", type=int, default=20)
     parser.add_argument("--window", type=int, default=50)
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE)
+    parser.add_argument("--workers", type=int, default=1)  # units / entry chunks judged at once (migration load)
     args = parser.parse_args()
     import config
     try:
@@ -296,7 +356,7 @@ def main():
     config.apply_embed_env(cfg)
     try:
         print(json.dumps(tick(cfg["db_url"], digest_driver._jev_judge,
-                              utterance_judge=_utterance_judge, max_units=args.max_units,
+                              utterance_judge=_utterance_judge, max_units=args.max_units, workers=args.workers,
                               window=args.window, state=args.state,
                               choose=__import__("domain_router").make_choose(cfg),
                               confirm=__import__("domain_router").make_confirm(cfg),

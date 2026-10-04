@@ -47,20 +47,20 @@ def _rows(cursor):
 
 
 def search(dsn, host, query, limit=8, cross_hosts=None, mode="text", min_similarity=None,
-           exclude_ids=None, variant="plain", expand=True):
+           exclude_ids=None, variant="plain", expand=True, vector=None):
     _variant(variant)
     if limit < 0:
         raise ValueError("limit must be nonnegative")
     if mode not in ("text", "hybrid"):
         raise ValueError("unknown search mode")
     warning = None
-    if mode == "hybrid":
+    if mode == "hybrid" and vector is None:
         try:
             vector = embed.encode_query(query)
         except embed.EmbeddingUnavailable:
             mode, warning = "text", "embedding service unavailable; text fallback"
-    else:
-        vector = None
+    elif mode != "hybrid":
+        vector = None  # (a precomputed query vector lets a caller search inside a transaction with no service call)
     with connect(dsn) as conn, conn.cursor() as cur:
         if mode == "hybrid":
             cur.execute("select * from knowledge.search_hybrid(%s,%s,%s::extensions.vector,%s,%s,%s::text[],%s,%s,%s::uuid[],%s)",
@@ -466,6 +466,15 @@ def _reopen(cur, entry_id, decided, ready):
         _transition(cur, entry, ready, "human")
     elif entry["state"] == "review_queue" and not pending:
         _transition(cur, entry, "closed", "human")
+
+
+def _excerpt_now(dsn, host, fact, rewrites, fixture):
+    """The add's existing-knowledge excerpt as of now, built the way digestion built it (worktime_driver.existing_excerpt)
+    but with the query vector computed before the transaction (or text mode when the embedding service was down)."""
+    import worktime_driver
+    pending = {k: v for k, v in (rewrites or {}).items()}
+    return worktime_driver.existing_excerpt(dsn, host, fact, pending or None, vector=fixture.get("query_vector"),
+                                            mode=fixture.get("excerpt_mode"))
 
 
 def _history_max(cur, host):
@@ -1836,7 +1845,15 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                      fixture["packet"].get("state", {}).get("target_excerpt") != current["text"])):
                     raise Recheck(old["receipt_id"], "target revision/text changed since the check")
                 if old["receipt_id"] in stale and fixture.get("baseline_history_seen") != history_max:
-                    raise Recheck(old["receipt_id"], "canon changed (history)")
+                    # migration parallel load (user 'a', 2026-10-03): an add was judged against its existing-knowledge
+                    # excerpt only; if the excerpt rebuilt now (under the host lock, precomputed query vector, no
+                    # service call) is the same, the canon that moved meanwhile did not touch what it was judged on
+                    # astra parallel review P1: only a unit with no update/deprecate (its rewrites could still change in
+                    # the 3-way merge below) -- migration loads are add-only; any other unit keeps the strict history check
+                    if not (fact.get("operation", "add") == "add" and "excerpt_mode" in fixture and not rewrites
+                            and _excerpt_now(dsn, unit["host_id"], fact, rewrites, fixture)
+                            == fixture["packet"].get("state", {}).get("existing_records_excerpt")):
+                        raise Recheck(old["receipt_id"], "canon changed (history)")
                 if fixture.get("subject_generation_seen") != subject_gen:  # missing, or a merge/undo since (astra merge r3 P1-2)
                     raise Recheck(old["receipt_id"], "subject dictionary changed (merge or undo)")
                 if old["receipt_id"] in stale and fact.get("operation", "add") == "add" and not fixture.get("fresh_excerpt"):

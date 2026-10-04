@@ -61,8 +61,14 @@ def pending_rewrites(facts):
     return out
 
 
-def existing_excerpt(dsn, host, fact, pending=None):
-    hits = store_pg.search(dsn, host, fact["fact"], limit=5, mode="hybrid", expand=False)
+def existing_excerpt(dsn, host, fact, pending=None, vector=None, mode=None):
+    """vector: a precomputed query vector (no service call); mode 'text': the embedding service was down when the
+    digestion judged, so the excerpt is rebuilt the text-fallback way (same prefix)."""
+    if mode == "text":
+        hits = [{**h, "warning": "embedding service unavailable; text fallback"}
+                for h in store_pg.search(dsn, host, fact["fact"], limit=5, mode="text", expand=False)]
+    else:
+        hits = store_pg.search(dsn, host, fact["fact"], limit=5, mode="hybrid", expand=False, vector=vector)
     if pending:
         hits = [{**h, "text": pending[str(h.get("id"))]} if str(h.get("id")) in pending else h for h in hits]
         hits = [h for h in hits if h.get("text")]
@@ -72,7 +78,9 @@ def existing_excerpt(dsn, host, fact, pending=None):
         hits += [{"id": fid, "text": text} for fid, text in pending.items()
                  if text and fid not in seen and subject.strip() and subject.strip() in text]
     fallback = any(hit.get("warning") for hit in hits)
-    if not hits:
+    if not hits and mode == "text":
+        fallback = True
+    elif not hits and vector is None:
         # search returns no metadata on an empty result set; check the local encoder
         # so the caller still sees that a hybrid search fell back to text.
         import embed

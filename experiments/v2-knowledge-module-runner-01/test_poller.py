@@ -268,3 +268,172 @@ def test_partial_without_progress_waits_and_gives_the_budget_back(dsn, tmp_path,
     ran.clear()
     poller.tick(dsn, judge=None, window=50, state=state, now=1002)
     assert [u for u, _ in ran] == ["small"]
+
+
+def test_workers_judge_units_at_once_and_commit_each_once(dsn, host, tmp_path):
+    """Migration parallel load (2026-10-03): with workers=4 several units are judged at the same time (the judge sees
+    overlapping calls) and every unit is still digested exactly once, like workers=1."""
+    import time
+    # unrelated topics: an add whose existing-knowledge excerpt changes (a similar fact landed first) is judged again --
+    # that is the point of the excerpt check, so this test uses facts that do not show up in each other's excerpt
+    topics = ["사과 재고는 매일 집계한다", "버스 노선은 주말에 줄인다", "환불 요청은 영업일 기준 처리한다",
+              "서버 로그는 30일 보관한다", "회의실 예약은 하루 전 마감한다", "택배 라벨은 흑백으로 인쇄한다"]
+    bodies = [staged(dsn, host, t) for t in topics]
+    pending = [pg.register(dsn, judgement(host, text=f"pending-par-{i}")) for i in range(4)]
+    live, peak, lock = [0], [0], threading.Lock()
+
+    def judge(packet):
+        with lock:
+            live[0] += 1
+            peak[0] = max(peak[0], live[0])
+        time.sleep(0.2)
+        with lock:
+            live[0] -= 1
+        return answer(packet)
+    state = tmp_path / "state.json"
+    out = poller.tick(dsn, judge, window=20, state=state, workers=4)
+    assert out["units"] == 6 and out["entries"] == 4 and out["skipped"]["failed"] == 0, out
+    assert peak[0] >= 2  # judged at once
+    # an add whose excerpt changed because another landed first is judged again on a later tick (the offline
+    # embedding has no relevance floor, so in this tiny canon every new fact enters the others' excerpts)
+    for _ in range(8):
+        if len(fragments(dsn, host)) >= len(topics):
+            break
+        poller.tick(dsn, judge, window=20, state=state, workers=4, now=time.time() + 10 ** 6)
+    texts = sorted(r["text"] for r in fragments(dsn, host))
+    assert texts == sorted(topics)  # each digested exactly once
+    assert {r["state"] for r in pg.rows(dsn, "ledger_entry") if str(r["entry_id"]) in
+            {e["entry_id"] for e in pending}} == {"provisional"}
+    assert poller.tick(dsn, judge, window=20, state=state, workers=4)["units"] == 0
+
+
+def test_workers_must_be_positive(dsn, tmp_path):
+    with pytest.raises(ValueError):
+        poller.tick(dsn, answer, state=tmp_path / "s.json", workers=0)
+
+
+def test_an_add_whose_excerpt_changed_meanwhile_is_judged_again(dsn, host, tmp_path):
+    """astra parallel review P2: both units judged on the same (empty) excerpt at once (barrier); the second commit
+    sees a changed excerpt -> 'canon changed' recheck without counting toward stuck; next tick judges it against the
+    new excerpt and both end digested."""
+    import time
+    staged(dsn, host, "주차 요금은 시간당 1000원이다")
+    staged(dsn, host, "주차 제한은 3시간이다")
+    barrier = threading.Barrier(2, timeout=10)
+    packets = []
+
+    def judge(packet):
+        packets.append(packet["state"].get("existing_records_excerpt"))
+        if len(packets) <= 2:
+            barrier.wait()
+        return answer(packet)
+    state = tmp_path / "state.json"
+    out = poller.tick(dsn, judge, window=20, state=state, workers=2)
+    assert out["skipped"]["failed"] == 0
+    hints = json.loads(state.read_text())
+    unit_hints = [v for k, v in hints.items() if k.startswith("unit:")]
+    assert len(fragments(dsn, host)) == 1 and len(unit_hints) == 1
+    assert unit_hints[0]["attempts"] == 0 and unit_hints[0]["conflicts"] == 1 and not unit_hints[0]["stuck"]
+    poller.tick(dsn, judge, window=20, state=state, workers=2, now=time.time() + 10 ** 6)
+    assert len(fragments(dsn, host)) == 2
+    assert packets[-1] != packets[0]  # judged again against the excerpt that now holds the first fact
+
+
+def test_history_moved_but_same_excerpt_commits_in_the_same_tick(dsn, host, tmp_path, monkeypatch):
+    """astra parallel review P2: the excerpt check itself -- the host history moves between judging and commit, the
+    excerpt rebuilt under the lock is unchanged, so the add commits without a recheck."""
+    import worktime_driver
+    monkeypatch.setattr(worktime_driver, "existing_excerpt", lambda *a, **k: "이 host 의 정본에 관련 조각이 없다.")
+    staged(dsn, host, "사과 재고는 매일 집계한다")
+    staged(dsn, host, "버스 노선은 주말에 줄인다")
+    barrier = threading.Barrier(2, timeout=10)
+
+    def judge(packet):
+        barrier.wait()
+        return answer(packet)
+    out = poller.tick(dsn, judge, window=20, state=tmp_path / "s.json", workers=2)
+    assert out["skipped"]["failed"] == 0 and len(fragments(dsn, host)) == 2
+
+
+def test_entries_of_one_unit_split_across_workers_are_all_checked(dsn, host, tmp_path):
+    """astra parallel review P2: worktime chunks split one unit's entries across threads; each is checked once."""
+    body = judgement(host, text="첫 번째 사실은 켜진다")
+    entries = [pg.register(dsn, body)]
+    for i in range(5):
+        b2 = judgement(host, text=f"다음 사실 {i} 은 켜진다")
+        b2["work_unit_id"] = body["work_unit_id"]
+        entries.append(pg.register(dsn, b2))
+    out = poller.tick(dsn, answer, window=20, state=tmp_path / "s.json", workers=3)
+    assert out["entries"] == 6 and out["skipped"]["failed"] == 0
+    states = {r["state"] for r in pg.rows(dsn, "ledger_entry") if str(r["entry_id"]) in {e["entry_id"] for e in entries}}
+    assert states == {"provisional"}
+
+
+def test_conflict_cap_is_kept_across_backoff():
+    """astra parallel review r2: after MAX_CONFLICTS immediate retries a unit stays on the normal backoff; the conflict
+    count is not reset by a failure."""
+    hints = {"unit:u": {"attempts": 0, "next": 0, "stuck": False, "conflicts": poller.MAX_CONFLICTS}}
+    poller._failure(hints, "unit:u", 1000.0, 5, 30)
+    assert hints["unit:u"]["conflicts"] == poller.MAX_CONFLICTS and hints["unit:u"]["next"] > 1000.0
+
+
+def test_parallel_scans_record_contradictions_once(dsn, host, tmp_path, monkeypatch):
+    """astra parallel review r3/r4: both units absorbed first, then exactly their two scans are run in one batch and must
+    meet at a barrier (judged at the same time); each side is logged exactly once, both directions."""
+    import time
+    staged(dsn, host, "주차 요금은 시간당 1000원이다")
+    staged(dsn, host, "주차 요금은 시간당 2000원이다")
+    state = tmp_path / "s.json"
+    for _ in range(6):  # digest both, no canon judge yet
+        poller.tick(dsn, answer, window=20, state=state, workers=2, now=time.time() + 10 ** 6)
+    assert len(fragments(dsn, host)) == 2
+    units = [str(r["work_unit_id"]) for r in pg.rows(dsn, "work_unit") if r["host_id"] == host]  # str, as _runnable_scans
+    # isolate the batch: only this host's two units (the shared test DB holds other hosts' unscanned units)
+    monkeypatch.setattr(poller, "_runnable_scans", lambda *a, **k: list(units))
+    barrier = threading.Barrier(2, timeout=10)
+    met, first = [], set()
+
+    def contra(state_, texts, q, criteria=None):
+        key = str(state_.get("fact", ""))
+        if key not in first:
+            first.add(key)
+            barrier.wait()  # raises BrokenBarrierError if the two scans did not run at the same time
+            met.append(key)
+        if criteria:
+            return [{"probabilities": {"contradiction": 0.0, "exception": 0.0, "neither": 1.0}} for _ in texts]
+        return [{"noul": 0.9 if ("1000" in t) != ("1000" in key) else 0.0} for t in texts]
+    poller.tick(dsn, answer, window=20, state=state, workers=2, contra_judge=contra, now=time.time() + 10 ** 6)
+    assert len(met) == 2  # both scans reached the barrier together
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select q.reason from knowledge.confirmation_queue q join knowledge.ledger_entry e on e.entry_id=q.entry_id
+                       where e.host_id=%s and q.rule_id='canon_contradiction'""", (host,))
+        sides = sorted((json.loads(r[0])["alias"], json.loads(r[0])["with"]) for r in cur.fetchall())
+    assert len(sides) == 2 and sides[0] == tuple(reversed(sides[1])), sides  # each side once, both directions
+
+def test_conflict_count_survives_a_partial_pass(dsn, tmp_path, monkeypatch):
+    """astra parallel review r3/r4: needs_recheck(canon changed) -> partial -> needs_recheck on consecutive ticks keeps
+    counting toward MAX_CONFLICTS, and at the cap the normal backoff applies."""
+    import time
+    import digest_driver
+    unit = {"work_unit_id": "00000000-0000-0000-0000-0000000000aa", "entries": 3}
+    monkeypatch.setattr(poller, "_candidates", lambda d: ([unit], []))
+    monkeypatch.setattr(poller, "_prune", lambda *a, **k: None)
+    seq = iter([{"status": "needs_recheck", "why": "canon changed (history)"},
+                {"status": "partial", "judged": 1, "remaining": 2},
+                {"status": "needs_recheck", "why": "canon changed (history)"}])
+    monkeypatch.setattr(digest_driver, "run_digestion", lambda *a, **k: next(seq))
+    state = tmp_path / "s.json"
+    key = "unit:" + unit["work_unit_id"]
+    counts = []
+    for _ in range(3):
+        poller.tick(dsn, answer, window=20, state=state, now=time.time() + 10 ** 6)
+        counts.append(json.loads(state.read_text())[key].get("conflicts"))
+    assert counts == [1, 1, 2]
+    monkeypatch.setattr(digest_driver, "run_digestion", lambda *a, **k: {"status": "needs_recheck", "why": "canon changed (history)"})
+    hints = json.loads(state.read_text())
+    hints[key]["conflicts"] = poller.MAX_CONFLICTS
+    state.write_text(json.dumps(hints))
+    now = time.time() + 10 ** 6
+    poller.tick(dsn, answer, window=20, state=state, now=now)
+    h = json.loads(state.read_text())[key]
+    assert h["attempts"] == 1 and h["next"] > now and h["conflicts"] == poller.MAX_CONFLICTS  # backoff, cap kept
