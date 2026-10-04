@@ -15,7 +15,7 @@ def _judge(scope=0.0, exc=0.0, cond=0.0, canon=0.0, seen=None):
             return [{"type": "choice", "probabilities": {k: (0.9 if k == top else 0.05)
                                                          for k in ("contradiction", "exception", "neither")}}
                     for _ in texts]
-        score = cond if q.startswith(pg.COND_Q[:20]) else canon
+        score = cond if q.startswith(pg.COND_Q[:20]) else scope if q.startswith(pg.SCOPE_Q[:20]) else canon
         return [{"noul": score} for _ in texts]
     return judge
 
@@ -103,16 +103,18 @@ def test_every_vector_candidate_with_a_contained_condition_gets_the_scope_questi
     calls = []
 
     def judge(state, texts, q, criteria=None):
-        calls.append((q[:12], list(texts)))
+        calls.append(("choice" if criteria else q[:12], list(texts)))
         if criteria:
             return [{"probabilities": {"contradiction": 0.9 if "파서B" in t else 0.0, "exception": 0.0,
                                        "neither": 0.1 if "파서B" in t else 1.0}} for t in texts]
         if q.startswith(pg.COND_Q[:20]):
             return [{"noul": 0.9} for _ in texts]
+        if q.startswith(pg.SCOPE_Q[:40]):  # stage 2 confirmation
+            return [{"noul": 0.9 if "파서B" in t else 0.0} for t in texts]
         return [{"noul": 0.0} for _ in texts]
     found = pg._vector_contradictions(dsn, host, str(own["id"]), own["text"], set(), judge)
     cond_items = sum(len(ts) for q, ts in calls if q == pg.COND_Q[:12])
-    scope_items = sum(len(ts) for q, ts in calls if q == pg.SCOPE3_Q[:12])
+    scope_items = sum(len(ts) for q, ts in calls if q == "choice")
     assert cond_items == 1 and scope_items == 2
     assert [f["alias"] for f in found if f["kind"] == "compare"] == [next(r["alias"] for r in others if "파서B" in r["text"])]
 
@@ -136,3 +138,72 @@ def test_a_broken_distribution_fails_and_an_unsure_recheck_keeps_the_pair():
         {"probabilities": {"contradiction": 0.4, "exception": 0.3, "neither": 0.3}} for _ in texts]
     contra, exc, left = pg._scoped(unsure, "a", [{"shown": "b"}], return_unsure=True)
     assert contra == [] and exc == [] and len(left) == 1
+
+
+def test_a_choice_contradiction_is_confirmed_by_the_strict_question():
+    """contra07 19-21: the choice alone called default+exception controls contradictions; the yes/no question confirms."""
+    calls = []
+
+    def judge(state, texts, q, criteria=None):
+        calls.append("choice" if criteria else q[:12])
+        if criteria:
+            return [{"probabilities": {"contradiction": 0.6, "exception": 0.3, "neither": 0.1}} for _ in texts]
+        return [{"noul": 0.2} for _ in texts]  # the strict question says no
+    contra, exc = pg._scoped(judge, "a", [{"shown": "b"}])
+    assert contra == [] and calls == ["choice", pg.SCOPE_Q[:12]]
+    calls.clear()
+    contra, _ = pg._scoped(lambda st, ts, q, criteria=None: (
+        [{"probabilities": {"contradiction": 0.1, "exception": 0.8, "neither": 0.1}}] * len(ts)), "a", [{"shown": "b"}])
+    assert contra == []  # an exception never reaches the strict question
+
+
+def _choice(top):
+    return {"probabilities": {k: (0.8 if k == top else 0.1) for k in ("contradiction", "exception", "neither")}}
+
+
+def test_the_confirmation_call_is_strict_and_uses_the_0_7_line():
+    """astra two-step review P2: after a 'contradiction' choice, a missing/NaN/bool score or a wrong count fails; 0.7 is
+    the line."""
+    import pytest
+    for bad in ([{}], [{"noul": float("nan")}], [{"noul": True}], [{"noul": 0.9}, {"noul": 0.9}]):
+        judge = lambda st, ts, q, criteria=None, bad=bad: [_choice("contradiction")] * len(ts) if criteria else bad
+        with pytest.raises((ValueError, TypeError)):
+            pg._scoped(pg._names_judge(judge, ["a", "b"]) if len(bad) == 2 else judge, "a", [{"shown": "b"}])
+    edge = lambda st, ts, q, criteria=None: [_choice("contradiction")] * len(ts) if criteria else [{"noul": 0.7}] * len(ts)
+    assert len(pg._scoped(edge, "a", [{"shown": "b"}])[0]) == 1
+    below = lambda st, ts, q, criteria=None: [_choice("contradiction")] * len(ts) if criteria else [{"noul": 0.69}] * len(ts)
+    assert pg._scoped(below, "a", [{"shown": "b"}])[0] == []
+
+
+def test_recheck_resolves_an_unconfirmed_pair_and_keeps_an_unsure_one(dsn, host):
+    """astra two-step review P1: a recheck whose strict question says no resolves with the stage and score; an unsure
+    choice keeps the pair; a broken confirmation answer fails and keeps it."""
+    def setup():
+        _absorb(dsn, host, "검토화면은 WRITING 행을 열 수 없다", "검토화면")
+        later = _absorb(dsn, host, "IF 행은 WRITING이다 THEN 검토화면은 행을 열 수 있다", "검토화면")
+        assert pg.scan_contradictions(dsn, later, _judge(scope=0.9))["contradictions"] >= 1
+
+    def to_recheck():  # due again now (a failed recheck moves the row to the back of the queue)
+        with pg.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("""update knowledge.confirmation_queue set resolution='recheck', rechecked_at=null
+                           where rule_id='canon_contradiction' and resolution in ('open', 'recheck')
+                           and entry_id in (select entry_id from knowledge.ledger_entry where host_id=%s)""", (host,))
+    setup()
+    to_recheck()
+    unsure = lambda st, ts, q, criteria=None: (
+        [{"probabilities": {"contradiction": 0.4, "exception": 0.3, "neither": 0.3}}] * len(ts) if criteria else [{"noul": 0.9}] * len(ts))
+    out = pg.recheck_contradictions(dsn, unsure, limit=50)
+    assert out["resolved"] == 0 and out["failed"] >= 1
+    broken = lambda st, ts, q, criteria=None: [_choice("contradiction")] * len(ts) if criteria else [{}] * len(ts)
+    to_recheck()
+    out = pg.recheck_contradictions(dsn, broken, limit=50)
+    assert out["resolved"] == 0 and out["failed"] >= 1
+    no = lambda st, ts, q, criteria=None: [_choice("contradiction")] * len(ts) if criteria else [{"noul": 0.2}] * len(ts)
+    to_recheck()
+    out = pg.recheck_contradictions(dsn, no, limit=50)
+    assert out["resolved"] >= 1
+    with pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute("""select resolution_evidence from knowledge.confirmation_queue q join knowledge.ledger_entry e
+                       on e.entry_id=q.entry_id where e.host_id=%s and q.resolution='resolved'""", (host,))
+        ev = cur.fetchone()[0]
+    assert ev["by"].startswith("not confirmed") and ev["confirm"] == 0.2

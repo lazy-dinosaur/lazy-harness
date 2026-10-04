@@ -917,6 +917,15 @@ COND_Q = ("state.condition 과 items[{i}] 는 같은 대상에 대한 두 규칙
 # one question for a wider/narrower pair (SCOPE_Q + EXC_Q merged; user 'a' 2026-10-03, real01 cost +50%)
 SCOPE3_Q = ("state.fact 와 items[{i}] 중 한쪽의 적용 범위가 다른 쪽을 포함한다(조건 없는 기본 사실 vs 조건부 규칙, 또는 넓은 조건 vs "
             "좁은 조건). 두 사실의 관계를 고른다.")
+# confirmation (user 'a', 2026-10-03, contra07 19-21: the choice alone called 2-4 of 8 default+exception controls
+# contradictions): a pair the choice calls a contradiction is confirmed by the strict yes/no question
+SCOPE_Q = ("state.fact 와 items[{i}] 중 한쪽의 적용 범위가 다른 쪽을 포함한다(조건 없는 기본 사실 vs 조건부 규칙, 또는 넓은 "
+           "조건 vs 좁은 조건). 다음을 모두 만족할 때만 true 다: 두 사실이 같은 대상의 같은 속성(같은 동작·같은 값)을 말한다; 넓은 쪽 "
+           "사실이 좁은 쪽의 그 경우(그 조건의 상황)를 문장 안에서 직접 언급한다; 그 경우에 두 사실이 동시에 참일 수 없다"
+           "(예: 'WRITING 행은 열 수 없다' 와 'IF 행은 WRITING 이다 THEN 열 수 있다', 'IF 존재한다 EVEN IF 비어 있다 THEN "
+           "권위 있다' 와 'IF 존재하지만 비어 있다 THEN 권위 없다'). 넓은 쪽이 그 경우를 따로 언급하지 않고 일반적으로만 "
+           "말하면 false 다(예: '수수료는 0원이다' 와 'IF 해외 주문이다 THEN 수수료는 3%다'). 다른 대상이거나 같은 대상의 "
+           "다른 속성(예: 열기 허용과 삭제 금지)이면 false 다.")
 # astra choice review P2: a 3-option choice is not a yes/no score -- the most likely option wins when it reaches
 # CHOICE_KEEP (calibrate with contra07 controls and real01); below it a scan finds nothing and a recheck keeps the pair
 CHOICE_KEEP = 0.5
@@ -1065,21 +1074,30 @@ def _strict_choice(answer, keys):
 
 def _scoped(judge, own, others, exc=True, return_unsure=False):
     """A wider/narrower pair (plain vs conditional, or one condition containing the other): one choice question
-    (user 'a', 2026-10-03: SCOPE_Q and EXC_Q in one call, no wording pre-filter) -- contradiction / exception / neither.
-    exc=False (conditions containing each other): an 'exception' answer is no hint. -> (contra, exc)."""
+    (SCOPE3_Q, no wording pre-filter) -- contradiction / exception / neither; a 'contradiction' is confirmed by the strict
+    yes/no SCOPE_Q (user 'a', 2026-10-03). exc=False (conditions containing each other): no exception hint.
+    -> (contra, exc[, unsure])."""
     if not others:
         return [], []
     answers = judge({"fact": own}, [o["shown"] for o in others], SCOPE3_Q, criteria=SCOPE_CHOICES)
-    contra, found_exc, unsure = [], [], []
+    candidates, found_exc, unsure = [], [], []
     for o, a in _judged(others, answers):
         p = _strict_choice(a, SCOPE_CHOICES)
         top = max(p, key=p.get)
+        o["choice"] = {"top": top, "p": p[top]}  # kept for the recheck's evidence (astra two-step review P3)
         if p[top] < CHOICE_KEEP:
             unsure.append(o)  # no option reaches CHOICE_KEEP: a recheck keeps the pair as it is
         elif top == "contradiction":
-            contra.append(o)
+            candidates.append(o)
         elif top == "exception" and exc:
             found_exc.append(o)
+    contra = []
+    if candidates:  # stage 2: the strict yes/no question confirms (missing/NaN fails)
+        answers = judge({"fact": own}, [o["shown"] for o in candidates], SCOPE_Q)
+        for o, a in _judged(candidates, answers):
+            o["confirm"] = _strict_noul(a)
+            if o["confirm"] >= CONTRA_KEEP:
+                contra.append(o)
     if return_unsure:
         return contra, found_exc, unsure
     return contra, found_exc
@@ -1468,10 +1486,10 @@ def recheck_contradictions(dsn, judge, limit=5):
                         and _contains(njudge, fact_form.condition_text(fm[a[0]], explain=True),
                                       [{"cond": fact_form.condition_text(fm[b[0]], explain=True)}])):
                     rel = "contained"
-                # (one recheck = one pair: at most one COND_Q and one SCOPE3_Q, astra scope review P2)
-                scoped_contra, scoped_exc = False, None
+                # (one recheck = one pair: at most one COND_Q, one SCOPE3_Q and, for a 'contradiction' choice, one SCOPE_Q)
+                scoped_contra, scoped_exc, item = False, None, {"shown": fact_text.view(b[1])}
                 if rel in ("exception", "contained"):
-                    sc, se, unsure = _scoped(njudge, fact_text.view(a[1]), [{"shown": fact_text.view(b[1])}],
+                    sc, se, unsure = _scoped(njudge, fact_text.view(a[1]), [item],
                                              exc=rel == "exception", return_unsure=True)
                     if unsure:  # astra choice review P2: an uncertain recheck never resolves a contradiction
                         raise ValueError("recheck judge was not confident; kept as is")
@@ -1484,6 +1502,11 @@ def recheck_contradictions(dsn, judge, limit=5):
                     # a hint only when the judge confirms it is an exception (a different value), as a scan would (r2)
                     verdict = "resolved"
                     evidence = {"by": "no longer comparable", "relation": rel, "ids": [a[0], b[0]], "revisions": list(seen)}
+                    if "confirm" in item:  # astra two-step review P3: compared, but the strict question did not confirm
+                        evidence.update({"by": "not confirmed (strict scope question)", "choice": item.get("choice"),
+                                         "confirm": item["confirm"]})
+                    elif "choice" in item:
+                        evidence["choice"] = item["choice"]
                     if rel == "exception":  # the SCOPE3_Q answer of _scoped is reused
                         evidence["is_exception"] = bool(scoped_exc)
                 else:
