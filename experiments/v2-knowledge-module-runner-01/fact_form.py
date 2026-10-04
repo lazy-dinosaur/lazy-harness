@@ -152,7 +152,49 @@ def check(text):
                  if o in ("AND", "OR")] if head not in ("IF", "BEFORE", "AFTER") else []
     if "AND" in plain_ops and "OR" in plain_ops:
         errs.append("조건 없는 사실에 AND 와 OR 를 섞지 않는다. 함께 성립하는 것과 둘 중 하나인 것을 따로 기록한다")
-    return errs
+    return _rewrite_advice(text, errs)
+
+
+def _rewrite_advice(text, errs):
+    """real01 (2026-10-03, user 'a'): the two shapes parents wrote most (14% of facts) are still refused, but the generic
+    diagnostic for that spot is replaced by how to rewrite it; every other diagnostic stays (astra message review). Read
+    from _tokens, so operator words inside `code` never count."""
+    toks = _tokens(text)
+    seq = [v if k == "op" else None for k, v in toks if k != "paren"]
+    head = seq[0] if seq else None
+    out = list(errs)
+    for k in range(len(seq) - 1):
+        if seq[k] == "AND" and seq[k + 1] in ("IF", "BEFORE", "AFTER") and "AND 뒤에 문장이 없다" in out:
+            out.remove("AND 뒤에 문장이 없다")
+            if head == "IF" and seq[k + 1] == "IF":  # a rule then another rule: the scope of the first condition matters
+                out.insert(0, "한 사실에 규칙 둘을 AND 로 이었다. 규칙마다 따로 기록하되 조건 범위를 살린다: 앞 조건이 뒤 규칙에도 "
+                              "걸리면 'IF 앞조건 AND 뒤조건 THEN 뒤결과' 처럼 두 조건을 함께 쓴다")
+            elif head in ("IF", "BEFORE", "AFTER"):  # astra message review r2 P1: a time rule keeps its BEFORE/AFTER
+                out.insert(0, "한 사실에 규칙 둘을 AND 로 이었다. 규칙마다 따로 기록한다. BEFORE/AFTER 규칙은 그 시간 관계를 그대로 "
+                              "두고(BEFORE x THEN y), 다른 규칙의 조건이 그 규칙에도 걸리면 그 조건을 결과 문장 안에 다시 쓴다")
+            else:
+                out.insert(0, f"조건 없는 사실과 {seq[k + 1]} 규칙을 AND 로 한 문장에 이었다. 둘이 서로 독립된 주장이면 'A' 와 "
+                                 f"'{seq[k + 1]} 조건 THEN 결과' 를 사실 두 개로 따로 기록한다(각각 주어를 넣고, BECAUSE 는 그 이유가 설명하는 "
+                                 "사실에만). A 의 부정·한정어가 규칙에도 걸리면 규칙 문장 안에 다시 쓴다")
+            break
+    # astra message review r2/r3 P2: every rule joined with AND (not only the first) must have its own THEN before the
+    # next rule
+    starts = [k + 1 for k in range(len(seq) - 1) if seq[k] == "AND" and seq[k + 1] in ("IF", "BEFORE", "AFTER")]
+    for n, s in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(seq)
+        msg = f"{seq[s]} 뒤에 THEN 결과가 없다"
+        if "THEN" not in seq[s + 1:end] and msg not in out:
+            out.append(msg)
+    if head == "EVEN IF":
+        dropped = [e for e in ("처음 뒤에 문장이 없다", "EVEN IF 는 IF 조건 안에서만 쓴다", "THEN 은 IF/BEFORE/AFTER 뒤에만 쓴다")
+                   if e in out]
+        if dropped:
+            out = [e for e in out if e not in dropped]
+            out.insert(0, "맨 앞 EVEN IF 는 쓸 수 없다. '조건과 관계없이 결과' 라면 결과를 조건 없는 사실로 쓰고 반드시 '항상' 을 "
+                           "넣는다(예: '장치는 비로그인 상태여도 항상 출력 경로를 유지한다' — '항상' 이 있어야 조건부 반대가 "
+                           "예외가 아니라 모순으로 비교된다). 그 조건일 때만이면 'IF 조건 THEN 결과' 로, 다른 조건의 예외면 "
+                           "'IF 조건 EVEN IF 예외 THEN 결과' 로 쓴다")
+    return out
 
 
 NEG = re.compile(r"(않|없|아니|금지|못하|못 )")
