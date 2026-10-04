@@ -33,7 +33,7 @@ def test_declared_alias_gives_the_same_subject_and_keeps_the_text(dsn, host):
     a = _frag(dsn, host, "출고API는 정상 접수 응답 코드가 202다")
     b = _frag(dsn, host, "POST /v3/shipments는 정상 접수 응답 코드가 200이다")  # text not rewritten
     assert a["subject_id"] == b["subject_id"]
-    judge = lambda state, texts, q: [{"noul": 0.9 if ("202" in t) != ("202" in state["fact"]) else 0.0} for t in texts]
+    judge = lambda state, texts, q, criteria=None: [{"noul": 0.9 if ("202" in t) != ("202" in state["fact"]) else 0.0} for t in texts]
     assert pg.scan_contradictions(dsn, later, judge)["contradictions"] >= 1  # the plain same-subject scan finds it
 
 
@@ -108,7 +108,7 @@ def test_record_time_contradiction_sees_the_alias(dsn, host):
     entry = pg.register(dsn, body)
     new = {"fact": "GET /v3/fees는 반올림 단위가 100원이다", "subject": "GET /v3/fees"}
     new["form"] = fact_form.parse(new["fact"])
-    judge = lambda state, texts, q: [{"noul": 0.9 if "10원" in t else 0.0} for t in texts]
+    judge = lambda state, texts, q, criteria=None: [{"noul": 0.9 if "10원" in t else 0.0} for t in texts]
     out = knowledge_cli.contradictions(dsn, host, body["work_unit_id"], [new], {}, judge=judge)
     # leave nothing proposed in the shared test DB (other tests batch the oldest proposed entries)
     pg.batch(dsn, 1, {entry["entry_id"]: [fixture(text=first["fact"])]}, entry_ids=[entry["entry_id"]])
@@ -148,7 +148,7 @@ def test_the_judge_is_told_the_names_of_one_subject(dsn, host):
     later = _absorb(dsn, host, "src/main/ipc/printer.ts는 여백 상수를 5로 사용한다", "src/main/ipc/printer.ts")
     seen = []
 
-    def judge(state, texts, q):
+    def judge(state, texts, q, criteria=None):
         seen.append((state, q))
         return [{"noul": 0.0} for _ in texts]
     pg.scan_contradictions(dsn, later, judge)
@@ -162,7 +162,7 @@ def test_the_recheck_keeps_the_alias_context(dsn, host):
     _absorb(dsn, host, "printer.ts는 여백 상수를 0으로 유지한다", "printer.ts", aliases=["src/main/ipc/printer.ts"])
     later = _absorb(dsn, host, "src/main/ipc/printer.ts는 여백 상수를 5로 사용한다", "src/main/ipc/printer.ts")
     # a judge that sees a contradiction only when told the names are one thing
-    judge = lambda state, texts, q: [{"noul": 0.9 if state.get("same_subject_names") else 0.1} for _ in texts]
+    judge = lambda state, texts, q, criteria=None: [{"noul": 0.9 if state.get("same_subject_names") else 0.1} for _ in texts]
     assert pg.scan_contradictions(dsn, later, judge)["contradictions"] >= 1
     with pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""update knowledge.confirmation_queue set resolution='recheck' where rule_id='canon_contradiction'

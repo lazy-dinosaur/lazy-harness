@@ -912,14 +912,22 @@ SAME_NAMES_MAX = 8  # astra names review P2: per judge call, the subject name an
 SAME_NAMES_CHARS = 400  # in that call's texts first, within a total length (a name is never cut)
 # real01 r07/r19 (2026-10-03, user 'a'): a wider fact that names the narrower one's case and says something else there
 # is a contradiction, not a default + exception (the 2026-10-02 rule stays for a wider fact that speaks generally)
-SCOPE_Q = ("state.fact 와 items[{i}] 중 한쪽의 적용 범위가 다른 쪽을 포함한다(조건 없는 기본 사실 vs 조건부 규칙, 또는 넓은 "
-           "조건 vs 좁은 조건). 다음을 모두 만족할 때만 true 다: 두 사실이 같은 대상의 같은 속성(같은 동작·같은 값)을 말한다; 넓은 쪽 "
-           "사실이 좁은 쪽의 그 경우(그 조건의 상황)를 문장 안에서 직접 언급한다; 그 경우에 두 사실이 동시에 참일 수 없다(예: 'WRITING 행은 열 수 없다' 와 'IF 행은 WRITING 이다 THEN 열 수 "
-           "있다', 'IF 존재한다 EVEN IF 비어 있다 THEN 권위 있다' 와 'IF 존재하지만 비어 있다 THEN 권위 없다'). 넓은 쪽이 그 경우를 따로 "
-           "언급하지 않고 일반적으로만 말하면 false 다(예: '수수료는 0원이다' 와 'IF 해외 주문이다 THEN 수수료는 3%다'). 다른 대상이거나 "
-           "같은 대상의 다른 속성(예: 열기 허용과 삭제 금지)이면 false 다.")
 COND_Q = ("state.condition 과 items[{i}] 는 같은 대상에 대한 두 규칙의 조건이다. 한 조건이 성립하면 다른 조건도 반드시 성립하는가"
           "(두 조건이 같거나, 한 조건이 다른 조건을 포함한다; 표현만 다른 것 포함)? 서로 다른 상황이거나 일부만 겹치면 false.")
+# one question for a wider/narrower pair (SCOPE_Q + EXC_Q merged; user 'a' 2026-10-03, real01 cost +50%)
+SCOPE3_Q = ("state.fact 와 items[{i}] 중 한쪽의 적용 범위가 다른 쪽을 포함한다(조건 없는 기본 사실 vs 조건부 규칙, 또는 넓은 조건 vs "
+            "좁은 조건). 두 사실의 관계를 고른다.")
+# astra choice review P2: a 3-option choice is not a yes/no score -- the most likely option wins when it reaches
+# CHOICE_KEEP (calibrate with contra07 controls and real01); below it a scan finds nothing and a recheck keeps the pair
+CHOICE_KEEP = 0.5
+SCOPE_CHOICES = {
+    "contradiction": ("모순: 두 사실이 같은 대상의 같은 속성(같은 동작·같은 값)을 말하고, 넓은 쪽 사실이 좁은 쪽의 그 경우(그 조건의 "
+                      "상황)를 문장 안에서 직접 언급하며, 그 경우에 두 사실이 동시에 참일 수 없다(예: 'WRITING 행은 열 수 없다' 와 "
+                      "'IF 행은 WRITING 이다 THEN 열 수 있다')."),
+    "exception": ("예외: 넓은 쪽은 그 경우를 따로 언급하지 않고 일반적으로 말하는 기본값이고, 좁은 쪽은 특정 조건에서 같은 대상의 같은 "
+                  "속성에 다른 값·규칙을 말한다(예: '수수료는 0원이다' 와 'IF 해외 주문이다 THEN 수수료는 3%다')."),
+    "neither": "둘 다 아님: 같은 값을 말함, 다른 대상, 같은 대상의 다른 속성(예: 열기 허용과 삭제 금지), 서로 보완.",
+}
 COND_OVERLAP = 0.35  # bigram Jaccard filter before COND_Q
 COND_MAX = 20        # COND_Q items per scanned fragment
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
@@ -956,14 +964,14 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge, budget=None, cach
         answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in group], CANON_Q)
         found += [{"alias": h["alias"], "text": h["text"], "kind": "compare"}
                   for h, a in _judged(group, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
-    # real01 r07/r19: wider/narrower pairs (plain vs conditional, or one condition containing the other) -> SCOPE_Q first
-    cond = [{**h, "cond": fact_form.condition_text(forms[str(h["id"])])} for h in hits
+    # real01 r07/r19: wider/narrower pairs (plain vs conditional, or one condition containing the other) -> SCOPE3_Q
+    cond = [{**h, "cond": fact_form.condition_text(forms[str(h["id"])], explain=True)} for h in hits
             if rel[str(h["id"])] is None and own and forms.get(str(h["id"]))
             and not fact_form.unconditional(own) and not fact_form.unconditional(forms[str(h["id"])])
             and fact_form.condition_overlap(own, forms[str(h["id"])]) >= COND_OVERLAP]
     budget = budget if budget is not None else {"left": COND_MAX}
     cache = cache if cache is not None else {}
-    own_cond = fact_form.condition_text(own) if own else ""
+    own_cond = fact_form.condition_text(own, explain=True) if own else ""
     ask, known = _cond_budget(budget, cache, own_cond, cond)
     hit = _contains(judge, own_cond, ask)
     for o in ask:
@@ -1030,25 +1038,50 @@ def _leaf_pairs(cur, host, fid, limit=60):
         for text, sid, _ in own:
             if sid == osid or wide or id(row_) in warned_ids:
                 pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel,
-                              fact_form.condition_text(form), fact_form.condition_text(oform)))
+                              fact_form.condition_text(form, explain=True), fact_form.condition_text(oform, explain=True)))
     return pairs
 
 
-EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해, 하나는 조건 없는 기본값이고 다른 하나는 특정 조건에서"
-         " 다른 값·규칙을 말하는가(기본값의 예외)? 같은 값을 말함, 다른 속성, 다른 대상이면 false.")
+# EXC_Q / SCOPE_Q (two noul questions) were merged into SCOPE3_Q (one choice) on 2026-10-03
 
 
-def _scoped(judge, own, others, exc=True):
-    """A wider/narrower pair (plain vs conditional, or one condition containing the other): SCOPE_Q first -- the wider
-    names the narrower case and differs there -> contradiction; otherwise EXC_Q -> exception hint. -> (contra, exc)."""
-    # astra scope review P1: a missing or NaN score is a failure (the scan or recheck retries), never 'no'
-    answers = judge({"fact": own}, [o["shown"] for o in others], SCOPE_Q)
-    contra = [o for o, a in _judged(others, answers) if _strict_noul(a) >= CONTRA_KEEP]
-    rest = [o for o in others if o not in contra]
-    found_exc = []
-    if rest and exc:  # astra scope r2: EXC_Q (a plain default's exception) only for plain-vs-conditional pairs
-        answers = judge({"fact": own}, [o["shown"] for o in rest], EXC_Q)
-        found_exc = [o for o, a in _judged(rest, answers) if _strict_noul(a) >= CONTRA_KEEP]
+def _strict_choice(answer, keys):
+    """A choice answer must carry exactly these options with finite probabilities in [0, 1] summing to about 1
+    (astra choice review P1: missing, NaN or a broken distribution fails and retries, never 'no')."""
+    import math
+    p = answer.get("probabilities") if isinstance(answer, dict) else None
+    if not isinstance(p, dict) or set(p) != set(keys):
+        raise ValueError(f"judge choice must carry probabilities for {sorted(keys)}, got {answer!r}")
+    out = {}
+    for k in keys:
+        v = p.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0 <= v <= 1:
+            raise ValueError(f"judge probability for {k} must be a number in [0,1], got {v!r}")
+        out[k] = float(v)
+    if abs(sum(out.values()) - 1.0) > 0.05:
+        raise ValueError(f"judge probabilities must sum to 1, got {sum(out.values())!r}")
+    return out
+
+
+def _scoped(judge, own, others, exc=True, return_unsure=False):
+    """A wider/narrower pair (plain vs conditional, or one condition containing the other): one choice question
+    (user 'a', 2026-10-03: SCOPE_Q and EXC_Q in one call, no wording pre-filter) -- contradiction / exception / neither.
+    exc=False (conditions containing each other): an 'exception' answer is no hint. -> (contra, exc)."""
+    if not others:
+        return [], []
+    answers = judge({"fact": own}, [o["shown"] for o in others], SCOPE3_Q, criteria=SCOPE_CHOICES)
+    contra, found_exc, unsure = [], [], []
+    for o, a in _judged(others, answers):
+        p = _strict_choice(a, SCOPE_CHOICES)
+        top = max(p, key=p.get)
+        if p[top] < CHOICE_KEEP:
+            unsure.append(o)  # no option reaches CHOICE_KEEP: a recheck keeps the pair as it is
+        elif top == "contradiction":
+            contra.append(o)
+        elif top == "exception" and exc:
+            found_exc.append(o)
+    if return_unsure:
+        return contra, found_exc, unsure
     return contra, found_exc
 
 
@@ -1118,17 +1151,17 @@ def _names_judge(judge, names):
     if len(names) < 2:
         return judge
 
-    def wrapped(state, texts, q):
+    def wrapped(state, texts, q, **kw):
         texts = list(texts)
         own = [str(state.get("fact", "")), str(state.get("condition", ""))]  # astra scope review P2: conditions too
         # astra names review r3 P2: when the names written in this call do not fit, split the compared texts so each
         # call carries every name its own texts use
         if len(texts) > 1 and not _fits(_written(names, own + texts)):
             mid = len(texts) // 2
-            return wrapped(state, texts[:mid], q) + wrapped(state, texts[mid:], q)
+            return wrapped(state, texts[:mid], q, **kw) + wrapped(state, texts[mid:], q, **kw)
         picked = _pick_names(names, own + texts)
-        answers = (judge(state, texts, q) if len(picked) < 2
-                   else judge({**state, "same_subject_names": picked}, texts, q + SAME_NAMES_NOTE))
+        answers = (judge(state, texts, q, **kw) if len(picked) < 2
+                   else judge({**state, "same_subject_names": picked}, texts, q + SAME_NAMES_NOTE, **kw))
         # astra names review r4 P1: each real call answers exactly its own texts, so split answers never shift
         if not isinstance(answers, list) or len(answers) != len(texts):
             raise ValueError("judge returned a different number of answers than texts")
@@ -1183,11 +1216,11 @@ def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=6
             bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
         # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
         # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
-        for own, others in by_own_exc.items():  # real01 r07: the wider fact may name this case (SCOPE_Q first)
+        for own, others in by_own_exc.items():  # real01 r07: SCOPE3_Q (contradiction / exception / neither)
             contra_, exc_ = _scoped(njudge, own, others)
             bad += contra_
             exceptions += exc_
-        for own, others in by_own_scope.items():  # real01 r19: one condition containing the other -> SCOPE_Q only
+        for own, others in by_own_scope.items():  # real01 r19: one condition containing the other -> SCOPE3_Q, no exception hint
             bad += _scoped(njudge, own, others, exc=False)[0]
         # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
         # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
@@ -1432,14 +1465,16 @@ def recheck_contradictions(dsn, judge, limit=5):
                 if (rel is None and fm.get(a[0]) and fm.get(b[0]) and not fact_form.unconditional(fm[a[0]])
                         and not fact_form.unconditional(fm[b[0]])
                         and fact_form.condition_overlap(fm[a[0]], fm[b[0]]) >= COND_OVERLAP
-                        and _contains(njudge, fact_form.condition_text(fm[a[0]]),
-                                      [{"cond": fact_form.condition_text(fm[b[0]])}])):
+                        and _contains(njudge, fact_form.condition_text(fm[a[0]], explain=True),
+                                      [{"cond": fact_form.condition_text(fm[b[0]], explain=True)}])):
                     rel = "contained"
-                # (one recheck = one pair: at most one COND_Q and one SCOPE_Q/EXC_Q, astra scope review P2)
+                # (one recheck = one pair: at most one COND_Q and one SCOPE3_Q, astra scope review P2)
                 scoped_contra, scoped_exc = False, None
                 if rel in ("exception", "contained"):
-                    sc, se = _scoped(njudge, fact_text.view(a[1]), [{"shown": fact_text.view(b[1])}],
-                                     exc=rel == "exception")
+                    sc, se, unsure = _scoped(njudge, fact_text.view(a[1]), [{"shown": fact_text.view(b[1])}],
+                                             exc=rel == "exception", return_unsure=True)
+                    if unsure:  # astra choice review P2: an uncertain recheck never resolves a contradiction
+                        raise ValueError("recheck judge was not confident; kept as is")
                     scoped_contra, scoped_exc = bool(sc), bool(se)
                 if scoped_contra:
                     verdict, evidence = "open", {"by": "rejudged (wider names this case)", "ids": [a[0], b[0]],
@@ -1449,7 +1484,7 @@ def recheck_contradictions(dsn, judge, limit=5):
                     # a hint only when the judge confirms it is an exception (a different value), as a scan would (r2)
                     verdict = "resolved"
                     evidence = {"by": "no longer comparable", "relation": rel, "ids": [a[0], b[0]], "revisions": list(seen)}
-                    if rel == "exception":  # astra scope review P2: the EXC_Q answer of _scoped is reused
+                    if rel == "exception":  # the SCOPE3_Q answer of _scoped is reused
                         evidence["is_exception"] = bool(scoped_exc)
                 else:
                     answers = njudge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)

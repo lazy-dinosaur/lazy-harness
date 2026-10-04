@@ -13,7 +13,7 @@ from test_store_pg import host  # noqa: F401 (fixture)
 
 OPT = "회수접수는 우편번호를 선택 항목으로 둔다"
 REQ = "반품API는 우편번호를 필수로 요구한다"
-JUDGE = lambda state, texts, q: [{"noul": 0.9 if ("선택" in t) != ("선택" in state["fact"]) else 0.0} for t in texts]
+JUDGE = lambda state, texts, q, criteria=None: [{"noul": 0.9 if ("선택" in t) != ("선택" in state["fact"]) else 0.0} for t in texts]
 
 
 def _conflicts(dsn, host):
@@ -146,7 +146,7 @@ def test_a_merge_during_the_judge_calls_fails_the_scan(dsn, host):
     unit = _absorb(dsn, host, "반품API는 우편번호를 선택 항목으로 둔다", "반품API")
     fired = []
 
-    def judge(state, texts, q):
+    def judge(state, texts, q, criteria=None):
         if not fired:
             fired.append(_answer(dsn, host, qid, "same"))
         return JUDGE(state, texts, q)
@@ -321,7 +321,7 @@ def test_a_rescan_compares_a_same_subject_fragment_without_form(dsn, host):
                        %s, source from knowledge.fragment where host_id=%s and text=%s""", (survivor, host, REQ))
     seen = []
 
-    def judge(state, texts, q):
+    def judge(state, texts, q, criteria=None):
         seen.extend(texts)
         return JUDGE(state, texts, q)
     pg.rescan_fragments(dsn, judge, limit=500)  # the shared test DB holds other tests' queued rescans too

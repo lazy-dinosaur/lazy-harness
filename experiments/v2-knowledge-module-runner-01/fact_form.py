@@ -353,14 +353,16 @@ def display(form, leaf):
     return out
 
 
-def condition_text(form):
-    """The condition of a fact as one line (IF / EVEN IF / BEFORE / AFTER / EXCEPT WHEN), '' when it has none."""
+def condition_text(form, explain=False):
+    """The condition of a fact as one line (IF / EVEN IF / BEFORE / AFTER / EXCEPT WHEN), '' when it has none.
+    explain: EVEN IF is spelled out as 'regardless of' (real01 r19: the judge read EVEN IF as one more condition)."""
     form = form or {}
     parts = []
     if form.get("kind") == "if":
         parts.append("IF " + expr_text(form.get("if")))
         if form.get("even_if"):
-            parts.append("EVEN IF " + expr_text(form["even_if"]))
+            parts.append(f"({expr_text(form['even_if'])} 인지와 관계없이)" if explain
+                         else "EVEN IF " + expr_text(form["even_if"]))
     elif form.get("kind") in ("before", "after"):
         parts.append(form["kind"].upper() + " " + form.get("anchor", ""))
     if form.get("except"):

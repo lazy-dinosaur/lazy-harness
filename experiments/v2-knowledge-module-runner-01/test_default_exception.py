@@ -22,11 +22,11 @@ def test_relation():
     assert not fact_form.explicit_always(fact_form.parse("관리자는 한도를 늘린다"))
 
 
-def _judge(state, texts, q):
+def _judge(state, texts, q, criteria=None):
+    if criteria:  # merged wider/narrower question: a general default + a conditional rule is an exception
+        return [{"probabilities": {"contradiction": 0.0, "exception": 0.9, "neither": 0.1}} for _ in texts]
     if q.startswith("items[{i}] 와 state.fact 는 같은 대상"):  # EXC_Q
         return [{"noul": 0.9} for _ in texts]
-    if q.startswith(pg.SCOPE_Q[:20]):  # a general default does not name the exception's case (real01 scope check)
-        return [{"noul": 0.0} for _ in texts]
     return [{"noul": 0.9 if ("3000" in t) != ("3000" in state["fact"]) else 0.0} for t in texts]
 
 
@@ -118,7 +118,9 @@ def test_recheck_gives_no_hint_when_the_values_now_agree(dsn, host):
         cur.execute("""update knowledge.fragment set revision=revision+1, text='범위 설명은 3000자다',
                        form='{"kind":"plain","then":["범위 설명은 3000자다"]}'::jsonb
                        where host_id=%s and text='범위 설명은 무조건 0자다'""", (host,))
-    same_value = lambda state, texts, q: [{"noul": 0.0} for _ in texts]
+    same_value = lambda state, texts, q, criteria=None: [
+        {"probabilities": {"contradiction": 0.0, "exception": 0.0, "neither": 1.0}} if criteria else {"noul": 0.0}
+        for _ in texts]
     assert pg.recheck_contradictions(dsn, same_value)["resolved"] == 1
     assert _kinds(dsn, host) == []
 
