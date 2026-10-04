@@ -353,6 +353,31 @@ def display(form, leaf):
     return out
 
 
+def condition_text(form):
+    """The condition of a fact as one line (IF / EVEN IF / BEFORE / AFTER / EXCEPT WHEN), '' when it has none."""
+    form = form or {}
+    parts = []
+    if form.get("kind") == "if":
+        parts.append("IF " + expr_text(form.get("if")))
+        if form.get("even_if"):
+            parts.append("EVEN IF " + expr_text(form["even_if"]))
+    elif form.get("kind") in ("before", "after"):
+        parts.append(form["kind"].upper() + " " + form.get("anchor", ""))
+    if form.get("except"):
+        parts.append("EXCEPT WHEN " + expr_text(form["except"]))
+    return " ".join(parts)
+
+
+def condition_overlap(a, b):
+    """Character-bigram Jaccard of two conditions (no spaces, no operators): a cheap filter before asking whether one
+    condition contains the other (real01 r19: 'IF 존재한다 EVEN IF 비어 있다' vs 'IF 존재하지만 비어 있다')."""
+    def grams(form):
+        t = re.sub(r"\s+|\b(EVEN IF|EXCEPT WHEN|IF|BEFORE|AFTER|AND|OR)\b", "", condition_text(form))
+        return {t[i:i + 2] for i in range(len(t) - 1)}
+    x, y = grams(a), grams(b)
+    return len(x & y) / len(x | y) if x and y else 0.0
+
+
 def comparable(a, b):
     """Two facts can contradict only under the same condition, or when a plain one says 'always' (relation())."""
     return relation(a, b) == "compare"

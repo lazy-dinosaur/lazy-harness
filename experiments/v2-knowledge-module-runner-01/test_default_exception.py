@@ -25,6 +25,8 @@ def test_relation():
 def _judge(state, texts, q):
     if q.startswith("items[{i}] 와 state.fact 는 같은 대상"):  # EXC_Q
         return [{"noul": 0.9} for _ in texts]
+    if q.startswith(pg.SCOPE_Q[:20]):  # a general default does not name the exception's case (real01 scope check)
+        return [{"noul": 0.0} for _ in texts]
     return [{"noul": 0.9 if ("3000" in t) != ("3000" in state["fact"]) else 0.0} for t in texts]
 
 

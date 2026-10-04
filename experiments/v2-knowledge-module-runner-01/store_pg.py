@@ -910,6 +910,18 @@ SAME_NAMES_NOTE = (" state.same_subject_names 의 이름들은 모두 같은 대
                    " 목록에 없는 이름이나 그 대상의 하위 부분·설정·관련 대상까지 같다는 뜻은 아니다.")
 SAME_NAMES_MAX = 8  # astra names review P2: per judge call, the subject name and at most 7 other names, those written
 SAME_NAMES_CHARS = 400  # in that call's texts first, within a total length (a name is never cut)
+# real01 r07/r19 (2026-10-03, user 'a'): a wider fact that names the narrower one's case and says something else there
+# is a contradiction, not a default + exception (the 2026-10-02 rule stays for a wider fact that speaks generally)
+SCOPE_Q = ("state.fact 와 items[{i}] 중 한쪽의 적용 범위가 다른 쪽을 포함한다(조건 없는 기본 사실 vs 조건부 규칙, 또는 넓은 "
+           "조건 vs 좁은 조건). 다음을 모두 만족할 때만 true 다: 두 사실이 같은 대상의 같은 속성(같은 동작·같은 값)을 말한다; 넓은 쪽 "
+           "사실이 좁은 쪽의 그 경우(그 조건의 상황)를 문장 안에서 직접 언급한다; 그 경우에 두 사실이 동시에 참일 수 없다(예: 'WRITING 행은 열 수 없다' 와 'IF 행은 WRITING 이다 THEN 열 수 "
+           "있다', 'IF 존재한다 EVEN IF 비어 있다 THEN 권위 있다' 와 'IF 존재하지만 비어 있다 THEN 권위 없다'). 넓은 쪽이 그 경우를 따로 "
+           "언급하지 않고 일반적으로만 말하면 false 다(예: '수수료는 0원이다' 와 'IF 해외 주문이다 THEN 수수료는 3%다'). 다른 대상이거나 "
+           "같은 대상의 다른 속성(예: 열기 허용과 삭제 금지)이면 false 다.")
+COND_Q = ("state.condition 과 items[{i}] 는 같은 대상에 대한 두 규칙의 조건이다. 한 조건이 성립하면 다른 조건도 반드시 성립하는가"
+          "(두 조건이 같거나, 한 조건이 다른 조건을 포함한다; 표현만 다른 것 포함)? 서로 다른 상황이거나 일부만 겹치면 false.")
+COND_OVERLAP = 0.35  # bigram Jaccard filter before COND_Q
+COND_MAX = 20        # COND_Q items per scanned fragment
 CONTRA_KEEP = 0.7  # modifications of the contradiction check (2026-09-30 retest): 0.5 flagged 11↔13, 11↔18 (not contradictions)
 
 
@@ -921,7 +933,7 @@ def _judged(items, answers):
     return zip(items, answers)
 
 
-def _vector_contradictions(dsn, host, fid, text, asked, judge):
+def _vector_contradictions(dsn, host, fid, text, asked, judge, budget=None, cache=None):
     """Top-6 hybrid neighbours not already compared by subject; skipped when both carry a form under different conditions.
     Judged on the Korean view of both facts."""
     import capture_audit
@@ -939,12 +951,32 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge):
     rel = {str(h["id"]): (fact_form.relation(own, forms[str(h["id"])]) if own and forms.get(str(h["id"])) else "compare")
            for h in hits}
     found = []
-    for kind, q in (("compare", CANON_Q), ("exception", EXC_Q)):
-        group = [h for h in hits if rel[str(h["id"])] == kind]
-        if group:
-            answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in group], q)
-            found += [{"alias": h["alias"], "text": h["text"], "kind": kind}
-                      for h, a in _judged(group, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    group = [h for h in hits if rel[str(h["id"])] == "compare"]
+    if group:
+        answers = judge({"fact": fact_text.view(text)}, [fact_text.view(h["text"]) for h in group], CANON_Q)
+        found += [{"alias": h["alias"], "text": h["text"], "kind": "compare"}
+                  for h, a in _judged(group, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+    # real01 r07/r19: wider/narrower pairs (plain vs conditional, or one condition containing the other) -> SCOPE_Q first
+    cond = [{**h, "cond": fact_form.condition_text(forms[str(h["id"])])} for h in hits
+            if rel[str(h["id"])] is None and own and forms.get(str(h["id"]))
+            and not fact_form.unconditional(own) and not fact_form.unconditional(forms[str(h["id"])])
+            and fact_form.condition_overlap(own, forms[str(h["id"])]) >= COND_OVERLAP]
+    budget = budget if budget is not None else {"left": COND_MAX}
+    cache = cache if cache is not None else {}
+    own_cond = fact_form.condition_text(own) if own else ""
+    ask, known = _cond_budget(budget, cache, own_cond, cond)
+    hit = _contains(judge, own_cond, ask)
+    for o in ask:
+        cache[(own_cond, o["cond"])] = o in hit
+    # astra scope r2 P1: the cached answer applies to every candidate with that condition, not only the one asked
+    contained = [o for o in cond if cache.get((own_cond, o["cond"])) is True]
+    default_pairs = [h for h in hits if rel[str(h["id"])] == "exception"]
+    for group_, with_exc in ((default_pairs, True), (contained, False)):
+        if group_:
+            items = [{**h, "shown": fact_text.view(h["text"])} for h in group_]
+            contra_, exc_ = _scoped(judge, fact_text.view(text), items, exc=with_exc)
+            found += [{"alias": h["alias"], "text": h["text"], "kind": "compare"} for h in contra_]
+            found += [{"alias": h["alias"], "text": h["text"], "kind": "exception"} for h in exc_]
     return found  # kind 'exception' rows are parent hints, not contradictions (astra exc review: vector-only exceptions)
 
 
@@ -988,15 +1020,58 @@ def _leaf_pairs(cur, host, fid, limit=60):
         alias, oform, otext, osid, ofull = row_
         rel = fact_form.relation(form, oform) if oform else None
         if rel is None:
-            continue
+            # real01 r19: different condition text; kept for COND_Q only when both are conditional and the conditions
+            # share enough wording (bigram filter)
+            if (oform and not fact_form.unconditional(form) and not fact_form.unconditional(oform)
+                    and fact_form.condition_overlap(form, oform) >= COND_OVERLAP):
+                rel = "cond"
+            else:
+                continue
         for text, sid, _ in own:
             if sid == osid or wide or id(row_) in warned_ids:
-                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel))
+                pairs.append((fact_form.display(form, text), fact_form.display(oform, otext), alias, ofull, rel,
+                              fact_form.condition_text(form), fact_form.condition_text(oform)))
     return pairs
 
 
 EXC_Q = ("items[{i}] 와 state.fact 는 같은 대상의 같은 속성에 대해, 하나는 조건 없는 기본값이고 다른 하나는 특정 조건에서"
          " 다른 값·규칙을 말하는가(기본값의 예외)? 같은 값을 말함, 다른 속성, 다른 대상이면 false.")
+
+
+def _scoped(judge, own, others, exc=True):
+    """A wider/narrower pair (plain vs conditional, or one condition containing the other): SCOPE_Q first -- the wider
+    names the narrower case and differs there -> contradiction; otherwise EXC_Q -> exception hint. -> (contra, exc)."""
+    # astra scope review P1: a missing or NaN score is a failure (the scan or recheck retries), never 'no'
+    answers = judge({"fact": own}, [o["shown"] for o in others], SCOPE_Q)
+    contra = [o for o, a in _judged(others, answers) if _strict_noul(a) >= CONTRA_KEEP]
+    rest = [o for o in others if o not in contra]
+    found_exc = []
+    if rest and exc:  # astra scope r2: EXC_Q (a plain default's exception) only for plain-vs-conditional pairs
+        answers = judge({"fact": own}, [o["shown"] for o in rest], EXC_Q)
+        found_exc = [o for o, a in _judged(rest, answers) if _strict_noul(a) >= CONTRA_KEEP]
+    return contra, found_exc
+
+
+def _contains(judge, own_cond, others):
+    """Conditions that differ in text: keep the pairs where one condition contains (or equals) the other (COND_Q)."""
+    if not others:
+        return []
+    answers = judge({"condition": own_cond}, [o["cond"] for o in others], COND_Q)
+    return [o for o, a in _judged(others, answers) if _strict_noul(a) >= CONTRA_KEEP]
+
+
+def _cond_budget(budget, cache, own_cond, others):
+    """astra scope review P2: one COND_Q budget per scanned fragment across the leaf and vector paths, and one question
+    per distinct condition pair. -> (to ask, already known to contain)."""
+    known, ask = [], []
+    for o in others:
+        hit = cache.get((own_cond, o["cond"]))
+        if hit is True:
+            known.append(o)
+        elif hit is None and budget["left"] > 0 and (own_cond, o["cond"]) not in {(own_cond, a["cond"]) for a in ask}:
+            ask.append(o)
+            budget["left"] -= 1
+    return ask, known
 
 
 def _same_names(cur, subject_id):
@@ -1045,7 +1120,7 @@ def _names_judge(judge, names):
 
     def wrapped(state, texts, q):
         texts = list(texts)
-        own = [str(state.get("fact", ""))]
+        own = [str(state.get("fact", "")), str(state.get("condition", ""))]  # astra scope review P2: conditions too
         # astra names review r3 P2: when the names written in this call do not fit, split the compared texts so each
         # call carries every name its own texts use
         if len(texts) > 1 and not _fits(_written(names, own + texts)):
@@ -1087,23 +1162,36 @@ def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=6
     njudge = _names_judge(judge, names)
     bad, exceptions = [], []
     if row and row[2] and leaf_pairs is not None:  # fragments with a stored form: leaf level, same condition
-        by_own, by_own_exc = {}, {}
-        for own, other, alias, full, rel in leaf_pairs:
+        by_own, by_own_exc, by_own_cond, by_own_scope = {}, {}, {}, {}
+        for own, other, alias, full, rel, own_cond, ocond in leaf_pairs:
             # the log keeps the other fragment's whole stored text: review_list closes an item when that text changes
             # (flow3 2026-10-01: logging the leaf display closed real contradictions at once)
-            (by_own if rel == "compare" else by_own_exc).setdefault(own, []).append(
-                {"alias": alias, "text": full, "shown": other})
+            target = by_own if rel == "compare" else by_own_exc if rel == "exception" else by_own_cond
+            target.setdefault((own, own_cond) if rel == "cond" else own, []).append(
+                {"alias": alias, "text": full, "shown": other, "cond": ocond})
+        budget, cache = {"left": COND_MAX}, {}  # one COND_Q budget for this fragment (leaf + vector paths)
+        for (own, own_cond), others in by_own_cond.items():  # real01 r19: one condition containing the other
+            ask, known = _cond_budget(budget, cache, own_cond, others)
+            hit = _contains(njudge, own_cond, ask)
+            for o in ask:
+                cache[(own_cond, o["cond"])] = o in hit
+            wider = [o for o in others if cache.get((own_cond, o["cond"])) is True]
+            if wider:
+                by_own_scope.setdefault(own, []).extend(wider)
         for own, others in by_own.items():
             answers = njudge({"fact": own}, [o["shown"] for o in others], CANON_Q)
             bad += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
         # user 2026-10-02: a plain default and a conditional rule both stand; when the rule is an exception of the
         # default, the parent is told to write the default as 'X EXCEPT WHEN c' so a search never reads only one
-        for own, others in by_own_exc.items():
-            answers = njudge({"fact": own}, [o["shown"] for o in others], EXC_Q)
-            exceptions += [o for o, a in _judged(others, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
+        for own, others in by_own_exc.items():  # real01 r07: the wider fact may name this case (SCOPE_Q first)
+            contra_, exc_ = _scoped(njudge, own, others)
+            bad += contra_
+            exceptions += exc_
+        for own, others in by_own_scope.items():  # real01 r19: one condition containing the other -> SCOPE_Q only
+            bad += _scoped(njudge, own, others, exc=False)[0]
         # flow3 r3 (2026-10-01): the same concept written under another subject never shows up in the leaf pairs
         # ('도메인 설명 길이' 1000 vs 'domain describe' 300 stayed silent) -> also the vector neighbours, same condition rule
-        vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, njudge)
+        vec = _vector_contradictions(dsn, host, fid, row[1], {p_[2] for p_ in leaf_pairs}, njudge, budget, cache)
         bad += [v for v in vec if v["kind"] == "compare"]
         exceptions += [v for v in vec if v["kind"] == "exception"]
         # astra merge r2 P1-5: a same-subject fragment without a stored form (pre-structure) has no leaves to pair; it is
@@ -1340,15 +1428,29 @@ def recheck_contradictions(dsn, judge, limit=5):
                     cur.execute("select id::text, form from knowledge.fragment where id = any(%s::uuid[])", ([a[0], b[0]],))
                     fm = dict(cur.fetchall())
                 rel = fact_form.relation(fm[a[0]], fm[b[0]]) if fm.get(a[0]) and fm.get(b[0]) else "compare"
-                if rel != "compare":
+                # real01 r07/r19: the same wider/narrower handling as the scan (astra names review: recheck = scan)
+                if (rel is None and fm.get(a[0]) and fm.get(b[0]) and not fact_form.unconditional(fm[a[0]])
+                        and not fact_form.unconditional(fm[b[0]])
+                        and fact_form.condition_overlap(fm[a[0]], fm[b[0]]) >= COND_OVERLAP
+                        and _contains(njudge, fact_form.condition_text(fm[a[0]]),
+                                      [{"cond": fact_form.condition_text(fm[b[0]])}])):
+                    rel = "contained"
+                # (one recheck = one pair: at most one COND_Q and one SCOPE_Q/EXC_Q, astra scope review P2)
+                scoped_contra, scoped_exc = False, None
+                if rel in ("exception", "contained"):
+                    sc, se = _scoped(njudge, fact_text.view(a[1]), [{"shown": fact_text.view(b[1])}],
+                                     exc=rel == "exception")
+                    scoped_contra, scoped_exc = bool(sc), bool(se)
+                if scoped_contra:
+                    verdict, evidence = "open", {"by": "rejudged (wider names this case)", "ids": [a[0], b[0]],
+                                                 "revisions": list(seen)}
+                elif rel != "compare":
                     # astra exc review: e.g. an 'always' fact rewritten as a plain default -> default and exception now;
                     # a hint only when the judge confirms it is an exception (a different value), as a scan would (r2)
                     verdict = "resolved"
                     evidence = {"by": "no longer comparable", "relation": rel, "ids": [a[0], b[0]], "revisions": list(seen)}
-                    if rel == "exception":
-                        answers = njudge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], EXC_Q)
-                        [(_, ans)] = list(_judged([b], answers))
-                        evidence["is_exception"] = _strict_noul(ans) >= CONTRA_KEEP
+                    if rel == "exception":  # astra scope review P2: the EXC_Q answer of _scoped is reused
+                        evidence["is_exception"] = bool(scoped_exc)
                 else:
                     answers = njudge({"fact": fact_text.view(a[1])}, [fact_text.view(b[1])], CANON_Q)
                     [(_, ans)] = list(_judged([b], answers))
