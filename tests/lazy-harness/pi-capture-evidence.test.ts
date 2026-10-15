@@ -119,6 +119,14 @@ beforeEach(async () => {
   await runner.emitBeforeAgentStart("approved bounded capture fixture", undefined, "base", { cwd: root });
   await ground();
 });
+test("large capture payload transport preserves safety and output across engines", () => {
+  const result = spawnSync(process.env.PYTHON_BIN || "python3", [join(source, "tests/lazy-harness/capture-payload-transport.test.py")], {
+    cwd: source, encoding: "utf8", timeout: 120000,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
 afterAll(async () => {
   if (runner) await runner.emit({ type: "session_shutdown", reason: "quit" });
   rmSync(root, { recursive: true, force: true });

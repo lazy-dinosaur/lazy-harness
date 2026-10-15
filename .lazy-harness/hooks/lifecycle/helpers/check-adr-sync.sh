@@ -13,7 +13,11 @@ PAYLOAD="$1"
 ADR_PATHS=$(echo "$PAYLOAD" | python3 -c "
 import json, sys, re
 try:
-    p = json.load(sys.stdin)
+    raw = sys.stdin.read()
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw.strip())
+    p = json.loads(raw)
     tc = p.get('recent_tool_calls', [])
     paths = []
     for t in tc:

@@ -14,24 +14,35 @@ cd "$ROOT_CANDIDATE" || exit 0
 [ -f .lazy-harness/.hooks-disabled ] && exit 0
 
 PAYLOAD=$(cat || echo '{}')
-
-# Keep capture separate from first-STOP selection so another safety advisory
-# cannot hide pending capture. Only adapters providing the typed field opt in.
-CAPTURE_RESULT=""
-if printf '%s' "$PAYLOAD" | python3 -c 'import json,sys; p=json.load(sys.stdin); sys.exit(not (isinstance(p,dict) and "capture_validation" in p))' 2>/dev/null; then
-  CAPTURE_RESULT=$(bash .lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh "$PAYLOAD")
+PAYLOAD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/lazy-response-payload.XXXXXX") || exit 1
+trap 'rm -rf -- "$PAYLOAD_DIR"' EXIT
+PAYLOAD_FILE="$PAYLOAD_DIR/input.json"
+CAPTURE_FILE="$PAYLOAD_DIR/capture.json"
+: > "$CAPTURE_FILE" || exit 1
+printf '%s' "$PAYLOAD" > "$PAYLOAD_FILE" || exit 1
+PAYLOAD_ARG="$PAYLOAD"
+PAYLOAD_BYTES=$(wc -c < "$PAYLOAD_FILE")
+if [ "$PAYLOAD_BYTES" -gt 65536 ]; then
+  PAYLOAD_ARG="@file:$PAYLOAD_FILE"
 fi
-export CAPTURE_RESULT
+export CAPTURE_FILE
+export PYTHONPATH="$ROOT_CANDIDATE/.lazy-harness/hooks/lifecycle/helpers${PYTHONPATH:+:$PYTHONPATH}"
+
+# Separate typed capture from first-STOP selection; keep full JSON off argv/env.
+CAPTURE_FAILED=0
+if printf '%s' "$PAYLOAD" | python3 -c 'import json,sys; p=json.load(sys.stdin); sys.exit(not (isinstance(p,dict) and "capture_validation" in p))' 2>/dev/null; then
+  bash .lazy-harness/hooks/lifecycle/helpers/check-analysis-discovery-capture.sh "$PAYLOAD_ARG" > "$CAPTURE_FILE" || CAPTURE_FAILED=1
+fi
 
 if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
   # shellcheck disable=SC1091
   . .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh
-  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
+  lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD_ARG"
 fi
 
 TIMING_ENABLED="${LAZY_HOOK_TIMING:-1}"
 if command -v lazy_log_file >/dev/null 2>&1; then
-  TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-$(lazy_log_file hook-timings.jsonl "$ROOT_CANDIDATE" "$PAYLOAD")}"
+  TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-$(lazy_log_file hook-timings.jsonl "$ROOT_CANDIDATE" "$PAYLOAD_ARG")}"
 else
   TIMING_LOG="${LAZY_HOOK_TIMING_LOG:-.lazy-harness/.runtime/logs/hook-timings.jsonl}"
 fi
@@ -68,17 +79,19 @@ log_timing() {
 }
 
 emit_inject() {
-  HOOK_BODY="$1" python3 <<'PY'
+  printf '%s' "$1" > "$PAYLOAD_DIR/body.txt"
+  HOOK_BODY_FILE="$PAYLOAD_DIR/body.txt" python3 <<'PY'
 import json
 import os
+from pathlib import Path
 
 result = {}
-body = os.environ.get("HOOK_BODY", "")
+body = Path(os.environ['HOOK_BODY_FILE']).read_text(encoding='utf-8')
 if body:
-    result["inject"] = {"body": body, "format": "system_reminder"}
-capture = os.environ.get("CAPTURE_RESULT", "")
-if capture:
-    result["capture"] = json.loads(capture)
+    result['inject'] = {'body': body, 'format': 'system_reminder'}
+capture_file = Path(os.environ['CAPTURE_FILE'])
+if capture_file.exists() and capture_file.stat().st_size:
+    result['capture'] = json.loads(capture_file.read_text(encoding='utf-8'))
 print(json.dumps(result, ensure_ascii=False))
 PY
 }
@@ -96,9 +109,10 @@ try:
 except Exception:
     raise SystemExit(2)
 output = json.loads(result.get("injectJson") or "{}")
-capture = os.environ.get("CAPTURE_RESULT", "")
+with open(os.environ['CAPTURE_FILE'], encoding='utf-8') as capture_file:
+    capture = capture_file.read()
 if capture:
-    output["capture"] = json.loads(capture)
+    output['capture'] = json.loads(capture)
 print(json.dumps(output, ensure_ascii=False) if output else "")
 PY
 }
@@ -107,14 +121,15 @@ write_compare_log() {
   [ -z "$ORCHESTRATOR_RESULT_FILE" ] && return 0
   [ ! -f "$ORCHESTRATOR_RESULT_FILE" ] && return 0
   if command -v lazy_log_file >/dev/null 2>&1; then
-    COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-$(lazy_log_file lifecycle-compare.jsonl "$ROOT_CANDIDATE" "$PAYLOAD")}"
+    COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-$(lazy_log_file lifecycle-compare.jsonl "$ROOT_CANDIDATE" "$PAYLOAD_ARG")}"
   else
     COMPARE_LOG="${LAZY_RESPONSE_COMPLETED_COMPARE_LOG:-.lazy-harness/.runtime/logs/lifecycle-compare.jsonl}"
   fi
   mkdir -p "$(dirname "$COMPARE_LOG")" 2>/dev/null || true
+  printf '%s' "$1" > "$PAYLOAD_DIR/legacy-body.txt"
   ORCHESTRATOR_RESULT_FILE="$ORCHESTRATOR_RESULT_FILE" \
   ORCHESTRATOR_EXIT="$ORCHESTRATOR_EXIT" \
-  LEGACY_BODY="$1" \
+  LEGACY_BODY_FILE="$PAYLOAD_DIR/legacy-body.txt" \
   LEGACY_HELPER="$2" \
   LIFECYCLE_ENGINE="$LIFECYCLE_ENGINE" \
   COMPARE_LOG="$COMPARE_LOG" \
@@ -141,7 +156,8 @@ try:
 except Exception as exc:
     orchestrator = {"ok": False, "parseError": str(exc)}
 
-legacy_body = os.environ.get("LEGACY_BODY") or ""
+with open(os.environ['LEGACY_BODY_FILE'], encoding='utf-8') as body_file:
+    legacy_body = body_file.read()
 orchestrator_body = str(orchestrator.get("firstOutput") or "")
 legacy_compare_body = compare_body(legacy_body)
 orchestrator_compare_body = compare_body(orchestrator_body)
@@ -172,7 +188,8 @@ PY
 
 run_orchestrator_check() {
   ORCHESTRATOR_MODE="$1"
-  ORCHESTRATOR_RESULT_FILE=$(mktemp "${TMPDIR:-/tmp}/lazy-lifecycle-check.XXXXXX.json" 2>/dev/null || printf '/tmp/lazy-lifecycle-check.%s.json' "$$")
+  # The hook already owns a unique private directory and its EXIT cleanup.
+  ORCHESTRATOR_RESULT_FILE="$PAYLOAD_DIR/orchestrator.json"
   ORCH_START_NS=$(now_ns)
   if [ "$ORCHESTRATOR_MODE" = "sandbox" ]; then
     printf '%s' "$PAYLOAD" | LAZY_HOST_ROOT="$ROOT_CANDIDATE" python3 .lazy-harness/scripts/lifecycle-check.py --root "$ROOT_CANDIDATE" --sandbox --format=json > "$ORCHESTRATOR_RESULT_FILE" 2>/dev/null
@@ -267,7 +284,7 @@ if [ "$LIFECYCLE_ENGINE" = "orchestrator" ] && [ -f .lazy-harness/scripts/lifecy
         log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 false
       fi
       rm -f "$ORCHESTRATOR_RESULT_FILE" 2>/dev/null || true
-      exit 0
+      exit "$CAPTURE_FAILED"
     fi
   fi
   # Safe rollback path: any orchestrator failure falls back to the legacy helper loop.
@@ -305,7 +322,7 @@ for helper in \
     continue
   fi
   HELPER_START_NS=$(now_ns)
-  OUT=$("$helper" "$PAYLOAD" 2>/dev/null)
+  OUT=$("$helper" "$PAYLOAD_ARG" 2>/dev/null)
   HELPER_EXIT=$?
   HELPER_END_NS=$(now_ns)
   if [ -z "$OUT" ]; then
@@ -318,13 +335,13 @@ for helper in \
   HOOK_END_NS=$(now_ns)
   log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 true
   [ -n "$ORCHESTRATOR_RESULT_FILE" ] && rm -f "$ORCHESTRATOR_RESULT_FILE" 2>/dev/null || true
-  exit 0
+  exit "$CAPTURE_FAILED"
 done
 
-[ -n "$CAPTURE_RESULT" ] && emit_inject ""
+[ -s "$CAPTURE_FILE" ] && emit_inject ""
 HOOK_END_NS=$(now_ns)
 [ "$LIFECYCLE_ENGINE" = "compare" ] && write_compare_log "" ""
 log_timing "hook-total" "$HOOK_START_NS" "$HOOK_END_NS" 0 false
 [ -n "$ORCHESTRATOR_RESULT_FILE" ] && rm -f "$ORCHESTRATOR_RESULT_FILE" 2>/dev/null || true
 
-exit 0
+exit "$CAPTURE_FAILED"

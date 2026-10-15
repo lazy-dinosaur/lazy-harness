@@ -27,6 +27,8 @@ The Parent task supplies:
 - `task`: the user's current objective;
 - explicit `maxReadCalls`, `maxRequestedLines`, and derived `maxLinesPerRead` limits.
 
+`maxReadCalls` and `maxRequestedLines` count record-body reads, not overview, drill, identity-probe or discovery calls. Keep those counters separate from the runtime's overall turn/deadline limits. Finishing the four overview/identity calls has not consumed four body reads.
+
 Defaults are at most 8 record-body reads and 1,600 requested lines. `maxLinesPerRead` must equal `floor(maxRequestedLines / maxReadCalls)`; a lower Parent-supplied total/count therefore derives a lower per-read cap. Missing or inconsistent identity/budget returns `incomplete`; never invent it. The launch task uses these exact top-level lines before the objective:
 
 ```text
@@ -51,6 +53,16 @@ task: <current user objective>
 7. Before every body read, keep the cumulative ledger and set an explicit positive `limit` no greater than `maxLinesPerRead`. With at most `maxReadCalls`, this guarantees the total cannot exceed `maxRequestedLines`. Any failed or over-cap call makes `complete` invalid: stop without retry and return `incomplete` with the failure and missing paths/questions.
 8. Distinguish current rules, superseded history, conflicts, implementation-map claims, and missing evidence. Do not resolve conflicts for the Parent.
 
+## Path and completion discipline
+
+Use the discovered root-relative `.lazy-harness/...` record path verbatim for read/grep. Do not reconstruct an absolute path, shorten the assigned root, or substitute an original checkout for a nested/worktree host. Keep the absolute `root` identity in the launch/result unchanged; relative body paths resolve under that already verified cwd. For OMP, attach the required raw line selector to that same relative path.
+
+Coverage means the canonical facts needed for this task, not every page of every selected record or every layer. Mark irrelevant layers not applicable. A truncated read is not itself a blocker: read its remaining decision-relevant range within budget, or stop paging if the required facts are already covered.
+
+Before finalizing: if required canonical evidence is still missing, body-read allowance remains and no concrete failure/conflict/runtime limit prevents progress, continue the map/drill/read flow. Do not return incomplete merely because overview and identity probes finished. Do not claim complete to avoid further work or conceal a failed read.
+
+If incomplete is necessary, state the concrete stopping cause in `missing` (for example failed tool, exhausted allowance, unavailable relevant record or runtime deadline), the last successful retrieval step, unused body-read allowance and exact remaining evidence. An unperformed next step alone is not a stopping cause. Report conflicts as conflicts. Do not retry after a failed/denied read; preserve runtime-ledger authority and the existing fallback contract.
+
 ## Boundary
 
 Allowed bodies are canonical records under `.lazy-harness/domain/`, `spec/`, `behavior/`, `tests/`, `decisions/`, `ssot/`, `planning/`, and `plans/`. Bounded grep may discover candidates inside those directories only. The runtime enforces this lane: bash is limited to the exact overview, one exact concrete-node drill, `pwd`, and the two exact revision probes.
@@ -64,6 +76,8 @@ Return exactly one normal final response beginning with one marker:
 - `LAZY_HARNESS_READER_RESULT: complete`
 - `LAZY_HARNESS_READER_RESULT: incomplete`
 - `LAZY_HARNESS_READER_RESULT: conflict`
+
+Write `root:`, `revision:`, and `evidenceEpoch:` as plain, unindented top-level result lines with exact assigned values. Do not turn these keys into Markdown bullets, headings or bold labels. Keep the marker and identity header separate from the descriptive sections.
 
 Then include these bounded sections:
 

@@ -18,6 +18,9 @@ import sys
 
 payload_text = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
+    if payload_text.startswith('@file:'):
+        from payload_transport import read_payload_text
+        payload_text = read_payload_text(payload_text)
     payload = json.loads(payload_text)
 except Exception:
     raise SystemExit(0)

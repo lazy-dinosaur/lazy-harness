@@ -13,7 +13,11 @@ unverified = {
     "approvalStatus": "not-evaluated",
 }
 try:
-    payload = json.loads(os.environ["PAYLOAD_JSON"] or "{}")
+    raw = os.environ['PAYLOAD_JSON'] or '{}'
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw)
+    payload = json.loads(raw)
     capture = payload.get("capture_validation") if isinstance(payload, dict) else None
     valid = (
         isinstance(capture, dict)

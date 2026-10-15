@@ -121,3 +121,43 @@ Discovery capture:
 - ADR: no new decision.
 - SSOT: no schema/config source-of-truth change beyond inherited env boundary.
 - Planning: none.
+
+
+## Canonical temporary-root fixture repair — Fabric migration validation follow-up
+
+The user explicitly required investigating and fixing the failed standard checks rather than repeatedly reporting failure or spending several minutes on unchanged full runs. This approves the bounded four-failure repair and focused verification before one final standard run; it does not authorize changing global credentials or weakening runtime guards.
+
+The completed 900-second standard run exited after 375.153 seconds with four failing checks, not another timeout. Three compare raw temporary directory spelling with physical cwd/root identity: `AffectedRepositoryRouting.setUp` used an unresolved `TemporaryDirectory` path while Bun/Git returned physical cwd; `check_architecture_guidance_cli` compared an unresolved proposal path with `Path.resolve()`; `check_read_debt_permit_generic_external_action` supplied an unresolved context root while the real hook uses `Path.resolve()`. A direct probe in this environment observed `/var/folders/.../T` resolving to `/private/var/folders/.../T`.
+
+
+### Implementation map — fixture portability follow-up
+
+- `tests/lazy-harness/affected-repository-routing.test.py#AffectedRepositoryRouting.setUp`: resolves the fixture base once, before deriving host and owner paths; real Bun/Git execution and exact cwd/root assertions are retained.
+- `.lazy-harness/scripts/self-test.py#check_architecture_guidance_cli`: resolves the disposable root before copying proposals, preserving root-relative/absolute proposal identity assertions.
+- `.lazy-harness/scripts/self-test.py#check_read_debt_permit_generic_external_action`: resolves the disposable root before producing owned/stale/cross-root status contexts; no runtime permit exemption is added.
+- Protection: the unchanged assertions in `check_affected_test_runner`, `check_architecture_guidance_cli`, `check_read_debt_permit_generic_external_action`, and `check_record_lint_cli` all passed after the fixture/digest repair (4/4 focused checks). `lazy check` and targeted `git diff --check` passed. Initial red evidence remains in the 375-second runtime log. One final standard validation with explicit 900-second budget follows this final coherent mutation; focused green is not a full-regression or authenticated live Reader claim.
+
+### Layer completeness — fixture portability follow-up
+
+| Layer | Judgement |
+| --- | --- |
+| SDD | No independent delta: existing canonical root/strict identity contracts are preserved. |
+| BDD | No independent delta: no product flow changes or disabled lifecycle assertions. |
+| SSOT | No independent delta: no auth/config ownership or runtime root policy changes. |
+| DDD | No independent delta: no new domain rule or term. |
+
+Discovery capture: this existing TDD is the primary narrative for the fixture portability repair; the migration SDD remains the Reader transport authority. Validation logs remain transient evidence rather than duplicate canonical reports.
+
+
+### Published Reader-status scope fixture — macOS integration follow-up
+
+Reintegration onto published main preserved the real host/source scope tests, then reproduced one failure in `ReaderStatusFixtureScopeTests.test_symlinked_worktree_honors_lazy_host_root`: the symlink resolved to `/private/var/...`, while `cls.host` was derived from raw `/var/...` TemporaryDirectory spelling. The fixture's `setUpClass` now resolves its owned base before deriving host/worktree paths, matching the same canonical-temp-root repair above. The exact root equality, explicit LAZY_HOST_ROOT behavior, positive/negative Reader cases and missing-framework-fixture failure assertions are unchanged. No production resolver, guard, scope or default provider changes are introduced by this one-line repair.
+
+Implementation map: `tests/lazy-harness/reader-status-fixture-scope.test.py#ReaderStatusFixtureScopeTests.setUpClass` owns the canonical fixture base; `test_symlinked_worktree_honors_lazy_host_root` protects the real symlinked caller; graph `kg_reader_status_fixture_canonical_root` links this case. This is a targeted fixture extension of the existing primary TDD, not evidence that the candidate's full suite passed. Code organization: keep canonicalization at fixture creation, no new abstraction.
+
+| Layer | Judgement |
+| --- | --- |
+| SDD | No independent delta: preserve exact host-root and source/host fixture ownership contracts. |
+| BDD | No independent delta: production/user flow is unchanged. |
+| SSOT | No independent delta: no actual root/config/provider ownership changes. |
+| DDD | No independent delta: no domain vocabulary or business rule change. |

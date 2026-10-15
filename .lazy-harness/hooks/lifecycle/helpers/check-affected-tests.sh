@@ -28,7 +28,11 @@ prefixes = ('src/', 'app/', 'packages/', 'tests/lazy-harness/affected/',
 groups = {}
 problems = []
 try:
-    payload = json.loads(os.environ['PAYLOAD_JSON'])
+    raw = os.environ['PAYLOAD_JSON']
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw)
+    payload = json.loads(raw)
     if not isinstance(payload, dict):
         raise ValueError('payload must be an object')
     calls = payload.get('recent_tool_calls', [])

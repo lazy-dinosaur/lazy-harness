@@ -18,7 +18,11 @@ DECISIONS="${LAZY_HARNESS_DECISIONS_FILE:-.lazy-harness/logs/decisions.jsonl}"
 TOUCHED=$(PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
 import json, os
 try:
-    payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
+    raw = os.environ.get('PAYLOAD_JSON', '{}')
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw)
+    payload = json.loads(raw)
 except Exception:
     raise SystemExit(0)
 allowed = {'Write','Edit','MultiEdit','write','edit','multiedit','mcp__filesystem__write_file','mcp__filesystem__edit_file'}

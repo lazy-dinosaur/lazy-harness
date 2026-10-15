@@ -18,7 +18,11 @@ import os
 import re
 
 try:
-    payload = json.loads(os.environ.get("PAYLOAD_JSON", "{}"))
+    raw = os.environ.get('PAYLOAD_JSON', '{}')
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw)
+    payload = json.loads(raw)
 except Exception:
     raise SystemExit(0)
 

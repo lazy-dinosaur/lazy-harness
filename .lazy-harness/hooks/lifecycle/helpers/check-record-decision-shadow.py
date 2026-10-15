@@ -26,6 +26,9 @@ except Exception:  # pragma: no cover - lifecycle helper must fail open
 
 PAYLOAD_RAW = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
+    if PAYLOAD_RAW.startswith('@file:'):
+        from payload_transport import read_payload_text as decode_payload_reference
+        PAYLOAD_RAW = decode_payload_reference(PAYLOAD_RAW)
     PAYLOAD = json.loads(PAYLOAD_RAW or "{}")
 except Exception:
     PAYLOAD = {}

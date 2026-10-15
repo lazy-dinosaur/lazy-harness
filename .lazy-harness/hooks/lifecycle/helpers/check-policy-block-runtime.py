@@ -18,6 +18,9 @@ from typing import Any
 
 PAYLOAD_RAW = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
+    if PAYLOAD_RAW.startswith('@file:'):
+        from payload_transport import read_payload_text
+        PAYLOAD_RAW = read_payload_text(PAYLOAD_RAW)
     PAYLOAD = json.loads(PAYLOAD_RAW or "{}")
 except Exception:
     PAYLOAD = {}

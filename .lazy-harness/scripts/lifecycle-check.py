@@ -103,14 +103,23 @@ def inject_json(body: str) -> str:
 def run_one_helper(helper_path: Path, helper: str, raw_payload: str, root: Path, helper_env: dict[str, str] | None = None) -> dict[str, Any]:
     start = time.perf_counter()
     env = {**os.environ, **(helper_env or {}), "LAZY_HOST_ROOT": str(root)}
-    completed = subprocess.run(
-        [str(helper_path), raw_payload],
-        cwd=root,
-        text=True,
-        capture_output=True,
-        env=env,
-        check=False,
-    )
+    helper_dir = str(root / ".lazy-harness/hooks/lifecycle/helpers")
+    env["PYTHONPATH"] = helper_dir + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    # Keep small legacy calls compatible; never put a large JSON string in argv/env.
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", prefix="lazy-helper-payload-", suffix=".json") as payload_file:
+        argument = raw_payload
+        if len(raw_payload.encode("utf-8")) > 65536:
+            payload_file.write(raw_payload)
+            payload_file.flush()
+            argument = "@file:" + payload_file.name
+        completed = subprocess.run(
+            [str(helper_path), argument],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
     elapsed_ms = round((time.perf_counter() - start) * 1000, 3)
     return {
         "helper": helper,

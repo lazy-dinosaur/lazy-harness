@@ -7,6 +7,15 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CAPTURE_GUIDANCE, CaptureEvidence } from "./capture-evidence.ts";
+import type { ReaderLaunchIdentity, ReaderTransport } from "./reader-transport.ts";
+import { FABRIC_READER_GUIDANCE, fabricReaderPrompt, fabricReaderRequest, fabricReaderLedgerPath, fabricReaderLineage, persistFabricReaderLedger, fabricReaderModelMatches, fabricReaderProxyResult, validateFabricReaderSpawn } from "./fabric-reader.ts";
+import { applyFabricReaderPrompt, fabricReaderDefinition, fabricReaderSystemPrompt, advanceFabricReaderTurn, FABRIC_READER_WRAP_UP, validateFabricReaderPolicy, type FabricReaderPolicyState } from "./fabric-reader-policy.ts";
+import { permitsOwnedReaderStatusInspection, type ReaderStatusInspectionContext } from "./reader-status.ts";
+export { permitsOwnedReaderStatusInspection } from "./reader-status.ts";
+
+export default function lazyHarnessPi(pi: ExtensionAPI, runtime: { readerTransport?: ReaderTransport } = {}) {
+// Every SDK session gets its own state, even when an in-process child loads the
+// same module at the same root. Never share mutable Reader/epoch/capture state.
 
 const EXTENSION_NAME = "lazy-harness";
 const EXTENSION_RUNTIME_MARKER = "lh-pi-read-debt-steering-20260701";
@@ -72,6 +81,9 @@ type ReaderRunState = {
   maxLinesPerRead: number;
   taskDigest: string;
   failureReason?: string;
+  fabricTask?: string;
+  fabricPolicy?: { contractHash: string; guardPath: string };
+  fabricDelivery?: { outerToolCallId: string; text: string; sessionFile: string };
 };
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
@@ -84,6 +96,7 @@ type ReaderLedger = {
   maxReadCalls: number; maxRequestedLines: number; maxLinesPerRead: number;
   readCalls: number; requestedLines: number; maxObservedReadLimit: number; failedToolCalls: number;
   recordHashes: Record<string, string>; terminal: boolean;
+  readerPolicy?: FabricReaderPolicyState;
 };
 type ReaderMeter = { ledger: ReaderLedger; pending: Map<string, string | undefined>; settled: Set<string> };
 const readerMeters = new Map<string, ReaderMeter>();
@@ -105,7 +118,6 @@ const REGROUND_MUTATION_TOOLS = new Set(["edit", "write", "multiedit", "patch", 
 const MUTATION_TOOL_NAMES = new Set(["edit", "write", "multiedit", "patch", "apply_patch"]);
 const READ_ONLY_SHELL_RE = /^\s*(?:cd\s+[^;&|]+\s*(?:&&|;)\s*)?(?:(?:\.lazy-harness\/bin\/lazy|lazy)\s+map|pwd|ls|cat|grep|rg|git\s+(?:status|rev-parse))\b/is;
 const ACTION_NAME_RE = /(?:^|[_:.\-])(write|edit|patch|apply_patch|create|update|delete|remove|send|merge|push|upload|click|type|fill|press|select|drag|drop|navigate|run|close|open|schedule)(?:$|[_:.\-])/i;
-const READER_STATUS_ARG_KEYS = new Set(["action", "id", "includeProgress", "view", "lines"]);
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
@@ -124,21 +136,25 @@ function readerTaskField(task: string, name: string): string | undefined {
   return task.match(new RegExp(`^${name}:\\s*(.+)$`, "mi"))?.[1]?.trim();
 }
 
-function readerLaunchValidationError(root: string, args: JsonObject): string | undefined {
+function readerLaunchValidationError(root: string, args: JsonObject, native = false): string | undefined {
   if (!isRecordReaderAgent(args)) return undefined;
   if (Object.prototype.hasOwnProperty.call(args, "action")) return "dedicated Reader launch must omit action; management operations are not launches";
   const existing = readerRunByRoot.get(root);
   if (existing?.evidenceEpoch === currentEvidenceEpoch(root)) return "only one dedicated Reader launch is allowed per evidence epoch";
+  // The native transport validates its actual agent definition/call shape, not
+  // invented Pi flags. Both transports share identity, budgets, ledger and join.
+  if (!native) {
   if (args.async !== true && args.async !== false) return "dedicated Reader must explicitly select async:true or async:false";
   if (args.context !== "fresh") return "dedicated Reader must use fresh context";
   if (args.acceptance !== false) return "dedicated Reader must set acceptance:false";
   if (args.output !== false) return "dedicated Reader must set output:false";
   if (args.artifacts !== false) return "dedicated Reader must set artifacts:false";
   if (args.toolBudget !== undefined) return "dedicated Reader must omit toolBudget: it counts all tools, not body reads; use maxReadCalls/maxRequestedLines/maxLinesPerRead in the task";
+  }
   const model = String(args.model || "").trim();
   if (!model) return "dedicated Reader model must be explicit";
   const contract = args.agentContract && typeof args.agentContract === "object" ? args.agentContract as JsonObject : {};
-  if (contract.version !== 1) return "dedicated Reader must use agentContract.version=1";
+  if (!native && contract.version !== 1) return "dedicated Reader must use agentContract.version=1";
   const cwd = String(args.cwd || root);
   if (resolve(cwd) !== resolve(root)) return `dedicated Reader cwd must equal the active lazy root: ${root}`;
   const task = String(args.task || "");
@@ -146,7 +162,7 @@ function readerLaunchValidationError(root: string, args: JsonObject): string | u
   const revision = currentRevision(root);
   if (!revision || readerTaskField(task, "root") !== root) return "Reader task root does not match the active lazy root";
   if (readerTaskField(task, "revision") !== revision) return "Reader task revision does not match the active root HEAD";
-  if (Number(readerTaskField(task, "evidenceEpoch")) !== currentEvidenceEpoch(root)) return "Reader task evidenceEpoch does not match the active turn";
+  if (Number(readerTaskField(task, "evidenceEpoch")) !== currentEvidenceEpoch(root)) return `Reader task evidenceEpoch does not match the active turn (expected ${currentEvidenceEpoch(root)})`;
   if (!readerTaskField(task, "task")) return "Reader task must include a non-empty task field";
   const maxReadCalls = Number(readerTaskField(task, "maxReadCalls"));
   const maxRequestedLines = Number(readerTaskField(task, "maxRequestedLines"));
@@ -243,6 +259,7 @@ function startReaderMeter(root: string, task: string, sessionId: string): Reader
 function persistReaderMeter(pi: ExtensionAPI, meter: ReaderMeter): boolean {
   try {
     pi.appendEntry(READER_LEDGER_ENTRY, { ...meter.ledger, recordHashes: { ...meter.ledger.recordHashes } });
+    persistFabricReaderLedger({ ...meter.ledger, recordHashes: { ...meter.ledger.recordHashes } });
     return true;
   } catch {
     meter.ledger.failedToolCalls += 1;
@@ -250,19 +267,28 @@ function persistReaderMeter(pi: ExtensionAPI, meter: ReaderMeter): boolean {
   }
 }
 
-function readDeliveredReaderLedger(root: string, run: ReaderRunState): ReaderLedger {
+function readDeliveredReaderLedger(root: string, run: ReaderRunState, transport?: ReaderTransport): ReaderLedger {
   try {
     if (!run.ledgerSessionFile) throw new Error("missing session identity");
     const entries = readFileSync(run.ledgerSessionFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    const header = entries[0];
+    const header = transport?.sessionHeader ? transport.sessionHeader(entries) : entries[0];
     const ledger = entries.filter((entry) => entry.type === "custom" && entry.customType === READER_LEDGER_ENTRY).at(-1)?.data as ReaderLedger | undefined;
-    if (!ledger || header?.type !== "session" || header.id !== ledger.sessionId || ledger.terminal !== true
-      || !ledger.recordHashes || typeof ledger.recordHashes !== "object" || Array.isArray(ledger.recordHashes)
-      || ledger.root !== root || ledger.revision !== run.revision || ledger.evidenceEpoch !== run.evidenceEpoch
-      || ledger.model !== run.model || ledger.taskDigest !== run.taskDigest) throw new Error("mismatched or nonterminal ledger");
+    const checks: Record<string, boolean> = {
+      ledger: Boolean(ledger), session: header?.type === "session" && header.id === ledger?.sessionId,
+      terminal: ledger?.terminal === true,
+      records: Boolean(ledger?.recordHashes && typeof ledger.recordHashes === "object" && !Array.isArray(ledger.recordHashes)),
+      root: ledger?.root === root, revision: ledger?.revision === run.revision,
+      epoch: ledger?.evidenceEpoch === run.evidenceEpoch, model: ledger?.model === run.model,
+      task: ledger?.taskDigest === run.taskDigest,
+    };
+    if (run.fabricTask) checks.fabricRun = (ledger as any)?.fabricRunId === run.runId;
+    if (run.fabricTask) checks.readerPolicy = Boolean(run.fabricPolicy && validateFabricReaderPolicy(ledger?.readerPolicy, run.fabricPolicy.contractHash, run.fabricPolicy.guardPath));
+    const mismatches = Object.keys(checks).filter(key => !checks[key]);
+    if (!ledger || mismatches.length) throw new Error(`Reader ledger mismatch: ${mismatches.join(", ")}`);
     return ledger;
-  } catch {
-    throw readerFallbackError(root, "runtime-owned Reader ledger is unavailable, stale, or mismatched");
+  } catch (error) {
+    const detail = error instanceof Error && /^Reader ledger mismatch: [A-Za-z, ]+$/.test(error.message) ? ` (${error.message})` : "";
+    throw readerFallbackError(root, `runtime-owned Reader ledger is unavailable, stale, or mismatched${detail}`);
   }
 }
 
@@ -693,30 +719,6 @@ function isReaderRuntimeToolAllowed(root: string, name: string, args: JsonObject
   return false;
 }
 
-type ReaderStatusInspectionContext = {
-  root: string;
-  runId: string;
-  evidenceEpoch: number;
-  currentEpoch: number;
-  pending: boolean;
-};
-
-export function permitsOwnedReaderStatusInspection(root: string, name: string, args: JsonObject, context: ReaderStatusInspectionContext): boolean {
-  if (name.toLowerCase() !== "subagent" || String(args.action || "") !== "status") return false;
-  if (Object.keys(args).some((key) => !READER_STATUS_ARG_KEYS.has(key))) return false;
-  if (args.includeProgress !== undefined && typeof args.includeProgress !== "boolean") return false;
-  if (args.view !== undefined && args.view !== "transcript") return false;
-  if (args.lines !== undefined && (!Number.isInteger(args.lines) || Number(args.lines) <= 0 || Number(args.lines) > 500)) return false;
-  return Boolean(
-    context.pending === true
-    && Number.isInteger(context.evidenceEpoch) && context.evidenceEpoch >= 0
-    && Number.isInteger(context.currentEpoch) && context.currentEpoch >= 0
-    && context.root === root
-    && context.runId
-    && String(args.id || "") === context.runId
-    && context.evidenceEpoch === context.currentEpoch
-  );
-}
 
 function readerStatusInspectionContext(root: string): ReaderStatusInspectionContext {
   const run = readerRunByRoot.get(root);
@@ -736,6 +738,7 @@ function isOwnedReaderStatusInspection(root: string, name: string, args: JsonObj
 function isActionTool(name: string, args: JsonObject, ownedReaderStatus = false): boolean {
   const lower = name.toLowerCase();
   const leaf = lower.split(/[.:]/).pop() || lower;
+  if (lower === "task") return true; // native delegation is an action unless admitted as the dedicated Reader
   if (lower === "subagent" && (String(args.action || "") === "list" || isRecordReaderAgent(args) || ownedReaderStatus)) return false;
   if (lower === "subagent_wait" || lower === "lazy_reader_join") return false;
   if (["read", "grep", "find", "ls"].includes(leaf)) return false;
@@ -1000,11 +1003,26 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   return [stdout, stderr].filter(Boolean).join("\n");
 }
 
-export default function lazyHarnessPi(pi: ExtensionAPI) {
   const captureEvidence = new CaptureEvidence();
   const clearCapture = () => captureEvidence.reset("");
-  pi.on("session_start", clearCapture);
-  pi.on("session_shutdown", clearCapture);
+  const clearSessionEvidence = () => {
+    clearCapture();
+    // Keep epochs monotonic so late results from the old session stay stale.
+    for (const root of evidenceEpochByRoot.keys()) advanceEvidenceEpoch(root);
+    recentToolCallsByRoot.clear();
+    workUnitEvidenceByRoot.clear();
+    readerRunByRoot.clear();
+    readerRuntimeRoots.clear();
+    readerMeters.clear();
+    activePacketsByRoot.clear();
+    lastAdvisoryByRoot.clear();
+    lastInputByRoot.clear();
+    toolCallEpochsByRoot.clear();
+    pendingRegroundByRoot.clear();
+    regroundBodyByRoot.clear();
+  };
+  pi.on("session_start", clearSessionEvidence);
+  pi.on("session_shutdown", () => { clearCapture(); runtime.readerTransport?.dispose(); });
   pi.on("input", async (event: any, ctx: any) => {
     const root = findLazyRootForInvocation(event, ctx);
     if (!root) return undefined;
@@ -1053,6 +1071,28 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     return undefined;
   });
 
+  // Preserve the dedicated role's assistant-turn ceiling separately from body reads.
+  pi.on("message_end", (event: any, ctx: any) => {
+    const root = findLazyRoot(resolveInvocationCwd(event, ctx));
+    if (!root || !readerRuntimeRoots.has(root) || !fabricReaderLineage()) return;
+    const meter = readerMeters.get(root);
+    const policy = meter?.ledger.readerPolicy;
+    if (!meter || !policy || event.message?.role !== "assistant") return;
+    const exceeded = advanceFabricReaderTurn(policy, event.message);
+    persistReaderMeter(pi, meter);
+    if (exceeded) ctx.abort();
+  });
+  pi.on("turn_start", (event: any, ctx: any) => {
+    const root = findLazyRoot(resolveInvocationCwd(event, ctx));
+    if (!root || !readerRuntimeRoots.has(root) || !fabricReaderLineage()) return;
+    const meter = readerMeters.get(root);
+    const policy = meter?.ledger.readerPolicy;
+    if (!meter || !policy || policy.turnCount < policy.maxTurns + policy.graceTurns) return;
+    policy.turnBudgetExceeded = true;
+    persistReaderMeter(pi, meter);
+    ctx.abort();
+  });
+
   pi.on("before_agent_start", async (event, ctx) => {
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
@@ -1064,10 +1104,18 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
         // Native child launch wraps the caller task as `Task: ${attemptTask}`.
         // Unwrap only that transport prefix before parsing identity/objective.
         const task = event.prompt.startsWith("Task: ") ? event.prompt.slice(6) : event.prompt;
-        const meter = startReaderMeter(root, task, sessionId);
-        if (meter) { readerMeters.set(root, meter); persistReaderMeter(pi, meter); }
+        const meter = (!runtime.readerTransport || runtime.readerTransport.childModelMatches(task, ctx))
+          && (!fabricReaderLineage() || fabricReaderModelMatches(task, ctx, pi.getThinkingLevel?.()))
+          ? startReaderMeter(root, task, sessionId) : undefined;
+        if (meter) {
+          if (fabricReaderLineage()) {
+            try { meter.ledger.readerPolicy = applyFabricReaderPrompt(event, import.meta.url); }
+            catch (error) { ctx.abort(); throw error; }
+          }
+          readerMeters.set(root, meter); persistReaderMeter(pi, meter);
+        }
       }
-      return undefined;
+      return fabricReaderLineage() ? { systemPrompt: fabricReaderSystemPrompt() } : undefined;
     }
     readerRuntimeRoots.delete(root);
 
@@ -1125,6 +1173,8 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     // system prompt every session (OMP/Pi otherwise only load a compact pointer). Deduped by the
     // grammar title marker so it lands once and persists; fail-open to reminder-only on any error.
     let inject = `${body}\n\n${CAPTURE_GUIDANCE}`;
+    const transportGuidance = runtime.readerTransport?.guidance?.(root) ?? FABRIC_READER_GUIDANCE;
+    if (transportGuidance) inject += `\n\n${transportGuidance}`;
     const agentsPath = join(root, ".lazy-harness", "AGENTS.md");
     if (existsSync(agentsPath) && !systemPromptIncludesBody(event.systemPrompt, "Lazy-Harness AI")) {
       try {
@@ -1143,13 +1193,29 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     const root = findLazyRoot(cwd);
     if (!root) return undefined;
     if (readerRuntimeRoots.has(root)) {
+      // The outer Fabric program is a container; each nested Pi call is metered below.
+      // Full-code children retain Fabric, but never receive agent/native-executor authority.
       const normalized = normalizePiTool(event.toolName, event.input || {});
       const meter = readerMeters.get(root);
       const id = String(event.toolCallId || "");
       if (!meter || meter.ledger.sessionId !== ctx?.sessionManager?.getSessionId?.()) return { block: true, reason: "[lazy-harness Reader boundary] missing runtime-owned launch budget/identity" };
       const ledger = meter.ledger;
+      if (ledger.readerPolicy?.turnBudgetExceeded) return { block: true, reason: "[lazy-harness Reader boundary] assistant turn budget exhausted" };
+      if (fabricReaderLineage() && event.toolName === "fabric_exec") return undefined;
+      if ((runtime.readerTransport && !runtime.readerTransport.childModelMatches(`model: ${ledger.model}`, ctx))
+        || (fabricReaderLineage() && !fabricReaderModelMatches(`model: ${ledger.model}`, ctx, pi.getThinkingLevel?.()))) {
+        ledger.failedToolCalls += 1; persistReaderMeter(pi, meter);
+        return { block: true, reason: "[lazy-harness Reader boundary] actual native model/thinking changed" };
+      }
+      if (runtime.readerTransport && normalized.name === "read") {
+        try { normalized.args = runtime.readerTransport.normalizeRead(id, normalized.args); }
+        catch (error) {
+          ledger.failedToolCalls += 1; persistReaderMeter(pi, meter);
+          return { block: true, reason: `[lazy-harness Reader boundary] ${String(error)}` };
+        }
+      }
       const leaf = normalized.name.toLowerCase().split(/[.:]/).pop();
-      let allowed = isReaderRuntimeToolAllowed(root, normalized.name, normalized.args) && !ledger.terminal && Boolean(id) && !meter.pending.has(id) && !meter.settled.has(id);
+      let allowed = (isReaderRuntimeToolAllowed(root, normalized.name, normalized.args) || runtime.readerTransport?.isTerminalCall(normalized.name, normalized.args) === true) && !ledger.terminal && Boolean(id) && !meter.pending.has(id) && !meter.settled.has(id);
       let path: string | undefined;
       if (leaf === "read") {
         const limit = Number(normalized.args.limit);
@@ -1173,14 +1239,20 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       : { root, sessionId: `pi:${stableHash(cwd)}`, messageId: `pi:${stableHash("no-active-packet")}`, readDebtStatus: "not-armed-hook-empty" as ReadDebtStatus };
 
     const normalized = normalizePiTool(event.toolName, event.input || {});
-    const readerLaunchError = readerLaunchValidationError(root, normalized.args);
+    let nativeLaunch: ReaderLaunchIdentity | undefined;
+    try {
+      nativeLaunch = runtime.readerTransport?.prepare(root, normalized.name, normalized.args);
+      if (nativeLaunch && resolve(cwd) !== resolve(root)) throw new Error("native Reader must launch from the exact lazy root");
+    } catch (error) { return { block: true, reason: `[lazy-harness Reader launch] ${String(error)}` }; }
+    const readerArgs: JsonObject = nativeLaunch ? { ...nativeLaunch } : normalized.args;
+    const readerLaunchError = readerLaunchValidationError(root, readerArgs, Boolean(nativeLaunch));
     if (readerLaunchError) return { block: true, reason: `[lazy-harness Reader launch] ${readerLaunchError}` };
     const activeReader = readerRunByRoot.get(root);
     const ownedReaderStatus = isOwnedReaderStatusInspection(root, normalized.name, normalized.args);
-    if (activeReader && activeReader.evidenceEpoch === currentEvidenceEpoch(root) && !activeReader.joined && !activeReader.fallbackAllowed && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
+    if (activeReader && activeReader.evidenceEpoch === currentEvidenceEpoch(root) && !activeReader.joined && !activeReader.fallbackAllowed && !nativeLaunch && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
       return { block: true, reason: "[lazy-harness Reader join pending] wait for the content-bearing Reader packet, then call lazy_reader_join before action." };
     }
-    if (!readDebtArmed(packet.readDebtStatus) && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
+    if (!readDebtArmed(packet.readDebtStatus) && !nativeLaunch && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
       return { block: true, reason: readDebtNotArmedReason(root, normalized.name, packet.readDebtStatus, packet.readDebtDetail) };
     }
 
@@ -1203,8 +1275,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const reason = denyReason(hook.stdout, hook.stderr);
       if (reason) return { block: true, reason };
     }
-    if (isRecordReaderAgent(normalized.args)) {
-      readerRunByRoot.set(root, readerLaunchState(root, normalized.args, String(event.toolCallId || "")));
+    if (isRecordReaderAgent(readerArgs)) {
+      try { if (nativeLaunch) runtime.readerTransport!.admit(String(event.toolCallId || "")); }
+      catch (error) { return { block: true, reason: `[lazy-harness Reader launch] ${String(error)}` }; }
+      readerRunByRoot.set(root, readerLaunchState(root, readerArgs, String(event.toolCallId || "")));
       workUnitEvidenceByRoot.delete(root);
     }
     // Status is coordination-only. Its result may contain transcript text, so do
@@ -1222,6 +1296,12 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       const meter = readerMeters.get(root);
       const id = String(event.toolCallId || "");
       if (!meter || !meter.pending.has(id)) return undefined;
+      const coverageError = runtime.readerTransport?.readResultError(event);
+      if (coverageError) {
+        meter.pending.delete(id); meter.settled.add(id);
+        meter.ledger.failedToolCalls += 1; persistReaderMeter(pi, meter);
+        return { content: [{ type: "text", text: `[lazy-harness Reader boundary] ${coverageError}` }], details: {}, isError: true };
+      }
       const path = meter.pending.get(id);
       meter.pending.delete(id);
       meter.settled.add(id);
@@ -1231,12 +1311,55 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
         if (digest) meter.ledger.recordHashes[path] = digest;
         else meter.ledger.failedToolCalls += 1;
       }
+      if (runtime.readerTransport && event.toolName === "yield" && !event.isError && !event.is_error) meter.ledger.terminal = true;
       persistReaderMeter(pi, meter);
       return undefined;
     }
     const normalized = normalizePiTool(event.toolName, event.input || {});
     captureEvidence.complete(root, resolveInvocationCwd(event, ctx), currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args,
       event.is_error === true ? true : event.isError, event.content);
+    // Fabric providers emit native tool_result proxies, not Pi tool_call preflights.
+    // Bind them to the request's root/epoch/task and exact host-issued agent id instead
+    // of admitting arbitrary provider output as generic evidence.
+    const fabricRun = readerRunByRoot.get(root);
+    if (fabricRun?.fabricTask && fabricRun.evidenceEpoch === currentEvidenceEpoch(root)
+      && fabricRun.fabricDelivery?.outerToolCallId === String(event.toolCallId || "") && normalized.name === "fabric_exec") {
+      const delivery = fabricRun.fabricDelivery;
+      delete fabricRun.fabricDelivery;
+      if (event.isError || event.is_error || fabricRun.fallbackAllowed) {
+        readerFallbackError(root, "Fabric outer result failed before Reader content delivery");
+        return undefined;
+      }
+      receiveReaderResult(root, fabricRun, delivery.text, delivery.sessionFile);
+      // A nested provider result is otherwise only guest data: append the exact
+      // owned packet to the actual Parent-visible result, even if guest code
+      // returned merely a summary. A join inside that same program stays blocked.
+      return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text", text: delivery.text }] };
+    }
+    if (!runtime.readerTransport && fabricRun?.fabricTask
+      && fabricRun.evidenceEpoch === currentEvidenceEpoch(root)
+      && ["agents.spawn", "agents.wait", "agents.join"].includes(normalized.name)) {
+      try {
+        if (normalized.name === "agents.spawn" && normalized.args.name === RECORD_READER_AGENT) {
+          if (fabricRun.runId || fabricRun.fallbackAllowed) throw new Error("duplicate or terminal Fabric Reader launch");
+          fabricRun.runId = validateFabricReaderSpawn(root, fabricRun.fabricTask, fabricRun.model, event);
+        } else if (["agents.wait", "agents.join"].includes(normalized.name) && normalized.args.id === fabricRun.runId) {
+          if (!fabricRun.runId || fabricRun.fallbackAllowed) throw new Error("Fabric Reader wait has no active owned run");
+          const result = fabricReaderProxyResult(event);
+          if (result.id !== fabricRun.runId || result.status !== "completed" || result.error
+            || result.outcome === "indeterminate" || result.runner !== "pi" || result.cwd !== root
+            || result.model !== fabricRun.model.replace(/:low$/, "") || result.thinking !== "low"
+            || typeof result.text !== "string" || !result.text.trim()) throw new Error("Fabric Reader wait lacks matching successful content");
+          const outerToolCallId = String(event.parentToolCallId || "");
+          if (!outerToolCallId) throw new Error("Fabric Reader wait lacks an owning outer tool call");
+          fabricRun.fabricDelivery = { outerToolCallId, text: result.text, sessionFile: fabricReaderLedgerPath(root, fabricRun.runId) };
+        }
+      } catch (error) {
+        const failure = readerFallbackError(root, String(error));
+        return { content: [{ type: "text", text: failure.message }], details: {}, isError: true };
+      }
+      return undefined;
+    }
     if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const activeReader = readerRunByRoot.get(root);
     const normalizedName = normalized.name.toLowerCase();
@@ -1295,7 +1418,15 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     try {
       const root = findLazyRoot(resolveInvocationCwd(event, ctx));
       if (!root) return undefined;
-      if (readerRuntimeRoots.has(root)) return undefined;
+      if (readerRuntimeRoots.has(root)) {
+        const policy = readerMeters.get(root)?.ledger.readerPolicy;
+        if (policy?.wrapUpRequested && !policy.turnBudgetExceeded) {
+          const messages = Array.isArray(event.messages) ? event.messages : [];
+          if (messages.some((message: any) => message.role === "user" && message.content === FABRIC_READER_WRAP_UP)) return undefined;
+          return { messages: [...messages, { role: "user", content: FABRIC_READER_WRAP_UP, timestamp: Date.now() }] };
+        }
+        return undefined;
+      }
       observeReaderPacket(root, event.messages);
       if (!pendingRegroundByRoot.get(root)) return undefined;
       let body = regroundBodyByRoot.get(root);
@@ -1434,6 +1565,32 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
     },
   });
 
+  // Preparation is a normal captured extension tool; execution stays on Fabric's
+  // public agents.spawn/wait API. No cross-package imports or private manager APIs.
+  if (!runtime.readerTransport && typeof (pi as any).registerTool === "function") pi.registerTool({
+    name: "lazy_reader_request",
+    label: "Prepare Fabric Reader",
+    description: "Prepare one fresh read-only Pi Fabric Reader request. Pass details.request unchanged to agents.spawn inside fabric_exec, then return agents.wait result before lazy_reader_join. Requires Pi Fabric, never pi-subagents.",
+    parameters: Type.Object({ task: Type.String({ description: "Exact root/revision/model: provider/model:low/evidenceEpoch/budget/task envelope. Do not preselect record nodes." }) }),
+    async execute(toolCallId: string, params: any, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<TextToolResult> {
+      const root = findLazyRootForInvocation(undefined, ctx);
+      if (!root) throw new Error("lazy-harness root not found from current cwd");
+      const task = String(params.task || "");
+      const model = readerTaskField(task, "model") || "";
+      const args = { agent: RECORD_READER_AGENT, task, model, cwd: root };
+      const error = readerLaunchValidationError(root, args, true);
+      if (error) throw new Error(error);
+      const request = fabricReaderRequest(root, task, model);
+      const run = readerLaunchState(root, args, toolCallId);
+      run.fabricTask = task;
+      const definition = fabricReaderDefinition();
+      run.fabricPolicy = { contractHash: definition.contractHash, guardPath: definition.guardPath };
+      readerRunByRoot.set(root, run);
+      workUnitEvidenceByRoot.delete(root);
+      return { content: [{ type: "text", text: JSON.stringify(request) }], details: { request } };
+    },
+  });
+
   // Explicit Reader join barrier. Process completion alone never marks joined;
   // the Parent calls this only after consuming the content-bearing Reader packet.
   if (typeof (pi as any).registerTool === "function") pi.registerTool({
@@ -1471,6 +1628,10 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       if (run.evidenceEpoch !== currentEvidenceEpoch(root) || Number(params.evidenceEpoch) !== run.evidenceEpoch) {
         throw readerFallbackError(root, "Reader evidence epoch is stale");
       }
+      if (run.fabricTask && !run.runId && params.status === "failed") {
+        readerFallbackError(root, "Fabric Reader did not launch");
+        return { content: [{ type: "text", text: "Fabric Reader launch failed; bounded direct Parent fallback enabled." }], details: { joined: false, fallbackAllowed: true, status: "failed" } };
+      }
       if (!run.runId || (params.runId !== undefined && String(params.runId) !== run.runId)) throw readerFallbackError(root, "Reader run id does not match the active launch");
       const revision = currentRevision(root);
       if (!revision || revision !== run.revision || String(params.revision) !== run.revision) throw readerFallbackError(root, "Reader revision does not match the launch and active root HEAD");
@@ -1490,7 +1651,7 @@ export default function lazyHarnessPi(pi: ExtensionAPI) {
       if (String(params.resultMarker || "") !== `${RECORD_READER_RESULT_PREFIX} complete`) {
         throw readerFallbackError(root, "content-bearing complete Reader marker was not supplied");
       }
-      const ledger = readDeliveredReaderLedger(root, run);
+      const ledger = readDeliveredReaderLedger(root, run, runtime.readerTransport);
       const fields = ["readCalls", "requestedLines", "maxReadCalls", "maxRequestedLines", "maxLinesPerRead", "maxObservedReadLimit", "failedToolCalls"] as const;
       if (fields.some((field) => params[field] !== undefined && params[field] !== ledger[field])) throw readerFallbackError(root, "Reader self-report does not match runtime-owned accounting");
       const budgetValues = fields.map((field) => ledger[field]);

@@ -120,6 +120,10 @@ to the same transport, not another classifier/schema. Hook callers without the
 adapter field do not gain a fabricated assessment; explicit helper inspection
 returns unverified when it is absent.
 
+Response payload transport preserves the full JSON, including safety evidence. The response hook owns a private temporary directory through an EXIT cleanup trap; payloads over 65,536 UTF-8 bytes cross helper boundaries as `@file:<path>` rather than argv/environment values. Small inline JSON remains supported. The orchestrator helper runner uses the same threshold and cleans its per-call file even on subprocess failure. Both callers make the framework helper directory available for the shared `payload_transport.py#read_payload_text` decoder; response helpers opt into decoding only for an explicit reference. No content-based classification or truncation is introduced.
+
+Capture output, safety injection bodies and compare-mode legacy bodies are read from owned files rather than large environment variables. Capture-helper execution failure remains nonzero; successful process exit alone is not capture-delivery evidence. The temporary references are invocation-scoped, not durable receipts, and do not authorize external changes.
+
 Pi sends a separate `lazy-harness-capture` custom message with `triggerTurn:false`.
 Pending/unverified is visible, linked/no-record is non-disruptive; assessment
 metadata explicitly says semantic judgement unverified and approval not evaluated.

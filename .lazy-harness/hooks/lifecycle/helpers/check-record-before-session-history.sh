@@ -9,7 +9,11 @@ PAYLOAD_JSON="$PAYLOAD" python3 <<'PY' 2>/dev/null || true
 import json, os, re, sys
 
 try:
-    payload = json.loads(os.environ.get('PAYLOAD_JSON', '{}'))
+    raw = os.environ.get('PAYLOAD_JSON', '{}')
+    if raw.startswith('@file:'):
+        from payload_transport import read_payload_text
+        raw = read_payload_text(raw)
+    payload = json.loads(raw)
 except Exception:
     sys.exit(0)
 
