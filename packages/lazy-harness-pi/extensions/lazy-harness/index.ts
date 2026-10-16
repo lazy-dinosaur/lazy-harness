@@ -4,7 +4,7 @@ import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CAPTURE_GUIDANCE, CaptureEvidence } from "./capture-evidence.ts";
 import type { ReaderLaunchIdentity, ReaderTransport } from "./reader-transport.ts";
@@ -59,6 +59,7 @@ type RecentToolCall = {
 };
 
 type WorkUnitEvidence = {
+  revision: string | undefined;
   mapped: boolean;
   recordHashes: Map<string, string>;
 };
@@ -87,6 +88,7 @@ type ReaderRunState = {
 };
 
 const recentToolCallsByRoot = new Map<string, RecentToolCall[]>();
+const turnResultCallsByRoot = new Map<string, Set<RecentToolCall>>();
 const workUnitEvidenceByRoot = new Map<string, WorkUnitEvidence>();
 const readerRunByRoot = new Map<string, ReaderRunState>();
 const readerRuntimeRoots = new Set<string>();
@@ -323,7 +325,6 @@ function printModeAdvisory(body: string): void {
   process.stderr.write(`[lazy-harness post-response advisory; primary stdout preserved]\n${body.trim()}\n`);
 }
 
-const RECORD_EVIDENCE_PATH_RE = /\.lazy-harness\/(?:domain|spec|behavior|tests|decisions|ssot|planning|plans)\/[A-Za-z0-9_./-]+\.(?:md|xml|json)/g;
 const RECORD_EVIDENCE_TOOLS = new Set(["read", "read_symbol", "read_enclosing", "module_report"]);
 
 function hashFile(path: string): string | undefined {
@@ -336,7 +337,7 @@ function hashFile(path: string): string | undefined {
 
 function workUnitEvidenceValid(root: string): boolean {
   const evidence = workUnitEvidenceByRoot.get(root);
-  if (!evidence?.mapped || evidence.recordHashes.size === 0) return false;
+  if (!evidence?.mapped || evidence.recordHashes.size === 0 || evidence.revision !== currentRevision(root)) return false;
   for (const [relativePath, expectedHash] of evidence.recordHashes) {
     if (hashFile(join(root, relativePath)) !== expectedHash) return false;
   }
@@ -348,10 +349,12 @@ function observeEvidenceCall(root: string, evidence: WorkUnitEvidence, name: str
   const blob = JSON.stringify(args ?? {});
   if (/(?:\.lazy-harness\/bin\/lazy|\blazy)\s+map\s+--overview\b/.test(blob)) evidence.mapped = true;
   const leafName = normalizedName.split(/[.:]/).pop() ?? normalizedName;
-  if (RECORD_EVIDENCE_TOOLS.has(leafName)) {
-    for (const relativePath of blob.match(RECORD_EVIDENCE_PATH_RE) ?? []) {
-      const digest = hashFile(join(root, relativePath));
-      if (digest) evidence.recordHashes.set(relativePath, digest);
+  const rawPath = args.path ?? args.file_path ?? args.filePath ?? args.file;
+  if (RECORD_EVIDENCE_TOOLS.has(leafName) && typeof rawPath === "string") {
+    const path = relative(root, resolve(root, rawPath)).replace(/\\/g, "/");
+    if (canonicalReaderRecordPath(root, path)) {
+      const digest = hashFile(join(root, path));
+      if (digest) evidence.recordHashes.set(path, digest);
     }
   }
   const nested = (args.tool_calls ?? args.toolCalls ?? args.tool_uses) as unknown;
@@ -366,9 +369,16 @@ function observeEvidenceCall(root: string, evidence: WorkUnitEvidence, name: str
 }
 
 function observeWorkUnitEvidence(root: string, name: string, args: JsonObject): void {
-  const evidence = workUnitEvidenceByRoot.get(root) ?? { mapped: false, recordHashes: new Map<string, string>() };
+  const revision = currentRevision(root);
+  const previous = workUnitEvidenceByRoot.get(root);
+  const evidence = previous && previous.revision === revision ? previous : { revision, mapped: false, recordHashes: new Map<string, string>() };
   observeEvidenceCall(root, evidence, name, args);
   workUnitEvidenceByRoot.set(root, evidence);
+  const packet = activePacketsByRoot.get(root);
+  if (packet && !readDebtArmed(packet.readDebtStatus) && workUnitEvidenceValid(root)) {
+    packet.readDebtStatus = "reused-work-unit";
+    delete packet.readDebtDetail;
+  }
 }
 function findLazyRoot(cwd: string): string | undefined {
   let current = resolve(cwd || process.cwd());
@@ -873,7 +883,10 @@ function recentToolCallsForRoot(root: string): RecentToolCall[] {
 function rememberToolCall(root: string, call: RecentToolCall): void {
   const calls = recentToolCallsForRoot(root);
   calls.push(call);
-  while (calls.length > MAX_RECENT_TOOL_CALLS) calls.shift();
+  let turnResults = turnResultCallsByRoot.get(root);
+  if (!turnResults) { turnResults = new Set(); turnResultCallsByRoot.set(root, turnResults); }
+  turnResults.add(call);
+  while (calls.length > MAX_RECENT_TOOL_CALLS) { const oldest = calls.shift(); if (oldest) turnResults.delete(oldest); }
 }
 
 function currentEvidenceEpoch(root: string): number {
@@ -1007,6 +1020,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   const clearCapture = () => captureEvidence.reset("");
   const clearSessionEvidence = () => {
     clearCapture();
+    turnResultCallsByRoot.clear();
     // Keep epochs monotonic so late results from the old session stay stale.
     for (const root of evidenceEpochByRoot.keys()) advanceEvidenceEpoch(root);
     recentToolCallsByRoot.clear();
@@ -1119,6 +1133,21 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     }
     readerRuntimeRoots.delete(root);
 
+    turnResultCallsByRoot.set(root, new Set());
+    const previousPacket = activePacketsByRoot.get(root);
+    const pendingReader = readerRunByRoot.get(root);
+    const continuingReader = pendingReader && !pendingReader.joined && !pendingReader.fallbackAllowed
+      && pendingReader.evidenceEpoch === currentEvidenceEpoch(root) && pendingReader.revision === currentRevision(root);
+    // An empty SDK continuation is not a new work unit. Keep the Reader's pinned
+    // epoch and real evidence; merely receiving a completion does not grant action.
+    if (!String(event.prompt || "").trim() && previousPacket && (workUnitEvidenceValid(root) || continuingReader)) {
+      const readDebtStatus = workUnitEvidenceValid(root) ? "reused-work-unit" : previousPacket.readDebtStatus;
+      activePacketsByRoot.set(root, { ...previousPacket, readDebtStatus });
+      return {
+        message: { customType: EXTENSION_NAME, content: armStatusMessage(root, readDebtStatus), display: true },
+        systemPrompt: systemPromptIncludesBody(event.systemPrompt, CAPTURE_GUIDANCE) ? event.systemPrompt : appendSystemPromptBody(event.systemPrompt, CAPTURE_GUIDANCE),
+      };
+    }
     const sessionId = `pi:${stableHash(cwd)}`;
     const messageId = `pi:${stableHash(`${Date.now()}:${event.prompt || ""}`)}`;
     advanceEvidenceEpoch(root); // fresh turn boundary: exclude prior-turn calls from agent_end
@@ -1317,7 +1346,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     }
     const normalized = normalizePiTool(event.toolName, event.input || {});
     captureEvidence.complete(root, resolveInvocationCwd(event, ctx), currentEvidenceEpoch(root), event.toolCallId, normalized.name, normalized.args,
-      event.is_error === true ? true : event.isError, event.content);
+      event.isError === true || event.is_error === true ? true : event.isError === false || event.is_error === false ? false : undefined, event.content);
     // Fabric providers emit native tool_result proxies, not Pi tool_call preflights.
     // Bind them to the request's root/epoch/task and exact host-issued agent id instead
     // of admitting arbitrary provider output as generic evidence.
@@ -1391,14 +1420,14 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       activeReader.completed = !event.isError && /(?:\"state\":\"complete\"|Outcome:\s*1\s+complete)/i.test(completionBlob);
       if (!activeReader.completed) readerFallbackError(root, "dedicated Reader wait did not complete successfully");
     }
-    if (!event.isError) observeWorkUnitEvidence(root, normalized.name, normalized.args);
+    if ((event.isError === false || event.is_error === false) && event.isError !== true && event.is_error !== true) observeWorkUnitEvidence(root, normalized.name, normalized.args);
     rememberToolCall(root, {
       ...normalized,
       args_preview: argsPreview(normalized.args),
       edit_target: editTargetPaths(normalized.args),
       toolCallId: String(event.toolCallId || ""),
       evidence_epoch: currentEvidenceEpoch(root),
-      is_error: Boolean(event.isError),
+      is_error: !((event.isError === false || event.is_error === false) && event.isError !== true && event.is_error !== true),
       result_preview: previewContent(event.content),
     });
     // Re-ground only after the first successful mutation, never after reads/searches.
@@ -1479,7 +1508,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     const messages = Array.isArray(event.messages) ? event.messages : [];
     const currentEpoch = currentEvidenceEpoch(root);
     const recentToolCalls = recentToolCallsForRoot(root)
-      .filter((call) => call.evidence_epoch === currentEpoch)
+      .filter((call) => call.evidence_epoch === currentEpoch && turnResultCallsByRoot.get(root)?.has(call))
       .slice(-40);
     const assistantResponse = lastMessageTextByRole(messages, "assistant");
     const lastUserMessage = lastMessageTextByRole(messages, "user");
@@ -1694,7 +1723,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
         if (!digest || digest !== ledger.recordHashes[path]) throw readerFallbackError(root, `Reader record path is missing, changed, or unreadable: ${path}`);
         recordHashes.set(path, digest);
       }
-      workUnitEvidenceByRoot.set(root, { mapped: true, recordHashes });
+      workUnitEvidenceByRoot.set(root, { revision: run.revision, mapped: true, recordHashes });
       run.joined = true;
       run.fallbackAllowed = false;
       return {

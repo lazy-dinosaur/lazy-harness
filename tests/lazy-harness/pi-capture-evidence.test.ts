@@ -377,3 +377,71 @@ test("typed evidence boundary rejects invalid IDs, error variants, changed input
   evidence.complete(root, root, 1, "evicted", "write", input, false, content);
   assert.equal(evidence.evaluate(root, 1, envelope("required")).status, "unverified");
 });
+
+
+test("synthetic continuation reuses actual current governing evidence without rearming a human turn", { timeout: 60000 }, async () => {
+  const before = await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  assert.match(JSON.stringify(before), /status=reused-work-unit/);
+  const allowed = await runner.emitToolCall({ type: "tool_call", toolName: "bash", toolCallId: `resume-${++sequence}`, input: { command: "git fetch --dry-run" } });
+  assert.notEqual(allowed?.block, true, allowed?.reason);
+});
+
+test("unarmed synthetic packet recovers only after successful native map and canonical read", { timeout: 60000 }, async () => {
+  await runner.emit({ type: "session_start", reason: "new" });
+  const before = await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  assert.match(JSON.stringify(before), /not-armed/);
+  const action = () => runner.emitToolCall({ type: "tool_call", toolName: "bash", toolCallId: `recovery-${++sequence}`, input: { command: "git fetch --dry-run" } });
+  assert.equal((await action())?.block, true);
+  const mapInput = { command: ".lazy-harness/bin/lazy map --overview --complete --format=md" };
+  await result("bash", mapInput, await start("bash", mapInput));
+  const readInput = { path: ".lazy-harness/spec/governing.md" };
+  await result("read", readInput, await start("read", readInput), true);
+  assert.equal((await action())?.block, true, "failed reads must not arm action");
+  await read(readInput.path);
+  assert.notEqual((await action())?.block, true, "actual successful canonical evidence must recover without another human message");
+});
+
+test("foreign canonical-looking read cannot recover an unarmed local packet", { timeout: 60000 }, async () => {
+  await runner.emit({ type: "session_start", reason: "new" });
+  await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  const mapInput = { command: ".lazy-harness/bin/lazy map --overview --complete --format=md" };
+  await result("bash", mapInput, await start("bash", mapInput));
+  const foreign = join(root, "foreign", ".lazy-harness/spec/governing.md");
+  mkdirSync(join(root, "foreign", ".lazy-harness/spec"), { recursive: true });
+  writeFileSync(foreign, "# Foreign record\n");
+  await read(foreign);
+  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `foreign-${++sequence}`, input: { path: record, content: "not executed" } });
+  assert.equal(denied?.block, true);
+  await read(".lazy-harness/spec/governing.md");
+  await start("write", { path: record, content: "not executed" });
+});
+
+test("changed governing evidence and a fresh session do not inherit synthetic permission", { timeout: 60000 }, async () => {
+  writeFileSync(join(root, ".lazy-harness/spec/governing.md"), "# Changed governing record\n");
+  await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `stale-${++sequence}`, input: { path: record, content: "not executed" } });
+  assert.equal(denied?.block, true);
+  await ground();
+  await start("write", { path: record, content: "not executed" });
+  await runner.emit({ type: "session_start", reason: "new" });
+  await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  assert.equal((await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `fresh-${++sequence}`, input: { path: record, content: "not executed" } }))?.block, true);
+});
+
+
+test("revision change invalidates a previously grounded synthetic continuation", { timeout: 60000 }, async () => {
+  const git = (...args: string[]) => {
+    const r = spawnSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", ...args], { cwd: root, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  };
+  git("init", "-q");
+  git("add", ".lazy-harness/spec/governing.md");
+  git("commit", "-qm", "governing baseline");
+  await ground();
+  git("commit", "--allow-empty", "-qm", "new revision");
+  await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
+  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `revision-${++sequence}`, input: { path: record, content: "not executed" } });
+  assert.equal(denied?.block, true);
+  await ground();
+  await start("write", { path: record, content: "not executed" });
+});

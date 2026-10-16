@@ -630,11 +630,15 @@ function updateMarker(sourceRoot: string, targetRoot: string): void {
 
 function reconcileAgentActivation(targetRoot: string): 'repaired' | 'dry-run' {
   const lazy = join(targetRoot, '.lazy-harness', 'bin', 'lazy')
+  if (DRY && !existsSync(lazy)) {
+    log('  [dry] Pi/OMP activation planned after managed CLI installation (not checked)')
+    return 'dry-run'
+  }
   const argv = ['agent', 'activate', '--target', targetRoot, '--format=json']
   if (DRY) argv.push('--dry-run')
   const result = spawnSync(lazy, argv, { encoding: 'utf8', env: process.env })
   if (result.status !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`
+    const detail = result.error?.message || result.stderr?.trim() || result.stdout?.trim() || `exit ${result.status ?? 1}`
     throw new Error(`Pi/OMP activation repair failed: ${detail}`)
   }
   log(`  ✓ Pi/OMP activation ${DRY ? 'checked' : 'repaired'} (Pi stable, OMP Experimental)`)

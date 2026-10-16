@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-10-16T06:05:30.614Z",
+  "generatedAt": "2026-10-16T07:51:52.616Z",
   "source": {
-    "root": "/Users/lazydino/.pi/agent/local-packages/lazy-harness-rollout.JYMFlh",
+    "root": "/Users/lazydino/.pi/agent/local-packages/lazy-harness-continuation.rm9dHJ",
     "method": "ast",
-    "tool": "Python ast plus source-read graph links",
+    "tool": "TypeScript compiler AST, Python AST baseline and verified source/graph links",
     "scope": "Changed-record-only AST cache; full canonical facts remain in knowledge/graph.jsonl"
   },
   "records": {
@@ -73,6 +73,74 @@
         "kg_harness_fixture_runtime_isolation_impl",
         "kg_harness_fixture_runtime_isolation_regression",
         "kg_harness_fixture_parity_copy_runtime"
+      ]
+    },
+    ".lazy-harness/tests/runtime-continuation-bootstrap.md": {
+      "recordPath": ".lazy-harness/tests/runtime-continuation-bootstrap.md",
+      "layer": "tdd",
+      "status": "fresh",
+      "files": [
+        {
+          "path": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
+          "role": "evidence-bound continuation and activation preview",
+          "symbols": [
+            {
+              "name": "workUnitEvidenceValid",
+              "kind": "function",
+              "range": {
+                "startLine": 338,
+                "endLine": 345
+              }
+            },
+            {
+              "name": "observeEvidenceCall",
+              "kind": "function",
+              "range": {
+                "startLine": 347,
+                "endLine": 369
+              }
+            },
+            {
+              "name": "observeWorkUnitEvidence",
+              "kind": "function",
+              "range": {
+                "startLine": 371,
+                "endLine": 382
+              }
+            },
+            {
+              "name": "rememberToolCall",
+              "kind": "function",
+              "range": {
+                "startLine": 883,
+                "endLine": 890
+              }
+            }
+          ]
+        },
+        {
+          "path": ".lazy-harness/scripts/lazy-sync.ts",
+          "role": "evidence-bound continuation and activation preview",
+          "symbols": [
+            {
+              "name": "reconcileAgentActivation",
+              "kind": "function",
+              "range": {
+                "startLine": 631,
+                "endLine": 646
+              }
+            }
+          ]
+        }
+      ],
+      "tests": [
+        "tests/lazy-harness/pi-capture-evidence.test.ts",
+        "packages/lazy-harness-pi/tests/fabric-reader.test.ts",
+        "tests/lazy-harness/test_lazy_sync_integrity.py"
+      ],
+      "graphIds": [
+        "kg_runtime_continuation_bootstrap_extension",
+        "kg_runtime_continuation_bootstrap_sync"
       ]
     }
   }

@@ -304,3 +304,29 @@ test("Parent source work remains admitted while the asynchronous Reader is pendi
     expect((await f.joinReader()).details.joined).toBe(true);
   } finally { f.close(); }
 });
+
+
+test("synthetic continuation preserves pending Reader epoch and join barrier until actual content joins", async () => {
+  const f = await fixture();
+  try {
+    await f.spawn();
+    const continuation = await f.handlers.get("before_agent_start")!({ prompt: "", systemPrompt: "base" }, f.ctx);
+    expect(continuation.message.content).toContain("evidence-epoch=1");
+    const mutation = await f.handlers.get("tool_call")!({ toolName: "write", toolCallId: "resume-before-join", input: { path: "src/product.ts", content: "blocked" } }, f.ctx);
+    expect(mutation.reason).toContain("join pending");
+    await f.child(); await f.wait();
+    expect((await f.joinReader()).details.joined).toBe(true);
+    const reused = await f.handlers.get("before_agent_start")!({ prompt: "", systemPrompt: "base" }, f.ctx);
+    expect(reused.message.content).toContain("reused-work-unit");
+    expect(reused.message.content).toContain("evidence-epoch=1");
+  } finally { f.close(); }
+});
+
+test("real non-extension steer still invalidates a pending Reader instead of rebinding its epoch", async () => {
+  const f = await fixture();
+  try {
+    await f.spawn();
+    await f.handlers.get("input")!({ text: "new work unit", streamingBehavior: "steer", source: "interactive" }, f.ctx);
+    await expect(f.joinReader()).rejects.toThrow();
+  } finally { f.close(); }
+});

@@ -295,6 +295,11 @@
           "description": "Fixture copy regression: exclude root runtime scratch only, preserve nested canonical tmp, and fail closed on broken canonical links."
         },
         {
+          "path": "tests/runtime-continuation-bootstrap.md",
+          "kind": "file",
+          "description": "Regression for evidence-bound synthetic continuation recovery and honest partial-target activation previews."
+        },
+        {
           "path": "spec/platform/package-health-generate-remediation.md",
           "kind": "file",
           "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."

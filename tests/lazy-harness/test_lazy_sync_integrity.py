@@ -67,6 +67,12 @@ def run_case(name, output):
         git(source, 'commit', '-qm', 'initial')
         old_sha = git(source, 'rev-parse', 'HEAD')
         shutil.copytree(source / '.lazy-harness', host / '.lazy-harness')
+        if name.startswith('partial-'):
+            shutil.rmtree(host / '.lazy-harness')
+            put(host, '.lazy-harness/tests/tracked-host.md', 'tracked host fact\n')
+            put(host, '.lazy-harness/artifacts/keep.txt', 'host artifact\n')
+            git(host, 'add', '.lazy-harness/tests/tracked-host.md')
+            git(host, 'commit', '-qm', 'host baseline')
         put(source, '.lazy-harness/required.txt', 'updated required\n')
         for key in ('capabilities', 'policies'):
             put(host, f'.lazy-harness/ssot/{key}.json', json.dumps({
@@ -84,15 +90,21 @@ def run_case(name, output):
         head = git(source, 'rev-parse', 'HEAD')
         marker = '.lazy-harness/state/synced-from-commit'
         marker_sha = head if name == 'dirty-equal' else old_sha
-        if name != 'unknown-marker':
+        if name != 'unknown-marker' and not name.startswith('partial-'):
             put(host, marker, json.dumps({'syncedFromCommit': marker_sha, 'sourceRoot': str(source)}))
         if name.startswith('dirty-'):
             put(source, '.lazy-harness/required.txt', 'uncommitted source\n')
+        if name == 'activation-spawn-failure':
+            original = (source / '.lazy-harness/bin/lazy').read_text()
+            put(source, '.lazy-harness/bin/lazy', '#!/missing-sync-fixture-interpreter\n' + original.split('\n', 1)[1])
+            git(source, 'add', '.lazy-harness/bin/lazy')
+            git(source, 'commit', '-qm', 'fixture activation spawn failure')
+            head = git(source, 'rev-parse', 'HEAD')
         if name == 'activation-failure':
             put(host, '.pi/settings.json', '{bad')
         before = snapshot(host)
         flags = ['--force'] if name.endswith('-force') else []
-        if name == 'clean-dry-run':
+        if name in ('clean-dry-run', 'partial-dry-run'):
             flags.append('--dry-run')
         env = {k: v for k, v in os.environ.items() if not k.startswith(('GIT_', 'LAZY_'))}
         env.update(LAZY_HOST_ROOT=str(host), LAZY_RUNTIME_ROOT=str(base / 'runtime'),
@@ -107,15 +119,20 @@ def run_case(name, output):
         if name == 'unknown-marker':
             # The governing record conflicts (warn versus exit 2); observe, do not invent policy.
             assertions['host memory preserved'] = after['.lazy-harness/domain/host.md'] == before['.lazy-harness/domain/host.md']
-        elif name.startswith(('missing-required', 'malformed-')) or name in ('dirty-behind', 'dirty-equal', 'activation-failure'):
+        elif name.startswith(('missing-required', 'malformed-')) or name in ('dirty-behind', 'dirty-equal', 'activation-failure', 'activation-spawn-failure'):
             assertions['nonzero exit'] = result.returncode != 0
             assertions['marker byte-identical'] = after.get(marker) == before.get(marker)
             assertions['no success publication'] = '✓ Synced.' not in text and '✓ marker updated' not in text
-            if name != 'activation-failure':
+            if name not in ('activation-failure', 'activation-spawn-failure'):
                 assertions['host byte-identical'] = after == before
             if name.startswith('dirty-'):
                 assertions['dirty denial exit 2'] = result.returncode == 2 and '[Drift] ahead:' in text
-        elif name == 'clean-dry-run':
+        elif name in ('clean-dry-run', 'partial-dry-run'):
+            assertions['dry-run succeeds'] = result.returncode == 0
+            assertions['host byte-identical'] = after == before
+            if name == 'partial-dry-run':
+                assertions['no target CLI fabricated'] = not (host / '.lazy-harness/bin/lazy').exists()
+                assertions['activation honestly planned'] = 'activation planned after managed CLI installation (not checked)' in text
             assertions['dry-run succeeds'] = result.returncode == 0
             assertions['host byte-identical'] = after == before
         else:
@@ -127,6 +144,11 @@ def run_case(name, output):
                 data = json.loads(after[f'.lazy-harness/ssot/{key}.json'])
                 rows = {r['id']: r for r in data[key]}
                 assertions[f'{key} ownership retained'] = data['hostMetadata'] and rows['shared']['value'] == 'host' and 'host-only' in rows and 'new-seed' in rows
+        if name.startswith('partial-'):
+            assertions['all non-registry original bytes preserved'] = all(after.get(p) == data for p, data in before.items() if p not in ('.lazy-harness/ssot/capabilities.json', '.lazy-harness/ssot/policies.json'))
+            assertions['no tracked source delta'] = not git(host, 'diff', '--name-only')
+        if name == 'activation-spawn-failure':
+            assertions['spawn reason retained'] = 'ENOENT' in text and 'stderr.trim' not in text
         assertions['host memory preserved'] = after['.lazy-harness/domain/host.md'] == before['.lazy-harness/domain/host.md']
         if output:
             (output / f'{name}.log').write_text(json.dumps(command) + '\n' + text, encoding='utf-8')
@@ -143,6 +165,7 @@ def main():
     cases += [f'malformed-{side}-{key}-{form}' for side in ('source', 'host')
               for key in ('capabilities', 'policies') for form in ('syntax', 'shape')]
     cases += ['clean-sync', 'dirty-behind-force', 'clean-dry-run', 'activation-failure', 'unknown-marker']
+    cases += ['partial-dry-run', 'partial-apply', 'activation-spawn-failure']
     started = time.monotonic()
     results = [run_case(case, output) for case in cases]
     report = {'results': results, 'passed': sum(r['passed'] for r in results),
