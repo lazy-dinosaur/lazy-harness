@@ -161,3 +161,16 @@ Implementation map: `tests/lazy-harness/reader-status-fixture-scope.test.py#Read
 | BDD | No independent delta: production/user flow is unchanged. |
 | SSOT | No independent delta: no actual root/config/provider ownership changes. |
 | DDD | No independent delta: no domain vocabulary or business rule change. |
+
+
+### Approved Reader publication integration — preserve peer macOS repairs
+
+The user explicitly selected option 1 (latest-main isolated integration and publication), and required inspecting other agents' macOS repairs before proceeding: another agent's implementation may be more appropriate and must not be overwritten merely to prefer this work unit's earlier code. This is a confirmed task-specific preservation constraint, not permission to import unrelated changes or alter global settings.
+
+Direct review identified LH-11's immutable b9c4cee34760dc216ebc9b486dc3d0e62738d3f3 candidate, whose parent is exactly published main 386ef96a95b6f645ff8f3b9201a7d556ede46202. Its source/terminal evidence was read, not inferred from a completion notification. The Reader extension/test blob identities match the earlier selected implementation, while the peer's merged records/prompt preserve the independently published digest/focused-map/shared-strategy/ADR-0060/fixture-scope work. LH-13 confirmed read-only investigation and no source/runtime modifications.
+
+The isolated Reader subset adopts the peer's better macOS solution rather than weakening assertions or production guards: physically independent dependency directories, the message hook's two terminal-X mktemp templates, and the upstream Reader-status fixture's single base.resolve canonicalization. The latter is the mechanical portability follow-up mapped above. Response/private-PAYLOAD_DIR/file-payload transport, its 20 decoder consumers and independent tests/records remain a separate peer-owned closure; none is silently included in this publication.
+
+Implementation map: `.lazy-harness/hooks/lifecycle/on-message-received.sh` owns only the primary/fallback payload temporary-file templates; `.lazy-harness/scripts/self-test.py#check_message_received_hook_context_injection` already protects missing-TMPDIR fallback. `tests/lazy-harness/reader-status-fixture-scope.test.py#ReaderStatusFixtureScopeTests.setUpClass` retains exact real host/worktree assertions after canonicalizing its owned fixture. Existing Reader graph entries plus `kg_reader_status_fixture_canonical_root` are retained; the independent payload-transport graph entries are excluded. This introduces no new API, user flow, ownership/config rule or domain concept beyond the existing SDD/BDD/SSOT/DDD no-independent-delta matrix.
+
+Execution boundary: preserve the original working checkout's HEAD and 17-file index, all other uncommitted changes and the peer's frozen candidate. Integrate only the selected logical Reader changes and those two minimal macOS files on the published-main base in a separate repository. Validate that exact subset afresh; the peer's broader full-suite pass is not reused as its proof. Use the existing normal commit hook and non-forced push only after the subset's checks pass; stop on remote advancement or a newly required semantic scope change. No package installation, global rebind or downstream host sync is part of this work unit.

@@ -290,6 +290,11 @@
           "description": "Regression contract separating framework prose assertions from host-owned Category B documents while retaining BOTH runtime checks."
         },
         {
+          "path": "tests/harness-fixture-runtime-isolation.md",
+          "kind": "file",
+          "description": "Fixture copy regression: exclude root runtime scratch only, preserve nested canonical tmp, and fail closed on broken canonical links."
+        },
+        {
           "path": "spec/platform/package-health-generate-remediation.md",
           "kind": "file",
           "description": "SDD standard for D07 package health one-shot generate remediation and typecheck retry when generated-artifact drift is suspected."

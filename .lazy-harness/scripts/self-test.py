@@ -4206,11 +4206,50 @@ def check_gate_state_cli_and_record_audit_source_guard() -> None:
     print("✓ gate-state CLI and record-audit source guard ok")
 
 
+def copy_harness_fixture(source: pathlib.Path, destination: pathlib.Path, ignored: tuple[str, ...]) -> None:
+    """Copy canonical fixture input, not the host's top-level runtime scratch tree."""
+    existing_ignore = shutil.ignore_patterns(*ignored)
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        omitted = existing_ignore(directory, names)
+        if pathlib.Path(directory) == source:
+            omitted.add("tmp")
+        return omitted
+
+    shutil.copytree(source, destination, ignore=ignore)
+
+
+def check_harness_fixture_runtime_isolation() -> None:
+    with tempfile.TemporaryDirectory(prefix="harness-fixture-copy-") as directory:
+        root = pathlib.Path(directory)
+        source = root / "source"
+        scratch = source / "tmp" / "pr-review"
+        scratch.mkdir(parents=True)
+        (scratch / "dangling").symlink_to(root / "missing-runtime-target")
+        canonical = source / "fixtures" / "tmp" / "keep.txt"
+        canonical.parent.mkdir(parents=True)
+        canonical.write_text("canonical fixture", encoding="utf-8")
+        destination = root / "copied"
+        copy_harness_fixture(source, destination, (".cache", "state"))
+        if (destination / "tmp").exists():
+            fail("fixture copy included host runtime scratch")
+        if (destination / "fixtures" / "tmp" / "keep.txt").read_text(encoding="utf-8") != "canonical fixture":
+            fail("fixture copy lost nested canonical tmp input")
+        (source / "broken-canonical").symlink_to(root / "missing-canonical-target")
+        try:
+            copy_harness_fixture(source, root / "must-fail", ())
+        except shutil.Error:
+            pass  # Expected: canonical broken links still fail closed.
+        else:
+            fail("fixture copy silently ignored a broken canonical link")
+    print("harness fixture runtime isolation ok")
+
+
 def check_lifecycle_fixture_intake_cli() -> None:
     """Real payload intake must store safe metadata only and feed parity fixtures."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-lifecycle-intake-"))
     try:
-        shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "logs", "state", "node_modules"))
+        copy_harness_fixture(ROOT / ".lazy-harness", temp / ".lazy-harness", (".cache", "logs", "state", "node_modules"))
         env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(temp))
         raw_payload = {
             "message_id": "raw-message-id",
@@ -4893,7 +4932,7 @@ def check_response_completed_no_auto_route_telemetry() -> None:
     """response.completed must not automatically run route/user-text classifiers; hook timing still works."""
     temp = pathlib.Path(tempfile.mkdtemp(prefix="no_route_auto_"))
     try:
-        shutil.copytree(ROOT / ".lazy-harness", temp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state"))
+        copy_harness_fixture(ROOT / ".lazy-harness", temp / ".lazy-harness", (".cache", "state"))
         subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         telemetry = temp / ".git" / "lazy-harness" / "shared" / "logs" / "route-decisions.jsonl"
         if telemetry.exists():
@@ -13381,6 +13420,7 @@ def main() -> None:
         (check_guidance_ladder_hard_stop_promotion, "BOTH"),
         (check_pre_commit_runs_lazy_test, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
+        (check_harness_fixture_runtime_isolation, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),
         (check_capability_registry_cli_phase1, "BOTH"),
         (check_project_operating_rulebook_cli, "BOTH"),
