@@ -13,7 +13,8 @@ SOURCE = Path(os.environ.get('LAZY_AFFECTED_SOURCE') or Path(__file__).resolve()
 class AffectedRepositoryRouting(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='affected two repositories ')
-        self.base = Path(self.temp.name)
+        # Bun/Git expose the physical cwd (e.g. macOS /private/var), not a TMPDIR alias.
+        self.base = Path(self.temp.name).resolve()
         self.host = self.base / 'session host'
         self.host.mkdir()
         self.env = {k: v for k, v in os.environ.items() if not k.startswith(('GIT_', 'LAZY_', 'JCODE_'))}

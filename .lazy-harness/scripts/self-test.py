@@ -2135,12 +2135,8 @@ def check_pi_package_layout_and_contract() -> None:
             if not isinstance(values, list) or expected not in values:
                 fail(f"Pi package manifest missing {manifest_key}.{key} entry {expected!r}")
     pi_manifest = data.get("pi") if isinstance(data.get("pi"), dict) else {}
-    pi_subagents = pi_manifest.get("subagents") if isinstance(pi_manifest.get("subagents"), dict) else {}
-    if "./agents" not in (pi_subagents.get("agents") or []):
-        fail("Pi package manifest missing pi.subagents.agents './agents'")
-    package_subagents = data.get("pi-subagents") if isinstance(data.get("pi-subagents"), dict) else {}
-    if "./agents" not in (package_subagents.get("agents") or []):
-        fail("Pi package manifest missing pi-subagents.agents './agents'")
+    if "subagents" in pi_manifest or "pi-subagents" in data:
+        fail("Pi Reader must not register with the removed pi-subagents package")
 
     reader_text = reader.read_text(encoding="utf-8")
     for phrase in [
@@ -2292,16 +2288,16 @@ def check_pi_package_layout_and_contract() -> None:
 
     prompt_text = prompt.read_text(encoding="utf-8")
     for phrase in [
-        "Omit `toolBudget` entirely",
+        "Do not pass old Agent Contract/acceptance/output/artifacts/toolBudget flags",
         "including `2>/dev/null`",
-        "drain its notification before emitting one final answer",
-        "without an incomplete join",
-        "new host-dependent work unit",
+        "drain the Fabric result and answer once",
+        "pi-subagents is not required",
+        "new host-dependent Pi work unit",
         "lazy-harness.record-reader",
         "Parent lane for source/tests",
         "LAZY_HARNESS_READER_RESULT: complete|incomplete|conflict",
         "lazy_reader_join",
-        "process-complete acknowledgement alone is insufficient",
+        "Completion/status/automatic notification alone is not a join",
         "model:",
         "task model must equal",
         "maxReadCalls:",
@@ -2362,7 +2358,7 @@ def check_pi_package_layout_and_contract() -> None:
         "phase=armed|debug",
         "hook=<detail>",
         "lazy-harness.record-reader",
-        "Agent Contract v1",
+        "Pi Fabric",
         "lazy_reader_join",
         "process-complete acknowledgement alone is not a join",
         "model:",
@@ -3240,6 +3236,11 @@ def check_pi_package_layout_and_contract() -> None:
             fail("Pi ensureAskToolActive smoke failed:\n" + completed.stdout + completed.stderr)
     finally:
         shutil.rmtree(ask_smoke, ignore_errors=True)
+
+    fabric_regression = pkg_root / "tests" / "fabric-reader.test.ts"
+    completed = subprocess.run(["bun", "test", str(fabric_regression), str(pkg_root / "tests" / "fabric-reader-policy-sdk.test.ts")], cwd=ROOT, text=True, capture_output=True, check=False, timeout=120, env=env_without_lazy_runtime())
+    if completed.returncode != 0:
+        fail("Pi Fabric Reader regression failed:\n" + completed.stdout + completed.stderr)
 
     print("✓ Pi package layout and extension contract ok")
 
@@ -7291,7 +7292,8 @@ def check_architecture_guidance_cli() -> None:
         return {}
 
     with tempfile.TemporaryDirectory() as tmp:
-        root = pathlib.Path(tmp)
+        # Compare proposal identities against the same physical root used by subprocesses.
+        root = pathlib.Path(tmp).resolve()
         harness = root / ".lazy-harness"
 
         def copy_asset(source_relative: str, target_relative: str | None = None) -> pathlib.Path:
@@ -13031,7 +13033,8 @@ def check_read_debt_permit_generic_external_action() -> None:
     helper = LAZY / "hooks" / "lifecycle" / "helpers" / "check-read-debt-permit.py"
     if not helper.exists():
         fail("read-debt helper missing: " + str(helper))
-    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-"))
+    # The hook canonicalizes LAZY_HOST_ROOT; fixture context must use that exact identity.
+    temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-read-debt-generic-")).resolve()
     try:
         subprocess.run(["git", "init", "-q"], cwd=temp, env=env_without_lazy_runtime(), check=True)
         shutil.copytree(LAZY / "hooks", temp / ".lazy-harness" / "hooks")

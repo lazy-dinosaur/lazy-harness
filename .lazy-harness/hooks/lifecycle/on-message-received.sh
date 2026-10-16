@@ -8,10 +8,11 @@
 
 set +e
 
-PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/lazy-harness-message.XXXXXX.json" 2>/dev/null || true)"
+# BSD and GNU mktemp require the random suffix at the end of the template.
+PAYLOAD_FILE="$(mktemp "${TMPDIR:-/tmp}/lazy-harness-message.XXXXXX" 2>/dev/null || true)"
 if [ -z "$PAYLOAD_FILE" ] && [ "${TMPDIR:-/tmp}" != "/tmp" ]; then
   # A stale/missing caller TMPDIR must not silently erase a valid pre-turn payload.
-  PAYLOAD_FILE="$(mktemp "/tmp/lazy-harness-message.XXXXXX.json" 2>/dev/null || true)"
+  PAYLOAD_FILE="$(mktemp "/tmp/lazy-harness-message.XXXXXX" 2>/dev/null || true)"
 fi
 if [ -n "$PAYLOAD_FILE" ]; then
   cat > "$PAYLOAD_FILE" || true

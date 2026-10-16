@@ -7,6 +7,10 @@ Related SSOT: `.lazy-harness/ssot/cli-tool-boundary.md`
 Related SDD: `.lazy-harness/spec/platform/pre-response-rule-context.md`
 Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
 
+## Current Pi transport — Fabric supersession
+
+The approved current Pi path is `lazy_reader_request` → unchanged request to Pi Fabric `agents.spawn` → content-bearing `agents.wait`/`agents.join` → existing `lazy_reader_join`. Pi-subagents is not required or registered. The older isolated-integration and subagent-notify descriptions below are historical compatibility context, superseded for new Pi work units by the Fabric implementation map at the end of this record. The separate OMP native task transport is unchanged. Authenticated live retrieval is still blocked by the observed expired openai-codex token; offline regression is not a live success claim.
+
 ## Rule digest
 
 - Status: active
@@ -29,8 +33,9 @@ Related TDD: `.lazy-harness/tests/pre-action-search-evidence-guard.md`
   - store only sanitized search/read debt rows in `$LAZY_RUNTIME_ROOT/state/search-read-debt.jsonl`
   - keep debt rows static/protocol-level, not selected by a raw user-text classifier
   - use safe message/session hashes and bounded counters, never raw prompts or transcripts
-  - keep direct Parent map/read as the unavailable/non-complete/stale Reader fallback while the isolated Reader implementation awaits main integration
+  - keep direct Parent map/read as the unavailable/non-complete/stale Reader fallback; never require pi-subagents as a fallback dependency
   - make the accepted target launch one dedicated Reader to inventory and read relevant canonical harness records across DDD/SDD/BDD/TDD/ADR/SSOT/Planning
+  - use the one-shot Pi Fabric Reader without pi-subagents registration/installation; preserve explicit model/read budgets/packet/join and the separate OMP native task path
   - let the Parent concurrently inspect source/tests or immediately needed behavior
   - require the content-bearing Reader response—not only a child completion acknowledgement—before Parent plan, mutation, or host-specific completion
   - permit only one-shot read-only status/transcript inspection of the exact pending Reader run bound to the current root/evidence epoch; status output never supplies canonical evidence or closes the join
@@ -102,7 +107,35 @@ The isolated worktree now narrows current debt behavior with exact Reader launch
 
 The isolated Pi adapter exposes one dedicated `lazy-harness.record-reader` role through the package. Parent grammar launches it asynchronously and continues the source/test lane. The task binds lazy root, revision, model, evidence epoch, user task, `maxReadCalls`, `maxRequestedLines`, and derived `maxLinesPerRead=floor(maxRequestedLines/maxReadCalls)`; the Parent does not preselect record nodes.
 
-User-confirmed Reader model update: use explicit `openai-codex/gpt-6-luna:low` in the launch and task envelope, replacing `gpt-5.6-luna:low` because the user selected the newly available GPT-6 Luna while retaining low reasoning. The session model registry confirms `openai-codex/gpt-6-luna` is registered; registration is not a live inference test. Parent launch guidance in `.lazy-harness/AGENTS.md`, `packages/lazy-harness-pi/prompts/lazy-harness.md`, and `packages/lazy-harness-pi/README.md` carries this selection. Historical evidence keeps the actual model originally used; package-agent inheritance and separately approved task overrides remain unchanged.
+Current user-confirmed Reader default: use explicit `openai/gpt-6-luna:low` in both the launch and task envelope. Preserve the previously selected GPT-6 Luna and low thinking, but use the current openai provider rather than the obsolete openai-codex OAuth route. The active root session and model registry confirm the current provider and registered Luna model; registry presence is not a live inference result. `.lazy-harness/AGENTS.md`, `packages/lazy-harness-pi/prompts/lazy-harness.md`, `packages/lazy-harness-pi/README.md`, and `FABRIC_READER_DEFAULT_MODEL` carry the same default. Historical failed receipts retain their actual old provider and model; separate task-specific overrides remain explicit.
+
+
+User correction — provider and transport parity: the user reported the provider change and rejected leaving the Reader on the old openai-codex authentication route. This is a default-routing correction, not a request to refresh obsolete-provider login credentials. Current active guidance is now changed to `openai/gpt-6-luna:low`. Global authentication, installed Fabric packages and their settings remain owned by the separate runtime-maintenance work unit and are not edited here.
+
+The user reaffirmed transport-only parity: the dedicated Reader runs asynchronously in parallel with Parent source/test work, loads its existing dedicated prompt and canonical records, and supplies a content-bearing result at the join point. The first Fabric implementation shared only the prompt body and did not map all frontmatter. The restoration now parses and validates the existing definition, rejects unsupported/duplicate/changed fields, applies replace/no-project-context/no-skills prompt options, preserves fresh seed/read-only tool ceilings, validates the declared child guard module and records its contract hash in the runtime-owned ledger. Parent may read source while Reader is pending; mutation still waits for join. A discussion of serial self-test phases must not be presented as serializing Reader execution.
+
+The user explicitly reapproved implementation with “정확하게 다시 가져와”. The restoration maps the canonical definition's soft 12 assistant turns plus 2 grace turns with wrap-up guidance and a hard abort before an additional tool cycle. This is separate from record-body budgets. The currently installed pi-subagents compatibility package marks its own turn-budget metadata deprecated/not enforced; it is a reference limitation, not proof that the framework's declared budget was actually enforced there. This restoration implements the existing canonical definition rather than claiming that obsolete metadata was previously guaranteed by that external package. No new concurrency model, Reader ownership, product behavior, global install or auth change is introduced.
+
+
+### Exact declared-role mapping and protection
+
+| Existing definition | Fabric adapter mapping |
+| --- | --- |
+| Dedicated name/package/body | Validated by `parseFabricReaderDefinition`; body reused verbatim, with tool-syntax encoding outside it. Unsupported/duplicate metadata fails preparation. |
+| `systemPromptMode: replace` | `applyFabricReaderPrompt` sets the forced/custom system prompt and clears inherited append/section text. |
+| `inheritProjectContext:false`, `inheritSkills:false` | SDK `contextFiles`, `skills`, inherited sections and guidelines are cleared before the first model call. |
+| `defaultContext:fresh` | `seed:task`, no branch/snippet seed; no Parent conversation is supplied. |
+| `acceptanceRole:read-only`, tools `read,grep,bash` | Fresh read-only Fabric request retains the exact tool ceiling; canonical record/bash checks remain hook-enforced. No separate writer/acceptance workflow is introduced. |
+| `subagentOnlyExtensions` | The definition must name the canonical package guard; the actual child handler verifies its module path. Its contract hash/guard identity must appear in the runtime-owned ledger or Parent join rejects it. Missing bootstrap is not accepted as parity. |
+| `output:false` | The model cannot write output files; Fabric's own process/session/runtime-meter artifacts remain native runtime scratch, not canonical proof artifacts. |
+| `turnBudget:12+2` | Assistant messages, not body reads, are counted; soft wrap-up at 12, two grace responses, hard abort before another tool cycle at the ceiling. Exhaustion cannot be relabeled complete at join. |
+| Parent/Reader parallel join | Spawn returns a handle immediately; Parent source reads remain admitted while Reader is pending; mutations remain blocked. Wait only at the merge point, then consume the outer-visible packet before join. |
+
+Implementation map: `packages/lazy-harness-pi/extensions/lazy-harness/fabric-reader-policy.ts` owns `parseFabricReaderDefinition`, `applyFabricReaderPrompt`, `advanceFabricReaderTurn`, `validateFabricReaderPolicy`, and the current default constant. `fabric-reader.ts` uses that same definition instead of independently stripping metadata. The shared adapter's message/context/tool hooks enforce the policy; the launch-bound policy hash and guard path are checked in `readDeliveredReaderLedger`.
+
+Protection: `packages/lazy-harness-pi/tests/fabric-reader.test.ts` covers metadata rejection, inherited-section removal, canonical provider guidance, Parent reads while pending, grace completion, hard-limit abort and missing guard stamps. `packages/lazy-harness-pi/tests/fabric-reader-policy-sdk.test.ts` uses a real SDK `ExtensionRunner` and in-memory fresh session with networking disabled to prove prompt replacement, 12+2 wrap-up/abort, and subsequent read denial. The first SDK run caught a hard-limit check accidentally nested inside the OMP normalization branch (60 other checks passed); the check was moved to the common Reader boundary, then the changed Fabric/SDK suite passed 29/29 in 1.438s and Pi typecheck passed. The earlier shared guidance/OMP focused checks passed; no OMP behavior change is introduced. Standard package validation invokes both Fabric regression files.
+
+Live boundary: the separate runtime-maintenance session reported an incomplete global Fabric update and a stale project `/home/...` package binding on this macOS host. This source-restoration work does not install/repair/restart global tools, change those bindings or launch a child during that unstable installation state. Source/SDK parity checks are not an authenticated live Fabric success claim. User/provider correction and runtime-install recovery are separate owners.
 
 The Reader returns a bounded packet with exact marker `complete|incomplete|conflict`, policies/facts/conflicts/missing/paths, cumulative budget values, `maxLinesPerRead`, `maxObservedReadLimit`, and failed-tool count. Every body read uses an explicit limit no larger than the derived cap. Process completion alone cannot close the join.
 
@@ -201,3 +234,35 @@ A non-extension Pi/OMP `input` event with `streamingBehavior === "steer"` is a g
 Each allowed tool call is tagged in memory with the current evidence epoch. Its `tool_result` may enter the recent evidence cache only when the recorded start epoch still equals the current root epoch. This prevents a slow or parallel tool that started before the steer from repopulating the cache after invalidation. The existing pre-action guard then applies unchanged: read-only map/read work remains available, while a later action blocks until fresh post-steer evidence exists.
 
 `lazy find --purpose ...`, long free-form `lazy map` input, invented `--query` syntax, and keyword grep/rg/find fallback are invalid retrieval evidence because they imply CLI/tool-owned semantic search.
+
+
+## Discovery capture — Pi Fabric Reader migration request
+
+- User-confirmed objective: migrate the existing Pi subagents-based dedicated Reader to Pi Fabric. The user selected the one-shot Fabric agent replacement option, preserving the model, read limits, result packet, and join checks rather than introducing a persistent actor.
+- Additional user-confirmed constraint: the user intends to delete `pi-subagents`. The migrated Pi Reader must therefore work without that package being installed or loaded; keeping it as a required legacy launch, completion-notification, registration, or ledger dependency would not satisfy the request. Package removal itself remains user-owned; this statement does not authorize the agent to uninstall global packages or modify global settings.
+- Implementation status: the user explicitly instructed continuing after the pi-subagents-removal constraint. Revised execution approval covers a dependency-free one-shot Fabric Reader, existing model/read limits/packet/join preservation and focused regression tests. OMP, unrelated subagent use and global uninstall remain outside the mutation scope. Direct Parent retrieval remains the non-complete/unavailable fallback; no pi-subagents fallback is required.
+- Read-only investigation: the current package contains `extensions/lazy-harness/reader-transport.ts` (`ReaderTransport`, `ReaderLaunchIdentity`, `ReaderDelivery`), and `extensions/lazy-harness/index.ts` still handles `subagent-notify`, subagent admission and `lazy_reader_join`. These are the observed implementation seams, not a completed Fabric implementation.
+- Current-session blocker: an explicit fresh asynchronous legacy Reader launch failed before startup because the installed Pi host did not provide `@earendil-works/pi-agent-core/node`, `@earendil-works/chord`, and `@earendil-works/chord/context`. Parent used the direct overview → concrete-node drill → canonical-read fallback; no complete Reader result or successful join is claimed.
+- Discovery capture: this primary SDD owns the migration objective and implementation. Pi package subagent registrations are removed; OMP native transport and unrelated pre-existing working-tree changes are preserved. `lazy_reader_request` creates fixed fresh/read-only Fabric options; native spawn and visible wait proxies bind the host-issued run, while a hook-owned sessionless meter supplies the existing join checks. Legacy parser compatibility remains only for old fixtures/sessions, not a required runtime dependency.
+- Parent delivery boundary: a nested Fabric wait result remains pending until its owning outer fabric_exec result. The adapter appends the exact owned packet to that actual Parent-visible result, so guest summary-only returns cannot hide the packet and same-program premature joins remain blocked. The regression includes this boundary.
+
+### Implementation map — Fabric Reader
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/fabric-reader.ts`: `fabricReaderRequest` and `fabricReaderPrompt` construct the package-owned one-shot request; `validateFabricReaderSpawn` and `fabricReaderProxyResult` validate exact request/handle and visible native content; `persistFabricReaderLedger` mirrors the actual hook-owned meter for Fabric's `--no-session` workers under OS runtime scratch, keyed by host-issued lineage run id. Model prose cannot choose the ledger path or its counters.
+- `packages/lazy-harness-pi/extensions/lazy-harness/index.ts`: `lazy_reader_request` registers preparation, native `agents.spawn`/`agents.wait`/`agents.join` proxies bind the current root/epoch/run; existing `readDeliveredReaderLedger`/`lazy_reader_join` revalidate terminal identity, budgets, successful record hashes and changed-file fingerprints. Wrong/failing/truncated/detail-only results never join. Spawn failure can explicitly enable direct fallback without a run id.
+- `packages/lazy-harness-pi/package.json`: removes Pi subagents discovery metadata; `agents/record-reader.md` remains the shared canonical body consumed directly by Fabric preparation and OMP's unchanged definition generator.
+- `.lazy-harness/AGENTS.md`, `packages/lazy-harness-pi/prompts/lazy-harness.md`, `packages/lazy-harness-pi/README.md`: document prepare → spawn → Parent source lane → visible wait → join, no old transport flags, and direct Parent fallback.
+- Protection: `packages/lazy-harness-pi/tests/fabric-reader.test.ts` covers dependency-free registration, successful hook-meter join, changed options/model/runner, wrong-id/failed/indeterminate/detail-only results, read failures/over-cap, missing meter, fingerprint changes, pending mutation, failed spawn and post-steer stale results. Existing Reader and OMP tests protect shared behavior. `.lazy-harness/scripts/self-test.py#check_pi_package_layout_and_contract` protects the new manifest/guidance.
+- Validation evidence: first focused checkpoint had 206 pass / 1 fail (the over-cap read was correctly denied, but the test expected the later failed-budget error rather than the earlier positive-counter rejection). The assertion was corrected and that failure-only case passed. After completing the outer Parent-delivery boundary, the Fabric-focused suite passed 20/20 in 0.84s, and Pi typecheck passed. The earlier shared Reader/OMP suite's unchanged checks passed; lazy check passed. Final standard validation is the next checkpoint. No authenticated successful live retrieval/join is claimed.
+- Historical Fabric smoke: native `agents.spawn` used `openai-codex/gpt-6-luna`, low thinking, and `agents.wait` reported token expiry before any tool call (one turn, zero tools). Preserve this as the actual prior failed run. The user has since corrected the provider to openai; refreshing the obsolete provider is not the current recovery instruction. A new live success must be observed on the corrected route after the separately maintained Fabric installation is stable.
+- Actual native meter readback: the failed Fabric smoke did initialize the new child hook-owned ledger with matching root/revision/epoch/model and actual Pi session identity, a terminal flag and the exact Fabric run id. It contained zero body reads/lines/paths, consistent with the token-expiry failure before tools. Thus process launch, package child-hook loading and runtime-meter persistence were observed; successful record loading and live join were not.
+
+### Layer impact — Fabric migration
+
+| Layer | Decision |
+| --- | --- |
+| SDD | Independent delta recorded here: transport/request/result/ledger contract moves to Pi Fabric. |
+| BDD | No independent product-flow delta; Parent/Reader ownership and final-answer behavior are preserved. Runtime usage guidance is updated in package prompts. |
+| SSOT | No independent ownership/config delta; existing model and user-owned global package removal are preserved. Runtime scratch is non-canonical. |
+| DDD | No independent delta; no new domain term or business rule. |
+| TDD | Protection is linked above in this primary SDD; no separate bug narrative is promoted. |

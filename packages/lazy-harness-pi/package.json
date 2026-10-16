@@ -12,18 +12,12 @@
   "pi": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
-    "prompts": ["./prompts"],
-    "subagents": {
-      "agents": ["./agents"]
-    }
+    "prompts": ["./prompts"]
   },
   "omp": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"]
-  },
-  "pi-subagents": {
-    "agents": ["./agents"]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

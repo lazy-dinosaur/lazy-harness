@@ -30,7 +30,7 @@ class ReaderStatusFixtureScopeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="lazy-reader-status-scope-")
         cls.addClassCleanup(cls.temp.cleanup)
-        cls.base = Path(cls.temp.name)
+        cls.base = Path(cls.temp.name).resolve()
         cls.host = cls.base / "host"
         cls.host.mkdir()
         env = load(SCRIPT, ROOT, "framework").__globals__["env_without_lazy_runtime"]()
