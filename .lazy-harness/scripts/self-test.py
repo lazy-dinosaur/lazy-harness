@@ -4222,7 +4222,7 @@ def copy_harness_fixture(source: pathlib.Path, destination: pathlib.Path, ignore
 def check_harness_fixture_runtime_isolation() -> None:
     with tempfile.TemporaryDirectory(prefix="harness-fixture-copy-") as directory:
         root = pathlib.Path(directory)
-        source = root / "source"
+        source = root / "host" / ".lazy-harness"
         scratch = source / "tmp" / "pr-review"
         scratch.mkdir(parents=True)
         (scratch / "dangling").symlink_to(root / "missing-runtime-target")
@@ -4235,6 +4235,18 @@ def check_harness_fixture_runtime_isolation() -> None:
             fail("fixture copy included host runtime scratch")
         if (destination / "fixtures" / "tmp" / "keep.txt").read_text(encoding="utf-8") != "canonical fixture":
             fail("fixture copy lost nested canonical tmp input")
+        parity_runner = runpy.run_path(
+            str(LAZY / "scripts" / "lifecycle-parity-runner.py"),
+            run_name="fixture_runtime_isolation_parity_runner",
+        )
+        parity_copy = parity_runner["copy_host"](source.parent)
+        try:
+            if (parity_copy / ".lazy-harness" / "tmp").exists():
+                fail("parity copy included host runtime scratch")
+            if (parity_copy / ".lazy-harness" / "fixtures" / "tmp" / "keep.txt").read_text(encoding="utf-8") != "canonical fixture":
+                fail("parity copy lost nested canonical tmp input")
+        finally:
+            shutil.rmtree(parity_copy)
         (source / "broken-canonical").symlink_to(root / "missing-canonical-target")
         try:
             copy_harness_fixture(source, root / "must-fail", ())
@@ -4242,6 +4254,12 @@ def check_harness_fixture_runtime_isolation() -> None:
             pass  # Expected: canonical broken links still fail closed.
         else:
             fail("fixture copy silently ignored a broken canonical link")
+        try:
+            parity_runner["copy_host"](source.parent)
+        except shutil.Error:
+            pass  # The separate parity copy path must also fail closed.
+        else:
+            fail("parity copy silently ignored a broken canonical link")
     print("harness fixture runtime isolation ok")
 
 

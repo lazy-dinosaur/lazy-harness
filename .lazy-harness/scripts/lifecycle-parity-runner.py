@@ -155,7 +155,20 @@ def real_payload_candidate_fixtures(root: Path) -> list[dict[str, Any]]:
 
 def copy_host(root: Path) -> Path:
     tmp = Path(tempfile.mkdtemp(prefix="lazy_lifecycle_parity_"))
-    shutil.copytree(root / ".lazy-harness", tmp / ".lazy-harness", ignore=shutil.ignore_patterns(".cache", "state", "logs/hook-timings.jsonl"))
+    harness = root / ".lazy-harness"
+    existing_ignore = shutil.ignore_patterns(".cache", "state", "logs/hook-timings.jsonl")
+
+    def ignore_runtime(directory: str, names: list[str]) -> set[str]:
+        omitted = existing_ignore(directory, names)
+        if Path(directory) == harness:
+            omitted.add("tmp")
+        return omitted
+
+    try:
+        shutil.copytree(harness, tmp / ".lazy-harness", ignore=ignore_runtime)
+    except OSError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
     subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
     return tmp
 

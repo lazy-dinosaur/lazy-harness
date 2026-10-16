@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-10-16T03:06:34.294Z",
+  "generatedAt": "2026-10-16T06:05:30.614Z",
   "source": {
     "root": "/Users/lazydino/.pi/agent/local-packages/lazy-harness-rollout.JYMFlh",
     "method": "ast",
@@ -30,23 +30,37 @@
               "kind": "function",
               "range": {
                 "startLine": 4222,
-                "endLine": 4245
+                "endLine": 4263
               }
             },
             {
               "name": "check_lifecycle_fixture_intake_cli",
               "kind": "function",
               "range": {
-                "startLine": 4248,
-                "endLine": 4337
+                "startLine": 4266,
+                "endLine": 4355
               }
             },
             {
               "name": "check_response_completed_no_auto_route_telemetry",
               "kind": "function",
               "range": {
-                "startLine": 4931,
-                "endLine": 5263
+                "startLine": 4949,
+                "endLine": 5281
+              }
+            }
+          ]
+        },
+        {
+          "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
+          "role": "nested parity fixture copier",
+          "symbols": [
+            {
+              "name": "copy_host",
+              "kind": "function",
+              "range": {
+                "startLine": 156,
+                "endLine": 173
               }
             }
           ]
@@ -57,7 +71,8 @@
       ],
       "graphIds": [
         "kg_harness_fixture_runtime_isolation_impl",
-        "kg_harness_fixture_runtime_isolation_regression"
+        "kg_harness_fixture_runtime_isolation_regression",
+        "kg_harness_fixture_parity_copy_runtime"
       ]
     }
   }

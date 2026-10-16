@@ -19,6 +19,8 @@ Existing Medivance validation hit ENOENT on dangling skill links and ENOSPC whil
 
 The current user explicitly selected preservation of that existing protection in a separate integration candidate, then validation and full installed-host rollout. Use the pre-apply archive as the exact code baseline; do not copy the paused architecture fixture's independent `Path(tmp).resolve()` proposal, relax lifecycle assertions or alter Reader metadata.
 
+
+The user also selected **남은 보호까지 완료** after all seven C382 installs were applied and Mobile exposed a second copy path: `lifecycle-parity-runner.py#copy_host` copied top-level runtime scratch inside the lifecycle fixture itself. The installed Mobile probe timed out at 120s; a stage/stack diagnostic passed fixture isolation and intake but still timed out at 240s during the response integration. These are incomplete verification receipts, not source assertion passes. Apply the identical root-only exclusion in the private parity copier, retain its original ignore patterns, clean up only its newly owned failed-copy directory, and extend the same BOTH regression with the same positive/nested/negative fixtures. Do not omit or weaken either original integration.
 `copy_harness_fixture` preserves each caller's original ignore tuple and excludes only root runtime scratch. Both lifecycle test bodies and their BOTH registrations remain active. The new BOTH regression proves root runtime dangling links are excluded, nested canonical `fixtures/tmp` survives, and a broken canonical link still raises a failure.
 
 ## Layer completeness
@@ -32,6 +34,7 @@ The current user explicitly selected preservation of that existing protection in
 
 - `.lazy-harness/scripts/self-test.py#copy_harness_fixture`: root-only `tmp` exclusion while retaining existing caller ignore patterns and canonical-link failure.
 - `.lazy-harness/scripts/self-test.py#check_harness_fixture_runtime_isolation`: positive runtime-scratch and nested-canonical checks plus negative broken-canonical-link protection; registered BOTH.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py#copy_host`: applies the same top-level runtime-only exclusion to the nested parity copy; preserves canonical nested tmp and fail-closed links; cleans up its own failed-copy output.
 - `.lazy-harness/scripts/self-test.py#check_lifecycle_fixture_intake_cli`: original `.cache/logs/state/node_modules` ignore tuple and assertions preserved.
 - `.lazy-harness/scripts/self-test.py#check_response_completed_no_auto_route_telemetry`: original `.cache/state` ignore tuple and assertions preserved; BOTH unchanged.
 - `.lazy-harness/manifests/init-categories.json`: explicit Category A distribution of this regression asset.
