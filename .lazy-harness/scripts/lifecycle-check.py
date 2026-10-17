@@ -242,44 +242,49 @@ def mirror_first_existing_state(root: Path, payload: dict[str, Any], sandbox_run
 def sandbox_root(root: Path, raw_payload: str) -> tuple[Path, dict[str, str], dict[str, Any]]:
     """Create a temporary host copy for side-effect-safe compare/debug runs."""
     tmp = Path(tempfile.mkdtemp(prefix="lazy_lifecycle_check_sandbox_"))
-    shutil.copytree(
-        root / ".lazy-harness",
-        tmp / ".lazy-harness",
-        ignore=shutil.ignore_patterns(".cache", "state", "logs", "node_modules", "__pycache__"),
-    )
-    subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
-    payload, _, _ = parse_payload(raw_payload)
-    sandbox_runtime = tmp / ".lazy-harness" / ".sandbox-runtime"
-    sandbox_shared = tmp / ".lazy-harness" / ".sandbox-shared"
-    helper_env: dict[str, str] = {
-        "LAZY_RUNTIME_ROOT": str(sandbox_runtime),
-        "LAZY_SHARED_ROOT": str(sandbox_shared),
-        "LAZY_LIFECYCLE_SANDBOX_CONTEXT": "1",
-    }
-    last_subject = git_output(root, "log", "-1", "--pretty=%s")
-    head = git_output(root, "rev-parse", "HEAD")
-    if last_subject:
-        helper_env["LAZY_LIFECYCLE_GIT_LAST_SUBJECT"] = last_subject
-    if head:
-        helper_env["LAZY_LIFECYCLE_GIT_HEAD"] = head
+    # Own the allocation until a complete sandbox can be handed to main's finally.
+    try:
+        shutil.copytree(
+            root / ".lazy-harness",
+            tmp / ".lazy-harness",
+            ignore=shutil.ignore_patterns(".cache", "state", "logs", "node_modules", "__pycache__"),
+        )
+        subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
+        payload, _, _ = parse_payload(raw_payload)
+        sandbox_runtime = tmp / ".lazy-harness" / ".sandbox-runtime"
+        sandbox_shared = tmp / ".lazy-harness" / ".sandbox-shared"
+        helper_env: dict[str, str] = {
+            "LAZY_RUNTIME_ROOT": str(sandbox_runtime),
+            "LAZY_SHARED_ROOT": str(sandbox_shared),
+            "LAZY_LIFECYCLE_SANDBOX_CONTEXT": "1",
+        }
+        last_subject = git_output(root, "log", "-1", "--pretty=%s")
+        head = git_output(root, "rev-parse", "HEAD")
+        if last_subject:
+            helper_env["LAZY_LIFECYCLE_GIT_LAST_SUBJECT"] = last_subject
+        if head:
+            helper_env["LAZY_LIFECYCLE_GIT_HEAD"] = head
 
-    mirrored: dict[str, Any] = {}
-    for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl"):
-        ok, rows = mirror_first_existing_state(root, payload, sandbox_runtime, name, max_lines=400)
-        mirrored[name] = {"copied": ok, "rows": rows}
+        mirrored: dict[str, Any] = {}
+        for name in ("open-gates.json", "surfaced-rule-digests.jsonl", "search-read-debt.jsonl"):
+            ok, rows = mirror_first_existing_state(root, payload, sandbox_runtime, name, max_lines=400)
+            mirrored[name] = {"copied": ok, "rows": rows}
 
-    context = {
-        "runtimeRoot": str(sandbox_runtime),
-        "sharedRoot": str(sandbox_shared),
-        "gitSubjectProvided": bool(last_subject),
-        "gitHeadProvided": bool(head),
-        "mirroredState": mirrored,
-        "notes": [
-            "Sandbox helpers run with isolated LAZY_RUNTIME_ROOT/LAZY_SHARED_ROOT.",
-            "Only bounded state/journal tails are mirrored into the temporary sandbox.",
-        ],
-    }
-    return tmp, helper_env, context
+        context = {
+            "runtimeRoot": str(sandbox_runtime),
+            "sharedRoot": str(sandbox_shared),
+            "gitSubjectProvided": bool(last_subject),
+            "gitHeadProvided": bool(head),
+            "mirroredState": mirrored,
+            "notes": [
+                "Sandbox helpers run with isolated LAZY_RUNTIME_ROOT/LAZY_SHARED_ROOT.",
+                "Only bounded state/journal tails are mirrored into the temporary sandbox.",
+            ],
+        }
+        return tmp, helper_env, context
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
 
 
 def render_md(result: dict[str, Any]) -> str:

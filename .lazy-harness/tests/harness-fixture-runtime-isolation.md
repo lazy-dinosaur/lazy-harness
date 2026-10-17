@@ -9,8 +9,8 @@
   - harness fixture runtime isolation
   - copy_harness_fixture
   - fixture scratch exclusion
-- Applies when: self-test copies a host `.lazy-harness` tree into a disposable fixture.
-- Must: omit only top-level runtime `tmp`; preserve nested canonical fixture directories named `tmp`; keep broken canonical links fail-closed.
+- Applies when: self-test copies a host `.lazy-harness` tree into a disposable fixture or lifecycle setup allocates temporary hosts.
+- Must: omit only top-level runtime `tmp`; preserve nested canonical fixture directories named `tmp`; keep broken canonical links fail-closed; own allocations from creation through setup and hand off only after successful return; clean completed allocations on setup failure/cancellation while preserving the original exception.
 - Must not: remove source files, skip lifecycle assertions, or copy temporary PR review snapshots as canonical input.
 
 ## Confirmed failure and preserved repair
@@ -43,4 +43,27 @@ The user also selected **남은 보호까지 완료** after all seven C382 insta
 
 ## Validation boundary
 
-Integration checks and installed-host results are pending until actual receipts are consumed. A successful source test does not certify all host overlays or authenticated Reader acceptance. Keep host records, app/Git work and other paused source lanes untouched; no remote publication or extra paid runtime is implied by this record.
+Earlier installed integration and authenticated Reader acceptance remain separate deployment evidence. This allocation correction is being prepared from published86 in the exact user-confirmed shared-object worktree; only the cleanup source/test/TDD/graph delta is included. The original dirty/index, active installed source and retained large data are preserved. Candidate validation/publication/installed receipts are pending until their actual results are consumed.
+
+## Allocation ownership correction
+
+### Purpose and confirmed boundary
+The user approved fixing leaked lifecycle setup directories, then explicitly chose **코드 반영 후 정리** and confirmed `/Users/lazydino/.pi/agent/local-packages/lazy-harness-cleanup-source`, branch `fix/lifecycle-temp-cleanup`, based on remote86. Git objects are shared, not cloned with application/dependency trees. Existing large tmp/benchmark/pilot/rollback areas are not deleted; owner/retention classification and exact itemized deletion approval remain separate.
+
+### Changed behavior and implementation map
+- `.lazy-harness/scripts/lifecycle-check.py#sandbox_root` owns its new directory throughout copy, initialization and context preparation. Setup exception/cancellation removes it and re-raises the original error; success transfers ownership to `main`'s existing `finally`.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py#copy_host` retains the published root-only runtime-scratch ignore rule and canonical-link failure behavior, while owning copy/initialization failures until successful return.
+- `.lazy-harness/scripts/lifecycle-parity-runner.py#run_fixture` enters cleanup scope before either allocation and releases only completed hosts, so second-allocation failure also cleans the first host. Original parity comparison, assertions and result shape remain unchanged.
+- `tests/lazy-harness/lifecycle-temp-cleanup.test.ts` uses the existing Bun `*.test.ts` / `test:run` discovery convention, compiling the actual Python function AST with controlled I/O rather than replacing the algorithm or claiming full CLI acceptance. Ten setup/cancel/normal cases plus bounded-fixture and source-preservation tests check exception identity, zero retained allocations, root runtime/nested canonical tmp semantics and unchanged source bytes. It copies no application/dependency tree and cleans its own empty fixture.
+- `.lazy-harness/knowledge/graph.jsonl` appends three verified ownership/protection edges without rewriting prior or legacy rows. No generated-cache bulk migration is included.
+
+### Layer completeness for this correction
+| Layer | Judgment |
+|---|---|
+| SDD | no independent delta; only private allocation ownership changes, with no public API/IPC or result-contract change |
+| BDD | no independent delta; user flows and lifecycle/parity assertions remain intact |
+| SSOT | no independent delta; no ownership/config/schema rule changes, and distributing the existing TDD does not grant host knowledge authority |
+| DDD | no independent delta; no domain/business-rule changes |
+
+### Validation and publication capsule
+The older original working-tree repair passed focused12/0 in160ms and standard91/0 in365.309s; that historical result is not substituted for this86-based source. The exact publication candidate's focused target actually passed12/0 (56 expectations,163ms), and its deliberate checkpoint checked5 files with errors0/warnings0. Final standard, normal commit/push and installed receipts must be consumed from their actual terminal/runtime results before claiming those boundaries complete; source green never certifies installed hosts or authenticated Reader acceptance. Keep later progress/evidence in the existing primary performance plan and runtime capture rather than mutate unchanged validated source just to record a status. No new paid Reader/Parent, unrelated global package change, force push or forced session reload is included.

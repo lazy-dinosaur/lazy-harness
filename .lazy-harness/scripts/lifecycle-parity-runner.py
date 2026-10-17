@@ -164,13 +164,14 @@ def copy_host(root: Path) -> Path:
             omitted.add("tmp")
         return omitted
 
+    # Keep the published runtime-scratch guard and own setup failures until return.
     try:
         shutil.copytree(harness, tmp / ".lazy-harness", ignore=ignore_runtime)
-    except OSError:
+        subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
+        return tmp
+    except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
-    subprocess.run(["git", "init", "-q"], cwd=tmp, check=False)
-    return tmp
 
 
 def hook_body(stdout: str) -> str:
@@ -243,9 +244,11 @@ def read_validation_rows(host: Path, env: dict[str, str]) -> list[dict[str, Any]
 
 def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
     payload = json.dumps(fixture["payload"], ensure_ascii=False)
-    legacy_host = copy_host(root)
-    shadow_host = copy_host(root)
+    legacy_host: Path | None = None
+    shadow_host: Path | None = None
     try:
+        legacy_host = copy_host(root)
+        shadow_host = copy_host(root)
         legacy_env = prepare_env(legacy_host, fixture, f"legacy-{fixture['name']}.xml")
         shadow_env = prepare_env(shadow_host, fixture, f"shadow-{fixture['name']}.xml")
         legacy = subprocess.run(
@@ -310,8 +313,10 @@ def run_fixture(root: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             "shadowValidationRows": len(shadow_validations),
         }
     finally:
-        shutil.rmtree(legacy_host, ignore_errors=True)
-        shutil.rmtree(shadow_host, ignore_errors=True)
+        if legacy_host is not None:
+            shutil.rmtree(legacy_host, ignore_errors=True)
+        if shadow_host is not None:
+            shutil.rmtree(shadow_host, ignore_errors=True)
 
 
 def run(root: Path) -> dict[str, Any]:
