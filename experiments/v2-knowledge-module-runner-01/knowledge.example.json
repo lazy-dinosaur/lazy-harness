@@ -1,0 +1,7 @@
+{
+  "db_url": "",
+  "default_host": "",
+  "jev": {"api_key": "", "base_url": "https://openrouter.ai/api", "model": "~typesafe/jev-latest"},
+  "embed": {"provider": "local"},
+  "source_authorities": {}
+}
