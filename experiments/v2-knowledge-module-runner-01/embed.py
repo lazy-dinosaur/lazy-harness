@@ -1,17 +1,20 @@
-"""E5 embeddings. Provider (knowledge.json embed.provider / LH_EMBED_PROVIDER):
-  local      = pinned offline e5-small via the loopback HTTP service (tests; model files in embed.model_dir)
-  openrouter = intfloat/multilingual-e5-large via OpenRouter (schema-delta '임베딩 모델 전환', 2026-09-29)
-Rows are keyed by MODEL_ID, so both can coexist in one DB (0008 removed the fixed vector dimension)."""
+"""Model-bound embeddings: remote pplx-0.6b (LH_EMBED_MODEL override), or pinned local e5-small.
+Cache keys and stored vectors carry MODEL_ID; switching a host requires explicit reembedding.
+The local ONNX path cannot serve a configured remote model.
+"""
 import hashlib
 import json
 import os
 import urllib.error
 import urllib.request
-from functools import lru_cache
+from embedding_cache import VectorCache
+
+CACHE = VectorCache(os.environ.get("LH_EMBED_CACHE_DIR"))
 from pathlib import Path
 
 LOCAL_MODEL_ID = "intfloat/multilingual-e5-small@614241f622f53c4eeff9890bdc4f31cfecc418b3"
-REMOTE_MODEL = "intfloat/multilingual-e5-large"
+import embedding_models as models
+REMOTE_MODEL = models.PPLX  # overwritten after provider resolution below
 REMOTE_MODEL_ID = REMOTE_MODEL + "@openrouter"
 
 
@@ -30,6 +33,9 @@ def _provider():
 
 
 PROVIDER = _provider()
+models.check_provider(PROVIDER)
+REMOTE_MODEL = models.remote_model() if PROVIDER == "openrouter" else models.PPLX
+REMOTE_MODEL_ID = REMOTE_MODEL + "@openrouter"
 MODEL_ID = REMOTE_MODEL_ID if PROVIDER == "openrouter" else LOCAL_MODEL_ID
 # Model + venv location comes from knowledge.json embed.model_dir (default ~/.local/share/lazy-harness-v2/e5-small).
 def _model_dir():
@@ -46,6 +52,7 @@ _PINS = {"model.onnx": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cb
 
 
 def _verify():
+    models.check_provider("local")
     for name, expected in _PINS.items():
         digest = hashlib.sha256()
         with (_MODEL_DIR / name).open("rb") as stream:
@@ -91,32 +98,21 @@ class EmbeddingUnavailable(RuntimeError):
 
 
 def _remote(texts, role):
-    import time
     import config
+    import embedding_transport as transport
     cfg = config.require("jev_api_key", "jev_base_url")
-    body = json.dumps({"model": REMOTE_MODEL, "input": [role + ": " + text for text in texts]}, ensure_ascii=False).encode("utf-8")
-    last = None
-    for attempt in range(4):
-        request = urllib.request.Request(cfg["jev_base_url"].rstrip("/") + "/v1/embeddings", data=body, method="POST",
-                                         headers={"Authorization": "Bearer " + cfg["jev_api_key"], "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                result = json.load(response)
-            data = sorted(result["data"], key=lambda item: item["index"])
-            if len(data) != len(texts):
-                raise ValueError("embedding count mismatch")
-            return [item["embedding"] for item in data]
-        except urllib.error.HTTPError as error:
-            if error.code < 500 and error.code != 429:
-                raise ValueError(error.read().decode("utf-8")[:300]) from error
-            last = error
-        except (urllib.error.URLError, TimeoutError, OSError, KeyError, ValueError) as error:
-            last = error
-        time.sleep(1 + attempt)
-    raise EmbeddingUnavailable(f"remote embedding unavailable: {type(last).__name__}")
+    try:
+        return transport.encode(texts, role, cfg['jev_base_url'].rstrip('/') + '/v1/embeddings',
+                                {'Authorization': 'Bearer ' + cfg['jev_api_key']}, REMOTE_MODEL,
+                                on_batch=lambda chunk, vectors: CACHE.put_many(MODEL_ID, role, chunk, vectors))
+    except Exception as exc:
+        if transport.retryable(exc):
+            raise EmbeddingUnavailable('remote embedding unavailable after bounded retries') from exc
+        raise
 
 
 def _encode(texts, role):
+    models.check_provider(PROVIDER)
     if not texts:
         return []
     if not all(isinstance(text, str) for text in texts):
@@ -139,21 +135,67 @@ def _encode(texts, role):
     return result["vectors"]
 
 
+def encode_model(texts, role, model):
+    """Explicit remote-only evaluation encoding; does not change the active DB vector space."""
+    import config
+    import embedding_transport as transport
+    models.profile(model)
+    texts = list(texts)
+    model_id = model + '@openrouter'
+    with CACHE.lock:
+        unique = list(dict.fromkeys(texts))
+        missing = [t for t in unique if CACHE.get(model_id, role, t) is None]
+        if missing:
+            cfg = config.require('jev_api_key','jev_base_url')
+            vectors = transport.encode(missing, role, cfg['jev_base_url'].rstrip('/')+'/v1/embeddings',
+                {'Authorization':'Bearer '+cfg['jev_api_key']}, model,
+                on_batch=lambda ts,vs:CACHE.put_many(model_id,role,ts,vs))
+            CACHE.put_many(model_id,role,missing,vectors)
+        return [list(CACHE.get(model_id,role,t)) for t in texts]
+
+def configure_cache(directory=None):
+    """Set an isolated persistent cache (pilot state); normal callers may use LH_EMBED_CACHE_DIR."""
+    global CACHE
+    CACHE = VectorCache(directory)
+
+
+def _cached_encode(texts, role):
+    models.check_provider(PROVIDER)
+    texts = list(texts)
+    if not all(isinstance(text, str) for text in texts):
+        raise ValueError('E5 inputs must be strings')
+    # Coalesce concurrent callers too; remote transport owns bounded batch parallelism.
+    with CACHE.lock:
+        unique = list(dict.fromkeys(texts))
+        found = {text:CACHE.get(MODEL_ID, role, text) for text in unique}
+        missing = [text for text in unique if found[text] is None]
+        CACHE.hits += sum(found[text] is not None for text in texts)
+        CACHE.misses += len(missing)
+        if missing:
+            if PROVIDER == 'openrouter':
+                vectors = _encode(missing, role)
+            else:
+                from embedding_transport import BATCH_SIZE
+                vectors = [v for start in range(0, len(missing), BATCH_SIZE)
+                           for v in _encode(missing[start:start + BATCH_SIZE], role)]
+            CACHE.put_many(MODEL_ID, role, missing, vectors)
+            found.update(zip(missing, vectors))
+        return [list(found[text]) for text in texts]
+
+
 def encode_passages(texts):
-    return [vector for start in range(0, len(texts), 64)
-            for vector in _encode(texts[start:start + 64], "passage")]
+    return _cached_encode(texts, 'passage')
 
 
-@lru_cache(maxsize=512)
 def encode_query(text):
-    return _encode([text], "query")[0]
+    return _cached_encode([text], 'query')[0]
 
 
 def encode_queries(texts):
-    """Batch query embeddings: one call for all distinct texts (remote latency is per call, not per text)."""
-    unique = list(dict.fromkeys(texts))
-    vectors = _encode(unique, "query") if unique else []
-    out = dict(zip(unique, vectors))
-    return [out[text] for text in texts]
+    return _cached_encode(texts, 'query')
+
+
+# Compatibility for callers that used the former lru_cache test/reset hook.
+encode_query.cache_clear = lambda: CACHE.memory.clear()
 
 

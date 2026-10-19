@@ -8,6 +8,8 @@ from pathlib import Path
 import digest_driver
 import runner
 import store_pg
+import write_contract as wc
+import validation_receipts as vr
 
 
 import templates  # single source: migration seeds (knowledge.question_template)
@@ -64,7 +66,15 @@ def pending_rewrites(facts):
 def existing_excerpt(dsn, host, fact, pending=None, vector=None, mode=None):
     """vector: a precomputed query vector (no service call); mode 'text': the embedding service was down when the
     digestion judged, so the excerpt is rebuilt the text-fallback way (same prefix)."""
-    if mode == "text":
+    if fact.get('_domain') is not None:
+        import subject_dict
+        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            hit = subject_dict.lookup(cur, host, fact.get('subject'), fact['_domain'])
+            cur.execute('''select id::text,text from knowledge.fragment where host_id=%s and domain=%s
+                and subject_id=%s and active order by updated_at desc limit 200''',
+                (host, fact['_domain'], hit['subject_id'] if hit else None))
+            hits = [{'id': r[0], 'text': r[1]} for r in cur.fetchall()]
+    elif mode == "text":
         hits = [{**h, "warning": "embedding service unavailable; text fallback"}
                 for h in store_pg.search(dsn, host, fact["fact"], limit=5, mode="text", expand=False)]
     else:
@@ -96,7 +106,7 @@ def existing_excerpt(dsn, host, fact, pending=None, vector=None, mode=None):
 
 def _proposed(dsn, window, entry_ids=None):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select entry_id::text,host_id,judgement_body from knowledge.ledger_entry
+        cur.execute("""select entry_id::text,host_id,partition_key,work_unit_id::text,judgement_id,judgement_version,judgement_body from knowledge.ledger_entry
                     where state='proposed' and (%s::uuid[] is null or entry_id=any(%s::uuid[]))
                     order by created_at,entry_id limit %s""", (entry_ids, entry_ids, window))
         return store_pg._rows(cur)
@@ -112,14 +122,26 @@ def _target_excerpt(dsn, host, fact):
     return row["text"]
 
 
-def run_worktime(dsn, window, judge, *, utterance_judge=None, entry_ids=None):
+def run_worktime(dsn, window, judge, *, utterance_judge=None, entry_ids=None, semantic_grounding=False):
     if window < 1:
         raise ValueError("window must be positive")
     fixtures, failures, utterances = {}, [], {}
     for entry in _proposed(dsn, window, entry_ids):
+        body = entry['judgement_body']
+        # Malformed legacy bodies must reach batch's durable rejection, not crash
+        # warm/pending_rewrites or trigger any model call first.
+        if wc.facts_shape(body.get('facts')) or any(wc.fact_shape(f, wc.Contract.PG_LEDGER_V1) for f in body['facts']):
+            continue
+        import embed
+        from embedding_inputs import warm
+        try:
+            warm(entry['judgement_body'].get('facts', []), entry.get('partition_key', ''))
+        except embed.EmbeddingUnavailable:
+            pass
         prepared = []
         pending = pending_rewrites(entry["judgement_body"].get("facts", []))
         for index, fact in enumerate(entry["judgement_body"].get("facts", [])):
+            packet, packet_errors = None, []
             try:
                 excerpt = (_target_excerpt(dsn, entry["host_id"], fact)
                            if fact.get("operation") == "update" else
@@ -128,7 +150,8 @@ def run_worktime(dsn, window, judge, *, utterance_judge=None, entry_ids=None):
                 packet = build_packet(fact, excerpt)
                 # Lint before any paid call: batch rejects the whole entry on a packet lint error,
                 # so judging the other facts first would only waste Jev calls (cycle-02 finding).
-                packet_errors = runner.lint(packet)["errors"]
+                packet_errors = [e for e in runner.lint(packet)["errors"]
+                                 if not (semantic_grounding and e["code"] == "E_CLAIM_QUOTE")]
                 if packet_errors:
                     raise ValueError("packet lint: " + ", ".join(sorted({e["code"] for e in packet_errors})))
                 judged = judge(copy.deepcopy(packet))
@@ -145,9 +168,15 @@ def run_worktime(dsn, window, judge, *, utterance_judge=None, entry_ids=None):
                     utterances.setdefault(entry["entry_id"], {})[index] = status
                 prepared.append(fixture)
             except Exception as exc:
-                # Never turn a failed review into no_record or submit a partial entry.
+                # Exact lint reasons survive; external exceptions retain a typed class
+                # without storing possibly credential-bearing driver/HTTP text.
+                reasons = packet_errors or [wc.error('E_REVIEW_PREPARE', f'facts.{index}', type(exc).__name__)]
+                receipt = wc.failure_receipt(body, reasons, stage='worktime_prepare', contract=wc.Contract.PG_LEDGER_V1,
+                                             entry=entry, checked={'fact': fact, 'packet': packet}, fact_index=index)
+                vr.save(dsn, receipt)  # fail loudly if the failure itself cannot be persisted
                 failures.append({"entry_id": entry["entry_id"], "fact_index": index,
-                                 "error": f"{type(exc).__name__}: {exc}"})
+                                 "error": type(exc).__name__, 'errors': reasons,
+                                 'validation_receipt_id': receipt['receipt_id'], 'request_id': receipt['request_id']})
                 prepared = None
                 break
         if prepared is not None:

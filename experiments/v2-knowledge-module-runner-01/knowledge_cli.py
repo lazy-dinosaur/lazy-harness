@@ -10,6 +10,8 @@ import config
 import runner
 import store_pg
 import worktime_driver
+import write_contract as wc
+import validation_receipts as vr
 
 
 def required(value, name):
@@ -48,9 +50,13 @@ def snapshot(dsn, uid):
         cur.execute("""select distinct f.alias from knowledge.fragment f join knowledge.absorption a on a.fragment_ref=f.id
                    join knowledge.ledger_entry e on e.entry_id=a.entry_id where e.work_unit_id=%s order by f.alias""", (uid,))
         aliases = [row[0] for row in cur.fetchall()]
+        cur.execute('select entry_id::text,judgement_body from knowledge.ledger_entry where work_unit_id=%s order by created_at', (uid,))
+        proposals = [{'entry_id': eid, 'domain_proposal': body['partition_key'],
+                      'subjects': [{'fact_index': i, **f['subject_provisional']} for i, f in enumerate(body['facts']) if f.get('subject_provisional')]}
+                     for eid, body in cur.fetchall()]
     baseline = {k: unit[k] for k in ("baseline_history_id", "baseline_code_ref", "baseline_at")}
     return {"work_unit_id": uid, "status": unit["status"], "host_id": unit["host_id"],
-            "partition_key": unit["partition_key"], "baseline": baseline,
+            "partition_key": unit["partition_key"], "baseline": baseline, 'record_proposals': proposals,
             "entry_states": {k: states.get(k, 0) for k in ("proposed", "provisional", "review_queue", "rejected_input")},
             "all_entry_states": states, "absorbed_aliases": aliases,
             "changed_since_baseline": len(store_pg.changed_since_baseline(dsn, uid))}
@@ -70,15 +76,70 @@ def lint_update_fact(dsn, host, raw):
     return errors
 
 
-def record(dsn, data, *, same=None, embed_fn=None):
+def record(dsn, data, *, same=None, embed_fn=None, assigned_area=None, isolate_invalid=False, source_text="", grounding_check=None, fixed_subject=False, leaf_references=True, trusted_identity_refs=None):
+    # Public/tool and trusted fixed-identity producers share this boundary. Deep copy
+    # BEFORE normalization: code evidence enrichment must not mutate caller refs.
+    import copy
+    original = copy.deepcopy(data)
+    clean, errors = wc.public_input(data, config.load().get('default_host'))
+    shape_errors = None
+    if errors and isolate_invalid and isinstance(clean, dict) and isinstance(clean.get('facts'), list):
+        shape_errors = wc.fact_error_groups(errors, len(clean['facts']))
+        if shape_errors is not None:
+            errors = []  # only fact-scoped failures; envelope failures still reject all
+    try:
+        result = ({'ok': False, 'errors': errors} if errors else
+                  _record(dsn, clean, same=same, embed_fn=embed_fn, assigned_area=assigned_area,
+                          isolate_invalid=isolate_invalid, source_text=source_text, grounding_check=grounding_check,
+                          fixed_subject=fixed_subject, leaf_references=leaf_references, trusted_identity_refs=trusted_identity_refs, shape_errors=shape_errors))
+    except wc.WriteContractError:
+        raise  # already durably recorded, or explicit migration/persistence failure
+    except ValueError as exc:
+        result = {'ok': False, 'errors': [wc.error('E_CONTEXT', 'record', str(exc))]}
+    checked = result.pop('_checked_facts', None)
+    entry = result.pop('_validation_entry', None)
+    reasons = list(result.get('errors', []))
+    reasons += [{**e, 'fact_index': item['fact_index']} for item in result.get('held_facts', []) for e in item['errors']]
+    if reasons:
+        receipt = wc.failure_receipt(original, reasons, stage='record', contract=wc.Contract.PUBLIC_V1,
+                                     entry=entry, checked=checked)
+        try:
+            vr.save(dsn, receipt)  # never report a durable failure if persistence failed
+        except Exception as exc:
+            if entry is None:
+                raise
+            registration = dict(entry_id=entry['entry_id'], work_unit_id=result['work_unit_id'],
+                                state=result['state'], registration_committed=True,
+                                recorded_indices=result['recorded_indices'], held_facts=result['held_facts'],
+                                resubmit_record=False)
+            failure_errors = (exc.errors if isinstance(exc, wc.WriteContractError) else
+                              [wc.error('E_RECEIPT_PERSISTENCE', 'validation_receipt', type(exc).__name__)])
+            raise wc.WriteContractError(failure_errors, request_id=receipt['request_id'],
+                                        registration=registration) from exc
+        result.update(validation_receipt_id=receipt['receipt_id'], request_id=receipt['request_id'])
+    return result
+
+
+def _record(dsn, data, *, same=None, embed_fn=None, assigned_area=None, isolate_invalid=False, source_text="", grounding_check=None, fixed_subject=False, leaf_references=True, trusted_identity_refs=None, shape_errors=None):
     host = data.get("host_id") or config.load()["default_host"]
     required(host, "host_id (set default_host in knowledge.json)")
     partition = required(data.get("partition_key"), "partition_key")
     facts = data.get("facts")
     if not isinstance(facts, list) or not facts:
         return {"ok": False, "errors": [{"code": "E_FACTS", "where": "facts", "detail": "nonempty facts array required"}]}
-    errors, warnings, repairs = [], [], []
-    normalized = []
+    # Only the server call option can authorize a ref. Public JSON IDs are dropped.
+    from identity_ref import checked as checked_ref, resolve as resolve_ref, IdentityError
+    if trusted_identity_refs is not None:
+        try:
+            if not fixed_subject or leaf_references or not assigned_area or len(trusted_identity_refs) != len(facts):
+                raise IdentityError('E_IDENTITY: trusted refs require fixed own-leaf area path')
+            trusted_identity_refs = [checked_ref(ref,host,assigned_area) for ref in trusted_identity_refs]
+        except (ValueError,TypeError) as exc:
+            return {'ok':False,'errors':[{'code':'E_IDENTITY','where':'facts','detail':str(exc)}]}
+    errors = [e for group in (shape_errors or {}).values() for e in group]
+    warnings, repairs = [], []
+    normalized, checked_facts = [], []
+    normalized_indices = []
     # subjects (schema-delta '주어는 기록할 때 맞추고 소화할 때 등록'): the dictionary is read here, never written
     import subject_dict
     if same is None and data.get("resolve_subjects"):
@@ -86,15 +147,49 @@ def record(dsn, data, *, same=None, embed_fn=None):
         if all(cfg_.get(k) for k in ("jev_api_key", "jev_base_url", "jev_model")):
             import worker_tools
             same = worker_tools.make_ask(cfg_)
-    resolve = subject_dict.resolver(store_pg.connect, dsn, host,
-                                    unit_id(data["work_unit_id"]) if data.get("work_unit_id") else None, same, embed_fn)
-    subjects = []
+    import embed
+    if same is not None and (embed_fn is None or embed_fn is embed.encode_queries):
+        from embedding_inputs import warm
+        try:
+            warm_facts = [f for i, f in enumerate(facts) if i not in (shape_errors or {})]
+            if warm_facts:
+                warm(warm_facts, partition)
+        except embed.EmbeddingUnavailable:
+            pass  # preserve existing text-fallback behavior
+    resolve = None if trusted_identity_refs is not None else subject_dict.resolver(store_pg.connect, dsn, host,
+                                    unit_id(data["work_unit_id"]) if data.get("work_unit_id") else None, same, embed_fn,
+                                    **({"domain":assigned_area} if assigned_area else {}))
+    subjects, provisional_subjects = [], []
     added = None  # git diff lines of the working tree, read once when an update needs code evidence
     for index, raw in enumerate(facts):
+        if index in (shape_errors or {}):
+            checked_facts.append({'fact_index': index, 'fact': raw})
+            continue  # held by the indexed shape errors, before normalization/warmup
         if not isinstance(raw, dict):
             errors.append({"code": "E_SCHEMA", "where": f"facts.{index}", "detail": "fact must be an object"})
             continue
         fact = dict(raw)
+        for key in ('identity_ref','subject_id','host_id'):
+            fact.pop(key,None)  # untrusted worker/model JSON can never authorize IDs
+        if trusted_identity_refs is not None:
+            ref = trusted_identity_refs[index]
+            try:
+                with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                    obj = resolve_ref(cur,ref,host,assigned_area)
+                if obj['subject_id'] == ref['subject_id'] and fact.get('subject') != obj['name']:
+                    raise IdentityError('E_IDENTITY: selected display name changed')
+            except IdentityError as exc:
+                errors.append({'code':'E_IDENTITY','where':f'facts.{index}.subject','detail':str(exc)})
+                continue
+            fact.update(identity_ref=ref,subject_id=obj['subject_id'])
+        fact.pop("assigned_area", None)  # trusted router only, never worker input
+        fact["domain_is_hint"] = not bool(assigned_area)
+        if assigned_area:
+            fact.update(domain=assigned_area, assigned_area=assigned_area, domain_is_hint=False)
+        # Resolution receipts are server-owned, never accepted as canonical links from a worker.
+        for key in ('subject_provisional', 'leaf_provisional', 'leaf_links', 'subject_new', 'leaf_reference_mode'):
+            fact.pop(key, None)
+        if not leaf_references: fact['leaf_reference_mode'] = 'own'
         # target_ref: the fragment token shown when knowledge was read, [alias@revision]; resolved here, no guessing
         tref = fact.get("target_ref")
         if isinstance(tref, str) and tref.strip() and not re.fullmatch(r"[0-9a-fA-F-]{36}", tref.strip()):
@@ -135,9 +230,23 @@ def record(dsn, data, *, same=None, embed_fn=None):
                         refs.append(r); seen.add((r["type"], r["locator"], r["quote"]))
                 fact["evidence_refs"] = refs
                 fact["evidence_quote"] = " / ".join(r["quote"] for r in refs if isinstance(r, dict) and isinstance(r.get("quote"), str))
-        fact, fixes = runner.normalize_fact(fact)  # form-only repairs (subject, keywords); meaning untouched
+        if trusted_identity_refs is None and not runner.subject_in_fact(fact):
+            with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+                fact=subject_dict.with_known_aliases(cur,host,fact,fact.get('domain') or partition)
+        fact, fixes = runner.normalize_fact(fact)  # keywords only; object identity is never inferred
+        checked_facts.append({'fact_index': index, 'fact': fact})
         if fixes:
             repairs.append({"fact_index": index, "repairs": fixes})
+        metadata = runner.metadata_errors({**fact, 'domain':assigned_area or fact.get('domain'),
+                                            'domain_is_hint':not bool(assigned_area)})
+        from subject_contract import grounding_errors
+        if grounding_check is not None:
+            metadata += grounding_check(index, fact)
+        elif source_text:
+            metadata += grounding_errors(fact, source_text)
+        if metadata:
+            errors.extend({**e, "where": f"facts.{index}.{e['where']}"} for e in metadata)
+            continue
         if "aliases" in fact:  # stage 1 (2026-10-03): other names of the same thing, declared by the parent
             al = fact["aliases"]
             subj_norm = subject_dict.norm(fact.get("subject") or "")
@@ -147,16 +256,22 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 errors.append({"code": "E_ALIASES", "where": f"facts.{index}.aliases",
                                "detail": "aliases 는 이 사실의 주어와 같은 대상의 다른 이름 목록이다(문자열 10개 이하, 주어와 다르고 중복 없음)"})
                 continue
-        if isinstance(fact.get("subject"), str) and fact["subject"].strip() and fact.get("operation", "add") != "deprecate":
+        if trusted_identity_refs is not None:
+            fact['subject_provisional'] = {'subject_id':obj['subject_id'],'how':'selected-id'}
+        elif isinstance(fact.get("subject"), str) and fact["subject"].strip() and fact.get("operation", "add") != "deprecate":
             name, how = resolve(fact["subject"], fact.get("fact"))
-            if name != fact["subject"] and name in subject_dict.rewrite(fact["fact"], fact["subject"], name):
-                written = fact["subject"]
-                fact.update(fact=subject_dict.rewrite(fact["fact"], written, name), subject=name, subject_as_written=written)
-                fact, _ = runner.normalize_fact(fact)  # keywords follow the new text
-                if "form" in fact:
-                    import fact_form
-                    fact["form"] = fact_form.parse(fact["fact"])
-                subjects.append({"fact_index": index, "from": written, "to": name, "how": how})
+            fact['subject_provisional'] = {**resolve.provisional, 'how': how}
+            if resolve.provisional.get('subject_id'):
+                fact.update(subject_type=resolve.provisional['subject_type'],
+                            subject_description=' '.join(resolve.provisional['description'].splitlines())[:300].strip())
+            provisional_subjects.append({'fact_index': index, **fact['subject_provisional'], 'to': name})
+            if name != fact['subject'] and fixed_subject:
+                errors.append({'code':'E_PLACEMENT_DRIFT','where':f'facts.{index}.subject','detail':'unit-first chosen identity must not be renamed at record'})
+                continue
+            if name != fact['subject']:
+                # Retain paid sentences on short-name reuse; only identity metadata changes.
+                fact['aliases']=[a for a in dict.fromkeys([*fact.get('aliases',[]),fact['subject']]) if a != name]
+                fact['subject']=name
             if how in subject_dict.NEW:
                 fact["subject_new"] = True
         if fact.get("operation", "add") != "deprecate":  # schema-delta '지식 문장 형식': operators between Korean leaves
@@ -166,11 +281,10 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 warnings.append({"code": "W_SUBJECT", "where": f"facts.{index}.subject",
                                  "detail": "주어는 짧은 대상 이름 하나로 쓴다(나열·설명은 문장 안에). 예: 'store_pg.py' 와 'digest_driver.py' 를 따로"})
             head = runner.SUBJECT_HEAD.match((fact_form.parse(fact["fact"]).get("then") or [""])[0] + " ") if isinstance(fact.get("fact"), str) else None
-            if subj_ and (subj_.rstrip().endswith(("와", "과", "및", ",")) or
-                          (head and head.group(1).strip() != subj_ and head.group(1).strip().startswith(subj_ + " "))):
-                # flow3 r3: '도메인' for '도메인 설명 길이는 …', 'store_pg.py와' — a cut subject joins the wrong things in the dictionary
+            if subj_ and subj_.rstrip().endswith(("와", "과", "및", ",")):
+                # A dangling conjunction is not one object. The owning object may be broader than the sentence head.
                 errors.append({"code": "E_SUBJECT", "where": f"facts.{index}.subject",
-                               "detail": "주어는 문장 주제어 전체(" + (head.group(1).strip() if head else subj_) + ")를 쓴다. 잘린 이름이나 '와/과'로 끝나는 이름은 안 된다"})
+                               "detail": "주어는 실제 객체 하나(" + (head.group(1).strip() if head else subj_) + ")를 쓴다. 잘린 이름이나 '와/과'로 끝나는 이름은 안 된다"})
             form_errors = fact_form.check(fact.get("fact"))
             for detail in form_errors:
                 errors.append({"code": "E_FORM", "where": f"facts.{index}.fact", "detail": detail})
@@ -178,7 +292,16 @@ def record(dsn, data, *, same=None, embed_fn=None):
                 warnings.append({"code": "W_FORM", "where": f"facts.{index}.fact", "detail": detail})
             if not form_errors:
                 fact["form"] = fact_form.parse(fact["fact"])  # 0010: the ledger stores the structure (DB checks its shape)
-        checked = runner.lint_fact(fact, strict_refs=True)
+                hints = []
+                for ord_, leaf in enumerate(fact_form.leaves(fact['form'])) if leaf_references else []:
+                    head = runner.SUBJECT_HEAD.match(leaf['text'] + ' ')
+                    if not head or head.group(1).strip() == fact.get('subject'):
+                        continue
+                    leaf_name = head.group(1).strip()
+                    _, leaf_how = resolve(leaf_name, leaf['text'])
+                    hints.append({'ord': ord_, 'text': leaf['text'], **resolve.provisional, 'how': leaf_how})
+                fact['leaf_provisional'] = hints
+        checked = wc.validate_fact(fact, wc.Contract.PUBLIC_V1)
         for error in checked["errors"]:
             errors.append({**error, "where": f"facts.{index}.{error['where']}"})
         for warning in checked.get("warnings", []):
@@ -205,22 +328,45 @@ def record(dsn, data, *, same=None, embed_fn=None):
                        else "이 host 의 정본에 관련 조각이 없다.")
             packet = worktime_driver.build_packet(fact, excerpt)
             for error in runner.lint(packet)["errors"]:
+                # Trusted fixed-identity pilot already checked Q1/Q2 and exact raw evidence.
+                if fixed_subject and grounding_check is not None and error["code"] == "E_CLAIM_QUOTE": continue
                 errors.append({**error, "where": f"facts.{index}.{error['where']}"})
         except (KeyError, TypeError, ValueError) as exc:
             errors.append({"code": "E_PACKET", "where": f"facts.{index}", "detail": type(exc).__name__})
         normalized.append(fact)
+        normalized_indices.append(index)
+    held = []
+    if errors and isolate_invalid:
+        by_index = wc.fact_error_groups(errors, len(facts))
+        if by_index is not None:
+            held = [{'fact_index':i, 'fact':facts[i], 'errors':reasons} for i, reasons in sorted(by_index.items())]
+            kept = [(i, f) for i, f in zip(normalized_indices, normalized) if i not in by_index]
+            normalized_indices = [i for i, _ in kept]
+            normalized = [f for _, f in kept]
+            errors = []
+            if not normalized:
+                return {'ok':False, 'held_facts':held, 'recorded_indices':[], 'errors':[], '_checked_facts': checked_facts}
     if errors:
-        return {"ok": False, "errors": errors, "warnings": warnings, "repairs": repairs}
+        return {"ok": False, "errors": errors, "warnings": warnings, "repairs": repairs, '_checked_facts': checked_facts,
+                "subject_candidates": runner.code_candidates(json.dumps([f.get("evidence_refs",[]) for f in facts if isinstance(f,dict)],ensure_ascii=False))}
     uid = unit_id(data["work_unit_id"]) if data.get("work_unit_id") else str(uuid4())
     body = {"work_unit_id": uid, "host_id": host, "partition_key": partition,
             "judgement_id": str(uuid4()), "version": 1, "baseline_code_ref": baseline_ref(data.get("cwd")), "atomic": bool(data.get("atomic")),
             "facts": normalized}
-    entry = store_pg.register(dsn, body)
-    out = {"work_unit_id": uid, "entry_id": entry["entry_id"], "state": "proposed",
-           "baseline": snapshot(dsn, uid)["baseline"], "warnings": warnings, "repairs": repairs}
+    if isolate_invalid:
+        body["area_validation"] = {"held_facts":held, "recorded_indices":normalized_indices, "assigned_area":assigned_area}
+    bound_refs = [trusted_identity_refs[i] for i in normalized_indices] if trusted_identity_refs is not None else None
+    entry = store_pg.register(dsn, wc.RecordCommand(body, trusted_identity_refs=bound_refs))
+    out = {"held_facts": held, "recorded_indices": normalized_indices, "work_unit_id": uid, "entry_id": entry["entry_id"], "state": "proposed",
+           "baseline": snapshot(dsn, uid)["baseline"], "warnings": warnings, "repairs": repairs,
+           'domain_proposal': partition, 'provisional_subjects': provisional_subjects,
+           'subject_candidates': runner.code_candidates(json.dumps([f.get('evidence_refs',[]) for f in normalized],ensure_ascii=False)),
+           'provisional_leaf_links': [{'fact_index': i, **h} for i, f in enumerate(normalized) for h in f.get('leaf_provisional', [])]}
+    if held:
+        out.update(_checked_facts=checked_facts, _validation_entry=entry)
     if subjects:
         out["subjects"] = subjects
-        out["subjects_note"] = "주어를 기존 지식의 이름으로 맞춰 저장했다(from → to). 다른 대상인데 맞춰졌으면 사용자에게 보여 주고 고쳐 다시 기록하라."
+        out["subjects_note"] = "주어를 기존 지식의 이름으로 임시로 맞춰 저장했다(from → to). 도메인·주어 확정과 사전 등록은 소화 액터가 한다. 다른 대상인데 맞춰졌으면 사용자에게 보여 주고 고쳐 다시 기록하라."
     cfg = config.load()
     if data.get("check_contradictions") and all(cfg.get(k) for k in ("jev_api_key", "jev_base_url", "jev_model")):
         found = contradictions(dsn, host, uid, normalized, cfg)
@@ -561,7 +707,12 @@ def review_cmd(dsn, data, *, runtime_db=None):
     return store_pg.review_resolve(dsn, host, unit_id(data.get("entry_id")), index, data.get("decision"), quote, locator, qids)
 
 
-COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review", "window")
+def subject_cmd(runtime_db, host, data):
+    from subject_inspection import inspect_subjects
+    return inspect_subjects(store_pg.connect, runtime_db, host, data)
+
+
+COMMANDS = ("record", "complete", "status", "search", "more", "brief", "fix_plan", "fix_submit", "audit", "domain", "review", "window", "subject")
 
 
 def main():
@@ -577,7 +728,9 @@ def main():
         if len(args) != 1 or args[0] not in COMMANDS:
             raise ValueError("expected " + "|".join(COMMANDS) + " [--dsn CONNECTION]")
         from runtime_db import bind_runtime_db
-        config_dsn = config.require("db_url")["db_url"] if dsn_override is None else None
+        # Subject reads freeze current host and DB from ONE server configuration snapshot.
+        subject_cfg = config.require(*(('default_host',) if dsn_override else ('db_url', 'default_host'))) if args[0] == 'subject' else None
+        config_dsn = (subject_cfg['db_url'] if subject_cfg is not None else config.require("db_url")["db_url"]) if dsn_override is None else None
         runtime_db = bind_runtime_db(dsn_override or config_dsn,
                                      provenance="explicit-cli" if dsn_override else "configured-entry")
         data = json.load(sys.stdin)
@@ -585,7 +738,9 @@ def main():
             raise ValueError("input must be an object")
         dsn = runtime_db.dsn
         command = args[0]
-        if command in ("search", "fix_plan", "fix_submit"):
+        if command == 'subject':
+            result = subject_cmd(runtime_db, subject_cfg['default_host'], data)
+        elif command in ("search", "fix_plan", "fix_submit"):
             result = tools(dsn, command, data)
         elif command == "brief":
             import brief, worker_tools
@@ -612,6 +767,8 @@ def main():
                                   worker_tools.make_ask(cfg))
         else:
             result = record(dsn, data) if command == "record" else (complete(dsn, data) if command == "complete" else snapshot(dsn, unit_id(data.get("work_unit_id"))))
+    except wc.WriteContractError as exc:
+        result = exc.as_result()
     except ValueError as exc:
         result = {"ok": False, "error": "ValueError", "detail": str(exc)[:200]}
     except Exception as exc:

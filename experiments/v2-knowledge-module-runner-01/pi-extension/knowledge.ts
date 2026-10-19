@@ -14,6 +14,13 @@ const fact = Type.Object({
   operation: lits(["add", "update", "deprecate"]),
   kind: lits(["fact", "decision", "rationale", "rejected", "constraint", "procedure", "term", "question"]),
   subject: Type.String(), fact: Type.String(),
+  subject_type: lits(["기능", "화면", "API", "데이터", "규칙/정책", "작업 흐름", "외부 연동"]),
+  parent_subject: Type.Optional(Type.Union([Type.Null(), Type.Object({
+    name: Type.String({ minLength: 1, maxLength: 60 }),
+    subject_type: lits(["기능", "작업 흐름", "외부 연동", "화면"]),
+    description: Type.String({ minLength: 1, maxLength: 300 }),
+  }, { description: 'Optional root parent in the same domain. Exactly one most-specific subject per fact; depth <= 2. Keep hierarchy out of names; reuse parent > subject from the object map.' })])),
+  subject_description: Type.String({ minLength: 1, maxLength: 300, description: "One-line feature description: <domain>의 <subject> must identify one place to change. Reuse the domain object map name/type/description." }),
   evidence_source: lits(["user_confirmed", "user_tentative", "official_doc", "code_test", "observed_output", "ai_inference"]),
   reason: Type.String(), why: Type.Optional(Type.String()),
   evidence_refs: Type.Array(ref), keywords: Type.Optional(Type.Array(Type.String())),
@@ -63,7 +70,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_end", async (_event, ctx) => announceReview(ctx));
   pi.on("session_tree", async (_event, ctx) => restore(ctx));
 
-  type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit" | "review";
+  type Command = "record" | "complete" | "status" | "search" | "more" | "brief" | "fix_plan" | "fix_submit" | "audit" | "review" | "subject";
   const LONG = new Set<Command>(["search", "more", "brief", "fix_plan", "fix_submit", "audit", "record", "review"]);  // review may run source-backed judgement
   // user/assistant text of the current branch (tool results and thinking excluded), newest last
   const transcript = (ctx: ExtensionContext, limit: number) => {
@@ -96,9 +103,28 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "knowledge_subject", label: "Knowledge subject inspection",
+    description: "Read-only metadata of existing subjects in the server-configured current host. list: stable UUID paging (default20/max100), optional exact domain. inspect: existing subject_id, optional domain restriction. lookup: required exact domain and name/declared alias (dictionary spelling normalization only; no generic-tail/fuzzy/vector/model matching). Returns merged/retired state without following redirects or writing. IDs are reference data, never write/identity approval. No create/rename/alias/merge/move/undo or caller host/DSN/actor/state selection.",
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    parameters: Type.Object({
+      action: lits(["list", "inspect", "lookup"]),
+      domain: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+      subject_id: Type.Optional(Type.String({ format: "uuid" })),
+      name: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+      cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
+    }, { additionalProperties: false }),
+    outputSchema: Type.Object({ ok: Type.Boolean() }, { additionalProperties: true }),
+    async execute(_id, params, _signal, _update, ctx) {
+      const result = await invoke("subject", params, ctx.cwd);
+      return { ...output(result), structuredContent: result, isError: result.ok === false };
+    },
+  });
+
+  pi.registerTool({
     name: "knowledge_record", label: "Knowledge record",
-    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject appears verbatim in fact. Write a fact as Korean sentences joined by English operators: IF cond THEN result, A AND B, A OR B (conditions only), EVEN IF, EXCEPT WHEN, BEFORE/AFTER x THEN y, BECAUSE reason (last). Each sentence has one subject and one predicate; do not join clauses with ~하고/~하며/~이며/~지만/~거나/~면/~어도/~하여, and do not pack several actions into a noun list such as 'X의 동작은 A 판단과 B 저장 및 C 유지이다' or 'X는 A 저장과 B 불변을 보장한다' (warning W_FORM: the record is kept, but split the facts; only a broken operator structure is refused with E_FORM) — write each action as subject + verb and join with AND ('X는 A를 판단한다 AND X는 B를 저장한다'); the subject is one short name; keep negation inside the sentence; keep numbers, identifiers, tense and qualifiers (약, 최대) as said. Example: IF 사용자가 저장 안 함을 고른다 THEN 편집 창은 닫히지 않는다 AND 편집 창은 입력만 비운다. When the subject has other names for the very same thing (a code identifier, an endpoint, a feature name defined as it), list them in aliases: [\"POST /v3/shipments\"] -- never a related thing (a policy it applies to, a setting value, a parent). Knowledge you read is listed as [alias@revision]: to change or retire that knowledge use operation update/deprecate with target_ref = that token (add is only for knowledge that is not there yet). Records are applied as written; the only question back is a contradiction with an earlier record of this work: when the result lists contradictions, show them to the user and ask which is right, then append the fix. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. Subjects are matched to existing knowledge: when the result lists subjects (from -> to), the fact was stored under the existing name; if that is a different thing, tell the user and record the correction. Quote original words verbatim; correct lint errors and retry.",
-    parameters: Type.Object({ facts: Type.Array(fact), partition_key: Type.String(), host_id: Type.Optional(Type.String()) }),
+    description: "Register proposed judgements; resident poller reviews them. One fact = one claim; subject OR one of its aliases appears verbatim in fact. Area names are one word / one concept; subject names are 1–3 words / one concept and differ from the area. Never join concepts with 및, ·, / or comma. Put details in subject_description; preserve old long names as aliases without rewriting fact sentences. Write a fact as Korean sentences joined by English operators: IF cond THEN result, A AND B, A OR B (conditions only), EVEN IF, EXCEPT WHEN, BEFORE/AFTER x THEN y, BECAUSE reason (last). Each sentence has one subject and one predicate; do not join clauses with ~하고/~하며/~이며/~지만/~거나/~면/~어도/~하여, and do not pack several actions into a noun list such as 'X의 동작은 A 판단과 B 저장 및 C 유지이다' or 'X는 A 저장과 B 불변을 보장한다' (warning W_FORM: the record is kept, but split the facts; only a broken operator structure is refused with E_FORM) — write each action as subject + verb and join with AND ('X는 A를 판단한다 AND X는 B를 저장한다'); the subject is a FEATURE-level object inside the domain (가게의 주문 접수 기능), not a grammatical subject. <domain>의 <subject> must identify one place to change. Set exactly one subject_type from 기능 | 화면 | API | 데이터 | 규칙/정책 | 작업 흐름 | 외부 연동 and a one-line subject_description (1..300 chars). Never use a button, value, action, condition or test item as the subject: map it to the owning feature. Code evidence paths offer feature-folder/component/router candidates, not automatic object assignments. A NEW subject and parent name must have at least one token present in source text or fact text, unless reusing an existing subject (E_SUBJECT_UNGROUNDED). Instruction examples are fictional, never copy them as host objects. A new subject requires type + description; reuse existing object names and descriptions; introduce a new object only when none fits. Buttons, actions, values and conditions belong inside the fact, not in subject. Example subject 도서관 안내 창, fact 도서관 안내 창의 닫기 버튼을 누르면 … . Subject must be a short object noun phrase of 1–3 words and at most 60 characters, with no IF/THEN/AND/OR or verb/connective endings (~하거나/~하면/~한다); keep negation inside the sentence; keep numbers, identifiers, tense and qualifiers (약, 최대) as said. Example: IF 사용자가 저장 안 함을 고른다 THEN 편집 창은 닫히지 않는다 AND 편집 창은 입력만 비운다. When the subject has other names for the very same thing (a code identifier, an endpoint, a feature name defined as it), list them in aliases: [\"POST /v3/shipments\"] -- never a related thing (a policy it applies to, a setting value, a parent). Knowledge you read is listed as [alias@revision]: to change or retire that knowledge use operation update/deprecate with target_ref = that token (add is only for knowledge that is not there yet). Records are applied as written; the only question back is a contradiction with an earlier record of this work: when the result lists contradictions, show them to the user and ask which is right, then append the fix. decision/constraint need two distinct evidence refs, decision needs why. user_confirmed requires a non-question confirmed user utterance. partition_key is your domain proposal, not a known assignment. Record-time subject lookup is read-only across existing (domain, subject) objects using vectors and descriptions; it never writes the dictionary. provisional_subjects returns matched object name/domain or new subject candidate, and provisional_leaf_links returns hints only. Digestion routes the domain first (creating it when no fit), then its actor confirms subjects and leaf links. Subjects are provisionally matched to existing knowledge: when the result lists subjects (from -> to), the fact was stored under the existing name; if that is a different thing, tell the user and record the correction. Quote original words verbatim; correct lint errors and retry.",
+    parameters: Type.Object({ facts: Type.Array(fact), partition_key: Type.String({ description: 'Proposed domain; finalized by the digestion router, not at record time.' }), host_id: Type.Optional(Type.String()) }),
     async execute(_id, params, _signal, _update, ctx) {
       return serialized(async () => {
         const result = await invoke("record", { ...params, work_unit_id: workUnitId, cwd: ctx.cwd, check_contradictions: true, resolve_subjects: true }, ctx.cwd);

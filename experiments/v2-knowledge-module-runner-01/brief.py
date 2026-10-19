@@ -14,7 +14,7 @@ from pathlib import Path
 
 import worker_tools
 
-MODEL = os.environ.get("LH_BRIEF_MODEL", "openai-codex/gpt-6-luna:medium")
+MODEL = os.environ.get("LH_BRIEF_MODEL", "openai/gpt-6-luna:medium")
 TIMEOUT = int(os.environ.get("LH_BRIEF_TIMEOUT", "300"))
 PROMPT = """너는 지식 정리 담당이다. 파일을 쓰거나 고치지 않는다. 최종 응답은 정리본(markdown)만.
 

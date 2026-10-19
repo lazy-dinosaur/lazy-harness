@@ -98,8 +98,9 @@ def _page_judge(ask, topic, queries, question=None):
     return judge
 
 
-def _collect(dsn, host, topic, queries, ask, question=None):
-    res = collect.collect_topic(dsn, host, queries, judge=_page_judge(ask, topic, queries, question), variant="ctx-v1")
+def _collect(dsn, host, topic, queries, ask, question=None, diagnostics=None, plan_queries=()):
+    options = {'diagnostics': diagnostics, 'plan_queries': plan_queries} if diagnostics is not None else {}
+    res = collect.collect_topic(dsn, host, queries, judge=_page_judge(ask, topic, queries, question), variant="ctx-v2", **options)
     _attach_domain(dsn, res["note"] + res["relevant"])
     return res["note"], res["relevant"]
 
@@ -115,7 +116,9 @@ def _attach_domain(dsn, frags):
     for f in frags:
         if str(f.get("id")) in found:
             domain, seq, kind, confidence, source = found[str(f["id"])]
-            f.update(domain=domain, seq=seq, kind=kind, confidence=confidence)
+            f.update(domain=domain, seq=seq, kind=kind, confidence=confidence,
+                     subject=source.get("subject"), subject_type=source.get("subject_type"),
+                     subject_description=source.get("subject_description"), parent_subject=source.get("parent_subject"))
             # Only reference-use metadata, not arbitrary source/private payloads.
             if source.get("approvedReferenceUse") == "user-approved-reference":
                 f["reference_use"] = {"authorization": source["approvedReferenceUse"],
@@ -126,6 +129,9 @@ def _attach_domain(dsn, frags):
                     "reviewStatus": source.get("reviewStatus"),
                     "validity": source.get("validity"),
                     "locator": ((source.get("evidence_refs") or [{}])[0]).get("locator")}
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        from derived_view import attach
+        attach(cur, frags)
 
 
 # Layer notes are rebuilt at read time (spec §13.2); the agent writes them itself, never as a file.
@@ -200,7 +206,8 @@ def _render(frags, flagged=frozenset(), rank=None):
                 if reference.get("originKind"):
                     validity = reference.get("validity") or {}
                     label += f" [origin={reference['originKind']}; role={reference.get('sourceRole')}; review={reference.get('reviewStatus')}; snapshot={validity.get('snapshot')}; currentTruth={validity.get('currentTruth')}]"
-                lines.append(f"- {mark}[{ref}]{label} {fact_text.view(f['text'])}")  # stored operator form shown in Korean
+                from derived_view import fragment
+                lines.append(f"- {mark}[{ref}]{label} {fragment(f)}")  # stored operator form shown in Korean
             lines.append("")
     return lines
 
@@ -241,6 +248,139 @@ def _expand_domains(dsn, host, note, relevant):
     return note + extra[:DOMAIN_EXPAND_CAP]
 
 
+READ_PLAN_DOMAINS, READ_PLAN_SUBJECTS, READ_PLAN_ALIASES = 5, 8, 3
+READ_PLAN_QUERIES = 4
+
+
+def read_plan(dsn, host, question, queries):
+    """Read-only vector vocabulary map. Bounded independently of collection; no judgement calls."""
+    import domain_router
+    import subject_dict
+    domains, subjects = {}, {}
+    # Question first; up to eight caller queries. No invented query/fragment text.
+    for query in list(dict.fromkeys([question.strip(), *queries]))[:9]:
+        vector = store_pg.embed.encode_query(query)
+        with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            for name in domain_router.nearest(cur, host, vector, limit=READ_PLAN_DOMAINS):
+                if name not in domains and len(domains) < READ_PLAN_DOMAINS:
+                    domains[name] = None
+            candidates = [c for domain in domains for c in subject_dict.nearest(
+                cur, host, vector, k=READ_PLAN_SUBJECTS, domain=domain)]
+            for candidate in candidates:
+                obj = subject_dict.follow(cur, host, candidate['subject_id'])
+                sid, domain = obj['subject_id'], obj['domain']
+                if sid in subjects or len(subjects) >= READ_PLAN_SUBJECTS:
+                    continue
+                if domain not in domains and len(domains) >= READ_PLAN_DOMAINS:
+                    continue
+                domains.setdefault(domain, None)
+                cur.execute('select description from knowledge.subject where host_id=%s and subject_id=%s', (host, sid))
+                obj['description'] = (cur.fetchone()[0] or '')[:180]
+                cur.execute('select alias from knowledge.subject_alias where host_id=%s and subject_id=%s order by alias limit %s',
+                            (host, sid, READ_PLAN_ALIASES))
+                obj['aliases'] = [r[0] for r in cur.fetchall()]
+                subjects[sid] = obj
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        for name in domains:
+            cur.execute('select description from knowledge.domain_type where host_id=%s and domain=%s', (host, name))
+            row = cur.fetchone()
+            domains[name] = {'domain': name, 'description': (row[0] or '')[:180] if row else ''}
+    ordered = sorted(subjects.values(), key=lambda s:(s['domain'], (s.get('parent_subject') or {}).get('name',s['name']), s['name']))
+    return {'domains': list(domains.values()), 'subjects': ordered}
+
+
+def _plan_text(plan):
+    lines = ['## 검색 계획 — 도메인 → 상위 기능 → 주어 (정본 조각 아님)']
+    for d in plan['domains']:
+        lines.append(f"- 영역 {d['domain']}: {d['description']}")
+    for s in plan['subjects']:
+        parent = s.get('parent_subject')
+        path = s['domain'] + ' › ' + ((parent['name'] + ' › ') if parent else '') + s['name']
+        if parent:
+            lines.append(f"- 상위 {parent['name']} ({parent['subject_type']}): {parent['description']}")
+        lines.append(f"- 객체 [{s['subject_id']}] ({path}, {s.get('subject_type', '미분류')}): {s['description']}; 별칭: {', '.join(s['aliases'])}")
+    return '\n'.join(lines) + '\n'
+
+
+def _read_setup(dsn, host, question, queries, augment=False):
+    plan = read_plan(dsn, host, question, queries) if os.environ.get('LH_READ_PLAN') == '1' else None
+    extra = []
+    if plan and augment:
+        seen = {q.casefold() for q in queries}
+        for s in plan['subjects']:
+            for q in [s['name'], *s['aliases']]:
+                q = q.strip()
+                if q and q.casefold() not in seen and len(extra) < READ_PLAN_QUERIES:
+                    extra.append(q)
+                    seen.add(q.casefold())
+    stats = {} if plan is not None or os.environ.get('LH_EXPAND') == 'subject' or os.environ.get('LH_READ_STATS') == '1' else None
+    return plan, extra, stats
+
+
+def _expand_subjects(dsn, host, note, relevant, plan=None):
+    """All active representatives and leaf referrers of selected objects, up to a global cap.
+    Reverse merge closure includes old linked ids; UNION makes cycles finite. No writes/embedding calls.
+    """
+    import subject_dict
+    cap = int(os.environ.get('LH_SUBJECT_EXPAND_CAP', '150'))
+    if not 1 <= cap <= 10000:
+        raise ValueError('LH_SUBJECT_EXPAND_CAP must be 1..10000')
+    seeds = [s['subject_id'] for s in (plan or {}).get('subjects', [])]
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute('select distinct subject_id::text from knowledge.fragment where host_id=%s and id=any(%s::uuid[]) and subject_id is not null',
+                    (host, [str(f['id']) for f in relevant]))
+        seeds += [r[0] for r in cur.fetchall()]
+        roots = sorted({subject_dict.follow(cur, host, sid)['subject_id'] for sid in seeds})
+        if not roots:
+            return note
+        cur.execute('''with recursive objects(subject_id) as (
+            select subject_id from knowledge.subject where host_id=%s and subject_id=any(%s::uuid[])
+            union
+            select s.subject_id from knowledge.subject s join objects o on s.merged_into=o.subject_id where s.host_id=%s
+        ) select f.id::text as id,f.alias,f.domain,f.seq,f.kind::text as kind,f.text,f.group_id,f.revision
+          from knowledge.fragment f where f.host_id=%s and f.active
+          and not(f.id=any(%s::uuid[])) and (f.subject_id in (select subject_id from objects)
+            or exists(select 1 from knowledge.fragment_leaf l where l.fragment_id=f.id and l.revision=f.revision and l.subject_id in (select subject_id from objects)))
+          order by f.domain,f.seq,f.id limit %s''',
+                    (host, roots, host, host, [str(f['id']) for f in note], cap))
+        extra = store_pg._rows(cur)
+    _attach_domain(dsn, extra)
+    return note + extra
+
+
+def _read_stats(stats, note, expanded, stage, plan):
+    out = {}
+    if stats is not None:
+        have = {str(f['id']) for f in note}
+        for f in expanded:
+            if str(f['id']) not in have:
+                stats.setdefault('added', {})[str(f['id'])] = {'stage': stage}
+        out['collection_stats'] = stats
+    if plan is not None:
+        out.update(read_plan=plan, plan_document=_plan_text(plan))
+    return out
+
+
+def _pending_lines(dsn, host, frags, plan=None):
+    """Confirmed, unapplied partition bodies stay separate from canonical fragments."""
+    import domain_router
+    domains = sorted({f['domain'] for f in frags if f.get('domain')} |
+                     {d['domain'] for d in (plan or {}).get('domains', [])})
+    pending = []
+    with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+        for domain in domains:
+            pending.extend(domain_router.pending_parts(cur, host, domain))
+    if not pending:
+        return []
+    lines = ['', '## 반영 대기 (확정됨·정본 미반영; 현재 구현으로 쓰지 않음)', '']
+    for domain in domains:
+        parts = [p for p in pending if p['domain'] == domain]
+        if parts:
+            lines.append(f'### 영역 {domain}')
+            lines.extend(f"- [반영 대기 {p['entry_id']}:{p['fact_index']}] {fact_text.view(p['text'])}" for p in parts)
+    return lines
+
+
 def collect_wide(dsn, host, question, queries, ask, change=None):
     """Wide collection for knowledge_brief (schema-delta '검색 전달 방식 확정'): Jev-selected fragments + group siblings +
     working-domain expansion, rendered in the four views. Returns (document, stats). Read by the brief writer, not the parent."""
@@ -249,8 +389,12 @@ def collect_wide(dsn, host, question, queries, ask, change=None):
     qs = _queries(queries)
     if question.strip() not in qs:
         qs = qs + [question.strip()]
-    note, relevant = _collect(dsn, host, question, qs, ask, NEED_Q)
-    wide = _expand_domains(dsn, host, note, relevant)
+    plan, extra, stats = _read_setup(dsn, host, question, qs, augment=True)
+    options = {'diagnostics': stats, 'plan_queries': extra} if stats is not None else {}
+    note, relevant = _collect(dsn, host, question, qs + extra, ask, NEED_Q, **options)
+    subject_mode = os.environ.get('LH_EXPAND', 'domain') == 'subject'
+    wide = _expand_subjects(dsn, host, note, relevant, plan) if subject_mode else _expand_domains(dsn, host, note, relevant)
+    additions = _read_stats(stats, note, wide, 'subject-expansion' if subject_mode else 'domain-expansion', plan)
     flagged = set()
     if change and relevant:
         scores = ask({"change": str(change).strip()}, [f["text"] for f in relevant], CONFLICT_Q)
@@ -258,7 +402,8 @@ def collect_wide(dsn, host, question, queries, ask, change=None):
     counts = _domain_counts(wide)
     lines = [f"# 모은 지식: {question.strip()}", "", "영역 목록: " + ", ".join(f"{d}({n})" for d, n in counts), ""]
     lines += _render(wide, flagged)  # scale-02 rank (relevance-ordered domains) tried and not adopted: R07 1.0/12
-    return "\n".join(lines) + "\n", {"relevant": len(relevant), "collected": len(wide), "conflicts": len(flagged)}
+    lines += _pending_lines(dsn, host, wide, plan)
+    return "\n".join(lines) + "\n", {"relevant": len(relevant), "collected": len(wide), "conflicts": len(flagged), **additions}
 
 
 def search_dir():
@@ -278,9 +423,12 @@ def search(dsn, host, question, queries, ask, layer=None, change=None):
     qs = _queries(queries)
     if question.strip() not in qs:
         qs = qs + [question.strip()]  # the question itself is also a query (layer-02 round3)
-    note, relevant = _collect(dsn, host, question, qs, ask, NEED_Q)
-    # Group siblings come along (layer-03 round2): fragments split from one decision/flow lose meaning apart.
-    returned = note
+    plan, extra, stats = _read_setup(dsn, host, question, qs)
+    options = {'diagnostics': stats} if stats is not None else {}
+    note, relevant = _collect(dsn, host, question, qs, ask, NEED_Q, **options)
+    # Group siblings remain unchanged; subject expansion is explicitly opt-in.
+    returned = _expand_subjects(dsn, host, note, relevant, plan) if os.environ.get('LH_EXPAND') == 'subject' else note
+    additions = _read_stats(stats, note, returned, 'subject-expansion', plan)
     flagged = set()
     if change and relevant:
         if not isinstance(change, str) or not change.strip():
@@ -290,18 +438,21 @@ def search(dsn, host, question, queries, ask, layer=None, change=None):
     more_d, more_g = _more_index(dsn, host, returned)
     search_id = uuid4().hex[:12]
     (search_dir() / f"{search_id}.json").write_text(json.dumps(
-        {"host_id": host, "question": question, "returned": [str(f["id"]) for f in returned]}))
+        {"host_id": host, "question": question, "returned": [str(f["id"]) for f in returned], **additions}))
     lines = [f"# 필요한 지식: {question.strip()}", ""] + _render(returned, flagged)
     if more_d or more_g:
         lines += ["## 더 있음 (knowledge_more 로 받음)", ""]
         lines += [f"- 영역 {d}: {n}개 더" for d, n in sorted(more_d.items(), key=lambda kv: -kv[1])]
         lines += [f"- 묶음 {g}: {n}개 더" for g, n in sorted(more_g.items(), key=lambda kv: -kv[1])[:20]]
         lines += ["", f"search_id: {search_id} (knowledge_more 에 쓴다)", ""]
+    lines += _pending_lines(dsn, host, returned, plan)
+    if plan is not None:
+        lines += ['', _plan_text(plan)]
     document = "\n".join(lines) + "\n"
     if layer:
         document += _layer_guide(layer)
     return {"search_id": search_id, "document": document, "relevant": len(relevant), "returned": len(returned), "conflicts": len(flagged),
-            "more": {"domains": more_d, "groups": more_g}}
+            "more": {"domains": more_d, "groups": more_g}, **additions}
 
 
 def more(dsn, search_id, domain=None, group=None):
@@ -323,7 +474,8 @@ def more(dsn, search_id, domain=None, group=None):
     st["returned"] += [r["id"] for r in rows]
     p.write_text(json.dumps(st))
     head = f"# 더 받은 지식: {'영역 ' + domain if domain else '묶음 ' + group} ({len(rows)})"
-    return {"search_id": search_id, "count": len(rows), "document": "\n".join([head, ""] + _render(rows)) + "\n"}
+    pending_scope = rows or ([{'domain': domain}] if domain else [])
+    return {"search_id": search_id, "count": len(rows), "document": "\n".join([head, ""] + _render(rows) + _pending_lines(dsn, st['host_id'], pending_scope)) + "\n"}
 
 
 def _change(change):
@@ -366,7 +518,8 @@ def fix_plan(dsn, host, change, queries, ask):
     for f, s in zip(note, scores):
         if s < THRESHOLD:
             continue
-        item = {"alias": f["alias"], "id": str(f["id"]), "text": f["text"], "revision": f.get("revision")}
+        item = {"alias": f["alias"], "id": str(f["id"]), "text": f["text"], "revision": f.get("revision"),
+                **{k:f.get(k) for k in ("subject","subject_type","subject_description","parent_subject")}}
         if pat is not None and pat.search(f["text"]):
             item["proposed_text"] = pat.sub(ch["new"], f["text"])
         items.append(item)
@@ -446,10 +599,12 @@ def _update_fact(ch, item, text, code_refs=()):
             {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}, *code_refs]
     if ch.get("forms_quote"):
         refs.insert(1, {"type": "user_utterance", "locator": "change/forms_quote", "quote": ch["forms_quote"]})
-    import runner as _runner
-    head = _runner.SUBJECT_HEAD.match(text + " ")  # the whole topic phrase, not its first word (E_SUBJECT, flow3 r3)
+    subject = item.get("subject") or ch["subject"]
+    if ch.get("type") == "rename" and subject == ch["old"]:
+        subject = ch["new"]
     return {"operation": "update", "kind": "fact",
-            "subject": head.group(1).strip() if head else (text.split()[0] if text.split() else ch["subject"]),
+            "subject": subject, "subject_type":item.get("subject_type"),
+            "subject_description":item.get("subject_description"), "parent_subject":item.get("parent_subject"),
             "fact": text, "target_ref": item["id"], "evidence_source": "user_confirmed",
             "reason": f"사용자가 확정한 변경({ch['subject']}: {ch['old']} → {ch['new']})을 이 조각에 반영한다.",
             "evidence_refs": refs, **({"expected_revision": item["revision"]} if item.get("revision") else {})}
@@ -458,8 +613,9 @@ def _update_fact(ch, item, text, code_refs=()):
 def _deprecate_fact(ch, item, why):
     refs = [{"type": "user_utterance", "locator": "change/user_quote", "quote": ch["user_quote"]},
             {"type": "official_doc", "locator": f"fragment/{item['alias']}", "quote": item["text"]}]
-    subject = ch["subject"]
+    subject = item.get("subject") or ch["subject"]
     return {"operation": "deprecate", "kind": "fact", "subject": subject,
+            "subject_type":item.get("subject_type"), "subject_description":item.get("subject_description"), "parent_subject":item.get("parent_subject"),
             "fact": f"{subject} 변경으로 [{item['alias']}] 는 더 이상 유효하지 않다: {why.strip()}",
             "target_ref": item["id"], "evidence_source": "user_confirmed",
             "reason": f"사용자가 확정한 변경({subject}: {ch['old']} → {ch['new']})으로 이 조각을 폐기한다.",

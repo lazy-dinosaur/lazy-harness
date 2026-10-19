@@ -1,7 +1,7 @@
 """G4 near-duplicate clean-up by MERGE-UPDATE, separate from digestion (schema-delta '소화 규칙 확정': merging is a later,
 separate job; user 2026-09-28 '폐기보다 … 업데이트 식'; cleanup-01 showed plain deprecation lost knowledge in 10/19).
 
-  1. pairs: active fragments in the same (host, domain) whose text embeddings (variant 'plain') are >= MIN_SIM
+  1. pairs: active fragments in the same (host, domain) ranked in each fragment's top-K neighbors (variant 'plain')
   2. Jev relation; 'different' / uncertain pairs are skipped
   3. Luna (headless pi -p, read tool only) writes one merged sentence per pair, or 'conflict'
   4. guards (merge_guard): code check (identifiers/paths/numbers/negation) -> one re-merge with the missing list;
@@ -20,9 +20,8 @@ from pathlib import Path
 
 import merge_guard
 import store_pg
+from candidate_policy import top_k
 
-MIN_SIM = 0.95
-DEPRECATE_MIN = 0.8
 MAX_PAIRS = 50
 VARIANT = "plain"
 STATE = Path(os.environ.get("LH_CLEANUP_DIR") or Path.home() / ".local/state/lazy-harness-v2/cleanup")
@@ -36,22 +35,37 @@ RELATION = {"type": "choice",
                          "none_or_uncertain": "판단할 수 없거나 불확실하다"}}
 
 
-def pairs(dsn, host, min_sim=MIN_SIM, limit=MAX_PAIRS, variant=VARIANT):
+def pairs(dsn, host, min_sim=None, limit=MAX_PAIRS, variant=VARIANT):
+    from embedding_guard import assert_host
+    import embed
+    if min_sim is not None:
+        raise ValueError('cleanup cosine floors removed; use LH_CANDIDATE_TOP_K')
+    k = top_k()
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select a.id::text, a.alias, a.seq, a.text, b.id::text, b.alias, b.seq, b.text, a.domain,
-                              1 - (ea.embedding operator(extensions.<=>) eb.embedding) as sim
-                       from knowledge.fragment a join knowledge.fragment b
-                         on a.host_id=b.host_id and a.id < b.id
-                       join knowledge.fragment_embedding ea on ea.fragment_id=a.id and ea.embed_variant=%s and ea.revision=a.revision
-                       join knowledge.fragment_embedding eb on eb.fragment_id=b.id and eb.embed_variant=%s and eb.revision=b.revision
-                       where a.host_id=%s and a.active and b.active
-                         -- contra06 (2026-10-02): a fragment the judge called a duplicate (source.possible_duplicate) is
-                         -- paired at a lower similarity and across domains; the merge guards decide as for any pair
-                         and ((a.domain=b.domain and 1 - (ea.embedding operator(extensions.<=>) eb.embedding) >= %s)
-                              or (coalesce((a.source->>'possible_duplicate')::boolean, false)
-                                  or coalesce((b.source->>'possible_duplicate')::boolean, false))
-                                 and 1 - (ea.embedding operator(extensions.<=>) eb.embedding) >= %s)
-                       order by sim desc limit %s""", (variant, variant, host, min_sim, DEPRECATE_MIN, limit))
+        assert_host(cur, host)
+        cur.execute("""with neighbors as (
+            select a.id as aid, b.id as bid, b.sim
+            from knowledge.fragment a
+            join knowledge.fragment_embedding ea on ea.fragment_id=a.id
+                and ea.embed_variant=%s and ea.revision=a.revision and ea.model_id=%s
+            cross join lateral (
+                select b.id, 1-(ea.embedding operator(extensions.<=>) eb.embedding) as sim
+                from knowledge.fragment b join knowledge.fragment_embedding eb
+                    on eb.fragment_id=b.id and eb.embed_variant=%s
+                    and eb.revision=b.revision and eb.model_id=ea.model_id
+                where b.host_id=a.host_id and b.active and b.id<>a.id
+                    and (a.domain=b.domain or coalesce((a.source->>'possible_duplicate')::boolean,false)
+                        or coalesce((b.source->>'possible_duplicate')::boolean,false))
+                order by sim desc,b.id limit %s
+            ) b where a.host_id=%s and a.active
+        ), unique_pairs as (
+            select least(aid,bid) as aid,greatest(aid,bid) as bid,max(sim) as sim
+            from neighbors group by least(aid,bid),greatest(aid,bid)
+        )
+        select a.id::text,a.alias,a.seq,a.text,b.id::text,b.alias,b.seq,b.text,a.domain,p.sim
+        from unique_pairs p join knowledge.fragment a on a.id=p.aid
+            join knowledge.fragment b on b.id=p.bid
+        order by p.sim desc,a.id,b.id limit %s""", (variant,embed.MODEL_ID,variant,k,host,limit))
         return [{"a": {"id": r[0], "alias": r[1], "seq": r[2], "text": r[3]},
                  "b": {"id": r[4], "alias": r[5], "seq": r[6], "text": r[7]}, "domain": r[8], "sim": round(r[9], 4)}
                 for r in cur.fetchall()]
@@ -109,7 +123,7 @@ def _merge_all(cands, merger, chunk=20, workers=4):
     return out
 
 
-def run(dsn, host, judge, ask, merger, *, apply=False, min_sim=MIN_SIM, limit=MAX_PAIRS, variant=VARIANT, state_dir=STATE):
+def run(dsn, host, judge, ask, merger, *, apply=False, min_sim=None, limit=MAX_PAIRS, variant=VARIANT, state_dir=STATE):
     """judge(packet)->{'answers': {'relation': ...}} (Jev), ask = worker_tools.make_ask (Jev noul), merger(items)->{id: result}."""
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:6]
     rows, cands, used = [], [], set()
@@ -178,7 +192,7 @@ def run(dsn, host, judge, ask, merger, *, apply=False, min_sim=MIN_SIM, limit=MA
     counts = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-    out = {"run_id": run_id, "host": host, "apply": apply, "min_sim": min_sim, "pairs": len(rows), "counts": counts,
+    out = {"run_id": run_id, "host": host, "apply": apply, "candidate_top_k": top_k(), "pairs": len(rows), "counts": counts,
            "merged": sum(1 for r in rows if r["status"] == "merge"), "rows": rows}
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / f"{run_id}.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
@@ -223,7 +237,7 @@ def main():
     ap.add_argument("--revert", metavar="RUN_ID")
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--limit", type=int, default=MAX_PAIRS)
-    ap.add_argument("--min-sim", type=float, default=MIN_SIM)
+    ap.add_argument("--min-sim", type=float, default=None)
     a = ap.parse_args()
     cfg = config.require("db_url")
     host = a.host or config.load().get("default_host")

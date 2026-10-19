@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+import write_contract as wc
+
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -31,15 +33,42 @@ def rows(root, table):
     return [read(p) for p in sorted((Path(root) / table).glob("*.json"))]
 
 
-def transition(root, entry, state, actor, receipt_ref=None):
+def save_validation_receipt(root, receipt):
+    # This is the explicitly selected experimental file backend, never a PG fallback.
+    import os
+    path = Path(root) / 'validation_receipt' / (receipt['receipt_id'] + '.json')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('x', encoding='utf-8') as output:
+        json.dump(receipt, output, ensure_ascii=False, allow_nan=False)
+        output.flush()
+        os.fsync(output.fileno())
+    return receipt['receipt_id']
+
+
+def transition(root, entry, state, actor, receipt_ref=None, *, validation_receipt_ref=None):
     old = entry["state"]
     entry["state"] = state
     write(Path(root) / "ledger_entry" / (entry["entry_id"] + ".json"), entry)
     event(root, "ledger_entry", {"entry_id": entry["entry_id"], "from": old, "to": state,
-                                 "actor": actor, "receipt_ref": receipt_ref, "at": now()})
+                                 "actor": actor, "receipt_ref": receipt_ref,
+                                 'validation_receipt_ref': validation_receipt_ref, "at": now()})
 
 
 def register(root, judgement):
+    import copy
+    judgement = copy.deepcopy(judgement)
+    errors = wc.admission(judgement, wc.Contract.FILE_LEDGER_V1)
+    if not errors:
+        try:
+            return _register(root, judgement)
+        except ValueError as exc:
+            errors = [wc.error('E_CONTEXT', 'register', str(exc))]
+    receipt = wc.failure_receipt(judgement, errors, stage='register', contract=wc.Contract.FILE_LEDGER_V1)
+    save_validation_receipt(root, receipt)
+    raise wc.WriteContractError(errors, receipt_id=receipt['receipt_id'], request_id=receipt['request_id'])
+
+
+def _register(root, judgement):
     root = Path(root)
     unit_id = judgement["work_unit_id"]
     unit_path = root / "work_unit" / (unit_id + ".json")
@@ -111,7 +140,8 @@ def build_fragment(entry, fact_index, keywords, receipt_ids, now, seq):
                        "fact_index": fact_index, "receipt_ids": receipt_ids,
                        "completion_event": entry["work_unit_id"],
                        "captured_by": entry["judgement_body"].get("captured_by", "worker"),
-                       "subject": fact.get("subject"), "why": fact.get("why")},
+                       "subject": fact.get("subject"), "subject_type": fact.get("subject_type"),
+                        "subject_description": fact.get("subject_description"), "parent_subject": fact.get("parent_subject"), "why": fact.get("why")},
             "valid_from": now, "superseded_at": None}
 
 
@@ -124,22 +154,33 @@ def batch(root, window, fixtures):
     selected = [e for e in rows(root, "ledger_entry") if e["state"] == "proposed"][:window]
     result = []
     for entry in selected:
-        outcomes = []
-        for index, fact in enumerate(entry["judgement_body"].get("facts", [])):
-            operation = fact.get("operation", "add")
-            fragment = target(root, fact) if operation in ("update", "deprecate") else None
-            errors = lint_fact(fact)["errors"]
-            if operation not in ("add", "update", "deprecate"):
-                errors.append({"code": "E_SCHEMA", "where": f"facts.{index}.operation", "detail": "unknown operation"})
+        outcomes, checked_payload = [], []
+        body = entry['judgement_body']
+        shape_errors = wc.facts_shape(body.get('facts'))
+        if shape_errors:
+            outcomes.append({'fact_index': None, 'errors': shape_errors})
+        for index, fact in enumerate(body.get('facts', []) if isinstance(body.get('facts'), list) else []):
+            if not isinstance(fact, dict):
+                continue
+            errors = wc.fact_shape(fact, wc.Contract.FILE_LEDGER_V1)
+            operation = fact.get('operation', 'add')
+            fragment = target(root, fact) if not errors and operation in ('update', 'deprecate') else None
+            if fragment and fragment.get('host_id') != entry['host_id']:
+                fragment = None
+            if not errors:
+                errors = wc.validate_fact(fact, wc.Contract.FILE_LEDGER_V1)['errors']
             if operation in ("update", "deprecate") and fragment is None:
                 errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_ref", "detail": "target missing"})
             fixture = fixtures.get(entry["entry_id"], [])[index] if index < len(fixtures.get(entry["entry_id"], [])) else None
             if fixture is not None:
-                errors += lint(fixture["packet"])["errors"]
-                excerpt = fixture["packet"].get("state", {}).get("target_excerpt") if isinstance(fixture["packet"].get("state"), dict) else None
+                errors += wc.validate_fixture(fixture, fact)
+                packet = fixture.get('packet', {}) if isinstance(fixture, dict) else {}
+                packet_state = packet.get('state') if isinstance(packet, dict) else None
+                excerpt = packet_state.get('target_excerpt') if isinstance(packet_state, dict) else None
                 if fragment is not None and excerpt != fragment.get("text"):
                     # 코드가 대조 가능한 문자열: target_excerpt 는 대상 조각의 현재 text 그대로여야 함 (C4 발견)
                     errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_excerpt", "detail": "target_excerpt differs from target fragment text"})
+            checked_payload.append({'fact_index': index, 'fact': fact, 'fixture': fixture, 'target': fragment})
             if errors:
                 outcomes.append({"fact_index": index, "errors": errors})
                 continue
@@ -176,9 +217,16 @@ def batch(root, window, fixtures):
             state = "provisional"
         else:
             state = "closed"
+        validation_id = None
+        if state == 'rejected_input':
+            reasons = [{**e, 'fact_index': o['fact_index']} for o in outcomes for e in o.get('errors', [])]
+            receipt = wc.failure_receipt(body, reasons, stage='worktime', contract=wc.Contract.FILE_LEDGER_V1,
+                                         entry=entry, checked=checked_payload)
+            validation_id = save_validation_receipt(root, receipt)  # durable reasons before terminal state
         if state != "proposed":
-            transition(root, entry, state, "runner")
-        result.append({"entry_id": entry["entry_id"], "state": state, "facts": outcomes})
+            transition(root, entry, state, "runner", validation_receipt_ref=validation_id)
+        result.append({"entry_id": entry["entry_id"], "state": state, "facts": outcomes,
+                       'validation_receipt_id': validation_id})
     return result
 
 

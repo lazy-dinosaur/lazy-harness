@@ -107,11 +107,10 @@ def _candidates(dsn, execution_scope=None):
     with store_pg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select w.work_unit_id::text, count(*)::int as entries from knowledge.work_unit w
                     join knowledge.ledger_entry e on e.work_unit_id=w.work_unit_id
-                    where w.status='completed' and e.state='eligible'
+                    where w.status='completed' and e.state in ('eligible','provisional','review_queue')
                     -- contra06 (2026-10-02): a unit with unchecked entries cannot digest yet ('waiting'); counting it used
                     -- the whole window every tick, so its own worktime never ran (150-entry unit stalled at 50 eligible)
-                    and not exists (select 1 from knowledge.ledger_entry p where p.work_unit_id=w.work_unit_id
-                                    and p.state='proposed')
+                    -- Proposed entries are blocked within their own partition by digest, not host-wide.
                     and (%s::uuid[] is null or w.work_unit_id=any(%s::uuid[]))
                     group by w.work_unit_id,w.completed_at
                     order by w.completed_at,w.work_unit_id""",
@@ -142,7 +141,7 @@ MAX_CONFLICTS = 20  # 'canon changed' rechecks of one unit retried at once befor
 def _pool(workers, fn, items):
     """Run fn(item) for each item, `workers` at a time (1 = in order, as before). -> [(item, result or exception)].
     Migration parallel load (user 'a', 2026-10-03): Jev judging happens outside transactions, so several units or entry
-    chunks are judged at once; every commit still takes the host dictionary lock and the subject-generation checks.
+    chunks are judged at once; G16 digestion groups these by domain and checks partition-local generations.
     Contract (astra parallel review P1): with workers > 1 the DB commit order of units is NOT the candidate order -- an
     update/deprecate is protected by its target-revision CAS (the later one is rechecked), adds by the excerpt check.
     The injected judge / contra_judge / same functions must be thread-safe (the Jev and embedding clients are per call)."""
@@ -168,7 +167,7 @@ def _pool(workers, fn, items):
 
 def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEFAULT_STATE,
          max_attempts=5, base_delay=30, now=None, choose=None, confirm=None, contra_judge=None, subject_same=None,
-         workers=1, source_reviewer=None, require_source_review=False, runtime_db=None, execution_scope=None):
+         workers=1, source_reviewer=None, require_source_review=False, runtime_db=None, execution_scope=None, maintenance=None):
     from runtime_db import bind_runtime_db
     runtime_db = bind_runtime_db(runtime_db or dsn)
     dsn = runtime_db.require_same_target(dsn)
@@ -251,9 +250,38 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 spent = unit["entries"] if unit["entries"] <= remaining else max(1, remaining // 2)
                 remaining = max(0, remaining - spent)  # never into worktime's reserved share
                 planned.append((unit, key, spent))
-            digested = _pool(workers, lambda pl: digest_driver.run_digestion(
-                dsn, pl[0]["work_unit_id"], judge, choose=choose, confirm=confirm, same=subject_same,
-                budget=max(1, pl[2])), planned)
+            # G16 mapping: ledger -> router -> (host,domain) log -> one ordinary
+            # worker per partition. Different partitions run concurrently; within
+            # each partition the completed-unit order is preserved. No resident LLM.
+            import domain_router
+            partitions = {}
+            for pl in planned:
+                for partition in domain_router.route_pending(dsn, pl[0]['work_unit_id'], choose, confirm,
+                        maintenance.get('embed_fn') if maintenance else None):
+                    partitions.setdefault(partition, []).append(pl)
+            def run_partition(item):
+                (host, domain), plans = item
+                return [(pl, digest_driver.run_digestion(dsn, pl[0]['work_unit_id'], judge,
+                         same=subject_same, budget=max(1, pl[2]), domain=domain, maintenance=maintenance)) for pl in plans]
+            by_unit = {}
+            for item, outcomes in _pool(workers, run_partition, list(partitions.items())):
+                if isinstance(outcomes, Exception):
+                    outcomes = [(pl, outcomes) for pl in item[1]]
+                for pl, outcome in outcomes:
+                    by_unit.setdefault(pl[1], []).append(outcome)
+            digested = []
+            for pl in planned:
+                outcomes = by_unit.get(pl[1], [{'status': 'noop'}])
+                error = next((r for r in outcomes if isinstance(r, Exception)), None)
+                combined = error or next((r for r in outcomes if r['status'] in
+                    ('needs_recheck', 'needs_review', 'partial')), None) or (outcomes[0] if len(outcomes) == 1
+                    else {'status': 'processed', 'partitions': outcomes})
+                digested.append((pl, combined))
+            if maintenance and maintenance.get('merge_luna') and maintenance.get('merge_same'):
+                result['domain_maintenance'] = []
+                for host in sorted({h for h, _ in partitions}):
+                    result['domain_maintenance'] += domain_router.maintain_domains(dsn,host,
+                        maintenance['embed_fn'],maintenance['merge_luna'],maintenance['merge_same'])
             for (unit, key, spent), outcome in digested:
                 if isinstance(outcome, Exception):
                     skipped["failed"] += 1
@@ -440,7 +468,7 @@ def tick(dsn, judge, *, utterance_judge=None, max_units=20, window=50, state=DEF
                 _save(state, hints)
             # The remaining item budget also bounds optional embedding work.
             remaining -= len(selected)
-            for variant in ("plain", "ctx-v1"):
+            for variant in ("plain", "ctx-v1", "ctx-v2"):
                 if remaining <= 0:
                     break
                 try:
@@ -855,6 +883,7 @@ def main():
                               confirm=__import__("domain_router").make_confirm(cfg),
                               contra_judge=__import__("capture_audit").make_judge(cfg),
                               subject_same=__import__("worker_tools").make_ask(cfg),
+                              maintenance=digest_driver.make_maintenance(cfg),
                               # ssot/v2-knowledge-module-source-authority.md: a missing binding means no source
                               # provider for that host (not a failed tick); a configured binding is required in full.
                               source_reviewer=source_reviewer, require_source_review=source_reviewer is not None,

@@ -12,6 +12,8 @@ import embed
 import policy
 import runner
 import store
+import write_contract as wc
+import validation_receipts as vr
 
 try:
     import psycopg as driver
@@ -48,12 +50,26 @@ def _rows(cursor):
 
 
 def search(dsn, host, query, limit=8, cross_hosts=None, mode="text", min_similarity=None,
-           exclude_ids=None, variant="plain", expand=True, vector=None):
+           exclude_ids=None, variant="ctx-v2", expand=True, vector=None):
     _variant(variant)
     if limit < 0:
         raise ValueError("limit must be nonnegative")
     if mode not in ("text", "hybrid"):
         raise ValueError("unknown search mode")
+    from embedding_guard import assert_dsn
+    from embedding_thresholds import get
+    for model_host in {host, *(cross_hosts or [])}:
+        assert_dsn(dsn, model_host)
+    if mode == 'hybrid' and min_similarity is not None and not embed.MODEL_ID.startswith('intfloat/multilingual-e5-'):
+        from embedding_thresholds import CalibrationRequired
+        raise CalibrationRequired('explicit retrieval cosine floor is not calibrated for this model; use top-K')
+    if mode == 'hybrid' and min_similarity is None:
+        min_similarity = get('retrieval')
+    if mode == 'hybrid' and variant == 'ctx-v2':
+        # Identity changes do not bump fragment revision. Refresh from current rows;
+        # exact-input cache avoids paid calls for unchanged identities.
+        for model_host in {host, *(cross_hosts or [])}:
+            backfill_embeddings(dsn, model_host, variant='ctx-v2')
     warning = None
     if mode == "hybrid" and vector is None:
         try:
@@ -94,12 +110,18 @@ def _vector(values):
 
 
 def _variant(variant):
-    if variant not in ("plain", "ctx-v1"):
+    if variant not in ("plain", "ctx-v1", "ctx-v2"):
         raise ValueError("unknown embedding variant")
 
 
 def _upsert_embedding(cur, fragment_id, revision, vector, variant="plain"):
     _variant(variant)
+    from embedding_guard import assert_host
+    cur.execute('select host_id from knowledge.fragment where id=%s', (fragment_id,))
+    owner = cur.fetchone()
+    if not owner:
+        raise ValueError('fragment not found for vector write')
+    assert_host(cur, owner[0])
     cur.execute("""insert into knowledge.fragment_embedding(fragment_id,revision,model_id,embed_variant,embedding)
                 values (%s,%s,%s,%s,%s::extensions.vector)
                 on conflict (fragment_id,model_id,embed_variant) do update
@@ -107,8 +129,11 @@ def _upsert_embedding(cur, fragment_id, revision, vector, variant="plain"):
                 (fragment_id, revision, embed.MODEL_ID, variant, _vector(vector)))
 
 
-def _embedding_input(kind, domain, siblings, text, variant):
+def _embedding_input(kind, domain, siblings, text, variant, subject=None, parent=None):
     import fact_text  # schema-delta '임베딩은 한국어 보기로': questions are Korean, operator text is the stored form
+    if variant == 'ctx-v2':
+        from derived_view import render
+        return render(domain, subject, parent, text)
     text = fact_text.view(text)
     if variant == "plain":
         return text
@@ -119,6 +144,8 @@ def _embedding_input(kind, domain, siblings, text, variant):
 
 def backfill_embeddings(dsn, host, variant="plain", limit=None, *, fragment_ids=None):
     _variant(variant)
+    from embedding_guard import assert_dsn
+    assert_dsn(dsn, host)
     if limit is not None and limit < 1:
         raise ValueError("limit must be positive")
     with connect(dsn) as conn, conn.cursor() as cur:
@@ -126,12 +153,14 @@ def backfill_embeddings(dsn, host, variant="plain", limit=None, *, fragment_ids=
                     from knowledge.fragment f
                     left join knowledge.fragment_embedding e on e.fragment_id=f.id and e.model_id=%s
                       and e.embed_variant=%s
-                    where f.host_id=%s and f.active and (e.fragment_id is null or e.revision<>f.revision)
+                    where f.host_id=%s and f.active and (e.fragment_id is null or e.revision<>f.revision or %s='ctx-v2')
                       and (%s::uuid[] is null or f.id=any(%s::uuid[]))
-                    order by f.id limit %s for update of f""", (embed.MODEL_ID, variant, host, fragment_ids,
+                    order by f.id limit %s for update of f""", (embed.MODEL_ID, variant, host, variant, fragment_ids,
                                                                   fragment_ids, limit or 2147483647))
         missing = cur.fetchall()
         inputs = []
+        from derived_view import identities
+        identity = identities(cur, [r[0] for r in missing]) if variant == 'ctx-v2' and missing else {}
         for fragment_id, revision, text, kind, domain, group_id in missing:
             siblings = []
             if variant == "ctx-v1" and group_id is not None:
@@ -139,7 +168,8 @@ def backfill_embeddings(dsn, host, variant="plain", limit=None, *, fragment_ids=
                             where host_id=%s and group_id=%s and id<>%s and active
                             order by id limit 3""", (host, group_id, fragment_id))
                 siblings = [row[0] for row in cur.fetchall()]
-            inputs.append(_embedding_input(kind, domain, siblings, text, variant))
+            area, subject, parent = identity.get(fragment_id, (domain, None, None))
+            inputs.append(_embedding_input(kind, area, siblings, text, variant, subject, parent))
         vectors = embed.encode_passages(inputs)
         for (fragment_id, revision, *_), vector in zip(missing, vectors):
             _upsert_embedding(cur, fragment_id, revision, vector, variant)
@@ -162,11 +192,22 @@ def policies(cur, host_id):
     return policy.DEFAULT_POLICY
 
 
-def _transition(cur, entry, state, actor, receipt_ref=None):
-    old = entry["state"]
+def _transition(cur, entry, state, actor, receipt_ref=None, *, validation_receipt_ref=None):
+    # NO KEY UPDATE is compatible with sibling-part absorption FK key-share locks.
+    cur.execute('select state::text from knowledge.ledger_entry where entry_id=%s for no key update', (entry['entry_id'],))
+    old = cur.fetchone()[0]
+    if actor == 'acceptance' and state in ('absorbed', 'retained_as_evidence', 'closed'):
+        done = _absorbed_facts(cur, entry['entry_id'])
+        rejected = {i for i, a in _review_answers(cur, entry['entry_id']).items() if a == 'reject'}
+        if any(i not in done | rejected for i in range(len(entry['judgement_body']['facts']))):
+            state = 'eligible'
     cur.execute("update knowledge.ledger_entry set state=%s where entry_id=%s", (state, entry["entry_id"]))
-    cur.execute('insert into knowledge.ledger_entry_event(entry_id,"from","to",actor,receipt_ref) values (%s,%s,%s,%s,%s)',
-                (entry["entry_id"], old, state, actor, receipt_ref))
+    if validation_receipt_ref is not None:
+        cur.execute('insert into knowledge.ledger_entry_event(entry_id,"from","to",actor,receipt_ref,validation_receipt_ref) values (%s,%s,%s,%s,%s,%s)',
+                    (entry['entry_id'], old, state, actor, receipt_ref, validation_receipt_ref))
+    else:
+        cur.execute('insert into knowledge.ledger_entry_event(entry_id,"from","to",actor,receipt_ref) values (%s,%s,%s,%s,%s)',
+                    (entry["entry_id"], old, state, actor, receipt_ref))
     entry["state"] = state
 
 
@@ -895,6 +936,7 @@ def review_list(dsn, host, *, require_source_review=False, verified_source_recei
                           "review_reasons": [f"fix_due: [{r['with']}] {fact_text.view(r['with_text'])} — 사용자 답: "
                                              + str((json.loads(answer or '{}')).get('quote'))],
                           "question_ids": [qid]})
+        items.extend(subject_merge.merge_review_list(cur, host))
         return items
 
 
@@ -1034,9 +1076,10 @@ def _excerpt_now(dsn, host, fact, rewrites, fixture):
                                             mode=fixture.get("excerpt_mode"))
 
 
-def _history_max(cur, host):
+def _history_max(cur, host, domain=None):
     cur.execute("""select coalesce(max(h.history_id),0) from knowledge.fragment_history h
-                   join knowledge.fragment f on f.id=h.fragment_id where f.host_id=%s""", (host,))
+                   join knowledge.fragment f on f.id=h.fragment_id where f.host_id=%s
+                   and (%s::text is null or f.domain=%s)""", (host, domain, domain))
     return cur.fetchone()[0]
 
 
@@ -1045,7 +1088,7 @@ def _start(cur, unit_id, host, partition_key, code_ref):
     cur.execute("select host_id,partition_key from knowledge.work_unit where work_unit_id=%s", (unit_id,))
     existing = _row(cur)
     if existing:
-        if (existing["host_id"], existing["partition_key"]) != (host, partition_key):
+        if existing['host_id'] != host:
             raise ValueError("work unit host/partition mismatch")
         return False
     cur.execute("""insert into knowledge.work_unit
@@ -1058,7 +1101,7 @@ def _start(cur, unit_id, host, partition_key, code_ref):
         return True
     cur.execute("select host_id,partition_key from knowledge.work_unit where work_unit_id=%s", (unit_id,))
     existing = _row(cur)
-    if (existing["host_id"], existing["partition_key"]) != (host, partition_key):
+    if existing['host_id'] != host:
         raise ValueError("work unit host/partition mismatch")
     return False
 
@@ -1107,8 +1150,27 @@ def code_changed_since(repo_root, code_ref, path):
 
 
 def register(dsn, judgement):
+    # Legacy direct callers retain proposed-first admission, not an authority bypass.
+    errors = wc.admission(judgement, wc.Contract.PG_LEDGER_V1)
+    if not errors:
+        try:
+            return _register(dsn, judgement)
+        except ValueError as exc:
+            errors = [wc.error('E_CONTEXT', 'register', str(exc))]
+    receipt = wc.failure_receipt(judgement, errors, stage='register', contract=wc.Contract.PG_LEDGER_V1)
+    vr.save(dsn, receipt)  # independent transaction after any rejected registration rolled back
+    raise wc.WriteContractError(errors, receipt_id=receipt['receipt_id'], request_id=receipt['request_id'])
+
+
+def _register(dsn, judgement):
+    import copy
+    judgement = copy.deepcopy(judgement)
     with connect(dsn) as conn, conn.cursor() as cur:
         host, unit = judgement["host_id"], judgement["work_unit_id"]
+        from identity_ref import resolve as resolve_ref
+        for fact in judgement.get('facts',[]):
+            if fact.get('identity_ref') is not None:
+                resolve_ref(cur,fact['identity_ref'],host,judgement['partition_key'])
         _start(cur, unit, host, judgement["partition_key"], judgement.get("baseline_code_ref"))
         entry_id = str(uuid4())
         cur.execute("""insert into knowledge.ledger_entry(entry_id,host_id,partition_key,work_unit_id,judgement_id,
@@ -1124,7 +1186,7 @@ def register(dsn, judgement):
         return entry
 
 
-def _target(cur, fact):
+def _target(cur, fact, host):
     ref = fact.get("target_ref")
     if not ref:
         return None
@@ -1133,7 +1195,7 @@ def _target(cur, fact):
         UUID(ref)
     except (ValueError, TypeError, AttributeError):
         return None
-    cur.execute("select id::text,revision,text,active from knowledge.fragment where id=%s", (ref,))
+    cur.execute("select id::text,revision,text,active from knowledge.fragment where id=%s and host_id=%s and active", (ref, host))
     return _row(cur)
 
 
@@ -1175,16 +1237,19 @@ def _receipt(cur, entry, index, fact, fixture, stage, current=None):
     return receipt_id
 
 
-def embed_unit(dsn, unit_id):
+def embed_unit(dsn, unit_id, *, domain=None):
     """Embed the active fragments this unit absorbed that have no embedding for their current revision, after the commit
     and outside it (astra big review: embedding calls held the digestion transaction). -> count embedded; on an
     embedding outage nothing is written and the poller's embedding pass retries."""
+    from embedding_guard import assert_unit
+    assert_unit(dsn,unit_id)
     with connect(dsn) as conn, conn.cursor() as cur:
         cur.execute("""select distinct f.id::text, f.revision, f.text from knowledge.absorption a
                        join knowledge.fragment f on f.id=a.fragment_ref
                        left join knowledge.fragment_embedding e on e.fragment_id=f.id and e.revision=f.revision
                          and e.model_id=%s and e.embed_variant='plain'
-                       where a.work_unit_id=%s and f.active and e.fragment_id is null""", (embed.MODEL_ID, unit_id))
+                       where a.work_unit_id=%s and f.active and e.fragment_id is null
+                       and (%s::text is null or f.domain=%s)""", (embed.MODEL_ID, unit_id, domain, domain))
         rows = cur.fetchall()
     done = 0
     if rows:
@@ -1199,16 +1264,18 @@ def embed_unit(dsn, unit_id):
                     if cur.fetchone():  # still that revision
                         _upsert_embedding(cur, fid, rev, vector)
             done = len(rows)
-    _embed_subjects(dsn, unit_id)  # independent of the passages (astra big review r3)
+    _embed_subjects(dsn, unit_id, domain=domain)  # independent of the passages (astra big review r3)
     return done
 
 
 def backfill_subject_embeddings(dsn, host, limit=50, *, subject_ids=None):
     """Poller retry: subjects of the host registered without an embedding (digestion registers them without one; an
     embedding outage after the commit leaves them missing, and subject_dict.nearest skips them). -> count."""
+    from embedding_guard import assert_dsn
+    assert_dsn(dsn,host)
     import subject_dict
     with connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select s.subject_id::text, s.name from knowledge.subject s
+        cur.execute("""select s.subject_id::text, concat_ws(': ',s.name,nullif(s.description,'')) from knowledge.subject s
                        left join knowledge.subject_embedding se on se.subject_id=s.subject_id and se.model_id=%s
                        where s.host_id=%s and se.subject_id is null
                          and (%s::uuid[] is null or s.subject_id=any(%s::uuid[]))
@@ -1217,7 +1284,7 @@ def backfill_subject_embeddings(dsn, host, limit=50, *, subject_ids=None):
         rows = cur.fetchall()
     if not rows:
         return 0
-    vectors = embed.encode_queries([subject_dict.core(n) for _, n in rows])  # EmbeddingUnavailable -> caller
+    vectors = embed.encode_queries([n for _, n in rows])  # EmbeddingUnavailable -> caller
     with connect(dsn) as conn, conn.cursor() as cur:
         for (sid, _), v in zip(rows, vectors):
             cur.execute("""insert into knowledge.subject_embedding(subject_id,model_id,embedding) values (%s,%s,%s::extensions.vector)
@@ -1225,21 +1292,25 @@ def backfill_subject_embeddings(dsn, host, limit=50, *, subject_ids=None):
     return len(rows)
 
 
-def _embed_subjects(dsn, unit_id):
+def _embed_subjects(dsn, unit_id, *, domain=None):
     """Subjects of the unit's fragments and leaves registered without an embedding (inside the digestion transaction)."""
+    from embedding_guard import assert_unit
+    assert_unit(dsn,unit_id)
     import subject_dict
     with connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute("""select distinct s.subject_id::text, s.name from knowledge.absorption a
+        cur.execute("""select distinct s.subject_id::text, concat_ws(': ',s.name,nullif(s.description,'')) from knowledge.absorption a
                        join knowledge.fragment f on f.id=a.fragment_ref
                        join knowledge.fragment_leaf l on l.fragment_id=f.id
                        join knowledge.subject s on s.subject_id in (f.subject_id, l.subject_id)
                        left join knowledge.subject_embedding se on se.subject_id=s.subject_id and se.model_id=%s
-                       where a.work_unit_id=%s and se.subject_id is null""", (embed.MODEL_ID, unit_id))
+                       where a.work_unit_id=%s and se.subject_id is null
+                       and (%s::text is null or (f.domain=%s and s.domain=%s))""",
+                    (embed.MODEL_ID, unit_id, domain, domain, domain))
         rows = cur.fetchall()
     if not rows:
         return 0
     try:
-        vectors = embed.encode_queries([subject_dict.core(n) for _, n in rows])
+        vectors = embed.encode_queries([n for _, n in rows])
     except embed.EmbeddingUnavailable:
         return 0
     with connect(dsn) as conn, conn.cursor() as cur:
@@ -1281,7 +1352,7 @@ def save_digestion_answers(dsn, saved):
                 continue
             idx = row.pop("fact_index")
             fact = row["judgement_body"]["facts"][idx]
-            current = _target(cur, fact) if fact.get("operation", "add") in ("update", "deprecate") else None
+            current = _target(cur, fact, row['host_id']) if fact.get("operation", "add") in ("update", "deprecate") else None
             _receipt(cur, row, idx, fact, fixture, "digestion", current)
     return len(saved)
 
@@ -1302,23 +1373,37 @@ def batch(dsn, window, fixtures, *, entry_ids=None):
                     where state='proposed' and (%s::uuid[] is null or entry_id=any(%s::uuid[]))
                     order by created_at,entry_id limit %s for update""", (entry_ids, entry_ids, window))
         for entry in _rows(cur):
-            outcomes = []
-            for index, fact in enumerate(entry["judgement_body"].get("facts", [])):
-                operation = fact.get("operation", "add")
-                current = _target(cur, fact) if operation in ("update", "deprecate") else None
-                errors = runner.lint_fact(fact, strict_refs=True)["errors"]
-                if operation not in ("add", "update", "deprecate"):
-                    errors.append({"code": "E_SCHEMA", "where": f"facts.{index}.operation", "detail": "unknown operation"})
+            outcomes, checked_payload = [], []
+            body = entry['judgement_body']
+            shape_errors = wc.facts_shape(body.get('facts'))
+            if shape_errors:
+                outcomes.append({'fact_index': None, 'errors': shape_errors})
+            for index, original in enumerate(body.get('facts', []) if isinstance(body.get('facts'), list) else []):
+                if not isinstance(original, dict):
+                    continue  # already captured above, including the exact malformed value
+                import copy
+                fact = copy.deepcopy(original)
+                errors = wc.fact_shape(fact, wc.Contract.PG_LEDGER_V1)
+                operation = fact.get('operation', 'add')
+                current = _target(cur, fact, entry['host_id']) if not errors and operation in ('update', 'deprecate') else None
+                if not errors:
+                    import subject_dict
+                    fact = subject_dict.with_known_aliases(cur, entry['host_id'], fact, fact.get('domain') or entry['partition_key'])
+                    errors = wc.validate_fact(fact, wc.Contract.PG_LEDGER_V1)['errors']
                 if operation in ("update", "deprecate") and current is None:
                     errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_ref", "detail": "target missing"})
                 available = fixtures.get(entry["entry_id"], [])
                 fixture = available[index] if index < len(available) else None
                 if fixture is not None:
-                    errors += runner.lint(fixture["packet"])["errors"]
-                    excerpt = fixture["packet"].get("state", {}).get("target_excerpt")
+                    fixture_errors = wc.validate_fixture(fixture, fact)
+                    errors += fixture_errors
+                    packet = fixture.get('packet', {}) if isinstance(fixture, dict) else {}
+                    packet_state = packet.get('state') if isinstance(packet, dict) else None
+                    excerpt = packet_state.get('target_excerpt') if isinstance(packet_state, dict) else None
                     if current and excerpt != current["text"]:
                         errors.append({"code": "E_TARGET", "where": f"facts.{index}.target_excerpt",
                                        "detail": "target_excerpt differs from target fragment text"})
+                checked_payload.append({'fact_index': index, 'fact': fact, 'fixture': fixture, 'target': current})
                 if errors:
                     outcomes.append({"fact_index": index, "errors": errors})
                 elif fixture is None:
@@ -1348,9 +1433,18 @@ def batch(dsn, window, fixtures, *, entry_ids=None):
                     state = "eligible"
                 elif unit_status == "abandoned":
                     state = "expired"
+            validation_id = None
+            if state == 'rejected_input':
+                reasons = [{**e, 'fact_index': o['fact_index']} for o in outcomes for e in o.get('errors', [])]
+                receipt = wc.failure_receipt(body, reasons, stage='worktime', contract=wc.Contract.PG_LEDGER_V1,
+                                             entry=entry, checked=checked_payload)
+                validation_id = vr.insert(cur, receipt)  # same transaction as rejected_input + event
             if state != "proposed":
-                _transition(cur, entry, state, "runner")
-            results.append({"entry_id": entry["entry_id"], "state": state, "facts": outcomes})
+                _transition(cur, entry, state, "runner", validation_receipt_ref=validation_id)
+            result = {"entry_id": entry["entry_id"], "state": state, "facts": outcomes}
+            if validation_id:
+                result.update(validation_receipt_id=validation_id, request_id=receipt['request_id'])
+            results.append(result)
     return results
 
 
@@ -1526,6 +1620,12 @@ def _vector_contradictions(dsn, host, fid, text, asked, judge, budget=None, cach
     import fact_text
     hits = [h for h in search(dsn, host, fact_text.view(text), limit=6, mode="hybrid", expand=False)
             if str(h["id"]) != fid and h["alias"] not in asked]
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute('''select b.id::text from knowledge.fragment a join knowledge.fragment b
+            on b.host_id=a.host_id and b.domain=a.domain and b.subject_id=a.subject_id
+            where a.id=%s''', (fid,))
+        allowed = {r[0] for r in cur.fetchall()}
+    hits = [h for h in hits if str(h['id']) in allowed]
     if not hits:
         return []
     with connect(dsn) as conn, conn.cursor() as cur:
@@ -1581,12 +1681,13 @@ def _leaf_pairs(cur, host, fid, limit=60):
         return None
     # astra warn review: a leaf kept with a Korean connective may hold a second fact about another subject; such a
     # fragment is compared with the result leaves of every subject (bounded), not only its own subject's
-    wide = any(fact_form.warnings(t) for t, _, _ in own)
+    wide = False  # G16: contradiction comparisons never cross object identity
     cur.execute("""select f.alias, f.form, l.text, l.subject_id::text, f.text from knowledge.fragment_leaf l
                    join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
                    where f.host_id=%s and f.active and f.id<>%s and l.role='then'
+                   and f.domain=(select domain from knowledge.fragment where id=%s)
                    and (%s or l.subject_id = any(%s::uuid[]))
-                   order by f.updated_at desc limit %s""", (host, fid, wide, subjects, limit))
+                   order by f.updated_at desc limit %s""", (host, fid, fid, wide, subjects, limit))
     rows = cur.fetchall()
     if not wide:
         # astra warn review r2: an existing canon leaf kept with a warning may hold a fact about this subject under
@@ -1595,7 +1696,8 @@ def _leaf_pairs(cur, host, fid, limit=60):
                        join knowledge.fragment f on f.id=l.fragment_id and l.revision=f.revision
                        where f.host_id=%s and f.active and f.id<>%s and l.role='then'
                        and not (l.subject_id = any(%s::uuid[])) order by f.updated_at desc limit 200""", (host, fid, subjects))
-        warned = [r_ for r_ in cur.fetchall() if fact_form.warnings(r_[2])][:30]
+        cur.fetchall()
+        warned = []  # different subjects are not contradiction candidates
         rows += warned
         warned_ids = {id(r_) for r_ in warned}
     else:
@@ -1821,8 +1923,7 @@ def _scan_fragment(dsn, host, eid, idx, fid, judge, group_limit=30, leaf_limit=6
             answers = njudge({"fact": row[1]}, [g["text"] for g in plain], CANON_Q)
             bad += [g for g, a in _judged(plain, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
     elif row and row[2]:
-        hits = group if row[3] else [h for h in search(dsn, host, row[1], limit=6, mode="hybrid", expand=False)
-                                     if str(h["id"]) != fid]  # fragments from before the subject dictionary
+        hits = group if row[3] else []  # No known object identity: never compare across subjects/domains.
         if hits:
             answers = njudge({"fact": row[1]}, [h["text"] for h in hits], CANON_Q)
             bad = [h for h, a in _judged(hits, answers) if capture_audit._noul(a) >= CONTRA_KEEP]
@@ -2308,33 +2409,49 @@ def recheck_contradictions(dsn, judge, limit=5, *, source_review_required=False,
     return out
 
 
-def _assign_subject(cur, host, fact, fixture):
+def _assign_subject(cur, host, fact, fixture, domain):
     """Digestion is the dictionary's only writer: reuse the routed subject (and its name) or register the name."""
     import subject_dict
+    if fact.get('identity_ref') is not None:
+        from identity_ref import resolve
+        obj = resolve(cur,fact['identity_ref'],host,domain)
+        return obj['subject_id'], {**fact,'subject_id':obj['subject_id']}
+    if 'leaf_provisional' in (fixture or {}):
+        fact = {**fact, 'leaf_provisional': fixture['leaf_provisional']}
     name = fact.get("subject")
     if not isinstance(name, str) or not name.strip():
         return None, fact
+    def existing(sid, current):
+        obj = subject_dict.follow(cur, host, sid)
+        return obj["subject_id"], {**current, "subject_type":obj["subject_type"], "subject_description":obj["description"], "parent_subject":obj.get("parent_subject")}
     routed = (fixture or {}).get("subject_routed") or {}
     # astra alias r2: the dictionary as it is now (under the spelling lock) wins over a routing decided before this
     # transaction -- another digestion may have declared this name an alias of another subject meanwhile
-    subject_dict._lock_name(cur, host, name)
-    hit = subject_dict.lookup(cur, host, name)  # a spelling (or its core without 화면/기능/…) is already known
+    subject_dict._lock_name(cur, host, name, domain)
+    hit = subject_dict.lookup(cur, host, name, domain)  # a spelling (or its core without 화면/기능/…) is already known
     if hit and hit.get("kind") in ("declared", "merged"):
-        return hit["subject_id"], fact  # a declared or merged other name: same subject id, the text keeps the written name
+        return existing(hit["subject_id"], fact)  # a declared or merged other name: same subject id, the text keeps the written name
     if hit:
         routed = {"subject_id": hit["subject_id"], "name": hit["name"]}
+    if routed.get("subject_id"):
+        cur.execute('select 1 from knowledge.subject where subject_id=%s and host_id=%s and domain=%s',
+                    (routed['subject_id'], host, domain))
+        if not cur.fetchone():
+            routed = {}  # a host-wide old routing cannot cross the representative subject boundary
     if routed.get("subject_id"):  # stage 2: a routing decided before a merge goes to the surviving subject
         import subject_merge
         rid, rname = subject_merge.root(cur, routed["subject_id"])
         if rid and rid != routed["subject_id"]:
-            return rid, fact  # the routed name was merged away: keep the written text, use the survivor's id
+            return existing(rid, fact)  # the routed name was merged away: keep the written text, use the survivor's id
     if routed.get("subject_id"):
         subject_dict.add_alias(cur, host, name, routed["subject_id"])
-        text = subject_dict.rewrite(fact["fact"], name, routed["name"])
-        if routed["name"] != name and routed["name"] in text:
-            fact, _ = runner.normalize_fact({**fact, "fact": text, "subject": routed["name"], "subject_as_written": name})
-        return routed["subject_id"], fact
-    return subject_dict.register(cur, host, name, routed.get("vector"), allow_embed=False), fact
+        if routed['name'] != name or fact.get('aliases'):
+            aliases=list(dict.fromkeys([*fact.get('aliases',[]),name]))
+            return existing(routed['subject_id'], {**fact,'subject':routed['name'],'aliases':[a for a in aliases if a != routed['name']]})
+        return existing(routed["subject_id"], fact)
+    return subject_dict.register(cur, host, name, routed.get("vector"), allow_embed=False, domain=domain,
+                                 subject_type=fact.get("subject_type"), description=fact.get("subject_description"),
+                                 parent_subject=fact.get("parent_subject")), fact
 
 
 def _register_aliases(cur, host, entry_id, fact_index, fact, subject_id, fragment_id, revision):
@@ -2346,6 +2463,11 @@ def _register_aliases(cur, host, entry_id, fact_index, fact, subject_id, fragmen
         return
     for alias in fact.get("aliases") or []:
         outcome, hit = subject_dict.add_declared_alias(cur, host, alias, subject_id, fragment_id, revision)
+        if outcome in ('added','same') and alias != subject_dict.norm(alias):
+            # Keep the exact paid spelling as well as the legacy normalized lookup key.
+            cur.execute("""insert into knowledge.subject_alias(host_id,alias,subject_id,kind,source_fragment_id,source_revision)
+                values(%s,%s,%s,'declared',%s,%s) on conflict(host_id,domain,alias) do nothing""",
+                (host,alias,subject_id,fragment_id,revision))
         if outcome == "conflict":
             cur.execute("""insert into knowledge.confirmation_queue(entry_id,fact_index,rule_id,reason)
                         values (%s,%s,'alias_conflict',%s)""",
@@ -2364,31 +2486,48 @@ def _form_of(fact):
 
 
 def _write_form(cur, host, fragment_id, revision, fact, subject_id):
-    """0010: one fragment_leaf row per sentence; a leaf's subject is the fact subject when the leaf states it, otherwise
-    the leaf's own head noun matched or registered in the dictionary (digestion is its only writer)."""
+    """A leaf references its fact object or an existing resolved dictionary object, never a new head phrase."""
     import fact_form
     import subject_dict
     form = _form_of(fact)
+    cur.execute('select domain from knowledge.fragment where id=%s and host_id=%s', (fragment_id, host))
+    domain = cur.fetchone()[0]
     subject = fact.get("subject") if isinstance(fact.get("subject"), str) else ""
     for ord_, leaf in enumerate(fact_form.leaves(form)):
         sid = None
-        if subject and subject in leaf["text"]:
+        link = next((x for x in fact.get('leaf_links', []) if x.get('ord') == ord_), None)
+        if fact.get('leaf_reference_mode') == 'own':
+            # Unit-first authoring stores no foreign-object link, even for other-domain mentions.
+            sid = subject_id if subject and subject in leaf['text'] else None
+        elif link:
+            sid = subject_dict.follow(cur, host, link['subject_id'])['subject_id']
+        elif any(h.get('ord') == ord_ and h.get('text') == leaf['text'] and h.get('subject_id')
+                 for h in fact.get('leaf_provisional', [])):
+            # Only the partition actor materializes a provisional foreign-object reference.
+            hint = next(h for h in fact['leaf_provisional'] if h.get('ord') == ord_ and h.get('text') == leaf['text'] and h.get('subject_id'))
+            sid = subject_dict.follow(cur, host, hint['subject_id'])['subject_id']
+        elif subject and subject in leaf["text"]:
             sid = subject_id
         else:
             head = runner.SUBJECT_HEAD.match(leaf["text"] + " ")
             if head and head.group(1).strip():
-                sid = subject_dict.register(cur, host, head.group(1).strip(), allow_embed=False)
+                hit = subject_dict.lookup(cur, host, head.group(1).strip(), domain)
+                sid = hit["subject_id"] if hit else None
         cur.execute("""insert into knowledge.fragment_leaf(fragment_id,revision,ord,role,text,subject_id,polarity)
                        values (%s,%s,%s,%s,%s,%s,%s)""", (fragment_id, revision, ord_, leaf["role"], leaf["text"], sid, leaf["polarity"]))
 
 
-def _canon_duplicate(cur, host, fact, changing=frozenset()):
+def _canon_duplicate(cur, host, fact, changing=frozenset(), domain=None):
     """Alias of an active canonical fact of the same subject that is the same fact (dedup.same_fact), else None.
     Read only; the subject is looked up, never registered here."""
     import dedup
     import subject_dict
     name = fact.get("subject")
-    hit = subject_dict.lookup(cur, host, name) if isinstance(name, str) and name.strip() else None
+    if fact.get('identity_ref') is not None:
+        from identity_ref import resolve
+        hit = resolve(cur,fact['identity_ref'],host,domain)
+    else:
+        hit = subject_dict.lookup(cur, host, name, domain) if isinstance(name, str) and name.strip() else None
     if not hit:
         return None
     cur.execute("""select id::text, alias, text, revision from knowledge.fragment where host_id=%s and subject_id=%s and active
@@ -2434,8 +2573,29 @@ def _atomic(entry):
     return bool(body.get("atomic")) or any(f.get("operation") in ("update", "deprecate") for f in body.get("facts", []))
 
 
-def digest(dsn, unit_id, apply=False, fixtures=None):
-    # One transaction covers both the fresh recheck and every resulting write.
+def digest(dsn, unit_id, apply=False, fixtures=None, *, domain=None):
+    # One transaction per domain part, never one host-wide transaction.
+    import domain_router
+    from embedding_guard import assert_host
+    with connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute('select host_id from knowledge.work_unit where work_unit_id=%s', (unit_id,))
+        model_host = cur.fetchone()
+        if model_host:
+            assert_host(cur, model_host[0])
+    if domain is None:
+        parts = domain_router.route_pending(dsn, unit_id)
+        if not parts:
+            with connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute('select status::text from knowledge.work_unit where work_unit_id=%s', (unit_id,))
+                row = cur.fetchone()
+            return {'status': 'noop' if row and row[0] == 'completed' else 'not_completed'}
+        results = [digest(dsn, unit_id, apply, fixtures, domain=d) for _, d in parts]
+        if len(results) == 1:
+            return results[0]
+        return {'status': 'needs_recheck' if any(r['status'] == 'needs_recheck' for r in results) else 'processed',
+                'receipt_ids': [x for r in results for x in r.get('receipt_ids', [])],
+                'count': sum(r.get('count', 0) for r in results),
+                'partitions': dict(zip([d for _, d in parts], results))}
     class Recheck(Exception):
         def __init__(self, receipt, why="recheck"):
             self.receipt, self.why = receipt, why
@@ -2444,21 +2604,29 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             import subject_merge
             cur.execute("select host_id from knowledge.work_unit where work_unit_id=%s", (unit_id,))
             host_row = cur.fetchone()
-            if host_row:  # astra merge r1 P1-4: the host dictionary lock first, exclusive -- digestion writes the dictionary
-                subject_merge.lock_host(cur, host_row[0], exclusive=True)
+            if host_row:
+                subject_merge.lock_host(cur, host_row[0], exclusive=False)
+                domain_router.lock_partition(cur, host_row[0], domain)
             cur.execute("""select status::text,host_id,baseline_history_id,baseline_code_ref
-                        from knowledge.work_unit where work_unit_id=%s for update""", (unit_id,))
+                        from knowledge.work_unit where work_unit_id=%s""", (unit_id,))
             unit = _row(cur)
             if not unit or unit["status"] != "completed":
                 return {"status": "not_completed"}
-            subject_gen = subject_merge.generation(cur, unit["host_id"])
+            subject_gen = subject_merge.generation(cur, unit['host_id'], domain=domain)
+            cur.execute('''select p.entry_id::text,p.fact_index from knowledge.digest_part p
+                join knowledge.ledger_entry e using(entry_id)
+                where e.work_unit_id=%s and p.domain=%s''', (unit_id, domain))
+            part = set(cur.fetchall())
             cur.execute("""select entry_id::text,host_id,partition_key,work_unit_id::text,judgement_id,
                         judgement_version,judgement_body,state::text from knowledge.ledger_entry
-                        where work_unit_id=%s and state in ('eligible','provisional') order by created_at for update""", (unit_id,))
+                        where work_unit_id=%s and state in ('eligible','provisional','absorbed','retained_as_evidence','review_queue')
+                        order by created_at""", (unit_id,))
             candidates = []
             rows_ = []
             change_waits = False
             for entry in _rows(cur):
+                if not any(e == entry['entry_id'] for e, _ in part):
+                    continue
                 answers, done = _review_answers(cur, entry["entry_id"]), _absorbed_facts(cur, entry["entry_id"])
                 parked = _pending_digest(cur, entry["entry_id"])
                 cur.execute("""select fact_index, reason from knowledge.confirmation_queue where entry_id=%s and rule_id=%s
@@ -2469,7 +2637,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     m = re.search(r"지금 r(\d+)", why or "")
                     if m:
                         stale_ok[i] = int(m.group(1))
-                recs = _receipts(cur, entry["entry_id"], "worktime")
+                recs = [r for r in _receipts(cur, entry['entry_id'], 'worktime')
+                        if (entry['entry_id'], r['fact_index']) in part]
                 facts_ = entry["judgement_body"]["facts"]
                 for r in recs:
                     i = r["fact_index"]
@@ -2482,11 +2651,15 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             cur.execute("""select entry_id::text, state::text, judgement_body from knowledge.ledger_entry
                         where work_unit_id=%s and state in ('proposed','review_queue')""", (unit_id,))
             for eid_, st_, body_ in cur.fetchall():
+                if not any(e == eid_ for e, _ in part):
+                    continue
                 if st_ == "proposed":
                     return {"status": "waiting", "why": "an entry of the unit is not checked yet"}
                 answers_, done_, parked_ = _review_answers(cur, eid_), _absorbed_facts(cur, eid_), _pending_digest(cur, eid_)
                 for r_ in _receipts(cur, eid_, "worktime"):
                     i_ = r_["fact_index"]
+                    if (eid_, i_) not in part:
+                        continue
                     waits_ = i_ in parked_ or (r_["combined"] == "needs_review" and answers_.get(i_) != "approve")
                     if (waits_ and i_ not in done_ and answers_.get(i_) != "reject"
                             and body_["facts"][i_].get("operation") in ("update", "deprecate")):
@@ -2550,13 +2723,13 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                             i in ans_ or i in done_ for i in range(len(ent["judgement_body"].get("facts", [])))):
                         _transition(cur, ent, "closed", "digester")
             flags = []
-            history_max = _history_max(cur, unit["host_id"])
+            history_max = _history_max(cur, unit['host_id'], domain)
             cur.execute("select repo_locator from knowledge.host where host_id=%s", (unit["host_id"],))
             repo_root = cur.fetchone()[0]
             changed = unit["baseline_history_id"] is not None and history_max > unit["baseline_history_id"]
             stale = [r["receipt_id"] for _, r, f in candidates if
                      (r["target_fragment_id"] and
-                      (not _target(cur, f) or _target(cur, f)["revision"] != r["target_revision_seen"])) or
+                      (not _target(cur, f, unit['host_id']) or _target(cur, f, unit['host_id'])["revision"] != r["target_revision_seen"])) or
                      (f.get("operation", "add") == "add" and changed)]
             # astra direction review P1 (2026-10-01): one final change plan. The adds of this unit are judged against
             # the canon this commit leaves: merged updates, deprecations, nothing superseded or overlapping.
@@ -2569,7 +2742,8 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             if flags:
                 return {"status": "needs_review", "consistency_flags": flags}
             if not candidates:
-                return {"status": "noop"}
+                return {'status': 'waiting' if change_waits else 'noop',
+                        **({'marker': '반영 대기'} if change_waits else {})}
             if not fixtures:
                 return {"status": "needs_recheck", "receipt_ids": [r["receipt_id"] for _, r, _ in candidates],
                         "consistency_flags": flags, "rewrites": rewrites}
@@ -2578,7 +2752,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                 fixture = fixtures.get(old["receipt_id"])
                 if not fixture or not runner.lint(fixture["packet"])["ok"]:
                     raise Recheck(old["receipt_id"], "no fixture or packet lint")
-                current = _target(cur, fact) if fact.get("operation", "add") in ("update", "deprecate") else None
+                current = _target(cur, fact, unit['host_id']) if fact.get("operation", "add") in ("update", "deprecate") else None
                 if (fact.get("operation") in ("update", "deprecate") and
                     (not current or fixture.get("target_revision_seen") != current["revision"] or
                      fixture["packet"].get("state", {}).get("target_excerpt") != current["text"])):
@@ -2590,7 +2764,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     # astra parallel review P1: only a unit with no update/deprecate (its rewrites could still change in
                     # the 3-way merge below) -- migration loads are add-only; any other unit keeps the strict history check
                     if not (fact.get("operation", "add") == "add" and "excerpt_mode" in fixture and not rewrites
-                            and _excerpt_now(dsn, unit["host_id"], fact, rewrites, fixture)
+                            and _excerpt_now(dsn, unit['host_id'], {**fact, '_domain': domain}, rewrites, fixture)
                             == fixture["packet"].get("state", {}).get("existing_records_excerpt")):
                         raise Recheck(old["receipt_id"], "canon changed (history)")
                 if fixture.get("subject_generation_seen") != subject_gen:  # missing, or a merge/undo since (astra merge r3 P1-2)
@@ -2636,6 +2810,10 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     "conflict": False, "can_ask_now": fact.get("can_ask_now", False), "completion": True}, policies(cur, entry["host_id"]))
                 if old["human_approved"]:
                     verdict = {"rule_id": REVIEW_RULE, "action": "absorb"}
+                if verdict['action'] == 'queue_for_human':
+                    deferred.append((entry, old, {'combined': 'needs_review',
+                                    'review_reasons': ['policy requires confirmation']}))
+                    continue
                 prepared.append((entry, old, fact, fixture, current, verdict))
             if any(o_fact.get("operation") in ("update", "deprecate")
                    for e, o, _ in deferred for o_fact in [e["judgement_body"]["facts"][o["fact_index"]]]):
@@ -2659,20 +2837,22 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
             # the update of that fragment in this same pass made it identical -> two fragments). The texts this pass is
             # about to make canonical are the reference; an identical add is kept as evidence instead of a new fragment.
             import dedup
-            batch = [fact["fact"] for _, _, fact, _, _, verdict in prepared
-                     if verdict["action"] == "absorb" and fact.get("operation") == "update"]
+            batch = {}
+            for _, _, f, _, _, v in prepared:
+                if v['action'] == 'absorb' and f.get('operation') == 'update':
+                    batch.setdefault(f.get('identity_ref',{}).get('subject_id') or f.get('subject'), []).append(f['fact'])
             changing = {str(fact.get("target_ref")) for _, _, fact, _, _, verdict in prepared
                         if verdict["action"] == "absorb" and fact.get("operation") in ("update", "deprecate")}
             for k, (entry, old, fact, fixture, current, verdict) in enumerate(prepared):
                 if verdict["action"] == "absorb" and fact.get("operation", "add") == "add" and not old["human_approved"]:
-                    same = _canon_duplicate(cur, entry["host_id"], fact, changing)
+                    same = _canon_duplicate(cur, entry["host_id"], fact, changing, domain)
                     if same:
                         prepared[k] = (entry, old, fact, fixture, current,
                                        {"rule_id": CANON_DUP_RULE, "action": "retain_as_evidence", "already": same})
-                    elif dedup.find_duplicate(fact["fact"], batch) is not None:
+                    elif dedup.find_duplicate(fact['fact'], batch.get(fact.get('identity_ref',{}).get('subject_id') or fact.get('subject'), [])) is not None:
                         prepared[k] = (entry, old, fact, fixture, current, {"rule_id": BATCH_DUP_RULE, "action": "retain_as_evidence"})
                     else:
-                        batch.append(fact["fact"])
+                        batch.setdefault(fact.get('identity_ref',{}).get('subject_id') or fact.get('subject'), []).append(fact['fact'])
             for entry, old, fact, fixture, current, verdict in prepared:
                 receipt_id = _receipt(cur, entry, old["fact_index"], fact, fixture, "digestion", current)
                 action, operation = verdict["action"], fact.get("operation", "add")
@@ -2687,7 +2867,7 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                         domain = (fixture.get("domain_routed") or {}).get("domain") or entry["partition_key"]
                         cur.execute("""insert into knowledge.domain_type(host_id, domain, description) values (%s,%s,%s)
                                     on conflict (host_id, domain) do nothing""", (entry["host_id"], domain, fact.get("fact", "")[:300]))
-                        subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture)
+                        subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture, domain)
                         facts_now = list(entry["judgement_body"]["facts"])
                         facts_now[old["fact_index"]] = fact
                         fragment = store.build_fragment({**entry, "partition_key": domain,
@@ -2714,7 +2894,9 @@ def digest(dsn, unit_id, apply=False, fixtures=None):
                     else:
                         subject_id = None
                         if operation == "update":
-                            subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture)
+                            cur.execute('select domain from knowledge.fragment where id=%s', (ref,))
+                            domain = cur.fetchone()[0]
+                            subject_id, fact = _assign_subject(cur, entry["host_id"], fact, fixture, domain)
                         cur.execute("""update knowledge.fragment set revision=revision+1,
                                     text=case when %s='update' then %s else text end,
                                     active=case when %s='deprecate' then false else active end,

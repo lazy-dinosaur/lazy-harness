@@ -10,7 +10,7 @@ class JudgePageFailure(Exception):
 
 
 def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_query=5,
-                  max_total=600, judge=None, variant="plain"):
+                  max_total=600, judge=None, variant="ctx-v2", diagnostics=None, plan_queries=()):
     if not queries or not all(isinstance(q, str) and q.strip() for q in queries):
         raise ValueError("nonempty queries required")
     if not all(isinstance(n, int) and n > 0 for n in (page_size, max_pages_per_query, max_total)):
@@ -21,6 +21,8 @@ def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_que
     lock = Lock()
     seen, relevant, traces = set(), [], [None] * len(queries)
     discovery = {}
+    provenance = {}
+    added = {}
 
     def run(index, query):
         pages = read = new = 0
@@ -44,6 +46,8 @@ def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_que
                 candidates = candidates[:max_total - len(seen)]
                 for c in candidates:
                     discovery[c["id"]] = len(discovery)
+                    provenance[str(c["id"])] = {"query": query, "page": pages + 1,
+                        "stage": "plan-query" if query in plan_queries else "page/judge"}
                     seen.add(c["id"])
                 pages += 1
                 read += len(candidates)
@@ -53,12 +57,18 @@ def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_que
             try:
                 verdicts = judge(query, candidates)
             except JudgePageFailure:
+                with lock:
+                    for c in candidates:
+                        provenance[str(c['id'])]['judgement'] = 'failed'
                 reason = "judge_failed"
                 break
             if len(verdicts) != len(candidates) or any(
                     not isinstance(v, dict) or set(v) != {"relevant", "novel"}
                     or not all(isinstance(value, bool) for value in v.values()) for v in verdicts):
                 raise ValueError("judge must return {relevant: bool, novel: bool} per candidate")
+            with lock:
+                for c, v in zip(candidates, verdicts):
+                    provenance[str(c['id'])]['judgement'] = dict(v)
             fresh = [(c, v) for c, v in zip(candidates, verdicts) if v["relevant"] and v["novel"]]
             with lock:
                 new += len(fresh)
@@ -79,6 +89,7 @@ def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_que
         if candidate["id"] not in included:
             note.append(candidate)
             included.add(candidate["id"])
+            added[str(candidate["id"])] = provenance[str(candidate["id"])]
         if candidate.get("group_id") is not None:
             with pg.connect(dsn) as conn, conn.cursor() as cur:
                 cur.execute("select * from knowledge.expand_group(%s,%s)",
@@ -88,6 +99,9 @@ def collect_topic(dsn, host, queries: list[str], page_size=30, max_pages_per_que
                     if sibling["id"] not in included:
                         note.append(sibling)
                         included.add(sibling["id"])
+                        added[str(sibling["id"])] = {"stage": "group", "via": str(candidate["id"])}
     # "relevant" = 판정자가 고른 조각만(그룹 확장 전). 너겟 재현율 주 지표용.
     relevant_only = sorted({c["id"]: c for c in relevant}.values(), key=lambda c: discovery[c["id"]])
+    if diagnostics is not None:
+        diagnostics.update(added=added, trace=traces, seen=provenance)
     return {"note": note, "relevant": relevant_only, "trace": traces}

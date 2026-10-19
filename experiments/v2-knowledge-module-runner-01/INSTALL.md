@@ -5,9 +5,10 @@ This public copy supplies source, not a configured or installed runtime. Install
 ## Requirements (not installed by this document)
 
 - Python >=3.12; `psycopg` or `psycopg2` for PostgreSQL-backed imports. Offline tests must inject DB/model seams and must not open a database.
-- A separately provisioned PostgreSQL environment with pgvector/pg_trgm for live use. The 18 ordered V2 numbered SQL assets are in `migrations/`; do not combine numbered migrations with historical alternative apply forms. No alternative apply forms, applied receipts, dumps or actual state are included in this source package.
+- A separately provisioned PostgreSQL environment with pgvector/pg_trgm for live use. The stacked G16 source contains 23 ordered numbered SQL assets in `migrations/`; do not combine numbered migrations with historical alternative apply forms. No alternative apply forms, applied receipts, dumps or actual state are included in this source package.
 - Optional local E5 service: the model/tokenizer pins are in `embed.py`; ONNX Runtime, NumPy and tokenizers are external dependencies. No weights, model venv, calibration evidence or inference output is included.
 - Optional remote embedding/Jev: existing private configuration and separately approved provider profile, limits and financial authority. Source defaults and example placeholders are not permission to call a service.
+- G16's asynchronous embedding transport additionally depends on `httpx`; import-only/fake public checks do not install it or authorize an HTTP request. Optional calibration/financial runtime evidence is not included. See `PORTABLE.md` for synthetic-only and fail-closed boundaries.
 - Optional Pi extension: existing compatible authenticated runtime and separately approved project attachment. Do not upgrade Main/global SDK to satisfy a prototype. Main's source baseline remains 0.85.1; managed SDK1.3 is an unvalidated compatibility boundary, not a passed gate.
 
 ## Configuration ownership

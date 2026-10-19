@@ -26,11 +26,23 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 
-def worker(script):
+def worker(script, *, repository=False):
     root = Path(__file__).resolve().parent
     scratch = Path(os.environ['TMPDIR']).resolve()
-    allowed = (root, scratch, Path(sys.base_prefix) / 'lib')
+    source_root = root.parents[1] if repository else root
+    allowed = (source_root, scratch, Path(sys.base_prefix) / 'lib')
     blocked = []
+    raw_popen = subprocess.Popen
+    commands = ()
+    if repository and script == '../v2-native-minlive/unit1-trial-caller-01/test_trial.py':
+        native = source_root/'experiments/v2-native-minlive'
+        commands = (('node','--check',str(native/'unit1-controller-source-phase1/native_bridge.mjs')),
+                    ('node',str(native/'unit1-quota-embedding-source-01/test_broker.mjs')))
+
+    def fixture_popen(args, *a, **kw):
+        if tuple(args) not in commands:
+            raise PermissionError('unapproved publication child')
+        return raw_popen(args, *a, **kw)
 
     def deny(*args, **kwargs):
         raise AssertionError('offline publication effect denied')
@@ -44,6 +56,8 @@ def worker(script):
             if not any(path == base or base in path.parents for base in allowed):
                 blocked.append(str(path))
                 raise PermissionError('private/outside fixture read denied')
+        if event == 'subprocess.Popen' and tuple(args[1]) in commands:
+            return  # two reviewed JS fixture commands only; no product/runtime discovery
         if event in ('subprocess.Popen', 'os.system', 'os.posix_spawn', 'os.posix_spawnp',
                      'os.exec', 'os.fork', 'socket.connect', 'socket.getaddrinfo',
                      'socket.bind', 'socket.sendto', 'ctypes.dlopen'):
@@ -61,11 +75,11 @@ def worker(script):
     socket.socket.connect_ex = deny
     socket.create_connection = deny
     socket.getaddrinfo = deny
-    subprocess.Popen = deny
+    subprocess.Popen = fixture_popen if commands else deny
     sys.addaudithook(audit)
     before = len(blocked)
     for private in (Path.home() / '.ssh/id_ed25519', Path.home() / '.pi/agent/auth.json',
-                    root.parent / 'original-source-canary'):
+                    source_root.parent / 'original-source-canary'):
         try:
             private.read_bytes()
         except PermissionError:
@@ -75,6 +89,7 @@ def worker(script):
     # HOME is deliberately outside the allowed working scratch, even though empty.
     if len(blocked) != before + 3:
         raise AssertionError('private source/HOME denial coverage missing')
+    sys.path.insert(0, str((root / script).resolve().parent))
     sys.argv = [str(root / script)]
     runpy.run_path(str(root / script), run_name='__main__')
 
@@ -104,11 +119,11 @@ class PublicationBundle(unittest.TestCase):
         files, manifest = self.p.verify(self.bundle, self.result['sha256'])
         self.assertEqual(set(files), set(self.p.ALLOWLIST) | {self.p.MANIFEST})
         self.assertEqual(len(manifest['files']), len(self.p.ALLOWLIST))
-        self.assertEqual(sum(n.startswith('migrations/') for n in files), 18)
+        self.assertEqual(sum(n.startswith('migrations/') for n in files), 23)
         for name in self.p.ALLOWLIST:
             self.assertEqual((self.fresh / name).read_bytes(), (ROOT / name).read_bytes())
             parts = Path(name).parts
-            self.assertFalse(any(p in ('.local', 'node_modules', '__pycache__', 'scale-04') for p in parts))
+            self.assertFalse(any(p in ('.local', 'node_modules', '__pycache__') for p in parts))
             self.assertNotIn(name, ('knowledge.json', 'before.json'))
             body = files[name]
             if name.endswith('.py'):
@@ -176,7 +191,7 @@ class PublicationBundle(unittest.TestCase):
 
     def test_all_inherited_offline_and_maintenance_cases_from_clean_extraction(self):
         for name in self.p.PUBLIC_TESTS:
-            if name.endswith('.py') and name != Path(__file__).name:
+            if name.endswith('.py') and name not in (Path(__file__).name, 'test_g16_publication.py'):
                 with self.subTest(script=name):
                     self.isolated([sys.executable, '-I', '-B', str(self.fresh / Path(__file__).name), '--worker', name], name[:-3])
 

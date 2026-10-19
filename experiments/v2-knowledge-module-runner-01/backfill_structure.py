@@ -35,6 +35,7 @@ def plan(cur, host):
         name, how = subject_of(text, source)
         rows.append({"id": fid, "alias": alias, "revision": rev, "text": text, "form_kind": form["kind"],
                      "leaves": len(fact_form.leaves(form)), "subject": name, "subject_from": how,
+                     "subject_type":(source or {}).get("subject_type"), "subject_description":(source or {}).get("subject_description"),
                      "form_check": fact_form.check(text)})
     return rows
 
@@ -45,10 +46,12 @@ def apply(cur, host, rows):
     subject_merge.lock_host(cur, host, exclusive=True)  # astra merge r1 P1-4: dictionary writers take the host lock first
     done = 0
     for r in rows:
-        cur.execute("select form is not null from knowledge.fragment where id=%s", (r["id"],))
-        if cur.fetchone()[0]:
+        cur.execute("select form is not null, domain from knowledge.fragment where id=%s and host_id=%s", (r["id"], host))
+        structured, domain = cur.fetchone()
+        if structured:
             continue  # already structured
-        sid = subject_dict.register(cur, host, r["subject"]) if r["subject"] else None
+        sid = subject_dict.register(cur, host, r["subject"], domain=domain,
+                                    subject_type=r.get("subject_type"), description=r.get("subject_description")) if r["subject"] else None
         fact = {"fact": r["text"], "subject": r["subject"]}
         # revision CAS (astra direction review P1): fill only the revision that was planned, and only once
         cur.execute("""update knowledge.fragment set form=%s::jsonb, subject_id=coalesce(subject_id, %s)

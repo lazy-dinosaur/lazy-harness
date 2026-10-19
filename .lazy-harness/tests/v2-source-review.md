@@ -31,6 +31,8 @@ The exact allowlist includes all needed runtime modules, maintenance/parser help
 
 Final check counts/durations and actual commit/remote equality are reported by the terminal publication run, not baked into a self-referential evidence commit. Limits remain PostgreSQL semantics, live financial/provider approval, managed SDK1.3/native Pi/OMP compatibility and original frozen14 byte-equality: none is certified by these source checks. G16 and its additional closure stay separate. Legacy service-starting pytest fixtures and real business source/plan/ledger/raw/model inputs are deliberately excluded, not silently executed or declared green.
 
+The stacked G16 source evolves the runtime/SQL fake shapes while retaining these protections; focused clean repository extraction is specified in `.lazy-harness/tests/g16-public-source-closure.md`. The historical V2 18-asset count above is not the current G16 23-asset package.
+
 ## Layer completeness matrix
 
 | Layer | Judgment |

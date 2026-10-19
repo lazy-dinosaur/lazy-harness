@@ -39,6 +39,8 @@ The inherited `scale-03/measure` publication is **not** the original paid/data o
 
 The existing Pi extension is copied as inactive source, with no API migration or runtime attachment. Main's SDK0.85.1 checks do not certify managed SDK1.3. G16 closure and its additional SQL/native/financial boundaries remain a separate publication phase.
 
+G16 continuation is specified separately in `.lazy-harness/spec/g16-public-source-closure.md`; its stacked 23-migration/model/identity contract does not rewrite the historical V2 branch's 18-migration acceptance. Public diagnostic, namespace and fixture-only scale-03 boundaries above remain in force.
+
 ## Implementation map
 
 - `experiments/v2-knowledge-module-runner-01/config.py#source_authority`: exact host/root selection and root-contained manifest boundary.

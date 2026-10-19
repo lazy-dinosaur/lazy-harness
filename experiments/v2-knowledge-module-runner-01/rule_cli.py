@@ -21,9 +21,11 @@ def select_rules(rules, question):
     import embed
     if not rules or not isinstance(question, str) or not question.strip():
         return rules
+    from embedding_thresholds import get
+    cutoff = get('rule_select')
     q = embed.encode_query(question[:1000])
     vecs = embed.encode_passages([f"{r['when']} {r['must']}" for r in rules])
-    return [r for r, v in zip(rules, vecs) if sum(a * b for a, b in zip(q, v)) >= SELECT_MIN]
+    return [r for r, v in zip(rules, vecs) if sum(a * b for a, b in zip(q, v)) >= cutoff]
 
 
 def harness_guide():
@@ -68,7 +70,10 @@ def ref_fetch(dsn, host):
     import embed
     import store_pg
     def fetch(ref, diff, k):
+        store_pg.backfill_embeddings(dsn,host,variant='ctx-v2')
         with store_pg.connect(dsn) as conn, conn.cursor() as cur:
+            from embedding_guard import assert_host
+            assert_host(cur, host)
             cur.execute("select count(*) from knowledge.fragment where host_id=%s and active and domain=%s", (host, ref))
             if cur.fetchone()[0] <= k:
                 cur.execute("select alias, text from knowledge.fragment where host_id=%s and active and domain=%s order by seq", (host, ref))
@@ -76,7 +81,7 @@ def ref_fetch(dsn, host):
             q = store_pg._vector(embed.encode_query(diff[:1500]))
             cur.execute("""select f.alias, f.text from knowledge.fragment f
                            join knowledge.fragment_embedding e on e.fragment_id=f.id and e.revision=f.revision
-                             and e.model_id=%s and e.embed_variant='ctx-v1'
+                             and e.model_id=%s and e.embed_variant='ctx-v2'
                            where f.host_id=%s and f.active and f.domain=%s
                            order by e.embedding <=> %s::extensions.vector limit %s""", (embed.MODEL_ID, host, ref, q, k))
             return [{"alias": a, "text": t} for a, t in cur.fetchall()]

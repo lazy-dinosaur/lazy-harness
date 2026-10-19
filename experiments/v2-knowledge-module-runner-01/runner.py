@@ -130,6 +130,26 @@ def lint(packet, denylist=()):
 
 
 SUBJECT_HEAD = re.compile(r"^(.{2,60}?)(?:은|는|이|가|에서는|에서|의)\s")
+from subject_contract import SUBJECT_TYPES, metadata_errors, code_candidates, subject_in_fact
+
+SUBJECT_MAX_CHARS = 60
+SUBJECT_OPERATORS = re.compile(r"\b(?:IF|THEN|AND|OR|EVEN|EXCEPT|WHEN|BEFORE|AFTER|BECAUSE)\b", re.I)
+SUBJECT_ENDINGS = re.compile(r"(?:하거나|하면|한다|된다|이다|있다|없다|하며|이고|거나|지만|으므로|하므로|때문에)(?:\s|[.!?…]|$)")
+
+
+def subject_error(subject):
+    """Syntactic guard, not a semantic object classifier; the author owns object identity."""
+    if not isinstance(subject, str) or not subject.strip():
+        return "subject must name one real domain object"
+    if (len(subject) > SUBJECT_MAX_CHARS or SUBJECT_OPERATORS.search(subject)
+            or SUBJECT_ENDINGS.search(subject) or re.search(r"[\n\r!?…]", subject)):
+        return "subject must be an object noun phrase <=60 chars, not a sentence/operator/verb ending"
+    if (subject.strip() in {"저장", "닫기", "삭제", "같은 장치"} or subject.strip().endswith(("버튼", "button", "테스트 항목", "테스트 케이스", "테스트", "조건", "값", "동작", "액션", "클릭", "저장", "삭제", "닫기", "열기"))
+            or subject.strip().lower().endswith(("button", "test case", ".test", ".spec"))
+            or re.match(r"^(?:test_|it\()", subject.strip()) or re.fullmatch(r"(?:true|false|null|\d+(?:\.\d+)?)", subject.strip(), re.I)):
+        return "name the owning feature/screen/component, not its button/action/value"
+    return None
+
 KEYWORD_TOKEN = re.compile(r"`([^`]{2,60})`|\b([A-Za-z][A-Za-z0-9_.-]{2,40})\b")
 
 
@@ -139,12 +159,7 @@ def normalize_fact(fact):
     fact, repairs = dict(fact), []
     text = str(fact.get("fact", ""))
     subject = fact.get("subject")
-    if not (isinstance(subject, str) and subject.strip() and subject in text):
-        head = SUBJECT_HEAD.match(text)
-        new = head.group(1).strip() if head else text[:40].strip()
-        if new:
-            repairs.append({"field": "subject", "from": subject, "to": new})
-            fact["subject"] = new
+    # Object identity is semantic, not a form repair. Missing/non-verbatim subjects stay lint errors.
     quote = str(fact.get("evidence_quote") or " / ".join(
         r.get("quote", "") for r in fact.get("evidence_refs", []) if isinstance(r, dict)))
     kept = [k for k in fact.get("keywords", []) if isinstance(k, str) and k and (k in text or k in quote)]
@@ -162,7 +177,7 @@ def normalize_fact(fact):
 
 
 # Codes that stay blocking (meaning/trust). Form-only codes are repaired or reported as warnings.
-BLOCKING_CODES = {"E_KIND", "E_SOURCE", "E_GROUP", "E_SUBJECT", "E_WHY", "E_USER_REF", "E_KEYWORD", "E_REF"}
+BLOCKING_CODES = {"E_KIND", "E_SOURCE", "E_GROUP", "E_SUBJECT", "E_SUBJECT_OBJECT", "E_SUBJECT_TYPE", "E_SUBJECT_DESCRIPTION", "E_WHY", "E_USER_REF", "E_KEYWORD", "E_REF"}
 WARNING_CODES = {"E_EVIDENCE_COUNT"}
 
 
@@ -198,8 +213,11 @@ def lint_fact(fact, strict_refs=False):
     subject = fact.get("subject")
     if not isinstance(subject, str) or not subject.strip():
         errors.append({"code": "E_SUBJECT", "where": "subject", "detail": "subject (what the fact is about) is required"})
-    elif subject not in str(fact.get("fact", "")):
-        errors.append({"code": "E_SUBJECT", "where": "subject", "detail": "subject must appear verbatim in fact"})
+    elif not subject_in_fact(fact):
+        errors.append({"code": "E_SUBJECT", "where": "subject", "detail": "subject or one of its aliases must appear verbatim in fact"})
+    if isinstance(subject, str) and subject_error(subject):
+        errors.append({"code": "E_SUBJECT_OBJECT", "where": "subject", "detail": subject_error(subject)})
+    errors.extend(metadata_errors(fact))
     refs = [r for r in fact.get("evidence_refs", []) if isinstance(r, dict)]
     if fact.get("kind") in MULTI_EVIDENCE_KINDS and len({(r.get("type"), r.get("locator")) for r in refs}) < 2:
         errors.append({"code": "E_EVIDENCE_COUNT", "where": "evidence_refs",
@@ -380,12 +398,12 @@ def main():
     collect_cmd.add_argument("--topic-title", help="topic name for Jev (defaults to host)")
     collect_cmd.add_argument("--question", choices=("relaxed", "narrow"), default="relaxed")
     collect_cmd.add_argument("--threshold", type=float, default=0.5)
-    collect_cmd.add_argument("--variant", choices=("plain", "ctx-v1"), default="plain")
+    collect_cmd.add_argument("--variant", choices=("plain", "ctx-v1", "ctx-v2"), default="ctx-v2")
     collect_cmd.add_argument("--page-size", type=int, default=30)
     commands.add_parser("embed-server", help="run loopback embedding service in foreground (model venv required)")
     backfill_cmd = commands.add_parser("backfill-embeddings")
     backfill_cmd.add_argument("--host", required=True)
-    backfill_cmd.add_argument("--variant", choices=("plain", "ctx-v1"), default="plain")
+    backfill_cmd.add_argument("--variant", choices=("plain", "ctx-v1", "ctx-v2"), default="ctx-v2")
     for command in (register_cmd, batch_cmd, digest_cmd, complete_cmd, resubmit_cmd, commands.choices["stats"], search_cmd, backfill_cmd, collect_cmd):
         command.add_argument("--ledger", default=str(Path(__file__).parent / "ledger"))
         command.add_argument("--backend", choices=("file", "pg"), default="file")

@@ -117,6 +117,8 @@ def dedupe(missing, encode=None):
     Keeps the assistant's statement over the user's request and the longer text; embedding-free fallback keeps all."""
     if len(missing) < 2:
         return missing
+    from embedding_thresholds import get
+    cutoff = get('capture_dedupe')
     if encode is None:
         import embed
         encode = embed.encode_passages
@@ -127,7 +129,7 @@ def dedupe(missing, encode=None):
     rank = sorted(range(len(missing)), key=lambda i: (missing[i]["from"] != "assistant", -len(missing[i]["text"])))
     kept = []
     for i in rank:
-        if all(sum(a * b for a, b in zip(vectors[i], vectors[j])) < DUP_COSINE for j in kept):
+        if all(sum(a * b for a, b in zip(vectors[i], vectors[j])) < cutoff for j in kept):
             kept.append(i)
     return [missing[i] for i in sorted(kept)]
 

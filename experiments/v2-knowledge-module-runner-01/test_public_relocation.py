@@ -65,7 +65,7 @@ class PublicRelocation(unittest.TestCase):
     def test_source_inventory_contains_runtime_sql_and_loader(self):
         files = self.portable.inventory(ROOT)
         self.assertEqual(len(files), len(set(self.portable.ALLOWLIST)))
-        self.assertEqual(sum(n.startswith('migrations/') for n in files), 18)
+        self.assertEqual(sum(n.startswith('migrations/') for n in files), 23)
         self.assertIn('pi-extension/knowledge.ts', files)
         self.assertIn('lineage_row_provider.py', files)
         self.assertIn('current_v1_semantic.py', files)
@@ -206,7 +206,7 @@ class PublicRelocation(unittest.TestCase):
                 events.append((sql, params))
                 self.select = sql.startswith('select form')
             def fetchone(self):
-                return (False,) if self.select else None  # stale revision, never write leaves
+                return (False, 'fixture') if self.select else None  # stale revision, never write leaves
         with patch.object(self.modules['subject_merge'], 'lock_host', side_effect=lambda *a, **k: events.append(('lock', k))), \
              patch.object(pg, '_write_form', denied):
             result = bf.apply(Cursor(), 'fixture', [{'id': 'synthetic', 'subject': None, 'text': 'Fixture는 하나다.', 'revision': 7}])
