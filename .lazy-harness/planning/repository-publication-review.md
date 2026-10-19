@@ -1,6 +1,6 @@
 # Planning — Repository Publication Review and Cleanup
 
-Status: active — Phase1 integrated candidate; fresh validation/publication pending
+Status: active — Phase1 source published on review branch; Phase2/3 pending
 Layer: Planning
 
 ## Rule digest
@@ -76,10 +76,18 @@ User-confirmed harness philosophy remains: LLM owns semantic scope/relevance/app
 - `.lazy-harness/ssot/policies.json`, `capabilities.json`, manifests and `self-test.py#check_project_operating_rulebook_cli`: existing target-context BDD binding; rulebook SDD/TDD.
 - `.lazy-harness/ssot/project-identity.md`: minimized cross-session ownership/SDK evidence, not personal installation publication.
 - Private `.local/publication-phase1/`: exact approved inputs, per-file manifest, exclusions, validation/publication evidence. Never stage it.
-- Fresh checks/commit/remote: pending; no successful publication claim yet.
+- Phase1 implementation commit: `d99299f288a0490b00251ad74965f82f627b42d9`; normal pre-commit and canonical pre-push passed, exact review-branch push succeeded and remote equality was independently verified. Publication receipt follows; Phase2/3 and SDK1.3 certification remain incomplete.
 - Initial coherent checkpoint: fast static passed 52 changed files, zero errors/warnings; normal Pi/Node/Bun-test typechecks passed against frozen 0.85.1 dependencies. Package-wide Bun invocation produced 271 passes, 10 native OMP opt-in skips and 8 setup failures in the unchanged legacy native Subagents CLI matrix (5.14s): it requires explicit external LAZY_READER_NATIVE_SYNC/ASYNC package paths, which are unavailable and are not restored under Fabric. All newly integrated default source/loader/transport/accounting cases passed in that invocation. This is not an all-green package-wide or native compatibility claim. Canonical record-lint passed 196/196. Normal current full framework/SDK integration gates remain required; no failing fixture is deleted, weakened or supplied invented native paths.
 - Final standard after the source/contract/index batch passed once: ok=true, fullRegression=true, evidenceReused=false, 404.876s total; fast-static 52 files/0 issues in 0.352s; full framework self-test 92 checks, 0 skipped, jobs=4 in 404.379s. It includes current real SDK capture integration, Fabric policy/transport, existing cleanup/routing/sync cases and newly registered offline OMP/accounting suites. This does not erase the separate unconfigured legacy native CLI matrix or certify managed SDK1.3/native OMP. No unchanged focused suite/standard rerun after green; further updates are publication receipts only.
 - The standard gate regenerated the tracked policy-rulebook explain view from the merged catalogs (9 policies); reviewed public-safe and included as derived output, not copied private evidence. Git discovery found the existing shared pre-commit delegate active and no installed pre-push hook. Preserve originals/config: use the normal pre-commit hook and explicitly run the unchanged canonical `.lazy-harness/hooks/pre-push.sh` gate before the exact approved branch push; no hook-disable, no-verify or shared hook/config mutation.
+
+### Phase1 publication receipt
+
+- Implementation/source commit `d99299f288a0490b00251ad74965f82f627b42d9` contains the reviewed 53-file allowlist: 2,503 insertions/175 deletions across all necessary Phase1 groups. Six verified graph rows appended; existing 758 rows preserved. All private/runtime/dependency data and V2/G16 experimental promotion excluded, not deleted.
+- Actual normal Git pre-commit delegate ran `lazy test --light` and passed (204.961s wall). The unchanged canonical pre-push script ran full `lazy test` and passed (404.908s wall). No no-verify, disabled hook, altered source gate, shared hook installation or global config change.
+- Exact `git push -u origin work/publication-main` succeeded. Independent `git ls-remote` returned `d99299f288a0490b00251ad74965f82f627b42d9` for the review branch, equal to local HEAD; remote main remained `2ec5d2f89f215ad83b02c3e46151be011a149cd8`. Branch now tracks `origin/work/publication-main`; working tree was clean after that push.
+- This subsequent amendment is the publication receipt in the same primary, not another source batch, global policy or Phase2/3 completion. It records the verified implementation commit/remote pair; its own final branch HEAD is verified/reported separately after normal commit/pre-push gates. Do not rerun the already passing focused suite/standard merely for this evidence capsule.
+- The separate broad Bun invocation remains 271 pass/10 native OMP skips/8 legacy-native setup failures, not all-green. Source SDK0.85.1 normal gates passed; SDK1.3 event/fixture migration and broader native OMP scenarios are still unimplemented/unverified. These do not block this bounded Main-source publication, but do block universal latest-SDK/native-parity claims.
 
 ## Phase2/3 next steps (not completed)
 
