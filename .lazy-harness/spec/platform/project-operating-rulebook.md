@@ -88,6 +88,12 @@ Resolution must match exact intent labels and action labels using the same deter
 
 During Policy Machinery Option B migration, active rulebook entries that are candidates for semantic retirement must also be covered by typed policy links. The framework source entry `.lazy-harness/rules/README.md` is covered by capability `project-operating-rulebook` and policy `project-operating-rulebook-policy`. Semantic authority is retired from `.lazy-harness/rules/**`; typed policies are the source of truth.
 
+## Correction capture — target-context fallback resolution
+
+The user-confirmed `agent-owned-target-context-transition` policy/capability resolves `switching_to_approved_target_worktree`, `handling_unavailable_session_switch`, and `delegating_root_bound_target_work`: try `lazy_move_project`, then launch an available approved coding CLI in the approved target cwd before asking the user to run `/lazy-move`. Manual handoff is last fallback for an unapproved/unverified target, unavailable/failed CLI, or conflicting writer. Observe a target-root action after trust/authentication/startup; process `running` is not implementation progress. Do not invent paths or bypass root-bound, single-writer, grounding, or integration approval.
+
+This is default advisory guidance, not a blocking lifecycle hook. Primary scenarios and implementation map: `.lazy-harness/behavior/agent-owned-target-context-transition.md`; protection: `.lazy-harness/tests/project-operating-rulebook.md`; canonical executable semantics: `.lazy-harness/ssot/policies.json` and `.lazy-harness/ssot/capabilities.json`.
+
 ## Audit behavior
 
 `lazy rules audit --strict` fails when:

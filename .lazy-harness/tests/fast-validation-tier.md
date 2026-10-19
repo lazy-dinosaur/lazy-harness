@@ -71,3 +71,16 @@ Date: 2026-06-18
 - SSOT: full regression remains `.lazy-harness/bin/lazy test` per CLI/enforcement records.
 - ADR: no new ADR.
 - DDD: no domain/business term impact.
+
+## Untracked dependency collection regression
+
+The user approved repairing the collector, not deleting dependencies or weakening authored-file checks. `default_changed_files` excludes only untracked exact `node_modules` trees at any depth. `git_paths` consumes NUL-delimited output and preserves whitespace/newlines. Tracked/staged and explicit paths still fail on invalid JSON or binary NUL.
+
+Implementation map additions: `tests/lazy-harness/lazy-check-collection.test.py#ChangedCollectionTest` supplies four isolated Git cases: untracked root/nested dependencies plus authored near-match/whitespace paths; staged dependency; explicit dependency; authored malformed JSON/NUL. `self-test.py#check_fast_validation_tier_cli` invokes them when present.
+
+- SDD: independent collection/output delta in `.lazy-harness/spec/platform/fast-validation-tier.md`.
+- BDD: no independent delta; command selection contract is owned by SDD.
+- SSOT: no independent collector delta; no global/local ignore change required by the implementation.
+- DDD: no independent delta.
+
+Fresh publication validation is recorded in `.lazy-harness/planning/repository-publication-review.md`; historical source-checkpoint receipts are not current publication proof.

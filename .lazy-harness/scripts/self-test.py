@@ -841,6 +841,70 @@ def check_layer_completeness_helper() -> None:
         regression_with_matrix_out = run_layer_completeness_helper(regression_with_matrix)
         if regression_with_matrix_out.strip():
             fail("regression JSONL should pass when paired with a valid TDD Markdown matrix:\n" + regression_with_matrix_out)
+        # The same relative record name in two roots must never shadow its target.
+        matrix = tdd.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory(prefix="lazy-layer-paths-") as directory:
+            target_root = pathlib.Path(directory) / "target root 한글"
+            target_tdd = target_root / tdd.relative_to(ROOT)
+            target_tdd.parent.mkdir(parents=True)
+            target_tdd.write_text(matrix, encoding="utf-8")
+            target_regression = target_root / regression.relative_to(ROOT)
+            target_regression.parent.mkdir(parents=True)
+            target_regression.write_text("{}\n", encoding="utf-8")
+
+            absolute = {"recent_tool_calls": [{
+                "name": "edit", "args_preview": json.dumps({"path": str(target_tdd)}),
+            }]}
+            tdd.write_text("# Parent shadow lacks judgement\n", encoding="utf-8")
+            if run_layer_completeness_helper(absolute).strip():
+                fail("absolute foreign-root matrix must pass despite parent shadow; preserve quoted spaces/unicode")
+
+            tdd.write_text(matrix, encoding="utf-8")
+            target_tdd.write_text("# Foreign shadow lacks judgement\n", encoding="utf-8")
+            shadowed = run_layer_completeness_helper(absolute)
+            if "Layer completeness gate" not in shadowed or str(target_tdd) not in shadowed:
+                fail("valid parent matrix must not hide foreign-root missing judgement")
+            target_tdd.unlink()
+            if "Layer completeness gate" not in run_layer_completeness_helper(absolute):
+                fail("missing absolute target must not fall back to parent record")
+            target_tdd.write_text(matrix, encoding="utf-8")
+
+            foreign_data_parent_matrix = {"recent_tool_calls": [
+                {"name": "Edit", "args_preview": json.dumps({"path": str(target_regression)})},
+                {"name": "Edit", "args_preview": str(tdd.relative_to(ROOT))},
+            ]}
+            if "Layer completeness gate" not in run_layer_completeness_helper(foreign_data_parent_matrix):
+                fail("regression JSONL cannot borrow a different root's matrix")
+            foreign_pair = {"recent_tool_calls": [
+                {"name": "Edit", "args_preview": json.dumps({"path": str(target_regression)})},
+                {"name": "Edit", "args_preview": json.dumps({"path": str(target_tdd)})},
+            ]}
+            if run_layer_completeness_helper(foreign_pair).strip():
+                fail("same-root absolute regression pair must pass")
+
+            target_tdd.write_text("# Invalid same-root matrix\n", encoding="utf-8")
+            if "Layer completeness gate" not in run_layer_completeness_helper(foreign_pair):
+                fail("same-root regression pairing must require valid judgement, not just Markdown presence")
+            target_tdd.write_text(matrix, encoding="utf-8")
+            excluded = target_root / ".lazy-harness/tests/test-strategy.xml"
+            if run_layer_completeness_helper({"recent_tool_calls": [
+                {"name": "Edit", "args_preview": json.dumps({"path": str(excluded)})},
+            ]}).strip():
+                fail("test-strategy XML remains excluded in an absolute foreign root")
+
+        absolute_local = {"recent_tool_calls": [{"name": "Edit", "args_preview": str(tdd)}]}
+        if run_layer_completeness_helper(absolute_local).strip():
+            fail("absolute current-root matrix must pass")
+        explicit_relative = {"recent_tool_calls": [{"name": "Edit", "args_preview": "./" + str(tdd.relative_to(ROOT))}]}
+        if run_layer_completeness_helper(explicit_relative).strip():
+            fail("explicit relative matrix path must pass")
+        tdd.write_text("# Missing matrix\n", encoding="utf-8")
+        duplicate = {"recent_tool_calls": [
+            {"name": "Edit", "args_preview": str(tdd)},
+            {"name": "Edit", "args_preview": str(tdd.relative_to(ROOT))},
+        ]}
+        if run_layer_completeness_helper(duplicate).count("  - " + str(tdd)) != 1:
+            fail("absolute/relative references to the same canonical root must deduplicate")
     finally:
         tdd.unlink(missing_ok=True)
         regression.unlink(missing_ok=True)
@@ -1668,6 +1732,15 @@ def check_fast_validation_tier_cli() -> None:
     if not any(item.get("check") == "root-bound" for item in outside_result.get("errors", [])):
         fail("lazy check outside-root file should report root-bound: " + outside.stdout)
 
+    collection_test = ROOT / "tests/lazy-harness/lazy-check-collection.test.py"
+    if collection_test.is_file():
+        collection = subprocess.run(
+            ["python3", str(collection_test)], cwd=ROOT, text=True, capture_output=True,
+            env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(ROOT)),
+        )
+        if collection.returncode != 0:
+            fail("lazy check collection regression failed:\n" + collection.stdout + collection.stderr)
+
     print("✓ fast validation tier CLI ok")
 
 
@@ -2130,7 +2203,8 @@ def check_pi_package_layout_and_contract() -> None:
         fail("Pi package manifest missing omp-plugin keyword")
     for manifest_key in ["pi", "omp"]:
         agent_manifest = data.get(manifest_key) if isinstance(data.get(manifest_key), dict) else {}
-        for key, expected in {"extensions": "./extensions", "skills": "./skills", "prompts": "./prompts"}.items():
+        extensions_entry = "./omp/index.ts" if manifest_key == "omp" else "./extensions"
+        for key, expected in {"extensions": extensions_entry, "skills": "./skills", "prompts": "./prompts"}.items():
             values = agent_manifest.get(key)
             if not isinstance(values, list) or expected not in values:
                 fail(f"Pi package manifest missing {manifest_key}.{key} entry {expected!r}")
@@ -2250,7 +2324,8 @@ def check_pi_package_layout_and_contract() -> None:
         "lazy_reader_join",
         "content-bearing Reader packet",
         "preservesHeadlessPrimaryAnswer",
-        "ctx.mode === \"print\" || ctx.mode === \"json\"",
+        "const mode = ctx.mode ?? fallbackMode;",
+        "mode === \"print\" || mode === \"json\"",
         "parseReaderResultPacket",
         "receiveReaderResult",
         "printModeAdvisory",
@@ -3239,6 +3314,21 @@ def check_pi_package_layout_and_contract() -> None:
 
     fabric_regression = pkg_root / "tests" / "fabric-reader.test.ts"
     completed = subprocess.run(["bun", "test", str(fabric_regression), str(pkg_root / "tests" / "fabric-reader-policy-sdk.test.ts")], cwd=ROOT, text=True, capture_output=True, check=False, timeout=120, env=env_without_lazy_runtime())
+    # Optional native OMP suites remain explicit opt-in; these shared-core,
+    # manifest, loader, registration and accounting fixtures never call a live model.
+    publication_suites = [
+        "omp-output-mode.test.ts", "omp-reader.test.ts", "omp-steering.test.ts",
+        "omp-loader.test.ts", "omp-native-stream.test.ts", "omp-gpt6-sol-registration.test.ts",
+        "runtime-instance-isolation.test.ts", "reader-guidance.test.ts",
+    ]
+    completed_omp = subprocess.run(
+        ["bun", "test", *[str(pkg_root / "tests" / name) for name in publication_suites],
+         str(pkg_root / "scripts" / "collect-runtime-usage.test.ts")],
+        cwd=ROOT, text=True, capture_output=True, check=False, timeout=120,
+        env=env_without_lazy_runtime(LAZY_OMP_NATIVE_TEST="0"),
+    )
+    if completed_omp.returncode != 0:
+        fail("Pi/OMP shared-core offline regressions failed:\n" + completed_omp.stdout + completed_omp.stderr)
     if completed.returncode != 0:
         fail("Pi Fabric Reader regression failed:\n" + completed.stdout + completed.stderr)
 
@@ -4637,9 +4727,31 @@ def check_project_operating_rulebook_cli() -> None:
         fail("source rulebook README must surface related typed policy in list output: " + root_list.stdout)
     if ACTIVE_SCOPE == "framework":
         source_capabilities = json.loads((ROOT / ".lazy-harness" / "ssot" / "capabilities.json").read_text(encoding="utf-8"))
+        source_policies = json.loads((ROOT / ".lazy-harness" / "ssot" / "policies.json").read_text(encoding="utf-8"))
         project_rulebook_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == "project-operating-rulebook"), None)
         if not project_rulebook_capability or "project-operating-rulebook-policy" not in project_rulebook_capability.get("policyIds", []):
             fail("source project-operating-rulebook capability must link typed policy coverage")
+        transition_id = "agent-owned-target-context-transition"
+        transition_capability = next((cap for cap in source_capabilities.get("capabilities", []) if cap.get("id") == transition_id), None)
+        transition_policy = next((policy for policy in source_policies.get("policies", []) if policy.get("id") == transition_id), None)
+        if not transition_capability or transition_capability.get("level") != "default" or transition_capability.get("policyIds") != [transition_id]:
+            fail("agent-owned target transition capability must be default-level and link its typed policy")
+        if not transition_policy or transition_policy.get("level") != "default" or transition_policy.get("capabilityIds") != [transition_id]:
+            fail("agent-owned target transition policy must be default-level and link its capability")
+        preferred = transition_capability.get("preferredActions", [])
+        discouraged = transition_capability.get("discouragedActions", [])
+        if "interactive_shell spawn Pi in approved target cwd" not in preferred or "ask user to run /lazy-move when interactive CLI is available" not in discouraged:
+            fail("agent-owned target transition capability must prefer target-root CLI and discourage recoverable manual handoff")
+        transition_resolve = subprocess.run(
+            [str(LAZY / "bin" / "lazy"), "capability", "resolve", "--intent", "handling_unavailable_session_switch", "--action", "ask user to run /lazy-move when interactive CLI is available", "--format=json"],
+            cwd=ROOT, text=True, capture_output=True, check=False,
+        )
+        if transition_resolve.returncode != 0:
+            fail("agent-owned target transition capability resolve failed:\n" + transition_resolve.stdout + transition_resolve.stderr)
+        transition_matches = json.loads(transition_resolve.stdout).get("matches", [])
+        resolved_transition = next((item for item in transition_matches if item.get("id") == transition_id), None)
+        if not resolved_transition or "interactive_shell spawn Pi in approved target cwd" not in resolved_transition.get("preferredActions", []):
+            fail("agent-owned target transition resolve must return the target-root CLI preference: " + transition_resolve.stdout)
 
     temp = pathlib.Path(tempfile.mkdtemp(prefix="lazy-rulebook-cli-"))
     try:
@@ -10959,6 +11071,7 @@ def check_policy_machinery_v2() -> None:
     walk(fixture)
 
     framework_policy_ids = {
+        "agent-owned-target-context-transition",
         "bounded-validation-orchestration",
         "code-organization-profile",
         "primary-canonical-record",
@@ -11103,7 +11216,7 @@ def check_policy_machinery_v2() -> None:
     render_md_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=md"], cwd=ROOT, text=True, capture_output=True, check=False)
     if render_md_result.returncode != 0:
         fail("lazy policy render-rulebook md failed:\n" + render_md_result.stdout + render_md_result.stderr)
-    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "code-organization-profile", "primary-canonical-record", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
+    for expected in ("# Generated Policy Rulebook", "GENERATED VIEW, NON-CANONICAL", "Canonical behavior policy source: `.lazy-harness/ssot/policies.json`", "agent-owned-target-context-transition", "code-organization-profile", "primary-canonical-record", "project-operating-rulebook-policy", "record-first-validation", "validation-evidence-warning", "validation-evidence-block"):
         if expected not in render_md_result.stdout:
             fail("lazy policy render-rulebook md missing expected text: " + expected)
     render_json_result = subprocess.run([str(LAZY / "bin" / "lazy"), "policy", "render-rulebook", "--format=json"], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -11377,6 +11490,7 @@ Fixture implementation map.
             ".lazy-harness/scripts/agent-activate.ts",
             ".lazy-harness/ssot/policies.json",
             ".lazy-harness/ssot/capabilities.json",
+            ".lazy-harness/behavior/agent-owned-target-context-transition.md",
             ".lazy-harness/rules/README.md",
             ".lazy-harness/spec/platform/policy-machinery-v2.md",
             ".lazy-harness/spec/platform/bounded-validation-governor.md",
@@ -11525,6 +11639,7 @@ Fixture implementation map.
         for expected_id in (
             "host-only-unsynced-source-policy",
             "temp-write-roundtrip-policy",
+            "agent-owned-target-context-transition",
             "code-organization-profile",
             "primary-canonical-record",
             "record-first-validation",
@@ -11577,6 +11692,7 @@ Fixture implementation map.
         "tests/policy-machinery-v2.md",
         "planning/policy-machinery-v2-baseline-gap-audit.md",
         "spec/platform/project-operating-rulebook.md",
+        "behavior/agent-owned-target-context-transition.md",
         "fixtures/policy-machinery-v2/",
         "*.json",
     ):

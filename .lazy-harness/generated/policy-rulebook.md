@@ -8,12 +8,13 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 
 ## Summary
 
-- Policy count: 8
+- Policy count: 9
 - Canonical source: `.lazy-harness/ssot/policies.json`
 - Generated/explain view only: yes
 
 | Policy | Level | Stage | Runtime | Summary |
 |---|---|---|---|---|
+| `agent-owned-target-context-transition` | default | turn | advisory-only | After an approved direct project/session switch reports that switching is unavailable, launch one approved coding CLI in the target cwd and require target-root grounding. Ask the user to switch manually only when that agent-owned fallback is unavailable or fails. |
 | `bounded-validation-orchestration` | recommend | turn | advisory-only | Do not validate after each micro-edit. Batch a coherent mutation set, run lazy check at a deliberate checkpoint, run focused or affected validation once per changed-behavior batch when needed, then run one lazy validate --plan standard after the final mutation. Direct lazy test remains explicit fresh full regression or commit/push/release only. |
 | `code-organization-profile` | recommend | edit | advisory-only | Review only new or modified source for local coherence, narrowing ownership, lifecycle clarity, and duplicate authority. Do not infer system architecture, split by line count, or rewrite untouched code. |
 | `framework-co-change-completeness` | discover | turn | advisory-only | Before closing a framework change, enumerate referencing skills/prompts/extension/help/parser surfaces (grep the changed command/flag/contract name under packages/ and bin/) and update them in the same change. |
@@ -22,6 +23,35 @@ This file explains typed behavior policies for humans/LLMs. Do not edit it as so
 | `record-first-validation` | discover | turn | advisory-only | Before claiming validation is complete, attach or summarize concrete validation evidence from canonical records/tests. |
 | `validation-evidence-block` | block | turn | block (readiness/preflight only; no lifecycle runtime declared) | Prepare a narrow block boundary for validation-complete claims made without record/test evidence. This policy is ready for block runtime, but no lifecycle hook is installed in this slice. |
 | `validation-evidence-warning` | warn | turn | warn-only (explicit policy_context required) | When structured policy context says the agent is making validation claims, warn if concrete validation evidence should be attached or summarized. |
+
+## agent-owned-target-context-transition
+
+- Title: Use an agent-owned target-root CLI before manual user handoff
+- Scope: framework-global
+- Stage: turn
+- Level: default
+- Runtime: advisory-only
+- Source record: `.lazy-harness/behavior/agent-owned-target-context-transition.md`
+- Capabilities: agent-owned-target-context-transition
+- Summary: After an approved direct project/session switch reports that switching is unavailable, launch one approved coding CLI in the target cwd and require target-root grounding. Ask the user to switch manually only when that agent-owned fallback is unavailable or fails.
+
+### Applies to
+- switching_to_approved_target_worktree
+- handling_unavailable_session_switch
+- delegating_root_bound_target_work
+
+### Evidence
+- user-confirmation: User correction on 2026-08-26: when direct session switching is unavailable but the agent can launch a CLI in the approved target worktree, the agent must do so instead of telling the user to run the transition command.
+- record `.lazy-harness/behavior/agent-owned-target-context-transition.md`: The BDD defines direct-switch, agent-owned CLI fallback, and no-safe-fallback scenarios while preserving root-bound and single-writer rules.
+- validation-output `.lazy-harness/tests/project-operating-rulebook.md`: The TDD contract requires deterministic preferred/discouraged action resolution and preserves manual handoff as a last fallback.
+
+### Promotion / rollback
+- Requires confirmation: true
+- Allowed target levels: discover, recommend, default, warn
+- Rollback target: recommend
+  - The target-root CLI is unavailable or fails to launch.
+  - The target path is not explicitly approved or verified.
+  - Launching a CLI would create a second writer in the same worktree.
 
 ## bounded-validation-orchestration
 

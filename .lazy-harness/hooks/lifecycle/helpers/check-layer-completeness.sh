@@ -35,15 +35,34 @@ allowed = {
     "mcp__filesystem__write_file",
     "mcp__filesystem__edit_file",
 }
-pattern = re.compile(r"""\.lazy-harness/(?:domain|spec|behavior|tests|decisions|ssot|regression)/[^\s"',)}]+\.(?:md|jsonl|xml|json)""")
-paths: list[str] = []
+# Preserve the supplied path's root, including quoted JSON paths with spaces.
+pattern = re.compile(r"""\.lazy-harness/(?:domain|spec|behavior|tests|decisions|ssot|regression)/[^\r\n]+\.(?:md|jsonl|xml|json)$""")
+tokens = re.compile(r'''"(?:\\.|[^"\\])*"|'[^']*'|[^\s"'=,{}()]+''')
+paths: dict[tuple[pathlib.Path, str], str] = {}
 for call in payload.get("recent_tool_calls", []):
     if not isinstance(call, dict) or str(call.get("name", "")) not in allowed:
         continue
-    for match in pattern.finditer(str(call.get("args_preview", ""))):
-        paths.append(match.group(0))
+    for token_match in tokens.finditer(str(call.get("args_preview", ""))):
+        token = token_match.group(0)
+        if token.startswith('"'):
+            try:
+                token = json.loads(token)
+            except ValueError:
+                continue
+        elif token.startswith("'"):
+            token = token[1:-1]
+        if "\n" in token or "\r" in token:
+            continue
+        match = pattern.search(token)
+        if not match:
+            continue
+        prefix = token[:match.start()]
+        if prefix and not prefix.endswith("/"):
+            continue
+        root = pathlib.Path(prefix or ".").resolve()
+        paths.setdefault((root, match.group(0)), token)
 
-files = list(dict.fromkeys(path for path in paths if path))
+files = list(paths)
 if not files:
     raise SystemExit(0)
 
@@ -57,20 +76,21 @@ def is_tdd_markdown(file: str) -> bool:
         )
     )
 
-tdd_markdown_files = [file for file in files if is_tdd_markdown(file)]
+tdd_markdown_files = [file for file in files if is_tdd_markdown(file[1])]
 regression_data_files = [
     file
     for file in files
-    if file.startswith(".lazy-harness/regression/") and not file.endswith(".md")
+    if file[1].startswith(".lazy-harness/regression/") and not file[1].endswith(".md")
 ]
 if not tdd_markdown_files and not regression_data_files:
     raise SystemExit(0)
 
 missing: list[str] = []
-for file in tdd_markdown_files:
-    path = pathlib.Path(file)
-    if not path.exists():
-        missing.append(file)
+valid_matrix_roots: set[pathlib.Path] = set()
+for root, file in tdd_markdown_files:
+    path = root / file
+    if not path.is_file():
+        missing.append(paths[(root, file)])
         continue
     text = path.read_text(encoding="utf-8", errors="ignore")
     has_matrix = "Layer completeness" in text and all(
@@ -78,10 +98,13 @@ for file in tdd_markdown_files:
         for layer in ("SDD", "BDD", "SSOT", "DDD")
     )
     if not has_matrix:
-        missing.append(file)
+        missing.append(paths[(root, file)])
+    else:
+        valid_matrix_roots.add(root)
 
-if regression_data_files and not tdd_markdown_files:
-    missing.extend(regression_data_files)
+for root, file in regression_data_files:
+    if root not in valid_matrix_roots:
+        missing.append(paths[(root, file)])
 
 if not missing:
     raise SystemExit(0)

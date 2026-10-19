@@ -1,147 +1,61 @@
 {
   "schemaVersion": "1.0",
-  "generatedAt": "2026-10-16T07:51:52.616Z",
+  "generatedAt": "2026-10-19T06:08:56Z",
   "source": {
-    "root": "/Users/lazydino/.pi/agent/local-packages/lazy-harness-continuation.rm9dHJ",
-    "method": "ast",
-    "tool": "TypeScript compiler AST, Python AST baseline and verified source/graph links",
-    "scope": "Changed-record-only AST cache; full canonical facts remain in knowledge/graph.jsonl"
+    "root": ".",
+    "commit": "2ec5d2f89f215ad83b02c3e46151be011a149cd8",
+    "method": "manual",
+    "scope": "Changed-record-only source-read cache for publication Phase1; canonical facts remain in knowledge/graph.jsonl. No legacy graph migration."
   },
   "records": {
-    ".lazy-harness/tests/harness-fixture-runtime-isolation.md": {
-      "recordPath": ".lazy-harness/tests/harness-fixture-runtime-isolation.md",
-      "layer": "tdd",
-      "status": "fresh",
-      "files": [
-        {
-          "path": ".lazy-harness/scripts/self-test.py",
-          "role": "fixture copier and unchanged lifecycle integration checks",
-          "symbols": [
-            {
-              "name": "copy_harness_fixture",
-              "kind": "function",
-              "range": {
-                "startLine": 4209,
-                "endLine": 4219
-              }
-            },
-            {
-              "name": "check_harness_fixture_runtime_isolation",
-              "kind": "function",
-              "range": {
-                "startLine": 4222,
-                "endLine": 4263
-              }
-            },
-            {
-              "name": "check_lifecycle_fixture_intake_cli",
-              "kind": "function",
-              "range": {
-                "startLine": 4266,
-                "endLine": 4355
-              }
-            },
-            {
-              "name": "check_response_completed_no_auto_route_telemetry",
-              "kind": "function",
-              "range": {
-                "startLine": 4949,
-                "endLine": 5281
-              }
-            }
-          ]
-        },
-        {
-          "path": ".lazy-harness/scripts/lifecycle-parity-runner.py",
-          "role": "nested parity fixture copier",
-          "symbols": [
-            {
-              "name": "copy_host",
-              "kind": "function",
-              "range": {
-                "startLine": 156,
-                "endLine": 173
-              }
-            }
-          ]
-        }
-      ],
-      "tests": [
-        ".lazy-harness/scripts/self-test.py#check_harness_fixture_runtime_isolation"
-      ],
-      "graphIds": [
-        "kg_harness_fixture_runtime_isolation_impl",
-        "kg_harness_fixture_runtime_isolation_regression",
-        "kg_harness_fixture_parity_copy_runtime"
-      ]
+    ".lazy-harness/tests/layer-completeness-path-resolution.md": {
+      "recordPath": ".lazy-harness/tests/layer-completeness-path-resolution.md",
+      "layer": "tdd", "status": "fresh",
+      "files": [{"path": ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh", "role": "supplied-root token decoding and valid same-root pairing", "symbols": [{"name": "is_tdd_markdown", "kind": "function"}]}],
+      "tests": [".lazy-harness/scripts/self-test.py#check_layer_completeness_helper"],
+      "graphIds": ["kg_publication_phase1_layer_roots"]
     },
-    ".lazy-harness/tests/runtime-continuation-bootstrap.md": {
-      "recordPath": ".lazy-harness/tests/runtime-continuation-bootstrap.md",
-      "layer": "tdd",
-      "status": "fresh",
+    ".lazy-harness/tests/fast-validation-tier.md": {
+      "recordPath": ".lazy-harness/tests/fast-validation-tier.md",
+      "layer": "tdd", "status": "fresh",
+      "files": [{"path": ".lazy-harness/scripts/lazy-check.py", "role": "NUL-delimited changed-file selection", "symbols": [{"name": "git_paths", "kind": "function"}, {"name": "default_changed_files", "kind": "function"}]}],
+      "tests": ["tests/lazy-harness/lazy-check-collection.test.py"],
+      "graphIds": ["kg_publication_phase1_nul_collection"]
+    },
+    ".lazy-harness/tests/omp-runtime-parity.md": {
+      "recordPath": ".lazy-harness/tests/omp-runtime-parity.md",
+      "layer": "tdd", "status": "fresh",
       "files": [
-        {
-          "path": "packages/lazy-harness-pi/extensions/lazy-harness/index.ts",
-          "role": "evidence-bound continuation and activation preview",
-          "symbols": [
-            {
-              "name": "workUnitEvidenceValid",
-              "kind": "function",
-              "range": {
-                "startLine": 338,
-                "endLine": 345
-              }
-            },
-            {
-              "name": "observeEvidenceCall",
-              "kind": "function",
-              "range": {
-                "startLine": 347,
-                "endLine": 369
-              }
-            },
-            {
-              "name": "observeWorkUnitEvidence",
-              "kind": "function",
-              "range": {
-                "startLine": 371,
-                "endLine": 382
-              }
-            },
-            {
-              "name": "rememberToolCall",
-              "kind": "function",
-              "range": {
-                "startLine": 883,
-                "endLine": 890
-              }
-            }
-          ]
-        },
-        {
-          "path": ".lazy-harness/scripts/lazy-sync.ts",
-          "role": "evidence-bound continuation and activation preview",
-          "symbols": [
-            {
-              "name": "reconcileAgentActivation",
-              "kind": "function",
-              "range": {
-                "startLine": 631,
-                "endLine": 646
-              }
-            }
-          ]
-        }
+        {"path": "packages/lazy-harness-pi/omp/index.ts", "role": "thin runtime composition", "symbols": [{"name": "lazyHarnessOmp", "kind": "function"}]},
+        {"path": "packages/lazy-harness-pi/omp/reader-transport.ts", "role": "native admission/lifecycle/result/range boundary", "symbols": [{"name": "OmpReaderTransport", "kind": "class"}]},
+        {"path": "packages/lazy-harness-pi/omp/reader-definition.ts", "role": "shared body and safe create-only activation", "symbols": [{"name": "ompReaderDefinition", "kind": "function"}, {"name": "activateOmpReader", "kind": "function"}]}
       ],
-      "tests": [
-        "tests/lazy-harness/pi-capture-evidence.test.ts",
-        "packages/lazy-harness-pi/tests/fabric-reader.test.ts",
-        "tests/lazy-harness/test_lazy_sync_integrity.py"
+      "tests": ["packages/lazy-harness-pi/tests/omp-reader.test.ts", "packages/lazy-harness-pi/tests/omp-loader.test.ts", "packages/lazy-harness-pi/tests/runtime-instance-isolation.test.ts"],
+      "graphIds": ["kg_publication_phase1_omp_adapter"]
+    },
+    ".lazy-harness/tests/runtime-session-usage.md": {
+      "recordPath": ".lazy-harness/tests/runtime-session-usage.md",
+      "layer": "tdd", "status": "fresh",
+      "files": [
+        {"path": "packages/lazy-harness-pi/scripts/collect-runtime-usage.ts", "role": "read-only explicit-session accounting", "symbols": [{"name": "collectRuntimeUsage", "kind": "function"}, {"name": "decodeUsage", "kind": "function"}]},
+        {"path": "packages/lazy-harness-pi/omp/session-header.ts", "role": "unique native session identity", "symbols": [{"name": "ompSessionHeader", "kind": "function"}]}
       ],
-      "graphIds": [
-        "kg_runtime_continuation_bootstrap_extension",
-        "kg_runtime_continuation_bootstrap_sync"
-      ]
+      "tests": ["packages/lazy-harness-pi/scripts/collect-runtime-usage.test.ts"],
+      "graphIds": ["kg_publication_phase1_runtime_usage"]
+    },
+    ".lazy-harness/tests/reader-guidance.md": {
+      "recordPath": ".lazy-harness/tests/reader-guidance.md",
+      "layer": "tdd", "status": "fresh",
+      "files": [{"path": "packages/lazy-harness-pi/agents/record-reader.md", "role": "existing shared canonical Reader body", "symbols": []}],
+      "tests": ["packages/lazy-harness-pi/tests/reader-guidance.test.ts"],
+      "graphIds": ["kg_publication_phase1_reader_guidance"]
+    },
+    ".lazy-harness/behavior/agent-owned-target-context-transition.md": {
+      "recordPath": ".lazy-harness/behavior/agent-owned-target-context-transition.md",
+      "layer": "bdd", "status": "fresh",
+      "files": [{"path": ".lazy-harness/ssot/policies.json", "role": "default advisory target-transition policy", "symbols": []}, {"path": ".lazy-harness/ssot/capabilities.json", "role": "preferred/discouraged action binding", "symbols": []}],
+      "tests": [".lazy-harness/scripts/self-test.py#check_project_operating_rulebook_cli"],
+      "graphIds": ["kg_publication_phase1_target_transition_binding"]
     }
   }
 }

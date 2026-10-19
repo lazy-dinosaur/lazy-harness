@@ -111,6 +111,8 @@ It emits a STOP message when:
 - a regression JSON/JSONL update has no same-turn TDD/regression Markdown record that carries that matrix.
 Touching another layer does not bypass the matrix. The helper validates only its mechanical shape and non-empty row values; it does not decide whether a semantic delta is real.
 
+Path binding contract (regression: `.lazy-harness/tests/layer-completeness-path-resolution.md`): preserve the full tool-supplied path, including absolute target roots and quoted JSON spaces/unicode. Only relative paths bind to cwd. Deduplicate by canonical root plus record path; a same-named Parent record must not shadow the target. Missing/non-file targets still warn. Regression data requires a valid same-turn Markdown matrix in its own root, never a foreign-root matrix. This observes tool metadata and shape only; semantic delta classification remains LLM-owned.
+
 The helper can observe touched paths and explicit judgement text only. It must not guess whether two records contain an independent semantic delta; that decision remains LLM-owned after record/source/test reads.
 
 
@@ -134,8 +136,8 @@ The STOP options are:
   - `run_layer_completeness_helper` (`.lazy-harness/scripts/self-test.py`) — fixture runner.
 - Flow:
   1. A turn writes TDD/regression records and chooses a primary narrative record.
-  2. Lifecycle hook extracts touched `.lazy-harness` paths from recent tool calls.
-  3. Helper requires a non-empty SDD/BDD/SSOT/DDD bullet matrix in each touched TDD/regression Markdown record, regardless of other layer touches; regression JSON/JSONL must be paired with such a Markdown record.
+  2. Lifecycle hook extracts touched record paths, preserving explicit roots and decoding quoted JSON paths; only relative paths bind to cwd.
+  3. Helper requires a non-empty SDD/BDD/SSOT/DDD bullet matrix in every touched TDD/regression Markdown record; regression data pairs with a valid Markdown matrix in the same canonical root.
   4. The LLM confirms independent semantic deltas; the helper never infers them from paths or raw text.
   5. Missing matrix judgement injects STOP text whose default guidance is primary-record-first.
 - Tests / protection:

@@ -434,3 +434,42 @@ Reader native read/grep operands may be canonical relative paths or absolute pat
 A canary that requires native Parent grep/find must explicitly enable them. Pi's default coding tools do not imply native grep/find availability. The intended explicit CLI allowlist is `--tools read,grep,find,bash,subagent,lazy_reader_join`; extension tools must be included because the allowlist covers them too. Before any future live run, a zero-model SDK session with the same package/config/tool selection must verify `getActiveToolNames()` includes all required tools. Do not change global defaults or weaken Reader boundaries to compensate for a launcher omission.
 
 Implementation: `index.ts#readerToolPath/isReaderRuntimeToolAllowed`; regression: `self-test.py#check_pi_package_layout_and_contract`; zero-model runtime evidence: `/tmp/lh-reader-tool-preflight-88q_8qyl/result.json`.
+
+## Experimental OMP transport and offline usage collection
+
+The package's `omp.extensions` selects `./omp/index.ts`; Pi retains `./extensions`, Fabric Reader preparation/spawn/wait/policy and no legacy Subagents manifest requirement. Both delegate to the same instance-owned lifecycle/guard/ledger/join core. OMP startup does not eagerly import the Pi runtime; only the Pi session-switch path dynamically loads its SessionManager. `omp-loader.test.ts` verifies source loading/registration in an isolated schema-only fake runtime, not installed-native certification.
+
+OMP mode compatibility: native `ctx.mode` wins; `explicitOmpOutputMode` otherwise accepts explicit print/JSON/RPC CLI capability. Unknown/embedded modes stay unknown; `hasUI` is not print proof. Known headless capture/response advisories use structural entries and stderr, preserving primary stdout without another model continuation. Reader content remains a required continuation, not an advisory.
+
+Project Reader activation is explicit, preview-only by default:
+
+```bash
+bun packages/lazy-harness-pi/scripts/activate-omp-reader.ts --target /path/to/host --model provider/model
+# Add --apply only for the approved target; restart OMP after activation.
+```
+
+`activateOmpReader` writes only the exact `.omp/agents/lazy-harness.record-reader.md` definition, refuses symlinks/differing contents, and derives its policy body from `agents/record-reader.md`. No global settings/runtime installation or model substitution. The native definition pins one model, low thinking, blocking/fresh work and no child spawns.
+
+`OmpReaderTransport` supports one flat instruction or exact-context single-item batch, strict legacy assignment/newer task and yield aliases. Lifecycle binds actual launch/run/session but is not content. Only a successful untruncated matching visible yielded packet enters shared result parsing; transcript/details.output cannot substitute. Shared root/revision/epoch/task/model, terminal ledger, failed calls and successful record hashes remain authoritative. Native artifacts are not canonical proof or Pi artifact/async parity.
+
+Native read is path-only: reject ignored offset/limit fields and require finite `.lazy-harness/...:raw:N-M`. Charge possible leading/trailing context within the same per-read budget; suppress unverifiable/excess returned line coverage before delivery and increment failure accounting. One optional OMP v1 title prelude never replaces unique session identity. `onOmpNativeSteer` observes consumed structural steering metadata, not words; session-bound prepared-turn bits prevent double epoch advancement. Session switch clears session-owned evidence; ordinary same-session follow-up may reuse unchanged fingerprints. Queue acknowledgement cannot cancel tools already running.
+
+Offline accounting:
+
+```bash
+bun packages/lazy-harness-pi/scripts/collect-runtime-usage.ts /path/to/private/manifest.json
+```
+
+Input runtime=pi|omp, measurement=offline|live (caller label), sessions=[{role:parent|reader,path}], exactly one Parent. Relative files resolve from the manifest. `collectRuntimeUsage` emits `runtime-session-usage/v1`, validates unique file/session/assistant ids, native headers and safe counters, and includes error/aborted usage. Preserve totalTokens separately from cache fields; missing usage fails, missing cost stays unknown. No message/title bodies are emitted; real output paths/ids still belong in private artifacts. The collector does not discover omitted attempts, prove provider-request/retry count, task correctness, billing or efficiency. Default fixtures use synthetic sessions/providers only.
+
+Implementation map additions:
+- `omp/index.ts#lazyHarnessOmp`, `output-mode.ts#explicitOmpOutputMode`, `steering.ts#onOmpNativeSteer`, `session-header.ts#ompSessionHeader`: native mechanics.
+- `omp/reader-definition.ts#ompReaderDefinition/activateOmpReader`, `omp/reader-transport.ts#OmpReaderTransport`, `scripts/activate-omp-reader.ts`: definition/admission/visible-result/range boundary.
+- `extensions/lazy-harness/index.ts#lazyHarnessPi`: shared instance isolation, native callback wiring and prompt-less Reader fail-closed guard; Fabric policy remains unchanged.
+- `scripts/collect-runtime-usage.ts#collectRuntimeUsage/decodeUsage` and adjacent synthetic tests: read-only accounting.
+- `.lazy-harness/tests/omp-runtime-parity.md`, `.lazy-harness/tests/runtime-session-usage.md`, `.lazy-harness/tests/reader-guidance.md`: regression interfaces, precise remaining gaps and test inventory.
+- `.lazy-harness/scripts/pi-package.ts#ensurePackageLayout` and `self-test.py#check_pi_package_layout_and_contract`: manifests and default offline registration/protection.
+
+Pi development SDK stays at 0.85.1; managed Pi 1.3 startup is not a source compatibility pass. New user/custom start union and integration-fixture ABI require a separately scoped SDK/fixture migration, not an automatic major dependency upgrade. The bounded prompt-less guard is not that migration. OMP remains Experimental; native opt-in skips, fork/resume/root transitions, ask/RPC differences and async/artifact parity must not be relabeled green. Historical paid comparisons are not current publication evidence.
+
+Avoid attaching different global/project copies of this package simultaneously: duplicate tool registration can prevent startup. Preserve project skills settings when reconciling an explicitly approved package rebind; account for every explicit project pin in that approved batch, rather than silently updating only the global source. This records the user-confirmed duplicate-attachment cause and correction, not authority to change other hosts or global settings now.

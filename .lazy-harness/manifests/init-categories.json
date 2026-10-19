@@ -912,6 +912,31 @@
           "description": "Retired historical BDD for the former Jcode native ask behavior."
         },
         {
+          "path": "behavior/agent-owned-target-context-transition.md",
+          "kind": "file",
+          "description": "User-confirmed agent-owned target-root CLI fallback, preserving approval, grounding and single-writer boundaries."
+        },
+        {
+          "path": "tests/layer-completeness-path-resolution.md",
+          "kind": "file",
+          "description": "Supplied-root path and same-root regression matrix protection."
+        },
+        {
+          "path": "tests/omp-runtime-parity.md",
+          "kind": "file",
+          "description": "Experimental OMP transport, native encoding and shared-core regression boundaries."
+        },
+        {
+          "path": "tests/runtime-session-usage.md",
+          "kind": "file",
+          "description": "Read-only explicit-session usage interface and synthetic regression coverage."
+        },
+        {
+          "path": "tests/reader-guidance.md",
+          "kind": "file",
+          "description": "Shared Reader path/completion instruction and OMP projection protection."
+        },
+        {
           "path": "spec/platform/jcode-agent-adapter.md",
           "kind": "file",
           "description": "Deprecated historical SDD for the former Jcode adapter; synced to retire stale active host copies."

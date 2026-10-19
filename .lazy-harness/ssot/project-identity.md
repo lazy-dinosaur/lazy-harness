@@ -207,3 +207,15 @@ Operational rule:
 - ADR: no new ADR yet; use option gate if a Medivance-only finding is proposed as framework-global default.
 - SSOT: updated here with the framework-vs-Medivance dogfood boundary.
 - Planning: dogfood triage should continue to use Medivance primary plus secondary host cross-checks.
+
+## Local installation ownership and source compatibility — minimized cross-session capsule
+
+The user explicitly chose personal Pi defaults (GPT-6.1 Sol/high, client context metadata 500000), not shared framework or Reader defaults. These belong to user settings/model overrides; trusted project overrides and resumed-session identity may differ. Client metadata does not increase server limits. No such local preference is propagated by framework sync.
+
+A separate user-approved local installation investigation/migration and four-extension refresh concerned the personal runtime, not repository dependencies. Managed Pi 1.3 startup and the repaired worker/declaration import were observed in that installation; neither proves every action or durable-child/model admission. The earlier non-forced npm audit remediation failed with a partial node_modules effect; audit-clean and approved lifecycle scripts were not established. Installation backups, authentication state and live session identifiers are private, not publication inputs. No global changes are performed by the publication work.
+
+User correction: “our update” meant harness source freshness/compatibility, not only an extension inventory. Keep Git source integration, source SDK work and personal extension installation separate. Preserve dirty cross-session work rather than pull/reset/stash it. This confirmed reason supersedes the mistaken interpretation that a package-version list answered the harness-source question.
+
+Source evidence: root `package.json` pins Pi coding-agent/pi-ai 0.85.1 while the package declares host peer `*`; managed 1.3 is a distinct runtime. A historical external mapped-type probe found user/custom before-agent-start `event.prompt` and SDK integration-fixture ABI differences, not a failing normal repository typecheck. The publication batch only guards missing Reader prompt and defers Pi SessionManager loading for OMP startup. Full development SDK/lock/fixture migration remains unimplemented; no major update is authorized by version discovery or startup success.
+
+Implementation map: `package.json`/`bun.lock` own source dependencies; `packages/lazy-harness-pi/package.json` owns peer/entry declarations; `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` and `tests/lazy-harness/pi-capture-evidence.test.ts` are the actual source/fixture lanes. User-global Pi settings, managed installation, extension npm tree and recovery backups remain separately owned outside the repository. Further installation changes or major source alignment require their own approved scope. Rule placement: existing ownership/scope fact, not new AGENTS grammar or operating policy.

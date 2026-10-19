@@ -50,12 +50,16 @@ Self-test must prove:
 - No blocking hook is installed by Phase 0-2.
 - Response audit can advisory-warn when `warn|block` capability `discouragedActions` are used without prior rule/capability resolve evidence.
 - `lazy-sync` copies the framework `.lazy-harness/rules/README.md` seed and merges missing framework capability ids into host-owned `.lazy-harness/ssot/capabilities.json` while preserving host-specific capabilities.
+- `agent-owned-target-context-transition` resolves the discouraged manual `/lazy-move` handoff to an agent-owned approved target CLI; the typed policy/capability remain default advisory level.
+- Launch supervision must observe a target-root action after startup gates; process `running` alone is insufficient.
+- Negative boundaries: no approved target, no safe CLI, failed launch, conflicting writer or unresolved startup gate → report the concrete blocker, never invent a path or bypass approval.
+- Regression owner: `self-test.py#check_project_operating_rulebook_cli`; BDD `.lazy-harness/behavior/agent-owned-target-context-transition.md`; canonical `.lazy-harness/ssot/policies.json` + `.lazy-harness/ssot/capabilities.json`. This protects the user's correction that a recoverable context switch is the agent's work, not the user's manual task.
 
 ## Layer completeness gate
 
 - DDD: no domain/business rule impact.
 - SDD: `.lazy-harness/spec/platform/project-operating-rulebook.md` and `.lazy-harness/spec/platform/capability-resolution.md`.
-- BDD: agents should receive deterministic rulebook/capability guidance when resolving project operating actions.
+- BDD: `.lazy-harness/behavior/agent-owned-target-context-transition.md` owns the corrected direct-switch → agent CLI → manual-last behavior.
 - SSOT: `.lazy-harness/ssot/rule-sources.md`, `.lazy-harness/ssot/policy-registry.md`, and `.lazy-harness/ssot/capability-registry.md`.
 - Policy Machinery: `.lazy-harness/ssot/policy-registry.md` and `.lazy-harness/tests/policy-machinery-v2.md` cover typed policy migration readiness.
 - ADR: `.lazy-harness/decisions/0044-project-operating-rulebook.md`.

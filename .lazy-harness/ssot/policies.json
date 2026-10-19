@@ -2,6 +2,65 @@
   "version": 1,
   "policies": [
     {
+      "id": "agent-owned-target-context-transition",
+      "title": "Use an agent-owned target-root CLI before manual user handoff",
+      "scope": "framework-global",
+      "stage": "turn",
+      "level": "default",
+      "appliesTo": [
+        "switching_to_approved_target_worktree",
+        "handling_unavailable_session_switch",
+        "delegating_root_bound_target_work"
+      ],
+      "sourceRecord": ".lazy-harness/behavior/agent-owned-target-context-transition.md",
+      "capabilityIds": [
+        "agent-owned-target-context-transition"
+      ],
+      "evidence": [
+        {
+          "kind": "user-confirmation",
+          "summary": "User correction on 2026-08-26: when direct session switching is unavailable but the agent can launch a CLI in the approved target worktree, the agent must do so instead of telling the user to run the transition command."
+        },
+        {
+          "kind": "record",
+          "path": ".lazy-harness/behavior/agent-owned-target-context-transition.md",
+          "summary": "The BDD defines direct-switch, agent-owned CLI fallback, and no-safe-fallback scenarios while preserving root-bound and single-writer rules."
+        },
+        {
+          "kind": "validation-output",
+          "path": ".lazy-harness/tests/project-operating-rulebook.md",
+          "summary": "The TDD contract requires deterministic preferred/discouraged action resolution and preserves manual handoff as a last fallback."
+        }
+      ],
+      "promotion": {
+        "requiresConfirmation": true,
+        "allowedTargetLevels": [
+          "discover",
+          "recommend",
+          "default",
+          "warn"
+        ]
+      },
+      "rollback": {
+        "criteria": [
+          "The target-root CLI is unavailable or fails to launch.",
+          "The target path is not explicitly approved or verified.",
+          "Launching a CLI would create a second writer in the same worktree."
+        ],
+        "demotionTarget": "recommend"
+      },
+      "updateLoop": {
+        "eventType": "policy-promotion",
+        "canonicalByPacketAlone": false
+      },
+      "explain": {
+        "summary": "After an approved direct project/session switch reports that switching is unavailable, launch one approved coding CLI in the target cwd and require target-root grounding. Ask the user to switch manually only when that agent-owned fallback is unavailable or fails.",
+        "nonCanonicalViews": [
+          ".lazy-harness/generated/policy-rulebook.md"
+        ]
+      }
+    },
+    {
       "id": "bounded-validation-orchestration",
       "title": "Prefer bounded validation and one final full-regression boundary",
       "scope": "framework-global",

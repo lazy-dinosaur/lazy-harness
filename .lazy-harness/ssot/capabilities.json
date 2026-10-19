@@ -3,6 +3,42 @@
   "version": 1,
   "capabilities": [
     {
+      "id": "agent-owned-target-context-transition",
+      "kind": "command",
+      "level": "default",
+      "sourceRecord": ".lazy-harness/behavior/agent-owned-target-context-transition.md",
+      "appliesWhen": [
+        "switching_to_approved_target_worktree",
+        "handling_unavailable_session_switch",
+        "delegating_root_bound_target_work"
+      ],
+      "description": "Launch an agent-owned coding CLI in an approved target cwd when direct session switching is unavailable; keep manual user transition as the last safe fallback.",
+      "owner": "framework-global",
+      "actions": [
+        "lazy_move_project",
+        "interactive_shell spawn Pi in approved target cwd",
+        "ask user to run /lazy-move when interactive CLI is available"
+      ],
+      "preferredActions": [
+        "lazy_move_project",
+        "interactive_shell spawn Pi in approved target cwd"
+      ],
+      "discouragedActions": [
+        "ask user to run /lazy-move when interactive CLI is available"
+      ],
+      "tags": [
+        "orchestration",
+        "target-worktree",
+        "cli-fallback",
+        "root-bound"
+      ],
+      "entrypoint": "interactive_shell",
+      "fallback": "If the target path is unapproved or unverified, the CLI facility is unavailable, launch fails, or another writer exists, stop and report the concrete blocker; never invent a path or cross the current root directly.",
+      "policyIds": [
+        "agent-owned-target-context-transition"
+      ]
+    },
+    {
       "id": "bounded-validation-orchestration",
       "kind": "checklist",
       "level": "recommend",

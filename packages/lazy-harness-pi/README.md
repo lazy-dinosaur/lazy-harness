@@ -53,6 +53,22 @@ Project activation is separate from package installation:
 
 `lazy init` prints the same activation command after bootstrapping a host. Activation creates project-local `.pi/APPEND_SYSTEM.md` and `.omp/APPEND_SYSTEM.md` pointer prompts, merges `.pi/settings.json` so Pi loads project-owned `../.claude/skills`, `../.codex/skills`, and `../.agents/skills` with `enableSkillCommands: true`, and the global package no-ops outside projects where `.lazy-harness/bin/lazy` is present.
 
+Do not attach a second project copy while a different global copy is active: duplicate tool registrations can fail startup. Reconcile explicit project pins/attachments in the same approved rebind batch while preserving project skills settings; installation is not permission to mutate other hosts.
+
+### Experimental OMP Reader and offline accounting
+
+OMP uses the thin `omp/index.ts` entrypoint, shared instance-owned guard/ledger/join core and explicit output-mode fallback. Pi keeps its Fabric Reader/policy and existing entrypoint; no legacy Subagents manifest is restored. Project Reader activation is create-only and preview-only by default:
+
+```bash
+bun packages/lazy-harness-pi/scripts/activate-omp-reader.ts --target /path/to/host --model provider/model
+```
+
+Add `--apply` only for the approved initialized target, then restart OMP. Differing definitions/symlinks are refused, not overwritten. Native task lifecycle is identity, not content; visible successful untruncated yielded packets plus shared terminal ledger/range/hash checks are required for join. Legacy read limits ignored by OMP are rejected; finite raw ranges and returned coverage are enforced.
+
+`bun packages/lazy-harness-pi/scripts/collect-runtime-usage.ts /path/to/private/manifest.json` reads an explicit Parent/Reader session inventory, validates safe unique usage entries and preserves reported cache categories/totalTokens. Real sessions/reports remain private; synthetic zero usage is not efficiency or billing evidence. Details and manifest shape: `.lazy-harness/tests/runtime-session-usage.md` and `.lazy-harness/spec/platform/pi-agent-package.md`.
+
+Default offline fixtures test registration, exact activation, transport/epoch/isolation negatives and collection. Installed-native OMP tests are explicit `LAZY_OMP_NATIVE_TEST=1` opt-in and are not counted as passing when skipped. OMP remains Experimental. Development SDK is pinned to Pi 0.85.1; managed Pi 1.3 is not a source compatibility pass, and user/custom event plus SDK-fixture migration remains separate work. No global upgrade, paid comparison or full-runtime parity is implied.
+
 List current Pi package settings:
 
 ```bash

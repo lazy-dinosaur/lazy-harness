@@ -1,4 +1,4 @@
-import { SessionManager, type AgentToolResult, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { AgentToolResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { parseReaderResultPacket, type ReaderResultStatus } from "./reader-result.ts";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
@@ -13,7 +13,7 @@ import { applyFabricReaderPrompt, fabricReaderDefinition, fabricReaderSystemProm
 import { permitsOwnedReaderStatusInspection, type ReaderStatusInspectionContext } from "./reader-status.ts";
 export { permitsOwnedReaderStatusInspection } from "./reader-status.ts";
 
-export default function lazyHarnessPi(pi: ExtensionAPI, runtime: { readerTransport?: ReaderTransport } = {}) {
+export default function lazyHarnessPi(pi: ExtensionAPI, runtime: { outputMode?: ExtensionContext["mode"]; readerTransport?: ReaderTransport; onNativeSteer?: (listener: (text: string, ctx: ExtensionContext, preparedTurn?: boolean) => Promise<void>) => void; onNativeSessionSwitch?: (listener: () => void) => void } = {}) {
 // Every SDK session gets its own state, even when an in-process child loads the
 // same module at the same root. Never share mutable Reader/epoch/capture state.
 
@@ -317,8 +317,9 @@ function parseReaderRunId(event: any): string | undefined {
 
 // SDK mode is a typed output capability. hasUI alone would conflate RPC with
 // headless output on older adapters; unknown runtimes retain their prior flow.
-function preservesHeadlessPrimaryAnswer(ctx: Pick<ExtensionContext, "mode">): boolean {
-  return ctx.mode === "print" || ctx.mode === "json";
+function preservesHeadlessPrimaryAnswer(ctx: Pick<ExtensionContext, "mode">, fallbackMode?: ExtensionContext["mode"]): boolean {
+  const mode = ctx.mode ?? fallbackMode;
+  return mode === "print" || mode === "json";
 }
 
 function printModeAdvisory(body: string): void {
@@ -933,8 +934,8 @@ function advanceEvidenceEpoch(root: string): number {
   return nextEpoch;
 }
 
-function rearmEvidenceAfterSteer(root: string): number {
-  const nextEpoch = advanceEvidenceEpoch(root);
+function rearmEvidenceAfterSteer(root: string, advance = true): number {
+  const nextEpoch = advance ? advanceEvidenceEpoch(root) : currentEvidenceEpoch(root);
   recentToolCallsByRoot.set(root, []);
   readerRunByRoot.delete(root);
   return nextEpoch;
@@ -989,6 +990,9 @@ async function switchToProjectSession(ctx: any, target: string, prompt?: string)
   if (typeof ctx.switchSession !== "function") {
     throw new Error("Pi command context does not expose switchSession; use /lazy-move from an interactive command context");
   }
+  // OMP can load the shared core without installing the Pi SDK. Only the
+  // Pi session-switch path needs its runtime SessionManager implementation.
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
   const session = SessionManager.create(target);
   const sessionFile = session.getSessionFile();
   if (!sessionFile) throw new Error(`failed to create persisted session for ${target}`);
@@ -1016,8 +1020,9 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   return [stdout, stderr].filter(Boolean).join("\n");
 }
 
+  const nativeSteerReminders = new Map<string, string>();
   const captureEvidence = new CaptureEvidence();
-  const clearCapture = () => captureEvidence.reset("");
+  const clearCapture = () => { captureEvidence.reset(""); nativeSteerReminders.clear(); };
   const clearSessionEvidence = () => {
     clearCapture();
     turnResultCallsByRoot.clear();
@@ -1036,8 +1041,9 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     regroundBodyByRoot.clear();
   };
   pi.on("session_start", clearSessionEvidence);
+  runtime.onNativeSessionSwitch?.(clearSessionEvidence);
   pi.on("session_shutdown", () => { clearCapture(); runtime.readerTransport?.dispose(); });
-  pi.on("input", async (event: any, ctx: any) => {
+  const handleInput = async (event: any, ctx: any, preparedTurn = false) => {
     const root = findLazyRootForInvocation(event, ctx);
     if (!root) return undefined;
     if (readerRuntimeRoots.has(root)) return undefined;
@@ -1053,10 +1059,13 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     // Organic fix (ADR 0041/0048/0051): a real mid-turn steer starts a fresh
     // work unit, writes one compact first-grounding packet, and clears cached
     // fingerprints. It does not schedule a second context reminder.
-    if (event.streamingBehavior === "steer" && event.source !== "extension") {
+    // OMP enqueue events are not consumption; native metadata owns this boundary.
+    if (event.streamingBehavior === "steer" && event.source !== "extension"
+      && (!runtime.onNativeSteer || event.source === "omp-native-steer")) {
       const steerText = String(event.text || "");
       if (steerText.trim()) {
-        rearmEvidenceAfterSteer(root); // invalidate all evidence collected for the previous instruction
+        rearmEvidenceAfterSteer(root, !preparedTurn); // one epoch for the consumed native turn
+        nativeSteerReminders.delete(root);
         captureEvidence.reset(root);
         workUnitEvidenceByRoot.delete(root); // explicit steer starts a fresh work unit
         pendingRegroundByRoot.delete(root);
@@ -1083,6 +1092,16 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       }
     }
     return undefined;
+  };
+  pi.on("input", (event, ctx) => handleInput(event, ctx));
+  runtime.onNativeSteer?.(async (text, ctx, preparedTurn) => {
+    const result = await handleInput({ text, streamingBehavior: "steer", source: "omp-native-steer" }, ctx, preparedTurn === true);
+    const root = findLazyRoot(resolveInvocationCwd({}, ctx));
+    if (!root || !result) return;
+    const packet = activePacketsByRoot.get(root);
+    if (!packet) return;
+    // Consume metadata once; do not mutate or replay the already delivered user message.
+    nativeSteerReminders.set(root, `${armStatusMessage(root, packet.readDebtStatus, packet.readDebtDetail)}\n${result.text.slice(text.length)}`);
   });
 
   // Preserve the dedicated role's assistant-turn ceiling separately from body reads.
@@ -1117,7 +1136,8 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       if (!readerMeters.has(root)) {
         // Native child launch wraps the caller task as `Task: ${attemptTask}`.
         // Unwrap only that transport prefix before parsing identity/objective.
-        const task = event.prompt.startsWith("Task: ") ? event.prompt.slice(6) : event.prompt;
+        const prompt = typeof event.prompt === "string" ? event.prompt : "";
+        const task = prompt.startsWith("Task: ") ? prompt.slice(6) : prompt;
         const meter = (!runtime.readerTransport || runtime.readerTransport.childModelMatches(task, ctx))
           && (!fabricReaderLineage() || fabricReaderModelMatches(task, ctx, pi.getThinkingLevel?.()))
           ? startReaderMeter(root, task, sessionId) : undefined;
@@ -1132,6 +1152,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       return fabricReaderLineage() ? { systemPrompt: fabricReaderSystemPrompt() } : undefined;
     }
     readerRuntimeRoots.delete(root);
+    nativeSteerReminders.delete(root);
 
     turnResultCallsByRoot.set(root, new Set());
     const previousPacket = activePacketsByRoot.get(root);
@@ -1392,6 +1413,14 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     if (!toolResultBelongsToCurrentEvidenceEpoch(root, event)) return undefined;
     const activeReader = readerRunByRoot.get(root);
     const normalizedName = normalized.name.toLowerCase();
+    if (normalizedName === "task" && runtime.readerTransport
+      && activeReader?.launchToolCallId === String(event.toolCallId || "")) {
+      try {
+        const delivery = runtime.readerTransport.receive(event);
+        activeReader.runId = delivery.runId;
+        receiveReaderResult(root, activeReader, delivery.text, delivery.sessionFile);
+      } catch (error) { readerFallbackError(root, String(error)); }
+    }
     if (normalizedName === "subagent" && isRecordReaderAgent(normalized.args)) {
       if (event.isError) {
         readerFallbackError(root, "dedicated Reader launch failed");
@@ -1457,6 +1486,11 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
         return undefined;
       }
       observeReaderPacket(root, event.messages);
+      const nativeReminder = nativeSteerReminders.get(root);
+      if (nativeReminder) {
+        nativeSteerReminders.delete(root);
+        return { messages: [...event.messages, { role: "custom", customType: "lazy-harness-native-steer", content: nativeReminder, display: false, timestamp: Date.now() }] };
+      }
       if (!pendingRegroundByRoot.get(root)) return undefined;
       let body = regroundBodyByRoot.get(root);
       if (body === undefined) {
@@ -1537,7 +1571,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       : { schemaVersion: "1.0", root, epoch: currentEpoch, status: "unverified", reason: "capture response hook unavailable or missing assessment", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated", facts: [] };
     const captureNotice = `Capture evidence: ${String(assessment.status)} — ${String(assessment.reason)}. Semantic relevance and approval are not runtime-verified.`;
     const captureNeedsAttention = assessment.status === "unverified" || assessment.status === "pending";
-    if (preservesHeadlessPrimaryAnswer(ctx)) {
+    if (preservesHeadlessPrimaryAnswer(ctx, runtime.outputMode)) {
       // Plain custom entries are runtime state, not conversation messages. Even
       // triggerTurn:false custom messages hide Pi's last-assistant text output.
       pi.appendEntry("lazy-harness-capture", assessment);
@@ -1555,7 +1589,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
       lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
       return undefined;
     }
-    if (preservesHeadlessPrimaryAnswer(ctx)) {
+    if (preservesHeadlessPrimaryAnswer(ctx, runtime.outputMode)) {
       // This response.completed hook is advisory metadata, not Reader content,
       // a user steer, or a tool action block. Do not schedule a replacement
       // assistant answer in either headless output format. Native drain remains

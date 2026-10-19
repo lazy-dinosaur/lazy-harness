@@ -22,6 +22,7 @@
   },
   "include": [
     "extensions/**/*.ts",
+    "omp/**/*.ts",
     "../../tests/lazy-harness/pi-capture-evidence.test.ts"
   ]
 }

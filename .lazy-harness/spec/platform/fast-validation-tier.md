@@ -21,6 +21,8 @@ Date: 2026-06-18
   - expose `.lazy-harness/bin/lazy check` as a fast static validation tier
   - position `lazy check` as an explicit checkpoint after a coherent mutation batch, never as an automatic command after every individual edit
   - validate changed files by default and explicit files with `--files`
+  - exclude only untracked exact node_modules directory trees at any depth from default collection, preserving tracked/staged and explicit-file validation
+  - consume Git NUL-delimited paths without stripping filename whitespace
   - keep JSON/XML/JSONL parse, Python compile, shell syntax, graph-id, manifest-path, fixture canonical-record, root-bound path, and `git diff --check` coverage lightweight
   - state clearly that `lazy check` is not full regression and does not replace `.lazy-harness/bin/lazy test`
   - keep `.lazy-harness/bin/lazy test` as the full framework/host regression gate
@@ -46,6 +48,7 @@ Default behavior:
 
 1. Resolve the current host root exactly like other `lazy` commands.
 2. Determine changed files from staged, unstaged, and untracked git files.
+   Default untracked discovery excludes exact `node_modules` directory components through Git pathspecs, independent of ignore configuration. Staged/tracked and explicit `--files` remain checked; near matches such as `node_modules-notes` stay included. JSON notes the exclusion; `--all`, malformed-source and binary-NUL checks are unchanged.
 3. Run `git diff --check` unless `--no-diff-check` is passed.
 4. Validate changed files with static file-type checks only.
 5. Return JSON/Markdown containing `fullRegression: false` and a note to run `lazy test` for full coverage.

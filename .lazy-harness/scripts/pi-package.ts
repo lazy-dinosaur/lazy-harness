@@ -296,7 +296,7 @@ function ensurePackageLayout(pkg: string): { ok: boolean; errors: string[]; mani
   const manifest = join(pkg, 'package.json')
   const extension = join(pkg, 'extensions', 'lazy-harness', 'index.ts')
   const readme = join(pkg, 'README.md')
-  for (const path of [manifest, extension, readme]) {
+  for (const path of [manifest, extension, join(pkg, 'omp', 'index.ts'), readme]) {
     if (!existsSync(path)) errors.push(`missing ${path}`)
   }
   let manifestName: string | undefined
@@ -306,7 +306,8 @@ function ensurePackageLayout(pkg: string): { ok: boolean; errors: string[]; mani
       manifestName = typeof parsed?.name === 'string' ? parsed.name : undefined
       for (const key of ['pi', 'omp']) {
         const manifest = parsed?.[key]
-        if (!manifest || !Array.isArray(manifest.extensions) || !manifest.extensions.includes('./extensions')) errors.push(`package.json missing ${key}.extensions ./extensions`)
+        const extensionEntry = key === 'omp' ? './omp/index.ts' : './extensions'
+        if (!manifest || !Array.isArray(manifest.extensions) || !manifest.extensions.includes(extensionEntry)) errors.push(`package.json missing ${key}.extensions ${extensionEntry}`)
         if (!manifest || !Array.isArray(manifest.skills) || !manifest.skills.includes('./skills')) errors.push(`package.json missing ${key}.skills ./skills`)
         if (!manifest || !Array.isArray(manifest.prompts) || !manifest.prompts.includes('./prompts')) errors.push(`package.json missing ${key}.prompts ./prompts`)
       }

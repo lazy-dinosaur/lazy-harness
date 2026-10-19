@@ -15,7 +15,7 @@
     "prompts": ["./prompts"]
   },
   "omp": {
-    "extensions": ["./extensions"],
+    "extensions": ["./omp/index.ts"],
     "skills": ["./skills"],
     "prompts": ["./prompts"]
   },

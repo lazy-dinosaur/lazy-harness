@@ -58,14 +58,19 @@ def git_paths(args: list[str]) -> list[str]:
     completed = run(["git", *args])
     if completed.returncode != 0:
         return []
-    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    return [path for path in completed.stdout.split("\0") if path]
 
 
 def default_changed_files() -> list[str]:
     paths: list[str] = []
-    paths.extend(git_paths(["diff", "--name-only", "--cached"]))
-    paths.extend(git_paths(["diff", "--name-only"]))
-    paths.extend(git_paths(["ls-files", "--others", "--exclude-standard"]))
+    paths.extend(git_paths(["diff", "--name-only", "-z", "--cached"]))
+    paths.extend(git_paths(["diff", "--name-only", "-z"]))
+    # Dependency installs are not authored changes. Exclude only untracked
+    # node_modules trees; tracked/staged and explicit --files remain checked.
+    paths.extend(git_paths([
+        "ls-files", "--others", "--exclude-standard", "-z", "--", ".",
+        ":(exclude,glob)**/node_modules/**",
+    ]))
     return sorted(set(paths))
 
 
@@ -282,6 +287,8 @@ def main() -> int:
     errors: list[CheckIssue] = []
     warnings: list[CheckIssue] = []
     notes = ["fast static tier only; run `.lazy-harness/bin/lazy test` for full regression coverage"]
+    if mode == "changed":
+        notes.append("untracked node_modules trees excluded; tracked/staged and explicit --files still checked")
 
     if not args.no_diff_check:
         run_diff_check(errors)
