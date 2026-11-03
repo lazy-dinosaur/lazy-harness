@@ -6,9 +6,7 @@ Lazy-harness hook surface. Shell scripts are thin wrappers; durable logic lives 
 
 | Group | Entry point | Purpose |
 |---|---|---|
-| Git pre-commit | `.lazy-harness/hooks/pre-commit-guard.sh` | Prevent private framework files from leaking on host branches and run `.lazy-harness/bin/lazy test --light` as the commit-time blocking gate. |
-| Git post-commit | `.lazy-harness/hooks/post-commit.sh` | Append action log metadata and regression hints. |
-| Git pre-push | `.lazy-harness/hooks/pre-push.sh` | Run full `.lazy-harness/bin/lazy test` before push and enforce branch leak policy. |
+| Retired Git delegates | `pre-commit-guard.sh`, `post-commit.sh`, `pre-push.sh` | Inert compatibility shims only: no validation, leak gates, locks, logs or regression hints. Init never installs Git hooks. |
 | Scheduled/manual | `.lazy-harness/hooks/weekly-snapshot.sh` | Backup/snapshot support. |
 | Runtime response lifecycle | `.lazy-harness/hooks/lifecycle/on-response-completed.sh` | Response-end audits and bounded continuation reminders transported by Pi/OMP. |
 
@@ -18,9 +16,12 @@ Edit/write/multiedit hooks are not registered as blocking gates by default.
 Agents use `lazy check` during mutation loops, focused checks when behavior changes,
 and one `lazy validate --plan standard` after the final mutation. Direct `lazy test`
 is reserved for explicit fresh full regression or commit/push/release boundaries.
-Git pre-commit runs `lazy test --light`; pre-push runs full `lazy test`. Audited
-independent self-test checks use bounded process phases by default, while fixed-path
-checks remain serial and `--jobs=1` provides the serial fallback.
+Git commits and pushes no longer run harness validation automatically. `lazy-init`
+never creates, replaces or backs up a Git hook; `--skip-hooks` is a deprecated
+compatibility no-op. Existing host delegates may keep pointing to the retired
+scripts, which exit successfully without side effects after sync. User-owned Git
+hooks and `core.hooksPath` remain untouched. Full/manual validation and bounded
+self-test concurrency remain available; `--jobs=1` provides the serial fallback.
 
 CLI helpers are explicit tools only. Lifecycle hooks must not run static
 user-text route classifiers, route telemetry, or context-delivery backends to

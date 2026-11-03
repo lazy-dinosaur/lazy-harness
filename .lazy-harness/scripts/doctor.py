@@ -205,15 +205,10 @@ def check_branch_policy() -> CheckResult:
         status = subprocess.check_output(["git", "status", "--short", "--", ".lazy-harness"], cwd=ROOT, text=True)
         if status.strip():
             details.append(f"private harness files modified on non-framework branch {branch}: {status.strip()}")
-    for path in [LAZY / "hooks" / "pre-commit-guard.sh", LAZY / "hooks" / "pre-push.sh"]:
-        if not path.exists():
-            details.append(f"missing hook: {rel(path)}")
-        elif not path.stat().st_mode & 0o111:
-            details.append(f"hook is not executable: {rel(path)}")
     if details:
-        return fail("D05", "branch/hook policy failed", details)
+        return fail("D05", "branch policy failed", details)
     suffix = " [standalone source]" if is_standalone_source else ""
-    return ok("D05", f"branch/hook policy ok ({branch}){suffix}")
+    return ok("D05", f"branch policy ok ({branch}){suffix}")
 
 
 def external_pattern_terms() -> list[str]:

@@ -22,7 +22,7 @@
   <full-regression command=".lazy-harness/bin/lazy test">
     <rule>Direct full regression is reserved for explicit fresh validation or commit, push, and release gates.</rule>
     <rule>Default execution uses at most four bounded audited process workers; out-of-range job counts are rejected and --jobs=1 provides serial fallback.</rule>
-    <rule>Pre-commit uses lazy test --light; pre-push uses full lazy test.</rule>
+    <rule>Git hooks are retired (ADR 0016); validation runs only on explicit invocation, never automatically at commit or push.</rule>
   </full-regression>
 
   <project-commands>

@@ -17,7 +17,7 @@ Related SDD: `.lazy-harness/spec/platform/host-root-resolution.md`
   - a git hook or wrapper runs lazy validation with `GIT_DIR`/`GIT_WORK_TREE` in the environment
   - self-test builds temp git fixtures or host-root resolution must ignore inherited git env
 - Must:
-  - pre-commit/pre-push set `LAZY_HOST_ROOT` and clear `GIT_DIR`/`GIT_WORK_TREE` for validation subprocesses
+  - keep retired pre-commit/pre-push delegates inert; retain clean Git/runtime env for explicitly invoked validation
   - lazy CLI prefers valid `LAZY_HOST_ROOT` over git discovery; self-test strips inherited git/runtime env from its process and children
 - Must not:
   - let temp git fixtures inherit outer git hook env and resolve or mutate the caller repository
@@ -35,8 +35,7 @@ A git hook or wrapper can execute validation with `GIT_DIR` and `GIT_WORK_TREE` 
 
 ## Required protection
 
-- Pre-commit and pre-push must invoke validation with `LAZY_HOST_ROOT=$REPO_ROOT`.
-- Pre-commit and pre-push must clear `GIT_DIR` and `GIT_WORK_TREE` for `.lazy-harness/bin/lazy test` and direct `self-test.py` fallback.
+- Git hook validation requirements are retired by ADR 0016's user-confirmed Git hook removal amendment. Compatibility delegates must not invoke validation at all.
 - `.lazy-harness/bin/lazy` must prefer valid `LAZY_HOST_ROOT` over git discovery.
 - Self-test must include a poisoned git-env fixture where `GIT_DIR` / `GIT_WORK_TREE` point at another repository while `LAZY_HOST_ROOT` points at the temp host. The fixture must also assert that `self-test.py` clears inherited git hook env from its own process and child helper envs, while preserving explicit sandbox overrides.
 - Self-test lifecycle hook fixtures must redirect layer-impact validation appends to a temp `LAZY_HARNESS_VALIDATIONS_FILE` so `.lazy-harness/logs/validations.jsonl` stays clean.
@@ -57,7 +56,7 @@ A git hook or wrapper can execute validation with `GIT_DIR` and `GIT_WORK_TREE` 
   - `.lazy-harness/hooks/pre-commit-guard.sh` — sets `LAZY_HOST_ROOT=$REPO_ROOT` and clears `GIT_DIR` / `GIT_WORK_TREE` for commit validation subprocesses.
   - `.lazy-harness/hooks/pre-push.sh` — sets `LAZY_HOST_ROOT=$REPO_ROOT` and clears `GIT_DIR` / `GIT_WORK_TREE` for validation subprocesses.
   - `.lazy-harness/bin/lazy` — prefers valid `LAZY_HOST_ROOT` before git worktree discovery.
-  - `.lazy-harness/scripts/self-test.py` — clears inherited lazy runtime and git hook env, asserts pre-commit/pre-push env clearing contract and poisoned git-env root resolution, runs temp git fixtures with clean env, and redirects hook validation logs during fixtures.
+  - `.lazy-harness/scripts/self-test.py` — clears inherited lazy runtime and Git env, protects inert retired Git delegates and poisoned-env root resolution, and isolates validation logs in fixtures.
   - `.lazy-harness/scripts/layer-impact-gate.ts` — honors `LAZY_HARNESS_VALIDATIONS_FILE` for append-validation output.
   - `.lazy-harness/spec/platform/host-root-resolution.md` — SDD contract for host-root/env behavior.
 - Key symbols:
@@ -69,7 +68,7 @@ A git hook or wrapper can execute validation with `GIT_DIR` and `GIT_WORK_TREE` 
   - `env_without_lazy_runtime`
   - `GIT_DIR` / `GIT_WORK_TREE`
 - Flow:
-  1. Git invokes pre-commit/pre-push or a wrapper invokes lazy validation with potential hook env.
+  1. An explicitly invoked validation wrapper may inherit Git env; retired Git delegates never launch validation.
   2. Hook resolves repo root, exports `LAZY_HOST_ROOT`, and clears `GIT_DIR` / `GIT_WORK_TREE` for validation.
   3. Lazy CLI validates the explicit host root.
   4. `self-test.py` clears inherited lazy runtime and git hook variables from its process and uses `env_without_lazy_runtime` for temp git/helper subprocesses.

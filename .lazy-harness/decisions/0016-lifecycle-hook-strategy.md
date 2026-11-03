@@ -23,18 +23,55 @@
   - designing response-completion or lifecycle verification gates
   - wiring framework consistency enforcement into hooks
 - Must:
-  - keep development edit/write hooks advisory; enforce consistency as blocking at pre-commit/pre-push via `lazy test`
+  - keep development edit/write hooks advisory; do not install or execute automatic Git commit/push validation
   - run response.completed as a best-effort per-response verification gate with a loop guard
   - keep destructive-bash safety the only blocking tool.execute.before gate
 - Must not:
   - add blocking force-gates on edit/write/multiedit during development
 - Record completion:
-  - lifecycle/hook policy changes update this ADR plus the hooks README and self-test
+  - Git-hook lifecycle changes update this ADR, hooks README and retirement regression coverage
 - Related records:
   - `.lazy-harness/decisions/0011-verification-discipline.md`
   - `.lazy-harness/decisions/0013-framework-external-dependency-invariant.md`
   - `.lazy-harness/decisions/0015-doctor-c16-extend-plan-progress-freshness.md`
   - `.lazy-harness/spec/platform/hook-performance-measurement.md`
+
+## Current amendment — user-confirmed Git hook retirement
+
+The user reported recurring harness hook errors and chose option **1: remove Git
+hooks and their automatic reinstallation wiring**, rather than disabling Pi hooks
+or applying only a local bypass. This supersedes every historical pre-commit,
+post-commit and pre-push requirement below, including the light/full split and
+ADR 0009's Husky chain installation guidance. Those passages remain historical.
+
+- `lazy-init` must not create, replace, back up or install Git hooks, even with an
+  older manifest containing a `pre-commit-hook` action. `--skip-hooks` remains an
+  accepted deprecated no-op for existing automation.
+- Retired Git entrypoint files remain as **silent success-only compatibility
+  shims** so existing host delegates do not fail after sync. They do not validate,
+  inspect private-file leaks, acquire locks, write action logs or regression hints.
+- User-owned hooks and `core.hooksPath` are not changed. The current source
+  checkout's harness-only `.git/hooks/pre-commit` delegate is made inert.
+- Pi/OMP lifecycle, Reader, read-debt, capture and destructive-command safeguards
+  are explicitly outside this change and remain enabled.
+- `lazy check`, `lazy test`, `lazy test --light`, `lazy validate` and `lazy doctor`
+  remain available as explicit tools. No commit or push implicitly launches them.
+- This changes framework source and this checkout only; it does not claim rollout
+  to other installed hosts or already-loaded packages.
+
+### Layer / capture judgement
+
+| Layer | Independent delta / disposition |
+|---|---|
+| SDD | Bootstrap no longer writes Git hooks; contract and implementation are mapped in this ADR and the existing hooks README, without a duplicate SDD narrative. |
+| BDD | Commit/push no longer trigger harness checks or post-commit metadata writes; protected by real isolated Git probes below. Pi user flow has no independent delta. |
+| SSOT | Init manifest drops the Git post-init action. No new policy registry or ownership source; user Git hooks/config remain user-owned. |
+| DDD | No independent delta to domain terms or business rules. |
+
+Discovery capture: the confirmed removal and its hook-error reason are captured
+here as the one primary canonical record, not as a new multi-layer migration.
+Rule placement: existing lifecycle strategy ADR 0016 owns this framework hook
+boundary; policy/capability resolution found no matching source.edit entry.
 
 ## Context
 
@@ -239,20 +276,22 @@ Read-only audits should disable hooks with `.lazy-harness/.hooks-disabled` or eq
 - Primary files:
   - `.lazy-harness/hooks/lifecycle/on-response-completed.sh` — primary response.completed lifecycle hook and helper timing loop.
   - `.lazy-harness/hooks/lifecycle/on-client-disconnect.sh` — client disconnect cleanup hook surface.
-  - `.lazy-harness/hooks/pre-commit-guard.sh` — commit-time blocking lazy test gate.
-  - `.lazy-harness/scripts/self-test.py` — lifecycle, destructive-command, pre-commit, and response.completed regression coverage.
+  - `.lazy-harness/hooks/pre-commit-guard.sh`, `pre-push.sh`, `post-commit.sh` — inert compatibility shims for old Git delegates; no validation, logs or locks.
+  - `.lazy-harness/scripts/lazy-init.ts` and `manifests/init-categories.json` — bootstrap without Git hook installation; preserve user-owned hooks and core.hooksPath.
+  - `.lazy-harness/scripts/self-test.py` — runtime safety plus retired-Git-hook and no-auto-install regression registration.
+  - `tests/lazy-harness/git-hooks-retirement.test.py` — isolated init/re-init/worktree/custom-hook and real local commit/push probes.
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — Pi/OMP runtime surface delivering lifecycle hooks; edit/write/multiedit stay non-blocking and no generated jcode wiring after ADR 0050.
 - Key symbols:
   - `check_response_completed_no_auto_route_telemetry` (`self-test.py`) — verifies response.completed stays best-effort, does not run route classifiers, and still logs hook timings.
   - `check_destructive_command_block` (`self-test.py`) — protects the runtime-agnostic destructive-command block chained in on-tool-execute-before.sh (ADR 0050; replaces the former jcode bash-safety self-test).
-  - `check_pre_commit_runs_lazy_test` (`self-test.py`) — protects commit-time `.lazy-harness/bin/lazy test` blocking gate.
+  - `check_retired_git_hooks_noop` / `check_git_hook_installation_removed` (`self-test.py`) — protect inert legacy delegates and absence of init wiring.
 - Flow:
   1. The Pi/OMP runtime invokes the shared `.lazy-harness/hooks/lifecycle/*` surfaces.
   2. response.completed runs lifecycle helpers and timing logging.
   3. edit/write/multiedit blocking is intentionally absent during development.
-  4. pre-commit/pre-push retain blocking `lazy test` consistency checks.
+  4. Git pre-commit/post-commit/pre-push do not run harness checks; manual CLI validation remains available.
 - Tests / protection:
-  - `python3 .lazy-harness/scripts/self-test.py` covers response.completed route telemetry removal, lifecycle parity/intake, pre-commit lazy test, and the destructive-command block (ADR 0050).
+  - `python3 .lazy-harness/scripts/self-test.py` covers runtime safety and retired Git delegates; the registered retirement fixture exercises actual local Git commit/push without bypass flags.
   - This ADR remains `needs-review` because it records historical M11 event semantics and several hook-stage intentions; not every historic stage is executable in this repo.
 - Cross-layer links:
   - SDD: `.lazy-harness/spec/platform/hook-performance-measurement.md`

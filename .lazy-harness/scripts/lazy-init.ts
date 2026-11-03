@@ -9,7 +9,7 @@
  *
  * Post-init actions:
  *   - .git/info/exclude 에 /.lazy-harness/ 추가
- *   - Host 의 .git/hooks/pre-commit 에 delegate
+ *   - Git hooks are never installed or replaced
  *   - state/synced-from-commit 박음
  *   - prints project-local Pi/OMP activation command
  *
@@ -26,7 +26,7 @@
  *   --from <dir>     Optional. Framework source worktree. Defaults to script's resolved worktree.
  *   --dry-run        Print planned actions, don't modify filesystem.
  *   --force          Overwrite existing .lazy-harness/ (default: refuse if non-empty).
- *   --skip-hooks     Don't wire git pre-commit hook.
+ *   --skip-hooks     Deprecated compatibility no-op (Git hooks are never wired).
  *   --quiet          Suppress per-file logs.
  *
  * Exit codes:
@@ -44,8 +44,7 @@ import {
   copyFileSync,
   statSync,
   readdirSync,
-  appendFileSync,
-  renameSync
+  appendFileSync
 } from 'node:fs'
 import { join, dirname, basename, resolve, relative } from 'node:path'
 import { execSync, spawnSync } from 'node:child_process'
@@ -109,7 +108,7 @@ Options:
   --from <dir>      Framework source (defaults to script's worktree)
   --dry-run         Show planned actions only
   --force           Overwrite existing .lazy-harness/
-  --skip-hooks      Don't wire git pre-commit hook
+  --skip-hooks      Deprecated no-op; Git hooks are never installed
   --skip-agent-activation
                     Install framework files without activating Pi/OMP for this root
   --quiet           Suppress per-file logs
@@ -542,52 +541,6 @@ function postInitGitInfoExclude(targetRoot: string, lines: string[]): void {
   log(`  ✓ appended to ${excludePath}: ${toAdd.join(', ')}`)
 }
 
-function postInitPreCommitHook(targetRoot: string): void {
-  let gitDir = join(targetRoot, '.git')
-  const gitStat = statSync(gitDir)
-  if (gitStat.isFile()) {
-    const content = readFileSync(gitDir, 'utf8').trim()
-    const m = content.match(/^gitdir:\s*(.+)$/)
-    if (m) {
-      gitDir = m[1]
-      if (!gitDir.startsWith('/')) gitDir = resolve(targetRoot, gitDir)
-    }
-  }
-
-  const hookPath = join(gitDir, 'hooks', 'pre-commit')
-  ensureDir(dirname(hookPath))
-
-  const delegateLine = '.lazy-harness/hooks/pre-commit-guard.sh "$@" || exit $?'
-  const newHook = `#!/usr/bin/env bash
-# pre-commit (lazy-harness commit-time validation delegate)
-# Auto-installed by lazy-init. Add project-specific checks before this delegate.
-
-${delegateLine}
-`
-
-  if (existsSync(hookPath)) {
-    const existing = readFileSync(hookPath, 'utf8')
-    if (existing.includes('pre-commit-guard.sh')) {
-      log(`  ✓ pre-commit hook already delegates to lazy-harness`)
-      return
-    }
-    // Backup existing
-    const bakPath = `${hookPath}.bak.${Date.now()}`
-    if (DRY) {
-      logAction('backup', `${hookPath} → ${bakPath}`)
-      logAction('append-delegate', hookPath)
-    } else {
-      renameSync(hookPath, bakPath)
-      log(`  ✓ backed up existing pre-commit → ${bakPath}`)
-      writeFile(hookPath, newHook, 0o755)
-      log(`  ✓ installed pre-commit hook (delegate to lazy-harness)`)
-    }
-    return
-  }
-
-  writeFile(hookPath, newHook, 0o755)
-  log(`  ✓ installed pre-commit hook`)
-}
 
 function postInitVersionMarker(sourceRoot: string, targetRoot: string, markerPath: string): void {
   if (resolve(sourceRoot) === resolve(targetRoot)) {
@@ -680,10 +633,6 @@ function main(): void {
     switch (action.kind) {
       case 'git-info-exclude':
         if (action.lines) postInitGitInfoExclude(targetRoot, action.lines)
-        break
-      case 'pre-commit-hook':
-        if (!args.skipHooks) postInitPreCommitHook(targetRoot)
-        else log(`  ⊘ skipped: pre-commit-hook (--skip-hooks)`)
         break
       case 'version-marker':
         if (action.path) postInitVersionMarker(sourceRoot, targetRoot, action.path)
