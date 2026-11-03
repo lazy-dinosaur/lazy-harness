@@ -60,7 +60,7 @@
             "lifecycle/helpers/*.py",
             "README.md"
           ],
-          "description": "Git hooks (post-commit, pre-push, pre-commit-*) + N2.5 lifecycle hooks (on-tool-execute-before, on-response-completed, on-client-disconnect) + helpers."
+          "description": "Pi/OMP lifecycle hooks and helpers, manual snapshot support, and inert compatibility shims for retired Git hooks."
         },
         {
           "path": "schemas/",
@@ -1208,10 +1208,6 @@
           "/.lazy-harness/",
           "/.lazy-harness-backup/"
         ]
-      },
-      {
-        "kind": "pre-commit-hook",
-        "description": "Host 의 .git/hooks/pre-commit 에 .lazy-harness/hooks/pre-commit-guard.sh delegate. 기존 hook 이 있으면 .bak 백업 후 chain."
       },
       {
         "kind": "version-marker",

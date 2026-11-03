@@ -54,10 +54,10 @@ PARALLEL_STATIC_OR_ISOLATED = frozenset({
     "check_xml", "check_xml_compat_parser", "check_jsonl", "check_schemas", "check_lint_output",
     "check_analysis_discovery_capture_helper", "check_option_gate_discipline_helper",
     "check_bdd_trigger_avoids_runtime_tsmorph", "check_record_before_session_history_helper",
-    "check_pre_push_uses_canonical_lazy_cli", "check_lazy_cli_entrypoint_helper",
+    "check_retired_git_hooks_noop", "check_lazy_cli_entrypoint_helper",
     "check_destructive_command_block", "check_operational_adr_allowlist_complete",
     "check_framework_runtime_no_host_product_hardcoding", "check_manifest_syncs_python_lifecycle_helpers",
-    "check_pre_commit_runs_lazy_test", "check_removed_query_helper_artifacts_absent",
+    "check_git_hook_installation_removed", "check_removed_query_helper_artifacts_absent",
     "check_standalone_source_detection_uses_markers", "check_source_feature_navigation_phase3",
     "check_context_tier_manifest_phase4", "check_project_map_v2_schema",
     "check_project_map_update_loop_v2", "check_evidence_capsule_standard_phase5",
@@ -208,6 +208,7 @@ def check_implementation_correctness_repairs() -> None:
     for test_file in (
         "record-graph-projection.test.py",
         "test_lazy_sync_integrity.py",
+        "git-hooks-retirement.test.py",
         "doctor-package-health.test.py",
         "capability-preservation.test.py",
     ):
@@ -1507,28 +1508,19 @@ def check_record_before_session_history_helper() -> None:
 
 
 
-def check_pre_push_uses_canonical_lazy_cli() -> None:
-    """Git pre-push must not call stale package-script lazy:test."""
-    hook = (LAZY / "hooks" / "pre-push.sh").read_text(encoding="utf-8")
-    forbidden = ["bun run lazy:test", "bun run lazy:doctor", "HAS_NPM_SCRIPT", "suggestedFix: run bun run lazy:test"]
-    leaked = [token for token in forbidden if token in hook]
-    if leaked:
-        fail("pre-push hook still references stale lazy package-script path: " + ", ".join(leaked))
-    required = [
-        'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/bin/lazy" test',
-        'env -u GIT_DIR -u GIT_WORK_TREE "$LAZY/scripts/self-test.py"',
-        'LAZY_HOST_ROOT="$REPO_ROOT"',
-        "git-action.lockdir",
-        "same worktree already has a lazy-harness git action running",
-        "IS_FRAMEWORK_REPO",
-        "framework/framework-contract.md",
-        "planning/phase-5-plan.xml",
-        "standalone lazy-harness source repo",
-    ]
-    missing = [token for token in required if token not in hook]
-    if missing:
-        fail("pre-push hook missing canonical lazy CLI/fallback path: " + ", ".join(missing))
-    print("✓ pre-push canonical lazy CLI ok")
+def check_retired_git_hooks_noop() -> None:
+    """Old Git delegates remain harmless after sync, even without runtime tools."""
+    with tempfile.TemporaryDirectory(prefix="lazy-retired-git-hooks-") as temp:
+        env = env_without_lazy_runtime(PATH="/nonexistent")
+        for name in ("pre-commit-guard.sh", "pre-push.sh", "post-commit.sh"):
+            hook = LAZY / "hooks" / name
+            result = subprocess.run(
+                ["/bin/sh", str(hook), "origin", "unused"], cwd=temp, env=env,
+                input="fixture stdin\n", text=True, capture_output=True, timeout=5,
+            )
+            if result.returncode or result.stdout or result.stderr or list(pathlib.Path(temp).iterdir()):
+                fail(f"retired Git hook {name} must exit silently without side effects: {result}")
+    print("✓ retired Git hooks are inert")
 
 
 def check_lazy_cli_entrypoint_helper() -> None:
@@ -4115,22 +4107,15 @@ def check_guidance_ladder_hard_stop_promotion() -> None:
     print("✓ guidance ladder hard-stop promotion ok")
 
 
-def check_pre_commit_runs_lazy_test() -> None:
-    """pre-commit guard must move framework validation to the commit boundary."""
-    source = (LAZY / "hooks" / "pre-commit-guard.sh").read_text(encoding="utf-8")
-    required = [
-        "run_commit_gate()",
-        '"$LAZY/bin/lazy" test',
-        '"$LAZY/scripts/self-test.py"',
-        "pre-commit blocked: .lazy-harness/bin/lazy test 실패",
-        "git-action.lockdir",
-        "same worktree already has a lazy-harness git action running",
-        "IS_FRAMEWORK_REPO",
-    ]
-    missing = [phrase for phrase in required if phrase not in source]
-    if missing:
-        fail("pre-commit guard missing commit-time lazy test gate: " + json.dumps(missing, ensure_ascii=False))
-    print("✓ pre-commit lazy test gate ok")
+def check_git_hook_installation_removed() -> None:
+    """Init cannot reinstall Git hooks, including via old manifests."""
+    manifest = json.loads((LAZY / "manifests" / "init-categories.json").read_text(encoding="utf-8"))
+    if any(action["kind"] == "pre-commit-hook" for action in manifest["postInit"]["actions"]):
+        fail("init manifest must not install a pre-commit hook")
+    source = (LAZY / "scripts" / "lazy-init.ts").read_text(encoding="utf-8")
+    if "postInitPreCommitHook" in source or "pre-commit-guard.sh" in source or "renameSync" in source:
+        fail("lazy-init must not create, back up or replace Git hooks")
+    print("✓ Git hook auto-installation removed")
 
 
 def check_gate_state_cli_and_record_audit_source_guard() -> None:
@@ -13380,7 +13365,7 @@ def main() -> None:
     parser.add_argument(
         "--light",
         action="store_true",
-        help="Light mode: skip the measured-heavy integration/lifecycle/doctor/profile/benchmark checks (deferred to pre-push full run). Fast record/schema/structural checks still run. Commit-gate use; ADR 0016 2026-07-05 amendment (commit=light, push=full).",
+        help="Light mode: skip measured-heavy integration/lifecycle/doctor/profile/benchmark checks. Run full manual validation for those checks; Git hooks do not run validation.",
     )
     default_jobs = min(MAX_SELF_TEST_JOBS, max(1, os.cpu_count() or 1))
     parser.add_argument(
@@ -13419,7 +13404,7 @@ def main() -> None:
         (check_bdd_trigger_loop_suppression, "BOTH"),
         (check_bdd_trigger_avoids_runtime_tsmorph, "BOTH"),
         (check_record_before_session_history_helper, "BOTH"),
-        (check_pre_push_uses_canonical_lazy_cli, "BOTH"),
+        (check_retired_git_hooks_noop, "BOTH"),
         (check_lazy_cli_entrypoint_helper, "BOTH"),
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
@@ -13436,7 +13421,7 @@ def main() -> None:
         (check_lazy_sync_prunes_stale_managed_files, "FRAMEWORK_ONLY"),  # moved BOTH->FRAMEWORK_ONLY 2026-07-05: re-verifies framework lazy-sync code at O(host-size) cost (309s on a 371-record host); host gets it verified on the framework source (ADR 0026 amendment)
         (check_rule_action_boundary_legacy_no_project_policy, "BOTH"),
         (check_guidance_ladder_hard_stop_promotion, "BOTH"),
-        (check_pre_commit_runs_lazy_test, "BOTH"),
+        (check_git_hook_installation_removed, "BOTH"),
         (check_gate_state_cli_and_record_audit_source_guard, "BOTH"),
         (check_harness_fixture_runtime_isolation, "BOTH"),
         (check_lifecycle_fixture_intake_cli, "BOTH"),
@@ -13494,9 +13479,8 @@ def main() -> None:
         (check_fix_regression_registry, "BOTH"),
     ]
 
-    # ADR 0016 2026-07-05 amendment: --light (pre-commit gate) skips these measured-heavy checks;
-    # they still run at pre-push (full). New checks default to light-INCLUDED (run at commit) unless
-    # added here — errs toward more checking at commit. Fast record/schema/structural checks stay in light.
+    # Manual --light skips measured-heavy checks; full manual validation retains them.
+    # New checks stay light-INCLUDED unless explicitly classified as heavy.
     HEAVY_CHECK_NAMES = {
         "check_lazy_sync_prunes_stale_managed_files",
         "check_doctor_smoke", "check_doctor_c17_negative", "check_doctor_package_health",
@@ -13528,7 +13512,7 @@ def main() -> None:
             skip_messages[check.__name__] = f"[skipped] {check.__name__} (scope={scope}, tag={tag})"
             continue
         if args.light and check.__name__ in HEAVY_CHECK_NAMES:
-            skip_messages[check.__name__] = f"[skipped] {check.__name__} (light mode: heavy check deferred to pre-push full run)"
+            skip_messages[check.__name__] = f"[skipped] {check.__name__} (light mode: heavy check deferred to full manual validation)"
             continue
         applicable.append(check)
 
