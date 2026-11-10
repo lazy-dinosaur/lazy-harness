@@ -23,6 +23,7 @@ Confirmation: user-confirmed (2026-11-09)
   - keep module code, tests and fixtures in lazy-dinosaur/lazy-harness-monitoring; retain evidence in lazy-harness
   - treat work/monitoring-engine-v2 as frozen history and never commit experiment result data
   - keep monitoring pinned-submodule-only and unattached in lazy-harness; composition remains parked
+  - wait until the lazy-harness module connection contract is committed on main before adding monitoring's root declaration file, merging monitoring's connection-contract PR (#14) or opening the submodule-inclusion PR; then adapt monitoring to it in its own repository; module sessions do not delegate this work to the contract session
 - Must not:
   - infer the same ownership rule for the knowledge module without a separate decision
 - Record completion:
@@ -43,6 +44,10 @@ Module code, tests and fixtures live in **`lazy-dinosaur/lazy-harness-monitoring
 As of the user decision on **2026-11-09**, lazy-harness includes monitoring only as a pinned submodule and **does not attach it**. Composition is parked; this ownership record grants no activation or attachment approval.
 
 The knowledge module may adopt the same rule later, but only through a **separate decision**. After this records-only PR merges, LH-5 adds ADR 0063; this PR retains the ADR count of 62 and does not add ADR 0063.
+
+## 2026-11-09 correction — contract first
+
+User correction relayed by the contract session: modules started attaching before the lazy-harness connection contract existed. The contract is defined and documented on lazy-harness main by its own session; each module repository adapts after the contract commit is announced, without delegating that work to the contract session. Monitoring therefore holds its declaration file, PR #14 merge and submodule-inclusion PR. The declaration file `lazy-harness-module/v1` is still a draft with required/optional fields unconfirmed; those fields are owned by the contract SDD and are not restated here.
 
 ## Implementation map
 
