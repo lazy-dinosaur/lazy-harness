@@ -19,6 +19,11 @@
     "skills": ["./skills"],
     "prompts": ["./prompts"]
   },
+  "dependencies": {
+    "@lazy-harness/monitoring-core": "workspace:*",
+    "@lazy-harness/monitoring-host-pi": "workspace:*",
+    "@lazy-harness/monitoring-module-references": "workspace:*"
+  },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"

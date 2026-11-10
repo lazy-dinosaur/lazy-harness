@@ -3,6 +3,9 @@
 .lazy-harness/questions/__tmp_*.xml
 .lazy-harness/logs/__tmp_*.jsonl
 
+# Bun workspace installation artifacts (at any workspace depth)
+node_modules/
+
 # Python bytecode cache
 .lazy-harness/scripts/__pycache__/
 __pycache__/

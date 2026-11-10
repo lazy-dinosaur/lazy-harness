@@ -13,6 +13,7 @@
     "@earendil-works/pi-ai": "0.85.1"
   },
   "scripts": {
+    "test:monitoring-consumer": "bun test ./packages/lazy-harness-pi/extensions/lazy-harness/monitoring/monitoring.test.ts",
     "test:run": "sh -c 'bun test \"$@\" && echo \"1 passed\"' --",
     "build:node": "bun build .lazy-harness/scripts/*.ts --target=bun --outdir \"$(mktemp -d)\" > /dev/null",
     "typecheck:node": "bun run typecheck:bun",
@@ -22,6 +23,9 @@
     "typecheck:bun-tests": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun tests/lazy-harness/affected/*.ts packages/lazy-harness-pi/scripts/*.ts"
   },
   "workspaces": [
-    "packages/lazy-harness-pi"
+    "packages/lazy-harness-pi",
+    "vendor/lazy-harness-monitoring/packages/core",
+    "vendor/lazy-harness-monitoring/hosts/pi",
+    "vendor/lazy-harness-monitoring/modules/references"
   ]
 }

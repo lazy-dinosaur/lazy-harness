@@ -27,6 +27,7 @@
 
   <project-commands>
     <command id="bun-tests">bun test</command>
+    <command id="monitoring-consumer">bun run test:monitoring-consumer</command>
     <command id="typescript-build-check">bun run typecheck:node</command>
     <command id="bun-test-typecheck">bun run typecheck:bun-tests</command>
     <command id="pi-node-typecheck">bun run typecheck:pi</command>

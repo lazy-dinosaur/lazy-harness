@@ -20,6 +20,7 @@
       "node"
     ]
   },
+  "exclude": ["extensions/lazy-harness/monitoring/*.test.ts"],
   "include": [
     "extensions/**/*.ts",
     "../../tests/lazy-harness/pi-capture-evidence.test.ts"
