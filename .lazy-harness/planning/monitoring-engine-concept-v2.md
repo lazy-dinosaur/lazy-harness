@@ -1,4 +1,5 @@
 # Planning — Monitoring engine concept v2 (declared purpose → fast Jev hand-off → routed action)
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: concept (stages 1–5 drafted); implementation slices S0–S7 executed one by one under per-slice user approvals; execution log lives in `.lazy-harness/planning/monitoring-core-live-integration-plan.md`
 

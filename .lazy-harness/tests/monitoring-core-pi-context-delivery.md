@@ -1,4 +1,5 @@
 # TDD — Isolated native ready-material delivery to main-model input
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: bounded native D1 ready/stale final-input consumption qualified; full native chain/live unqualified
 

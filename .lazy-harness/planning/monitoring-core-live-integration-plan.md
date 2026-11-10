@@ -1,4 +1,5 @@
 # Planning — Live monitoring integration, end-to-end
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: P0–P2 official-API synthetic integration approved; P3–P6 remain proposed
 Layer: Planning

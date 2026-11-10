@@ -1,4 +1,5 @@
 # SDD — Pi synthetic monitoring pipeline and manual-pilot readiness
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: existing baseline/A retained; additive B material/native-selection controlled structure focused-SDK/strict/fast/final-standard qualified; real-model semantics, live activation and OAuth-worker remain unqualified
 Layer: SDD

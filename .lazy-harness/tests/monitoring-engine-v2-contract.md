@@ -1,4 +1,5 @@
 # TDD — Monitoring engine v2: canonical JSON (S0) and module declaration contract (S1)
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: S0–S6 implemented; S7 module code (U1, U6) implemented; U6 gold set done (task148); U6 fresh holdout v2 FAILED the pre-registered read-only tier (task149: recall 89–90%, false trigger 4.2%, rule accuracy 89%; next direction pending); S8 not started
 

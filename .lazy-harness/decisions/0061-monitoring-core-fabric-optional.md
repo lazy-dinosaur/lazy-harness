@@ -1,4 +1,5 @@
 # ADR 0061 — Monitoring core is Fabric-independent; integration is optional
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: accepted; SDK/configuration/generic conformance and corrected final standard qualified within the explicit source-local/synthetic scope; publication/live activation remain off
 Layer: ADR

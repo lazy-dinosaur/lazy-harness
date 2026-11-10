@@ -1,4 +1,5 @@
 # ADR 0062 — Monitoring core in its own repository (lazy-harness monitoring monorepo)
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: accepted (user-confirmed option A, task154)
 Layer: ADR

@@ -1,4 +1,5 @@
 # SDD — Monitoring Core v0 and module usage contract
+> Pre-migration record: code/script/test/fixture paths below describe the layout of lazy-harness branch `work/monitoring-engine-v2` (221553d) before the monitoring implementation moved to `lazy-dinosaur/lazy-harness-monitoring`; evidence stays in lazy-harness (ADR 0062). Canonical monitoring records now live on lazy-harness main (see `.lazy-harness/ssot/monitoring-records-ownership.md`).
 
 Status: experimental baseline retained; forward B stage0 mode criteria user-confirmed, not implemented in frozen pilot-v1
 Layer: SDD
