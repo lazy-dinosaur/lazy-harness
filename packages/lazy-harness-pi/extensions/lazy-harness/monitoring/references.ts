@@ -5,11 +5,14 @@ import { ApprovedBudgetGate, MonitoringModuleRuntime, type RuntimeOptions } from
 import type { MonitoringRunStage } from '@lazy-harness/monitoring-core';
 import type { CaptureValidation } from '../capture-evidence.ts';
 import { createHarnessReadRecordPort, type ReadRecordCatalog } from './read-record-port.ts';
+import { createReadResultAttestor, type ReadTextFormat } from './read-attestation.ts';
 
 export interface HarnessReferencesBindings {
   catalog: ReadRecordCatalog;
   context(): Omit<InputPortContext, 'scope'> | undefined;
   captureIdentity(): Readonly<{ root: string; epoch: number }> | undefined;
+  /** Actual read serialization selected by the owner; omitted/unknown never attests full. */
+  readTextFormat?(): ReadTextFormat;
 }
 /** Inactive composition seam, NOT a Pi extension entry. Construction installs no
  * listeners. Only an explicit future caller may attach extension(pi), feed fresh
@@ -30,6 +33,8 @@ export function createHarnessReferences(options: Readonly<{
     return scope && source ? { ...source, scope } : undefined;
   };
   const reads = createHarnessReadRecordPort({ context, captureIdentity: bindings.captureIdentity });
+  const attestations = createReadResultAttestor({ context, captureIdentity: bindings.captureIdentity,
+    format: () => bindings.readTextFormat?.() ?? 'unknown', catalog: bindings.catalog, record: reads.recordEvidence });
   const registration = createReferencesRegistration({ stage: options.stage ?? 'observe', readRecords: {
     port: reads.port,
     request(trigger, signal) {
@@ -44,11 +49,11 @@ export function createHarnessReferences(options: Readonly<{
   validateRequiredInputPorts(registration.moduleId, registration.declaration.needs, inputPorts);
   const runtime = new MonitoringModuleRuntime({ modules: [registration], handlers: registration.handlers,
     budget: new ApprovedBudgetGate(), report: options.report, maxActive: 1, maxQueued: 0, maxWork: 32 });
-  return Object.freeze({ registration, inputPorts, runtime, reads, generations,
+  return Object.freeze({ registration, inputPorts, runtime, reads, generations, attestations,
     extension: generations.extension,
     ingestCapture(capture: CaptureValidation, cursor: number, capturedScope: InputPortScope) {
       return reads.ingestCapture(capture, cursor, bindings.catalog, capturedScope);
     },
-    close() { runtime.dispose(); reads.close(); generations.close(); },
+    close() { runtime.dispose(); attestations.close(); reads.close(); generations.close(); },
   });
 }

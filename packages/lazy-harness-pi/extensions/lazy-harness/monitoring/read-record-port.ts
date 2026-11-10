@@ -38,7 +38,7 @@ export function createHarnessReadRecordPort(options: ReadRecordPortOptions) {
   function current() {
     const raw = options.context();
     const c = raw ? validatePortData<InputPortContext>(InputPortContextSchema, raw) : undefined;
-    const key = JSON.stringify(c ? [c.scope, c.sourceRevision, c.grantRevision, c.available] : null);
+    const key = JSON.stringify(c ? [c.scope, c.sourceRevision, c.grantRevision, c.available, options.captureIdentity?.()] : null);
     if (generation !== key) {
       entries.clear(); usedBytes = 0; overflow = false; revision++; generation = key;
     }
