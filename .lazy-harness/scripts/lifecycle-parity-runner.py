@@ -93,12 +93,12 @@ def fixture_payloads(root: Path) -> list[dict[str, Any]]:
             "expectContains": "Lazy CLI entrypoint gate",
         },
         {
-            "name": "tdd-cross-verify-stop",
+            # v2 (user decision 2026-11-10): hooks never run tests, so an edit without a
+            # matching test no longer surfaces the 5d-3 TDD gate on either engine.
+            "name": "tdd-cross-verify-retired-silent",
             "payload": {"recent_tool_calls": [{"name": "Edit", "args_preview": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts", "edit_target": ".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts"}]},
             "sourceFiles": {".lazy-harness/triggers/fixtures/tdd-cross-verify/missing-test.ts": "export const missingTestStub = 1\n"},
-            "expectOutput": True,
-            "expectHelperSuffix": "check-tdd-cross-verify.sh",
-            "expectContains": "5d-3 TDD Cross-Verify Gate",
+            "expectOutput": False,
         },
         {
             "name": "layer-impact-observation-side-effect",

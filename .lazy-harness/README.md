@@ -52,13 +52,14 @@ curl -fsSL https://raw.githubusercontent.com/lazy-dinosaur/lazy-harness/main/ins
 - OMP uses the same package core as an Experimental integration with separate wrapper UX.
 - Active Jcode adapter, hooks, trust, prompt transport, and launcher integration are decommissioned by ADR 0059; historical records remain searchable.
 - Canonical policy and lifecycle meaning remain owned by `.lazy-harness`.
-## 63 ADRs
+## 64 ADRs
 
 Runtime support authority is ADR 0059; earlier Jcode decisions remain retained history.
 
 - [ADR 0061 — Monitoring core is Fabric-independent; integration is optional](decisions/0061-monitoring-core-fabric-optional.md)
 - [ADR 0062 — Monitoring core in its own repository (lazy-harness monitoring monorepo)](decisions/0062-monitoring-core-own-repository.md)
 - [ADR 0063 — lazy-harness as module composition layer; module-owned connection contracts](decisions/0063-module-composition-contract.md)
+- [ADR 0064 — v1 enforcement retired; lazy-harness proceeds as v2](decisions/0064-v1-enforcement-retired-v2-direction.md)
 
 ## 빠른 진입점
 
@@ -104,7 +105,7 @@ flowchart LR
 ```
 .lazy-harness/
 ├── framework/          # framework-contract.md — 23 principle, single source of truth
-├── decisions/          # 63 ADRs — 모든 의사결정 영구 기록
+├── decisions/          # 64 ADRs — 모든 의사결정 영구 기록
 ├── planning/           # phase-5-plan.xml — sub-phase + criteria
 ├── trails/             # 01-long-term-roadmap.xml — M0~M10
 ├── handoff/            # 00-current-state.md — 실시간 상태

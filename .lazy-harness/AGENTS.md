@@ -99,7 +99,7 @@ record 가 host 의 의도이고 코드는 현실이다. `lazy map` drill 결과
 
 **Rule digest + Implementation map 의무 (ADR 0030)**:
 
-재사용 guidance record 엔 `## Rule digest`(Status/Layer/Scope/Applies when/Must — `.lazy-harness/spec/platform/record-digest-format.md` / `record-write-update-policy.md` 참조, record 내용에서 도출·enum 준수·날조 금지) 를 생성 시 즉시 작성·유지한다. **누락/malformed digest·broken-ref 는 `lazy record-lint` 로 찾고**(framework=commit gate, host=advisory), 호스트 record 대량 보완은 `lazy-record-quality` 스킬(guided·검수·확인 기반, host 소유·자체 일정)로 한다. 구현이 있거나 구현을 바꾸는 record 는 설명만 저장하지 말고 3층으로 매핑한다.
+재사용 guidance record 엔 `## Rule digest`(Status/Layer/Scope/Applies when/Must — `.lazy-harness/spec/platform/record-digest-format.md` / `record-write-update-policy.md` 참조, record 내용에서 도출·enum 준수·날조 금지) 를 생성 시 즉시 작성·유지한다. **누락/malformed digest·broken-ref 는 `lazy record-lint` 로 찾고**(framework·host 모두 권장), 호스트 record 대량 보완은 `lazy-record-quality` 스킬(guided·검수·확인 기반, host 소유·자체 일정)로 한다. 구현이 있거나 구현을 바꾸는 record 는 설명만 저장하지 말고 3층으로 매핑한다.
 
 1. **MD 보고서**: DDD/SDD/BDD/TDD/ADR/SSOT 문서에 `Implementation map` 섹션 추가
    - 관련 파일, 파일 역할, 핵심 함수/클래스/컴포넌트, 흐름, 보호 테스트, cross-layer 링크
@@ -167,8 +167,8 @@ host 이해를 정정하면 **confirmed override** 로 처리한다. 프로젝�
 의식적으로 위 단계를 건너뛸 때는 사유를 `.lazy-harness/logs/skipped.jsonl` 에 한 줄 기록한다. "looks fine" 으로 통과하지 말 것.
 
 ## 4. Framework Contract
-- 능동 검색하면 hook 은 silent
-- Agent edit/write/multiedit 는 기본적으로 개발 중 blocking hook 을 등록하지 않는다. **미세 수정 하나마다 테스트/`lazy check`/typecheck/lint 를 실행하지 않는다.** coherent mutation batch 를 먼저 끝내고 checkpoint 에서 `lazy check` 1회, changed-behavior focused validation 최대 1회, 마지막 mutation 뒤 `lazy validate --plan standard` 1회만 실행한다. Green 결과는 상태/개수/시간만 대화에 요약하고 상세 로그는 runtime artifact/capture 에 둔다. Direct `lazy test` 는 explicit fresh full-regression 또는 commit/push/release gate 에만 사용한다 (ADR 0016).
+- Lifecycle hook 은 행동을 막지 않는다 (사용자 결정 2026-11-10): read-debt·search-debt·rule placement·시험 gate 는 차단하거나 후속 턴을 만들지 않고 알림만 준다. 파괴적 명령·프로젝트 경계 안전 검사만 차단한다. 검색·주입·저장은 모니터링으로 옮긴다 (`.lazy-harness/planning/hook-to-monitoring-transition.md`).
+- Hook 은 시험을 자동으로 돌리지 않는다. **미세 수정 하나마다 테스트/`lazy check`/typecheck/lint 를 실행하지 않는다.** 머지·커밋 전에는 `lazy check` 와 `lazy test` (또는 `lazy validate --plan standard`) 를 권장한다. Green 결과는 상태/개수/시간만 대화에 요약하고 상세 로그는 runtime artifact/capture 에 둔다 (ADR 0016).
 - `tool.execute.before` 기반 수동/fixture 검증은 남아 있지만, 보편 실시간 gate 로 가정하지 않는다. CLI 는 LLM/searcher 가 필요할 때 호출하는 tool 일 뿐이며, lifecycle hook 이 user text 를 정적으로 분류해 intent/risk/importance/required-read/record-write/next-action 을 정하면 안 된다. 판단은 record/source/test 를 읽은 LLM/searcher 가 한다 (SSOT cli-tool-boundary, ADR 0041).
 - 신규·수정 source 는 host 의 exact-intent policy/capability 를 먼저 resolve 한 뒤 `.lazy-harness/spec/platform/code-organization-profile.md` baseline 을 observe-only 로 적용한다. 로컬 정돈은 system architecture 와 분리하고 줄 수 분할·untouched rewrite 를 금지한다.
 - record 가 빈약하다? 누적해라. 1 주 동안 어느 layer 도 안 자라면 framework 활용 실패 신호

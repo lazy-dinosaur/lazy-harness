@@ -163,9 +163,8 @@ test.each(["A", "B"].flatMap((arm) => ["json", "text"].flatMap((mode) => ["captu
     const capture = parentEntries.filter((entry) => entry.type === "custom" && entry.customType === "lazy-harness-capture").at(-1);
     expect(capture?.data).toMatchObject({ root, epoch: 1, status: "unverified", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated" });
     expect(parentEntries.filter((entry) => entry.type === "custom_message" && entry.customType === "lazy-harness-capture")).toEqual([]);
-    expect(stderr).toContain("Capture evidence: unverified");
-    expect(stderr).toContain("Semantic relevance and approval are not runtime-verified");
-    expect(stderr).toContain("primary stdout preserved");
+    // Capture is runtime state only (user decision 2026-11-10): no printed notice.
+    expect(stderr).not.toContain("Capture evidence:");
     expect(stderr).not.toContain("Analysis discovery capture gate");
     if (advisory === "placement") {
       expect(stderr).toContain("Project rule placement gate");

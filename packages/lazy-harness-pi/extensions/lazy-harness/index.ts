@@ -103,7 +103,6 @@ type ReaderLedger = {
 type ReaderMeter = { ledger: ReaderLedger; pending: Map<string, string | undefined>; settled: Set<string> };
 const readerMeters = new Map<string, ReaderMeter>();
 const activePacketsByRoot = new Map<string, { root: string; sessionId: string; messageId: string; readDebtStatus: ReadDebtStatus; readDebtDetail?: string }>();
-const lastAdvisoryByRoot = new Map<string, { hash: string; count: number; chainCount: number; body: string }>();
 const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: string; source?: string; at: number }>();
 // Every normal turn and non-extension mid-turn steer advances a root-scoped
 // evidence epoch. Tool calls retain their start epoch, and completed calls retain
@@ -111,8 +110,6 @@ const lastInputByRoot = new Map<string, { text: string; streamingBehavior?: stri
 // late results from an older turn/steer cannot repopulate current evidence.
 const evidenceEpochByRoot = new Map<string, number>();
 const toolCallEpochsByRoot = new Map<string, Map<string, number>>();
-const MAX_ADVISORY_CONTINUATIONS = 2;
-const MAX_ADVISORY_CHAIN_CONTINUATIONS = 1;
 // Runtime-neutral mid-turn re-grounding state (see the "context" handler).
 const pendingRegroundByRoot = new Map<string, boolean>();
 const regroundBodyByRoot = new Map<string, string>();
@@ -1029,7 +1026,6 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     readerRuntimeRoots.clear();
     readerMeters.clear();
     activePacketsByRoot.clear();
-    lastAdvisoryByRoot.clear();
     lastInputByRoot.clear();
     toolCallEpochsByRoot.clear();
     pendingRegroundByRoot.clear();
@@ -1153,14 +1149,6 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     advanceEvidenceEpoch(root); // fresh turn boundary: exclude prior-turn calls from agent_end
     pendingRegroundByRoot.delete(root); // fresh turn: clear mid-turn re-grounding state
     regroundBodyByRoot.delete(root);
-    // A queued lazy-harness follow-up starts a new runtime turn too. Keep the
-    // advisory cap for that synthetic turn, but reset it when a real user prompt
-    // differs from the last advisory body so the next human request can get one
-    // fresh follow-up if it hits a new gate.
-    const prevAdvisory = lastAdvisoryByRoot.get(root);
-    if (prevAdvisory && String(event.prompt || "") !== prevAdvisory.body) {
-      lastAdvisoryByRoot.delete(root);
-    }
     await ensureAskToolActive(pi); // keep OMP's native `ask` selector available for §2.3 option gates
     const promptText = String(event.prompt || "");
     // Reuse validated map/record fingerprints for the current work unit. A new
@@ -1281,9 +1269,8 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     if (activeReader && activeReader.evidenceEpoch === currentEvidenceEpoch(root) && !activeReader.joined && !activeReader.fallbackAllowed && !nativeLaunch && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
       return { block: true, reason: "[lazy-harness Reader join pending] wait for the content-bearing Reader packet, then call lazy_reader_join before action." };
     }
-    if (!readDebtArmed(packet.readDebtStatus) && !nativeLaunch && isActionTool(normalized.name, normalized.args, ownedReaderStatus)) {
-      return { block: true, reason: readDebtNotArmedReason(root, normalized.name, packet.readDebtStatus, packet.readDebtDetail) };
-    }
+    // Read-debt is advisory (user decision 2026-11-10): an unarmed packet no longer
+    // blocks actions. The turn-start steering reminder still carries the guidance.
 
     const payload: JsonObject = {
       event: "tool.execute.before",
@@ -1535,51 +1522,17 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     const assessment: JsonObject = hook.status === 0 && capture && typeof capture === "object" && !Array.isArray(capture)
       ? capture as JsonObject
       : { schemaVersion: "1.0", root, epoch: currentEpoch, status: "unverified", reason: "capture response hook unavailable or missing assessment", semanticStatus: "llm-judgement-not-verified", approvalStatus: "not-evaluated", facts: [] };
-    const captureNotice = `Capture evidence: ${String(assessment.status)} — ${String(assessment.reason)}. Semantic relevance and approval are not runtime-verified.`;
-    const captureNeedsAttention = assessment.status === "unverified" || assessment.status === "pending";
-    if (preservesHeadlessPrimaryAnswer(ctx)) {
-      // Plain custom entries are runtime state, not conversation messages. Even
-      // triggerTurn:false custom messages hide Pi's last-assistant text output.
-      pi.appendEntry("lazy-harness-capture", assessment);
-      if (captureNeedsAttention) printModeAdvisory(captureNotice);
-    } else if (typeof pi.sendMessage === "function") {
-      pi.sendMessage({
-        customType: "lazy-harness-capture",
-        content: captureNotice,
-        display: captureNeedsAttention,
-        details: assessment,
-      }, { triggerTurn: false });
-    }
+    // Capture assessment is runtime state only (user decision 2026-11-10): it is kept
+    // as a custom entry, never sent as a conversation message or follow-up, so it
+    // does not add per-turn notices to the agent's context.
+    if (typeof (pi as any).appendEntry === "function") pi.appendEntry("lazy-harness-capture", assessment);
     writeAgentEndTrace(root, payload, messages, recentToolCalls, hook, body);
-    if (!body) {
-      lastAdvisoryByRoot.delete(root); // gate resolved → reset continuation counter
-      return undefined;
-    }
-    if (preservesHeadlessPrimaryAnswer(ctx)) {
-      // This response.completed hook is advisory metadata, not Reader content,
-      // a user steer, or a tool action block. Do not schedule a replacement
-      // assistant answer in either headless output format. Native drain remains
-      // owned by the native extension, including on pending/waiting turns.
-      printModeAdvisory(body);
-      lastAdvisoryByRoot.delete(root);
-      return undefined;
-    }
-    // Drive a continuation so the agent addresses the response-completed advisory.
-    // Loop-safe on two axes: the SAME unresolved advisory drives at most
-    // MAX_ADVISORY_CONTINUATIONS turns, and an alternating sequence of different
-    // STOP advisories drives at most MAX_ADVISORY_CHAIN_CONTINUATIONS follow-up
-    // turns before degrading to non-steering display. This prevents capture-gate
-    // and rule-placement helpers from ping-ponging indefinitely.
-    const advisoryHash = stableHash(body);
-    const prevAdvisory = lastAdvisoryByRoot.get(root);
-    const advisoryCount = prevAdvisory && prevAdvisory.hash === advisoryHash ? prevAdvisory.count + 1 : 1;
-    const advisoryChainCount = prevAdvisory && prevAdvisory.hash !== advisoryHash ? prevAdvisory.chainCount + 1 : 1;
-    lastAdvisoryByRoot.set(root, { hash: advisoryHash, count: advisoryCount, chainCount: advisoryChainCount, body });
-    if (advisoryCount <= MAX_ADVISORY_CONTINUATIONS && advisoryChainCount <= MAX_ADVISORY_CHAIN_CONTINUATIONS && typeof (pi as any).sendUserMessage === "function") {
-      (pi as any).sendUserMessage(body, { deliverAs: "followUp" });
-    } else {
-      ctx.ui?.notify?.(`lazy-harness advisory suppressed after follow-up cap\n${body}`.slice(0, 1800), "warning");
-    }
+    if (!body) return undefined;
+    // Response-completed helper output is advisory only (user decision 2026-11-10):
+    // it never drives a follow-up turn or blocks. Interactive sessions get a UI
+    // notice; headless modes print it outside the primary answer.
+    if (preservesHeadlessPrimaryAnswer(ctx)) printModeAdvisory(body);
+    else ctx.ui?.notify?.(`lazy-harness advisory\n${body}`.slice(0, 1800), "info");
     return undefined;
   });
 
