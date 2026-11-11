@@ -207,3 +207,14 @@ Operational rule:
 - ADR: no new ADR yet; use option gate if a Medivance-only finding is proposed as framework-global default.
 - SSOT: updated here with the framework-vs-Medivance dogfood boundary.
 - Planning: dogfood triage should continue to use Medivance primary plus secondary host cross-checks.
+
+## lazy-harness role and module composition (user-confirmed native options)
+
+- Role: lazy-harness is the **record/rule framework plus the module composition layer**. `.lazy-harness` keeps records, rules, CLI, hooks and sync; `packages/lazy-harness-pi` keeps the Pi integration; separate module repositories are attached through adapters. Design, decision and measurement records of every module stay in this repository.
+- pi-fabric placement: Fabric is used **only in the Pi integration package** `packages/lazy-harness-pi`; `.lazy-harness` core must keep working without Fabric (ADR 0013). Modules never depend on pi-fabric (ADR 0061).
+- External judgement (Jev and similar): modules define a judgement port; a module may ship an optional default transport such as `hosts/jev` for standalone use, and the composition layer can replace it; behaviour without it or on failure must be defined.
+- Connection contract: agent-specific non-Fabric host adapters live in module repositories under `hosts/<agent>`; lazy-harness owns only Fabric-based adapters and assembly; TypeScript modules are imported in-process and other-language modules run as processes speaking JSON-RPC 2.0 over stdio; lazy-harness consumes module repositories as git submodules pinned to a commit.
+- Contract ownership: each module repository defines and exports its own contract (port types, fakes, conformance tests; for other-language modules an RPC server plus a TypeScript client). No separate contract repository. The SDD keeps only the short common rules: root `lazy-harness.module.json` (`lazy-harness-module/v1`; required `schema`, `id`, `version`, `runtime`, `entry`, `requires`, `test`, `conformance`; optional `provides`, `records`), JSON-RPC for process modules, shared status/certainty result (a deliberate hold is `completed`/`terminal` with `value.held: true`), integer major versions.
+- Work split (user instruction 2026-11-10): module sessions align their own repositories to this contract; the lazy-harness contract work does not take over module work.
+- Procedure and contract: `.lazy-harness/spec/platform/module-composition.md`. Decision and reasons: ADR 0063 `.lazy-harness/decisions/0063-module-composition-contract.md`.
+- Rule placement: Scope host-project; primary record this SSOT for ownership plus the SDD for the contract; not AGENTS.md (host structure, not universal grammar); not local notes (shared ownership); Confirmation user-confirmed.
