@@ -2201,8 +2201,6 @@ def check_pi_package_layout_and_contract() -> None:
         "resolveInvocationCwd",
         "sessionManager?.getCwd",
         "sendUserMessage",
-        "deliverAs: \"followUp\"",
-        "MAX_ADVISORY_CONTINUATIONS",
         "pi.on(\"context\"",
         "pendingRegroundByRoot",
         "!regroundBodyByRoot.has(root)",
@@ -2747,7 +2745,7 @@ def check_pi_package_layout_and_contract() -> None:
             "if(!synthetic?.message?.content?.includes('status=not-armed(synthetic-turn)') || !synthetic.message.content.includes('phase=debug')) throw new Error('synthetic turn marker should distinguish not-armed debug status');\n"
             "if(!synthetic?.systemPrompt?.includes('Synthetic/steering turn') || !synthetic.systemPrompt.includes('Do not make host-specific claims')) throw new Error('synthetic turn missing steering reminder');\n"
             "const syntheticWrite=await handlers.get('tool_call')({toolCallId:'synthetic-write',toolName:'write', input:{file_path:'tmp.txt',content:'x'}},ctx);\n"
-            "if(!syntheticWrite?.block || !String(syntheticWrite.reason).includes('Status: not-armed(synthetic-turn)')) throw new Error('synthetic action should block with status');\n"
+            "if(syntheticWrite?.block && String(syntheticWrite.reason).includes('read-debt')) throw new Error('v2: read-debt is advisory; synthetic action must not be blocked by read-debt');\n"
             "const beforeAgain=await handlers.get('before_agent_start')({prompt:'testdb instance start again', systemPrompt:'base'},ctx);\n"
             "if(!beforeAgain?.message?.content?.includes('status=armed') || !beforeAgain.message.content.includes('phase=armed')) throw new Error('human turn after synthetic should re-arm read-debt');\n"
             "const cases=[\n"
@@ -2757,7 +2755,7 @@ def check_pi_package_layout_and_contract() -> None:
             " ['terminal',{toolName:'terminal', input:{text:'nohup bun scripts/dev-cli.ts --test --instance x &'}}],\n"
             " ['batch-bash',{toolName:'batch', input:{tool_calls:[{tool:'bash',parameters:{command:'nohup bun scripts/dev-cli.ts --test --instance x &'}}]}}],\n"
             "];\n"
-            "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(!r?.block) throw new Error(name+' not blocked'); }\n"
+            "for (const [name, ev] of cases) { const r=await handlers.get('tool_call')({toolCallId:name,...ev},ctx); if(r?.block && String(r.reason).includes('read-debt')) throw new Error(name+' blocked by advisory read-debt'); }\n"
             "const allowed=await handlers.get('tool_call')({toolCallId:'lazy-map',toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'}},ctx);\n"
             "if(allowed?.block) throw new Error('lazy map read-only bash should not be blocked: '+allowed.reason);\n"
             "await handlers.get('tool_result')({isError:false,toolName:'bash',input:{command:'.lazy-harness/bin/lazy map --overview --format=md --limit=20'},toolCallId:'lazy-map',content:'mapped'},ctx);\n"
@@ -2791,7 +2789,7 @@ def check_pi_package_layout_and_contract() -> None:
             "if(steered?.action!=='transform' || !String(steered.text).includes('Ground this work unit once')) throw new Error('steer did not create fresh work-unit grounding');\n"
             "await handlers.get('tool_result')({isError:false,toolCallId:'slow-pre-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'late'},ctx);\n"
             "const staleWrite=await handlers.get('tool_call')({toolCallId:'post-steer-stale-write',toolName:'write',input:{file_path:'post-steer.txt',content:'blocked'}},ctx);\n"
-            "if(!staleWrite?.block) throw new Error('late pre-steer result restored stale evidence');\n"
+            "if(staleWrite?.block) throw new Error('v2: stale evidence after steer is advisory and must not block: '+staleWrite.reason);\n"
             "const freshRead=await handlers.get('tool_call')({toolCallId:'fresh-post-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'}},ctx);\n"
             "if(freshRead?.block) throw new Error('fresh post-steer read should be allowed: '+freshRead.reason);\n"
             "await handlers.get('tool_result')({isError:false,toolCallId:'fresh-post-steer-read',toolName:'read',input:{file_path:'.lazy-harness/spec/platform/pi-agent-package.md'},content:'fresh'},ctx);\n"
@@ -3148,12 +3146,12 @@ def check_pi_package_layout_and_contract() -> None:
             "process.env.LAZY_RUNTIME_ROOT=proot+'/.runtime-agent-end';\n"
             "process.env.LAZY_TEST_EMIT_ADVISORY='1';\n"
             "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
-            "if(sent.length!==1 || sent[0].msg!=='TRACE_ADVISORY_BODY' || sent[0].opts?.deliverAs!=='followUp') throw new Error('agent_end advisory was not queued as one followUp');\n"
+            "if(sent.length!==0) throw new Error('v2: agent_end advisory must be a notice only, never a followUp turn');\n"
             "let printErr='';const originalStderrWrite=process.stderr.write.bind(process.stderr);(process.stderr as any).write=(chunk)=>{printErr+=String(chunk);return true};const sentBeforePrint=sent.length;\n"
             "try{await handlers.get('agent_end')({type:'agent_end',messages:msgs},{...ctx,mode:'print'});}finally{(process.stderr as any).write=originalStderrWrite;}\n"
             "if(sent.length!==sentBeforePrint) throw new Error('print mode queued a followUp that could replace primary stdout');\n"
             "if(!printErr.includes('primary stdout preserved')||!printErr.includes('TRACE_ADVISORY_BODY')) throw new Error('print mode did not surface advisory out of band');\n"
-            "for(const mode of ['tui','rpc']){const modeCtx={...ctx,mode};await handlers.get('before_agent_start')({prompt:'reset-'+mode,systemPrompt:'base'},modeCtx);const beforeMode=sent.length;await handlers.get('agent_end')({type:'agent_end',messages:msgs},modeCtx);if(sent.length!==beforeMode+1||sent.at(-1)?.opts?.deliverAs!=='followUp') throw new Error(mode+' advisory delivery changed');}\n"
+            "for(const mode of ['tui','rpc']){const modeCtx={...ctx,mode};await handlers.get('before_agent_start')({prompt:'reset-'+mode,systemPrompt:'base'},modeCtx);const beforeMode=sent.length;await handlers.get('agent_end')({type:'agent_end',messages:msgs},modeCtx);if(sent.length!==beforeMode) throw new Error(mode+' advisory must not queue a followUp in v2');}\n"
             "if(!existsSync(tracePath)) throw new Error('opt-in agent_end structural trace missing from runtime root');\n"
             "const traceRows=readFileSync(tracePath,'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse);\n"
             "const trace=[...traceRows].reverse().find((row)=>row.recentToolNames?.includes('write'))??traceRows[traceRows.length-1];\n"
@@ -3179,7 +3177,7 @@ def check_pi_package_layout_and_contract() -> None:
             "process.env.LAZY_TEST_EMIT_ADVISORY='1';\n"
             "const sentBeforeFailure=sent.length;\n"
             "await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
-            "if(sent.length!==sentBeforeFailure+1 || sent[sent.length-1].opts?.deliverAs!=='followUp') throw new Error('trace-write failure changed followUp delivery');\n"
+            "if(sent.length!==sentBeforeFailure) throw new Error('trace-write failure must not queue a followUp in v2');\n"
             "process.env.LAZY_RUNTIME_ROOT=proot+'/.runtime-agent-end';\n"
             "process.env.LAZY_TEST_EMIT_ADVISORY='';\n"
             "for(let i=0;i<55;i++) await handlers.get('agent_end')({type:'agent_end', messages:msgs}, ctx);\n"
@@ -5038,8 +5036,6 @@ def check_response_completed_no_auto_route_telemetry() -> None:
             ".lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh",
             ".lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh",
             ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh",
-            ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh",
-            ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
         }
 
         def run_hook_with_timing(payload_obj: dict, log_name: str, extra_env: dict[str, str] | None = None) -> set[str]:
@@ -5471,8 +5467,9 @@ def check_parallel_runtime_state_isolation() -> None:
             env=env_without_lazy_runtime(LAZY_HOST_ROOT=str(secondary)),
             check=False,
         )
-        if denied.returncode == 0 or "search-debt" not in denied.stdout:
-            fail("tool.execute.before should read the matching runtime debt journal and deny action:\n" + denied.stdout + denied.stderr)
+        # v2 (user decision 2026-11-10): search-debt is advisory; the pre-tool hook no longer denies.
+        if denied.returncode != 0 or "search-debt" in denied.stdout:
+            fail("tool.execute.before must not deny on search-debt (advisory in v2):\n" + denied.stdout + denied.stderr)
     finally:
         shutil.rmtree(temp, ignore_errors=True)
     print("✓ parallel runtime state isolation ok")
@@ -5585,8 +5582,9 @@ def check_affected_test_runner() -> None:
             fresh_source = ROOT / "tests/lazy-harness/affected/missing-fresh.ts"
             fresh_source.write_text("export const sentinel = 1\n", encoding="utf-8")
             fresh_out = run_response_completed_hook(fresh_payload, queue)
-            if "5d-3 Affected Test Gate" not in fresh_out:
-                fail("affected test hook did not surface gate for a fresh missing-test fingerprint:\n" + fresh_out)
+            # v2 (user decision 2026-11-10): hooks never run tests or surface the 5d-3 gate.
+            if "5d-3 Affected Test Gate" in fresh_out:
+                fail("affected test gate must not surface from response.completed in v2:\n" + fresh_out)
             fresh_again = run_response_completed_hook(fresh_payload, queue)
             if fresh_again.strip():
                 fail("affected test hook re-surfaced gate for already-queued fresh fingerprint:\n" + fresh_again)
@@ -5594,12 +5592,10 @@ def check_affected_test_runner() -> None:
             fresh_source.unlink(missing_ok=True)
     finally:
         queue.unlink(missing_ok=True)
-    routing_fixture = ROOT / "tests/lazy-harness/affected-repository-routing.test.py"
-    if routing_fixture.exists():
-        routed = subprocess.run([sys.executable, str(routing_fixture)], cwd=ROOT,
-                                env=env_without_lazy_runtime(), text=True, capture_output=True)
-        if routed.returncode != 0:
-            fail("affected repository routing regression failed:\n" + routed.stdout + routed.stderr)
+    # Retired v1 enforcement (user decision 2026-11-10): the response.completed hook no
+    # longer runs or surfaces affected tests, so the cross-repository hook routing
+    # regression (tests/lazy-harness/affected-repository-routing.test.py) is not run here.
+    # The affected-test-runner CLI above stays covered as an explicit, recommended tool.
     print("✓ 5d-3 affected test runner ok")
 
 def check_aftershock_reanalysis() -> None:
@@ -5658,19 +5654,14 @@ def check_lifecycle_hook_integration() -> None:
             ],
         }
         tdd_out = run_response_completed_hook(tdd_payload, tdd_queue, root=temp_root)
-        if "5d-3 TDD Cross-Verify Gate" not in tdd_out or "Q-22c6c7cf5a7620f1" not in tdd_out:
-            fail("response.completed did not surface TDD cross-verify gate:\n" + tdd_out)
-        tdd_root = parse_xml_tree(tdd_queue).getroot()
-        if not any(question.attrib.get("criterionId") == "5d-3" for question in tdd_root.findall("question")):
-            fail("response.completed TDD helper did not persist question")
+        # v2 (user decision 2026-11-10): the TDD cross-verify helper is retired from
+        # response.completed on both engines, so the hook and shadow stay silent.
+        if "5d-3 TDD Cross-Verify Gate" in tdd_out:
+            fail("response.completed must not surface the retired TDD cross-verify gate:\n" + tdd_out)
 
         tdd_shadow = run_lifecycle_check_shadow(tdd_payload, tdd_shadow_queue, root=temp_root)
-        if tdd_shadow.get("firstOutputHelper") != ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh":
-            fail("lifecycle-check shadow should match TDD first output helper: " + json.dumps(tdd_shadow, ensure_ascii=False)[:800])
-        if "5d-3 TDD Cross-Verify Gate" not in tdd_shadow.get("firstOutput", "") or "Q-22c6c7cf5a7620f1" not in tdd_shadow.get("firstOutput", ""):
-            fail("lifecycle-check shadow did not surface TDD gate output")
-        if json.loads(tdd_shadow.get("injectJson") or "{}").get("inject", {}).get("body") != tdd_shadow.get("firstOutput"):
-            fail("lifecycle-check shadow injectJson should match firstOutput body")
+        if "5d-3 TDD Cross-Verify Gate" in str(tdd_shadow.get("firstOutput", "")):
+            fail("lifecycle-check shadow must not surface the retired TDD gate: " + json.dumps(tdd_shadow, ensure_ascii=False)[:800])
 
         # edit-target-only (ADR 0051 amendment): editing a RECORD that merely QUOTES a
         # source path must not fire 5d-3 — the hook extracts paths from edit_target (the
@@ -8748,8 +8739,9 @@ def check_real_feature_walkthrough() -> None:
             ],
         }
         hook_out = run_response_completed_hook(hook_payload, queue)
-        if "5d-3 TDD Cross-Verify Gate" not in hook_out:
-            fail("5d-6 walkthrough hook did not surface TDD gate:\n" + hook_out)
+        # v2 (user decision 2026-11-10): the walkthrough hook no longer surfaces the TDD gate.
+        if "5d-3 TDD Cross-Verify Gate" in hook_out:
+            fail("5d-6 walkthrough hook must not surface the retired TDD gate:\n" + hook_out)
     finally:
         for path in [queue, decisions]:
             path.unlink(missing_ok=True)
@@ -12873,7 +12865,7 @@ def check_tool_execute_before_hook() -> None:
             "session_id": session_prefix + "case1",
             "tool": {"name": "Edit", "args": {"file_path": "src/main/services/foo.ts"}},
             "recent_tool_calls": [],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("grep-record-then-edit-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2",
@@ -12928,7 +12920,7 @@ def check_tool_execute_before_hook() -> None:
                 },
                 "is_error": False,
             }],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("reader-errored-complete-join-discards-prior-map", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_reader_error",
@@ -12937,7 +12929,7 @@ def check_tool_execute_before_hook() -> None:
                 {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
                 {"name": "lazy_reader_join", "args": {"status": "complete", "resultMarker": "LAZY_HARNESS_READER_RESULT: complete"}, "is_error": True},
             ],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("reader-legacy-cache-seed-map-allow", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_reader_cache_reset",
@@ -12952,7 +12944,7 @@ def check_tool_execute_before_hook() -> None:
                 {"name": "bash", "args_preview": ".lazy-harness/bin/lazy map --overview --complete --format=md"},
                 {"name": "lazy_reader_join", "args": {"status": "incomplete", "resultMarker": "LAZY_HARNESS_READER_RESULT: incomplete"}, "is_error": False},
             ],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("reader-legacy-postfailure-map-recovers", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_reader_cache_reset",
@@ -12992,13 +12984,13 @@ def check_tool_execute_before_hook() -> None:
             "session_id": session_prefix + "case2_apply_patch",
             "tool": {"name": "apply_patch", "args": {"patch_text": "*** Begin Patch\n*** Update File: src/main/services/foo.ts\n@@\n-old\n+new\n*** End Patch"}},
             "recent_tool_calls": [],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("namespaced-apply-patch-src-no-search-deny", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_functions_apply_patch",
             "tool": {"name": "functions.apply_patch", "args": {"patch_text": "*** Begin Patch\n*** Update File: src/main/services/foo.ts\n@@\n-old\n+new\n*** End Patch"}},
             "recent_tool_calls": [],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("parallel-nested-write-no-search-deny", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case2_parallel_write",
@@ -13006,7 +12998,7 @@ def check_tool_execute_before_hook() -> None:
                 {"recipient_name": "functions.write", "parameters": {"path": "src/main/services/foo.ts", "content": "x"}},
             ]}},
             "recent_tool_calls": [],
-        }, 1, "lazy-harness gate"),
+        }, 0, ""),  # v2: search-debt advisory, no deny
         ("record-edit-exempt", {
             "event": "tool.execute.before",
             "session_id": session_prefix + "case3",
@@ -13409,7 +13401,7 @@ def main() -> None:
         (check_fast_validation_tier_cli, "BOTH"),
         (check_bounded_validation_governor_cli, "BOTH"),
         (check_host_document_validation_scope, "FRAMEWORK_ONLY"),
-        (check_reader_status_fixture_scope, "FRAMEWORK_ONLY"),
+        # retired v1 enforcement (user decision 2026-11-10): (check_reader_status_fixture_scope, "FRAMEWORK_ONLY"),
         (check_pi_package_layout_and_contract, "FRAMEWORK_ONLY"),
         (check_jcode_decommission, "FRAMEWORK_ONLY"),
         (check_destructive_command_block, "FRAMEWORK_ONLY"),
@@ -13464,7 +13456,7 @@ def main() -> None:
         (check_project_map_update_loop_v2, "BOTH"),
         (check_policy_machinery_v2, "BOTH"),
         (check_evidence_capsule_standard_phase5, "BOTH"),
-        (check_read_debt_permit_generic_external_action, "BOTH"),
+        # retired v1 enforcement (user decision 2026-11-10): (check_read_debt_permit_generic_external_action, "BOTH"),
         (check_record_decision_broker_phase8, "BOTH"),
         (check_record_decision_shadow_response_completed, "BOTH"),
         (check_message_received_hook_context_injection, "BOTH"),

@@ -241,8 +241,6 @@ WRITE_ONLY_HELPERS = [
     ".lazy-harness/hooks/lifecycle/helpers/check-ddd-trigger.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-ssot-trigger.sh",
     ".lazy-harness/hooks/lifecycle/helpers/check-layer-completeness.sh",
-    ".lazy-harness/hooks/lifecycle/helpers/check-tdd-cross-verify.sh",
-    ".lazy-harness/hooks/lifecycle/helpers/check-affected-tests.sh",
 ]
 
 try:

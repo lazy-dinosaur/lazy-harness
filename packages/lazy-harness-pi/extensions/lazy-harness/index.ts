@@ -1525,7 +1525,7 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
     // Capture assessment is runtime state only (user decision 2026-11-10): it is kept
     // as a custom entry, never sent as a conversation message or follow-up, so it
     // does not add per-turn notices to the agent's context.
-    pi.appendEntry("lazy-harness-capture", assessment);
+    if (typeof (pi as any).appendEntry === "function") pi.appendEntry("lazy-harness-capture", assessment);
     writeAgentEndTrace(root, payload, messages, recentToolCalls, hook, body);
     if (!body) return undefined;
     // Response-completed helper output is advisory only (user decision 2026-11-10):
