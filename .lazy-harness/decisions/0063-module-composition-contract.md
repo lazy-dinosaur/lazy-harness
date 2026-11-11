@@ -45,6 +45,7 @@ The monitoring and knowledge modules moved into their own repositories (ADR 0062
 - Work split (user instruction 2026-11-10): module sessions align their own repositories to this contract; this contract work does not take over module work.
 - Separation rule (user-confirmed 2026-11-10, after the user proposed separating the agent's own configuration/behaviour rules from modules): the agent itself (configuration, behaviour rules, prompts/skills, Pi settings, how sessions and work run — including the session manager and rule-enforcing checks) stays in lazy-harness; capabilities the agent calls, with clear inputs/outputs and standalone tests (monitoring, knowledge), are Fabric-free modules; Pi and pi-fabric are the external runtime. The session manager starts in `packages/lazy-harness-pi` with its Fabric-free worktree and ledger parts kept behind a separate folder boundary, extracted only when real reuse appears.
 - Module language: each module chooses its language (knowledge Python; monitoring and the Pi integration TypeScript). Changing a module's language requires measured bottleneck evidence and changes only that module. A full Rust rewrite was not adopted: model calls dominate latency and Pi/Fabric are TypeScript.
+- Record storage (user correction 2026-11-10): the knowledge module owns record storage in its DB; lazy-harness keeps composition and the behaviour baseline. Current `.lazy-harness/` Markdown records remain canonical until migrated (timing/method open).
 
 ## Consequences
 
