@@ -35,7 +35,8 @@ function message(text: string): AssistantMessage {
   return { role: "assistant", content: [{ type: "text", text }], api: "anthropic-messages", provider: "anthropic", model: "fixture-no-provider", usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: "stop", timestamp: 1 };
 }
 function assessment(): Record<string, unknown> {
-  const details = deliveries.at(-1)?.details;
+  // Capture is runtime state only (user decision 2026-11-10): read the last custom entry.
+  const details = [...entries].reverse().find((entry) => entry.customType === "lazy-harness-capture")?.data;
   assert.ok(details !== null && typeof details === "object" && !Array.isArray(details));
   return details as Record<string, unknown>;
 }
@@ -138,7 +139,7 @@ test("status pollution and quoted correction words are not semantic STOP", { tim
   const raw = envelope("no-record", record, "Unchanged DDD SDD BDD analysis plan. Quoted acknowledgement: 맞습니다. 제가 잘못.");
   assert.equal((await end(raw, "quoted old message: 아니 잘못 하네스 수정")).status, "no-record-asserted");
   assert.deepEqual(followups, []);
-  assert.equal(deliveries.at(-1)?.triggerTurn, false);
+  assert.deepEqual(deliveries, []); // capture is runtime state, never a conversation message
 });
 test("real Pi write/read tools -> actual result dispatch -> full response hook -> linked evidence", { timeout: 60000 }, async () => {
   await mutate("write");
@@ -232,11 +233,11 @@ test("existing pre-action destructive guard remains, without hazardous execution
   assert.ok(check.stdout.includes("STOP. Option gate discipline"));
 });
 
-test("capture remains separate when another safety advisory requests continuation", { timeout: 60000 }, async () => {
+test("safety advisory is a notice only and never drives a continuation turn", { timeout: 60000 }, async () => {
   const raw = envelope("pending", record, "needs-option-gate 선택해주세요. Recommended 자가선택 진행하겠습니다.");
   assert.equal((await end(raw)).status, "pending");
-  assert.equal(followups.some((body) => String(body).includes("Option gate discipline")), true);
-  assert.equal(deliveries.at(-1)?.triggerTurn, false);
+  assert.deepEqual(followups, []);
+  assert.deepEqual(deliveries, []);
 });
 
 test("development 58fbcbf hook mismatch is repaired by the exact upstream two-file capture delta", { timeout: 60000 }, async () => {
@@ -337,13 +338,13 @@ for (const mode of ["print", "json"] as const) test(`${mode}: full capture state
       assert.equal(typeof assessment.epoch, "number");
       assert.equal(assessment.semanticStatus, "llm-judgement-not-verified");
       assert.equal(assessment.approvalStatus, "not-evaluated");
-      assert.equal(stderr.includes("Capture evidence:"), status === "pending" || status === "unverified");
+      assert.equal(stderr.includes("Capture evidence:"), false); // capture notices are no longer printed
       if (status === "evidence-linked") assert.ok(JSON.stringify(assessment.facts).includes("runtime-file"));
     }
     writeFileSync(hook, "#!/bin/sh\nexit 1\n");
     await runner.emit({ type: "agent_end", messages: [message("complete answer")] });
     assert.equal((entries.at(-1)?.data as Record<string, unknown>).status, "unverified");
-    assert.ok(stderr.includes("unavailable or missing assessment"));
+    assert.match(String((entries.at(-1)?.data as Record<string, unknown>).reason), /unavailable or missing assessment/);
     assert.deepEqual(deliveries, []);
     assert.deepEqual(followups, []);
     assert.deepEqual(errors, []);
@@ -386,62 +387,26 @@ test("synthetic continuation reuses actual current governing evidence without re
   assert.notEqual(allowed?.block, true, allowed?.reason);
 });
 
-test("unarmed synthetic packet recovers only after successful native map and canonical read", { timeout: 60000 }, async () => {
+test("unarmed read-debt packet is advisory and never blocks actions", { timeout: 60000 }, async () => {
   await runner.emit({ type: "session_start", reason: "new" });
   const before = await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
   assert.match(JSON.stringify(before), /not-armed/);
-  const action = () => runner.emitToolCall({ type: "tool_call", toolName: "bash", toolCallId: `recovery-${++sequence}`, input: { command: "git fetch --dry-run" } });
-  assert.equal((await action())?.block, true);
-  const mapInput = { command: ".lazy-harness/bin/lazy map --overview --complete --format=md" };
-  await result("bash", mapInput, await start("bash", mapInput));
-  const readInput = { path: ".lazy-harness/spec/governing.md" };
-  await result("read", readInput, await start("read", readInput), true);
-  assert.equal((await action())?.block, true, "failed reads must not arm action");
-  await read(readInput.path);
-  assert.notEqual((await action())?.block, true, "actual successful canonical evidence must recover without another human message");
+  const allowed = await runner.emitToolCall({ type: "tool_call", toolName: "bash", toolCallId: `advisory-${++sequence}`, input: { command: "git fetch --dry-run" } });
+  assert.notEqual(allowed?.block, true, allowed?.reason);
 });
 
-test("foreign canonical-looking read cannot recover an unarmed local packet", { timeout: 60000 }, async () => {
-  await runner.emit({ type: "session_start", reason: "new" });
-  await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
-  const mapInput = { command: ".lazy-harness/bin/lazy map --overview --complete --format=md" };
-  await result("bash", mapInput, await start("bash", mapInput));
-  const foreign = join(root, "foreign", ".lazy-harness/spec/governing.md");
-  mkdirSync(join(root, "foreign", ".lazy-harness/spec"), { recursive: true });
-  writeFileSync(foreign, "# Foreign record\n");
-  await read(foreign);
-  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `foreign-${++sequence}`, input: { path: record, content: "not executed" } });
-  assert.equal(denied?.block, true);
-  await read(".lazy-harness/spec/governing.md");
-  await start("write", { path: record, content: "not executed" });
-});
-
-test("changed governing evidence and a fresh session do not inherit synthetic permission", { timeout: 60000 }, async () => {
+test("changed governing evidence, a fresh session and a new revision do not block actions", { timeout: 60000 }, async () => {
   writeFileSync(join(root, ".lazy-harness/spec/governing.md"), "# Changed governing record\n");
   await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
-  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `stale-${++sequence}`, input: { path: record, content: "not executed" } });
-  assert.equal(denied?.block, true);
-  await ground();
   await start("write", { path: record, content: "not executed" });
   await runner.emit({ type: "session_start", reason: "new" });
   await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
-  assert.equal((await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `fresh-${++sequence}`, input: { path: record, content: "not executed" } }))?.block, true);
+  await start("write", { path: record, content: "not executed" });
 });
 
-
-test("revision change invalidates a previously grounded synthetic continuation", { timeout: 60000 }, async () => {
-  const git = (...args: string[]) => {
-    const r = spawnSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", ...args], { cwd: root, encoding: "utf8" });
-    assert.equal(r.status, 0, r.stdout + r.stderr);
-  };
-  git("init", "-q");
-  git("add", ".lazy-harness/spec/governing.md");
-  git("commit", "-qm", "governing baseline");
-  await ground();
-  git("commit", "--allow-empty", "-qm", "new revision");
+test("destructive commands are still refused before execution", { timeout: 60000 }, async () => {
+  await runner.emit({ type: "session_start", reason: "new" });
   await runner.emitBeforeAgentStart("", undefined, "base", { cwd: root });
-  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "write", toolCallId: `revision-${++sequence}`, input: { path: record, content: "not executed" } });
+  const denied = await runner.emitToolCall({ type: "tool_call", toolName: "bash", toolCallId: `unarmed-hazard-${++sequence}`, input: { command: "rm -rf /" } });
   assert.equal(denied?.block, true);
-  await ground();
-  await start("write", { path: record, content: "not executed" });
 });

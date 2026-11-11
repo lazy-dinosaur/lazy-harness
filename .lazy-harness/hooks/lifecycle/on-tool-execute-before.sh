@@ -41,13 +41,13 @@ if [ -f .lazy-harness/hooks/lifecycle/helpers/runtime-paths.sh ]; then
   lazy_export_runtime_env "$ROOT_CANDIDATE" "$PAYLOAD"
 fi
 
-# Chain through helpers — read-debt permit first, then legacy Layer 2 checks.
+# Chain through safety helpers only. Read-debt, search-debt and overview-order
+# evidence checks are advisory (user decision 2026-11-10): they no longer deny
+# tool calls; monitoring takes over search/injection (planning
+# hook-to-monitoring-transition.md).
 for helper in \
   .lazy-harness/hooks/lifecycle/helpers/check-destructive-command.py \
-  .lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py \
-  .lazy-harness/hooks/lifecycle/helpers/check-overview-batch-order.py \
-  .lazy-harness/hooks/lifecycle/helpers/check-read-debt-permit.py \
-  .lazy-harness/hooks/lifecycle/helpers/check-search-performed.sh
+  .lazy-harness/hooks/lifecycle/helpers/check-project-command-boundary.py
  do
   [ -x "$helper" ] || continue
   OUT=$("$helper" "$PAYLOAD" 2>/dev/null || true)
