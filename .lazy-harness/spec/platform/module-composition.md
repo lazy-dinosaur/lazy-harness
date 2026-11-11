@@ -80,6 +80,21 @@ lazy-harness (이 저장소)
 - 모듈은 fake 구현으로 도는 적합성 시험을 갖는다. 실제 구현은 lazy-harness가 pi-fabric 공개 export(`pi-fabric/agents`, `pi-fabric/runners`, 선택적으로 Jev)로 작성하고 같은 적합성 시험을 통과시킨다.
 - 판정 포트는 결과 없음·실패·모호함을 구분한다. 외부 판단이 없을 때의 대체 동작을 모듈 계약에 적는다. 실패를 ‘해당 없음’으로 취급하지 않는다.
 
+## 분리 기준 — 무엇을 lazy-harness에 두고 무엇을 모듈로 빼는가 (사용자 확정 2026-11-10)
+
+사용자가 “에이전트 자체의 설정과 행동규약이랑 모듈로 빼는 걸 구분해야 한다”고 제안했고, 아래 추천안을 골랐다(“추천대로 하자 우선은”).
+
+| 구분 | 무엇 | 예 | 위치 |
+| --- | --- | --- | --- |
+| ① 에이전트 자체(설정·행동 규약) | 에이전트가 어떻게 생각하고 일하는지 정하는 것 | AGENTS.md와 행동 규약, 기록 우선·옵션 게이트·기록 남기기, 프롬프트·skill, Pi 설정, 세션·작업 진행 방식(세션 매니저), 행동 규약을 강제하는 검사 장치 | lazy-harness. Fabric이 필요한 부분은 `packages/lazy-harness-pi`, `.lazy-harness` core는 Fabric 없이(ADR 0013) |
+| ② 모듈(능력) | 에이전트가 불러 쓰는 능력. 입력과 출력이 분명하고, 혼자 시험할 수 있고, 바꿀 수 있다 | 모니터링(세션 관찰·신호), 지식(기록 배치·검색) | 모듈 저장소, Fabric 의존 없음 |
+| ③ 실행 기반 | 우리가 만들지 않고 가져다 쓰는 것 | Pi, pi-fabric | 외부 |
+
+- 판단 질문: “에이전트가 어떻게 행동하고 설정되는지를 정하는가?”면 ①, “에이전트가 부르는 능력이고 혼자 떼어 시험할 수 있는가?”면 ②다.
+- 세션 매니저는 ①이다. 작업마다 worktree와 담당 세션을 정해 일을 맡기는 것은 에이전트가 일하는 방식이므로 `packages/lazy-harness-pi`에서 시작한다. worktree 관리와 작업·세션 기록은 Fabric 없이 도는 별도 폴더로 경계를 나눠 두고, 다른 곳에서 다시 쓸 필요가 실제로 생기면 ②로 떼어낸다.
+- 모니터링·지식은 ②로 지금 구조를 유지한다.
+- 모듈 언어는 그 모듈이 정한다(지식=Python, 모니터링·Pi 연결=TypeScript). 연결 규약이 언어와 무관하므로 언어를 바꾸려면 측정한 병목 근거가 필요하고, 바꾸는 모듈만 바꾼다. 전체 Rust 전환은 채택하지 않았다(병목은 모델 호출이고, Pi·Fabric이 TypeScript다).
+
 ## 모듈 분리 절차
 
 1. **기록 먼저**: 분리 대상의 요구·계약·결정을 lazy-harness `.lazy-harness/`에 정리하고 planning record를 만든다. 분리 자체는 사용자 승인이 필요하다.
@@ -282,6 +297,16 @@ lazy-harness: submodule로 설치 → import → 포트를 Fabric으로 구현 �
 - 이 방식은 라이브러리 의존 없이 설치된 Fabric을 쓴다. 설치된 Fabric의 버전 확인·고정 방법은 붙이기 PR에서 정한다.
 - 근거: 설치본 `pi-fabric/docs/programs.md`(Running caller-supplied code), `pi-fabric/dist/protocol.d.ts`, `pi-fabric/dist/programs/host.js`(`handleFabricProgramRunEvent`, `runHostProgram`).
 - 상태: 위 대응표는 근거에 기반한 문서화이며, 실제 구현과 확정은 모니터링을 붙이는 PR(시점은 사용자가 정함)에서 한다.
+- Fabric은 기본 실행 기반이다(사용자 확정 2026-11-10, “내가 원했던 구조가 그거야 pi-fabric 을 기본으로 사용할꺼라고”). lazy-harness는 모듈 포트를 Fabric의 기능 전체로 구현한다. host 프로그램 실행은 세션의 root capability view와 모델 호출과 같은 승인 정책으로 도는데, 그 안에서 `agents.run`/`agents.spawn`(하위 agent), `agents.create`(persistent·durable actor), `mesh`(발행·구독·예약 이벤트), `programs.run`, memory·tools·MCP를 쓸 수 있다. 모듈은 Fabric을 모르고 포트로만 요청하며, actor를 쓸지 단발 agent를 쓸지는 lazy-harness가 정한다.
+- Claude runner actor는 `fabric_exec`, `agents.*`, `mesh.*`를 직접 부를 수 없다. Fabric 안에서 다른 작업을 조율하는 actor는 Pi runner로 만든다.
+- 붙이기 전 조건(모두 충족해야 모듈을 붙인다):
+  1. 시작할 때 Fabric이 있는지 확인한다. 없으면 시간 제한까지 기다리지 않고 바로 `refused`로 돌려준다.
+  2. 실행마다 세션에 실행 메시지(`pi-fabric-program-run`)가 하나씩 남는다. 자주 부르는 포트에서 이 문제가 얼마나 되는지 확인하고 측정한다.
+  3. 코드 65,536자, 입력 64 KiB를 넘는 자료는 파일 참조로 넘긴다.
+  4. §6.5의 보호 장치와 적합성 시험을 채택한다.
+  5. 오래 걸리는 작업(actor·durable agent)의 완료 결과를 lazy-harness가 받는 경로를 검증한다. `program:run`은 응답을 한 번만 받는 단발 실행이고, 완료 알림은 Pi Main 세션으로 간다. 후보는 다시 실행해서 `agents.wait`로 기다리기나 mesh topic으로 받기다.
+  6. 실행 조건을 확인한다. durable actor는 trusted project와 `mesh.enabled`가 필요하고 schema enforce mode에서는 쓸 수 없다. Python kernel 세션이나 `programs.run`을 막는 승인 정책에서는 실행이 거부된다. 프로그램 안 개별 동작의 승인 대기가 실행을 멈추지 않는지도 확인한다.
+- 근거(추가): 설치본 `pi-fabric/docs/programs.md`(host run의 root capability view·승인), `pi-fabric/docs/agents.md`(Persistent actors, Durable participant residency, Durable mesh coordination).
 
 ### 7. 아직 필요한 연결 규격
 
