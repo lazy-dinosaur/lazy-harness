@@ -45,7 +45,7 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
         s.selected = entry.offered.filter(r => r.selected && versions.has(r.id)).map(r => r.id)
       }
     },
-    trace(row: Readonly<Record<string, unknown> & { type: string }>, notes: readonly { frameId: string; status: string }[]) {
+    trace(row: Readonly<Record<string, unknown> & { type: string }>, notes: readonly { frameId: string; status: string }[], windowNotes: readonly { frameId: string | null; reason: string }[] = []) {
       const s = frames.get(String(row.frameId)); if (!s) return
       if (row.type === 'judgement') {
         const note = notes.findLast(n => n.frameId === s.frame.id && n.status.startsWith('region_'))
@@ -55,7 +55,7 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
         // Core-decoded decisions, not raw provider answers, determine the final mode.
         s.mode = ['run', 'skip', 'defer'].includes(outcome?.mode) ? outcome.mode : null
         emit(s, s.failed ? 'failed' : s.mode ? 'judged' : 'refused', s.failed ? 'classifier_uncertain' : s.mode ? null : 'no_admitted_decision')
-      } else if (row.type === 'selection') emit(s, String(row.status).includes('failed') || String(row.status).includes('rejected') ? 'failed' : 'skipped', 'selection_' + String(row.status))
+      } else if (row.type === 'selection') emit(s, String(row.status).includes('failed') || String(row.status).includes('rejected') ? 'failed' : 'skipped', 'selection_' + String(row.status) + (row.status === 'material_unavailable' ? ((w => w ? ':' + w.reason : '')(windowNotes.findLast(n => n.frameId === s.frame.id) ?? windowNotes.at(-1))) : ''))
     },
     discard(frameId: string) { const s = frames.get(frameId); if (s) emit({ ...s, mode: null, selected: [] }, 'skipped', 'stale_scope') },
   }

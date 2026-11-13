@@ -78,6 +78,13 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: `monitoring-attach-phase1.test.ts` 'long real sessions stay observable through tail snapshots' (600-message fake session, session_start + input judges, attached stays true); reason split `frame_unavailable`.
 - Layer matrix: SDD updated (monitoring-thin-consumer.md long-session section); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: material_limit blocked every live input (2026-11-13)
+
+- Symptom: observe log lines `outcome: skipped`, `errorClass: selection_material_unavailable`, `modelCalls: 0` for each live input after the long-session fix.
+- Cause: host material options combined `historyTurns: 4` with `historyMode: 'since-last'`; the extra history blob (up to 8,192 bytes, unbudgeted) plus the 9,832-byte catalog exceeded the 16,384-byte window (`material_limit`).
+- Protection: 'realistic catalog + long messages still judge' in `monitoring-attach-phase1.test.ts` (two catalog files ~9.8 KiB, 300 messages of ~1.5 KiB); verified to FAIL with `historyTurns: 4` restored and pass with the fix.
+- Layer matrix: SDD updated (monitoring-thin-consumer.md material budget section); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented
