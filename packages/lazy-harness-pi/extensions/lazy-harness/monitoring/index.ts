@@ -23,6 +23,8 @@ export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
 /** The realtime selection job deadline defaults to 1 s, shorter than a real Jev judgement on a full U1 view (~1.1 s
  * observed live), which aborted the call and stopped the classifier. The job deadline must cover the model timeout. */
 export const JOB_TIMEOUT_MARGIN_MS = 2000
+/** Renew the selection pipeline at the next user input once its window has observed this many frames (module limit 2048). */
+export const WINDOW_RENEW_EVENTS = 1024
 export const HOST_PORT_MAJORS: PortMajors = Object.freeze({ 'worker.execution': 1, 'judgement.model': 1, 'session.read-records': 1, 'report.enqueue': 1, 'state.persistence': 1, 'memory.review-sink': 1, 'memory.source': 1, 'policy.registry': 1, 'rule.verifier': 1 })
 export const UNAVAILABLE_PORTS = Object.freeze(['memory.review-sink', 'memory.source', 'policy.registry', 'rule.verifier'])
 type PiHooks = Parameters<typeof attachPiFrames>[0]
@@ -73,7 +75,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
     capture(read) { const d = catalog.documents.find(d => resolve(root, d.path) === resolve(read.cwd, read.call.input.path)); return d && catalog.isCurrent() ? captureRecord(root, d.path) : undefined },
     resolveDocument(read, hash) { const d = catalog.documents.find(d => resolve(root, d.path) === resolve(read.cwd, read.call.input.path) && d.version === hash); return d ? { documentId: d.id, documentVersion: d.version, namespace: 'lazy-harness', sourceRecordId: d.path } : undefined }, record: reads.record,
   })
-  let attestor = makeAttestor(), needsPipeline = false
+  let attestor = makeAttestor(), needsPipeline = false, windowRenewals = 0
   function retire() {
     generation++; context = undefined; attestor.close()
     if (!needsPipeline) {
@@ -104,6 +106,13 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
     if (!started || sessionId !== frame.sessionId || !catalog.isCurrent()) { stop('scope_or_catalog_unavailable'); return }
     // Distinct reason: an unavailable snapshot/payload is not a scope or catalog change.
     if (!frame.available || !frame.snapshot.available) { stop('frame_unavailable'); return }
+    // The module window and coordinator each stop permanently after maxEvents (2048) frames, and every Pi event counts
+    // (streaming deltas included), so a long session silently stops judging. Renew at a user-input boundary: the
+    // old pipeline is retired like a fence (late results discarded), the session model budget is NOT reset.
+    if (frame.sourceEvent === 'input' && !needsPipeline) {
+      const ws = pipeline.window.getStatus() as any
+      if (ws.state === 'stopped' || ws.observed >= WINDOW_RENEW_EVENTS) { retire(); windowRenewals++ }
+    }
     const scope = { sessionId: frame.sessionId, bindingGeneration: frame.binding, branchId: frame.snapshot.leafId ?? 'root', branchGeneration: branch, compactionGeneration: compaction }
     if (needsPipeline) {
       pipeline = makePipeline(); attestor = makeAttestor(); needsPipeline = false
@@ -120,7 +129,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   } })
   // Observe cannot enqueue or inject. Keep the module-owned route uninstalled until a later active approval.
   return { stage: 'observe' as const, reads, port, report, worker, runtime, get pipeline() { return pipeline }, delivery,
-    status() { return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
+    status() { return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null, renewals: windowRenewals } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
     async idle() { await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
     async close() { detach(); stop(); await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
   }
