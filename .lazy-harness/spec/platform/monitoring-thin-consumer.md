@@ -97,6 +97,10 @@ After the long-session fix, live inputs were skipped with `selection_material_un
 
 After the material fix, the first live judgement failed with `classifier_uncertain` (1 call reserved, no usage), which stops the classifier for the session by design (no retry of uncertain outcomes). The binding swallowed the reason. An offline reproduction with the real attach code and the real Pi 1.5 `ModelRuntime.classify` (`openrouter/typesafe/jev-1.14`, 23 KB request, 12 questions) returned `stop` with usage, and two small direct probes also succeeded with and without the empty env override, so the live cause is not reproduced yet. The binding now records a bounded failure class and never the provider text: `aborted`, `field_mismatch`, `stop_<stopReason>_<kind>` or `threw_<kind>`, where kind is auth/timeout/rate/size/aborted/network/other plus an optional HTTP status. It appears as `budget.used.lastFailure` in `/monitoring status` and is appended to the observe `errorClass` (for example `classifier_uncertain:stop_error_auth_401`).
 
+## Selection job deadline (fix 2026-11-13)
+
+With the failure class in place, the live log showed `classifier_uncertain:aborted` after ~1,072 ms: `createRealtimeSelectionPipeline` defaults the realtime job deadline to `jobTimeoutMs` 1,000 ms, shorter than a real Jev judgement on the full U1 view, so the coordinator cancelled the call; an aborted call is uncertain and stops the classifier for the session (no retry, by design). The host now passes `realtimeLimits.jobTimeoutMs = budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS` (10,000 + 2,000 ms by default), so the job deadline covers the model timeout. No module change.
+
 ## Ports, stages and lifecycle
 
 All nine majors are advertised as v1 because the module manifest inventories the full capability
