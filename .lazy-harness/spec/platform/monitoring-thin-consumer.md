@@ -21,6 +21,8 @@ User-confirmed: 2026-11-13, option A. Phase 1 only; no live activation or paid c
   - use the module model router reservation gate and native request/decoding; disable retries
   - keep rule-steering and memory unavailable; use the module in-memory worker default
   - fence read records, capture and frame admission at lifecycle boundaries and changed catalog bytes
+  - observe metadata only outside Git with bounded private logs; status and log failures must never call a model or block Pi
+  - resume completed same-session fences with fresh scoped pipelines while preserving lifetime reservations and no-retry state
 - Must not:
   - add a pi-fabric dependency or call the monitoring eval transport as production transport
   - infer read exposure from selection, preparation, enqueue or hook delivery
@@ -65,7 +67,9 @@ Optional host-local `.lazy-harness/monitoring-attach.json`; absent means referen
 model budget. The later activation key is `references.stage: "observe"`. Only off/observe are accepted;
 active/shadow and memory/rules keys reject. No config file is created by this change.
 
-The parser additionally accepts `catalog: [{id, path}]`, `readFormat` and `budget`.
+The parser additionally accepts `catalog: [{id, path}]`, `readFormat`, `budget` and `observeLog`.
+`observeLog: false` disables logging; a string selects an external state base directory.
+Absent means on only in observe. No host-local activation file is created or modified.
 Catalog admission is explicit, never an ambient scan: at most 16 distinct record paths under
 `.lazy-harness/{domain,spec,behavior,tests,decisions,ssot,planning}`, each at most 8192 bytes,
 aggregate at most 12288 bytes. Paths are contained, no symlink components, stable file identity/stat
@@ -92,7 +96,7 @@ and `rule.verifier` are unavailable; their purpose modules are not registered an
 - judgement.model: lazy-harness `createPiModelBinding`, not the monitoring hosts/pi eval transport.
   Local structural types and exact-model/Jev guards avoid version-specific SDK/eval imports; the module router generates native choice/bool requests,
   reserves lifetime calls/tokens/USD before invoke, and decodes answers. Pi classify has maxRetries 0;
-  uncertain transport permanently stops this backend, with no automatic retry or fallback.
+  uncertain transport (including same-scope deadlines) permanently stops this backend, with no automatic retry or fallback. Explicit retired-scope cancellation discards the result without poisoning a new scope; it never retries the old frame.
 - worker.execution: module `createHandlerWorkerPort`, built on its in-memory default, owned by the
   runtime. Logical wait is not physical settlement. Observe starts no jobs.
 - session.read-records: host `createHostReadRecords`, bounded volatile immutable snapshots,
@@ -108,10 +112,49 @@ and `rule.verifier` are unavailable; their purpose modules are not registered an
 Off loads/validates the manifest only: no monitoring hooks, registry access, workers, sources or
 provider calls. Observe installs module `hosts/pi` generation/observer/frame plumbing, preflights
 U1 only, and uses the real-time selection/region-compaction pipeline. It executes no jobs, reports,
-writes or injection. Model reservations are shared for the pipeline lifetime. Boundary notifications
-close admission, attestor, ledger, observer, pipeline and worker runtime; raw idle is awaited at close.
-Before/failed compaction, navigation, session replacement and shutdown never relabel old records.
-After such a fence a reload/new extension instance is required; there is no automatic restart.
+record-body writes or injection. Model reservations are shared for the session lifetime, including scope resumes.
+Boundary notifications synchronously invalidate admission/attestation and retire the pipeline; physical
+settlement drains asynchronously (including shutdown), never in a Pi lifecycle handler. Completed
+`session_compact`, `session_compact_failed` and `session_tree` allow the next real valid frame to
+start a fresh material window/coordinator/selection pipeline through public start ports (no synthetic
+session_start). The shared classifier backend retains lifetime calls/tokens/USD and uncertainty state.
+Old trace completions are recorded as stale skips, never accepted decisions or read exposure.
+Before switch/fork remains paused until completion; native fork/switch replaces the session through
+`session_start`. A replacement after startup remains permanently closed with
+`session_replaced_reload_required`: clean native re-scope has not been proven, so /reload is required.
+Shutdown, missing-frame, changed-catalog and unavailable-snapshot failures remain closed.
+
+## OBSERVE telemetry contract (2026-11-13 option A)
+
+`/monitoring` or `/monitoring status` is a read-only Pi command: attached/stage/stopped reason,
+hashed scope and generation, catalog ids/versions and aggregate UTF-8 bytes, watch events (`input`
+only), lifetime used/reserved and remaining calls/USD/tokens, reported usage totals, counters
+(frames, judgements, run/skip/defer, region compaction notes, errors), last five outcomes (ids only),
+log path/written/dropped/errors and classifier stop state. It never dispatches a model. Off installs
+no hooks, command or log. No catalog expansion: the live owner's two-document catalog is unchanged.
+`tail` is intentionally omitted (optional). Status is volatile, not restart-durable.
+
+Log location: `$XDG_STATE_HOME/lazy-harness/monitoring/observe/<project-sha256>/<UTC-date>.jsonl`,
+falling back to `~/.local/state`; the project hash is SHA-256 of the resolved project path. Custom
+bases are rejected at write time if under the project, inside any Git checkout, or symlinked.
+Owned base/project directories are 0700, regular no-follow files 0600. A bounded 64-entry async
+queue drops on overflow, a strict 2 MiB daily cap drops new rows, and writes prune files older than
+14 days. Log failures only increment counters; they never throw into Pi or trigger turns.
+
+Host schema `lazy-harness-observe/v1` is an explicit metadata projection of the module's
+`monitoring-trace/v1` callback, public selection notes (`region_within_budget`, `region_compacted`,
+failures), and `judgementEntriesFromExchange`; the module file sink is deliberately NOT used because
+it persists content bodies. Field allowlist: `schema`, `time`, `sessionIdHash`, `bindingGeneration`,
+`frameId`, `eventId`, `trigger`, `outcome` (judged/skipped/refused/failed/compaction), `decisionMode`
+(run/skip/defer/null), `confidence`, `selectedDocuments` (id/version), `candidateCount` (admitted
+catalog documents), `compaction` (kept/dropped/withinBudget), `modelCalls`, `reportedUsd`,
+`reportedTokens`, `latencyMs`, `budgetRemaining` (calls/usd/tokens), `errorClass`. Missing reported
+usage/confidence or unexposed compaction counts are null, never invented zero. Calls on compaction
+rows are separate from primary judgement calls. Remaining budget uses conservative reservations,
+not reported cost; latency is end-to-end frame-to-outcome time. Selected ids come from native bool
+selection, not proof of actual reading, delivery or execution. No conversation/record bodies,
+prompts, arbitrary error messages or credentials are persisted. The core-decoded decision is
+authoritative; raw late answers cannot increment run/skip/defer counts.
 
 ## Implementation map
 
@@ -124,6 +167,7 @@ After such a fence a reload/new extension instance is required; there is no auto
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/config.ts` — `readMonitoringAttachConfig`, `parseMonitoringAttachConfig`; off/observe and zero-budget defaults.
   - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — default-off startup call; existing before_agent_start behavior unchanged.
   - `.gitmodules` — submodule wiring. Package SDK pin, tsconfig and bun.lock have no delta from main.
+- Telemetry implementation: `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/observation.ts` — `createObservation`, metadata projection of public module trace/notes and judgement-log codec; `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/observe-log.ts` — `createObserveLog`, `observationHash`, bounded asynchronous private log. `createPiModelBinding` owns the shared lifetime reservation/uncertainty guard across pipeline replacements.
 - Tests / protection: `packages/lazy-harness-pi/tests/monitoring-attach-phase1.test.ts`; registered in `package.json` and `.lazy-harness/tests/test-strategy.xml` via full regression's existing Pi-capture target.
 - Cross-layer links: TDD `.lazy-harness/tests/monitoring-attach-phase1.md`; decisions ADR 0063/0064; common SDD `.lazy-harness/spec/platform/module-composition.md` remains LH-5-owned and unchanged.
 - Machine graph ids: `kg_monitoring_attach_phase1_composition`, `kg_monitoring_attach_phase1_model`, `kg_monitoring_attach_phase1_reads`, `kg_monitoring_attach_phase1_tests`.
@@ -141,3 +185,11 @@ to lazy-harness.attach1 on feat/monitoring-attach-phase1; shared checkout and Pa
 worktrees are excluded. No model calls or merge are authorized. Source organization baseline applied
 observe-only. The planning continuation records both phase-2 backlogs; ADR 0063 and common SDD
 are deliberately unchanged (LH-5 ownership). No graph legacy-row migration is folded into this PR.
+
+2026-11-13 OBSERVE option A: implementation is confined to the isolated obs1 worktree, one
+unmerged PR; the shared checkout and its live untracked activation file are excluded. Zero real
+model/provider calls in development and validation (fake classifier only); submodule remains 659cdc7,
+no dependencies or lockfile changes. This section supersedes the prior reload-only same-session
+fence behavior, not the safe replacement-session closure. Discovery capture: this SDD is primary;
+TDD contains protection and the four-row layer matrix; the existing plan gets one continuation line.
+Rule placement: component contract here, not a new global policy (exact-intent resolvers had no matches).
