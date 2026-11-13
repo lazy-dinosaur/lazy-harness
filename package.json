@@ -18,7 +18,8 @@
     "typecheck:node": "bun run typecheck:bun",
     "typecheck:bun": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun .lazy-harness/scripts/*.ts",
     "typecheck:pi": "node node_modules/typescript/bin/tsc -p packages/lazy-harness-pi/tsconfig.json",
-    "test:pi-capture": "node --test tests/lazy-harness/pi-capture-evidence.test.ts",
+    "test:pi-capture": "node --experimental-transform-types --test tests/lazy-harness/pi-capture-evidence.test.ts && bun run test:monitoring-attach",
+    "test:monitoring-attach": "bun test packages/lazy-harness-pi/tests/monitoring-attach-phase1.test.ts",
     "typecheck:bun-tests": "bun node_modules/typescript/bin/tsc --noEmit --target esnext --module preserve --moduleResolution bundler --allowImportingTsExtensions --types node,bun tests/lazy-harness/affected/*.ts packages/lazy-harness-pi/scripts/*.ts"
   },
   "workspaces": [

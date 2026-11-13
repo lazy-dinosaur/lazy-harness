@@ -3,6 +3,9 @@
 .lazy-harness/questions/__tmp_*.xml
 .lazy-harness/logs/__tmp_*.jsonl
 
+# Local dependency installs (including the pinned monitoring workspace)
+node_modules/
+
 # Python bytecode cache
 .lazy-harness/scripts/__pycache__/
 __pycache__/

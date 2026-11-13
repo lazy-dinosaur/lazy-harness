@@ -1,15 +1,18 @@
 {
   "compilerOptions": {
     "noEmit": true,
+    "skipLibCheck": true,
     "target": "ES2023",
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "types": [
-      "node"
+      "node",
+      "bun"
     ],
     "typeRoots": [
-      "./node_modules/@types"
+      "./node_modules/@types",
+      "../../node_modules/@types"
     ],
     "lib": [
       "ES2023",

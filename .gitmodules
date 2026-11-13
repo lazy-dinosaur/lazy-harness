@@ -1,0 +1,3 @@
+[submodule "vendor/lazy-harness-monitoring"]
+	path = vendor/lazy-harness-monitoring
+	url = https://github.com/lazy-dinosaur/lazy-harness-monitoring.git
