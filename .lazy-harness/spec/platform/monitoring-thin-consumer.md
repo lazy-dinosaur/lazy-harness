@@ -17,7 +17,7 @@ User-confirmed: 2026-11-13, option A. Phase 1 only; no live activation or paid c
 - Must:
   - validate the module-owned root manifest and all required integer majors before composition
   - default references to off and paid-call budgets to zero; require separate approval for observe and budget admission
-  - keep judgement.model in the lazy-harness Pi composition layer using Pi ModelRuntime.classify on openrouter/typesafe/jev-1.14 only
+  - keep judgement.model in the lazy-harness Pi composition layer using the running Pi extension context's modelRegistry.classify on openrouter/typesafe/jev-1.14 only
   - use the module model router reservation gate and native request/decoding; disable retries
   - keep rule-steering and memory unavailable; use the module in-memory worker default
   - fence read records, capture and frame admission at lifecycle boundaries and changed catalog bytes
@@ -44,10 +44,16 @@ checkout, not a published package. Deployment requires this checkout layout and 
 
 Install: `git submodule update --init vendor/lazy-harness-monitoring`, `bun install --frozen-lockfile`
 at this root, then `bun install --frozen-lockfile` inside the submodule. Both lockfiles are respected;
-submodule files/lockfile are unchanged. The Pi package's development SDK is pinned to 1.5.0,
-because the root CLI development SDK 0.85.1 has no classify API. The root CLI pin is unchanged.
-A minimal prompt-field narrowing accommodates Pi 1.5 custom-start events; no v1 behavior is restored.
-Node/Bun types cover the module's existing native-classifier helper; skipLibCheck applies only to third-party declaration conflicts (Bun fetch.preconnect versus SDK fetch declarations). Node capture tests use --experimental-transform-types because the module contains TypeScript parameter properties; production Pi transpiles extensions. No npm publish/Fabric install.
+submodule files/lockfile are unchanged. No package-local SDK pin: the root development SDK remains
+0.85.1, and bun.lock returns to the main baseline. The running Pi supplies ctx.modelRegistry; local
+structural types describe getModelOfType/classify without importing a version-specific SDK runtime
+or the module eval helper. The 1.5.0 SDK's core/extensions/types.d.ts and core/model-registry.d.ts
+confirm this context shape. Older/missing registries fail closed only on explicit observe startup.
+The unrelated before_agent_start prompt narrowing and all tsconfig changes are reverted.
+Node capture tests retain --experimental-transform-types: importing the phase-1 composition reaches
+packages/core/src/sdk/diagnostics.ts parameter properties. A direct strip-only Node probe fails with
+ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX; the configured capture target passes. Production Pi transpiles
+extensions. No npm publish/Fabric install.
 
 Grounding used direct overview/drill/canonical reads because the user prohibited every real model
 call, including a Reader worker. The original shared checkout is not edited or switched.
@@ -71,8 +77,9 @@ Budget fields are the module's MonitoringModelLimits: calls, concurrency/queue, 
 input/output byte bounds, output tokens and lifetime reserved tokens/USD. Defaults are zero calls,
 zero reserved tokens/USD, concurrency 1 and queue 0. Observe does not itself grant paid calls;
 a separately approved nonzero budget is necessary before the module router can dispatch.
-Stored OpenRouter auth is resolved by ModelRuntime; no credentials belong in config/records.
-Environment API-key fallback is suppressed. SDK creation has catalog network refresh disabled.
+Stored OpenRouter auth is resolved by the running Pi registry; no credentials belong in config/records.
+Environment API-key fallback is suppressed. Attachment does not create an SDK runtime, refresh a
+model catalog or import the host repository's installed SDK. Only exact classifier lookup is used.
 
 ## Ports, stages and lifecycle
 
@@ -83,7 +90,7 @@ and `rule.verifier` are unavailable; their purpose modules are not registered an
 `state.persistence` is unused (stateless/volatile composition), no durability claim.
 
 - judgement.model: lazy-harness `createPiModelBinding`, not the monitoring hosts/pi eval transport.
-  Imports only its pure exact-model/Jev guard; module router generates native choice/bool requests,
+  Local structural types and exact-model/Jev guards avoid version-specific SDK/eval imports; the module router generates native choice/bool requests,
   reserves lifetime calls/tokens/USD before invoke, and decodes answers. Pi classify has maxRetries 0;
   uncertain transport permanently stops this backend, with no automatic retry or fallback.
 - worker.execution: module `createHandlerWorkerPort`, built on its in-memory default, owned by the
@@ -98,7 +105,7 @@ and `rule.verifier` are unavailable; their purpose modules are not registered an
   Enqueue and hook-boundary delivery are separate from provider input/read evidence. Active delivery
   and capture-before-dispatch origin/dependencies remain a later approved extension, not this PR.
 
-Off loads/validates the manifest only: no monitoring hooks, model runtime, workers, sources or
+Off loads/validates the manifest only: no monitoring hooks, registry access, workers, sources or
 provider calls. Observe installs module `hosts/pi` generation/observer/frame plumbing, preflights
 U1 only, and uses the real-time selection/region-compaction pipeline. It executes no jobs, reports,
 writes or injection. Model reservations are shared for the pipeline lifetime. Boundary notifications
@@ -115,8 +122,8 @@ After such a fence a reload/new extension instance is required; there is no auto
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/read-records.ts` — `createHostReadRecords`; host ledger ownership/fencing.
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/catalog.ts` — `captureRecord`, `admitCatalog`; explicit byte admission/currentness.
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/config.ts` — `readMonitoringAttachConfig`, `parseMonitoringAttachConfig`; off/observe and zero-budget defaults.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — default-off startup call and Pi 1.5 prompt narrowing.
-  - `packages/lazy-harness-pi/package.json`, `packages/lazy-harness-pi/tsconfig.json`, `bun.lock`, `.gitmodules` — SDK/type/submodule wiring.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — default-off startup call; existing before_agent_start behavior unchanged.
+  - `.gitmodules` — submodule wiring. Package SDK pin, tsconfig and bun.lock have no delta from main.
 - Tests / protection: `packages/lazy-harness-pi/tests/monitoring-attach-phase1.test.ts`; registered in `package.json` and `.lazy-harness/tests/test-strategy.xml` via full regression's existing Pi-capture target.
 - Cross-layer links: TDD `.lazy-harness/tests/monitoring-attach-phase1.md`; decisions ADR 0063/0064; common SDD `.lazy-harness/spec/platform/module-composition.md` remains LH-5-owned and unchanged.
 - Machine graph ids: `kg_monitoring_attach_phase1_composition`, `kg_monitoring_attach_phase1_model`, `kg_monitoring_attach_phase1_reads`, `kg_monitoring_attach_phase1_tests`.
@@ -126,6 +133,11 @@ After such a fence a reload/new extension instance is required; there is no auto
 
 This primary SDD captures the confirmed phase-1 boundary and Parent correction: production model
 transport belongs in lazy-harness, not monitoring hosts. No new global operating rule is created;
-exact-intent policy/capability resolution returned no matches. Source organization baseline applied
+exact-intent policy/capability resolution returned no matches.
+User correction (2026-11-13, PR #38): the full-suite Reader SDK failure was introduced by this PR,
+not pre-existing. The package-local 1.5.0 pin mixed with the root 0.85.1 loader; remove that pin
+and consume the running context registry. SDK upgrades are a separate future task. Work is confined
+to lazy-harness.attach1 on feat/monitoring-attach-phase1; shared checkout and Parent verification
+worktrees are excluded. No model calls or merge are authorized. Source organization baseline applied
 observe-only. The planning continuation records both phase-2 backlogs; ADR 0063 and common SDD
 are deliberately unchanged (LH-5 ownership). No graph legacy-row migration is folded into this PR.

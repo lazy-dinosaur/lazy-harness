@@ -1106,7 +1106,6 @@ async function createWorktree(pi: ExtensionAPI, ctx: any, root: string, target: 
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    if (!("prompt" in event)) return undefined; // Pi 1.5 custom-start events carry no user prompt.
     const cwd = resolveInvocationCwd(event, ctx);
     const root = findLazyRoot(cwd);
     if (!root) return undefined;

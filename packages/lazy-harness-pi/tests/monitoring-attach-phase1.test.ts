@@ -12,9 +12,9 @@ import { runReadRecordPortConformance } from '../../../vendor/lazy-harness-monit
 
 const fakeModel: any = { provider: 'openrouter', id: 'typesafe/jev-1.14', api: 'typesafe-system-one', type: 'classifier', baseUrl: 'https://openrouter.ai/api/v1', contextWindow: 131072, cost: { input: 0.1, output: 0, cacheRead: 0, cacheWrite: 0 } }
 const admitted = () => parseMonitoringAttachConfig({ references: { stage: 'observe' }, budget: { maxCalls: 4, maxReservedTokens: 200000, maxReservedUsd: 1 } })
-function hooks() {
+function hooks(context: object = {}) {
   const map = new Map<string, Function[]>()
-  const ctx = { sessionManager: { getSessionId: () => 'synthetic-session', getLeafId: () => 'leaf-1', getBranch: () => [], buildSessionProjection: () => ({ messages: [] }) }, getSystemPrompt: () => '' }
+  const ctx = { sessionManager: { getSessionId: () => 'synthetic-session', getLeafId: () => 'leaf-1', getBranch: () => [], buildSessionProjection: () => ({ messages: [] }) }, getSystemPrompt: () => '', ...context }
   return { on(name: string, f: any) { const list = map.get(name) ?? []; list.push(f); map.set(name, list); return () => { const i = list.indexOf(f); if (i >= 0) list.splice(i, 1) } }, map, emit(name: string, extra: object = {}) { return [...(map.get(name) ?? [])].map(f => f({ type: name, ...extra }, ctx)) } }
 }
 function fakeClassifier(calls: any[]) {
@@ -34,6 +34,41 @@ describe('phase 1 offline attachment', () => {
       installMonitoringPhase1(pi as any, tmpdir()); expect(owner.stage).toBe('off'); expect(pi.map.size).toBe(0); await owner.close(); expect(calls).toHaveLength(0)
       expect(Object.values(HOST_PORT_MAJORS).every(v => v === 1)).toBe(true)
     } finally { globalThis.fetch = prior }
+  })
+  test('installed observe uses the running context registry without network; zero budget never classifies', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lh-context-registry-')), calls: any[] = [], lookups: unknown[][] = []
+    const fake = fakeClassifier(calls)
+    const registry = { ...fake.runtime, getModelOfType(...args: unknown[]) { expect(this).toBe(registry); lookups.push(args); return fake.model } }
+    const pi = hooks({ modelRegistry: registry }), prior = globalThis.fetch
+    globalThis.fetch = (() => { throw Error('network prohibited') }) as any
+    try {
+      mkdirSync(join(dir, '.lazy-harness'), { recursive: true })
+      writeFileSync(join(dir, '.lazy-harness/monitoring-attach.json'), JSON.stringify({ references: { stage: 'observe' } }))
+      installMonitoringPhase1(pi as any, dir)
+      await Promise.all(pi.emit('session_start'))
+      await Promise.all(pi.emit('input', { text: 'Synthetic input', source: 'interactive' }))
+      await Promise.all(pi.emit('session_shutdown'))
+      expect(lookups).toEqual([['classifier', 'openrouter', 'typesafe/jev-1.14']]); expect(calls).toHaveLength(0)
+    } finally { globalThis.fetch = prior; rmSync(dir, { recursive: true, force: true }) }
+  })
+  test('installed observe fails closed on old/missing registries and unavailable/wrong models', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lh-context-reject-'))
+    try {
+      mkdirSync(join(dir, '.lazy-harness'), { recursive: true })
+      writeFileSync(join(dir, '.lazy-harness/monitoring-attach.json'), JSON.stringify({ references: { stage: 'observe' } }))
+      for (const registry of [undefined, {}, { getModelOfType: () => fakeModel }, { classify: () => { throw Error('must not classify') }, getModelOfType: () => undefined }, { classify: () => { throw Error('must not classify') }, getModelOfType: () => ({ ...fakeModel, id: 'typesafe/jev-latest' }) }]) {
+        const pi = hooks({ modelRegistry: registry }); installMonitoringPhase1(pi as any, dir)
+        await expect(Promise.all(pi.emit('session_start'))).rejects.toThrow()
+      }
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+  test('monitoring does not load a host SDK or eval transport; package has no local SDK pin', () => {
+    for (const name of ['model', 'index']) {
+      const source = readFileSync(new URL(`../extensions/lazy-harness/monitoring/${name}.ts`, import.meta.url), 'utf8')
+      expect(source).not.toContain("import('@earendil-works/pi-coding-agent')"); expect(source).not.toContain('compaction-transport.ts'); expect(source).not.toContain('ModelRuntime')
+    }
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    expect(pkg.devDependencies['@earendil-works/pi-coding-agent']).toBeUndefined()
   })
   test('unsupported host major refuses before hooks/classifier', () => {
     const pi = hooks(), calls: any[] = []

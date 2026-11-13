@@ -1,11 +1,25 @@
-import type { ModelRuntime } from '@earendil-works/pi-coding-agent'
 import { bindModelBackend, exposeModelBackend, type MonitoringModelBackend, type MonitoringModelLimits } from '../../../../../vendor/lazy-harness-monitoring/composition.ts'
-import { assertModel, assertOpenRouterJevOnly } from '../../../../../vendor/lazy-harness-monitoring/hosts/pi/src/eval/compaction-transport.ts'
-
-export { assertOpenRouterJevOnly }
+// Local structural boundary: the running Pi supplies the registry, not the host's installed SDK.
+export type ClassifierModel = { provider: string; id: string; api: string; type: string; baseUrl: string; contextWindow: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; tiers?: readonly unknown[] } }
+export type ClassifierRuntime = { classify(model: ClassifierModel, body: unknown, options: { signal: AbortSignal; maxRetries: number; timeoutMs: number; env: Record<string, string> }): Promise<{ stopReason: string; provider: string; model: string; api: string; [key: string]: unknown }> }
+export type ClassifierRegistry = ClassifierRuntime & { getModelOfType(type: 'classifier', provider: string, id: string): ClassifierModel | undefined }
+export function classifierFromContext(ctx: { modelRegistry?: unknown }) {
+  const registry = ctx.modelRegistry as Partial<ClassifierRegistry> | undefined
+  if (typeof registry?.getModelOfType !== 'function' || typeof registry.classify !== 'function') throw Error('Pi context classifier registry unavailable')
+  const model = registry.getModelOfType('classifier', 'openrouter', 'typesafe/jev-1.14')
+  if (!model) throw Error('pinned Jev classifier unavailable')
+  assertModel(model)
+  return { runtime: registry as ClassifierRegistry, model }
+}
+export function assertOpenRouterJevOnly(model: Pick<ClassifierModel, 'provider' | 'id'>) {
+  if (model.provider === 'openrouter' && !/^typesafe\/jev-\d+\.\d+$/.test(model.id)) throw Error('OpenRouter is used only for pinned TypeSafe Jev models')
+}
+function assertModel(model: ClassifierModel) {
+  assertOpenRouterJevOnly(model)
+  if (`${model.provider}/${model.id}` !== JEV_MODEL || model.api !== 'typesafe-system-one' || model.type !== 'classifier' || model.baseUrl !== 'https://openrouter.ai/api/v1') throw Error('exact classifier/API/endpoint required')
+  if (!Number.isFinite(model.cost.input) || model.cost.input <= 0 || model.cost.output !== 0 || model.cost.cacheRead !== 0 || model.cost.cacheWrite !== 0 || model.cost.tiers?.length) throw Error('unsupported classifier pricing')
+}
 export const JEV_MODEL = 'openrouter/typesafe/jev-1.14'
-export type ClassifierModel = Parameters<ModelRuntime['classify']>[0]
-export type ClassifierRuntime = Pick<ModelRuntime, 'classify'>
 /** A bounded native backend, NOT the monitoring eval transport. Only the module router owns dispatch. */
 export function createPiModelBinding(runtime: ClassifierRuntime, model: ClassifierModel, limits: MonitoringModelLimits) {
   assertModel(model)
@@ -26,8 +40,8 @@ export function createPiModelBinding(runtime: ClassifierRuntime, model: Classifi
       const bound = estimate(request, context.profile)
       if (bound.maxInputTokens > context.reservation.maxInputTokens || bound.maxEstimatedUsd > context.reservation.maxEstimatedUsd) throw Error('missing model reservation')
       try {
-        // Empty env overrides environment credentials: ModelRuntime resolves the stored OpenRouter credential.
-        const value = await runtime.classify(model, request.body as unknown as Parameters<ModelRuntime['classify']>[1], {
+        // Empty env overrides environment credentials: Pi's registry resolves stored OpenRouter auth.
+        const value = await runtime.classify(model, request.body, {
           signal: context.signal, maxRetries: 0, timeoutMs: context.profile.limits.timeoutMs,
           env: { OPENROUTER_API_KEY: '' },
         })

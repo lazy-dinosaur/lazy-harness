@@ -9,7 +9,7 @@ import { ContextCarryMailbox } from '../../../../../vendor/lazy-harness-monitori
 import type { InputPortContext } from '../../../../../vendor/lazy-harness-monitoring/packages/core/src/host/index.ts'
 import { readMonitoringAttachConfig, parseMonitoringAttachConfig, type MonitoringAttachConfig } from './config.ts'
 import { createHostReadRecords } from './read-records.ts'
-import { createPiModelBinding, type ClassifierModel, type ClassifierRuntime } from './model.ts'
+import { classifierFromContext, createPiModelBinding, type ClassifierModel, type ClassifierRuntime } from './model.ts'
 import { admitCatalog, captureRecord } from './catalog.ts'
 
 export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy-harness-monitoring/', import.meta.url))
@@ -80,22 +80,18 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
     async close() { detach(); stop(); await pipeline.idle(); await runtime.idle(); await observer.idle() },
   }
 }
-/** Extension startup is synchronous/off by default; SDK creation and credentials are deferred to explicit observe. */
+/** Extension startup is synchronous/off by default; the running Pi's registry is used only in explicit observe. */
 export function installMonitoringPhase1(pi: ExtensionAPI, root: string) {
   const config = startMonitoringComposition(MONITORING_ROOT, HOST_PORT_MAJORS, () => readMonitoringAttachConfig(root))
   if (config.references.stage === 'off') return
   let owner: ReturnType<typeof attachMonitoringPhase1> | undefined
   const handlers = new Map<string, Array<(event: any, ctx: any) => unknown>>()
   const scopedPi = { on(name: string, handler: (event: any, ctx: any) => unknown) { const list = handlers.get(name) ?? []; list.push(handler); handlers.set(name, list); return () => { const i = list.indexOf(handler); if (i >= 0) list.splice(i, 1) } } }
-  // Register synchronously; forward the actual session_start only AFTER async model setup.
+  // Register synchronously; forward the actual session_start only AFTER context registry admission.
   // No fabricated frame/session or handler added too late to see its initiating event.
   for (const name of observationEvents) (pi.on as any)(name, async (event: any, ctx: any) => {
     if (name === 'session_start' && !owner) {
-      const { ModelRuntime } = await import('@earendil-works/pi-coding-agent')
-      const runtime = await ModelRuntime.create({ allowModelNetwork: false, refreshOnCreate: false })
-      const model = runtime.getModelOfType('classifier', 'openrouter', 'typesafe/jev-1.14')
-      if (!model) throw Error('pinned Jev classifier unavailable')
-      owner = attachMonitoringPhase1(scopedPi, { root, config, classifier: { runtime, model } })
+      owner = attachMonitoringPhase1(scopedPi, { root, config, classifier: classifierFromContext(ctx) })
     }
     for (const handler of [...(handlers.get(name) ?? [])]) await handler(event, ctx)
     if (name === 'session_shutdown') await owner?.close()
