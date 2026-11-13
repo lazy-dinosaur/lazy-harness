@@ -21,9 +21,12 @@ function assertModel(model: ClassifierModel) {
 }
 export const JEV_MODEL = 'openrouter/typesafe/jev-1.14'
 /** A bounded native backend, NOT the monitoring eval transport. Only the module router owns dispatch. */
-export function createPiModelBinding(runtime: ClassifierRuntime, model: ClassifierModel, limits: MonitoringModelLimits) {
+export function createPiModelBinding(runtime: ClassifierRuntime, model: ClassifierModel, limits: MonitoringModelLimits, observe?: (request: any, value: any, latencyMs: number, error: boolean) => void, scopeGeneration: () => number = () => 0) {
   assertModel(model)
   let stopped = false
+  // This owner survives scope pipeline replacement. Reservations never refund, even on cancellation.
+  const usage = { calls: 0, tokens: 0, usd: 0, active: 0, reportedTokens: 0, reportedUsd: 0, errors: 0 }
+  const remaining = () => ({ calls: Math.max(0, limits.maxCalls - usage.calls), tokens: Math.max(0, limits.maxReservedTokens - usage.tokens), usd: Math.max(0, limits.maxReservedUsd - usage.usd) })
   const estimate: MonitoringModelBackend['estimate'] = request => {
     if (request.kind !== 'native-classifier') throw Error('native classifier required')
     const maxInputTokens = Buffer.byteLength(JSON.stringify(request.body), 'utf8') + 4096
@@ -39,6 +42,11 @@ export function createPiModelBinding(runtime: ClassifierRuntime, model: Classifi
       context.signal.throwIfAborted()
       const bound = estimate(request, context.profile)
       if (bound.maxInputTokens > context.reservation.maxInputTokens || bound.maxEstimatedUsd > context.reservation.maxEstimatedUsd) throw Error('missing model reservation')
+      const tokens = bound.maxInputTokens + context.profile.limits.maxOutputTokens
+      if (usage.calls >= limits.maxCalls || usage.tokens + tokens > limits.maxReservedTokens || usage.usd + bound.maxEstimatedUsd > limits.maxReservedUsd || usage.active >= limits.maxConcurrent) throw Error('session model budget unavailable')
+      usage.calls++; usage.tokens += tokens; usage.usd += bound.maxEstimatedUsd; usage.active++
+      const started = performance.now(), generation = scopeGeneration()
+      const notify = (value: any, error: boolean) => { try { observe?.(request, value, performance.now() - started, error) } catch { /* advisory only */ } }
       try {
         // Empty env overrides environment credentials: Pi's registry resolves stored OpenRouter auth.
         const value = await runtime.classify(model, request.body, {
@@ -46,13 +54,18 @@ export function createPiModelBinding(runtime: ClassifierRuntime, model: Classifi
           env: { OPENROUTER_API_KEY: '' },
         })
         if (context.signal.aborted || value.stopReason !== 'stop' || value.provider !== model.provider || value.model !== model.id || value.api !== model.api) throw Error('invalid classifier completion')
+        const u = value.usage as any
+        if (Number.isFinite(u?.totalTokens) && u.totalTokens >= 0) usage.reportedTokens += u.totalTokens
+        if (Number.isFinite(u?.cost?.total) && u.cost.total >= 0) usage.reportedUsd += u.cost.total
+        notify(value, false)
         return { value }
-      } catch { stopped = true; throw Error('classifier outcome uncertain; no retry') }
+      } catch { usage.errors++; if (scopeGeneration() === generation) stopped = true; notify(undefined, true); throw Error('classifier outcome uncertain; no retry') }
+      finally { usage.active-- }
     },
   }
   // Router reserves calls/tokens/USD before invoke and performs native request generation + decoding.
   // It retains raw capacity through settlement; budgets are lifetime, not reset per opportunity.
-  return { modelConfig: { modelConfigVersion: 1, profiles: [{ id: 'jev', backend: 'pi-jev', backendVersion: '1', provider: 'openrouter', model: 'typesafe/jev-1.14', role: 'judge', parameters: {}, referenceThreshold: 0.5 }], defaultJudgeProfile: 'jev' }, modelHost: {
+  return { usage, remaining, get stopped() { return stopped }, modelConfig: { modelConfigVersion: 1, profiles: [{ id: 'jev', backend: 'pi-jev', backendVersion: '1', provider: 'openrouter', model: 'typesafe/jev-1.14', role: 'judge', parameters: {}, referenceThreshold: 0.5 }], defaultJudgeProfile: 'jev' }, modelHost: {
     backends: { 'pi-jev': bindModelBackend(exposeModelBackend(backend)) }, maxProfiles: 1, maxTotalConcurrent: limits.maxConcurrent,
   } }
 }
