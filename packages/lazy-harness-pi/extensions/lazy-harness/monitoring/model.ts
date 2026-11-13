@@ -1,0 +1,58 @@
+import { bindModelBackend, exposeModelBackend, type MonitoringModelBackend, type MonitoringModelLimits } from '../../../../../vendor/lazy-harness-monitoring/composition.ts'
+// Local structural boundary: the running Pi supplies the registry, not the host's installed SDK.
+export type ClassifierModel = { provider: string; id: string; api: string; type: string; baseUrl: string; contextWindow: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; tiers?: readonly unknown[] } }
+export type ClassifierRuntime = { classify(model: ClassifierModel, body: unknown, options: { signal: AbortSignal; maxRetries: number; timeoutMs: number; env: Record<string, string> }): Promise<{ stopReason: string; provider: string; model: string; api: string; [key: string]: unknown }> }
+export type ClassifierRegistry = ClassifierRuntime & { getModelOfType(type: 'classifier', provider: string, id: string): ClassifierModel | undefined }
+export function classifierFromContext(ctx: { modelRegistry?: unknown }) {
+  const registry = ctx.modelRegistry as Partial<ClassifierRegistry> | undefined
+  if (typeof registry?.getModelOfType !== 'function' || typeof registry.classify !== 'function') throw Error('Pi context classifier registry unavailable')
+  const model = registry.getModelOfType('classifier', 'openrouter', 'typesafe/jev-1.14')
+  if (!model) throw Error('pinned Jev classifier unavailable')
+  assertModel(model)
+  return { runtime: registry as ClassifierRegistry, model }
+}
+export function assertOpenRouterJevOnly(model: Pick<ClassifierModel, 'provider' | 'id'>) {
+  if (model.provider === 'openrouter' && !/^typesafe\/jev-\d+\.\d+$/.test(model.id)) throw Error('OpenRouter is used only for pinned TypeSafe Jev models')
+}
+function assertModel(model: ClassifierModel) {
+  assertOpenRouterJevOnly(model)
+  if (`${model.provider}/${model.id}` !== JEV_MODEL || model.api !== 'typesafe-system-one' || model.type !== 'classifier' || model.baseUrl !== 'https://openrouter.ai/api/v1') throw Error('exact classifier/API/endpoint required')
+  if (!Number.isFinite(model.cost.input) || model.cost.input <= 0 || model.cost.output !== 0 || model.cost.cacheRead !== 0 || model.cost.cacheWrite !== 0 || model.cost.tiers?.length) throw Error('unsupported classifier pricing')
+}
+export const JEV_MODEL = 'openrouter/typesafe/jev-1.14'
+/** A bounded native backend, NOT the monitoring eval transport. Only the module router owns dispatch. */
+export function createPiModelBinding(runtime: ClassifierRuntime, model: ClassifierModel, limits: MonitoringModelLimits) {
+  assertModel(model)
+  let stopped = false
+  const estimate: MonitoringModelBackend['estimate'] = request => {
+    if (request.kind !== 'native-classifier') throw Error('native classifier required')
+    const maxInputTokens = Buffer.byteLength(JSON.stringify(request.body), 'utf8') + 4096
+    if (maxInputTokens > model.contextWindow) throw Error('classifier context bound')
+    return { maxInputTokens, maxEstimatedUsd: Math.ceil(maxInputTokens * model.cost.input / 1e6 * 1e9) / 1e9 }
+  }
+  const backend: MonitoringModelBackend = {
+    version: '1', provider: 'openrouter', model: 'typesafe/jev-1.14', kind: 'native-classifier', roles: ['judge'],
+    parametersSchema: { type: 'object', additionalProperties: false, properties: {} }, ceilings: limits, estimate,
+    async invoke(request, context) {
+      if (stopped) throw Error('classifier stopped after uncertain outcome')
+      assertModel(model)
+      context.signal.throwIfAborted()
+      const bound = estimate(request, context.profile)
+      if (bound.maxInputTokens > context.reservation.maxInputTokens || bound.maxEstimatedUsd > context.reservation.maxEstimatedUsd) throw Error('missing model reservation')
+      try {
+        // Empty env overrides environment credentials: Pi's registry resolves stored OpenRouter auth.
+        const value = await runtime.classify(model, request.body, {
+          signal: context.signal, maxRetries: 0, timeoutMs: context.profile.limits.timeoutMs,
+          env: { OPENROUTER_API_KEY: '' },
+        })
+        if (context.signal.aborted || value.stopReason !== 'stop' || value.provider !== model.provider || value.model !== model.id || value.api !== model.api) throw Error('invalid classifier completion')
+        return { value }
+      } catch { stopped = true; throw Error('classifier outcome uncertain; no retry') }
+    },
+  }
+  // Router reserves calls/tokens/USD before invoke and performs native request generation + decoding.
+  // It retains raw capacity through settlement; budgets are lifetime, not reset per opportunity.
+  return { modelConfig: { modelConfigVersion: 1, profiles: [{ id: 'jev', backend: 'pi-jev', backendVersion: '1', provider: 'openrouter', model: 'typesafe/jev-1.14', role: 'judge', parameters: {}, referenceThreshold: 0.5 }], defaultJudgeProfile: 'jev' }, modelHost: {
+    backends: { 'pi-jev': bindModelBackend(exposeModelBackend(backend)) }, maxProfiles: 1, maxTotalConcurrent: limits.maxConcurrent,
+  } }
+}

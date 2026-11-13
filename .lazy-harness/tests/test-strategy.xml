@@ -31,6 +31,9 @@
     <command id="bun-test-typecheck">bun run typecheck:bun-tests</command>
     <command id="pi-node-typecheck">bun run typecheck:pi</command>
     <command id="pi-sdk-integration">bun run test:pi-capture</command>
+    <command id="monitoring-attach-phase1">bun run test:monitoring-attach</command>
+    <!-- Full regression invokes test:pi-capture, which includes the offline phase-1 suite.
+         The suite runs manifest read-record and chosen in-memory worker conformance. -->
   </project-commands>
   <affectedTestRouting command="bun run test:run {tests}" />
 

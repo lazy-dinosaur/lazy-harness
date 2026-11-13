@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CAPTURE_GUIDANCE, CaptureEvidence } from "./capture-evidence.ts";
+import { installMonitoringPhase1 } from "./monitoring/index.ts";
 import type { ReaderLaunchIdentity, ReaderTransport } from "./reader-transport.ts";
 import { FABRIC_READER_GUIDANCE, fabricReaderPrompt, fabricReaderRequest, fabricReaderLedgerPath, fabricReaderLineage, persistFabricReaderLedger, fabricReaderModelMatches, fabricReaderProxyResult, validateFabricReaderSpawn } from "./fabric-reader.ts";
 import { applyFabricReaderPrompt, fabricReaderDefinition, fabricReaderSystemPrompt, advanceFabricReaderTurn, FABRIC_READER_WRAP_UP, validateFabricReaderPolicy, type FabricReaderPolicyState } from "./fabric-reader-policy.ts";
@@ -14,6 +15,7 @@ import { permitsOwnedReaderStatusInspection, type ReaderStatusInspectionContext 
 export { permitsOwnedReaderStatusInspection } from "./reader-status.ts";
 
 export default function lazyHarnessPi(pi: ExtensionAPI, runtime: { readerTransport?: ReaderTransport } = {}) {
+installMonitoringPhase1(pi, process.cwd());
 // Every SDK session gets its own state, even when an in-process child loads the
 // same module at the same root. Never share mutable Reader/epoch/capture state.
 
