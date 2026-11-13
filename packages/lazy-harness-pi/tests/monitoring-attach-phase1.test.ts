@@ -342,4 +342,17 @@ describe('phase 1 offline attachment', () => {
       expect(status.classifierStopped).toBe(true)
     } finally { await owner.close() }
   })
+  test('a judgement slower than one second is not aborted by the selection job deadline (regression: live classifier_uncertain:aborted)', async () => {
+    const pi = hooks(), calls: any[] = []
+    const slow: any = { model: fakeModel, runtime: { async classify(model: any, body: any, options: any) { calls.push(1); await new Promise(r => setTimeout(r, 1500)); if (options.signal?.aborted) return { ...fakeModel, model: model.id, stopReason: 'aborted', answers: {} }; return { ...fakeModel, model: model.id, stopReason: 'stop', answers: Object.fromEntries(Object.entries(body.questions).map(([key, q]: any) => [key, q.type === 'choice' ? { type: 'choice', choice: 'run', confidence: 0.9 } : { type: 'bool', probability: 1 }])) } } } }
+    const owner = attachMonitoringPhase1(pi, { root: tmpdir(), config: admitted(), classifier: slow })
+    try {
+      if (owner.stage !== 'observe') throw Error('observe missing')
+      pi.emit('session_start'); pi.emit('input', { text: 'Which project facts matter?', source: 'interactive' }); await owner.idle()
+      expect(calls.length).toBe(1)
+      expect(owner.status().budget.used.lastFailure).toBeNull()
+      expect(owner.status().classifierStopped).toBe(false)
+      expect(owner.status().counters.judgements).toBe(1)
+    } finally { await owner.close() }
+  })
 })

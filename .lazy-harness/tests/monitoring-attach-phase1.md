@@ -91,6 +91,13 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: 'classifier failure records a bounded failure class (no provider text)' — fake classifier returns `stopReason: error` with a 401 message; status shows `lastFailure: stop_error_auth_401`, no provider text, classifier stopped.
 - Layer matrix: SDD updated (monitoring-thin-consumer.md classifier failure detail); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: 1 s selection job deadline aborted live judgements (2026-11-13)
+
+- Symptom: live observe `failed`, `errorClass: classifier_uncertain:aborted`, latency ~1,072 ms; classifier stopped; next input `refused` / `no_admitted_decision`.
+- Cause: realtime selection default `jobTimeoutMs` 1,000 ms < real Jev latency on the U1 view.
+- Protection: 'a judgement slower than one second is not aborted by the selection job deadline' (fake classifier delays 1,500 ms); fails with the default deadline (`lastFailure: aborted`), passes with the fix.
+- Layer matrix: SDD updated (monitoring-thin-consumer.md selection job deadline); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented

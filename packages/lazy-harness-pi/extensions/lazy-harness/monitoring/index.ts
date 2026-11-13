@@ -20,6 +20,9 @@ export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy
  * Tail mode keeps the newest messages within the byte bound so the snapshot stays available; U1 reads only
  * its since-last region, so 32 messages is enough. */
 export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
+/** The realtime selection job deadline defaults to 1 s, shorter than a real Jev judgement on a full U1 view (~1.1 s
+ * observed live), which aborted the call and stopped the classifier. The job deadline must cover the model timeout. */
+export const JOB_TIMEOUT_MARGIN_MS = 2000
 export const HOST_PORT_MAJORS: PortMajors = Object.freeze({ 'worker.execution': 1, 'judgement.model': 1, 'session.read-records': 1, 'report.enqueue': 1, 'state.persistence': 1, 'memory.review-sink': 1, 'memory.source': 1, 'policy.registry': 1, 'rule.verifier': 1 })
 export const UNAVAILABLE_PORTS = Object.freeze(['memory.review-sink', 'memory.source', 'policy.registry', 'rule.verifier'])
 type PiHooks = Parameters<typeof attachPiFrames>[0]
@@ -57,7 +60,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   const runtime = new MonitoringModuleRuntime({ modules: [registration], handlers: registration.handlers, workerPort: worker, budget: new ApprovedBudgetGate(), report })
   function makePipeline() {
     const epoch = generation
-    const instance = createRealtimeSelectionPipeline({ enabled: true, material: { allowedKinds: binding.grants.referenceKinds, references: catalog.documents, historyMode: 'since-last' }, selection: {
+    const instance = createRealtimeSelectionPipeline({ enabled: true, realtimeLimits: { jobTimeoutMs: config.budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS }, material: { allowedKinds: binding.grants.referenceKinds, references: catalog.documents, historyMode: 'since-last' }, selection: {
     ...model, trace: row => { if (epoch === generation && !closed && !paused) observation.trace(row, instance.selection.traces, instance.window.traces); else if (row.type === 'judgement') observation.discard(String(row.frameId)) },
     goal: 'Supply admitted project records for the current request', isPermitted: () => epoch === generation && !closed && !paused && !!context?.available && catalog.isCurrent(),
     modules: [{ id: registration.moduleId, watchEvents: ['input'], referenceKinds: binding.grants.referenceKinds, grants: binding.grants, question: references.referencesQuestion, destination: 'parent.context', compactRegion: true }],
