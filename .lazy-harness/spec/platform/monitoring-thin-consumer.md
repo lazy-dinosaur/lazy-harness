@@ -85,6 +85,10 @@ Stored OpenRouter auth is resolved by the running Pi registry; no credentials be
 Environment API-key fallback is suppressed. Attachment does not create an SDK runtime, refresh a
 model catalog or import the host repository's installed SDK. Only exact classifier lookup is used.
 
+## Long-session observation (fix 2026-11-13)
+
+First live observe on this project's long main session stopped at its first frame with `scope_or_catalog_unavailable`: the monitoring Pi observer defaults to `maxMessages: 128` with `tailMessages: 0`, so a session with thousands of messages yields an unavailable snapshot on every frame. The host now passes `OBSERVER_LIMITS = { tailMessages: 32 }` (opt-in tail mode of `PiMonitoringObserver`, byte-bounded newest messages, snapshot stays available); U1 reads only recent history (`historyTurns` 4). An unavailable frame now stops with its own reason `frame_unavailable`, separate from scope/catalog changes. No module change.
+
 ## Ports, stages and lifecycle
 
 All nine majors are advertised as v1 because the module manifest inventories the full capability
