@@ -101,6 +101,10 @@ After the material fix, the first live judgement failed with `classifier_uncerta
 
 With the failure class in place, the live log showed `classifier_uncertain:aborted` after ~1,072 ms: `createRealtimeSelectionPipeline` defaults the realtime job deadline to `jobTimeoutMs` 1,000 ms, shorter than a real Jev judgement on the full U1 view, so the coordinator cancelled the call; an aborted call is uncertain and stops the classifier for the session (no retry, by design). The host now passes `realtimeLimits.jobTimeoutMs = budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS` (10,000 + 2,000 ms by default), so the job deadline covers the model timeout. No module change.
 
+## Window renewal for long sessions (fix 2026-11-13)
+
+A live `/monitoring status` (old instance, before the job-deadline fix was reloaded) showed `window.state: stopped`, `lastReason: event_budget` after `framesSeen` 3,769: the module material window (and coordinator) stop permanently after `maxEvents` 2,048 frames, and every Pi event counts, including streaming deltas, so a long session silently stops judging. The host now renews the selection pipeline at the next `input` frame once the window has stopped or observed `WINDOW_RENEW_EVENTS` (1,024) frames: the old pipeline is retired like a fence (late results discarded) and a new one starts at that input; the session model budget and classifier state are NOT reset. `/monitoring status` reports `window.renewals`. No module change.
+
 ## Ports, stages and lifecycle
 
 All nine majors are advertised as v1 because the module manifest inventories the full capability

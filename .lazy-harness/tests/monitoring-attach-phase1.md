@@ -98,6 +98,13 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: 'a judgement slower than one second is not aborted by the selection job deadline' (fake classifier delays 1,500 ms); fails with the default deadline (`lastFailure: aborted`), passes with the fix.
 - Layer matrix: SDD updated (monitoring-thin-consumer.md selection job deadline); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: window event budget stopped long-session judging (2026-11-13)
+
+- Symptom: live status `window.state: stopped`, `lastReason: event_budget`, `framesSeen` 3,769, no further observe lines.
+- Cause: module window/coordinator `maxEvents` 2,048 counts every frame (streaming deltas included) and stops permanently.
+- Protection: 'event budget: a long-running session keeps judging after more than 2048 frames' (2,100 message_update frames then an input); fails with renewal disabled (0 calls), passes with renewal (`window.renewals` 1).
+- Layer matrix: SDD updated (monitoring-thin-consumer.md window renewal); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented

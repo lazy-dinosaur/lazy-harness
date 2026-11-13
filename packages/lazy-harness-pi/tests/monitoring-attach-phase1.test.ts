@@ -355,4 +355,16 @@ describe('phase 1 offline attachment', () => {
       expect(owner.status().counters.judgements).toBe(1)
     } finally { await owner.close() }
   })
+  test('event budget: a long-running session keeps judging after more than 2048 frames (regression: window stopped with event_budget)', async () => {
+    const pi = hooks(), calls: any[] = [], owner = attachMonitoringPhase1(pi, { root: tmpdir(), config: admitted(), classifier: fakeClassifier(calls) })
+    try {
+      if (owner.stage !== 'observe') throw Error('observe missing')
+      pi.emit('session_start')
+      for (let i = 0; i < 2100; i++) pi.emit('message_update', { message: { role: 'assistant', content: [{ type: 'text', text: 'x' }] }, assistantMessageEvent: { type: 'text_delta', delta: 'x' } })
+      pi.emit('input', { text: 'Which project facts matter?', source: 'interactive' }); await owner.idle()
+      expect(calls.length).toBeGreaterThan(0)
+      expect(owner.status().window.renewals).toBe(1)
+      expect(owner.status().budget.used.calls).toBeGreaterThan(0)
+    } finally { await owner.close() }
+  })
 })
