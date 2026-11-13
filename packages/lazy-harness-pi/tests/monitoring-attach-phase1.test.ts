@@ -328,4 +328,18 @@ describe('phase 1 offline attachment', () => {
       } finally { await owner.close() }
     } finally { rmSync(dir, { recursive: true, force: true }) }
   })
+  test('classifier failure records a bounded failure class (no provider text) in status and outcome', async () => {
+    const pi = hooks(), calls: any[] = []
+    const failing: any = { model: fakeModel, runtime: { async classify(model: any) { calls.push(1); return { ...fakeModel, model: model.id, stopReason: 'error', errorMessage: '401 Unauthorized: secret-bearing provider text', answers: {} } } } }
+    const owner = attachMonitoringPhase1(pi, { root: tmpdir(), config: admitted(), classifier: failing })
+    try {
+      if (owner.stage !== 'observe') throw Error('observe missing')
+      pi.emit('session_start'); pi.emit('input', { text: 'Which project facts matter?', source: 'interactive' }); await owner.idle()
+      expect(calls.length).toBe(1)
+      const status = owner.status()
+      expect(status.budget.used.lastFailure).toBe('stop_error_auth_401')
+      expect(JSON.stringify(status)).not.toContain('secret-bearing')
+      expect(status.classifierStopped).toBe(true)
+    } finally { await owner.close() }
+  })
 })
