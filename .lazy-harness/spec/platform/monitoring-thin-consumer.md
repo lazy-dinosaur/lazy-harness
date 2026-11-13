@@ -93,6 +93,10 @@ First live observe on this project's long main session stopped at its first fram
 
 After the long-session fix, live inputs were skipped with `selection_material_unavailable`. Reproduction with the real attach code, the live two-record catalog (9,832 bytes) and large messages showed the window note `material_limit`: the host passed BOTH `historyTurns: 4` (in since-last mode this adds one history blob up to `maxSourceBytes` 8,192 without checking the remaining window budget) and `historyMode: 'since-last'` (a budgeted region). Catalog + blob exceeded the 16,384-byte window, the window entered a gap and no judgement was dispatched. The host now passes only `historyMode: 'since-last'`; the region is the U1 history and is budgeted against what the catalog leaves. Diagnostics: selection skips append the window reason to `errorClass` (for example `selection_material_unavailable:material_limit`), and `/monitoring status` adds `window: {state, sources, bytes, lastReason}`. No module change.
 
+## Classifier failure detail (2026-11-13)
+
+After the material fix, the first live judgement failed with `classifier_uncertain` (1 call reserved, no usage), which stops the classifier for the session by design (no retry of uncertain outcomes). The binding swallowed the reason. An offline reproduction with the real attach code and the real Pi 1.5 `ModelRuntime.classify` (`openrouter/typesafe/jev-1.14`, 23 KB request, 12 questions) returned `stop` with usage, and two small direct probes also succeeded with and without the empty env override, so the live cause is not reproduced yet. The binding now records a bounded failure class and never the provider text: `aborted`, `field_mismatch`, `stop_<stopReason>_<kind>` or `threw_<kind>`, where kind is auth/timeout/rate/size/aborted/network/other plus an optional HTTP status. It appears as `budget.used.lastFailure` in `/monitoring status` and is appended to the observe `errorClass` (for example `classifier_uncertain:stop_error_auth_401`).
+
 ## Ports, stages and lifecycle
 
 All nine majors are advertised as v1 because the module manifest inventories the full capability

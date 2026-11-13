@@ -85,6 +85,12 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: 'realistic catalog + long messages still judge' in `monitoring-attach-phase1.test.ts` (two catalog files ~9.8 KiB, 300 messages of ~1.5 KiB); verified to FAIL with `historyTurns: 4` restored and pass with the fix.
 - Layer matrix: SDD updated (monitoring-thin-consumer.md material budget section); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: classifier failure reason was swallowed (2026-11-13)
+
+- Symptom: live observe line `outcome: failed`, `errorClass: classifier_uncertain`, `modelCalls: 1`, no reported usage; no reason anywhere.
+- Protection: 'classifier failure records a bounded failure class (no provider text)' — fake classifier returns `stopReason: error` with a 401 message; status shows `lastFailure: stop_error_auth_401`, no provider text, classifier stopped.
+- Layer matrix: SDD updated (monitoring-thin-consumer.md classifier failure detail); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented

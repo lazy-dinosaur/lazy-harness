@@ -3,7 +3,7 @@ import { createObserveLog, observationHash, type ObserveOutcome } from './observ
 import type { MonitoringAttachConfig } from './config.ts'
 
 type Frame = { id: string; sessionId: string; binding: number; sourceEvent: string }
-type Summary = { frame: Frame; at: number; calls: number; usd: number | null; tokens: number | null; mode: ObserveOutcome['decisionMode']; confidence: number | null; selected: string[]; failed: boolean; compactCalls: number; compactUsd: number | null; compactTokens: number | null }
+type Summary = { frame: Frame; at: number; calls: number; usd: number | null; tokens: number | null; mode: ObserveOutcome['decisionMode']; confidence: number | null; selected: string[]; failed: boolean; compactCalls: number; compactUsd: number | null; compactTokens: number | null; failure?: string }
 /** Host projection of public module trace/notes and judgement-log codec. No bodies/reasons retained. */
 export function createObservation(root: string, config: MonitoringAttachConfig) {
   const log = createObserveLog(root, config.observeLog), frames = new Map<string, Summary>()
@@ -23,7 +23,7 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
   return { log, counters, recent,
     configure(documents: readonly { id: string; version: string }[], budget: typeof remaining) { documents.forEach(d => versions.set(d.id, d.version)); remaining = budget },
     frame(frame: Frame) { counters.framesSeen++; frames.set(frame.id, { frame: { id: frame.id, sessionId: frame.sessionId, binding: frame.binding, sourceEvent: frame.sourceEvent }, at: performance.now(), calls: 0, usd: null, tokens: null, mode: null, confidence: null, selected: [], failed: false, compactCalls: 0, compactUsd: null, compactTokens: null }); if (frames.size > 256) frames.delete(frames.keys().next().value!) },
-    exchange(request: any, value: any, _latencyMs: number, error: boolean) {
+    exchange(request: any, value: any, _latencyMs: number, error: boolean, failure?: string) {
       // Public helper parses the native choice/bool exchange; discard text, reasons and input digest immediately.
       for (const entry of judgementEntriesFromExchange(request, value?.answers ?? {}, { at: Date.now(), sessionId: '', eventId: '' })) {
         const task = request.body.state.tasks.find((t: any) => t.processorId === entry.moduleId)
@@ -36,7 +36,7 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
           if (finite(value?.usage?.cost?.total)) s.compactUsd = (s.compactUsd ?? 0) + value.usage.cost.total
           continue
         }
-        s.calls++; s.failed ||= error
+        s.calls++; s.failed ||= error; if (error && failure) s.failure ??= failure
         const u = value?.usage
         if (finite(u?.totalTokens)) s.tokens = (s.tokens ?? 0) + u.totalTokens
         if (finite(u?.cost?.total)) s.usd = (s.usd ?? 0) + u.cost.total
@@ -54,7 +54,7 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
         const outcome = (row.outcomes as any[])?.[0]
         // Core-decoded decisions, not raw provider answers, determine the final mode.
         s.mode = ['run', 'skip', 'defer'].includes(outcome?.mode) ? outcome.mode : null
-        emit(s, s.failed ? 'failed' : s.mode ? 'judged' : 'refused', s.failed ? 'classifier_uncertain' : s.mode ? null : 'no_admitted_decision')
+        emit(s, s.failed ? 'failed' : s.mode ? 'judged' : 'refused', s.failed ? 'classifier_uncertain' + (s.failure ? ':' + s.failure : '') : s.mode ? null : 'no_admitted_decision')
       } else if (row.type === 'selection') emit(s, String(row.status).includes('failed') || String(row.status).includes('rejected') ? 'failed' : 'skipped', 'selection_' + String(row.status) + (row.status === 'material_unavailable' ? ((w => w ? ':' + w.reason : '')(windowNotes.findLast(n => n.frameId === s.frame.id) ?? windowNotes.at(-1))) : ''))
     },
     discard(frameId: string) { const s = frames.get(frameId); if (s) emit({ ...s, mode: null, selected: [] }, 'skipped', 'stale_scope') },
