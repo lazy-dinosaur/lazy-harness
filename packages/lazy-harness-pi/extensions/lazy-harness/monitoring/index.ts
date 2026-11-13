@@ -16,6 +16,10 @@ import { observationHash } from './observe-log.ts'
 
 export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy-harness-monitoring/', import.meta.url))
 // Major support is independent of availability/activation. Full inventory required by module loader.
+/** Long real sessions exceed the observer's default maxMessages (128) and would mark every snapshot unavailable.
+ * Tail mode keeps the newest messages within the byte bound so the snapshot stays available; U1 reads only
+ * recent history (historyTurns 4), so 32 messages is enough. */
+export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
 export const HOST_PORT_MAJORS: PortMajors = Object.freeze({ 'worker.execution': 1, 'judgement.model': 1, 'session.read-records': 1, 'report.enqueue': 1, 'state.persistence': 1, 'memory.review-sink': 1, 'memory.source': 1, 'policy.registry': 1, 'rule.verifier': 1 })
 export const UNAVAILABLE_PORTS = Object.freeze(['memory.review-sink', 'memory.source', 'policy.registry', 'rule.verifier'])
 type PiHooks = Parameters<typeof attachPiFrames>[0]
@@ -61,7 +65,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
     return instance
   }
   let pipeline = makePipeline()
-  const observer = new PiMonitoringObserver(() => undefined)
+  const observer = new PiMonitoringObserver(() => undefined, OBSERVER_LIMITS)
   const makeAttestor = () => createReadResultAttestor({ context: () => !closed && catalog.isCurrent() ? context : undefined, captureIdentity: () => closed ? undefined : { id: canonicalJsonHash([root, context?.scope]), epoch: 1 }, format: () => config.readFormat,
     capture(read) { const d = catalog.documents.find(d => resolve(root, d.path) === resolve(read.cwd, read.call.input.path)); return d && catalog.isCurrent() ? captureRecord(root, d.path) : undefined },
     resolveDocument(read, hash) { const d = catalog.documents.find(d => resolve(root, d.path) === resolve(read.cwd, read.call.input.path) && d.version === hash); return d ? { documentId: d.id, documentVersion: d.version, namespace: 'lazy-harness', sourceRecordId: d.path } : undefined }, record: reads.record,
@@ -94,7 +98,9 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
     if (frame.sourceEvent === 'session_start') { started = true; sessionId = frame.sessionId; reason = null }
     if (fences.has(frame.sourceEvent)) return
     if (paused) return
-    if (!started || sessionId !== frame.sessionId || !frame.available || !frame.snapshot.available || !catalog.isCurrent()) { stop('scope_or_catalog_unavailable'); return }
+    if (!started || sessionId !== frame.sessionId || !catalog.isCurrent()) { stop('scope_or_catalog_unavailable'); return }
+    // Distinct reason: an unavailable snapshot/payload is not a scope or catalog change.
+    if (!frame.available || !frame.snapshot.available) { stop('frame_unavailable'); return }
     const scope = { sessionId: frame.sessionId, bindingGeneration: frame.binding, branchId: frame.snapshot.leafId ?? 'root', branchGeneration: branch, compactionGeneration: compaction }
     if (needsPipeline) {
       pipeline = makePipeline(); attestor = makeAttestor(); needsPipeline = false

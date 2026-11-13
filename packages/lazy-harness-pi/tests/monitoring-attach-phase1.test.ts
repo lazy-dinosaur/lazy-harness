@@ -2,7 +2,7 @@ import { describe, test, expect } from 'bun:test'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, statSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { attachMonitoringPhase1, installMonitoringPhase1, HOST_PORT_MAJORS, MONITORING_ROOT, UNAVAILABLE_PORTS } from '../extensions/lazy-harness/monitoring/index.ts'
+import { attachMonitoringPhase1, installMonitoringPhase1, HOST_PORT_MAJORS, MONITORING_ROOT, UNAVAILABLE_PORTS, OBSERVER_LIMITS } from '../extensions/lazy-harness/monitoring/index.ts'
 import { parseMonitoringAttachConfig } from '../extensions/lazy-harness/monitoring/config.ts'
 import { createHostReadRecords } from '../extensions/lazy-harness/monitoring/read-records.ts'
 import { createPiModelBinding, assertOpenRouterJevOnly } from '../extensions/lazy-harness/monitoring/model.ts'
@@ -294,5 +294,19 @@ describe('phase 1 offline attachment', () => {
       for (const field of ['attached', 'reason', 'scope', 'generation', 'catalog', 'budget', 'counters', 'lastOutcomes', 'log']) expect(status).toHaveProperty(field)
       await Promise.all(installed.emit('session_shutdown'))
     } finally { await owner.close(); rmSync(dir, { recursive: true, force: true }) }
+  })
+  test('long real sessions stay observable through tail snapshots (regression: 7k-message session stopped at session_start)', async () => {
+    expect(OBSERVER_LIMITS.tailMessages).toBeGreaterThan(0)
+    const messages = Array.from({ length: 600 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: [{ type: 'text', text: `message ${i}` }], timestamp: i }))
+    const branch = messages.map((_, i) => ({ id: `e${i}`, parentId: i ? `e${i - 1}` : null, type: 'message' }))
+    const pi = hooks({ sessionManager: { getSessionId: () => 'long-session', getLeafId: () => 'e599', getBranch: () => branch, buildSessionProjection: () => ({ messages }) } })
+    const calls: any[] = [], owner = attachMonitoringPhase1(pi, { root: tmpdir(), config: admitted(), classifier: fakeClassifier(calls) })
+    try {
+      if (owner.stage !== 'observe') throw Error('observe missing')
+      pi.emit('session_start'); pi.emit('input', { text: 'Which project facts matter?', source: 'interactive' }); await owner.idle()
+      expect(owner.status().reason).not.toBe('scope_or_catalog_unavailable')
+      expect(owner.status().attached).toBe(true)
+      expect(calls.length).toBeGreaterThan(0)
+    } finally { await owner.close() }
   })
 })

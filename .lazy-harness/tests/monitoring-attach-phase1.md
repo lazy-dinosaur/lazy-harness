@@ -71,6 +71,13 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 | SSOT | no independent delta | Config ownership/defaults are part of the new component contract; no global env/schema ownership change. |
 | DDD | no independent delta | Existing monitoring read/receipt/stage semantics reused. |
 
+## Regression: long session stopped at session_start (2026-11-13)
+
+- Symptom: live `/monitoring status` showed `attached: false`, `reason: scope_or_catalog_unavailable`, `framesSeen: 1`, `judgements: 0` on a 7,261-message session; no observe log was created.
+- Cause: observer default `maxMessages` 128 / `tailMessages` 0 marked the snapshot unavailable; the attach treated that as a scope/catalog failure.
+- Protection: `monitoring-attach-phase1.test.ts` 'long real sessions stay observable through tail snapshots' (600-message fake session, session_start + input judges, attached stays true); reason split `frame_unavailable`.
+- Layer matrix: SDD updated (monitoring-thin-consumer.md long-session section); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented
