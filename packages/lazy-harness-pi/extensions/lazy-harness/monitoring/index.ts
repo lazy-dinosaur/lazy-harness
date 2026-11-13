@@ -18,7 +18,7 @@ export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy
 // Major support is independent of availability/activation. Full inventory required by module loader.
 /** Long real sessions exceed the observer's default maxMessages (128) and would mark every snapshot unavailable.
  * Tail mode keeps the newest messages within the byte bound so the snapshot stays available; U1 reads only
- * recent history (historyTurns 4), so 32 messages is enough. */
+ * its since-last region, so 32 messages is enough. */
 export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
 export const HOST_PORT_MAJORS: PortMajors = Object.freeze({ 'worker.execution': 1, 'judgement.model': 1, 'session.read-records': 1, 'report.enqueue': 1, 'state.persistence': 1, 'memory.review-sink': 1, 'memory.source': 1, 'policy.registry': 1, 'rule.verifier': 1 })
 export const UNAVAILABLE_PORTS = Object.freeze(['memory.review-sink', 'memory.source', 'policy.registry', 'rule.verifier'])
@@ -57,8 +57,8 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   const runtime = new MonitoringModuleRuntime({ modules: [registration], handlers: registration.handlers, workerPort: worker, budget: new ApprovedBudgetGate(), report })
   function makePipeline() {
     const epoch = generation
-    const instance = createRealtimeSelectionPipeline({ enabled: true, material: { allowedKinds: binding.grants.referenceKinds, references: catalog.documents, historyTurns: 4, historyMode: 'since-last' }, selection: {
-    ...model, trace: row => { if (epoch === generation && !closed && !paused) observation.trace(row, instance.selection.traces); else if (row.type === 'judgement') observation.discard(String(row.frameId)) },
+    const instance = createRealtimeSelectionPipeline({ enabled: true, material: { allowedKinds: binding.grants.referenceKinds, references: catalog.documents, historyMode: 'since-last' }, selection: {
+    ...model, trace: row => { if (epoch === generation && !closed && !paused) observation.trace(row, instance.selection.traces, instance.window.traces); else if (row.type === 'judgement') observation.discard(String(row.frameId)) },
     goal: 'Supply admitted project records for the current request', isPermitted: () => epoch === generation && !closed && !paused && !!context?.available && catalog.isCurrent(),
     modules: [{ id: registration.moduleId, watchEvents: ['input'], referenceKinds: binding.grants.referenceKinds, grants: binding.grants, question: references.referencesQuestion, destination: 'parent.context', compactRegion: true }],
   } })
@@ -117,7 +117,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   } })
   // Observe cannot enqueue or inject. Keep the module-owned route uninstalled until a later active approval.
   return { stage: 'observe' as const, reads, port, report, worker, runtime, get pipeline() { return pipeline }, delivery,
-    status() { return { attached: !closed && !paused, stage: 'observe', reason, scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
+    status() { return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
     async idle() { await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
     async close() { detach(); stop(); await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
   }

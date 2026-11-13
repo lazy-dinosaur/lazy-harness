@@ -309,4 +309,23 @@ describe('phase 1 offline attachment', () => {
       expect(calls.length).toBeGreaterThan(0)
     } finally { await owner.close() }
   })
+  test('realistic catalog + long messages still judge (regression: material_limit blocked every live input)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lh-matfix-'))
+    try {
+      mkdirSync(join(dir, '.lazy-harness/ssot'), { recursive: true }); mkdirSync(join(dir, '.lazy-harness/decisions'), { recursive: true })
+      writeFileSync(join(dir, '.lazy-harness/ssot/a.md'), '# A\n' + 'ownership fact. '.repeat(370)); writeFileSync(join(dir, '.lazy-harness/decisions/b.md'), '# B\n' + 'repository decision. '.repeat(180))
+      const config = parseMonitoringAttachConfig({ observeLog: false, references: { stage: 'observe' }, catalog: [{ id: 'ssot:a', path: '.lazy-harness/ssot/a.md' }, { id: 'adr:b', path: '.lazy-harness/decisions/b.md' }], budget: { maxCalls: 4, maxReservedTokens: 1000000, maxReservedUsd: 1 } })
+      const messages = Array.from({ length: 300 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: [{ type: 'text', text: `m${i} ` + 'x'.repeat(1500) }], timestamp: i }))
+      const branch = messages.map((_, i) => ({ id: `e${i}`, parentId: i ? `e${i - 1}` : null, type: 'message' }))
+      const pi = hooks({ sessionManager: { getSessionId: () => 'long', getLeafId: () => 'e299', getBranch: () => branch, buildSessionProjection: () => ({ messages }) } })
+      const calls: any[] = [], owner = attachMonitoringPhase1(pi, { root: dir, config, classifier: fakeClassifier(calls) })
+      try {
+        if (owner.stage !== 'observe') throw Error('observe missing')
+        pi.emit('session_start'); pi.emit('input', { text: 'first question', source: 'interactive' }); await owner.idle()
+        expect(owner.pipeline.window.traces.map((t: any) => t.reason)).not.toContain('material_limit')
+        expect(calls.length).toBeGreaterThan(0)
+        expect(owner.status().window.lastReason).toBeNull()
+      } finally { await owner.close() }
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
 })
