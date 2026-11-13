@@ -307,6 +307,7 @@ lazy-harness: submodule로 설치 → import → 포트를 Fabric으로 구현 �
   4. §6.5의 보호 장치와 적합성 시험을 채택한다.
   5. 오래 걸리는 작업(actor·durable agent)의 완료 결과를 lazy-harness가 받는 경로를 검증한다. `program:run`은 응답을 한 번만 받는 단발 실행이고, 완료 알림은 Pi Main 세션으로 간다. 후보는 다시 실행해서 `agents.wait`로 기다리기나 mesh topic으로 받기다.
   6. 실행 조건을 확인한다. durable actor는 trusted project와 `mesh.enabled`가 필요하고 schema enforce mode에서는 쓸 수 없다. Python kernel 세션이나 `programs.run`을 막는 승인 정책에서는 실행이 거부된다. 프로그램 안 개별 동작의 승인 대기가 실행을 멈추지 않는지도 확인한다.
+- 단계적 붙이기 (사용자 확정 2026-11-13, A): 위 조건은 Fabric 연결(2단계)의 조건이다. 1단계는 Fabric 없이 붙인다: 판정은 Pi `ModelRuntime.classify`(`openrouter/typesafe/jev-1.14`, OpenRouter는 Jev 전용), 작업자는 모듈 기본 in-memory, 기본 꺼짐, U1 observe는 별도 승인. 확인 실험 결과(2026-11-13, faux Pi 1.5.0 + pi-fabric 0.135.2, 모델 호출 0): 조건 2 충족(실행 1회당 메시지 1개, 직렬화 1.5KB·표시 56B, 모델 문맥에 남음, p50 34ms / p95 44ms). 조건 1 설계 필요(공식 존재 감지 API 없음, Fabric이 없으면 `emit`은 조용히 끝나고 응답이 없다; 0.135.2의 요청 필드 getter 우회는 즉시 구분되지만 버전 고정 꼼수; 첫 실행 0.8–1.2초라 준비 확인은 약 2초 제한). 조건 3 설계 필요(65,536자·65,536바이트 경계와 `ref` 실행 확인, 입력 초과 오류 `Program input exceeds 65536 bytes`는 refused 접두어에 없어 사전 검사 필요). 조건 4 불충족(작업자 포트 적합성 19/24 — 동시성·대기열·정지; 취소 응답 뒤에도 작업이 계속 돌아 응답을 실제 종료 영수증으로 쓸 수 없음). 조건 5 설계 필요(3초 작업·취소는 정상, durable 완료 경로 미검증). 조건 6 시작 조건 충족(TypeScript/QuickJS, schema off, `approvals.execute` allow, `mesh.enabled`, 신뢰된 프로젝트; 세션별 덮어쓰기와 승인 대기는 미검증).
 - 근거(추가): 설치본 `pi-fabric/docs/programs.md`(host run의 root capability view·승인), `pi-fabric/docs/agents.md`(Persistent actors, Durable participant residency, Durable mesh coordination).
 
 ### 7. 아직 필요한 연결 규격
