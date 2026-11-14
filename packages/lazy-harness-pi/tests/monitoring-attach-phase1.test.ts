@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { attachMonitoringPhase1, installMonitoringPhase1, HOST_PORT_MAJORS, MONITORING_ROOT, UNAVAILABLE_PORTS, OBSERVER_LIMITS } from '../extensions/lazy-harness/monitoring/index.ts'
 import { parseMonitoringAttachConfig } from '../extensions/lazy-harness/monitoring/config.ts'
+import { installOptionalMonitoring } from '../extensions/lazy-harness/monitoring/load.ts'
 import { createHostReadRecords } from '../extensions/lazy-harness/monitoring/read-records.ts'
 import { createPiModelBinding, assertOpenRouterJevOnly } from '../extensions/lazy-harness/monitoring/model.ts'
 import { createObservation } from '../extensions/lazy-harness/monitoring/observation.ts'
@@ -47,7 +48,7 @@ describe('phase 1 offline attachment', () => {
     try {
       mkdirSync(join(dir, '.lazy-harness'), { recursive: true })
       writeFileSync(join(dir, '.lazy-harness/monitoring-attach.json'), JSON.stringify({ references: { stage: 'observe' }, observeLog: false }))
-      installMonitoringPhase1(pi as any, dir)
+      installOptionalMonitoring(pi as any, dir)
       await Promise.all(pi.emit('session_start'))
       await Promise.all(pi.emit('input', { text: 'Synthetic input', source: 'interactive' }))
       await Promise.all(pi.emit('session_shutdown'))

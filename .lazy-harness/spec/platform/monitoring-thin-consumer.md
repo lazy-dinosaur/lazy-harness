@@ -61,6 +61,35 @@ Grounding used direct overview/drill/canonical reads because the user prohibited
 call, including a Reader worker. The original shared checkout is not edited or switched.
 Draft PR #15 is reference only and is superseded by this implementation, not merged or closed.
 
+## Fresh-install resilience (2026-11-14, user-approved option A)
+
+The Mac fresh-install batch prepares the pinned monitoring checkout in every source-install/update
+path before Pi/OMP registration: `install.sh` (including the persistent cache source), `lazy update`
+and `lazy pi install` (global/local; shared OMP wrapper too) call `install-source-deps.sh`.
+It runs `git submodule update --init --recursive vendor/lazy-harness-monitoring`, then frozen Bun
+installs at root and submodule. Failures abort registration with a repair hint, never enable observe.
+Repeated runs are safe and lockfiles/pin/dependencies are unchanged. Bash 3.2 and Linux are supported.
+Dry-run performs no clone/fetch/checkout/submodule/dependency installation. Existing-source sync
+preview describes the current checkout, not a fetched future revision. `lazy sync` itself only copies
+files: it neither pulls source nor installs dependencies, so its drift/seed semantics stay unchanged.
+
+Production bootstrap `installOptionalMonitoring` imports only the vendor-free config parser
+(the module budget import is type-only/erased). Off/absent never resolves vendor files. Explicit
+observe registers a read-only status command and loads composition dynamically at the real
+`session_start`; registration replays that initiating event exactly once and forwards subsequent
+session replacements to the existing lifecycle fences. A missing/uninitialized module or missing
+transitive dependency yields `attached: false`, `stage: off`, reason `monitoring_module_unavailable`
+and an install hint. A single warning is emitted per extension instance; no follow-up turn, hook
+denial, retry or model call is introduced. Other startup failures use `monitoring_start_failed`.
+All non-monitoring hook registration remains synchronous and independent of optional startup.
+Healthy module composition and telemetry remain unchanged. No host-local activation file is created.
+
+Discovery capture / Rule placement: this SDD is the primary approved installation/component contract;
+TDD and the existing planning continuation hold protection/status only. No new global operating rule,
+model invocation, dependency, submodule pin change, merge, shared-checkout edit or legacy graph
+migration is authorized. Exact-intent policy/capability resolution has no matching rules; source
+organization baseline is observe-only. macOS execution itself remains a user-side smoke check.
+
 ## Configuration (nothing enabled by this PR)
 
 Optional host-local `.lazy-harness/monitoring-attach.json`; absent means references off and zero
@@ -133,8 +162,8 @@ and `rule.verifier` are unavailable; their purpose modules are not registered an
   Enqueue and hook-boundary delivery are separate from provider input/read evidence. Active delivery
   and capture-before-dispatch origin/dependencies remain a later approved extension, not this PR.
 
-Off loads/validates the manifest only: no monitoring hooks, registry access, workers, sources or
-provider calls. Observe installs module `hosts/pi` generation/observer/frame plumbing, preflights
+Production off does not import vendor code or validate its manifest: no monitoring hooks, registry access, workers, sources or
+provider calls. Direct `attachMonitoringPhase1` composition probes still validate the manifest. Observe installs module `hosts/pi` generation/observer/frame plumbing, preflights
 U1 only, and uses the real-time selection/region-compaction pipeline. It executes no jobs, reports,
 record-body writes or injection. Model reservations are shared for the session lifetime, including scope resumes.
 Boundary notifications synchronously invalidate admission/attestation and retire the pipeline; physical
@@ -189,7 +218,11 @@ authoritative; raw late answers cannot increment run/skip/defer counts.
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/read-records.ts` — `createHostReadRecords`; host ledger ownership/fencing.
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/catalog.ts` — `captureRecord`, `admitCatalog`; explicit byte admission/currentness.
   - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/config.ts` — `readMonitoringAttachConfig`, `parseMonitoringAttachConfig`; off/observe and zero-budget defaults.
-  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — default-off startup call; existing before_agent_start behavior unchanged.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/index.ts` — default-off optional loader call; existing before_agent_start behavior unchanged.
+  - `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/load.ts` — `installOptionalMonitoring`; vendor-free startup, guarded dynamic import, initiating-event replay and unavailable status.
+  - `.lazy-harness/scripts/install-source-deps.sh` — shared recursive submodule and frozen-install preparation, used by `install.sh`, `.lazy-harness/scripts/lazy-update.ts` and `.lazy-harness/scripts/pi-package.ts`.
+  - `packages/lazy-harness-pi/tests/monitoring-install.test.ts` — absent/empty/missing-dependency extension load, offline dry-run and bootstrap event replay protection.
+  - `.lazy-harness/manifests/init-categories.json` — distributes the shared shell preparation helper with framework scripts.
   - `.gitmodules` — submodule wiring. Package SDK pin, tsconfig and bun.lock have no delta from main.
 - Telemetry implementation: `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/observation.ts` — `createObservation`, metadata projection of public module trace/notes and judgement-log codec; `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/observe-log.ts` — `createObserveLog`, `observationHash`, bounded asynchronous private log. `createPiModelBinding` owns the shared lifetime reservation/uncertainty guard across pipeline replacements.
 - Tests / protection: `packages/lazy-harness-pi/tests/monitoring-attach-phase1.test.ts`; registered in `package.json` and `.lazy-harness/tests/test-strategy.xml` via full regression's existing Pi-capture target.

@@ -85,7 +85,7 @@ Options:
   --repo <url>       Source repo URL (default: ${DEFAULT_REPO})
   --ref <ref>        Branch, tag, or commit to update to (default: ${DEFAULT_REF})
   --cache-dir <dir>  Clone location when source is missing (default: ${defaultCacheSource()})
-  --dry-run          Update/check source, then show host sync changes only
+  --dry-run          Preview source preparation and host sync without changing source
   --force            Pass --force to lazy-sync for divergent host marker history
   --quiet            Suppress non-essential logs
 
@@ -131,6 +131,12 @@ function looksLikeSource(path: string): boolean {
 function ensureSource(args: Args, targetRoot: string): string {
   let source = args.source || markerSource(targetRoot) || args.cacheDir
   source = resolve(source)
+
+  if (args.dryRun) {
+    log(`[dry-run] clone/fetch and checkout ${args.ref} in ${source}; no source changes`)
+    log('[dry-run] git submodule update --init --recursive vendor/lazy-harness-monitoring; bun install --frozen-lockfile at root and submodule')
+    return source
+  }
 
   if (existsSync(source) && looksLikeSource(source)) {
     log(`[Source] update existing checkout: ${source}`)
@@ -218,6 +224,11 @@ function main(): void {
     if (args.dryRun) log('  mode:   DRY-RUN target sync')
 
     const sourceRoot = ensureSource(args, targetRoot)
+    if (args.dryRun && !looksLikeSource(sourceRoot)) {
+      log('[dry-run] source not cloned; host sync would follow dependency preparation')
+      return
+    }
+    if (!args.dryRun) run('bash', [join(sourceRoot, '.lazy-harness/scripts/install-source-deps.sh'), sourceRoot])
     if (!looksLikeSource(sourceRoot)) {
       console.error(`Error: source does not look like lazy-harness: ${sourceRoot}`)
       process.exit(1)

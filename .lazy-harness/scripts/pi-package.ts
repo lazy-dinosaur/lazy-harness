@@ -272,7 +272,7 @@ function printCommandResult(title: string, result: CommandResult, fmt: Format, e
   }
   console.log(`# ${title}`)
   for (const [key, value] of Object.entries(extra)) {
-    console.log(`- ${key}: ${String(value)}`)
+    console.log(`- ${key}: ${key === 'preparation' ? JSON.stringify(value) : String(value)}`)
   }
   console.log(`- command: ${result.command.map(shellQuote).join(' ')}`)
   console.log(`- exit_code: ${result.exitCode}`)
@@ -339,11 +339,18 @@ function installOrRemove(action: 'install' | 'remove', opts: Options): void {
     }
     process.exit(1)
   }
+  const preparation = action === 'install'
+    ? run(['bash', join(root, '.lazy-harness/scripts/install-source-deps.sh'), resolve(pkg, '../..'), ...(opts.dryRun ? ['--dry-run'] : [])], false, repo)
+    : undefined
+  if (preparation?.exitCode !== undefined && preparation.exitCode !== 0) {
+    printCommandResult('Source dependency preparation failed (package not registered)', preparation, opts.format)
+    process.exit(1)
+  }
   const command = commandForInstallLike(action, pkg, scope, layout.manifestName)
   const localIgnore = info.id === 'pi' && scope === 'local' && action === 'install'
     ? ensureLocalPiIgnored(repo, opts.dryRun)
     : undefined
-  const extra = { runtime: info.id, scope, sourceRoot: root, targetRepo: repo, packagePath: pkg, localPiGitExclude: localIgnore }
+  const extra = { runtime: info.id, scope, sourceRoot: root, targetRepo: repo, packagePath: pkg, localPiGitExclude: localIgnore, preparation }
   if (opts.dryRun) {
     printDryRun(`${info.label} ${action}`, command, opts.format, extra)
     return
