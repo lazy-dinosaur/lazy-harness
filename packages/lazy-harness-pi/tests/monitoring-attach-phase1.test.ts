@@ -259,7 +259,11 @@ describe('phase 1 offline attachment', () => {
     observation.frame({ id: 'bad', sessionId: 'private', binding: 1, sourceEvent: 'input' })
     observation.trace({ type: 'judgement', frameId: 'bad', outcomes: [] }, [])
     expect(observation.recent.at(-1)?.outcome).toBe('refused')
-    observation.trace({ type: 'selection', frameId: 'bad', status: 'core_or_material_rejected', bodies: [{ text: 'NEVER_STORE' }] }, [])
+    // One final outcome per frame (sweep/dedupe): a separate frame carries the selection failure.
+    observation.frame({ id: 'bad2', sessionId: 'private', binding: 1, sourceEvent: 'input' })
+    observation.trace({ type: 'selection', frameId: 'bad2', status: 'core_or_material_rejected', bodies: [{ text: 'NEVER_STORE' }] }, [])
+    observation.trace({ type: 'selection', frameId: 'bad', status: 'core_or_material_rejected' }, [])
+    expect(observation.recent.filter(o => o.frameId === 'bad').length).toBe(1)
     expect(observation.recent.at(-1)?.outcome).toBe('failed'); expect(observation.counters.errors).toBe(1)
     await observation.log.idle(); expect(observation.log.stats.written).toBe(0)
   })
@@ -367,4 +371,25 @@ describe('phase 1 offline attachment', () => {
       expect(owner.status().budget.used.calls).toBeGreaterThan(0)
     } finally { await owner.close() }
   })
+  test('queued follow-up/steer inputs are logged as skipped with a reason (regression: no line for a mid-run message)', async () => {
+    const pi = hooks(), calls: any[] = []
+    const slow: any = { model: fakeModel, runtime: { async classify(model: any, body: any) { calls.push(1); await new Promise(r => setTimeout(r, 300)); return { ...fakeModel, model: model.id, stopReason: 'stop', answers: Object.fromEntries(Object.entries(body.questions).map(([key, q]: any) => [key, q.type === 'choice' ? { type: 'choice', choice: 'skip', confidence: 0.6 } : { type: 'bool', probability: 0.1 }])) } } } }
+    const config = parseMonitoringAttachConfig({ observeLog: false, references: { stage: 'observe' }, budget: { maxCalls: 6, timeoutMs: 1000, maxReservedTokens: 200000, maxReservedUsd: 1 } })
+    const owner = attachMonitoringPhase1(pi, { root: tmpdir(), config, classifier: slow })
+    try {
+      if (owner.stage !== 'observe') throw Error('observe missing')
+      const a = { role: 'assistant', content: [{ type: 'text', text: 'working' }], timestamp: 1 }
+      pi.emit('session_start'); pi.emit('input', { text: 'normal prompt', source: 'interactive' })
+      pi.emit('before_agent_start', { prompt: 'normal prompt' }); pi.emit('agent_start'); pi.emit('turn_start', { turnIndex: 0 }); pi.emit('message_start', { message: a })
+      pi.emit('input', { text: 'queued follow-up', source: 'interactive', streamingBehavior: 'followUp' })
+      pi.emit('input', { text: 'mid-run steer', source: 'interactive', streamingBehavior: 'steer' })
+      pi.emit('message_end', { message: a }); pi.emit('turn_end', { turnIndex: 0, message: a, toolResults: [] }); pi.emit('agent_end', { messages: [] })
+      await owner.idle(); await new Promise(r => setTimeout(r, 4300))
+      const outcomes = owner.status().lastOutcomes as any[]
+      const finals = outcomes.filter(o => o.outcome !== 'compaction')
+      expect(new Set(finals.map(o => o.frameId)).size).toBe(finals.length)
+      expect(finals.some(o => o.outcome === 'skipped' && String(o.errorClass).startsWith('queued_input_followUp:'))).toBe(true)
+      expect(finals.filter(o => o.outcome !== 'judged').every(o => typeof o.errorClass === 'string' && o.errorClass.length > 0)).toBe(true)
+    } finally { await owner.close() }
+  }, 15000)
 })

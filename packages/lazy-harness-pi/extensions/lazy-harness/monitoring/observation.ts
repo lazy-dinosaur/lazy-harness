@@ -2,27 +2,29 @@ import { judgementEntriesFromExchange } from '../../../../../vendor/lazy-harness
 import { createObserveLog, observationHash, type ObserveOutcome } from './observe-log.ts'
 import type { MonitoringAttachConfig } from './config.ts'
 
-type Frame = { id: string; sessionId: string; binding: number; sourceEvent: string }
-type Summary = { frame: Frame; at: number; calls: number; usd: number | null; tokens: number | null; mode: ObserveOutcome['decisionMode']; confidence: number | null; selected: string[]; failed: boolean; compactCalls: number; compactUsd: number | null; compactTokens: number | null; failure?: string }
+type Frame = { id: string; sessionId: string; binding: number; sourceEvent: string; behavior?: string }
+type Summary = { frame: Frame; at: number; calls: number; usd: number | null; tokens: number | null; mode: ObserveOutcome['decisionMode']; confidence: number | null; selected: string[]; failed: boolean; compactCalls: number; compactUsd: number | null; compactTokens: number | null; failure?: string; final?: boolean }
 /** Host projection of public module trace/notes and judgement-log codec. No bodies/reasons retained. */
 export function createObservation(root: string, config: MonitoringAttachConfig) {
   const log = createObserveLog(root, config.observeLog), frames = new Map<string, Summary>()
   const counters = { framesSeen: 0, judgements: 0, runs: 0, skips: 0, defers: 0, compactions: 0, errors: 0 }
-  const recent: Array<Pick<ObserveOutcome, 'frameId' | 'eventId' | 'outcome' | 'decisionMode' | 'selectedDocuments'>> = []
+  const recent: Array<Pick<ObserveOutcome, 'frameId' | 'eventId' | 'outcome' | 'decisionMode' | 'selectedDocuments' | 'errorClass'>> = []
   let remaining = () => ({ calls: 0, usd: 0, tokens: 0 })
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
   function emit(s: Summary, outcome: ObserveOutcome['outcome'], errorClass: string | null, compaction: ObserveOutcome['compaction'] = null) {
+    const stored = frames.get(s.frame.id)
+    if (outcome !== 'compaction') { if (stored?.final) return; if (stored) stored.final = true }
     const row: ObserveOutcome = { schema: 'lazy-harness-observe/v1', time: new Date().toISOString(), sessionIdHash: observationHash(s.frame.sessionId), bindingGeneration: s.frame.binding, frameId: s.frame.id, eventId: s.frame.id, trigger: s.frame.sourceEvent, outcome, decisionMode: s.mode, confidence: s.confidence, selectedDocuments: config.catalog.filter(d => s.selected.includes(d.id)).map(d => ({ id: d.id, version: versions.get(d.id)! })), candidateCount: config.catalog.length, compaction, modelCalls: s.calls, reportedUsd: s.usd, reportedTokens: s.tokens, latencyMs: Math.max(0, performance.now() - s.at), budgetRemaining: remaining(), errorClass }
     if (outcome === 'judged') { counters.judgements++; if (s.mode === 'run') counters.runs++; if (s.mode === 'skip') counters.skips++; if (s.mode === 'defer') counters.defers++ }
     if (outcome === 'failed') counters.errors++
     if (outcome === 'compaction') counters.compactions++
-    recent.push({ frameId: row.frameId, eventId: row.eventId, outcome, decisionMode: row.decisionMode, selectedDocuments: row.selectedDocuments }); if (recent.length > 5) recent.shift()
+    recent.push({ frameId: row.frameId, eventId: row.eventId, outcome, decisionMode: row.decisionMode, selectedDocuments: row.selectedDocuments, errorClass }); if (recent.length > 5) recent.shift()
     log.write(row)
   }
   const versions = new Map<string, string>()
   return { log, counters, recent,
     configure(documents: readonly { id: string; version: string }[], budget: typeof remaining) { documents.forEach(d => versions.set(d.id, d.version)); remaining = budget },
-    frame(frame: Frame) { counters.framesSeen++; frames.set(frame.id, { frame: { id: frame.id, sessionId: frame.sessionId, binding: frame.binding, sourceEvent: frame.sourceEvent }, at: performance.now(), calls: 0, usd: null, tokens: null, mode: null, confidence: null, selected: [], failed: false, compactCalls: 0, compactUsd: null, compactTokens: null }); if (frames.size > 256) frames.delete(frames.keys().next().value!) },
+    frame(frame: Frame & { payload?: unknown }) { counters.framesSeen++; const sb = (frame.payload as any)?.streamingBehavior; frames.set(frame.id, { frame: { id: frame.id, sessionId: frame.sessionId, binding: frame.binding, sourceEvent: frame.sourceEvent, ...(typeof sb === 'string' ? { behavior: sb } : {}) }, at: performance.now(), calls: 0, usd: null, tokens: null, mode: null, confidence: null, selected: [], failed: false, compactCalls: 0, compactUsd: null, compactTokens: null }); if (frames.size > 256) frames.delete(frames.keys().next().value!) },
     exchange(request: any, value: any, _latencyMs: number, error: boolean, failure?: string) {
       // Public helper parses the native choice/bool exchange; discard text, reasons and input digest immediately.
       for (const entry of judgementEntriesFromExchange(request, value?.answers ?? {}, { at: Date.now(), sessionId: '', eventId: '' })) {
@@ -58,5 +60,15 @@ export function createObservation(root: string, config: MonitoringAttachConfig) 
       } else if (row.type === 'selection') emit(s, String(row.status).includes('failed') || String(row.status).includes('rejected') ? 'failed' : 'skipped', 'selection_' + String(row.status) + (row.status === 'material_unavailable' ? ((w => w ? ':' + w.reason : '')(windowNotes.findLast(n => n.frameId === s.frame.id) ?? windowNotes.at(-1))) : ''))
     },
     discard(frameId: string) { const s = frames.get(frameId); if (s) emit({ ...s, mode: null, selected: [] }, 'skipped', 'stale_scope') },
+    /** Inputs that never reached a final outcome (for example queued follow-up/steer inputs whose job was not admitted)
+     * are logged as skipped once the job deadline has passed, with their last selection note. Never re-emits. */
+    sweep(notes: readonly { frameId: string; status: string }[], olderThanMs: number, coordinator: readonly { frameId?: string; reason: string }[] = []) {
+      const now = performance.now()
+      for (const s of [...frames.values()]) {
+        if (s.final || s.frame.sourceEvent !== 'input' || now - s.at < olderThanMs) continue
+        const note = notes.findLast(n => n.frameId === s.frame.id && !n.status.startsWith('region_'))
+        emit({ ...s, mode: null, selected: [] }, 'skipped', (s.frame.behavior ? 'queued_input_' + s.frame.behavior : 'not_judged') + ':' + (note?.status ?? coordinator.findLast(t => t.frameId === s.frame.id)?.reason ?? 'no_selection_note'))
+      }
+    },
   }
 }
