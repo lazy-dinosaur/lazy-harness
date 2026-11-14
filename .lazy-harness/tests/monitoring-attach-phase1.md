@@ -112,6 +112,25 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: 'queued follow-up/steer inputs are logged as skipped with a reason' (normal prompt, then followUp and steer during a run): one final per frame, follow-up logged `queued_input_followUp:<reason>`; fails with the sweep disabled. The trace-projection test now uses a separate frame for the selection failure (one final per frame).
 - Layer matrix: SDD updated (monitoring-thin-consumer.md skip reasons and queued inputs); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: fresh clone could not load Pi extension (2026-11-14)
+
+- Cause: unconditional monitoring imports resolved the empty submodule before the off check;
+  installers also omitted recursive submodule initialization and its frozen dependencies.
+- Protection: `packages/lazy-harness-pi/tests/monitoring-install.test.ts` imports a temporary full
+  extension copy with vendor absent, empty or a missing transitive import, at absent/off/observe
+  stages. Non-monitoring hooks still register; explicit observe stays off with exactly one warning
+  and status/install hint. An injected loader proves off never imports and initiating session_start
+  is replayed once, with later input/session events forwarded. Helper and global/local wrapper
+  dry-runs stay offline and do not create a missing source.
+- Layer completeness matrix for this regression:
+
+| Layer | Decision | Reason |
+|---|---|---|
+| SDD | updated | Primary monitoring-thin-consumer.md install and vendor-unavailable component/status contract. |
+| BDD | no independent delta | Setup checklist documents this same component contract; no active delivery/user-task flow introduced. |
+| SSOT | no independent delta | Config ownership/defaults, credentials and lockfiles remain unchanged. |
+| DDD | no independent delta | Existing stage/read/receipt semantics reused. |
+
 ## Implementation map
 
 - Status: implemented

@@ -191,6 +191,13 @@ if [[ -n "$SOURCE" ]]; then
   [[ -f "$SOURCE/.lazy-harness/scripts/lazy-init.ts" ]] || fail "source is not a lazy-harness checkout: $SOURCE"
 else
   SOURCE="$CACHE_DIR"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log "[dry-run] clone/fetch and checkout $REF in $SOURCE (no source changes)"
+    log "[dry-run] git submodule update --init --recursive vendor/lazy-harness-monitoring"
+    log "[dry-run] bun install --frozen-lockfile at source root and in vendor/lazy-harness-monitoring"
+    log "[dry-run] lazy-init --target $TARGET --from $SOURCE"
+    exit 0
+  fi
   if [[ -d "$SOURCE/.git" ]]; then
     log "Updating cached lazy-harness source: $SOURCE"
     git -C "$SOURCE" remote set-url origin "$REPO_URL"
@@ -207,6 +214,10 @@ else
     git -C "$SOURCE" checkout "$REF" >/dev/null
   fi
 fi
+
+DEPS_ARGS=("$SOURCE")
+[[ "$DRY_RUN" == "1" ]] && DEPS_ARGS+=(--dry-run)
+bash "$SOURCE/.lazy-harness/scripts/install-source-deps.sh" "${DEPS_ARGS[@]}"
 
 INIT_ARGS=("$SOURCE/.lazy-harness/scripts/lazy-init.ts" --target "$TARGET" --from "$SOURCE")
 [[ "$FORCE" == "1" ]] && INIT_ARGS+=(--force)

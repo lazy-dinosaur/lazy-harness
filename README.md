@@ -107,6 +107,21 @@ The installer keeps a persistent framework source clone at `~/.cache/lazy-harnes
 
 After framework installation, `lazy init` or `lazy agent activate` creates private project-local Pi/OMP activation pointers and Pi skill settings. Pi is the stable primary runtime; OMP remains Experimental. Jcode integration is decommissioned by ADR 0059.
 
+### Monitoring (optional)
+
+Monitoring is **off by default**. Installation prepares its pinned Git submodule and runs
+`bun install --frozen-lockfile` at the source root and in `vendor/lazy-harness-monitoring`
+before package registration; it never enables observe or grants a model budget.
+Existing clones can be repaired with `git submodule update --init --recursive vendor/lazy-harness-monitoring`
+and the two frozen installs, or by rerunning `lazy pi install`. Dry-runs only preview preparation.
+The Pi extension remains loadable without monitoring files/dependencies. Explicit observe with
+an unavailable module stays off with one notice and `/monitoring status` reason
+`monitoring_module_unavailable` plus a repair hint.
+
+See the [macOS checklist](packages/lazy-harness-pi/README.md#macos-monitoring-checklist)
+and the [canonical monitoring contract](.lazy-harness/spec/platform/monitoring-thin-consumer.md)
+for activation, budget and privacy limits. No model calls are part of installation.
+
 ## Update an installed host
 
 After installation, update a host from the public `main` branch with:

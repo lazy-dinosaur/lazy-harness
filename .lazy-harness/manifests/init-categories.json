@@ -42,7 +42,8 @@
           "kind": "directory",
           "glob": [
             "*.ts",
-            "*.py"
+            "*.py",
+            "install-source-deps.sh"
           ],
           "exclude": [
             "__pycache__/",

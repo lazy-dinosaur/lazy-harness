@@ -12,6 +12,71 @@ The package is not installed by default after a clean reset. Install it only whe
 - Antigravity Google ADC MCP bridge commands require `gcloud` only when importing `authProviderType: "google_credentials"` servers.
 - The wrapper commands do not install system dependencies automatically; install them with the OS package manager first, then run `lazy pi doctor` or `lazy omp doctor`.
 
+## macOS monitoring checklist
+
+Monitoring is optional and default-off. The [monitoring SDD](../../.lazy-harness/spec/platform/monitoring-thin-consumer.md)
+is the canonical configuration, admission, budget, status and logging contract; this checklist is setup guidance.
+
+1. Install Xcode Command Line Tools (`xcode-select --install`), Git, Python 3, Bun and **Pi 1.5.x**.
+   Confirm `git --version`, `python3 --version`, `bun --version`, `pi --version` in the shell Pi uses.
+2. Clone the source with submodules and install both dependency trees:
+   ```bash
+   git clone --recurse-submodules https://github.com/lazy-dinosaur/lazy-harness.git
+   cd lazy-harness
+   # Repair an existing/ordinary clone instead:
+   git submodule update --init --recursive vendor/lazy-harness-monitoring
+   bun install --frozen-lockfile
+   (cd vendor/lazy-harness-monitoring && bun install --frozen-lockfile)
+   .lazy-harness/bin/lazy pi install
+   ```
+   The wrapper repeats the idempotent preparation before global/local registration. Re-register on
+   the Mac even if settings were copied: Pi stores **absolute package paths** from the old machine.
+   Activate/initialize the intended host project separately; keep the source checkout installed.
+3. In Pi, `/login openrouter` stores the credential. Monitoring refuses environment-key fallback;
+   never put credentials in project files or the configuration below.
+4. Only after separately approving observe and a small paid-call budget, create the host-local
+   `.lazy-harness/monitoring-attach.json` in the **host project**, not an upstream/shared checkout.
+   Example (replace the path with one existing, small host record; optionally add one more):
+   ```json
+   {
+     "references": { "stage": "observe" },
+     "catalog": [{ "id": "project", "path": ".lazy-harness/ssot/project-identity.md" }],
+     "readFormat": "pi-hashline-edit-pro-v1",
+     "budget": {
+       "maxCalls": 2, "maxConcurrent": 1, "maxQueued": 0,
+       "timeoutMs": 10000, "maxOutputTokens": 256,
+       "maxReservedTokens": 65536, "maxReservedUsd": 0.02
+     }
+   }
+   ```
+   Choose `readFormat` for your actual read tool (`pi-read-text-v1` or `unknown` otherwise).
+   Keep 1–2 records small: hard caps are 16 records, 8 KiB each, **12 KiB total**.
+   Budgets are conservative lifetime reservations, not a promise of a particular provider cost;
+   a too-small budget refuses calls safely. Omitted budget grants zero calls.
+5. `/reload`, then `/monitoring status` (no model call). Inspect `attached`, `stage`, `reason`,
+   catalog ids/versions/bytes, `budget` used/remaining, classifier state, `window` state/bytes/
+   lastReason/renewals, counters, `lastOutcomes` and log path/written/dropped/errors.
+   Default metadata-only logs are outside Git:
+   `$XDG_STATE_HOME/lazy-harness/monitoring/observe/<hash>/<date>.jsonl`, or
+   `~/.local/state/lazy-harness/monitoring/observe/<hash>/<date>.jsonl` when unset.
+   `observeLog: false` disables logging; see the SDD for retention, permissions and custom path safety.
+6. Turn off: remove the host-local config or set `references.stage` to `off`, then `/reload`.
+   Off registers no monitoring command/hooks and touches no vendor modules.
+
+Troubleshooting (never put raw provider errors or credentials in a bug report):
+
+- Empty `vendor` / `monitoring_module_unavailable`: run the recursive submodule command and both
+  frozen installs, rerun `lazy pi install`, then `/reload`. One startup notice is expected, not a hook denial.
+- `frame_unavailable`: inspect session snapshot availability; tail mode handles long sessions but
+  genuinely unavailable frames close admission. Reload after resolving the source issue.
+- `selection_material_unavailable:material_limit`: reduce catalog/message material; the window is
+  byte-bounded. Do not increase the catalog beyond the SDD caps.
+- `classifier_uncertain:<class>`: inspect bounded `budget.used.lastFailure` (auth/timeout/etc.).
+  Fix the underlying condition then reload; uncertain outcomes deliberately stop the classifier, no retry.
+- Window renewals are normal during long streaming sessions; they do **not** reset lifetime budgets.
+- `queued_input_followUp:*` / `queued_input_steer:*`: phase 1 records queued inputs as skipped,
+  not specially judged at delivery. `/monitoring status` sweeps overdue outcomes; see SDD.
+
 ## Recommended wrapper commands
 
 Use the lazy-harness wrapper first. It keeps the package path consistent, separates Pi from OMP install UX, and avoids relying on OMP's legacy `pi` manifest fallback.
