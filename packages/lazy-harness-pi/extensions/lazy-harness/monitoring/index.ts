@@ -25,6 +25,8 @@ export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
 export const JOB_TIMEOUT_MARGIN_MS = 2000
 /** Renew the selection pipeline at the next user input once its window has observed this many frames (module limit 2048). */
 export const WINDOW_RENEW_EVENTS = 1024
+/** An input with no final observe outcome after the job deadline plus this grace is logged as skipped with its last selection note. */
+export const SWEEP_GRACE_MS = 1000
 export const HOST_PORT_MAJORS: PortMajors = Object.freeze({ 'worker.execution': 1, 'judgement.model': 1, 'session.read-records': 1, 'report.enqueue': 1, 'state.persistence': 1, 'memory.review-sink': 1, 'memory.source': 1, 'policy.registry': 1, 'rule.verifier': 1 })
 export const UNAVAILABLE_PORTS = Object.freeze(['memory.review-sink', 'memory.source', 'policy.registry', 'rule.verifier'])
 type PiHooks = Parameters<typeof attachPiFrames>[0]
@@ -99,6 +101,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   const detach = attachPiFrames(pi, observer, { halt: () => { if (!closed) stop('missing_source_frame') }, accept(frame, progress) {
     if (closed) return
     observation.frame(frame)
+    if (frame.sourceEvent === 'input') observation.sweep(pipeline.selection.traces, config.budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS + SWEEP_GRACE_MS, pipeline.coordinator.traces)
     if (frame.sourceEvent === 'session_start' && started) { stop('session_replaced_reload_required'); return }
     if (frame.sourceEvent === 'session_start') { started = true; sessionId = frame.sessionId; reason = null }
     if (fences.has(frame.sourceEvent)) return
@@ -129,7 +132,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   } })
   // Observe cannot enqueue or inject. Keep the module-owned route uninstalled until a later active approval.
   return { stage: 'observe' as const, reads, port, report, worker, runtime, get pipeline() { return pipeline }, delivery,
-    status() { return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null, renewals: windowRenewals } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
+    status() { observation.sweep(pipeline.selection.traces, config.budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS + SWEEP_GRACE_MS, pipeline.coordinator.traces); return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null, renewals: windowRenewals } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
     async idle() { await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
     async close() { detach(); stop(); await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
   }

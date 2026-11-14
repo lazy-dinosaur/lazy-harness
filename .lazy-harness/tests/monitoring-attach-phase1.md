@@ -105,6 +105,13 @@ scan. No network classifier, live activation, merge, module-source or lockfile m
 - Protection: 'event budget: a long-running session keeps judging after more than 2048 frames' (2,100 message_update frames then an input); fails with renewal disabled (0 calls), passes with renewal (`window.renewals` 1).
 - Layer matrix: SDD updated (monitoring-thin-consumer.md window renewal); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
 
+## Regression: mid-run message left no observe line (2026-11-14)
+
+- Symptom: live status showed 3 judged skips; a message sent while the agent was answering had no observe line and no reason.
+- Cause: queued inputs advance the coordinator intent; untraced notes (`material_or_permission_not_visible`, `deferred`, `intent_changed`) never reached the log.
+- Protection: 'queued follow-up/steer inputs are logged as skipped with a reason' (normal prompt, then followUp and steer during a run): one final per frame, follow-up logged `queued_input_followUp:<reason>`; fails with the sweep disabled. The trace-projection test now uses a separate frame for the selection failure (one final per frame).
+- Layer matrix: SDD updated (monitoring-thin-consumer.md skip reasons and queued inputs); BDD no independent delta; SSOT no independent delta; DDD no independent delta.
+
 ## Implementation map
 
 - Status: implemented
