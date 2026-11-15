@@ -32,6 +32,10 @@ Layer: Planning
   - `.lazy-harness/planning/jev-context-and-background-monitoring-research.md`
   - `.lazy-harness/ssot/project-identity.md`
 
+## Monitoring config convenience — approved A (2026-11-14)
+
+One isolated `feat/monitoring-enable` PR adds CLI enable/disable/config and Pi bare enable/disable using one offline helper; primary contract/Implementation map: `.lazy-harness/spec/platform/monitoring-thin-consumer.md`, protection: `.lazy-harness/tests/monitoring-attach-phase1.md`. No model calls, reload, merge, dependency/lock/pin changes or shared-checkout cwd/live config access; real activation remains an explicit later user action.
+
 ## Confirmed affected-test strategy — monitoring host contract (2026-11-09)
 
 - User-confirmed choice **B (existing test path)** for `Q-e468f678b0c01171` and `Q-e267c6b36a0a0d73`; both were answered with `interview-loop.ts --mode answer --answer B --apply`. No duplicate colocated tests and no skip/defer.

@@ -69,6 +69,9 @@ Commands:
   sync [--dry-run] [--force] [--skip-knowledge-seeds]
                                 Refresh framework body (Category A); optionally leave knowledge JSONL untouched
   update [--dry-run] [--force]  Fetch latest lazy-harness source and sync this host
+  monitoring enable [--doc PATH]... [--no-default-docs] [--calls N] [--usd X]
+                    [--read-format F] [--force] [--dry-run]
+  monitoring disable [--dry-run] | config
   monitoring report [--lines N] [--out FILE] [--issue] [--repo OWNER/NAME] [--dry-run]
                                 Collect private metadata offline; optionally submit a GitHub issue
   pi install|remove|list|smoke|doctor
@@ -206,7 +209,7 @@ case "$cmd" in
       echo "lazy monitoring: bun not found on PATH" >&2
       exit 127
     fi
-    exec bun "$SCRIPTS/monitoring-report.ts" "$@"
+    exec bun "$SCRIPTS/monitoring.ts" "$@"
     ;;
   pi)
     if ! command -v bun >/dev/null 2>&1; then

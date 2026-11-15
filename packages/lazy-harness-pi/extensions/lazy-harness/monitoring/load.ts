@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { readMonitoringAttachConfig } from './config.ts'
+import { readMonitoringAttachConfig, parseMonitoringAttachConfig } from './config.ts'
 import { notifyMonitoringStatus } from './status-save.ts'
+import { handleMonitoringControl } from './manage.ts'
 
 export const MONITORING_INSTALL_HINT = 'From the lazy-harness source checkout run: git submodule update --init --recursive vendor/lazy-harness-monitoring; bun install --frozen-lockfile; (cd vendor/lazy-harness-monitoring && bun install --frozen-lockfile). Then lazy pi install and /reload.'
 type Module = typeof import('./index.ts')
@@ -8,14 +9,19 @@ type Loader = () => Promise<Pick<Module, 'installMonitoringPhase1'>>
 /** No runtime vendor imports on the off path. Import failures are advisory, never a hook denial. */
 export function installOptionalMonitoring(pi: ExtensionAPI, root: string, load: Loader = () => import('./index.ts')) {
   let config: ReturnType<typeof readMonitoringAttachConfig>
-  try { config = readMonitoringAttachConfig(root) } catch { return }
-  if (config.references.stage !== 'observe') return
   let reason = 'awaiting_session_start', notified = false
+  try { config = readMonitoringAttachConfig(root) } catch {
+    config = parseMonitoringAttachConfig({})
+    reason = 'invalid_monitoring_config'
+  }
+  if (config.references.stage === 'off' && reason !== 'invalid_monitoring_config') reason = 'disabled'
   let command: { handler: (args: string, ctx: any) => unknown } | undefined
-  pi.registerCommand('monitoring', { description: 'Read-only monitoring status (no model calls)', handler: async (args, ctx) => {
+  pi.registerCommand('monitoring', { description: 'Monitoring enable/disable and status (no model calls)', handler: async (args, ctx) => {
+    if (handleMonitoringControl(args, root, ctx.ui)) return
     if (command) { await command.handler(args, ctx); return }
     await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }))
   } })
+  if (config.references.stage !== 'observe') return
   let started = false
   const starts: Array<(event: any, ctx: any) => unknown> = []
   pi.on('session_start', async (event, ctx) => {

@@ -118,6 +118,23 @@ The Pi extension remains loadable without monitoring files/dependencies. Explici
 an unavailable module stays off with one notice and `/monitoring status` reason
 `monitoring_module_unavailable` plus a repair hint.
 
+After approving observe and its budget, run **from the host project**, never a shared/upstream checkout:
+```bash
+lazy monitoring enable --dry-run
+lazy monitoring enable
+lazy monitoring config
+# In Pi: /reload, then /monitoring status
+# Later: lazy monitoring disable, then /reload
+```
+Pi also offers `/monitoring enable` and `/monitoring disable` with the same defaults/validation and
+an explicit reload reminder (never auto-reloads). Enable admits existing ownership + ADR 0062 records,
+skipping missing defaults with a notice. Default reservations: 100 calls, concurrency 1, queue 2,
+1,000,000 tokens, USD 0.05. The command itself makes no model calls; observation after reload can spend
+within that budget. Use repeated `--doc PATH`, `--no-default-docs`, `--calls N`, `--usd X`, or
+`--read-format F` to customize. Existing files require `--force` after reviewing the displayed diff.
+Read format detects the hashline package in Pi settings, otherwise uses plain Pi read text.
+Manual-file fallback: see the [SDD configuration contract](.lazy-harness/spec/platform/monitoring-thin-consumer.md#configuration-manual-file-fallback).
+
 **Report results (macOS/Linux):** run `/monitoring status --save` in Pi, then
 `lazy monitoring report --issue` from the host project. Review first with
 `lazy monitoring report --issue --dry-run` (no GitHub calls). Collection makes zero model calls;

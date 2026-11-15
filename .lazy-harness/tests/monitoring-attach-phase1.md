@@ -21,6 +21,34 @@
   - `.lazy-harness/spec/platform/monitoring-thin-consumer.md`
   - `.lazy-harness/tests/test-strategy.xml`
 
+## Enable/disable/config controls (2026-11-14, approved A)
+
+`packages/lazy-harness-pi/tests/monitoring-manage.test.ts` uses temporary project roots and fake
+settings; no real classifier/provider is called. It protects defaults accepted by the real parser
+and catalog (including copies of the actual default records), missing-default messages, custom ids/
+budgets/read format, no-default-docs, per-doc/total/count/path/UTF-8/symlink refusal, unsafe config
+refusal, overwrite diff/force, dry-run no mutation, disable config-only removal and idempotence,
+config off/valid/invalid output, strict options, both read-format detection branches, CLI dispatcher
+and synced-host source lookup, and Pi delegation via the shared helper with a throwing reload/model
+context. Off still has no monitoring hooks/vendor loads; it now has a control/status command.
+
+Implementation map: `manageMonitoring`, `detectReadFormat`, `handleMonitoringControl` in
+`packages/lazy-harness-pi/extensions/lazy-harness/monitoring/manage.ts`, CLI `monitoring` in
+`.lazy-harness/scripts/monitoring.ts`, registered via `.lazy-harness/bin/lazy`, Pi `load.ts` and
+`index.ts`. `package.json` includes the new test in `test:monitoring-attach`; capture and full regression
+already invoke that target. Existing install tests now expect the off control command, not hooks.
+
+| Layer | Independent delta / primary location |
+| --- | --- |
+| SDD | Enable/disable/config API and visible control flow are specified in `.lazy-harness/spec/platform/monitoring-thin-consumer.md`. |
+| BDD | No separate semantic delta beyond the command contract in the primary SDD; no monitoring delivery/judgement change. |
+| SSOT | No ownership or parser-default change; explicit opt-in presets are in the primary SDD. |
+| DDD | No independent delta; existing monitoring terms unchanged. |
+
+Acceptance is offline: monitoring/capture suites, real Reader SDK test, Pi typecheck, full `lazy test`
+with inherited `PI_FABRIC_LINEAGE` unset for child runs, record-lint, changed-file check, diff/privacy
+scan; no deps/lockfile changes and no shared-checkout commands. No live smoke is authorized.
+
 ## Protection and scope
 
 `bun run test:monitoring-attach` exercises manifest validation/major refusal, stage and unavailable

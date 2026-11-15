@@ -43,7 +43,7 @@ for (const vendor of ['absent', 'empty', 'missing-dependency']) for (const stage
         expect(status.reason).toBe('monitoring_module_unavailable')
         expect(status.attached).toBe(false)
         expect(status.installHint).toContain('bun install --frozen-lockfile')
-      } else { expect(h.commands.has('monitoring')).toBe(false); expect(h.notices).toHaveLength(0) }
+      } else { expect(h.commands.has('monitoring')).toBe(true); expect(h.notices).toHaveLength(0) }
     } finally { process.chdir(oldCwd); rmSync(dir, { recursive: true, force: true }) }
   })
 }

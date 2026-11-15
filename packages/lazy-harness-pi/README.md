@@ -34,25 +34,25 @@ is the canonical configuration, admission, budget, status and logging contract; 
    Activate/initialize the intended host project separately; keep the source checkout installed.
 3. In Pi, `/login openrouter` stores the credential. Monitoring refuses environment-key fallback;
    never put credentials in project files or the configuration below.
-4. Only after separately approving observe and a small paid-call budget, create the host-local
-   `.lazy-harness/monitoring-attach.json` in the **host project**, not an upstream/shared checkout.
-   Example (replace the path with one existing, small host record; optionally add one more):
-   ```json
-   {
-     "references": { "stage": "observe" },
-     "catalog": [{ "id": "project", "path": ".lazy-harness/ssot/project-identity.md" }],
-     "readFormat": "pi-hashline-edit-pro-v1",
-     "budget": {
-       "maxCalls": 2, "maxConcurrent": 1, "maxQueued": 0,
-       "timeoutMs": 10000, "maxOutputTokens": 256,
-       "maxReservedTokens": 65536, "maxReservedUsd": 0.02
-     }
-   }
+4. After approving observe and its budget, run in the **host project**, never an upstream/shared checkout:
+   ```bash
+   lazy monitoring enable --dry-run  # preview; no writes or model calls
+   lazy monitoring enable
+   lazy monitoring config           # effective config + real parser/catalog validation
+   # Custom catalog/budget (paths are host-root-relative):
+   lazy monitoring enable --no-default-docs --doc .lazy-harness/ssot/project-identity.md --calls 2 --usd 0.02 --force
    ```
-   Choose `readFormat` for your actual read tool (`pi-read-text-v1` or `unknown` otherwise).
-   Keep 1–2 records small: hard caps are 16 records, 8 KiB each, **12 KiB total**.
-   Budgets are conservative lifetime reservations, not a promise of a particular provider cost;
-   a too-small budget refuses calls safely. Omitted budget grants zero calls.
+   Defaults: two monitoring ownership/ADR records when present (missing records are skipped with a notice),
+   observe, 100 lifetime calls, concurrency 1, queue 2, 1,000,000 reserved tokens, USD 0.05 reserved.
+   Limits are conservative reservations, not promised spend. Enable itself makes **zero model calls**;
+   subsequent Pi observation after reload may use the approved budget. Existing config refuses overwrite
+   with a diff unless `--force`; `--dry-run` writes nothing. Hard caps: 16 records, 8 KiB each, **12 KiB total**.
+   Read format detects `pi-hashline-edit-pro` in the user's Pi settings packages; otherwise `pi-read-text-v1`.
+   Override with `--read-format unknown|pi-read-text-v1|pi-hashline-edit-pro-v1` if necessary.
+   In Pi, `/monitoring enable` uses the same defaults/validation (use CLI flags for customization).
+   No command auto-reloads; apply the file change with `/reload`. The login hint is conditional and
+   does not inspect auth.json or secret values.
+   Manual-file fallback: author `.lazy-harness/monitoring-attach.json` using the [SDD configuration contract](../../.lazy-harness/spec/platform/monitoring-thin-consumer.md#configuration-manual-file-fallback).
 5. `/reload`, then `/monitoring status` (no model call). Inspect `attached`, `stage`, `reason`,
    catalog ids/versions/bytes, `budget` used/remaining, classifier state, `window` state/bytes/
    lastReason/renewals, counters, `lastOutcomes` and log path/written/dropped/errors.
@@ -75,8 +75,8 @@ is the canonical configuration, admission, budget, status and logging contract; 
    Never paste `auth.json`, keys, environment dumps or conversation text. Credential-like patterns
    refuse the outbound report. Use a non-symlinked external path; Git worktree paths are refused.
    On macOS prefer `$HOME` output paths over the `/tmp` symlink.
-7. Turn off: remove the host-local config or set `references.stage` to `off`, then `/reload`.
-   Off registers no monitoring command/hooks and touches no vendor modules.
+7. Turn off: `lazy monitoring disable` or `/monitoring disable` in Pi, then `/reload`.
+   Off retains the vendor-free control/status command but registers no monitoring hooks and touches no vendor modules.
 
 Troubleshooting (never put raw provider errors or credentials in a bug report):
 
