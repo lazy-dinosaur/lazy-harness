@@ -26,7 +26,13 @@
   </full-regression>
 
   <project-commands>
-    <command id="bun-tests">bun test</command>
+    <command id="bun-tests">bun run test:run</command>
+    <command id="fabric-runtime-setup">bun run test:fabric:setup</command>
+    <command id="fabric-current-process">bun run test:fabric</command>
+    <command id="reader-native-historical">bun run test:reader:legacy</command>
+    <!-- The aggregate routes the Node-only SDK test to Node (supported flags),
+         current owned Bun tests to Bun, and canonicalizes TMPDIR for test-only IO.
+         Upstream vendor and explicit historical matrices own separate invocations. -->
     <command id="typescript-build-check">bun run typecheck:node</command>
     <command id="bun-test-typecheck">bun run typecheck:bun-tests</command>
     <command id="pi-node-typecheck">bun run typecheck:pi</command>
