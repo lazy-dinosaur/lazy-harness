@@ -74,7 +74,7 @@ preview describes the current checkout, not a fetched future revision. `lazy syn
 files: it neither pulls source nor installs dependencies, so its drift/seed semantics stay unchanged.
 
 Production bootstrap `installOptionalMonitoring` imports only the vendor-free config parser
-(the module budget import is type-only/erased). Off/absent never resolves vendor files. Explicit
+(the module budget import is type-only/erased). Off/absent never resolves vendor files (including the new vendor-free config controls). Explicit
 observe registers a read-only status command and loads composition dynamically at the real
 `session_start`; registration replays that initiating event exactly once and forwards subsequent
 session replacements to the existing lifecycle fences. A missing/uninitialized module or missing
@@ -90,11 +90,79 @@ model invocation, dependency, submodule pin change, merge, shared-checkout edit 
 migration is authorized. Exact-intent policy/capability resolution has no matching rules; source
 organization baseline is observe-only. macOS execution itself remains a user-side smoke check.
 
-## Configuration (nothing enabled by this PR)
+## Explicit enable/disable/config (2026-11-14, user-approved option A)
+
+`lazy monitoring enable [--doc PATH]... [--no-default-docs] [--calls N] [--usd X]
+[--read-format F] [--force] [--dry-run]`, `lazy monitoring disable [--dry-run]`, and
+`lazy monitoring config` share the existing monitoring dispatcher with report. These are offline
+file-management controls, not activation of the running extension, model calls or a reload.
+Only `.lazy-harness/monitoring-attach.json` is persistently changed, in the selected host root.
+No dependencies, lockfiles, submodule changes, automatic login or model/provider lookups.
+
+Explicit enable defaults (distinct from the absent/manual parser's off/zero defaults):
+- `references.stage: observe`.
+- Catalog: `.lazy-harness/ssot/monitoring-records-ownership.md` as
+  `ssot:monitoring-records-ownership`, and `.lazy-harness/decisions/0062-monitoring-core-own-repository.md`
+  as `adr:0062-monitoring-core-own-repository`, only when present; missing defaults are skipped with a message.
+- Extra `--doc` paths are root-relative, ids are `<layer>:<lowercase filename without extension>`
+  (`decisions` maps to `adr`). Repeated identical paths are deduplicated; id collisions reject.
+  No ambient scan or path normalization that would hide traversal. `--no-default-docs` omits defaults.
+- Budget overrides the parser with maxCalls 100, maxConcurrent 1, maxQueued 2,
+  maxReservedTokens 1000000, maxReservedUsd 0.05; other MonitoringModelLimits retain parser defaults.
+  `--calls` is a nonnegative safe integer and `--usd` a finite nonnegative decimal.
+- `readFormat`: `pi-hashline-edit-pro-v1` when the user's Pi settings packages list contains
+  pi-hashline-edit-pro (npm/versioned string or source-object/local-path entry), else `pi-read-text-v1`.
+  Settings live under `$PI_CODING_AGENT_DIR` or `~/.pi/agent`; an unreadable/unknown file uses plain read.
+  Explicit `--read-format` overrides detection; all three parser formats are accepted.
+
+Before any write, `parseMonitoringAttachConfig` and `admitCatalog` enforce the real bounded path,
+symlink, byte, UTF-8 and aggregate limits below. Prints a whole-file removal/addition diff; an existing
+file (even identical) refuses overwrite without `--force`. Publication uses a same-directory exclusive
+temp file with fsync and atomic link (no-clobber) or rename (force); no secrets, mode 0644 subject to
+umask. Symlinked config/directory, nonregular/over-64-KiB config and changed file content refuse.
+`--dry-run` validates and previews but creates nothing. Disable shows the existing file before deleting
+only it, preserves records/logs/status and is idempotent when absent. Config prints parsed effective
+values and parser/catalog validation, effective off/zero when absent; invalid input reports failure
+and exits nonzero without writing. No command turns on monitoring in the running Pi instance.
+
+Next steps: conditional `/login openrouter` hint, `/reload` in Pi, `/monitoring status`. Authentication
+is intentionally uncertain: no auth storage or secret values are read to suppress that hint.
+`/monitoring enable` and `/monitoring disable` call the same helper for the extension's current project
+root and notify reload, never invoke it. Bare slash controls use defaults (custom flags are CLI-only).
+Production off/invalid config now retains this vendor-free control/status command, but still installs
+no monitoring hooks and never imports the vendor. Existing observe status and `status --save` are
+unchanged; a running observe instance stays active until the user reloads after disable.
+
+### Enable/disable Implementation map
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/manage.ts`: `manageMonitoring`,
+  `detectReadFormat`, `handleMonitoringControl`; shared parser/catalog admission, offline preview,
+  config-only atomic publication/removal and UI notifications.
+- `.lazy-harness/scripts/monitoring.ts`: `monitoring`; report delegation and config-helper loading.
+  Framework source uses its own package; synced hosts use recorded `state/synced-from-commit.sourceRoot`
+  if no package exists locally. It imports code there but never changes cwd or writes that source root.
+- `.lazy-harness/bin/lazy`: monitoring dispatcher; exports the resolved host root as before.
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/load.ts`: vendor-free controls in off,
+  invalid, awaiting and unavailable modes; existing lazy observe lifecycle/status forwarding unchanged.
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/index.ts`: direct installed observe
+  command controls; ordinary status/save path unchanged.
+- `packages/lazy-harness-pi/tests/monitoring-manage.test.ts`: offline temp-root defaults, real parser/
+  catalog, path/size/symlink/UTF-8/count refusal, overwrite/dry-run/disable/config, fake settings,
+  Pi delegation/no-reload, dispatcher and synced-host source resolution. Registered in package.json's
+  monitoring/capture/full test chain; Reader SDK regression and Pi typecheck remain required.
+- TDD: `.lazy-harness/tests/monitoring-attach-phase1.md`; planning:
+  `.lazy-harness/planning/monitoring-core-live-integration-plan.md`; graph rows `kg_monitoring_manage_*`.
+
+Discovery capture / Rule placement: this SDD is primary; TDD protects the contract and planning holds
+one continuation. Exact-intent monitoring-config policy/capability resolution returned no matches;
+code organization is observe-only. Zero model calls including Reader workers; direct record reads.
+One isolated enable worktree and one unmerged PR. No shared-checkout cwd or live activation file access.
+
+## Configuration (manual file fallback)
 
 Optional host-local `.lazy-harness/monitoring-attach.json`; absent means references off and zero
 model budget. The later activation key is `references.stage: "observe"`. Only off/observe are accepted;
-active/shadow and memory/rules keys reject. No config file is created by this change.
+active/shadow and memory/rules keys reject. Installation never creates this file; explicit enable does.
 
 The parser additionally accepts `catalog: [{id, path}]`, `readFormat`, `budget` and `observeLog`.
 `observeLog: false` disables logging; a string selects an external state base directory.
@@ -184,7 +252,7 @@ hashed scope and generation, catalog ids/versions and aggregate UTF-8 bytes, wat
 only), lifetime used/reserved and remaining calls/USD/tokens, reported usage totals, counters
 (frames, judgements, run/skip/defer, region compaction notes, errors), last five outcomes (ids only),
 log path/written/dropped/errors and classifier stop state. It never dispatches a model. Off installs
-no hooks, command or log. No catalog expansion: the live owner's two-document catalog is unchanged.
+no monitoring hooks or log; the vendor-free control/status command remains available. No ambient catalog expansion.
 `tail` is intentionally omitted (optional). Status is volatile, not restart-durable.
 
 Log location: `$XDG_STATE_HOME/lazy-harness/monitoring/observe/<project-sha256>/<UTC-date>.jsonl`,
@@ -216,7 +284,7 @@ it as `status-latest.json` in the project's external observe state directory. Th
 its directory 0700; unsafe/Git/symlink locations fail with an advisory notice. Plain status remains
 unchanged. Saving works in the optional loader's unavailable/awaiting status without loading vendor
 code. `observeLog: false` still permits explicit snapshots at the default state location; custom
-string bases are honored. Off remains command-free. The state file is not restart-live status.
+string bases are honored. Off retains the vendor-free control/status command. The state file is not restart-live status.
 
 `lazy monitoring report [--lines N] [--out FILE] [--issue] [--repo OWNER/NAME] [--dry-run]` is
 Bash-3.2-compatible dispatcher + Bun offline collection, with no model/client imports or new deps.
