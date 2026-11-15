@@ -118,6 +118,12 @@ The Pi extension remains loadable without monitoring files/dependencies. Explici
 an unavailable module stays off with one notice and `/monitoring status` reason
 `monitoring_module_unavailable` plus a repair hint.
 
+**Report results (macOS/Linux):** run `/monitoring status --save` in Pi, then
+`lazy monitoring report --issue` from the host project. Review first with
+`lazy monitoring report --issue --dry-run` (no GitHub calls). Collection makes zero model calls;
+only the explicit `--issue` submits metadata to GitHub. Never paste auth.json, keys or conversation text.
+Use `--out "$HOME/monitoring-report.md"` for a private file outside any Git worktree.
+
 See the [macOS checklist](packages/lazy-harness-pi/README.md#macos-monitoring-checklist)
 and the [canonical monitoring contract](.lazy-harness/spec/platform/monitoring-thin-consumer.md)
 for activation, budget and privacy limits. No model calls are part of installation.

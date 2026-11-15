@@ -13,6 +13,7 @@ import { classifierFromContext, createPiModelBinding, type ClassifierModel, type
 import { admitCatalog, captureRecord } from './catalog.ts'
 import { createObservation } from './observation.ts'
 import { observationHash } from './observe-log.ts'
+import { notifyMonitoringStatus } from './status-save.ts'
 
 export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy-harness-monitoring/', import.meta.url))
 // Major support is independent of availability/activation. Full inventory required by module loader.
@@ -145,8 +146,7 @@ export function installMonitoringPhase1(pi: ExtensionAPI, root: string) {
   const handlers = new Map<string, Array<(event: any, ctx: any) => unknown>>()
   const scopedPi = { on(name: string, handler: (event: any, ctx: any) => unknown) { const list = handlers.get(name) ?? []; list.push(handler); handlers.set(name, list); return () => { const i = list.indexOf(handler); if (i >= 0) list.splice(i, 1) } } }
   pi.registerCommand?.('monitoring', { description: 'Read-only monitoring status (no model calls)', handler: async (args, ctx) => {
-    if (args.trim() && args.trim() !== 'status') { ctx.ui.notify('Usage: /monitoring status', 'info'); return }
-    ctx.ui.notify(JSON.stringify(owner?.stage === 'observe' ? owner.status() : { attached: false, stage: 'observe', reason: 'awaiting_session_start' }, null, 2), 'info')
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => owner?.stage === 'observe' ? owner.status() : { attached: false, stage: 'observe', reason: 'awaiting_session_start' })
   } })
   // Register synchronously; forward the actual session_start only AFTER context registry admission.
   // No fabricated frame/session or handler added too late to see its initiating event.

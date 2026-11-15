@@ -209,6 +209,56 @@ selection, not proof of actual reading, delivery or execution. No conversation/r
 prompts, arbitrary error messages or credentials are persisted. The core-decoded decision is
 authoritative; raw late answers cannot increment run/skip/defer counts.
 
+## Offline report collector (2026-11-14, user-approved A1)
+
+`/monitoring status --save` notifies the same metadata JSON as plain status and explicitly saves
+it as `status-latest.json` in the project's external observe state directory. The file is 0600,
+its directory 0700; unsafe/Git/symlink locations fail with an advisory notice. Plain status remains
+unchanged. Saving works in the optional loader's unavailable/awaiting status without loading vendor
+code. `observeLog: false` still permits explicit snapshots at the default state location; custom
+string bases are honored. Off remains command-free. The state file is not restart-live status.
+
+`lazy monitoring report [--lines N] [--out FILE] [--issue] [--repo OWNER/NAME] [--dry-run]` is
+Bash-3.2-compatible dispatcher + Bun offline collection, with no model/client imports or new deps.
+It collects OS/arch/hostname, host HEAD/dirty, pinned monitoring submodule status, bun/node/pi
+versions (missing is noted), config existence and ONLY stage/catalog id/path/readFormat/numeric
+budget fields, an allowlisted saved status with mtime age, and last N (default 20, range 1..1000)
+physical lines across yesterday/today UTC. Unknown schema/malformed rows are omitted, nested v1
+observe metadata is explicitly projected; unknown extra keys never escape. Summary counts are by
+outcome/mode/errorClass, calls/reported USD (missing costs noted), nearest-rank latency p50/p95.
+This is a sampled report, not lifetime billing evidence. Metadata reads are regular no-follow files,
+max 2 MiB per daily log and 64 KiB config/status; oversized/unsafe files refuse collection.
+
+Privacy boundary: no auth.json, environment dump, sessions, conversation text or record bodies
+are read. Home paths become `~`; outbound credential patterns (sk-, ghp_, github_pat_, Bearer,
+api_key= variants, private-key headers) refuse the artifact without echoing the match. Errors are
+content-free. Explicit status save uses the existing trusted metadata object; collector reprojects
+it, including nested objects, rather than trusting imported JSON. Hostnames/catalog metadata still
+require human review. Experiment/raw result data is NEVER committed (ownership SSOT).
+
+Default prints Markdown. `--out` is an atomic private external file, refusing every Git worktree,
+symlink or unsafe file. Relative output paths use the invocation directory. `--dry-run` writes
+nothing and runs no gh command. `--issue` prints the report and exact target before any GitHub
+lookup/submission; default repo is lazy-dinosaur/lazy-harness, title `monitoring report: <host> <date>`.
+It uses argv, never shell interpolation; adds monitoring-report only if the label exists. Lookup
+failure omits the optional label. Dry-run displays command argv with a body placeholder referring
+to the exact report above and explains conditional labeling; it does not create an issue.
+
+### Report Implementation map
+
+- `.lazy-harness/bin/lazy` delegates monitoring subcommands to `.lazy-harness/scripts/monitoring-report.ts` (`parseArgs`, `collectReport`, `monitoringReport`, `issueCommand`).
+- `.lazy-harness/scripts/monitoring-report-data.ts`: `projectConfig`, `projectObserve`, `projectStatus`, `privacy`, `summarize`; recursive allowlist, outbound refusal and sampled statistics.
+- `.lazy-harness/scripts/monitoring-private-state.ts`: `observeDirectory`, `assertOutsideGit`, `readMetadata`, `writePrivate`; state paths and bounded private file I/O. Distributed by the existing scripts/*.ts manifest glob.
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/status-save.ts`: `notifyMonitoringStatus`; shared by `index.ts` and vendor-free `load.ts`. Private I/O helper loads only on explicit save so ordinary startup stays independent of source helper availability.
+- `packages/lazy-harness-pi/tests/monitoring-report.test.ts`: offline synthetic privacy, output, status permissions, projection, summary and dry-run tests; registered in the existing monitoring/capture/full regression chain.
+- `.github/ISSUE_TEMPLATE/monitoring-report.md`, `README.md`, `packages/lazy-harness-pi/README.md`: reviewed handoff/checklist, never raw secrets or conversation.
+- TDD: `.lazy-harness/tests/monitoring-attach-phase1.md`; ownership: `.lazy-harness/ssot/monitoring-records-ownership.md`; planning: `.lazy-harness/planning/monitoring-core-live-integration-plan.md`.
+
+Discovery capture / Rule placement: this existing SDD is the primary A1 contract; TDD adds protection
+only and planning one continuation. Exact-intent policy/capability resolution returned no matches;
+organization is observe-only. One isolated report worktree, one unmerged PR, zero model calls,
+no activation edits or lock/dependency/pin changes. Legacy graph migration remains separate.
+
 ## Implementation map
 
 - Status: implemented

@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { readMonitoringAttachConfig } from './config.ts'
+import { notifyMonitoringStatus } from './status-save.ts'
 
 export const MONITORING_INSTALL_HINT = 'From the lazy-harness source checkout run: git submodule update --init --recursive vendor/lazy-harness-monitoring; bun install --frozen-lockfile; (cd vendor/lazy-harness-monitoring && bun install --frozen-lockfile). Then lazy pi install and /reload.'
 type Module = typeof import('./index.ts')
@@ -13,8 +14,7 @@ export function installOptionalMonitoring(pi: ExtensionAPI, root: string, load: 
   let command: { handler: (args: string, ctx: any) => unknown } | undefined
   pi.registerCommand('monitoring', { description: 'Read-only monitoring status (no model calls)', handler: async (args, ctx) => {
     if (command) { await command.handler(args, ctx); return }
-    if (args.trim() && args.trim() !== 'status') { ctx.ui.notify('Usage: /monitoring status', 'info'); return }
-    ctx.ui.notify(JSON.stringify({ attached: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }, null, 2), 'info')
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }))
   } })
   let started = false
   const starts: Array<(event: any, ctx: any) => unknown> = []

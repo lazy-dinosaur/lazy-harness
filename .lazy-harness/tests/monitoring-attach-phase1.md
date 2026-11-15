@@ -62,6 +62,25 @@ Acceptance commands: `bun run test:monitoring-attach`, `bun run test:pi-capture`
 `lazy record-lint`, explicit `lazy check --files ...`, final standard validation, and privacy/diff
 scan. No network classifier, live activation, merge, module-source or lockfile mutation is authorized.
 
+## Offline report collector and status snapshot (2026-11-14 A1)
+
+`packages/lazy-harness-pi/tests/monitoring-report.test.ts` protects nested v1/schema allowlisting,
+config and status projection, home redaction, credential-pattern refusal, Git/linked-worktree and
+symlink output refusal, private atomic output permissions, plain status compatibility, explicit
+status save (0600 file / 0700 directory) and unavailable bootstrap save without vendor/model calls.
+Synthetic collector tests cover UTC today/yesterday tail limits, snapshot age, missing Pi version,
+summary nearest-rank percentiles and missing reported costs, strict CLI options, and issue dry-run
+argv generation without any gh execution. All fixtures/state/sample artifacts are external temporary
+files; no real report/experiment results enter Git. Registered in test:monitoring-attach, transitively
+Pi capture and full regression. Child test runs unset inherited PI_FABRIC_LINEAGE explicitly.
+
+| Layer | Decision | Reason |
+| --- | --- | --- |
+| SDD | updated | Existing monitoring-thin-consumer.md owns collector, snapshot, privacy and Implementation map. |
+| BDD | no independent delta | Manual diagnostic handoff documented in README/template and component SDD; no task/delivery behavior changes. |
+| SSOT | no independent delta | Existing monitoring ownership and private state/config semantics retained. |
+| DDD | no independent delta | Existing observe outcomes, stage and budget vocabulary reused. |
+
 ## Layer completeness matrix
 
 | Layer | Decision | Reason |
