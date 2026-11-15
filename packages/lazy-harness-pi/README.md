@@ -60,7 +60,22 @@ is the canonical configuration, admission, budget, status and logging contract; 
    `$XDG_STATE_HOME/lazy-harness/monitoring/observe/<hash>/<date>.jsonl`, or
    `~/.local/state/lazy-harness/monitoring/observe/<hash>/<date>.jsonl` when unset.
    `observeLog: false` disables logging; see the SDD for retention, permissions and custom path safety.
-6. Turn off: remove the host-local config or set `references.stage` to `off`, then `/reload`.
+6. **Report results:** in Pi run `/monitoring status --save`, then from this host project:
+   ```bash
+   lazy monitoring report --issue --dry-run   # preview only; no gh calls
+   lazy monitoring report --issue             # print report + target, then submit
+   # Or save locally (outside every Git worktree):
+   lazy monitoring report --lines 20 --out "$HOME/monitoring-report.md"
+   ```
+   Saving status is explicit; plain status is unchanged. `status-latest.json` is private (0600,
+   directory 0700) in the external observe state directory, even when observe logging is disabled.
+   Saved status is a snapshot, not live telemetry; the report notes its age. Missing status is OK.
+   Collection makes zero model calls; only `--issue` contacts GitHub via `gh`. Default repository:
+   `lazy-dinosaur/lazy-harness` (override `--repo OWNER/NAME`). Review metadata before sharing.
+   Never paste `auth.json`, keys, environment dumps or conversation text. Credential-like patterns
+   refuse the outbound report. Use a non-symlinked external path; Git worktree paths are refused.
+   On macOS prefer `$HOME` output paths over the `/tmp` symlink.
+7. Turn off: remove the host-local config or set `references.stage` to `off`, then `/reload`.
    Off registers no monitoring command/hooks and touches no vendor modules.
 
 Troubleshooting (never put raw provider errors or credentials in a bug report):
