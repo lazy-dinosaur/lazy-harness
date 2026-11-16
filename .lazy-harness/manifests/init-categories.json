@@ -296,6 +296,16 @@
           "description": "Fixture copy regression: exclude root runtime scratch only, preserve nested canonical tmp, and fail closed on broken canonical links."
         },
         {
+          "path": "tests/host-validation-isolation.md",
+          "kind": "file",
+          "description": "Host runtime manifest ownership and isolated benchmark observation regression."
+        },
+        {
+          "path": "spec/platform/framework-validation-isolation.md",
+          "kind": "file",
+          "description": "Manifest-owned runtime inventory and isolated self-test observation contract."
+        },
+        {
           "path": "tests/runtime-continuation-bootstrap.md",
           "kind": "file",
           "description": "Regression for evidence-bound synthetic continuation recovery and honest partial-target activation previews."

@@ -3673,57 +3673,41 @@ def check_prompt_budget_measurement() -> None:
 
 
 def check_framework_runtime_no_host_product_hardcoding() -> None:
-    """Framework runtime/generator/fixture surfaces must stay host-agnostic."""
-    roots = [
-        LAZY / "scripts",
-        LAZY / "hooks",
-        LAZY / "bin",
-        LAZY / "manifests",
-        LAZY / "schemas",
-        LAZY / "fixtures",
-    ]
-    suffixes = {".md", ".ts", ".tsx", ".js", ".py", ".sh", ".json", ".jsonl", ".xml", ".toml", ".yaml", ".yml", ".txt"}
+    """Scan all authoring runtime, but only manifest-owned runtime on installed hosts."""
+    scope = ACTIVE_SCOPE if ACTIVE_SCOPE in {"framework", "host"} else "framework"
+    completed = subprocess.run(
+        ["bun", str(LAZY / "scripts" / "framework-runtime-ownership.ts"), "--root", str(LAZY), "--scope", scope],
+        cwd=ROOT, env=env_without_lazy_runtime(), text=True, capture_output=True, check=False,
+    )
+    if completed.returncode != 0:
+        fail("Cannot establish framework runtime ownership:\n" + completed.stdout + completed.stderr)
+    try:
+        inventory = json.loads(completed.stdout)
+    except (TypeError, ValueError) as error:
+        fail("Invalid framework runtime ownership response: " + str(error))
+    if inventory.get("schemaVersion") != 1 or inventory.get("scope") != scope or not isinstance(inventory.get("paths"), list):
+        fail("Invalid framework runtime ownership inventory")
     forbidden = [
-        "medi" + "vance",
-        "MEDI" + "VANCE",
-        "메디" + "밴스",
-        "예" + "약" + "시트",
-        "예" + "약" + "표",
-        "예" + "약" + "관리",
-        "reserv" + "ation " + "sheet",
-        "Reservation" + "Table",
-        "Reservation" + "ManagementPage",
-        "Reservation" + "Sheet",
-        "book" + "ing " + "sheet",
-        "book" + "ing " + "table",
-        "Calendar master " + "header design",
-        "vacationList" + "Airplane",
-        "/home/lazydino/dev/" + "medi" + "vance",
-        "src/" + "renderer" + "/src",
-        "src/" + "main" + "/trpc",
+        "medi" + "vance", "MEDI" + "VANCE", "메디" + "밴스",
+        "예" + "약" + "시트", "예" + "약" + "표", "예" + "약" + "관리",
+        "reserv" + "ation " + "sheet", "Reservation" + "Table",
+        "Reservation" + "ManagementPage", "Reservation" + "Sheet",
+        "book" + "ing " + "sheet", "book" + "ing " + "table",
+        "Calendar master " + "header design", "vacationList" + "Airplane",
+        "/home/lazydino/dev/" + "medi" + "vance", "src/" + "renderer" + "/src", "src/" + "main" + "/trpc",
     ]
-    allowed_files = {str(LAZY / "scripts" / "self-test.py")}
     leaks: list[str] = []
-    for root in roots:
-        if not root.exists():
+    for relative in inventory["paths"]:
+        if not isinstance(relative, str) or pathlib.PurePosixPath(relative).is_absolute() or ".." in pathlib.PurePosixPath(relative).parts:
+            fail("Invalid framework runtime ownership path")
+        path = LAZY / relative
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
             continue
-        for path in root.rglob("*"):
-            if not path.is_file() or path.suffix not in suffixes:
-                continue
-            if "__pycache__" in path.parts:
-                continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-            rel = str(path)
-            if rel in allowed_files:
-                # This test intentionally constructs forbidden tokens from pieces.
-                # Whole-token leaks in self-test still fail, but split literals do not.
-                pass
-            for token in forbidden:
-                if token in text:
-                    leaks.append(f"{rel}: {token!r}")
+        for token in forbidden:
+            if token in text:
+                leaks.append(f"{path}: {token!r}")
     if leaks:
         fail("framework runtime/generator/fixtures leaked host/product-specific hardcoding:\n" + "\n".join(leaks[:80]))
     print("✓ framework runtime host/product hardcoding guard ok")
@@ -9717,10 +9701,22 @@ def check_retrieval_coverage_audit_cli() -> None:
 
 
 def check_retrieval_workflow_benchmark_cli() -> None:
+    """Observe an owned fixture, never the concurrently writable live host."""
+    with tempfile.TemporaryDirectory(prefix="retrieval-benchmark-check-") as directory:
+        fixture_root = pathlib.Path(directory).resolve() / "host"
+        fixture_lazy = fixture_root / ".lazy-harness"
+        copy_harness_fixture(
+            LAZY, fixture_lazy,
+            (".cache", "state"),
+        )
+        _check_retrieval_workflow_benchmark_fixture(fixture_root, fixture_lazy)
+
+
+def _check_retrieval_workflow_benchmark_fixture(fixture_root: pathlib.Path, fixture_lazy: pathlib.Path) -> None:
     """Retrieval workflow benchmark should stay read-only and measurement-only."""
-    script_path = LAZY / "scripts" / "retrieval-workflow-benchmark.ts"
-    sdd_path = LAZY / "spec" / "platform" / "retrieval-workflow-benchmark.md"
-    tdd_path = LAZY / "tests" / "retrieval-workflow-benchmark.md"
+    script_path = fixture_lazy / "scripts" / "retrieval-workflow-benchmark.ts"
+    sdd_path = fixture_lazy / "spec" / "platform" / "retrieval-workflow-benchmark.md"
+    tdd_path = fixture_lazy / "tests" / "retrieval-workflow-benchmark.md"
     for path in [script_path, sdd_path, tdd_path]:
         if not path.exists():
             fail("Retrieval workflow benchmark artifact missing: " + str(path))
@@ -9753,19 +9749,20 @@ def check_retrieval_workflow_benchmark_cli() -> None:
         if phrase not in tdd_text:
             fail("Retrieval workflow benchmark TDD missing phrase: " + phrase)
 
-    help_text = subprocess.check_output([str(LAZY / "bin" / "lazy"), "help"], cwd=ROOT, text=True)
+    command_env = env_without_lazy_runtime(LAZY_HOST_ROOT=str(fixture_root))
+    help_text = subprocess.check_output([str(fixture_lazy / "bin" / "lazy"), "help"], cwd=fixture_root, env=command_env, text=True)
     if "retrieval-workflow-benchmark" not in help_text:
         fail("lazy help must advertise retrieval-workflow-benchmark command")
 
-    graph_path = LAZY / "knowledge" / "graph.jsonl"
-    record_index_path = LAZY / "generated" / "record-index.json"
-    graph_before = graph_path.read_bytes() if graph_path.exists() else b""
-    record_index_before = record_index_path.read_bytes() if record_index_path.exists() else b""
+    graph_path = fixture_lazy / "knowledge" / "graph.jsonl"
+    record_index_path = fixture_lazy / "generated" / "record-index.json"
+    graph_before = graph_path.read_bytes() if graph_path.exists() else None
+    record_index_before = record_index_path.read_bytes() if record_index_path.exists() else None
 
     completed = subprocess.run(
-        [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=json", "--limit=8"],
-        cwd=ROOT,
-        text=True,
+        [str(fixture_lazy / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=json", "--limit=8"],
+        cwd=fixture_root,
+        env=command_env, text=True,
         capture_output=True,
         check=False,
     )
@@ -9857,9 +9854,9 @@ def check_retrieval_workflow_benchmark_cli() -> None:
                 fail("retrieval-workflow-benchmark delta numeric field missing: " + delta_name + "." + key)
 
     md = subprocess.run(
-        [str(LAZY / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=md", "--limit=8"],
-        cwd=ROOT,
-        text=True,
+        [str(fixture_lazy / "bin" / "lazy"), "retrieval-workflow-benchmark", "--format=md", "--limit=8"],
+        cwd=fixture_root,
+        env=command_env, text=True,
         capture_output=True,
         check=False,
     )
@@ -9868,9 +9865,11 @@ def check_retrieval_workflow_benchmark_cli() -> None:
     if "measurement-only" not in md.stdout or "does not change lifecycle/prompt/overview policy" not in md.stdout:
         fail("retrieval-workflow-benchmark markdown missing policy boundary warning")
 
-    if graph_path.exists() and graph_path.read_bytes() != graph_before:
+    graph_after = graph_path.read_bytes() if graph_path.exists() else None
+    record_index_after = record_index_path.read_bytes() if record_index_path.exists() else None
+    if graph_after != graph_before:
         fail("retrieval-workflow-benchmark must not mutate canonical graph.jsonl")
-    if record_index_path.exists() and record_index_path.read_bytes() != record_index_before:
+    if record_index_after != record_index_before:
         fail("retrieval-workflow-benchmark must not mutate generated record-index cache")
     print("✓ retrieval workflow benchmark CLI ok")
 
