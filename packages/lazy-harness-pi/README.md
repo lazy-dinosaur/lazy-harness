@@ -53,7 +53,7 @@ is the canonical configuration, admission, budget, status and logging contract; 
    No command auto-reloads; apply the file change with `/reload`. The login hint is conditional and
    does not inspect auth.json or secret values.
    Manual-file fallback: author `.lazy-harness/monitoring-attach.json` using the [SDD configuration contract](../../.lazy-harness/spec/platform/monitoring-thin-consumer.md#configuration-manual-file-fallback).
-5. `/reload`, then `/monitoring status` (no model call). Inspect `attached`, `stage`, `reason`,
+5. `/reload`, then `/monitoring status` (no model call). Inspect `attached`, `paused`, `rebuilding`, `ready`, `stage`, `reason`,
    catalog ids/versions/bytes, `budget` used/remaining, classifier state, `window` state/bytes/
    lastReason/renewals, counters, `lastOutcomes` and log path/written/dropped/errors.
    Default metadata-only logs are outside Git:

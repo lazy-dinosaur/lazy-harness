@@ -135,6 +135,12 @@ within that budget. Use repeated `--doc PATH`, `--no-default-docs`, `--calls N`,
 Read format detects the hashline package in Pi settings, otherwise uses plain Pi read text.
 Manual-file fallback: see the [SDD configuration contract](.lazy-harness/spec/platform/monitoring-thin-consumer.md#configuration-manual-file-fallback).
 
+Status distinguishes installation from readiness: `attached` means the composition is installed
+and not closed; `paused` marks a pre-boundary fence; `rebuilding` means a fresh pipeline is needed
+or retired work is still draining. `ready = attached && !paused && !rebuilding`. Immediately after
+compaction, attached can remain true while ready is false until a valid next frame rebuilds.
+These fields are metadata only, not a guarantee of available classifier budget.
+
 **Report results (macOS/Linux):** run `/monitoring status --save` in Pi, then
 `lazy monitoring report --issue` from the host project. Review first with
 `lazy monitoring report --issue --dry-run` (no GitHub calls). Collection makes zero model calls;

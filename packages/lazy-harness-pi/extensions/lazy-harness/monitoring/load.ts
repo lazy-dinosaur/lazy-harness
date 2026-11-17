@@ -19,7 +19,7 @@ export function installOptionalMonitoring(pi: ExtensionAPI, root: string, load: 
   pi.registerCommand('monitoring', { description: 'Monitoring enable/disable and status (no model calls)', handler: async (args, ctx) => {
     if (handleMonitoringControl(args, root, ctx.ui)) return
     if (command) { await command.handler(args, ctx); return }
-    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }))
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ attached: false, paused: false, rebuilding: false, ready: false, stage: 'off', reason, installHint: MONITORING_INSTALL_HINT }))
   } })
   if (config.references.stage !== 'observe') return
   let started = false

@@ -38,6 +38,11 @@ test('private output refuses normal/linked/nested Git worktrees and symlinks', a
     expect(statSync(join(dir, 'state/out.md')).mode & 0o777).toBe(0o600)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
+test('status report preserves readiness booleans but drops unknown fields', () => {
+  const s = projectStatus({ attached: true, paused: false, rebuilding: true, ready: false, body: 'NEVER INCLUDE' })
+  expect(s).toMatchObject({ attached: true, paused: false, rebuilding: true, ready: false })
+  expect(s).not.toHaveProperty('body')
+})
 test('plain status unchanged; explicit --save writes same JSON 0600 in 0700 external directory; errors advisory', async () => {
   const dir = fixture(), notices: string[] = [], ui = { notify: (s: string) => { notices.push(s) } }, status = { attached: false, stage: 'observe', reason: 'synthetic' }
   try {

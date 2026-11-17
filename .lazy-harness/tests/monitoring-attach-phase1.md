@@ -21,6 +21,38 @@
   - `.lazy-harness/spec/platform/monitoring-thin-consumer.md`
   - `.lazy-harness/tests/test-strategy.xml`
 
+## Fabric compaction coexistence regression (2026-11-14, approved)
+
+Primary contract: `.lazy-harness/spec/platform/monitoring-thin-consumer.md#fabric-compaction-coexistence`.
+Module tests protect long kept tails, UTF-8/JSON/hash-inclusive byte ceilings, deterministic
+section prefixes and omission counts, tailMessages 0 compatibility, and a 10000-byte catalog
+that still reaches the fake judge within 16384 bytes. Summary is context, not own/region material.
+Host attachment test protects attached=true across pre/terminal fences, paused/rebuilding/ready
+transitions, old result discard, resumed window and unchanged lifetime reservation. Report test
+protects recursive readiness allowlisting and rejection of arbitrary body fields.
+
+The private faux Pi 1.5.0 + pi-fabric 0.135.2 harness is reused with keepRecentTokens 20000 in
+Fabric-only and monitoring-before/after runs. Assert identical summary/firstKeptEntryId/tokensBefore,
+manual result and Fabric hook result, bounded separate snapshot summary, next fake judgement
+containing `[summary]`, no material_limit, fence handler undefined returns, stale held completion,
+and readiness at each boundary. Network namespace + runtime/fetch/net/tls sentinels fail closed;
+zero real model calls. Metadata-only results/reproduction pointers are in
+`.lazy-harness/evidence/monitoring-core/compaction-summary-coverage.md`; raw frames stay private.
+
+| Layer | Independent delta / primary location |
+| --- | --- |
+| SDD | Summary coverage/budgets and status readiness in the existing thin-consumer SDD. |
+| BDD | No independent delta beyond status semantics in primary SDD; observe remains non-delivering. |
+| SSOT | No independent delta; ownership/default activation/token retention unchanged. Explicit observer share is SDD contract. |
+| DDD | No independent delta; existing compaction/monitoring vocabulary retained. |
+
+Implementation map: host `monitoring/index.ts` (`composeObserve`, `OBSERVER_LIMITS`), vendor
+`observer.ts` (`readObservationSnapshot`), `compaction-summary.ts` (`boundedSummary`) and
+`monitoring-core-realtime-material.ts` (`regionLines`, `RealtimeMaterialWindow.capture`);
+protected by attachment/report tests plus vendor summary-coverage/summary-material tests.
+Validation: monitoring attach/capture, Reader SDK, Pi typecheck, full lazy test with inherited
+PI_FABRIC_LINEAGE unset, record-lint, changed-file check, diff/privacy scan. No new dependencies.
+
 ## Enable/disable/config controls (2026-11-14, approved A)
 
 `packages/lazy-harness-pi/tests/monitoring-manage.test.ts` uses temporary project roots and fake

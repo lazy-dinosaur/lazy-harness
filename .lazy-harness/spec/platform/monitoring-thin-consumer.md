@@ -34,10 +34,60 @@ User-confirmed: 2026-11-13, option A. Phase 1 only; no live activation or paid c
   - `.lazy-harness/tests/monitoring-attach-phase1.md`
   - `.lazy-harness/tests/test-strategy.xml`
 
+## Fabric compaction coexistence
+
+User-approved 2026-11-14; confidence: code-evidence + offline SDK evidence, not live qualification.
+The original private probe (Pi 1.5.0, pi-fabric 0.135.2; 18 isolated runs) proved identical
+Fabric compaction with monitoring in both load orders, safe stale-result discard, and resume
+through success/cancel/error. It also found three coverage/diagnostic gaps: a leading summary
+was lost behind the newest 32 messages with Pi's default 20000-token kept tail; generic role
+rendering clipped it to 1500 characters; attached masked a disposed window awaiting rebuild.
+
+The monitoring pin fixes snapshot/material coverage. `OBSERVER_LIMITS` explicitly requests
+32 recent native messages plus an 8192-byte maximum summary share, capped at one third of
+the 65536-byte total snapshot ceiling. The summary is a separate provenance-labelled item,
+not a duplicate native tail message. `summaryIncluded`, `summaryOmittedBytes` and
+`truncatedHead` report inclusion, omitted original UTF-8 bytes, and first kept native index.
+The total bound includes JSON escaping/metadata/hashes; full mode (tailMessages 0) is unchanged.
+
+Material renders `[summary]` derived-summary context using deterministic Fabric-bracket/Markdown-header-first,
+section-prefix truncation and `[summary omitted N bytes]`. It is outside newest-first region
+trimming, never an own item or a region compaction unit. In the 16384-byte material window,
+after catalog and own items, it reserves 512 bytes of headroom and takes at most
+min(4096, floor(min(maxSourceBytes, remaining - 512) / 2)) text bytes; serialized JSON is checked
+and shrunk further. With no viable room/source slots, context can be omitted rather than
+cause material_limit. A 10000-byte catalog regression still reaches the fake judge.
+
+Status semantics: `attached = !closed` means the composition is installed; `paused` means
+pre-boundary fence; `rebuilding = needsPipeline || draining.size > 0` includes physical drain;
+`ready = attached && !paused && !rebuilding`. Thus before_compact is attached/paused/rebuilding,
+terminal compact is attached/not-paused/rebuilding, and next valid frame plus drain is ready.
+Closed or unavailable/off status is not ready. Ready does not promise classifier budget or quality.
+Event-budget `window.renewals` is not a count of lifecycle rebuilds. Metadata-only save/report
+allowlists preserve these booleans without any body fields or model call.
+
+### Coexistence Implementation map
+
+- `vendor/lazy-harness-monitoring/hosts/pi/src/observer.ts`: `readObservationSnapshot`, separate bounded summary and hash; `ObservationLimits.maxSummaryBytes`.
+- `vendor/lazy-harness-monitoring/packages/core/src/engine/compaction-summary.ts`: `boundedSummary`, byte-accurate deterministic section prefixes.
+- `vendor/lazy-harness-monitoring/packages/core/src/engine/monitoring-core-realtime-material.ts`: `regionLines`, `RealtimeMaterialWindow.capture`, separate derived context with remaining-room admission.
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/index.ts`: `OBSERVER_LIMITS`, `composeObserve` status and unchanged generation/permitted fences; `load.ts` provides vendor-free not-ready status.
+- `.lazy-harness/scripts/monitoring-report-data.ts`: `projectStatus` readiness allowlist.
+- Protection: `packages/lazy-harness-pi/tests/monitoring-attach-phase1.test.ts`, `monitoring-report.test.ts`; vendor `hosts/pi/test/summary-coverage.test.ts`, `packages/core/test/summary-material.test.ts`.
+- TDD: `.lazy-harness/tests/monitoring-attach-phase1.md`; evidence capsule: `.lazy-harness/evidence/monitoring-core/compaction-summary-coverage.md`; graph ids `kg_monitoring_compaction_summary`, `kg_monitoring_status_readiness`, `kg_monitoring_compaction_summary_tests`.
+
+Remaining limits: derived summary is not authoritative instructions or fresh evidence; bounded
+snapshots/material can omit older detail, headers if even headers cannot fit, or summary context
+when the catalog/own item consumes the window. No changes to Fabric/Pi compactor ownership,
+default token retention, classifier lifetime budget, abort guards, SDK pin or dependencies.
+This is synthetic offline proof, not provider quality, hard termination, memory/RSS or restart proof.
+ADR 0063 and module-composition SDD remain unchanged. Discovery capture / Rule placement:
+this existing SDD is primary; TDD records protection, planning one line, no new global policy.
+
 ## Ownership and installation
 
 `vendor/lazy-harness-monitoring` is a git submodule pinned to
-`659cdc782bef43fd77a79bbc5e77a16ad61d22ab`. Module contracts remain there:
+`8ff4cdf` (PR #26 head; re-pin to the merged monitoring main commit before merge, or merge after PR #26 with a fast-forward pin). Module contracts remain there:
 `lazy-harness.module.json`, `composition.ts`, `docs/design/attachment-contract.md`,
 `docs/design/module-contract.md`, `docs/design/result-format-audit.md` and
 `docs/design/host-input-ports.md` (the latter is historical design; exported contracts prevail).
@@ -247,7 +297,7 @@ Shutdown, missing-frame, changed-catalog and unavailable-snapshot failures remai
 
 ## OBSERVE telemetry contract (2026-11-13 option A)
 
-`/monitoring` or `/monitoring status` is a read-only Pi command: attached/stage/stopped reason,
+`/monitoring` or `/monitoring status` is a read-only Pi command: attached/paused/rebuilding/ready/stage/stopped reason,
 hashed scope and generation, catalog ids/versions and aggregate UTF-8 bytes, watch events (`input`
 only), lifetime used/reserved and remaining calls/USD/tokens, reported usage totals, counters
 (frames, judgements, run/skip/defer, region compaction notes, errors), last five outcomes (ids only),

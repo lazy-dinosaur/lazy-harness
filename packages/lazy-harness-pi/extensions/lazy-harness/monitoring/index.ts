@@ -21,7 +21,9 @@ export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy
 /** Long real sessions exceed the observer's default maxMessages (128) and would mark every snapshot unavailable.
  * Tail mode keeps the newest messages within the byte bound so the snapshot stays available; U1 reads only
  * its since-last region, so 32 messages is enough. */
-export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32 })
+// Reserve up to 8 KiB (also capped at one third of the total snapshot ceiling) for
+// derived compaction context separately from the newest 32 native messages.
+export const OBSERVER_LIMITS = Object.freeze({ tailMessages: 32, maxSummaryBytes: 8192 })
 /** The realtime selection job deadline defaults to 1 s, shorter than a real Jev judgement on a full U1 view (~1.1 s
  * observed live), which aborted the call and stopped the classifier. The job deadline must cover the model timeout. */
 export const JOB_TIMEOUT_MARGIN_MS = 2000
@@ -134,7 +136,7 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
   } })
   // Observe cannot enqueue or inject. Keep the module-owned route uninstalled until a later active approval.
   return { stage: 'observe' as const, reads, port, report, worker, runtime, get pipeline() { return pipeline }, delivery,
-    status() { observation.sweep(pipeline.selection.traces, config.budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS + SWEEP_GRACE_MS, pipeline.coordinator.traces); return { attached: !closed && !paused, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null, renewals: windowRenewals } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
+    status() { observation.sweep(pipeline.selection.traces, config.budget.timeoutMs + JOB_TIMEOUT_MARGIN_MS + SWEEP_GRACE_MS, pipeline.coordinator.traces); const attached = !closed, rebuilding = needsPipeline || draining.size > 0; return { attached, paused, rebuilding, ready: attached && !paused && !rebuilding, stage: 'observe', reason, window: (() => { const w = pipeline.window.getStatus() as any, t = pipeline.window.traces; return { state: w.state, sources: w.sources, bytes: w.bytes, lastReason: t.at(-1)?.reason ?? null, renewals: windowRenewals } })(), scope: context ? { sessionIdHash: observationHash(context.scope.sessionId), bindingGeneration: context.scope.bindingGeneration, branchGeneration: branch, compactionGeneration: compaction } : null, generation, catalog: { documents: catalog.documents.map(d => ({ id: d.id, version: d.version })), totalBytes: catalog.documents.reduce((n, d) => n + Buffer.byteLength(d.content), 0) }, watchEvents: ['input'], budget: { used: { ...model.usage }, remaining: model.remaining() }, counters: { ...observation.counters, errors: observation.counters.errors + observation.log.stats.errors }, lastOutcomes: [...observation.recent], log: { path: observation.log.path(), ...observation.log.stats }, classifierStopped: model.stopped } },
     async idle() { await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
     async close() { detach(); stop(); await pipeline.idle(); await Promise.all([...draining]); await runtime.idle(); await observer.idle(); await observation.log.idle() },
   }
@@ -148,7 +150,7 @@ export function installMonitoringPhase1(pi: ExtensionAPI, root: string) {
   const scopedPi = { on(name: string, handler: (event: any, ctx: any) => unknown) { const list = handlers.get(name) ?? []; list.push(handler); handlers.set(name, list); return () => { const i = list.indexOf(handler); if (i >= 0) list.splice(i, 1) } } }
   pi.registerCommand?.('monitoring', { description: 'Monitoring enable/disable and status (no model calls)', handler: async (args, ctx) => {
     if (handleMonitoringControl(args, root, ctx.ui)) return
-    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => owner?.stage === 'observe' ? owner.status() : { attached: false, stage: 'observe', reason: 'awaiting_session_start' })
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => owner?.stage === 'observe' ? owner.status() : { attached: false, paused: false, rebuilding: false, ready: false, stage: 'observe', reason: 'awaiting_session_start' })
   } })
   // Register synchronously; forward the actual session_start only AFTER context registry admission.
   // No fabricated frame/session or handler added too late to see its initiating event.

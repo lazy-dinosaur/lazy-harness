@@ -4,6 +4,8 @@
 Status: P0–P2 official-API synthetic integration approved; P3–P6 remain proposed
 Layer: Planning
 
+2026-11-14 approved continuation: fix three Fabric compaction probe findings in two ordered unmerged PRs (monitoring #26 then host pin/status); offline-only summary/readiness regressions and evidence in `.lazy-harness/spec/platform/monitoring-thin-consumer.md#fabric-compaction-coexistence` and `.lazy-harness/evidence/monitoring-core/compaction-summary-coverage.md`; no real model calls, no shared-checkout cwd, no ADR 0063/module-composition edits.
+
 ## Rule digest
 
 - Status: advisory
