@@ -14,6 +14,7 @@ import { admitCatalog, captureRecord } from './catalog.ts'
 import { createObservation } from './observation.ts'
 import { observationHash } from './observe-log.ts'
 import { notifyMonitoringStatus } from './status-save.ts'
+import { resolveMonitoring } from './global.ts'
 import { handleMonitoringControl } from './manage.ts'
 
 export const MONITORING_ROOT = fileURLToPath(new URL('../../../../../vendor/lazy-harness-monitoring/', import.meta.url))
@@ -143,14 +144,15 @@ function composeObserve(pi: PiHooks, root: string, config: MonitoringAttachConfi
 }
 /** Extension startup is synchronous/off by default; the running Pi's registry is used only in explicit observe. */
 export function installMonitoringPhase1(pi: ExtensionAPI, root: string) {
-  const config = startMonitoringComposition(MONITORING_ROOT, HOST_PORT_MAJORS, () => readMonitoringAttachConfig(root))
+  const effective = resolveMonitoring(root)
+  const config = startMonitoringComposition(MONITORING_ROOT, HOST_PORT_MAJORS, () => effective.config)
   if (config.references.stage === 'off') return
   let owner: ReturnType<typeof attachMonitoringPhase1> | undefined
   const handlers = new Map<string, Array<(event: any, ctx: any) => unknown>>()
   const scopedPi = { on(name: string, handler: (event: any, ctx: any) => unknown) { const list = handlers.get(name) ?? []; list.push(handler); handlers.set(name, list); return () => { const i = list.indexOf(handler); if (i >= 0) list.splice(i, 1) } } }
   pi.registerCommand?.('monitoring', { description: 'Monitoring enable/disable and status (no model calls)', handler: async (args, ctx) => {
     if (handleMonitoringControl(args, root, ctx.ui)) return
-    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => owner?.stage === 'observe' ? owner.status() : { attached: false, paused: false, rebuilding: false, ready: false, stage: 'observe', reason: 'awaiting_session_start' })
+    await notifyMonitoringStatus(args, ctx.ui, root, config.observeLog, () => ({ ...(owner?.stage === 'observe' ? owner.status() : { attached: false, paused: false, rebuilding: false, ready: false, stage: 'observe', reason: 'awaiting_session_start' }), configSource: effective.configSource, configReason: effective.reason, allowlistMember: effective.allowlistMember }))
   } })
   // Register synchronously; forward the actual session_start only AFTER context registry admission.
   // No fabricated frame/session or handler added too late to see its initiating event.

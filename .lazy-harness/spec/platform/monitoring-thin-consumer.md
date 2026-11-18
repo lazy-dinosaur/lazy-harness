@@ -208,6 +208,69 @@ one continuation. Exact-intent monitoring-config policy/capability resolution re
 code organization is observe-only. Zero model calls including Reader workers; direct record reads.
 One isolated enable worktree and one unmerged PR. No shared-checkout cwd or live activation file access.
 
+## Global resolution and automatic catalog (2026-11-14, user-approved A)
+
+This section extends/supersedes the earlier project-only absent/off and explicit-catalog statements;
+project-file behavior and all lifecycle, readiness, readFormat, observe-log and budget fences remain.
+The global file is `$XDG_CONFIG_HOME/lazy-harness/monitoring.json`, fallback
+`~/.config/lazy-harness/monitoring.json`; directory 0700, atomically published regular file 0600.
+Schema: `{ schema: 'lazy-harness-monitoring-global/v1', defaults: { stage, readFormat, budget,
+observeLog? }, projects: string[], all?: boolean }`. Required defaults use existing stage/readFormat/
+model-budget validation; unknown keys at every level, malformed/unsafe/oversized files fail closed
+with a content-free notice, never throw into Pi. No credentials or model registry are read by controls.
+`all` defaults false; CLI can set true only with paired `--all --i-understand`.
+
+Resolution at Pi startup: a present project `.lazy-harness/monitoring-attach.json` wins entirely,
+even when off or invalid. Otherwise valid global defaults apply only to realpath-matching absolute
+project roots in `projects` or explicit `all:true`; missing/unmatched configuration stays off.
+Global entries are canonicalized on CLI insertion; resolution also realpaths hand-authored entries.
+Invalid global configuration has reason `invalid_global_monitoring_config`. Status and config expose
+`configSource: project | global | off`, reason/configReason and allowlist membership. Configuration
+source is the selected authority, so global can be the source while effective stage is off.
+
+For global-enabled roots only, direct project `.lazy-harness/ssot/*.md` and
+`.lazy-harness/decisions/*.md` are candidates (no recursion). Existing `captureRecord` and
+`admitCatalog` remain authoritative: UTF-8, nonempty, no NUL/symlink components, regular stable
+files, <=8192 bytes each, <=12288 bytes aggregate, <=16 documents. Sort by presence of an exact
+`## Rule digest` heading first, then ascending bytes, then lexical root-relative path; greedily admit
+fitting documents. IDs are `ssot:<stem>` / `adr:<stem>` and must pass existing ID validation.
+No eligible document means stage off, reason `no_catalog_documents`, zero classifier calls/lookup
+and no vendor composition. Catalog changes retain existing revocation/currentness fences.
+Project-file catalogs never auto-expand. No per-global-project catalog overrides.
+
+CLI: `lazy monitoring enable --global [--calls N] [--usd X] [--read-format F] [--dry-run] [--force]`
+creates/updates defaults only, with existing explicit-enable presets. Add a root using
+`enable --global --project PATH`; `--project` with no value uses cwd host root. Allowlist-only edits
+preserve defaults and other projects without force; defaults/all replacement requires force and a diff.
+`disable --global --project PATH` removes a root; no project flag shows then removes the whole file.
+Removal under all:true refuses rather than pretending to exclude a project. Dry-run validates/previews
+without writes. Publication is private, same-directory exclusive temp + fsync + no-clobber link or
+replacement rename with changed-content checks; unsafe paths refuse. Global mode never writes
+project files. `config` prints effective config, selected catalog with bytes and validation.
+
+First global enable prints consent: conversation excerpts of allowlisted projects are sent to
+OpenRouter Jev during judgement. Budgets remain per session: totals scale with open sessions.
+Controls/status are offline and never call models. `/monitoring enable --global` and
+`/monitoring disable --global` add/remove only the current root, with `/reload` reminder, never auto
+reload. A running instance retains its startup resolution until reload; project disable can reveal
+an existing global opt-in. Paused/rebuilding/ready and lifetime reservations are unchanged.
+
+### Global Implementation map
+
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/global.ts`: `parseGlobalConfig`, `configText`, `automaticCatalog`, `resolveMonitoring`; vendor-free strict parsing, bounded file IO, deterministic selection and authority resolution.
+- `packages/lazy-harness-pi/extensions/lazy-harness/monitoring/global-manage.ts`: `manageGlobalMonitoring`, private `publish`; shared offline CLI mutation/consent/permissions/preview.
+- `monitoring/config.ts`: `readMonitoringAttachConfig` delegates effective resolution; `manage.ts`: `manageMonitoring`, `handleMonitoringControl` route global flags and current-root Pi controls.
+- `monitoring/load.ts`: `installOptionalMonitoring` reports source and invalid/empty notices before vendor or classifier; `monitoring/index.ts`: `installMonitoringPhase1` includes source in observe command status.
+- `.lazy-harness/scripts/monitoring-report-data.ts`: `projectStatus` retains allowlisted configSource/configReason/membership metadata only. Existing CLI dispatcher remains shared.
+- Protection: `packages/lazy-harness-pi/tests/monitoring-global.test.ts`, included in monitoring/capture/full chain via `package.json`; TDD `.lazy-harness/tests/monitoring-attach-phase1.md`; graph ids `kg_monitoring_global_resolution`, `kg_monitoring_global_manage`, `kg_monitoring_global_tests`.
+
+Discovery capture / Rule placement: this existing SDD is primary; TDD has layer matrix and planning
+one continuation line. Exact-intent policy/capability resolvers found no matches. Source organization
+is observe-only. Zero real model calls (including Reader); direct reads honor the explicit prohibition.
+One isolated global worktree/PR, no merge, dependencies/lockfiles/pin changes, real user global config
+access or shared-checkout cwd. Clean-main comparison owns the known host-validation record-lint defect;
+that record is not modified here.
+
 ## Configuration (manual file fallback)
 
 Optional host-local `.lazy-harness/monitoring-attach.json`; absent means references off and zero

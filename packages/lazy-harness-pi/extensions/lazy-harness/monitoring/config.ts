@@ -1,12 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { resolveMonitoring } from './global.ts'
 import type { MonitoringModelLimits } from '../../../../../vendor/lazy-harness-monitoring/composition.ts'
 export type MonitoringAttachConfig = { references: { stage: 'off' | 'observe' }; catalog: Array<{ id: string; path: string }>; readFormat: 'unknown' | 'pi-read-text-v1' | 'pi-hashline-edit-pro-v1'; budget: MonitoringModelLimits; observeLog?: false | string }
 const budget: MonitoringModelLimits = { maxCalls: 0, maxConcurrent: 1, maxQueued: 0, timeoutMs: 10000, maxInputBytes: 65536, maxOutputBytes: 65536, maxOutputTokens: 1, maxReservedTokens: 0, maxReservedUsd: 0 }
 /** No config is written by installation. Unknown keys/stages fail closed, never activate a second module. */
 export function readMonitoringAttachConfig(root: string): MonitoringAttachConfig {
-  const path = join(root, '.lazy-harness', 'monitoring-attach.json')
-  return parseMonitoringAttachConfig(existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {})
+  return resolveMonitoring(root).config
 }
 export function parseMonitoringAttachConfig(raw: unknown): MonitoringAttachConfig {
   const object = (x: unknown): x is Record<string, any> => !!x && typeof x === 'object' && !Array.isArray(x)
